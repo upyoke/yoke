@@ -147,7 +147,8 @@ def test_registration_failure_rolls_back_claim_binding_and_event(
 
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM path_claims WHERE item_id = %s",
+            "SELECT COUNT(*) FROM path_claims "
+            "WHERE owner_kind = 'item' AND owner_item_id = %s",
             (item_id,),
         ).fetchone()[0]
         == 0

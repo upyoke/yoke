@@ -63,11 +63,12 @@ def _seed_active_claim_with_targets(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, "
         "activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', %s) RETURNING id",
-        (actor, item_id, SNAP),
+        (item_id, actor, SNAP),
     )
     cid = int(cur.fetchone()[0])
     for tid in target_ids:
@@ -86,10 +87,11 @@ def _seed_planned_claim_with_targets(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        "VALUES ('planned', 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        "VALUES ('planned', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (actor, item_id),
+        (item_id, actor),
     )
     cid = int(cur.fetchone()[0])
     for tid in target_ids:

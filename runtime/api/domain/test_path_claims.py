@@ -13,8 +13,10 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain._path_claims_test_helpers import (
+    HOLDER_SESSION_ID,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    seed_test_holder_session,
     seed_target,
 )
 from yoke_core.domain.path_claims import (
@@ -23,8 +25,17 @@ from yoke_core.domain.path_claims import (
     InvalidMode,
     InvalidTargetSet,
     get_claim,
-    register,
+    register as register_claim,
 )
+
+
+@pytest.fixture(autouse=True)
+def _seed_holder_session(conn):
+    seed_test_holder_session(conn)
+
+
+def register(conn, **kwargs):
+    return register_claim(conn, session_id=HOLDER_SESSION_ID, **kwargs)
 
 
 class TestRegister:
@@ -40,7 +51,9 @@ class TestRegister:
         claim = get_claim(conn, claim_id)
         assert claim["state"] == "planned"
         assert claim["mode"] == "exclusive"
-        assert claim["actor_id"] == actor
+        assert claim["registered_by_actor_id"] == actor
+        assert claim["owner_kind"] == "session"
+        assert claim["owner_session_id"] == HOLDER_SESSION_ID
         assert claim["target_ids"] == [target]
 
     def test_register_rejects_unknown_actor(self, conn):

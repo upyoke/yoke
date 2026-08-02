@@ -64,7 +64,8 @@ def seed_claim(
     paths: list[str],
 ) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, item_id, state) VALUES (%s, %s, %s)",
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) VALUES (%s, 'item', %s, %s)",
         (claim_id, item_id, state),
     )
     for p in paths:

@@ -176,15 +176,15 @@ class TestProvenanceFromRow:
         assert prov.actor_id == 2
         assert prov.session_id == "live"
 
-    def test_falls_back_to_legacy(self):
+    def test_does_not_read_superseded_provenance_fields(self):
         prov = provenance_from_row({
             "registered_by_actor_id": None,
             "registered_by_session_id": None,
             "actor_id": 99,
             "session_id": "legacy",
         })
-        assert prov.actor_id == 99
-        assert prov.session_id == "legacy"
+        assert prov.actor_id == 0
+        assert prov.session_id is None
 
     def test_session_may_be_null(self):
         prov = provenance_from_row({

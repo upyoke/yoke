@@ -87,12 +87,8 @@ class TestItemOwnedRegisteredBySession:
         assert claim["owner_item_id"] == item
         # Owner session is NULL — the registering session is provenance.
         assert claim["owner_session_id"] is None
-        # The legacy session_id AND new registered_by_session_id are
-        # both provenance and both name the registrar.
-        assert claim["session_id"] == sess
         assert claim["registered_by_session_id"] == sess
-        # Provenance actor matches the legacy actor_id column.
-        assert claim["registered_by_actor_id"] == claim["actor_id"]
+        assert claim["registered_by_actor_id"] == local_human(path_claims_conn)
 
     def test_item_owned_does_not_become_session_owned_after_re_register(
         self, path_claims_conn,
@@ -182,36 +178,25 @@ class TestProcessOwned:
         assert claim["owner_session_id"] is None
 
 
-class TestRegisterWithoutOwnerSignalsLandsUntyped:
-    """Backwards-compat: register without item/work_claim/session leaves
-    ``owner_kind=NULL``.
+class TestRegisterWithoutOwnerSignalsRejected:
+    """New rows must always declare a typed authority owner."""
 
-    Production callers always pass at least one of item_id, work_claim_id,
-    or session_id via ``register_for_item`` / direct session-owned
-    register. Legacy synthetic call sites that pass none of them still
-    succeed for cutover compatibility; the resulting row's NULL
-    ``owner_kind`` is surfaced by ``HC-path-claim-owner-kind`` at doctor
-    time.
-    """
+    def test_no_owner_signals_are_rejected(self, path_claims_conn):
+        from yoke_core.domain.path_claim_owner import ContradictoryOwnerSignals
 
-    def test_no_owner_signals_lands_untyped(self, path_claims_conn):
         actor = local_human(path_claims_conn)
         tid = seed_target(path_claims_conn, path_string="runtime/api/foo.py")
-        cid = register(
-            path_claims_conn,
-            actor_id=actor,
-            integration_target="main",
-            target_ids=[tid],
-        )
-        claim = get_claim(path_claims_conn, cid)
-        assert claim["owner_kind"] is None
-        assert claim["owner_item_id"] is None
-        assert claim["owner_session_id"] is None
-        assert claim["owner_work_claim_id"] is None
+        with pytest.raises(ContradictoryOwnerSignals):
+            register(
+                path_claims_conn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[tid],
+            )
 
 
 class TestProvenancePreserved:
-    """Both legacy and registered_by_* columns name the registrar."""
+    """Registered-by fields identify the registrar independently of authority."""
 
     def test_provenance_columns_match_actor(self, path_claims_conn):
         item = _seed_item(path_claims_conn, item_id=4010)
@@ -225,7 +210,6 @@ class TestProvenancePreserved:
             actor_id=actor,
         )
         claim = get_claim(path_claims_conn, cid)
-        assert claim["actor_id"] == actor
         assert claim["registered_by_actor_id"] == actor
 
     def test_provenance_session_optional(self, path_claims_conn):
@@ -240,5 +224,4 @@ class TestProvenancePreserved:
             actor_id=local_human(path_claims_conn),
         )
         claim = get_claim(path_claims_conn, cid)
-        assert claim["session_id"] is None
         assert claim["registered_by_session_id"] is None

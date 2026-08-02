@@ -22,7 +22,8 @@ from yoke_core.domain.work_processes import PROCESS_DOCTOR, PROCESS_STRATEGIZE
 def _claim_rows(conn, work_claim_id: int):
     return conn.execute(
         "SELECT id, state, released_at FROM path_claims "
-        "WHERE work_claim_id = %s ORDER BY id",
+        "WHERE owner_kind = 'process' AND owner_work_claim_id = %s "
+        "ORDER BY id",
         (work_claim_id,),
     ).fetchall()
 
@@ -64,9 +65,9 @@ class TestProcessAcquireIsPureLock:
         assert _claim_rows(conn, int(claim["id"])) == []
 
 
-class TestLegacyLinkageRelease:
-    def test_release_still_cascades_legacy_linked_path_claims(self, conn):
-        """Pre-retirement claims carry linked rows; release reaps them."""
+class TestLinkedPathClaimRelease:
+    def test_release_still_cascades_linked_path_claims(self, conn):
+        """Process-owned linked rows are released with their work claim."""
         session_id = "sess-strategize"
         seed_test_holder_session(conn, session_id=session_id)
         target = make_process_target(PROCESS_STRATEGIZE, "yoke")
@@ -74,19 +75,19 @@ class TestLegacyLinkageRelease:
         work_claim_id = int(claim["id"])
 
         cur = conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, session_id, "
-            "work_claim_id, owner_kind, owner_work_claim_id, "
+            "INSERT INTO path_claims (state, mode, owner_kind, "
+            "owner_work_claim_id, registered_by_actor_id, "
             "integration_target, registered_at) "
-            "VALUES ('planned', 'exclusive', %s, %s, %s, 'process', %s, "
+            "VALUES ('planned', 'exclusive', 'process', %s, %s, "
             "'main', '2026-05-01T00:00:00Z') RETURNING id",
-            (local_human(conn), session_id, work_claim_id, work_claim_id),
+            (work_claim_id, local_human(conn)),
         )
-        legacy_path_claim_id = int(cur.fetchone()[0])
+        linked_path_claim_id = int(cur.fetchone()[0])
         conn.commit()
 
         result = release_claim(conn, work_claim_id, reason="released")
 
-        assert result["linked_path_claim_ids"] == [legacy_path_claim_id]
+        assert result["linked_path_claim_ids"] == [linked_path_claim_id]
         rows = _claim_rows(conn, work_claim_id)
         assert len(rows) == 1
         assert rows[0]["released_at"] is not None

@@ -22,7 +22,8 @@ _SCHEMA = """
 CREATE TABLE items (id INTEGER PRIMARY KEY, spec TEXT);
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
-    item_id INTEGER,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
     state TEXT
 );
 CREATE TABLE path_targets (
@@ -75,7 +76,9 @@ def test_broadened_paths_recognized(conn_with_claim):
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
     conn.execute(
-        "INSERT INTO path_claims VALUES (10, 1, 'planned')"
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
     )
     for tid, path in (
         (1, "AGENTS.md"),
@@ -109,7 +112,11 @@ def test_lowercase_top_level_filename_still_ignored(conn_with_claim):
         "- `runtime/api/domain/foo.py` — anchor\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
-    conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
+    )
     conn.execute(
         "INSERT INTO path_targets VALUES (1, 'runtime/api/domain/foo.py', 'file')"
     )
@@ -133,7 +140,11 @@ def test_top_level_dotfile_passes_consistency(conn_with_claim):
         "- `runtime/api/domain/retired_command.py` — remove retired command.\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
-    conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
+    )
     for tid, path in (
         (1, ".gitignore"),
         (2, "runtime/api/domain/retired_command.py"),
@@ -174,7 +185,11 @@ def test_file_budget_section_extends_through_level3_subheadings(
         "- `runtime/api/domain/never_in_budget.py` — outside section\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
-    conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
+    )
     declared = (
         (1, "runtime/api/domain/alpha.py"),
         (2, "runtime/api/domain/beta.py"),
@@ -217,7 +232,11 @@ def test_extensionless_project_policy_passes_consistency(conn_with_claim):
         "- `runtime/api/domain/foo.py` — call site.\n"
     )
     conn.execute(f"INSERT INTO items (id, spec) VALUES (1, {p})", (spec,))
-    conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
+    )
     for tid, path in (
         (1, ".yoke/lint-config"),
         (2, "runtime/api/domain/foo.py"),

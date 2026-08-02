@@ -121,7 +121,8 @@ def _register_two_path_claim(conn, *, repo_path: str) -> tuple[int, int, int]:
     assert rc == 0
     # Pull claim id from the most recent insert.
     row = conn.execute(
-        "SELECT id FROM path_claims WHERE item_id = %s ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        "AND owner_item_id = %s ORDER BY id DESC LIMIT 1",
         (item_id,),
     ).fetchone()
     return int(row[0]), ta, tb

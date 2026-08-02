@@ -148,13 +148,12 @@ def _seed_path_claim(test_db) -> None:
     )
     test_db.execute(
         "INSERT INTO path_claims ("
-        "state, mode, actor_id, item_id, owner_kind, owner_item_id, "
+        "state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
         "integration_target, registered_at, exception_reason"
-        ") VALUES ('active', 'exception', %s, %s, 'item', %s, 'main', %s, %s)",
+        ") VALUES ('active', 'exception', 'item', %s, %s, 'main', %s, %s)",
         (
+            ITEM_ID,
             actor_id,
-            ITEM_ID,
-            ITEM_ID,
             iso8601_now(),
             "migration compatibility fixture",
         ),

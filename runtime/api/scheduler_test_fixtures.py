@@ -43,7 +43,8 @@ CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT NOT NULL,
     target_kind TEXT NOT NULL CHECK(target_kind IN ('item','epic_task','process')),
-    item_id INTEGER,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
     epic_id INTEGER,
     task_num INTEGER,
     process_key TEXT,
@@ -92,7 +93,8 @@ CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
     state TEXT NOT NULL DEFAULT 'planned',
     mode TEXT NOT NULL DEFAULT 'exclusive',
-    item_id INTEGER,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
     integration_target TEXT NOT NULL DEFAULT '',
     registered_at TEXT NOT NULL DEFAULT ''
 );

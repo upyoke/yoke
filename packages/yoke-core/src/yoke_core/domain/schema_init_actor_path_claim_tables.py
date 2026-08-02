@@ -28,10 +28,7 @@ Tables created (idempotent):
   ``owner_item_id`` / ``owner_session_id`` / ``owner_work_claim_id``)
   and provenance (``registered_by_actor_id`` plus optional
   ``registered_by_session_id``) separately so the registering session
-  cannot be mistaken for the path holder. The legacy ``actor_id`` /
-  ``session_id`` / ``item_id`` / ``work_claim_id`` columns remain
-  populated alongside the typed columns during cutover for backwards
-  compatibility; new readers MUST prefer the typed owner fields.
+  cannot be mistaken for the path holder.
   Lifecycle states: ``planned`` (declared, no edit permission),
   ``blocked`` (planned but serially gated behind another claim),
   ``active`` (door-lock acquired), ``released`` (work landed or scope
@@ -157,10 +154,6 @@ def create_actor_path_claim_tables(conn: Any) -> None:
                 )),
             mode TEXT NOT NULL DEFAULT 'exclusive'
                 CHECK(mode IN ('exclusive','parallel','exception')),
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            session_id TEXT REFERENCES harness_sessions(session_id),
-            item_id INTEGER,
-            work_claim_id INTEGER REFERENCES work_claims(id),
             owner_kind TEXT
                 CHECK(owner_kind IS NULL OR owner_kind IN (
                     'item','session','process'
@@ -184,14 +177,6 @@ def create_actor_path_claim_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_path_claims_state
             ON path_claims(state);
-        CREATE INDEX IF NOT EXISTS idx_path_claims_actor
-            ON path_claims(actor_id);
-        CREATE INDEX IF NOT EXISTS idx_path_claims_session
-            ON path_claims(session_id);
-        CREATE INDEX IF NOT EXISTS idx_path_claims_item
-            ON path_claims(item_id);
-        CREATE INDEX IF NOT EXISTS idx_path_claims_work_claim
-            ON path_claims(work_claim_id);
         CREATE INDEX IF NOT EXISTS idx_path_claims_owner_kind
             ON path_claims(owner_kind);
         CREATE INDEX IF NOT EXISTS idx_path_claims_owner_item
@@ -200,6 +185,8 @@ def create_actor_path_claim_tables(conn: Any) -> None:
             ON path_claims(owner_session_id);
         CREATE INDEX IF NOT EXISTS idx_path_claims_owner_work_claim
             ON path_claims(owner_work_claim_id);
+        CREATE INDEX IF NOT EXISTS idx_path_claims_registered_by_actor
+            ON path_claims(registered_by_actor_id);
         CREATE INDEX IF NOT EXISTS idx_path_claims_integration_target
             ON path_claims(integration_target, state);
 

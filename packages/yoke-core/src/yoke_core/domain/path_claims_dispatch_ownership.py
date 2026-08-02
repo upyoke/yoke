@@ -109,10 +109,11 @@ def _p(conn: Any) -> str:
 def _item_id_for_claim(conn: Any, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (int(claim_id),),
     ).fetchone()
-    value = _row_value(row, "item_id")
+    value = _row_value(row, "owner_item_id")
     if value is None:
         return None
     return int(value)

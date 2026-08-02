@@ -171,11 +171,11 @@ def seed_claim(
     """Insert a ``path_claims`` row plus target binding and return its id."""
     row = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
-        "registered_at, blocked_reason) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, blocked_reason) "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (state, local_human(conn), item_id, blocked_reason),
+        (state, item_id, local_human(conn), blocked_reason),
     ).fetchone()
     claim_id = int(row[0])
     if state == "active":

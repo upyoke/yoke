@@ -83,9 +83,11 @@ def _seed_planned_claim(conn, *, item_id, actor_id, target_ids) -> int:
     claim_id = int(
         conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, registered_at) "
-            "VALUES ('planned', 'exclusive', %s, %s, 'main', %s) RETURNING id",
-            (actor_id, item_id, iso8601_now()),
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at) "
+            "VALUES ('planned', 'exclusive', 'item', %s, %s, 'main', %s) "
+            "RETURNING id",
+            (item_id, actor_id, iso8601_now()),
         ).fetchone()[0]
     )
     for target_id in target_ids:

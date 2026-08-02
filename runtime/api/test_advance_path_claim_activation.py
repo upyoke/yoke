@@ -101,10 +101,11 @@ def _seed_planned_claim(
 ) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        "VALUES ('planned', 'exclusive', %s, %s, %s, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        "VALUES ('planned', 'exclusive', 'item', %s, %s, %s, "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (actor_id, item_id, integration_target),
+        (item_id, actor_id, integration_target),
     )
     claim_id = int(cur.fetchone()[0])
     conn.execute(
