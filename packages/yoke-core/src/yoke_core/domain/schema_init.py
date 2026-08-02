@@ -16,6 +16,9 @@ from yoke_core.domain.flow_init import (
 from yoke_core.domain.github_app_schema import create_github_app_tables
 from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
 from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.ouroboros_entry_corrections import (
+    ensure_ouroboros_entry_corrections_schema,
+)
 from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
     create_pack_projection_tables,
@@ -117,6 +120,7 @@ def converge_core_schema(conn) -> None:
     ensure_qa_plan_review_schema(conn)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
+    ensure_ouroboros_entry_corrections_schema(conn)
     sync_machine_qa_pack_methods(conn)
     conn.commit()
     # Strategy authority landed on prod via a since-retired governed

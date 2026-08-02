@@ -17,6 +17,13 @@ reports ``primary_success=False`` with ``error.code="emit_failed"`` and
 NO event is emitted (no use logging telemetry for a write that did not
 land).
 
+Attribution is resolved at write time, not left for a later pass: the
+row records a meaningful author label and the calling session's project
+scope (see ``ouroboros_field_note_provenance``). A note that supersedes
+an earlier one passes ``corrects`` and the two are linked rather than
+left sitting next to each other in the unreviewed queue (see
+``ouroboros_entry_corrections``).
+
 Target shape: ``target.kind = "global"`` (no item, claim, or project
 binding). The dispatcher's claim-verification matrix treats ``global``
 as "no claim required".
@@ -31,6 +38,11 @@ from pydantic import BaseModel, Field
 from yoke_core.domain import events as _events
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry
+from yoke_core.domain.ouroboros_entry_corrections import (
+    CorrectionTargetError,
+    record_correction,
+)
+from yoke_core.domain.ouroboros_field_note_provenance import resolve_provenance
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -48,6 +60,11 @@ class FieldNoteAppendRequest(BaseModel):
     kind: Literal["failed", "new", "unclear", "observation"]
     evidence: str = Field(..., min_length=1, max_length=EVIDENCE_MAX_CHARS)
     correlation_id: Optional[str] = None
+    # Dispatched subagent role, when the caller runs as one. Attribution
+    # falls back to the session's executor.
+    actor_role: Optional[str] = None
+    # Entry id this note corrects; that note is superseded, not duplicated.
+    corrects: Optional[int] = None
 
 
 class FieldNoteAppendResponse(BaseModel):
@@ -56,6 +73,9 @@ class FieldNoteAppendResponse(BaseModel):
     kind: str
     evidence_preview: str
     correlation_id: Optional[str]
+    author: str
+    project: Optional[str]
+    corrects: Optional[int]
     github_sync: str
     body_sync_mode: str
     body_sync_elapsed_ms: int
@@ -89,29 +109,56 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(f"payload invalid: {exc}")
 
     evidence_preview = payload.evidence[:EVIDENCE_PREVIEW_CHARS]
-    agent = request.actor.actor_id or "agent"
     timestamp = iso8601_now()
     category = f"field-note-{payload.kind}"
+    session_id = request.actor.session_id
 
     # Durable write FIRST. If it raises, surface emit_failed and skip the event.
+    # Provenance, the row, and any supersede link land on one connection so a
+    # correction is never recorded against a note that failed to write.
     try:
         with connect() as conn:
+            provenance = resolve_provenance(
+                conn,
+                actor_role=payload.actor_role,
+                session_id=session_id,
+            )
             entry_id = cmd_insert_entry(
                 conn,
                 timestamp,
-                agent,
+                provenance.author,
                 None,  # context — reserved, unused by field-note channel
                 category,
                 payload.evidence,
+                project=provenance.project,
             )
+            if payload.corrects is not None and entry_id.isdigit():
+                record_correction(
+                    conn,
+                    correction_entry_id=int(entry_id),
+                    corrected_entry_id=payload.corrects,
+                )
+    except CorrectionTargetError as exc:
+        return _bad_request(str(exc))
     except Exception as exc:
         return _emit_failed(f"durable write failed: {exc}")
+
+    linked_correction = (
+        payload.corrects
+        if payload.corrects is not None and entry_id.isdigit()
+        else None
+    )
 
     context: Dict[str, Any] = {
         "kind": payload.kind,
         "evidence": payload.evidence,
         "entry_id": entry_id,
+        "author": provenance.author,
     }
+    if provenance.project:
+        context["project"] = provenance.project
+    if linked_correction is not None:
+        context["corrects"] = linked_correction
     if payload.correlation_id:
         context["correlation_id"] = payload.correlation_id
 
@@ -122,7 +169,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         event_kind="domain",
         event_type="ouroboros_feedback",
         source_type="agent",
-        session_id=request.actor.session_id or "",
+        session_id=session_id or "",
         severity="INFO",
         outcome="completed",
         context=context,
@@ -134,6 +181,9 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         kind=payload.kind,
         evidence_preview=evidence_preview,
         correlation_id=payload.correlation_id,
+        author=provenance.author,
+        project=provenance.project,
+        corrects=linked_correction,
         github_sync="not_applicable",
         body_sync_mode="not_applicable",
         body_sync_elapsed_ms=0,

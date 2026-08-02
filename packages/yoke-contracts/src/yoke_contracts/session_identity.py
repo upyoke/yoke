@@ -63,6 +63,13 @@ AMBIENT_RESOLUTION_FAILED = (
 
 ANCHORS_DIR_NAME = "session-anchors"
 
+# A dispatched subagent shares its parent's session id, so the role is the
+# only thing distinguishing who inside that session is acting. Harness
+# adapters stamp it on the subagent's commands; only the calling process
+# can observe it, since the https transport puts the server on the far
+# side of the process tree.
+ACTOR_ROLE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
+
 _AnchorsDir = Union[str, "os.PathLike[str]"]
 
 
@@ -76,6 +83,17 @@ def resolve_env_session_id(
         if value:
             return value
     return None
+
+
+def resolve_actor_role(
+    env: Optional[Mapping[str, str]] = None,
+) -> Optional[str]:
+    """Return the dispatched subagent role for this process, if any.
+
+    ``None`` in a top-level session, which has no role beyond its executor.
+    """
+    source = os.environ if env is None else env
+    return (source.get(ACTOR_ROLE_ENV_VAR) or "").strip() or None
 
 
 # ---------------------------------------------------------------------------
@@ -254,12 +272,14 @@ def resolve_ambient_session_id(
 
 
 __all__ = [
+    "ACTOR_ROLE_ENV_VAR",
     "AMBIENT_ENV_VARS",
     "AMBIENT_RESOLUTION_FAILED",
     "ANCHORS_DIR_NAME",
     "ProcessAnchor",
     "prune_stale_anchors",
     "record_session_anchor",
+    "resolve_actor_role",
     "resolve_ambient_session_id",
     "resolve_env_session_id",
     "resolve_session_from_ancestry",

@@ -8,6 +8,7 @@ import subprocess
 from datetime import datetime, timezone
 
 from yoke_cli.config import machine_config
+from yoke_contracts.session_identity import prune_stale_anchors
 
 
 def _process_start_time(pid: int) -> str:
@@ -47,4 +48,12 @@ def record_session_anchor(session_id: str, *, transcript_path: str = "") -> None
         return
 
 
-__all__ = ["record_session_anchor"]
+def prune_stale_session_anchors() -> None:
+    """Best-effort cleanup for the client-side registry at session start."""
+    try:
+        prune_stale_anchors(machine_config.yoke_home() / "session-anchors")
+    except Exception:
+        return
+
+
+__all__ = ["prune_stale_session_anchors", "record_session_anchor"]

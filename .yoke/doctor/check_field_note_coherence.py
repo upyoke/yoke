@@ -59,7 +59,7 @@ _LINTS: Tuple[str, ...] = tuple(
 # ``field_note_text`` (directly or via the helper that does).
 IMPORTING_CONSUMERS: Tuple[str, ...] = (
     "packages/yoke-cli/src/yoke_cli/main.py",
-    "packages/yoke-cli/src/yoke_cli/commands/adapters/misc.py",
+    "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py",
     "packages/yoke-contracts/src/yoke_contracts/api/function_call.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/denial_field_note_footer.py",
     "packages/yoke-core/src/yoke_core/engines/doctor.py",
