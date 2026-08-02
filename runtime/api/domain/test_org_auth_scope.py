@@ -26,6 +26,7 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.org_schema import (
     DEFAULT_ORG_SLUG,
+    ensure_org_identity_card,
     org_id_by_slug,
     seed_default_org,
 )
@@ -52,6 +53,45 @@ def test_org_tables_and_project_association(authdb):
         "SELECT COUNT(*) FROM projects WHERE org_id IS NULL"
     ).fetchone()[0]
     assert nulls == 0
+
+
+def test_schema_reseed_preserves_a_hosted_singleton(authdb):
+    org_id = org_id_by_slug(authdb, DEFAULT_ORG_SLUG)
+    authdb.execute(
+        "UPDATE organizations SET slug=%s,name=%s WHERE id=%s",
+        ("hosted-org", "Hosted Org", org_id),
+    )
+    authdb.commit()
+
+    assert seed_default_org(authdb) == org_id
+    assert authdb.execute(
+        "SELECT id,slug,name FROM organizations"
+    ).fetchall() == [(org_id, "hosted-org", "Hosted Org")]
+
+
+def test_identity_name_applies_to_a_hosted_singleton(authdb):
+    org_id = org_id_by_slug(authdb, DEFAULT_ORG_SLUG)
+    authdb.execute(
+        "UPDATE organizations SET slug=%s WHERE id=%s",
+        ("hosted-org", org_id),
+    )
+    authdb.commit()
+
+    card = ensure_org_identity_card(authdb, "Renamed Hosted Org")
+
+    assert card == {"slug": "hosted-org", "name": "Renamed Hosted Org"}
+    assert authdb.execute("SELECT COUNT(*) FROM organizations").fetchone() == (1,)
+
+
+def test_schema_reseed_refuses_multiple_identity_cards(authdb):
+    authdb.execute(
+        "INSERT INTO organizations (slug,name,created_at) VALUES (%s,%s,%s)",
+        ("unexpected", "Unexpected", "2026-08-02T00:00:00Z"),
+    )
+    authdb.commit()
+
+    with pytest.raises(AssertionError, match="exactly one.*found 2"):
+        seed_default_org(authdb)
 
 
 def test_owner_role_lacks_org_admin(authdb):
