@@ -163,6 +163,10 @@ class TestProjectGhAuthCanonical:
         conn = connect(db_path)
         try:
             conn.execute(
+                "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
+                ("enabled", "externalwebapp"),
+            )
+            conn.execute(
                 "DELETE FROM project_capabilities "
                 "WHERE project_id=(SELECT id FROM projects WHERE slug='externalwebapp') "
                 "AND type='github'"

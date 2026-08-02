@@ -63,7 +63,8 @@ def _apply_resync_full_schema() -> None:
                 default_branch TEXT,
                 created_at TEXT,
                 github_repo TEXT,
-                public_item_prefix TEXT DEFAULT 'YOK'
+                public_item_prefix TEXT DEFAULT 'YOK',
+                github_sync_mode TEXT NOT NULL DEFAULT 'disabled'
             )
         """)
         conn.execute("""
@@ -94,9 +95,9 @@ def _apply_resync_full_schema() -> None:
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, default_branch, created_at, "
-            "github_repo, public_item_prefix) "
+            "github_repo, public_item_prefix, github_sync_mode) "
             "VALUES (1, 'yoke', 'Yoke', 'main', "
-            "'2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK')"
+            "'2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK', 'enabled')"
         )
         install_workflow_registry_and_pin_items(conn)
         conn.commit()

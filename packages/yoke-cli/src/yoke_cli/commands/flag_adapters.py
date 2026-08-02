@@ -2,8 +2,9 @@
 
 This facade imports family adapters from sibling modules to stay within the
 350-line cap; the import list below is authoritative. Shared
-argparse/dispatch plumbing lives in :mod:`yoke_cli.commands._helpers`; usage
-lines live in :mod:`yoke_cli.commands.adapters.usage`.
+argparse/dispatch plumbing lives in :mod:`yoke_cli.commands._helpers`; the
+function-id -> usage-line map
+lives in :mod:`yoke_cli.commands.adapters.usage`).
 
 Each adapter parses one family's flags via :mod:`argparse`, builds the
 matching :class:`FunctionCallRequest` payload + :class:`TargetRef`, and

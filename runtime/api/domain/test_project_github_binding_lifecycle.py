@@ -80,6 +80,15 @@ def binding_db(monkeypatch):
         github_user_access_token="transient-user-token",
         verifier=lambda **_kwargs: _verified(),
     )
+    conn = pg_testdb.connect_test_database(name)
+    try:
+        conn.execute(
+            "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
+            ("enabled", "externalwebapp"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
     try:
         yield name
     finally:

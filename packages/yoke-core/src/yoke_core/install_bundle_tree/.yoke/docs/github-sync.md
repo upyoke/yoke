@@ -29,11 +29,11 @@ GitHub issues at all:
 | Value          | Meaning                                                              |
 |---             |---                                                                   |
 | `enabled`      | Backlog items and epic tasks mirror to GitHub issues. An explicit enable requires an active, verified GitHub App repository binding. |
-| `disabled` | The backlog lives ONLY in the Yoke DB. Every GitHub issue sync surface skips or refuses for the project. |
+| `disabled`     | The backlog lives only in the Yoke DB. Every GitHub issue sync surface skips or refuses for the project. |
 
-New projects default to `disabled`. A legacy `NULL`/empty stored value
-still resolves to `enabled` for compatibility, but it is not the creation
-default and should be normalized when the project has no usable App binding.
+New projects default to `disabled`. A legacy `NULL`, empty, or unrecognized
+stored value also resolves to `disabled` and is normalized during schema
+initialization or by the repair command.
 
 Reader: `yoke_core.domain.projects_github_sync_mode`. The mode vocabulary
 is single-sourced in `yoke_contracts.project_contract.github_sync_mode`.
@@ -48,9 +48,10 @@ yoke projects github-sync-mode repair --apply
 ```
 
 The repair command is a dry-run unless `--apply` is explicit. It finds
-projects whose stored `enabled` or legacy `NULL` mode is effectively enabled
-without an active verified binding, and normalizes only those rows to
-`disabled`. Use `--project <slug>` to inspect or repair one project.
+projects with a legacy, empty, or unrecognized stored mode, enabled projects
+without an active verified binding, and stale repository/capability
+projections. It normalizes the affected modes to `disabled`. Use `--project
+<slug>` to inspect or repair one project.
 
 `disabled` is independent of the GitHub App repo binding: a project can
 keep the binding for code delivery (pushes, CI, deploys) while never

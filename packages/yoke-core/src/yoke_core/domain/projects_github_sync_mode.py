@@ -35,7 +35,6 @@ from yoke_contracts.project_contract.github_sync_mode import (  # noqa: F401
     VALID_GITHUB_SYNC_MODES,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _column_exists as _schema_column_exists
 
 
@@ -112,16 +111,9 @@ def resolve_github_sync_mode(project: str, *, conn: Optional[Any] = None) -> str
             return GITHUB_SYNC_DISABLED
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         try:
-            ident = resolve_project(conn, project, required=False)
-        except db_backend.operational_error_types(conn):
-            _rollback_quietly(conn)
-            return GITHUB_SYNC_DISABLED
-        if ident is None:
-            return GITHUB_SYNC_DISABLED
-        try:
             row = conn.execute(
-                f"SELECT {GITHUB_SYNC_MODE_COLUMN} FROM projects WHERE id = {p}",
-                (ident.id,),
+                f"SELECT {GITHUB_SYNC_MODE_COLUMN} FROM projects WHERE slug = {p}",
+                (project,),
             ).fetchone()
         except db_backend.operational_error_types(conn):
             _rollback_quietly(conn)

@@ -29,14 +29,23 @@ class TestProjectsCreateAndUpdate:
 
     def test_create_dispatches_project_metadata(self) -> None:
         rc = _run(
-            _stub_ok, "projects", "create",
-            "--slug", "demo",
-            "--name", "Demo",
-            "--org", "installer-e2e",
-            "--project-id", "41",
-            "--github-repo", "owner/demo",
-            "--default-branch", "main",
-            "--public-item-prefix", "DMO",
+            _stub_ok,
+            "projects",
+            "create",
+            "--slug",
+            "demo",
+            "--name",
+            "Demo",
+            "--org",
+            "installer-e2e",
+            "--project-id",
+            "41",
+            "--github-repo",
+            "owner/demo",
+            "--default-branch",
+            "main",
+            "--public-item-prefix",
+            "DMO",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -49,20 +58,33 @@ class TestProjectsCreateAndUpdate:
             "github_repo": "owner/demo",
             "default_branch": "main",
             "public_item_prefix": "DMO",
+            "allow_public_github_sync": False,
         }
 
     def test_update_dispatches_projects_update_function(self) -> None:
         rc = _run(
-            _stub_ok, "projects", "update",
-            "--slug", "demo", "--name", "Demo", "--github-repo", "owner/demo",
+            _stub_ok,
+            "projects",
+            "update",
+            "--slug",
+            "demo",
+            "--name",
+            "Demo",
+            "--github-repo",
+            "owner/demo",
         )
         assert rc == 0
         assert _CAPTURED_REQUESTS[-1].function == "projects.update"
 
     def test_missing_slug_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "projects", "create",
-            "--name", "Demo", "--github-repo", "owner/demo",
+            _stub_ok,
+            "projects",
+            "create",
+            "--name",
+            "Demo",
+            "--github-repo",
+            "owner/demo",
         )
         assert rc == 2
 
@@ -77,9 +99,10 @@ class TestProjectsCapabilitySecretSet:
         assert SUBCOMMAND_REGISTRY[("projects", "capability-secret", "set")][0] == (
             "projects.capability_secret.set"
         )
-        assert SUBCOMMAND_ALIAS_REGISTRY[
-            ("projects", "capability", "secret", "set")
-        ][0] == "projects.capability_secret.set"
+        assert (
+            SUBCOMMAND_ALIAS_REGISTRY[("projects", "capability", "secret", "set")][0]
+            == "projects.capability_secret.set"
+        )
 
     def test_github_secret_is_rejected_before_read_or_dispatch(self) -> None:
         secret = "ghs_project_runtime_secret"
@@ -89,10 +112,16 @@ class TestProjectsCapabilitySecretSet:
 
         rc, out, err = _run_capture(
             stub,
-            "projects", "capability", "secret", "set",
-            "--project", "demo",
-            "--cap-type", "github",
-            "--key", "token",
+            "projects",
+            "capability",
+            "secret",
+            "set",
+            "--project",
+            "demo",
+            "--cap-type",
+            "github",
+            "--key",
+            "token",
             secret,
         )
         assert rc == 2
@@ -135,10 +164,16 @@ class TestProjectsCapabilitySecretSet:
 
         rc, out, err = _run_capture(
             stub,
-            "projects", "capability", "secret", "set",
-            "--project", "demo",
-            "--cap-type", "aws-admin",
-            "--key", "secret_access_key",
+            "projects",
+            "capability",
+            "secret",
+            "set",
+            "--project",
+            "demo",
+            "--cap-type",
+            "aws-admin",
+            "--key",
+            "secret_access_key",
             secret,
         )
 
@@ -150,8 +185,13 @@ class TestProjectsCapabilitySecretSet:
             "projects.capability_secret.set",
         ]
         path = (
-            tmp_path / "home" / "secrets" / "capability-secrets"
-            / "demo" / "aws-admin" / "secret_access_key"
+            tmp_path
+            / "home"
+            / "secrets"
+            / "capability-secrets"
+            / "demo"
+            / "aws-admin"
+            / "secret_access_key"
         )
         assert _CAPTURED_REQUESTS[-1].payload == {
             "project": "demo",
@@ -178,7 +218,11 @@ class TestProjectsCapabilitySecretSet:
                     function=request.function,
                     version=request.version,
                     request_id=request.request_id,
-                    result={"project": "externalwebapp", "field": "slug", "value": "externalwebapp"},
+                    result={
+                        "project": "externalwebapp",
+                        "field": "slug",
+                        "value": "externalwebapp",
+                    },
                 )
             assert request.function == "projects.capability_secret.set"
             return FunctionCallResponse(
@@ -198,10 +242,16 @@ class TestProjectsCapabilitySecretSet:
 
         rc, out, err = _run_capture(
             stub,
-            "projects", "capability", "secret", "set",
-            "--project", "externalwebapp",
-            "--cap-type", "ssh",
-            "--key", "private_key",
+            "projects",
+            "capability",
+            "secret",
+            "set",
+            "--project",
+            "externalwebapp",
+            "--cap-type",
+            "ssh",
+            "--key",
+            "private_key",
             secret,
         )
 
@@ -213,8 +263,13 @@ class TestProjectsCapabilitySecretSet:
             "projects.capability_secret.set",
         ]
         path = (
-            tmp_path / "home" / "secrets" / "capability-secrets"
-            / "externalwebapp" / "ssh" / "private_key"
+            tmp_path
+            / "home"
+            / "secrets"
+            / "capability-secrets"
+            / "externalwebapp"
+            / "ssh"
+            / "private_key"
         )
         assert _CAPTURED_REQUESTS[-1].payload == {
             "project": "externalwebapp",

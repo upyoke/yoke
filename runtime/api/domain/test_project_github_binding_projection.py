@@ -1,10 +1,13 @@
+# ruff: noqa: F401, F811
 """Project-field protections for a verified GitHub binding."""
 
 from __future__ import annotations
 
 import pytest
 
-from runtime.api.domain.test_project_github_binding_fanout import bound_yoke_db
+from runtime.api.domain.test_project_github_binding_fanout import (
+    bound_yoke_db,
+)
 from yoke_core.domain import projects
 from yoke_core.domain.projects_upsert import cmd_upsert
 

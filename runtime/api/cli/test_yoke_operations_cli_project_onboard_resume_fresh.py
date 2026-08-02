@@ -36,11 +36,26 @@ def test_fresh_import_carries_no_clone_resume_block(
         config = write_https_config(tmp_path, "product-token", api.url)
         rc = yoke_operations_cli.main(
             [
-                "project", "import", str(remote), str(checkout), "--slug", "fresh",
-                "--name", "Fresh", "--github-repo", "owner/fresh",
-                "--default-branch", "trunk", "--public-item-prefix", "FRS",
-                "--github-adoption", "disabled", "--config", str(config),
-                "--yes", "--json",
+                "project",
+                "import",
+                str(remote),
+                str(checkout),
+                "--slug",
+                "fresh",
+                "--name",
+                "Fresh",
+                "--github-repo",
+                "owner/fresh",
+                "--default-branch",
+                "trunk",
+                "--public-item-prefix",
+                "FRS",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
             ]
         )
     assert rc == 0

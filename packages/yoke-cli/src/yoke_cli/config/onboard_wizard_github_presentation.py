@@ -51,7 +51,11 @@ def success_details(report: Mapping[str, Any]) -> list[str]:
             account = str(item.get("account_login") or "").strip()
             if account:
                 selection = str(item.get("repository_selection") or "selected")
-                state = "suspended" if item.get("suspended") else f"{selection} repositories"
+                state = (
+                    "suspended"
+                    if item.get("suspended")
+                    else f"{selection} repositories"
+                )
                 labels.append(f"{account} ({state})")
         details.append("Installed for: " + bounded_summary(labels))
         repositories = [str(item) for item in access.get("repos") or [] if str(item)]

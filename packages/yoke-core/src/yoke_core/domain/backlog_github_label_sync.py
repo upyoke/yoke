@@ -54,15 +54,19 @@ from yoke_core.domain.project_github_auth import (
 
 
 def _get_issue_labels(issue_num: str, repo: str, project: str) -> list[str]:
-    return _get_issue_labels_impl(issue_num, project)
+    return _get_issue_labels_impl(
+        issue_num, project, resolver=resolve_project_github_auth
+    )
 
 
 def _get_issue_state(issue_num: str, repo: str, project: str) -> str:
-    return _get_issue_state_impl(issue_num, project)
+    return _get_issue_state_impl(
+        issue_num, project, resolver=resolve_project_github_auth
+    )
 
 
 def _repo_labels(project: str) -> dict[str, str]:
-    return _repo_labels_impl(project)
+    return _repo_labels_impl(project, resolver=resolve_project_github_auth)
 
 
 def _ensure_label(
@@ -72,7 +76,9 @@ def _ensure_label(
     project: str,
     **kwargs: object,
 ) -> None:
-    _ensure_label_impl(name, color, project, **kwargs)
+    _ensure_label_impl(
+        name, color, project, resolver=resolve_project_github_auth, **kwargs
+    )
 
 
 def _reconcile_category(
@@ -84,7 +90,15 @@ def _reconcile_category(
     project: str,
     color: str,
 ) -> None:
-    _reconcile_category_impl(prefix, want, existing, issue_num, project, color)
+    _reconcile_category_impl(
+        prefix,
+        want,
+        existing,
+        issue_num,
+        project,
+        color,
+        resolver=resolve_project_github_auth,
+    )
 
 
 def update_repo_labels(

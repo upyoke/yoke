@@ -40,11 +40,17 @@ def _resolved_auth(
 
 class TestHeavyFetchUnavailable:
     def test_compare_never_uses_same_issue_number_from_another_project(
-        self, populated_db,
+        self,
+        populated_db,
     ):
         paired = [
             resync_mod.PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
+                TEST_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "externalwebapp",
+                "",
                 item_id=TEST_ITEM_ID,
             ),
         ]
@@ -61,16 +67,28 @@ class TestHeavyFetchUnavailable:
             },
         }
 
-        assert resync_mod.stage2_compare(
-            paired, light, {}, populated_db,
-        ) == []
+        assert (
+            resync_mod.stage2_compare(
+                paired,
+                light,
+                {},
+                populated_db,
+            )
+            == []
+        )
 
     def test_graphql_transport_failure_is_explicit_and_suppresses_drift(
-        self, populated_db,
+        self,
+        populated_db,
     ):
         paired = [
             resync_mod.PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/repo",
+                TEST_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "yoke",
+                "stale/repo",
                 item_id=TEST_ITEM_ID,
             ),
         ]
@@ -85,28 +103,44 @@ class TestHeavyFetchUnavailable:
                 },
             },
         }
-        with mock.patch(
-            "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
-            return_value=_resolved_auth(),
-        ), mock.patch(
-            "yoke_core.engines.resync._graphql_batch_fetch",
-            side_effect=RestNetworkError("network down"),
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_linkage.resolve_project_github_auth",
+                return_value=_resolved_auth(),
+            ),
+            mock.patch(
+                "yoke_core.engines.resync._graphql_batch_fetch",
+                side_effect=RestNetworkError("network down"),
+            ),
         ):
             heavy = resync_mod.stage1_5_heavy_fetch(paired, light)
 
         assert heavy["yoke"]["_github_unavailable"] == "true"
         assert heavy["yoke"]["_unavailable_stage"] == "graphql"
         assert heavy["yoke"] != {}
-        assert resync_mod.stage2_compare(
-            paired, light, heavy, populated_db,
-        ) == []
+        assert (
+            resync_mod.stage2_compare(
+                paired,
+                light,
+                heavy,
+                populated_db,
+            )
+            == []
+        )
 
     def test_fix_mode_never_repairs_when_graphql_read_is_unavailable(
-        self, tmp_path, capsys,
+        self,
+        tmp_path,
+        capsys,
     ):
         paired = [
             resync_mod.PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
+                TEST_ITEM_REF,
+                "/tmp/042.md",
+                100,
+                "backlog",
+                "externalwebapp",
+                "",
                 item_id=TEST_ITEM_ID,
             ),
         ]
@@ -127,21 +161,27 @@ class TestHeavyFetchUnavailable:
             "_unavailable_stage": "graphql",
             "_repair_hint": "retry network access",
         }
-        with mock.patch(
-            "yoke_core.engines.resync._resolve_yoke_root",
-            return_value=str(tmp_path),
-        ), mock.patch(
-            "yoke_core.engines.resync.stage1_linkage",
-            return_value=(paired, [], [], light),
-        ), mock.patch(
-            "yoke_core.engines.resync.stage1_5_heavy_fetch",
-            return_value={"externalwebapp": unavailable},
-        ), mock.patch(
-            "yoke_core.engines.resync.stage2_compare",
-            return_value=[],
-        ), mock.patch(
-            "yoke_core.engines.resync._repair_drift",
-        ) as repair:
+        with (
+            mock.patch(
+                "yoke_core.engines.resync._resolve_yoke_root",
+                return_value=str(tmp_path),
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_linkage",
+                return_value=(paired, [], [], light),
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage1_5_heavy_fetch",
+                return_value={"externalwebapp": unavailable},
+            ),
+            mock.patch(
+                "yoke_core.engines.resync.stage2_compare",
+                return_value=[],
+            ),
+            mock.patch(
+                "yoke_core.engines.resync._repair_drift",
+            ) as repair,
+        ):
             rc = resync_mod.main(["--fix"])
 
         assert rc == 1
@@ -154,14 +194,17 @@ class TestWrapperPropagation:
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
             side_effect=MissingAppCredentials(
-                "yoke", "App credentials unavailable",
+                "yoke",
+                "App credentials unavailable",
             ),
         ):
             with pytest.raises(MissingAppCredentials):
                 resync_mod._fetch_gh_issues_per_project({"yoke"})
 
     def test_linkage_wrapper_propagates_yoke_auth_error(
-        self, populated_db, tmp_path,
+        self,
+        populated_db,
+        tmp_path,
     ):
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
@@ -175,7 +218,11 @@ class TestWrapperPropagation:
 
 class TestEngineMultiProjectPartialAuthFailure:
     def test_continues_healthy_project_without_orphans_for_failed_project(
-        self, populated_db, tmp_path, monkeypatch, capsys,
+        self,
+        populated_db,
+        tmp_path,
+        monkeypatch,
+        capsys,
     ):
         yoke_root = tmp_path / "data"
         yoke_root.mkdir(parents=True)
@@ -185,12 +232,13 @@ class TestEngineMultiProjectPartialAuthFailure:
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, default_branch, created_at, "
-            "github_repo, public_item_prefix) "
+            "github_repo, public_item_prefix, github_sync_mode) "
             "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'main', "
-            "'2026-01-01T00:00:00Z', 'org/externalwebapp', 'EXT') "
+            "'2026-01-01T00:00:00Z', 'org/externalwebapp', 'EXT', 'enabled') "
             "ON CONFLICT (id) DO UPDATE SET "
             "slug = excluded.slug, name = excluded.name, "
-            "github_repo = excluded.github_repo"
+            "github_repo = excluded.github_repo, "
+            "github_sync_mode = excluded.github_sync_mode"
         )
         conn.execute(
             "INSERT INTO items "
@@ -208,29 +256,36 @@ class TestEngineMultiProjectPartialAuthFailure:
             if project == "yoke":
                 return _resolved_auth("yoke-token", "yoke")
             raise MissingRepoBinding(
-                project, f"repository is not bound for '{project}'",
+                project,
+                f"repository is not bound for '{project}'",
             )
 
         yoke_issues = RestResponse(
             status=200,
             headers={},
-            body=[{
-                "number": 100,
-                "title": f"[{TEST_ITEM_REF}] Test item",
-                "labels": [],
-                "state": "OPEN",
-                "body": "",
-            }],
+            body=[
+                {
+                    "number": 100,
+                    "title": f"[{TEST_ITEM_REF}] Test item",
+                    "labels": [],
+                    "state": "OPEN",
+                    "body": "",
+                }
+            ],
         )
-        with mock.patch(
-            "yoke_core.engines.resync_runtime.resolve_project_github_auth",
-            side_effect=fake_resolve,
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            side_effect=fake_resolve,
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            return_value=yoke_issues,
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_runtime.resolve_project_github_auth",
+                side_effect=fake_resolve,
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                side_effect=fake_resolve,
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                return_value=yoke_issues,
+            ),
         ):
             rc = resync_mod.main(["--detect-only"])
 

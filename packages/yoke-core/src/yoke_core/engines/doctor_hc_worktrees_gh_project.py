@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.gh_rest_transport import request_with_retry
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
     ProjectGithubAuthError,
@@ -27,10 +28,7 @@ from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
 )
-from yoke_core.engines.doctor_hc_worktrees_gh_project_access import (
-    hc_project_gh_secrets,  # noqa: F401
-    hc_project_vps_reachable,  # noqa: F401
-)
+import yoke_core.engines.doctor_hc_worktrees_gh_project_access as _access
 
 import yoke_core.engines.doctor_report as _base
 
@@ -138,6 +136,22 @@ def hc_project_gh_auth(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "PASS",
         "Resolved GitHub App auth via project repo binding",
     )
+
+
+def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """Check GitHub Actions secrets through the patchable project boundaries."""
+    _access.hc_project_gh_secrets(
+        conn,
+        args,
+        rec,
+        auth_resolver=resolve_project_github_auth,
+        rest_request=request_with_retry,
+    )
+
+
+def hc_project_vps_reachable(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """Check VPS access; yoke's intentionally skipped capability stays local."""
+    _access.hc_project_vps_reachable(conn, args, rec)
 
 
 def hc_project_worktrees(conn, args: DoctorArgs, rec: RecordCollector) -> None:

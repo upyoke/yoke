@@ -27,14 +27,21 @@ from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REA
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+def hc_project_gh_secrets(
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
+    *,
+    auth_resolver=resolve_project_github_auth,
+    rest_request=request_with_retry,
+) -> None:
     """Check whether the verified repository has Actions secrets configured."""
     name_label = f"GitHub Actions secrets ({args.project})"
     slug = "HC-project-gh-secrets"
     if not doctor_report._table_exists(conn, "projects"):
         return
     try:
-        auth = resolve_project_github_auth(
+        auth = auth_resolver(
             args.project,
             db_path=args.db_path,
             conn=conn,
@@ -55,7 +62,7 @@ def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
     owner, name = parts
     try:
-        response = request_with_retry(
+        response = rest_request(
             RestRequest(method="GET", path=f"/repos/{owner}/{name}/actions/secrets"),
             token=auth.token,
         )
@@ -89,7 +96,9 @@ def hc_project_gh_secrets(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         slug,
         name_label,
         "PASS" if count > 0 else "WARN",
-        f"{count} secrets configured in {gh_repo}" if count > 0 else f"No secrets found in {gh_repo}",
+        f"{count} secrets configured in {gh_repo}"
+        if count > 0
+        else f"No secrets found in {gh_repo}",
     )
 
 

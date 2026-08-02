@@ -15,27 +15,33 @@ from yoke_core.domain.project_github_auth import (
 )
 
 
-def get_issue_labels(issue_num: str, project: str) -> list[str]:
+def get_issue_labels(
+    issue_num: str, project: str, *, resolver=resolve_project_github_auth
+) -> list[str]:
     """Fetch labels from the verified project repository."""
     try:
-        auth = resolve_project_github_auth(project, required_permissions=ISSUES_READ)
+        auth = resolver(project, required_permissions=ISSUES_READ)
     except ProjectGithubAuthError:
         return []
     return rest.fetch_issue_labels(auth.repo, int(issue_num), token=auth.token)
 
 
-def get_issue_state(issue_num: str, project: str) -> str:
+def get_issue_state(
+    issue_num: str, project: str, *, resolver=resolve_project_github_auth
+) -> str:
     """Fetch issue state from the verified project repository."""
     try:
-        auth = resolve_project_github_auth(project, required_permissions=ISSUES_READ)
+        auth = resolver(project, required_permissions=ISSUES_READ)
     except ProjectGithubAuthError:
         return "UNKNOWN"
     return rest.fetch_issue_state(auth.repo, int(issue_num), token=auth.token)
 
 
-def repo_labels(project: str) -> dict[str, str]:
+def repo_labels(
+    project: str, *, resolver=resolve_project_github_auth
+) -> dict[str, str]:
     """Fetch current repository label colors keyed by name."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_READ)
+    auth = resolver(project, required_permissions=ISSUES_READ)
     return rest.fetch_repo_labels(auth.repo, token=auth.token)
 
 
@@ -47,9 +53,10 @@ def ensure_label(
     description: str = "",
     timeout_seconds: Optional[float] = None,
     max_attempts: Optional[int] = None,
+    resolver=resolve_project_github_auth,
 ) -> None:
     """Create a label in the verified repository if it does not exist."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
+    auth = resolver(project, required_permissions=ISSUES_WRITE)
     rest.ensure_label(
         name,
         color,
@@ -68,9 +75,11 @@ def reconcile_category(
     issue_num: str,
     project: str,
     color: str,
+    *,
+    resolver=resolve_project_github_auth,
 ) -> None:
     """Reconcile one label category in the verified repository."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
+    auth = resolver(project, required_permissions=ISSUES_WRITE)
     has_correct = False
     for label in existing:
         if not label.startswith(prefix):

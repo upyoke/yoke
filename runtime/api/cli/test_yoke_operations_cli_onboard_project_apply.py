@@ -32,13 +32,35 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     ) as api:
         rc = yoke_operations_cli.main(
             [
-                "onboard", "actor-token", "--non-interactive", "--quick", "--config",
-                str(config), "--env", "prod", "--api-url", api.url,
-                "--skip-identity-check", "--project-mode", "local-checkout",
-                "--checkout", str(checkout), "--project-slug", "local",
-                "--project-name", "Local", "--github-repo", "owner/local",
-                "--default-branch", "main", "--public-item-prefix", "LOC",
-                "--github-adoption", "disabled", "--yes", "--json",
+                "onboard",
+                "actor-token",
+                "--non-interactive",
+                "--quick",
+                "--config",
+                str(config),
+                "--env",
+                "prod",
+                "--api-url",
+                api.url,
+                "--skip-identity-check",
+                "--project-mode",
+                "local-checkout",
+                "--checkout",
+                str(checkout),
+                "--project-slug",
+                "local",
+                "--project-name",
+                "Local",
+                "--github-repo",
+                "owner/local",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "LOC",
+                "--github-adoption",
+                "disabled",
+                "--yes",
+                "--json",
             ]
         )
     assert rc == 0
@@ -50,7 +72,9 @@ def test_onboard_yes_writes_machine_config_and_project_handoff(
     assert project_report["applied"] is True
     assert project_report["project"]["id"] == 44
     assert project_report["handoff"]["run_id"] == "run-handoff"
-    assert project_report["handoff"]["agent_command"].startswith("/yoke onboard --run-id ")
+    assert project_report["handoff"]["agent_command"].startswith(
+        "/yoke onboard --run-id "
+    )
     assert project_report["github_adoption"]["choice"] == "disabled"
     assert api.function_call("projects.get")["payload"] == {"project": "local"}
     assert api.function_calls("projects.create") == []

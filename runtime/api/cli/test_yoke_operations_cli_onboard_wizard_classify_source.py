@@ -15,7 +15,12 @@ def test_classify_plan_threads_project_name_into_source_choice() -> None:
         "project_mode": onboard_project.PROJECT_MODE_CREATE_REPO,
         "plan": {
             "project": {"name": "ExternalWebapp"},
-            "steps": [{"action": "project-source-choice", "target": onboard_project.PROJECT_MODE_CREATE_REPO}],
+            "steps": [
+                {
+                    "action": "project-source-choice",
+                    "target": onboard_project.PROJECT_MODE_CREATE_REPO,
+                }
+            ],
         },
     }
     grouped = steps.classify_plan(plan)

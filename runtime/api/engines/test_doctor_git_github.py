@@ -18,7 +18,9 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.api_workflow_test_helpers import install_workflow_registry_and_pin_items
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 
 from yoke_core.engines._project_identity_test_helpers import (
@@ -36,13 +38,14 @@ from yoke_core.engines.doctor import (
     HEALTH_CHECKS,
 )
 
+
 def _make_conn():
     """Disposable Postgres DB with minimal schema for git/file HC testing."""
     name = pg_testdb.create_test_database()
-    conn = pg_testdb.drop_database_on_close(
-        pg_testdb.connect_test_database(name), name
-    )
-    apply_fixture_ddl(conn, textwrap.dedent("""\
+    conn = pg_testdb.drop_database_on_close(pg_testdb.connect_test_database(name), name)
+    apply_fixture_ddl(
+        conn,
+        textwrap.dedent("""\
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
@@ -77,14 +80,15 @@ def _make_conn():
             default_branch TEXT,
             created_at TEXT,
             github_repo TEXT,
-            public_item_prefix TEXT DEFAULT 'YOK'
+            public_item_prefix TEXT DEFAULT 'YOK',
+            github_sync_mode TEXT NOT NULL DEFAULT 'disabled'
         );
         INSERT INTO projects
             (id, slug, name, default_branch, created_at,
-             github_repo, public_item_prefix)
+             github_repo, public_item_prefix, github_sync_mode)
         VALUES
             (1, 'yoke', 'Yoke', 'main',
-             '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK');
+             '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK', 'enabled');
 
         CREATE TABLE ouroboros_entries (
             id INTEGER PRIMARY KEY,
@@ -96,7 +100,9 @@ def _make_conn():
             reviewed_at TEXT,
             archived_at TEXT
         );
-    """) + ITEM_WORKTREES_TABLE_SQL)
+    """)
+        + ITEM_WORKTREES_TABLE_SQL,
+    )
     install_workflow_registry_and_pin_items(conn)
     return conn
 
@@ -122,12 +128,14 @@ def _run_hc(fn, conn=None, **kw):
 def _make_completed(returncode=0, stdout="", stderr=""):
     """Create a mock CompletedProcess."""
     import subprocess
+
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
 
 
 def _auth(repo: str = "upyoke/yoke"):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
     return ProjectGithubAuth(project="yoke", repo=repo, token="t")
 
 
@@ -139,15 +147,23 @@ def _auth_for_project(project: str, **_kwargs):
 class TestHcOrphanedGhIssues:
     """Tests for hc_orphaned_gh_issues."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=False,
+    )
     def test_no_github_auth_skips(self, mock_gh):
         rec = _run_hc(hc_orphaned_gh_issues)
         assert rec.results[0].result == "SKIP"
         assert "GitHub App repo binding is not available" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth())
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_no_orphans_passes(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -159,24 +175,29 @@ class TestHcOrphanedGhIssues:
         mock_rest.return_value = _make_completed(stdout="100\n")
         rec = _run_hc(hc_orphaned_gh_issues, conn)
         assert rec.results[0].result == "PASS"
-        assert (
-            mock_resolve.call_args.kwargs["required_permissions"]
-            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
-        )
+        assert mock_resolve.call_args.kwargs["required_permissions"] is GITHUB_ISSUES_READ_PERMISSION_LEVELS
 
 
 class TestHcGhOrphanDetection:
     """Tests for hc_gh_orphan_detection."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=False,
+    )
     def test_no_github_auth_skips(self, mock_gh):
         rec = _run_hc(hc_gh_orphan_detection)
         assert rec.results[0].result == "SKIP"
         assert "GitHub App repo binding is not available" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth())
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_orphan_detected_warns(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -186,15 +207,17 @@ class TestHcGhOrphanDetection:
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert rec.results[0].result == "WARN"
         assert "#999" in rec.results[0].detail
-        assert (
-            mock_resolve.call_args.kwargs["required_permissions"]
-            is GITHUB_METADATA_READ_PERMISSION_LEVELS
-        )
+        assert mock_resolve.call_args.kwargs["required_permissions"] is GITHUB_METADATA_READ_PERMISSION_LEVELS
         assert mock_rest.call_args.kwargs["search"] == "[YOK- is:issue"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth())
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.search_issues_by_query_rest")
     def test_search_failure_warns(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
@@ -210,37 +233,64 @@ class TestHcGhOrphanDetection:
 class TestHcWrongRepoIssues:
     """Tests for hc_wrong_repo_issues."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=False,
+    )
     def test_no_github_auth_skips(self, mock_gh):
         rec = _run_hc(hc_wrong_repo_issues)
         assert rec.results[0].result == "SKIP"
         assert "GitHub App repo binding is not available" in rec.results[0].detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=_auth_for_project)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=_auth_for_project,
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_correct_repo_passes(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
-        _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
-                     workflow_id="issue", status="idea", github_issue="#100")
+        _insert_item(
+            conn,
+            42,
+            "ExternalWebapp item",
+            project="externalwebapp",
+            workflow_id="issue",
+            status="idea",
+            github_issue="#100",
+        )
         mock_gh_run.return_value = _make_completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert rec.results[0].result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=_auth_for_project)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=_auth_for_project,
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_wrong_repo_warns(self, mock_gh_run, mock_resolve, mock_avail):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
-        _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
-                     workflow_id="issue", status="idea", github_issue="#100")
+        _insert_item(
+            conn,
+            42,
+            "ExternalWebapp item",
+            project="externalwebapp",
+            workflow_id="issue",
+            status="idea",
+            github_issue="#100",
+        )
         mock_gh_run.side_effect = [
             _make_completed(returncode=1, stdout=""),  # not in externalwebapp repo
-            _make_completed(stdout="OPEN\n"),           # found in yoke repo
+            _make_completed(stdout="OPEN\n"),  # found in yoke repo
         ]
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert rec.results[0].result == "WARN"
@@ -324,9 +374,14 @@ class TestHcRegistration:
     def test_git_hcs_registered(self):
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         for expected in [
-            "main-checkout", "worktree-health", "branch-divergence",
-            "uncaptured-discoveries", "orphaned-stashes", "cross-project-commits",
-            "epic-task-worktree-backfill", "path-confabulation",
+            "main-checkout",
+            "worktree-health",
+            "branch-divergence",
+            "uncaptured-discoveries",
+            "orphaned-stashes",
+            "cross-project-commits",
+            "epic-task-worktree-backfill",
+            "path-confabulation",
             "orphaned-temp-files",
         ]:
             assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
@@ -334,16 +389,26 @@ class TestHcRegistration:
     def test_github_hcs_registered(self):
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         for expected in [
-            "stale-remote-branches", "orphaned-gh-issues",
-            "gh-orphan-detection", "wrong-repo-issues",
+            "stale-remote-branches",
+            "orphaned-gh-issues",
+            "gh-orphan-detection",
+            "wrong-repo-issues",
             "delegated-sync",
         ]:
             assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
 
     def test_github_hcs_marked_dependent(self):
-        gh_hcs = [hc for hc in HEALTH_CHECKS if hc.slug in (
-            "stale-remote-branches", "orphaned-gh-issues",
-            "gh-orphan-detection", "wrong-repo-issues", "delegated-sync",
-        )]
+        gh_hcs = [
+            hc
+            for hc in HEALTH_CHECKS
+            if hc.slug
+            in (
+                "stale-remote-branches",
+                "orphaned-gh-issues",
+                "gh-orphan-detection",
+                "wrong-repo-issues",
+                "delegated-sync",
+            )
+        ]
         for hc in gh_hcs:
             assert hc.github_dependent, f"{hc.slug} should be github_dependent=True"
