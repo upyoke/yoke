@@ -10,7 +10,7 @@ Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule
 via `yoke charge schedule`, presents a formatted table of ranked items with
 their adapter classifications, confirms the top pick with the operator, and
 dispatches to the correct downstream skill (refine, shepherd, conduct, advance,
-polish, or usher). The `next_step` field is the dispatch truth: the pinned
+dash, blitz, polish, or usher). The `next_step` field is the dispatch truth: the pinned
 workflow's registered executor binding produced it. The `adapter` column
 remains in the table display for ranking diagnostics.
 
@@ -278,6 +278,12 @@ Invoke `/yoke conduct {item_id}` by reading and following `.agents/skills/yoke/c
 
 #### `advance`
 Invoke `/yoke advance {item_id} implementation` by reading and following `.agents/skills/yoke/advance/SKILL.md`, passing `{item_id}` and `implementation` as arguments. This is the issue main-session implementation path — the scheduler routes issues at implementation-eligible statuses here instead of through `conduct`.
+
+#### `dash`
+Invoke `/yoke dash {item_id}` by reading and following `.agents/skills/yoke/dash/SKILL.md`, passing `{item_id}` as the argument. The stored instruction is the complete scope; Dash runs survey, worktree, verification, merge, and evidence in this session.
+
+#### `blitz`
+Invoke `/yoke blitz {item_id}` by reading and following `.agents/skills/yoke/blitz/SKILL.md`, passing `{item_id}` as the argument. Blitz executes the item's single linked execution strategy document.
 
 #### `polish`
 Invoke `/yoke polish {item_id}` by reading and following `.agents/skills/yoke/polish/SKILL.md`, passing `{item_id}` as the argument.

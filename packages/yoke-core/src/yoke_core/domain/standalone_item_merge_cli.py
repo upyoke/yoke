@@ -82,15 +82,30 @@ def _lane_branch(item: dict, item_ref: str) -> str:
 def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
     from yoke_core.engines.done_transition_gates import (
         _get_base_branch,
-        _resolve_project_context,
+        _resolve_default_branch,
         _resolve_repo_root,
     )
 
     project_slug = str((item.get("project") or {}).get("slug") or "yoke")
     repo_root = _resolve_repo_root()
-    project_repo, default_branch = _resolve_project_context(
-        int(item["id"]), project_slug, repo_root,
-    )
+    project_repo = repo_root
+    default_branch = ""
+    if project_slug != "yoke":
+        from yoke_core.domain.project_checkout_locations import (
+            checkout_for_project_slug,
+        )
+
+        checkout = checkout_for_project_slug(project_slug)
+        if checkout is None or not Path(checkout).is_dir():
+            raise RuntimeError(
+                f"project '{project_slug}' has no machine-local checkout mapping"
+            )
+        project_repo = Path(checkout)
+        if project_repo.resolve() == repo_root.resolve():
+            raise RuntimeError(
+                f"project '{project_slug}' maps to the Yoke checkout"
+            )
+        default_branch = _resolve_default_branch(project_slug)
     target = target_override or _get_base_branch(default_branch, project_repo)
     return project_repo, target or "main"
 
@@ -196,7 +211,10 @@ def run(argv: List[str]) -> int:
     if claim_error:
         return _fail(f"{item_ref}: {claim_error}", as_json=as_json)
 
-    repo_root, target = _resolve_checkout(item, str(args.target))
+    try:
+        repo_root, target = _resolve_checkout(item, str(args.target))
+    except RuntimeError as exc:
+        return _fail(f"{item_ref}: {exc}", as_json=as_json)
     branch = _lane_branch(item, item_ref)
 
     outcome = merge_standalone_branch(

@@ -189,7 +189,7 @@ def _pass_responses():
     }
 
 
-def _run_preflight(monkeypatch, responses, *, skip_simulation=False):
+def _run_preflight(monkeypatch, responses, *, skip_simulation=False, item_id=None):
     calls = []
 
     def fake(**kwargs):
@@ -201,7 +201,9 @@ def _run_preflight(monkeypatch, responses, *, skip_simulation=False):
     _no_bare_db(monkeypatch)
 
     args = MergeArgs(branch=TEST_ITEM_REF, skip_simulation=skip_simulation)
-    ctx = MergeContext(args=args, worktree_path="/tmp/wt", epic_id="42")
+    ctx = MergeContext(
+        args=args, worktree_path="/tmp/wt", epic_id="42", item_id=item_id
+    )
     result = pf.preflight_checks(ctx)
     return result, calls
 
@@ -267,14 +269,20 @@ class TestPreflightRelays:
         assert "FAIL: Integration dependency gate blocked" in err
         assert "YOK-77" in err and "must land first" in err
 
-    def test_dependency_gate_relay_unavailable_degrades(self, monkeypatch, capsys):
+    @pytest.mark.parametrize(("item_id", "blocked"), [(None, False), (42, True)])
+    def test_dependency_gate_unavailable_respects_item_authority(
+        self, monkeypatch, capsys, item_id, blocked
+    ):
         responses = _pass_responses()
         responses["merge.preflight.dependency_gate"] = _resp(
             "merge.preflight.dependency_gate", success=False
         )
-        result, _ = _run_preflight(monkeypatch, responses)
-        assert result is None  # advisory gate degrades to a skip
-        assert "dependency gate skipped" in capsys.readouterr().out
+        result, calls = _run_preflight(
+            monkeypatch, responses, item_id=item_id
+        )
+        assert (result is not None) is blocked
+        dep_call = next(c for c in calls if c["function_id"].endswith("dependency_gate"))
+        assert dep_call["target"].kind == ("item" if item_id else "global")
 
     def test_blocked_flag_blocks(self, monkeypatch, capsys):
         responses = _pass_responses()

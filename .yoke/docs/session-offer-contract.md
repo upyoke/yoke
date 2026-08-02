@@ -62,6 +62,8 @@ The decision engine derives the required downstream path from `scheduler_context
 | `shepherd` | `shepherd` |
 | `conduct` | `conduct` |
 | `advance` | `advance` |
+| `dash` | `dash` |
+| `blitz` | `blitz` |
 | `polish` | `polish` |
 | `usher` | `usher` |
 

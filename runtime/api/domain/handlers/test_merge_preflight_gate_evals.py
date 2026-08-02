@@ -12,6 +12,7 @@ contract; the relay leg is covered by
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -116,15 +117,79 @@ class TestDependencyGate:
         finally:
             conn.close()
         outcome = gates.handle_dependency_gate(
-            _global_envelope(
-                "merge.preflight.dependency_gate",
-                payload={"item_ref": f"YOK-{item_id}", "gate_point": "integration"},
+            _item_envelope(
+                "merge.preflight.dependency_gate", item_id=item_id,
+                payload={"gate_point": "integration"},
             )
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload["is_blocked"] is False
         assert outcome.result_payload["unsatisfied_blockers"] == []
         gates.DependencyGateResponse(**outcome.result_payload)
+
+    def test_typed_item_target_preserves_external_public_ref(
+        self, db, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from yoke_core.domain import dependency_planning, project_identity
+
+        seen = {}
+        monkeypatch.setattr(
+            project_identity,
+            "render_item_ref",
+            lambda _conn, _id, **_kwargs: "EXT-5",
+        )
+        monkeypatch.setattr(
+            dependency_planning,
+            "evaluate_item_gate",
+            lambda _conn, item_ref, gate_point: (
+                seen.update(item_ref=item_ref, gate_point=gate_point)
+                or SimpleNamespace(is_blocked=False, unsatisfied_blockers=[])
+            ),
+        )
+
+        outcome = gates.handle_dependency_gate(
+            _item_envelope(
+                "merge.preflight.dependency_gate",
+                item_id=5,
+                payload={"gate_point": "integration"},
+            )
+        )
+        assert outcome.primary_success, outcome.error
+        assert seen == {"item_ref": "EXT-5", "gate_point": "integration"}
+
+    def test_missing_typed_item_identity_fails_closed(self, db):
+        outcome = gates.handle_dependency_gate(
+            _item_envelope(
+                "merge.preflight.dependency_gate",
+                item_id=999_999,
+                payload={"gate_point": "integration"},
+            )
+        )
+        assert not outcome.primary_success
+        assert outcome.error is not None
+        assert outcome.error.code == "dependency_gate_failed"
+        assert "item identity not found" in outcome.error.message
+
+    def test_failed_typed_item_identity_read_fails_closed(
+        self, db, monkeypatch: pytest.MonkeyPatch,
+    ):
+        from yoke_core.domain import project_identity
+
+        def fail_identity(*_args, **_kwargs):
+            raise RuntimeError("identity read unavailable")
+
+        monkeypatch.setattr(project_identity, "render_item_ref", fail_identity)
+        outcome = gates.handle_dependency_gate(
+            _item_envelope(
+                "merge.preflight.dependency_gate",
+                item_id=5,
+                payload={"gate_point": "integration"},
+            )
+        )
+        assert not outcome.primary_success
+        assert outcome.error is not None
+        assert outcome.error.code == "dependency_gate_failed"
+        assert "identity read unavailable" in outcome.error.message
 
     def test_blocked_on_unsatisfied_integration_dependency(self, db):
         dependent, blocking = 9312, 9320
