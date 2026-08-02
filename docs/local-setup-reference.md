@@ -82,6 +82,17 @@ Machine-local runtime context lives in `~/.yoke/config.json`. It owns the
 active env, credential source, temp/cache roots, checkout-to-project
 bindings, board render path, and physical worktree layout.
 
+Its `settings` object owns machine-local runtime tunables only — timeouts,
+retry budgets, guardrail modes, and per-machine thresholds. Every recognized
+key, its source default, and its one-line meaning live in
+`yoke_contracts.machine_config.settings_keys`; an absent key behaves exactly
+like a key set to its default, so the file only needs entries that differ.
+`HC-config-validation` flags two shapes: a key with no reader, and a key that
+duplicates DB authority. The second matters more — once a project id is
+known, routing and project policy resolve from the capability rows below and
+the machine copy is never consulted, so an edit there silently changes
+nothing.
+
 Project-local configuration lives in the project checkout:
 
 - `.yoke/board.json` controls board rendering appearance and behavior.
@@ -95,8 +106,9 @@ Project-local configuration lives in the project checkout:
 Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
-  `default_priority`, `merge_conflict_threshold`, `max_attempts`, and
-  `file_line_limit`.
+  `default_priority`, `merge_conflict_threshold`, and `max_attempts`. The
+  authored-file line limit is not among them: it must hold in a fresh clone
+  with no DB reachable, so it is checked-in project-file policy.
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 
