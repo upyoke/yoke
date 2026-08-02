@@ -7,6 +7,7 @@ from dataclasses import replace
 import pytest
 
 from runtime.api.fixtures import pg_testdb
+from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 from yoke_core.domain import db_backend
 from yoke_core.domain.github_app_user_verification import (
@@ -15,6 +16,7 @@ from yoke_core.domain.github_app_user_verification import (
 from yoke_core.domain.project_github_binding import cmd_bind_project_repo
 from yoke_core.domain.projects_crud import cmd_get
 from yoke_core.domain.projects_github_sync_mode_repair import (
+    REPAIR_ACTION_CLEAR_COMPACT_PENDING,
     REPAIR_ACTION_CLEAR_REPO_PROJECTION,
     REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION,
     REPAIR_ACTION_SET_DISABLED,
@@ -253,5 +255,95 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
             "normalized": 0,
             "projects": [],
         }
+    finally:
+        conn.close()
+
+
+def test_repair_clears_stranded_compact_pending_on_disabled_projects(project_db):
+    conn = pg_testdb.connect_test_database(project_db)
+    try:
+        conn.execute(
+            "INSERT INTO projects "
+            "(id, slug, name, public_item_prefix, github_sync_mode, created_at) "
+            "VALUES (503, 'sync-off', 'Sync Off', 'SOF', "
+            "'disabled', '2026-01-01T00:00:00Z')"
+        )
+        conn.commit()
+        for item_id, pending in (
+            (9101, "2026-05-15T01:42:08Z"),
+            (9102, "2026-06-16T04:41:57Z"),
+            (9103, None),
+        ):
+            insert_item(
+                conn,
+                id=item_id,
+                title=f"Item {item_id}",
+                status="done",
+                project_id=503,
+                project_sequence=item_id,
+                github_body_compact_pending=pending,
+            )
+
+        preview = cmd_repair_unbound_enabled_sync_modes(
+            project="sync-off", conn=conn
+        )
+
+        assert preview["matched"] == 1
+        assert preview["projects"][0]["actions"] == [
+            {
+                "action": REPAIR_ACTION_CLEAR_COMPACT_PENDING,
+                "table": "items",
+                "column": "github_body_compact_pending",
+                "items": 2,
+            }
+        ]
+
+        repaired = cmd_repair_unbound_enabled_sync_modes(
+            project="sync-off", apply=True, conn=conn
+        )
+        assert repaired["normalized"] == 1
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM items WHERE project_id=503 "
+                "AND github_body_compact_pending IS NOT NULL"
+            ).fetchone()[0]
+            == 0
+        )
+
+        repeated = cmd_repair_unbound_enabled_sync_modes(
+            project="sync-off", apply=True, conn=conn
+        )
+        assert repeated["matched"] == 0
+    finally:
+        conn.close()
+
+
+def test_repair_keeps_compact_pending_on_enabled_project(project_db):
+    _bind("yoke", replace(_verified(), repository_id="7702", github_repo="Example/Yoke"))
+    conn = pg_testdb.connect_test_database(project_db)
+    try:
+        conn.execute(
+            "UPDATE projects SET github_sync_mode='enabled' WHERE slug='yoke'"
+        )
+        conn.commit()
+        insert_item(
+            conn,
+            id=9201,
+            title="Still syncing",
+            status="done",
+            project_id=1,
+            project_sequence=9201,
+            github_body_compact_pending="2026-06-16T04:41:57Z",
+        )
+
+        report = cmd_repair_unbound_enabled_sync_modes(project="yoke", conn=conn)
+
+        assert report["matched"] == 0
+        assert (
+            conn.execute(
+                "SELECT github_body_compact_pending FROM items WHERE id=9201"
+            ).fetchone()[0]
+            is not None
+        )
     finally:
         conn.close()
