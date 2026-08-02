@@ -56,12 +56,10 @@ def _non_terminal_claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
         p = _p(conn)
         rows = conn.execute(
             "SELECT id FROM path_claims "
-            "WHERE ("
-            f"(owner_kind = 'item' AND owner_item_id = {p}) OR "
-            f"(owner_kind IS NULL AND item_id = {p})"
-            ") AND state IN "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND state IN "
             "('planned', 'blocked', 'active')",
-            (item_id, item_id),
+            (item_id,),
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []

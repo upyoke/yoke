@@ -1133,7 +1133,6 @@ Every table in yoke.db needs an explicit decision: does it need a `project` colu
 | `items` | YES | Add `items.project` column — already specced in Part 2 |
 | `ouroboros_entries` | YES — gap | See below |
 | `release_entries` | YES — gap | See below |
-| `wrapup_reports` | YES — gap | See below |
 | `conduct_progress` | NO | Conduct progress is per-sprint-track, not per-project. Items already carry project. |
 | `conduct_batch_summaries` | NO | Same — sprint/track scoped, items carry project |
 | `shepherd_verdicts` | NO | Verdict is per-item. Item carries project. Query by item to get project context. |
@@ -1174,16 +1173,6 @@ Every table in yoke.db needs an explicit decision: does it need a `project` colu
 **Decision:** Add `project TEXT NOT NULL DEFAULT 'yoke' REFERENCES projects(id)` to `release_entries`. Backfill via migration (join through items). Update `release-notes-db.sh` and `done-transition.sh` to write project when recording release entries. Update release-notes SKILL.md to support `--project` filter.
 
 **New ticket:** O-2 — release_entries.project column + filter support
-
----
-
-### wrapup_reports — needs project awareness
-
-**The gap:** `wrapup_reports` is a session-level document. A session that worked on Buzz items should note that in the wrapup — what projects were touched, how many items per project completed, etc. Right now wrapup is purely Yoke-centric.
-
-**Decision:** Wrapup reports are session-scoped, not project-scoped, so no `project` column needed. But the wrapup SKILL.md should be updated to include a "Projects touched this session" summary section derived from querying items completed during the session by project. No schema change needed — the data is already in items.
-
-**Impact:** Update wrapup SKILL.md only. Low effort.
 
 ---
 
@@ -1424,7 +1413,6 @@ Every existing ticket and PAD item, with its disposition under the new architect
 | **MAJOR GOAL 3: Integrate with Buzz** | Covered by Epic E. A-2 seeds Buzz config. E-1 is the validation item. Remove from PAD major goals. |
 | **Ephemeral environments on demand** | Covered by Epic F. Remove from PAD. |
 | **Run all test suites / health checks** | Operational note, not a ticket. Keep in PAD as operator runbook. |
-| **"duplicate wrapup skipped" error** | File as new ticket. Not covered in master plan. See O-14 below. |
 | **Branding: rename to Ouroboros** | **DEAD permanently.** Remove from PAD entirely. Yoke is Yoke. |
 | **Stock portfolio ideas** | Unrelated. Remove from PAD (or move to personal notes). |
 | **Ouroboros product vision + goals framework** | **KEEP in PAD.** One concrete ticket when ready: "add Strategic Alignment section to PRD template." Deferred. |
@@ -1468,7 +1456,6 @@ These are net-new tickets identified in this section that were not in the origin
 | O-11 | Update weave SKILL.md to invoke Usher after each merge | High | C-3 |
 | O-12 | Update standup + status SKILL.md for deployment pipeline state | Low | B-3 |
 | O-13 | Per-project GitHub repo config (github_repo_url on projects table) | Medium | A-1 |
-| O-14 | Fix "duplicate wrapup skipped" error in /yoke wrapup | Low | None |
 | O-15 | YOK-407 body update: remove client project framework sub-scope, add project field requirement to agent_events | Low | None (before YOK-407 ships) |
 
 ---
@@ -2574,7 +2561,6 @@ All migrations applied to `yoke.db` AND seed scripts updated for persistence:
 
 ### Items Already Done (v2 delta listed as open, but completed before this session)
 
-- YOK-570: duplicate wrapup fix — **done**
 - YOK-572: ouroboros_entries.project — **done**
 - YOK-573: release_entries.project — **done**
 - YOK-583: Bash tool truncation in weave — **done**

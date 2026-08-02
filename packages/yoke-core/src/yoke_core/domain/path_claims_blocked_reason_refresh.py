@@ -216,7 +216,7 @@ def refresh_blocked_reason_for_edge_change(
     affected_pair = {int(dependent_item_id), int(blocking_item_id)}
     try:
         rows = conn.execute(
-            "SELECT id, blocked_reason, integration_target, item_id "
+            "SELECT id, blocked_reason, integration_target, owner_item_id "
             "FROM path_claims WHERE state = 'blocked' ORDER BY id"
         ).fetchall()
     except db_backend.operational_error_types(conn):

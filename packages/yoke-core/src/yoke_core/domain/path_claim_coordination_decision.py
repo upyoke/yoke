@@ -68,14 +68,15 @@ def _read_spec(item_id: int) -> str:
 
 def _conflicting_claim_row(conn: Any, claim_id: int) -> dict:
     row = conn.execute(
-        "SELECT id, state, item_id, integration_target FROM path_claims "
-        f"WHERE id = {_p(conn)}", (claim_id,),
+        "SELECT id, state, owner_item_id, integration_target FROM path_claims "
+        "WHERE owner_kind = 'item' "
+        f"AND id = {_p(conn)}", (claim_id,),
     ).fetchone()
     if row is None:
         raise ValueError(f"path_claim {claim_id} not found")
     return {
         "id": int(row["id"]), "state": str(row["state"]),
-        "item_id": int(row["item_id"]) if row["item_id"] is not None else 0,
+        "item_id": int(row["owner_item_id"]) if row["owner_item_id"] is not None else 0,
         "integration_target": str(row["integration_target"]),
     }
 

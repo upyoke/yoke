@@ -42,11 +42,11 @@ def _seed_claim(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
-        "registered_at, blocked_reason) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, blocked_reason) "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (state, actor, item_id, blocked_reason),
+        (state, item_id, actor, blocked_reason),
     )
     cid = int(cur.fetchone()[0])
     if state == "active":
@@ -207,13 +207,14 @@ class TestIdempotence:
         # resurrected from cancelled to planned.
         cur = conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, "
-            "registered_at, blocked_reason, cancelled_at, cancel_reason) "
-            "VALUES ('cancelled', 'exclusive', %s, %s, 'main', "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at, blocked_reason, cancelled_at, "
+            "cancel_reason) "
+            "VALUES ('cancelled', 'exclusive', 'item', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', %s, '2026-05-01T03:00:00Z', "
             "'abandoned') RETURNING id",
             (
-                local_human(conn), cancelled_item,
+                cancelled_item, local_human(conn),
                 f"serial-via-dependency on path_claims.id={upstream}",
             ),
         )

@@ -25,7 +25,6 @@ def _insert_item(
     title: str,
     status: str,
     priority: str,
-    flow: str,
     rework_count: int,
     frozen: int,
     github_issue: Optional[str],
@@ -57,7 +56,7 @@ def _insert_item(
     owner_value = owner if owner is not None else source
     conn.execute(
         """INSERT INTO items (
-            id, title, status, priority, flow,
+            id, title, status, priority,
             rework_count, frozen,
             github_issue, deployed_to,
             created_at, updated_at, source, owner,
@@ -67,14 +66,13 @@ def _insert_item(
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s
+            %s
         )""",
         (
             item_id,
             title,
             status,
             priority,
-            flow,
             rework_count,
             frozen,
             github_issue,

@@ -108,7 +108,7 @@ def _flag_stale_blocked_reason(conn) -> list[str]:
     rows = query_rows(
         conn,
         "SELECT pc.id AS claim_id, pc.blocked_reason AS blocked_reason, "
-        "pc.item_id AS item_id, pc.integration_target AS target "
+        "pc.owner_item_id AS item_id, pc.integration_target AS target "
         "FROM path_claims pc "
         "WHERE pc.state = 'blocked' "
         f"AND pc.blocked_reason LIKE {p} "

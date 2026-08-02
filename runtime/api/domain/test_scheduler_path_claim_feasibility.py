@@ -46,9 +46,12 @@ CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
     state TEXT NOT NULL DEFAULT 'planned',
     mode TEXT NOT NULL DEFAULT 'exclusive',
-    actor_id INTEGER NOT NULL REFERENCES actors(id),
-    session_id TEXT REFERENCES harness_sessions(session_id),
-    item_id INTEGER,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
+    owner_session_id TEXT,
+    owner_work_claim_id INTEGER,
+    registered_by_actor_id INTEGER,
+    registered_by_session_id TEXT,
     integration_target TEXT NOT NULL,
     registered_at TEXT NOT NULL,
     activated_at TEXT,
@@ -127,8 +130,10 @@ def _insert_target(conn, target_id, path_string, parent=None):
 def _insert_claim(conn, claim_id, item_id, state, *, integration_target="main"):
     conn.execute(
         "INSERT INTO path_claims "
-        "(id, state, mode, actor_id, item_id, integration_target, registered_at) "
-        "VALUES (%s, %s, 'exclusive', 1, %s, %s, '2026-05-19T00:00:00Z')",
+        "(id, state, mode, owner_kind, owner_item_id, "
+        "registered_by_actor_id, integration_target, registered_at) "
+        "VALUES (%s, %s, 'exclusive', 'item', %s, 1, %s, "
+        "'2026-05-19T00:00:00Z')",
         (claim_id, state, item_id, integration_target),
     )
 

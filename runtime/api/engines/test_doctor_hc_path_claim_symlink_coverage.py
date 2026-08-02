@@ -32,7 +32,7 @@ CREATE TABLE items (
 CREATE TABLE path_targets (
     id INTEGER PRIMARY KEY, project_id INTEGER, path_string TEXT);
 CREATE TABLE path_claims (
-    id INTEGER PRIMARY KEY, item_id INTEGER, state TEXT,
+    id INTEGER PRIMARY KEY, owner_kind TEXT, owner_item_id INTEGER, state TEXT,
     mode TEXT, integration_target TEXT);
 CREATE TABLE path_claim_targets (
     claim_id INTEGER, target_id INTEGER,
@@ -92,8 +92,9 @@ def _seed_claim(
     claim_id: int, item_id: int, target_ids: list[int],
 ) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, item_id, state, mode, integration_target) "
-        "VALUES (%s, %s, 'active', 'exclusive', 'main')",
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state, mode, integration_target) "
+        "VALUES (%s, 'item', %s, 'active', 'exclusive', 'main')",
         (claim_id, item_id),
     )
     for tid in target_ids:

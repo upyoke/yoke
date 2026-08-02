@@ -98,7 +98,8 @@ def cancel_superseded_exceptions(
     rows = conn.execute(
         "SELECT path_claims.id FROM path_claims "
         f"{join}"
-        f"WHERE path_claims.item_id = {marker} "
+        f"WHERE path_claims.owner_kind = 'item' "
+        f"AND path_claims.owner_item_id = {marker} "
         f"AND path_claims.integration_target = {marker} "
         "AND mode = 'exception' "
         f"AND state IN ({placeholders}) "
@@ -149,7 +150,8 @@ def _existing_concrete_claim_ids(
     placeholders = ",".join(marker for _ in _NON_TERMINAL_STATES)
     rows = conn.execute(
         "SELECT id FROM path_claims "
-        f"WHERE item_id = {marker} AND integration_target = {marker} "
+        f"WHERE owner_kind = 'item' AND owner_item_id = {marker} "
+        f"AND integration_target = {marker} "
         "AND mode <> 'exception' "
         f"AND state IN ({placeholders}) "
         "ORDER BY id",

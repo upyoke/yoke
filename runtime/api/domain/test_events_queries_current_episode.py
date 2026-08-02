@@ -61,7 +61,6 @@ CREATE TABLE events (
     duration_ms INTEGER,
     exit_code INTEGER,
     trace_id TEXT,
-    parent_id TEXT,
     anomaly_flags TEXT,
     envelope TEXT,
     hook_event_name TEXT,

@@ -32,7 +32,7 @@ from typing import Iterable, Sequence
 # Project-local board and backlog views are untracked/generated. No
 # classification is needed for untracked files.
 #
-# ouroboros/health/* and ouroboros/wrapups/* are now gitignored
+# ouroboros/health/* is now gitignored
 # -- no classification needed.
 YOKE_MANAGED_PATTERNS: tuple[str, ...] = (
     "ouroboros/simulation-*.md",

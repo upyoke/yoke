@@ -53,13 +53,10 @@ For each cluster, synthesize a summary that captures the core observation across
 
 ## 3. For Each Actionable Cluster, Validate Against Current Code, Check For Duplicates, And Propose An Output
 
-### Optional wrapup context
+### Optional session continuity context
 
-```bash
-yoke ouroboros wrapup list
-```
-
-If wrapup reports exist, use them as additional context. If the query returns no results or fails, proceed without them.
+Review recent item Progress Log entries and Ouroboros field-notes when they
+provide useful context. If no relevant continuity exists, proceed without it.
 
 ### a. Duplicate check
 

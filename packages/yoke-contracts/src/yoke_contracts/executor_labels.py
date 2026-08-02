@@ -50,7 +50,7 @@ EXECUTOR_EMOJI: Dict[str, str] = {
     "codex-vscode": "\U0001fa84",    # magic wand
     "codex-cli": "\U0001f4e0",       # fax
     "cursor": "\U0001f3af",          # direct hit (coarse Cursor family)
-    "cursor-ide": "\U0001f4d0",      # triangular ruler (IDE surface)
+    "cursor-desktop": "\U0001f4d0",  # triangular ruler (desktop IDE surface)
     "cursor-cli": "\U0001f9ed",      # compass (terminal agent surface)
 }
 """Board glyph per known executor label — the vocabulary's one listing."""

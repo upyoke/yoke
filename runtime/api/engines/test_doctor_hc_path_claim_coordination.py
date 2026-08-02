@@ -28,7 +28,8 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _DDL = """
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY, state TEXT NOT NULL,
-    mode TEXT NOT NULL DEFAULT 'exclusive', item_id INTEGER,
+    mode TEXT NOT NULL DEFAULT 'exclusive', owner_kind TEXT,
+    owner_item_id INTEGER,
     integration_target TEXT NOT NULL, blocked_reason TEXT
 );
 CREATE TABLE path_claim_targets (
@@ -63,8 +64,8 @@ def _seed_claim(
     mode: str = "exclusive", blocked_reason: str | None = None,
 ) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, state, mode, item_id, "
-        "integration_target, blocked_reason) VALUES (%s, %s, %s, %s, 'main', %s)",
+        "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id, "
+        "integration_target, blocked_reason) VALUES (%s, %s, %s, 'item', %s, 'main', %s)",
         (claim_id, state, mode, claim_id + 8000, blocked_reason),
     )
     conn.execute(

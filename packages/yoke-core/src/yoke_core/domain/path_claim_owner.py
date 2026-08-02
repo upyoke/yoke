@@ -26,23 +26,16 @@ for it:
      (may be ``NULL`` when the registration happened without a live
      harness session — e.g., a background scheduler).
 
-The legacy columns ``actor_id``, ``session_id``, ``item_id``, and
-``work_claim_id`` remain on the table during the cutover for backwards-
-compatibility. They are populated alongside the typed owner columns by
-writers and the backfill migration. **New readers MUST prefer the
-typed owner columns** — ``HC-path-claim-owner-kind`` flags non-terminal
-rows that do not satisfy the typed contract.
-
 This module owns:
 
 - The closed enum of valid owner kinds.
 - ``validate_owner`` — refuse owner_kind / owner-field combos that
   break the typed contract.
-- ``classify_backfill`` — deterministic classification of a legacy row
-  by its non-typed columns, used by the one-shot migration and by the
-  doctor HC. Refuses to guess on contradictory rows.
-- ``owner_columns_for_kind`` — for writers, which legacy + typed
-  columns to populate given an owner kind.
+- ``classify_backfill`` — deterministic classification of a pre-cutover
+  row by its former ownership signals, used only by the migration. Refuses
+  to guess on contradictory rows.
+- ``owner_columns_for_kind`` — for writers, which typed columns to
+  populate given an owner kind.
 """
 
 from __future__ import annotations
@@ -211,17 +204,9 @@ def owner_from_row(row: Mapping[str, Any]) -> Optional[Owner]:
 
 
 def provenance_from_row(row: Mapping[str, Any]) -> Provenance:
-    """Extract provenance fields from a row, preferring registered_by_*.
-
-    Falls back to the legacy ``actor_id`` / ``session_id`` columns
-    during cutover when ``registered_by_*`` are still NULL.
-    """
+    """Extract registration provenance from a typed path-claim row."""
     actor_id = row.get("registered_by_actor_id")
-    if actor_id is None:
-        actor_id = row.get("actor_id")
     session = row.get("registered_by_session_id")
-    if session is None:
-        session = row.get("session_id")
     return Provenance(
         actor_id=int(actor_id) if actor_id is not None else 0,
         session_id=str(session) if session else None,
@@ -236,9 +221,8 @@ def derive_owner_from_signals(
 ) -> Optional[Owner]:
     """Derive typed owner from register-time signals (priority: item > process > session).
 
-    Returns ``None`` when no signals are present — the row is registered
-    with ``owner_kind=NULL`` for legacy compatibility and surfaced by
-    ``HC-path-claim-owner-kind`` at doctor time.
+    Raises when no owner signal is present; every new row must have a
+    typed authority owner.
     """
     if item_id is not None:
         return Owner(kind=OWNER_KIND_ITEM, item_id=int(item_id))
@@ -246,7 +230,9 @@ def derive_owner_from_signals(
         return Owner(kind=OWNER_KIND_PROCESS, work_claim_id=int(work_claim_id))
     if session_id:
         return Owner(kind=OWNER_KIND_SESSION, session_id=str(session_id))
-    return None
+    raise ContradictoryOwnerSignals(
+        "path claim registration requires an item, work claim, or session owner"
+    )
 
 
 _NULL_OWNER_COLS: dict[str, Any] = {
@@ -258,12 +244,7 @@ _NULL_OWNER_COLS: dict[str, Any] = {
 
 
 def owner_columns_for_writer(owner: Owner) -> dict[str, Any]:
-    """Return the column→value mapping for INSERT of typed owner columns.
-
-    Writers compose this with the existing legacy column mapping so
-    both the new typed columns and the legacy compatibility columns
-    are populated in a single INSERT.
-    """
+    """Return the column-to-value mapping for typed owner columns."""
     cols: dict[str, Any] = {
         "owner_kind": owner.kind,
         "owner_item_id": None,

@@ -14,7 +14,6 @@ from yoke_cli.commands.adapters.item_worktrees import (
     item_worktrees_get,
     item_worktrees_release,
 )
-from yoke_cli.commands.adapters.ouroboros_writes import ouroboros_wrapup_save
 from yoke_cli.commands.adapters.projects_infrastructure import (
     projects_infrastructure_list,
 )
@@ -29,6 +28,5 @@ __all__ = [
     "github_actions_variable_delete",
     "item_worktrees_get",
     "item_worktrees_release",
-    "ouroboros_wrapup_save",
     "projects_infrastructure_list",
 ]

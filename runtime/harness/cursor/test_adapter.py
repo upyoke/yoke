@@ -62,7 +62,7 @@ def test_callables_bound_by_reference_not_wrappers() -> None:
 def test_resolve_capability_three_way_family() -> None:
     assert resolve_capability("cursor").family == "cursor"
     assert resolve_capability("cursor-cli").family == "cursor"
-    assert resolve_capability("cursor-ide").family == "cursor"
+    assert resolve_capability("cursor-desktop").family == "cursor"
     assert resolve_capability("codex-desktop").family == "codex"
     assert resolve_capability("claude-code").family == "claude"
 
@@ -75,6 +75,30 @@ def test_deny_renders_permission_envelope_with_agent_message() -> None:
     assert envelope["permission"] == "deny"
     assert envelope["agent_message"] == "blocked: reason"
     assert envelope["user_message"] == "blocked: reason"
+
+
+def test_deny_unwraps_pre_rendered_hook_specific_output_envelope() -> None:
+    # Policy modules may set decision.message to the already-rendered
+    # hookSpecificOutput deny envelope (the Claude/Codex wire shape); the
+    # cursor renderer must carry the plain narrative in both message
+    # fields, never a stringified JSON blob.
+    reason = "BLOCKED: use the yoke CLI instead."
+    pre_rendered = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }
+    )
+    deny = HookDecision(outcome=Outcome.DENY, message=pre_rendered)
+    stdout, exit_code = render_cursor_decision([deny], "PreToolUse")
+    assert exit_code == 0
+    envelope = json.loads(stdout)
+    assert envelope["permission"] == "deny"
+    assert envelope["agent_message"] == reason
+    assert envelope["user_message"] == reason
 
 
 def test_allow_is_explicit_on_permission_events_only() -> None:

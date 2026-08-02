@@ -64,13 +64,14 @@ def _flag_claims(conn) -> list[str]:
     canonical_by_path = _canonical_pairs_by_project(conn)
     rows = query_rows(
         conn,
-        "SELECT pc.id AS claim_id, pc.item_id AS item_id, "
+        "SELECT pc.id AS claim_id, pc.owner_item_id AS item_id, "
         "p.id AS project_id, p.slug AS project, pc.state AS state, "
         "pc.integration_target AS target "
         "FROM path_claims pc "
-        "LEFT JOIN items i ON i.id = pc.item_id "
+        "LEFT JOIN items i ON i.id = pc.owner_item_id "
         "LEFT JOIN projects p ON p.id = i.project_id "
-        "WHERE pc.state IN ('planned','blocked','active') "
+        "WHERE pc.owner_kind = 'item' "
+        "AND pc.state IN ('planned','blocked','active') "
         "AND pc.mode <> 'exception'",
     )
     claim_ids = [

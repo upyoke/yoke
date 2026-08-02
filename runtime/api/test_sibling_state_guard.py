@@ -17,11 +17,10 @@ from __future__ import annotations
 import os
 import sqlite3
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
-from yoke_core.domain import browser_qa_requirement, ouroboros
+from yoke_core.domain import browser_qa_requirement
 from yoke_core.domain.schema import (
     _check_sibling_state_collision,
     check_sibling_state_collision,
@@ -162,35 +161,13 @@ class TestGuardStateDirCreation:
         conn.execute("CREATE TABLE test (id INTEGER)")
         conn.close()
 
-        target = tmp_path / "data" / "ouroboros" / "wrapups"
+        target = tmp_path / "data" / "nested" / "artifacts"
         with pytest.raises(RuntimeError, match="Sibling-state collision"):
-            guard_state_dir_creation(str(target), "ouroboros")
+            guard_state_dir_creation(str(target), "nested_writer")
 
     def test_public_api_matches_private(self):
         """check_sibling_state_collision is the same function as the private alias."""
         assert check_sibling_state_collision is _check_sibling_state_collision
-
-
-class TestGuardedWriterWiring:
-    """Verify state-derived writers actually call the shared collision guard."""
-
-    @staticmethod
-    def _seed_live_sibling_db(tmp_path: Path) -> None:
-        sibling = tmp_path / "yoke"
-        sibling.mkdir()
-        conn = sqlite3.connect(str(sibling / "yoke.db"))
-        conn.execute("CREATE TABLE test (id INTEGER)")
-        conn.close()
-
-    def test_ouroboros_resolver_raises_on_collision(self, tmp_path: Path):
-        """ouroboros._resolve_wrapups_dir should reuse the shared collision guard."""
-        self._seed_live_sibling_db(tmp_path)
-        with mock.patch(
-            "yoke_core.domain.db_helpers.resolve_db_path",
-            return_value=str(tmp_path / "data" / "yoke.db"),
-        ):
-            with pytest.raises(RuntimeError, match="ouroboros._resolve_wrapups_dir"):
-                ouroboros._resolve_wrapups_dir()
 
 
 class TestBrowserQaArtifactPath:

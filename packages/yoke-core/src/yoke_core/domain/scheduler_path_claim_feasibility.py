@@ -63,7 +63,8 @@ def _fetch_candidate_claim(
         p = _p(conn)
         row = conn.execute(
             "SELECT id, integration_target FROM path_claims "
-            f"WHERE item_id = {p} AND mode = 'exclusive' "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND mode = 'exclusive' "
             "AND state IN ('planned','active') "
             "ORDER BY CASE state WHEN 'active' THEN 0 ELSE 1 END, "
             "registered_at DESC LIMIT 1",
@@ -113,8 +114,9 @@ def _enumerate_conflicts(
     p = _p(conn)
     placeholders = ",".join(p for _ in _PROBE_NON_TERMINAL_STATES)
     rows = conn.execute(
-        f"SELECT id, item_id FROM path_claims "
-        f"WHERE integration_target = {p} AND mode = 'exclusive' "
+        f"SELECT id, owner_item_id FROM path_claims "
+        "WHERE owner_kind = 'item' "
+        f"AND integration_target = {p} AND mode = 'exclusive' "
         f"AND state IN ({placeholders}) AND id <> {p}",
         (integration_target, *_PROBE_NON_TERMINAL_STATES, candidate_claim_id),
     ).fetchall()

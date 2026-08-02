@@ -133,7 +133,6 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "duration_ms": rec.duration_ms,
         "exit_code": classified_exit_code,
         "trace_id": None,
-        "parent_id": None,
         "anomaly_flags": anomaly_flags,
         "attribution_source": rec.attribution_source or None,
         "tool_use_id": rec.tool_use_id,

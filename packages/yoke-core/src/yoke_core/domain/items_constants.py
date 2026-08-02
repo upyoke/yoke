@@ -22,7 +22,7 @@ DEFAULT_ITEM_ACTOR_ID = "2"
 # "body" is a virtual field rendered on demand.
 CANONICAL_COLUMNS = (
     "id", "title", "workflow_id", "workflow_version_id",
-    "status", "priority", "flow",
+    "status", "priority",
     "rework_count", "frozen", "github_issue", "deployed_to",
     "body", "merged_at", "created_at", "updated_at", "source",
     "project", "project_id", "project_sequence", "deployment_flow", "deploy_stage",
@@ -34,7 +34,7 @@ _DB_COLUMNS = tuple(c for c in CANONICAL_COLUMNS if c != "body")
 # Columns used in the shorter ``list`` output (16 columns).
 LIST_COLUMNS = (
     "id", "title", "workflow_id", "workflow_version_id",
-    "status", "priority", "flow",
+    "status", "priority",
     "rework_count", "frozen", "github_issue", "deployed_to",
     "body", "merged_at", "created_at", "updated_at",
 )

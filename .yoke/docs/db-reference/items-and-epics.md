@@ -26,12 +26,10 @@ workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id)
 workflow_posture TEXT NOT NULL DEFAULT '{}'
 status TEXT NOT NULL -- current stage in the pinned definition
 priority TEXT NOT NULL DEFAULT 'medium' -- high|medium|low
-flow TEXT DEFAULT 'accelerated'
 rework_count INTEGER DEFAULT 0
 frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT
-worktree TEXT
 body TEXT
 merged_at TEXT
 created_at TEXT NOT NULL
@@ -266,15 +264,6 @@ archived_at TEXT
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-## Table: wrapup_reports
-
-```sql
-id INTEGER PRIMARY KEY
-session_timestamp TEXT NOT NULL UNIQUE -- ISO 8601 timestamp identifying the session
-body TEXT NOT NULL -- full wrapup report content (Markdown)
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-```
-
 ## Table: epic_tasks
 
 ```sql
@@ -291,7 +280,6 @@ body TEXT
 github_issue TEXT
 branch TEXT
 worktree_path TEXT
-blocked_by TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
 last_heartbeat TEXT
