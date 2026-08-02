@@ -36,7 +36,7 @@ def _claim_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "FROM path_claims pc "
         "LEFT JOIN path_claim_targets pct ON pct.claim_id = pc.id "
         "LEFT JOIN path_targets pt ON pt.id = pct.target_id "
-        f"WHERE pc.item_id = {placeholder} "
+        f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {placeholder} "
         f"AND pc.state IN ({state_markers}) "
         "ORDER BY pc.id, pt.path_string",
         (int(item_id), *_NON_TERMINAL_CLAIM_STATES),

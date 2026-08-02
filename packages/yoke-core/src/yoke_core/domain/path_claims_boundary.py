@@ -68,7 +68,7 @@ class BoundaryCheckResult:
 def _project_for_claim(
     conn: Any, claim: dict
 ) -> Optional[int]:
-    item_id = claim.get("item_id")
+    item_id = claim.get("owner_item_id")
     if item_id is None:
         return None
     row = conn.execute(

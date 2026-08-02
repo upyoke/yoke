@@ -130,7 +130,6 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "sites",
     "web_sessions",
     "work_claims",
-    "wrapup_reports",
     "qa_methods",
     "qa_plan_cases",
     "qa_plan_item_attachments",

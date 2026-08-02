@@ -15,16 +15,14 @@ from typing import Any, Mapping, MutableMapping, Sequence
 
 from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
+    PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
+    SESSION_ROUTING_CAPABILITY,
 )
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import row_value
-
-
-PROJECT_POLICY_CAPABILITY = "project-policy"
-SESSION_ROUTING_CAPABILITY = "session-routing"
 
 _INT_POLICY_KEYS = frozenset({
     "wip_cap",
@@ -61,6 +59,7 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
             "refine",
             "polish",
             "usher",
+            "dash",
         ],
     },
     "process_offers": {

@@ -78,15 +78,9 @@ def lock_path_claim_workflow_binding(
     if not _table_exists(conn, "path_claims"):
         return ()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    item_expression = "item_id"
-    if all(
-        _column_exists(conn, "path_claims", column)
-        for column in ("owner_kind", "owner_item_id")
-    ):
-        item_expression = (
-            "CASE WHEN owner_kind = 'item' THEN owner_item_id "
-            "WHEN owner_kind IS NULL THEN item_id ELSE NULL END"
-        )
+    item_expression = (
+        "CASE WHEN owner_kind = 'item' THEN owner_item_id ELSE NULL END"
+    )
     row = conn.execute(
         f"SELECT {item_expression} AS item_id FROM path_claims WHERE id = {marker}",
         (int(claim_id),),

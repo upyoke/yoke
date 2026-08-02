@@ -111,14 +111,14 @@ def bind_claim_to_task(
     )
     marker = _p(conn)
     claim = conn.execute(
-        "SELECT id, item_id, owner_kind, owner_item_id "
+        "SELECT id, owner_kind, owner_item_id "
         f"FROM path_claims WHERE id = {marker}",
         (int(claim_id),),
     ).fetchone()
     if claim is None:
         raise PathClaimTaskBindingError(f"path claim {claim_id} does not exist")
-    owner_kind = _value(claim, "owner_kind", 2)
-    owner_item = _value(claim, "owner_item_id", 3)
+    owner_kind = _value(claim, "owner_kind", 1)
+    owner_item = _value(claim, "owner_item_id", 2)
     if owner_kind != "item" or int(owner_item or -1) != int(item_id):
         raise PathClaimTaskBindingError(
             f"path claim {claim_id} is not item-owned by "

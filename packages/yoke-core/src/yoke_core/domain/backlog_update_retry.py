@@ -15,6 +15,7 @@ def execute_update(
     item_id: int,
     field: str,
     value: str,
+    resolution: Optional[str] = None,
     done_nonce_verified: bool = False,
     force: bool = False,
     qa_bypass: bool = False,
@@ -27,12 +28,19 @@ def execute_update(
     originator_actor_id: Optional[int] = None,
 ) -> dict:
     """Repeat the complete status preflight and update once after drift."""
+    if field == "status" and value == "cancelled":
+        from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
+
+        resolution, reason_error = normalize_cancellation_reason(resolution)
+        if reason_error:
+            return {"success": False, "error": reason_error, "error_code": "VALIDATION_ERROR"}
     result: dict = {}
     for _attempt in range(2):
         result = _execute_update_once(
             item_id=item_id,
             field=field,
             value=value,
+            resolution=resolution,
             done_nonce_verified=done_nonce_verified,
             force=force,
             qa_bypass=qa_bypass,

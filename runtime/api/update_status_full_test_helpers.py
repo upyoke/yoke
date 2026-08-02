@@ -93,12 +93,12 @@ class UpdateStatusEnv:
         conn.execute(
             "INSERT INTO items"
             " (id, title, workflow_id, workflow_version_id, status, priority,"
-            "  flow, rework_count, frozen,"
+            "  rework_count, frozen,"
             "  created_at, updated_at, project_id, project_sequence)"
             " VALUES (42, 'Test Epic Item', 'epic',"
             " (SELECT current_version_id FROM workflows WHERE id='epic'),"
             " 'implementing', 'medium',"
-            " 'accelerated', 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1, 42)"
+            " 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1, 42)"
             f" ON CONFLICT (id) DO UPDATE SET {_ITEM_UPSERT_SET}"
         )
         for row in [

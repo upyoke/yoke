@@ -8,10 +8,12 @@ from functools import wraps
 from threading import Lock
 from typing import Any, Callable, Optional
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import control_plane_transport, db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.project_identity import resolve_project
 
+
+RECORD_FUNCTION_ID = "projects.github_sync_receipt.record"
 
 _MAX_TRACKED_TOKENS = 256
 _token_projects: OrderedDict[str, tuple[str, Optional[str]]] = OrderedDict()
@@ -50,25 +52,50 @@ def record_installation_token_result(
     if target is None:
         return False
     project, db_path = target
-    conn = None
+    conn = control_plane_transport.local_connection_or_none(
+        lambda: connect(db_path)
+    )
+    if conn is None:
+        # No local authority — an https control plane is the ordinary case
+        # here, not a failure, so the receipt relays rather than being lost.
+        try:
+            return bool(
+                control_plane_transport.relay(
+                    RECORD_FUNCTION_ID,
+                    {"project": project, "outcome": outcome, "error": error},
+                ).get("recorded")
+            )
+        except Exception:
+            return False
     try:
-        conn = connect(db_path)
-        identity = resolve_project(conn, project, required=True)
-        assert identity is not None
-        placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        conn.execute(
-            "UPDATE project_github_repo_bindings SET "
-            f"last_sync_at={placeholder}, last_sync_outcome={placeholder}, "
-            f"last_sync_error={placeholder} WHERE project_id={placeholder}",
-            (iso8601_now(), outcome, error if outcome == "failed" else "", identity.id),
+        return record_over_connection(
+            conn, project, outcome=outcome, error=error,
         )
-        conn.commit()
-        return True
     except Exception:
         return False
     finally:
-        if conn is not None:
-            conn.close()
+        conn.close()
+
+
+def record_over_connection(
+    conn: Any,
+    project: str,
+    *,
+    outcome: str,
+    error: str = "",
+) -> bool:
+    """Stamp the terminal sync result through an already-open connection."""
+    identity = resolve_project(conn, project, required=True)
+    assert identity is not None
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    conn.execute(
+        "UPDATE project_github_repo_bindings SET "
+        f"last_sync_at={placeholder}, last_sync_outcome={placeholder}, "
+        f"last_sync_error={placeholder} WHERE project_id={placeholder}",
+        (iso8601_now(), outcome, error if outcome == "failed" else "", identity.id),
+    )
+    conn.commit()
+    return True
 
 
 def with_installation_token_receipt(
@@ -103,7 +130,9 @@ def _token_digest(token: str) -> str:
 
 
 __all__ = [
+    "RECORD_FUNCTION_ID",
     "record_installation_token_result",
+    "record_over_connection",
     "register_installation_token",
     "with_installation_token_receipt",
 ]

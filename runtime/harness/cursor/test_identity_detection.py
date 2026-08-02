@@ -19,7 +19,7 @@ BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])
 def test_is_cursor_matches_coarse_and_surfaces(identity) -> None:
     assert identity.is_cursor("cursor")
     assert identity.is_cursor("cursor-cli")
-    assert identity.is_cursor("cursor-ide")
+    assert identity.is_cursor("cursor-desktop")
     assert not identity.is_cursor("codex")
     assert not identity.is_cursor("claude-code")
     assert not identity.is_cursor(None)
@@ -37,7 +37,7 @@ def test_canonical_harness_id_maps_cursor(identity) -> None:
 @BOTH
 def test_compose_executor_from_entrypoint(identity) -> None:
     assert identity.compose_executor_from_entrypoint("cursor", "cursor-cli") == "cursor-cli"
-    assert identity.compose_executor_from_entrypoint("cursor", "ide") == "cursor-ide"
+    assert identity.compose_executor_from_entrypoint("cursor", "desktop") == "cursor-desktop"
     assert identity.compose_executor_from_entrypoint("cursor", None) == "cursor"
 
 
@@ -49,7 +49,7 @@ def test_detect_executor_cursor_env(identity, monkeypatch: pytest.MonkeyPatch) -
     assert identity.detect_executor() == "cursor-cli"
     monkeypatch.delenv("CURSOR_INVOKED_AS")
     monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", "/x/abc/abc.jsonl")
-    assert identity.detect_executor() == "cursor-ide"
+    assert identity.detect_executor() == "cursor-desktop"
     # Pin still wins over ambient Cursor markers.
     monkeypatch.setenv("YOKE_EXECUTOR", "cursor")
     assert identity.detect_executor() == "cursor"
@@ -75,4 +75,4 @@ def test_detect_entrypoint_cursor_surfaces(
     assert identity.detect_entrypoint() == "cursor-cli"
     monkeypatch.delenv("CURSOR_INVOKED_AS")
     monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", "/x/abc/abc.jsonl")
-    assert identity.detect_entrypoint() == "cursor-ide"
+    assert identity.detect_entrypoint() == "cursor-desktop"

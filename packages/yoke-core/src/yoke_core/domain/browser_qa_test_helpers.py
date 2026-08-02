@@ -31,10 +31,10 @@ def _seed_item(db_path: str, item_id: int, title: str = "Test item") -> None:
         f"""
         INSERT INTO items (
             id, title, workflow_id, workflow_version_id, status, priority,
-            flow, rework_count, frozen,
+            rework_count, frozen,
             created_at, updated_at, source, project_id, project_sequence
         ) VALUES ({p}, {p}, {p}, {p}, 'reviewing-implementation', 'high',
-                  'accelerated', 0, 0, {p}, {p}, 'user', 1, {p})
+                  0, 0, {p}, {p}, 'user', 1, {p})
         """,
         (
             item_id,

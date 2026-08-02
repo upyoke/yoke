@@ -64,7 +64,8 @@ def _path_claims(conn: Any, item_id: int) -> dict[str, Any]:
     marker = _p(conn)
     rows = conn.execute(
         "SELECT state, COUNT(*) AS total FROM path_claims "
-        f"WHERE item_id = {marker} GROUP BY state ORDER BY state",
+        f"WHERE owner_kind = 'item' AND owner_item_id = {marker} "
+        "GROUP BY state ORDER BY state",
         (item_id,),
     ).fetchall()
     states = {str(row[0]): int(row[1]) for row in rows}

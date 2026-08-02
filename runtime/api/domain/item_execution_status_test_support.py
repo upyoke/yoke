@@ -25,7 +25,7 @@ CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
     target_kind TEXT, item_id INTEGER, claim_type TEXT,
     claimed_at TEXT, last_heartbeat TEXT, released_at TEXT);
 CREATE TABLE path_claims (id INTEGER PRIMARY KEY, state TEXT,
-    blocked_reason TEXT, item_id INTEGER);
+    blocked_reason TEXT, owner_kind TEXT, owner_item_id INTEGER);
 CREATE TABLE item_sections (item_id INTEGER, section_name TEXT,
     content TEXT, updated_at TEXT, PRIMARY KEY (item_id, section_name));
 CREATE TABLE item_status_transitions (id INTEGER PRIMARY KEY,

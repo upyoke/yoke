@@ -18,7 +18,8 @@ from yoke_core.domain.lint_worktree_path_invariants import (
 _SCHEMA_DDL = """
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
-    item_id INTEGER NOT NULL,
+    owner_kind TEXT NOT NULL,
+    owner_item_id INTEGER NOT NULL,
     state TEXT NOT NULL
 );
 CREATE TABLE path_claim_targets (
@@ -64,7 +65,8 @@ def seed_claim(
     paths: list[str],
 ) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, item_id, state) VALUES (%s, %s, %s)",
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) VALUES (%s, 'item', %s, %s)",
         (claim_id, item_id, state),
     )
     for p in paths:

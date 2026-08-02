@@ -120,6 +120,20 @@ BUILTIN_QA_METHODS = (
         "evidence_contract": "exit code · captured output tail",
     },
     {
+        "id": "command-ci",
+        "name": "Command (CI)",
+        "description": (
+            "Run the project's deterministic commands on its CI workflow — "
+            "the run's conclusion is the verdict, its URL and head sha are "
+            "the evidence."
+        ),
+        "executor_id": "ci_run",
+        "required_capability_kind": None,
+        "verdict_path": "automatic",
+        "verdict_contract": "workflow run concluded success = pass",
+        "evidence_contract": "run url · head sha · run conclusion",
+    },
+    {
         "id": "browser-check",
         "name": "Browser check",
         "description": (

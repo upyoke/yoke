@@ -78,7 +78,7 @@ def _claim_covers_arch_surface(
             f"SELECT pt.path_string FROM path_claim_targets pct "
             "JOIN path_claims pc ON pc.id = pct.claim_id "
             "JOIN path_targets pt ON pt.id = pct.target_id "
-            f"WHERE pc.item_id = {p} "
+            f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p} "
             "AND pc.state IN ('planned', 'active', 'blocked')",
             (item_id,),
         ).fetchall()

@@ -278,6 +278,16 @@ a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
 at the same time. Isolation comes from the database names rather than from a
 cluster per run:
 
+Correctness is not the same as capacity, though. *Heavy* invocations —
+anything sweeping directories rather than named files — additionally queue
+behind the machine-wide admission slot (`yoke_core.tools.gate_admission`), so
+one heavy gate runs at a time and a queued one reports who holds the slot and
+how many runs are behind it. Every wrapper-driven path arbitrates for that
+slot; a bare `python3 -m pytest <dirs>` does not, which is why
+`lint-raw-pytest-full-suite` denies the whole-verification-surface shape
+outside the wrapper and advises on any other directory sweep. Run sweeps
+through `yoke watch pytest`; file-scoped runs stay unqueued and free.
+
 - Every database an invocation creates carries that invocation's run tag,
   minted once and published through `YOKE_TEST_RUN_TAG` so pytest-xdist
   workers share their controller's identity.

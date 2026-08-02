@@ -46,7 +46,6 @@ def event_insert_params(
         envelope.get("duration_ms"),
         envelope.get("exit_code"),
         envelope.get("trace_id"),
-        envelope.get("parent_id"),
         envelope.get("anomaly_flags"),
         envelope.get("tool_use_id"),
         envelope.get("turn_id"),

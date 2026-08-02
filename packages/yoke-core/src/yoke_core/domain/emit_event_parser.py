@@ -65,7 +65,6 @@ def build_parser() -> EmitEventArgumentParser:
     parser.add_argument("--duration-ms", type=int)
     parser.add_argument("--exit-code", type=int)
     parser.add_argument("--trace-id", default="")
-    parser.add_argument("--parent-id", default="")
     parser.add_argument("--anomaly-flags", default="")
     parser.add_argument("--tool-use-id", default="")
     parser.add_argument("--turn-id", default="")

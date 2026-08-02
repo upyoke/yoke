@@ -65,7 +65,8 @@ def _item_project_id(conn: Any, item_id: int) -> int:
 
 def _claim_ids(conn: Any, item_id: int) -> set[int]:
     rows = conn.execute(
-        f"SELECT id FROM path_claims WHERE item_id = {_p(conn)}",
+        f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        f"AND owner_item_id = {_p(conn)}",
         (int(item_id),),
     ).fetchall()
     return {int(row[0]) for row in rows}

@@ -313,8 +313,6 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_ITEMS_WRITE
     if fid.startswith("ouroboros.entry."):
         return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
-    if fid.startswith("ouroboros.wrapup."):
-        return PERM_EVENTS_WRITE if entry.side_effects else PERM_EVENTS_READ
     if fid.startswith("shepherd."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("qa."):

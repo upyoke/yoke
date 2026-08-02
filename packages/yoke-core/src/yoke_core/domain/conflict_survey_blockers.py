@@ -84,13 +84,12 @@ def _path_claim_blockers(
     state_markers = ", ".join(marker for _ in _NON_TERMINAL_CLAIM_STATES)
     rows = _dict_rows(
         conn.execute(
-            "SELECT pc.id, pc.state, pc.owner_item_id, pc.item_id, "
+            "SELECT pc.id, pc.state, pc.owner_item_id, "
             "COALESCE(owner.frozen, 0) AS owner_frozen, pt.path_string "
             "FROM path_claims pc "
             "JOIN path_claim_targets pct ON pct.claim_id = pc.id "
             "JOIN path_targets pt ON pt.id = pct.target_id "
-            "LEFT JOIN items owner ON owner.id = COALESCE("
-            "pc.owner_item_id, pc.item_id) "
+            "LEFT JOIN items owner ON owner.id = pc.owner_item_id "
             f"WHERE pc.integration_target = {marker} "
             f"AND pc.state IN ({state_markers}) "
             f"AND pt.project_id = {marker}",
@@ -103,7 +102,7 @@ def _path_claim_blockers(
     )
     blockers: list[ConflictMatch] = []
     for row in rows:
-        owner = row.get("owner_item_id") or row.get("item_id")
+        owner = row.get("owner_item_id")
         if owner is not None and int(owner) == int(item["id"]):
             continue
         if (

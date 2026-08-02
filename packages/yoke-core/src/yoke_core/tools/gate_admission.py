@@ -39,6 +39,11 @@ Mechanics:
 - Fail-open: when no cluster can be reached (no local cluster tooling,
   no DSN), the gate proceeds without a slot after a warning. Admission
   is a throughput guard, not a correctness gate.
+- Observable: each arbitration connection stamps its state onto its own
+  ``application_name``, so a queued gate reports who holds the slot and
+  how many runs are queued instead of only that it is waiting. The
+  cluster tracks connections already; a crashed run's entry disappears
+  with its connection, exactly like its slot.
 """
 
 from __future__ import annotations
@@ -52,6 +57,22 @@ from pathlib import Path
 from typing import Iterator, Optional, Sequence, TextIO
 
 from yoke_core.domain import test_gate_timeout
+from yoke_core.tools.gate_admission_ancestry import (
+    ADMITTED_ENV,
+    MARKER_NO_SLOT,
+    MARKER_SLOT_HELD,
+    admitted_environment,
+    ancestor_admission_state,
+    published_state,
+)
+from yoke_core.tools.gate_slot_observability import (
+    SLOT_HELD_APP_PREFIX,
+    SLOT_WAIT_APP_PREFIX,
+    _stamp_activity,
+    slot_identity,
+    slot_occupancy,
+    waiting_announcement,
+)
 
 # One gate already claims most of the machine: pytest-xdist sizes its
 # worker fleet from the core count, so a single full gate runs ~10 workers
@@ -67,70 +88,12 @@ DEFAULT_MAX_CONCURRENT_GATES = 1
 CAP_ENV = "YOKE_TEST_GATE_MAX_CONCURRENT"
 CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
 
-#: Set for the duration of any gate that has resolved its own admission,
-#: and inherited by every process it spawns. The value states what the
-#: ancestor actually holds, because a descendant's correct behavior differs
-#: by case and "an ancestor exists" cannot distinguish them: riding a slot
-#: the ancestor holds is free, while queueing behind a stranger's slot when
-#: the ancestor holds nothing is a deadlock — the ancestor cannot finish
-#: until the descendant does.
-ADMITTED_ENV = "YOKE_TEST_GATE_SLOT_HELD"
-
-#: The ancestor holds a real slot; descendants ride it.
-MARKER_SLOT_HELD = "slot"
-
-#: The ancestor resolved admission without holding a slot — it was
-#: file-scoped, the cap was disabled, or no cluster was reachable.
-MARKER_NO_SLOT = "bypass"
-
 #: Base advisory-lock key for gate slots; slot *i* locks ``BASE + i``.
 #: Distinct from the cluster-role authority lock used by the fixtures.
 GATE_SLOT_LOCK_BASE = 0x596F6B6547617431
 
 _WAIT_ANNOUNCE_INTERVAL_S = 15.0
 _POLL_INTERVAL_S = 2.0
-
-
-def admitted_environment(env: dict) -> dict:
-    """Return *env* with the current admission marker mirrored in.
-
-    Wrappers snapshot their child environment before entering the
-    admission context, so the marker :func:`admitted_gate` sets on
-    ``os.environ`` must be re-mirrored into that snapshot at spawn time —
-    otherwise descendants never see it and arbitrate their own slots,
-    deadlocking behind their ancestor.
-    """
-    marker = os.environ.get(ADMITTED_ENV)
-    if marker:
-        return {**env, ADMITTED_ENV: marker}
-    return env
-
-
-def ancestor_admission_state() -> Optional[str]:
-    """Return what an admitted ancestor holds, or None when there is none.
-
-    Any marker value other than :data:`MARKER_NO_SLOT` reads as a held slot,
-    so a process spawned by an older build that wrote a bare truthy marker
-    still rides its ancestor rather than arbitrating a second time.
-    """
-    marker = os.environ.get(ADMITTED_ENV)
-    if not marker:
-        return None
-    return MARKER_NO_SLOT if marker == MARKER_NO_SLOT else MARKER_SLOT_HELD
-
-
-@contextlib.contextmanager
-def _published_state(state: str) -> Iterator[None]:
-    """Publish *state* to descendants for the duration of the block."""
-    prior = os.environ.get(ADMITTED_ENV)
-    os.environ[ADMITTED_ENV] = state
-    try:
-        yield
-    finally:
-        if prior is None:
-            os.environ.pop(ADMITTED_ENV, None)
-        else:
-            os.environ[ADMITTED_ENV] = prior
 
 
 def is_heavy_invocation(pytest_args: Sequence[str]) -> bool:
@@ -236,6 +199,8 @@ def _acquire(stream: TextIO):
         )
         return None
     wait_bound = test_gate_timeout.wait_timeout_seconds()
+    identity = slot_identity()
+    _stamp_activity(conn, SLOT_WAIT_APP_PREFIX, identity)
     waited_since = time.monotonic()
     last_announce = 0.0
     try:
@@ -243,6 +208,7 @@ def _acquire(stream: TextIO):
             # The lock base is read from the module at call time so a test
             # can retarget the whole gate onto a scratch key range.
             if try_acquire_slot(conn, cap, GATE_SLOT_LOCK_BASE):
+                _stamp_activity(conn, SLOT_HELD_APP_PREFIX, identity)
                 waited = time.monotonic() - waited_since
                 if waited > _POLL_INTERVAL_S:
                     print(
@@ -266,9 +232,9 @@ def _acquire(stream: TextIO):
                 conn.close()
                 return None
             if now - last_announce >= _WAIT_ANNOUNCE_INTERVAL_S:
+                holders, waiting = slot_occupancy(conn)
                 print(
-                    f"gate admission: {cap} heavy gates already running; "
-                    f"waiting ({waited:.0f}s so far)",
+                    waiting_announcement(cap, waited, holders, waiting),
                     file=stream,
                     flush=True,
                 )
@@ -300,7 +266,7 @@ def admitted_gate(
         yield
         return
     if not is_heavy_invocation(pytest_args):
-        with _published_state(MARKER_NO_SLOT):
+        with published_state(MARKER_NO_SLOT):
             yield
         return
     if inherited == MARKER_NO_SLOT:
@@ -311,12 +277,12 @@ def admitted_gate(
             file=stream,
             flush=True,
         )
-        with _published_state(MARKER_NO_SLOT):
+        with published_state(MARKER_NO_SLOT):
             yield
         return
     conn = _acquire(stream)
     try:
-        with _published_state(
+        with published_state(
             MARKER_SLOT_HELD if conn is not None else MARKER_NO_SLOT
         ):
             yield
@@ -335,7 +301,12 @@ __all__ = [
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",
     "GATE_SLOT_LOCK_BASE",
+    "SLOT_HELD_APP_PREFIX",
+    "SLOT_WAIT_APP_PREFIX",
     "admitted_gate",
     "is_heavy_invocation",
+    "slot_identity",
+    "slot_occupancy",
     "try_acquire_slot",
+    "waiting_announcement",
 ]

@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-
-# Lane value meaning "no lane-aware routing resolved": the registration
-# default and the routing-config fallback when no executor key matches.
-DEFAULT_EXECUTION_LANE = "primary"
+from yoke_contracts.session_lane import lane_is_unresolved
 
 
 def _stored_value(row: Any, key: str, default: str = "") -> str:
@@ -19,11 +16,7 @@ def _stored_value(row: Any, key: str, default: str = "") -> str:
 
 def lane_should_upgrade(stored_lane: str, incoming_lane: str) -> bool:
     """True when an opt-out stored lane can heal to a real incoming lane."""
-    return (
-        stored_lane in ("", DEFAULT_EXECUTION_LANE)
-        and bool(incoming_lane)
-        and incoming_lane != DEFAULT_EXECUTION_LANE
-    )
+    return lane_is_unresolved(stored_lane) and not lane_is_unresolved(incoming_lane)
 
 
 def resolve_reactivation_identity(
@@ -44,8 +37,7 @@ def resolve_reactivation_identity(
     stored_lane = _stored_value(existing, "execution_lane")
     resolved_lane = (
         stored_lane
-        if (not execution_lane or execution_lane == DEFAULT_EXECUTION_LANE)
-        and stored_lane not in ("", DEFAULT_EXECUTION_LANE)
+        if lane_is_unresolved(execution_lane) and not lane_is_unresolved(stored_lane)
         else execution_lane
     )
     return resolved_model, resolved_lane
@@ -103,7 +95,6 @@ def refresh_active_duplicate_identity(
 
 
 __all__ = [
-    "DEFAULT_EXECUTION_LANE",
     "lane_should_upgrade",
     "refresh_active_duplicate_identity",
     "resolve_reactivation_identity",

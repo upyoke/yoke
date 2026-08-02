@@ -24,10 +24,44 @@ change-scoped:
   selection. The conservative full-sweep fallback (non-Python changes,
   conftest or shared-fixture edits, test tooling) still catches anything
   reachability cannot bound.
-- **At the review gate** — the project-default quick plan runs the same
-  impacted selection and blocks the transition when a selected test fails.
+- **At the review gate** — the project-default plan case blocks the
+  transition when verification fails. Because this project declares a
+  `ci_workflow_file` capability, that case registers on the `command-ci`
+  method and the gate executes on CI rather than on the machine (see
+  *The gate runs on CI* below).
 - **At done** — no local sweep. The merge already required green PR checks,
   and the pushed merge commit gets its own CI run.
+
+## The gate runs on CI
+
+A project that declares its required-status-check workflow gets its
+`quick` and `full` registered scopes bound to the `command-ci` method
+(`ci_run` executor). `yoke qa case run --requirement-id <id>` then:
+
+1. pushes the item's lane branch to `origin` — item branches otherwise
+   stay local until merge, so the gate has to publish before it can run;
+2. dispatches the declared workflow against that branch with a
+   correlation id, reusing the deployment layer's dispatch machinery so a
+   lost dispatch response is recovered by its GitHub-visible marker
+   instead of reposted;
+3. waits for the run and records its conclusion as the verdict, with the
+   run URL and the exact head sha as evidence.
+
+Why: the local machine runs one heavy gate at a time behind the
+admission slot, where the suite has been measured at 35–55 minutes under
+fleet contention; CI runs the same suite across four duration-balanced
+shards with disposable Postgres containers and freshly provisioned
+capacity, and then re-runs it post-merge regardless. Two items gating at
+once both route to CI and run there in parallel — the admission slot is a
+local-machine resource and never serializes CI runs.
+
+`worktree_run` stays the local executor for the same Command method and
+remains the fallback for offline or local-only operation. Choosing it is
+a plan-case decision, not a silent runtime downgrade: a CI case whose
+workflow cannot be reached fails with a named reason rather than quietly
+running the suite on the machine the routing exists to keep free.
+Deployed-environment scopes (`e2e`, `smoke`) are never routed — they
+assert against a running site behind a base URL CI has no access to.
 
 ## One full execution, not two
 
