@@ -16,6 +16,10 @@ import {
   openApprovalEditor,
   openProjectDefaultEditor,
 } from "./workflow_mechanics_dialogs.js";
+import {
+  renderPathClaimsDialog,
+  renderPathSurveyDialog,
+} from "./workflow_path_posture_dialogs.js";
 import { clearWorkflowDialog, linkWorkflowPanel } from "./workflow_accessibility.js";
 function renderSelectedWorkflow(
   documentNode,
@@ -47,6 +51,9 @@ function renderSelectedWorkflow(
     renderPosture(documentNode, workflow, {
       editPathClaims: actions.editPathClaims
         ? (enabled) => actions.editPathClaims(workflow, enabled)
+        : null,
+      editPathSurvey: actions.editPathSurvey
+        ? (enabled) => actions.editPathSurvey(workflow, enabled)
         : null,
     }),
     renderMechanics(documentNode, workflow, {
@@ -121,55 +128,14 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
     return callResult.envelope.result || {};
   };
   const closeDialog = () => { dialog = null; clearWorkflowDialog(dialogHost); };
-  const openPathClaimsDialog = (workflow, enabled) => {
-    const name = workflow.name || workflow.id;
-    const names = `${name}es`;
-    dialog = {
-      title: `${enabled ? "Turn on" : "Turn off"} path claims`,
-      subtitle: enabled
-        ? `Enable path claims for new ${name} items.`
-        : `Return new ${name} items to claim-less by default.`,
-      lines: [
-        {
-          title: "What this does",
-          description:
-            `reserves the files a ${name} will touch, so overlapping work ` +
-            "serializes through the claim machinery instead of colliding at merge.",
-        },
-        {
-          title: "Default (off)",
-          description:
-            `the agent executing the ${name} surveys the landscape for ` +
-            "anticipated conflicts, works in an isolated worktree, and " +
-            "re-checks at merge, but does not register every path it wants to " +
-            "change. Reduces overhead, but risks potential collisions with " +
-            "other in-flight work.",
-        },
-        {
-          title: "Turn on when",
-          description:
-            `you like the reduced overhead of ${names}, but they collide with ` +
-            "each other and waste time resolving conflicts or even break things.",
-        },
-      ],
-      impact:
-        `Editing creates a new version of the ${name} workflow in your Yoke ` +
-        `universe. Items already underway ` +
-        `stay pinned to v${workflow.current_version} and are unaffected.`,
-      confirmText: `${enabled ? "Turn on" : "Turn off"} path claims`,
-      cancel: closeDialog,
-      confirm: async () => {
-        await mutation("workflows.policy_defaults.publish", {
-          workflow_id: workflow.id,
-          expected_current_version: Number(workflow.current_version),
-          path_claims_default: enabled,
-        });
-        closeDialog();
-        await load();
-      },
-    };
-    renderWorkflowDialog(documentNode, dialogHost, dialog);
-  };
+  const renderPathDialog = (renderer, workflow, enabled) =>
+    renderer(
+      documentNode, dialogHost, workflow, enabled, closeDialog, mutation, load,
+    );
+  const openPathClaimsDialog = (workflow, enabled) =>
+    renderPathDialog(renderPathClaimsDialog, workflow, enabled);
+  const openPathSurveyDialog = (workflow, enabled) =>
+    renderPathDialog(renderPathSurveyDialog, workflow, enabled);
   const openCurrentDialog = (workflow, version) => {
     const name = workflow.name || workflow.id;
     dialog = {
@@ -283,6 +249,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         client: context.client,
         mechanics: mechanicsData,
         editPathClaims: openPathClaimsDialog,
+        editPathSurvey: openPathSurveyDialog,
         editTesting: mechanicsData.editable ? openTestingDialog : null,
         editApprovals: mechanicsData.editable ? openApprovalsDialog : null,
         editDelivery: mechanicsData.editable ? openDeliveryDialog : null,

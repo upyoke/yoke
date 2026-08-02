@@ -182,7 +182,7 @@ for (const workflowId of ["issue", "dash"]) {
       byClass(root, "item-posture-label").map((node) => node.textContent),
       workflowId === "dash"
         ? [
-          "Child items", "File Budget", "Path claims",
+          "Child items", "File Budget", "Path survey", "Path claims",
           "Worktrees", "Migrations",
         ]
         : [
@@ -193,7 +193,9 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(root, "item-posture-value").map((node) => node.textContent),
       workflowId === "dash"
-        ? ["never generated", "optional", "optional", "one", "governed"]
+        ? [
+          "never generated", "optional", "on", "optional", "one", "governed",
+        ]
         : [
           "required", "required", "one implementation lane",
           "inside the item only", "governed",

@@ -32,6 +32,14 @@ declared as structured path/line rules rather than a prose allowlist:
     parses or templates that format. This is runtime data the product itself
     produces and consumes, which the naming rule explicitly excepts.
 
+``RENDERED_ADAPTER_SURFACES``
+    The per-harness adapter directories, folded into the family above. A
+    rendered adapter reproduces its canonical agent body verbatim, so it
+    inherits that body's exemption. The set is derived from the harness
+    registry's ``RENDERED_AGENT_DIRS`` so that onboarding a harness cannot
+    leave a mirror uncovered — which is exactly how this check first
+    shipped red.
+
 ``GENERATED_MIRRORS``
     Byte-exact snapshots rendered from a canonical source. Editing them
     directly would only be undone by the next render; fix the source and
@@ -58,6 +66,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -76,18 +85,25 @@ _PROVENANCE = re.compile(_TOKEN)
 #: carrying it is data, not provenance, wherever it appears.
 _CHECKBOX_LABEL = re.compile(r"-\s*\[[ xX]\]\s*(?:[A-Z]{2,4}-)?AC-\d")
 
+#: Rendered harness adapters carry the canonical agent bodies verbatim, so a
+#: label that is legitimate in ``runtime/agents/`` is equally legitimate in
+#: every mirror of it. Derived from the harness registry rather than spelled
+#: out here: onboarding a harness adds a directory there, and hardcoding the
+#: set instead would turn this check red the moment that happened.
+RENDERED_ADAPTER_SURFACES: tuple[str, ...] = tuple(
+    f"{directory.as_posix()}/" for directory in RENDERED_AGENT_DIRS
+)
+
 #: Files that emit or teach the checkbox format above.
 LABEL_FORMAT_SURFACES: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/domain/prd_validate.py",
     "packages/yoke-core/src/yoke_core/engines/"
     "advance_implementation_preflight_gates.py",
     "runtime/agents/",
-    "runtime/harness/claude/agents/",
-    "runtime/harness/codex/agents/",
     ".agents/skills/yoke/shepherd/boss-verdict-transitions.md",
     ".agents/skills/yoke/polish/review.md",
     "runtime/api/domain/test_data/browser_qa_inference/",
-)
+) + RENDERED_ADAPTER_SURFACES
 
 #: Byte-exact snapshots; fix the canonical source and re-render.
 GENERATED_MIRRORS: tuple[str, ...] = (

@@ -12,6 +12,8 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
+    WORKFLOW_PATH_SURVEY_OPTIONAL,
+    WORKFLOW_PATH_SURVEY_REQUIRED,
 )
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
@@ -36,6 +38,10 @@ class EffectiveWorkflowPolicies:
         return str(self.values["path_claims"])
 
     @property
+    def path_survey(self) -> str:
+        return str(self.values["path_survey"])
+
+    @property
     def requires_file_budget(self) -> bool:
         return self.file_budget != WORKFLOW_FILE_BUDGET_OPTIONAL
 
@@ -44,12 +50,22 @@ class EffectiveWorkflowPolicies:
         return self.path_claims != WORKFLOW_PATH_CLAIMS_OPTIONAL
 
     @property
+    def requires_path_survey(self) -> bool:
+        return self.path_survey != WORKFLOW_PATH_SURVEY_OPTIONAL
+
+    @property
     def requires_budget_claim_parity(self) -> bool:
         return self.requires_file_budget and self.requires_path_claims
 
 
-def _tighten_optional(value: str, *, selected: bool, required: str) -> str:
-    if value == WORKFLOW_FILE_BUDGET_OPTIONAL and selected:
+def _tighten_optional(
+    value: str,
+    *,
+    selected: bool,
+    optional: str,
+    required: str,
+) -> str:
+    if value == optional and selected:
         return required
     return value
 
@@ -70,18 +86,30 @@ def resolve_effective_workflow_policies(
     effective_path_claims = _tighten_optional(
         raw_path_claims,
         selected=selected.get("path_claims") is True,
+        optional=WORKFLOW_PATH_CLAIMS_OPTIONAL,
         required=WORKFLOW_PATH_CLAIMS_REQUIRED,
     )
     if "file_budget" in values:
         effective_file_budget = _tighten_optional(
             str(values["file_budget"]),
             selected=selected.get("file_budget") is True,
+            optional=WORKFLOW_FILE_BUDGET_OPTIONAL,
             required=WORKFLOW_FILE_BUDGET_REQUIRED,
         )
     else:
         effective_file_budget = effective_path_claims
     values["path_claims"] = effective_path_claims
     values["file_budget"] = effective_file_budget
+    raw_path_survey = values.get("path_survey")
+    if raw_path_survey is None and runtime.workflow_id in {"blitz", "dash"}:
+        raw_path_survey = WORKFLOW_PATH_SURVEY_REQUIRED
+    if raw_path_survey is not None:
+        values["path_survey"] = _tighten_optional(
+            str(raw_path_survey),
+            selected=selected.get("path_survey") is True,
+            optional=WORKFLOW_PATH_SURVEY_OPTIONAL,
+            required=WORKFLOW_PATH_SURVEY_REQUIRED,
+        )
     return EffectiveWorkflowPolicies(
         runtime=runtime,
         posture=selected,
