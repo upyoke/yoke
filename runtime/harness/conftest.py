@@ -61,6 +61,23 @@ def clean_markers(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _harness_session_anchor_isolation(tmp_path, monkeypatch):
+    """Keep harness tests out of the real session-anchor registry.
+
+    Parity with ``runtime.api.fixtures.runtime._yoke_session_anchor_isolation``
+    (this subtree has its own conftest, so the API-side autouse does not
+    apply). Registration tests here drive ``_register_from_hook`` whose
+    unmocked anchor write resolves real process ancestry — observed live
+    poisoning the developer's own conversation anchor with a synthetic
+    session id.
+    """
+    from runtime.api.fixtures.runtime import isolate_session_anchor_registry
+
+    isolate_session_anchor_registry(tmp_path, monkeypatch)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _harness_event_isolation(monkeypatch):
     """Pin ``YOKE_EVENTS_ISOLATION=1`` for every harness test.
 

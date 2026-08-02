@@ -227,6 +227,25 @@ class TestResolveSessionFromAncestry:
         assert (shell_a, shell_b) == ("sess-a", "sess-b")
 
 
+class TestRegistryIsolationGuard:
+    def test_default_registry_is_never_the_machine_home(self, tmp_path):
+        """Without an explicit pin, test writes land in the guard dir.
+
+        The real registry poisoning class: an unmocked anchor write in any
+        test resolves real process ancestry and would land a synthetic
+        session id on the developer's own conversation anchor.
+        """
+        from pathlib import Path
+
+        resolved = anchors.anchors_dir()
+        assert not str(resolved).startswith(str(Path.home()))
+        anchors.record_session_anchor("sess-guarded", anchor=_anchor())
+        assert (Path(resolved) / "200.json").exists()
+
+    def test_machine_home_pin_is_honored(self, machine_home):
+        assert str(anchors.anchors_dir()).startswith(str(machine_home))
+
+
 class TestPruneStaleAnchors:
     def test_prune_keeps_live_and_removes_dead(self, machine_home):
         anchors.record_session_anchor("live", anchor=_anchor(pid=201, start="sa"))
