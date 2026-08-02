@@ -115,6 +115,7 @@ def _complete(
     branch: str,
     target: str,
     repo_root: str,
+    project: str,
     commit_sha: str,
     touched: tuple[str, ...],
     already: bool,
@@ -139,6 +140,7 @@ def _complete(
             merge_sha=merge_sha,
             touched_files=touched,
         ),
+        project=project,
     )
     if receipt_note:
         notes.append(receipt_note)
@@ -161,6 +163,7 @@ def _converge_from_receipt(
     branch: str,
     target: str,
     repo_root: str,
+    project: str,
     recorded: Optional[receipts.MergeReceipt],
 ) -> StandaloneMergeOutcome:
     """Finish a merge whose branch ref the engine's cleanup already deleted."""
@@ -190,6 +193,7 @@ def _converge_from_receipt(
         branch=branch,
         target=target,
         repo_root=repo_root,
+        project=project,
         commit_sha=recorded.commit_sha,
         touched=receipts.resolve_touched_files(
             repo_root=repo_root,
@@ -208,6 +212,7 @@ def merge_standalone_branch(
     branch: str,
     target: str,
     repo_root: str,
+    project: str,
     local_merge: bool = True,
 ) -> StandaloneMergeOutcome:
     """Land one standalone item branch on ``target`` and stamp the item.
@@ -230,13 +235,14 @@ def merge_standalone_branch(
     engine this delegates to, so a standalone merge is visible in the events
     ledger for the same reason an epic-lane merge is.
     """
-    recorded = receipts.load(item_id, branch, target)
+    recorded = receipts.load(item_id, branch, target, project=project)
     if not git.branch_exists(repo_root, branch):
         return _converge_from_receipt(
             item_id=item_id,
             branch=branch,
             target=target,
             repo_root=repo_root,
+            project=project,
             recorded=recorded,
         )
 
@@ -255,6 +261,7 @@ def merge_standalone_branch(
                 commit_sha=commit_sha,
                 touched_files=observed,
             ),
+            project=project,
         )
         if receipt_note:
             warnings.append(receipt_note)
@@ -300,6 +307,7 @@ def merge_standalone_branch(
         branch=branch,
         target=target,
         repo_root=repo_root,
+        project=project,
         commit_sha=commit_sha,
         touched=receipts.resolve_touched_files(
             repo_root=repo_root,

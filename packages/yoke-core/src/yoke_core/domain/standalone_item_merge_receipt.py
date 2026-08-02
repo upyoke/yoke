@@ -50,7 +50,7 @@ class MergeReceipt:
 
 
 def _emit_receipt_event(
-    *, name: str, item_id: int, context: dict[str, Any],
+    *, name: str, item_id: int, project: str, context: dict[str, Any],
 ) -> Any:
     """Write one receipt row to the ledger through the dispatcher.
 
@@ -68,17 +68,19 @@ def _emit_receipt_event(
             "source_type": "system",
             "severity": "INFO",
             "outcome": "success",
-            # Global like the engine's own merge events; the item id is what
-            # the retry reads back.
-            "project": "",
+            "project": project,
             "item_id": str(int(item_id)),
             "context": context,
         },
     )
 
 
-def record(item_id: int, receipt: MergeReceipt) -> str:
+def record(item_id: int, receipt: MergeReceipt, *, project: str) -> str:
     """Persist ``receipt``. Returns an advisory message, empty on success.
+
+    ``project`` is the owning item's project slug: ``events.emit`` is a
+    project-scoped function over the dispatcher, so an empty project is
+    refused and the receipt would be silently skipped.
 
     Never raises and never unwinds a merge: a ledger hiccup degrades crash
     recovery, and turning that into a refused merge would trade a rare
@@ -88,6 +90,7 @@ def record(item_id: int, receipt: MergeReceipt) -> str:
         response = _emit_receipt_event(
             name=RECEIPT_EVENT_NAME,
             item_id=item_id,
+            project=project,
             context={
                 "branch": receipt.branch,
                 "target": receipt.target,
@@ -117,7 +120,9 @@ def _context(row: dict[str, Any]) -> dict[str, Any]:
     return context if isinstance(context, dict) else {}
 
 
-def load(item_id: int, branch: str, target: str) -> Optional[MergeReceipt]:
+def load(
+    item_id: int, branch: str, target: str, *, project: str,
+) -> Optional[MergeReceipt]:
     """The most complete receipt this item recorded for ``branch``/``target``.
 
     One merge writes a pre-merge row and a completed row, so the fields are
@@ -130,7 +135,9 @@ def load(item_id: int, branch: str, target: str) -> Optional[MergeReceipt]:
             function_id="events.query.run",
             target=TargetRef(kind="item", item_id=int(item_id)),
             payload={
-                "event_name": RECEIPT_EVENT_NAME, "limit": _RECEIPT_LOOKBACK,
+                "event_name": RECEIPT_EVENT_NAME,
+                "project": project,
+                "limit": _RECEIPT_LOOKBACK,
             },
         )
     except Exception:  # noqa: BLE001 - an unreadable ledger is "no receipt"
