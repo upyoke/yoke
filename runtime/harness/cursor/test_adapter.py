@@ -31,16 +31,14 @@ def test_capability_family_is_cursor() -> None:
     assert CAPABILITY.family == "cursor"
 
 
-def test_pretool_omissions_drop_advisory_only_hints() -> None:
-    # Cursor has no allow-time additional_context channel on preToolUse,
-    # so advisory-only hint modules are elided rather than silently
-    # evaluated-and-dropped.
+def test_no_chain_omissions_declared() -> None:
+    # Cursor runs the same universal chains as Claude and Codex; the
+    # preToolUse no-allow-time-injection constraint is owned by the
+    # decision renderer, not by chain omissions.
     from runtime.harness.cursor.adapter import CAPABILITY
 
     assert CAPABILITY.apply_patch_chain_omissions == frozenset()
-    assert CAPABILITY.pretool_omissions == frozenset(
-        {"yoke_core.domain.hint_monitor_relay"}
-    )
+    assert CAPABILITY.pretool_omissions == frozenset()
 
 
 def test_subprocess_modules_carveout() -> None:

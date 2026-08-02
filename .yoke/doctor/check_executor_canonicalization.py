@@ -73,13 +73,13 @@ def _scan_for_leaks(
         "SELECT session_id, executor, executor_display_name, offered_at "
         "FROM harness_sessions "
         f"WHERE executor NOT IN ({placeholders}) "
-        f"AND (executor LIKE {p} OR executor LIKE {p}) "
+        f"AND (executor LIKE {p} OR executor LIKE {p} OR executor LIKE {p}) "
         "AND ended_at IS NULL "
         "ORDER BY offered_at DESC "
         f"LIMIT {_MAX_OFFENDERS_SCANNED}"
     )
     return list(
-        conn.execute(sql, (*CANONICAL_HARNESS_IDS, "claude-%", "codex-%"))
+        conn.execute(sql, (*CANONICAL_HARNESS_IDS, "claude-%", "codex-%", "cursor-%"))
         .fetchall()
     )
 

@@ -5,14 +5,12 @@ canonicalizes ``Shell`` -> ``Bash`` and synthesizes the Bash tool shape for
 ``beforeShellExecution``/``afterShellExecution`` payloads) and the
 Cursor-shaped decision renderer.
 
-``pretool_omissions`` drops the advisory-only hint modules from the
-PreToolUse chains: Cursor has no allow-time ``additional_context`` channel
-on ``preToolUse`` (context injection lands on ``sessionStart`` and
-``postToolUse`` only), so an allow-with-advisory renders as a plain allow
-and the hint would be silently discarded. Omitting the modules keeps the
-chain evaluation honest about what the harness can deliver. The Monitor /
-ScheduleWakeup / TaskOutput matchers never render into Cursor hook config
-at all (no such tools exist there), so their chains need no omissions.
+No chain omissions are declared: Cursor runs the same universal chains
+as Claude and Codex. Cursor has no allow-time ``additional_context``
+channel on ``preToolUse``, but that constraint is owned by the decision
+renderer (advisory-only output renders as a plain allow), and the
+Monitor / ScheduleWakeup / TaskOutput matchers never render into Cursor
+hook config at all (no such tools exist there).
 
 The runner's `__main__` lazily imports this module for the detected
 harness; no policy-evaluation code lives here.
@@ -32,11 +30,7 @@ CAPABILITY: AdapterCapability = AdapterCapability(
     payload_parser=parse_payload,
     decision_renderer=render_cursor_decision,
     apply_patch_chain_omissions=frozenset(),
-    pretool_omissions=frozenset(
-        {
-            "yoke_core.domain.hint_monitor_relay",
-        }
-    ),
+    pretool_omissions=frozenset(),
     subprocess_modules=frozenset(
         {
             "yoke_core.domain.observe",
