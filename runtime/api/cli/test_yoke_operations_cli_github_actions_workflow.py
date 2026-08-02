@@ -40,6 +40,7 @@ def _run(
     def relay(
         request: FunctionCallRequest,
         connection: HttpsConnection,
+        **_transport_kwargs: object,
     ) -> FunctionCallResponse:
         assert connection == _CONNECTION
         _CAPTURED_REQUESTS.append(request)

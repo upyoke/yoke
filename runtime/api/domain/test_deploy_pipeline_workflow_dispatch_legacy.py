@@ -133,7 +133,7 @@ def test_legacy_pipeline_reaches_explicit_one_shot_typed_cli(tmp_path) -> None:
     )
     captured = []
 
-    def _relay(request, selected_connection):
+    def _relay(request, selected_connection, **_transport_kwargs):
         assert selected_connection == connection
         captured.append(request)
         return FunctionCallResponse(
