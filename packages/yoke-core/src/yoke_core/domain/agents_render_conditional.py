@@ -31,7 +31,10 @@ import re
 # import these names instead of duplicating literal strings.
 CLAUDE_HARNESS_ID = "claude"
 CODEX_HARNESS_ID = "codex"
-HARNESS_IDS: frozenset[str] = frozenset({CLAUDE_HARNESS_ID, CODEX_HARNESS_ID})
+CURSOR_HARNESS_ID = "cursor"
+HARNESS_IDS: frozenset[str] = frozenset(
+    {CLAUDE_HARNESS_ID, CODEX_HARNESS_ID, CURSOR_HARNESS_ID}
+)
 
 
 # Match either a *block-level* marker (alone on its line: leading

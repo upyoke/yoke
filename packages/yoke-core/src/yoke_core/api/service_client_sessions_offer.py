@@ -18,6 +18,7 @@ from yoke_harness.hooks.identity import (
     detect_model,
     is_claude,
     is_codex,
+    is_cursor,
 )
 
 from yoke_core.api.service_client_shared import (
@@ -86,12 +87,11 @@ def run_session_offer(
 ) -> dict:
     """Run the canonical session-offer flow and return ``NextAction`` JSON."""
     if not session_id:
-        if is_claude(executor) or is_codex(executor):
+        if is_claude(executor) or is_codex(executor) or is_cursor(executor):
             raise SessionOfferCommandError(
-                f"Error: session-offer for executor '{executor}' requires "
-                f"--session-id (the canonical harness session ID). "
-                f"Auto-generating a fallback ID is not allowed for supported harnesses. "
-                f"Pass $CLAUDE_SESSION_ID (Claude Code) or $CODEX_THREAD_ID (Codex)."
+                f"Error: session-offer for executor '{executor}' requires --session-id "
+                f"(the canonical harness session ID); fallback IDs are not allowed for supported "
+                f"harnesses. Pass $CLAUDE_SESSION_ID, $CODEX_THREAD_ID, or the hook-payload session_id (Cursor)."
             )
         from datetime import datetime, timezone
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

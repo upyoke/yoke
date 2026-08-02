@@ -46,6 +46,13 @@ def _root_and_db(record: HookContext) -> tuple[str, str]:
     from runtime.harness.hook_runner.target import resolve_hook_script_dir, resolve_target_root
 
     script_dir = resolve_hook_script_dir()
+    if record.executor_family == "cursor":
+        from runtime.harness.cursor import cursor_hooks_payload as _cursor
+
+        # Payload-first root: Cursor names the opened workspace in every
+        # payload, which stays correct across mid-session shell cwd drift.
+        root = _cursor.resolve_root(raw) or resolve_target_root(script_dir)
+        return root, resolve_yoke_db(script_dir)
     root = resolve_target_root(script_dir)
     return root, resolve_yoke_db(script_dir)
 
@@ -69,21 +76,21 @@ def _git_line(root: str, args: list[str]) -> str:
         return ""
     return result.stdout.rstrip("\n").strip() if result.returncode == 0 else ""
 
-def _bootstrap_lines(root: str, *, codex: bool) -> list[str]:
+def _bootstrap_lines(root: str, *, extra_files: list[str]) -> list[str]:
     try:
         from runtime.harness.bootstrap import load_spec, render_compact
 
         spec_path = Path(root) / "runtime" / "harness" / "bootstrap-spec.json"
-        extra = ["CODEX.md"] if codex else []
         if spec_path.is_file():
-            rendered = render_compact(Path(root), load_spec(spec_path), extra_files=extra)
+            rendered = render_compact(Path(root), load_spec(spec_path), extra_files=extra_files)
             if rendered:
                 return rendered.splitlines()
     except Exception:
         pass
     fallback = ["Read before editing:"]
-    if codex and (Path(root) / "CODEX.md").is_file():
-        fallback.append("- CODEX.md")
+    for name in extra_files:
+        if (Path(root) / name).is_file():
+            fallback.append(f"- {name}")
     return fallback
 
 def _connected_env_remediation(registration_failed: str) -> Optional[str]:
@@ -121,10 +128,12 @@ def _first_prompt(session_id: str, *, codex: bool) -> bool:
 
     return _first_prompt_impl(session_id, codex=codex)
 
-def _orientation_base(title: str, session_id: str, root: str, *, codex: bool) -> list[str]:
+def _orientation_base(
+    title: str, session_id: str, root: str, *, extra_files: list[str]
+) -> list[str]:
     lines = [title, "", f"Your Session: {session_id}",
         "Do NOT infer your identity from the active sessions table on the board.", ""]
-    lines.extend(_bootstrap_lines(root, codex=codex))
+    lines.extend(_bootstrap_lines(root, extra_files=extra_files))
     lines.extend(["", "Recent commits:",
         _git_line(root, ["log", "--oneline", "-3"]) or "(git log unavailable)",
         "", "Current branch:",
@@ -139,7 +148,8 @@ def _render_codex_orientation(
     from yoke_core.domain.harness_capability_registry import compact_entrypoint_display, shared_downstream_paths
 
     lines = _orientation_base(
-        "## Yoke Orientation (Codex hook-enhanced)", session_id, root, codex=True,
+        "## Yoke Orientation (Codex hook-enhanced)", session_id, root,
+        extra_files=["CODEX.md"],
     )
     if registration_failed:
         remediation = _connected_env_remediation(registration_failed)
@@ -200,7 +210,7 @@ def _render_codex_reminder(
 def _render_claude_orientation(
     session_id: str, root: str, registration_failed: str, executor: str, model: str,
 ) -> str:
-    lines = _orientation_base("## Yoke Orientation", session_id, root, codex=False)
+    lines = _orientation_base("## Yoke Orientation", session_id, root, extra_files=[])
     if registration_failed:
         remediation = _connected_env_remediation(registration_failed)
         warning = ["WARNING: Session registration failed - scheduler will not see this session."]
@@ -317,11 +327,19 @@ def evaluate(context: HookContext) -> HookDecision:
         if context.event_name == "SessionStart":
             if context.executor_family == "codex":
                 return _decision(_run_codex_session_start(context, root))
+            if context.executor_family == "cursor":
+                from runtime.harness.hook_runner import session_dispatch_cursor as _cursor_dispatch
+
+                return _decision(_cursor_dispatch.run_session_start(context, root))
             _run_claude_session_start(context)
             return _decision()
         if context.event_name == "UserPromptSubmit":
             if context.executor_family == "codex":
                 return _decision(_run_codex_prompt_submit(context, root))
+            if context.executor_family == "cursor":
+                from runtime.harness.hook_runner import session_dispatch_cursor as _cursor_dispatch
+
+                return _decision(_cursor_dispatch.run_prompt_submit(context, root))
             return _decision(_run_claude_prompt_submit(context, root))
         if context.event_name in {"Stop", "SessionEnd"}:
             return _decision(_run_stop(context, root, db_path))

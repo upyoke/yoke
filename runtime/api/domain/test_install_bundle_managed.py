@@ -94,11 +94,12 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     bundle = install_bundle.build_bundle(1, conn)
 
     mm = bundle["managed_markdown"]
-    assert set(mm["blocks"]) == {"doctrine", "codex_shell"}
+    assert set(mm["blocks"]) == {"doctrine", "codex_shell", "cursor_shell"}
     assert mm["targets"] == [
         {"path": "AGENTS.md", "block": "doctrine"},
         {"path": "CLAUDE.md", "block": "doctrine"},
         {"path": "CODEX.md", "block": "codex_shell"},
+        {"path": "CURSOR.md", "block": "cursor_shell"},
     ]
     for body in mm["blocks"].values():
         # Bodies are block *bodies*, not blocks — non-empty and marker-free.

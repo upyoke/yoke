@@ -109,6 +109,7 @@ def get_claim_for_work_unit(
 _MANIFEST_DIRECTORY_BY_HARNESS_ID = {
     "claude-code": "claude",
     "codex": "codex",
+    "cursor": "cursor",
 }
 
 

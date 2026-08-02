@@ -48,8 +48,8 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
     hooks = bundle.get("hooks")
     if not isinstance(hooks, dict):
         raise ProjectInstallError(
-            "bundle 'hooks' must carry claude_settings_hooks and codex_hooks "
-            "objects"
+            "bundle 'hooks' must carry claude_settings_hooks, codex_hooks, "
+            "and cursor_hooks objects"
         )
     for key in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY:
         value = hooks.get(key)
@@ -57,8 +57,8 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
             hooks[key] = {}
         elif not isinstance(value, dict):
             raise ProjectInstallError(
-                "bundle 'hooks' must carry claude_settings_hooks and "
-                "codex_hooks objects"
+                "bundle 'hooks' must carry claude_settings_hooks, "
+                "codex_hooks, and cursor_hooks objects"
             )
         hooks_layer.validate_hooks_subtree(
             hooks[key], label=f"bundle hooks.{key}",

@@ -31,9 +31,10 @@ _CONTROL_KEY_CODES = {
 }
 
 
-def _osascript(
+def run_osascript(
     run: RunRemote, lines: Sequence[str]
 ) -> subprocess.CompletedProcess[str]:
+    """Execute one bounded AppleScript through the controlled Mac transport."""
     apple = "\n".join(lines)
     return run(
         "/usr/bin/osascript -e " + shlex.quote(apple),
@@ -71,7 +72,7 @@ def open_terminal_app_window(
             "end tell",
         ]
     )
-    result = _osascript(run, lines)
+    result = run_osascript(run, lines)
     try:
         window_id = int(result.stdout.strip())
     except (AttributeError, TypeError, ValueError):
@@ -87,7 +88,7 @@ def close_terminal_app_window(
     """Best-effort cleanup for one Terminal.app window."""
     if window_id is None:
         return
-    _osascript(
+    run_osascript(
         run,
         [
             'tell application "Terminal"',
@@ -105,7 +106,7 @@ def capture_terminal_app_transcript(
     window_id: int,
 ) -> str:
     """Read the visible Terminal.app tab contents without changing its TTY."""
-    result = _osascript(
+    result = run_osascript(
         run,
         [
             'tell application "Terminal"',
@@ -156,7 +157,7 @@ def send_terminal_app_keys(
         if index + 1 < len(keys):
             lines.append("delay 0.2")
     lines.extend(["end tell", "return true"])
-    result = _osascript(run, lines)
+    result = run_osascript(run, lines)
     return result.returncode == 0 and result.stdout.strip().casefold() == "true"
 
 
@@ -168,7 +169,7 @@ def _terminal_app_screenshot_payload(
 ) -> str | None:
     """Capture the target's region through Terminal.app's recording grant."""
     helper_bounds = ", ".join(str(value) for value in _HELPER_WINDOW_BOUNDS)
-    result = _osascript(
+    result = run_osascript(
         run,
         [
             'tell application "Terminal"',
@@ -323,6 +324,7 @@ __all__ = [
     "capture_terminal_app_transcript",
     "close_terminal_app_window",
     "open_terminal_app_window",
+    "run_osascript",
     "send_terminal_app_keys",
     "verify_terminal_app_control",
 ]

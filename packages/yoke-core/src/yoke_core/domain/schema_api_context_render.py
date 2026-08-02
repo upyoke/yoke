@@ -83,10 +83,10 @@ def render_function_call_surface_block() -> list[str]:
         "`sys.path` or set `PYTHONPATH`; `/tmp` imports are not the "
         "agent path.",
         "",
-        "**`harness_id` enum:** `claude-code | codex` (on "
+        "**`harness_id` enum:** `claude-code | codex | cursor` (on "
         "`harness_sessions.executor`). Variants `claude-desktop` / "
-        "`claude-vscode` / `codex-desktop` collapse to these two ids "
-        "in the agent-context render path.",
+        "`claude-vscode` / `codex-desktop` / `cursor-ide` / `cursor-cli` "
+        "collapse to these canonical ids in the agent-context render path.",
     ]
 
 
