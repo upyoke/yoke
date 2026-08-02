@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from . import db_backend
 from .sessions_analytics import SessionError
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
+from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_claim_events import emit_work_claimed
 from .sessions_lifecycle_registry import _get_claim
 from .sessions_queries import _now_iso, normalize_claim_item_id
@@ -188,7 +189,7 @@ def claim_work(
     if sess_row["ended_at"] is not None:
         raise SessionError(
             "SESSION_ENDED",
-            f"Session '{session_id}' has already ended.",
+            session_ended_message(conn, session_id),
         )
 
     conflict = conn.execute(
@@ -221,7 +222,7 @@ def claim_work(
     if session_rows[session_id] is not None:
         raise SessionError(
             "SESSION_ENDED",
-            f"Session '{session_id}' has already ended.",
+            session_ended_message(conn, session_id),
         )
 
     binding_lock.lock_work_claim_target_workflow_binding(conn, target)

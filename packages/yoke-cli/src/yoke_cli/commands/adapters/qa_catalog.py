@@ -19,6 +19,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_artifact_read,
     qa_plan_materialize_for_item,
+    qa_plan_rematerialize,
 )
 from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
 from yoke_contracts.api.function_call import TargetRef
@@ -309,4 +310,5 @@ __all__ = [
     "qa_plan_item_attach",
     "qa_plan_list",
     "qa_plan_materialize_for_item",
+    "qa_plan_rematerialize",
 ]

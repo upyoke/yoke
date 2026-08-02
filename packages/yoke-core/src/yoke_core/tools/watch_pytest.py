@@ -57,6 +57,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.domain import test_gate_timeout
 from yoke_core.tools import (
     _source_pythonpath,
     _watch_pytest_args,
@@ -71,6 +72,7 @@ from yoke_core.tools._pytest_parallel import (
     split_no_parallel,
 )
 from yoke_core.tools import _watch_pytest_wall_clock
+
 # Re-exported so callers keep one import site for the classifier.
 from yoke_core.tools._watch_pytest_classify import (  # noqa: F401
     PYTEST_COLLECTED_RE,
@@ -87,13 +89,15 @@ KIND = "pytest"
 # ``yoke watch pytest`` form so help reads back the command as typed.
 DEFAULT_PROG = "watch_pytest"
 
+
 def _pytest_argv(args: Sequence[str]) -> list[str]:
     """Build the underlying pytest invocation."""
     return [sys.executable, "-m", "pytest", *list(args)]
 
 
 def _parse_args(
-    argv: Sequence[str], prog: str = DEFAULT_PROG,
+    argv: Sequence[str],
+    prog: str = DEFAULT_PROG,
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=prog,
@@ -141,6 +145,14 @@ def _parse_args(
         "iteration — merge still runs the full sweep.",
     )
     parser.add_argument(
+        "--bounded",
+        action="store_true",
+        help="With --impacted, never widen to the full sweep: run the "
+        "subset reachability can still compute and report why coverage "
+        "is partial. The iteration shape when a QA case run will be the "
+        "one full execution for this tree.",
+    )
+    parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help=(
@@ -176,15 +188,19 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def _impacted_selection(base: str) -> "list[str] | None":
+def _impacted_selection(base: str, *, bounded: bool = False) -> "list[str] | None":
     """Pytest path arguments for the current change, or None when there are none."""
     from yoke_core.tools import impacted_tests
 
     selection = impacted_tests.selection_for(
-        _source_pythonpath.repo_root(Path.cwd()), base
+        _source_pythonpath.repo_root(Path.cwd()), base, bounded=bounded
     )
     scope = "full sweep" if selection.full_sweep else "impacted"
     print(f"watch_pytest {scope}: {selection.reason}", flush=True)
+    # Structured companion to the prose reason above. Both land in the run's
+    # captures; only this one can be grouped across runs to tell legitimate
+    # core churn from a file kind reachability never modelled.
+    print(f"watch_pytest {selection.telemetry()}", flush=True)
     paths = list(selection.pytest_paths())
     return paths or None
 
@@ -198,10 +214,16 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_args = _strip_separator(list(ns.passthrough))
 
     if ns.impacted is not None:
-        selected = _impacted_selection(ns.impacted)
+        selected = _impacted_selection(ns.impacted, bounded=ns.bounded)
         if selected is None:
             return 0
         pytest_args = [*selected, *pytest_args]
+    elif ns.bounded:
+        print(
+            "watch_pytest: --bounded only applies with --impacted",
+            file=sys.stderr,
+        )
+        return 2
 
     if _watch_pytest_args.is_nested_pytest_invocation(pytest_args):
         print(
@@ -232,7 +254,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
     if (source_root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
         import_refusal = _source_pythonpath.import_origin_refusal(
-            source_root, env=pytest_env,
+            source_root,
+            env=pytest_env,
         )
         if import_refusal is not None:
             print(
@@ -260,14 +283,17 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_path = ns.raw_capture
         progress_path = ns.progress_capture
 
-    warning = _watch_pytest_rootdir.rootdir_mismatch_warning(
-        pytest_args, os.getcwd()
-    )
+    warning = _watch_pytest_rootdir.rootdir_mismatch_warning(pytest_args, os.getcwd())
     if warning:
         sys.stdout.write(warning)
         sys.stdout.flush()
 
     with gate_admission.admitted_gate(pytest_args, stream=sys.stdout):
+        try:
+            execution_timeout = test_gate_timeout.execution_timeout_from_env()
+        except ValueError as exc:
+            print(f"watch_pytest: {exc}", file=sys.stderr)
+            return 2
         started = time.monotonic()
         exit_code = _watch_runner.run_watcher(
             argv=_pytest_argv(pytest_args),
@@ -276,6 +302,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             progress_capture=progress_path,
             kind=KIND,
             env=gate_admission.admitted_environment(pytest_env),
+            timeout_seconds=execution_timeout,
         )
         _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
     return exit_code

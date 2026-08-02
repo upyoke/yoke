@@ -16,6 +16,7 @@ import {
 } from "./qa_view_primitives.js";
 import { reviewExplanation } from "./qa_review_explanation.js";
 import { renderEvidence } from "./qa_view_evidence.js";
+import { failureOutputNode } from "./qa_case_output_view.js";
 import {
   rerunCase,
   waiverDialog,
@@ -146,6 +147,8 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
           documentNode, "span", "qa-evidence-count", count,
         ));
       }
+      const failureOutput = failureOutputNode(documentNode, row.last_result);
+      if (failureOutput) outcome.appendChild(failureOutput);
       tr.appendChild(outcome);
       const actions = el(documentNode, "td", "qa-case-actions");
       const actionable = ![

@@ -64,8 +64,7 @@ def _live_setup_doc_and_skill_files() -> list[Path]:
     docs = [
         path
         for path in docs_root.rglob("*.md")
-        if "archive" not in path.parts
-        and "legacy-plan-artifacts" not in path.parts
+        if "archive" not in path.parts and "legacy-plan-artifacts" not in path.parts
     ]
     return sorted([REPO / "README.md", *docs, *SKILLS.rglob("*.md")])
 
@@ -220,19 +219,23 @@ def test_onboard_teaches_strategy_seed_topup_and_all_five_docs():
 
 def test_onboard_teaches_hosting_probe_and_stdin_secrets():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert "yoke projects capability has --project {project} --cap-type aws-admin" in text
+    assert (
+        "yoke projects capability has --project {project} --cap-type aws-admin" in text
+    )
     assert "yoke aws exec --project {project} -- sts get-caller-identity" in text
     assert "yoke projects capability secret set" in text
     assert "--value-stdin" in text
     assert "app-binding" in text
-    assert "backlog-only" in text
+    assert "disabled" in text
     bundle = _onboard_bundle()
     assert "never printed" in bundle or "never print" in bundle.lower()
 
 
 def test_onboard_teaches_environment_and_flow_registration():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
-    assert "yoke projects site create --project {project} --site-slug {site_slug}" in text
+    assert (
+        "yoke projects site create --project {project} --site-slug {site_slug}" in text
+    )
     assert "yoke projects environment create" in text
     assert "--environment-id stage" in text
     assert "--environment-id prod" in text

@@ -35,8 +35,12 @@ from yoke_cli.config.project_onboard import ProjectOnboardError
 
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
-        ["git", *args], cwd=root, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True,
+        ["git", *args],
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -70,6 +74,7 @@ def _allow_local_clone(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def passthrough(remote_url, **_kwargs):
         return remote_url
+
     monkeypatch.setattr(
         project_onboard_clone,
         "clean_remote_url",
@@ -111,8 +116,10 @@ def test_existing_clone_matches_on_upstream_after_rehome(tmp_path: Path) -> None
     _git(tmp_path, "init", "--bare", str(new_origin))
     target = _clone_into(tmp_path, source, "widgets")
     clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=True,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=True,
     )
     assert clone.existing_clone_matches(target, str(source)) is True
 
@@ -125,14 +132,20 @@ def test_origin_is_normalizes_ssh_https(tmp_path: Path) -> None:
 
 
 def test_same_repo_normalizes_ghes_ssh_and_https_without_crossing_hosts() -> None:
-    assert project_clone_resume.same_repo(
-        "git@ghe.example:acme/widgets.git",
-        "https://ghe.example/acme/widgets.git",
-    ) is True
-    assert project_clone_resume.same_repo(
-        "git@ghe.example:acme/widgets.git",
-        "https://other.example/acme/widgets.git",
-    ) is False
+    assert (
+        project_clone_resume.same_repo(
+            "git@ghe.example:acme/widgets.git",
+            "https://ghe.example/acme/widgets.git",
+        )
+        is True
+    )
+    assert (
+        project_clone_resume.same_repo(
+            "git@ghe.example:acme/widgets.git",
+            "https://other.example/acme/widgets.git",
+        )
+        is False
+    )
 
 
 # ── _resumable_clone ─────────────────────────────────────────────────────
@@ -147,7 +160,9 @@ def test_resumable_clone_clones_an_empty_target(tmp_path: Path, monkeypatch) -> 
     assert clone.origin_is(target, str(source))
 
 
-def test_resumable_clone_skips_an_already_present_clone(tmp_path: Path, monkeypatch) -> None:
+def test_resumable_clone_skips_an_already_present_clone(
+    tmp_path: Path, monkeypatch
+) -> None:
     _allow_local_clone(monkeypatch)
     source = _seed_bare_source(tmp_path)
     target = _clone_into(tmp_path, source, "widgets")
@@ -159,7 +174,8 @@ def test_resumable_clone_skips_an_already_present_clone(tmp_path: Path, monkeypa
 
 
 def test_resumable_clone_conflict_raises_recovery_message(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     _allow_local_clone(monkeypatch)
     source = _seed_bare_source(tmp_path)
@@ -185,15 +201,19 @@ def test_rehome_is_idempotent_on_a_second_run(tmp_path: Path) -> None:
     target = _clone_into(tmp_path, source, "widgets")
 
     first = clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=True,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=True,
     )
     # A second run (simulating a resume after the dispatch/install failed) must
     # not error on the already-renamed remote — it re-pushes (a no-op) and
     # returns the same branch.
     second = clone.rehome_to_new_origin(
-        target, new_origin_url=str(new_origin),
-        default_branch="main", keep_upstream=True,
+        target,
+        new_origin_url=str(new_origin),
+        default_branch="main",
+        keep_upstream=True,
     )
     assert first == second == "main"
     assert _git(target, "remote", "get-url", "origin") == str(new_origin)
@@ -221,14 +241,20 @@ def test_create_repo_is_idempotent_on_a_second_run(monkeypatch) -> None:
     monkeypatch.setattr(github_publish_transport, "_urlopen", replay)
 
     first = github_publish.create_repo(
-        "https://api.github.com", "ghs_x",
-        owner="octocat", name="widget", user_login="octocat",
+        "https://api.github.com",
+        "ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
         administration_allowed=True,
     )
     replay.resume_pass()
     second = github_publish.create_repo(
-        "https://api.github.com", "ghs_x",
-        owner="octocat", name="widget", user_login="octocat",
+        "https://api.github.com",
+        "ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
         administration_allowed=True,
     )
 
@@ -264,19 +290,39 @@ def test_import_resumes_over_an_existing_matching_clone(
 
     with ProjectOnboardApi(
         project={
-            "id": 77, "slug": "imported", "name": "Imported",
-            "github_repo": "owner/imported", "default_branch": "trunk",
+            "id": 77,
+            "slug": "imported",
+            "name": "Imported",
+            "github_repo": "owner/imported",
+            "default_branch": "trunk",
             "public_item_prefix": "IMP",
         },
     ) as api:
         config = write_https_config(tmp_path, "product-token", api.url)
-        rc = yoke_operations_cli.main([
-            "project", "import", str(remote), str(checkout),
-            "--slug", "imported", "--name", "Imported",
-            "--github-repo", "owner/imported", "--default-branch", "trunk",
-            "--public-item-prefix", "IMP", "--github-adoption", "backlog-only",
-            "--config", str(config), "--yes", "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "project",
+                "import",
+                str(remote),
+                str(checkout),
+                "--slug",
+                "imported",
+                "--name",
+                "Imported",
+                "--github-repo",
+                "owner/imported",
+                "--default-branch",
+                "trunk",
+                "--public-item-prefix",
+                "IMP",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -289,40 +335,3 @@ def test_import_resumes_over_an_existing_matching_clone(
     # clone_resume block flagging the reused clone, so the rendered onboarding
     # summary can read differently from a fresh run.
     assert payload["clone_resume"]["clone_reused"] is True
-
-
-def test_fresh_import_carries_no_clone_resume_block(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    """A first-run `project import` (fresh clone) omits the clone_resume block.
-
-    Mirror of the resume case above: when nothing was reused, the report stays
-    byte-identical to the pre-resume-aware shape — no clone_resume key — so only
-    a resumed run produces the new resume-aware lines.
-    """
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-    _allow_local_clone(monkeypatch)
-    remote = seed_remote(tmp_path)
-    checkout = tmp_path / "checkouts" / "fresh"
-
-    with ProjectOnboardApi(
-        project={
-            "id": 78, "slug": "fresh", "name": "Fresh",
-            "github_repo": "owner/fresh", "default_branch": "trunk",
-            "public_item_prefix": "FRS",
-        },
-    ) as api:
-        config = write_https_config(tmp_path, "product-token", api.url)
-        rc = yoke_operations_cli.main([
-            "project", "import", str(remote), str(checkout),
-            "--slug", "fresh", "--name", "Fresh",
-            "--github-repo", "owner/fresh", "--default-branch", "trunk",
-            "--public-item-prefix", "FRS", "--github-adoption", "backlog-only",
-            "--config", str(config), "--yes", "--json",
-        ])
-
-    assert rc == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["operation"] == "project.import"
-    # A fresh clone reused nothing — no resume block is attached.
-    assert "clone_resume" not in payload

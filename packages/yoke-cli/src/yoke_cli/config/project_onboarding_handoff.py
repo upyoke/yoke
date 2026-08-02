@@ -17,7 +17,7 @@ from yoke_contracts.onboard_checklist import (
     STATUS_DEFERRED,
     STATUS_VERIFIED,
 )
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 
 DispatchFn = Callable[[str, Mapping[str, Any], str | Path | None], Mapping[str, Any]]
 
@@ -106,7 +106,10 @@ def _row_updates(
     }
     evidence: dict[str, Any] = {
         "project-source-choice": {"operation": operation},
-        "checkout-binding": {"checkout": str(root), "project_id": int(install["project_id"])},
+        "checkout-binding": {
+            "checkout": str(root),
+            "project_id": int(install["project_id"]),
+        },
         "deterministic-repo-substrate": {"manifest": install.get("manifest")},
         SETUP_HANDOFF_ROW_ID: {"snapshot_sync": install.get("snapshot_sync")},
     }
@@ -116,9 +119,7 @@ def _row_updates(
     if snapshot.get("status") != "ok":
         row_status[SETUP_HANDOFF_ROW_ID] = STATUS_BLOCKED
         repair = snapshot.get("repair_command") or "yoke project snapshot sync"
-        blocker[SETUP_HANDOFF_ROW_ID] = (
-            f"Run `{repair}` before path-claim flows."
-        )
+        blocker[SETUP_HANDOFF_ROW_ID] = f"Run `{repair}` before path-claim flows."
     return row_status, evidence, blocker
 
 
@@ -127,10 +128,8 @@ def _apply_github_row(
     evidence: dict[str, Any],
     github_adoption: Mapping[str, Any] | None,
 ) -> None:
-    choice = str(
-        (github_adoption or {}).get("choice") or GITHUB_ADOPTION_BACKLOG_ONLY
-    )
-    if choice == GITHUB_ADOPTION_BACKLOG_ONLY:
+    choice = str((github_adoption or {}).get("choice") or GITHUB_ADOPTION_DISABLED)
+    if choice == GITHUB_ADOPTION_DISABLED:
         row_status["machine-github-connection"] = STATUS_DEFERRED
     elif choice == "app-binding":
         row_status["machine-github-connection"] = STATUS_CONFIGURED
@@ -154,12 +153,14 @@ def _repair_commands(install: Mapping[str, Any]) -> dict[str, str]:
 
 
 def _agent_command(run_id: str) -> str:
-    return shlex.join([
-        "/yoke",
-        "onboard",
-        "--run-id",
-        run_id,
-    ])
+    return shlex.join(
+        [
+            "/yoke",
+            "onboard",
+            "--run-id",
+            run_id,
+        ]
+    )
 
 
 __all__ = ["create_handoff"]

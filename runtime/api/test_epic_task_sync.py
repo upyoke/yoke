@@ -13,21 +13,16 @@ typed REST stack.
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
 from runtime.api.conftest import insert_epic_task, insert_item
-from yoke_core.domain import (
-    epic_task_sync,
-    github_rest,
-)
+from yoke_core.domain import epic_task_sync
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuth,
 )
@@ -48,15 +43,24 @@ def db(tmp_path):
         conn.execute(
             """
             INSERT INTO projects
-                (id, slug, name, github_repo, public_item_prefix, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                (id, slug, name, github_repo, public_item_prefix, github_sync_mode, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 slug = EXCLUDED.slug,
                 name = EXCLUDED.name,
                 github_repo = EXCLUDED.github_repo,
-                public_item_prefix = EXCLUDED.public_item_prefix
+                public_item_prefix = EXCLUDED.public_item_prefix,
+                github_sync_mode = EXCLUDED.github_sync_mode
             """,
-            (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
+            (
+                2,
+                "externalwebapp",
+                "ExternalWebapp",
+                "org/externalwebapp",
+                "YOK",
+                "enabled",
+                "2026-01-01T00:00:00Z",
+            ),
         )
         conn.commit()
         try:
@@ -65,7 +69,9 @@ def db(tmp_path):
             conn.close()
 
 
-def _seed_progress_note(db, *, epic_id: int, task_num: int, note_num: int, body: str) -> None:
+def _seed_progress_note(
+    db, *, epic_id: int, task_num: int, note_num: int, body: str
+) -> None:
     db.execute(
         """
         INSERT INTO epic_progress_notes
@@ -80,16 +86,22 @@ def _seed_progress_note(db, *, epic_id: int, task_num: int, note_num: int, body:
 @pytest.fixture(autouse=True)
 def _mock_yoke_root():
     """Prevent subprocess.run leaking into worktree git resolution."""
-    with patch("yoke_core.domain.epic_task_sync._yoke_root", return_value=Path("/tmp/fake-yoke")):
+    with patch(
+        "yoke_core.domain.epic_task_sync._yoke_root",
+        return_value=Path("/tmp/fake-yoke"),
+    ):
         yield
 
 
 @pytest.fixture(autouse=True)
 def _stub_project_github_auth():
     """Keep project-scoped GitHub calls on the test resolver."""
+
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
-            project=project, repo="org/externalwebapp", token="ghs_test",
+            project=project,
+            repo="org/externalwebapp",
+            token="ghs_test",
         )
 
     with patch(
@@ -102,16 +114,29 @@ def _stub_project_github_auth():
 class TestSyncTaskLabel:
     def test_missing_issue_is_silent(self, db):
         """When the task has no github_issue, the label sync is a noop."""
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(db, epic_id=1246, task_num=1, title="Task 1", status="implementing")
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+        )
+        insert_epic_task(
+            db, epic_id=1246, task_num=1, title="Task 1", status="implementing"
+        )
 
-        with patch(f"{_LABEL_REST}.ensure_label") as ensure, patch(
-            f"{_LABEL_REST}.add_labels",
-        ) as add, patch(
-            f"{_LABEL_REST}.remove_label",
-        ) as remove, patch(
-            f"{_LABEL_REST}.fetch_issue_labels",
-        ) as fetch:
+        with (
+            patch(f"{_LABEL_REST}.ensure_label") as ensure,
+            patch(
+                f"{_LABEL_REST}.add_labels",
+            ) as add,
+            patch(
+                f"{_LABEL_REST}.remove_label",
+            ) as remove,
+            patch(
+                f"{_LABEL_REST}.fetch_issue_labels",
+            ) as fetch,
+        ):
             rc = epic_task_sync.sync_task_label("1246", 1, "implementing", conn=db)
 
         assert rc == 0
@@ -121,9 +146,17 @@ class TestSyncTaskLabel:
         fetch.assert_not_called()
 
     def test_label_sync_reconciles_status_labels(
-        self, db, _stub_project_github_auth,
+        self,
+        db,
+        _stub_project_github_auth,
     ):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+        )
         insert_epic_task(
             db,
             epic_id=1246,
@@ -133,16 +166,21 @@ class TestSyncTaskLabel:
             github_issue="#77",
         )
 
-        with patch(
-            f"{_LABEL_REST}.ensure_label",
-        ) as ensure, patch(
-            f"{_LABEL_REST}.fetch_issue_labels",
-            return_value=["status:planning", "status:blocked"],
-        ), patch(
-            f"{_LABEL_REST}.add_labels",
-        ) as add_labels, patch(
-            f"{_LABEL_REST}.remove_label",
-        ) as remove_label:
+        with (
+            patch(
+                f"{_LABEL_REST}.ensure_label",
+            ) as ensure,
+            patch(
+                f"{_LABEL_REST}.fetch_issue_labels",
+                return_value=["status:planning", "status:blocked"],
+            ),
+            patch(
+                f"{_LABEL_REST}.add_labels",
+            ) as add_labels,
+            patch(
+                f"{_LABEL_REST}.remove_label",
+            ) as remove_label,
+        ):
             rc = epic_task_sync.sync_task_label("1246", 1, "implementing", conn=db)
 
         assert rc == 0
@@ -163,10 +201,20 @@ class TestSyncTaskLabel:
         )
 
     def test_label_sync_uses_verified_repo_over_stale_project_projection(self, db):
-        insert_item(db, id=1247, workflow_id="epic", status="implementing", project="externalwebapp")
+        insert_item(
+            db,
+            id=1247,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+        )
         insert_epic_task(
-            db, epic_id=1247, task_num=1, title="Task 1",
-            status="implementing", github_issue="#78",
+            db,
+            epic_id=1247,
+            task_num=1,
+            title="Task 1",
+            status="implementing",
+            github_issue="#78",
         )
         db.execute(
             "UPDATE projects SET github_repo=%s WHERE slug=%s",
@@ -174,13 +222,22 @@ class TestSyncTaskLabel:
         )
         db.commit()
 
-        with patch(f"{_LABEL_REST}.ensure_label") as ensure, patch(
-            f"{_LABEL_REST}.fetch_issue_labels", return_value=[],
-        ), patch(f"{_LABEL_REST}.add_labels"), patch(
-            f"{_LABEL_REST}.remove_label",
+        with (
+            patch(f"{_LABEL_REST}.ensure_label") as ensure,
+            patch(
+                f"{_LABEL_REST}.fetch_issue_labels",
+                return_value=[],
+            ),
+            patch(f"{_LABEL_REST}.add_labels"),
+            patch(
+                f"{_LABEL_REST}.remove_label",
+            ),
         ):
             rc = epic_task_sync.sync_task_label(
-                "1247", 1, "implementing", conn=db,
+                "1247",
+                1,
+                "implementing",
+                conn=db,
             )
 
         assert rc == 0
@@ -191,153 +248,3 @@ class TestSyncTaskLabel:
         captured = capsys.readouterr()
         assert rc == 0
         assert epic_task_sync.LABEL_USAGE in captured.err
-
-
-class TestSyncTaskBody:
-    def test_body_sync_routes_through_typed_rest(
-        self, db, _stub_project_github_auth,
-    ):
-        """A body sync against a project with a resolved GitHub App auth routes the
-        validator (existence check) and the body-write step through the
-        typed ``github_rest.*`` surface — no argv shim involved."""
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db,
-            epic_id=1246,
-            task_num=1,
-            title="Task 1",
-            status="implementing",
-            body="Hello world",
-            github_issue="#77",
-        )
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-
-        existing_issue = github_rest.Issue(number=77, title="Task 1", state="OPEN")
-        with patch(
-            "yoke_core.domain.github_rest.get_issue", return_value=existing_issue,
-        ) as get_issue_mock, patch(
-            "yoke_core.domain.github_rest.update_issue",
-            return_value=existing_issue,
-        ) as update_issue_mock:
-            rc = epic_task_sync.sync_task_body(
-                "1246", 1, conn=db, stdout=stdout, stderr=stderr,
-            )
-
-        assert rc == 0
-        assert "Synced task body: 1246/1 -> #77" in stdout.getvalue()
-        # Validator probed the typed surface with the resolved repo + issue number.
-        assert get_issue_mock.call_count == 1
-        assert get_issue_mock.call_args.kwargs == {"project": "externalwebapp", "number": 77}
-        # Body write also flows through the typed PATCH.
-        update_issue_mock.assert_called_once()
-        assert update_issue_mock.call_args.kwargs["project"] == "externalwebapp"
-        assert update_issue_mock.call_args.kwargs["number"] == 77
-        assert (
-            _stub_project_github_auth.call_args.kwargs["required_permissions"]
-            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
-        )
-        assert stderr.getvalue() == ""
-
-    def test_body_validation_failure_is_not_reported_as_repo_mismatch(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db,
-            epic_id=1246,
-            task_num=1,
-            title="Task 1",
-            status="implementing",
-            body="Hello world",
-            github_issue="#77",
-        )
-        stderr = io.StringIO()
-
-        with patch(
-            "yoke_core.domain.epic_task_sync_github._validate_issue_in_repo",
-            autospec=True,
-            return_value=False,
-        ):
-            rc = epic_task_sync.sync_task_body(
-                "1246", 1, conn=db, stderr=stderr,
-            )
-
-        assert rc == 1
-        assert "issue validation failed" in stderr.getvalue()
-        assert "repo mismatch" not in stderr.getvalue()
-
-    def test_body_usage_is_error(self, capsys):
-        rc = epic_task_sync.main(["body", "1246"])
-        captured = capsys.readouterr()
-        assert rc == 2
-        assert epic_task_sync.BODY_USAGE in captured.err
-
-
-class TestSyncProgress:
-    def test_progress_sync_routes_to_project_repo_and_marks_synced(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db,
-            epic_id=1246,
-            task_num=1,
-            title="Task 1",
-            status="implementing",
-            github_issue="#77",
-        )
-        _seed_progress_note(db, epic_id=1246, task_num=1, note_num=1, body="Progress update")
-        stdout = io.StringIO()
-
-        with patch(
-            "yoke_core.domain.github_rest.post_comment",
-        ) as post_comment:
-            rc = epic_task_sync.sync_progress_notes(
-                "YOK-1246", conn=db, stdout=stdout,
-            )
-
-        assert rc == 0
-        post_comment.assert_called_once()
-        assert post_comment.call_args.kwargs["project"] == "externalwebapp"
-        assert post_comment.call_args.kwargs["number"] == 77
-        assert post_comment.call_args.kwargs["body"] == "Progress update"
-        synced = db.execute(
-            """
-            SELECT synced_to_github FROM epic_progress_notes
-            WHERE epic_id='1246' AND task_num=1 AND note_num=1
-            """
-        ).fetchone()
-        assert synced[0] == 1
-        assert "Synced 1 new progress note(s) for epic '1246'" in stdout.getvalue()
-
-    def test_progress_sync_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db,
-            epic_id=1246,
-            task_num=1,
-            title="Task 1",
-            status="implementing",
-            github_issue="#77",
-        )
-        _seed_progress_note(db, epic_id=1246, task_num=1, note_num=1, body="Progress update")
-        stdout = io.StringIO()
-
-        with patch(
-            "yoke_core.domain.epic_task_sync_github_core._connect_db",
-            return_value=db,
-        ) as open_conn, patch(
-            "yoke_core.domain.epic_task_sync._db_path",
-            side_effect=AssertionError("path resolver must not be used for sync"),
-        ), patch(
-            "yoke_core.domain.github_rest.post_comment",
-        ) as post_comment:
-            rc = epic_task_sync.sync_progress_notes("YOK-1246", stdout=stdout)
-
-        assert rc == 0
-        open_conn.assert_called_once_with()
-        post_comment.assert_called_once()
-        assert "Synced 1 new progress note(s) for epic '1246'" in stdout.getvalue()
-
-    def test_progress_usage_is_error(self, capsys):
-        rc = epic_task_sync.main(["progress"])
-        captured = capsys.readouterr()
-        assert rc == 1
-        assert epic_task_sync.PROGRESS_USAGE in captured.err

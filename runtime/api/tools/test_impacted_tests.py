@@ -207,6 +207,34 @@ def test_unreached_change_still_runs_the_contract_floor(tmp_path):
     assert selection.tests == _with_floor()
 
 
+def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
+    """A linked worktree lives under ``.worktrees/``, which is skip-listed.
+
+    Matching the skip list against absolute path parts makes every file
+    inside such a root look skipped, leaving an empty index — which reads
+    downstream as "nothing is importable" and widens every run to a full
+    sweep, in exactly the checkouts where selection is worth the most.
+    """
+    root = tmp_path / ".worktrees" / "some-branch"
+    root.mkdir(parents=True)
+    _tiny_repo(root)
+
+    index = build_import_index(root)
+    selection = select(["runtime/api/leaf.py"], index)
+
+    assert selection.full_sweep is False
+    assert "runtime/api/test_middle.py" in selection.tests
+
+
+def test_skipped_directories_nested_inside_the_root_stay_skipped(tmp_path):
+    root = _tiny_repo(tmp_path)
+    _write(root, ".venv/lib/vendored.py", "from runtime.api import leaf\n")
+
+    index = build_import_index(root)
+
+    assert ".venv/lib/vendored.py" not in index.module_of
+
+
 def test_always_run_tests_exist_in_this_repo():
     repo_root = Path(__file__).resolve().parents[3]
     for rel in impacted_tests.ALWAYS_RUN_TESTS:

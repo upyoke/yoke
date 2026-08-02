@@ -8,11 +8,11 @@ precedence: the SessionStart canonical path, the UserPromptSubmit
 safety-net path, and ``ensure_registered_from_hook`` — the
 ensure-register-on-first-sight path the dispatch telemetry flush drives
 when ANY hook event (PreToolUse/PostToolUse included) observes a session
-id with no ``harness_sessions`` row. Tool-call hooks are the only
-empirically guaranteed event class (a live desktop session ran full
-PreToolUse chains all day with neither env stamp nor any
-SessionStart/UserPromptSubmit delivery), so registration must not depend
-on lifecycle events firing.
+id whose ``harness_sessions`` row is missing *or already ended*. Tool-call
+hooks are the only empirically guaranteed event class (a live desktop
+session ran full PreToolUse chains all day with neither env stamp nor any
+SessionStart/UserPromptSubmit delivery), so both registration and
+post-transient-end revival must not depend on lifecycle events firing.
 """
 
 from __future__ import annotations
@@ -267,14 +267,17 @@ def ensure_registered_from_hook(
     actor_id: Optional[int] = None,
     project_id: Optional[int] = None,
 ) -> bool:
-    """Idempotently register ``session_id`` when it has no session row.
+    """Idempotently register ``session_id`` when its row is missing or ended.
 
     Called from the dispatch telemetry flush with the flush's already-open
-    events connection, so the row-existence probe costs one indexed SELECT
-    on a live connection — zero added round-trips when the session is
-    registered (the common case). Only a *positive* no-row finding drives
-    registration; a failed lookup registers nothing (a broken DB would
-    fail the registration subprocess too).
+    events connection, so the registration-state probe costs one indexed
+    SELECT on a live connection — zero added round-trips when the session
+    is registered and live (the common case). Only a *positive* no-row or
+    ended finding drives registration; a failed lookup registers nothing
+    (a broken DB would fail the registration subprocess too). An ended row
+    routes into the registrar's reactivation branch, which clears
+    ``ended_at``, stamps a new ``episode_started_at``, and conditionally
+    reacquires the claims the end released.
 
     Tool-call payloads (PreToolUse/PostToolUse) lack the model/source
     fields SessionStart carries; ``_register_from_hook`` already tolerates
@@ -293,9 +296,21 @@ def ensure_registered_from_hook(
         return False
     try:
         if not force_reregister:
-            from yoke_core.domain.events_session_actor import session_actor_lookup
+            from yoke_core.domain.sessions_ended_recovery import (
+                session_registration_state,
+            )
 
-            found, stored_actor_id = session_actor_lookup(conn, session_id)
+            found, stored_actor_id, ended = session_registration_state(
+                conn, session_id
+            )
+            # A transient SessionEnd (sleep, app reload, brief disconnect)
+            # closes the row while the conversation keeps running. This hook
+            # event is itself proof the harness process is alive, so an ended
+            # row needs the registrar's reactivation branch — waiting for a
+            # lifecycle event strands every registered surface on
+            # SESSION_ENDED for the rest of the turn, and tool-call hooks are
+            # the only guaranteed event class.
+            needs_reactivation = ended
             # An existing row with no bound actor still needs the verified
             # token actor (the heartbeat backfill can register the relayed
             # session first, actor-less) — drive registration so the
@@ -308,11 +323,13 @@ def ensure_registered_from_hook(
             # registrar's SESSION_EXISTS branch upgrades in place.
             needs_identity_upgrade = (
                 found is True
+                and not needs_reactivation
                 and not needs_actor_backfill
                 and placeholder_identity_can_upgrade(conn, payload_json, session_id)
             )
             if (
                 found is not False
+                and not needs_reactivation
                 and not needs_actor_backfill
                 and not needs_identity_upgrade
             ):

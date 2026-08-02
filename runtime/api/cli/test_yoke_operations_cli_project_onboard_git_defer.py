@@ -25,7 +25,7 @@ def _create_kwargs(checkout: Path) -> dict:
         "github_repo": None,
         "default_branch": "main",
         "public_item_prefix": "DMO",
-        "github_adoption_choice": "backlog-only",
+        "github_adoption_choice": "disabled",
         "config_path": None,
     }
 
@@ -63,7 +63,9 @@ def test_import_apply_without_git_raises_clean_error(
 def test_create_dry_run_does_not_require_git(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(project_git_prerequisite.shutil, "which", lambda _name: None)
 
-    report = project_onboard.create_project(apply=False, **_create_kwargs(tmp_path / "demo"))
+    report = project_onboard.create_project(
+        apply=False, **_create_kwargs(tmp_path / "demo")
+    )
 
     assert report["operation"] == "project.create"
     assert report["applied"] is False

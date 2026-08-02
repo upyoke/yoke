@@ -21,11 +21,15 @@ def test_repository_refresh_uses_selected_service_authority(monkeypatch) -> None
     monkeypatch.setattr(
         project_onboard_progress.machine_config,
         "github_config",
-        lambda _path: {"repositories": [{
-            "installation_id": 123,
-            "repository_id": 456,
-            "full_name": "owner/demo",
-        }]},
+        lambda _path: {
+            "repositories": [
+                {
+                    "installation_id": 123,
+                    "repository_id": 456,
+                    "full_name": "owner/demo",
+                }
+            ]
+        },
     )
 
     repository = project_onboard_progress.refresh_github_repository_access(
@@ -51,15 +55,19 @@ def test_resumed_exact_repository_identity_rejects_live_drift(monkeypatch) -> No
         onboard_project_github_inputs.machine_config,
         "github_config",
         lambda _path: {
-            "repositories": [{
-                "installation_id": 123,
-                "repository_id": 999,
-                "full_name": "owner/demo",
-            }],
-            "installations": [{
-                "installation_id": 123,
-                "suspended": False,
-            }],
+            "repositories": [
+                {
+                    "installation_id": 123,
+                    "repository_id": 999,
+                    "full_name": "owner/demo",
+                }
+            ],
+            "installations": [
+                {
+                    "installation_id": 123,
+                    "suspended": False,
+                }
+            ],
         },
     )
 
@@ -136,11 +144,15 @@ def test_mutated_repository_replaces_identity_from_a_different_source(
     monkeypatch.setattr(
         project_onboard_progress.machine_config,
         "github_config",
-        lambda _path: {"repositories": [{
-            "installation_id": 7,
-            "repository_id": 88,
-            "full_name": "octocat/widgets",
-        }]},
+        lambda _path: {
+            "repositories": [
+                {
+                    "installation_id": 7,
+                    "repository_id": 88,
+                    "full_name": "octocat/widgets",
+                }
+            ]
+        },
     )
     adoption = {
         "choice": "app-binding",
@@ -170,7 +182,7 @@ def test_mutated_repository_replaces_identity_from_a_different_source(
     }
 
 
-def test_backlog_only_stale_identity_performs_zero_live_github_calls(
+def test_disabled_stale_identity_performs_zero_live_github_calls(
     monkeypatch,
 ) -> None:
     calls: list[str] = []
@@ -185,13 +197,17 @@ def test_backlog_only_stale_identity_performs_zero_live_github_calls(
         lambda _path: calls.append("config") or {},
     )
     inputs = {
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "github_repo": "owner/demo",
         "github_repository_id": 456,
         "github_installation_id": 123,
     }
 
-    assert onboard_project_github_inputs.hydrate_machine_github_inputs(
-        inputs, "/tmp/config.json",
-    ) is inputs
+    assert (
+        onboard_project_github_inputs.hydrate_machine_github_inputs(
+            inputs,
+            "/tmp/config.json",
+        )
+        is inputs
+    )
     assert calls == []

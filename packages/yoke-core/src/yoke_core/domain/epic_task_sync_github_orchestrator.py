@@ -1,20 +1,12 @@
-"""Orchestrator for epic-task GitHub sync.
-
-Drives GitHub issue creation for epics and epic tasks, linkage, task writeback,
-and dispatch-chain generation. Helpers resolve through ``epic_task_sync_github``
-so test patches reach them; the fallback parent-body edit uses the shared budget guard.
-"""
+"""Create, link, and record GitHub issues for epic tasks."""
 
 from __future__ import annotations
 
 import sys
 from typing import Any, Optional, TextIO
 
-from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-)
-
 import yoke_core.domain.epic_task_sync_github as _etsg
+import yoke_core.domain.epic_task_sync_github_orchestrator_body as _body
 from yoke_core.domain import db_backend, github_rest
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.github_constraints import is_real_issue_num
@@ -32,17 +24,12 @@ from yoke_core.domain.epic_task_sync_github_label_setup import (
     labels_for_task,
     prepare_required_labels,
 )
-from yoke_core.domain.epic_task_sync_local import _generate_dispatch_chains
-from yoke_core.domain.epic_task_sync_github_orchestrator_body import scope_finalization_error
-from yoke_core.domain.project_github_auth import (
-    ProjectGithubAuthError,
-    repair_command_hint,
-    resolve_project_github_auth,
+from yoke_core.domain.epic_task_sync_github_orchestrator_setup import (
+    finalize_sync,
+    load_task_rows,
+    preflight_sync,
 )
-from yoke_core.domain.projects_github_sync_mode import (
-    github_sync_disabled_notice,
-    github_sync_enabled,
-)
+from yoke_core.domain.project_github_auth import resolve_project_github_auth
 
 
 def sync_epic_tasks(
@@ -53,19 +40,15 @@ def sync_epic_tasks(
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
 ) -> int:
-    """Main create/link/dedup flow for epic tasks on GitHub.
-
-    Creates or reuses the parent epic GitHub issue, then creates or reuses a
-    child GitHub issue for each epic task, writes back ``github_issue`` and
-    the task's universal lane reference, links sub-issues when the extension is
-    available, and generates dispatch chains.
-    """
+    """Synchronize one epic's task issues."""
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
     dry_run = _etsg._is_dry_run()
 
     if dry_run:
-        print("[DRY-RUN] Skipping GitHub: project auth/availability checks", file=stdout)
+        print(
+            "[DRY-RUN] Skipping GitHub: project auth/availability checks", file=stdout
+        )
 
     owns_conn = conn is None
     if owns_conn:
@@ -77,30 +60,19 @@ def sync_epic_tasks(
         if epic_name is None:
             return 1
 
-        if scope_finalization_error(conn, int(epic_name), stderr):
-            return 1
         project = _epic_project(epic_name, conn=conn)
         gh_project = project or "yoke"
-
-        # Backlog-only projects never mirror epic tasks to GitHub issues.
-        if not github_sync_enabled(gh_project, conn=conn):
-            print(
-                github_sync_disabled_notice(gh_project, "epic-task-sync"),
-                file=stdout,
-            )
-            return 0
-
-        # Canonical-resolver precondition: fail closed with a repair hint.
-        if not dry_run:
-            try:
-                resolve_project_github_auth(
-                    gh_project,
-                    required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
-                )
-            except ProjectGithubAuthError as exc:
-                print(f"Error: {exc.code}: {exc}", file=stderr)
-                print(f"  Repair: {repair_command_hint(exc, gh_project)}", file=stderr)
-                return 1
+        preflight_result = preflight_sync(
+            conn,
+            epic_name=epic_name,
+            project=gh_project,
+            dry_run=dry_run,
+            stdout=stdout,
+            stderr=stderr,
+            resolver=resolve_project_github_auth,
+        )
+        if preflight_result is not None:
+            return preflight_result
 
         try:
             repo_root = str(_repo_root())
@@ -123,35 +95,24 @@ def sync_epic_tasks(
                 backlog_github_issue = gh_val.lstrip("#")
 
         status_color, worktree_color = prepare_required_labels(
-            gh_project, dry_run=dry_run,
+            gh_project,
+            dry_run=dry_run,
         )
 
-        # Sub-issue link is the modern REST endpoint
-        # (``/repos/.../issues/<n>/sub_issues``). Failures fall through to
-        # the parent-body checkbox path; a typed RestTransportError on
-        # the link call switches the orchestrator to the body-checkbox
-        # mode so the operator never sees a partial link state.
         has_sub_issue = not dry_run
 
-        # --- Read tasks from DB ---
-        task_rows = conn.execute(
-            f"""
-            SELECT t.id, t.epic_id, t.task_num, COALESCE(t.title, ''),
-                   COALESCE(iw.branch, ''), COALESCE(t.context_estimate, ''),
-                   COALESCE(t.dependencies, ''), COALESCE(t.status, ''),
-                   COALESCE(t.dispatch_attempts, 0)
-            FROM epic_tasks t LEFT JOIN item_worktrees iw ON iw.id=t.item_worktree_id
-            WHERE t.epic_id = {p}
-            ORDER BY t.task_num ASC
-            """,
-            (epic_name,),
-        ).fetchall()
+        task_rows = load_task_rows(conn, placeholder=p, epic_name=epic_name)
 
         epic_issue_num = _etsg._resolve_or_create_epic_issue(
-            epic_name=epic_name, backlog_id=backlog_id,
+            epic_name=epic_name,
+            backlog_id=backlog_id,
             backlog_github_issue=backlog_github_issue,
-            parent_item_id=parent_item_id, gh_project=gh_project,
-            dry_run=dry_run, conn=conn, stdout=stdout, stderr=stderr,
+            parent_item_id=parent_item_id,
+            gh_project=gh_project,
+            dry_run=dry_run,
+            conn=conn,
+            stdout=stdout,
+            stderr=stderr,
         )
         if not dry_run and not is_real_issue_num(epic_issue_num):
             print("Error: epic parent issue create failed; aborting", file=stderr)
@@ -164,7 +125,17 @@ def sync_epic_tasks(
         failed_tasks: list[str] = []
 
         for row in task_rows:
-            _db_id, _db_epic_id, db_tnum, db_title, db_wt, db_cest, db_deps, db_stat, _db_da = row
+            (
+                _db_id,
+                _db_epic_id,
+                db_tnum,
+                db_title,
+                db_wt,
+                db_cest,
+                db_deps,
+                db_stat,
+                _db_da,
+            ) = row
             task_num_str = f"{int(db_tnum):03d}"
 
             # Idempotency: skip tasks that already have github_issue in DB
@@ -177,16 +148,29 @@ def sync_epic_tasks(
             if existing_gh and existing_gh != "null" and is_real_issue_num(existing_gh):
                 print(f"Skipping task {task_num_str} (already synced)", file=stdout)
                 skipped += 1
-                # Preserve an explicit architect/refine worktree. Only legacy
-                # unslotted tasks fall back to the parent branch.
+                # Preserve an explicit worktree before falling back to the parent.
                 skip_wt = db_wt
                 if parent_item_id and not skip_wt:
                     skip_wt = f"YOK-{parent_item_id}"
-                    print(f"Warning: task {task_num_str} has empty worktree, "
-                          f"defaulting to {skip_wt}", file=stderr)
+                    print(
+                        f"Warning: task {task_num_str} has empty worktree, "
+                        f"defaulting to {skip_wt}",
+                        file=stderr,
+                    )
                     conn.execute(
                         f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
-                        (int(record_worker_item_worktree(conn, item_id=int(epic_name), branch=skip_wt, path=None)["id"]), epic_name, int(db_tnum)),
+                        (
+                            int(
+                                record_worker_item_worktree(
+                                    conn,
+                                    item_id=int(epic_name),
+                                    branch=skip_wt,
+                                    path=None,
+                                )["id"]
+                            ),
+                            epic_name,
+                            int(db_tnum),
+                        ),
                     )
                     conn.commit()
                 if skip_wt:
@@ -197,11 +181,25 @@ def sync_epic_tasks(
             task_worktree = db_wt
             if parent_item_id and not task_worktree:
                 task_worktree = worktree_name_for_item(conn, parent_item_id)
-                print(f"Warning: task {task_num_str} has empty worktree, "
-                      f"defaulting to {task_worktree}", file=stderr)
+                print(
+                    f"Warning: task {task_num_str} has empty worktree, "
+                    f"defaulting to {task_worktree}",
+                    file=stderr,
+                )
                 conn.execute(
                     f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
-                    (int(record_worker_item_worktree(conn, item_id=int(epic_name), branch=task_worktree, path=None)["id"]), epic_name, int(db_tnum)),
+                    (
+                        int(
+                            record_worker_item_worktree(
+                                conn,
+                                item_id=int(epic_name),
+                                branch=task_worktree,
+                                path=None,
+                            )["id"]
+                        ),
+                        epic_name,
+                        int(db_tnum),
+                    ),
                 )
                 conn.commit()
 
@@ -211,8 +209,11 @@ def sync_epic_tasks(
             if not task_status or task_status == "null":
                 task_status = "planned"
             labels = labels_for_task(
-                gh_project, task_status, task_worktree,
-                status_color=status_color, worktree_color=worktree_color,
+                gh_project,
+                task_status,
+                task_worktree,
+                status_color=status_color,
+                worktree_color=worktree_color,
                 dry_run=dry_run,
             )
 
@@ -231,8 +232,11 @@ def sync_epic_tasks(
             # Create or dedup
             if dry_run:
                 task_issue_num = "0"
-                print(f"[DRY-RUN] Skipping GitHub: would create task issue "
-                      f"'{issue_title}' (using placeholder #0)", file=stdout)
+                print(
+                    f"[DRY-RUN] Skipping GitHub: would create task issue "
+                    f"'{issue_title}' (using placeholder #0)",
+                    file=stdout,
+                )
             else:
                 task_issue_num = _etsg._dedup_or_create_task_issue(
                     backlog_id=backlog_id,
@@ -242,17 +246,20 @@ def sync_epic_tasks(
                     task_body=task_body,
                     labels=labels,
                     gh_project=gh_project,
-                    stdout=stdout, stderr=stderr,
+                    stdout=stdout,
+                    stderr=stderr,
                     conn=conn,
                     epic_id=str(parent_item_id) if parent_item_id else "",
                     task_num=int(db_tnum),
                 )
 
-            # Sentinel "0" from a real-mode create means the REST call failed;
-            # skip the DB stamp + dispatch entry so the next sync retries.
+            # A real-mode sentinel skips persistence so the next sync retries.
             if not dry_run and not is_real_issue_num(task_issue_num):
-                print(f"Warning: task {task_num_str} create failed; "
-                      f"leaving github_issue NULL", file=stderr)
+                print(
+                    f"Warning: task {task_num_str} create failed; "
+                    f"leaving github_issue NULL",
+                    file=stderr,
+                )
                 failed_tasks.append(task_num_str)
                 continue
 
@@ -262,13 +269,6 @@ def sync_epic_tasks(
             if task_worktree:
                 worktree_map.append((task_worktree, task_num_str))
 
-            # Link to epic via sub-issue. The REST endpoint
-            # ``/issues/<n>/sub_issues`` is the modern path; a typed
-            # transport failure (older repo, unsupported feature, lack
-            # of scope) trips the fallback flag and routes ALL subsequent
-            # task linkages plus the already-linked tasks to the
-            # parent-body checkbox path so the operator never sees a
-            # partial link state.
             if dry_run:
                 print("[DRY-RUN] Skipping GitHub: would link task to epic", file=stdout)
             elif has_sub_issue:
@@ -293,7 +293,10 @@ def sync_epic_tasks(
                 wt_slug = task_worktree.replace("/", "-")
                 wt_path = f"{repo_root}/.worktrees/{wt_slug}"
                 lane = record_worker_item_worktree(
-                    conn, item_id=int(epic_name), branch=task_worktree, path=wt_path,
+                    conn,
+                    item_id=int(epic_name),
+                    branch=task_worktree,
+                    path=wt_path,
                 )
                 conn.execute(
                     f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
@@ -306,45 +309,38 @@ def sync_epic_tasks(
                 conn.execute(
                     f"""INSERT INTO epic_task_history (epic_id, task_num, from_status, to_status, note, created_at)
                        VALUES ({p}, {p}, {p}, {p}, {p}, {p})""",
-                    (epic_name, int(db_tnum), "none", "pending", "Created via sync",
-                     iso8601_now()),
+                    (
+                        epic_name,
+                        int(db_tnum),
+                        "none",
+                        "pending",
+                        "Created via sync",
+                        iso8601_now(),
+                    ),
                 )
                 conn.commit()
             except db_backend.operational_error_types(conn):
                 conn.rollback()
                 pass  # history table may not exist in test fixtures
 
-        # Fallback: add task list to epic issue body if no sub-issue extension.
-        # Routed through the budget-guarded writer in a sibling helper so the
-        # orchestrator stays under the file-line budget.
-        if not dry_run and not has_sub_issue and task_list_lines:
-            from yoke_core.domain.epic_task_sync_github_orchestrator_body import (
-                append_task_list_to_epic_body,
-            )
-            append_task_list_to_epic_body(
-                epic_issue_num=epic_issue_num,
-                gh_project=gh_project,
-                task_list_lines=task_list_lines,
-                parent_item_id=parent_item_id,
-                conn=conn,
-                stderr=stderr,
-            )
-
-        # --- Dispatch chains: local scaffolding, skip with no checkout ---
-        if repo_root:
-            _generate_dispatch_chains(
-                epic_name=epic_name,
-                worktree_map=worktree_map,
-                repo_root=repo_root,
-                conn=conn,
-                stdout=stdout,
-            )
-        print("", file=stdout)
-        summary = f"Sync complete: epic #{epic_issue_num} — {created} created, {skipped} skipped"
-        if failed_tasks:
-            summary += f", {len(failed_tasks)} failed (tasks {', '.join(failed_tasks)})"
-        print(summary, file=stdout)
-        return 1 if failed_tasks else 0
+        return finalize_sync(
+            dry_run=dry_run,
+            has_sub_issue=has_sub_issue,
+            task_list_lines=task_list_lines,
+            epic_issue_num=epic_issue_num,
+            project=gh_project,
+            parent_item_id=parent_item_id,
+            conn=conn,
+            stderr=stderr,
+            repo_root=repo_root,
+            epic_name=epic_name,
+            worktree_map=worktree_map,
+            stdout=stdout,
+            created=created,
+            skipped=skipped,
+            failed_tasks=failed_tasks,
+            body_writer=_body.append_task_list_to_epic_body,
+        )
     finally:
         if owns_conn and conn is not None:
             conn.close()

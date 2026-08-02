@@ -25,24 +25,14 @@ def normalize_observe_db_path(db_path: Optional[str]) -> Optional[str]:
     return db_path
 
 
-def ambient_postgres_active() -> bool:
-    return True
-
-
-def should_write_observe_event(db_path: Optional[str]) -> bool:
-    return bool(normalize_observe_db_path(db_path) or ambient_postgres_active())
-
-
-def connect_observe_db(db_path: Optional[str]):
-    path = normalize_observe_db_path(db_path)
+def connect_observe_db():
+    """Connect directly to the active Postgres event authority."""
     from yoke_core.domain import db_backend
 
-    return db_backend.connect(path=path)
+    return db_backend.connect()
 
 
 __all__ = [
-    "ambient_postgres_active",
     "connect_observe_db",
     "normalize_observe_db_path",
-    "should_write_observe_event",
 ]

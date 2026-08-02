@@ -93,6 +93,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
     ),
     AdapterEntry(
+        "qa.plan.rematerialize",
+        "yoke qa plan rematerialize --item PREFIX-N --transition T",
+    ),
+    AdapterEntry(
         "qa.requirement.update",
         "yoke qa requirement update --requirement-id N --field FIELD "
         "(--value VALUE | --null) [--session-id S] [--json]",

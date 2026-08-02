@@ -36,6 +36,7 @@ def _verified(repository_id: str, github_repo: str) -> VerifiedProjectGitHubBind
         repository_id=repository_id,
         github_repo=github_repo,
         default_branch="main",
+        repository_is_private=True,
         installation_status="active",
     )
 
@@ -84,7 +85,7 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
 
         assert unbound["bound"] is False
         assert unbound["github_repo"] == ""
-        assert unbound["github_sync_mode"] == "backlog_only"
+        assert unbound["github_sync_mode"] == "disabled"
         conn = pg_testdb.connect_test_database(db_name)
         try:
             project = conn.execute(
@@ -92,7 +93,7 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
             ).fetchone()
             assert dict(project) == {
                 "github_repo": None,
-                "github_sync_mode": "backlog_only",
+                "github_sync_mode": "disabled",
             }
             assert (
                 conn.execute(
@@ -148,7 +149,7 @@ def test_unbind_then_rebind_changes_only_the_selected_project(monkeypatch) -> No
 
         assert rebound["bound"] is True
         assert rebound["binding"]["status"] == "active"
-        assert rebound["github_sync_mode"] == "backlog_only"
+        assert rebound["github_sync_mode"] == "disabled"
         assert cmd_update("externalwebapp", "github_sync_mode", "enabled").startswith(
             "Updated project"
         )

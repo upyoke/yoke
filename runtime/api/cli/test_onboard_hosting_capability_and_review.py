@@ -32,7 +32,9 @@ _BASE = "https://api.upyoke.com"
 def test_link_pins_the_running_builds_template() -> None:
     """The launched template is the one published with this exact build."""
     url = hosting.quick_create_url(
-        region="eu-west-1", version=_VERSION, base_url=_BASE,
+        region="eu-west-1",
+        version=_VERSION,
+        base_url=_BASE,
     )
 
     assert url is not None
@@ -84,7 +86,8 @@ def test_credential_presence_needs_both_halves(monkeypatch, tmp_path: Path) -> N
 
 
 def test_credential_directory_reads_the_same_on_every_machine(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     """Custody copy names the path on screen, so it must not leak a home dir."""
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
@@ -115,7 +118,7 @@ def _plan(*, project_mode: str, hosting_choice: str, reuse: dict) -> dict:
             "checkout": "/home/code/acme-app",
             "slug": "acme-app",
             "name": "Acme App",
-            "github_adoption": "backlog-only",
+            "github_adoption": "disabled",
         },
         machine_github={"choice": "skip"},
         hosting_choice=hosting_choice,
@@ -130,7 +133,8 @@ def test_plan_names_a_skipped_hosting_answer() -> None:
         reuse={},
     )
     row = next(
-        step for step in plan["steps"]
+        step
+        for step in plan["steps"]
         if step["action"] == hosting.HOSTING_CAPABILITY_ACTION
     )
 
@@ -149,12 +153,10 @@ def test_a_saved_credential_moves_out_of_the_write_plan() -> None:
     )
 
     assert all(
-        step["action"] != hosting.HOSTING_CAPABILITY_ACTION
-        for step in plan["steps"]
+        step["action"] != hosting.HOSTING_CAPABILITY_ACTION for step in plan["steps"]
     )
     assert onboard_reuse_feedback.grouped_lines_for_plan(plan)["machine"] == [
-        "The aws-admin hosting credential (2 values, redacted · saved at "
-        "Save & verify)"
+        "The aws-admin hosting credential (2 values, redacted · saved at Save & verify)"
     ]
 
 
@@ -173,14 +175,14 @@ def test_runs_without_a_deploy_target_plan_no_hosting_row(project_mode: str) -> 
     )
 
     assert all(
-        step["action"] != hosting.HOSTING_CAPABILITY_ACTION
-        for step in plan["steps"]
+        step["action"] != hosting.HOSTING_CAPABILITY_ACTION for step in plan["steps"]
     )
     assert onboard_project_modes.offers_hosting_credential(project_mode) is False
 
 
 def test_reuse_detection_reads_the_machine_store(
-    monkeypatch, tmp_path: Path,
+    monkeypatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / ".yoke"))
     directory = hosting.credential_dir("acme-app")
@@ -227,7 +229,8 @@ def test_subtitle_names_the_secrets_already_saved() -> None:
 
 def test_subtitle_keeps_its_promise_when_nothing_is_saved_yet() -> None:
     subtitle = review_steps._review_subtitle(
-        _review_plan({}), machine_github_saved=False,
+        _review_plan({}),
+        machine_github_saved=False,
     )
 
     assert subtitle == review_steps.REVIEW_SUBTITLE
@@ -236,7 +239,8 @@ def test_subtitle_keeps_its_promise_when_nothing_is_saved_yet() -> None:
 def test_subtitle_does_not_claim_a_token_that_is_not_saved() -> None:
     """One saved secret is not two; the promise must not over-claim."""
     subtitle = review_steps._review_subtitle(
-        _review_plan({"aws_admin": True}), machine_github_saved=False,
+        _review_plan({"aws_admin": True}),
+        machine_github_saved=False,
     )
 
     assert subtitle == review_steps.REVIEW_SUBTITLE
@@ -257,7 +261,9 @@ def test_review_shows_already_saved_state_before_the_apply_plan() -> None:
     rendered = [str(w.render()) for w in widgets if isinstance(w, Static)]
 
     already = next(i for i, line in enumerate(rendered) if line.startswith("Already"))
-    apply_group = next(i for i, line in enumerate(rendered) if line.startswith("Apply —"))
+    apply_group = next(
+        i for i, line in enumerate(rendered) if line.startswith("Apply —")
+    )
     assert already < apply_group
 
     # Done and pending read differently, and the heading renders exactly once.
@@ -311,13 +317,15 @@ def test_the_home_folder_is_named_when_nothing_else_implies_it() -> None:
 
 def test_other_machine_state_still_reports_beside_the_secrets() -> None:
     """Suppressing the folder line does not silence the honest ones around it."""
-    lines = _machine_lines({
-        "yoke_home": True,
-        "token_reference": True,
-        "machine_github": True,
-        "temp_root": True,
-        "cache_dir": True,
-    })
+    lines = _machine_lines(
+        {
+            "yoke_home": True,
+            "token_reference": True,
+            "machine_github": True,
+            "temp_root": True,
+            "cache_dir": True,
+        }
+    )
 
     assert "GitHub App authorization is already connected." in lines
     assert "Runtime scratch and cache folders already exist." in lines

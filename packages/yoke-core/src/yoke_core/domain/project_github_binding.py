@@ -13,17 +13,19 @@ from yoke_contracts.github_binding_metadata import (
     validate_binding_metadata,
 )
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
+from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_DISABLED
 
-from yoke_core.domain import db_backend, json_helper
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+from yoke_core.domain import (
+    db_backend,
+    json_helper,
+    project_github_capability_settings,
+)
+from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.github_app_user_verification import (
     VerifiedProjectGitHubBinding,
     verify_project_github_binding,
 )
 from yoke_core.domain.project_github_binding_payload import (
-    automation_status,
-    binding_payload,
-    installation_payload,
     normalize_github_repo,
     permission_status,
     permissions_text,
@@ -34,6 +36,9 @@ from yoke_core.domain.project_github_binding_persistence import (
     RepositoryBindingConflict,
     persist_project_binding,
     persist_verified_installation,
+)
+from yoke_core.domain.project_github_binding_status import (
+    cmd_project_github_binding_status,
 )
 from yoke_core.domain.project_github_binding_state import (
     BINDING_ACTIVE,
@@ -49,9 +54,6 @@ from yoke_core.domain.project_github_binding_state import (
     refresh_attached_project_bindings,
 )
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.project_github_capability_settings import (
-    build_github_capability_settings,
-)
 
 
 def _p(conn: Any) -> str:
@@ -106,6 +108,7 @@ def _store_verified_project_repo_binding(
             repository_id=verified.repository_id,
             github_repo=verified.github_repo,
             default_branch=verified.default_branch,
+            repository_is_private=verified.repository_is_private,
             installation_status=verified.installation_status,
         )
     except GitHubBindingMetadataError as exc:
@@ -139,14 +142,16 @@ def _store_verified_project_repo_binding(
             raise ProjectGithubBindingError(
                 "verified GitHub API URL is invalid"
             ) from exc
-        capability_settings = build_github_capability_settings(
-            conn,
-            ident.id,
-            github_repo=repo,
-            installation_id=installation_key,
-            repository_id=repository_key,
-            api_url=api_url,
-            permissions=metadata.permissions,
+        capability_settings = (
+            project_github_capability_settings.build_github_capability_settings(
+                conn,
+                ident.id,
+                github_repo=repo,
+                installation_id=installation_key,
+                repository_id=repository_key,
+                api_url=api_url,
+                permissions=metadata.permissions,
+            )
         )
         try:
             persist_verified_installation(
@@ -186,6 +191,7 @@ def _store_verified_project_repo_binding(
                 api_url=api_url,
                 github_repo=repo,
                 default_branch=metadata.default_branch,
+                repository_is_private=metadata.repository_is_private,
                 status=persistence.binding_status,
                 permissions=selected_permissions,
                 verified_at=now,
@@ -247,84 +253,17 @@ def cmd_unbind_project_repo(
             (ident.id,),
         )
         for table in ("project_capabilities", "capability_secrets"):
-            delete_sql = f"DELETE FROM {table} WHERE project_id={p} AND LOWER(TRIM(type))={p}"
+            delete_sql = (
+                f"DELETE FROM {table} WHERE project_id={p} AND LOWER(TRIM(type))={p}"
+            )
             conn.execute(delete_sql, (ident.id, GITHUB_CAPABILITY_TYPE))
         conn.execute(
-            "UPDATE projects SET github_repo=NULL, "
-            "github_sync_mode='backlog_only' "
-            f"WHERE id={p}",
-            (ident.id,),
+            f"UPDATE projects SET github_repo=NULL, github_sync_mode={p} WHERE id={p}",
+            (GITHUB_SYNC_DISABLED, ident.id),
         )
         if owns_conn:
             conn.commit()
         return cmd_project_github_binding_status(project, conn=conn)
-    finally:
-        if owns_conn and conn is not None:
-            conn.close()
-
-
-def cmd_project_github_binding_status(
-    project: str,
-    *,
-    db_path: Optional[str] = None,
-    conn: Optional[Any] = None,
-) -> dict[str, Any]:
-    """Return repository binding and automation availability for a project."""
-    owns_conn = conn is None
-    if owns_conn:
-        conn = connect(db_path)
-    try:
-        assert conn is not None
-        ident = resolve_project(conn, project, required=True)
-        assert ident is not None
-        p = _p(conn)
-        project_row = query_one(
-            conn,
-            f"SELECT slug, github_repo, default_branch, github_sync_mode "
-            f"FROM projects WHERE id={p}",
-            (ident.id,),
-        )
-        binding = query_one(
-            conn,
-            f"SELECT * FROM project_github_repo_bindings WHERE project_id={p}",
-            (ident.id,),
-        )
-        installation = None
-        if binding is not None:
-            installation = query_one(
-                conn,
-                f"SELECT * FROM github_app_installations WHERE installation_id={p}",
-                (binding["installation_id"],),
-            )
-        binding_info = binding_payload(binding)
-        installation_info = installation_payload(installation)
-        permissions_info = permission_status(
-            installation_info.get("permissions", {}) if installation_info else {}
-        )
-        automation_info = automation_status(
-            binding_info,
-            installation_info,
-            permissions_info,
-        )
-        return {
-            "project": ident.slug,
-            "github_repo": (
-                str(project_row["github_repo"] or "") if project_row else ""
-            ),
-            "default_branch": (
-                str(project_row["default_branch"] or "") if project_row else ""
-            ),
-            "github_sync_mode": (
-                str(project_row["github_sync_mode"] or "enabled")
-                if project_row
-                else "enabled"
-            ),
-            "bound": binding_info is not None,
-            "binding": binding_info,
-            "installation": installation_info,
-            "permission_status": permissions_info,
-            "automation": automation_info,
-        }
     finally:
         if owns_conn and conn is not None:
             conn.close()

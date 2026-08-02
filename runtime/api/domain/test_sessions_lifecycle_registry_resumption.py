@@ -1,10 +1,13 @@
 """Tests: register_session reacquire path emits HarnessSessionResumed.
 
-Covers AC-1, AC-4 (lock inheritance through resume), and verifies the
-resumption marker is queryable with a single ``event_name`` predicate.
-The existing ``SessionReactivatedWithReleasedClaims`` /
-``SessionReactivationReacquiredClaims`` events must still emit — the
-resumption marker is additive, not a replacement.
+Covers lock inheritance through resume and verifies the resumption
+marker is queryable with a single ``event_name`` predicate. Every
+reactivation emits it — a claim-free one included, since that session
+crossed the same episode boundary — while the existing
+``SessionReactivatedWithReleasedClaims`` /
+``SessionReactivationReacquiredClaims`` events stay claim-conditional
+and must still emit alongside it; the resumption marker is additive,
+not a replacement.
 
 The reactivation reads/writes under test now issue native ``%s`` SQL, so
 :class:`TestEmitSessionResumedFromReactivation` runs against a disposable
@@ -203,16 +206,25 @@ class TestEmitSessionResumedFromReactivation(_PgResumptionTestCase):
         self.assertEqual(len(kwargs["released_claims"]), 1)
         self.assertEqual(kwargs["released_claims"][0]["item_id"], 700)
 
-    def test_no_resumption_event_when_no_prior_session_ended_claims(self) -> None:
+    def test_emits_resumption_event_for_claim_free_reactivation(self) -> None:
+        # A session that was claim-free when the transient end closed it
+        # crossed the same episode boundary as a claim-holding one, so the
+        # marker still emits — with zero counts.
         conn = self.conn
         _insert_session(conn, "sess-fresh")
 
         with mock.patch(
             "yoke_core.domain.sessions_lifecycle_resumption_emit.emit_session_resumed"
         ) as resumed:
-            emit_reactivated_with_released_claims(conn, "sess-fresh")
+            released = emit_reactivated_with_released_claims(conn, "sess-fresh")
 
-        resumed.assert_not_called()
+        self.assertEqual(released, [])
+        resumed.assert_called_once()
+        kwargs = resumed.call_args.kwargs
+        self.assertEqual(kwargs["session_id"], "sess-fresh")
+        self.assertEqual(kwargs["released_claims"], [])
+        self.assertEqual(kwargs["reacquired_claims"], [])
+        self.assertEqual(kwargs["conflicts"], [])
 
 
 class TestBuildClaimDetails(unittest.TestCase):

@@ -6,7 +6,7 @@ from typing import Any
 
 from yoke_cli.config import existing_project_lookup
 from yoke_cli.config.onboard_destinations import DESTINATION_LOCAL
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_contracts.project_contract.github_sync_mode import GITHUB_SYNC_ENABLED
 
@@ -66,7 +66,7 @@ def record_match(
     result.project_github_adoption = (
         GITHUB_ADOPTION_APP_BINDING
         if project.github_sync_mode == GITHUB_SYNC_ENABLED
-        else GITHUB_ADOPTION_BACKLOG_ONLY
+        else GITHUB_ADOPTION_DISABLED
     )
     result.project_github_adoption_preserve = True
     result.project_publish_to_github = False

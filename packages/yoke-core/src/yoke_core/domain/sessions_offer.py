@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from . import db_backend
 from .frontier_compute import _canonical_project_label
 from .sessions_analytics import SessionError
+from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle import _get_session, heartbeat
 from .sessions_offer_candidates import acquire_claim_from_candidates
 from .sessions_offer_envelope_merge import merge_offer_envelope
@@ -144,7 +145,7 @@ def session_offer_with_ownership(
     if row[0] is not None:
         raise SessionError(
             "SESSION_ENDED",
-            f"Session '{session_id}' has ended. Cannot offer work on an inactive session.",
+            session_ended_message(conn, session_id),
         )
 
     anchor = anchor_lane_on_row(

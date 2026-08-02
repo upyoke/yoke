@@ -81,7 +81,9 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
     """Find issue-search results not linked to items or epic tasks."""
     if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
-            "HC-gh-orphan-detection", "GitHub orphan detection", "SKIP",
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "SKIP",
             GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
@@ -98,7 +100,9 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
         if gh and gh != "null":
             known_nums.add(gh.replace("#", ""))
 
-    if _base._table_exists(conn, "epic_tasks") and _base._column_exists(conn, "epic_tasks", "github_issue"):
+    if _base._table_exists(conn, "epic_tasks") and _base._column_exists(
+        conn, "epic_tasks", "github_issue"
+    ):
         task_rows = query_rows(
             conn,
             "SELECT github_issue FROM epic_tasks "
@@ -109,10 +113,10 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
             if gh and gh != "null":
                 known_nums.add(gh.replace("#", ""))
 
-    # Iterate every project with a configured github_repo. Backlog-only
+    # Iterate every project with a configured github_repo. Disabled
     # projects are out of scope: their backlog never mirrors to their
     # repo's issue tracker, so a [YOK-]-prefixed issue there is not a
-    # sync orphan (.yoke/docs/github-sync.md, "Backlog-only semantics").
+    # sync orphan (.yoke/docs/github-sync.md, "Disabled semantics").
     all_gh_issues: List[dict] = []
     auth_failures: List[str] = []
     search_failures: List[str] = []
@@ -127,13 +131,18 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
         for prow in proj_rows:
             project = prow["slug"]
             if not github_sync_enabled(project, conn=conn):
-                sync_disabled_notes.append("- " + github_sync_disabled_notice(
-                    project, "orphan detection",
-                ))
+                sync_disabled_notes.append(
+                    "- "
+                    + github_sync_disabled_notice(
+                        project,
+                        "orphan detection",
+                    )
+                )
                 continue
             try:
                 auth = resolve_project_github_auth(
-                    project, db_path=args.db_path,
+                    project,
+                    db_path=args.db_path,
                     required_permissions=GITHUB_METADATA_READ_PERMISSION_LEVELS,
                 )
             except ProjectGithubAuthError as err:
@@ -147,8 +156,11 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
                 continue
             owner, name = parts
             r = search_issues_by_query_rest(
-                owner=owner, name=name, token=auth.token,
-                search="[YOK- is:issue", limit=500,
+                owner=owner,
+                name=name,
+                token=auth.token,
+                search="[YOK- is:issue",
+                limit=500,
             )
             if r.returncode != 0:
                 search_failures.append(
@@ -166,7 +178,9 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
 
     if auth_failures:
         rec.record(
-            "HC-gh-orphan-detection", "GitHub orphan detection", "FAIL",
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "FAIL",
             "Cannot resolve project GitHub auth:\n" + "\n".join(auth_failures),
         )
         return
@@ -191,15 +205,26 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
             f"{count} GitHub issue(s) with [YOK-] prefix not linked from "
             f"any backlog item or epic task:\n" + "\n".join(issues)
         )
-        rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "WARN",
-                    detail + notes_suffix)
+        rec.record(
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "WARN",
+            detail + notes_suffix,
+        )
     elif search_failures:
-        rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "WARN",
-                   "\n".join(scan_notes))
+        rec.record(
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "WARN",
+            "\n".join(scan_notes),
+        )
     else:
-        rec.record("HC-gh-orphan-detection", "GitHub orphan detection", "PASS",
-                    notes_suffix.lstrip("\n"))
-
+        rec.record(
+            "HC-gh-orphan-detection",
+            "GitHub orphan detection",
+            "PASS",
+            notes_suffix.lstrip("\n"),
+        )
 
 
 def hc_delegated_sync(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -260,15 +285,17 @@ def hc_delegated_sync(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             slug = hc_id.replace("HC-", "")
             if slug in requested:
                 seen_slugs.add(slug)
-                rec.record(hc_id, hc_label.strip(), hc_status.strip(),
-                           hc_detail.strip())
+                rec.record(
+                    hc_id, hc_label.strip(), hc_status.strip(), hc_detail.strip()
+                )
 
         # Emit WARN for any requested but unseen HCs
         for slug in requested:
             if slug not in seen_slugs:
                 label = _DELEGATED_HC_LABELS.get(slug, slug)
-                rec.record(f"HC-{slug}", label, "WARN",
-                           "resync engine did not report this HC")
+                rec.record(
+                    f"HC-{slug}", label, "WARN", "resync engine did not report this HC"
+                )
     else:
         # Fallback: resync engine not available or failed
         detail = "resync engine not available or produced no doctor-format output"

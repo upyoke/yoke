@@ -322,7 +322,7 @@ def preflight_project_apply(project_report: Any) -> None:
         return
     if github_adoption.get("requires_explicit_choice"):
         raise OnboardProjectError(
-            "choose --github-adoption app-binding or backlog-only before "
+            "choose --github-adoption app-binding or disabled before "
             "applying GitHub project adoption"
         )
 

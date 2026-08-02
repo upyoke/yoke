@@ -2,11 +2,13 @@
 
 Locks the fix family for the live gap where a desktop session ran full
 PreToolUse/PostToolUse chains all day with no ``harness_sessions`` row:
-the dispatch telemetry flush probes for the session row on its shared
-connection and drives the canonical ``_register_from_hook`` sequence
-when (and only when) the row is positively missing. Also covers the
-process-anchor write inside ``_register_from_hook`` and the runner-side
-wiring that arms the probe for non-remote dispatches.
+the dispatch telemetry flush probes the session's registration state on
+its shared connection and drives the canonical ``_register_from_hook``
+sequence when (and only when) the row is positively missing. Also covers
+the process-anchor write inside ``_register_from_hook``, the runner-side
+wiring that arms the probe for non-remote dispatches, and — in the
+sibling ``test_hook_runner_register_ended_revival.py`` — the ended-row
+revival case.
 """
 
 from __future__ import annotations
@@ -15,7 +17,6 @@ import importlib
 import json
 from contextlib import contextmanager
 from typing import Any
-from unittest import mock
 
 import pytest
 
@@ -34,10 +35,10 @@ from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, O
 
 
 class TestEnsureRegisteredFromHook:
-    def _patch_lookup(self, monkeypatch, found, stored_actor_id=None):
+    def _patch_lookup(self, monkeypatch, found, stored_actor_id=None, ended=False):
         monkeypatch.setattr(
-            "yoke_core.domain.events_session_actor.session_actor_lookup",
-            lambda _conn, _sid: (found, stored_actor_id),
+            "yoke_core.domain.sessions_ended_recovery.session_registration_state",
+            lambda _conn, _sid: (found, stored_actor_id, ended),
         )
 
     def test_registers_when_row_positively_missing(self, monkeypatch):
