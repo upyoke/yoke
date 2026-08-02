@@ -52,10 +52,35 @@ class TestRecordSessionAnchor:
         assert on_disk["anchor_process_name"] == "claude"
         assert on_disk["registered_at"]
 
-    def test_rewrite_same_pid_last_writer_wins(self, machine_home):
+    def test_rewrite_by_same_session_refreshes_in_place(self, machine_home):
+        anchors.record_session_anchor("sess-1", anchor=_anchor())
+        anchors.record_session_anchor("sess-1", anchor=_anchor())
+        on_disk = _record_for(machine_home, 200)
+        assert on_disk["session_id"] == "sess-1"
+        assert "shared_by_multiple_sessions" not in on_disk
+
+    def test_second_live_session_on_one_pid_marks_contention(self, machine_home):
         anchors.record_session_anchor("sess-old", anchor=_anchor())
         anchors.record_session_anchor("sess-new", anchor=_anchor())
-        assert _record_for(machine_home, 200)["session_id"] == "sess-new"
+        on_disk = _record_for(machine_home, 200)
+        # Neither session may claim a pid that hosts both of them.
+        assert on_disk["shared_by_multiple_sessions"] is True
+        assert on_disk["session_id"] == ""
+
+    def test_contention_marker_survives_further_writers(self, machine_home):
+        anchors.record_session_anchor("sess-a", anchor=_anchor())
+        anchors.record_session_anchor("sess-b", anchor=_anchor())
+        anchors.record_session_anchor("sess-c", anchor=_anchor())
+        assert _record_for(machine_home, 200)["shared_by_multiple_sessions"]
+
+    def test_pid_reuse_lets_a_new_session_claim_the_pid(self, machine_home):
+        anchors.record_session_anchor("sess-old", anchor=_anchor(start="s-old"))
+        anchors.record_session_anchor("sess-new", anchor=_anchor(start="s-new"))
+        on_disk = _record_for(machine_home, 200)
+        # A different start time means the old process is gone, so this is a
+        # reused pid rather than two live sessions sharing one host.
+        assert on_disk["session_id"] == "sess-new"
+        assert "shared_by_multiple_sessions" not in on_disk
 
     def test_no_harness_ancestor_returns_none(self, machine_home, monkeypatch):
         monkeypatch.setattr(
@@ -125,6 +150,42 @@ class TestResolveSessionFromAncestry:
             start_time_of=lambda _pid: _START,
         )
         assert resolved is None
+
+    def test_contended_pid_refuses_rather_than_guessing(self, machine_home):
+        anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))
+        anchors.record_session_anchor("sess-b", anchor=_anchor(pid=200))
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 1},
+            start_time_of=lambda _pid: _START,
+        )
+        assert resolved is None
+
+    def test_contended_pid_stops_the_walk_at_that_ancestor(self, machine_home):
+        # An ancestor above a pid that already hosts two sessions can only be
+        # more widely shared, so resolution must not fall through to it.
+        anchors.record_session_anchor("outer", anchor=_anchor(pid=100, start="s100"))
+        anchors.record_session_anchor("shared-a", anchor=_anchor(pid=200, start="s200"))
+        anchors.record_session_anchor("shared-b", anchor=_anchor(pid=200, start="s200"))
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 100, 100: 1},
+            start_time_of={100: "s100", 200: "s200"}.get,
+        )
+        assert resolved is None
+
+    def test_contention_marker_is_not_pruned_while_its_pid_lives(
+        self, machine_home
+    ):
+        anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))
+        anchors.record_session_anchor("sess-b", anchor=_anchor(pid=200))
+        anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 1},
+            start_time_of=lambda _pid: _START,
+        )
+        registry = machine_home / anchors.ANCHORS_DIR_NAME
+        assert (registry / "200.json").exists()
 
     def test_corrupt_record_is_pruned_and_skipped(self, machine_home):
         registry = machine_home / anchors.ANCHORS_DIR_NAME

@@ -82,7 +82,7 @@ engine dispatches. In local mode the engine dispatches in-process and
 authenticates through the Yoke GitHub App once a project is bound to an installed App repository.
 
 The repo connection is optional per project: set
-`github_sync_mode=backlog_only` on a project row and its backlog stays
+`github_sync_mode=disabled` on a project row and its backlog stays
 DB-only — every issue-sync surface skips it and no GitHub App token is resolved.
 Full semantics, the flip commands, and the safe ordering for changing a
 project's `github_repo` live in [github-sync.md](../.yoke/docs/github-sync.md).
@@ -175,7 +175,7 @@ diagnostic to run after setup or when a project command cannot resolve context.
 
 ### 4. Optional Machine GitHub Connection
 
-Connect a GitHub App only for GitHub product commands; backlog-only local use needs
+Connect a GitHub App only for GitHub product commands; disabled local use needs
 none. Use optional **Yoke by upyoke.com** or provide a complete five-field profile.
 
 ```bash
@@ -202,7 +202,7 @@ yoke project create ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption backlog-only \
+  --github-adoption disabled \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -216,7 +216,7 @@ yoke project import git@github.com:owner/my-app.git ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption backlog-only \
+  --github-adoption disabled \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -230,7 +230,7 @@ yoke onboard project ~/work/my-app \
   --github-repo owner/my-app \
   --default-branch main \
   --public-item-prefix APP \
-  --github-adoption backlog-only \
+  --github-adoption disabled \
   --config ~/.yoke/config.json \
   --dry-run \
   --json
@@ -257,7 +257,7 @@ When `--github-repo` is present, Yoke records the repository identity for
 code delivery. `--github-adoption app-binding` requires the repository to be
 present in the connected App authorization, verifies its installation and
 repository ids, stores the binding, and sets `github_sync_mode=enabled`.
-Use `--github-adoption backlog-only` to explicitly set `github_sync_mode=backlog_only`
+Use `--github-adoption disabled` to explicitly set `github_sync_mode=disabled`
 until a binding is available.
 
 Dry runs and JSON output include an `automation_preview` covering project

@@ -36,6 +36,7 @@ GITHUB_APP_TABLES: dict[str, dict] = {
             ("api_url", "TEXT"),
             ("github_repo", "TEXT"),
             ("default_branch", "TEXT"),
+            ("repository_is_private", "BOOLEAN"),
             ("status", "TEXT"),
             ("permissions", "TEXT"),
             ("last_verified_at", "TEXT"),

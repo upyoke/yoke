@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     api_url TEXT NOT NULL DEFAULT '{DEFAULT_GITHUB_API_URL}',
     github_repo TEXT NOT NULL,
     default_branch TEXT,
+    repository_is_private BOOLEAN NOT NULL DEFAULT FALSE,
     status TEXT NOT NULL DEFAULT 'active',
     permissions TEXT NOT NULL DEFAULT '{{}}',
     last_verified_at TEXT,
@@ -75,6 +76,12 @@ def create_github_app_tables(conn) -> None:
         "project_github_repo_bindings",
         "api_url",
         api_url_column,
+    )
+    _add_column_if_not_exists(
+        conn,
+        "project_github_repo_bindings",
+        "repository_is_private",
+        "BOOLEAN NOT NULL DEFAULT FALSE",
     )
     for name in ("last_sync_at", "last_sync_outcome", "last_sync_error"):
         _add_column_if_not_exists(

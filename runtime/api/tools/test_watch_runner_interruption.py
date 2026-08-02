@@ -108,6 +108,73 @@ class TestRunWatcherInterruption:
 
 
 
+class TestRunWatcherTimeout:
+    """A deadline must reap the tree, not just abandon the direct child.
+
+    A registered command runs through a shell, so the work itself is a
+    grandchild holding the databases. The timeout path exists so a wedged
+    run releases them instead of hanging its caller forever.
+    """
+
+    def test_timeout_reaps_the_tree_and_reports_on_every_surface(self, tmp_path):
+        pid_file = tmp_path / "grandchild.pid"
+        raw = tmp_path / "raw.log"
+        progress = tmp_path / "progress.log"
+        stdout = io.StringIO()
+
+        rc = _watch_runner.run_watcher(
+            argv=[
+                "/bin/sh",
+                "-c",
+                f"sleep 300 & echo $! > {pid_file}; echo started; sleep 300",
+            ],
+            classifier=_summary_classifier,
+            raw_capture=raw,
+            progress_capture=progress,
+            kind="deadline",
+            stdout_stream=stdout,
+            policy=PASSTHROUGH_POLICY,
+            timeout_seconds=1,
+        )
+
+        assert rc == _watch_runner.TIMEOUT_EXIT
+        grandchild_pid = int(pid_file.read_text().strip())
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            try:
+                os.kill(grandchild_pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+        with pytest.raises(ProcessLookupError):
+            os.kill(grandchild_pid, 0)
+
+        assert "timed out after 1 seconds" in raw.read_text(encoding="utf-8")
+        progress_text = progress.read_text(encoding="utf-8")
+        assert "timed out after 1 seconds" in progress_text
+        assert f"# watch_deadline exit={rc}" in progress_text
+        # A timing-out run must not also claim it is healthily still running.
+        assert "still running" not in stdout.getvalue()
+
+    def test_no_deadline_leaves_a_fast_command_untouched(self, tmp_path):
+        script = _python_emit_script(tmp_path, ["MATCH done"], exit_code=0)
+        raw = tmp_path / "raw.log"
+        progress = tmp_path / "progress.log"
+
+        rc = _watch_runner.run_watcher(
+            argv=[sys.executable, str(script)],
+            classifier=_summary_classifier,
+            raw_capture=raw,
+            progress_capture=progress,
+            kind="nodeadline",
+            stdout_stream=io.StringIO(),
+            policy=PASSTHROUGH_POLICY,
+        )
+
+        assert rc == 0
+        assert "timed out" not in progress.read_text(encoding="utf-8")
+
+
 class TestRunWatcherExitCodePreservation:
     @pytest.mark.parametrize("code", [0, 1, 2, 5, 42])
     def test_propagates_underlying_exit_code(self, tmp_path, code):

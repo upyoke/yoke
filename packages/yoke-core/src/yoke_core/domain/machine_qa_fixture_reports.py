@@ -21,7 +21,7 @@ def build_apply_resume_report(
         "github_app": {
             "machine": {"kind": ""},
             "project": {
-                "adoption": "backlog-only",
+                "adoption": "disabled",
                 "repo": "owner/apply-resume",
             },
         },
@@ -40,9 +40,9 @@ def build_apply_resume_report(
         "existing_project_id": None,
         "existing_project_match_source": "",
         "existing_project_local_source": "",
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "github_binding": {
-            "adoption": "backlog-only",
+            "adoption": "disabled",
             "repo": "owner/apply-resume",
         },
         "keep_existing_remote": False,

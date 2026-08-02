@@ -198,7 +198,14 @@ For each slice:
 1. Re-read the relevant current document section and live coordination
    entries.
 2. Make the smallest coherent change in its registered worktree.
-3. Run focused verification with capture-first output.
+3. Run focused verification with capture-first output — the individual
+   failing tests, the changed module's paths, or the project's impacted
+   selection (`yoke watch pytest --impacted main --bounded` here, which
+   reports an unbounded selection instead of widening). When a slice has an
+   attached Command case, that case run is the slice's one full execution:
+   do not run the project's full sweep by hand and then hand the same tree to
+   `yoke qa case run`, which re-runs the identical registered command. It
+   streams live to stderr and names its raw capture file before starting.
 4. Commit the slice with a descriptive current-function message.
 5. Resolve the exact changed files and re-survey immediately before merge:
 

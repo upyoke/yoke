@@ -49,6 +49,7 @@ class ValidatedGitHubBindingMetadata:
     repository_id: str
     github_repo: str
     default_branch: str
+    repository_is_private: bool
     installation_status: str
 
 
@@ -63,6 +64,7 @@ def validate_binding_metadata(
     repository_id: Any,
     github_repo: Any,
     default_branch: Any,
+    repository_is_private: Any,
     installation_status: Any,
 ) -> ValidatedGitHubBindingMetadata:
     """Return one canonical binding record or reject it before persistence."""
@@ -77,6 +79,9 @@ def validate_binding_metadata(
         repository_id=validate_identifier(repository_id, "repository id"),
         github_repo=validate_repository_full_name(github_repo),
         default_branch=validate_default_branch(default_branch),
+        repository_is_private=validate_repository_is_private(
+            repository_is_private,
+        ),
         installation_status=validate_installation_status(installation_status),
     )
 
@@ -129,6 +134,13 @@ def validate_repository_selection(value: Any) -> str:
     if selected not in _REPOSITORY_SELECTIONS:
         raise GitHubBindingMetadataError("GitHub repository selection is invalid")
     return selected
+
+
+def validate_repository_is_private(value: Any) -> bool:
+    """Return verified repository visibility or reject an ambiguous value."""
+    if not isinstance(value, bool):
+        raise GitHubBindingMetadataError("GitHub repository visibility is invalid")
+    return value
 
 
 def validate_permissions(value: Mapping[str, Any]) -> Mapping[str, str]:
@@ -229,6 +241,7 @@ __all__ = [
     "validate_identifier",
     "validate_installation_status",
     "validate_permissions",
+    "validate_repository_is_private",
     "validate_repository_full_name",
     "validate_repository_selection",
 ]

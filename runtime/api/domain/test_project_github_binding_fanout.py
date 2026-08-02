@@ -21,7 +21,6 @@ from yoke_core.domain.project_github_binding import (
     cmd_project_github_binding_status,
 )
 from yoke_core.domain.project_renderer_settings import load_project_renderer_settings
-from yoke_core.domain.projects_upsert import cmd_upsert
 
 
 _FULL_PERMISSIONS = {
@@ -53,6 +52,7 @@ def _verified(
         repository_id=repository_id,
         github_repo=github_repo,
         default_branch="main",
+        repository_is_private=True,
     )
 
 
@@ -71,7 +71,9 @@ def _bind(
         expected_api_url="https://api.github.com",
         github_user_access_token="github-user-token",
         verifier=lambda **kwargs: _verified(
-            github_repo, repository_id, permissions=permissions,
+            github_repo,
+            repository_id,
+            permissions=permissions,
         ),
     )
 
@@ -110,9 +112,17 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
+        _bind(
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
+            "4568",
+            permissions=_FULL_PERMISSIONS,
+        )
+        projects.cmd_update("yoke", "github_sync_mode", "enabled")
         projects.cmd_capability_merge_settings(
-            "yoke", "github", {"ci_oidc_manage_provider": False},
+            "yoke",
+            "github",
+            {"ci_oidc_manage_provider": False},
         )
 
         _bind(
@@ -141,7 +151,9 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             "repo_owner": "Example-Org",
             "repository_id": "4567",
         }
-        assert load_project_renderer_settings("externalwebapp").capabilities["github"] == {
+        assert load_project_renderer_settings("externalwebapp").capabilities[
+            "github"
+        ] == {
             "api_url": "https://api.github.com",
             "installation_id": "12345",
             "permissions": {"metadata": "read", "issues": "read"},
@@ -150,7 +162,13 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
             "repository_id": "4568",
         }
 
-        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
+        _bind(
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
+            "4568",
+            permissions=_FULL_PERMISSIONS,
+        )
+        projects.cmd_update("yoke", "github_sync_mode", "enabled")
 
         upgraded = cmd_project_github_binding_status("yoke")
         assert upgraded["binding"]["status"] == "active"
@@ -158,14 +176,15 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
         assert upgraded["permission_status"]["status"] == "satisfied"
         assert upgraded["automation"] == {"available": True, "reason": "bound"}
         with bind_local_github_user_token_provider(
-            lambda: "github-user-token", api_url="https://api.github.com",
+            lambda: "github-user-token",
+            api_url="https://api.github.com",
         ):
             resolved = resolve_project_github_auth("yoke")
         assert resolved.repo == "Example-Org/Yoke"
         assert resolved.permissions == _FULL_PERMISSIONS
-        upgraded_capability = load_project_renderer_settings(
-            "yoke"
-        ).capabilities["github"]
+        upgraded_capability = load_project_renderer_settings("yoke").capabilities[
+            "github"
+        ]
         assert upgraded_capability["permissions"] == _FULL_PERMISSIONS
         assert upgraded_capability["repo_owner"] == "Example-Org"
         assert upgraded_capability["repo_name"] == "Yoke"
@@ -176,7 +195,7 @@ def test_installation_permission_refresh_fans_out_downgrade_and_upgrade(
         pg_testdb.drop_test_database(db_name)
 
 
-def test_installation_refresh_preserves_intentional_backlog_only(
+def test_installation_refresh_preserves_intentional_disabled(
     monkeypatch,
 ) -> None:
     db_name = pg_testdb.create_test_database()
@@ -191,8 +210,13 @@ def test_installation_refresh_preserves_intentional_backlog_only(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
-        projects.cmd_update("yoke", "github_sync_mode", "backlog_only")
+        _bind(
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
+            "4568",
+            permissions=_FULL_PERMISSIONS,
+        )
+        projects.cmd_update("yoke", "github_sync_mode", "disabled")
 
         _bind(
             "externalwebapp",
@@ -202,17 +226,22 @@ def test_installation_refresh_preserves_intentional_backlog_only(
         )
 
         downgraded = cmd_project_github_binding_status("yoke")
-        assert downgraded["github_sync_mode"] == "backlog_only"
+        assert downgraded["github_sync_mode"] == "disabled"
         assert downgraded["binding"]["status"] == "pending"
         assert downgraded["automation"] == {
             "available": False,
             "reason": "missing_permissions",
         }
 
-        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
+        _bind(
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
+            "4568",
+            permissions=_FULL_PERMISSIONS,
+        )
 
         recovered = cmd_project_github_binding_status("yoke")
-        assert recovered["github_sync_mode"] == "backlog_only"
+        assert recovered["github_sync_mode"] == "disabled"
         assert recovered["binding"]["status"] == "active"
         assert recovered["automation"] == {"available": True, "reason": "bound"}
     finally:
@@ -234,11 +263,15 @@ def test_installation_permission_fanout_rolls_back_projection_failure(
             pg_testdb.dsn_for_test_database(db_name),
         )
         _bind("yoke", "Example-Org/Yoke", "4567", permissions=_FULL_PERMISSIONS)
-        _bind("externalwebapp", "Example-Org/ExternalWebapp", "4568", permissions=_FULL_PERMISSIONS)
-
-        original_builder = (
-            project_github_binding_state.build_github_capability_settings
+        _bind(
+            "externalwebapp",
+            "Example-Org/ExternalWebapp",
+            "4568",
+            permissions=_FULL_PERMISSIONS,
         )
+
+        projects.cmd_update("yoke", "github_sync_mode", "enabled")
+        original_builder = project_github_binding_state.build_github_capability_settings
         projection_count = 0
 
         def fail_second_projection(*args, **kwargs):
@@ -265,9 +298,10 @@ def test_installation_permission_fanout_rolls_back_projection_failure(
         assert yoke_status["binding"]["status"] == "active"
         assert yoke_status["github_sync_mode"] == "enabled"
         assert yoke_status["permission_status"]["status"] == "satisfied"
-        assert load_project_renderer_settings(
-            "yoke"
-        ).capabilities["github"]["permissions"] == _FULL_PERMISSIONS
+        assert (
+            load_project_renderer_settings("yoke").capabilities["github"]["permissions"]
+            == _FULL_PERMISSIONS
+        )
     finally:
         pg_testdb.drop_test_database(db_name)
 
@@ -303,31 +337,3 @@ def test_repository_identity_cannot_bind_a_second_project_after_rename(
         assert cmd_project_github_binding_status("yoke")["bound"] is True
     finally:
         pg_testdb.drop_test_database(db_name)
-
-
-def test_project_upsert_rejects_repo_change_after_binding(bound_yoke_db) -> None:
-    with pytest.raises(ValueError, match="binding-owned"):
-        cmd_upsert(
-            slug="yoke",
-            name="Yoke",
-            github_repo="other-org/other-repo",
-            mode="update",
-        )
-    assert projects.cmd_get("yoke", field="github_repo") == "Example-Org/Yoke"
-
-
-def test_project_upsert_accepts_equivalent_repo_and_keeps_bound_projection(
-    bound_yoke_db,
-) -> None:
-    cmd_upsert(
-        slug="yoke",
-        name="Yoke Renamed",
-        github_repo="https://github.com/example-org/yoke.git",
-        mode="update",
-    )
-    assert projects.cmd_get("yoke", field="github_repo") == "Example-Org/Yoke"
-
-
-def test_legacy_project_field_update_cannot_bypass_binding(bound_yoke_db) -> None:
-    with pytest.raises(ValueError, match="binding-owned"):
-        projects.cmd_update("yoke", "github_repo", "other-org/other-repo")

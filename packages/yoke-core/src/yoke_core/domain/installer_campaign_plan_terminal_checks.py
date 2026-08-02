@@ -264,7 +264,7 @@ APPLY_HANDOFF = terminal_case(
     "terminal-check",
     instructions=(
         "Run the public Stage installer with the local-machine destination, "
-        "create or verify the local universe, stay backlog-only for GitHub, "
+        "create or verify the local universe, stay disabled for GitHub, "
         "choose machine-only setup, Apply, exit successfully, and capture the "
         "installer parent's execution-ready handoff."
     ),

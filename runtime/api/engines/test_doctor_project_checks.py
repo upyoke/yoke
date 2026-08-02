@@ -242,5 +242,47 @@ class TestRosterIntegration(unittest.TestCase):
         self.assertIn("source tree", rec.results[0].detail)
 
 
+class TestThisProjectsOwnCheckFolder(unittest.TestCase):
+    """Discovery over the real ``.yoke/doctor/`` tree this repo ships.
+
+    The synthetic-folder tests above prove the mechanism; this one proves
+    the checks actually in the tree satisfy it. A module whose filename,
+    declaration, or imports are wrong is otherwise only discovered when
+    someone runs the doctor.
+    """
+
+    def _checkout(self) -> Path:
+        # This file lives at <checkout>/runtime/api/engines/, so the
+        # checkout is three parents up — resolved from the test's own
+        # location rather than a cwd that varies per runner.
+        return Path(__file__).resolve().parents[3]
+
+    def test_every_check_module_loads_and_declares(self):
+        checkout = self._checkout()
+        folder = project_checks_dir(checkout)
+        if not folder.is_dir():
+            self.skipTest("no project check folder in this checkout")
+        modules = sorted(folder.glob("check_*.py"))
+        self.assertTrue(modules, "expected at least one project check module")
+
+        discovery = discover_project_checks(checkout)
+
+        self.assertEqual(
+            [(f.module, f.error) for f in discovery.failures], [],
+            "every project check module must import cleanly",
+        )
+        # Each module contributes at least one check, so a module that
+        # silently declares nothing (misnamed function, missing
+        # PROJECT_HEALTH_CHECKS) is caught rather than passing as clean.
+        self.assertGreaterEqual(len(discovery.checks), len(modules))
+
+    def test_declared_slugs_are_unique(self):
+        checkout = self._checkout()
+        if not project_checks_dir(checkout).is_dir():
+            self.skipTest("no project check folder in this checkout")
+        slugs = [check.slug for check in discover_project_checks(checkout).checks]
+        self.assertEqual(sorted(slugs), sorted(set(slugs)))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,11 @@ from unittest import mock
 from yoke_core.domain import qa_plan_execution_cli, qa_plan_review_cli
 
 
-def test_plan_engine_cli_requires_immediate_agent_review_dispatch(capsys) -> None:
+def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
+    capsys,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_ENV", "external-project-qa")
     with mock.patch.object(
         qa_plan_execution_cli,
         "execute_plan",
@@ -19,7 +23,24 @@ def test_plan_engine_cli_requires_immediate_agent_review_dispatch(capsys) -> Non
             "transition_id": "implemented",
             "state": "awaiting_agent_review",
             "review_bundle": {
-                "dispatch": {"subagent_type": "yoke-tester"},
+                "dispatch": {
+                    "subagent_type": "yoke-tester",
+                    "authority": {
+                        "state": "bound",
+                        "environment_id": "customer-runtime-42",
+                        "environment_name": "quality",
+                        "execution_target_digest": "b" * 64,
+                    },
+                    "artifact_read_commands": [
+                        "yoke qa artifact read --requirement-id 41 --artifact-id 91"
+                    ],
+                    "prompt": "Review the exact immutable bundle.",
+                    "submit_command": (
+                        "yoke qa plan review-submit --item-id 42 "
+                        "--execution-id execution-1 --bundle-id bundle-1 "
+                        f"--bundle-digest {'a' * 64} --stdin"
+                    ),
+                },
             },
         },
     ):
@@ -34,7 +55,18 @@ def test_plan_engine_cli_requires_immediate_agent_review_dispatch(capsys) -> Non
 
     output = capsys.readouterr()
     assert code == qa_plan_execution_cli.AGENT_REVIEW_REQUIRED_EXIT
-    assert json.loads(output.out)["state"] == "awaiting_agent_review"
+    result = json.loads(output.out)
+    assert result["state"] == "awaiting_agent_review"
+    dispatch = result["review_bundle"]["dispatch"]
+    assert dispatch["authority"]["connection_env"] == "external-project-qa"
+    assert dispatch["artifact_read_commands"] == [
+        "yoke --env external-project-qa qa artifact read "
+        "--requirement-id 41 --artifact-id 91"
+    ]
+    assert dispatch["submit_command"].startswith(
+        "yoke --env external-project-qa qa plan review-submit"
+    )
+    assert "do not use the ambient connection" in dispatch["prompt"]
     assert "dispatch the returned typed reviewer contract now" in output.err
 
 

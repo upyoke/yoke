@@ -25,8 +25,7 @@ def github_user_access_token(
     selected_service = str(getattr(parsed, "api_url", "") or "").strip()
     if not selected_service and not local_connection_selected:
         raise github_user_tokens.GitHubUserTokenError(
-            "the onboarding run does not identify a local or service Yoke "
-            "connection"
+            "the onboarding run does not identify a local or service Yoke connection"
         )
     try:
         refreshed = github_local_user_access.access_token(
@@ -53,7 +52,7 @@ def project_publish(
         raise github_user_tokens.GitHubUserTokenError(
             "GitHub App user authorization is required to create a GitHub repo. "
             "Run `yoke github connect` when browser authorization is available, "
-            "or continue backlog-only."
+            "or continue disabled."
         )
     return PublishRequest(
         owner=owner,
@@ -67,7 +66,8 @@ def project_publish(
         ),
         private=bool(getattr(parsed, "project_publish_private", True)),
         administration_allowed=_administration_allowed(
-            getattr(parsed, "config_path", None), owner,
+            getattr(parsed, "config_path", None),
+            owner,
         ),
         web_url=_web_url(getattr(parsed, "config_path", None)),
         use_machine_github=use_machine_github,
@@ -102,15 +102,12 @@ def project_clone(
             raise github_user_tokens.GitHubUserTokenError(
                 "GitHub App user authorization is required for the saved clone "
                 "outcome. Run `yoke github connect` when browser authorization "
-                "is available, or choose a plain clone/backlog-only flow."
+                "is available, or choose a plain clone/disabled flow."
             )
     return ClonePlan(
         outcome=outcome,
         keep_upstream=bool(getattr(parsed, "project_clone_keep_upstream", True)),
-        publish=(
-            project_publish
-            if outcome == CLONE_OUTCOME_MAKE_IT_MINE else None
-        ),
+        publish=(project_publish if outcome == CLONE_OUTCOME_MAKE_IT_MINE else None),
         fallback_token=github_user_access_token,
         use_machine_github=use_machine_github,
         fork_api_url=str(
@@ -135,18 +132,20 @@ def project_needs_github_user_access_token(parsed: argparse.Namespace) -> bool:
 def _administration_allowed(config_path: str | None, owner: str) -> bool:
     github = machine_config.github_config(config_path)
     try:
-        if github_origin.validate_github_endpoint_pair(
-            str(github.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL),
-            str(github.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
-        ).deployment_kind != "github_cloud":
+        if (
+            github_origin.validate_github_endpoint_pair(
+                str(github.get("api_url") or github_origin.DEFAULT_GITHUB_API_URL),
+                str(github.get("web_url") or github_origin.DEFAULT_GITHUB_WEB_URL),
+            ).deployment_kind
+            != "github_cloud"
+        ):
             return False
     except github_origin.GitHubApiOriginError:
         return False
     return any(
         isinstance(installation, dict)
         and isinstance(installation.get("permissions"), dict)
-        and str(installation.get("account_login") or "").casefold()
-        == owner.casefold()
+        and str(installation.get("account_login") or "").casefold() == owner.casefold()
         and not installation.get("suspended")
         and installation.get("repository_selection") == "all"
         and installation["permissions"].get("administration") == "write"

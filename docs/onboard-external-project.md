@@ -120,7 +120,7 @@ yoke project import git@github.com:owner/demo.git ~/work/demo \
   --github-repo owner/demo \
   --default-branch main \
   --public-item-prefix DMO \
-  --github-adoption backlog-only \
+  --github-adoption disabled \
   --config ~/.yoke/config.json \
   --yes
 ```
@@ -178,7 +178,7 @@ automation when `--github-repo` is present:
 
 - `app-binding` verifies and records a GitHub App installation/repository
   binding and sets `github_sync_mode=enabled`.
-- `backlog-only` explicitly sets `github_sync_mode=backlog_only`.
+- `disabled` explicitly sets `github_sync_mode=disabled`.
 
 Dry-run JSON includes `github_adoption` and `automation_preview`. The preview
 names the project write surface and the GitHub categories Yoke is preparing
@@ -186,7 +186,7 @@ to manage: labels, issue templates, pull request templates, Actions variables,
 Actions secrets, branch protection, and environment protection.
 
 Project onboarding accepts no project-supplied GitHub credential. GitHub
-automation uses GitHub App repo bindings; a backlog-only project does not
+automation uses GitHub App repo bindings; a disabled project does not
 resolve GitHub auth at all. `aws-admin` capability secrets and
 `ssh.private_key` are machine-local files under
 `~/.yoke/secrets/capability-secrets/<project>/<capability>/`. Raw secret

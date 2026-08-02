@@ -301,7 +301,7 @@ The public profile is all-or-none. Whenever private App configuration is
 present, startup performs one bounded, no-redirect App identity check—even
 when the public profile is omitted. Missing, partial, unreadable, or identity-
 mismatched public configuration remains a detail-free `available: false` in
-health, so onboarding offers backlog-only. Partial or invalid public settings
+health, so onboarding offers disabled. Partial or invalid public settings
 also emit a value-free startup warning that tells the operator to set every
 public field consistently or unset all of them. Health never performs a network
 request. After repairing a key or identity mismatch, restart the core service

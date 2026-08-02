@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from unittest import mock
 
-from yoke_core.domain import qa_case_execution, test_gate_timeout
+from yoke_core.domain import (
+    qa_case_command_stream,
+    qa_case_execution,
+    test_gate_timeout,
+)
 
 
 def test_watched_command_starts_its_budget_after_gate_admission(
@@ -30,7 +33,12 @@ def test_watched_command_starts_its_budget_after_gate_admission(
     def run_command(command, **kwargs):
         captured["command"] = command
         captured.update(kwargs)
-        return subprocess.CompletedProcess(command, 124, "", "timed out")
+        return qa_case_command_stream.StreamedCommand(
+            exit_code=124,
+            timed_out=True,
+            output="timed out",
+            capture_path=tmp_path / "capture.log",
+        )
 
     def dispatch(function_id, _requirement_id, payload, **_kwargs):
         if function_id == "qa.artifact.add":
@@ -43,8 +51,8 @@ def test_watched_command_starts_its_budget_after_gate_admission(
 
     with (
         mock.patch.object(
-            qa_case_execution.process_group_reaping,
-            "run_in_process_group",
+            qa_case_command_stream,
+            "stream_command",
             side_effect=run_command,
         ),
         mock.patch.object(qa_case_execution, "_dispatch", side_effect=dispatch),
@@ -56,7 +64,9 @@ def test_watched_command_starts_its_budget_after_gate_admission(
         )
 
     assert result["verdict"] == "fail"
-    assert captured["timeout"] is None
+    # No parent deadline: the watched run counts its own budget from the
+    # moment the gate admits it, not from when it started queueing.
+    assert captured["timeout_seconds"] is None
     assert captured["env"][test_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV] == "17"
     assert json.loads(captured["artifact_payload"]["metadata"])["timed_out"] is True
 

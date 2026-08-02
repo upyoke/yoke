@@ -61,10 +61,19 @@ def make_db():
     apply_fixture_schema(conn)
     conn.execute(
         "INSERT INTO projects "
-        "(id, slug, name, github_repo, public_item_prefix, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s) "
-        "ON CONFLICT (id) DO UPDATE SET github_repo = EXCLUDED.github_repo",
-        (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
+        "(id, slug, name, github_repo, public_item_prefix, github_sync_mode, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+        "ON CONFLICT (id) DO UPDATE SET github_repo = EXCLUDED.github_repo, "
+        "github_sync_mode = EXCLUDED.github_sync_mode",
+        (
+            2,
+            "externalwebapp",
+            "ExternalWebapp",
+            "org/externalwebapp",
+            "YOK",
+            "enabled",
+            "2026-01-01T00:00:00Z",
+        ),
     )
     seed_test_canonical_actors(conn)
     conn.commit()

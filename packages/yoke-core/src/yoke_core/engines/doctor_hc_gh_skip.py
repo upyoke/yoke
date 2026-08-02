@@ -11,7 +11,7 @@ from __future__ import annotations
 GH_APP_AUTH_UNAVAILABLE_SKIP_REASON = (
     "SKIP: GitHub App repo binding is not available for project '{project}'; "
     "connect GitHub, add repository access, bind the project repo, or switch "
-    "the project to backlog-only"
+    "the project to disabled"
 )
 
 

@@ -9,15 +9,16 @@ helpers.
 from __future__ import annotations
 
 from yoke_core.domain.github_app_schema import GITHUB_APP_SCHEMA_SQL
+from yoke_core.domain.projects_github_sync_mode_schema import (
+    github_sync_mode_column_sql,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 def _projects_table_sql(*, if_not_exists: bool) -> str:
     clause = "IF NOT EXISTS " if if_not_exists else ""
-    # github_sync_mode: per-project GitHub sync switch (enabled |
-    # backlog_only). Authoritative creators write backlog_only; legacy NULL
-    # resolves enabled until explicit repair. Pre-existing DBs gain the column
-    # via the idempotent schema-init migrations.
+    # github_sync_mode: per-project GitHub sync switch. Pre-existing DBs gain
+    # the column through the idempotent schema-init migrations.
     return f"""
         CREATE TABLE {clause}projects (
             id INTEGER PRIMARY KEY,
@@ -27,7 +28,7 @@ def _projects_table_sql(*, if_not_exists: bool) -> str:
             default_branch TEXT DEFAULT 'main',
             github_repo TEXT,
             public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
-            github_sync_mode TEXT,
+            github_sync_mode {github_sync_mode_column_sql()},
             created_at TEXT NOT NULL
         );
     """

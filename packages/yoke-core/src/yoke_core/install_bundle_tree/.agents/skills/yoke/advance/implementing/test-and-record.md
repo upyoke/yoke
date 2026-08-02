@@ -47,6 +47,18 @@ failing case with a smaller command. Use `yoke qa case run` only to rerun a
 specific failed deterministic case after diagnosis; inspection verdicts come
 from the plan-level review bundle.
 
+**The plan run is the one full execution.** Iterate as much as the work needs
+with the cheap layers — the individual failing tests, the changed module's
+paths, `yoke watch pytest --impacted main --bounded` (which reports an
+unbounded selection instead of widening to the full sweep, so read that verdict
+as *keep testing what you judge relevant*) — then let the plan/case run close
+the loop. Do not run the project's full sweep by hand and then hand the same
+tree to the executor: it re-runs the identical registered command, so only the
+verdict-producing run needs to happen. Command execution streams live to
+stderr and names its raw capture file before starting, so a long run is
+followable without a second copy. Re-running after the tree changes — a fix, a
+new commit, the post-rebase run — is a different execution and stays required.
+
 Exit `12` and `state="awaiting_agent_review"` are a mandatory continuation,
 not a human-review state. Immediately dispatch the returned
 `review_bundle.dispatch` descriptor through the harness subagent facility,

@@ -20,6 +20,17 @@ binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``
 helpers are intentionally NOT matched, so the nearest-first walk stops at
 the per-session agent process and parallel sessions anchor to distinct pids.
 
+A pid is only a usable anchor when it belongs to exactly one session. Some
+harnesses host every concurrent conversation inside a single long-lived
+process (:data:`MULTIPLEXED_PROCESS_BASENAMES`); such a pid is shared by
+every sibling conversation, so anchoring to it would hand each one whichever
+session id wrote the registry record last. Those processes are therefore
+never valid anchors, and the nearest-first walk stops when it reaches one
+rather than continuing to an even more widely shared ancestor. Sessions
+under a multiplexing harness identify themselves through the env chain,
+which that harness stamps per conversation; ambient resolution failing
+outright is the correct outcome when no env stamp reached the process.
+
 Start times are opaque ``ps -o lstart=`` strings compared for equality
 only — a recorded anchor whose pid was reused fails the comparison.
 """
@@ -33,6 +44,15 @@ from typing import Callable, Dict, List, Optional
 
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
+
+MULTIPLEXED_PROCESS_BASENAMES = frozenset(
+    {"codex", "codex-code-mode-host"}
+)
+"""Harness processes that host many concurrent sessions under one pid.
+
+Never a valid anchor: every sibling conversation shares the pid, so a
+record keyed on it resolves to whichever session wrote last.
+"""
 
 _MAX_ANCESTOR_DEPTH = 64
 _PS_TIMEOUT_SECONDS = 5
@@ -135,6 +155,13 @@ def is_harness_process_name(name: Optional[str]) -> bool:
     return name.lower() in HARNESS_PROCESS_BASENAMES
 
 
+def is_multiplexed_process_name(name: Optional[str]) -> bool:
+    """True when ``name`` hosts many sessions under one pid (never an anchor)."""
+    if not name:
+        return False
+    return name.lower() in MULTIPLEXED_PROCESS_BASENAMES
+
+
 def find_nearest_harness_anchor(
     pid: Optional[int] = None,
     *,
@@ -148,13 +175,17 @@ def find_nearest_harness_anchor(
     whose executable basename matches :data:`HARNESS_PROCESS_BASENAMES`,
     with its live start time captured for pid-reuse defense. Returns
     ``None`` when no ancestor matches (e.g. an operator terminal not
-    spawned by a harness).
+    spawned by a harness), and stops with ``None`` on reaching a
+    :data:`MULTIPLEXED_PROCESS_BASENAMES` process — that pid is shared by
+    every sibling session, and no ancestor above it can be less shared.
     """
     resolve_name = process_command_name if name_of is None else name_of
     resolve_start = process_start_time if start_time_of is None else start_time_of
     for ancestor in ancestor_pids(pid, parents=parents):
         name = resolve_name(ancestor)
         basename = os.path.basename(name) if name else ""
+        if is_multiplexed_process_name(basename):
+            return None
         if not is_harness_process_name(basename):
             continue
         start_time = resolve_start(ancestor)
@@ -168,10 +199,12 @@ def find_nearest_harness_anchor(
 
 __all__ = [
     "HARNESS_PROCESS_BASENAMES",
+    "MULTIPLEXED_PROCESS_BASENAMES",
     "ProcessAnchor",
     "ancestor_pids",
     "find_nearest_harness_anchor",
     "is_harness_process_name",
+    "is_multiplexed_process_name",
     "parent_map",
     "process_command_name",
     "process_start_time",

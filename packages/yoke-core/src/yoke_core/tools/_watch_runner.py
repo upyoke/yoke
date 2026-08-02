@@ -52,6 +52,9 @@ WRAPPER_LAUNCH_ERROR = 127
 #: Shell convention for "died on signal N": callers reading the exit code see
 #: 130 for Ctrl-C and 143 for SIGTERM rather than an ambiguous generic failure.
 _EXIT_STATUS_SIGNAL_BASE = 128
+#: ``timeout(1)``'s convention for "the deadline expired". Named so callers
+#: that must recognise a timed-out run do not restate the number.
+TIMEOUT_EXIT = 124
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
@@ -272,7 +275,7 @@ def run_watcher(
                                 progress_f=progress_f,
                                 out=out,
                             )
-                rc = 124 if timed_out else proc.wait()
+                rc = TIMEOUT_EXIT if timed_out else proc.wait()
         except process_group_reaping.ProcessGroupInterrupted as interruption:
             # The guard has already reaped the child's whole group, so the
             # databases that group held are released before this returns. Say

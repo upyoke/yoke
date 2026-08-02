@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
-from yoke_core.domain import process_group_reaping
+from yoke_core.domain import qa_case_command_stream
 from yoke_core.domain import test_gate_timeout
 
 
@@ -84,14 +83,6 @@ def _execution_checkout(case: dict) -> Path:
     return checkout
 
 
-def _text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return str(value)
-
-
 def _command_result(
     case: dict,
     *,
@@ -130,43 +121,32 @@ def _command_result(
         command, timeout, command_env
     )
     started = time.monotonic()
-    timed_out = False
-    try:
-        # A registered command runs through a shell, so the work itself is a
-        # grandchild. Killing only the shell on timeout would leave a test run
-        # alive holding its databases, so the whole group is reaped instead.
-        completed = process_group_reaping.run_in_process_group(
-            command,
-            shell=True,
-            executable="/bin/sh",
-            cwd=str(checkout),
-            env=command_env,
-            capture_output=True,
-            text=True,
-            timeout=process_timeout,
-        )
-        exit_code = int(completed.returncode)
-        timed_out = process_timeout is None and exit_code == 124
-        stdout = completed.stdout or ""
-        stderr = completed.stderr or ""
-    except subprocess.TimeoutExpired as exc:
-        timed_out = True
-        exit_code = 124
-        stdout = _text(exc.stdout)
-        stderr = _text(exc.stderr)
-        stderr += f"\ncommand timed out after {timeout} seconds\n"
+    # Streamed rather than collected: this run IS the gate, so an agent must
+    # be able to watch it and read a live capture instead of running the same
+    # suite by hand first just to see progress. The stream owner reaps the
+    # whole process group, so a timed-out run releases its databases.
+    # ``process_timeout`` is None for a command that owns its own budget
+    # after gate admission; the watcher then applies no deadline of its own
+    # and the command's 124 is what reports the timeout.
+    streamed = qa_case_command_stream.stream_command(
+        command,
+        cwd=str(checkout),
+        env=command_env,
+        timeout_seconds=process_timeout,
+    )
+    exit_code = streamed.exit_code
     duration_ms = int((time.monotonic() - started) * 1000)
     verdict = "pass" if exit_code == 0 else "fail"
     output = (
-        f"$ {command}\n\n[stdout]\n{stdout}\n\n"
-        f"[stderr]\n{stderr}\n\n[exit_code]\n{exit_code}\n"
+        f"$ {command}\n\n[output]\n{streamed.output}\n\n"
+        f"[exit_code]\n{exit_code}\n"
     )
     raw_result = json.dumps(
         {
             "command": command,
             "cwd": str(checkout),
             "exit_code": exit_code,
-            "timed_out": timed_out,
+            "timed_out": streamed.timed_out,
             "output_tail": output[-16000:],
         },
         sort_keys=True,
@@ -210,7 +190,7 @@ def _command_result(
                 {
                     "case_key": case["case_key"],
                     "exit_code": exit_code,
-                    "timed_out": timed_out,
+                    "timed_out": streamed.timed_out,
                 },
                 sort_keys=True,
             ),
@@ -237,6 +217,7 @@ def _command_result(
         "case_outcome": "passed" if verdict == "pass" else "failed",
         "exit_code": exit_code,
         "duration_ms": duration_ms,
+        "output_capture": str(streamed.capture_path),
     }
 
 

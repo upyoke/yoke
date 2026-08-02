@@ -145,15 +145,70 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
     digest = str(bundle["bundle_digest"])
     cases = bundle["cases"]
     subject = bundle["subject"]
+    execution_target = bundle.get("execution_target")
+    execution_target_digest = str(bundle.get("execution_target_digest") or "")
+    environment = (
+        execution_target.get("environment")
+        if isinstance(execution_target, Mapping)
+        else None
+    )
+    authority_bound = (
+        isinstance(environment, Mapping)
+        and bool(str(environment.get("id") or "").strip())
+        and bool(execution_target_digest)
+    )
+    authority = {
+        "state": "bound" if authority_bound else "unavailable",
+        "environment_id": (str(environment.get("id")) if authority_bound else None),
+        "environment_name": (
+            str(environment.get("name") or "") if authority_bound else None
+        ),
+        "execution_target_digest": (
+            execution_target_digest if authority_bound else None
+        ),
+    }
     subject_flag = (
         f"--item-id {int(subject['item_id'])}"
         if subject.get("item_id") is not None
         else f"--deployment-run-id {subject['deployment_run_id']}"
     )
+    artifact_read_commands = [
+        "yoke qa artifact read "
+        f"--requirement-id {int(case['requirement_id'])} "
+        f"--artifact-id {int(artifact['id'])}"
+        for case in cases
+        for artifact in case.get("artifacts", [])
+    ]
+    if authority_bound:
+        prompt = (
+            f"Review QA bundle {bundle_id} ({digest}) for immutable target "
+            f"environment {authority['environment_id']} at target digest "
+            f"{execution_target_digest}. Inspect every supplied transcript "
+            "and visual artifact against that case's instructions and "
+            "expected outcome. Return exactly one independent verdict and "
+            f"rationale for each of the {len(cases)} cases. Do not infer a "
+            "verdict from capture status. Use only the supplied artifact-read "
+            "commands for bytes that are not directly available, and refuse "
+            "a missing or different target authority."
+        )
+        submit_command = (
+            f"yoke qa plan review-submit {subject_flag} "
+            f"--execution-id {bundle['execution_id']} --bundle-id {bundle_id} "
+            f"--bundle-digest {digest} --stdin"
+        )
+    else:
+        prompt = (
+            f"QA bundle {bundle_id} ({digest}) predates immutable review "
+            "authority binding and cannot be dispatched. Preserve it as "
+            "historical evidence; do not query artifacts or submit verdicts."
+        )
+        submit_command = None
     return {
         "dispatch_kind": descriptor.dispatch_kind,
         "role": descriptor.role,
         "subagent_type": descriptor.subagent_type,
+        "authority": authority,
+        "artifact_read_commands": artifact_read_commands,
         "result_schema": {
             "verdicts": [
                 {
@@ -163,19 +218,8 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
                 }
             ]
         },
-        "prompt": (
-            f"Review QA bundle {bundle_id} ({digest}). Inspect every supplied "
-            "transcript and visual artifact against that case's instructions "
-            "and expected outcome. Return exactly one independent verdict and "
-            f"rationale for each of the {len(cases)} cases. Do not infer a "
-            "verdict from capture status. Use qa.artifact.read for artifact "
-            "bytes that are not directly available from their handles."
-        ),
-        "submit_command": (
-            f"yoke qa plan review-submit {subject_flag} "
-            f"--execution-id {bundle['execution_id']} --bundle-id {bundle_id} "
-            f"--bundle-digest {digest} --stdin"
-        ),
+        "prompt": prompt,
+        "submit_command": submit_command,
     }
 
 
@@ -239,6 +283,8 @@ def begin_plan_review(
     payload = {
         "execution_id": str(execution["id"]),
         "roster_digest": str(execution["roster_digest"]),
+        "execution_target": execution.get("execution_target"),
+        "execution_target_digest": str(execution.get("execution_target_digest") or ""),
         "subject": {
             "item_id": execution.get("item_id"),
             "deployment_run_id": execution.get("deployment_run_id"),

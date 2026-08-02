@@ -129,7 +129,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             project_default_branch="main",
             project_public_item_prefix="LOC",
             existing_project_id=44,
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -170,7 +170,8 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
 
 
 def test_onboard_preview_detects_matching_clone_reuse(
-    tmp_path: Path, monkeypatch,
+    tmp_path: Path,
+    monkeypatch,
 ) -> None:
     remote = seed_remote(tmp_path)
     allow_local_clone(monkeypatch)
@@ -198,7 +199,7 @@ def test_onboard_preview_detects_matching_clone_reuse(
             onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
         ),
         project_public_item_prefix="CLN",
-        project_github_adoption="backlog-only",
+        project_github_adoption="disabled",
     )
 
     assert report["plan"]["reuse"]["project_clone_checkout"] is True

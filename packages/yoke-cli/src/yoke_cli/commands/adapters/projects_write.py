@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import argparse
 
 from yoke_contracts.project_contract.github_sync_mode import (
-    GITHUB_SYNC_BACKLOG_ONLY,
+    GITHUB_SYNC_DISABLED,
     GITHUB_SYNC_ENABLED,
 )
 from yoke_cli.commands._helpers import (
@@ -30,10 +30,14 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "projects_create", "projects_update",
-    "projects_site_create", "projects_environment_create",
-    "PROJECTS_CREATE_USAGE", "PROJECTS_UPDATE_USAGE",
-    "PROJECTS_SITE_CREATE_USAGE", "PROJECTS_ENVIRONMENT_CREATE_USAGE",
+    "projects_create",
+    "projects_update",
+    "projects_site_create",
+    "projects_environment_create",
+    "PROJECTS_CREATE_USAGE",
+    "PROJECTS_UPDATE_USAGE",
+    "PROJECTS_SITE_CREATE_USAGE",
+    "PROJECTS_ENVIRONMENT_CREATE_USAGE",
 ]
 
 
@@ -41,7 +45,7 @@ PROJECTS_CREATE_USAGE = (
     "yoke projects create --slug SLUG --name NAME "
     "[--org ORG] [--project-id N] [--default-branch BRANCH] "
     "[--github-repo OWNER/REPO] [--public-item-prefix PREFIX] "
-    "[--github-sync-mode enabled|backlog_only] "
+    "[--github-sync-mode enabled|disabled] [--allow-public-github-sync] "
     "[--emoji TEXT] [--session-id S] [--json]"
 )
 
@@ -49,13 +53,17 @@ PROJECTS_UPDATE_USAGE = (
     "yoke projects update --slug SLUG --name NAME "
     "[--project-id N] [--default-branch BRANCH] "
     "[--github-repo OWNER/REPO] [--public-item-prefix PREFIX] "
-    "[--github-sync-mode enabled|backlog_only] "
+    "[--github-sync-mode enabled|disabled] [--allow-public-github-sync] "
     "[--emoji TEXT] [--session-id S] [--json]"
 )
 
 
 def _projects_write(
-    args: List[str], *, function_id: str, usage: str, prog: str,
+    args: List[str],
+    *,
+    function_id: str,
+    usage: str,
+    prog: str,
     allow_org: bool = False,
 ) -> int:
     parser = argparse.ArgumentParser(prog=prog, description=usage)
@@ -76,12 +84,17 @@ def _projects_write(
         "--github-sync-mode",
         dest="github_sync_mode",
         default=None,
-        choices=(GITHUB_SYNC_ENABLED, GITHUB_SYNC_BACKLOG_ONLY),
+        choices=(GITHUB_SYNC_ENABLED, GITHUB_SYNC_DISABLED),
         help=(
             "Per-project GitHub sync switch: 'enabled' mirrors the backlog "
-            "to GitHub issues; 'backlog_only' keeps the backlog DB-only "
+            "to GitHub issues; 'disabled' keeps the backlog DB-only "
             "(every issue-sync surface skips this project)."
         ),
+    )
+    parser.add_argument(
+        "--allow-public-github-sync",
+        action="store_true",
+        help="Explicitly allow enabled issue sync for a verified public repository.",
     )
     parser.add_argument("--emoji", default=None)
     add_session_arg(parser)
@@ -94,8 +107,14 @@ def _projects_write(
         "name": parsed.name,
     }
     for key in (
-        "org", "project_id", "default_branch", "github_repo",
-        "public_item_prefix", "emoji", "github_sync_mode",
+        "org",
+        "project_id",
+        "default_branch",
+        "github_repo",
+        "public_item_prefix",
+        "emoji",
+        "github_sync_mode",
+        "allow_public_github_sync",
     ):
         value = getattr(parsed, key, None)
         if value is not None:
@@ -111,23 +130,28 @@ def _projects_write(
         function_id=function_id,
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
 
 def projects_create(args: List[str]) -> int:
     return _projects_write(
-        args, function_id="projects.create",
-        usage=PROJECTS_CREATE_USAGE, prog="yoke projects create",
+        args,
+        function_id="projects.create",
+        usage=PROJECTS_CREATE_USAGE,
+        prog="yoke projects create",
         allow_org=True,
     )
 
 
 def projects_update(args: List[str]) -> int:
     return _projects_write(
-        args, function_id="projects.update",
-        usage=PROJECTS_UPDATE_USAGE, prog="yoke projects update",
+        args,
+        function_id="projects.update",
+        usage=PROJECTS_UPDATE_USAGE,
+        prog="yoke projects update",
     )
 
 
@@ -143,18 +167,34 @@ PROJECTS_ENVIRONMENT_CREATE_USAGE = (
 
 
 def _infrastructure_create(
-    args: List[str], *, function_id: str, usage: str, prog: str,
+    args: List[str],
+    *,
+    function_id: str,
+    usage: str,
+    prog: str,
     with_environment: bool = False,
 ) -> int:
     parser = argparse.ArgumentParser(prog=prog, description=usage)
     parser.add_argument("--project", required=True, help="Project slug or id.")
-    parser.add_argument("--site-slug", dest="site_slug", required=True,
-                        help="Site row id (the site's slug).")
+    parser.add_argument(
+        "--site-slug",
+        dest="site_slug",
+        required=True,
+        help="Site row id (the site's slug).",
+    )
     if with_environment:
-        parser.add_argument("--environment-id", dest="environment_id",
-                            required=True, help="Environment row id.")
-    parser.add_argument("--settings-json", dest="settings_json", default=None,
-                        help="Optional JSON object stored as row settings.")
+        parser.add_argument(
+            "--environment-id",
+            dest="environment_id",
+            required=True,
+            help="Environment row id.",
+        )
+    parser.add_argument(
+        "--settings-json",
+        dest="settings_json",
+        default=None,
+        help="Optional JSON object stored as row settings.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -183,7 +223,8 @@ def _infrastructure_create(
         function_id=function_id,
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -204,14 +245,17 @@ def _parse_settings_json(
 
 def projects_site_create(args: List[str]) -> int:
     return _infrastructure_create(
-        args, function_id="projects.site.create",
-        usage=PROJECTS_SITE_CREATE_USAGE, prog="yoke projects site create",
+        args,
+        function_id="projects.site.create",
+        usage=PROJECTS_SITE_CREATE_USAGE,
+        prog="yoke projects site create",
     )
 
 
 def projects_environment_create(args: List[str]) -> int:
     return _infrastructure_create(
-        args, function_id="projects.environment.create",
+        args,
+        function_id="projects.environment.create",
         usage=PROJECTS_ENVIRONMENT_CREATE_USAGE,
         prog="yoke projects environment create",
         with_environment=True,

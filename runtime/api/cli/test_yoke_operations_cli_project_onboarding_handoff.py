@@ -38,18 +38,29 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
         },
     ) as api:
         config = write_https_config(tmp_path, "product-token", api.url)
-        rc = yoke_operations_cli.main([
-            "onboard", "project", str(checkout),
-            "--slug", "local",
-            "--name", "Local",
-            "--github-repo", "owner/local",
-            "--default-branch", "main",
-            "--public-item-prefix", "LOC",
-            "--github-adoption", "backlog-only",
-            "--config", str(config),
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "onboard",
+                "project",
+                str(checkout),
+                "--slug",
+                "local",
+                "--name",
+                "Local",
+                "--github-repo",
+                "owner/local",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "LOC",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -68,12 +79,10 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     handoff_call = api.function_call("onboard.checklist.run")
     handoff_payload = handoff_call["payload"]
     assert handoff_payload["project_id"] == 43
-    assert handoff_payload["row_status"]["setup-checklist-handoff"] == (
-        "configured"
+    assert handoff_payload["row_status"]["setup-checklist-handoff"] == ("configured")
+    assert (
+        handoff_payload["metadata"]["install_report"]["snapshot_sync"]["status"] == "ok"
     )
-    assert handoff_payload["metadata"]["install_report"]["snapshot_sync"][
-        "status"
-    ] == "ok"
 
 
 def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(
@@ -85,16 +94,25 @@ def test_project_onboard_dry_run_previews_worktrees_ignore_without_writing(
     run_git(checkout, "init", "--initial-branch", "main")
     config = write_https_config(tmp_path, "product-token")
 
-    rc = yoke_operations_cli.main([
-        "onboard", "project", str(checkout),
-        "--slug", "local",
-        "--name", "Local",
-        "--default-branch", "main",
-        "--public-item-prefix", "LOC",
-        "--config", str(config),
-        "--dry-run",
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "project",
+            str(checkout),
+            "--slug",
+            "local",
+            "--name",
+            "Local",
+            "--default-branch",
+            "main",
+            "--public-item-prefix",
+            "LOC",
+            "--config",
+            str(config),
+            "--dry-run",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)

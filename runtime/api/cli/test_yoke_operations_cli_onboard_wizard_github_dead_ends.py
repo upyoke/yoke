@@ -3,7 +3,7 @@
 These bugs all rendered a green write-plan at apply=False but raised at
 apply=True with no in-wizard recovery. The picker offered connected-repo choices
 without a usable GitHub App authorization, and back-navigation left stale project
-GitHub state after the user re-chose backlog-only or declined publish. The fixes
+GitHub state after the user re-chose disabled or declined publish. The fixes
 gate the connected-repo row by machine GitHub authorization and clear stale
 binding state.
 
@@ -30,7 +30,7 @@ from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config.onboard_wizard import PROJECT_GITHUB_REUSE_MACHINE  # noqa: E402
 from yoke_cli.config.project_github_adoption import (  # noqa: E402
     GITHUB_ADOPTION_APP_BINDING,
-    GITHUB_ADOPTION_BACKLOG_ONLY,
+    GITHUB_ADOPTION_DISABLED,
     github_adoption_report,
 )
 from yoke_cli.config.onboard_wizard_widgets import SelectionList  # noqa: E402
@@ -59,7 +59,8 @@ def _stub_owners(monkeypatch):
     # The create=True publish path proceeds to the owner picker, which fetches
     # owners over the network; stub it so no scenario hits GitHub.
     monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
+        onboard_wizard_flow,
+        "fetch_repo_owners",
         lambda api_url, token: [github_publish.RepoOwner("octocat", "user")],
     )
 
@@ -111,20 +112,23 @@ def test_no_machine_token_drops_reuse_machine_row() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now (no GitHub App user token)
+            await pilot.press(
+                "down"
+            )  # machine github: Skip for now (no GitHub App user token)
             await pilot.press("enter")
-            await pilot.pause()         # GitHub choice -> project mode
+            await pilot.pause()  # GitHub choice -> project mode
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-            await pilot.pause()         # clone mode -> focused remote URL input
+            await pilot.pause()  # clone mode -> focused remote URL input
             from textual.widgets import Input
+
             remote_input = app.query_one("#onboard-body Input", Input)
             assert remote_input.has_focus
-            await type_text(pilot, "https://github.com/acme/widgets.git")  # remote first
+            await type_text(
+                pilot, "https://github.com/acme/widgets.git"
+            )  # remote first
             assert remote_input.value == "https://github.com/acme/widgets.git"
             await pilot.press("enter")  # start the remote reachability check
-            await _wait_for_remote(
-                app, pilot, "https://github.com/acme/widgets.git"
-            )
+            await _wait_for_remote(app, pilot, "https://github.com/acme/widgets.git")
             await pilot.press("enter")  # accept default folder -> clone-outcome
             await pilot.press("enter")  # "Clone it" (default, first row)
             await pilot.press("enter")  # slug placeholder
@@ -156,10 +160,10 @@ def test_forced_reuse_machine_without_app_degrades_to_skip() -> None:
 
     asyncio.run(scenario())
 
-    assert app.result.project_github_adoption == GITHUB_ADOPTION_BACKLOG_ONLY
+    assert app.result.project_github_adoption == GITHUB_ADOPTION_DISABLED
     assert not hasattr(app.result, "project_github_token")
-    # The apply-time adoption gate accepts the degraded backlog-only state.
-    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
+    # The apply-time adoption gate accepts the degraded disabled state.
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_DISABLED
 
 
 # --------------------------------------------------------------------------- #
@@ -168,7 +172,7 @@ def test_forced_reuse_machine_without_app_degrades_to_skip() -> None:
 
 
 def test_skip_after_app_binding_clears_stale_binding_choice() -> None:
-    """Re-selecting backlog-only clears stale App-binding state."""
+    """Re-selecting disabled clears stale App-binding state."""
     app, _spy = make_app()
 
     async def scenario() -> None:
@@ -180,9 +184,9 @@ def test_skip_after_app_binding_clears_stale_binding_choice() -> None:
 
     asyncio.run(scenario())
 
-    assert app.result.project_github_adoption == GITHUB_ADOPTION_BACKLOG_ONLY
+    assert app.result.project_github_adoption == GITHUB_ADOPTION_DISABLED
     # The cleaned skip state no longer trips the apply-time gate.
-    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_DISABLED
 
 
 def test_declined_publish_clears_app_binding_adoption() -> None:
@@ -205,6 +209,6 @@ def test_declined_publish_clears_app_binding_adoption() -> None:
 
     assert app.result.project_github_repo is None
     assert app.result.project_github_adoption is None
-    # With no repo and no adoption, the gate normalizes to backlog-only and
+    # With no repo and no adoption, the gate normalizes to disabled and
     # accepts it instead of raising.
-    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_BACKLOG_ONLY
+    assert _adoption_call(app.result)["choice"] == GITHUB_ADOPTION_DISABLED

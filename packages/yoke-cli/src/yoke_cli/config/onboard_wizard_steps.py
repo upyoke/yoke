@@ -18,6 +18,13 @@ from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
+from yoke_cli.config.onboard_wizard_project_fields import (
+    prefix_from_slug,
+    reset_project_fields,
+    reset_project_publish_fields,
+    slug_from_checkout,
+)
+
 # Apply result screens live in a sibling module; re-export so steps.apply_* stays
 # the single import surface for the flow and tests.
 from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
@@ -57,23 +64,40 @@ from yoke_cli.config.onboard_wizard_widgets import (
 )
 
 MODE_ROWS = [
-    SelectionRow(onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-                 "Existing folder on my machine", "git repo or not"),
-    SelectionRow(onboard_project.PROJECT_MODE_CLONE_REMOTE,
-                 "Clone a project from GitHub", "into a new folder"),
-    SelectionRow(onboard_project.PROJECT_MODE_CREATE_REPO,
-                 "Create a new project", "new folder, optionally also created on GitHub"),
-    SelectionRow(onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
-                 "Develop Yoke itself", "advanced · contributors"),
-    SelectionRow(onboard_project.PROJECT_MODE_MACHINE_ONLY,
-                 "Don't set up a project now", "just the machine"),
+    SelectionRow(
+        onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
+        "Existing folder on my machine",
+        "git repo or not",
+    ),
+    SelectionRow(
+        onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        "Clone a project from GitHub",
+        "into a new folder",
+    ),
+    SelectionRow(
+        onboard_project.PROJECT_MODE_CREATE_REPO,
+        "Create a new project",
+        "new folder, optionally also created on GitHub",
+    ),
+    SelectionRow(
+        onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        "Develop Yoke itself",
+        "advanced · contributors",
+    ),
+    SelectionRow(
+        onboard_project.PROJECT_MODE_MACHINE_ONLY,
+        "Don't set up a project now",
+        "just the machine",
+    ),
 ]
 
 MACHINE_GITHUB_ROWS = [
-    SelectionRow(onboard_machine_github.CHOICE_CONNECT,
-                 "Connect GitHub", "open the Yoke GitHub App flow"),
-    SelectionRow(onboard_machine_github.CHOICE_SKIP,
-                 "Use backlog only", "connect later"),
+    SelectionRow(
+        onboard_machine_github.CHOICE_CONNECT,
+        "Connect GitHub",
+        "open the Yoke GitHub App flow",
+    ),
+    SelectionRow(onboard_machine_github.CHOICE_SKIP, "Skip GitHub", "connect later"),
 ]
 
 YOKE_TOKEN_SOURCE_ROWS = [
@@ -102,40 +126,53 @@ PROBE_RETRY_ROWS = [
 
 GITHUB_APP_UNAVAILABLE_ROWS = [
     SelectionRow("reconnect", "Reconnect GitHub", "replace saved authorization"),
-    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
 GITHUB_APP_PENDING_ROWS = [
     SelectionRow("check", "Check access", "after finishing in GitHub"),
-    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
 PROJECT_GITHUB_ACCESS_ROWS = [
     SelectionRow("refresh", "Check access", "after updating the App in GitHub"),
-    SelectionRow("backlog", "Use backlog only", "continue without GitHub"),
+    SelectionRow("backlog", "Skip GitHub", "continue without GitHub"),
     SelectionRow("back", "Back", "choose a different option"),
 ]
 
 PRIVATE_REPO_EMPTY_ROWS = [
     SelectionRow(
-        "manage", "Manage repository access in GitHub", "choose private repos",
+        "manage",
+        "Manage repository access in GitHub",
+        "choose private repos",
     ),
     SelectionRow("check", "Check again", "refresh authorized repositories"),
     SelectionRow("back", "Back", "choose public or private"),
 ]
 
 PROJECT_GITHUB_ROWS = [
-    SelectionRow(PROJECT_GITHUB_REUSE_MACHINE, onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
-                 onboard_github_copy.PROJECT_GITHUB_REUSE_DESC),
-    SelectionRow(GITHUB_ADOPTION_APP_BINDING, onboard_github_copy.PROJECT_GITHUB_STORE_LABEL,
-                 onboard_github_copy.PROJECT_GITHUB_STORE_DESC),
-    SelectionRow("skip", onboard_github_copy.PROJECT_GITHUB_SKIP_LABEL,
-                 onboard_github_copy.PROJECT_GITHUB_SKIP_DESC),
+    SelectionRow(
+        PROJECT_GITHUB_REUSE_MACHINE,
+        onboard_github_copy.PROJECT_GITHUB_REUSE_LABEL,
+        onboard_github_copy.PROJECT_GITHUB_REUSE_DESC,
+    ),
+    SelectionRow(
+        GITHUB_ADOPTION_APP_BINDING,
+        onboard_github_copy.PROJECT_GITHUB_STORE_LABEL,
+        onboard_github_copy.PROJECT_GITHUB_STORE_DESC,
+    ),
+    SelectionRow(
+        "skip",
+        onboard_github_copy.PROJECT_GITHUB_SKIP_LABEL,
+        onboard_github_copy.PROJECT_GITHUB_SKIP_DESC,
+    ),
 ]
 
 PROJECT_GITHUB_ROWS_NO_MACHINE = [PROJECT_GITHUB_ROWS[-1]]
+
+
 def _heading(title: str, subtitle: str | None) -> list[Static]:
     widgets = [Static(title, classes="onboard-title")]
     if subtitle is not None:
@@ -145,7 +182,11 @@ def _heading(title: str, subtitle: str | None) -> list[Static]:
 
 
 def selection_body(
-    title: str, subtitle: str | None, rows: list[SelectionRow], *, initial: int = 0,
+    title: str,
+    subtitle: str | None,
+    rows: list[SelectionRow],
+    *,
+    initial: int = 0,
 ) -> list[Static]:
     return [*_heading(title, subtitle), SelectionList(rows, initial=initial)]
 
@@ -161,8 +202,11 @@ def input_body(
     return [
         *_heading(title, subtitle),
         FocusInput(
-            value=initial_value, placeholder=placeholder, password=password,
-            id="onboard-input", classes="onboard-input",
+            value=initial_value,
+            placeholder=placeholder,
+            password=password,
+            id="onboard-input",
+            classes="onboard-input",
         ),
         Static("", classes="onboard-input-error"),
     ]
@@ -238,7 +282,9 @@ def verification_body(
 
 
 def finish_body(
-    plan: dict[str, Any], *, problems: list[str] | None = None,
+    plan: dict[str, Any],
+    *,
+    problems: list[str] | None = None,
     notes: list[str] | None = None,
     machine_github_saved: bool = False,
 ) -> list[Static]:
@@ -249,60 +295,6 @@ def finish_body(
         machine_github_saved=machine_github_saved,
         heading=_heading,
     )
-
-
-def reset_project_fields(result: Any) -> None:
-    result.project_remote_url = None
-    result.project_checkout = None
-    result.project_slug = None
-    result.project_name = None
-    result.project_github_repo = None
-    result.project_github_repository_id = None
-    result.project_github_installation_id = None
-    result.project_checkout_origin_url = None
-    result.project_checkout_github_repo = None
-    result.project_default_branch = None
-    result.project_public_item_prefix = None
-    result.existing_project_id = None
-    result.existing_project_match_source = None
-    result.existing_project_local_source = None
-    result.project_github_adoption = None
-    result.project_github_adoption_preserve = False
-    reset_project_publish_fields(result)
-    result.project_clone_outcome = None
-    result.project_clone_keep_upstream = True
-    result.project_clone_requires_machine_github = False
-    result.project_source_default_branch = None
-    result.project_keep_existing_remote = False
-    result.board_art_word = None
-    result.board_art_seed = None
-    result.board_art_variants = []
-
-
-def reset_project_publish_fields(result: Any) -> None:
-    """Clear every create/manual-attach field as one navigation transaction."""
-
-    result.project_publish_to_github = False
-    result.project_publish_owner = None
-    result.project_publish_owner_login = None
-    result.project_publish_repo_name = None
-    result.project_publish_private = True
-    result.project_publish_create_repository = True
-    result.project_publish_repository_id = None
-    result.project_publish_installation_id = None
-
-
-def slug_from_checkout(checkout: str | None) -> str:
-    if not checkout:
-        return "project"
-    value = checkout.rstrip("/").split("/")[-1].strip().lower()
-    cleaned = "".join(c if c.isalnum() or c == "-" else "-" for c in value)
-    return "-".join(p for p in cleaned.split("-") if p) or "project"
-
-
-def prefix_from_slug(slug: str | None) -> str:
-    letters = [c for c in (slug or "").upper() if c.isalnum()]
-    return "".join(letters[:4]) or "PROJ"
 
 
 __all__ = [
@@ -346,6 +338,7 @@ __all__ = [
     "render_write_plan",
     "render_reuse_summary",
     "reset_project_fields",
+    "reset_project_publish_fields",
     "selection_body",
     "slug_from_checkout",
     "verification_body",
