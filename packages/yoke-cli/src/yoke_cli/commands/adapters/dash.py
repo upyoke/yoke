@@ -145,20 +145,28 @@ def _verification_tree(
 ) -> tuple[str, str]:
     """Resolve the tree this evidence describes, honouring overrides.
 
-    Both halves come from the local checkout, so the CLI answers them
+    Both halves come from the local checkout, so the client answers them
     rather than the dispatcher — a hosted server has no worktree to
-    inspect. An explicit override wins for the case where the evidence
-    is recorded from somewhere other than the tree that was verified.
+    inspect. The engine-side resolver is reached through the sanctioned
+    dynamic-import lane, for the same reason session orientation is: the
+    client cannot take static authority over engine modules before the
+    transport decision. Absent engine, or a directory with no git
+    metadata, leaves the halves empty and the caller asks for them
+    explicitly.
     """
+    import importlib
+
     root = str(root_override).strip()
     head = str(head_override).strip()
     if root and head:
         return root, head
-    from yoke_core.domain.verification_tree_binding import (
-        resolve_tree_identity,
-    )
-
-    identity = resolve_tree_identity()
+    try:
+        module = importlib.import_module(
+            "yoke_core.domain.verification_tree_binding"
+        )
+        identity = module.resolve_tree_identity()
+    except Exception:
+        identity = None
     if identity is None:
         return root, head
     return root or identity.root, head or identity.head_sha
