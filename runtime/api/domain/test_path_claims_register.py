@@ -80,9 +80,9 @@ class TestRegisterForItem:
         )
         claim = get_claim(conn, claim_id)
         assert claim["state"] == "planned"
-        assert claim["actor_id"] == actor
-        assert claim["item_id"] == item_id
-        assert claim["session_id"] == "sess-abc"
+        assert claim["registered_by_actor_id"] == actor
+        assert claim["owner_item_id"] == item_id
+        assert claim["registered_by_session_id"] == "sess-abc"
         assert claim["target_ids"] == [target]
         assert claim["integration_target"] == "main"
 
@@ -234,9 +234,7 @@ class TestRegisterForItem:
         assert claim["owner_item_id"] == item_id
         # Owner session is NULL — the registering session is provenance.
         assert claim["owner_session_id"] is None
-        # Provenance: the legacy session_id AND new registered_by_session_id
-        # both name the registrar.
-        assert claim["session_id"] == session_id
+        # Provenance names the registrar without making it the owner.
         assert claim["registered_by_session_id"] == session_id
 
     def test_register_populates_registered_by_actor(self, conn):
@@ -252,7 +250,6 @@ class TestRegisterForItem:
         )
         claim = get_claim(conn, claim_id)
         assert claim["registered_by_actor_id"] == actor_id
-        assert claim["actor_id"] == actor_id
 
     def test_item_with_null_project_rejected(self, conn):
         # Emulate a partial migration corner case where the item row carries no

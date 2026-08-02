@@ -233,7 +233,7 @@ It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, 
 
 Inside the Yoke source repo only, the in-tree `python3 -m runtime.harness.harness_sessions who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
 
-`work_claims` is the **active session occupancy** primitive — what a harness session is doing right now. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT live shared-operation truth (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.work_claim_id`.
+`work_claims` is the **active session occupancy** primitive — what a harness session is doing right now. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT live shared-operation truth (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
 
 ## Table: coordination_leases
 
