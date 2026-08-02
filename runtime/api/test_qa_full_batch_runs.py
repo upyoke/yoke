@@ -31,7 +31,12 @@ class TestRunAddBatch:
     """cmd_run_add_batch: bulk insert in one transaction."""
 
     def _seed_requirement(
-        self, db_path, capsys, item_id=100, qa_kind="ac_verification"
+        self,
+        db_path,
+        capsys,
+        item_id=100,
+        qa_kind="ac_verification",
+        method_id=None,
     ):
         req_id = add_bound_requirement(
             db_path=db_path,
@@ -40,6 +45,14 @@ class TestRunAddBatch:
             qa_phase="verification",
             success_policy="test policy",
         )
+        if method_id is not None:
+            conn = _conn(db_path)
+            conn.execute(
+                "UPDATE qa_requirements SET method_id = %s WHERE id = %s",
+                (method_id, req_id),
+            )
+            conn.commit()
+            conn.close()
         capsys.readouterr()
         return req_id
 
@@ -219,14 +232,19 @@ class TestRunAddBatch:
         ]
         assert [event["context"]["detail"]["run_id"] for event in events] == ids
 
-    def test_rejects_agent_for_browser_kind(self, db_path, capsys, tmp_path):
-        req_id = self._seed_requirement(db_path, capsys, qa_kind="smoke")
+    def test_rejects_agent_for_browser_method(self, db_path, capsys, tmp_path):
+        req_id = self._seed_requirement(
+            db_path,
+            capsys,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
 
         payload = [
             {
                 "requirement_id": req_id,
                 "executor_type": "agent",
-                "qa_kind": "browser_smoke",
+                "qa_kind": "plan_case",
                 "verdict": "pass",
             },
         ]

@@ -47,7 +47,7 @@ Success:
 ## Create Environment Record (step 5b-eph.c)
 
 ```bash
-yoke ephemeral-env create "$_item_project" "$_branch" --item "YOK-{N}" --json
+yoke ephemeral-env create "$_item_project" "$_branch" --item "PREFIX-{N}" --json
 ```
 
 Empty result → advisory, skip URL derivation.

@@ -110,7 +110,7 @@ def test_project_safe_doctor_quick_routes_to_named_project(conn):
                 "full": False,
                 "fix": False,
                 "max_checks": 1,
-                "skip_source_tree_checks": True,
+                "project_safe_quick": True,
             },
         ),
     )

@@ -20,7 +20,7 @@ Before producing your final verdict, review the session and answer these **four*
 
 ## Entry Block Shape
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: tester` and `context:` to the YOK-N / epic-task identifier you reviewed. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: tester` and `context:` to the PREFIX-N / epic-task identifier you reviewed. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Tester worked example:
 
@@ -29,7 +29,7 @@ Tester worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T18:30:00Z
 agent: tester
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: problem
 The full-branch diff was 5566 lines because TASK_BASELINE was pre-merge; the actual task-only changes were 1211 lines after subtracting the main merge. Dispatch context should pre-compute and surface the task-only line count so the Tester does not have to size-gate against the merge-inflated value.
 ---END ENTRY---

@@ -97,7 +97,7 @@ Compute `_release_intent` from the target:
 - any other target → `finalize-exit`
 
 For every target that resolves to a non-empty release intent, call `claims.work.release`:
-Operator/debug adapter: `yoke claims work release --item YOK-{N} --reason "<_release_intent>"`.
+Operator/debug adapter: `yoke claims work release --item PREFIX-{N} --reason "<_release_intent>"`.
 
 ```json
 {
@@ -143,7 +143,7 @@ The status-change comment and body sync are downstream side effects of the `life
 ```bash
 if [ -z "$WORKTREE_PATH" ] \
  && [ "$_worktree_policy" = "single_implementation_lane" ]; then
- _wt_branch=$(yoke item-worktrees get YOK-{N} \
+ _wt_branch=$(yoke item-worktrees get PREFIX-{N} \
   --lane-role implementation --field branch 2>/dev/null)
  if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
  _item_project=$(yoke items get {N} project 2>/dev/null)
@@ -169,24 +169,24 @@ fi
 ```bash
 _worktree_required_targets="implementing reviewing-implementation reviewed-implementation polishing-implementation"
 if [ -z "$WORKTREE_PATH" ] && echo "$_worktree_required_targets" | grep -qw "{_target}"; then
- echo "ERROR: target is {_target} but no worktree found for YOK-{N}. The worktree phase should have created one. Aborting commit to prevent main-branch pollution."
+ echo "ERROR: target is {_target} but no worktree found for PREFIX-{N}. The worktree phase should have created one. Aborting commit to prevent main-branch pollution."
  # Do NOT commit. Surface the error and stop.
 else
  if [ -n "$WORKTREE_PATH" ] && [ -d "$WORKTREE_PATH" ]; then
  if echo "reviewing-implementation reviewed-implementation" | grep -qw "{_target}"; then
- python3 -m yoke_core.domain.stale_string_audit verify "YOK-{N}" "$WORKTREE_PATH" || {
- echo "ERROR: stale-string audit blocked the advance commit for YOK-{N}. Fix the remaining stale test strings (or add explicit quoted old strings to the spec/body so the gate can derive them), then re-run /yoke advance."
+ python3 -m yoke_core.domain.stale_string_audit verify "PREFIX-{N}" "$WORKTREE_PATH" || {
+ echo "ERROR: stale-string audit blocked the advance commit for PREFIX-{N}. Fix the remaining stale test strings (or add explicit quoted old strings to the spec/body so the gate can derive them), then re-run /yoke advance."
  exit 1
  }
  fi
  # Stage worktree changes without touching repo-root state
  git -C "$WORKTREE_PATH" add -A
- git -C "$WORKTREE_PATH" diff --cached --quiet || git -C "$WORKTREE_PATH" commit -m "YOK-{N}: {_status} → {_target}"
+ git -C "$WORKTREE_PATH" diff --cached --quiet || git -C "$WORKTREE_PATH" commit -m "PREFIX-{N}: {_status} → {_target}"
  else
  # Main-branch path (planning advances, --no-worktree, release/done bookkeeping):
  # commit only what is already staged. Do NOT run git add -A here —
  # that would sweep unrelated dirty files into a misleading transition commit.
- git diff --cached --quiet || git commit -m "YOK-{N}: {_status} → {_target}"
+ git diff --cached --quiet || git commit -m "PREFIX-{N}: {_status} → {_target}"
  fi
 fi
 ```
@@ -205,14 +205,14 @@ This is advisory — a snapshot miss does not block the advance. The next `path-
 
 ## Report (step 10)
 
-> **YOK-{N}** ({_title}): `{_status}` → `{_target}`
+> **PREFIX-{N}** ({_title}): `{_status}` → `{_target}`
 
 Show lifecycle position with current status highlighted.
 
 If no linked GitHub issue:
 > Tip: GitHub issue creation is normally handled by `/yoke idea` and lifecycle
 > sync side effects. If a manual sync is needed, use
-> `yoke items github-sync YOK-{N}`; legacy DB-router GitHub-sync helpers are
+> `yoke items github-sync PREFIX-{N}`; legacy DB-router GitHub-sync helpers are
 > operator-debug only and are not normal product-flow recipes.
 
 ## Compact-Resistant Summary (step 10b)
@@ -220,17 +220,17 @@ If no linked GitHub issue:
 After every advance, emit this structured block. It survives context compaction and prevents re-reading phase docs on subsequent advances in the same session.
 
 ```
-## Advance Context — YOK-{N}
+## Advance Context — PREFIX-{N}
 
-- **Item:** YOK-{N} — {_title}
+- **Item:** PREFIX-{N} — {_title}
 - **Transition:** `{_status}` → `{_target}`
 - **Worktree:** {WORKTREE_PATH or "none (main branch)"}
 - **Project:** {_item_project}
-- **Test command:** {_cmd_full or "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/" (yoke default)}
-- **Advance to reviewed-implementation:** `/yoke advance YOK-{N} reviewed-implementation`
+- **Test command:** {_cmd_full or "yoke watch pytest --impacted main" (yoke default — impacted selection; CI on the merge path owns the full sweep, see docs/testing-verification.md)}
+- **Advance to reviewed-implementation:** `/yoke advance PREFIX-{N} reviewed-implementation`
 - **Phase docs already loaded:** preflight, worktree, environment, finalize, implementing
 - **Do-loop context (if inside /yoke do):** step {step}/{MAX_CHAIN_STEPS}, chainable={chainable}. Whether this advance is a completed handler depends on `{_target}` — do NOT treat every advance as a finished chain step.
-  - When `{_target}` is `implementing` or `reviewing-implementation`: the advance contract is NOT complete. Stay in this same session and worktree, run the implementation/review/fix/verify loop, and proceed to `/yoke advance YOK-{N} reviewed-implementation` only when review actually passes. Returning to /yoke do Step C (chain decision) before that point treats `reviewing-implementation` as a completed handler when it isn't, and burns a chain step against the same item.
+  - When `{_target}` is `implementing` or `reviewing-implementation`: the advance contract is NOT complete. Stay in this same session and worktree, run the implementation/review/fix/verify loop, and proceed to `/yoke advance PREFIX-{N} reviewed-implementation` only when review actually passes. Returning to /yoke do Step C (chain decision) before that point treats `reviewing-implementation` as a completed handler when it isn't, and burns a chain step against the same item.
   - When `{_target}` is `reviewed-implementation` (real review boundary): the advance contract IS complete. The claim was already released in step 6b with `handoff-to-polish`. Return to /yoke do Step C (chain decision) so the chain checkpoint persists and the loop can decide whether to re-offer (typically for polish).
   - For any other target (planning hops, `implemented`, `release`, `done` bookkeeping): return to /yoke do Step C (chain decision) after this advance completes so the chain checkpoint persists and the loop can decide whether to re-offer.
 ```
@@ -246,9 +246,9 @@ Emit this block as regular output text (not a comment or hidden metadata). The b
 claim was already released in step 6b with reason `handoff-to-usher`. This is a
 command boundary: do **not** continue merge/deploy work by mutating later
 statuses in the same finalize flow. Emit:
- > **Next step:** Run `/yoke usher YOK-{N}` to merge and deploy.
+ > **Next step:** Run `/yoke usher PREFIX-{N}` to merge and deploy.
 
-If the operator explicitly wants usher next, start `/yoke usher YOK-{N}` as a fresh command entrypoint so usher can claim the item itself.
+If the operator explicitly wants usher next, start `/yoke usher PREFIX-{N}` as a fresh command entrypoint so usher can claim the item itself.
 
 **If target was `reviewing-implementation` and the pinned `advance` binding
 still owns the stage:** The item has entered the review phase. This is still
@@ -257,7 +257,7 @@ manual-only checkpoint. Do **not** stop here during an autonomous `/yoke
 advance` or `/yoke do` run. Stay in the existing worktree, perform the
 review/fix/verify loop immediately, and when the branch is actually ready for
 `reviewed-implementation` run:
- > `/yoke advance YOK-{N} reviewed-implementation`
+ > `/yoke advance PREFIX-{N} reviewed-implementation`
 
 Only emit a blocking summary and stop if some real blocker prevents the review loop from continuing.
 
@@ -277,7 +277,7 @@ implementation behaves as expected; the **reviewed-implementation gate**
 checks something different — that every blocking `qa_requirements` row has a
 passing `qa_runs` entry. Both must hold. Summarize a green suite as "tests
 pass", never "all gates pass", until the routed transition completes its QA
-phase and status write. Preview with `yoke qa gate-summary --item YOK-N
+phase and status write. Preview with `yoke qa gate-summary --item PREFIX-N
 --target reviewed-implementation` for an item-level lane, or `yoke qa
 gate-summary --epic-id <parent_id> --task-num <task_num> --target
 reviewed-implementation` for a generated task. Direct status writes remain
@@ -285,14 +285,14 @@ rejected even when tests are green.
 
 **If target was `polishing-implementation`:** Routed polish is actively in
 progress or has been resumed. The session keeps its claim. Emit:
- > **Next step:** Continue `/yoke polish YOK-{N}` until it advances to `implemented`.
+ > **Next step:** Continue `/yoke polish PREFIX-{N}` until it advances to `implemented`.
 
 ## Implementation-entry Sub-skill Handoff
 
 **If target was `implementing` and the pinned definition selected the advance
 executor:** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`.
 Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds
-the work-claim on YOK-{N} (acquired in preflight) and has provisioned the
+the work-claim on PREFIX-{N} (acquired in preflight) and has provisioned the
 worktree — both newly created and re-entered worktrees are same-session, no
 relaunch. The sub-skill handles QA seeding + implementation kickoff.
 Also pass `_current_executor=advance` and

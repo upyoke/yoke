@@ -27,7 +27,7 @@ ITEM_DEFINITION_JSON=$(yoke workflows version get \
  "$ITEM_WORKFLOW_ID" "$ITEM_WORKFLOW_VERSION" --json 2>/dev/null) || ITEM_DEFINITION_JSON=""
 ```
 
-If any read is empty, stop with `Item YOK-{N} not found.` Never substitute the
+If any read is empty, stop with `Item PREFIX-{N} not found.` Never substitute the
 registry's current version for `ITEM_WORKFLOW_VERSION`.
 
 Interpret the active binding and policy shape in one pass:
@@ -77,7 +77,7 @@ print(json.dumps({
     "next_executor": next_executor,
 }))
 ' "$ITEM_STATUS") || {
- echo "Cannot refine YOK-{N}: the current stage is not supported by its pinned refine binding."
+ echo "Cannot refine PREFIX-{N}: the current stage is not supported by its pinned refine binding."
  exit 1
 }
 REFINE_SOURCE_STATUS=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \

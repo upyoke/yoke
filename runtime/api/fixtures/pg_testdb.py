@@ -20,6 +20,12 @@ common case from one reusable clone per worker that ``pg_reusable_db``
 resets between uses, so steady-state test traffic issues no
 ``CREATE DATABASE`` / ``DROP DATABASE`` at all.
 
+Blank databases — the ones per-module helpers create and then load with
+their own inline DDL — come from ``pg_blank_db_pool`` for the same
+reason. Callers see no difference: a pooled database is handed out only
+after it has been emptied and proven indistinguishable from a new one,
+and one that cannot be proven so is really dropped.
+
 Isolation between concurrent invocations lives here, at the layer that
 provisions databases, so every entry path inherits it: the watcher wrapper,
 raw ``pytest`` on one file, a ``-k`` filter, an IDE run, a QA registered
@@ -51,9 +57,11 @@ AMBIENT_DB_PURPOSE = "ambient"
 
 _BASE_DSN: "str | None" = None
 
-# Session-level advisory locks are scoped to a database. All cooperating role
-# tests acquire this key through the shared ``postgres`` maintenance database.
-_CLUSTER_ROLE_AUTHORITY_LOCK_ID = 0x596F6B65526F6C65
+# Re-exported: role isolation is a separate concern from provisioning, but
+# callers have always reached it through this module.
+from runtime.api.fixtures.pg_cluster_role_authority import (  # noqa: E402
+    cluster_role_authority,
+)
 
 
 def _apply_schema(conn) -> None:
@@ -110,42 +118,40 @@ def _assert_test_db(name: str) -> None:
         )
 
 
+def maintenance_dsn() -> str:
+    """DSN for the cluster's maintenance database.
+
+    Statements that cannot run inside the database they target — creating
+    it, dropping it, terminating its backends — connect here instead.
+    """
+    return _with_dbname(_base_dsn(), "postgres")
+
+
 def _admin_execute(sql: str) -> None:
     # CREATE/DROP DATABASE cannot run inside a transaction; use autocommit on
     # the maintenance database.
-    with psycopg.connect(_with_dbname(_base_dsn(), "postgres"), autocommit=True) as admin:
+    with psycopg.connect(maintenance_dsn(), autocommit=True) as admin:
         admin.execute(sql)
 
 
-@contextlib.contextmanager
-def cluster_role_authority():
-    """Isolate tests that mutate or attest cluster-global PostgreSQL roles.
+def create_test_database(
+    template: "str | None" = None, *, pooled: bool = True
+) -> str:
+    """Return a fresh test database, blank or cloned from *template*.
 
-    Disposable databases isolate schema and data, but roles are shared by the
-    whole cluster. A narrow maintenance-database advisory lock lets xdist keep
-    all unrelated tests parallel while preventing a temporary role in one
-    worker from invalidating another worker's privileged-role inventory.
+    A blank database is served from this worker's pool when one is free
+    (see :mod:`pg_blank_db_pool`) — the caller cannot tell the difference,
+    because a pooled database is only reused after it has been emptied and
+    proven indistinguishable from a new one. Pass ``pooled=False`` to
+    require a genuinely new database; the pool itself does this to grow,
+    and the fixture template build does it because a template is long
+    lived rather than borrowed.
     """
-    maintenance = _with_dbname(_base_dsn(), "postgres")
-    with psycopg.connect(maintenance, autocommit=True) as authority:
-        authority.execute(
-            "SELECT pg_advisory_lock(%s)",
-            (_CLUSTER_ROLE_AUTHORITY_LOCK_ID,),
-        )
-        try:
-            yield
-        finally:
-            unlocked = authority.execute(
-                "SELECT pg_advisory_unlock(%s)",
-                (_CLUSTER_ROLE_AUTHORITY_LOCK_ID,),
-            ).fetchone()
-            if unlocked != (True,):
-                raise RuntimeError(
-                    "PostgreSQL cluster-role test authority was not held"
-                )
+    if template is None and pooled:
+        from runtime.api.fixtures import pg_blank_db_pool
 
-
-def create_test_database(template: "str | None" = None) -> str:
+        if not pg_blank_db_pool.pooling_disabled():
+            return pg_blank_db_pool.checkout()
     name = pg_test_db_namespace.database_name(uuid.uuid4().hex[:16])
     clone_source = f' TEMPLATE "{template}"' if template else ""
     _admin_execute(f'CREATE DATABASE "{name}"{clone_source}')
@@ -166,19 +172,33 @@ def _fixture_template_db() -> str:
     """
     global _FIXTURE_TEMPLATE_DB
     if _FIXTURE_TEMPLATE_DB is None:
-        name = create_test_database()
+        # Not pooled: the template outlives every borrower and is cloned
+        # from, so it must be a database of its own for the whole process.
+        name = create_test_database(pooled=False)
         conn = db_backend._open_native_postgres(dsn_for_test_database(name))
         try:
             _apply_schema(conn)
         finally:
             conn.close()
-        atexit.register(lambda: drop_test_database(name))
+        atexit.register(lambda: drop_test_database(name, pooled=False))
         _FIXTURE_TEMPLATE_DB = name
     return _FIXTURE_TEMPLATE_DB
 
 
-def drop_test_database(name: str) -> None:
+def drop_test_database(name: str, *, pooled: bool = True) -> None:
+    """Dispose of *name*, returning it to the pool when it belongs there.
+
+    A pooled database is emptied and kept for the next caller; anything
+    else — including a pooled database that could not be proven empty —
+    is really dropped. ``pooled=False`` skips the pool entirely so the
+    pool can drop its own databases without recursing.
+    """
     _assert_test_db(name)
+    if pooled:
+        from runtime.api.fixtures import pg_blank_db_pool
+
+        if pg_blank_db_pool.release(name):
+            return
     _admin_execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
 
@@ -310,6 +330,7 @@ __all__ = [
     "drop_database_on_close",
     "connect_test_database",
     "dsn_for_test_database",
+    "maintenance_dsn",
     "reusable_fixture_database",
     "test_database",
     "setup_ambient_test_db",

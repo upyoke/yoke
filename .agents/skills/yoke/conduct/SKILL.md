@@ -1,10 +1,10 @@
 ---
 name: conduct
 description: "Single-item execution orchestrator for epic items. Starts from `planned`, resumes at `implementing` / `reviewing-implementation`, runs Engineer + Tester plus integration simulation, and hands the parent epic off at `reviewed-implementation` for `/yoke polish`."
-argument-hint: "YOK-N [--max-attempts N] [--no-chain]"
+argument-hint: "PREFIX-N [--max-attempts N] [--no-chain]"
 ---
 
-# /yoke conduct YOK-N
+# /yoke conduct PREFIX-N
 
 Run a single backlog item through the Engineer/Tester loop (epic items only).
 
@@ -20,13 +20,13 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 `workflow_id` is not `epic`, reject immediately:
 
 ```
-Error: /yoke conduct is not the registered executor for workflow '{workflow_id}' on YOK-{N}.
+Error: /yoke conduct is not the registered executor for workflow '{workflow_id}' on PREFIX-{N}.
 
 Issue implementation routes through /yoke advance (main-session inline implementation).
 Issue refinement routes through /yoke refine.
 Issue polish routes through /yoke polish.
 
-Run '/yoke advance YOK-{N} implementation' to begin issue implementation.
+Run '/yoke advance PREFIX-{N} implementation' to begin issue implementation.
 ```
 
 Check the workflow binding early (in S2 or before the status gate) and halt
@@ -114,7 +114,7 @@ The constant controls when to escalate model (retry 2) and when to fall back to 
 
 **Simulator output gate:** When the Simulator returns no parseable result (neither `SIMULATION: CLEAN` / `SIMULATION: GAPS FOUND` nor fallback `CLEAN` / `GAPS FOUND`), the gate first classifies the failure mode, then selects a recovery strategy. `MAX_SIMULATOR_REPROMPTS` controls the retry budget via a three-tier retry chain:
 - **Initial attempt (Tier 1):** Compressed two-phase integration simulation by default, unless `sim_force_standard_integration=true` overrides it back to the standard full-context prompt. If result found, done.
-- **Classification:** If no result found, classify output as `context_exhaustion` (< 500 chars, mid-thought fragment, tool-call reasoning without report structure) or `formatting_omission` (structured report content present, but the two-line verdict block — `SIMULATION:` line and/or `EPIC: YOK-{N}` attestation line — is missing). Ambiguous cases default to `formatting_omission` (conservative).
+- **Classification:** If no result found, classify output as `context_exhaustion` (< 500 chars, mid-thought fragment, tool-call reasoning without report structure) or `formatting_omission` (structured report content present, but the two-line verdict block — `SIMULATION:` line and/or `EPIC: PREFIX-{N}` attestation line — is missing). Ambiguous cases default to `formatting_omission` (conservative).
 - **Retry 1 (Tier 2) — formatting_omission** (`_simulator_output_failures == 1`): Re-invoke with escalated instructions demanding the full two-line verdict block as the first two lines of the response.
 - **Retry 1 (Tier 2) — context_exhaustion** (`_simulator_output_failures == 1`): Re-invoke with compressed context + two-phase protocol + aggressive constraints (verdict-first, max 3 gaps, forbidden-operations list). See `simulation-gate.md` S6h for the full retry prompt.
 - **Retry 2 (Tier 3) — ultra-compressed no-tool fallback** (`_simulator_output_failures == 2`): Re-invoke with ultra-compressed context (overlap matrix + dependency edges + one-line task summaries only — no interface contracts, no review summaries, no diff stats) and a hard no-tool mandate. The Simulator must produce its verdict from prompt content alone. This trades depth for guaranteed completion. See `simulation-gate.md` S6h for the full ultra-compressed prompt.
@@ -127,7 +127,7 @@ The three-tier chain guarantees that at least one tier produces a parseable verd
 
 Required:
 
-- `YOK-N`: The backlog item to conduct. Run one item through the Engineer/Tester loop.
+- `PREFIX-N`: The backlog item to conduct. Run one item through the Engineer/Tester loop.
 
 Optional flags:
 
@@ -139,9 +139,9 @@ Optional flags:
 
 **Argument validation:**
 
-If `YOK-N` is not provided, stop with:
+If `PREFIX-N` is not provided, stop with:
 
-> Missing required argument. Usage: `/yoke conduct YOK-N`
+> Missing required argument. Usage: `/yoke conduct PREFIX-N`
 
 ## Pre-Dispatch Gates
 
@@ -149,37 +149,37 @@ Before routing, enforce the dispatch gate and acceptance criteria gate.
 
 1. **Dispatch gate (HARD BLOCK):** Read item status:
  ```bash
- _gate_status=$(yoke items get YOK-N status)
+ _gate_status=$(yoke items get PREFIX-N status)
  ```
  - If `_gate_status` is `planned`, `implementing`, or `reviewing-implementation`: proceed.
  - Otherwise: hard-block with status-appropriate remediation:
  > GATE [hard-block]: Item not at a dispatchable status.
- > YOK-N is at status '{_gate_status}', not 'planned', 'implementing', or 'reviewing-implementation'.
- - `idea`, `refining-idea`: > Remediation: Run `/yoke refine YOK-N` to refine the spec.
- - `refined-idea`, `planning`: > Remediation: Run `/yoke shepherd YOK-N` to drive planning through `plan-drafted`.
- - `plan-drafted`, `refining-plan`: > Remediation: Run `/yoke refine YOK-N` to refine the plan to `planned`.
- - After `reviewing-implementation` (`reviewed-implementation`, `polishing-implementation`): > Remediation: Run `/yoke polish YOK-N` to finish implementation polish.
- - `implemented` or `release`: > Remediation: Run `/yoke usher YOK-N` to merge and deploy.
+ > PREFIX-N is at status '{_gate_status}', not 'planned', 'implementing', or 'reviewing-implementation'.
+ - `idea`, `refining-idea`: > Remediation: Run `/yoke refine PREFIX-N` to refine the spec.
+ - `refined-idea`, `planning`: > Remediation: Run `/yoke shepherd PREFIX-N` to drive planning through `plan-drafted`.
+ - `plan-drafted`, `refining-plan`: > Remediation: Run `/yoke refine PREFIX-N` to refine the plan to `planned`.
+ - After `reviewing-implementation` (`reviewed-implementation`, `polishing-implementation`): > Remediation: Run `/yoke polish PREFIX-N` to finish implementation polish.
+ - `implemented` or `release`: > Remediation: Run `/yoke usher PREFIX-N` to merge and deploy.
  - `done`: > Item is already done. No conduct needed.
  - Exceptional (`blocked`, `stopped`, `failed`, `cancelled`): > Item is in an exceptional state. Resolve the block or use an explicit operator-debug repair path before retrying.
 
 2. **Acceptance criteria gate (HARD BLOCK):** Read item spec (structured field first, body fallback):
  ```bash
- _gate_body=$(yoke items get YOK-N spec 2>/dev/null)
+ _gate_body=$(yoke items get PREFIX-N spec 2>/dev/null)
  if [ -z "$_gate_body" ]; then
- _gate_body=$(yoke items get YOK-N body)
+ _gate_body=$(yoke items get PREFIX-N body)
  fi
  ```
  - Search for AC patterns: lines matching canonical `- [ ] AC-` rows or unlabeled `- [ ] ` checkboxes under a `## Acceptance Criteria` section header.
  - If no ACs found: hard-block with:
  > GATE [hard-block]: Missing acceptance criteria.
- > YOK-N has no acceptance criteria. Conduct requires ACs to verify.
- > Remediation: Run '/yoke shepherd YOK-N' to add acceptance criteria.
+ > PREFIX-N has no acceptance criteria. Conduct requires ACs to verify.
+ > Remediation: Run '/yoke shepherd PREFIX-N' to add acceptance criteria.
 
 3. **Activation dependency gate (HARD BLOCK):** Use the shared hard-block dependency checker with activation-only semantics. Conduct start gating evaluates only `activation` blockers — `integration` and `closure` edges are enforced downstream by merge/usher gates, not at dispatch time:
  ```bash
  _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/conduct-hard-blocks.XXXXXX")
- if python3 -m yoke_core.domain.check_hard_blocks "YOK-N" --gate-point activation >"$_dep_output_file" 2>/dev/null; then
+ if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-N" --gate-point activation >"$_dep_output_file" 2>/dev/null; then
  _dep_exit=0
  else
  _dep_exit=$?
@@ -189,12 +189,12 @@ Before routing, enforce the dispatch gate and acceptance criteria gate.
  ```
  - If `_dep_exit` is non-zero, hard-block with:
  > GATE [hard-block]: Unresolved activation dependencies.
- > YOK-N has unresolved activation dependencies that must be satisfied before conduct dispatch.
- - For each `BLOCKED|YOK-{M}|{status}|{title}` line in `_dep_output`, list:
- > - **YOK-{M}** ({title}): status `{status}`
+ > PREFIX-N has unresolved activation dependencies that must be satisfied before conduct dispatch.
+ - For each `BLOCKED|PREFIX-{M}|{status}|{title}` line in `_dep_output`, list:
+ > - **PREFIX-{M}** ({title}): status `{status}`
  - Then print the authoritative inspection command:
  > Inspect the full dependency graph (both directions):
- > `yoke shepherd dependency-list YOK-N`
+ > `yoke shepherd dependency-list PREFIX-N`
  - Do NOT proceed to dispatch.
  - If `_dep_exit` is 0, continue.
 

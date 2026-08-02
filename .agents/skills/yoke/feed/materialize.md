@@ -32,7 +32,7 @@ with `target = {kind: "item", item_id: <id>}` and
 `payload = {field: "<spec|design_spec|technical_plan|worktree_plan>",
 content: "<updated field content>", source: "feed"}`.
 Operator/debug adapter:
-`printf '%s\n' "<updated field content>" | yoke items structured-field replace YOK-{id} --field <field> --source feed --stdin`
+`printf '%s\n' "<updated field content>" | yoke items structured-field replace PREFIX-{id} --field <field> --source feed --stdin`
 (`items structured-field replace` dispatches through
 `items.structured_field.replace`).
 
@@ -60,7 +60,7 @@ After each update:
 
 ```
 _updated_items.append({
- yok_id: "YOK-N",
+ yok_id: "PREFIX-N",
  title: "<title>",
  fields_updated: ["spec", "technical_plan"],
  reason: "<what landed and why this work item changed>",
@@ -88,7 +88,7 @@ Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check mu
 - Record it as skipped:
  ```
  { yok_id: "SKIPPED", title: "<proposed title>", sml_source: "<source>",
- skip_reason: "Duplicate of YOK-N: <existing title>" }
+ skip_reason: "Duplicate of PREFIX-N: <existing title>" }
  ```
 - Continue to the next item
 
@@ -117,13 +117,33 @@ The `/yoke idea` pipeline handles:
 - GitHub issue creation and sync
 - Body generation with AC normalization
 
+**Instruction-sized work files as a Dash, not an Issue.** Before invoking
+`/yoke idea`, classify the materialization entry:
+
+- The outcome is one concrete change a single session can state as an
+  instruction — no crafted acceptance criteria, no design work, no task
+  decomposition — **and** the strategic context fits in that instruction:
+  file it with the Dash filing adapter instead, so the item carries the
+  instruction as its complete scope:
+
+  ```bash
+  yoke dash "<title>" "<instruction, including the strategic provenance above>" --json
+  ```
+
+  This files without executing. The item lands at `idea` with `workflow=dash`
+  and reaches a `/yoke do` or `/yoke charge` session as `next_step=dash`.
+- Anything needing a spec, acceptance criteria, design, or more than one
+  delivery slice: use `/yoke idea` as above and let it infer the workflow.
+
+Record Dash-filed items in `_materialized_items` exactly like idea-filed ones.
+
 ### 3A.3 Record Created Item
 
 After each successful creation, record the result:
 
 ```
 _materialized_items.append({
- yok_id: "YOK-N", // the ID assigned by idea pipeline
+ yok_id: "PREFIX-N", // the ID assigned by idea pipeline
  title: "<item title>",
  sml_source: "<which SML file/section this came from>"
 })
@@ -150,7 +170,7 @@ For each item in `_items_to_sharpen`:
 
 ```
 _sharpen_recommendations.append({
- item_id: "YOK-N",
+ item_id: "PREFIX-N",
  action: "<split|refine|add_spec|add_ac>", // from decide phase
  recommendation: "<specific, actionable description of what needs to change>",
  rationale: "<why this item needs sharpening before new work is added>"

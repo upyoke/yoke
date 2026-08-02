@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.api.repo_root import find_repo_root
-from yoke_core.engines import doctor_hc_server_checkout_independence as hc
+from yoke_project_checks import check_server_checkout_independence as hc
 
 
 def test_current_server_surface_is_clean() -> None:

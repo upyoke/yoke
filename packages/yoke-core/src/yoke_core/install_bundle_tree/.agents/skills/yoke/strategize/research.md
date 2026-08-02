@@ -40,7 +40,7 @@ yoke strategy master-plan-check --plan-path "$REPO_ROOT/.yoke/strategy/MASTER-PL
 Read the output and fold it into the rest of the landscape analysis:
 
 - **Contradictions section:** Each row is a concrete ordered-frontier or prerequisite-prose contradiction with `earlier`, `earlier_status`, `later`, `later_status`, and a rationale. Carry every contradiction into the factual-drift findings table (Step 2) — each one becomes a finding with confidence `high` (the live statuses are DB truth).
-- **Ambiguous prerequisite prose:** Sentences with three or more `YOK-N` refs that also contain prerequisite keywords. Surface these as medium-confidence advisory findings — the validator deliberately does not infer a specific pair when the prose is too dense. Ask the operator at Checkpoint 2 whether any of them matter.
+- **Ambiguous prerequisite prose:** Sentences with three or more `PREFIX-N` refs that also contain prerequisite keywords. Surface these as medium-confidence advisory findings — the validator deliberately does not infer a specific pair when the prose is too dense. Ask the operator at Checkpoint 2 whether any of them matter.
 - **Advisories:** Missing `Backlog By Generation` section, exceptional-status items (`blocked`, `cancelled`, etc.), or items with no live row — include them as soft notes in the "Missing Context" or "Factual Drift" tables rather than treating them as contradictions.
 
 If the validator prints `No concrete frontier or prerequisite-prose contradictions detected`, the plan is coherent with live state on those two specific axes — still scan narratively for the other drift categories above.

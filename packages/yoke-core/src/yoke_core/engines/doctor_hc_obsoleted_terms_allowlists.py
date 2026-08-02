@@ -1,4 +1,4 @@
-"""Path allow-lists for ``doctor_hc_obsoleted_terms``.
+"""Path allow-lists for ``check_obsoleted_terms``.
 
 Three kinds of allow-list live here:
 
@@ -13,7 +13,7 @@ Three kinds of allow-list live here:
   entry against each pattern they touch.
 
 * :data:`YOKE_DB_AUDIT_PATHS` and :data:`CODEX_HOOKS_AUDIT_PATHS` — file
-  prefixes that ``doctor_hc_obsoleted_terms`` composes into
+  prefixes that ``check_obsoleted_terms`` composes into
   ``_PER_PATTERN_PATH_ALLOWLIST`` for the specific pattern they apply to.
   Per-pattern exemptions stay narrow: the file is only excused from the
   specific retired-surface it legitimately enumerates.
@@ -23,7 +23,7 @@ Matching is prefix-based: an entry like
 ``shell_inventory_*.py`` sibling, while ``runtime/api/domain/observe.py``
 matches that exact path as a prefix of itself.
 
-Splitting the constants out of ``doctor_hc_obsoleted_terms.py`` keeps the
+Splitting the constants out of ``check_obsoleted_terms.py`` keeps the
 scanner module under the 350-line file-line-limit budget while keeping the
 scan-scope logic close to the registry.
 """
@@ -115,8 +115,9 @@ YOKE_DB_AUDIT_PATHS: tuple[str, ...] = (
     # Doctor HC for agent prompts detects yoke-db.sh references in the
     # tracked prompt files; the detector code names the substring it looks
     # for.
-    "runtime/api/engines/doctor_hc_agents_prompts.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_agents_prompts.py",
+    "runtime/api/engines/check_agents_prompts.py",
+    "packages/yoke-core/src/yoke_core/engines/check_agents_prompts.py",
+    ".yoke/doctor/check_agents_prompts.py",
     # test_doctor_filesystem_full_repo synthesizes prompts that contain
     # the retired wrapper so the doctor HC tests can fire.
     "runtime/api/engines/test_doctor_filesystem_full_repo.py",

@@ -203,13 +203,13 @@ When an item or task transitions to `reviewing-implementation`, the system check
 
 **Implementation:** `yoke_core.domain.qa_gates` enforces this during the
 lifecycle transition. Operators can inspect the public requirement read surface
-with `yoke qa requirement list --item YOK-N`.
+with `yoke qa requirement list --item PREFIX-N`.
 
 ### Review-Complete Gate
 
 Transitioning to `reviewed-implementation` requires all blocking `verification`-phase requirements to have at least one passing run (or be waived).
 
-**Public preview:** `yoke qa gate-summary --item YOK-N --target reviewed-implementation --json`
+**Public preview:** `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json`
 
 A requirement is "satisfied" if:
 - It has at least one `qa_runs` row with `verdict='pass'`, OR
@@ -219,7 +219,7 @@ A requirement is "satisfied" if:
 
 Transitioning to `done` requires all blocking `post_deploy` and `manual_acceptance` phase requirements to be satisfied (same pass/waive logic).
 
-**Public preview:** `yoke qa gate-summary --item YOK-N --target implemented --json`
+**Public preview:** `yoke qa gate-summary --item PREFIX-N --target implemented --json`
 
 ### Bypass
 

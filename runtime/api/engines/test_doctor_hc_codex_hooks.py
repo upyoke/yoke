@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.engines import doctor_hc_codex_hooks as mod
-from yoke_core.engines.doctor_hc_codex_hooks import (
+from yoke_project_checks import check_codex_hooks as mod
+from yoke_project_checks.check_codex_hooks import (
     _REQUIRED_HOOK_PAIRS,
     _semver_tuple,
     hc_codex_hook_doc_drift,

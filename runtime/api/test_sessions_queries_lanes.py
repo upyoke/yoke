@@ -15,6 +15,7 @@ from runtime.api.test_sessions import (
     ownership_conn,  # noqa: F401 — fixture import
     _ensure_active_session,
 )
+from yoke_core.domain.harness_capability_registry import shared_downstream_paths
 from yoke_core.domain.sessions import session_offer_with_ownership
 
 
@@ -316,17 +317,13 @@ class TestSessionOfferLanes:
 
         manifest_dir = os.path.join(ws, "runtime", "harness", "codex")
         os.makedirs(manifest_dir, exist_ok=True)
+        disabled = ["shepherd", "advance", "polish", "usher"]
         with open(os.path.join(manifest_dir, "manifest.json"), "w", encoding="utf-8") as handle:
             json.dump(
                 {
                     "supports": {
                         "command_source": "shared_yoke_registry",
-                        "disabled_downstream_paths": [
-                            "shepherd",
-                            "advance",
-                            "polish",
-                            "usher",
-                        ],
+                        "disabled_downstream_paths": disabled,
                     }
                 },
                 handle,
@@ -342,7 +339,11 @@ class TestSessionOfferLanes:
             supported_paths=["advance"],
         )
 
-        assert result["supported_paths"] == ["refine"]
+        # Registry minus the manifest's declared limitations, and the caller's
+        # own ``supported_paths`` argument ignored entirely.
+        expected = [path for path in shared_downstream_paths() if path not in disabled]
+        assert result["supported_paths"] == expected
+        assert "advance" not in result["supported_paths"]
         assert result["action_hint"] == "charge"
         assert result["new_claim"] is not None
         assert result["new_claim"]["item_id"] == 101

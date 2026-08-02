@@ -79,7 +79,7 @@ _EXPECTED_SCHEMA_STR = (
     "|release_entries:id/INTEGER,item_id/INTEGER,category/TEXT,title/TEXT,version/TEXT,"
     "project_id/INTEGER,created_at/TEXT"
     "|merge_locks:id/INTEGER,session_id/TEXT,branch/TEXT,epic_id/TEXT,acquired_at/TEXT,"
-    "expires_at/TEXT"
+    "expires_at/TEXT,project_slug/TEXT,target_branch/TEXT"
     "|projects:id/INTEGER,slug/TEXT,name/TEXT,emoji/TEXT,default_branch/TEXT,"
     "github_repo/TEXT,public_item_prefix/TEXT,created_at/TEXT,breakage_policy/TEXT,"
     "org_id/INTEGER,github_sync_mode/TEXT"

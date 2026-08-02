@@ -20,7 +20,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - `{epic-id}` — Epic ID (the numeric `id` of the epic backlog item in the DB). Optional when `--audit` is used without an epic scope.
 - `--audit` — Run a read-only pre-merge readiness assessment instead of merging. See [Audit Mode](#audit-mode) below.
-- `--force-lock` — Force-clear any existing DB merge lock before acquiring a new one. Use when a previous merge session crashed and left a stale lock that was not auto-detected. Passed through to the retained merge watcher, `python3 -m yoke_core.tools.watch_merge merge-worktree`.
+- `--force-lock` — Force-clear any existing DB merge lock before acquiring a new one. Use when a previous merge session crashed and left a stale lock that was not auto-detected. Passed through to the retained merge watcher, `yoke watch merge merge-worktree`.
 - `--skip-simulation` — Override the integration simulation gate for epics. Use only when the operator explicitly wants to merge without a canonical integration simulation record.
 
 ## Philosophy
@@ -49,7 +49,7 @@ For each epic with unmerged worktree branches:
 - Integration simulation status (CLEAN, GAPS FOUND, or MISSING)
 - Item status mismatches (all tasks are terminal-success but the epic was not advanced)
 - Recommended merge order based on task dependencies
-- Standalone `YOK-*` branches with status `done`
+- Standalone `PREFIX-*` branches with status `done`
 - Potential cross-branch conflicts (via `git merge-tree`)
 
 ### Execution
@@ -75,10 +75,10 @@ Read `.agents/skills/yoke/merge/argument-validation.md` and execute it. Runs epi
 Read `.agents/skills/yoke/merge/preflight.md` and execute it. Requires a canonical integration simulation (unless `--skip-simulation`), verifies epic-level acceptance criteria scoped to worktree paths, confirms every epic task has reached terminal success, reads the worktree plan, and determines the merge order.
 
 ### Per-branch merge loop (Step 6)
-Read `.agents/skills/yoke/merge/merge-loop.md` and execute it. For each branch: resolves the actual checked-out branch, commits any uncommitted Tester artifacts, invokes `python3 -m yoke_core.tools.watch_merge merge-worktree`, updates task statuses to `done`, syncs local main, re-verifies ACs against main, and halts on regression.
+Read `.agents/skills/yoke/merge/merge-loop.md` and execute it. For each branch: resolves the actual checked-out branch, commits any uncommitted Tester artifacts, invokes `yoke watch merge merge-worktree`, updates task statuses to `done`, syncs local main, re-verifies ACs against main, and halts on regression.
 
 ### Post-merge bookkeeping (Step 7)
 Read `.agents/skills/yoke/merge/post-merge.md` and execute it. Syncs local main with origin via stash-pull-pop, closes the epic GitHub issue, advances the linked backlog item to `done` (if not already), and sets `merged_at`.
 
 ### Conflict handling (exit 3 / exit 1) + Notes
-Read `.agents/skills/yoke/merge/conflict-handling.md` when `python3 -m yoke_core.tools.watch_merge merge-worktree` exits with code 3 (agent-resolvable conflicts) or code 1 (hard conflicts, test failures, push/CI failures). This file also captures the operational Notes about sequential merge ordering, auto-resolved generated files, CI timeouts, and `--force-with-lease` push semantics.
+Read `.agents/skills/yoke/merge/conflict-handling.md` when `yoke watch merge merge-worktree` exits with code 3 (agent-resolvable conflicts) or code 1 (hard conflicts, test failures, push/CI failures). This file also captures the operational Notes about sequential merge ordering, auto-resolved generated files, CI timeouts, and `--force-with-lease` push semantics.

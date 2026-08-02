@@ -77,7 +77,7 @@ _handler_outcome=$(python3 -c 'from yoke_core.domain.sessions_handler_outcome im
 if [ "$_handler_outcome" = "recoverable_substrate" ]; then
  yoke lifecycle skip record-recoverable-substrate {_item_id} \
   --chain-step {step} --project {project} --routed-action {action} \
-  --failure-class CLASS --remediation-owner YOK-N
+  --failure-class CLASS --remediation-owner PREFIX-N
 elif [ "$_handler_outcome" = "blocked" ]; then
  _checkpoint_chainable=false
 fi
@@ -160,7 +160,7 @@ Reason: {reason}
 ```
 If `context` contains `epic_id` and `task_num`, print this instead of the item line above:
 ```
-RESUME: Continuing work on epic YOK-{epic_id} task #{task_num}
+RESUME: Continuing work on epic PREFIX-{epic_id} task #{task_num}
 Status: {status}
 Required path: {required_path}
 Reason: {reason}
@@ -182,7 +182,7 @@ Then print `OWNERSHIP LOST: item $_item_id now held by session '<holder_session_
 
 Then **dispatch using the claimed work context:**
 
-**Epic task detection (first priority):** If `context` contains `epic_id` and `task_num` (epic task work), invoke `/yoke conduct YOK-{epic_id}`. Skip the `required_path` dispatch below.
+**Epic task detection (first priority):** If `context` contains `epic_id` and `task_num` (epic task work), invoke `/yoke conduct PREFIX-{epic_id}`. Skip the `required_path` dispatch below.
 
 **Core contract dispatch (all other resume work):** Dispatch from `context.required_path`:
 
@@ -190,6 +190,8 @@ Then **dispatch using the claimed work context:**
 - If `required_path` is `shepherd`, invoke `/yoke shepherd {item_id}`.
 - If `required_path` is `conduct`, invoke `/yoke conduct {item_id}`.
 - If `required_path` is `advance`, invoke `/yoke advance {item_id} implementation`.
+- If `required_path` is `dash`, invoke `/yoke dash {item_id}` (resume the filed Dash; the instruction is the scope).
+- If `required_path` is `blitz`, invoke `/yoke blitz {item_id}` (execute the refined Blitz from its linked strategy document).
 - If `required_path` is `polish`, invoke `/yoke polish {item_id}`.
 - If `required_path` is `usher`, invoke `/yoke usher {item_id}`.
 
@@ -224,6 +226,8 @@ Then **dispatch from the scheduler's computed next step.** The selected step is 
 - If `next_step` is `shepherd`, invoke `/yoke shepherd {selected_item}`.
 - If `next_step` is `conduct`, invoke `/yoke conduct {selected_item}`.
 - If `next_step` is `advance`, invoke `/yoke advance {selected_item} implementation` (issue main-session implementation).
+- If `next_step` is `dash`, invoke `/yoke dash {selected_item}` (resume the filed Dash end to end: survey, worktree, verify, merge, evidence).
+- If `next_step` is `blitz`, invoke `/yoke blitz {selected_item}` (execute the refined Blitz from its single linked strategy document).
 - If `next_step` is `polish`, invoke `/yoke polish {selected_item}`.
 - If `next_step` is `usher`, invoke `/yoke usher {selected_item}`.
 
@@ -328,7 +332,7 @@ Paths blocked for this lane:
  - ...
 Options:
  (a) Switch to a harness whose configured lane covers these paths.
- (b) Run the required step manually in this session (e.g. /yoke refine YOK-N).
+ (b) Run the required step manually in this session (e.g. /yoke refine PREFIX-N).
  (c) Run /yoke feed to materialize additional lane-compatible work, if any exists.
 ```
 

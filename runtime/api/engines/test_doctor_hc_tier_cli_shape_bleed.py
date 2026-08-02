@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.engines import doctor_hc_tier_cli_shape_bleed as mod
-from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import HC_SLUG
+from yoke_project_checks import check_tier_cli_shape_bleed as mod
+from yoke_project_checks.check_tier_cli_shape_bleed import HC_SLUG
 from .doctor_hc_tier_cli_shape_test_support import (
     _detail,
     _run,

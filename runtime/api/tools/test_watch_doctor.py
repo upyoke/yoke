@@ -191,7 +191,7 @@ class TestArgparseHelpExample:
         assert excinfo.value.code == 0
         rendered = capsys.readouterr().out
         assert (
-            "python3 -m yoke_core.tools.watch_doctor -- --quick" in rendered
+            "yoke watch doctor -- --quick" in rendered
         ), "argparse --help output must teach the canonical -- --quick form"
 
     def test_help_documents_bare_form_too(
@@ -200,7 +200,7 @@ class TestArgparseHelpExample:
         with pytest.raises(SystemExit):
             watch_doctor._parse_args(["--help"])
         rendered = capsys.readouterr().out
-        assert "python3 -m yoke_core.tools.watch_doctor --quick" in rendered
+        assert "yoke watch doctor --quick" in rendered
 
 
 class TestPrintStreamingPair:
@@ -216,9 +216,9 @@ class TestPrintStreamingPair:
     def test_streaming_pair_canonical_form(self) -> None:
         rendered = self._capture_pair(["--print-streaming-pair", "--", "--quick"])
         assert " -- --quick" in rendered
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_doctor" in rendered
-        assert f"{anchor} yoke_core.tools.watch_tail" in rendered
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{command_anchor} doctor" in rendered
+        assert f"{command_anchor} tail" in rendered
         assert "PYTHONPATH" not in rendered
 
     def test_streaming_pair_bare_form_normalizes_to_canonical(self) -> None:
@@ -232,4 +232,4 @@ class TestPrintStreamingPair:
         rendered = self._capture_pair(["--print-streaming-pair"])
         # No doctor flags forwarded — but the bg command still preserves
         # the wrapper's surface so callers can append flags later.
-        assert "yoke_core.tools.watch_doctor" in rendered
+        assert "yoke watch doctor" in rendered

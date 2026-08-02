@@ -199,8 +199,23 @@ class TestPathDerivationMapping:
     def test_usher_maps_to_usher(self):
         assert _NEXT_STEP_TO_PATH["usher"] == "usher"
 
-    def test_all_six_paths_mapped(self):
-        assert set(_NEXT_STEP_TO_PATH.values()) == {"refine", "shepherd", "conduct", "advance", "polish", "usher"}
+    def test_dash_maps_to_dash(self):
+        assert _NEXT_STEP_TO_PATH["dash"] == "dash"
+
+    def test_blitz_maps_to_blitz(self):
+        assert _NEXT_STEP_TO_PATH["blitz"] == "blitz"
+
+    def test_all_routable_paths_mapped(self):
+        assert set(_NEXT_STEP_TO_PATH.values()) == {
+            "refine",
+            "shepherd",
+            "conduct",
+            "advance",
+            "dash",
+            "blitz",
+            "polish",
+            "usher",
+        }
 
     def test_advance_active_no_longer_exists(self):
         """AC-1/AC-9: advance-active is fully removed from path mapping."""

@@ -256,7 +256,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "(`ephemeral_env.get`) and write through `yoke ephemeral-env update "
             "<env-id> <field> <value>` (`ephemeral_env.update`), not retained "
             "domain commands. Conduct "
-            "uses branch `YOK-{id}`."
+            "uses branch `PREFIX-{id}`."
         ),
     },
     "path_snapshots": {

@@ -9,7 +9,7 @@ environment.
 Read the materialized requirements:
 
 ```bash
-yoke qa requirement list --item "YOK-{N}" --json
+yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select each unsatisfied, non-waived requirement whose `method_id` is

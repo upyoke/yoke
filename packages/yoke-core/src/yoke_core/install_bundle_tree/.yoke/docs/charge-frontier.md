@@ -98,7 +98,7 @@ class FrontierItem:
  project: str
  workflow_id: str
  workflow_version_id: int
- adapter: AdapterCategory # refine, shepherd, conduct, polish, usher, wait, skip
+ adapter: AdapterCategory # refine, shepherd, conduct, advance, dash, blitz, polish, usher, wait, skip
  blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents
@@ -109,9 +109,10 @@ class FrontierItem:
 The in-process dataclass carries the internal ``items.id``. Every serialized
 surface (REST endpoints, service-client JSON, offer/NextAction payloads)
 renders ``item_id`` as the item's TRUE public ref
-(``{projects.public_item_prefix}-{items.project_sequence}``, e.g. ``YOK-N``
-or ``EXT-N``) via ``project_identity.render_item_ref`` — the sequence and
-prefix may diverge from the internal id.
+(``{projects.public_item_prefix}-{items.project_sequence}`` — the prefix is
+per-project, so the same shape renders ``EXT-12`` in one project and
+``PLAT-12`` in another) via ``project_identity.render_item_ref`` — the
+sequence and prefix may diverge from the internal id.
 
 ### FrontierResult
 
@@ -157,7 +158,7 @@ GET /v1/charge/frontier?project=yoke&wip_cap=5
 {
  "runnable": [
  {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "title": "Implement widget",
  "status": "planned",
  "priority": "high",
@@ -205,16 +206,16 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 
 1. **Compute** -- call `python3 -m yoke_core.api.service_client charge-frontier` to get the ranked frontier.
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
-3. **Select** -- use the highest-ranked item (or `--item YOK-N` override).
+3. **Select** -- use the highest-ranked item (or `--item PREFIX-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
 5. **Dispatch** -- invoke the registered executor in the item's `next_step`
    (not the raw `adapter`):
- - `refine` routes to `/yoke refine YOK-N`
- - `shepherd` routes to `/yoke shepherd YOK-N`
- - `conduct` routes to `/yoke conduct YOK-N`
- - `advance` routes to `/yoke advance YOK-N implementation`
- - `polish` routes to `/yoke polish YOK-N`
- - `usher` routes to `/yoke usher YOK-N`
+ - `refine` routes to `/yoke refine PREFIX-N`
+ - `shepherd` routes to `/yoke shepherd PREFIX-N`
+ - `conduct` routes to `/yoke conduct PREFIX-N`
+ - `advance` routes to `/yoke advance PREFIX-N implementation`
+ - `polish` routes to `/yoke polish PREFIX-N`
+ - `usher` routes to `/yoke usher PREFIX-N`
  - `wait` reports blockers and stops
 
 ### Arguments
@@ -222,7 +223,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--dry-run` | off | Show frontier table and stop (no dispatch) |
-| `--item YOK-N` | -- | Target a specific item instead of highest-ranked |
+| `--item PREFIX-N` | -- | Target a specific item instead of highest-ranked |
 | `--project P` | `yoke` | Project scope |
 | `--wip-cap N` | project-policy | WIP cap override; unset resolves the single-project DB `project-policy.wip_cap`, else `5` |
 
@@ -242,7 +243,7 @@ The charge flow emits structured events:
 ```json
 {
  "detail": {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "adapter": "conduct",
  "dispatched": true,
  "reason": "dispatched",
@@ -255,7 +256,7 @@ The `reason` field distinguishes terminal outcomes:
 - `dispatched` — item was dispatched to a downstream adapter
 - `no_runnable_items` — frontier had no runnable items
 - `dry_run` — `--dry-run` flag prevented dispatch
-- `requested_item_unavailable` — `--item YOK-N` targeted an item that was not runnable; `target_bucket` records whether it was `blocked`, `frozen`, or `not_found` in the frontier response
+- `requested_item_unavailable` — `--item PREFIX-N` targeted an item that was not runnable; `target_bucket` records whether it was `blocked`, `frozen`, or `not_found` in the frontier response
 - `operator_cancelled` — operator chose to cancel at confirmation
 - `wait_adapter_encountered` — an unexpected `wait` adapter appeared at dispatch time and the command stopped without routing work
 
@@ -280,10 +281,10 @@ Computes the frontier for the default project, presents the top item, and dispat
 ### Charge a specific item
 
 ```
-/yoke charge --item YOK-N
+/yoke charge --item PREFIX-N
 ```
 
-Skips ranking and targets YOK-N directly. If YOK-N is not in the runnable set, reports why (blocked, frozen, or terminal).
+Skips ranking and targets PREFIX-N directly. If PREFIX-N is not in the runnable set, reports why (blocked, frozen, or terminal).
 
 ### Override WIP cap
 

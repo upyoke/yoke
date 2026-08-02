@@ -21,9 +21,7 @@ from yoke_contracts.item_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
 )
-
-
-DEFAULT_PROJECT_SLUG = "yoke"
+from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
 
 _PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
 
@@ -283,6 +281,7 @@ def render_item_ref(
     item_id: int,
     *,
     qualify: bool = False,
+    required: bool = False,
 ) -> str:
     del qualify
     p = placeholder(conn)
@@ -295,6 +294,8 @@ def render_item_ref(
         (item_id,),
     )
     if row is None:
+        if required:
+            raise LookupError(f"item identity not found: {item_id}")
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
     prefix = row_value(row, "public_item_prefix", 1)
     sequence = row_value(row, "project_sequence", 2)

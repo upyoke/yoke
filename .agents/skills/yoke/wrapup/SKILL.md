@@ -82,7 +82,7 @@ yoke sessions touch \
  Review the full conversation history for this session. Synthesize the following sections:
 
  ### What We Did
- - List each item worked on with its status transition (e.g., "YOK-N: implementing -> reviewed-implementation")
+ - List each item worked on with its status transition (e.g., "PREFIX-N: implementing -> reviewed-implementation")
  - Note any PRs created or merged
  - Summarize the scope of changes (files touched, lines changed)
 
@@ -203,7 +203,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  {content from step 4}
 
  ## Summary
- - Items: {list of YOK-N transitions}
+ - Items: {list of PREFIX-N transitions}
  - Ouroboros entries: {count}
  - Work items filed: {list or "none"}
  ```
@@ -234,7 +234,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  - {count} entries ({N} problems, {N} friction, {N} ideas, ...)
 
  ## Work items Filed
- - YOK-{N}: {title}
+ - PREFIX-{N}: {title}
  - (or: none)
 
  ## Unfinished Business

@@ -14,6 +14,21 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
+from yoke_contracts.watch_cli_forms import cli_form
+from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
+
+
+def _invocation(wrapper_module: str) -> str:
+    """Return the command that runs *wrapper_module* from a pasted shell line.
+
+    Prefers the ``yoke watch <kind>`` console-script form, which resolves
+    an interpreter that can import ``yoke_core`` from any directory.
+    Wrappers with no CLI adapter fall back to the locked module form.
+    """
+    return cli_form(wrapper_module) or (
+        f"uv run --frozen python3 -m {wrapper_module}"
+    )
+
 
 def print_streaming_pair(
     *,
@@ -31,10 +46,14 @@ def print_streaming_pair(
     ``watch_tail`` against the progress capture. Harnesses can map the
     first line to their background-command surface and the second line
     to their streaming/progress surface. Both command lines anchor to
-    the invocation cwd and run through ``uv run --frozen`` so the pasted
-    command binds this checkout's locked dev dependencies and source
-    packages — ambient ``python3`` may resolve an interpreter that has
-    neither.
+    the invocation cwd.
+
+    Wrappers with a ``yoke watch <kind>`` adapter emit that form: the
+    console script always resolves an interpreter that can import
+    ``yoke_core``, and the adapter re-binds a uv-managed project's own
+    environment before running. Wrappers without an adapter keep the
+    ``uv run --frozen python3 -m`` module form, which binds a checkout's
+    locked dependencies where ambient ``python3`` would not.
     """
     stream = out or sys.stdout
     cmd_args = shlex.join(wrapper_args)
@@ -46,13 +65,10 @@ def print_streaming_pair(
     # safe to copy-paste even when a segment contains whitespace.
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
-    # Anchor both emitted commands so execution cannot drift checkouts,
-    # and let ``uv run --frozen`` resolve the anchored checkout's locked
-    # environment (creating its venv if missing).
+    # Anchor both emitted commands so execution cannot drift checkouts.
     cwd_q = shlex.quote(os.getcwd())
-    locked_invocation = f"cd {cwd_q} && uv run --frozen python3 -m"
     bash_invocation = (
-        f"{locked_invocation} {wrapper_module} {option_prefix}"
+        f"cd {cwd_q} && {_invocation(wrapper_module)} {option_prefix}"
         f"--raw-capture {raw_q} "
         f"--progress-capture {progress_q} "
         f"-- {cmd_args}"
@@ -80,7 +96,7 @@ def print_streaming_pair(
         "# Auto-exits when the wrapper writes its exit sentinel.\n"
     )
     stream.write(
-        f"{locked_invocation} yoke_core.tools.watch_tail {progress_q}\n"
+        f"cd {cwd_q} && {_invocation(WATCH_TAIL_MODULE)} {progress_q}\n"
     )
     stream.write("\n")
     stream.write(

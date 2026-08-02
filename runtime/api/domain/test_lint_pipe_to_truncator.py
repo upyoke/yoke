@@ -52,6 +52,13 @@ class TestHitShapes(unittest.TestCase):
             _eval("python3 -m yoke_core.tools.watch_doctor -- --quick | head -20")
         )
 
+    def test_yoke_watch_command_piped_to_tail(self):
+        # The taught spelling must be caught the same as the module form.
+        verdict = _eval("yoke watch pytest -- runtime/api/ -q 2>&1 | tail -8")
+        self.assertIsNotNone(verdict)
+        _mode, reason, _outcome = verdict
+        self.assertIn("yoke watch pytest", reason)
+
     def test_bare_pytest_piped_to_tail(self):
         self.assertIsNotNone(_eval("pytest runtime/api/ -q | tail -5"))
 

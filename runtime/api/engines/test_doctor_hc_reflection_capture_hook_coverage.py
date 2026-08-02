@@ -8,8 +8,10 @@ from typing import Any
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor_hc_reflection_capture_hook_coverage import (
-    hc_reflection_capture_hook_coverage,
     hc_reflection_capture_unhandled,
+)
+from yoke_project_checks.check_reflection_capture_hook_coverage import (
+    hc_reflection_capture_hook_coverage,
 )
 
 

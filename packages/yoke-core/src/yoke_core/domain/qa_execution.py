@@ -118,9 +118,7 @@ def cmd_run_add(
             "SELECT method_id FROM qa_requirements WHERE id = %s",
             (requirement_id,),
         )
-        if executor_type == "agent" and is_browser_method_requirement(
-            method_id, qa_kind
-        ):
+        if executor_type == "agent" and is_browser_method_requirement(method_id):
             print(
                 "Error: executor_type 'agent' is not allowed for Browser "
                 "method cases -- use browser_substrate",

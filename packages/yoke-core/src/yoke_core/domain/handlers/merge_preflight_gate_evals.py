@@ -47,7 +47,7 @@ class EpicTaskStatusesResponse(BaseModel):
 
 
 class DependencyGateRequest(BaseModel):
-    item_ref: str = Field(..., min_length=1)
+    item_ref: Optional[str] = None
     gate_point: str = "integration"
 
 
@@ -127,24 +127,41 @@ def handle_epic_task_statuses(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_dependency_gate(request: FunctionCallRequest) -> HandlerOutcome:
-    """Evaluate the integration dependency gate for one item reference.
+    """Evaluate the integration dependency gate for one item target.
 
     Wraps :func:`yoke_core.domain.dependency_planning.evaluate_item_gate`
     unchanged and returns its blocked flag + per-blocker detail dicts. The
-    reference is normalized to the ``YOK-N`` text form the dependency edges
-    store, matching the retired ``evaluate-gate`` CLI path exactly.
+    Typed item targets render their project-aware public reference server-side.
+    The global + ``item_ref`` form remains for compatibility with generic
+    branch merges.
     """
     try:
         body = DependencyGateRequest.model_validate(request.payload)
     except Exception as exc:  # noqa: BLE001 - surface a structured payload error
         return _err("payload_invalid", f"dependency_gate payload invalid: {exc}")
 
-    item_ref = body.item_ref if body.item_ref.startswith("YOK-") else f"YOK-{body.item_ref}"
-
     from yoke_core.domain.dependency_planning import evaluate_item_gate
+    from yoke_core.domain.project_identity import render_item_ref
 
     try:
         with _connect_rw() as conn:
+            if request.target.item_id is not None:
+                item_ref = render_item_ref(
+                    conn,
+                    int(request.target.item_id),
+                    required=True,
+                )
+            elif body.item_ref:
+                item_ref = (
+                    body.item_ref
+                    if "-" in body.item_ref
+                    else f"YOK-{body.item_ref}"
+                )
+            else:
+                return _err(
+                    "target_invalid",
+                    "dependency_gate requires an item target or item_ref",
+                )
             result = evaluate_item_gate(conn, item_ref, body.gate_point)
     except Exception as exc:  # noqa: BLE001 - degrade to an error the caller can skip
         return _err("dependency_gate_failed", str(exc))

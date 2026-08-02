@@ -3,8 +3,8 @@
 Sibling of :mod:`yoke_contracts.board.sections_sessions`. Owns the path-claim
 and coordination-lease decoration logic for the existing Claims column:
 
-* ``YOK-N 📁<total>`` — work_claim with same-item path_claim decoration.
-* ``📁<total> (YOK-N)`` — orphan path_claim with parens shape.
+* ``PREFIX-N 📁<total>`` — work_claim with same-item path_claim decoration.
+* ``📁<total> (PREFIX-N)`` — orphan path_claim with parens shape.
 * ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via work_claim_id.
 * ``🔒 <lease_key>`` — coordination lease, project-scoped.
 

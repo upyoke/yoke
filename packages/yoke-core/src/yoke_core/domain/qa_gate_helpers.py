@@ -17,6 +17,7 @@ from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.schema_common import _table_exists
 
@@ -288,7 +289,7 @@ def _collect_stale_browser_requirements(
         stale.append(
             (
                 int(row["id"]),
-                str(row["method_id"] or "legacy Browser case"),
+                str(row["method_id"] or INVALID_BROWSER_METHOD_LABEL),
                 str(latest_run["created_at"] or "") or None,
                 run_sha,
             )

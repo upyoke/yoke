@@ -9,37 +9,27 @@ Uses disposable Postgres test databases and mock subprocess for deterministic te
 from __future__ import annotations
 
 import json
-import re
-import subprocess
-import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from yoke_core.engines.doctor import (
-    DoctorArgs,
-    RecordCollector,
-    hc_doc_drift,
-    hc_doc_health,
     hc_flow_stage_json,
     hc_invalid_item_flows,
     hc_orphaned_project_items,
     hc_projects_config_alignment,
+    hc_schema_drift,
+)
+from yoke_project_checks.check_agents_prompts import (
     hc_prompt_command_consistency,
     hc_prompt_doctrine_consistency,
-    hc_schema_drift,
-    hc_schema_script_sync,
 )
+from yoke_project_checks.check_docs import hc_doc_drift, hc_doc_health
+from yoke_project_checks.check_schema_script_sync import hc_schema_script_sync
 
 from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
-    _NOW_ISO,
-    _args,
-    _completed,
     _insert_deployment_flow,
     _insert_item,
-    _iso_days_ago,
-    _iso_minutes_ago,
     _make_conn,
     _result,
     _results,

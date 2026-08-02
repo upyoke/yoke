@@ -1,5 +1,5 @@
 """Tests for the current HC-obsoleted-terms epic-link ontology patterns in
-``doctor_hc_obsoleted_terms.py``: SQL form, prose form, child-issue prose,
+``check_obsoleted_terms.py``: SQL form, prose form, child-issue prose,
 and the ``type=issue with an epic parent`` ontology phrase. Covers both the
 pattern-shape behaviour (compile + match positives and negatives) and the
 git-grep residue checks for the matching AC-5 verification surfaces.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from yoke_core.engines.doctor_hc_obsoleted_terms import (
+from yoke_project_checks._obsoleted_terms_catalog import (
     _PER_PATTERN_PATH_ALLOWLIST,
     _RETIRED_CHILD_ISSUE_PATTERN,
     _RETIRED_EPIC_FIELD_PROSE_PATTERN,
