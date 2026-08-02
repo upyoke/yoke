@@ -191,10 +191,6 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("state", "TEXT"),
             ("mode", "TEXT"),
-            ("actor_id", "INTEGER"),
-            ("session_id", "TEXT"),
-            ("item_id", "INTEGER"),
-            ("work_claim_id", "INTEGER"),
             ("owner_kind", "TEXT"),
             ("owner_item_id", "INTEGER"),
             ("owner_session_id", "TEXT"),
@@ -217,15 +213,8 @@ CLAIMS_TABLES: dict[str, dict] = {
             "| 'blocked'. Typed ownership is explicit: owner_kind ∈ "
             "('item','session','process') and the matching one of "
             "owner_item_id / owner_session_id / owner_work_claim_id is "
-            "populated. New readers MUST consult typed owner fields — "
-            "NEVER treat the legacy session_id column as path authority; "
-            "it is provenance ONLY (the registering session, same as "
-            "registered_by_session_id). An item-owned claim survives the "
-            "registering session ending. The legacy actor_id / session_id "
-            "/ item_id / work_claim_id columns remain populated alongside "
-            "the typed owner fields during cutover for backwards "
-            "compatibility and roundtrip; readers should prefer the "
-            "typed columns. HC-path-claim-owner-kind flags non-terminal "
+            "populated. An item-owned claim survives the registering "
+            "session ending. HC-path-claim-owner-kind flags non-terminal "
             "rows that lack typed ownership or carry contradictory "
             "owner_kind / owner-field combinations. Lookup by item via "
             "`yoke claims path list --item PREFIX-N`. Covered-path list "

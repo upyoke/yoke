@@ -18,13 +18,14 @@ class TestItemTerminalReleasePropagation:
     @staticmethod
     def _seed_blocked_claim(conn, *, item_id, target_id, upstream_claim_id):
         cur = conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, item_id, "
+            "INSERT INTO path_claims "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
             "integration_target, registered_at, blocked_reason) "
-            "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+            "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', %s) RETURNING id",
             (
-                local_human(conn),
                 item_id,
+                local_human(conn),
                 f"serial-via-dependency on path_claims.id={upstream_claim_id}",
             ),
         )
@@ -77,12 +78,13 @@ class TestItemTerminalReleasePropagation:
     @staticmethod
     def _seed_active_claim(conn, *, item_id, target_id):
         cur = conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, item_id, "
+            "INSERT INTO path_claims "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
             "integration_target, registered_at, activated_at, "
-            "base_commit_sha) VALUES ('active', 'exclusive', %s, %s, "
+            "base_commit_sha) VALUES ('active', 'exclusive', 'item', %s, %s, "
             "'main', '2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', %s) "
             "RETURNING id",
-            (local_human(conn), item_id, SNAP),
+            (item_id, local_human(conn), SNAP),
         )
         claim_id = int(cur.fetchone()[0])
         conn.execute(

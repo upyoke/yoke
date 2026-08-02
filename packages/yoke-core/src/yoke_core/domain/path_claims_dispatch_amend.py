@@ -67,7 +67,8 @@ def _project_for_claim_id(conn, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
         "SELECT i.project_id FROM path_claims pc "
-        "JOIN items i ON pc.item_id = i.id "
+        "JOIN items i ON pc.owner_kind = 'item' "
+        "AND pc.owner_item_id = i.id "
         f"WHERE pc.id = {p}",
         (claim_id,),
     ).fetchone()
@@ -93,7 +94,8 @@ def _resolve_item_to_claim_id(conn, item_arg: str) -> tuple[Optional[int], Optio
         return None, str(exc)
     p = _p(conn)
     rows = conn.execute(
-        f"SELECT id FROM path_claims WHERE item_id = {p} AND mode = 'exclusive' "
+        f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        f"AND owner_item_id = {p} AND mode = 'exclusive' "
         "AND state IN ('planned', 'blocked', 'active') ORDER BY id ASC",
         (item_id,),
     ).fetchall()
@@ -209,7 +211,7 @@ def cmd_widen(argv: Sequence[str]) -> int:
                 )
                 p = _p(conn)
                 item_id_for_attr = conn.execute(
-                    f"SELECT item_id FROM path_claims WHERE id = {p}",
+                    f"SELECT owner_item_id FROM path_claims WHERE id = {p}",
                     (args.claim_id,),
                 ).fetchone()
                 target_ids = resolve_or_plan_paths_to_target_ids(

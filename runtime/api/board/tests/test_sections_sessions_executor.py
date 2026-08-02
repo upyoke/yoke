@@ -59,9 +59,10 @@ _RENDER_SCHEMA = """
     );
     CREATE TABLE path_claims (
         id INTEGER PRIMARY KEY,
-        session_id TEXT,
-        item_id INTEGER,
-        work_claim_id INTEGER,
+        owner_kind TEXT,
+        owner_item_id INTEGER,
+        owner_session_id TEXT,
+        owner_work_claim_id INTEGER,
         released_at TEXT,
         cancelled_at TEXT,
         release_reason TEXT,

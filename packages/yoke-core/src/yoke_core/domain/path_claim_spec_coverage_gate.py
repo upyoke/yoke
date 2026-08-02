@@ -123,7 +123,8 @@ def _active_claim_coverage(
     marker = _p(conn)
     placeholders = ",".join(marker for _ in _NON_TERMINAL_CLAIM_STATES)
     claim_rows = conn.execute(
-        f"SELECT id FROM path_claims WHERE item_id = {marker} "
+        f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        f"AND owner_item_id = {marker} "
         f"AND state IN ({placeholders}) ORDER BY id",
         (item_id, *_NON_TERMINAL_CLAIM_STATES),
     ).fetchall()

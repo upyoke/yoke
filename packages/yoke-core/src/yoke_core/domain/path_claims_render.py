@@ -12,8 +12,10 @@ Render policy:
   unrelated items don't grow boilerplate.
 * Claims attached → render every claim grouped by id with declared
   coverage, amendment history, and current blocking conflicts. The
-  header surfaces state, integration target, actor, and session for
-  the cold-start question.
+  header surfaces state, integration target, and typed owner for the
+  cold-start question. Registration provenance remains available in the
+  read projection for coordination diagnostics but is not repeated in the
+  item body.
 
 The renderer reads the read-API projection
 (:func:`yoke_core.domain.path_claims_read.item_view`) verbatim — it
@@ -58,24 +60,6 @@ def _render_claim(claim: dict) -> List[str]:
             lines.append(
                 f"  - Owner work claim id: `{claim['owner_work_claim_id']}`"
             )
-    reg_actor = claim.get("registered_by_actor_id")
-    reg_session = claim.get("registered_by_session_id")
-    if reg_actor is not None or reg_session:
-        bits: List[str] = []
-        if reg_actor is not None:
-            bits.append(f"actor=`{reg_actor}`")
-        if reg_session:
-            bits.append(f"session=`{reg_session}`")
-        lines.append(f"- **Registered by:** {' '.join(bits)}")
-    actor = claim.get("actor_id")
-    if actor is not None:
-        lines.append(f"- **Actor id:** `{actor}`")
-    session_id = claim.get("session_id")
-    if session_id:
-        lines.append(f"- **Session id:** `{session_id}`")
-    item_id = claim.get("item_id")
-    if item_id is not None:
-        lines.append(f"- **Item id:** `{item_id}`")
     if claim.get("base_commit_sha"):
         lines.append(f"- **Base commit SHA:** `{claim['base_commit_sha']}`")
     registered = claim.get("registered_at")

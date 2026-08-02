@@ -74,8 +74,10 @@ def _seed_claim(
     p = _p(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        f"VALUES ({p}, 'exclusive', 1, {p}, {p}, '2026-05-01T00:00:00Z') "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        f"VALUES ({p}, 'exclusive', 'item', {p}, 1, {p}, "
+        "'2026-05-01T00:00:00Z') "
         "RETURNING id",
         (state, item_id, integration_target),
     )

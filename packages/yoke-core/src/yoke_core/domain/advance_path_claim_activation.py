@@ -67,9 +67,9 @@ def _claim_project(conn: Any, claim_id: int) -> tuple[Optional[str], Optional[in
     p = _p(conn)
     row = conn.execute(
         "SELECT p.slug, i.project_id FROM path_claims pc "
-        "JOIN items i ON pc.item_id = i.id "
+        "JOIN items i ON pc.owner_item_id = i.id "
         "LEFT JOIN projects p ON p.id = i.project_id "
-        f"WHERE pc.id = {p}",
+        f"WHERE pc.id = {p} AND pc.owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None:
@@ -85,7 +85,8 @@ def _list_claims_for_session(conn: Any, *, item_id: int, actor_id: int) -> List[
     rows = conn.execute(
         "SELECT id, state, blocked_reason, integration_target "
         "FROM path_claims "
-        f"WHERE item_id = {p} AND actor_id = {p} "
+        f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+        f"AND registered_by_actor_id = {p} "
         "AND state NOT IN ('released', 'cancelled') "
         "ORDER BY id",
         (item_id, actor_id),

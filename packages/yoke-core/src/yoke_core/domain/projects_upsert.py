@@ -297,10 +297,11 @@ def _resolve_org_id(conn: Any, org: str) -> int:
 
 
 def _default_org_id(conn: Any) -> Optional[int]:
-    from yoke_core.domain.org_schema import DEFAULT_ORG_SLUG, org_id_by_slug
-
     try:
-        return org_id_by_slug(conn, DEFAULT_ORG_SLUG)
+        rows = query_all(
+            conn, "SELECT id FROM organizations ORDER BY id LIMIT 2"
+        )
+        return int(rows[0]["id"]) if len(rows) == 1 else None
     except Exception:
         return None
 

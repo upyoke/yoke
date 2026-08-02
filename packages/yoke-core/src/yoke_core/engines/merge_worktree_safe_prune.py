@@ -121,11 +121,10 @@ def _has_active_authority(
             return True
         row = conn.execute(
             "SELECT 1 FROM path_claims "
-            "WHERE state IN ('planned', 'blocked', 'active') AND ("
-            f"(owner_kind = 'item' AND owner_item_id = {marker}) OR "
-            f"(owner_kind IS NULL AND item_id = {marker})"
-            ") LIMIT 1",
-            (owner.item_id, owner.item_id),
+            "WHERE state IN ('planned', 'blocked', 'active') "
+            f"AND owner_kind = 'item' AND owner_item_id = {marker} "
+            "LIMIT 1",
+            (owner.item_id,),
         ).fetchone()
         if row is not None:
             return True

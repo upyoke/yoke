@@ -51,7 +51,8 @@ def test_readiness_check_reports_advisory_without_blocking(
     conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, spec TEXT)")
     conn.execute(
         "CREATE TABLE path_claims ("
-        "id INTEGER PRIMARY KEY, item_id INTEGER, state TEXT)"
+        "id INTEGER PRIMARY KEY, owner_kind TEXT, "
+        "owner_item_id INTEGER, state TEXT)"
     )
     conn.execute(
         "CREATE TABLE path_targets ("
@@ -64,7 +65,11 @@ def test_readiness_check_reports_advisory_without_blocking(
         "INSERT INTO items (id, spec) VALUES (1, %s)",
         ("## File Budget\n\n- `CLAUDE.md` — edit rules.\n",),
     )
-    conn.execute("INSERT INTO path_claims VALUES (10, 1, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (10, 'item', 1, 'planned')"
+    )
     conn.execute("INSERT INTO path_targets VALUES (1, 'CLAUDE.md', 'file')")
     conn.execute("INSERT INTO path_claim_targets VALUES (10, 1)")
     conn.commit()

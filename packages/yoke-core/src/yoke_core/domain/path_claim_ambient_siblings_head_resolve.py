@@ -58,8 +58,9 @@ def _resolve_repo_path_for_target(
         row = conn.execute(
             "SELECT i.project_id "
             "FROM path_claims pc "
-            "JOIN items i ON i.id = pc.item_id "
+            "JOIN items i ON i.id = pc.owner_item_id "
             f"WHERE pc.integration_target = {p} "
+            "AND pc.owner_kind = 'item' "
             "AND i.project_id IS NOT NULL "
             "LIMIT 1",
             (integration_target,),
