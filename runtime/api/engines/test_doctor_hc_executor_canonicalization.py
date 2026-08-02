@@ -14,7 +14,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain.executor_canonical_labels import (
+from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
 )

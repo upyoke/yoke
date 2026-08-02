@@ -121,6 +121,27 @@ def _remove_quietly(path: Path) -> None:
         pass
 
 
+def _shares_pid_with_other_session(
+    existing: Optional[Dict[str, Any]],
+    session_id: str,
+    start_time: str,
+) -> bool:
+    """True when a live record on this pid already belongs to another session.
+
+    Start-time equality distinguishes a genuinely shared process from a
+    reused pid: a different start time means the recorded process is gone,
+    so the record is stale rather than contended.
+    """
+    if not existing:
+        return False
+    if existing.get("anchor_start_time") != start_time:
+        return False
+    if existing.get("shared_by_multiple_sessions"):
+        return True
+    recorded = existing.get("session_id")
+    return isinstance(recorded, str) and bool(recorded) and recorded != session_id
+
+
 def record_session_anchor(
     session_id: str,
     anchors_dir: _AnchorsDir,
@@ -135,6 +156,13 @@ def record_session_anchor(
     (e.g. an operator terminal) or the write failed. Never raises — anchor
     recording is a best-effort side channel and must not break
     registration. ``anchor`` injects a resolved ancestor for tests.
+
+    When the resolved pid is already recorded against a *different* live
+    session, the pid is hosting concurrent sessions and cannot identify
+    either of them. Rather than overwriting — which would silently hand the
+    displaced session's shell processes this session's id — the record is
+    replaced with a contention marker that makes ancestry resolution refuse
+    the pid outright.
     """
     if not session_id:
         return None
@@ -146,17 +174,24 @@ def record_session_anchor(
         )
         if resolved is None:
             return None
+        directory = Path(anchors_dir)
+        directory.mkdir(parents=True, exist_ok=True)
+        final = directory / f"{resolved.pid}.json"
+        contended = _shares_pid_with_other_session(
+            _load_json(final) if final.is_file() else None,
+            session_id,
+            resolved.start_time,
+        )
         record: Dict[str, Any] = {
-            "session_id": session_id,
-            "transcript_path": transcript_path or "",
+            "session_id": "" if contended else session_id,
+            "transcript_path": "" if contended else (transcript_path or ""),
             "anchor_pid": resolved.pid,
             "anchor_start_time": resolved.start_time,
             "anchor_process_name": resolved.process_name,
             "registered_at": datetime.now(timezone.utc).isoformat(),
         }
-        directory = Path(anchors_dir)
-        directory.mkdir(parents=True, exist_ok=True)
-        final = directory / f"{resolved.pid}.json"
+        if contended:
+            record["shared_by_multiple_sessions"] = True
         tmp = directory / f".{resolved.pid}.json.tmp.{os.getpid()}"
         _dump_json(tmp, record)
         os.replace(tmp, final)
@@ -177,9 +212,11 @@ def resolve_session_from_ancestry(
     For each ancestor pid (nearest first) holding a registry record, the
     record is trusted only when the ancestor's live start time equals the
     recorded one — a reused pid fails the comparison and the stale record
-    is pruned. Returns ``None`` when no live anchor covers this process.
-    Never raises. ``start_time_of`` / ``parents`` inject process-table
-    lookups for tests.
+    is pruned. A record marked as shared by multiple sessions stops the
+    walk with ``None``: the pid cannot identify one session, and no
+    ancestor above it is less shared. Returns ``None`` when no live anchor
+    covers this process. Never raises. ``start_time_of`` / ``parents``
+    inject process-table lookups for tests.
     """
     try:
         directory = Path(anchors_dir)
@@ -204,6 +241,8 @@ def resolve_session_from_ancestry(
             if not recorded_start or resolve_start(ancestor) != recorded_start:
                 _remove_quietly(path)
                 continue
+            if record.get("shared_by_multiple_sessions"):
+                return None
             session_id = record.get("session_id")
             if isinstance(session_id, str) and session_id:
                 return session_id
