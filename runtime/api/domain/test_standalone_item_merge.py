@@ -9,6 +9,19 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
+from yoke_core.domain import standalone_item_merge_receipt as receipts
+
+
+@pytest.fixture(autouse=True)
+def _receipt_free(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep these cases on git state alone.
+
+    The durable receipt and the retry paths that read it back have their own
+    suite (``test_standalone_item_merge_crash_retry``); here an unstubbed
+    ledger would only add control-plane calls to assertions about the merge.
+    """
+    monkeypatch.setattr(receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
 
 
 def _git(repo: Path, *args: str) -> None:
