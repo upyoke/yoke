@@ -66,6 +66,13 @@ PRODUCT_AUTHZ_BY_ID = {
     "merge.lock.list": AuthzSpec(ACTOR_SESSION, None),
     "merge.lock.acquire": AuthzSpec(ACTOR_SESSION, None),
     "merge.lock.release": AuthzSpec(ACTOR_SESSION, None),
+    # A project's GitHub binding state is that project's tenant data, so the
+    # read is scoped to the project rather than the caller's own session. It
+    # is claim-free: resolving auth is a precondition of merge, resync, and
+    # label sync alike, none of which hold an item claim at that point. The
+    # receipt write stamps the same project's binding row.
+    "projects.github_state.read": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "projects.github_sync_receipt.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.
     "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
