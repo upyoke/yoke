@@ -199,3 +199,60 @@ def render_codex_hooks_block() -> dict:
     # Stop — no matcher.
     block["Stop"] = [_codex_entry(None, _CODEX_VERB_BY_EVENT["Stop"])]
     return block
+
+
+# ---------------------------------------------------------------------------
+# Cursor hooks.json — runner-per-event rendering
+# ---------------------------------------------------------------------------
+
+# Cursor exports no session env var to hook subprocesses, and its payloads
+# multiplex model providers, so the generated command pins the executor
+# family the same way the Codex command pins its identity. Provider stays
+# payload-derived.
+_CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
+
+# Cursor-native event -> canonical runner verb. The runner receives the
+# canonical verb as argv; the Cursor payload parser owns payload-shape
+# differences. The shell gate anchors on beforeShellExecution (raw command
+# + sandbox state; a deny holds even under the CLI's force mode) rather
+# than a preToolUse Shell matcher — wiring both would run the Bash chain
+# twice per command. Subagent lifecycle events stay unwired until the
+# container-mapping guard exists in session dispatch; wiring them first
+# would feed per-subagent session ids into ensure-register.
+_CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
+    ("sessionStart", "SessionStart", None),
+    ("sessionEnd", "SessionEnd", None),
+    ("beforeSubmitPrompt", "UserPromptSubmit", None),
+    ("beforeShellExecution", "PreToolUse", None),
+    ("afterShellExecution", "PostToolUse", None),
+    ("preToolUse", "PreToolUse", "Write|Read|Task"),
+    ("postToolUse", "PostToolUse", "Write|Read|Task"),
+    ("postToolUseFailure", "PostToolUseFailure", None),
+    ("stop", "Stop", None),
+)
+
+
+def _cursor_command(event_verb: str) -> str:
+    return (
+        "/bin/zsh -lc '"
+        f"env {_CURSOR_IDENTITY_ENV} {_YOKE_HOOK_EVALUATE} {event_verb}"
+        "'"
+    )
+
+
+def render_cursor_hooks_block() -> dict:
+    """Render the Cursor ``hooks.json`` document (schema version 1).
+
+    Returns the complete file content — Cursor wraps the event map in
+    ``{"version": 1, "hooks": {...}}`` and hot-reloads the file on save.
+    Matchers are JavaScript regexes over the Cursor tool vocabulary
+    (pre-parser names: ``Shell``, ``Read``, ``Write``, ``Task``); events
+    without a matcher fire unconditionally.
+    """
+    hooks: dict[str, list[dict]] = {}
+    for cursor_event, verb, matcher in _CURSOR_EVENTS:
+        entry: dict = {"command": _cursor_command(verb)}
+        if matcher is not None:
+            entry["matcher"] = matcher
+        hooks.setdefault(cursor_event, []).append(entry)
+    return {"version": 1, "hooks": hooks}

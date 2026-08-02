@@ -211,7 +211,7 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
-    monkeypatch.setattr(watch_pytest._watch_worktree_binding, "check", lambda: None)
+    monkeypatch.setattr(watch_pytest.verification_tree_binding, "check", lambda **_: None)
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
         "import_origin_refusal",

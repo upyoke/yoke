@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain.path_claim_active_claim_lookup import (
     _pick_chain_for_target,
 )
@@ -39,6 +40,7 @@ def widen_template(
     claim_id: Optional[int],
     item_id: Optional[int],
     target_path: str,
+    item_ref: Optional[str] = None,
 ) -> str:
     """Return the canonical ``yoke claims path widen`` remediation.
 
@@ -46,7 +48,11 @@ def widen_template(
     action is one mechanical paste.
     """
     cid = claim_id if claim_id is not None else "<claim_id>"
-    item = f"YOK-{item_id}" if item_id is not None else "YOK-N"
+    item = item_ref or (
+        format_item_ref(None, None, None, item_id=item_id)
+        if item_id is not None
+        else "YOK-N"
+    )
     return (
         "yoke claims path widen "
         f"--claim-id {cid} --add-paths {target_path} "

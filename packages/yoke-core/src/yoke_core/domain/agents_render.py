@@ -1,20 +1,19 @@
 """Universal harness substrate renderer.
 
-Generates every harness adapter file from canonical Yoke source:
-
-- Claude agent ``.md`` tree at ``runtime/harness/claude/agents/yoke-*.md``.
-- Claude ``runtime/harness/claude/settings.json`` (hooks + permissions).
-- Claude ``runtime/harness/claude/manifest.json``.
-- Codex agent ``.toml`` tree at ``runtime/harness/codex/agents/yoke-*.toml``.
-- Codex ``runtime/harness/codex/hooks.json`` (adapter-verb hook config).
-- Codex ``runtime/harness/codex/manifest.json``.
+Generates every harness adapter file from canonical Yoke source: the
+per-harness agent adapter trees (Claude ``.md``, Codex ``.toml``, Cursor
+``.md``), hook configs (Claude ``settings.json``, Codex and Cursor
+``hooks.json``), and the Yoke-shaped ``manifest.json`` per harness
+directory under ``runtime/harness/{id}/``, plus the repo-root native
+symlinks (``.codex/agents``, ``.cursor/agents``).
 
 Per-output rendering lives in sibling modules
 (``agents_render_subagent_hooks`` owns the per-agent Claude ``.md``
-rendering plus the universal-hook-ordering-driven subagent hooks block;
-``agents_render_claude``, ``agents_render_codex``, ``agents_render_hooks``,
-``agents_render_manifests`` own the substrate-wide outputs). This
-orchestrator wires them into the public CLI surface.
+rendering; ``agents_render_claude`` / ``agents_render_codex`` /
+``agents_render_cursor`` / ``agents_render_hooks`` /
+``agents_render_manifests`` / ``agents_render_native_links`` own the
+substrate-wide outputs). This orchestrator wires them into the public CLI
+surface.
 
 Every public *writer* (``write_all``, ``write_all_claude``) requires
 ``target_root: Path`` as a keyword-only argument with no default. Reader
@@ -45,6 +44,15 @@ from yoke_core.domain.agents_render_codex import (
 )
 from yoke_core.domain.agents_render_conditional import (
     detect_conditional_marker_drift,
+)
+from yoke_core.domain.agents_render_cursor import (
+    render_cursor_agent,
+    render_cursor_hooks_json,
+    render_cursor_manifest_json,
+)
+from yoke_core.domain.agents_render_native_links import (
+    ensure_native_agents_link,
+    native_agents_link_drift,
 )
 from yoke_core.domain.agents_render_context import (
     detect_canonical_body_drift,
@@ -80,11 +88,15 @@ from yoke_core.domain import agents_render_project_install
 CLAUDE_OUT_DIR = Path("runtime") / "harness" / "claude" / "agents"
 CODEX_OUT_DIR = Path("runtime") / "harness" / "codex" / "agents"
 CODEX_NATIVE_AGENTS_DIR = Path(".codex/agents")
+CURSOR_OUT_DIR = Path("runtime") / "harness" / "cursor" / "agents"
+CURSOR_NATIVE_AGENTS_DIR = Path(".cursor/agents")
 
 CLAUDE_SETTINGS_PATH = Path("runtime") / "harness" / "claude" / "settings.json"
 CLAUDE_MANIFEST_PATH = Path("runtime") / "harness" / "claude" / "manifest.json"
 CODEX_HOOKS_PATH = Path("runtime") / "harness" / "codex" / "hooks.json"
 CODEX_MANIFEST_PATH = Path("runtime") / "harness" / "codex" / "manifest.json"
+CURSOR_HOOKS_PATH = Path("runtime") / "harness" / "cursor" / "hooks.json"
+CURSOR_MANIFEST_PATH = Path("runtime") / "harness" / "cursor" / "manifest.json"
 
 # The seven primary Yoke agents.
 AGENTS = [
@@ -202,6 +214,15 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
         )
     outputs.append((CODEX_HOOKS_PATH, render_codex_hooks_json()))
     outputs.append((CODEX_MANIFEST_PATH, render_codex_manifest_json()))
+    for agent in AGENTS:
+        outputs.append(
+            (
+                CURSOR_OUT_DIR / f"yoke-{agent}.md",
+                render_cursor_agent(root / CANONICAL_DIR, agent),
+            )
+        )
+    outputs.append((CURSOR_HOOKS_PATH, render_cursor_hooks_json()))
+    outputs.append((CURSOR_MANIFEST_PATH, render_cursor_manifest_json()))
     return outputs
 
 
@@ -230,36 +251,19 @@ def write_all(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[st
             continue
         _atomic_write(out_path, rendered, target_root=root)
         results[rel] = ("write", rendered)
-    link_action, link_target = _ensure_codex_native_agents_link(root, dry_run=dry_run)
-    results[str(CODEX_NATIVE_AGENTS_DIR)] = (link_action, link_target)
+    for native_dir, out_dir in _NATIVE_AGENT_LINKS:
+        link_action, link_target = ensure_native_agents_link(
+            root, out_dir, native_dir, dry_run=dry_run
+        )
+        results[str(native_dir)] = (link_action, link_target)
     return results
 
 
-def _codex_native_agents_link_target(target_root: Path) -> str:
-    return os.path.relpath(
-        target_root / CODEX_OUT_DIR, target_root / CODEX_NATIVE_AGENTS_DIR.parent
-    )
-
-
-def _ensure_codex_native_agents_link(target_root: Path, *, dry_run: bool) -> tuple[str, str]:
-    """Ensure Codex's native ``.codex/agents`` path reaches rendered adapters."""
-    link_path = target_root / CODEX_NATIVE_AGENTS_DIR
-    target = _codex_native_agents_link_target(target_root)
-    if link_path.is_symlink() and os.readlink(link_path) == target:
-        return "skip", target
-    if dry_run:
-        return "would-write", target
-    assert_target_under_session_work_authority(link_path)
-    link_path.parent.mkdir(parents=True, exist_ok=True)
-    if link_path.is_symlink():
-        link_path.unlink()
-    elif link_path.exists():
-        raise RuntimeError(
-            f"{CODEX_NATIVE_AGENTS_DIR} exists but is not a symlink; "
-            "cannot surface rendered Codex agents"
-        )
-    link_path.symlink_to(target, target_is_directory=True)
-    return "write", target
+# Harnesses that consume rendered adapters through a repo-root symlink.
+_NATIVE_AGENT_LINKS: tuple[tuple[Path, Path], ...] = (
+    (CODEX_NATIVE_AGENTS_DIR, CODEX_OUT_DIR),
+    (CURSOR_NATIVE_AGENTS_DIR, CURSOR_OUT_DIR),
+)
 
 
 def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
@@ -306,12 +310,8 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
             continue
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
-    native_link = root / CODEX_NATIVE_AGENTS_DIR
-    expected_target = _codex_native_agents_link_target(root)
-    if not native_link.is_symlink():
-        drift.append(f"missing: {CODEX_NATIVE_AGENTS_DIR}")
-    elif os.readlink(native_link) != expected_target:
-        drift.append(f"drift: {CODEX_NATIVE_AGENTS_DIR}")
+    for native_dir, out_dir in _NATIVE_AGENT_LINKS:
+        drift.extend(native_agents_link_drift(root, out_dir, native_dir))
     return drift
 
 

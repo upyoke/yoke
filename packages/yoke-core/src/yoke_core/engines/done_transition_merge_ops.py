@@ -51,6 +51,8 @@ def _do_merge(
     task_parent_ref: str,
     project_repo: Path,
     item_project: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
     # Resolve actual branch from worktree directory. Lanes live at
@@ -67,7 +69,10 @@ def _do_merge(
         )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
-            print(f"Warning: branch mismatch for YOK-{item_id}", file=sys.stderr)
+            from yoke_contracts.item_ref import format_item_ref
+
+            ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+            print(f"Warning: branch mismatch for {ref}", file=sys.stderr)
             print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
             print("  Using actual branch for merge.", file=sys.stderr)
@@ -259,11 +264,19 @@ def _schema_gate_needed(merge_ran: bool, project_repo: Path | None) -> bool:
 
 
 def _handle_already_done(
-    item_id: int, project_repo: Path, result, result_file: str
+    item_id: int,
+    project_repo: Path,
+    result,
+    result_file: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
+    from yoke_contracts.item_ref import format_item_ref
+
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     print(
-        f"Pre-flight: YOK-{item_id} is already completed (status=done, "
+        f"Pre-flight: {ref} is already completed (status=done, "
         "worktree cleared)."
     )
     print("No cleanup or discovery work needed on idempotent re-run.")

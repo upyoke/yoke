@@ -58,12 +58,12 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.domain import test_gate_timeout
+from yoke_core.domain import verification_tree_binding
 from yoke_core.tools import (
     _source_pythonpath,
     _watch_pytest_args,
     _watch_pytest_rootdir,
     _watch_runner,
-    _watch_worktree_binding,
     gate_admission,
 )
 from yoke_core.tools._pytest_parallel import (
@@ -153,6 +153,14 @@ def _parse_args(
         "one full execution for this tree.",
     )
     parser.add_argument(
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        dest="allow_tree_mismatch",
+        action="store_true",
+        help="Run even when this tree is outside the session's claimed "
+        "worktree. For a deliberate cross-tree run; the wrapper names both "
+        "trees so the green is attributable.",
+    )
+    parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help=(
@@ -171,8 +179,8 @@ def _strip_separator(passthrough: list[str]) -> list[str]:
     return passthrough
 
 
-def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
-    """Pull ``--print-streaming-pair`` out of any position in ``argv``.
+def _extract_wrapper_flag(argv: list[str], flag: str) -> tuple[list[str], bool]:
+    """Pull a bare wrapper *flag* out of any position in ``argv``.
 
     ``passthrough`` uses ``nargs=argparse.REMAINDER``, which means the
     flag would otherwise reach pytest verbatim if placed after the
@@ -181,7 +189,7 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     filtered: list[str] = []
     found = False
     for arg in argv:
-        if arg == _watch_runner.PRINT_STREAMING_PAIR_FLAG:
+        if arg == flag:
             found = True
             continue
         filtered.append(arg)
@@ -207,10 +215,17 @@ def _impacted_selection(base: str, *, bounded: bool = False) -> "list[str] | Non
 
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
-    raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
+    raw, print_streaming_pair_flag = _extract_wrapper_flag(
+        raw, _watch_runner.PRINT_STREAMING_PAIR_FLAG,
+    )
+    raw, allow_tree_mismatch_flag = _extract_wrapper_flag(
+        raw, verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+    )
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
+    if allow_tree_mismatch_flag:
+        ns.allow_tree_mismatch = True
     pytest_args = _strip_separator(list(ns.passthrough))
 
     if ns.impacted is not None:
@@ -239,10 +254,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
         return 2
 
-    binding_refusal = _watch_worktree_binding.check()
-    if binding_refusal is not None:
-        print(binding_refusal, file=sys.stderr)
-        return 3
+    if ns.allow_tree_mismatch:
+        notice = verification_tree_binding.mismatch_notice(surface=prog)
+        if notice is not None:
+            print(notice, file=sys.stderr)
+    else:
+        binding_refusal = verification_tree_binding.check(surface=prog)
+        if binding_refusal is not None:
+            print(binding_refusal, file=sys.stderr)
+            return 3
 
     # Parallel-by-default: inject ``-n auto`` unless caller passed
     # ``--no-parallel`` or already supplied ``-n``/``--numprocesses``.

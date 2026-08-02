@@ -66,9 +66,11 @@ def isolated_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     canonical.mkdir(parents=True)
     claude_spec = '{"name": "yoke-architect", "description": "x", "tools": "Read"}'
     codex_spec = '{"name": "yoke-architect", "description": "x"}'
+    cursor_spec = '{"name": "yoke-architect", "description": "x"}'
     (canonical / "architect.md").write_text("# canonical body\n", encoding="utf-8")
     (canonical / "architect.claude.json").write_text(claude_spec, encoding="utf-8")
     (canonical / "architect.codex.json").write_text(codex_spec, encoding="utf-8")
+    (canonical / "architect.cursor.json").write_text(cursor_spec, encoding="utf-8")
     monkeypatch.setattr("yoke_core.domain.agents_render.AGENTS", ["architect"])
     return tmp_path
 
@@ -259,9 +261,11 @@ def _seed_minimal_canonical_tree(repo: Path) -> None:
     canonical.mkdir(parents=True)
     claude_spec = '{"name": "yoke-architect", "description": "x", "tools": "Read"}'
     codex_spec = '{"name": "yoke-architect", "description": "x"}'
+    cursor_spec = '{"name": "yoke-architect", "description": "x"}'
     (canonical / "architect.md").write_text("# canonical body\n", encoding="utf-8")
     (canonical / "architect.claude.json").write_text(claude_spec)
     (canonical / "architect.codex.json").write_text(codex_spec)
+    (canonical / "architect.cursor.json").write_text(cursor_spec)
 
 
 def test_drift_detection_reports_handedited_file(tmp_path: Path) -> None:

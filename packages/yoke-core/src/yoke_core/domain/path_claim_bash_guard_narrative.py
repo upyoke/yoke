@@ -22,7 +22,9 @@ Three render paths:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain.path_claim_bash_parser import (
     Mutation,
     SUPPRESSION_TOKEN,
@@ -36,11 +38,14 @@ from yoke_core.domain.path_claim_target_resolver import (
 )
 
 
-def worktree_preflight_template(item_id: int) -> str:
+def worktree_preflight_template(
+    item_id: int, item_ref: Optional[str] = None
+) -> str:
     """Return the canonical worktree_preflight CLI line for an item."""
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     return (
         "  python3 -m yoke_core.domain.worktree_preflight "
-        f"--item YOK-{int(item_id)}"
+        f"--item {ref}"
     )
 
 
@@ -104,10 +109,7 @@ def worktree_unresolved_narrative(
     body so operators do not chase the wrong remediation.
     """
     item_id = int(ctx.item_id or 0)
-    preflight = (
-        f"  python3 -m yoke_core.domain.worktree_preflight "
-        f"--item YOK-{item_id}"
-    )
+    preflight = worktree_preflight_template(item_id, ctx.item_ref)
     return (
         f"BLOCKED: path-claim guard ({tool_kind}).\n"
         f"  target_path:    {target_path}\n"
@@ -124,7 +126,10 @@ def worktree_unresolved_narrative(
 def ambiguous_narrative(*, mut: Mutation, ctx: ClaimContext) -> str:
     """Render the deny narrative for an opaque/ambiguous shell shape."""
     template = widen_template(
-        claim_id=ctx.claim_id, item_id=ctx.item_id, target_path="<path>",
+        claim_id=ctx.claim_id,
+        item_id=ctx.item_id,
+        target_path="<path>",
+        item_ref=ctx.item_ref,
     )
     return (
         "BLOCKED: path-claim Bash guard (ambiguous).\n"
@@ -143,8 +148,10 @@ def _wrong_cwd_narrative(
     *, mut: Mutation, failure: Failure, ctx: ClaimContext,
 ) -> str:
     template = widen_template(
-        claim_id=ctx.claim_id, item_id=ctx.item_id,
+        claim_id=ctx.claim_id,
+        item_id=ctx.item_id,
         target_path=mut.target_path,
+        item_ref=ctx.item_ref,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
     return (
@@ -175,10 +182,12 @@ def _current_item_worktree_narrative(
     remains an option but is no longer the headline.
     """
     template = widen_template(
-        claim_id=ctx.claim_id, item_id=ctx.item_id,
+        claim_id=ctx.claim_id,
+        item_id=ctx.item_id,
         target_path=mut.target_path,
+        item_ref=ctx.item_ref,
     )
-    preflight = worktree_preflight_template(int(ctx.item_id or 0))
+    preflight = worktree_preflight_template(int(ctx.item_id or 0), ctx.item_ref)
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
     return (
         f"BLOCKED: path-claim Bash guard ({mut.verb}).\n"
@@ -201,8 +210,10 @@ def _current_item_worktree_narrative(
 
 def _out_of_claim_narrative(*, mut: Mutation, ctx: ClaimContext) -> str:
     template = widen_template(
-        claim_id=ctx.claim_id, item_id=ctx.item_id,
+        claim_id=ctx.claim_id,
+        item_id=ctx.item_id,
         target_path=mut.target_path,
+        item_ref=ctx.item_ref,
     )
     covered_preview = ", ".join(ctx.covered_paths[:3]) or "(no coverage)"
     extra_count = max(0, len(ctx.covered_paths) - 3)

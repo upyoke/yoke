@@ -172,7 +172,7 @@ class TestHandleAlreadyDone:
     """Shell test 14: idempotent re-run on already-done items."""
 
     def test_handle_already_done_writes_result_and_preserves_status(
-        self, dt_db, tmp_path
+        self, dt_db, tmp_path, capsys
     ):
         db_path, _ = dt_db
         _insert_item(db_path, 42, status="done", worktree=None, merged_at=None)
@@ -188,10 +188,11 @@ class TestHandleAlreadyDone:
         ):
             mock_git.return_value = mock.Mock(returncode=0, stdout="")
             rc = done_transition._handle_already_done(
-                42, project_repo, result, result_file
+                42, project_repo, result, result_file, item_ref="BUZ-7"
             )
 
         assert rc == 0
+        assert "Pre-flight: BUZ-7" in capsys.readouterr().out
         # Status in DB should remain "done" (no status mutation on idempotent re-run)
         conn = connect_dt_db(db_path)
         status = conn.execute("SELECT status FROM items WHERE id = 42").fetchone()[0]

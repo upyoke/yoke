@@ -116,6 +116,8 @@ def render_for_harness(descriptor: DispatchDescriptor, harness_id: str) -> str:
         return _render_claude(descriptor)
     if harness_id == "codex":
         return _render_codex(descriptor)
+    if harness_id == "cursor":
+        return _render_cursor(descriptor)
     # Defensive: HARNESS_UNIVERSE membership has already been checked, so any
     # harness id reaching here is a renderer gap, not invalid input.
     raise NotImplementedError(
@@ -152,6 +154,25 @@ def _render_codex(descriptor: DispatchDescriptor) -> str:
     """
     adapter_path = f".codex/agents/{descriptor.subagent_type}.toml"
     lines = [f"codex agent: {adapter_path}"]
+    for key, value in descriptor.extras:
+        if key == "model":
+            lines.append(f' model: "{value}"')
+    lines.append(" prompt: |")
+    return "\n".join(lines)
+
+
+def _render_cursor(descriptor: DispatchDescriptor) -> str:
+    """Render the Cursor subagent invocation snippet.
+
+    Cursor dispatches to a named custom agent through its Task tool; the
+    ``subagent_type`` field carries the adapter name discovered from
+    ``.cursor/agents/<name>.md``. Each Cursor subagent runs under its own
+    session id — the parent session is recovered from
+    ``parent_conversation_id`` on the subagent lifecycle events and from
+    the top-level transcript path in hook process environments — so
+    control-plane attribution folds into the parent session's container.
+    """
+    lines = ["Task tool:", f' subagent_type: "{descriptor.subagent_type}"']
     for key, value in descriptor.extras:
         if key == "model":
             lines.append(f' model: "{value}"')

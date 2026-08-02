@@ -31,11 +31,11 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 
-CANONICAL_HARNESS_IDS: Tuple[str, ...] = ("claude-code", "codex")
+CANONICAL_HARNESS_IDS: Tuple[str, ...] = ("claude-code", "codex", "cursor")
 """Canonical values for ``harness_sessions.executor``.
 
-Active rows must carry one of these. Any other ``claude-*`` or ``codex-*``
-value in that column indicates a writer that bypassed
+Active rows must carry one of these. Any other ``claude-*``, ``codex-*``,
+or ``cursor-*`` value in that column indicates a writer that bypassed
 ``canonicalize_executor``.
 """
 
@@ -49,6 +49,9 @@ EXECUTOR_EMOJI: Dict[str, str] = {
     "codex-desktop": "\U0001f4bb",   # laptop
     "codex-vscode": "\U0001fa84",    # magic wand
     "codex-cli": "\U0001f4e0",       # fax
+    "cursor": "\U0001f3af",          # direct hit (coarse Cursor family)
+    "cursor-ide": "\U0001f4d0",      # triangular ruler (IDE surface)
+    "cursor-cli": "\U0001f9ed",      # compass (terminal agent surface)
 }
 """Board glyph per known executor label — the vocabulary's one listing."""
 

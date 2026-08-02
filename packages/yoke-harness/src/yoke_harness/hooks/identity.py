@@ -23,6 +23,7 @@ from yoke_harness.hooks.identity_runtime import (
     detect_provider,
     is_claude,
     is_codex,
+    is_cursor,
     resolve_session_id,
     write_runtime_cache,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "detect_provider",
     "is_claude",
     "is_codex",
+    "is_cursor",
     "prune_stale_session_anchors",
     "record_session_anchor",
     "relay_identity_payload",

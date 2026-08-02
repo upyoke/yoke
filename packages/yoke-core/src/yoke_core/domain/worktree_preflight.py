@@ -99,6 +99,9 @@ def run_preflight(
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
+    from yoke_core.domain.claim_recovery import canonical_item_ref
+
+    item_ref = canonical_item_ref(item_id) or str(item_id)
     # The worktree/branch name is the item's public ref; a recorded active
     # lane (if any) locates an existing worktree created under either the
     # public-ref or legacy naming scheme so re-entry never mis-detects it.
@@ -145,11 +148,15 @@ def run_preflight(
             payload={},
         )
         item = (detail.result or {}).get("item") or {} if detail.success else {}
+        if item.get("public_ref"):
+            item_ref = str(item["public_ref"])
         if item.get("blocked"):
             out.ok = False
             out.block_kind = "blocked-flag"
             out.narrative = render_blocked_narrative(
-                item_id, str(item.get("blocked_reason") or "") or None
+                item_id,
+                str(item.get("blocked_reason") or "") or None,
+                item_ref=item_ref,
             )
             return out
     except Exception:  # noqa: BLE001 - degrade if the blocked read is unavailable
@@ -161,7 +168,7 @@ def run_preflight(
         out.ok = False
         out.block_kind = BLOCK_WORK_CLAIM
         out.narrative = (
-            f"Could not acquire work claim for YOK-{item_id}: {claim_msg}\n"
+            f"Could not acquire work claim for {item_ref}: {claim_msg}\n"
             "If another live session holds the claim, coordinate or wait. "
             "The remediation is NOT to widen a path claim — work-claim "
             "ownership and path-claim coverage are different invariants."
@@ -198,7 +205,7 @@ def run_preflight(
             )
         else:
             out.narrative = (
-                f"Path-claim activation blocked for YOK-{item_id}:\n{pc_err}\n"
+                f"Path-claim activation blocked for {item_ref}:\n{pc_err}\n"
                 "Wait for the upstream coordination to clear, or reconcile "
                 "diverged refs (`git push` / `git pull` / `git rebase`)."
             )
@@ -229,7 +236,7 @@ def run_preflight(
                     else "untracked, non-gitignored"
                 )
                 out.narrative = (
-                    f"Cannot create worktree for YOK-{item_id}: main has "
+                    f"Cannot create worktree for {item_ref}: main has "
                     f"{kind_label} files. Commit, stash, remove, or "
                     f"gitignore them and retry.\n  - {listing}"
                 )

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.qa_gates import check_epic_simulation_gate
 from yoke_core.domain.worktree import resolve_main_root
@@ -23,12 +24,17 @@ def _parent():
     return _dt
 
 
-def _ref(item_id: int) -> str:
+def _ref(item_id: int, item_ref: Optional[str] = None) -> str:
     """Best-effort public ref for operator-facing gate messages.
 
+    ``item_ref`` is preferred when the runner already resolved it over the
+    transport. The local lookup remains a compatibility path for direct
+    callers and tests.
     Falls back to the default-prefix form when the control-plane DB cannot
     be reached, so a gate refusal never fails on the ref render.
     """
+    if item_ref:
+        return item_ref
     try:
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.project_identity import render_item_ref
@@ -36,8 +42,6 @@ def _ref(item_id: int) -> str:
         with connect() as conn:
             return render_item_ref(conn, item_id)
     except Exception:
-        from yoke_contracts.item_ref import format_item_ref
-
         return format_item_ref(None, None, None, item_id=item_id)
 
 
@@ -114,12 +118,14 @@ def _get_base_branch(default_branch: str, repo_root: "Path | None" = None) -> st
     return project_settings.get_project_str(repo_root, "base_branch")
 
 
-def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
+def _check_simulation_gate(
+    item_id: int, skip: bool, *, item_ref: Optional[str] = None
+) -> Optional[int]:
     """Check integration simulation gate for epics. Returns exit code or None."""
     if skip:
         print(
             "WARNING: Integration simulation gate bypassed via --skip-simulation "
-            f"for {_ref(item_id)}"
+            f"for {_ref(item_id, item_ref)}"
         )
         return None
 
@@ -135,6 +141,8 @@ def _check_empty_branch(
     project_repo: Path,
     base_branch: str,
     item_id: int,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Check for empty worktree branch. Returns exit code or None."""
     if not lane_branch:
@@ -181,7 +189,7 @@ def _check_empty_branch(
         )
         print(
             "    Future evidence-only items should enter implementing with "
-            f"/yoke advance {_ref(item_id)} implementing --no-worktree.",
+            f"/yoke advance {_ref(item_id, item_ref)} implementing --no-worktree.",
             file=sys.stderr,
         )
         return 8
@@ -195,7 +203,9 @@ def _check_recovery(old_status: str, lane_branch: str) -> Tuple[bool, bool]:
     return False, False
 
 
-def _check_blocked_flag(item_id: int) -> Optional[int]:
+def _check_blocked_flag(
+    item_id: int, *, item_ref: Optional[str] = None
+) -> Optional[int]:
     """refuse done-transition while items.blocked=1.
 
     Returns exit code 9 when the flag is set, None when clear or when
@@ -224,7 +234,7 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
     if not data.get("blocked"):
         return None
     reason = data.get("reason")
-    ref = _ref(item_id)
+    ref = _ref(item_id, item_ref)
     print(
         f"\n=== Blocked-flag refusal ===\n"
         f"Item {ref} has items.blocked=1; cannot transition to done.\n"
@@ -235,12 +245,16 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
 
 
 def _check_deployment_redirect(
-    deploy_flow: str, skip_deploy: bool, item_id: int
+    deploy_flow: str,
+    skip_deploy: bool,
+    item_id: int,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
-        ref = _ref(item_id)
+        ref = _ref(item_id, item_ref)
         print("\n=== Deployment flow redirect ===")
         print(f"Item {ref} has deployment flow '{deploy_flow}'.")
         print(
