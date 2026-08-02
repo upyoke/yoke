@@ -135,8 +135,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation track
 | ouroboros | `yoke ouroboros field-note get` | `ouroboros.field_note.get` | ok |
 | ouroboros | `yoke ouroboros field-note list` | `ouroboros.field_note.list` | ok |
 | ouroboros | `yoke ouroboros field-note promote` | `ouroboros.field_note.promote` | ok |
-| ouroboros | `yoke ouroboros wrapup list` | `ouroboros.wrapup.list` | ok |
-| ouroboros | `yoke ouroboros wrapup save` | `ouroboros.wrapup.save` | ok |
 | packs | `yoke packs list` | `packs.list` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |

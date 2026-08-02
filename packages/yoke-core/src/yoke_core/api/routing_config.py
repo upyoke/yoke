@@ -321,28 +321,28 @@ class ProcessOfferPolicy:
     def decision_for(self, process_key: str) -> "tuple[bool, str, str]":
         """Return ``(enabled, actionable_config_key, deciding_source)``.
 
-        The key is always the per-process ``do_process_offer_<key>`` —
-        the knob whose flip changes the outcome at the deciding scope
-        (the per-process key outranks that scope's default). The source
-        names the project capability when project policy decided, else
-        ``"machine config"``.
+        The key names the per-process knob whose flip changes the outcome
+        at the deciding scope, spelled the way that scope stores it:
+        ``process_offers.<key>`` in the capability document,
+        ``do_process_offer_<key>`` in machine settings.
         """
         normalized = self._normalize(process_key)
-        actionable = f"{_PROCESS_OFFER_PREFIX}{normalized}"
+        project_key = f"process_offers.{normalized}"
+        machine_key = f"{_PROCESS_OFFER_PREFIX}{normalized}"
         shared_src = self.shared_project_source or (
             f"project capability {PROJECT_ROUTING_CAPABILITY}"
         )
         if normalized in self.shared_project_per_process:
             return (
                 self.shared_project_per_process[normalized],
-                actionable,
+                project_key,
                 shared_src,
             )
         if self.shared_project_default is not None:
-            return self.shared_project_default, actionable, shared_src
+            return self.shared_project_default, project_key, shared_src
         if normalized in self.per_process:
-            return self.per_process[normalized], actionable, "machine config"
-        return self.default_enabled, actionable, "machine config"
+            return self.per_process[normalized], machine_key, "machine config"
+        return self.default_enabled, machine_key, "machine config"
 
     def is_enabled(self, process_key: str) -> bool:
         return self.decision_for(process_key)[0]

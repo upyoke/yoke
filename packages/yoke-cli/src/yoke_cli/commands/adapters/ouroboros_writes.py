@@ -28,66 +28,14 @@ OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
     "yoke ouroboros entry mark-archived (--all-reviewed | ENTRY_ID) "
     "[--session-id S] [--json]"
 )
-OUROBOROS_WRAPUP_LIST_USAGE = (
-    "yoke ouroboros wrapup list [--session-id S] [--json]"
-)
-OUROBOROS_WRAPUP_SAVE_USAGE = (
-    "yoke ouroboros wrapup save SESSION_TIMESTAMP "
-    "(--body TEXT | --body-file PATH | --stdin) [--session-id S] [--json]"
-)
-
-
 __all__ = [
     "ouroboros_entry_insert",
     "ouroboros_entry_mark_reviewed",
     "ouroboros_entry_mark_archived",
-    "ouroboros_wrapup_list",
-    "ouroboros_wrapup_save",
     "OUROBOROS_ENTRY_INSERT_USAGE",
     "OUROBOROS_ENTRY_MARK_REVIEWED_USAGE",
     "OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE",
-    "OUROBOROS_WRAPUP_LIST_USAGE",
-    "OUROBOROS_WRAPUP_SAVE_USAGE",
 ]
-
-
-def ouroboros_wrapup_save(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke ouroboros wrapup save",
-        description=OUROBOROS_WRAPUP_SAVE_USAGE,
-    )
-    parser.add_argument("session_timestamp")
-    group = parser.add_mutually_exclusive_group(required=True)
-    add_text_file_pair(group, "--body", "--body-file", dest="body")
-    group.add_argument("--stdin", action="store_true", help="Read body.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, OUROBOROS_WRAPUP_SAVE_USAGE)
-    if parsed is None:
-        return 2
-    if parsed.stdin:
-        import sys
-        body = sys.stdin.read()
-    else:
-        try:
-            body = resolve_text_file(parsed.body, parsed.body_file, "--body-file")
-        except ValueError as exc:
-            return usage_error(str(exc))
-
-    def _human_writer(response, stdout, stderr) -> None:
-        print((response.result or {}).get("wrapup_id", ""), file=stdout)
-
-    return dispatch_and_emit(
-        function_id="ouroboros.wrapup.save",
-        target=TargetRef(kind="global"),
-        payload={
-            "session_timestamp": parsed.session_timestamp,
-            "body": body,
-        },
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
 
 
 def ouroboros_entry_insert(args: List[str]) -> int:
@@ -206,40 +154,6 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
         function_id="ouroboros.entry.mark_archived",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
-def ouroboros_wrapup_list(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke ouroboros wrapup list",
-        description=OUROBOROS_WRAPUP_LIST_USAGE,
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, OUROBOROS_WRAPUP_LIST_USAGE)
-    if parsed is None:
-        return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        for row in (response.result or {}).get("rows", []):
-            print(
-                "|".join(
-                    [
-                        str(row.get("id", "")),
-                        str(row.get("session_timestamp", "")),
-                        str(row.get("created_at", "")),
-                    ]
-                ),
-                file=stdout,
-            )
-
-    return dispatch_and_emit(
-        function_id="ouroboros.wrapup.list",
-        target=TargetRef(kind="global"),
-        payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

@@ -49,7 +49,6 @@ _EXPECTED_SCHEMA_STR = (
     "evidence_json/TEXT,created_at/TEXT"
     "|ouroboros_entries:id/INTEGER,timestamp/TEXT,agent/TEXT,context/TEXT,category/TEXT,"
     "body/TEXT,reviewed_at/TEXT,archived_at/TEXT,created_at/TEXT,project_id/INTEGER"
-    "|wrapup_reports:id/INTEGER,session_timestamp/TEXT,body/TEXT,created_at/TEXT"
     "|epic_tasks:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,title/TEXT,item_worktree_id/INTEGER,"
     "context_estimate/TEXT,dependencies/TEXT,status/TEXT,dispatch_attempts/INTEGER,"
     "scope_state/TEXT,scope_finalized_at/TEXT,"

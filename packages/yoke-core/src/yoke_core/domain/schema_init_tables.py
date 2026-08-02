@@ -75,12 +75,6 @@ def create_core_tables(conn: Any) -> None:
           created_at TEXT NOT NULL,
           project_id INTEGER DEFAULT NULL REFERENCES projects(id)
         );
-        CREATE TABLE IF NOT EXISTS wrapup_reports (
-          id INTEGER PRIMARY KEY,
-          session_timestamp TEXT NOT NULL UNIQUE,
-          body TEXT NOT NULL,
-          created_at TEXT NOT NULL
-        );
         -- durable bounded carry-forward for Strategize landed-work review:
         -- one row per (project_id, item_id) ever seen as landed. `state`
         -- tracks reflected-in-SML / dismissed / pending; row presence is

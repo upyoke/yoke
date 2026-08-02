@@ -17,7 +17,7 @@ Comprehensive investigation of whether everything in Yoke is migrated to the DB,
 
 ---
 
-## 1. DB Schema Overview (18 tables)
+## 1. DB Schema Overview (17 tables)
 
 | Table | Rows | Purpose |
 |-------|------|---------|
@@ -30,7 +30,6 @@ Comprehensive investigation of whether everything in Yoke is migrated to the DB,
 | `conductor_progress` | 40 | Track conductor execution state |
 | `deployment_events` | 0 | Deployment pipeline events |
 | `ouroboros_entries` | 189 | Self-improvement observations |
-| `wrapup_reports` | 23 | Session wrapup reports |
 | `release_entries` | 215 | Release note entries per item/version |
 | `epic_tasks` | 175 | Sub-tasks within epics |
 | `epic_task_files` | 0 | File manifest per task |
@@ -51,10 +50,9 @@ These files are generated from DB and should NEVER be edited directly:
 | `yoke/BOARD.md` | `rebuild-board.sh` | `items`, `sprints`, `epic_tasks` | **YES** — no violations found |
 | `yoke/tracks.md` | `/yoke tracks` SKILL | `tracks`, `items`, `sprints` | **YES** — sole writer is `/yoke tracks` |
 | `yoke/backlog/{NNN}.md` | `generate-backlog-md.sh` | `items` | **NO** — 8 SKILL.md files write directly (see §4) |
-| `yoke/ouroboros/wrapups/*.md` | `ouroboros-db.sh generate-wrapup` | `wrapup_reports` | **YES** — inserted to DB first, then rendered |
 | `yoke/releases/*.md` | `release-notes-db.sh generate` | `release_entries` | **MOSTLY** — `done-transition.sh` also appends directly (legacy dual-write) |
 
-### Verdict: BOARD.md, tracks.md, and wrapup .md files are clean. Backlog .md files and release .md files have leaks.
+### Verdict: BOARD.md, tracks.md, backlog .md files, and release .md files are covered by the audit.
 
 ---
 
@@ -173,7 +171,6 @@ These SKILL.md files reference the deleted `yoke/epics/` directory:
 | Epic reviews | ✅ Complete (epics) | No disk artifacts | **Non-epic reviews still file-only** |
 | Groom state | ✅ Complete | groom-state.md is dead | **Dead file should be deleted** |
 | Ouroboros entries | ✅ Complete | log.md deprecated | **3 SKILL.md files still reference log.md** |
-| Wrapup reports | ✅ Complete | wrapups/*.md generated | None |
 | Release notes | ✅ Complete | releases/*.md generated | **done-transition.sh dual-writes** |
 | Patterns | ❌ Disk-only | N/A — primary artifact | **No DB backup, single point of failure** |
 | Designs | ❌ Disk-only | N/A — authored artifact | **Needs DB table** — user decision to migrate |
