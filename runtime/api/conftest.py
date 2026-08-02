@@ -237,6 +237,24 @@ def _close_leaked_pg_connections():
     else:
         os.environ.pop(_db_backend.PG_DSN_FILE_ENV, None)
 
+@pytest.fixture(autouse=True)
+def _forget_schema_readiness_verdict():
+    """Keep one test's schema-probe verdict out of the next test's database.
+
+    The health route remembers a positive probe for its process lifetime so
+    container liveness polling stops reopening database connections. Tests
+    share a process but not a database, so that verdict has to be cleared
+    between them. Imported here rather than at module scope: the app is still
+    mid-build during conftest import, and pulling in a route module then would
+    re-enter that build.
+    """
+    from yoke_core.api.routes import items_health
+
+    items_health.reset_schema_readiness_cache()
+    yield
+    items_health.reset_schema_readiness_cache()
+
+
 # ---------------------------------------------------------------------------
 # Backward-compatible re-exports
 # ---------------------------------------------------------------------------

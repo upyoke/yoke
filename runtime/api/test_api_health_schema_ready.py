@@ -62,6 +62,65 @@ class TestHealthSchemaReady:
         assert isinstance(data["schema_missing_tables"], list)
 
 
+class TestHealthProbeConnectionCost:
+    """Container liveness polls this route every few seconds. Each probe that
+    opens a connection resets a serverless database's idle-pause timer, so a
+    ready process must stop probing."""
+
+    def test_repeated_calls_open_one_connection_once_ready(self, client, test_db):
+        with mock.patch.object(
+            items_health, "missing_readiness_tables", return_value=[]
+        ):
+            with mock.patch.object(
+                items_health._main,
+                "get_db_readonly",
+                wraps=items_health._main.get_db_readonly,
+            ) as get_db:
+                first = client.get("/v1/health").json()
+                for _ in range(9):
+                    client.get("/v1/health")
+
+        assert get_db.call_count == 1
+        assert first["schema_ready"] is True
+
+    def test_ready_payload_is_stable_across_repeated_calls(self, client, test_db):
+        with mock.patch.object(
+            items_health, "missing_readiness_tables", return_value=[]
+        ):
+            first = client.get("/v1/health").json()
+            second = client.get("/v1/health").json()
+
+        assert first["schema_ready"] is second["schema_ready"] is True
+        assert first["schema_missing_tables"] == second["schema_missing_tables"] == []
+
+    def test_not_ready_process_keeps_probing_until_it_converges(self, client, test_db):
+        """A container that starts ahead of its schema must not cache the
+        negative answer, or it would report not-ready forever."""
+        with mock.patch.object(
+            items_health,
+            "missing_readiness_tables",
+            side_effect=[["strategy_docs"], ["strategy_docs"], []],
+        ) as probe:
+            assert client.get("/v1/health").json()["schema_ready"] is False
+            assert client.get("/v1/health").json()["schema_ready"] is False
+            assert client.get("/v1/health").json()["schema_ready"] is True
+
+        assert probe.call_count == 3
+
+    def test_unreachable_db_keeps_probing(self, client, test_db):
+        """A connection failure is not a readiness verdict — the next probe
+        must still try."""
+        with mock.patch.object(
+            items_health._main,
+            "get_db_readonly",
+            side_effect=OSError("connection refused"),
+        ) as get_db:
+            assert client.get("/v1/health").json()["schema_ready"] is False
+            assert client.get("/v1/health").json()["schema_ready"] is False
+
+        assert get_db.call_count == 2
+
+
 class TestHealthVersionHandshake:
     def test_payload_separates_api_contract_from_engine_version(
         self, client, test_db, monkeypatch,
