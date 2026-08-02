@@ -50,6 +50,7 @@ def _do_merge(
     base_branch: str,
     task_parent_ref: str,
     project_repo: Path,
+    item_project: str,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
     # Resolve actual branch from worktree directory. Lanes live at
@@ -88,6 +89,7 @@ def _do_merge(
             branch=actual_branch,
             target=base_branch,
             repo_root=str(project_repo),
+            project=item_project,
             local_merge=False,
         )
         for warning in outcome.warnings:

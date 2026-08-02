@@ -222,6 +222,7 @@ def run(argv: List[str]) -> int:
         branch=branch,
         target=target,
         repo_root=str(repo_root),
+        project=str((item.get("project") or {}).get("slug") or "yoke"),
         local_merge=not args.pr,
     )
     if not outcome.ok:

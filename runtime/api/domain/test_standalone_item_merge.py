@@ -55,7 +55,7 @@ class TestMergeBoundary:
     ) -> None:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         outcome = sim.merge_standalone_branch(
-            item_id=1, branch="ITEM-404", target="main", repo_root=str(repo),
+            project="yoke", item_id=1, branch="ITEM-404", target="main", repo_root=str(repo),
         )
         assert not outcome.ok
         assert "does not exist" in outcome.error
@@ -73,7 +73,7 @@ class TestMergeBoundary:
             lambda **_kwargs: (1, "merge refused"),
         )
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert not outcome.ok
         assert outcome.exit_code == 1
@@ -88,7 +88,7 @@ class TestMergeBoundary:
             lambda **_kwargs: (sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE, ""),
         )
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert outcome.exit_code == sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE
         assert "retry" in outcome.error
@@ -107,7 +107,7 @@ class TestMergeBoundary:
             lambda **_kwargs: pytest.fail("engine must not re-run"),
         )
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert outcome.ok
         assert outcome.already_merged
@@ -119,7 +119,7 @@ class TestMergeBoundary:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert outcome.touched_files == ("feature.txt",)
         assert outcome.commit_sha
@@ -131,7 +131,7 @@ class TestMergeBoundary:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert outcome.ok
         assert not outcome.pushed
@@ -145,7 +145,7 @@ class TestMergeBoundary:
         )
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
         outcome = sim.merge_standalone_branch(
-            item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
+            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
         )
         assert outcome.ok
         assert any("merged_at" in warning for warning in outcome.warnings)

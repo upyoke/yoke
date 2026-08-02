@@ -179,6 +179,7 @@ def run(
                 base_branch,
                 task_parent_ref,
                 project_repo,
+                item_project,
             )
             if merge_exit == 0:
                 merge_ran = True

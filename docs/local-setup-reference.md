@@ -247,3 +247,34 @@ Source-dev/admin-only work includes:
 Do not teach these as normal project setup. Normal operators use
 `yoke onboard`, `yoke status`, project create/import/onboard/install, and
 the durable checklist handoff.
+
+## Parking a Development VPS
+
+A non-production VPS bills around the clock whether or not anyone is using it.
+When you are developing Yoke itself and do not need the stage host awake, stop
+it and start it again on demand:
+
+```bash
+yoke vps status --stack yoke-platform-stage-vps
+yoke vps stop   --stack yoke-platform-stage-vps
+yoke vps start  --stack yoke-platform-stage-vps
+```
+
+Credentials come from the project's `aws-admin` capability, not the ambient
+shell, so no `AWS_*` variables need exporting. `--project` defaults to
+`platform` and `--region` to `us-east-1`.
+
+This is deliberately a manual command rather than a schedule in the
+infrastructure. A schedule would have to know when everything else needs the
+host — the runner fleet SSHes to the VPS stacks named in its capability during
+deploys, and a host stopped underneath a deploy fails it. Stopping the host by
+hand keeps that judgement with the person who knows whether anything is
+running.
+
+What stopping does and does not save:
+
+- The instance-hours stop billing. That is the whole saving.
+- The root volume and the Elastic IP survive and keep billing, which is what
+  makes the host safe to stop: data and address are unchanged on `start`.
+- Anything pointed at the host is down while it is stopped, including
+  `api.stage.upyoke.com` and any CI deploy that targets it.

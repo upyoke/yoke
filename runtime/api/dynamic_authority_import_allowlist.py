@@ -248,6 +248,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit aws-admin capability subprocess helper"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/vps.py",
+        "yoke_core.domain.deploy_remote",
+    ): ("source_dev_admin", "explicit VPS power-control capability helper"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/runner_fleet.py",
         "yoke_core.tools.runner_fleet_exec",
     ): (

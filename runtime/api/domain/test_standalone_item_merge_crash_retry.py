@@ -1,17 +1,14 @@
 """A standalone merge interrupted at any step converges on retry.
 
-The merge engine's cleanup deletes the branch ref and removes the lane, so a
-run that dies after that point cannot re-derive its own bookkeeping from git.
-These tests walk a retry from each interruption point and assert it reaches
-the same completed state from the recorded receipt instead.
+The engine's cleanup deletes the branch ref and removes the lane, so a run
+that dies afterwards cannot re-derive its bookkeeping from git. These tests
+walk a retry from each interruption point to the same completed state.
 """
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Optional
-
 import pytest
 
 from yoke_contracts.api.function_call import FunctionCallResponse
@@ -67,9 +64,9 @@ class _ReceiptStore:
     """Stands in for the events ledger, keeping the most complete receipt."""
 
     def __init__(self) -> None:
-        self.saved: dict[tuple[int, str, str], receipts.MergeReceipt] = {}
+        self.saved: dict = {}
 
-    def record(self, item_id: int, receipt: receipts.MergeReceipt) -> str:
+    def record(self, item_id, receipt, *, project="") -> str:
         key = (item_id, receipt.branch, receipt.target)
         prior = self.saved.get(key) or receipt
         self.saved[key] = receipts.MergeReceipt(
@@ -81,9 +78,7 @@ class _ReceiptStore:
         )
         return ""
 
-    def load(
-        self, item_id: int, branch: str, target: str,
-    ) -> Optional[receipts.MergeReceipt]:
+    def load(self, item_id, branch, target, *, project=""):
         return self.saved.get((item_id, branch, target))
 
 
@@ -110,13 +105,12 @@ def _land_and_clean_up(repo: Path) -> None:
 def _merge(repo: Path) -> sim.StandaloneMergeOutcome:
     return sim.merge_standalone_branch(
         item_id=ITEM_ID, branch=BRANCH, target=TARGET, repo_root=str(repo),
+        project="yoke",
     )
 
 
-def _engine_that(action) -> object:
-    def run(**_kwargs):
-        return action()
-    return run
+def _engine_that(action):
+    return lambda **_kwargs: action()
 
 
 class TestInterruptedMergeConverges:
@@ -288,6 +282,7 @@ class TestReceiptLedger:
                 branch=BRANCH, target=TARGET, commit_sha="abc",
                 merge_sha="def", touched_files=("feature.txt",),
             ),
+            project="yoke",
         )
 
         assert note == ""
@@ -295,6 +290,9 @@ class TestReceiptLedger:
         payload = sent["payload"]
         assert payload["name"] == receipts.RECEIPT_EVENT_NAME
         assert payload["item_id"] == str(ITEM_ID)
+        # events.emit is project-scoped over the dispatcher: an empty
+        # project is refused and the receipt silently skipped.
+        assert payload["project"] == "yoke"
         assert payload["context"]["touched_files"] == ["feature.txt"]
 
     def test_loading_folds_the_newest_non_empty_fields(
@@ -316,7 +314,7 @@ class TestReceiptLedger:
                 result={"rows": rows},
             ),
         )
-        loaded = receipts.load(ITEM_ID, BRANCH, TARGET)
+        loaded = receipts.load(ITEM_ID, BRANCH, TARGET, project="yoke")
 
         assert loaded is not None
         assert loaded.commit_sha == "abc"
@@ -341,10 +339,11 @@ class TestReceiptLedger:
 
         monkeypatch.setattr(receipts, "call_dispatcher", refuse)
 
-        assert receipts.load(ITEM_ID, BRANCH, TARGET) is None
+        assert receipts.load(ITEM_ID, BRANCH, TARGET, project="yoke") is None
         assert "not recorded" in receipts.record(
             ITEM_ID,
             receipts.MergeReceipt(
                 branch=BRANCH, target=TARGET, commit_sha="abc",
             ),
+            project="yoke",
         )
