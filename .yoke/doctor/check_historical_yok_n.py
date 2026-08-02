@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
 from yoke_core.domain.lint_yok_n_cruft import scan
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -48,9 +49,9 @@ _GENERATED_OUTPUT_ROOTS: tuple[str, ...] = (
     # Harness agent adapters rendered from the canonical bodies under
     # ``runtime/agents/`` by ``agents.render``. Their YOK-N tokens are rendered
     # packet example ids; authored agent-prose cruft is still caught at the
-    # canonical source, which the scan covers independently.
-    "runtime/harness/claude/agents",
-    "runtime/harness/codex/agents",
+    # canonical source, which the scan covers independently. Derived from the
+    # renderer's own list so onboarding a harness cannot leave a mirror behind.
+    *(directory.as_posix() for directory in RENDERED_AGENT_DIRS),
 )
 
 
