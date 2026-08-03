@@ -100,6 +100,37 @@ def provision_worktree_hook_trust(repo_root: str, worktree_path: str) -> None:
         )
 
 
+def provision_worktree_harness_enablement(
+    repo_root: str,
+    worktree_path: str,
+) -> None:
+    """Apply every manifest-declared harness contribution to a lane."""
+    try:
+        from yoke_core.domain.worktree_harness_enablement import (
+            prepare_worktree_harnesses,
+        )
+
+        reports = prepare_worktree_harnesses(repo_root, worktree_path)
+    except Exception as exc:  # noqa: BLE001 — best-effort lane provisioning
+        print(
+            f"Warning: harness lane enablement failed (non-fatal): {exc}",
+            file=sys.stderr,
+        )
+        return
+
+    for report in reports:
+        for action in report.actions:
+            print(
+                f"{report.harness_id} lane enablement: {action}",
+                file=sys.stderr,
+            )
+        for warning in report.warnings:
+            print(
+                f"Warning: {report.harness_id} lane enablement: {warning}",
+                file=sys.stderr,
+            )
+
+
 def provision_worktree_validation_surfaces(
     worktree_path: str,
     project: str,
@@ -178,6 +209,7 @@ __all__ = [
     "count_active_worktrees",
     "project_field",
     "provision_worktree",
+    "provision_worktree_harness_enablement",
     "provision_worktree_hook_trust",
     "provision_worktree_validation_surfaces",
 ]

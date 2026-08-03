@@ -9,11 +9,74 @@ import sys
 
 import pytest
 
-from yoke_core.tools import build_release
+from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup as _binding
 
 
 REPO_ROOT = Path(__file__).resolve().parent
+
+# ---------------------------------------------------------------------------
+# Tree binding
+# ---------------------------------------------------------------------------
+#
+# The floor under every pytest entry point. The watcher wrapper, the
+# generic runner, and the QA case executor each judge the tree before they
+# start pytest -- but a raw ``python3 -m pytest``, an IDE run button, or a
+# future entry point never passes through any of them, and a run rooted in
+# a checkout the session does not hold reports a green for code nobody
+# changed. Here it is unavoidable: this conftest belongs to the tree being
+# collected, so the check runs wherever the invocation came from.
+#
+# Before the heavier imports below, and before the sub-package conftests
+# that start a Postgres cluster: a refused run should cost nothing.
+# ``SystemExit`` rather than a raised error, because pytest renders an
+# exception during conftest import as an import-failure traceback, which
+# would bury the one thing the operator needs to read.
+_tree_binding = _binding.pytest_startup_verdict(str(REPO_ROOT))
+if _tree_binding.refusal is not None:
+    print(_tree_binding.refusal, file=sys.stderr)
+    raise SystemExit(_binding.TREE_BINDING_REFUSED_EXIT_STATUS)
+
+from yoke_core.tools import build_release  # noqa: E402
+
+
 PRODUCT_WHEELHOUSE_PACKAGES = build_release.PRODUCT_PACKAGE_NAMES
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Accept the cross-tree override the refusal above tells you to pass.
+
+    The check reads the flag straight off ``sys.argv`` at import time,
+    long before options are parsed; registering it here is what keeps
+    pytest from rejecting the very argument the refusal recommends.
+    """
+    parser.addoption(
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        action="store_true",
+        default=False,
+        help="Collect this tree even when it is outside the session's "
+        "claimed worktree. For a deliberate cross-tree run.",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Say the tree-binding notice where it can actually be read.
+
+    Global capture is already installed by the time this conftest is
+    imported, so a line printed up there is swallowed on every run that
+    proceeds -- the refusal survives only because the process exits
+    first. A cross-tree run nobody sees, or an unverified one that reads
+    like a verified one, is the exact failure the guard exists to
+    prevent, so the notice waits until capture can be suspended.
+    """
+    if _tree_binding.notice is None:
+        return
+    capture = config.pluginmanager.getplugin("capturemanager")
+    if capture is None:
+        print(_tree_binding.notice, file=sys.stderr)
+        return
+    with capture.global_and_fixture_disabled():
+        print(_tree_binding.notice, file=sys.stderr)
 
 
 @pytest.fixture(autouse=True)

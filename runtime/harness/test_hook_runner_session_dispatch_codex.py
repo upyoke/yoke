@@ -291,8 +291,6 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
             "runtime.harness.codex.codex_hooks_payload.resolve_session_id",
             return_value=self.session_id,
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch.export_bound_workspace_for_session",
-        ), mock.patch(
             "runtime.harness.codex.codex_model.resolve",
             return_value="gpt-5",
         ), mock.patch(

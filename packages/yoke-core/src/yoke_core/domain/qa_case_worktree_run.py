@@ -23,8 +23,10 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import qa_case_command_stream
+from yoke_core.domain import qa_constants
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -45,13 +47,12 @@ def execute_worktree_case(
     command = str(config.get("command") or "").strip()
     if not command:
         raise QaCaseExecutionError("Command case requires method_config.command")
-    configured_timeout = config.get("timeout_seconds", 1200)
-    timeout = int(
-        timeout_seconds if timeout_seconds is not None else configured_timeout
-    )
-    if timeout < 1 or timeout > 7200:
+    configured = config.get("timeout_seconds", 1200)
+    timeout = int(timeout_seconds if timeout_seconds is not None else configured)
+    if timeout < 1 or timeout > qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS:
         raise QaCaseExecutionError(
-            "Command case timeout_seconds must be between 1 and 7200"
+            "Command case timeout_seconds must be between 1 and "
+            f"{qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS}"
         )
     checkout = (
         Path(checkout_path).resolve()
@@ -73,7 +74,11 @@ def execute_worktree_case(
         print(binding.notice, file=sys.stderr, flush=True)
     if binding.refusal:
         raise QaCaseExecutionError(binding.refusal)
-    command_env = dict(os.environ)
+    # Already judged above; a pytest-shaped command's startup check
+    # inherits that answer instead of repeating the lookup.
+    command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
+        os.environ
+    )
     if config.get("requires_base_url"):
         if not base_url:
             raise QaCaseExecutionError("this Command case requires --base-url")
@@ -129,15 +134,14 @@ def execute_worktree_case(
     if timeout_summary:
         record["timeout_summary"] = timeout_summary
     raw_result = json.dumps(record, sort_keys=True)
-    run = qa_case_execution._dispatch(
+    record_leg = qa_case_execution.recording_leg(case, actor=actor)
+    run = record_leg(
         "qa.run.add",
-        int(case["requirement_id"]),
         {
             "executor_type": "worktree_run",
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     from yoke_core.domain.qa_artifact_handle import local_handle
@@ -153,9 +157,8 @@ def execute_worktree_case(
         "command-output.txt",
     )
     output_path.write_text(output, encoding="utf-8")
-    artifact = qa_case_execution._dispatch(
+    artifact = record_leg(
         "qa.artifact.add",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "artifact_type": "command_output",
@@ -173,18 +176,15 @@ def execute_worktree_case(
                 sort_keys=True,
             ),
         },
-        actor=actor,
     )
-    qa_case_execution._dispatch(
+    record_leg(
         "qa.run.complete",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     return {
         "requirement_id": int(case["requirement_id"]),

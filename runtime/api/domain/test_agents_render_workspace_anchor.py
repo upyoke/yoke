@@ -3,7 +3,7 @@
 Lives in a sibling module so the main ``test_agents_render.py`` stays
 under the file-line cap. Covers:
 - ``_resolve_reader_root(None)`` raises a structured error when
-  neither ``target_root`` nor ``$YOKE_BOUND_WORKSPACE`` is supplied.
+  neither ``target_root`` nor an active worktree claim is supplied.
 - Every reader entrypoint propagates ``target_root`` correctly
   when the caller supplies it (regression for the strict-resolver swap).
 - The byte-identity tests produce identical outcomes from any
@@ -36,7 +36,6 @@ from yoke_core.domain.agents_render import (
     load_claude_spec,
     render_claude_agent,
 )
-from yoke_core.domain.agents_render_workspace import BOUND_WORKSPACE_ENV_VAR
 from yoke_core.domain.workspace_authority import SESSION_ID_ENV_VAR
 
 
@@ -81,22 +80,38 @@ def test_resolve_reader_root_raises_without_anchor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Reader resolver refuses None when no anchor is supplied.
-    With both ``target_root`` and ``$YOKE_BOUND_WORKSPACE`` absent, the
-    resolver raises ``RuntimeError`` naming both missing inputs — the
+    With both ``target_root`` and active worktree claims absent, the
+    resolver raises ``RuntimeError`` naming the missing claim anchor — the
     structural defense against silent ambient-cwd reads from the
     renderer's reader hot path.
     """
     from yoke_core.domain.agents_render import _resolve_reader_root
 
-    monkeypatch.delenv(BOUND_WORKSPACE_ENV_VAR, raising=False)
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_workspace.resolve_session_worktree_paths",
+        lambda: [],
+    )
     with pytest.raises(RuntimeError) as exc:
         _resolve_reader_root(None)
     msg = str(exc.value)
     assert "target_root" in msg, "error must name the missing target_root input"
-    assert BOUND_WORKSPACE_ENV_VAR in msg, (
-        "error must name the missing env var so the operator knows which "
-        "anchor to provide"
+    assert "worktree claim" in msg, (
+        "error must name the missing claim anchor so the operator knows "
+        "which authority to provide"
     )
+
+
+def test_resolve_reader_root_uses_claimed_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """Reader helpers use the live worktree claim when no target is explicit."""
+    from yoke_core.domain.agents_render import _resolve_reader_root
+
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_workspace.resolve_session_worktree_paths",
+        lambda: [str(tmp_path)],
+    )
+    assert _resolve_reader_root(None) == tmp_path
 
 
 # ---------------------------------------------------------------------------

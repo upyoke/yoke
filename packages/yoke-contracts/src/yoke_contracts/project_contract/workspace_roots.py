@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 from typing import Callable, Optional
 
-BOUND_WORKSPACE_ENV_VAR = "YOKE_BOUND_WORKSPACE"
 RENDER_TARGET_ROOT_ENV_VAR = "YOKE_RENDER_TARGET_ROOT"
 
 
@@ -74,7 +73,6 @@ def resolve_target_root_for_cli(
 
 
 __all__ = [
-    "BOUND_WORKSPACE_ENV_VAR",
     "RENDER_TARGET_ROOT_ENV_VAR",
     "_is_inside_linked_worktree",
     "_repo_root",

@@ -38,6 +38,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.board.phase_timer import PhaseRecorder
+from yoke_contracts import control_plane_locality
 
 
 BOARD_REBUILD_USAGE = (
@@ -115,6 +116,9 @@ def _timing_connection():
     unavailable both degrade to no-ops — the timing shim swallows every event,
     the connection is ``None``.
     """
+    if control_plane_locality.remote_control_plane_active():
+        yield _NullTiming(), None
+        return
     try:
         timing = importlib.import_module(
             "yoke_core.cli.board_rebuild_timing_events"
@@ -146,7 +150,8 @@ def board_rebuild(args: List[str]) -> int:
     parser.add_argument("--no-pager", dest="no_pager", action="store_true",
                         help="Disable paging; write the board straight to stdout "
                              "(paging otherwise activates on an interactive TTY).")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, BOARD_REBUILD_USAGE)
     if parsed is None:
         return 2

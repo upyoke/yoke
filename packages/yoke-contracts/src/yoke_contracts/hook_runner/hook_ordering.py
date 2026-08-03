@@ -53,10 +53,10 @@ PreToolUse Bash chain order rationale:
 7. ``lint_session_cwd`` — broadest cwd-mismatch gate; runs first among
    the new entries because it scopes the rest.
 8. ``lint_workspace_cwd_match`` — deny writer-class commands (pytest, the
-   renderer CLI, run_tests) when ``$YOKE_BOUND_WORKSPACE`` is set and the
-   cwd is outside that workspace. Runs after lint_session_cwd because both
-   guards consult cwd; this one is verb-scoped (writer-class only) where
-   lint_session_cwd is universal.
+   renderer CLI, run_tests) when the ambient session has active worktree
+   claims and the cwd is outside those claims. Runs after lint_session_cwd
+   because both guards consult cwd; this one is verb-scoped (writer-class
+   only) where lint_session_cwd is universal.
 9. ``path_claim_bash_guard`` — claim-aware Bash guard runs after cwd check.
 10. ``lint_structured_field_transform_shell`` — block brittle structured-field
     transform choreography (``items get`` -> tmp/var -> ``items update --stdin``).

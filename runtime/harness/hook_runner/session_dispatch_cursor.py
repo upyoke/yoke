@@ -20,7 +20,6 @@ import os
 
 from runtime.harness.hook_runner import session_dispatch_cursor_lifecycle as _lifecycle
 from runtime.harness.hook_runner.resume_block_dispatch import render as _render_resume_block
-from runtime.harness.hook_runner.session_workspace import export_bound_workspace_for_session
 from runtime.harness.hook_runner.types import HookContext
 
 
@@ -108,8 +107,6 @@ def run_session_start(record: HookContext, root: str) -> str:
             )
         }) + "\n"
     os.environ["YOKE_SESSION_ID"] = session_id
-    if root:
-        export_bound_workspace_for_session(root)
     err = _lifecycle.register(
         root, session_id, _payload_model(record.payload), _entrypoint(),
     )

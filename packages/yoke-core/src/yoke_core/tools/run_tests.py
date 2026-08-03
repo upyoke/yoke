@@ -41,6 +41,7 @@ from typing import List, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -58,7 +59,9 @@ _EXIT_STATUS_SIGNAL_BASE = 128
 
 #: Exit code for a run refused before pytest started, matching the
 #: watcher wrapper so callers branch on one value for either entry point.
-_EXIT_STATUS_TREE_BINDING_REFUSED = 3
+_EXIT_STATUS_TREE_BINDING_REFUSED = (
+    _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
+)
 
 
 def _repo_root(start: Path | None = None) -> Path:
@@ -206,6 +209,8 @@ def run(
     # editable install still points at the main tree.
     env = _source_pythonpath.with_source_pythonpath(env, root)
     env = apply_postgres_xdist_auto_env(argv, env)
+    # Already judged above; the child's startup check inherits that answer.
+    env = _tree_binding_startup.with_binding_evaluated(env)
     if (root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
         refusal = _source_pythonpath.import_origin_refusal(root, env=env)
         if refusal is not None:

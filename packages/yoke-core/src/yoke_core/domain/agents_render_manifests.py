@@ -1,7 +1,7 @@
 """Harness manifest rendering — Yoke-shaped manifest schema in one place.
 
-Both Claude and Codex carry Yoke-shaped manifests in the schema documented
-at ``runtime/harness/manifest-schema.md``. The renderer materializes both
+Claude, Codex, and Cursor carry Yoke-shaped manifests in the schema documented
+at ``runtime/harness/manifest-schema.md``. The renderer materializes each
 from the dicts below so the manifest schema doc, the rendered files, and the
 runtime consumers all see the same content.
 
@@ -45,6 +45,18 @@ CLAUDE_MANIFEST: dict = {
             "post_tool_use_hook",
             "stop_hook",
         ],
+    },
+    "worktree_hook_enablement": {
+        "config_path": ".claude/settings.json",
+        "operations": [
+            "verify_hook_config",
+            "seed_directory_approval",
+            "verify_environment_export",
+        ],
+        "environment": {
+            "root_variable": "YOKE_ROOT",
+            "root_expression": "${CLAUDE_PROJECT_DIR:-$PWD}",
+        },
     },
     "telemetry": {
         "canonical_source": "yoke_core",
@@ -93,6 +105,18 @@ CODEX_MANIFEST: dict = {
             "post_tool_use_hook",
             "stop_hook",
         ],
+    },
+    "worktree_hook_enablement": {
+        "config_path": ".codex/hooks.json",
+        "operations": [
+            "verify_hook_config",
+            "mirror_hook_trust",
+            "verify_environment_export",
+        ],
+        "environment": {
+            "root_variable": "YOKE_ROOT",
+            "root_expression": "${YOKE_ROOT:-$PWD}",
+        },
     },
     "telemetry": {
         "canonical_source": "yoke_core",
@@ -148,6 +172,17 @@ CURSOR_MANIFEST: dict = {
             "post_tool_use_hook",
             "stop_hook",
         ],
+    },
+    "worktree_hook_enablement": {
+        "config_path": ".cursor/hooks.json",
+        "operations": [
+            "verify_hook_config",
+            "verify_environment_export",
+        ],
+        "environment": {
+            "root_variable": "YOKE_ROOT",
+            "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}",
+        },
     },
     "telemetry": {
         "canonical_source": "yoke_core",

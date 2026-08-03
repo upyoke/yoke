@@ -14,6 +14,7 @@ def test_db_backed_authority_guards_stay_server_side() -> None:
     """
     db_authority_guards = {
         "yoke_core.domain.lint_main_commit",
+        "yoke_core.domain.lint_workspace_cwd_match",
         "yoke_core.domain.lint_claim_ownership_mutations",
         "yoke_core.domain.lint_session_cwd",
         "yoke_core.domain.path_claim_bash_guard",

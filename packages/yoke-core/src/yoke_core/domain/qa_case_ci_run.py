@@ -64,18 +64,16 @@ def _record_run(
         artifact_file_path,
         case_artifact_subject,
     )
-    from yoke_core.domain.qa_case_execution import _dispatch as call_qa
+    from yoke_core.domain.qa_case_execution import recording_leg
 
-    requirement_id = int(case["requirement_id"])
+    call_qa = recording_leg(case, actor=actor)
     run = call_qa(
         "qa.run.add",
-        requirement_id,
         {
             "executor_type": EXECUTOR_ID,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     output_path = artifact_file_path(
@@ -87,7 +85,6 @@ def _record_run(
     output_path.write_text(output, encoding="utf-8")
     artifact = call_qa(
         "qa.artifact.add",
-        requirement_id,
         {
             "run_id": run_id,
             "artifact_type": "command_output",
@@ -100,18 +97,15 @@ def _record_run(
                 sort_keys=True,
             ),
         },
-        actor=actor,
     )
     call_qa(
         "qa.run.complete",
-        requirement_id,
         {
             "run_id": run_id,
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     return run_id, int(artifact["qa_artifact_id"])
 

@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
+
+from yoke_core.domain import qa_start_bound_authority
 
 
 class QaCaseExecutionError(RuntimeError):
@@ -47,6 +49,30 @@ def _dispatch(
         message = response.error.message if response.error else ""
         raise QaCaseExecutionError(f"{function_id} failed ({code}): {message}")
     return response.result or {}
+
+
+def recording_leg(
+    case: dict,
+    *,
+    actor: Optional[ActorContext] = None,
+) -> Callable[[str, dict], dict]:
+    """Return the dispatcher an executor's run/artifact legs share.
+
+    Binds the requirement the run belongs to, the calling actor, and the
+    authority the run pinned at ``qa.case_execution.begin``. That last
+    part is what lets a gate measured in tens of minutes record the
+    verdict it earned after the stale-session sweep reclaimed the live
+    claim mid-run.
+    """
+    requirement_id = int(case["requirement_id"])
+    authority = qa_start_bound_authority.payload_authority(case)
+
+    def dispatch_leg(function_id: str, payload: dict) -> dict:
+        return _dispatch(
+            function_id, requirement_id, {**authority, **payload}, actor=actor
+        )
+
+    return dispatch_leg
 
 
 def fetch_case_execution_context(

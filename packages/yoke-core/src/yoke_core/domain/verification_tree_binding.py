@@ -26,6 +26,10 @@ run would execute outside all of them — and :func:`resolve_tree_identity`
 names a tree by its root and HEAD sha so a run can record what it
 actually verified.
 
+An entry point covers only the invocations that reach it, so
+:mod:`yoke_core.domain.verification_tree_binding_pytest_startup` hosts
+the same decision at the layer pytest itself starts.
+
 Session identity resolves through the canonical ambient chain
 (:mod:`yoke_core.domain.session_ambient_identity`), not a bare
 ``YOKE_SESSION_ID`` read: harnesses that publish identity only through
