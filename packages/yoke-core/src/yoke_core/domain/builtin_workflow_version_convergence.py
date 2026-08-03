@@ -108,10 +108,7 @@ def _matches_compatible_fixed_version(
         decoded = decode_definition(existing["definition_json"])
     except WorkflowRegistryError:
         return False
-    return (
-        definition_digest(decoded) == str(existing["definition_digest"])
-        and canonical_definition_json(decoded) == str(existing["definition_json"])
-    )
+    return definition_digest(decoded) == str(existing["definition_digest"])
 
 
 def _converge_fixed_version(

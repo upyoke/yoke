@@ -1,5 +1,6 @@
 """Exact immutable history for built-in workflow versions."""
 
+import json
 from copy import deepcopy
 
 import pytest
@@ -145,15 +146,15 @@ def _reset_to_version_one(conn, history: list[dict]) -> None:
 
 
 @pytest.mark.parametrize(
-    "version_three_definition",
+    ("version_three_definition", "insertion_order_payload"),
     (
-        _schema_two_version_three_definition,
-        _migrated_schema_three_version_three_definition,
+        (_schema_two_version_three_definition, False),
+        (_migrated_schema_three_version_three_definition, True),
     ),
     ids=("schema-two", "migrated-schema-three"),
 )
 def test_fixed_version_three_history_converges_without_rewriting(
-    test_db, version_three_definition
+    test_db, version_three_definition, insertion_order_payload
 ):
     history = builtin_workflow_version_history()
     _reset_to_version_one(test_db, history)
@@ -168,7 +169,14 @@ def test_fixed_version_three_history_converges_without_rewriting(
             (2, version_two[workflow_id]),
             (3, version_three_definition(workflow_id)),
         ):
-            payload = canonical_definition_json(definition)
+            if version == 3 and insertion_order_payload:
+                payload = json.dumps(
+                    definition,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+            else:
+                payload = canonical_definition_json(definition)
             digest = definition_digest(definition)
             test_db.execute(
                 "INSERT INTO workflow_versions "
