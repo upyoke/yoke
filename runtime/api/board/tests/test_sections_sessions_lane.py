@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.board.data import ReplayBoardDB
 from yoke_contracts.board.sections_sessions import _render_lane
+from yoke_contracts.board.sections_sessions_scope import session_lane_presentation
 from yoke_contracts.session_lane import (
     UNRESOLVED_EXECUTION_LANE,
     lane_presentation,
@@ -47,3 +49,12 @@ def test_operator_defined_lane_presentation_travels_with_routing_settings() -> N
 def test_original_lane_presentation_is_an_exact_legacy_fallback() -> None:
     assert lane_presentation("DARIUS", {}) == {"label": "DARIUS", "glyph": "🐎"}
     assert lane_presentation("RESEARCH", {}) == {"label": "RESEARCH", "glyph": ""}
+
+
+def test_legacy_board_payload_uses_lane_presentation_fallback() -> None:
+    replay = ReplayBoardDB.from_payload({"version": 1, "entries": []})
+
+    assert session_lane_presentation(replay, 1, "DARIUS") == {
+        "label": "DARIUS",
+        "glyph": "🐎",
+    }

@@ -1,31 +1,13 @@
 """Command-shaped watcher for pytest runs.
 
-Owns the pytest line classifier so callers do not author a Monitor
-filter per invocation — the tail of a raw command line through
-``tail -f ... | grep --line-buffered "%\\] "`` is exactly the trap this
-wrapper exists to prevent.
-
-The classifier maps:
-
-- ``[ N%]`` per-file progress markers → ``PROGRESS`` with the percent as
-  the throttling axis.
-- ``FAILED `` and ``ERROR `` per-test summary lines, collection/usage
-  errors (``ERROR: file or directory not found:``, ``ERROR: usage:``,
-  ``<prog>: error: …``, ``INTERNALERROR>``, the non-top-level conftest
-  ``pytest_plugins`` error) → ``URGENT``.
-- ``=+ ... (passed|failed|error|ERRORS|no tests ran)`` banners and the
-  quiet-mode verdict lines → ``SUMMARY``.
-- ``collected N items`` / xdist ``N workers [M items]`` collection
-  notices → ``SUMMARY``.
-
-Every other line is ``NOISE`` (raw capture only).
+The classifier relays progress, failures, collection notices, and terminal
+summaries while preserving all other output in the raw capture.
 
 Usage::
 
     # Direct execution (Codex / shell): streams filtered progress to stdout
     # while preserving full output in the raw capture. Pass BARE pytest
-    # args after ``--``; the wrapper supplies the ``python3 -m pytest``
-    # prefix itself.
+    # args after ``--``; the wrapper supplies the pytest command prefix.
     yoke watch pytest -- runtime/api/
 
     # Full suite — pass the three anchors, never bare ``runtime/``
@@ -54,12 +36,14 @@ import argparse
 import os
 import time
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.domain import test_gate_timeout
-from yoke_core.domain import verification_tree_binding
-from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
+from yoke_core.domain import test_gate_timeout, verification_tree_binding
+from yoke_core.domain import (
+    verification_tree_binding_pytest_startup as _tree_binding_startup,
+)
 from yoke_core.tools import (
     _source_pythonpath,
     _watch_pytest_args,
@@ -82,6 +66,7 @@ from yoke_core.tools._watch_pytest_classify import (  # noqa: F401
     PYTEST_SUMMARY_BANNER_RE,
     PYTEST_URGENT_RE,
     classify_pytest_line,
+    pytest_collected_item_count,
 )
 
 WRAPPER_MODULE = "yoke_core.tools.watch_pytest"
@@ -197,30 +182,43 @@ def _extract_wrapper_flag(argv: list[str], flag: str) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def _impacted_selection(base: str, *, bounded: bool = False) -> "list[str] | None":
-    """Pytest path arguments for the current change, or None when there are none."""
+def _impacted_selection(base: str, *, bounded: bool = False):
+    """Selection for the current change, or None when there are no files."""
     from yoke_core.tools import impacted_tests
 
     selection = impacted_tests.selection_for(
         _source_pythonpath.repo_root(Path.cwd()), base, bounded=bounded
     )
     scope = "full sweep" if selection.full_sweep else "impacted"
-    print(f"watch_pytest {scope}: {selection.reason}", flush=True)
+    print(
+        f"watch_pytest {scope}: {selection.reason}; {selection.count_summary()}",
+        flush=True,
+    )
     # Structured companion to the prose reason above. Both land in the run's
     # captures; only this one can be grouped across runs to tell legitimate
     # core churn from a file kind reachability never modelled.
     print(f"watch_pytest {selection.telemetry()}", flush=True)
-    paths = list(selection.pytest_paths())
-    return paths or None
+    return selection if selection.pytest_paths() else None
+
+
+def _selection_footer(selection, collected_items: int | None) -> str:
+    all_files = selection.full_sweep or len(selection.files) == selection.total_files
+    total_items = collected_items if all_files else None
+    counted = replace(
+        selection, selected_items=collected_items, total_items=total_items
+    )
+    return f"# watch_pytest selection-summary: {counted.count_summary()}"
 
 
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_wrapper_flag(
-        raw, _watch_runner.PRINT_STREAMING_PAIR_FLAG,
+        raw,
+        _watch_runner.PRINT_STREAMING_PAIR_FLAG,
     )
     raw, allow_tree_mismatch_flag = _extract_wrapper_flag(
-        raw, verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        raw,
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
     )
     ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
@@ -229,11 +227,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         ns.allow_tree_mismatch = True
     pytest_args = _strip_separator(list(ns.passthrough))
 
+    selection = None
     if ns.impacted is not None:
-        selected = _impacted_selection(ns.impacted, bounded=ns.bounded)
-        if selected is None:
+        selection = _impacted_selection(ns.impacted, bounded=ns.bounded)
+        if selection is None:
             return 0
-        pytest_args = [*selected, *pytest_args]
+        pytest_args = [*selection.pytest_paths(), *pytest_args]
     elif ns.bounded:
         print(
             "watch_pytest: --bounded only applies with --impacted",
@@ -256,7 +255,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         return 2
 
     binding = verification_tree_binding.evaluate_run(
-        surface=prog, allow_mismatch=ns.allow_tree_mismatch,
+        surface=prog,
+        allow_mismatch=ns.allow_tree_mismatch,
     )
     if binding.notice is not None:
         print(binding.notice, file=sys.stderr)
@@ -317,14 +317,29 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             print(f"watch_pytest: {exc}", file=sys.stderr)
             return 2
         started = time.monotonic()
+        collected_items = None
+
+        def selection_classifier(line: str):
+            nonlocal collected_items
+            count = pytest_collected_item_count(line)
+            if count is not None:
+                collected_items = count
+            return classify_pytest_line(line)
+
+        def selection_footer() -> str | None:
+            if selection is None:
+                return None
+            return _selection_footer(selection, collected_items)
+
         exit_code = _watch_runner.run_watcher(
             argv=_pytest_argv(pytest_args),
-            classifier=classify_pytest_line,
+            classifier=selection_classifier,
             raw_capture=raw_path,
             progress_capture=progress_path,
             kind=KIND,
             env=gate_admission.admitted_environment(pytest_env),
             timeout_seconds=execution_timeout,
+            footer_metadata=selection_footer,
         )
         _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
     return exit_code

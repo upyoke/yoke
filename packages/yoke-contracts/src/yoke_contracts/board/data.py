@@ -153,6 +153,12 @@ class ReplayBoardDB:
     ) -> List[Tuple]:
         return list(self._serve("query_quiet", sql, params))
 
+    def has_query_quiet(
+        self, sql: str, params: Optional[Sequence[Any]] = None
+    ) -> bool:
+        """Return whether a payload can serve a quiet query."""
+        return entry_key("query_quiet", sql, params) in self._lookup
+
     def scalar(self, sql: str, params: Optional[Sequence[Any]] = None) -> Any:
         return self._serve("scalar", sql, params)
 

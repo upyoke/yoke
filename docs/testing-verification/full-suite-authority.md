@@ -105,12 +105,13 @@ Every `--impacted` run writes one structured line into its captures
 alongside the prose reason:
 
 ```text
-watch_pytest impacted-selection scope=full_sweep rule=shared_test_fixture triggers=runtime/api/conftest.py tests=0
+watch_pytest impacted-selection scope=full_sweep rule=shared_test_fixture triggers=runtime/api/conftest.py files=2300 of 2300 items=unknown of unknown
 ```
 
 `scope` is `impacted`, `full_sweep`, or `bounded_deferral`. `rule` is one
 of `FALLBACK_RULES` — `shared_test_fixture`, `test_tooling_module`,
-`unmapped_file_kind`, `no_importable_module` — and `triggers` names the
+`unmapped_file_kind`, `no_importable_module`,
+`effectively_full_selection` — and `triggers` names the
 exact changed files that fired it. The identifiers are stable because
 they are the grouping key: sweeping a period of run captures for
 `impacted-selection ` answers whether widening is legitimate core churn
@@ -118,6 +119,13 @@ or a file kind reachability never modelled. A docs- or skills-only edit
 widening to 21,000 tests is the second kind. Tune the selector against
 what that data indicts rather than against intuition — a rule that fires
 constantly on genuinely central files is working correctly.
+
+`files=N of M` always counts pytest file paths, never collected test items.
+The pre-run line reports `items=unknown of unknown` when collection data is
+not yet available. Before the watcher exit sentinel, its selection summary
+repeats both units and fills in the collected item count; a full sweep can
+also report that value as the item denominator, while a partial selection
+keeps the unavailable universe total explicit as `of unknown`.
 
 ## When CI disagrees with the local run
 
@@ -163,4 +171,3 @@ yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 
 Record in the verification evidence that the local sweep substituted for CI
 and which commit it covered. Never merge with neither proof.
-
