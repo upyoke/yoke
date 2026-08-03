@@ -11,6 +11,10 @@ from __future__ import annotations
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
+from yoke_contracts.board.sections_definition_queries import (
+    query_epic_task_rows,
+    query_precomputed_epic_task_rows,
+)
 from yoke_contracts.board.sections_classify import (
     EpicStats,
     ItemRow,
@@ -87,26 +91,7 @@ def epic_task_rows(
     Returns:
         List of markdown table row strings.
     """
-    rows = db.query(
-        "SELECT et.task_num, et.title, et.status, "
-        "(SELECT stage->>'glyph' "
-        " FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage "
-        " WHERE stage->>'id'=et.status LIMIT 1) "
-        "FROM epic_tasks et "
-        "LEFT JOIN items i ON i.id = et.epic_id "
-        "LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id "
-        "WHERE et.epic_id = %s ORDER BY et.task_num",
-        (epic_id,),
-    )
-    enriched = [
-        (
-            int(task_num),
-            title or "",
-            task_status or "",
-            str(task_glyph) if task_glyph else None,
-        )
-        for task_num, title, task_status, task_glyph in rows
-    ]
+    enriched = query_epic_task_rows(db, epic_id)
     return _format_epic_task_rows(enriched, parent_id_padded, celebration)
 
 
@@ -146,19 +131,7 @@ def precompute_epic_task_rows(
 ) -> Dict[int, List[EpicTaskRow]]:
     """Batch-query task rows for all epics in the rendered scope."""
     pf = _project_filter_sql(scope, db=db)
-    rows = db.query_quiet(
-        f"""
-        SELECT et.epic_id, et.task_num, et.title, et.status,
-               (SELECT stage->>'glyph'
-                FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
-                WHERE stage->>'id'=et.status LIMIT 1)
-        FROM epic_tasks et
-        JOIN items i ON i.id = et.epic_id
-        LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
-        WHERE 1=1{pf}
-        ORDER BY et.epic_id, et.task_num
-        """,
-    )
+    rows = query_precomputed_epic_task_rows(db, pf)
     result: Dict[int, List[EpicTaskRow]] = {}
     for epic_id, task_num, title, status, task_glyph in rows:
         result.setdefault(int(epic_id), []).append(

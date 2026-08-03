@@ -16,7 +16,7 @@ from yoke_contracts.project_contract.board_art.emoji import (
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter, scope_project_id
 from yoke_contracts.board.status import status_to_board_bucket
-from yoke_contracts.board.sections_items_query import query_item_rows
+from yoke_contracts.board.sections_definition_queries import query_item_rows
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_contracts.item_ref import format_item_ref
 
