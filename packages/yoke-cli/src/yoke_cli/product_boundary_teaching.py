@@ -191,7 +191,11 @@ def _resolve_yoke_recipe(
             source, line_number, recipe, "yoke", command_form, "tool_shaped",
             status=op.status if op else None,
             reason=op.reason if op else None,
-            drift_type=None if adapter and op and op.status == ops.PERMANENT else DRIFT_UNRESOLVED_YOKE,
+            drift_type=(
+                None
+                if adapter and op and op.status in (ops.PERMANENT, ops.TOOL_CLI)
+                else DRIFT_UNRESOLVED_YOKE
+            ),
         )
 
 

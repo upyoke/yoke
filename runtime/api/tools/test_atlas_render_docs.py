@@ -59,7 +59,7 @@ _REPORT: dict = {
     },
     "operation_tracker": {
         "count": 5,
-        "by_status": {"wrapped": 3, "permanent": 1, "pending": 1},
+        "by_status": {"wrapped": 3, "tool_cli": 1, "permanent": 1, "pending": 1},
         "rows": [
             {"shell_form": "python3 -m foo a", "family": "fa",
              "status": "wrapped", "reason": "wrapped_by_yoke_cli",
@@ -70,8 +70,8 @@ _REPORT: dict = {
             {"shell_form": "python3 -m foo c", "family": "fc",
              "status": "wrapped", "reason": "wrapped_by_yoke_cli",
              "proposed_function_id": None},
-            {"shell_form": "python3 -m yoke_core.tools.watch_pytest",
-             "family": "tools.watch", "status": "permanent",
+            {"shell_form": "yoke watch pytest",
+             "family": "tools.watch", "status": "tool_cli",
              "reason": "tool_shaped", "proposed_function_id": None},
             {"shell_form": "python3 -m yoke_core.cli.db_router something",
              "family": "something", "status": "pending",
@@ -136,7 +136,7 @@ _REPORT: dict = {
     ],
     "summary": {
         "function_ids": 3, "yoke_cli_subcommands": 3,
-        "operation_tracker": {"wrapped": 3, "permanent": 1, "pending": 1},
+        "operation_tracker": {"wrapped": 3, "tool_cli": 1, "permanent": 1, "pending": 1},
         "subcommand_help_coverage": {"total": 3, "with_usable_help": 3, "missing": 0},
         "recipes": {"total": 1, "template_skipped": 1, "failed": 0},
         "field_notes_recent": 2,
@@ -161,12 +161,13 @@ class TestRender:
             "# Yoke Atlas",
             "## 1. Summary",
             "## 2. Wrapped operation roster",
-            "## 3. Permanent command-shaped boundary roster",
-            "## 4. Pending handler-registration roster",
-            "## 5. Teaching coverage",
-            "## 6. Field-note hotspots",
-            "## 7. Contradictions",
-            "## 8. Next-slice recommendation",
+            "## 3. Tool-shaped CLI roster",
+            "## 4. Permanent command-shaped boundary roster",
+            "## 5. Pending handler-registration roster",
+            "## 6. Teaching coverage",
+            "## 7. Field-note hotspots",
+            "## 8. Contradictions",
+            "## 9. Next-slice recommendation",
         ]
         positions = [body.find(heading) for heading in expected]
         assert all(p >= 0 for p in positions), positions
@@ -192,6 +193,11 @@ class TestRender:
         assert "yoke items get" in body
         assert "yoke claims work acquire" in body
         assert "yoke lifecycle transition" in body
+
+    def test_tool_cli_roster_lists_local_adapter(self, body: str) -> None:
+        assert "## 3. Tool-shaped CLI roster" in body
+        assert "yoke watch pytest" in body
+        assert "without a dispatcher function id" in body
 
     def test_client_local_cli_row_renders_only_as_permanent_boundary(
         self,
@@ -224,7 +230,7 @@ class TestRender:
         }
         rendered = ard.render(report)
         wrapped, permanent = rendered.split(
-            "## 3. Permanent command-shaped boundary roster", maxsplit=1
+            "## 4. Permanent command-shaped boundary roster", maxsplit=1
         )
         assert "yoke sessions init" not in wrapped
         assert permanent.count("yoke sessions init") == 1

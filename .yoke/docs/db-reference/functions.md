@@ -2,7 +2,7 @@
 
 The Yoke function-call surface is the **agent-facing** mutation surface for the Yoke control plane. Agents call typed function ids through one envelope shape; the dispatcher routes to a handler, verifies the calling session's claim, writes through the canonical domain owner, and emits structured events. Shell-quoted JSON payloads are not the operator path: the `python3 -m yoke_core.cli.db_router ...` and `python3 -m yoke_core.api.service_client ...` CLI commands remain as **retained operator/debug adapters** that build a typed `FunctionCallRequest` internally and dispatch through the same registry.
 
-This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the permanent / pending rosters and live promise-vs-live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
+This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the tool-shaped CLI, permanent, and pending rosters and live promise-vs-live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
 
 ## Envelope
 

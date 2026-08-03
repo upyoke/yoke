@@ -9,10 +9,12 @@ from yoke_cli.operation_inventory_model import (
     REASON_OPERATOR_BREAK_GLASS,
     REASON_TOOL_SHAPED,
     REASON_WRAPPED_BY_YOKE_CLI,
+    TOOL_CLI,
     WRAPPED,
     _Row,
     _w,
 )
+from yoke_cli.operation_inventory_tool_cli import TOOL_CLI_ROWS
 from yoke_cli.operation_inventory_ephemeral_env import (
     WRAPPED_ROWS as EPHEMERAL_ENV_WRAPPED_ROWS,
 )
@@ -222,6 +224,7 @@ PENDING_ROWS: Tuple[_Row, ...] = (
 __all__ = [
     "_Row",
     "WRAPPED",
+    "TOOL_CLI",
     "PERMANENT",
     "PENDING",
     "REASON_WRAPPED_BY_YOKE_CLI",
@@ -229,6 +232,7 @@ __all__ = [
     "REASON_TOOL_SHAPED",
     "REASON_NO_HANDLER_REGISTERED",
     "WRAPPED_ROWS",
+    "TOOL_CLI_ROWS",
     "PERMANENT_ROWS",
     "PENDING_ROWS",
 ]

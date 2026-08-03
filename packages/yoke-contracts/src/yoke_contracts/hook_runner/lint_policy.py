@@ -66,6 +66,9 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
               "Refuse a raw pytest sweep over the whole verification "
               "surface; it bypasses the machine-wide test-gate "
               "admission slot."),
+    GuardSpec("lint_watcher_module_form",
+              f"{_MODULE_PREFIX}lint_watcher_module_form", False,
+              "Refuse legacy watcher module forms when a yoke CLI adapter exists."),
     GuardSpec("lint_if_status_capture", f"{_MODULE_PREFIX}lint_if_status_capture", False,
               "Refuse `$?` capture immediately after an `if` compound."),
     GuardSpec("lint_subagent_background", f"{_MODULE_PREFIX}lint_subagent_background", False,
