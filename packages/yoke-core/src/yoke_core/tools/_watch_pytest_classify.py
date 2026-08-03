@@ -49,7 +49,7 @@ PYTEST_SUMMARY_BANNER_RE = re.compile(
 # Initial collection notice: plain ``collected N items`` plus the xdist
 # form ``N workers [M items]`` (the only collection signal xdist prints).
 PYTEST_COLLECTED_RE = re.compile(
-    r"^collected \d+|^\d+ workers \[\d+ items?\]"
+    r"^collected (?P<plain>\d+)|^\d+ workers \[(?P<xdist>\d+) items?\]"
 )
 
 # Public union pattern: kept for callers/tests that want a single
@@ -83,10 +83,16 @@ def classify_pytest_line(line: str) -> Classification:
         return Classification(LineClass.SUMMARY)
     match = PYTEST_PROGRESS_RE.search(line)
     if match:
-        return Classification(
-            LineClass.PROGRESS, progress_value=float(match.group(1))
-        )
+        return Classification(LineClass.PROGRESS, progress_value=float(match.group(1)))
     return Classification(LineClass.NOISE)
+
+
+def pytest_collected_item_count(line: str) -> int | None:
+    """Return the collected item count carried by a pytest notice."""
+    match = PYTEST_COLLECTED_RE.search(line)
+    if match is None:
+        return None
+    return int(match.group("plain") or match.group("xdist"))
 
 
 __all__ = [
@@ -96,4 +102,5 @@ __all__ = [
     "PYTEST_SUMMARY_BANNER_RE",
     "PYTEST_URGENT_RE",
     "classify_pytest_line",
+    "pytest_collected_item_count",
 ]

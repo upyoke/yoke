@@ -81,7 +81,7 @@ def test_selects_transitively_reachable_tests_only(tmp_path):
 
     assert selection.full_sweep is False
     # test_middle imports middle, which imports leaf — two hops.
-    assert selection.tests == _with_floor("runtime/api/test_middle.py")
+    assert selection.files == _with_floor("runtime/api/test_middle.py")
 
 
 def test_changed_test_file_selects_itself(tmp_path):
@@ -90,19 +90,17 @@ def test_changed_test_file_selects_itself(tmp_path):
 
     selection = select(["runtime/api/test_unrelated.py"], index)
 
-    assert selection.tests == _with_floor("runtime/api/test_unrelated.py")
+    assert selection.files == _with_floor("runtime/api/test_unrelated.py")
 
 
 def test_deleted_test_file_is_not_a_runnable_pytest_path(tmp_path):
     root = _tiny_repo(tmp_path)
     index = build_import_index(root)
 
-    selection = select(
-        ["runtime/api/leaf.py", "runtime/api/test_deleted.py"], index
-    )
+    selection = select(["runtime/api/leaf.py", "runtime/api/test_deleted.py"], index)
 
-    assert "runtime/api/test_deleted.py" not in selection.tests
-    assert selection.tests == _with_floor("runtime/api/test_middle.py")
+    assert "runtime/api/test_deleted.py" not in selection.files
+    assert selection.files == _with_floor("runtime/api/test_middle.py")
 
 
 def test_non_python_change_forces_full_sweep(tmp_path):
@@ -167,11 +165,11 @@ def test_relative_imports_are_resolved(tmp_path):
 
     selection = select(["runtime/api/pkg/core.py"], index)
 
-    assert selection.tests == _with_floor("runtime/api/pkg/test_core_relative.py")
+    assert selection.files == _with_floor("runtime/api/pkg/test_core_relative.py")
 
 
 def test_selection_pytest_paths_prefers_selected_tests():
-    selected = Selection(full_sweep=False, reason="x", tests=("a/test_b.py",))
+    selected = Selection(full_sweep=False, reason="x", files=("a/test_b.py",))
     assert selected.pytest_paths() == ("a/test_b.py",)
 
     sweep = Selection(full_sweep=True, reason="y")
@@ -181,7 +179,7 @@ def test_selection_pytest_paths_prefers_selected_tests():
 def test_no_changes_selects_nothing():
     selection = select([], ImportIndex(importers={}, module_of={}))
     assert selection.full_sweep is False
-    assert selection.tests == ()
+    assert selection.files == ()
 
 
 def test_subprocess_module_string_selects_the_shelling_test(tmp_path):
@@ -196,7 +194,7 @@ def test_subprocess_module_string_selects_the_shelling_test(tmp_path):
 
     selection = select(["runtime/api/leaf.py"], index)
 
-    assert "runtime/api/test_leaf_cli.py" in selection.tests
+    assert "runtime/api/test_leaf_cli.py" in selection.files
 
 
 def test_patch_target_string_selects_the_patching_test(tmp_path):
@@ -212,7 +210,7 @@ def test_patch_target_string_selects_the_patching_test(tmp_path):
 
     selection = select(["runtime/api/leaf.py"], index)
 
-    assert "runtime/api/test_leaf_patch.py" in selection.tests
+    assert "runtime/api/test_leaf_patch.py" in selection.files
 
 
 def test_unreached_change_still_runs_the_contract_floor(tmp_path):
@@ -224,7 +222,7 @@ def test_unreached_change_still_runs_the_contract_floor(tmp_path):
 
     assert selection.full_sweep is False
     assert "always-run" in selection.reason
-    assert selection.tests == _with_floor()
+    assert selection.files == _with_floor()
 
 
 def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
@@ -243,7 +241,7 @@ def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
     selection = select(["runtime/api/leaf.py"], index)
 
     assert selection.full_sweep is False
-    assert "runtime/api/test_middle.py" in selection.tests
+    assert "runtime/api/test_middle.py" in selection.files
 
 
 def test_skipped_directories_nested_inside_the_root_stay_skipped(tmp_path):

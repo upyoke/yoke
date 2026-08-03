@@ -1,34 +1,15 @@
-"""Select the tests a change could plausibly break, from import reachability.
+"""Select test files a change could plausibly break by import reachability.
 
-A full sweep costs the same for a one-file edit as for a schema rewrite,
-and when several checkouts verify at once that fixed cost is what makes
-everyone queue. Most changes can only affect part of the suite. This
-walks the reverse import graph (built by
-:mod:`yoke_core.tools._impacted_import_index`) outward from the changed
-files; everything outside that closure provably cannot import the change.
-A small :data:`ALWAYS_RUN_TESTS` floor runs regardless, so a wiring break
-the closure missed still fails locally.
-
-**An accelerator for iteration, not a merge gate.** A change that could
-ripple everywhere is *unbounded*, and the caller chooses what that means:
-plain selection answers with the full-sweep anchors (correct standalone,
-with no later gate behind it), while bounded selection refuses to widen —
-it runs the subset it can still compute and says why coverage is partial.
-Bounded is the iteration shape: the final QA case run is the one full
-execution, so widening mid-iteration burns a suite about to run anyway.
-
-Every unbounded verdict names its :data:`FALLBACK_RULES` rule and the
-exact files that fired it, so a sweep of run captures shows whether
-widening is legitimate core churn or an unmodelled file kind. CI runs the
-full sweep on every pull request and merge, so a missed edge costs a late
-failure rather than a silent one — and that failure is a selector defect:
-model the missed edge here, with a regression test, in the same fix.
+Bounded selection runs the computable subset when a change is unbounded;
+plain selection widens to the full-sweep anchors. Every unbounded verdict
+names the rule and paths that caused it. The always-run floor protects
+cross-cutting wiring that reachability can miss.
 """
 
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
@@ -38,6 +19,11 @@ from yoke_core.tools._impacted_import_index import (
     build_import_index,
     is_test_file,
     module_name_for,
+)
+from yoke_core.tools._impacted_selection import (
+    MIN_EFFECTIVELY_FULL_FILE_UNIVERSE,
+    Selection,
+    is_effectively_full,
 )
 
 #: Shared pytest infrastructure: reachable from every test by construction
@@ -51,6 +37,10 @@ SHARED_TEST_FIXTURE_PATHS = (
 #: what any other run selects or how it executes.
 TEST_TOOLING_PATHS = (
     "packages/yoke-core/src/yoke_core/tools/impacted_tests.py",
+    "packages/yoke-core/src/yoke_core/tools/_impacted_selection.py",
+    "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
+    "packages/yoke-core/src/yoke_core/tools/_watch_pytest_classify.py",
+    "packages/yoke-core/src/yoke_core/tools/_watch_runner.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_import_index.py",
     "packages/yoke-core/src/yoke_core/tools/_pytest_parallel.py",
     "packages/yoke-core/src/yoke_core/tools/run_tests.py",
@@ -87,6 +77,7 @@ _NO_MODULE_REASON = "changed files resolve to no importable module"
 FALLBACK_RULES = tuple(rule for rule, _paths, _why in _PATH_RULES) + (
     "unmapped_file_kind",
     "no_importable_module",
+    "effectively_full_selection",
 )
 
 #: Fast cross-cutting contract tests appended to every impacted selection.
@@ -97,43 +88,6 @@ ALWAYS_RUN_TESTS = (
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/test_service_client_structured_api_adapter.py",
 )
-
-
-@dataclass(frozen=True)
-class Selection:
-    """What to run, and why."""
-
-    full_sweep: bool
-    reason: str
-    tests: tuple[str, ...] = ()
-    #: Which :data:`FALLBACK_RULES` rule made this selection unbounded.
-    #: Empty when reachability bounded the change.
-    fallback_rule: str = ""
-    #: The exact changed files that fired ``fallback_rule``.
-    trigger_paths: tuple[str, ...] = ()
-    #: True when a bounded caller declined to widen an unbounded verdict.
-    bounded_deferral: bool = False
-
-    def pytest_paths(self) -> tuple[str, ...]:
-        return TEST_ANCHORS if self.full_sweep else self.tests
-
-    def telemetry(self) -> str:
-        """One greppable ``key=value`` line describing this selection.
-
-        Written to the run's captures. Answering "was that widening
-        legitimate?" across many runs needs the rule and the offending
-        paths as fields, not a prose reason to classify by hand.
-        """
-        if self.full_sweep:
-            scope = "full_sweep"
-        elif self.bounded_deferral:
-            scope = "bounded_deferral"
-        else:
-            scope = "impacted"
-        fields = [f"scope={scope}", f"rule={self.fallback_rule or 'none'}"]
-        fields.append(f"triggers={','.join(self.trigger_paths) or 'none'}")
-        fields.append(f"tests={len(self.tests)}")
-        return "impacted-selection " + " ".join(fields)
 
 
 def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
@@ -210,7 +164,7 @@ def _reachable_tests(changed: Sequence[str], index: ImportIndex) -> "set[str] | 
 def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
     """Tests reachable from *changed*, widening when nothing bounds it."""
     if not changed:
-        return Selection(full_sweep=False, reason="no changes", tests=())
+        return Selection(full_sweep=False, reason="no changes", files=())
 
     trigger = _unbounded_trigger(changed)
     if trigger is not None:
@@ -239,7 +193,7 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
                 "no test reaches the changed modules; "
                 "running the always-run contract tests"
             ),
-            tests=tests,
+            files=tests,
         )
     return Selection(
         full_sweep=False,
@@ -247,7 +201,7 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
             f"{len(reached_tests)} test file(s) reach the changed modules, "
             "plus the always-run contract tests"
         ),
-        tests=tests,
+        files=tests,
     )
 
 
@@ -263,10 +217,22 @@ def select(
     reachability could still compute plus the reason its coverage is
     partial, rather than a full sweep the final gate will run anyway.
     """
-    selection = _widened(changed, index)
+    total_files = sum(is_test_file(path) for path in index.module_of)
+    selection = replace(_widened(changed, index), total_files=total_files)
+    selected_files = sum(path in index.module_of for path in selection.files)
+    if not selection.full_sweep and is_effectively_full(selected_files, total_files):
+        selection = Selection(
+            full_sweep=True,
+            reason=f"reachability selected {selected_files} of {total_files} test files",
+            total_files=total_files,
+            fallback_rule="effectively_full_selection",
+            trigger_paths=tuple(changed),
+        )
     if not (bounded and selection.full_sweep):
         return selection
-    reached = _reachable_tests(changed, index) or set()
+    trigger_paths = set(selection.trigger_paths)
+    bounded_changed = [path for path in changed if path not in trigger_paths]
+    reached = _reachable_tests(bounded_changed, index) or set()
     return Selection(
         full_sweep=False,
         reason=(
@@ -274,7 +240,8 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             "coverage to the final QA gate"
         ),
-        tests=tuple(sorted(reached | set(ALWAYS_RUN_TESTS))),
+        files=tuple(sorted(reached | set(ALWAYS_RUN_TESTS))),
+        total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
         bounded_deferral=True,
@@ -317,7 +284,10 @@ def main(argv: "Sequence[str] | None" = None) -> int:
     selection = selection_for(repo_root, args.base, bounded=args.bounded)
     if args.explain:
         scope = "full sweep" if selection.full_sweep else "selected"
-        print(f"{scope}: {selection.reason}", file=sys.stderr)
+        print(
+            f"{scope}: {selection.reason}; {selection.count_summary()}",
+            file=sys.stderr,
+        )
         print(selection.telemetry(), file=sys.stderr)
     for path in selection.pytest_paths():
         print(path)
@@ -329,6 +299,7 @@ __all__ = [
     "FALLBACK_RULES",
     "FULL_SWEEP_TRIGGERS",
     "ImportIndex",
+    "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
     "Selection",
     "SHARED_TEST_FIXTURE_PATHS",
     "TEST_ANCHORS",

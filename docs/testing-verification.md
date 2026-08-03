@@ -287,6 +287,13 @@ request and the merged commit on `main`, so local verification stays
 change-scoped: iterate with impacted selection, and let the item's QA
 case run be the one full execution for a tree.
 
+Selection output distinguishes pytest files from collected items as
+`files=N of M items=X of Y`; unavailable values are explicit as `unknown`.
+A bounded unbounded-verdict names the rule, runnable subset, and coverage
+deferred to the final QA gate. Trigger paths are excluded from reachability,
+and selecting 80% of a universe of at least 100 files gets the same deferral.
+The watcher repeats the file/item summary after collection.
+
 That contract — the iteration loop, why the same tree is never proved
 twice, how to read a widened selection, the CI-disagreement triage, and
 the red-main and CI-outage protocols — lives in
