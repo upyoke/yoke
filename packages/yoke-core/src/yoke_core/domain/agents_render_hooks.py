@@ -84,6 +84,18 @@ _CLAUDE_DEFAULT_ONLY_EVENTS = {
     "Stop",
     "UserPromptSubmit",
 }
+
+# Canonical verbs no Claude surface fires. The ordering registry is
+# cross-harness, so a verb only one harness reports must not reach
+# settings.json: the entry would be dead config, and Claude silently
+# disables *every* hook in the file when one entry fails validation.
+# Codex is immune by construction — it renders from its own explicit
+# verb map below rather than from the registry.
+_CLAUDE_UNSUPPORTED_EVENTS = {
+    "AgentModelReported",
+}
+
+
 def render_claude_hooks_block() -> dict:
     """Render the Claude ``settings.json`` ``hooks`` block.
 
@@ -94,6 +106,8 @@ def render_claude_hooks_block() -> dict:
     """
     block: dict[str, list[dict]] = {}
     for event in HOOK_ORDERING.keys():
+        if event in _CLAUDE_UNSUPPORTED_EVENTS:
+            continue
         entries: list[dict] = []
         if event in _CLAUDE_DEFAULT_ONLY_EVENTS:
             if _claude_chain_for(event, "_default"):
@@ -235,6 +249,12 @@ _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
 # twice per command. Subagent lifecycle events stay unwired until the
 # container-mapping guard exists in session dispatch; wiring them first
 # would feed per-subagent session ids into ensure-register.
+#
+# afterAgentThought is wired for one reason: it is the only Cursor event
+# whose payload names a concrete model. Every other event — sessionStart
+# included — reports the literal placeholder "default" on the terminal
+# agent surface, so a session registered from them alone keeps an unknown
+# model for its whole life.
 _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
     ("sessionStart", "SessionStart", None),
     ("sessionEnd", "SessionEnd", None),
@@ -245,6 +265,7 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
     ("postToolUse", "PostToolUse", "Write|Read|Task"),
     ("postToolUseFailure", "PostToolUseFailure", None),
     ("stop", "Stop", None),
+    ("afterAgentThought", "AgentModelReported", None),
 )
 
 

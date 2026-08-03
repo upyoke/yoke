@@ -122,3 +122,50 @@ def test_prompt_submit_reregisters_when_touch_fails(
     assert quiet_side_effects["register"] == [
         ("/repo", MAIN, "composer-2.5", "cursor-desktop")
     ]
+
+
+def test_session_start_refuses_to_store_the_default_placeholder(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The terminal agent names ``"default"`` — its word for "whatever the
+    user configured" — on every session-opening event. Storing that string
+    as a model would misreport the session and, because it is not a
+    recognized placeholder downstream, block the later upgrade."""
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    payload = {"session_id": MAIN, "model": "default"}
+    dispatch_cursor.run_session_start(_context(payload), "/repo")
+    assert quiet_side_effects["register"] == [
+        ("/repo", MAIN, "unknown", "cursor-cli")
+    ]
+
+
+def test_model_report_registers_the_named_model(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    payload = {
+        "hook_event_name": "afterAgentThought",
+        "session_id": MAIN,
+        "model": "cursor-grok-4.5-high",
+        "model_id": "grok-4.5",
+    }
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert quiet_side_effects["register"] == [
+        ("/repo", MAIN, "grok-4.5", "cursor-cli")
+    ]
+
+
+def test_model_report_stays_silent_without_a_real_model(
+    quiet_side_effects: dict,
+) -> None:
+    payload = {"session_id": MAIN, "model": "default"}
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert quiet_side_effects["register"] == []
+
+
+def test_model_report_stays_silent_without_a_session_id(
+    quiet_side_effects: dict,
+) -> None:
+    payload = {"model_id": "grok-4.5"}
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert quiet_side_effects["register"] == []

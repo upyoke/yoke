@@ -56,6 +56,12 @@
         "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate Stop'",
         "timeout": 30
       }
+    ],
+    "afterAgentThought": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate AgentModelReported'",
+        "timeout": 30
+      }
     ]
   }
 }

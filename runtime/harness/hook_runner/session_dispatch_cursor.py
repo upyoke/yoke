@@ -40,7 +40,20 @@ def _field(payload: dict, name: str) -> str:
 
 
 def _payload_model(payload: dict) -> str:
-    return _field(payload, "model_id") or _field(payload, "model") or "unknown"
+    """Return the concrete model the payload names, or ``""``.
+
+    Cursor sends the literal ``"default"`` — its word for "whatever the
+    user configured" — as the model on every event except
+    ``afterAgentThought``, so a placeholder value is no model at all and
+    callers must not store it as one.
+    """
+    from yoke_harness.hooks.identity import _is_placeholder_model
+
+    for key in ("model_id", "model"):
+        value = _field(payload, key)
+        if value and not _is_placeholder_model(value):
+            return value
+    return ""
 
 
 def _entrypoint() -> str:
@@ -108,7 +121,8 @@ def run_session_start(record: HookContext, root: str) -> str:
         }) + "\n"
     os.environ["YOKE_SESSION_ID"] = session_id
     err = _lifecycle.register(
-        root, session_id, _payload_model(record.payload), _entrypoint(),
+        root, session_id, _payload_model(record.payload) or "unknown",
+        _entrypoint(),
     )
     orientation = _render_orientation(session_id, root, err)
     orientation += _render_resume_block(root, session_id, "SessionStart")
@@ -133,8 +147,37 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
         return ""
     if _lifecycle.touch(root, session_id) != 0:
         _lifecycle.register(
-            root, session_id, _payload_model(record.payload), _entrypoint(),
+            root, session_id, _payload_model(record.payload) or "unknown",
+            _entrypoint(),
         )
     if _first_prompt(session_id, codex=False):
         telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
+    return ""
+
+
+def run_model_report(record: HookContext, root: str) -> str:
+    """Heal a placeholder session model once a payload names a real one.
+
+    Cursor multiplexes model providers, so the model a session actually
+    runs under is only knowable from the event that reports it — the
+    session-opening events name the ``"default"`` placeholder instead.
+    Registration is idempotent and upgrade-only: an existing row heals a
+    placeholder model in place and leaves a concrete one untouched, so
+    this needs no read-before-write and no reply body.
+
+    The sibling ``refresh_session_model_if_placeholder`` does not apply
+    here: it recovers the model from a transcript, and Cursor transcripts
+    record only roles and messages. Registration is also the transport-
+    correct path — it resolves the same way from a relayed hook as from a
+    locally dispatched one.
+    """
+    from runtime.harness.cursor import cursor_hooks_payload as _cursor
+
+    model = _payload_model(record.payload)
+    if not model:
+        return ""
+    session_id = _cursor.resolve_session_id(_payload_json(record.payload))
+    if not session_id:
+        return ""
+    _lifecycle.register(root, session_id, model, _entrypoint())
     return ""

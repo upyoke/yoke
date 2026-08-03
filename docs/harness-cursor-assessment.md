@@ -93,11 +93,26 @@ entries pin an explicit generous value.
 
 Cursor-only events with no Yoke chain today: `beforeReadFile` (payload
 carries file content — a read-gate Yoke has never had), `afterFileEdit`
-(full `edits[{old_string,new_string}]` diff), `afterAgentThought`,
-`afterAgentResponse`, `beforeMCPExecution` / `afterMCPExecution`,
-`preCompact`, Tab events. The non-interactive CLI omits exactly the
-conversational-loop events (no typed prompt, no waiting turn boundary), so a
-Cursor manifest must declare per-surface affordances, not one list.
+(full `edits[{old_string,new_string}]` diff), `afterAgentResponse`,
+`beforeMCPExecution` / `afterMCPExecution`, `preCompact`, Tab events. The
+non-interactive CLI omits exactly the conversational-loop events (no typed
+prompt, no waiting turn boundary), so a Cursor manifest must declare
+per-surface affordances, not one list.
+
+`afterAgentThought` is wired, and only for model identity. Every Cursor
+payload carries a `model` field, but on the terminal agent every event
+reports the literal `"default"` — the vendor's word for "whatever the user
+configured" — `sessionStart` included, so a session registered from those
+events alone keeps `model=unknown` for its whole life. `afterAgentThought`
+is the sole carrier of a concrete id: `model_id` (`grok-4.5`) plus a
+variant-qualified `model` (`cursor-grok-4.5-high`) and a `model_params`
+list. Yoke maps it to the `AgentModelReported` verb, whose handler
+re-registers the session so the upgrade-only healing path replaces the
+placeholder. The signal arrives after the first assistant turn, so the
+model is unknown for the opening moments of a terminal-agent session by
+construction. Nothing else recovers it: Cursor transcripts record only
+`{role, message}`, hook processes are children of the `/bin/zsh -lc`
+wrapper rather than of `cursor-agent`, and no model env var is exported.
 
 ### Decision wire format and context injection
 

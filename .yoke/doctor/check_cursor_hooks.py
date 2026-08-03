@@ -31,6 +31,8 @@ from yoke_core.engines.doctor_report import (
 # beforeShellExecution; preToolUse carries the Write|Read|Task matcher; the
 # IDE-only events (beforeSubmitPrompt, stop) still render so the IDE surface
 # gets them, even though the non-interactive terminal agent never fires them.
+# afterAgentThought is the only event that names a concrete model, so losing
+# it leaves terminal-agent sessions recorded with an unknown model.
 _REQUIRED_EVENTS: tuple[str, ...] = (
     "sessionStart",
     "sessionEnd",
@@ -41,6 +43,7 @@ _REQUIRED_EVENTS: tuple[str, ...] = (
     "postToolUse",
     "postToolUseFailure",
     "stop",
+    "afterAgentThought",
 )
 
 _HOOKS_PATH = Path("runtime/harness/cursor/hooks.json")
