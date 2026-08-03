@@ -3,8 +3,18 @@ import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
+  SEARCH_DEBOUNCE_MS,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_shell_controls.js";
+import {
   FakeDocument, byClass, response, settle,
 } from "./universe_ui_dom_test_support.mjs";
+
+// Header search debounces keystrokes, so its results land on a timer rather
+// than a microtask; settle() alone does not reach them.
+async function settleSearch() {
+  await new Promise((resolve) => setTimeout(resolve, SEARCH_DEBOUNCE_MS + 20));
+  await settle();
+}
 
 function keyEvent(key, extras = {}) {
   const event = new Event("keydown");
@@ -22,6 +32,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
+  const searchRequests = [];
   const client = {
     async call(request) {
       if (request.function === "projects.list") {
@@ -29,9 +40,10 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
           rows: [{ id: 1, slug: "yoke", name: "Yoke" }],
         } } };
       }
-      if (request.function === "items.overview.list") {
+      if (request.function === "items.search.run") {
+        searchRequests.push(request.payload);
         return { status: 200, envelope: { success: true, result: {
-          rows: [{
+          matches: [{
             id: 21, public_ref: "YOK-21", title: "Build shell",
             project_id: 1, project: "yoke", status: "implementing",
           }],
@@ -69,11 +81,37 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   const input = byClass(root, "header-search-input")[0];
   input.value = "shell";
   input.dispatchEvent(new Event("input"));
-  await settle();
+  await settleSearch();
   const links = byClass(root, "header-search-result");
   assert.equal(links.length, 2);
   assert.equal(links[0].href, "#/items/YOK-21?project=1");
   assert.equal(links[1].href, "#/sessions?project=1");
+  // Items are matched by the server, so the typed query travels with the
+  // request — the browser never filters a prefetched roster it could outgrow.
+  assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 8 });
+
+  // A query the client could not have matched locally still resolves: the
+  // item's own text says nothing about the number the operator typed.
+  input.value = "YOK-21";
+  input.dispatchEvent(new Event("input"));
+  await settleSearch();
+  assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 8 });
+  assert.equal(byClass(root, "header-search-result")[0].href,
+    "#/items/YOK-21?project=1");
+
+  // A burst of keystrokes settles into one request rather than one each.
+  const beforeBurst = searchRequests.length;
+  for (const value of ["hea", "head", "heade", "header"]) {
+    input.value = value;
+    input.dispatchEvent(new Event("input"));
+  }
+  await settleSearch();
+  assert.equal(searchRequests.length - beforeBurst, 1);
+  assert.equal(searchRequests.at(-1).keywords, "header");
+
+  input.value = "shell";
+  input.dispatchEvent(new Event("input"));
+  await settleSearch();
 
   input.dispatchEvent(keyEvent("ArrowDown"));
   input.dispatchEvent(keyEvent("Enter"));

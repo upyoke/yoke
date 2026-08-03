@@ -9,7 +9,9 @@ const DEFAULT_DOCS_URL = "https://github.com/upyoke/yoke/tree/main/docs";
 // theirs bounds how much of that roster the browser holds.
 const SEARCH_RESULT_LIMIT = 8;
 const SESSION_INDEX_LIMIT = 500;
-const SEARCH_DEBOUNCE_MS = 150;
+// Exported so a caller waiting for search results waits on the real interval
+// rather than a copy of it.
+export const SEARCH_DEBOUNCE_MS = 150;
 let shellControlSequence = 0;
 
 function el(documentNode, tag, className, text) {
@@ -91,7 +93,7 @@ function createSearch(documentNode, client) {
     // Drop any pending query so a dismissal is not undone by a keystroke that
     // has not been sent yet.
     if (debounceTimer !== null) {
-      windowNode.clearTimeout(debounceTimer);
+      clearTimeout(debounceTimer);
       debounceTimer = null;
     }
     renderToken += 1;
@@ -205,8 +207,8 @@ function createSearch(documentNode, client) {
   };
   // Each keystroke now costs a request, so let a burst of them settle first.
   const scheduleUpdate = () => {
-    if (debounceTimer !== null) windowNode.clearTimeout(debounceTimer);
-    debounceTimer = windowNode.setTimeout(() => {
+    if (debounceTimer !== null) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
       debounceTimer = null;
       update();
     }, SEARCH_DEBOUNCE_MS);
