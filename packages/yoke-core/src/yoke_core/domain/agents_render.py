@@ -1,30 +1,11 @@
-"""Universal harness substrate renderer.
+"""Render harness adapters from canonical Yoke source.
 
-Generates every harness adapter file from canonical Yoke source: the
-per-harness agent adapter trees (Claude ``.md``, Codex ``.toml``, Cursor
-``.md``), hook configs (Claude ``settings.json``, Codex and Cursor
-``hooks.json``), and the Yoke-shaped ``manifest.json`` per harness
-directory under ``runtime/harness/{id}/``, plus the repo-root native
-symlinks (``.codex/agents``, ``.cursor/agents``).
-
-Per-output rendering lives in sibling modules
-(``agents_render_subagent_hooks`` owns the per-agent Claude ``.md``
-rendering; ``agents_render_claude`` / ``agents_render_codex`` /
-``agents_render_cursor`` / ``agents_render_hooks`` /
-``agents_render_manifests`` / ``agents_render_native_links`` own the
-substrate-wide outputs). This orchestrator wires them into the public CLI
-surface.
-
-Every public *writer* (``write_all``, ``write_all_claude``) requires
-``target_root: Path`` as a keyword-only argument with no default. Reader
-helpers funnel through the strict ``require_reader_root`` resolver so
-silent ambient-cwd resolution is no longer reachable from the public
-reader hot path. ``_atomic_write`` enforces two write-time invariants:
-(a) ``workspace_authority.assert_target_under_session_work_authority``
-refuses targets outside the calling session's work-claim authority, and
-(b) ``assert_seed_source_under_target_root`` refuses writes when the
-imported seed module was loaded from a different checkout than the
-resolved ``target_root`` (Coupling B).
+Writes per-harness agents, configs, and manifests under
+``runtime/harness/{id}/`` plus repo-root native surfaces (``.codex/agents``,
+``.cursor/agents``, and materialized ``.cursor/hooks.json``). Shape-specific
+renderers live in sibling modules. Writers require ``target_root``; readers
+use a strict resolver; atomic writes enforce work-claim and seed-root
+authority.
 """
 
 from __future__ import annotations
@@ -62,17 +43,17 @@ from yoke_core.domain.agents_render_field_note import (
 )
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
-    CLAUDE_SPEC_KEY_ORDER,
-    is_bash_capable_subagent,
-    load_canonical,
-    load_claude_spec,
+    CLAUDE_SPEC_KEY_ORDER,  # noqa: F401 - preserve the renderer's public exports
+    is_bash_capable_subagent,  # noqa: F401 - preserve the renderer's public exports
+    load_canonical,  # noqa: F401 - preserve the renderer's public exports
+    load_claude_spec,  # noqa: F401 - preserve the renderer's public exports
     render_claude_agent,
-    render_claude_subagent_hooks_block,
+    render_claude_subagent_hooks_block,  # noqa: F401 - preserve the renderer's public exports
 )
 from yoke_core.domain.agents_render_workspace import (
     require_reader_root,
-    resolve_target_root_for_cli,
-    _repo_root,  # re-exported for CLI/legacy consumers only; reader hot path uses require_reader_root
+    resolve_target_root_for_cli,  # noqa: F401 - preserve the renderer's public exports
+    _repo_root,  # noqa: F401 - re-exported for CLI/legacy consumers; reader hot path uses require_reader_root
 )
 from yoke_core.domain.workspace_authority import (
     assert_seed_source_under_target_root,
@@ -97,6 +78,7 @@ CODEX_HOOKS_PATH = Path("runtime") / "harness" / "codex" / "hooks.json"
 CODEX_MANIFEST_PATH = Path("runtime") / "harness" / "codex" / "manifest.json"
 CURSOR_HOOKS_PATH = Path("runtime") / "harness" / "cursor" / "hooks.json"
 CURSOR_MANIFEST_PATH = Path("runtime") / "harness" / "cursor" / "manifest.json"
+CURSOR_NATIVE_HOOKS_PATH = Path(".cursor") / "hooks.json"
 
 # The seven primary Yoke agents.
 AGENTS = [
@@ -223,6 +205,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
         )
     outputs.append((CURSOR_HOOKS_PATH, render_cursor_hooks_json()))
     outputs.append((CURSOR_MANIFEST_PATH, render_cursor_manifest_json()))
+    outputs.append((CURSOR_NATIVE_HOOKS_PATH, render_cursor_hooks_json()))
     return outputs
 
 
@@ -305,6 +288,9 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
         outputs = []
     for rel_path, rendered in outputs:
         out_path = root / rel_path
+        if rel_path == CURSOR_NATIVE_HOOKS_PATH and out_path.is_symlink():
+            drift.append(f"invalid symlink: {rel_path}")
+            continue
         if not out_path.exists():
             drift.append(f"missing: {rel_path}")
             continue

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from yoke_core.domain.agents_render import detect_substrate_drift, write_all
 from yoke_core.domain.agents_render_claude import render_claude_settings_json
+from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
 from yoke_core.domain.agents_render_project_install import (
     detect_project_install_drift,
     write_project_install,
@@ -43,6 +44,19 @@ def test_project_install_dereferences_claude_reference_symlink(
     assert reference.is_file()
     assert not reference.is_symlink()
     assert "Tester Browser Scenario Execution" in reference.read_text()
+
+
+def test_external_install_materializes_cursor_hooks_file(tmp_path: Path) -> None:
+    target = tmp_path / "external"
+    target.mkdir()
+
+    write_project_install(target_root=target)
+
+    hooks = target / ".cursor" / "hooks.json"
+    assert hooks.is_file()
+    assert not hooks.is_symlink()
+    assert hooks.read_text(encoding="utf-8") == render_cursor_hooks_json()
+    assert detect_project_install_drift(target_root=target) == []
 
 
 def test_write_all_routes_project_install_targets(tmp_path: Path) -> None:

@@ -123,5 +123,5 @@ def test_prompt_submit_reregisters_when_touch_fails(
     payload = {"session_id": MAIN, "model": "composer-2.5"}
     dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
     assert quiet_side_effects["register"] == [
-        ("/repo", MAIN, "composer-2.5", "cursor-ide")
+        ("/repo", MAIN, "composer-2.5", "cursor-desktop")
     ]

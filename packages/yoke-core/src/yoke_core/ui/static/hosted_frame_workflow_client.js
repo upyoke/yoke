@@ -48,8 +48,14 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
             Math.max(...current.versions.map((row) => Number(row.version))) + 1;
           const publishedAt = new Date().toISOString();
           const definition = structuredClone(current.definition);
-          definition.policies.path_claims =
-            request.payload.path_claims_default ? "required" : "optional";
+          const defaultKey = [
+            "file_budget_default",
+            "path_claims_default",
+            "path_survey_default",
+          ].find((key) => request.payload[key] !== undefined);
+          const policyKey = defaultKey.replace("_default", "");
+          definition.policies[policyKey] =
+            request.payload[defaultKey] ? "required" : "optional";
           current.current_version = version;
           current.published_at = publishedAt;
           current.definition = definition;
@@ -65,7 +71,7 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
             version,
             version_id: version,
             definition_digest: `${current.id}-v${version}-fixture`,
-            path_claims_default: request.payload.path_claims_default,
+            [defaultKey]: request.payload[defaultKey],
           });
         }
       }

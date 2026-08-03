@@ -69,6 +69,28 @@ def _manifest_root(root: Path) -> None:
     )
 
 
+def _cursor_manifest_root(root: Path) -> None:
+    _manifest_root(root)
+    manifest_dir = root / "runtime" / "harness" / "cursor"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    (manifest_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "harness_id": "cursor",
+                "worktree_hook_enablement": {
+                    "config_path": ".cursor/hooks.json",
+                    "operations": ["verify_hook_config"],
+                    "environment": {
+                        "root_variable": "YOKE_ROOT",
+                        "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _run(conn, monkeypatch, root: Path):
     _manifest_root(root)
     monkeypatch.setattr(mod._base, "_resolve_repo_root", lambda: str(root))
@@ -135,3 +157,27 @@ def test_skips_when_session_telemetry_schema_is_absent(monkeypatch, tmp_path: Pa
         assert _run(connection, monkeypatch, tmp_path).result == "SKIP"
     finally:
         connection.close()
+
+
+def test_warns_when_cursor_config_is_present_but_symlinked(
+    conn,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    _cursor_manifest_root(tmp_path)
+    canonical = tmp_path / "runtime" / "harness" / "cursor" / "hooks.json"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text('{"version": 1, "hooks": {}}\n', encoding="utf-8")
+    native = tmp_path / ".cursor"
+    native.mkdir()
+    (native / "hooks.json").symlink_to(
+        "../runtime/harness/cursor/hooks.json"
+    )
+    monkeypatch.setattr(mod._base, "_resolve_repo_root", lambda: str(tmp_path))
+
+    records = RecordCollector()
+    mod.hc_hooks_expected_but_silent(conn, DoctorArgs(), records)
+
+    assert records.results[0].result == "WARN"
+    assert "cursor" in records.results[0].detail
+    assert "zero loaded hooks" in records.results[0].detail

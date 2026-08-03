@@ -137,12 +137,13 @@ def _add_edge(conn, *, dependent: int, blocking: int, gate_point: str):
 def _seed_active_claim(conn, *, item_id, actor_id, target_id) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', 'snap-base') "
         "RETURNING id",
-        (actor_id, item_id),
+        (item_id, actor_id),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -159,11 +160,12 @@ def _seed_blocked_claim(
 ) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, blocked_reason) "
-        "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+        "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (actor_id, item_id, blocked_reason),
+        (item_id, actor_id, blocked_reason),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(

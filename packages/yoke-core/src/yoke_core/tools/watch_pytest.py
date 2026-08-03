@@ -254,15 +254,14 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
         return 2
 
-    if ns.allow_tree_mismatch:
-        notice = verification_tree_binding.mismatch_notice(surface=prog)
-        if notice is not None:
-            print(notice, file=sys.stderr)
-    else:
-        binding_refusal = verification_tree_binding.check(surface=prog)
-        if binding_refusal is not None:
-            print(binding_refusal, file=sys.stderr)
-            return 3
+    binding = verification_tree_binding.evaluate_run(
+        surface=prog, allow_mismatch=ns.allow_tree_mismatch,
+    )
+    if binding.notice is not None:
+        print(binding.notice, file=sys.stderr)
+    if binding.refusal is not None:
+        print(binding.refusal, file=sys.stderr)
+        return 3
 
     # Parallel-by-default: inject ``-n auto`` unless caller passed
     # ``--no-parallel`` or already supplied ``-n``/``--numprocesses``.

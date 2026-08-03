@@ -70,7 +70,8 @@ class TestComposeOverlapDenialWithConflicts:
                 state TEXT NOT NULL,
                 mode TEXT NOT NULL DEFAULT 'exclusive',
                 integration_target TEXT NOT NULL,
-                item_id INTEGER
+                owner_kind TEXT,
+                owner_item_id INTEGER
             );
             CREATE TABLE path_claim_targets (
                 claim_id INTEGER NOT NULL,
@@ -96,7 +97,9 @@ class TestComposeOverlapDenialWithConflicts:
         conn.execute("INSERT INTO path_targets VALUES (11, 'b.py', 'file', NULL, 'observed')")
         # Conflicting active claim covering both targets.
         conn.execute(
-            "INSERT INTO path_claims VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO path_claims "
+            "(id, state, mode, integration_target, owner_kind, owner_item_id) "
+            "VALUES (%s, %s, %s, %s, 'item', %s)",
             (200, "active", "exclusive", "main", 999),
         )
         conn.execute(

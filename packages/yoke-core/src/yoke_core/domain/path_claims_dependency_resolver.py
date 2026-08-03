@@ -36,7 +36,8 @@ def _placeholder(conn: Any) -> str:
 def _claim_owning_item(conn: Any, claim_id: int) -> Optional[int]:
     p = _placeholder(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None or row[0] is None:

@@ -98,7 +98,63 @@ def resolve_qa_requirement_subject(
     )
 
 
+def qa_subject_claim_verdict(
+    target: Any,
+    actor_session: str,
+    payload: Any,
+) -> tuple[bool, Optional[str], Optional[str]]:
+    """Decide whether ``actor_session`` may write against a QA subject.
+
+    Returns ``(allowed, error_code, error_message)``. A deployment-run
+    subject is authorized by the run's own project scope. An item subject
+    needs the session's live item claim — or the claim the run bound when
+    it started, which is what lets an hour-long gate record the verdict it
+    earned after the stale-session sweep reclaimed the live one.
+    """
+    if target.kind == "deployment_run" and target.deployment_run_id:
+        return True, None, None
+    target_id = target.item_id if target.kind == "item" else None
+    if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
+        (
+            target_id,
+            deployment_run_id,
+            err_code,
+            err_msg,
+        ) = resolve_qa_requirement_subject(target.qa_requirement_id)
+        if err_code is not None:
+            return False, err_code, err_msg or ""
+        if deployment_run_id is not None:
+            return True, None, None
+    if target_id is None:
+        return (
+            False,
+            "claim_required",
+            "QA operation target has no item or deployment-run subject",
+        )
+    # Late import: tests patch ``who_claims_for_item`` on the dispatcher
+    # claim module, so the lookup has to resolve through that attribute at
+    # call time rather than be bound here at import time.
+    from yoke_core.domain.qa_start_bound_authority import payload_grants_authority
+    from yoke_core.domain.yoke_function_dispatch_claims import who_claims_for_item
+
+    row = who_claims_for_item(int(target_id))
+    if row and str(row.get("session_id") or "") == actor_session:
+        return True, None, None
+    if payload_grants_authority(
+        payload,
+        session_id=actor_session,
+        item_id=int(target_id),
+    ):
+        return True, None, None
+    return (
+        False,
+        "claim_required",
+        f"no active claim by session {actor_session!r} on item {target_id}",
+    )
+
+
 __all__ = [
+    "qa_subject_claim_verdict",
     "resolve_qa_requirement_item_id",
     "resolve_qa_requirement_subject",
 ]

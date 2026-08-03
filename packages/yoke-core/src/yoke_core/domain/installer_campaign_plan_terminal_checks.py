@@ -31,6 +31,9 @@ from yoke_core.domain.installer_campaign_plan_common import (
 )
 
 
+_DESTINATION_PICKER_TEXT = ("Where should this Yoke live?",)
+
+
 def _hosted_completion_actions(
     *,
     path_needs_repair: bool,
@@ -60,7 +63,11 @@ def _hosted_completion_actions(
         actions.append(transition("continue-path", "Enter"))
     actions.extend(
         [
-            action("destination-picker-frame"),
+            action(
+                "destination-picker-frame",
+                ready_text=_DESTINATION_PICKER_TEXT,
+                ready_timeout_seconds=180,
+            ),
             transition(
                 "destination-picker",
                 *CHOOSE_STAGE_KEYS,
@@ -113,7 +120,7 @@ def _cold_start_config(
         expected_text=(
             "Starting Yoke onboard",
             *path_text,
-            "Where should this Yoke live?",
+            *_DESTINATION_PICKER_TEXT,
             *BROWSER_APPROVAL_TEXT,
             "Yoke token connected.",
             *REVIEW_TEXT,

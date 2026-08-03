@@ -28,7 +28,7 @@ runtime/harness/
     # Python entrypoints live under runtime.harness.codex.*
   cursor/                 # Cursor adapter
     manifest.json         # Adapter manifest (identity, affordances, limitations)
-    hooks.json            # Hook configuration (surfaced via .cursor/hooks.json symlink)
+    hooks.json            # Hook configuration (copied to the source-dev .cursor surface)
     agents/               # Rendered Cursor custom-agent adapters (yoke-*.md, surfaced via .cursor/agents)
     # Python entrypoints live under runtime.harness.cursor.*
   {future-harness}/       # Future adapters follow the same pattern

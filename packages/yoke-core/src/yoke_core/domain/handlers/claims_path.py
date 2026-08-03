@@ -63,7 +63,8 @@ def _project_for_claim(conn: Any, claim_id: int) -> int:
     p = _p(conn)
     row = conn.execute(
         "SELECT items.project_id FROM path_claims "
-        "JOIN items ON items.id = path_claims.item_id "
+        "JOIN items ON path_claims.owner_kind = 'item' "
+        "AND items.id = path_claims.owner_item_id "
         f"WHERE path_claims.id = {p}",
         (int(claim_id),),
     ).fetchone()
@@ -174,7 +175,8 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
                 if body.allow_planned:
                     p = _p(conn)
                     row = conn.execute(
-                        f"SELECT item_id FROM path_claims WHERE id = {p}",
+                        f"SELECT owner_item_id FROM path_claims WHERE id = {p} "
+                        "AND owner_kind = 'item'",
                         (int(body.claim_id),),
                     ).fetchone()
                     item_id_attr = (

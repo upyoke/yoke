@@ -78,7 +78,10 @@ _SESSION_OFFER_SCHEMA_DDL = """
 
     CREATE TABLE IF NOT EXISTS path_claims (
         id INTEGER PRIMARY KEY,
-        work_claim_id INTEGER,
+        owner_kind TEXT,
+        owner_item_id INTEGER,
+        owner_session_id TEXT,
+        owner_work_claim_id INTEGER,
         state TEXT,
         released_at TEXT,
         cancelled_at TEXT,
@@ -107,7 +110,6 @@ _SESSION_OFFER_SCHEMA_DDL = """
         duration_ms INTEGER,
         exit_code INTEGER,
         trace_id TEXT,
-        parent_id TEXT,
         anomaly_flags TEXT,
         tool_use_id TEXT,
         turn_id TEXT,

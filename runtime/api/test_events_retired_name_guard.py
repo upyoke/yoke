@@ -55,7 +55,7 @@ def _create_events_table(conn) -> None:
             project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER,
-            trace_id TEXT, parent_id TEXT, anomaly_flags TEXT,
+            trace_id TEXT, anomaly_flags TEXT,
             tool_use_id TEXT, turn_id TEXT, hook_event_name TEXT,
             envelope TEXT,
             created_at TEXT NOT NULL

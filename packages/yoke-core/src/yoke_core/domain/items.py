@@ -101,7 +101,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("--workflow", default=None)
     p_ins.add_argument("--status", default=None)
     p_ins.add_argument("--priority", default=None)
-    p_ins.add_argument("--flow", default=None)
     p_ins.add_argument("--rework-count", type=int, default=None)
     p_ins.add_argument("--frozen", type=int, default=None)
     p_ins.add_argument("--blocked", type=int, default=None)
@@ -177,7 +176,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             _cli_field_map = {
                 "title": args.title, "workflow": args.workflow,
                 "status": args.status, "priority": args.priority,
-                "flow": args.flow, "rework_count": args.rework_count,
+                "rework_count": args.rework_count,
                 "frozen": args.frozen,
                 "blocked": args.blocked, "blocked_reason": args.blocked_reason,
                 "github_issue": args.github_issue,

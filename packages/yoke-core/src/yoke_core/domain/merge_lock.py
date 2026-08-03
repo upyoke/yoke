@@ -29,7 +29,7 @@ from typing import Any, Optional, Sequence
 from yoke_core.domain import db_backend, runtime_settings
 from yoke_core.domain import merge_lock_contention as contention
 from yoke_core.domain.merge_lock_contention import LockScope
-from yoke_core.domain import merge_lock_transport as _transport
+from yoke_core.domain import control_plane_transport as _transport
 
 
 # ---------------------------------------------------------------------------

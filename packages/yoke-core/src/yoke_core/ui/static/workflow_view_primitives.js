@@ -20,6 +20,10 @@ const POLICY_VALUE_COPY = {
     required_per_task: "required per task",
     optional: "optional",
   },
+  path_survey: {
+    required: "on",
+    optional: "off",
+  },
   file_budget: {
     required: "required",
     required_per_task: "required per task",
@@ -246,7 +250,7 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", spec.title);
   const heading = el(documentNode, "div", "workflow-dialog-heading");
-  if (/^Turn (?:on|off) path claims/.test(spec.title)) {
+  if (/^Turn (?:on|off) path (?:claims|survey)/.test(spec.title)) {
     heading.appendChild(el(
       documentNode, "span", "workflow-dialog-lock", "🔒",
     ));

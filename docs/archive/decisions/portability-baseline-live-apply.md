@@ -40,8 +40,7 @@ YOK-1476 amendment.
   `events_envelope_backup`, `item_dependencies`, `item_sections`, `merge_locks`,
   `ouroboros_entries`, `project_capabilities`, Project Structure tables, `projects`,
   `qa_artifacts`, `qa_requirements`, `qa_runs`, `release_entries`,
-  `severity_config`, `shepherd_verdicts`, `sites`, `work_claims`,
-  `wrapup_reports`.
+  `severity_config`, `shepherd_verdicts`, `sites`, `work_claims`.
 - **Intentionally excluded:** `migration_audit` — the harness writes into
   this table as part of its own lifecycle, so rebuilding it during a governed
   migration would mutate the very counter the harness is verifying. Its

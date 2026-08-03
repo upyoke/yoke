@@ -75,3 +75,37 @@ def test_product_local_subset_keeps_snapshot_deny(
     assert result.denied is True
     envelope = json.loads(result.stdout)
     assert envelope["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_product_local_subset_denies_in_cursor_wire_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cursor consumes its own verdict JSON: the deny narrative rides the
+    message fields as plain text, never a nested envelope."""
+    module_id = "yoke_core.domain.lint_workspace_cwd_match"
+    monkeypatch.setattr(
+        local_subset,
+        "_local_modules",
+        lambda *_a, **_k: [module_id],
+    )
+    monkeypatch.setitem(
+        local_subset._POLICY_EVALUATORS,
+        module_id,
+        lambda _payload: PolicyResult(DENY, "blocked by local policy"),
+    )
+
+    result = local_subset.evaluate_local_subset(
+        "PreToolUse",
+        '{"tool_name": "Bash"}',
+        "cursor",
+        None,
+        _deadline(),
+        lint_config_snapshot={"lint_workspace_cwd_match": {"mode": "deny"}},
+    )
+
+    assert result.denied is True
+    assert result.exit_code == 0
+    envelope = json.loads(result.stdout)
+    assert envelope["permission"] == "deny"
+    assert envelope["agent_message"] == "blocked by local policy"
+    assert envelope["user_message"] == "blocked by local policy"

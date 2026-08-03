@@ -81,7 +81,9 @@ def _register_claim(conn, *, item_id: int) -> int:
     )
     assert rc == 0
     row = conn.execute(
-        "SELECT id FROM path_claims WHERE item_id = %s ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM path_claims "
+        "WHERE owner_kind = 'item' AND owner_item_id = %s "
+        "ORDER BY id DESC LIMIT 1",
         (item_id,),
     ).fetchone()
     return int(row[0])
@@ -155,9 +157,10 @@ class TestWidenItemResolution:
         # planned/active row on the same item to simulate ambiguity.
         first = _register_claim(patch_conn, item_id=item_id)
         patch_conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, item_id, "
+            "INSERT INTO path_claims "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
             "integration_target, registered_at) "
-            "VALUES ('active', 'exclusive', 1, %s, 'main', "
+            "VALUES ('active', 'exclusive', 'item', %s, 1, 'main', "
             "'2026-05-01T00:00:00Z')",
             (item_id,),
         )

@@ -49,7 +49,7 @@ _REST_DDL = """
             item_worktree_id INTEGER, context_estimate TEXT, dependencies TEXT,
             status TEXT, dispatch_attempts INTEGER, body TEXT,
             github_issue TEXT, branch TEXT, worktree_path TEXT,
-            blocked_by TEXT, max_attempts INTEGER, agent_id TEXT,
+            max_attempts INTEGER, agent_id TEXT,
             last_heartbeat TEXT
         );
         CREATE TABLE item_worktrees (
@@ -138,7 +138,7 @@ _REST_DDL = """
             actor_id INTEGER, environment TEXT, service TEXT, project_id INTEGER,
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER, trace_id TEXT,
-            parent_id TEXT, anomaly_flags TEXT, envelope TEXT, created_at TEXT
+            anomaly_flags TEXT, envelope TEXT, created_at TEXT
         );
 
         CREATE TABLE item_status_transitions (

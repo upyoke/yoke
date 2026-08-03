@@ -25,6 +25,11 @@ VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
 BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
 INVALID_BROWSER_METHOD_LABEL = "invalid Browser method"
 
+#: Ceiling on the timeout a registered Command case may declare, in
+#: seconds. No single gate run may be in flight longer than this, so it
+#: also bounds how long a run's start-bound recording authority lives.
+MAX_CASE_COMMAND_TIMEOUT_SECONDS = 7200
+
 
 def is_browser_method_requirement(method_id: Optional[str]) -> bool:
     """Return whether a requirement uses Browser-method execution."""

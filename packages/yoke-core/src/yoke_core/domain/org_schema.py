@@ -125,19 +125,33 @@ def rename_org(conn: Any, slug: str, name: str) -> None:
 
 
 def seed_default_org(conn: Any) -> int:
-    """Ensure the default org exists and owns every unassigned project.
+    """Ensure the universe has one org and assign every unowned project to it.
 
-    Returns the default org id.
+    A hosted/imported universe may intentionally carry a non-default slug.  Its
+    existing singleton is authoritative; inserting a second ``default`` row
+    would split one universe into two organization scopes.  Only an empty
+    universe receives the neutral default identity.
     """
     p = _p(conn)
-    conn.execute(
-        "INSERT INTO organizations (slug, name, created_at) "
-        f"VALUES ({p}, {p}, {p}) "
-        "ON CONFLICT(slug) DO NOTHING",
-        (DEFAULT_ORG_SLUG, DEFAULT_ORG_NAME, _now()),
-    )
-    org_id = org_id_by_slug(conn, DEFAULT_ORG_SLUG)
-    assert org_id is not None
+    rows = conn.execute(
+        "SELECT id FROM organizations ORDER BY id"
+    ).fetchall()
+    if len(rows) > 1:
+        raise AssertionError(
+            "universe requires exactly one organization identity card; "
+            f"found {len(rows)}"
+        )
+    if rows:
+        org_id = int(rows[0][0])
+    else:
+        conn.execute(
+            "INSERT INTO organizations (slug, name, created_at) "
+            f"VALUES ({p}, {p}, {p}) "
+            "ON CONFLICT(slug) DO NOTHING",
+            (DEFAULT_ORG_SLUG, DEFAULT_ORG_NAME, _now()),
+        )
+        org_id = org_id_by_slug(conn, DEFAULT_ORG_SLUG)
+        assert org_id is not None
     _sync_org_identity_sequence(conn)
     conn.execute(
         f"UPDATE projects SET org_id = {p} WHERE org_id IS NULL", (org_id,)
@@ -157,11 +171,17 @@ def ensure_org_identity_card(
     renamed to it, otherwise the existing name stands (the seeded neutral
     default on a fresh universe). Returns ``{"slug": ..., "name": ...}``.
     """
-    seed_default_org(conn)
+    org_id = seed_default_org(conn)
     if name:
-        rename_org(conn, DEFAULT_ORG_SLUG, name)
+        p = _p(conn)
+        conn.execute(
+            f"UPDATE organizations SET name = {p} WHERE id = {p}",
+            (name, org_id),
+        )
+        conn.commit()
     row = conn.execute(
-        "SELECT slug, name FROM organizations ORDER BY id LIMIT 1"
+        f"SELECT slug, name FROM organizations WHERE id = {_p(conn)}",
+        (org_id,),
     ).fetchone()
     return {"slug": str(row[0]), "name": str(row[1])}
 

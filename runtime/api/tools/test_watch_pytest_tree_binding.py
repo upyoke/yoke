@@ -16,18 +16,24 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 from yoke_core.tools import run_tests, watch_pytest
 
 REFUSAL = "REFUSAL: cd to the claimed worktree"
 NOTICE = "NOTICE: running the other tree"
 
 
-def _refuse(monkeypatch: pytest.MonkeyPatch) -> None:
+def _bind(module, monkeypatch: pytest.MonkeyPatch, **verdict) -> None:
+    """Pin what the tree binding tells *module* about this run."""
     monkeypatch.setattr(
-        watch_pytest.verification_tree_binding,
-        "check",
-        lambda **kwargs: REFUSAL,
+        module.verification_tree_binding,
+        "evaluate_run",
+        lambda **kwargs: TreeBindingVerdict(**verdict),
     )
+
+
+def _refuse(monkeypatch: pytest.MonkeyPatch) -> None:
+    _bind(watch_pytest, monkeypatch, refusal=REFUSAL)
 
 
 class TestWatchPytestBinding:
@@ -47,12 +53,7 @@ class TestWatchPytestBinding:
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
         tmp_path: Path,
     ) -> None:
-        _refuse(monkeypatch)
-        monkeypatch.setattr(
-            watch_pytest.verification_tree_binding,
-            "mismatch_notice",
-            lambda **kwargs: NOTICE,
-        )
+        _bind(watch_pytest, monkeypatch, notice=NOTICE)
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         from yoke_core.tools import _pytest_parallel
 
@@ -76,12 +77,7 @@ class TestWatchPytestBinding:
     ) -> None:
         # ``passthrough`` is a REMAINDER list, so a flag after ``--``
         # would otherwise reach pytest verbatim and fail collection.
-        _refuse(monkeypatch)
-        monkeypatch.setattr(
-            watch_pytest.verification_tree_binding,
-            "mismatch_notice",
-            lambda **kwargs: NOTICE,
-        )
+        _bind(watch_pytest, monkeypatch, notice=NOTICE)
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         from yoke_core.tools import _pytest_parallel
 
@@ -99,14 +95,10 @@ class TestWatchPytestBinding:
         assert rc == 0
         assert NOTICE in capsys.readouterr().err
 
-    def test_main_passes_through_when_check_returns_none(
+    def test_main_passes_through_on_a_clean_verdict(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
     ) -> None:
-        monkeypatch.setattr(
-            watch_pytest.verification_tree_binding,
-            "check",
-            lambda **kwargs: None,
-        )
+        _bind(watch_pytest, monkeypatch)
         monkeypatch.setenv("TMPDIR", str(tmp_path))
         from yoke_core.tools import _pytest_parallel
 
@@ -141,11 +133,7 @@ class TestRunTestsBinding:
         tmp_path: Path,
     ) -> None:
         launched: list[object] = []
-        monkeypatch.setattr(
-            run_tests.verification_tree_binding,
-            "check",
-            lambda **kwargs: REFUSAL,
-        )
+        _bind(run_tests, monkeypatch, refusal=REFUSAL)
         monkeypatch.setattr(
             run_tests.process_group_reaping,
             "popen_in_process_group",
@@ -156,22 +144,23 @@ class TestRunTestsBinding:
         assert launched == []
         assert REFUSAL in capsys.readouterr().err
 
-    def test_check_receives_the_resolved_root(
+    def test_binding_is_judged_against_the_resolved_root(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
     ) -> None:
         # The tree pytest will collect from is the resolved repo root,
         # not the directory the caller happened to be standing in.
         seen: dict[str, object] = {}
 
-        def _check(**kwargs):
+        def _evaluate(**kwargs):
             seen.update(kwargs)
-            return REFUSAL
+            return TreeBindingVerdict(refusal=REFUSAL)
 
         monkeypatch.setattr(
-            run_tests.verification_tree_binding, "check", _check,
+            run_tests.verification_tree_binding, "evaluate_run", _evaluate,
         )
         run_tests.run(["tests"], repo_root=tmp_path)
         assert seen["tree"] == str(tmp_path.resolve())
+        assert seen["allow_mismatch"] is False
 
     def test_allow_flag_runs_and_prints_the_notice(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
@@ -187,16 +176,7 @@ class TestRunTestsBinding:
             launched.append(args)
             return _Proc()
 
-        monkeypatch.setattr(
-            run_tests.verification_tree_binding,
-            "check",
-            lambda **kwargs: REFUSAL,
-        )
-        monkeypatch.setattr(
-            run_tests.verification_tree_binding,
-            "mismatch_notice",
-            lambda **kwargs: NOTICE,
-        )
+        _bind(run_tests, monkeypatch, notice=NOTICE)
         monkeypatch.setattr(
             run_tests.process_group_reaping,
             "popen_in_process_group",

@@ -64,6 +64,10 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
     )
     for config in cold_configs.values():
         actions = {action["step"]: action for action in config["actions"]}
+        assert actions["destination-picker-frame"]["ready_text"] == [
+            "Where should this Yoke live?",
+        ]
+        assert actions["destination-picker-frame"]["ready_timeout_seconds"] == 180
         assert tuple(actions["destination-picker"]["keys"]) == selection_keys(
             DESTINATION_ROWS,
             HOSTED_STAGE_ROW,

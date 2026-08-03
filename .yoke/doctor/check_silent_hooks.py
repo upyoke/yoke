@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
 import yoke_core.engines.doctor_report as _base
@@ -14,6 +15,9 @@ from yoke_core.domain.worktree_harness_enablement import (
     load_hook_enablement_contributions,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_project_checks.check_cursor_hooks import (
+    cursor_hook_config_diagnostics,
+)
 from yoke_project_checks._declare import self_project_checks
 
 
@@ -96,6 +100,19 @@ def _expected_by_harness(repo_root: str) -> Dict[str, HookEnablementContribution
     }
 
 
+def _static_config_findings(
+    repo_root: str,
+    expected: Dict[str, HookEnablementContribution],
+) -> List[str]:
+    """Detect a Cursor config that is present but cannot be loaded."""
+    if "cursor" not in expected:
+        return []
+    return [
+        f"cursor: {finding}"
+        for finding in cursor_hook_config_diagnostics(Path(repo_root))
+    ]
+
+
 def hc_hooks_expected_but_silent(
     conn: Any,
     args: DoctorArgs,
@@ -109,12 +126,23 @@ def hc_hooks_expected_but_silent(
 
     try:
         expected = _expected_by_harness(str(repo_root))
+        static_findings = _static_config_findings(str(repo_root), expected)
         sessions = _active_silent_sessions(conn)
     except db_backend.database_error_types(conn) as exc:
         rec.record(HC_SLUG, HC_LABEL, "SKIP", f"hook silence scan failed: {exc}")
         return
 
     if sessions is None:
+        if static_findings:
+            rec.record(
+                HC_SLUG,
+                HC_LABEL,
+                "WARN",
+                "\n".join(static_findings)
+                + "\nCursor hook config is statically unloadable; "
+                "the harness may report zero loaded hooks.",
+            )
+            return
         rec.record(
             HC_SLUG,
             HC_LABEL,
@@ -137,7 +165,7 @@ def hc_hooks_expected_but_silent(
         if executor in expected:
             grouped[executor].append(session_id)
 
-    if not grouped:
+    if not grouped and not static_findings:
         rec.record(
             HC_SLUG,
             HC_LABEL,
@@ -148,6 +176,7 @@ def hc_hooks_expected_but_silent(
         return
 
     detail: List[str] = []
+    detail.extend(static_findings)
     for executor in sorted(grouped):
         contribution = expected[executor]
         affordances = ", ".join(contribution.affordances) or "native hook chain"
@@ -157,8 +186,9 @@ def hc_hooks_expected_but_silent(
             f"manifest expects {affordances}"
         )
     detail.append(
-        "A session with tool activity and no hook telemetry is a lane "
-        "delivery gap; repair the harness lane enablement before retrying."
+        "A session with tool activity and no hook telemetry, or a static "
+        "Cursor config that the harness cannot load, is a lane delivery gap; "
+        "repair the harness lane enablement before retrying."
     )
     rec.record(HC_SLUG, HC_LABEL, "WARN", "\n".join(detail))
 

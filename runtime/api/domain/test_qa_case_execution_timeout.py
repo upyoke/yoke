@@ -10,6 +10,7 @@ from yoke_core.domain import (
     qa_case_command_stream,
     qa_case_execution,
     qa_case_execution_cli,
+    qa_case_worktree_run,
     test_gate_timeout,
 )
 
@@ -63,7 +64,7 @@ def _execute(
         ),
         mock.patch.object(qa_case_execution, "_dispatch", side_effect=dispatch),
     ):
-        result = qa_case_execution._command_result(
+        result = qa_case_worktree_run.execute_worktree_case(
             _case(),
             timeout_seconds=timeout_seconds,
             checkout_path=tmp_path,

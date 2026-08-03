@@ -69,6 +69,29 @@ from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
+def _converge_registered_command_plans(conn) -> None:
+    """Converge command-plan bindings; never fail a boot over them.
+
+    Runs against a universe mid-construction as well as a complete one,
+    so it self-skips when the tables it reads are not there yet. A
+    binding that cannot be converged leaves verification pointing where
+    it already pointed, which is strictly better than refusing to start.
+    """
+    if not all(
+        _table_exists(conn, table)
+        for table in ("projects", "qa_plans", "qa_plan_cases", "qa_methods")
+    ):
+        return
+    from yoke_core.domain.qa_command_plan_registration import (
+        converge_registered_command_plans,
+    )
+
+    try:
+        converge_registered_command_plans(conn)
+    except Exception:  # noqa: BLE001 - boot availability wins over rebinding
+        pass
+
+
 def converge_core_schema(conn) -> None:
     """Idempotently bring an existing DB's schema up to the current code.
 
@@ -122,6 +145,11 @@ def converge_core_schema(conn) -> None:
     ensure_field_note_dash_promotion_schema(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     sync_machine_qa_pack_methods(conn)
+    # Where a registered verification command runs is executable
+    # configuration too: it follows from code plus the project's declared
+    # CI-workflow capability, and registration happens only once, so
+    # without this a project keeps whatever binding it was first given.
+    _converge_registered_command_plans(conn)
     conn.commit()
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant

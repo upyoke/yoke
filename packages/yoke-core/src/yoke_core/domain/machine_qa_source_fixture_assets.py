@@ -77,6 +77,11 @@ links = (
 )
 for relative in links:
     require((root / relative).is_symlink())
+cursor_hooks = root / ".cursor" / "hooks.json"
+canonical_cursor_hooks = root / "runtime" / "harness" / "cursor" / "hooks.json"
+require(cursor_hooks.is_file())
+require(not cursor_hooks.is_symlink())
+require(cursor_hooks.read_bytes() == canonical_cursor_hooks.read_bytes())
 manifest = json.loads(
     (root / ".yoke" / "install-manifest.json").read_text(encoding="utf-8")
 )
@@ -84,6 +89,8 @@ require(manifest.get("mode") == "source-link")
 manifest_links = manifest.get("symlinks") or {}
 for relative in links:
     require(relative in manifest_links)
+materialized = manifest.get("materialized_files") or {}
+require(materialized.get(".cursor/hooks.json") == "runtime/harness/cursor/hooks.json")
 for hook, marker in (
     ("pre-commit", "yoke-pre-commit"),
     ("post-commit", "yoke-post-commit"),
@@ -114,6 +121,10 @@ DEV_SYMLINKS = (
     ),
 )
 
+DEV_MATERIALIZED_FILES = (
+    (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
+)
+
 
 def _ensure_link(root, relative, target, actions, warnings):
     path = root / relative
@@ -129,6 +140,23 @@ def _ensure_link(root, relative, target, actions, warnings):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.symlink_to(target)
     actions.append(f"Created: {relative} -> {target}")
+
+
+def _ensure_file(root, relative, source, actions, warnings):
+    path = root / relative
+    source_path = root / source
+    if path.is_symlink():
+        path.unlink()
+    if path.exists() and not path.is_file():
+        warnings.append(f"{relative} is not a regular file")
+        return
+    content = source_path.read_bytes()
+    if path.is_file() and path.read_bytes() == content:
+        actions.append(f"Exists: {relative} (materialized from {source})")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    actions.append(f"Updated: {relative} (materialized from {source})")
 
 
 def _write_hook(root, name, marker, command):
@@ -151,6 +179,8 @@ def install_source_link(repo_root, operation="install"):
     warnings = []
     for relative, target in DEV_SYMLINKS:
         _ensure_link(root, relative, target, actions, warnings)
+    for relative, source in DEV_MATERIALIZED_FILES:
+        _ensure_file(root, relative, source, actions, warnings)
     hooks = [
         _write_hook(root, "pre-commit", "yoke-pre-commit", "yoke git pre-commit"),
         _write_hook(root, "post-commit", "yoke-post-commit", "yoke git post-commit"),
@@ -160,6 +190,7 @@ def install_source_link(repo_root, operation="install"):
         "yoke_version": "source-dev-recipe",
         "mode": "source-link",
         "symlinks": dict(DEV_SYMLINKS),
+        "materialized_files": dict(DEV_MATERIALIZED_FILES),
         "git_hooks": ["pre-commit", "post-commit"],
         "contract_files": {},
     }

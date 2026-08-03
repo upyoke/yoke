@@ -40,9 +40,6 @@ CREATE TABLE items (id INTEGER PRIMARY KEY);
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
     state TEXT,
-    item_id INTEGER,
-    work_claim_id INTEGER,
-    session_id TEXT,
     owner_kind TEXT,
     owner_item_id INTEGER,
     owner_session_id TEXT,
@@ -128,19 +125,16 @@ class TestSkipOnPreMigrationSchema:
 class TestNullOwnerKind:
     def test_warn_for_null_owner_on_non_terminal(self, typed_conn):
         typed_conn.execute(
-            "INSERT INTO path_claims (id, state, item_id, work_claim_id) "
-            "VALUES (10, 'active', 1, 2)"
+            "INSERT INTO path_claims (id, state) VALUES (10, 'active')"
         )
         rec = _run(typed_conn)
         assert rec.records[0].status == "WARN"
         assert "id=10" in rec.records[0].detail
-        assert "item_id=1" in rec.records[0].detail
-        assert "work_claim_id=2" in rec.records[0].detail
+        assert "owner_kind=None" in rec.records[0].detail
 
     def test_terminal_null_owner_does_not_warn(self, typed_conn):
         typed_conn.execute(
-            "INSERT INTO path_claims (id, state, item_id, work_claim_id) "
-            "VALUES (11, 'released', 1, 2)"
+            "INSERT INTO path_claims (id, state) VALUES (11, 'released')"
         )
         rec = _run(typed_conn)
         assert rec.records[0].status == "PASS"

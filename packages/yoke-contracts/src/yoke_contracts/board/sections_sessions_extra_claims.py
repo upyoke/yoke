@@ -5,7 +5,8 @@ and coordination-lease decoration logic for the existing Claims column:
 
 * ``PREFIX-N 📁<total>`` — work_claim with same-item path_claim decoration.
 * ``📁<total> (PREFIX-N)`` — orphan path_claim with parens shape.
-* ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via work_claim_id.
+* ``📁<total> (🔩 <process_key>)`` — process-anchored orphan via the owning
+  work claim.
 * ``🔒 <lease_key>`` — coordination lease, project-scoped.
 
 Keeps :mod:`sections_sessions` lean: the wire-in layer fetches claims and
@@ -42,17 +43,15 @@ def path_claims_for_session(
     work-claim file count via :func:`_path_claims_for_items`. The
     registering session is provenance, not authority.
 
-    Three match branches (any one returns the row):
+    Two match branches (any one returns the row):
 
     1. Typed session-owned: ``owner_kind='session'`` AND
        ``owner_session_id = session_id``.
     2. Typed process-owned via a work_claim this session holds:
        ``owner_kind='process'`` AND ``owner_work_claim_id`` resolves
        to a ``work_claims`` row with ``session_id = session_id``.
-    3. Pre-migration legacy fallback: ``owner_kind IS NULL`` AND the
-       row's legacy ``session_id = session_id`` AND the legacy
-       ``item_id`` is NULL (otherwise the row is item-owned and would
-       roll up through :func:`_path_claims_for_items`).
+    Item-owned claims are intentionally excluded here; they roll up through
+    :func:`_path_claims_for_items`.
 
     Rows: (claim_id, item_id, work_claim_id, released_at, cancelled_at,
     release_reason, cancel_reason, declared_count). Terminal rows
@@ -64,7 +63,8 @@ def path_claims_for_session(
     )
     return db.query_quiet(
         f"""
-        SELECT pc.id, pc.item_id, pc.work_claim_id,
+        SELECT pc.id, pc.owner_item_id AS item_id,
+               pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
                pc.release_reason, pc.cancel_reason,
                (SELECT COUNT(*)
@@ -75,14 +75,12 @@ def path_claims_for_session(
           (pc.owner_kind = 'session' AND pc.owner_session_id = %s) OR
           (pc.owner_kind = 'process' AND pc.owner_work_claim_id IN (
               SELECT id FROM work_claims WHERE session_id = %s
-          )) OR
-          (pc.owner_kind IS NULL AND pc.session_id = %s
-             AND pc.item_id IS NULL)
+          ))
         )
         {terminal_filter}
         ORDER BY pc.id ASC
         """,
-        (session_id, session_id, session_id),
+        (session_id, session_id),
     )
 
 
@@ -95,8 +93,7 @@ def _path_claims_for_items(
     """Fetch typed item-owned path_claims for the given ``item_ids``.
 
     Normal work-item file ownership is the typed ``owner_kind='item'``
-    (with the legacy ``item_id`` column kept populated for cutover
-    compatibility). Active-session rendering rolls these in so the
+    (with the typed ``owner_item_id`` column). Active-session rendering rolls these in so the
     Claims column reflects the same file authority everyone else
     sees, regardless of which session registered the claim.
 
@@ -114,7 +111,8 @@ def _path_claims_for_items(
     placeholders = ",".join("%s" for _ in item_ids)
     return db.query_quiet(
         f"""
-        SELECT pc.id, pc.item_id, pc.work_claim_id,
+        SELECT pc.id, pc.owner_item_id AS item_id,
+               pc.owner_work_claim_id AS work_claim_id,
                pc.released_at, pc.cancelled_at,
                pc.release_reason, pc.cancel_reason,
                (SELECT COUNT(*)
@@ -122,13 +120,12 @@ def _path_claims_for_items(
                 WHERE pct.claim_id = pc.id) AS declared_count
         FROM path_claims pc
         WHERE (
-          (pc.owner_kind = 'item' AND pc.owner_item_id IN ({placeholders})) OR
-          (pc.owner_kind IS NULL AND pc.item_id IN ({placeholders}))
+          (pc.owner_kind = 'item' AND pc.owner_item_id IN ({placeholders}))
         )
         {terminal_filter}
         ORDER BY pc.id ASC
         """,
-        tuple(list(item_ids) + list(item_ids)),
+        tuple(item_ids),
     )
 
 
@@ -236,11 +233,11 @@ def build_session_keycaps(
         db, session_id, active_only=active_only,
     )
 
-    # Normal work-item file ownership lives on path_claims.item_id and is
+    # Normal work-item file ownership lives on path_claims.owner_item_id and is
     # independent of session attribution. Roll item-linked claims for the
     # session's active work-claim items in alongside the session-linked
     # rows so the Claims column reflects file authority even when the
-    # path_claim row has session_id IS NULL. Deduplicate by claim id so a
+    # path claim has no session owner. Deduplicate by claim id so a
     # row that is both session-linked and item-linked is counted once.
     work_item_ids_int: List[int] = sorted({
         int(item_id) for _, item_id, _ in work_claim_targets

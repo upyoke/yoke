@@ -32,7 +32,7 @@ DISPATCH_CHAIN_COLUMNS = [
 TASK_FIELD_WHITELIST = frozenset({
     "title", "item_worktree_id", "context_estimate", "dependencies", "status",
     "dispatch_attempts", "body", "github_issue",
-    "blocked_by", "max_attempts", "agent_id", "last_heartbeat",
+    "max_attempts", "agent_id", "last_heartbeat",
 })
 
 CHAIN_FIELD_WHITELIST = frozenset({

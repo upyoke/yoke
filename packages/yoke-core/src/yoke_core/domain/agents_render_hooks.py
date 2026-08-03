@@ -248,6 +248,14 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
 )
 
 
+# Cursor terminates a hook entry after `timeout` seconds; entries without
+# one inherit an undocumented platform default. A live https relay dispatch
+# measures ~1.7s and the runner's internal budget is 3s, so an explicit
+# generous ceiling keeps a slow transport from being killed mid-dispatch
+# by whatever the platform default happens to be.
+_CURSOR_HOOK_TIMEOUT_S = 30
+
+
 def _cursor_command(event_verb: str) -> str:
     return (
         "/bin/zsh -lc '"
@@ -268,7 +276,10 @@ def render_cursor_hooks_block() -> dict:
     """
     hooks: dict[str, list[dict]] = {}
     for cursor_event, verb, matcher in _CURSOR_EVENTS:
-        entry: dict = {"command": _cursor_command(verb)}
+        entry: dict = {
+            "command": _cursor_command(verb),
+            "timeout": _CURSOR_HOOK_TIMEOUT_S,
+        }
         if matcher is not None:
             entry["matcher"] = matcher
         hooks.setdefault(cursor_event, []).append(entry)
