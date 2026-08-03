@@ -30,7 +30,7 @@ def _seed_project(conn) -> None:
 
 def _document() -> dict:
     return {
-        "schema": 1,
+        "schema": 2,
         "default_flow": "acme-production",
         "flows": [
             {
@@ -38,13 +38,13 @@ def _document() -> dict:
                 "name": "Production",
                 "description": "Deploy the selected release",
                 "stages": [
-                    {"name": "merged", "executor": "auto"},
+                    {"name": "merged", "step_runner": "auto"},
                     {
                         "name": "deploy",
-                        "executor": "github-actions-workflow",
+                        "step_runner": "github-actions-workflow",
                         "workflow": "acme-deploy.yml",
                     },
-                    {"name": "complete", "executor": "auto"},
+                    {"name": "complete", "step_runner": "auto"},
                 ],
                 "target_env": "production",
                 "done_description": "Production deployment completed",
@@ -53,8 +53,8 @@ def _document() -> dict:
                 "id": "acme-internal",
                 "name": "Internal",
                 "stages": [
-                    {"name": "merged", "executor": "auto"},
-                    {"name": "complete", "executor": "auto"},
+                    {"name": "merged", "step_runner": "auto"},
+                    {"name": "complete", "step_runner": "auto"},
                 ],
             },
         ],
@@ -119,8 +119,8 @@ def test_live_retirement_disables_predecessors_and_preserves_runs(test_db) -> No
     _seed_project(test_db)
     stages = json_helper.dumps_compact(
         [
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto"},
         ]
     )
     test_db.execute(
@@ -170,8 +170,8 @@ def test_retirement_cannot_disable_another_projects_flow(test_db) -> None:
             resolve_project_id(test_db, "yoke"),
             json_helper.dumps_compact(
                 [
-                    {"name": "merged", "executor": "auto"},
-                    {"name": "complete", "executor": "auto"},
+                    {"name": "merged", "step_runner": "auto"},
+                    {"name": "complete", "step_runner": "auto"},
                 ]
             ),
         ),

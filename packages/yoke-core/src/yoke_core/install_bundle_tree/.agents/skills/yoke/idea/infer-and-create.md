@@ -134,9 +134,9 @@ If the operator supplied `--workflow`:
 
 - Match that exact registry id. Do not replace it with an inferred workflow.
 - Reject an unknown, disabled, or entry-surface-incompatible row.
-- Read its ordered `stages`, `executor_bindings`, and `policies`; do not branch
+- Read its ordered `stages`, `skill_bindings`, and `policies`; do not branch
   on the workflow id.
-- If its initial stage is owned directly by the `dash` executor, route to
+- If its initial stage is owned directly by the `dash` skill, route to
   `/yoke dash "instruction"` so filing and the direct-execution contract are
   created atomically.
 - If its bindings hand from `refine` to `blitz`, preserve that registered
@@ -148,7 +148,7 @@ Without `--workflow`, classify the eligible definitions by policy:
 
 - Prefer the unique smallest implementation workflow with
   `generated_children=none`, `worktrees=single_implementation_lane`, and an
-  `advance` executor binding.
+  `advance` skill binding.
 - Recommend the unique task-graph workflow with
   `generated_children=epic_tasks` and `parallelism=task_graph` only when the
   work clearly needs:
@@ -168,7 +168,7 @@ branches.
 **Pre-decomposition guard:** Never file separate backlog items as a parent's
 imagined child decomposition. Backlog items are flat rows in `items`. When the
 selected definition declares `generated_children=epic_tasks`, the Architect
-populates those rows inside the registered planning executor; do not gate this
+populates those rows inside the registered planning skill; do not gate this
 rule on a remembered item status.
 
 ### d. Infer priority from language
@@ -382,10 +382,10 @@ Read the created item from the DB and display a confirmation. If GitHub issue cr
 
 Read the created item's immutable pin with `yoke workflows item get`, read that
 exact version with `yoke workflows version get`, and resolve the active
-half-open executor binding. Print the definition-owned handoff:
+half-open skill binding. Print the definition-owned handoff:
 
 ```text
-Next step: /yoke {executor_id} PREFIX-{N}
+Next step: /yoke {skill_id} PREFIX-{N}
 ```
 
 If the definition's later binding is `blitz`, also print the refinement and
@@ -400,5 +400,5 @@ reaches refined-idea: /yoke blitz PREFIX-{N}
 The link is the registered `strategy.execution.link` operation. Do not start
 `/yoke blitz`, generate child items, or treat the intake body as the live
 execution plan before that link exists. For every other workflow, recompute the
-next executor at each binding boundary instead of printing a workflow-name
+next skill at each binding boundary instead of printing a workflow-name
 progression from memory.

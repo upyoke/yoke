@@ -99,8 +99,8 @@ class TestProjectFlowMigrationApplyCoverage:
         conn = _make_conn()
         _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
@@ -116,7 +116,7 @@ class TestProjectFlowMigrationApplyCoverage:
         _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary", phase="reviewing-implementation"),
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
@@ -130,7 +130,7 @@ class TestProjectFlowMigrationApplyCoverage:
         _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary"),
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
@@ -141,11 +141,11 @@ class TestProjectFlowMigrationApplyCoverage:
         conn = _make_conn()
         _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         _seed_flow(conn, "externalwebapp-prod", "externalwebapp", [
             _migration_apply("primary"),
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
@@ -177,7 +177,7 @@ class TestProjectFlowMigrationApplyCoverage:
             _migration_apply("primary"),
         ])
         _seed_flow(conn, "externalwebapp-internal", "externalwebapp", [
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)
@@ -209,10 +209,10 @@ class TestProjectFlowMigrationApplyCoverage:
         conn = _make_conn()
         _seed_capability(conn, "externalwebapp", _model_settings("primary"))
         _seed_flow(conn, "externalwebapp-prod-release", "externalwebapp", [
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         _seed_flow(conn, "externalwebapp-prod-hotfix", "externalwebapp", [
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         rec = _run_hc(hc_project_flow_migration_apply_coverage, conn)
         result = _result(rec)

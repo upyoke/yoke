@@ -10,7 +10,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_PREFERRED_VERSION,
     BUILTIN_WORKFLOW_IDS,
     ENTRY_SURFACE_IDS,
-    REGISTERED_WORKFLOW_EXECUTOR_IDS,
+    REGISTERED_WORKFLOW_SKILL_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
 )
@@ -201,7 +201,7 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
         after if value == before else value
         for value in definition["terminal_stage_ids"]
     ]
-    for rows in ("transitions", "executor_bindings"):
+    for rows in ("transitions", "skill_bindings"):
         for row in definition[rows]:
             for key in ("from_stage_id", "to_stage_id", "through_stage_id"):
                 if row.get(key) == before:
@@ -231,10 +231,10 @@ def test_builtin_roster_and_immutable_history_are_fixed():
             "unknown gate",
         ),
         (
-            lambda value: value["executor_bindings"][0].update(
-                executor_id="unknown"
+            lambda value: value["skill_bindings"][0].update(
+                skill_id="unknown"
             ),
-            "unknown executor",
+            "unknown skill",
         ),
         (
             lambda value: value["stages"][1].update(
@@ -292,8 +292,8 @@ def test_definition_references_only_closed_catalog_and_registered_vocabulary():
         definition = fixture["definition"]
         assert set(definition["entry_surfaces"]) <= ENTRY_SURFACE_IDS
         assert {
-            row["executor_id"] for row in definition["executor_bindings"]
-        } <= REGISTERED_WORKFLOW_EXECUTOR_IDS
+            row["skill_id"] for row in definition["skill_bindings"]
+        } <= REGISTERED_WORKFLOW_SKILL_IDS
         assert {
             gate["id"]
             for stage in definition["stages"]

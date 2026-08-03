@@ -15,12 +15,12 @@ def skip_polish(
     session_id: Optional[str] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
-    """Advance across the pinned workflow's polish executor segment."""
+    """Advance across the pinned workflow's polish skill segment."""
     current_status, workflow = core._lookup_item(item_id)
-    route = core._executor_skip_route(
+    route = core._skill_skip_route(
         workflow,
         current_status,
-        executor_id="polish",
+        skill_id="polish",
         require_entry=True,
     )
 

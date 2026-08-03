@@ -88,7 +88,7 @@ class TestMergeMdEpicDelegation:
             "_usher_generated_children",
             "_usher_worktree_policy",
             "_usher_parallelism",
-            "executor_bindings",
+            "skill_bindings",
         ):
             assert required in text
         assert 'if [ "$_item_workflow_id" = "epic" ]' not in text

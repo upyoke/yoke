@@ -10,7 +10,7 @@ Extracted from `dispatch-context.md`. Covers Engineer dispatch orchestration (5g
 
 Record the attempt baseline and dispatch the Engineer.
 
-**Task fan-out variable contract:** Conduct's pinned executor binding requires the
+**Task fan-out variable contract:** Conduct's pinned skill binding requires the
 `generated_children=epic_tasks`, `worktrees=worker_and_integration_lanes`, and
 `parallelism=task_graph` policies at entry. `N` / `_epic_id` therefore remains
 the parent backlog item and each parallel member is an epic task from
@@ -160,7 +160,7 @@ When all generated tasks are complete, Conduct reports this and the operator
 runs `/yoke merge` to transition the parent item. Conduct does not run
 done-transition or merge engines itself; `/yoke merge {epic-id}` owns PR
 creation, merge-to-main, status update, GitHub issue close, and worktree
-cleanup for this task-graph executor contract.
+cleanup for this task-graph skill contract.
 
 This separation ensures dispatch never closes GitHub issues or removes worktrees for unmerged items.
 

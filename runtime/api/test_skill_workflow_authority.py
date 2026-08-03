@@ -18,11 +18,11 @@ def test_refine_uses_active_binding_and_child_policy() -> None:
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",
-        "executor_bindings",
+        "skill_bindings",
         "generated_children",
         "REFINE_SOURCE_STATUS",
         "REFINE_TARGET_STATUS",
-        "ITEM_NEXT_EXECUTOR=blitz",
+        "ITEM_NEXT_SKILL=blitz",
     ):
         assert required in combined
     assert "ITEM_WORKFLOW_ID=epic" not in combined
@@ -50,7 +50,7 @@ def test_plan_mode_comes_from_pinned_policy() -> None:
         assert forbidden not in text
 
 
-def test_advance_branches_on_executor_and_lane_policy() -> None:
+def test_advance_branches_on_skill_and_lane_policy() -> None:
     skill = _read("advance", "SKILL.md")
     context = _read("advance", "workflow-context.md")
     preflight = _read("advance", "preflight-checks.md")
@@ -59,8 +59,8 @@ def test_advance_branches_on_executor_and_lane_policy() -> None:
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",
-        "_current_executor",
-        "_target_executor",
+        "_current_skill",
+        "_target_skill",
         "_generated_children",
         "_worktree_policy",
     ):
@@ -82,7 +82,7 @@ def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
         "_usher_generated_children",
         "_usher_worktree_policy",
         "_usher_parallelism",
-        "_usher_current_executor",
+        "_usher_current_skill",
     ):
         assert required in text
     assert "_item_workflow_id" not in text

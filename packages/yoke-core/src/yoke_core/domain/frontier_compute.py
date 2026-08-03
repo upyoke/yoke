@@ -29,7 +29,7 @@ from .project_scope import normalize_project_scope
 from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
 from .workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
 )
 from .workflow_runtime import workflow_runtime_from_row
 from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
@@ -150,9 +150,9 @@ def compute_frontier(
         stage_index = workflow.stage_index(status)
         if (
             not is_frozen(item["frozen"])
-            and workflow.executor_has_started(
+            and workflow.skill_has_started(
                 status,
-                IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+                IMPLEMENTATION_WORKFLOW_SKILL_IDS,
             )
         ):
             wip_active += 1

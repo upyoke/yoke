@@ -1,6 +1,6 @@
 # /yoke refine — Blitz Execution Document Handoff
 
-Run this path only when `ITEM_NEXT_EXECUTOR=blitz`. It runs after item-artifact
+Run this path only when `ITEM_NEXT_SKILL=blitz`. It runs after item-artifact
 writes have been verified and before the final
 `REFINE_ACTIVE_STATUS -> REFINE_TARGET_STATUS` transition.
 

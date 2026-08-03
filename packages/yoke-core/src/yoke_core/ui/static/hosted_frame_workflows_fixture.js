@@ -121,7 +121,7 @@ function hostedFrameWorkflows() {
       description:
         "A short instruction you file in seconds — filing is the spec; an agent executes it end-to-end.",
       entrySurfaces: ["web_form", "cli", "harness_skill", "promotion"],
-      executors: ["dash"],
+      skills: ["dash"],
       stages: [
         stage("idea", "idea"),
         stage(
@@ -177,7 +177,7 @@ function hostedFrameWorkflows() {
       description:
         "Execute a strategy document directly; the item is only its coordination shell. Releases happen continuously inside implementing; the close reconciles the document.",
       entrySurfaces: ["harness_skill"],
-      executors: ["refine", "blitz"],
+      skills: ["refine", "blitz"],
       stages: [
         stage("idea", "idea"),
         stage(
@@ -242,7 +242,7 @@ function hostedFrameWorkflows() {
       description:
         "One scoped implementation lane with planning, review, QA and delivery.",
       entrySurfaces: ["harness_skill", "promotion"],
-      executors: ["refine", "advance", "polish", "usher"],
+      skills: ["refine", "advance", "polish", "usher"],
       stages: [
         stage("idea", "idea"),
         stage(

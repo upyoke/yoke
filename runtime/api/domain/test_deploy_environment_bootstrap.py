@@ -1,4 +1,4 @@
-"""Tests for the environment-bootstrap deploy executor."""
+"""Tests for the environment-bootstrap deploy step runner."""
 
 from __future__ import annotations
 

@@ -20,7 +20,7 @@ destructive post-state).  That gate is also the single source of the
 (environment-level deploy — the normal prod-release case) has zero
 declared profiles and passes for the same reason; both pass shapes
 pre-emit ``DeploymentRunStageCompleted`` with an explicit stage-result
-note (the ``-3`` executor sentinel).
+note (the ``-3`` step_runner sentinel).
 
 A failing gate fails the stage (the run halts at
 ``<stage>-failed``); the only path to green is the real governed runner —
@@ -53,7 +53,7 @@ def _dispatch_migration_apply(
 ) -> Tuple[int, str]:
     """Execute a ``kind=migration_apply`` stage.
 
-    Returns ``(exit_code, diagnostic)`` per the ``_dispatch_executor``
+    Returns ``(exit_code, diagnostic)`` per the ``_dispatch_step_runner``
     contract: ``-3`` = success with the stage-completion event already
     emitted (carrying the explicit stage-result note); ``1`` = the
     governed-migration evidence gate failed for at least one member item

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-WORKFLOW_DEFINITION_SCHEMA_VERSION = 2
+WORKFLOW_DEFINITION_SCHEMA_VERSION = 3
 BUILTIN_WORKFLOW_PREFERRED_VERSION = 3
 WORKFLOW_FILE_BUDGET_OPTIONAL = "optional"
 WORKFLOW_FILE_BUDGET_REQUIRED = "required"
@@ -14,7 +14,7 @@ WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_SURVEY_OPTIONAL = WORKFLOW_PATH_CLAIMS_OPTIONAL
 WORKFLOW_PATH_SURVEY_REQUIRED = WORKFLOW_PATH_CLAIMS_REQUIRED
-REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
+REGISTERED_WORKFLOW_SKILL_IDS = frozenset({
     "advance",
     "blitz",
     "conduct",
@@ -24,7 +24,7 @@ REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
     "shepherd",
     "usher",
 })
-IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS = frozenset({
+IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset({
     "advance",
     "blitz",
     "conduct",
@@ -63,14 +63,14 @@ def workflow_stage(
     return stage
 
 
-def executor_binding(
-    executor_id: str,
+def skill_binding(
+    skill_id: str,
     from_stage_id: str,
     through_stage_id: str,
 ) -> Dict[str, str]:
-    """Bind a registered executor to a contiguous lifecycle segment."""
+    """Bind a registered skill to a contiguous lifecycle segment."""
     return {
-        "executor_id": executor_id,
+        "skill_id": skill_id,
         "from_stage_id": from_stage_id,
         "through_stage_id": through_stage_id,
     }
@@ -84,7 +84,7 @@ def definition_fixture(
     version: int = 1,
     stages: Sequence[Dict[str, Any]],
     entry_surfaces: Sequence[str],
-    executor_bindings: Sequence[Dict[str, str]],
+    skill_bindings: Sequence[Dict[str, str]],
     policies: Dict[str, Any],
     approval_defaults: Optional[Dict[str, Any]] = None,
     schema_version: int = WORKFLOW_DEFINITION_SCHEMA_VERSION,
@@ -111,7 +111,7 @@ def definition_fixture(
                 for before, after in zip(stage_ids, stage_ids[1:])
             ],
             "entry_surfaces": list(entry_surfaces),
-            "executor_bindings": list(executor_bindings),
+            "skill_bindings": list(skill_bindings),
             "policies": normalized_policies,
         },
     }
@@ -120,8 +120,8 @@ def definition_fixture(
 __all__ = [
     "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
-    "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
-    "REGISTERED_WORKFLOW_EXECUTOR_IDS",
+    "IMPLEMENTATION_WORKFLOW_SKILL_IDS",
+    "REGISTERED_WORKFLOW_SKILL_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "WORKFLOW_FILE_BUDGET_OPTIONAL",
     "WORKFLOW_FILE_BUDGET_REQUIRED",
@@ -132,7 +132,7 @@ __all__ = [
     "WORKFLOW_PATH_SURVEY_OPTIONAL",
     "WORKFLOW_PATH_SURVEY_REQUIRED",
     "definition_fixture",
-    "executor_binding",
+    "skill_binding",
     "gate_ref",
     "workflow_stage",
 ]

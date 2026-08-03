@@ -118,10 +118,10 @@ def seed_service_client_parity_data(conn: Any) -> None:
         )
 
     flow_stages = json.dumps([
-        {"name": "merged", "executor": "auto"},
-        {"name": "approve-deploy", "executor": "human-approval"},
-        {"name": "prod-deploy", "executor": "github-actions-workflow"},
-        {"name": "complete", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
+        {"name": "approve-deploy", "step_runner": "human-approval"},
+        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+        {"name": "complete", "step_runner": "auto"},
     ])
     _execute(
         conn,

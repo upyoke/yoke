@@ -1,6 +1,6 @@
-"""ephemeral-deploy executor — per-branch core-service preview environments.
+"""ephemeral-deploy step_runner — per-branch core-service preview environments.
 
-Deployment-flow stage executor (``executor: "ephemeral-deploy"``) and the
+Deployment-flow stage step_runner (``step_runner: "ephemeral-deploy"``) and the
 operator CLI for the shared ephemeral substrate's core-service
 instantiation: deploy any branch of a core-service project as an isolated
 preview on the project's declared host environment box.
@@ -20,7 +20,7 @@ preview on the project's declared host environment box.
 6. track the preview in ``ephemeral_environments``.
 
 Webapp-shaped projects keep the GitHub-Actions instantiation of
-the same substrate (``trigger: "github-push"``); this executor is the
+the same substrate (``trigger: "github-push"``); this step_runner is the
 ``trigger: "flow"`` path and requires the core-service capabilities.
 
 CLI::
@@ -223,9 +223,9 @@ def exec_ephemeral_deploy(
         verify_slug_health(
             runner, env, api_port, env.health_path, str(uuid.uuid4()), emit
         )
-        from yoke_core.tools import executors as _executors
+        from yoke_core.tools import step_runners as _step_runners
 
-        public_rc = _executors.exec_health_check(
+        public_rc = _step_runners.exec_health_check(
             url + env.health_path, request_id=str(uuid.uuid4())
         )
         if public_rc != 0:

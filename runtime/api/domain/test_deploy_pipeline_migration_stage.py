@@ -1,13 +1,13 @@
 """Kind-typed ``migration_apply`` stage coverage for run_pipeline.
 
 Exercises the prod-flow stage shape ``{"kind": "migration_apply", ...}``
-through the REAL ``run_pipeline`` → ``_dispatch_executor`` →
+through the REAL ``run_pipeline`` → ``_dispatch_step_runner`` →
 ``_dispatch_migration_apply`` layers.  The governed runner is mocked at
 exactly its boundary — ``check_implementing_to_reviewing_implementation_gate``
 (the evidence gate over the rehearse → lease → backup → live-apply
 contract); the governed apply itself never runs inside the pipeline.
 Pure-unit like the sibling test_deploy_pipeline_itemless.py: every
-DB/executor seam is mocked.
+DB/step_runner seam is mocked.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from unittest import mock
 
 from yoke_core.domain import (
     deploy_pipeline,
-    deploy_pipeline_executors,
+    deploy_pipeline_step_runners,
     deploy_pipeline_migration,
     deploy_pipeline_reporting,
     deploy_qa_recorder,
@@ -26,12 +26,12 @@ from yoke_core.domain import (
 from yoke_core.domain.db_mutation_gate_shared import GateOutcome
 
 
-# The governed kind stage carries no "name"/"executor" keys on the flow row.
+# The governed kind stage carries no "name"/"step_runner" keys on the flow row.
 PROD_STAGES = json.dumps([
     {"kind": "migration_apply", "model_name": "primary",
      "lifecycle_phase": "implementing"},
-    {"name": "merged", "executor": "auto"},
-    {"name": "complete", "executor": "auto"},
+    {"name": "merged", "step_runner": "auto"},
+    {"name": "complete", "step_runner": "auto"},
 ])
 
 
@@ -156,12 +156,12 @@ class TestKindStageParsing:
     def test_parse_stages_derives_kind_stage_keys(self):
         parsed = deploy_pipeline._parse_stages(PROD_STAGES)
         assert parsed[0]["name"] == "migration-apply"
-        assert parsed[0]["executor"] == "migration_apply"
+        assert parsed[0]["step_runner"] == "migration_apply"
         assert parsed[0]["kind"] == "migration_apply"
         assert parsed[0]["config"]["model_name"] == "primary"
-        # Executor-shaped stages keep explicit keys; kind stays empty.
+        # Step runner-shaped stages keep explicit keys; kind stays empty.
         assert parsed[1]["name"] == "merged"
-        assert parsed[1]["executor"] == "auto"
+        assert parsed[1]["step_runner"] == "auto"
         assert parsed[1]["kind"] == ""
 
     def test_operator_name_override_wins(self):
@@ -243,8 +243,8 @@ class TestItemBoundKindStage:
         ]
         assert len(failed) == 1
         assert failed[0]["stage"] == "migration-apply"
-        assert failed[0]["executor_diagnostic"].startswith("42: ")
-        assert "mod_x" in failed[0]["executor_diagnostic"]
+        assert failed[0]["step_runner_diagnostic"].startswith("42: ")
+        assert "mod_x" in failed[0]["step_runner_diagnostic"]
         assert [
             name for name, _ in result.pipeline_events
             if name == "DeploymentRunFailed"
@@ -293,8 +293,8 @@ class TestDispatchGuards:
     """Defensive dispatch errors for malformed kind stages."""
 
     def test_unknown_kind_fails_with_named_error(self, capsys):
-        rc, diag = deploy_pipeline_executors._dispatch_executor(
-            {"name": "x", "executor": "", "kind": "weird_kind", "config": {}},
+        rc, diag = deploy_pipeline_step_runners._dispatch_step_runner(
+            {"name": "x", "step_runner": "", "kind": "weird_kind", "config": {}},
             run_id="run-1", member_items=[], github_repo="",
             project="yoke", project_repo_path="", branch="",
             first_item="", timeout_min=30, fresh=False, target_env="",
@@ -305,7 +305,7 @@ class TestDispatchGuards:
 
     def test_unsupported_lifecycle_phase_fails_stage(self, capsys):
         stage = {
-            "name": "migration-apply", "executor": "migration_apply",
+            "name": "migration-apply", "step_runner": "migration_apply",
             "kind": "migration_apply",
             "config": {"kind": "migration_apply", "model_name": "primary",
                        "lifecycle_phase": "release"},
@@ -319,7 +319,7 @@ class TestDispatchGuards:
 
     def test_missing_model_name_fails_stage(self, capsys):
         stage = {
-            "name": "migration-apply", "executor": "migration_apply",
+            "name": "migration-apply", "step_runner": "migration_apply",
             "kind": "migration_apply",
             "config": {"kind": "migration_apply",
                        "lifecycle_phase": "implementing"},

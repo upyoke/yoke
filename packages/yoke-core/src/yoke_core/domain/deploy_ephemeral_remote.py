@@ -1,4 +1,4 @@
-"""Host-box convergence steps for the ephemeral-deploy executor.
+"""Host-box convergence steps for the ephemeral-deploy step runner.
 
 Each function converges one aspect of the preview substrate on the host
 environment's origin box over SSH and is idempotent: probe first, mutate

@@ -1,4 +1,4 @@
-"""Resolve the next registered executor from a pinned workflow definition."""
+"""Resolve the next registered skill from a pinned workflow definition."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def classify_next_action(
     workflow: WorkflowRuntime,
     stage_id: str,
 ) -> AdapterCategory:
-    """Map an item's current stage to its definition-bound executor."""
+    """Map an item's current stage to its definition-bound skill."""
     if (
         stage_id in workflow.terminal_stage_ids
         or stage_id in ENGINE_TERMINAL_STAGE_IDS
@@ -27,14 +27,14 @@ def classify_next_action(
             f"Unknown stage {stage_id!r} for "
             f"{workflow.workflow_id}@{workflow.version}"
         )
-    executor_id = workflow.executor_for_stage(stage_id)
-    if executor_id is None:
+    skill_id = workflow.skill_for_stage(stage_id)
+    if skill_id is None:
         return AdapterCategory.SKIP
     try:
-        return AdapterCategory(executor_id)
+        return AdapterCategory(skill_id)
     except ValueError as exc:
         raise ValueError(
-            f"Workflow executor {executor_id!r} has no frontier adapter"
+            f"Workflow skill {skill_id!r} has no frontier adapter"
         ) from exc
 
 

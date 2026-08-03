@@ -4,7 +4,7 @@ description: Invoke the Architect subagent to produce the plan shape selected by
 argument-hint: "{item-id}"
 ---
 
-# Internal sub-skill — called by the executor that owns plan authoring.
+# Internal sub-skill — called by the skill that owns plan authoring.
 
 # /yoke plan {item-id}
 
@@ -29,13 +29,13 @@ Never choose plan mode from `workflow_id`. Resolve the exact item pin with
 `workflows.item.get`, read its logical version with `workflows.version.get`,
 and interpret:
 
-- ordered `stages` plus half-open `executor_bindings` for the current owner;
+- ordered `stages` plus half-open `skill_bindings` for the current owner;
 - `policies.generated_children` for decomposition storage;
 - `policies.worktrees` and `policies.parallelism` for lane planning;
 - stage gate ids for simulation requirements.
 
-Executor names remain valid guards because this sub-skill is an implementation
-detail of those registered executors. Workflow names are registry keys, not
+Skill names remain valid guards because this sub-skill is an implementation
+detail of those registered skills. Workflow names are registry keys, not
 behavior branches.
 
 ## Steps
@@ -87,7 +87,7 @@ _plan_definition_json=$(yoke workflows version get \
 }
 ```
 
-Interpret the current executor with the runtime interval
+Interpret the current skill with the runtime interval
 `from_stage_id <= current < through_stage_id`. Extract
 `generated_children`, `worktrees`, and `parallelism` from `definition.policies`.
 
@@ -99,12 +99,12 @@ Select mode:
 - Any other child/parallelism combination → halt as unsupported; do not guess
   a storage shape.
 
-Apply the executor guard:
+Apply the skill guard:
 
-- `item_plan` is authored only while the pinned current executor is `advance`.
-- `task_graph` is authored only while the pinned current executor is
+- `item_plan` is authored only while the pinned current skill is `advance`.
+- `task_graph` is authored only while the pinned current skill is
   `shepherd`.
-- Otherwise stop and route to the executor returned by the definition. In
+- Otherwise stop and route to the skill returned by the definition. In
   particular, do not re-plan after the item has crossed into a `refine`,
   `conduct`, `polish`, or `usher` segment.
 
@@ -212,7 +212,7 @@ For `task_graph`:
 All plan data is DB-backed. Do not create filesystem plan artifacts or invent
 another child table.
 
-### 7. Present and hand back to the owning executor
+### 7. Present and hand back to the owning skill
 
 Present the generated content and ask for explicit confirmation.
 
@@ -228,14 +228,14 @@ If accepted, leave lifecycle transition to the registered caller:
 
 - `advance` consumes the item-level plan and owns implementation entry.
 - `shepherd` runs its plan-quality gate and owns its binding handoff; the
-  subsequent pinned executor performs any plan-refinement segment.
+  subsequent pinned skill performs any plan-refinement segment.
 
 Plan must never jump directly to a remembered status such as `planned`.
 
 ### 8. Simulation recommendation
 
 Inspect all served stage gates. If any gate id is `plan_simulation`, recommend
-`/yoke simulate {_plan_item_ref}` before the implementation executor runs.
+`/yoke simulate {_plan_item_ref}` before the implementation skill runs.
 Otherwise simulation is not required by this definition.
 
 ## Review checklist

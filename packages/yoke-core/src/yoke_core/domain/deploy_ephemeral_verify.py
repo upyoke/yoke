@@ -1,4 +1,4 @@
-"""Ephemeral deployment verification executor."""
+"""Ephemeral deployment verification step runner."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def dispatch_ephemeral_verify(
     project: str,
     branch: str,
     first_item: str,
-    executors: Any,
+    step_runners: Any,
     connect_fn: Any,
     query_scalar_fn: Any,
     sd: Optional[str] = None,
@@ -96,7 +96,7 @@ def dispatch_ephemeral_verify(
     buf = io.StringIO()
     try:
         with redirect_stdout(buf):
-            rc = executors.exec_ephemeral_verify(
+            rc = step_runners.exec_ephemeral_verify(
                 github_repo,
                 branch,
                 workflow,

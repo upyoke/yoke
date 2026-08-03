@@ -102,14 +102,14 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
 
     definition = BLITZ_WORKFLOW_DEFINITION["definition"]
     assert definition["entry_surfaces"] == ["harness_skill"]
-    assert definition["executor_bindings"] == [
+    assert definition["skill_bindings"] == [
         {
-            "executor_id": "refine",
+            "skill_id": "refine",
             "from_stage_id": "idea",
             "through_stage_id": "refined-idea",
         },
         {
-            "executor_id": "blitz",
+            "skill_id": "blitz",
             "from_stage_id": "refined-idea",
             "through_stage_id": "done",
         },
@@ -181,7 +181,7 @@ def test_refine_blitz_path_links_one_document_and_hands_off():
         ROOT / ".agents/skills/yoke/refine/blitz-execution-document.md"
     ).read_text()
 
-    assert "ITEM_NEXT_EXECUTOR=blitz" in refine
+    assert "ITEM_NEXT_SKILL=blitz" in refine
     assert "blitz-execution-document.md" in refine
     assert "strategy.execution.link" in protocol
     for required in (

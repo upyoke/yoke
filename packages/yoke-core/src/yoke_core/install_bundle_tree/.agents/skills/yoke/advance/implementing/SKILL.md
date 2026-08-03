@@ -31,7 +31,7 @@ Mentally diff the declared coverage against the files you are about to touch. If
 
 This sub-skill is entered only after the parent verifies the pinned `advance`
 binding and `single_implementation_lane` policy. A task-graph item owned by
-`conduct` never reaches this router; that executor's Tester owns its QA loop.
+`conduct` never reaches this router; that skill's Tester owns its QA loop.
 
 ## Phase Dispatch
 

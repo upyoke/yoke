@@ -1,4 +1,4 @@
-"""Tests for the core-container-deploy executor (fake-runner command plans)."""
+"""Tests for the core-container-deploy step runner (fake-runner command plans)."""
 
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ class _HappyRemoteRunner(FakeRunner):
 
 
 def patch_executor_boundaries(monkeypatch, env):
-    """Stub every non-remote executor boundary; returns the deploy-event log.
+    """Stub every non-remote step runner boundary; returns the deploy-event log.
 
     Module-level so the rollback integration tests
     (test_deploy_core_container_rollback.py) reuse the same seam without
@@ -330,5 +330,5 @@ class TestExecCoreContainerDeploy:
         assert not any("docker image prune --all" in command for command in remote)
 
     # Health-gate failure + rollback integration tests live in
-    # test_deploy_core_container_rollback.py (TestExecutorRollbackIntegration),
+    # test_deploy_core_container_rollback.py (TestStepRunnerRollbackIntegration),
     # which imports patch_executor_boundaries and _HappyRemoteRunner from here.

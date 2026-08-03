@@ -93,9 +93,9 @@ const EXPECTED_DESCRIPTION_COPY = {
 
 const EXPECTED_VERSION_ONE_DESCRIPTIONS = {
   dash: {
-    implementing: "The executor surveys conflicts and completes the instruction.",
+    implementing: "The skill surveys conflicts and completes the instruction.",
     "reviewing-implementation":
-      "The executor self-checks plus any item-declared verification.",
+      "The skill self-checks plus any item-declared verification.",
     done: "The result and verification evidence are recorded on the item.",
   },
   blitz: {

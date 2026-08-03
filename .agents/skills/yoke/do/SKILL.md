@@ -60,9 +60,9 @@ Canonical emission of `HarnessSessionOffered` and `NextActionChosen` lives in th
 - The `yoke sessions offer` path requires an active session (started by harness hooks or `session-begin`), heartbeats it, computes a schedule, claims ownership, and routes to the chosen mode handler.
 - Only `resume` and `charge` are chainable. All other actions terminate the loop.
 - `charge` dispatches from `context.scheduler.next_step`, which the pinned
-  workflow's registered executor binding produced.
+  workflow's registered skill binding produced.
 - `resume` uses claimed status first and the pinned workflow's registered
-  executor binding for the resumed stage.
+  skill binding for the resumed stage.
 - Epic-task resumes use `context.epic_id` / `context.task_num`; they re-enter `/yoke conduct PREFIX-{epic_id}` instead of relying on `item_id`.
 - Max chain depth is controlled by `max_chain_steps` in machine config (default: 3).
 - The loop must keep `session_id` stable across every chained step so claim/lease state can correlate correctly.

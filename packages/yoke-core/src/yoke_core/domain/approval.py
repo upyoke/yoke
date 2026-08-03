@@ -123,23 +123,25 @@ class FlowStage:
     """A single stage in a deployment flow."""
 
     name: str
-    executor: str
+    step_runner: str
     config: Dict[str, Any]
 
 
 def parse_flow_stages(stages_json: str) -> List[FlowStage]:
     """Parse the JSON stages array from a deployment_flows row.
 
-    Each stage object is expected to have at least ``name`` and ``executor``.
+    Each stage object is expected to have at least ``name`` and ``step_runner``.
     Additional keys are preserved in ``config``.
     """
     raw = json.loads(stages_json)
     result = []
     for entry in raw:
         name = entry.get("name", "")
-        executor = entry.get("executor", "")
-        config = {k: v for k, v in entry.items() if k not in ("name", "executor")}
-        result.append(FlowStage(name=name, executor=executor, config=config))
+        step_runner = entry.get("step_runner", "")
+        config = {
+            k: v for k, v in entry.items() if k not in ("name", "step_runner")
+        }
+        result.append(FlowStage(name=name, step_runner=step_runner, config=config))
     return result
 
 
@@ -153,7 +155,7 @@ def find_stage_index(stages: Sequence[FlowStage], stage_name: str) -> Optional[i
 
 def is_human_approval_stage(stage: FlowStage) -> bool:
     """Return True if *stage* requires human approval."""
-    return stage.executor == "human-approval"
+    return stage.step_runner == "human-approval"
 
 
 @dataclass(frozen=True)
@@ -180,7 +182,7 @@ def resolve_approval(
 
     Validates that:
     1. The current stage exists in the flow.
-    2. The current stage is a ``human-approval`` executor stage.
+    2. The current stage uses the ``human-approval`` step runner.
 
     Returns an ``ApprovalResolution`` with ``approved=True`` and the next
     stage name on success, or ``approved=False`` with an error message.

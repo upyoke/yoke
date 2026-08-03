@@ -302,7 +302,7 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
       name: "Blitz",
       version: 1,
       stage_label: "implementing",
-      executor_id: "blitz",
+      skill_id: "blitz",
       policies: { ...BLITZ_POLICIES },
       effective_policies: { ...BLITZ_POLICIES },
     },

@@ -43,7 +43,7 @@ def test_deployment_reconcile_skips_session_gate_but_operator_flows_do_not() -> 
             function="deployment_flows.reconcile_project",
             actor=ActorContext(session_id=""),
             target=TargetRef(kind="global", project_id="acme"),
-            payload={"schema": 1, "flows": []},
+            payload={"schema": 2, "flows": []},
         ),
         ambient_session_id="",
     )

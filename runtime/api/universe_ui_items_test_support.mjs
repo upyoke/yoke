@@ -67,8 +67,8 @@ export function detailItem(workflowId) {
       }[workflowId] || workflowId,
       version: 4,
       stage_label: "Reviewing implementation",
-      executor_id: workflowId,
-      next_executor_id: workflowId === "issue"
+      skill_id: workflowId,
+      next_skill_id: workflowId === "issue"
         ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
       item_posture: {
         verification: true,

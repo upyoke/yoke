@@ -24,7 +24,7 @@ must declare the matching input in the project's
 
 ```json
 {
-  "executor": "github-actions-workflow",
+  "step_runner": "github-actions-workflow",
   "workflow": "<project>-deploy.yml",
   "dispatch_correlation_input": "yoke_dispatch_id",
   "reconcile_by_head_sha": false

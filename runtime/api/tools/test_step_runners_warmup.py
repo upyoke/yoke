@@ -1,5 +1,5 @@
 """Warmup-polling coverage for ``exec_health_check`` (sibling of
-:mod:`test_executors`, 350-line cap split).
+:mod:`test_step_runners`, 350-line cap split).
 
 The health-check stage retries through the container swap window without ever
 passing a stale or failed swap — the build assertion still gates every probe.
@@ -12,7 +12,7 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from yoke_core.tools import executors
+from yoke_core.tools import step_runners
 
 
 class _FakeResponse:
@@ -45,9 +45,9 @@ def _clock():
 class ExecHealthCheckWarmupTests(unittest.TestCase):
     def test_default_is_single_shot(self) -> None:
         m = mock.Mock(side_effect=lambda *a, **k: _FakeResponse(503))
-        with mock.patch.object(executors.urllib.request, "urlopen", m):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", m):
             with redirect_stderr(io.StringIO()):
-                rc = executors.exec_health_check("http://x/health")
+                rc = step_runners.exec_health_check("http://x/health")
         self.assertEqual(rc, 1)
         self.assertEqual(m.call_count, 1)
 
@@ -59,11 +59,11 @@ class ExecHealthCheckWarmupTests(unittest.TestCase):
         ])
         monotonic, sleep = _clock()
         m = mock.Mock(side_effect=lambda *a, **k: next(responses))
-        with mock.patch.object(executors.urllib.request, "urlopen", m), \
-                mock.patch.object(executors, "_monotonic", monotonic), \
-                mock.patch.object(executors, "_sleep", sleep):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", m), \
+                mock.patch.object(step_runners, "_monotonic", monotonic), \
+                mock.patch.object(step_runners, "_sleep", sleep):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://x/health", expected_build="newbuild",
                     warmup_timeout=100.0, retry_interval=2.0,
                 )
@@ -79,11 +79,11 @@ class ExecHealthCheckWarmupTests(unittest.TestCase):
         ])
         monotonic, sleep = _clock()
         m = mock.Mock(side_effect=lambda *a, **k: next(responses))
-        with mock.patch.object(executors.urllib.request, "urlopen", m), \
-                mock.patch.object(executors, "_monotonic", monotonic), \
-                mock.patch.object(executors, "_sleep", sleep):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", m), \
+                mock.patch.object(step_runners, "_monotonic", monotonic), \
+                mock.patch.object(step_runners, "_sleep", sleep):
             with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://x/health", expected_build="newbuild",
                     warmup_timeout=100.0, retry_interval=2.0,
                 )
@@ -93,11 +93,11 @@ class ExecHealthCheckWarmupTests(unittest.TestCase):
     def test_warmup_times_out_and_fails_on_persistent_failure(self) -> None:
         monotonic, sleep = _clock()
         m = mock.Mock(side_effect=lambda *a, **k: _FakeResponse(503))
-        with mock.patch.object(executors.urllib.request, "urlopen", m), \
-                mock.patch.object(executors, "_monotonic", monotonic), \
-                mock.patch.object(executors, "_sleep", sleep):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", m), \
+                mock.patch.object(step_runners, "_monotonic", monotonic), \
+                mock.patch.object(step_runners, "_sleep", sleep):
             with redirect_stderr(io.StringIO()):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://x/health", warmup_timeout=10.0, retry_interval=4.0,
                 )
         self.assertEqual(rc, 1)

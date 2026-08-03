@@ -55,7 +55,7 @@ def test_update_stages_reads_the_advertised_stages_file_flag(tmp_path) -> None:
     file, then back) unusable.
     """
     stages_file = tmp_path / "stages.json"
-    stages_file.write_text('[{"name":"merged","executor":"auto"}]')
+    stages_file.write_text('[{"name":"merged","step_runner":"auto"}]')
 
     rc = _run(
         "deployment-flows", "update-stages", "yoke-prod",
@@ -66,7 +66,7 @@ def test_update_stages_reads_the_advertised_stages_file_flag(tmp_path) -> None:
     assert rc == 0
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_flows.update_stages"
-    assert req.payload["stages"] == '[{"name":"merged","executor":"auto"}]'
+    assert req.payload["stages"] == '[{"name":"merged","step_runner":"auto"}]'
     assert req.payload["description"] == (
         "Deploys the product and its downstream pin."
     )

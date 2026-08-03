@@ -27,9 +27,9 @@ Refine always advances status on successful completion, whether invoked directly
 ### Lifecycle transitions
 
 Resolve the active `refine` segment from the item's immutable workflow pin.
-Interpret `executor_bindings` against the ordered `stages` with the runtime's
+Interpret `skill_bindings` against the ordered `stages` with the runtime's
 half-open interval (`from_stage_id <= current < through_stage_id`). This skill
-supports the refine executor's three-rung contract: binding source → one
+supports the refine skill's three-rung contract: binding source → one
 in-progress stage → binding handoff. Use those served stage ids for entry,
 re-entry, and completion; never select a branch from a literal workflow id.
 
@@ -115,7 +115,7 @@ If the spec contains a major error — wrong file references, contradictory requ
 Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
 exact pin and exports `ITEM_*`, `REFINE_SOURCE_STATUS`,
 `REFINE_ACTIVE_STATUS`, `REFINE_TARGET_STATUS`, and
-`REFINE_ARTIFACT_SCOPE`. Do not continue unless its executor guard passes.
+`REFINE_ARTIFACT_SCOPE`. Do not continue unless its skill guard passes.
 
 ### 1b. Claim and Set Entry Status
 
@@ -239,7 +239,7 @@ Pick the field(s) to refine based on the current status and whatever structured 
 
 - For `REFINE_ARTIFACT_SCOPE=item_artifact`, focus on `spec` first, then
   `design_spec` if the item already has UX or flow detail.
-- When `ITEM_NEXT_EXECUTOR=blitz`, also identify the one strategy document that will remain the
+- When `ITEM_NEXT_SKILL=blitz`, also identify the one strategy document that will remain the
   live execution plan. Apply the document-readiness rubric in
   `review-rubric.md`; do not treat the item body as the execution document.
 - For `REFINE_ARTIFACT_SCOPE=generated_task_plan`, focus on `technical_plan`
@@ -318,7 +318,7 @@ critiquing the plan against the universal 350-line cap.
 
 Read [`update-protocol.md`](update-protocol.md) for the full update protocol: applying additive improvements (step 6), verifying writes (step 7), capturing the final summary (step 8), advancing status on success (step 9), releasing the item claim (step 10), final output (step 11), and completion criteria (step 12).
 
-When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
+When `ITEM_NEXT_SKILL=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md) after step 7 and
 before step 9. Refine is not complete until the registered link write has
 been verified through `strategy.execution.get`.

@@ -64,7 +64,7 @@ def _definition_bucket(
     status: str,
     definition: Mapping[str, Any],
 ) -> str:
-    """Project a declared stage from executor segments and workflow policy."""
+    """Project a declared stage from skill segments and workflow policy."""
     stages = tuple(definition.get("stages") or ())
     stage_ids = tuple(str(stage.get("id")) for stage in stages)
     terminal_ids = {
@@ -79,7 +79,7 @@ def _definition_bucket(
     if position == 0:
         return "idea"
 
-    for binding in definition.get("executor_bindings") or ():
+    for binding in definition.get("skill_bindings") or ():
         try:
             start = stage_ids.index(str(binding["from_stage_id"]))
             stop = stage_ids.index(str(binding["through_stage_id"]))
@@ -88,18 +88,18 @@ def _definition_bucket(
         if not start <= position < stop:
             continue
 
-        executor_id = str(binding.get("executor_id") or "")
-        if executor_id in {"refine", "shepherd"}:
+        skill_id = str(binding.get("skill_id") or "")
+        if skill_id in {"refine", "shepherd"}:
             return "planning"
-        if executor_id == "polish":
+        if skill_id == "polish":
             return "reviewing"
-        if executor_id == "usher":
+        if skill_id == "usher":
             return "implemented" if position == start else "release"
 
-        # Every other registered executor owns implementation. Its entry is
+        # Every other registered skill owns implementation. Its entry is
         # ready work, its interior is active work, and its final interior stage
         # is review. Task-graph workflows keep that integration close active
-        # until their implementation executor reaches its handoff.
+        # until their implementation skill reaches its handoff.
         if position == start:
             return "refined"
         policies = definition.get("policies") or {}

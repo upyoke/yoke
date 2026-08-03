@@ -283,7 +283,7 @@ The session-offer endpoint (`POST /v1/sessions/offer`) accepts a session-offer p
 
 Scheduler computation (`compute_schedule()` in `scheduler.py`) delegates
 frontier classification and ranking to `frontier.py`, resolves `next_step`
-from each item's pinned workflow executor binding, honors implementation WIP
+from each item's pinned workflow skill binding, honors implementation WIP
 eligibility when selecting the assignable step, evaluates `work_claims` for
 claim state, and probes truthful SML coherence/staleness across the MISSION,
 VISION, MASTER-PLAN, and LANDSCAPE views rendered under `.yoke/strategy/`.

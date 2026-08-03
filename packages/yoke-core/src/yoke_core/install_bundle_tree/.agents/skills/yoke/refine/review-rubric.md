@@ -18,7 +18,7 @@ Before writing any changes, complete these mandatory checks and carry the findin
 - **Cleanup coverage:** If the artifact replaces or removes behavior, explicitly identify dead code, dead docs, dead tests, dead config, compatibility shims, and migration residue that should be deleted.
 - **Failure/recovery coverage:** If the artifact describes a state-changing or write path, ensure it names failure modes, partial-state behavior, and operator recovery/rollback expectations.
 - **Open-question closure:** For `REFINE_ARTIFACT_SCOPE=item_artifact`, resolve open questions or assign explicit defaults whenever the answer would change interfaces, files touched, data model, or user-visible behavior.
-- **Blitz execution document:** When `ITEM_NEXT_EXECUTOR=blitz`, identify exactly
+- **Blitz execution document:** When `ITEM_NEXT_SKILL=blitz`, identify exactly
   one unarchived strategy document in the item project. Verify that it can
   cold-start execution from required outcomes, explicit slice boundaries,
   affected areas, coordination dependencies, verification and delivery

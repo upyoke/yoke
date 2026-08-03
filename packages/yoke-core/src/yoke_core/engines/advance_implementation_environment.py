@@ -9,7 +9,7 @@ derive the preview URL from the capability's ``preview_domain``, update
 the env row, surface to operator.
 
 Flow-triggered projects (``trigger: "flow"``, e.g. Yoke core-service
-previews) deploy through the ``ephemeral-deploy`` flow executor
+previews) deploy through the ``ephemeral-deploy`` flow step_runner
 (:mod:`yoke_core.domain.deploy_ephemeral`); provisioning rows at
 advance time would create dead ``pending`` previews no push workflow
 ever deploys, so those projects skip this phase.
@@ -21,7 +21,7 @@ context):
 * ``skipped:no-capability`` — project has no ``ephemeral-env`` row in
   ``project_capabilities``.
 * ``skipped:flow-triggered`` — project's previews deploy via the
-  deployment-flow executor, not on push.
+  deployment-flow step_runner, not on push.
 * ``pending:policy-invalid`` — capability settings are malformed.
 * ``provisioned`` — env row created and URL derived.
 * ``pending:push-failed`` — branch push to ``origin`` failed; env row

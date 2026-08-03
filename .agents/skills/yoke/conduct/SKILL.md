@@ -20,7 +20,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 `workflow_id` is not `epic`, reject immediately:
 
 ```
-Error: /yoke conduct is not the registered executor for workflow '{workflow_id}' on PREFIX-{N}.
+Error: /yoke conduct is not the registered skill for workflow '{workflow_id}' on PREFIX-{N}.
 
 Issue implementation routes through /yoke advance (main-session inline implementation).
 Issue refinement routes through /yoke refine.

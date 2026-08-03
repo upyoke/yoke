@@ -60,9 +60,9 @@ class TestLifecycleRoutingSection:
         assert "yoke workflows item get PREFIX-N" in section_body
         assert "yoke workflows version get WORKFLOW VERSION" in section_body
 
-    def test_section_routes_by_executor_binding(self, section_body: str) -> None:
+    def test_section_routes_by_skill_binding(self, section_body: str) -> None:
         assert "half-open interval" in section_body
-        assert "/yoke <executor_id>" in section_body
+        assert "/yoke <skill_id>" in section_body
         assert "`through_stage_id`" in section_body
 
     def test_section_uses_policies_not_item_type(self, section_body: str) -> None:

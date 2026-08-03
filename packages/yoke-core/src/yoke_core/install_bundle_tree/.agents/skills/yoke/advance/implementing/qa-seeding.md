@@ -6,7 +6,7 @@ Seeds QA requirements before implementation begins. Called by the active router 
 
 ---
 
-## QA Lifecycle for the Advance Executor
+## QA Lifecycle for the Advance Skill
 
 When the pinned `advance` binding enters `implementing` under
 `single_implementation_lane`, the implementing agent is responsible for the

@@ -6,7 +6,7 @@ Item-level and epic-task-level status lifecycles, with valid transitions, deriva
 
 Every item pins `workflow_id` and `workflow_version_id`. The immutable
 definition owns its ordered stages, terminal stages, gates, policies, and
-registered executor bindings. Read the authoritative definitions with
+registered skill bindings. Read the authoritative definitions with
 `yoke workflows definition get`; do not reconstruct stage tables from this
 reference.
 
@@ -25,7 +25,7 @@ table:
 | `stages` | Ordered ids, display labels, descriptions, and target-stage gate references |
 | `terminal_stage_ids` | Successful terminal stages for this version |
 | `transitions` | Declared graph edges between stages |
-| `executor_bindings` | Registered executors covering contiguous half-open stage intervals |
+| `skill_bindings` | Registered skills covering contiguous half-open stage intervals |
 | `policies` | Ownership, worktree, task-child, QA, approval, and delivery behavior |
 | `entry_surfaces` | Create surfaces permitted to pin this workflow version |
 
@@ -39,7 +39,7 @@ context; they do not define valid transitions.
 definition, validates target-stage membership, evaluates the gate references
 attached to that target, and dispatches policy behavior through the canonical
 status-write path. Ordered stages and declared edges drive navigation and
-forward-transition checks. Executor ownership comes from the binding whose
+forward-transition checks. Skill ownership comes from the binding whose
 interval contains the live stage, not from the workflow id or a copied status
 table.
 
@@ -153,6 +153,6 @@ it dispatches that task.
 
 ### Dispatch
 
-The current `conduct` executor dispatches generated tasks in `planned` status.
+The current `conduct` skill dispatches generated tasks in `planned` status.
 Parent-item routing to Conduct still depends on the parent's pinned
-`executor_bindings` and task-graph policies.
+`skill_bindings` and task-graph policies.

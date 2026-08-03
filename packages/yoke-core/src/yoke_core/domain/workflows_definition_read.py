@@ -3,7 +3,7 @@
 The read behind ``workflows.definition.get``. Workflow identities and their
 selected version rows are universe-wide. Definitions own ordered stages,
 labels, descriptions, transition edges, gate placement, entry surfaces,
-registered executor bindings, and policy. The engine-owned gate catalog owns
+registered skill bindings, and policy. The engine-owned gate catalog owns
 the stable gate strings those definitions reference.
 
 The flows half reads ``deployment_flows`` rows — optionally filtered to
@@ -36,7 +36,7 @@ FLOW_FIELDS = (
 def _stage_names(raw_stages: Any) -> List[str]:
     """Each stage's own identifying field, parsed from the stages JSON.
 
-    Executor-shaped stages identify by ``name``, kind-shaped stages by
+    Skill-shaped stages identify by ``name``, kind-shaped stages by
     ``kind``. Unparseable or non-list JSON serves an empty list rather
     than failing the whole read over one malformed row.
     """

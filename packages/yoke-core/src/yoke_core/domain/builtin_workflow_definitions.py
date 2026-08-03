@@ -24,7 +24,7 @@ from yoke_core.domain.builtin_direct_workflow_version_history import (
 from yoke_core.domain.workflow_definition_builders import (
     BUILTIN_WORKFLOW_PREFERRED_VERSION,
     ENTRY_SURFACE_IDS,
-    REGISTERED_WORKFLOW_EXECUTOR_IDS,
+    REGISTERED_WORKFLOW_SKILL_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
 )
 
@@ -89,7 +89,7 @@ __all__ = [
     "BUILTIN_WORKFLOW_IDS",
     "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
-    "REGISTERED_WORKFLOW_EXECUTOR_IDS",
+    "REGISTERED_WORKFLOW_SKILL_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "builtin_workflow_definition",
     "builtin_workflow_definitions",

@@ -1,4 +1,4 @@
-"""environment-bootstrap executor — initialize a deploy env's empty Yoke DB.
+"""environment-bootstrap step runner — initialize a deploy env's empty Yoke DB.
 
 Takes one project environment from an applied Pulumi stack to a complete,
 empty-but-fully-shaped Yoke control-plane database:

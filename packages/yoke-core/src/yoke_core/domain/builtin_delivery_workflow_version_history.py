@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
     definition_fixture,
-    executor_binding,
+    skill_binding,
     gate_ref,
     workflow_stage,
 )
@@ -114,15 +114,15 @@ ISSUE_WORKFLOW_VERSION_ONE = definition_fixture(
         ),
     ),
     entry_surfaces=("harness_skill", "promotion"),
-    executor_bindings=(
-        executor_binding("refine", "idea", "refined-idea"),
-        executor_binding(
+    skill_bindings=(
+        skill_binding("refine", "idea", "refined-idea"),
+        skill_binding(
             "advance", "refined-idea", "reviewed-implementation",
         ),
-        executor_binding(
+        skill_binding(
             "polish", "reviewed-implementation", "implemented",
         ),
-        executor_binding("usher", "implemented", "done"),
+        skill_binding("usher", "implemented", "done"),
     ),
     policies={
         "ownership": "single_item_claim",
@@ -195,15 +195,15 @@ EPIC_WORKFLOW_VERSION_ONE = definition_fixture(
         ),
     ),
     entry_surfaces=("harness_skill",),
-    executor_bindings=(
-        executor_binding("refine", "idea", "refined-idea"),
-        executor_binding("shepherd", "refined-idea", "plan-drafted"),
-        executor_binding("refine", "plan-drafted", "planned"),
-        executor_binding("conduct", "planned", "reviewed-implementation"),
-        executor_binding(
+    skill_bindings=(
+        skill_binding("refine", "idea", "refined-idea"),
+        skill_binding("shepherd", "refined-idea", "plan-drafted"),
+        skill_binding("refine", "plan-drafted", "planned"),
+        skill_binding("conduct", "planned", "reviewed-implementation"),
+        skill_binding(
             "polish", "reviewed-implementation", "implemented",
         ),
-        executor_binding("usher", "implemented", "done"),
+        skill_binding("usher", "implemented", "done"),
     ),
     policies={
         "ownership": "item_claim_and_task_lanes",

@@ -1,4 +1,4 @@
-"""Immutable source resolution for the github-actions-workflow executor.
+"""Immutable source resolution for the github-actions-workflow step runner.
 
 The publish must ship the deployment run's saved commit even when the local
 checkout or remote branch moves before a resume. Historical version lineages

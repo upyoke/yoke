@@ -21,7 +21,7 @@ ephemeral-env --json`; `result.settings_json` declares `trigger`,
 `preview_domain`, and, for flow-triggered projects, `flow_id`. GitHub-triggered
 projects use the registered `yoke github-actions ...` family. Flow-triggered
 projects use the registered deployment-run composer plus the retained
-owner-only deployment executor.
+owner-only deployment step runner.
 
 **Prerequisite:** The item's project must have the `ephemeral-env`
 capability. Dispatch the `projects.capability.has` function call
@@ -92,7 +92,7 @@ For `flow`:
    never store that machine-local profile name in project settings.
 4. Execute `yoke --env <connection>-db-admin deployment-runs execute <run-id>
    --product-repo-path <worktree-path>`. The generic `ephemeral-deploy`
-   executor reads the source project's policy and project-owned Pack files,
+   step runner reads the source project's policy and project-owned Pack files,
    while `host_project` supplies the environment and provider authority.
 
 Any trigger, lookup, wait, or execution failure updates `status=failed`, sets
@@ -103,7 +103,7 @@ model to the other.
 #### E3. Read the Result
 
 After either delivery model completes, read `yoke ephemeral-env get <project>
-<branch> --json`. The flow executor has already recorded its URL and deployed
+<branch> --json`. The flow step runner has already recorded its URL and deployed
 SHA. For a successful GitHub-triggered run, derive the URL from the canonical
 branch slug and policy `preview_domain`, then write `url` and `status=healthy`
 through `yoke ephemeral-env update`. Set `_ephemeral_url` from the final read,

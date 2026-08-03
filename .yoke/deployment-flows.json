@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "default_flow": "yoke-internal",
   "retire_if_present": [
     "yoke-hosted-production",
@@ -19,11 +19,11 @@
         },
         {
           "name": "merged",
-          "executor": "auto"
+          "step_runner": "auto"
         },
         {
           "name": "complete",
-          "executor": "auto"
+          "step_runner": "auto"
         }
       ],
       "on_failure": "halt",
@@ -38,11 +38,11 @@
       "stages": [
         {
           "name": "merged",
-          "executor": "auto"
+          "step_runner": "auto"
         },
         {
           "name": "hosted-release",
-          "executor": "github-actions-workflow",
+          "step_runner": "github-actions-workflow",
           "workflow": "platform-release-bridge.yml",
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
@@ -57,7 +57,7 @@
         },
         {
           "name": "complete",
-          "executor": "auto"
+          "step_runner": "auto"
         }
       ],
       "on_failure": "halt",
@@ -72,11 +72,11 @@
       "stages": [
         {
           "name": "merged",
-          "executor": "auto"
+          "step_runner": "auto"
         },
         {
           "name": "hosted-release",
-          "executor": "github-actions-workflow",
+          "step_runner": "github-actions-workflow",
           "workflow": "platform-release-bridge.yml",
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
@@ -91,7 +91,7 @@
         },
         {
           "name": "complete",
-          "executor": "auto"
+          "step_runner": "auto"
         }
       ],
       "on_failure": "halt",
@@ -106,11 +106,11 @@
       "stages": [
         {
           "name": "ephemeral-deploy",
-          "executor": "ephemeral-deploy"
+          "step_runner": "ephemeral-deploy"
         },
         {
           "name": "complete",
-          "executor": "auto"
+          "step_runner": "auto"
         }
       ],
       "on_failure": "halt",

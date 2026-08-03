@@ -60,7 +60,7 @@ def test_seed_from_flow_drives_real_requirement_add(monkeypatch):
         if "stages" in args:
             return json.dumps([
                 {"name": "distribution-publish",
-                 "executor": "github-actions-workflow",
+                 "step_runner": "github-actions-workflow",
                  "qa_kind": "distribution_publish"},
             ])
         return ""

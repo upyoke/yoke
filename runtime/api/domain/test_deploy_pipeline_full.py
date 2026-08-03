@@ -14,7 +14,7 @@ from unittest import mock
 
 from yoke_core.domain import (
     deploy_pipeline,
-    deploy_pipeline_executors,
+    deploy_pipeline_step_runners,
     deploy_pipeline_reporting,
     deploy_qa_recorder,
 )
@@ -30,8 +30,8 @@ class TestParseStagesQa:
 
     def test_explicit_qa_kind(self):
         stages = json.dumps([
-            {"name": "deploy", "executor": "auto"},
-            {"name": "verify", "executor": "auto", "qa_kind": "health_check"},
+            {"name": "deploy", "step_runner": "auto"},
+            {"name": "verify", "step_runner": "auto", "qa_kind": "health_check"},
         ])
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert len(result) == 1
@@ -40,20 +40,20 @@ class TestParseStagesQa:
 
     def test_inferred_smoke_kind(self):
         stages = json.dumps([
-            {"name": "smoke-test", "executor": "auto"},
+            {"name": "smoke-test", "step_runner": "auto"},
         ])
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert len(result) == 1
         assert result[0]["qa_kind"] == "smoke"
 
     def test_no_qa_stages(self):
-        stages = json.dumps([{"name": "deploy", "executor": "auto"}])
+        stages = json.dumps([{"name": "deploy", "step_runner": "auto"}])
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert result == []
 
     def test_custom_success_policy(self):
         stages = json.dumps([
-            {"name": "smoke", "executor": "auto", "qa_kind": "smoke",
+            {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke",
              "success_policy": "All tests green"},
         ])
         result = deploy_qa_recorder._parse_stages_qa(stages)
@@ -61,7 +61,7 @@ class TestParseStagesQa:
 
     def test_default_success_policy(self):
         stages = json.dumps([
-            {"name": "smoke", "executor": "auto", "qa_kind": "smoke"},
+            {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke"},
         ])
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert "conclusion=success" in result[0]["success_policy"]
@@ -127,22 +127,22 @@ class TestDeployPipelineProjectSettings:
     def test_ephemeral_verify_reads_domain_from_ephemeral_policy(self):
         policy = mock.Mock(preview_domain="externalwebapp.example.com")
         with mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "connect",
             return_value=mock.Mock(close=lambda: None),
         ), mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "query_scalar",
             return_value=0,
         ), mock.patch(
             "yoke_core.domain.ephemeral_substrate.load_ephemeral_policy",
             return_value=policy,
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_ephemeral_verify",
             return_value=0,
         ) as exec_verify:
-            rc = deploy_pipeline_executors._dispatch_ephemeral_verify(
+            rc = deploy_pipeline_step_runners._dispatch_ephemeral_verify(
                 {"workflow": "ephemeral.yml"},
                 name="verify",
                 run_id="run-1",
@@ -166,14 +166,14 @@ class TestParseStages:
 
     def test_basic_parse(self):
         stages_json = json.dumps([
-            {"name": "deploy", "executor": "auto"},
-            {"name": "smoke", "executor": "github-actions-workflow",
+            {"name": "deploy", "step_runner": "auto"},
+            {"name": "smoke", "step_runner": "github-actions-workflow",
              "workflow": "smoke.yml", "dispatch_correlation_input": "yoke_dispatch_id"},
         ])
         result = deploy_pipeline._parse_stages(stages_json)
         assert len(result) == 2
         assert result[0]["name"] == "deploy"
-        assert result[0]["executor"] == "auto"
+        assert result[0]["step_runner"] == "auto"
         assert result[1]["config"]["workflow"] == "smoke.yml"
 
 

@@ -47,10 +47,10 @@ def test_polish_route_includes_new_stages_from_the_pinned_definition():
     )
     pinned = replace(workflow, definition=definition)
 
-    route = advance_skip_core._executor_skip_route(
+    route = advance_skip_core._skill_skip_route(
         pinned,
         "reviewed-implementation",
-        executor_id="polish",
+        skill_id="polish",
         require_entry=True,
     )
 
@@ -72,10 +72,10 @@ def test_polish_allowlist_excludes_pre_implementation_stages():
     allowed_hops = {
         stage
         for workflow in workflows
-        for stage in advance_skip_core._executor_skip_route(
+        for stage in advance_skip_core._skill_skip_route(
             workflow,
             "reviewed-implementation",
-            executor_id="polish",
+            skill_id="polish",
             require_entry=True,
         ).allowed_hops
     }
@@ -84,15 +84,15 @@ def test_polish_allowlist_excludes_pre_implementation_stages():
 
 
 def test_refine_allowlist_comes_from_each_bound_segment():
-    issue_route = advance_skip_core._executor_skip_route(
+    issue_route = advance_skip_core._skill_skip_route(
         builtin_workflow_runtime("issue"),
         "idea",
-        executor_id="refine",
+        skill_id="refine",
     )
-    epic_plan_route = advance_skip_core._executor_skip_route(
+    epic_plan_route = advance_skip_core._skill_skip_route(
         builtin_workflow_runtime("epic"),
         "plan-drafted",
-        executor_id="refine",
+        skill_id="refine",
     )
 
     assert issue_route.allowed_hops == frozenset(
@@ -104,10 +104,10 @@ def test_refine_allowlist_comes_from_each_bound_segment():
 
 
 def test_walk_hops_rejects_out_of_route_allowlist():
-    route = advance_skip_core._executor_skip_route(
+    route = advance_skip_core._skill_skip_route(
         builtin_workflow_runtime("issue"),
         "reviewed-implementation",
-        executor_id="polish",
+        skill_id="polish",
         require_entry=True,
     )
 

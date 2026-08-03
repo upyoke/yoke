@@ -17,7 +17,7 @@ class TestFlowBasic:
         )
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        stages = json.dumps([{"name": "merged", "step_runner": "auto"}])
         cmd_create(test_db, "f-history", "yoke", "History", "D", stages)
         test_db.execute(
             "INSERT INTO deployment_runs "
@@ -31,7 +31,7 @@ class TestFlowBasic:
             cmd_update_stages(
                 test_db,
                 "f-history",
-                json.dumps([{"name": "complete", "executor": "auto"}]),
+                json.dumps([{"name": "complete", "step_runner": "auto"}]),
             )
         with pytest.raises(ValueError, match="historical run"):
             cmd_delete(test_db, "f-history")
@@ -49,8 +49,8 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_create, cmd_stages, cmd_update_stages
 
         _insert_projects(test_db)
-        original = json.dumps([{"name": "merged", "executor": "auto"}])
-        replacement = json.dumps([{"name": "complete", "executor": "auto"}])
+        original = json.dumps([{"name": "merged", "step_runner": "auto"}])
+        replacement = json.dumps([{"name": "complete", "step_runner": "auto"}])
         cmd_create(
             test_db,
             "f-concurrent-history",
@@ -111,5 +111,5 @@ class TestFlowBasic:
         assert isinstance(outcome["update"], ValueError)
         assert "historical run" in str(outcome["update"])
         assert json.loads(cmd_stages(test_db, "f-concurrent-history")) == [
-            {"name": "merged", "executor": "auto"}
+            {"name": "merged", "step_runner": "auto"}
         ]

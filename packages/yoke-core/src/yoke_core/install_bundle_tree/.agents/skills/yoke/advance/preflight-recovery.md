@@ -17,7 +17,7 @@ This gate runs **before** worktree/environment phases to ensure bypass-created i
 backpointer from an ordinary backlog row to `epic_tasks`; the generated-task
 table references its parent instead. Any ordinary item reaching this gate runs
 the generic reconciliation path, which is benign when its `deployment_flow`
-was already populated by the owning executor's handoff. If an exemption
+was already populated by the owning skill's handoff. If an exemption
 becomes mechanically necessary, add a real relation first; do not infer one
 from `epic_task_files` or another indirect signal.
 

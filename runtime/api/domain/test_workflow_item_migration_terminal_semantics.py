@@ -30,7 +30,7 @@ def _publish_release_terminal_version(conn) -> dict:
     definition["transitions"] = [
         edge for edge in definition["transitions"] if edge["to_stage_id"] != "done"
     ]
-    for binding in definition["executor_bindings"]:
+    for binding in definition["skill_bindings"]:
         if binding["through_stage_id"] == "done":
             binding["through_stage_id"] = "release"
     definition["stage_mapping"] = {

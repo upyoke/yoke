@@ -5,8 +5,8 @@
 Called by the advance router after all gates and phase-specific work complete. Updates status, syncs GitHub, commits, and reports.
 
 **Context variables** (set by router): `{N}`, `{NNN}` (zero-padded),
-`_title`, `_status` (old), `_target` (new), `_current_executor`,
-`_target_executor`, `_worktree_policy`, `_pinned_definition_json`, `--env`
+`_title`, `_status` (old), `_target` (new), `_current_skill`,
+`_target_skill`, `_worktree_policy`, `_pinned_definition_json`, `--env`
 value, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase
 or re-entry; empty/unset when advancing on main or with `--no-worktree`)
 
@@ -15,19 +15,19 @@ or re-entry; empty/unset when advancing on main or with `--no-worktree`)
 ## Implementation-entry requires the pinned advance source (step 5f)
 
 Implementation-entry orchestration is valid only when the exact pinned
-definition assigns target `implementing` to executor `advance` and
+definition assigns target `implementing` to skill `advance` and
 `policies.worktrees=single_implementation_lane`. Locate that binding in
-`executor_bindings`; its `from_stage_id` is the required source. The
+`skill_bindings`; its `from_stage_id` is the required source. The
 orchestrator dispatches the single adjacent `lifecycle.transition.execute`
 from that source to `implementing`. It does not walk earlier stages.
 
-If the target belongs to `conduct` or another executor, stop and route to that
+If the target belongs to `conduct` or another skill, stop and route to that
 pinned command. Do not infer implementation ownership from `workflow_id`.
 
 To move an earlier item toward implementation, reach the pinned `advance`
 binding's source first, then advance:
 
-- Run the executor currently selected by the pinned definition; `/yoke refine`
+- Run the skill currently selected by the pinned definition; `/yoke refine`
   owns any active refine segment.
 - Or pass `--skip-refine` to fast-forward the gate-free bookkeeping rungs when refine deliberation is unnecessary (see below).
 
@@ -36,7 +36,7 @@ Never hand-write intermediate `items scalar update --field status` hops to climb
 ### Skip-flag bookkeeping hops
 
 `yoke_core.domain.advance_skip_core` owns the operator-asserted skip routing:
-`_executor_skip_route` reads the item's pinned `executor_bindings`, ordered
+`_skill_skip_route` reads the item's pinned `skill_bindings`, ordered
 stages, and declared `transitions`. It selects the active `refine` segment or
 the entry to the `polish` segment, derives every hop through that binding's
 handoff, and supplies that route as the exact claim-bypass allowlist. Never
@@ -290,12 +290,12 @@ progress or has been resumed. The session keeps its claim. Emit:
 ## Implementation-entry Sub-skill Handoff
 
 **If target was `implementing` and the pinned definition selected the advance
-executor:** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`.
+skill:** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`.
 Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds
 the work-claim on PREFIX-{N} (acquired in preflight) and has provisioned the
 worktree — both newly created and re-entered worktrees are same-session, no
 relaunch. The sub-skill handles QA seeding + implementation kickoff.
-Also pass `_current_executor=advance` and
+Also pass `_current_skill=advance` and
 `_worktree_policy=single_implementation_lane`; the sub-skill treats those as
 entry invariants.
 **Return after sub-skill completes.**

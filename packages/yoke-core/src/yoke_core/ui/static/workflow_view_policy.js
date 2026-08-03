@@ -118,7 +118,7 @@ export function renderPosture(documentNode, workflow, actions = {}) {
   return panel;
 }
 
-const EXECUTOR_SUMMARIES_BY_BINDING = {
+const SKILL_SUMMARIES_BY_BINDING = {
   "dash:dash": [
     "Run ",
     { kind: "code", text: "/yoke dash" },
@@ -159,18 +159,18 @@ const EXECUTOR_SUMMARIES_BY_BINDING = {
   ],
 };
 
-function executorSummary(workflow) {
+function skillSummary(workflow) {
   const definition = workflow.definition || {};
-  const executors = (definition.executor_bindings || [])
-    .map((binding) => binding.executor_id);
-  if (!executors.length) return "No registered executor.";
-  const servedBindingKey = `${workflow.id}:${executors.join(">")}`;
-  if (EXECUTOR_SUMMARIES_BY_BINDING[servedBindingKey]) {
-    return EXECUTOR_SUMMARIES_BY_BINDING[servedBindingKey];
+  const skills = (definition.skill_bindings || [])
+    .map((binding) => binding.skill_id);
+  if (!skills.length) return "No registered skill.";
+  const servedBindingKey = `${workflow.id}:${skills.join(">")}`;
+  if (SKILL_SUMMARIES_BY_BINDING[servedBindingKey]) {
+    return SKILL_SUMMARIES_BY_BINDING[servedBindingKey];
   }
   return [
     "Run ",
-    ...executors.flatMap((value, index) => [
+    ...skills.flatMap((value, index) => [
       ...(index ? [" → "] : []),
       { kind: "code", text: `/yoke ${value}` },
     ]),
@@ -236,8 +236,8 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
   const rows = el(documentNode, "div", "workflow-detail-stack");
   rows.appendChild(mechanicRow(
     documentNode,
-    "Executor",
-    executorSummary(workflow),
+    "Skill",
+    skillSummary(workflow),
     workflow.id === "blitz" ? "strategy" : null,
   ));
   rows.appendChild(mechanicRow(

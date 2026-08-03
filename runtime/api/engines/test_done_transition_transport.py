@@ -53,7 +53,7 @@ _DEFINITION = {
     "stages": [{"id": "idea"}, {"id": "implementing"}, {"id": "done"}],
     "terminal_stage_ids": ["done"],
     "policies": {"delivery": "no_run"},
-    "executor_bindings": [],
+    "skill_bindings": [],
     "entry_surfaces": ["harness_skill"],
 }
 
