@@ -78,6 +78,27 @@ class TestRecorder:
         cursor_session_map.record_from_hook_payload(_payload(), "cursor")
         assert _mapped(machine_home, SUBAGENT) is None
 
+    def test_session_start_records_itself_without_evidence(
+        self, machine_home, monkeypatch,
+    ):
+        # Cursor leaves the transcript path empty through a fresh session's
+        # first events, so without this the session's FIRST command has no
+        # identity at all. Session start fires once, for the top level.
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR)
+        cursor_session_map.record_from_hook_payload(
+            {"session_id": CONTAINER}, "cursor", "SessionStart",
+        )
+        assert _mapped(machine_home, CONTAINER) == CONTAINER
+
+    def test_session_start_still_prefers_evidence_over_its_own_id(
+        self, machine_home,
+    ):
+        # A sub-conversation naming its parent must not map to itself.
+        cursor_session_map.record_from_hook_payload(
+            _payload(), "cursor", "SessionStart",
+        )
+        assert _mapped(machine_home, SUBAGENT) == CONTAINER
+
 
 class TestClientEntryPoints:
     """Both hook entry points record, before anything can short-circuit."""

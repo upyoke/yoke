@@ -16,6 +16,7 @@ from yoke_contracts.cursor_session_map import (
     prune_stale_conversation_sessions,
     record_conversation_session as _record_conversation_session,
 )
+from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_harness.hooks.identity_runtime import is_cursor
 
 
@@ -28,7 +29,9 @@ def record_conversation_session(conversation_id: str, session_id: str) -> None:
     _record_conversation_session(conversation_id, session_id, _map_dir())
 
 
-def record_from_hook_payload(payload: dict, executor: str) -> None:
+def record_from_hook_payload(
+    payload: dict, executor: str, event_name: str = "",
+) -> None:
     """Persist a hook event's conversation -> container session pairing.
 
     Only the client hook process can: it alone sees this machine's
@@ -41,6 +44,14 @@ def record_from_hook_payload(payload: dict, executor: str) -> None:
     every identity-requiring command run there fails. Recorded only
     against evidence naming the container: a wrong pairing is worse than a
     missing one. Never raises — a hook must not fail on bookkeeping.
+
+    Session start is the one event that needs no evidence. Cursor leaves
+    the transcript path empty through a fresh session's first events, so
+    without this the session's FIRST command — the one likeliest to be a
+    ``/yoke`` entrypoint — resolves to nothing. It fires once for the
+    top-level session, which is the same basis on which registration
+    already treats that id as the container; a sub-conversation carries
+    ``parent_conversation_id``, which the evidence rule reads first.
     """
     if not is_cursor(executor):
         return
@@ -49,6 +60,8 @@ def record_from_hook_payload(payload: dict, executor: str) -> None:
         if not isinstance(conversation_id, str) or not conversation_id:
             return
         container = container_session_id_from_evidence(payload)
+        if not container and event_name == SESSION_START_EVENT:
+            container = conversation_id
         if container:
             record_conversation_session(conversation_id, container)
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook

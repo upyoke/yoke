@@ -18,6 +18,7 @@ from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 
 from yoke_harness.hooks import cursor_session_map
 from yoke_harness.hooks.deadline import start_hook_deadline
@@ -44,7 +45,7 @@ from yoke_harness.hooks.local_subset import (
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
 _HOOK_WIRE_SCHEMA = 1
-_CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
+_CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
 _DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
 
 
@@ -121,7 +122,7 @@ def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
 
 
 def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
-    if event_name != "SessionStart" or not is_codex(executor):
+    if event_name != SESSION_START_EVENT or not is_codex(executor):
         return
     try:
         sid = resolve_session_id(stdin_data)
@@ -177,7 +178,7 @@ def evaluate_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    cursor_session_map.record_from_hook_payload(payload, executor)
+    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -214,10 +215,12 @@ def relay_hook_event(
         stdin_data = sys.stdin.read()
     payload = _parse_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
-    _record_client_anchor(payload, session_start=event_name == "SessionStart")
+    _record_client_anchor(
+        payload, session_start=event_name == SESSION_START_EVENT,
+    )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    cursor_session_map.record_from_hook_payload(payload, executor)
+    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
     _codex_capture(event_name, stdin_data, executor)
 
     local = evaluate_local_subset(
