@@ -19,9 +19,10 @@ shared runner and policy chains expect:
   fired for subagent activity — and whose basename stem is the top-level
   session id. Yoke's container model registers only the top-level session,
   so ``resolve_container_session_id`` is the identity every control-plane
-  write should attribute to. The parser also persists that pairing, because
-  a shell Cursor spawns later carries only its own conversation id and has
-  no other route back to the container session.
+  write should attribute to. The *client* hook process persists that
+  pairing (:mod:`yoke_contracts.cursor_session_map`) — a shell Cursor
+  spawns later carries only its own conversation id, and only that side
+  can see this machine's machine home.
 
 Field names below are the measured wire shape of Cursor IDE 3.14.7 and
 cursor-agent 2026.07.23; re-verify against newer builds (the vendor owns
@@ -33,8 +34,9 @@ from __future__ import annotations
 import json
 import os
 import sys
-from pathlib import PurePosixPath
 from typing import Any, Dict
+
+from yoke_contracts import cursor_session_map
 
 
 # Cursor tool vocabulary -> canonical chain matcher vocabulary. Only names
@@ -81,10 +83,6 @@ def parse_payload(payload: str) -> Dict[str, Any]:
       :func:`resolve_container_session_id`); ``is_subagent_session`` flags
       payloads whose own ``session_id`` differs from the container.
 
-    It also records the event's conversation -> container pairing, which
-    is how a later Cursor shell resolves its own identity — see
-    :func:`_record_conversation_mapping`.
-
     The original Cursor-native keys are preserved alongside the
     canonical ones — policies that want the raw shape still get it.
     """
@@ -108,8 +106,6 @@ def parse_payload(payload: str) -> Dict[str, Any]:
         if event == "afterShellExecution" and "output" in data:
             data.setdefault("tool_output", data.get("output"))
 
-    _record_conversation_mapping(data)
-
     container = resolve_container_session_id(data)
     if container:
         data["container_session_id"] = container
@@ -126,36 +122,6 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     return data
 
 
-def _record_conversation_mapping(data: Dict[str, Any]) -> None:
-    """Persist this event's conversation -> container session pairing.
-
-    A hook process is the only place both ids exist at once. A shell
-    Cursor spawns carries only ``CURSOR_CONVERSATION_ID`` — its *own*
-    conversation, which for a dispatched subagent names no registered
-    session — so without this recording a Cursor shell cannot resolve the
-    session Yoke registered, and every identity-requiring command run
-    there fails.
-
-    Recorded only against evidence that names the container directly:
-    when an event carries none, its own id might be the container or
-    might be a sub-conversation, and a wrong pairing is worse than a
-    missing one. Best-effort throughout — a bookkeeping file must never
-    break a hook.
-    """
-    conversation_id = str(data.get("session_id", "") or "")
-    container = container_session_id_from_evidence(data)
-    if not conversation_id or not container:
-        return
-    try:
-        from yoke_harness.hooks.cursor_session_map import (
-            record_conversation_session,
-        )
-
-        record_conversation_session(conversation_id, container)
-    except Exception:  # noqa: BLE001 — never fail a hook on bookkeeping
-        return
-
-
 def payload_field(payload: str, field: str) -> str:
     """Extract a top-level field from hook JSON as a string.
 
@@ -170,44 +136,15 @@ def payload_field(payload: str, field: str) -> str:
     return str(value)
 
 
-def _transcript_session_id(transcript_path: str) -> str:
-    """Return the session id encoded in a Cursor transcript path.
-
-    Cursor transcript files live at
-    ``.../agent-transcripts/<session-id>/<session-id>.jsonl``; the stem is
-    the session id. Empty input returns empty output.
-    """
-    if not transcript_path:
-        return ""
-    return PurePosixPath(transcript_path).stem
-
-
 def container_session_id_from_evidence(data: Dict[str, Any]) -> str:
     """Resolve the container session from evidence that names it directly.
 
-    Resolution order:
-
-    1. ``CURSOR_TRANSCRIPT_PATH`` env — points at the **top-level** session
-       transcript in every hook process, including hooks fired for subagent
-       activity. Unset for roughly the first events of a fresh session.
-    2. ``parent_conversation_id`` payload field — present on subagent
-       lifecycle events; names the parent directly.
-    3. The payload's own ``transcript_path`` — equals the session's own
-       transcript; for a top-level event that IS the container.
-
-    Empty when none of the three is present, which is exactly the case
-    where the event's own id may or may not be the container. Callers that
-    must not guess — the conversation-mapping writer — use this; callers
-    that need a best answer use :func:`resolve_container_session_id`.
+    Delegates to :mod:`yoke_contracts.cursor_session_map`, which owns the
+    rule because the client hook process applies it too — that side does
+    the recording, being the only one that can see this machine's
+    transcript env and machine home.
     """
-    env_transcript = os.environ.get("CURSOR_TRANSCRIPT_PATH", "")
-    resolved = _transcript_session_id(env_transcript)
-    if resolved:
-        return resolved
-    parent = data.get("parent_conversation_id")
-    if isinstance(parent, str) and parent:
-        return parent
-    return _transcript_session_id(str(data.get("transcript_path", "") or ""))
+    return cursor_session_map.container_session_id_from_evidence(data)
 
 
 def resolve_container_session_id(data: Dict[str, Any]) -> str:

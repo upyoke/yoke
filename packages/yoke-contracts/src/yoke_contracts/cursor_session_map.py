@@ -20,9 +20,13 @@ container. Each hook records that pair here, and a later shell resolves
 its own conversation id through the recording — falling through
 unresolved when no hook recorded it, rather than guessing.
 
-Pure standard library and directory-injected, so the hook writer and the
-CLI reader share one body — the same split, and for the same reason, as
-:mod:`yoke_contracts.session_identity`.
+Pure standard library and directory-injected, so every side shares one
+body — the same split, and for the same reason, as
+:mod:`yoke_contracts.session_identity`. The container resolution lives
+here too, because the write happens in the *client* hook process (the
+only side that can see this machine's transcript env and machine home)
+while the harness adapter that shapes the same payload runs wherever the
+hook chain is evaluated.
 """
 
 from __future__ import annotations
@@ -32,13 +36,18 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Mapping, Optional, Union
+from pathlib import Path, PurePosixPath
+from typing import Any, Mapping, Optional, Union
 
 
 CURSOR_SESSION_MAP_DIR_NAME = "cursor-session-map"
 
 CURSOR_CONVERSATION_ENV_VAR = "CURSOR_CONVERSATION_ID"
+
+# Points at the TOP-LEVEL session's transcript in every hook process,
+# including hooks fired for subagent activity — which is what makes the
+# container recoverable from an event carrying only a sub-conversation id.
+CURSOR_TRANSCRIPT_ENV_VAR = "CURSOR_TRANSCRIPT_PATH"
 
 # A conversation outlives any single hook, so entries are kept for far
 # longer than the model spool's seconds-long hand-off. The cap exists so a
@@ -54,6 +63,43 @@ _STALE_AGE_S = 7 * 24 * 3600
 _SAFE_ID = re.compile(r"\A[A-Za-z0-9._-]{1,128}\Z")
 
 _MapDir = Union[str, "os.PathLike[str]"]
+
+
+def transcript_session_id(transcript_path: str) -> str:
+    """Return the session id encoded in a Cursor transcript path.
+
+    Transcripts live at ``.../agent-transcripts/<id>/<id>.jsonl``, so the
+    stem is the id. Empty input returns empty output.
+    """
+    if not transcript_path:
+        return ""
+    return PurePosixPath(transcript_path).stem
+
+
+def container_session_id_from_evidence(
+    payload: Mapping[str, Any],
+    env: Optional[Mapping[str, str]] = None,
+) -> str:
+    """Resolve the container session from evidence that names it directly.
+
+    Resolution order: the transcript-path env var (the top-level session's
+    transcript, even inside a subagent hook, though unset for roughly a
+    fresh session's first events), then ``parent_conversation_id`` on
+    subagent lifecycle events, then the payload's own ``transcript_path``
+    — which for a top-level event IS the container.
+
+    Empty when none of the three is present: exactly the case where the
+    event's own id may or may not be the container, and a wrong pairing is
+    worse than a missing one.
+    """
+    source = os.environ if env is None else env
+    resolved = transcript_session_id(source.get(CURSOR_TRANSCRIPT_ENV_VAR, "") or "")
+    if resolved:
+        return resolved
+    parent = payload.get("parent_conversation_id")
+    if isinstance(parent, str) and parent:
+        return parent
+    return transcript_session_id(str(payload.get("transcript_path", "") or ""))
 
 
 def _entry_path(map_dir: _MapDir, conversation_id: str) -> Optional[Path]:
@@ -150,7 +196,10 @@ def prune_stale_conversation_sessions(map_dir: _MapDir) -> int:
 __all__ = [
     "CURSOR_CONVERSATION_ENV_VAR",
     "CURSOR_SESSION_MAP_DIR_NAME",
+    "CURSOR_TRANSCRIPT_ENV_VAR",
+    "container_session_id_from_evidence",
     "prune_stale_conversation_sessions",
     "record_conversation_session",
     "resolve_mapped_session_id",
+    "transcript_session_id",
 ]

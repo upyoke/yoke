@@ -19,6 +19,7 @@ from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
 
+from yoke_harness.hooks import cursor_session_map
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
     merge_allow_stdout,
@@ -176,6 +177,7 @@ def evaluate_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
+    cursor_session_map.record_from_hook_payload(payload, executor)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -215,6 +217,7 @@ def relay_hook_event(
     _record_client_anchor(payload, session_start=event_name == "SessionStart")
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
+    cursor_session_map.record_from_hook_payload(payload, executor)
     _codex_capture(event_name, stdin_data, executor)
 
     local = evaluate_local_subset(
