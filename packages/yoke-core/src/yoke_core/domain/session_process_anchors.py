@@ -97,14 +97,21 @@ def resolve_session_from_ancestry(
     *,
     start_time_of: Optional[Callable[[int], Optional[str]]] = None,
     parents: Optional[Dict[int, int]] = None,
+    name_of: Optional[Callable[[int], Optional[str]]] = None,
 ) -> Optional[str]:
     """Resolve the ambient session id by walking this process's ancestry.
 
-    Returns ``None`` when no live anchor covers this process. Never raises.
-    ``start_time_of`` / ``parents`` inject process-table lookups for tests.
+    Returns ``None`` when no live anchor covers this process — including
+    when the walk reaches a multiplexed harness host, whose anchors cannot
+    name one session. Never raises. ``start_time_of`` / ``parents`` /
+    ``name_of`` inject process-table lookups for tests.
     """
     return session_identity.resolve_session_from_ancestry(
-        anchors_dir(), pid, start_time_of=start_time_of, parents=parents,
+        anchors_dir(),
+        pid,
+        start_time_of=start_time_of,
+        parents=parents,
+        name_of=name_of,
     )
 
 

@@ -28,6 +28,7 @@ from yoke_cli.config import machine_config
 from yoke_contracts.session_identity import (
     AMBIENT_RESOLUTION_FAILED,
     ANCHORS_DIR_NAME,
+    CURSOR_SESSION_MAP_DIR_NAME,
     resolve_ambient_session_id,
 )
 
@@ -51,14 +52,17 @@ def _ambient_note(ambient: Optional[str]) -> str:
 def resolve_ambient(env: Optional[Mapping[str, str]] = None) -> Optional[str]:
     """Resolve this process's ambient session id, or ``None``.
 
-    Mirrors the dispatcher's client-side resolver: env chain first, then
-    the hook-written process-anchor ancestry registry. Never raises —
-    a failed resolution is itself the signal this guard acts on.
+    Mirrors the dispatcher's client-side resolver: env chain, then the
+    hook-written process-anchor ancestry registry, then the hook-written
+    Cursor conversation mapping. Never raises — a failed resolution is
+    itself the signal this guard acts on.
     """
     try:
-        anchors_dir = machine_config.yoke_home() / ANCHORS_DIR_NAME
+        home = machine_config.yoke_home()
         return resolve_ambient_session_id(
-            anchors_dir, os.environ if env is None else env,
+            home / ANCHORS_DIR_NAME,
+            os.environ if env is None else env,
+            cursor_map_dir=home / CURSOR_SESSION_MAP_DIR_NAME,
         )
     except Exception:  # noqa: BLE001 — an unresolvable ambient is the signal
         return None

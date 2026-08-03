@@ -154,7 +154,7 @@ class TestResolveSessionFromAncestry:
         def _boom(*_a, **_k):
             raise AssertionError("process table must not be consulted")
 
-        monkeypatch.setattr(session_identity, "ancestor_pids", _boom)
+        monkeypatch.setattr(session_identity, "anchor_candidate_pids", _boom)
         assert anchors.resolve_session_from_ancestry(400) is None
 
     def test_unrelated_anchor_does_not_resolve(self, machine_home):
@@ -165,6 +165,35 @@ class TestResolveSessionFromAncestry:
             start_time_of=lambda _pid: _START,
         )
         assert resolved is None
+
+    def test_hosting_process_blocks_the_anchor_above_it(self, machine_home):
+        # A session hosted by a multiplexing harness that was launched from
+        # an anchored one has a perfectly good anchor two hops up, naming a
+        # DIFFERENT session. Resolving through the shared host would hand
+        # the hosted session the launching session's identity — and with it
+        # authority over the launching session's claims and item.
+        anchors.record_session_anchor(
+            "launching-session", anchor=_anchor(pid=100, start="s100"),
+        )
+        tree = {400: 300, 300: 200, 200: 100, 100: 1}
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents=tree,
+            start_time_of={100: "s100"}.get,
+            name_of={300: "zsh", 200: "cursor-agent", 100: "claude"}.get,
+        )
+        assert resolved is None
+        # Same tree, nothing multiplexed between: the anchor resolves, so
+        # the refusal above is the hosting process and not the shape.
+        assert (
+            anchors.resolve_session_from_ancestry(
+                400,
+                parents=tree,
+                start_time_of={100: "s100"}.get,
+                name_of={300: "zsh", 200: "zsh", 100: "claude"}.get,
+            )
+            == "launching-session"
+        )
 
     def test_contended_pid_refuses_rather_than_guessing(self, machine_home):
         anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))

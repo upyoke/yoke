@@ -142,6 +142,67 @@ def test_resolve_root_order(bare_env: None, monkeypatch: pytest.MonkeyPatch) -> 
     assert resolve_root("") == "/proj"
 
 
+def _mapped(machine_home, conversation_id: str) -> str | None:
+    from yoke_contracts.cursor_session_map import (
+        CURSOR_CONVERSATION_ENV_VAR,
+        CURSOR_SESSION_MAP_DIR_NAME,
+        resolve_mapped_session_id,
+    )
+
+    return resolve_mapped_session_id(
+        machine_home / CURSOR_SESSION_MAP_DIR_NAME,
+        {CURSOR_CONVERSATION_ENV_VAR: conversation_id},
+    )
+
+
+@pytest.fixture
+def machine_home(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    home = tmp_path / "machine-home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    return home
+
+
+def test_parsing_records_the_conversation_to_container_pairing(
+    container_env: None, machine_home
+) -> None:
+    # Without this recording a shell the subagent runs carries only SUB,
+    # which names no registered session — the identity failure the mapping
+    # exists to close.
+    parse_payload(json.dumps({
+        "hook_event_name": "beforeShellExecution",
+        "command": "yoke items get X",
+        "session_id": SUB,
+        "conversation_id": SUB,
+    }))
+    assert _mapped(machine_home, SUB) == MAIN
+
+
+def test_parsing_a_top_level_event_records_the_session_against_itself(
+    container_env: None, machine_home
+) -> None:
+    parse_payload(json.dumps({
+        "hook_event_name": "sessionStart",
+        "session_id": MAIN,
+        "conversation_id": MAIN,
+    }))
+    assert _mapped(machine_home, MAIN) == MAIN
+
+
+def test_no_pairing_recorded_without_evidence_of_the_container(
+    bare_env: None, machine_home
+) -> None:
+    # With no transcript path and no parent id, this event's own id might
+    # be the container or might be a sub-conversation. A wrong pairing is
+    # worse than a missing one.
+    parse_payload(json.dumps({
+        "hook_event_name": "preToolUse",
+        "tool_name": "Read",
+        "session_id": SUB,
+        "conversation_id": SUB,
+    }))
+    assert _mapped(machine_home, SUB) is None
+
+
 def test_garbage_and_field_stringification(bare_env: None) -> None:
     assert parse_payload("") == {}
     assert parse_payload("not json") == {}

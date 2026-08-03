@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
+    CURSOR_SESSION_MAP_DIR_NAME,
     resolve_ambient_session_id,
 )
 
@@ -218,19 +219,20 @@ def emit_response(
 def _resolve_session_id() -> Optional[str]:
     """Resolve the caller's harness session via the canonical ambient chain.
 
-    Env chain first, then the hook-written process-anchor ancestry registry.
-    The ancestry fallback is load-bearing on the https transport: the remote
-    server cannot inspect the caller's process tree, so the client MUST stamp
-    the session here. Delegating to the shared
+    Everything past the env chain is load-bearing on the https transport:
+    the remote server cannot inspect the caller's process tree, so the
+    client MUST stamp the session here. Delegating to the shared
     :func:`yoke_contracts.session_identity.resolve_ambient_session_id`
     keeps the client resolver in lockstep with the engine core — an
     env-only copy here silently dropped the ancestry fallback and denied
-    every mutating CLI call from a harness that does not export a session
-    env var (e.g. Claude Desktop) on https.
+    every mutating CLI call from a harness with no session env var.
     """
     try:
-        anchors_dir = machine_config.yoke_home() / ANCHORS_DIR_NAME
-        return resolve_ambient_session_id(anchors_dir, os.environ)
+        home = machine_config.yoke_home()
+        return resolve_ambient_session_id(
+            home / ANCHORS_DIR_NAME, os.environ,
+            cursor_map_dir=home / CURSOR_SESSION_MAP_DIR_NAME,
+        )
     except Exception:  # never break dispatch on identity resolution
         return None
 

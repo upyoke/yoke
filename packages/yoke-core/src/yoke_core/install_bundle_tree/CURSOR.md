@@ -35,10 +35,13 @@ Cursor exports no session-id environment variable. Identity facts:
 | `session_id` / `conversation_id` | every hook payload (stdin) | Session identity (identical values) |
 | `CURSOR_TRANSCRIPT_PATH` | hook process env | Top-level (container) session recovery — points at the main session's transcript even inside subagent hooks |
 | `parent_conversation_id` | `subagentStart`/`subagentStop` payloads | Explicit subagent → container lineage |
+| `CURSOR_CONVERSATION_ID` | agent shell env | The conversation that spawned a shell — a subagent shell carries its OWN id, so this is not a session id until mapped |
 | `YOKE_EXECUTOR=cursor` | pinned in the generated hook command | Family attribution regardless of env inheritance |
 | `model` / `model_id` | every hook payload | Model attribution — Cursor multiplexes providers, so the payload is the only truthful model source |
 
 Yoke's container model applies: only the top-level session registers as a `harness_sessions` row; subagent activity (which arrives under per-subagent session ids) folds into that container.
+
+Commands the agent runs in a shell resolve identity through that same container. The process-anchor registry cannot help — one `cursor-agent` pid hosts every conversation, so an anchor keyed on it would resolve to whichever sibling wrote last — and `CURSOR_CONVERSATION_ID` alone names a conversation, not a registered session. So every hook records its `conversation_id → container session` pairing under `<machine-home>/cursor-session-map/`, and a shell resolves its own conversation id through that recording. A conversation no hook has recorded resolves to nothing rather than to a guess.
 
 ## What Cursor does NOT own
 

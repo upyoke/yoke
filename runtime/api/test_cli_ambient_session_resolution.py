@@ -41,8 +41,8 @@ def test_build_actor_resolves_via_process_anchor_when_env_empty(
         ),
     )
     monkeypatch.setattr(
-        session_identity, "ancestor_pids",
-        lambda _pid=None, parents=None: [5151],
+        session_identity, "anchor_candidate_pids",
+        lambda _pid=None, parents=None, name_of=None: [5151],
     )
     monkeypatch.setattr(
         session_identity, "process_start_time", lambda _pid: "s-5151",

@@ -14,10 +14,12 @@ from yoke_contracts import process_ancestry
 from yoke_contracts.process_ancestry import (
     ProcessAnchor,
     ancestor_pids,
+    anchor_candidate_pids,
     find_nearest_harness_anchor,
     is_harness_process_name,
     is_multiplexed_process_name,
     parent_map,
+    process_table,
 )
 
 
@@ -76,6 +78,39 @@ class TestMultiplexedNameMatcher(unittest.TestCase):
     def test_rejects_per_session_and_unrelated_names(self):
         for name in ("claude", "zsh", "python3", "", None):
             self.assertFalse(is_multiplexed_process_name(name))
+
+
+class TestAnchorCandidatePids(unittest.TestCase):
+    def test_full_chain_when_no_hosting_process_intervenes(self):
+        self.assertEqual(
+            anchor_candidate_pids(400, parents=_TREE, name_of=_NAMES.get),
+            [300, 200, 100, 1],
+        )
+
+    def test_chain_ends_at_the_hosting_process(self):
+        names = {300: "zsh", 200: "cursor-agent", 100: "claude"}
+        self.assertEqual(
+            anchor_candidate_pids(400, parents=_TREE, name_of=names.get), [300],
+        )
+
+    def test_injected_tree_without_names_classifies_nothing(self):
+        # ``parents`` and ``name_of`` describe one table; reading live
+        # names against a synthetic tree would decide by coincidence.
+        self.assertEqual(
+            anchor_candidate_pids(400, parents=_TREE), [300, 200, 100, 1],
+        )
+
+    def test_both_process_facts_come_from_one_ps_call(self):
+        rows = [
+            "  400   300 python3",
+            "  300   200 zsh",
+            "  200     1 cursor-agent",
+        ]
+        with patch.object(
+            process_ancestry, "_ps_lines", return_value=rows,
+        ) as ps_lines:
+            self.assertEqual(anchor_candidate_pids(400), [300])
+        self.assertEqual(ps_lines.call_count, 1)
 
 
 class TestFindNearestHarnessAnchor(unittest.TestCase):
@@ -163,6 +198,19 @@ class TestPsParsing(unittest.TestCase):
         ):
             parents = parent_map()
         self.assertEqual(parents, {1: 0, 338: 1})
+
+    def test_process_table_keeps_a_path_with_spaces_whole(self):
+        rows = ["  200     1 /Applications/My App/Contents/MacOS/claude"]
+        with patch.object(process_ancestry, "_ps_lines", return_value=rows):
+            self.assertEqual(process_table(), {200: (1, "claude")})
+
+    def test_process_table_tolerates_a_missing_command_name(self):
+        # A nameless process must still carry its parent link, or the walk
+        # breaks at it and every ancestor above becomes unreachable.
+        with patch.object(
+            process_ancestry, "_ps_lines", return_value=["  338     1"],
+        ):
+            self.assertEqual(process_table(), {338: (1, "")})
 
     def test_ps_failure_degrades_to_empty(self):
         with patch.object(process_ancestry, "_ps_lines", return_value=[]):

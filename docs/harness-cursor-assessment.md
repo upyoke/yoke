@@ -159,7 +159,7 @@ near-real-time rather than deferred to session end, because `preToolUse` and
 | Session id source | `CLAUDE_SESSION_ID` env; persisted to `$CLAUDE_ENV_FILE` | `CODEX_THREAD_ID` (absent in hook subprocesses → identity env pin in hook command) | **No env var.** Every payload carries `session_id` + `conversation_id` (identical values), plus `generation_id` per turn and `tool_use_id` per call |
 | Executor detection | process/env heuristics | `YOKE_EXECUTOR=codex YOKE_PROVIDER=openai` pinned in hook command | same pin approach works; `CURSOR_INVOKED_AS=cursor-agent` distinguishes CLI from IDE (unset), `CURSOR_VERSION` carries build |
 | Process ancestry | anchorable (`claude` basenames) | multiplexed (never an anchor) | **multiplexed** — one `cursor-agent` pid hosted five session ids; hooks run `python3 → zsh → cursor-agent` |
-| Ambient identity for agent-shell subprocesses | env chain + process anchors | anchors unusable; env pin | `CURSOR_PROJECT_DIR`, `CURSOR_TRANSCRIPT_PATH`, `CURSOR_USER_EMAIL` exported to hook processes; no session id — anchor registry must be hook-written from payload |
+| Ambient identity for agent-shell subprocesses | env chain + process anchors | anchors unusable; env pin | `CURSOR_PROJECT_DIR`, `CURSOR_TRANSCRIPT_PATH`, `CURSOR_USER_EMAIL` exported to hook processes; the agent shell gets `CURSOR_CONVERSATION_ID` (its own conversation, a subagent's for a subagent shell) but no session id. Anchors are unusable for the same reason as Codex, so identity rides the hook-written conversation mapping (`<machine-home>/cursor-session-map/`, `yoke_contracts.cursor_session_map`) |
 | Container correlation | n/a (subagents share session) | n/a (in-process) | Subagents get **their own `session_id`** and transcript. Two recovery channels: `subagentStart`/`subagentStop` payloads carry `parent_conversation_id`; every hook process env (`CURSOR_TRANSCRIPT_PATH`) points at the **top-level** session transcript, including inside subagent hooks (unset for a session's first events — take the id from `sessionStart`'s payload, use the env var thereafter) |
 
 Yoke's model treats the top-level session as the container for main-agent and
@@ -169,8 +169,10 @@ into that container via the channels above — the ensure-register reflex that
 treats any unknown session id as registrable would otherwise mint phantom
 sessions per subagent dispatch. Subagent tool calls **do** fire
 `preToolUse`/`postToolUse` under the sub-session id (measured: 7/7/4 events
-in one dispatch), so lint enforcement reaches inside subagents once the
-container mapping exists.
+in one dispatch), which is both how lint enforcement reaches inside a
+subagent and how the conversation mapping learns that sub-session id: those
+events fire on the non-interactive terminal surface, where `subagentStart` /
+`subagentStop` never do.
 
 ### Session lifecycle
 
