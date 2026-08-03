@@ -15,13 +15,18 @@ canonical runtime file.
    canonical runtime file so Cursor's symlink refusal cannot disable the hook
    chain. The links and file are git-tracked, so a fresh clone already has
    them; install/refresh repairs drift idempotently.
-2. Git hooks — the pre-commit + post-commit shims via
+2. Cursor permission regions — the same
+   :mod:`yoke_cli.project_install.cursor_permissions` merge copy mode
+   runs, unioning Yoke's command approvals and control-plane network
+   origins into ``.cursor/cli.json`` and ``.cursor/sandbox.json``
+   without disturbing operator entries.
+3. Git hooks — the pre-commit + post-commit shims via
    :mod:`project_install_git_hooks` (same refuse/refresh/create
    semantics as copy mode; linked worktrees skip gracefully).
-3. Contract seeding — the same seed-if-missing pass copy-mode uses
+4. Contract seeding — the same seed-if-missing pass copy-mode uses
    (:func:`project_install_files.apply_contract_files`); the Yoke
    repo tracks its own contract files, so this is normally a no-op.
-4. Manifest — ``.yoke/install-manifest.json`` with
+5. Manifest — ``.yoke/install-manifest.json`` with
    ``"mode": "source-link"`` and the link inventory. ``refresh``
    re-runs the same repair; ``uninstall`` REFUSES entirely (the links
    are tracked files — you do not uninstall the source repo's dev
@@ -39,6 +44,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from yoke_cli.project_install.cursor_permissions import apply_cursor_permissions
+from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_core.domain import project_install_files as files_layer
 from yoke_core.domain.project_install_files import (
     MODE_COPY,
@@ -85,6 +92,7 @@ _SOURCE_LINK_OWNED_KEYS = frozenset({
     "materialized_files",
     "git_hooks",
     "contract_files",
+    CURSOR_PERMISSIONS_MANIFEST_KEY,
 })
 
 
@@ -230,6 +238,15 @@ def install_source_link(
     materialized = BootstrapResult()
     for rel, source_rel in DEV_MATERIALIZED_FILES:
         ensure_dev_materialized_file(repo_root, rel, source_rel, materialized)
+    # Cursor's command-approval and network-sandbox regions. Same merge pass
+    # the copy strategy runs, so the source checkout and an installed project
+    # get identical policy without a second implementation.
+    cursor_permissions_records, cursor_permissions_report = (
+        apply_cursor_permissions(
+            repo_root,
+            prior_records=old_manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY),
+        )
+    )
     hooks = BootstrapResult()
     install_git_hooks(repo_root, hooks)
 
@@ -263,6 +280,7 @@ def install_source_link(
         },
         "git_hooks": list(GIT_HOOK_NAMES),
         "contract_files": contract_map,
+        CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
     })
     manifest_file = files_layer.write_manifest(repo_root, manifest)
     return {
@@ -277,7 +295,12 @@ def install_source_link(
         "materialized_files_updated": materialized.updated,
         "materialized_files_ok": materialized.skipped,
         "hooks_installed_or_updated": hooks.installed + hooks.updated,
-        "actions": links.actions + materialized.actions + hooks.actions,
+        "actions": (
+            links.actions
+            + materialized.actions
+            + cursor_permissions_report["actions"]
+            + hooks.actions
+        ),
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,

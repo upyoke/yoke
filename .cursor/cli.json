@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(yoke *)",
+      "Shell(git *)",
+      "Shell(gh *)",
+      "Read(**)",
+      "Write(**)"
+    ]
+  },
+  "version": 1
+}

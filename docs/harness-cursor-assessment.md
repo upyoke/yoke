@@ -182,8 +182,19 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
   `.cursor/skills` parity decisions.
 - `.cursor/cli.json` schema is strict: `permissions.allow` is **required**
   (an allow-less deny-only file aborts every run before the agent starts) —
-  the same all-or-nothing failure class as Claude's `settings.json`, worth a
-  doctor check of its own.
+  the same all-or-nothing failure class as Claude's `settings.json`.
+  `HC-cursor-permission-config` covers it, alongside the
+  `.cursor/sandbox.json` `networkPolicy` allow list that keeps sandboxed
+  `yoke` calls from failing against the control plane. Both regions are
+  merged in by the install pass rather than shipped as literal bundle files,
+  so operator entries survive; the network origins resolve from machine
+  config at install time because a server-built bundle cannot know which
+  control plane the installing machine talks to.
+- Approval/execution mode is machine-level and unreachable from a project
+  repo, so it is taught rather than installed (`CURSOR.md`) and reported by
+  `HC-cursor-approval-posture`. An explicit `full_network` request counts as
+  an escalation and prompts even for allowed hosts — the correct move once
+  the origins are allowed is to retry inside the sandbox.
 - Interactive `cursor-agent` gates on a Workspace Trust dialog; `--trust`
   clears it for automation. Non-interactive `-p` runs did not prompt.
 - `cursor agent <anything>` from the IDE's bundled launcher silently

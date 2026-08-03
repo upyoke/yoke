@@ -18,6 +18,7 @@ from yoke_cli.project_install.files import (
     assert_safe_bundle_paths,
 )
 from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
+from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_contracts.project_contract.install_policy import (
     FORBIDDEN_CONTRACT_RELATIVE_PATHS,
 )
@@ -245,6 +246,15 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
     if not isinstance(settings_permissions, dict):
         raise ProjectInstallError(
             f"{source} settings_permissions must be an object"
+        )
+    cursor_permissions = manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY, {})
+    if not isinstance(cursor_permissions, dict) or not all(
+        isinstance(rel, str) and rel and isinstance(record, dict)
+        for rel, record in cursor_permissions.items()
+    ):
+        raise ProjectInstallError(
+            f"{source} {CURSOR_PERMISSIONS_MANIFEST_KEY} must map Cursor config "
+            "paths to record objects"
         )
     mode = manifest.get(MODE_KEY, MODE_COPY)
     if mode not in (MODE_COPY, MODE_SOURCE_LINK):
