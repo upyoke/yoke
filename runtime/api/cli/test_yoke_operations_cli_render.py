@@ -50,7 +50,7 @@ def _reset_captured() -> None:
 def _run(stub, *argv: str, session_id: str = "test-session") -> int:
     with patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}):
         with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
+            "yoke_core.domain.yoke_function_dispatch.dispatch_local",
             side_effect=stub,
         ):
             with patch(
@@ -65,7 +65,7 @@ def _run_capture(stub, *argv: str, session_id: str = "test-session"):
     stderr = io.StringIO()
     with patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}):
         with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
+            "yoke_core.domain.yoke_function_dispatch.dispatch_local",
             side_effect=stub,
         ):
             with patch(

@@ -304,3 +304,20 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
+    registry.register(
+        "agents.render_relationships.record",
+        _orch_agents.handle_agents_render_relationships_record,
+        _orch_agents.AgentsRenderRelationshipsRecordRequest,
+        _orch_agents.AgentsRenderRelationshipsRecordResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.orchestration_agents",
+        target_kinds=["global"],
+        side_effects=["path_context_values_upsert"],
+        emitted_event_names=[
+            "RenderRelationshipRecorded",
+            "YokeFunctionCalled",
+        ],
+        guardrails=["deterministic_server_owned_relationship_map"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )

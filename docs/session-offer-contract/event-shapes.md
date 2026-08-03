@@ -1,6 +1,6 @@
 # Event Shapes
 
-Two events are emitted as part of the session-offer loop. Both conform to the envelope structure documented in `event-contract.md`. Cross-link back from [session-offer-contract.md](../session-offer-contract.md) for the request/response envelope, identity model, and adapter responsibilities that drive these emissions.
+Two events are emitted as part of the session-offer loop. Both conform to the envelope structure documented in `event-contract.md`. Cross-link back from [session-offer-contract.md](../../.yoke/docs/session-offer-contract.md) for the request/response envelope, identity model, and adapter responsibilities that drive these emissions.
 
 ## HarnessSessionOffered
 

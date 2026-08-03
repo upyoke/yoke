@@ -51,6 +51,7 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke refine PREFIX-N` | Critique and improve item artifacts (no worktree, no code) |
 | `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree |
 | `/yoke polish PREFIX-N` | Review and finish implementation in existing worktree |
+| `/yoke simulate PREFIX-N` or `/yoke simulate --system` | Trace integration paths or audit system-wide consistency; harness slash skill only, with no terminal `yoke simulate` adapter |
 | `/yoke help` | Show this command reference |
 
 ### Local Terminal Helpers
@@ -79,4 +80,3 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
 | `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
-| `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps |

@@ -18,11 +18,13 @@ The helper is **no-op** when ``$YOKE_SESSION_ID`` is unset (operator
 maintenance, test fixtures with no harness session) — preserving the
 flexibility the prior env-var helper already had.
 
-Composition rather than duplication: this module imports
-:func:`yoke_core.domain.session_claimed_worktrees.claimed_worktrees`
-and :data:`yoke_core.domain.lint_session_cwd_validate.FREE_PATH_PREFIXES`
-so the work-claim SQL/joins and the free-path allowlist have a single
-source of truth shared with the per-tool-call lint.
+Composition rather than duplication: this module consumes
+:func:`yoke_core.domain.verification_tree_binding.resolve_claim_worktrees`,
+which reaches the registered ``claims.work.holder_list`` read over either
+local Postgres or HTTPS, and
+:data:`yoke_core.domain.lint_session_cwd_validate.FREE_PATH_PREFIXES`. The
+claim-lane query and free-path allowlist therefore stay shared with the
+verification and per-tool-call guards.
 """
 
 from __future__ import annotations
@@ -32,12 +34,6 @@ from pathlib import Path
 from typing import List, Optional, Sequence
 
 from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
-from yoke_core.domain.session_claimed_worktrees import (
-    ClaimedWorktree,
-    claimed_worktrees,
-)
-
-
 SESSION_ID_ENV_VAR = "YOKE_SESSION_ID"
 
 # Where a Yoke source checkout keeps the ``yoke_core`` package the seed
@@ -67,21 +63,21 @@ def resolve_session_worktree_paths(
 ) -> List[str]:
     """Return active worktree paths claimed by the ambient session.
 
-    Reader and lint consumers use the same live claim lookup as the
-    write-authority guard. Missing identity, an unavailable database, or an
-    incomplete validation schema fails open with no paths.
+    Reader and lint consumers use the same transport-aware live claim lookup
+    as the write-authority guard. Missing identity or an unavailable authority
+    fails open with no paths.
     """
     sid = _resolve_session_id(session_id)
     if not sid:
         return []
-    try:
-        from yoke_core.domain import db_helpers
+    from yoke_core.domain.verification_tree_binding import (
+        resolve_claim_worktrees,
+    )
 
-        with db_helpers.connect() as conn:
-            claims = claimed_worktrees(conn, session_id=sid)
-    except Exception:
+    lookup = resolve_claim_worktrees(sid)
+    if not lookup.reachable:
         return []
-    return [claim.worktree_path for claim in claims if claim.worktree_path]
+    return list(lookup.worktrees)
 
 
 def _resolve_for_display(target: Path) -> str:
@@ -136,8 +132,8 @@ def _is_planning_scratch_allowed(target: Path, *, session_id: str) -> bool:
     return session_is_planning_phase(session_id=session_id)
 
 
-def _format_authority(claims: Sequence[ClaimedWorktree]) -> str:
-    return ", ".join(f"worktree={c.worktree_path!r}" for c in claims) or "<none>"
+def _format_authority(claim_paths: Sequence[str]) -> str:
+    return ", ".join(f"worktree={path!r}" for path in claim_paths) or "<none>"
 
 
 def assert_target_under_session_work_authority(
@@ -152,13 +148,11 @@ def assert_target_under_session_work_authority(
     1. Session id is the explicit ``session_id`` argument when supplied;
        otherwise read from ``$YOKE_SESSION_ID``. Empty session id is a
        no-op (operator maintenance / test-fixture path).
-    2. Open the control-plane DB via the shared
-       :mod:`yoke_core.domain.db_helpers` connector and read the
-       session's active worktree claims via
-       :func:`session_claimed_worktrees.claimed_worktrees`. Items and
-       epic-tasks without a populated worktree branch contribute no row
-       (the same filter the per-tool-call lint uses) — sessions with
-       only no-worktree claims fall through to no-op.
+    2. Read the session's active worktree claims through the registered
+       ``claims.work.holder_list`` function. The read dispatches in-process
+       for local Postgres and relays for HTTPS. Items and epic-tasks without a
+       populated worktree branch contribute no row — sessions with only
+       no-worktree claims fall through to no-op.
     3. A session with no worktree claims is the orchestrator /
        maintenance posture — no-op.
     4. With one or more worktree claims, the resolved ``target`` MUST
@@ -176,12 +170,14 @@ def assert_target_under_session_work_authority(
     if not sid:
         return
 
-    from yoke_core.domain import db_helpers
-    try:
-        with db_helpers.connect() as conn:
-            claims = claimed_worktrees(conn, session_id=sid)
-    except Exception:
+    from yoke_core.domain.verification_tree_binding import (
+        resolve_claim_worktrees,
+    )
+
+    lookup = resolve_claim_worktrees(sid)
+    if not lookup.reachable:
         return
+    claims = list(lookup.worktrees)
 
     if not claims:
         return
@@ -191,12 +187,12 @@ def assert_target_under_session_work_authority(
     if _is_free_path(target_path):
         return
 
+    for claim_path in claims:
+        if _is_inside(target_path, claim_path):
+            return
+
     if _is_planning_scratch_allowed(target_path, session_id=sid):
         return
-
-    for claim in claims:
-        if claim.worktree_path and _is_inside(target_path, claim.worktree_path):
-            return
 
     raise RuntimeError(
         f"workspace_authority: refusing write to "

@@ -146,14 +146,18 @@ def test_explicit_session_id_overrides_env(
 
 
 def test_db_unavailable_fails_open(monkeypatch: pytest.MonkeyPatch) -> None:
-    """DB lookup failure must not block the writer — fall open."""
+    """Unreachable claim lookup must not block the writer — fall open."""
     monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_A)
-    from yoke_core.domain import db_helpers
+    from yoke_core.domain import verification_tree_binding
 
-    def _raise(*a, **k):
-        raise RuntimeError("connect failed")
-
-    monkeypatch.setattr(db_helpers, "connect", _raise)
+    monkeypatch.setattr(
+        verification_tree_binding,
+        "resolve_claim_worktrees",
+        lambda _session_id: verification_tree_binding.ClaimLookup(
+            reachable=False,
+            detail="authority unavailable",
+        ),
+    )
     assert_target_under_session_work_authority(Path("/opt/anywhere"))
 
 

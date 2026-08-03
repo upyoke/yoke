@@ -4,7 +4,7 @@ description: Run the Simulator to trace cross-task integration paths and find ga
 argument-hint: "{epic-id} | --system"
 ---
 
-# Internal sub-skill -- called by conduct. Not operator-facing.
+# Harness slash skill. Conduct invokes the epic flow internally, and operators may invoke either epic simulation or the system-wide audit directly. There is no terminal `yoke simulate` adapter; dispatch uses the harness skill surface.
 
 # /yoke simulate {epic-id} | --system
 

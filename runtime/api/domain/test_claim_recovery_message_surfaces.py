@@ -10,6 +10,7 @@ from yoke_core.domain.path_claims_dispatch_ownership import OwnershipDenial
 
 
 _CORE = Path(__file__).parents[3] / "packages" / "yoke-core" / "src" / "yoke_core"
+_ATLAS = Path(__file__).parents[3] / "docs" / "atlas.md"
 _ACTIVE_RECOVERY_SURFACES = (
     "domain/attestation_rehearsal_dryrun.py",
     "domain/backlog_update_op.py",
@@ -70,6 +71,13 @@ def test_operator_break_glass_guidance_does_not_embed_a_private_recipe() -> None
 
     assert "operator break-glass release surface named in the Atlas" in reason
     assert "service_client claim-release" not in reason
+
+
+def test_operator_break_glass_recipe_is_present_in_atlas() -> None:
+    text = _ATLAS.read_text(encoding="utf-8")
+    assert "### Human-only stranded work-claim release" in text
+    assert "service_client claim-release" in text
+    assert "--claim-id CLAIM_ID" in text
 
 
 def test_exception_help_uses_the_public_register_mode() -> None:

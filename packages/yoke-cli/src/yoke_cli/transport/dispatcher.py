@@ -258,7 +258,7 @@ def _call_local(
                     "`yoke env use <env>`."
                 ),
             )
-        local_dispatch = dispatch_module.dispatch
+        local_dispatch = dispatch_module.dispatch_local
     return local_github_dispatch.call_with_machine_github_authorization(
         request,
         local_dispatch,

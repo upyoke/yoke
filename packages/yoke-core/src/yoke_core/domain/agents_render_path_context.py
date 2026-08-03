@@ -242,21 +242,39 @@ def record_render_relationships_to_canonical_db(
     project_id: str = "yoke",
     session_id: str = "",
 ) -> int:
-    """Open a short-lived connection to the canonical DB and register.
+    """Register relationships on the active local or relayed control plane.
 
-    Resilient by design: a missing DB, missing schema, or empty
-    path_targets registry returns ``0`` without raising. Callers in the
-    renderer CLI / function-call handler treat the return value as
-    advisory.
+    File rendering is client-local, but ``path_context_values`` belongs to the
+    control plane. A local Postgres connection writes directly; an HTTPS
+    connection invokes the server-owned deterministic refresh function. The
+    payload never carries caller-authored paths. Registration remains advisory:
+    an unavailable or partially converged authority returns ``0`` without
+    invalidating files that were rendered successfully.
     """
     try:
         from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain import control_plane_transport
     except Exception:
         return 0
-    try:
-        conn = connect(db_path) if db_path else connect()
-    except Exception:
-        return 0
+
+    if db_path:
+        try:
+            conn = connect(db_path)
+        except Exception:
+            return 0
+    else:
+        conn = control_plane_transport.local_connection_or_none(connect)
+
+    if conn is None:
+        try:
+            result = control_plane_transport.relay(
+                "agents.render_relationships.record",
+                {"session_id": session_id},
+            )
+            return int(result.get("written") or 0)
+        except Exception:
+            return 0
+
     try:
         written = record_render_relationships(
             conn,

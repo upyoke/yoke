@@ -83,6 +83,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     # The org identity card (slug/name/created_at) is instance identity, not
     # tenant content — readable by any authenticated actor.
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
+    # Any authenticated session may refresh this deterministic server-owned
+    # relationship map after rendering local agent adapters. No caller-authored
+    # path or value crosses the boundary.
+    "agents.render_relationships.record": AuthzSpec(ACTOR_SESSION, None),
     # Registering a NEW project in the org is an org-admin act.
     "projects.create": AuthzSpec(ORG, PERM_PROJECT_CREATE),
     "projects.github_sync_mode.repair": AuthzSpec(

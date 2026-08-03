@@ -222,6 +222,15 @@ def test_atomic_write_refuses_main_target_under_worktree_claim(
         )
         monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_REGRESSION)
         monkeypatch.setenv("YOKE_DB", str(db_path))
+        from yoke_core.domain import verification_tree_binding
+
+        monkeypatch.setattr(
+            verification_tree_binding,
+            "resolve_claim_worktrees",
+            lambda _session_id: verification_tree_binding.ClaimLookup(
+                worktrees=(str(repo_root / ".worktrees" / "YOK-1784"),),
+            ),
+        )
 
         with pytest.raises(RuntimeError) as exc:
             _atomic_write(

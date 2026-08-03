@@ -173,6 +173,11 @@ class TestRender:
         assert all(p >= 0 for p in positions), positions
         assert positions == sorted(positions)
 
+    def test_permanent_roster_teaches_human_claim_release(self, body: str) -> None:
+        assert "### Human-only stranded work-claim release" in body
+        assert "service_client claim-release" in body
+        assert "OperatorClaimOverride" in body
+
     def test_summary_surfaces_top_level_counts(self, body: str) -> None:
         assert "**3**" in body  # function_ids
         assert "1 pending" in body

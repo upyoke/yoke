@@ -28,6 +28,19 @@ class TestSystemSimulationCanonicalAgents:
         assert "Agent definitions: all `.claude/agents/yoke-*.md`" not in text
         assert "{contents of each .claude/agents/yoke-*.md file, labeled with filename}" not in text
 
+    def test_system_simulation_uses_system_scope_attestation(self):
+        system = _read(SKILLS / "simulate" / "system.md")
+        simulator = _read(AGENTS / "yoke-simulator.md")
+        assert "SCOPE: SYSTEM" in system
+        assert "SCOPE: SYSTEM" in simulator
+        assert "insert each reflection entry" not in system
+        assert "reflection_capture_hook" in system
+
+    def test_simulate_is_operator_callable_through_the_harness(self):
+        text = _read(SKILLS / "simulate" / "SKILL.md")
+        assert "operators may invoke" in text
+        assert "no terminal `yoke simulate` adapter" in text
+        assert "Not operator-facing" not in text
 
 class TestReflectionCaptureDocs:
     """Reflection-capture docs must stay aligned on parent-owned persistence."""
@@ -74,6 +87,36 @@ class TestReflectionCaptureDocs:
         assert "All agents use hook-captured reflection semantics." in text
         assert "PostToolUse Agent-tool hook" in text
         assert "No agent writes directly to the DB." in text
+
+    def test_reflection_help_teaches_only_canonical_categories(self):
+        from yoke_core.domain.reflection_capture import CANONICAL_ENTRY_TEMPLATE
+        from yoke_core.domain.reflection_capture_shape_parsers import (
+            CANONICAL_REFLECTION_CATEGORIES,
+        )
+
+        expected = "category: " + " | ".join(CANONICAL_REFLECTION_CATEGORIES)
+        assert expected in CANONICAL_ENTRY_TEMPLATE
+        assert "dispatch-context" not in CANONICAL_ENTRY_TEMPLATE
+
+
+def test_advance_skill_does_not_depend_on_private_strategy_files() -> None:
+    text = _read(SKILLS / "advance" / "SKILL.md")
+    assert ".yoke/strategy/PROMPTS.md" not in text
+
+
+@pytest.mark.parametrize(
+    ("document", "target"),
+    (
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/qa-platform.md"),
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/db-reference/functions.md"),
+        ("docs/session-offer-contract/event-shapes.md", ".yoke/docs/session-offer-contract.md"),
+        ("docs/session-offer-contract/action-payloads.md", ".yoke/docs/session-offer-contract.md"),
+    ),
+)
+def test_cross_tree_document_links_resolve(document: str, target: str) -> None:
+    text = _read(REPO / document)
+    assert target in text
+    assert (REPO / target).is_file()
 
 
 class TestNoDescopeForActivePathClaims:

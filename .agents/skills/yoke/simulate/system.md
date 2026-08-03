@@ -57,11 +57,16 @@ Check these gap categories:
 Use Grep and Glob to spot-check claims in the codebase.
 
 Produce your gap report. Use [CRITICAL], [WARNING], [NOTE] severity prefixes.
+Begin with exactly this two-line identity block before the report:
+`SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, then `SCOPE: SYSTEM`.
 ```
 
 ## S3. Capture Ouroboros Reflections
 
-Search the Simulator response for `---REFLECTION-START---` and `---REFLECTION-END---`. If found, insert each reflection entry into the DB via `ouroboros insert-entry`. If not found, continue silently.
+The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`)
+captures and persists the Simulator's reflection block automatically. Do not
+parse or insert reflections manually. If the Simulator emits no reflection
+entries, continue silently.
 
 ## S4. Save The Gap Report
 

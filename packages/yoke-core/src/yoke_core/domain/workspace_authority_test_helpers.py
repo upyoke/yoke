@@ -70,13 +70,20 @@ def conn():
 
 @pytest.fixture
 def patch_conn(conn, monkeypatch):
-    from yoke_core.domain import db_helpers
+    from yoke_core.domain import verification_tree_binding
+    from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
 
-    class _Wrapper:
-        def __enter__(self): return conn
-        def __exit__(self, *exc): return False
+    def _lookup(session_id: str):
+        rows = claimed_worktrees(conn, session_id=session_id)
+        return verification_tree_binding.ClaimLookup(
+            worktrees=tuple(row.worktree_path for row in rows),
+        )
 
-    monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: _Wrapper())
+    monkeypatch.setattr(
+        verification_tree_binding,
+        "resolve_claim_worktrees",
+        _lookup,
+    )
     return conn
 
 

@@ -43,6 +43,7 @@ COMMANDS
  /yoke refine PREFIX-N Critique and improve item artifacts (no worktree)
  /yoke advance PREFIX-N implementation Issue implementation entry: create or re-enter the worktree
  /yoke polish PREFIX-N Review and finish implementation in existing worktree
+ /yoke simulate PREFIX-N | --system Trace integration paths or audit system consistency (harness slash skill; no terminal `yoke simulate` adapter)
 
 LOCAL TERMINAL HELPERS
  yoke onboard
@@ -95,7 +96,7 @@ DEPENDENCY INSPECTION
  usher --dry-run shows the dependency edges driving merge order.
 
 INTERNAL (called by orchestration commands, not operator-facing)
- advance targets other than implementation, merge, approve, amend, plan, simulate
+ advance targets other than implementation, merge, approve, amend, plan
 
 For full documentation, see README.md
 ```

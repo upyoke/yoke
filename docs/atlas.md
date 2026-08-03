@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-02T02:33:28Z_
+_Audit generated_at: 2026-08-03T04:47:27Z_
 
 ## 1. Summary
 
-- Function ids registered: **354**
-- Internal dispatch-only functions without CLI adapters: **67**
-- `yoke` CLI subcommands: **285** (285 carry usable `--help`)
-- Operation tracker: **264 wrapped**, 101 permanent, 0 pending
-- Skill-body recipes: 271 total (216 template-skipped, 0 failing)
+- Function ids registered: **358**
+- Internal dispatch-only functions without CLI adapters: **72**
+- `yoke` CLI subcommands: **284** (284 carry usable `--help`)
+- Operation tracker: **263 wrapped**, 4 tool_cli, 98 permanent, 0 pending
+- Skill-body recipes: 270 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation tracker confirms 264 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation tracker confirms 263 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -109,6 +109,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation track
 | items | `yoke items get` | `items.get.run` | ok |
 | items | `yoke items github-sync` | `items.github_sync` | ok |
 | items | `yoke items list` | `items.list.run` | ok |
+| items | `yoke items merge-provenance operator-correct` | `items.merge_provenance.operator_correct` | ok |
 | items | `yoke items overview list` | `items.overview.list` | ok |
 | items | `yoke items progress-log append` | `items.progress_log.append` | ok |
 | items | `yoke items scalar update` | `items.scalar.update` | ok |
@@ -283,7 +284,18 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation track
 | workflows | `yoke workflows testing-default set` | `workflows.testing_default.set` | ok |
 | workflows | `yoke workflows version get` | `workflows.version.get` | ok |
 
-## 3. Permanent command-shaped boundary roster
+## 3. Tool-shaped CLI roster
+
+First-class local `yoke` adapters that run subprocess tools without a dispatcher function id.
+
+| family | yoke form | reason |
+|---|---|---|
+| tools.watch | `yoke watch doctor` | tool_shaped |
+| tools.watch | `yoke watch merge` | tool_shaped |
+| tools.watch | `yoke watch pytest` | tool_shaped |
+| tools.watch | `yoke watch qa-case` | tool_shaped |
+
+## 4. Permanent command-shaped boundary roster
 
 | family | shell_form | reason | source owner |
 |---|---|---|---|
@@ -380,20 +392,28 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation track
 | tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped | — |
-| tools.watch | `yoke watch doctor` | tool_shaped | — |
-| tools.watch | `yoke watch merge` | tool_shaped | — |
-| tools.watch | `yoke watch pytest` | tool_shaped | — |
 | tools.watch | `yoke watch tail` | tool_shaped | — |
 | universe.export | `yoke universe export` | tool_shaped | — |
 | universe.import | `yoke universe import` | tool_shaped | — |
 | usher | `yoke usher reconcile-github` | tool_shaped | — |
 | worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped | — |
 
-## 4. Pending handler-registration roster
+### Human-only stranded work-claim release
+
+When another session has ended but still owns a work claim, a human operator may release that exact claim through the retained operator-debug boundary:
+
+```sh
+python3 -m yoke_core.api.service_client claim-release \
+ --item PREFIX-N --claim-id CLAIM_ID --reason "stranded session"
+```
+
+This is not an agent self-release recipe. It refuses hook contexts, records the reason on `OperatorClaimOverride`, and must only target a claim the operator has verified is stranded.
+
+## 5. Pending handler-registration roster
 
 _No pending handler-registration rows._
 
-## 5. Teaching coverage
+## 6. Teaching coverage
 
 | path glob | count |
 |---|---|
@@ -405,26 +425,27 @@ _No pending handler-registration rows._
 
 Lint modules inventoried: **1** (0 reference the field-note footer; 0 carry denial text).
 
-## 6. Field-note hotspots
+## 7. Field-note hotspots
 
 Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| 2 | 50 |
+| codex | 37 |
+| claude-code | 13 |
 
-## 7. Contradictions
+## 8. Contradictions
 
 | id | status | surface | live truth |
 |---|---|---|---|
 | claims-work-holder-get-flag-vs-positional | resolved | yoke claims work holder-get | live `yoke claims work holder-get` accepts positional <YOK-N> |
 | function-inventory-empty-registry-mismatch | resolved | docs/function-inventory.md | yoke_function_registry.list_entries() is non-empty |
 
-## 8. Next-slice recommendation
+## 9. Next-slice recommendation
 
 _No outstanding follow-ups — the harness has nothing to recommend._
 
-## 9. Curl floor — the envelope shape under every family
+## 10. Curl floor — the envelope shape under every family
 
 Every registered function id above accepts the same `FunctionCallRequest` envelope at the active env's `/v1/functions/call`. The `yoke` CLI is the default surface; curl is the operator floor when no CLI is installed:
 

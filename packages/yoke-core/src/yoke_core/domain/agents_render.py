@@ -311,9 +311,10 @@ def write_all_and_record(
 
     Wraps :func:`write_all` so the canonical CLI surface and the
     ``agents.render.run`` function-call handler share one post-render
-    registration step. The registration is opportunistic — when the
-    canonical DB or the ``path_targets`` rows are unavailable, the
-    helper returns ``0`` and the renderer flow continues. Dry-runs
+    registration step. File writes remain client-local while relationship
+    registration follows the active control-plane transport. Registration is
+    opportunistic — when the authority or the ``path_targets`` rows are
+    unavailable, the helper returns ``0`` and the renderer flow continues. Dry-runs
     skip registration so a check-only invocation never mutates
     ``path_context_values``.
 

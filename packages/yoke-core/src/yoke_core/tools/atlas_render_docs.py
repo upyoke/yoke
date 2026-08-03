@@ -167,23 +167,39 @@ def _render_permanent_roster(report: Dict[str, Any]) -> List[str]:
     rows = [r for r in report["operation_tracker"]["rows"] if r["status"] == "permanent"]
     if not rows:
         out.append("_No retained command-shaped boundaries._")
-        out.append("")
-        return out
-    out.extend(_md_table(
-        ("family", "shell_form", "reason", "source owner"),
-        sorted(
-            (
+    else:
+        out.extend(_md_table(
+            ("family", "shell_form", "reason", "source owner"),
+            sorted(
                 (
-                    r["family"],
-                    f"`{r['shell_form']}`",
-                    r["reason"],
-                    r.get("source_owner") or "—",
-                )
-                for r in rows
+                    (
+                        r["family"],
+                        f"`{r['shell_form']}`",
+                        r["reason"],
+                        r.get("source_owner") or "—",
+                    )
+                    for r in rows
+                ),
+                key=lambda r: (r[0], r[1]),
             ),
-            key=lambda r: (r[0], r[1]),
-        ),
-    ))
+        ))
+    out.extend([
+        "",
+        "### Human-only stranded work-claim release",
+        "",
+        "When another session has ended but still owns a work claim, a human "
+        "operator may release that exact claim through the retained "
+        "operator-debug boundary:",
+        "",
+        "```sh",
+        "python3 -m yoke_core.api.service_client claim-release \\",
+        " --item PREFIX-N --claim-id CLAIM_ID --reason \"stranded session\"",
+        "```",
+        "",
+        "This is not an agent self-release recipe. It refuses hook contexts, "
+        "records the reason on `OperatorClaimOverride`, and must only target a "
+        "claim the operator has verified is stranded.",
+    ])
     out.append("")
     return out
 
