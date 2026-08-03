@@ -6,7 +6,7 @@
 
 This document describes the runtime contract. Definitions own ordered stages,
 labels, terminal stages, gates, policies, entry surfaces, and registered
-executor bindings. Live transition, frontier, scheduler, QA, approval, and
+skill bindings. Live transition, frontier, scheduler, QA, approval, and
 delivery paths all interpret the item's pin.
 
 <!-- BEGIN GENERATED: field-note-directive -->
@@ -72,15 +72,15 @@ Epic tasks do **not** use item-only statuses such as `cancelled`.
 
 ### Definition-bound segments
 
-At a live item stage, the owner is the registered executor binding whose
+At a live item stage, the owner is the registered skill binding whose
 half-open interval contains that stage:
 `from_stage_id <= current_stage < through_stage_id`. Stage names do not select
-an executor by themselves, and a workflow name is never a substitute for
+the skill by themselves, and a workflow name is never a substitute for
 reading the pinned version.
 
 The current built-in definitions reuse stage ids such as `idea`,
 `refining-idea`, `planning`, and `planned`, but each definition decides which
-of those stages exists, their order, and the executor that owns the segment.
+of those stages exists, their order, and the skill that owns the segment.
 
 ### `idea -> refine` handoff: two-layer guard against title-only dispatch
 
@@ -123,9 +123,9 @@ unprotected unless both layers below hold:
 - `reviewing-implementation` means coding/self-verification is complete and the branch is in the deliberate review/fix loop.
 - `reviewed-implementation` means meaningful implementation review passed and the work is queued for finishing polish.
 
-When a definition declares this loop, its active executor binding drives it.
+When a definition declares this loop, its active skill binding drives it.
 For example, current definitions bind either `advance`, `conduct`, or a direct
-executor across implementation work; the stage name alone does not choose one.
+skill across implementation work; the stage name alone does not choose one.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
 event (laptop sleep, app reload, idle timeout) never destroys mid-flight
@@ -158,7 +158,7 @@ across their delivery tail. Their run-backed path uses
 `after_merge_action` have a different tail and do not inherit those stages.
 
 Read the pinned definition before invoking `usher`; it owns a boundary only
-when an active executor binding says so.
+when an active skill binding says so.
 
 ## What The Statuses Mean
 
@@ -170,7 +170,7 @@ when an active executor binding says so.
 | `planning` | Planning or decomposition has started in a workflow that declares this stage |
 | `plan-drafted` | An initial plan or generated-task decomposition exists |
 | `refining-plan` | Plan is being revised after critique/simulation |
-| `planned` | The plan is accepted and ready for the next bound executor |
+| `planned` | The plan is accepted and ready for the next bound skill |
 | `implementing` | Engineering work is actively in progress |
 | `reviewing-implementation` | Review/fix/verify loop is in progress |
 | `reviewed-implementation` | Implementation review passed; ready for polish |
@@ -268,25 +268,25 @@ with `merged_at` unset — the equivalent gate exists only for epics
 separates a genuine no-change item from one that should have merged, so the
 correction surface above is today's answer rather than prevention.
 
-## Registered Executor Boundaries
+## Registered Skill Boundaries
 
 Commands do not own global status ranges and do not apply by item type. Each
-immutable workflow version binds registered executor ids to contiguous stage
+immutable workflow version binds registered skill ids to contiguous stage
 segments. For a live item:
 
 1. Run `yoke workflows item get PREFIX-N` to read its workflow id, logical
    version, and current stage.
 2. Run `yoke workflows version get WORKFLOW VERSION` to read that exact
    definition.
-3. In ordered `stages`, find the one `executor_bindings` row whose interval
+3. In ordered `stages`, find the one `skill_bindings` row whose interval
    satisfies `from_stage_id <= current_stage < through_stage_id`.
-4. Invoke `/yoke <executor_id>` and let the definition's target-stage gate
+4. Invoke `/yoke <skill_id>` and let the definition's target-stage gate
    references govern each transition.
 
-The registered executors have these behavioral contracts; their source and
+The registered skills have these behavioral contracts; their source and
 target stages always come from the binding:
 
-| Executor id | Segment behavior |
+| Skill id | Segment behavior |
 |---|---|
 | `refine` | Critique and improve the artifact selected by the pinned policies |
 | `shepherd` | Run quality-gated planning for a compatible generated-task policy |
@@ -298,16 +298,16 @@ target stages always come from the binding:
 
 Worktree shape also comes from `policies.worktrees`,
 `policies.parallelism`, and `policies.generated_children`. A single-lane
-executor keeps implementation and review in one claimed worktree; a
-task-graph executor provisions the registered worker/integration lanes.
+skill keeps implementation and review in one claimed worktree; a
+task-graph skill provisions the registered worker/integration lanes.
 
-A binding's `through_stage_id` is a handoff boundary. The next executor starts
-as a fresh command entrypoint and acquires its own claim; the prior executor
+A binding's `through_stage_id` is a handoff boundary. The next skill starts
+as a fresh command entrypoint and acquires its own claim; the prior skill
 does not carry claim ownership across the boundary.
 
 ### Claim release at handoff — visible failure
 
-The implementation-executor finalize step that hands the claim across a
+The implementation-skill finalize step that hands the claim across a
 binding boundary is best-effort: when it cannot release (cross-session
 mismatch, claim already terminal, item never claimed, or the underlying
 domain validator raised), the transition remains committed. The failure is
@@ -328,7 +328,7 @@ Routing decisions (which command to invoke for an item at a given status, which 
 
 Agents reading the lifecycle should treat those files plus the item's pinned
 definition as authoritative for "which command runs next?" The tables here
-describe executor behavior and shared stage meaning; they do not define an
+describe skill behavior and shared stage meaning; they do not define an
 item's stage graph.
 
 ## See Also

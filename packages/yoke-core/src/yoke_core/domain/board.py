@@ -32,7 +32,7 @@ Status-to-bucket mapping rules (in priority order):
     unknown                 -> unknown
 
 Shared stage ids derive their bucket from the pinned workflow definition's
-executor bindings and policies. Workflow identity is display metadata only.
+skill bindings and policies. Workflow identity is display metadata only.
 
 Note: ``items.blocked`` and ``path_claims.state='blocked'`` are unrelated
 concepts that share the word; ``items.blocked`` is the item-level routing

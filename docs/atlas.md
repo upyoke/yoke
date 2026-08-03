@@ -382,7 +382,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | status | `yoke status` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped | — |
-| tools.executors | `python3 -m yoke_core.tools.executors` | tool_shaped | — |
+| tools.step_runners | `python3 -m yoke_core.tools.step_runners` | tool_shaped | — |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped | — |

@@ -10,7 +10,7 @@ Execute the `shepherd` segment registered by the item's immutable workflow
 version, applying Boss quality gates at every transition. Each step is: Worker
 produces artifact -> Boss reviews -> persist verdict -> advance or retry.
 
-Shepherd is selected by an active `executor_bindings` interval, not by an item
+Shepherd is selected by an active `skill_bindings` interval, not by an item
 type or workflow id. This implementation supports the generated-task planning
 contract (`generated_children=epic_tasks`) and verifies the exact pinned
 segment before it writes anything.
@@ -100,8 +100,8 @@ status=sys.argv[1]
 definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
-bindings=definition["executor_bindings"]
-shepherd=[row for row in bindings if row["executor_id"] == "shepherd"]
+bindings=definition["skill_bindings"]
+shepherd=[row for row in bindings if row["skill_id"] == "shepherd"]
 if len(shepherd) != 1:
     raise SystemExit("definition must contain exactly one shepherd binding")
 binding=shepherd[0]
@@ -112,7 +112,7 @@ for row in bindings:
     row_start=stages.index(row["from_stage_id"])
     row_stop=stages.index(row["through_stage_id"])
     if row_start <= position < row_stop:
-        current=row["executor_id"]
+        current=row["skill_id"]
         break
 policies=definition["policies"]
 segment=stages[start:stop + 1]
@@ -123,7 +123,7 @@ supported=(
 )
 location="before" if position < start else ("after" if position >= stop else "active")
 print(json.dumps({
-    "current_executor": current,
+    "current_skill": current,
     "source_stage": binding["from_stage_id"],
     "through_stage": binding["through_stage_id"],
     "path_claims": policies["path_claims"],
@@ -134,8 +134,8 @@ print(json.dumps({
  echo "Cannot interpret the pinned Shepherd segment for PREFIX-{N}."
  exit 1
 }
-_current_executor=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["current_executor"])')
+_current_skill=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["current_skill"])')
 _shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["source_stage"])')
 _shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
@@ -153,8 +153,8 @@ cannot execute the planning shape published by that pinned version.
 
 If `_shepherd_location` is `after`, stop as a no-op: the item has crossed the
 binding's `through_stage_id`. If the location is `before` or
-`_current_executor` is not `shepherd`, reject with the current registered
-executor and route to `/yoke {_current_executor} PREFIX-{N}`. Never infer that
+`_current_skill` is not `shepherd`, reject with the current registered
+skill and route to `/yoke {_current_skill} PREFIX-{N}`. Never infer that
 route from `_workflow_id`.
 
 After validation passes, register the work claim:
@@ -172,8 +172,8 @@ The supported pinned Shepherd segment yields:
 - `refined-idea` -> `refined_idea_to_planning`, `planning_to_plan_drafted`
 - `planning` -> `planning_to_plan_drafted`
 
-These transition ids are Shepherd verdict keys for this executor contract.
-They are not a global item progression. The next executor at
+These transition ids are Shepherd verdict keys for this skill contract.
+They are not a global item progression. The next skill at
 `_shepherd_through_stage` comes from the pinned definition.
 
 ### 4. Resume Logic

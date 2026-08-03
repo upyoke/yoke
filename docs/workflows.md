@@ -2,7 +2,7 @@
 
 Every Yoke work item is created from a workflow and pinned to one immutable
 numbered version. The pin supplies the item's stages, entry checks, execution
-posture, registered executors, and allowed per-item tightening. Publishing or
+posture, registered skills, and allowed per-item tightening. Publishing or
 selecting another current version affects new items only.
 
 ## Built-in workflows

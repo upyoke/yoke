@@ -133,7 +133,7 @@ failure/recovery coverage where applicable.
 
 ### 7b. Link And Verify A Blitz Execution Document
 
-When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
+When `ITEM_NEXT_SKILL=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md). Select exactly
 one project strategy document, invoke the registered
 `strategy.execution.link` operation through
@@ -170,9 +170,9 @@ binding; do not reconstruct them from a workflow name.
 Final output should include:
 
 > **PREFIX-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
-> Next executor: `/yoke {ITEM_NEXT_EXECUTOR}`
+> Next skill: `/yoke {ITEM_NEXT_SKILL}`
 
-When `ITEM_NEXT_EXECUTOR=blitz`, include the verified execution-document slug
+When `ITEM_NEXT_SKILL=blitz`, include the verified execution-document slug
 and the exact `/yoke blitz PREFIX-{N}` handoff.
 
 GitHub body sync runs implicitly on the lifecycle transition; explicit
@@ -237,8 +237,8 @@ After status advancement and claim release, emit:
 {Brief summary of what changed and why}
 ```
 
-Include the served status transition and next-executor note from step 9. When
-`ITEM_NEXT_EXECUTOR=blitz`, also include the linked execution-document slug
+Include the served status transition and next-skill note from step 9. When
+`ITEM_NEXT_SKILL=blitz`, also include the linked execution-document slug
 and `/yoke blitz PREFIX-{N}` handoff.
 
 ### 12. Completion
@@ -248,7 +248,7 @@ Refinement is complete when:
 - Identified issues have been addressed in the appropriate structured fields
 - Every updated field has been re-read successfully after the write
 - Status has been advanced to `REFINE_TARGET_STATUS`
-- A `blitz` next-executor handoff has exactly one execution strategy document linked and verified
+- A `blitz` next-skill handoff has exactly one execution strategy document linked and verified
   through `strategy.execution.get`
 - The item claim has been released with reason `completed`
 - The operator has been shown what changed in the final output

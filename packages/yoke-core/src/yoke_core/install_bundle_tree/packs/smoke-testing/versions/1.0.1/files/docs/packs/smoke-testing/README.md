@@ -10,7 +10,7 @@ project's `.yoke/deployment-flows.json` must declare it on the smoke stage:
 ```json
 {
   "name": "smoke",
-  "executor": "github-actions-workflow",
+  "step_runner": "github-actions-workflow",
   "workflow": "<project>-smoke.yml",
   "dispatch_correlation_input": "yoke_dispatch_id",
   "reconcile_by_head_sha": false

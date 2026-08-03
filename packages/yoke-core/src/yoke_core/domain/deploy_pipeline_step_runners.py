@@ -1,4 +1,4 @@
-"""Stage-specific executor dispatch for deployment pipeline orchestration."""
+"""Stage-specific step runner dispatch for deployment pipeline orchestration."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from yoke_core.domain.deploy_pipeline_github_workflow import (
 from yoke_core.domain.deploy_cli_manifest_gate import (
     verify_deployed_cli_manifest,
 )
-from yoke_core.tools import executors as _executors
+from yoke_core.tools import step_runners as _step_runners
 
 __all__ = [
-    "_dispatch_executor",
+    "_dispatch_step_runner",
     "_dispatch_ephemeral_verify",
     "_dispatch_github_actions_workflow",
 ]
@@ -30,7 +30,7 @@ HEALTH_CHECK_WARMUP_TIMEOUT_S = 120.0
 HEALTH_CHECK_RETRY_INTERVAL_S = 6.0
 
 
-def _dispatch_executor(
+def _dispatch_step_runner(
     stage: Dict[str, Any],
     *,
     run_id: str,
@@ -49,12 +49,12 @@ def _dispatch_executor(
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
-    """Dispatch the executor for a stage.
+    """Dispatch the step runner for a stage.
 
-    Returns ``(exit_code, diagnostic)``; diagnostic carries executor output for
+    Returns ``(exit_code, diagnostic)``; diagnostic carries step runner output for
     the pipeline's failure event.
 
-    Kind-typed stages dispatch before the executor vocabulary:
+    Kind-typed stages dispatch before the step runner vocabulary:
     ``kind=migration_apply`` routes through the governed-migration
     evidence surface (:mod:`yoke_core.domain.deploy_pipeline_migration`).
     """
@@ -75,13 +75,13 @@ def _dispatch_executor(
         print(f"Error: unknown stage kind '{kind}'", file=sys.stderr)
         return 1, ""
 
-    executor = stage["executor"]
+    step_runner = stage["step_runner"]
     config = stage["config"]
     name = stage["name"]
 
-    if executor == "auto":
-        return _executors.exec_auto(), ""
-    if executor == "health-check":
+    if step_runner == "auto":
+        return _step_runners.exec_auto(), ""
+    if step_runner == "health-check":
         return (
             _dispatch_health_check(
                 config,
@@ -92,13 +92,13 @@ def _dispatch_executor(
             ),
             "",
         )
-    if executor == "environment-activate":
+    if step_runner == "environment-activate":
         from yoke_core.domain.deploy_environment_activate import (
             exec_environment_activate,
         )
 
         return exec_environment_activate(project, target_env), ""
-    if executor == "core-container-deploy":
+    if step_runner == "core-container-deploy":
         from yoke_core.domain.deploy_core_container import (
             exec_core_container_deploy,
         )
@@ -112,7 +112,7 @@ def _dispatch_executor(
             ),
             "",
         )
-    if executor == "ephemeral-deploy":
+    if step_runner == "ephemeral-deploy":
         from yoke_core.domain.deploy_ephemeral import exec_ephemeral_deploy
 
         return (
@@ -125,7 +125,7 @@ def _dispatch_executor(
             ),
             "",
         )
-    if executor == "ephemeral-verify":
+    if step_runner == "ephemeral-verify":
         return _dispatch_ephemeral_verify(
             config,
             name=name,
@@ -138,13 +138,13 @@ def _dispatch_executor(
             first_item=first_item,
             sd=sd,
         ), ""
-    if executor == "human-approval":
+    if step_runner == "human-approval":
         from yoke_core.domain.deployment_approval_requests import (
             dispatch_deployment_stage_approval,
         )
 
         return dispatch_deployment_stage_approval(run_id, name)
-    if executor == "github-actions-workflow":
+    if step_runner == "github-actions-workflow":
         return _dispatch_github_actions_workflow(
             config,
             name=name,
@@ -162,7 +162,7 @@ def _dispatch_executor(
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
         )
 
-    print(f"Error: unknown executor type '{executor}'", file=sys.stderr)
+    print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)
     return 1, ""
 
 
@@ -174,7 +174,7 @@ def _dispatch_health_check(
     project_repo_path: str = "",
     image_tag: str = "",
 ) -> int:
-    """Run the health-check executor with env-resolved URL when omitted.
+    """Run the health-check step runner with env-resolved URL when omitted.
 
     An explicit ``url`` in the stage config is used verbatim (no request-id
     contract assumed for arbitrary endpoints). Without one, the URL resolves
@@ -193,7 +193,7 @@ def _dispatch_health_check(
     """
     url = str(config.get("url", "") or "")
     if url:
-        return _executors.exec_health_check(url)
+        return _step_runners.exec_health_check(url)
     if not target_env:
         print(
             "Error: health-check stage has no url and the flow declares no "
@@ -243,7 +243,7 @@ def _dispatch_health_check(
             "exec-health-check: build assertion skipped — no project repo "
             "path available to resolve the expected tag",
         )
-    rc = _executors.exec_health_check(
+    rc = _step_runners.exec_health_check(
         env.api_health_url,
         request_id=str(_uuid.uuid4()),
         expected_build=expected_build,
@@ -274,7 +274,7 @@ def _dispatch_ephemeral_verify(
     first_item: str,
     sd: Optional[str] = None,
 ) -> int:
-    """Handle ephemeral-verify executor."""
+    """Handle ephemeral-verify step runner."""
     return dispatch_ephemeral_verify(
         config,
         name=name,
@@ -284,7 +284,7 @@ def _dispatch_ephemeral_verify(
         project=project,
         branch=branch,
         first_item=first_item,
-        executors=_executors,
+        step_runners=_step_runners,
         connect_fn=connect,
         query_scalar_fn=query_scalar,
         sd=sd,

@@ -1,8 +1,8 @@
-"""Tests for :mod:`yoke_core.tools.executors`.
+"""Tests for :mod:`yoke_core.tools.step_runners`.
 
 These tests replace the semantic coverage previously provided by the
-shell-level ``test-executors.sh`` harness for the lane-F-owned
-executors.  They exercise each Python executor in isolation
+shell-level ``test-step_runners.sh`` harness for the lane-F-owned
+step_runners.  They exercise each Python step_runner in isolation
 without touching the deployment pipeline or any external network.
 """
 
@@ -13,14 +13,14 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
 
-from yoke_core.tools import executors
+from yoke_core.tools import step_runners
 
 
 class ExecAutoTests(unittest.TestCase):
     def test_returns_zero_and_prints_log(self) -> None:
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = executors.exec_auto()
+            rc = step_runners.exec_auto()
         self.assertEqual(rc, 0)
         self.assertIn("exec-auto: stage complete", buf.getvalue())
 
@@ -52,7 +52,7 @@ class _FakeResponse:
 def _sent_headers(urlopen_mock: mock.MagicMock) -> dict:
     """Lower-cased headers carried by the request handed to ``urlopen``."""
     request = urlopen_mock.call_args[0][0]
-    if isinstance(request, executors.urllib.request.Request):
+    if isinstance(request, step_runners.urllib.request.Request):
         return {k.lower(): v for k, v in request.header_items()}
     return {}
 
@@ -60,19 +60,19 @@ def _sent_headers(urlopen_mock: mock.MagicMock) -> dict:
 class ExecHealthCheckTests(unittest.TestCase):
     def test_returns_zero_on_2xx(self) -> None:
         fake = _FakeResponse(204)
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check("http://example.invalid/health")
+                rc = step_runners.exec_health_check("http://example.invalid/health")
         self.assertEqual(rc, 0)
         self.assertIn("204", buf.getvalue())
 
     def test_returns_one_on_non_2xx(self) -> None:
         fake = _FakeResponse(500)
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check("http://example.invalid/health")
+                rc = step_runners.exec_health_check("http://example.invalid/health")
         self.assertEqual(rc, 1)
         self.assertIn("failed health check", buf.getvalue())
 
@@ -80,25 +80,25 @@ class ExecHealthCheckTests(unittest.TestCase):
         def _raise(*_args: object, **_kwargs: object) -> None:
             raise OSError("no route")
 
-        with mock.patch.object(executors.urllib.request, "urlopen", side_effect=_raise):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", side_effect=_raise):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check("http://example.invalid/health")
+                rc = step_runners.exec_health_check("http://example.invalid/health")
         self.assertEqual(rc, 1)
         self.assertIn("no route", buf.getvalue())
 
     def test_rejects_empty_url(self) -> None:
-        rc = executors.exec_health_check("")
+        rc = step_runners.exec_health_check("")
         self.assertEqual(rc, 1)
 
     def test_request_id_sent_and_echoed_returns_zero(self) -> None:
         fake = _FakeResponse(200, headers={"x-request-id": "rid-1"})
         with mock.patch.object(
-            executors.urllib.request, "urlopen", return_value=fake
+            step_runners.urllib.request, "urlopen", return_value=fake
         ) as m:
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health", request_id="rid-1"
                 )
         self.assertEqual(rc, 0)
@@ -107,10 +107,10 @@ class ExecHealthCheckTests(unittest.TestCase):
 
     def test_request_id_missing_echo_returns_one(self) -> None:
         fake = _FakeResponse(200, headers={})
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health", request_id="rid-2"
                 )
         self.assertEqual(rc, 1)
@@ -119,10 +119,10 @@ class ExecHealthCheckTests(unittest.TestCase):
 
     def test_request_id_mismatched_echo_returns_one(self) -> None:
         fake = _FakeResponse(200, headers={"x-request-id": "other"})
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health", request_id="rid-3"
                 )
         self.assertEqual(rc, 1)
@@ -132,11 +132,11 @@ class ExecHealthCheckTests(unittest.TestCase):
     def test_no_request_id_sends_no_header(self) -> None:
         fake = _FakeResponse(204)
         with mock.patch.object(
-            executors.urllib.request, "urlopen", return_value=fake
+            step_runners.urllib.request, "urlopen", return_value=fake
         ) as m:
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check("http://example.invalid/health")
+                rc = step_runners.exec_health_check("http://example.invalid/health")
         self.assertEqual(rc, 0)
         self.assertNotIn("x-request-id", _sent_headers(m))
 
@@ -144,10 +144,10 @@ class ExecHealthCheckTests(unittest.TestCase):
         fake = _FakeResponse(
             200, body=b'{"status":"ok","version":"v1","build":"abc123def456"}'
         )
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     expected_build="abc123def456",
                 )
@@ -158,10 +158,10 @@ class ExecHealthCheckTests(unittest.TestCase):
         fake = _FakeResponse(
             200, body=b'{"status":"ok","version":"v1","build":"stale000"}'
         )
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     expected_build="abc123def456",
                 )
@@ -171,10 +171,10 @@ class ExecHealthCheckTests(unittest.TestCase):
 
     def test_expected_build_unparseable_body_returns_one(self) -> None:
         fake = _FakeResponse(200, body=b"not json")
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     expected_build="abc123def456",
                 )
@@ -186,10 +186,10 @@ class ExecHealthCheckTests(unittest.TestCase):
             200,
             body=b'{"status":"ok","schema_ready":true,"schema_missing_tables":[]}',
         )
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     require_schema_ready=True,
                 )
@@ -204,10 +204,10 @@ class ExecHealthCheckTests(unittest.TestCase):
                 b'"schema_missing_tables":["strategy_docs"]}'
             ),
         )
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     require_schema_ready=True,
                 )
@@ -217,10 +217,10 @@ class ExecHealthCheckTests(unittest.TestCase):
 
     def test_schema_ready_absent_from_payload_returns_one(self) -> None:
         fake = _FakeResponse(200, body=b'{"status":"ok","version":"v1"}')
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     require_schema_ready=True,
                 )
@@ -235,10 +235,10 @@ class ExecHealthCheckTests(unittest.TestCase):
                 b'"schema_ready":true,"schema_missing_tables":[]}'
             ),
         )
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check(
+                rc = step_runners.exec_health_check(
                     "http://example.invalid/health",
                     expected_build="abc123def456",
                     require_schema_ready=True,
@@ -249,10 +249,10 @@ class ExecHealthCheckTests(unittest.TestCase):
 
     def test_without_require_schema_ready_not_ready_payload_passes(self) -> None:
         fake = _FakeResponse(200, body=b'{"status":"ok","schema_ready":false}')
-        with mock.patch.object(executors.urllib.request, "urlopen", return_value=fake):
+        with mock.patch.object(step_runners.urllib.request, "urlopen", return_value=fake):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_health_check("http://example.invalid/health")
+                rc = step_runners.exec_health_check("http://example.invalid/health")
         self.assertEqual(rc, 0)
 
 
@@ -260,25 +260,25 @@ class MainCLITests(unittest.TestCase):
     def test_auto_dispatch(self) -> None:
         buf = io.StringIO()
         with redirect_stdout(buf):
-            rc = executors.main(["auto"])
+            rc = step_runners.main(["auto"])
         self.assertEqual(rc, 0)
         self.assertIn("exec-auto", buf.getvalue())
 
     def test_health_check_dispatch(self) -> None:
-        with mock.patch.object(executors, "exec_health_check", return_value=0) as m:
-            rc = executors.main(["health-check", "http://x/"])
+        with mock.patch.object(step_runners, "exec_health_check", return_value=0) as m:
+            rc = step_runners.main(["health-check", "http://x/"])
         self.assertEqual(rc, 0)
         m.assert_called_once_with("http://x/", request_id="")
 
     def test_health_check_dispatch_with_request_id(self) -> None:
-        with mock.patch.object(executors, "exec_health_check", return_value=0) as m:
-            rc = executors.main(["health-check", "http://x/", "rid-9"])
+        with mock.patch.object(step_runners, "exec_health_check", return_value=0) as m:
+            rc = step_runners.main(["health-check", "http://x/", "rid-9"])
         self.assertEqual(rc, 0)
         m.assert_called_once_with("http://x/", request_id="rid-9")
 
     def test_ephemeral_verify_dispatch(self) -> None:
-        with mock.patch.object(executors, "exec_ephemeral_verify", return_value=0) as m:
-            rc = executors.main(
+        with mock.patch.object(step_runners, "exec_ephemeral_verify", return_value=0) as m:
+            rc = step_runners.main(
                 [
                     "ephemeral-verify", "externalwebapp", "org/repo", "br", "wf.yml",
                     "d.example", "abc",
@@ -293,14 +293,14 @@ class MainCLITests(unittest.TestCase):
     def test_unknown_command(self) -> None:
         buf = io.StringIO()
         with redirect_stderr(buf):
-            rc = executors.main(["nonsense"])
+            rc = step_runners.main(["nonsense"])
         self.assertEqual(rc, 1)
-        self.assertIn("unknown executor", buf.getvalue())
+        self.assertIn("unknown step_runner", buf.getvalue())
 
     def test_empty_argv(self) -> None:
         buf = io.StringIO()
         with redirect_stderr(buf):
-            rc = executors.main([])
+            rc = step_runners.main([])
         self.assertEqual(rc, 1)
         self.assertIn("Usage", buf.getvalue())
 

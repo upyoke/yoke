@@ -168,8 +168,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     ),
     _p("python3 -m yoke_core.tools.watch_inventory", "tools.watch", REASON_TOOL_SHAPED),
     _p(
-        "python3 -m yoke_core.tools.executors",
-        "tools.executors",
+        "python3 -m yoke_core.tools.step_runners",
+        "tools.step_runners",
         REASON_TOOL_SHAPED,
     ),
     *STRATEGY_EVENT_PERMANENT_ROWS,
@@ -193,7 +193,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         REASON_OPERATOR_BREAK_GLASS,
     ),
     # Environment DB bootstrap — env-lifecycle command-shaped boundary
-    # (deploy-executor outer form + DSN-pinned inner form a self-hoster
+    # (deploy-step_runner outer form + DSN-pinned inner form a self-hoster
     # runs directly against an explicit YOKE_PG_DSN authority).
     _p(
         "python3 -m yoke_core.domain.deploy_environment_bootstrap",
@@ -211,7 +211,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         REASON_TOOL_SHAPED,
     ),
     # Ephemeral preview deploy/teardown — same long-running deploy
-    # command-shaped boundary as deploy_pipeline; flow stage executor +
+    # command-shaped boundary as deploy_pipeline; flow stage step_runner +
     # operator CLI. Flow stage admin (update-stages) is operator
     # break-glass like flow delete.
     _p(

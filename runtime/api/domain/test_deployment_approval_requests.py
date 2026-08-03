@@ -55,8 +55,8 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, created_at) "
         "VALUES ('approval-proof', 1, 'Approval proof', "
-        "'[{\"name\":\"production\",\"executor\":\"human-approval\"},"
-        "{\"name\":\"release\",\"executor\":\"auto\"}]', "
+        "'[{\"name\":\"production\",\"step_runner\":\"human-approval\"},"
+        "{\"name\":\"release\",\"step_runner\":\"auto\"}]', "
         "'2026-07-26T00:00:00Z')"
     )
     test_db.execute(

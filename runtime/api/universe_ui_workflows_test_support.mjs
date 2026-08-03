@@ -21,7 +21,7 @@ export function workflowFixture({
   currentVersion = 3,
   versions,
   policies,
-  executorBindings,
+  skillBindings,
   status = "active",
 } = {}) {
   const declaredVersions = versions || (
@@ -68,8 +68,8 @@ export function workflowFixture({
         { id: "ship", label: "Shipped", gates: [] },
       ],
       entry_surfaces: ["cli", "harness_skill"],
-      executor_bindings: executorBindings || [{
-        executor_id: "advance",
+      skill_bindings: skillBindings || [{
+        skill_id: "advance",
         from_stage_id: "draft",
         through_stage_id: "ship",
       }],

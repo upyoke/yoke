@@ -1,6 +1,6 @@
-"""environment-activate executor — wake a target env before deploying to it.
+"""environment-activate step_runner — wake a target env before deploying to it.
 
-Deployment-flow stage executor (``executor: "environment-activate"``) that
+Deployment-flow stage step_runner (``step_runner: "environment-activate"``) that
 makes the target environment reachable for the stages that follow:
 
 - ensure the env's origin EC2 instance is running (start + wait when the

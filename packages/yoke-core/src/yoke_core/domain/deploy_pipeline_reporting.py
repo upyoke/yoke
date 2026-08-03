@@ -172,17 +172,17 @@ def _project_db(*args: str, sd: Optional[str] = None) -> str:
 
 
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
-    """Parse flow stages JSON into dicts with name, executor, kind, config.
+    """Parse flow stages JSON into dicts with name, step_runner, kind, config.
 
-    Executor-shaped stages carry explicit ``name`` + ``executor`` keys.
+    Step runner-shaped stages carry explicit ``name`` + ``step_runner`` keys.
     Kind-shaped stages (e.g. ``{"kind": "migration_apply", ...}``) carry
     neither in the flow row; the pipeline derives a stable stage name
     from the kind (underscores → hyphens, e.g. ``migration-apply``) so
     ``deployment_runs.current_stage``, ``--from-stage`` resume, and stage
     telemetry can address the stage without mutating live flow rows. An
     operator-authored ``name`` on the stage object wins over the derived
-    one. The ``executor`` label mirrors the kind for display/telemetry;
-    dispatch branches on ``kind`` before the executor vocabulary.
+    one. The ``step_runner`` label mirrors the kind for display/telemetry;
+    dispatch branches on ``kind`` before the step_runner vocabulary.
     """
     stages = json.loads(stages_json)
     parsed: List[Dict[str, Any]] = []
@@ -190,7 +190,7 @@ def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
         kind = str(s.get("kind", "") or "")
         parsed.append({
             "name": str(s.get("name", "") or kind.replace("_", "-")),
-            "executor": str(s.get("executor", "") or kind),
+            "step_runner": str(s.get("step_runner", "") or kind),
             "kind": kind,
             "config": s,
         })

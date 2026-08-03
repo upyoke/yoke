@@ -11,7 +11,7 @@ via `yoke charge schedule`, presents a formatted table of ranked items with
 their adapter classifications, confirms the top pick with the operator, and
 dispatches to the correct downstream skill (refine, shepherd, conduct, advance,
 dash, blitz, polish, or usher). The `next_step` field is the dispatch truth: the pinned
-workflow's registered executor binding produced it. The `adapter` column
+workflow's registered skill binding produced it. The `adapter` column
 remains in the table display for ranking diagnostics.
 
 `yoke charge schedule` is claim-aware: each ranked step carries a `claim_state` (`unclaimed`, `claimed_by_self`, `claimed_by_other_live`, `claimed_by_stale`). Steps with `claim_state='claimed_by_other_live'` stay on the ranked frontier for diagnostics but must NOT appear in the operator-facing Runnable table or be selected for dispatch — that is the assignability rule defined in `yoke_core.domain.scheduler_types.is_assignable_claim_state`.

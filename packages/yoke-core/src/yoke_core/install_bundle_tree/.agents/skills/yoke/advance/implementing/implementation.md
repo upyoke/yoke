@@ -135,7 +135,7 @@ QA seeding is complete. Your next action MUST be a tool call. Here is what to do
 6. **Apply codebase-reader naming before every first write.** Treat the work item/plan/AC text as source context, not implementation vocabulary. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function/purpose/mechanics to a repository reader who cannot see the planning artifact.
 7. **Begin implementing** the changes described in the spec, working entirely within the worktree at `{WORKTREE_PATH}`.
 8. **Item context:** PREFIX-{N} — {title}.
-9. **Long-running session continuity.** If your work spans multiple turns or might be picked up by a successor agent after compaction, write checkpoint notes to the **Progress Log** section on the item — see `AGENTS.md > Progress Log — long-running execution context on items` for the canonical incantation. Do NOT write session-continuity notes to `shepherd_log` (planning-executor provenance) or to the spec/technical_plan fields (intent, not state).
+9. **Long-running session continuity.** If your work spans multiple turns or might be picked up by a successor agent after compaction, write checkpoint notes to the **Progress Log** section on the item — see `AGENTS.md > Progress Log — long-running execution context on items` for the canonical incantation. Do NOT write session-continuity notes to `shepherd_log` (planning-skill provenance) or to the spec/technical_plan fields (intent, not state).
 
 This is not optional — continuous flow from advance to implementation prevents wasted turns. Emit no end-of-turn summary. Your very next action must be a Read or Bash tool call.
 

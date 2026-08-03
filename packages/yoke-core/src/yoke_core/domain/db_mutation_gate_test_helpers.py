@@ -248,7 +248,7 @@ def _seed_flow_with_migration_apply(
     stages = json.dumps([
         {"kind": "migration_apply", "model_name": model_name,
          "lifecycle_phase": lifecycle_phase},
-        {"name": "merged", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
     ])
     conn.execute(
         "INSERT INTO deployment_flows "

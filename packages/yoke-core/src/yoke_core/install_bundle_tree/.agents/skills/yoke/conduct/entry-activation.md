@@ -34,7 +34,7 @@ _workflow_id=$(yoke items get ${N} workflow_id)
 ```
 
 If `_workflow_id` is not `epic`, halt immediately:
-> Error: /yoke conduct is not the registered executor for workflow
+> Error: /yoke conduct is not the registered skill for workflow
 > '{_workflow_id}' on PREFIX-{N}.
 >
 > Issue implementation routes through /yoke advance (main-session inline implementation).

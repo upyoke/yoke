@@ -1,4 +1,4 @@
-"""Image artifact resolution for the core-container deploy executor.
+"""Image artifact resolution for the core-container deploy step runner.
 
 Owns the "make sure the image for this tag exists in the project registry"
 half of the deploy: tag resolution from the project repo, registry presence

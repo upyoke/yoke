@@ -1,10 +1,10 @@
-"""Dispatcher tests for the env-aware executors (activate / core-deploy / health)."""
+"""Dispatcher tests for the env-aware step_runners (activate / core-deploy / health)."""
 
 from __future__ import annotations
 
 from unittest import mock
 
-from yoke_core.domain import deploy_pipeline_executors
+from yoke_core.domain import deploy_pipeline_step_runners
 from yoke_core.domain.deploy_cli_manifest_gate import CliManifestGateResult
 
 
@@ -27,19 +27,19 @@ def _dispatch(stage, **overrides):
         sd=None,
     )
     kwargs.update(overrides)
-    return deploy_pipeline_executors._dispatch_executor(stage, **kwargs)
+    return deploy_pipeline_step_runners._dispatch_step_runner(stage, **kwargs)
 
 
-def _stage(executor, **config):
-    config = {"name": "s", "executor": executor, **config}
-    return {"name": "s", "executor": executor, "config": config}
+def _stage(step_runner, **config):
+    config = {"name": "s", "step_runner": step_runner, **config}
+    return {"name": "s", "step_runner": step_runner, "config": config}
 
 
 def _manifest_gate(ok: bool = True) -> CliManifestGateResult:
     return CliManifestGateResult(ok=ok, checked=True, message="manifest gate")
 
 
-class TestEnvExecutorDispatch:
+class TestEnvStepRunnerDispatch:
     def test_environment_activate_receives_project_and_target_env(self):
         with mock.patch(
             "yoke_core.domain.deploy_environment_activate."
@@ -112,7 +112,7 @@ class TestEnvExecutorDispatch:
 
     def test_distribution_publish_keeps_owner_and_product_sources_separate(self):
         with mock.patch.object(
-            deploy_pipeline_executors, "_dispatch_github_actions_workflow",
+            deploy_pipeline_step_runners, "_dispatch_github_actions_workflow",
             return_value=(0, ""),
         ) as workflow:
             rc, diag = _dispatch(
@@ -131,7 +131,7 @@ class TestEnvExecutorDispatch:
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=0,
         ) as deploy, mock.patch.object(
-            deploy_pipeline_executors, "_item_label", return_value="YOK-1",
+            deploy_pipeline_step_runners, "_item_label", return_value="YOK-1",
         ):
             rc, diag = _dispatch(
                 _stage("ephemeral-deploy"), target_env="ephemeral",
@@ -147,7 +147,7 @@ class TestEnvExecutorDispatch:
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=0,
         ) as deploy, mock.patch.object(
-            deploy_pipeline_executors, "_item_label", return_value="",
+            deploy_pipeline_step_runners, "_item_label", return_value="",
         ):
             rc, _diag = _dispatch(
                 _stage("ephemeral-deploy", branch="cfg-branch"),
@@ -162,11 +162,11 @@ class TestEnvExecutorDispatch:
 
     def test_health_check_explicit_url_skips_env_resolution(self):
         with mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ) as health, mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
         ) as manifest:
             rc, _ = _dispatch(_stage("health-check", url="https://x/health"))
@@ -188,11 +188,11 @@ class TestEnvExecutorDispatch:
             "resolve_image_tag",
             return_value="abc123def456",
         ) as resolve, mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ) as health, mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
         ) as manifest:
@@ -228,11 +228,11 @@ class TestEnvExecutorDispatch:
             "resolve_image_tag",
             return_value="abc123def456",
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ), mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(False),
         ):
@@ -249,11 +249,11 @@ class TestEnvExecutorDispatch:
             "resolve_deploy_environment",
             return_value=fake_env,
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ) as health, mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
         ) as manifest:
@@ -271,11 +271,11 @@ class TestEnvExecutorDispatch:
             "resolve_deploy_environment",
             return_value=fake_env,
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ) as health, mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
         ):
@@ -302,11 +302,11 @@ class TestEnvExecutorDispatch:
             "resolve_image_tag",
             side_effect=RuntimeError("no repo"),
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=0,
         ) as health, mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
             return_value=_manifest_gate(),
         ):
@@ -314,7 +314,7 @@ class TestEnvExecutorDispatch:
         assert rc == 0
         assert health.call_args.kwargs["expected_build"] == ""
 
-    def test_health_check_env_resolved_fails_when_executor_reports_not_ready(self):
+    def test_health_check_env_resolved_fails_when_step_runner_reports_not_ready(self):
         fake_env = mock.Mock()
         fake_env.api_health_url = "https://api.example.com/v1/health"
         fake_env.git_branch = "main"
@@ -327,11 +327,11 @@ class TestEnvExecutorDispatch:
             "resolve_image_tag",
             return_value="abc123def456",
         ), mock.patch.object(
-            deploy_pipeline_executors._executors,
+            deploy_pipeline_step_runners._step_runners,
             "exec_health_check",
             return_value=1,
         ), mock.patch.object(
-            deploy_pipeline_executors,
+            deploy_pipeline_step_runners,
             "verify_deployed_cli_manifest",
         ) as manifest:
             rc, _ = _dispatch(_stage("health-check"))
@@ -342,6 +342,6 @@ class TestEnvExecutorDispatch:
         rc, _ = _dispatch(_stage("health-check"), target_env="")
         assert rc == 1
 
-    def test_unknown_executor_fails_loudly(self):
-        rc, _ = _dispatch(_stage("not-a-real-executor"))
+    def test_unknown_step_runner_fails_loudly(self):
+        rc, _ = _dispatch(_stage("not-a-real-step_runner"))
         assert rc == 1

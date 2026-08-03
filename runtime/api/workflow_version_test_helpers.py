@@ -33,7 +33,7 @@ def publish_issue_completion_stage(
             "to_stage_id": stage_id,
         }
     )
-    definition["executor_bindings"][-1]["through_stage_id"] = stage_id
+    definition["skill_bindings"][-1]["through_stage_id"] = stage_id
     definition["stage_mapping"] = {
         previous_stage_id: previous_stage_id for previous_stage_id in previous_stage_ids
     }

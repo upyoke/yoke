@@ -40,10 +40,10 @@ definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
 matches=[]
-for binding in definition["executor_bindings"]:
+for binding in definition["skill_bindings"]:
     start=stages.index(binding["from_stage_id"])
     stop=stages.index(binding["through_stage_id"])
-    if binding["executor_id"] == "refine" and start <= position < stop:
+    if binding["skill_id"] == "refine" and start <= position < stop:
         matches.append((binding,start,stop))
 if len(matches) != 1:
     raise SystemExit("current stage is not owned by exactly one refine binding")
@@ -54,17 +54,17 @@ policies=definition["policies"]
 task_plan=(
     policies["generated_children"] == "epic_tasks"
     and any(
-        row["executor_id"] == "shepherd"
+        row["skill_id"] == "shepherd"
         and row["through_stage_id"] == binding["from_stage_id"]
-        for row in definition["executor_bindings"]
+        for row in definition["skill_bindings"]
     )
 )
-next_executor=""
-for row in definition["executor_bindings"]:
+next_skill=""
+for row in definition["skill_bindings"]:
     row_start=stages.index(row["from_stage_id"])
     row_stop=stages.index(row["through_stage_id"])
     if row_start <= stop < row_stop:
-        next_executor=row["executor_id"]
+        next_skill=row["skill_id"]
         break
 print(json.dumps({
     "source_status": binding["from_stage_id"],
@@ -74,7 +74,7 @@ print(json.dumps({
     "generated_children": policies["generated_children"],
     "worktrees": policies["worktrees"],
     "parallelism": policies["parallelism"],
-    "next_executor": next_executor,
+    "next_skill": next_skill,
 }))
 ' "$ITEM_STATUS") || {
  echo "Cannot refine PREFIX-{N}: the current stage is not supported by its pinned refine binding."
@@ -90,8 +90,8 @@ REFINE_ARTIFACT_SCOPE=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["artifact_scope"])')
 ITEM_GENERATED_CHILDREN=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["generated_children"])')
-ITEM_NEXT_EXECUTOR=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["next_executor"])')
+ITEM_NEXT_SKILL=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["next_skill"])')
 ```
 
 The interpreter deliberately uses the runtime's half-open interval

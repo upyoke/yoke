@@ -1,7 +1,7 @@
-"""Remote-execution plumbing for deployment-flow executors.
+"""Remote-execution plumbing for deployment-flow step runners.
 
 Owns three concerns shared by the core-container deploy and
-environment-activate executors:
+environment-activate step runners:
 
 - a :class:`CommandRunner` seam so tests assert the exact command plan
   without touching subprocess, SSH, Docker, or AWS;
@@ -63,7 +63,7 @@ DEFAULT_AWS_CAPABILITY_TYPE = "aws-admin"
 
 @dataclass
 class CommandResult:
-    """Subprocess outcome the executors branch on."""
+    """Subprocess outcome the step runners branch on."""
 
     returncode: int
     stdout: str

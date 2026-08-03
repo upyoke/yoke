@@ -4,7 +4,7 @@
 
 Called by the advance router after identity/lifecycle resolution for
 non-implementing transitions. Runs the hard-block dependency gate, AC presence
-gate, active reconciliation gate, pinned-executor/generated-task gates, and
+gate, active reconciliation gate, pinned-skill/generated-task gates, and
 the merge verification gate.
 
 **Context variables** (set by router): `{N}`, `_status`, `_target`,
@@ -21,8 +21,8 @@ Covers (in order):
 - **Hard-Block Dependency Gate** (step 4-dep): blocks if unresolved dependencies at the activation or integration gate point
 - **AC Presence Gate** (step 4-ac): blocks if no checkbox ACs found for implementation-stage targets
 - **Spec Coverage Gate** (step 4-cov): applies only when effective File Budget and path claims are both enabled; blocks when `## File Budget` lists paths the active claim does not cover
-- **Pinned-Executor Advisory** (step 5): identifies a manual transition into a different registered executor's segment
-- **Shepherd Executor Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
+- **Pinned-Skill Advisory** (step 5): identifies a manual transition into a different registered skill's segment
+- **Shepherd Skill Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
 - **Generated-Task Existence Gate** (step 5-gate): applies only when `generated_children=epic_tasks` and dispatch is at or beyond the `conduct` handoff
 - **Generated-Task Completion Gate** (step 5a): applies only when a task-graph parent enters its `usher` or terminal segment
 - **Deferred Items Gate** (step 5a-defer): applies only to a generated-task parent entering a pinned terminal stage

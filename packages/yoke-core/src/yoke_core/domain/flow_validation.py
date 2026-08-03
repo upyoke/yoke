@@ -1,8 +1,8 @@
 """Stage-shape validation for deployment flows.
 
 Validates the JSON ``stages`` array carried by ``deployment_flows`` rows.
-A stage is either the executor-shape (``name`` + ``executor`` in the
-:data:`VALID_EXECUTORS` vocabulary) or the kind-shape (``kind`` in the
+A stage is either the step_runner-shape (``name`` + ``step_runner`` in the
+:data:`VALID_STEP_RUNNERS` vocabulary) or the kind-shape (``kind`` in the
 :data:`VALID_STAGE_KINDS` vocabulary with kind-specific required fields).
 
 Cross-referencing a ``migration_apply`` stage's ``model_name`` against
@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re as _re
 
-VALID_EXECUTORS = frozenset({
+VALID_STEP_RUNNERS = frozenset({
     "auto", "health-check", "environment-activate", "core-container-deploy",
     "ephemeral-deploy", "ephemeral-teardown", "ephemeral-verify",
     "human-approval", "github-actions-workflow",
@@ -23,7 +23,7 @@ VALID_EXECUTORS = frozenset({
 
 # Stage "kind" vocabulary.  A stage with a ``kind`` field uses the
 # governance-layer shape (§6.1e of the governed-DB-mutation spec) instead
-# of the executor-shape above.  The kind binds a declared migration
+# of the step_runner-shape above.  The kind binds a declared migration
 # model to a lifecycle phase at which its governed apply runs.
 VALID_STAGE_KINDS = frozenset({"migration_apply"})
 
@@ -50,12 +50,12 @@ def _validate_migration_apply_stage(i: int, stage: dict) -> None:
     itself runs inside the work-item lifecycle; the pipeline stage verifies
     its evidence (``deploy_pipeline_migration``).
     """
-    # Executor/kind exclusivity takes precedence over generic
+    # Step runner/kind exclusivity takes precedence over generic
     # unknown-keys reporting so operators get the concrete guidance.
-    if "executor" in stage:
+    if "step_runner" in stage:
         raise ValueError(
-            f'stage {i} cannot carry both "kind" and "executor"; '
-            f"kind-based stages do not run through the executor vocabulary"
+            f'stage {i} cannot carry both "kind" and "step_runner"; '
+            f"kind-based stages do not run through the step_runner vocabulary"
         )
     allowed = {"kind", "model_name", "lifecycle_phase", "name"}
     extra = set(stage.keys()) - allowed
@@ -93,8 +93,8 @@ def _validate_migration_apply_stage(i: int, stage: dict) -> None:
 def validate_stages(stages_json: str) -> None:
     """Validate stages JSON.
 
-    A stage is either the executor-shape (``name`` + ``executor`` in the
-    VALID_EXECUTORS vocabulary) or the kind-shape (``kind`` in the
+    A stage is either the step_runner-shape (``name`` + ``step_runner`` in the
+    VALID_STEP_RUNNERS vocabulary) or the kind-shape (``kind`` in the
     VALID_STAGE_KINDS vocabulary with kind-specific required fields).
     """
     try:
@@ -124,17 +124,17 @@ def validate_stages(stages_json: str) -> None:
 
         if "name" not in stage:
             raise ValueError(f'stage {i} missing required field "name"')
-        if "executor" not in stage:
-            raise ValueError(f'stage {i} missing required field "executor"')
-        if stage["executor"] not in VALID_EXECUTORS:
+        if "step_runner" not in stage:
+            raise ValueError(f'stage {i} missing required field "step_runner"')
+        if stage["step_runner"] not in VALID_STEP_RUNNERS:
             raise ValueError(
-                f'stage {i} has invalid executor "{stage["executor"]}". '
-                f"Must be one of: {' '.join(sorted(VALID_EXECUTORS))}"
+                f'stage {i} has invalid step_runner "{stage["step_runner"]}". '
+                f"Must be one of: {' '.join(sorted(VALID_STEP_RUNNERS))}"
             )
         if "wait_for_ci" in stage:
-            if stage["executor"] != "github-actions-workflow":
+            if stage["step_runner"] != "github-actions-workflow":
                 raise ValueError(
-                    f'stage {i} carries "wait_for_ci" but executor '
+                    f'stage {i} carries "wait_for_ci" but step_runner '
                     'is not "github-actions-workflow"'
                 )
             if not isinstance(stage["wait_for_ci"], bool):

@@ -17,10 +17,10 @@ def skip_refine(
 ) -> dict:
     """Advance past an idea or plan refining phase in one sanctioned call."""
     current_status, workflow = core._lookup_item(item_id)
-    route = core._executor_skip_route(
+    route = core._skill_skip_route(
         workflow,
         current_status,
-        executor_id="refine",
+        skill_id="refine",
     )
 
     hops_written = core._walk_hops(

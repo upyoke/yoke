@@ -1,4 +1,4 @@
-"""Ephemeral deployment verification executor behavior."""
+"""Ephemeral deployment verification step_runner behavior."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain.ephemeral_substrate import slugify_branch
-from yoke_core.tools import executors
+from yoke_core.tools import step_runners
 
 
 class ExecEphemeralVerifyTests(unittest.TestCase):
@@ -25,11 +25,11 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
 
     def test_success_prints_ephemeral_url(self) -> None:
         with mock.patch.object(
-            executors, "_gh_runs_for_workflow", return_value=self._success_run()
+            step_runners, "_gh_runs_for_workflow", return_value=self._success_run()
         ):
             buf = io.StringIO()
             with redirect_stdout(buf):
-                rc = executors.exec_ephemeral_verify(
+                rc = step_runners.exec_ephemeral_verify(
                     "org/repo",
                     "YOK-1369",
                     "deploy.yml",
@@ -43,10 +43,10 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
         )
 
     def test_failure_when_run_not_found(self) -> None:
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=None):
+        with mock.patch.object(step_runners, "_gh_runs_for_workflow", return_value=None):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
+                rc = step_runners.exec_ephemeral_verify(
                     "org/repo",
                     "YOK-1369",
                     "deploy.yml",
@@ -64,10 +64,10 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             "conclusion": "",
             "created_at": "",
         }
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=pending):
+        with mock.patch.object(step_runners, "_gh_runs_for_workflow", return_value=pending):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
+                rc = step_runners.exec_ephemeral_verify(
                     "org/repo", "YOK-1369", "deploy.yml", "example.test",
                     project="externalwebapp",
                 )
@@ -81,10 +81,10 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
             "conclusion": "failure",
             "created_at": "",
         }
-        with mock.patch.object(executors, "_gh_runs_for_workflow", return_value=failed):
+        with mock.patch.object(step_runners, "_gh_runs_for_workflow", return_value=failed):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
+                rc = step_runners.exec_ephemeral_verify(
                     "org/repo", "YOK-1369", "deploy.yml", "example.test",
                     project="externalwebapp",
                 )
@@ -94,7 +94,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
     def test_rejects_missing_branch_and_sha(self) -> None:
         buf = io.StringIO()
         with redirect_stderr(buf):
-            rc = executors.exec_ephemeral_verify(
+            rc = step_runners.exec_ephemeral_verify(
                 "org/repo", "", "deploy.yml", "example.test",
                 project="externalwebapp",
             )
@@ -104,7 +104,7 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
     def test_rejects_missing_domain(self) -> None:
         buf = io.StringIO()
         with redirect_stderr(buf):
-            rc = executors.exec_ephemeral_verify(
+            rc = step_runners.exec_ephemeral_verify(
                 "org/repo", "YOK-1369", "deploy.yml", "",
                 project="externalwebapp",
             )
@@ -114,11 +114,11 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
     def test_lookup_resolves_explicit_project_and_repo(self) -> None:
         run = self._success_run()
         with mock.patch.object(
-            executors, "resolve_token", return_value="ghs_test",
+            step_runners, "resolve_token", return_value="ghs_test",
         ) as resolve, mock.patch.object(
-            executors, "latest_workflow_run", return_value=run,
+            step_runners, "latest_workflow_run", return_value=run,
         ) as latest:
-            result = executors._gh_runs_for_workflow(
+            result = step_runners._gh_runs_for_workflow(
                 "org/repo", "deploy.yml", project="externalwebapp", branch="feature",
             )
 
@@ -136,13 +136,13 @@ class ExecEphemeralVerifyTests(unittest.TestCase):
         from yoke_core.domain.gh_rest_transport import RestNetworkError
 
         with mock.patch.object(
-            executors,
+            step_runners,
             "_gh_runs_for_workflow",
             side_effect=RestNetworkError("offline"),
         ):
             buf = io.StringIO()
             with redirect_stderr(buf):
-                rc = executors.exec_ephemeral_verify(
+                rc = step_runners.exec_ephemeral_verify(
                     "org/repo", "feature", "deploy.yml", "example.test",
                     project="externalwebapp",
                 )

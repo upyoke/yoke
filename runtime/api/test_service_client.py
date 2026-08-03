@@ -116,10 +116,10 @@ def _apply_service_client_schema_on_conn(conn) -> None:
 
     # Seed a flow with human-approval stage
     stages_json = json.dumps([
-        {"name": "merged", "executor": "auto"},
-        {"name": "approve-deploy", "executor": "human-approval"},
-        {"name": "prod-deploy", "executor": "github-actions-workflow"},
-        {"name": "complete", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
+        {"name": "approve-deploy", "step_runner": "human-approval"},
+        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+        {"name": "complete", "step_runner": "auto"},
     ])
     conn.execute(
         """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)

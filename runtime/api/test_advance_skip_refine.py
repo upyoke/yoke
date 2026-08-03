@@ -41,7 +41,7 @@ from runtime.api.test_backlog import (
 class TestSkipRefineHappyPath:
     def test_idea_to_refined_idea_issue(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("idea", "issue", executor=exec_recorder)
+        patches = _patch_core("idea", "issue", skill=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_refine(199, out=io.StringIO())
@@ -58,7 +58,7 @@ class TestSkipRefineHappyPath:
 
     def test_refining_idea_to_refined_idea_issue(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("refining-idea", "issue", executor=exec_recorder)
+        patches = _patch_core("refining-idea", "issue", skill=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_refine(200, out=io.StringIO())
@@ -73,7 +73,7 @@ class TestSkipRefineHappyPath:
 
     def test_refining_idea_to_refined_idea_epic(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("refining-idea", "epic", executor=exec_recorder)
+        patches = _patch_core("refining-idea", "epic", skill=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_refine(201, out=io.StringIO())
@@ -85,7 +85,7 @@ class TestSkipRefineHappyPath:
 
     def test_refining_plan_to_planned_epic(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("refining-plan", "epic", executor=exec_recorder)
+        patches = _patch_core("refining-plan", "epic", skill=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_refine(202, out=io.StringIO())
@@ -99,7 +99,7 @@ class TestSkipRefineHappyPath:
 
     def test_plan_drafted_to_planned_epic(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("plan-drafted", "epic", executor=exec_recorder)
+        patches = _patch_core("plan-drafted", "epic", skill=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_refine(202, out=io.StringIO())
@@ -117,7 +117,7 @@ class TestSkipRefineHappyPath:
 
     def test_bypass_reason_is_skip_refine(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("refining-idea", "issue", executor=exec_recorder)
+        patches = _patch_core("refining-idea", "issue", skill=exec_recorder)
         _enter_all(patches)
         try:
             advance_skip.skip_refine(203, out=io.StringIO())
@@ -180,10 +180,10 @@ class TestSkipRefineHappyPath:
         )
         pinned = replace(workflow, definition=definition)
 
-        route = advance_skip_core._executor_skip_route(
+        route = advance_skip_core._skill_skip_route(
             pinned,
             "idea",
-            executor_id="refine",
+            skill_id="refine",
         )
 
         assert route.hops == (

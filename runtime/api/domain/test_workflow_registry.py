@@ -55,7 +55,7 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
         for key in ("from_stage_id", "to_stage_id"):
             if transition[key] == before:
                 transition[key] = after
-    for binding in definition["executor_bindings"]:
+    for binding in definition["skill_bindings"]:
         for key in ("from_stage_id", "through_stage_id"):
             if binding[key] == before:
                 binding[key] = after

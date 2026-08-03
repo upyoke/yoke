@@ -16,7 +16,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
 )
 from yoke_core.domain.workflow_definition_graph_validation import (
-    validate_executor_bindings,
+    validate_skill_bindings,
     validate_transition_graph,
 )
 from yoke_core.domain.workflow_definition_validation_support import (
@@ -35,7 +35,7 @@ _DEFINITION_KEYS = frozenset({
     "terminal_stage_ids",
     "transitions",
     "entry_surfaces",
-    "executor_bindings",
+    "skill_bindings",
     "policies",
     "stage_mapping",
 })
@@ -341,7 +341,7 @@ def validate_workflow_definition(
         raise WorkflowDefinitionError(
             f"entry_surfaces has unknown values: {sorted(unknown_surfaces)}"
         )
-    validate_executor_bindings(value, stage_ids, edges)
+    validate_skill_bindings(value, stage_ids, edges)
     _validate_policies(value)
     _validate_structural_change(value, previous, stage_ids)
 

@@ -57,7 +57,7 @@ resolution_comment TEXT -- free-text resolution notes
 ```
 
 > **Stage authority:** The immutable workflow version owns ordered stages,
-> terminal stages, gates, policies, and executor bindings. Read it with
+> terminal stages, gates, policies, and skill bindings. Read it with
 > `yoke workflows definition get`; transition code loads the item's explicit
 > version pin rather than a status table in this document.
 

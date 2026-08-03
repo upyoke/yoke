@@ -48,8 +48,8 @@ def _mutate_target(definition: dict, case: str) -> None:
         ]
     elif case == "delivery":
         policies["delivery"] = "after_merge_action"
-    elif case == "delivery_executor":
-        definition["executor_bindings"][-1]["executor_id"] = "polish"
+    elif case == "delivery_skill":
+        definition["skill_bindings"][-1]["skill_id"] = "polish"
     elif case == "posture":
         policies["item_posture_allowlist"].remove("deployment")
     elif case == "reached_approval":
@@ -109,7 +109,7 @@ def _seed_work_claim(test_db) -> None:
     now = iso8601_now()
     test_db.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, executor, provider, model, execution_lane, workspace, "
+        "session_id, skill, provider, model, execution_lane, workspace, "
         "project_id, offered_at, last_heartbeat"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
@@ -250,7 +250,7 @@ def _seed_case(test_db, case: str) -> None:
         _seed_approval(test_db)
     elif case == "qa":
         _seed_qa(test_db)
-    elif case in {"delivery", "delivery_executor"}:
+    elif case in {"delivery", "delivery_skill"}:
         _seed_delivery(test_db)
     elif case == "posture":
         test_db.execute(
@@ -326,7 +326,7 @@ def test_label_only_migration_preserves_all_live_bindings(test_db):
         ("approval", "approval authority"),
         ("qa", "QA gate semantics changed"),
         ("delivery", "live delivery bindings"),
-        ("delivery_executor", "delivery executor stages"),
+        ("delivery_skill", "delivery skill stages"),
         ("posture", "disallows item posture keys"),
     ),
 )

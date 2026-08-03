@@ -47,11 +47,11 @@ Repeated same-session `resume` responses are also bounded: if the prior persiste
 ```
 
 The `scheduler.next_step` field is resolved from the pinned definition's
-registered executor binding and tells the adapter which command to invoke:
-- `refine` — run the refinement executor
-- `shepherd` — run the design/planning executor
-- `conduct` — run the task-graph implementation executor
-- `advance` — run the item-level implementation executor
+registered skill binding and tells the adapter which command to invoke:
+- `refine` — run the refinement skill
+- `shepherd` — run the design/planning skill
+- `conduct` — run the task-graph implementation skill
+- `advance` — run the item-level implementation skill
 - `polish` — item in reviewed-implementation/polishing-implementation, run polish pipeline
 - `usher` — implemented/release, merge and deploy
 

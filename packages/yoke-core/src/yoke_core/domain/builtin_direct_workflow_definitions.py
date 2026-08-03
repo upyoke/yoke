@@ -8,7 +8,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
     definition_fixture,
-    executor_binding,
+    skill_binding,
     gate_ref,
     workflow_stage,
 )
@@ -92,9 +92,9 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
         ),
     ),
     entry_surfaces=("harness_skill",),
-    executor_bindings=(
-        executor_binding("refine", "idea", "refined-idea"),
-        executor_binding("blitz", "refined-idea", "done"),
+    skill_bindings=(
+        skill_binding("refine", "idea", "refined-idea"),
+        skill_binding("blitz", "refined-idea", "done"),
     ),
     policies={
         "ownership": "session_item_and_document_claim",
@@ -164,7 +164,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         ),
     ),
     entry_surfaces=("web_form", "cli", "harness_skill", "promotion"),
-    executor_bindings=(executor_binding("dash", "idea", "done"),),
+    skill_bindings=(skill_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
         "file_budget": WORKFLOW_FILE_BUDGET_OPTIONAL,

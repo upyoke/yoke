@@ -134,14 +134,14 @@ class TestFlows:
             name="Alpha Release", target_env="prod",
             stages=dumps_compact([
                 {"kind": "migration_apply", "model_name": "primary"},
-                {"name": "merged", "executor": "auto"},
-                {"name": "complete", "executor": "auto"},
+                {"name": "merged", "step_runner": "auto"},
+                {"name": "complete", "step_runner": "auto"},
             ]),
         )
         _insert_flow(
             test_db, "beta-ship", 88,
             name="Beta Ship",
-            stages=dumps_compact([{"name": "ship", "executor": "auto"}]),
+            stages=dumps_compact([{"name": "ship", "step_runner": "auto"}]),
         )
 
         everything = get_workflows_definition()

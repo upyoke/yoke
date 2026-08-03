@@ -70,12 +70,12 @@ def _claim_conflicts(
                 "live work claims require ownership policy "
                 f"{source_ownership!r}, not {target_ownership!r}"
             )
-        source_executor = source.executor_for_stage(source_stage)
-        target_executor = target.executor_for_stage(target_stage)
-        if source_executor != target_executor:
+        source_skill = source.skill_for_stage(source_stage)
+        target_skill = target.skill_for_stage(target_stage)
+        if source_skill != target_skill:
             conflicts.append(
-                "live work claims require the current executor "
-                f"{source_executor!r}, not {target_executor!r}"
+                "live work claims require the current skill "
+                f"{source_skill!r}, not {target_skill!r}"
             )
 
     source_path_policy = resolve_effective_workflow_policies(
@@ -177,14 +177,14 @@ def _file_budget_conflicts(
     ]
 
 
-def _terminal_executor_bindings(
+def _terminal_skill_bindings(
     source: WorkflowRuntime,
     target: WorkflowRuntime,
 ) -> tuple[tuple[str, str | None, str | None], ...]:
     terminal = source.terminal_stage_ids
     return tuple(
         (
-            str(binding["executor_id"]),
+            str(binding["skill_id"]),
             mapped_stage(
                 source,
                 target,
@@ -196,7 +196,7 @@ def _terminal_executor_bindings(
                 str(binding["through_stage_id"]),
             ),
         )
-        for binding in source.definition["executor_bindings"]
+        for binding in source.definition["skill_bindings"]
         if str(binding["through_stage_id"]) in terminal
     )
 
@@ -255,11 +255,11 @@ def _delivery_conflicts(
             "live delivery bindings require delivery policy "
             f"{source_policy!r}, not {target_policy!r}"
         ]
-    if _terminal_executor_bindings(
+    if _terminal_skill_bindings(
         source,
         target,
-    ) != _terminal_executor_bindings(target, target):
-        return ["live delivery bindings require unchanged delivery executor stages"]
+    ) != _terminal_skill_bindings(target, target):
+        return ["live delivery bindings require unchanged delivery skill stages"]
     for stage_id in source.stage_ids:
         target_id = mapped_stage(source, target, stage_id)
         if target_id is None or _delivery_stage_semantics(

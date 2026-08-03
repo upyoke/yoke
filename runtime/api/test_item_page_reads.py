@@ -50,8 +50,8 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         "version"
     ]
     assert item["workflow"]["stage_label"] == "reviewing implementation"
-    assert item["workflow"]["executor_id"] == "dash"
-    assert item["workflow"]["next_executor_id"] is None
+    assert item["workflow"]["skill_id"] == "dash"
+    assert item["workflow"]["next_skill_id"] is None
     assert item["workflow"]["item_posture"] == {
         "verification": True,
         "file_budget": True,
@@ -248,7 +248,7 @@ def test_detail_proof_summarizes_current_runs_and_no_run_fallback(monkeypatch):
     )
 
 
-def test_detail_read_preserves_engine_wait_state_without_executor(monkeypatch):
+def test_detail_read_preserves_engine_wait_state_without_skill(monkeypatch):
     conn = _connection()
     conn.execute("UPDATE items SET status = 'blocked', blocked = 1 WHERE id = 51")
     conn.commit()
@@ -258,8 +258,8 @@ def test_detail_read_preserves_engine_wait_state_without_executor(monkeypatch):
 
     assert item["workflow"]["stage_id"] == "blocked"
     assert item["workflow"]["stage_label"] == "blocked"
-    assert item["workflow"]["executor_id"] is None
-    assert item["workflow"]["next_executor_id"] is None
+    assert item["workflow"]["skill_id"] is None
+    assert item["workflow"]["next_skill_id"] is None
 
 
 def test_item_plan_attachment_overrides_matching_project_default(monkeypatch):

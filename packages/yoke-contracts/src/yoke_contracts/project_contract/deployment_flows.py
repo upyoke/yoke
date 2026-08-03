@@ -7,10 +7,10 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-DECLARATION_SCHEMA = 1
+DECLARATION_SCHEMA = 2
 DECLARATION_RELATIVE_PATH = ".yoke/deployment-flows.json"
 EMPTY_DECLARATION_TEXT = """{
-  "schema": 1,
+  "schema": 2,
   "flows": []
 }
 """
@@ -36,7 +36,7 @@ class DeploymentFlowDeclarationDocument(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    schema_version: Literal[1] = Field(alias="schema")
+    schema_version: Literal[2] = Field(alias="schema")
     flows: list[DeploymentFlowDeclaration]
     default_flow: str | None = None
     retire_if_present: list[

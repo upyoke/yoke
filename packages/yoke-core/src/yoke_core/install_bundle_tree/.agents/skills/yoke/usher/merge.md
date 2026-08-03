@@ -50,28 +50,28 @@ _usher_worktree_policy=$(printf '%s' "$_usher_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["worktrees"])')
 _usher_parallelism=$(printf '%s' "$_usher_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["parallelism"])')
-_usher_current_executor=$(printf '%s' "$_usher_definition_json" | python3 -c '
+_usher_current_skill=$(printf '%s' "$_usher_definition_json" | python3 -c '
 import json,sys
 status=sys.argv[1]
 definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
-for binding in definition["executor_bindings"]:
+for binding in definition["skill_bindings"]:
     start=stages.index(binding["from_stage_id"])
     stop=stages.index(binding["through_stage_id"])
     if start <= position < stop:
-        print(binding["executor_id"])
+        print(binding["skill_id"])
         break
 ' "$_usher_status")
-[ "$_usher_current_executor" = "usher" ] || {
- echo "BLOCK: pinned executor $_usher_current_executor owns stage $_usher_status, not usher"
+[ "$_usher_current_skill" = "usher" ] || {
+ echo "BLOCK: pinned skill $_usher_current_skill owns stage $_usher_status, not usher"
  exit 1
 }
 ```
 
 The interpreter uses the runtime's half-open interval
 (`from_stage_id <= current < through_stage_id`) and halts unless the current
-stage resolves to executor `usher`.
+stage resolves to skill `usher`.
 
 ### 7a2. Re-verify blocking verification QA
 
@@ -136,7 +136,7 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  echo " Skipping pre-merge ephemeral-verify: already satisfied before usher"
  _pre_merge_verified=1
  else
- # Resolve and run ephemeral verify executor
+ # Resolve and run the ephemeral verify step runner
  _item_project=$(yoke items get {N} project 2>/dev/null) || true
  _ev_github_repo=$(yoke projects github-binding status \
  --project "$_item_project" --field github_repo 2>/dev/null) || true
@@ -150,7 +150,7 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  while IFS= read -r _ev_branch; do
  [ -n "$_ev_branch" ] || continue
  # ... resolve _ev_workflow, _ev_domain, _ev_head_sha for $_ev_branch ...
- python3 -m yoke_core.tools.executors ephemeral-verify "$_ev_github_repo" "$_ev_branch" "$_ev_workflow" "$_ev_domain" "$_ev_head_sha"
+ python3 -m yoke_core.tools.step_runners ephemeral-verify "$_ev_github_repo" "$_ev_branch" "$_ev_workflow" "$_ev_domain" "$_ev_head_sha"
  _ev_rc=$?
  if [ "$_ev_rc" -ne 0 ]; then
  echo "BLOCK: ephemeral-verify failed for branch $_ev_branch (exit $_ev_rc)"

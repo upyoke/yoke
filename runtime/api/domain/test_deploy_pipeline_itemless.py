@@ -2,7 +2,7 @@
 
 Environment-level deploys (stage bootstrap/proof deploys, operator
 redeploys) carry zero member items by design.  Pure-unit like the
-sibling test_deploy_pipeline_full.py: every DB/executor seam is mocked.
+sibling test_deploy_pipeline_full.py: every DB/step_runner seam is mocked.
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ class TestItemLessRun:
         monkeypatch.setenv("YOKE_ENV", "prod")
         run_id = "run-env-001"
         stages = json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto"},
         ])
         db_calls = []
 
@@ -83,7 +83,7 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged", verify,
         ), mock.patch.object(
-            deploy_pipeline, "_dispatch_executor", side_effect=fake_dispatch,
+            deploy_pipeline, "_dispatch_step_runner", side_effect=fake_dispatch,
         ), mock.patch.object(
             deploy_pipeline, "_emit_run_event",
         ), mock.patch.object(

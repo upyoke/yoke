@@ -34,7 +34,7 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_create, cmd_get
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        stages = json.dumps([{"name": "merged", "step_runner": "auto"}])
         result = cmd_create(test_db, "test-flow", "yoke", "Test", "Desc", stages)
         assert "test-flow" in result
 
@@ -54,7 +54,7 @@ class TestFlowBasic:
         )
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        stages = json.dumps([{"name": "merged", "step_runner": "auto"}])
         cmd_create(test_db, "f-disabled", "yoke", "Disabled", "D", stages)
         cmd_set_status(test_db, "f-disabled", "disabled")
 
@@ -84,7 +84,7 @@ class TestFlowBasic:
                     "model_name": "primary",
                     "lifecycle_phase": "implementing",
                 },
-                {"name": "merged", "executor": "auto"},
+                {"name": "merged", "step_runner": "auto"},
             ]
         )
         validate_stages(stages)  # no raise
@@ -162,7 +162,7 @@ class TestFlowBasic:
         with pytest.raises(ValueError, match="invalid kind"):
             validate_stages(stages)
 
-    def test_validate_stages_rejects_both_kind_and_executor(self, test_db):
+    def test_validate_stages_rejects_both_kind_and_step_runner(self, test_db):
         import json
         from yoke_core.domain.flow import validate_stages
 
@@ -172,11 +172,11 @@ class TestFlowBasic:
                     "kind": "migration_apply",
                     "model_name": "primary",
                     "lifecycle_phase": "implementing",
-                    "executor": "auto",
+                    "step_runner": "auto",
                 },
             ]
         )
-        with pytest.raises(ValueError, match='cannot carry both "kind" and "executor"'):
+        with pytest.raises(ValueError, match='cannot carry both "kind" and "step_runner"'):
             validate_stages(stages)
 
     def test_validate_stages_accepts_boolean_ci_wait_policy(self, test_db):
@@ -188,7 +188,7 @@ class TestFlowBasic:
                 [
                     {
                         "name": "release",
-                        "executor": "github-actions-workflow",
+                        "step_runner": "github-actions-workflow",
                         "wait_for_ci": False,
                     }
                 ]
@@ -205,19 +205,19 @@ class TestFlowBasic:
                     [
                         {
                             "name": "release",
-                            "executor": "github-actions-workflow",
+                            "step_runner": "github-actions-workflow",
                             "wait_for_ci": "false",
                         }
                     ]
                 )
             )
-        with pytest.raises(ValueError, match="executor"):
+        with pytest.raises(ValueError, match="step_runner"):
             validate_stages(
                 json.dumps(
                     [
                         {
                             "name": "complete",
-                            "executor": "auto",
+                            "step_runner": "auto",
                             "wait_for_ci": False,
                         }
                     ]
@@ -229,7 +229,7 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_create, cmd_stages
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f1", "yoke", "F", "D", stages)
         result = cmd_stages(test_db, "f1")
         parsed = json.loads(result)
@@ -245,12 +245,12 @@ class TestFlowBasic:
         )
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f-upd", "yoke", "FUpd", "D", stages)
         new_stages = json.dumps(
             [
-                {"name": "ephemeral-deploy", "executor": "ephemeral-deploy"},
-                {"name": "complete", "executor": "auto"},
+                {"name": "ephemeral-deploy", "step_runner": "ephemeral-deploy"},
+                {"name": "complete", "step_runner": "auto"},
             ]
         )
         message = cmd_update_stages(test_db, "f-upd", new_stages, "new description")
@@ -264,13 +264,13 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_create, cmd_update_stages
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f-bad", "yoke", "FBad", "D", stages)
         with pytest.raises(ValueError):
             cmd_update_stages(
                 test_db,
                 "f-bad",
-                json.dumps([{"name": "x", "executor": "not-a-thing"}]),
+                json.dumps([{"name": "x", "step_runner": "not-a-thing"}]),
             )
         with pytest.raises(LookupError):
             cmd_update_stages(test_db, "f-missing", stages)
@@ -280,7 +280,7 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_delete, cmd_create, cmd_get
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f-del", "yoke", "FDel", "D", stages)
         assert "Deleted deployment flow 'f-del'" in cmd_delete(test_db, "f-del")
         with pytest.raises(LookupError):
@@ -291,7 +291,7 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_delete, cmd_create
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f-ref", "yoke", "FRef", "D", stages)
         test_db.execute(
             "INSERT INTO items (id, project_id, project_sequence, workflow_id, workflow_version_id, "
@@ -309,7 +309,7 @@ class TestFlowBasic:
         from yoke_core.domain.flow import cmd_delete, cmd_create
 
         _insert_projects(test_db)
-        stages = json.dumps([{"name": "s1", "executor": "auto"}])
+        stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
         cmd_create(test_db, "f-old", "yoke", "FOld", "D", stages)
         cmd_create(test_db, "f-new", "yoke", "FNew", "D", stages)
         test_db.execute(

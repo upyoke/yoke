@@ -299,7 +299,7 @@ Shared business logic lives in the installed `yoke_core.domain` package:
 
 | Module | Responsibility |
 |--------|---------------|
-| `workflow_runtime.py` | Immutable item pin interpretation: stages, gates, policies, and executor bindings |
+| `workflow_runtime.py` | Immutable item pin interpretation: stages, gates, policies, and skill bindings |
 | `workflow_stage_vocabulary.py` | Published stage-id union used by collection filters |
 | `task_lifecycle.py` | Independent canonical lifecycle vocabulary for `epic_tasks` rows |
 | `approval.py` | Halt states, approval actions, flow-stage parsing, approval resolution |

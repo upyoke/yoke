@@ -1,4 +1,4 @@
-"""Rendering + tracking helpers for the ephemeral-deploy executor.
+"""Rendering + tracking helpers for the ephemeral-deploy step runner.
 
 Owns the template-to-payload half of :mod:`deploy_ephemeral`: rendered
 routing/cleanup/compose content for one preview slug, and the

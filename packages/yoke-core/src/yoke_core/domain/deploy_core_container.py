@@ -1,6 +1,6 @@
 """Deploy a DB-declared Yoke core-service environment.
 
-The executor resolves infrastructure and image authority, converges the origin
+The step runner resolves infrastructure and image authority, converges the origin
 host, swaps the container, gates on container and nginx health, and performs a
 bounded rollback after a failed health gate. Secrets travel only through
 subprocess environments or SSH stdin; emitted progress is redaction-safe.

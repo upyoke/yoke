@@ -30,7 +30,7 @@ Run when:
 - target is `implementing` (the implementation entry transition), and
 - the central effective path-claims policy is enabled, and
 - the pinned workflow selects `single_implementation_lane` under the
-  `advance` executor, and
+  `advance` skill, and
 - the actor has at least one non-terminal `path_claims` row for the item.
 
 Skip when:

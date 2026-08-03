@@ -1,4 +1,4 @@
-"""Frontier routing from immutable workflow executor bindings."""
+"""Frontier routing from immutable workflow skill bindings."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
         ("dash", "idea", AdapterCategory.DASH),
     ],
 )
-def test_definition_executor_selects_frontier_adapter(
+def test_definition_skill_selects_frontier_adapter(
     workflow_id,
     stage_id,
     expected,
@@ -62,21 +62,21 @@ def test_item_claim_probe_comes_from_next_stage_gate_and_policy():
     assert epic.requires_item_path_claim_probe("planned") is False
 
 
-def test_executor_active_state_comes_from_binding_boundaries():
-    implementation_executors = frozenset({"advance", "conduct"})
+def test_skill_active_state_comes_from_binding_boundaries():
+    implementation_skills = frozenset({"advance", "conduct"})
     issue = builtin_workflow_runtime("issue")
 
-    assert issue.executor_has_started(
-        "refined-idea", implementation_executors,
+    assert issue.skill_has_started(
+        "refined-idea", implementation_skills,
     ) is False
-    assert issue.executor_has_started(
-        "implementing", implementation_executors,
+    assert issue.skill_has_started(
+        "implementing", implementation_skills,
     ) is True
-    assert issue.executor_has_started(
-        "reviewing-implementation", implementation_executors,
+    assert issue.skill_has_started(
+        "reviewing-implementation", implementation_skills,
     ) is True
-    assert issue.executor_has_started(
-        "reviewed-implementation", implementation_executors,
+    assert issue.skill_has_started(
+        "reviewed-implementation", implementation_skills,
     ) is False
 
 
@@ -89,7 +89,7 @@ def test_executor_active_state_comes_from_binding_boundaries():
         ("dash", "idea", "implementing"),
     ],
 )
-def test_implementation_boundary_comes_from_registered_executor_bindings(
+def test_implementation_boundary_comes_from_registered_skill_bindings(
     workflow_id,
     before,
     active,

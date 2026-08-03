@@ -38,7 +38,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "entry", "1 check",
   ]);
   assert.deepEqual(classText(root, "workflow-detail-row-title"), [
-    "CLI", "Harness", "Executor", "Testing", "Approvals", "Delivery",
+    "CLI", "Harness", "Skill", "Testing", "Approvals", "Delivery",
   ]);
   assert.deepEqual(
     byClass(root, "workflow-posture-label").map(
@@ -266,19 +266,19 @@ test("approval summaries use display labels while registry ids stay internal", a
   mounted.unmount();
 });
 
-test("Blitz mechanics link back to Strategy with the prototype executor copy", async (t) => {
+test("Blitz mechanics link back to Strategy with the prototype skill copy", async (t) => {
   const blitz = workflowFixture({
     id: "blitz",
     name: "Blitz",
     currentVersion: 1,
-    executorBindings: [
+    skillBindings: [
       {
-        executor_id: "refine",
+        skill_id: "refine",
         from_stage_id: "draft",
         through_stage_id: "prove",
       },
       {
-        executor_id: "blitz",
+        skill_id: "blitz",
         from_stage_id: "prove",
         through_stage_id: "ship",
       },
@@ -302,13 +302,13 @@ test("Blitz mechanics link back to Strategy with the prototype executor copy", a
   mounted.unmount();
 });
 
-test("built-in executor copy follows the served binding signature", async (t) => {
+test("built-in skill copy follows the served binding signature", async (t) => {
   const dash = workflowFixture({
     id: "dash",
     name: "Dash",
     currentVersion: 1,
-    executorBindings: [{
-      executor_id: "alternate",
+    skillBindings: [{
+      skill_id: "alternate",
       from_stage_id: "draft",
       through_stage_id: "ship",
     }],

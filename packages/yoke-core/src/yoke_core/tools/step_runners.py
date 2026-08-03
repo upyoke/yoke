@@ -1,11 +1,11 @@
-"""Deployment-pipeline executor entrypoints.
+"""Deployment-pipeline step runner entrypoints.
 
-Simple stage executors the deployment pipeline in
+Simple stage step runners the deployment pipeline in
 :mod:`yoke_core.domain.deploy_pipeline` dispatches via in-process calls.
-Heavier executors own their own modules (``deploy_core_container``,
+Heavier step runners own their own modules (``deploy_core_container``,
 ``deploy_environment_activate``).
 
-Each executor returns an integer exit code:
+Each step runner returns an integer exit code:
 
 - ``exec_auto``           -> always ``0`` (no-op for stages that need no action)
 - ``exec_health_check``   -> ``0`` on HTTP 2xx, ``1`` on failure. With
@@ -15,14 +15,14 @@ Each executor returns an integer exit code:
   (the deployed core's DB carries its expected schema surface).
 - ``exec_ephemeral_verify`` -> ``0`` with ``EPHEMERAL_URL=<url>`` printed on
   success, ``1`` otherwise.  Preserves the stdout contract that
-  :func:`yoke_core.domain.deploy_pipeline_executors._dispatch_ephemeral_verify`
+  :func:`yoke_core.domain.deploy_pipeline_step_runners._dispatch_ephemeral_verify`
   parses for ``EPHEMERAL_URL=``.
 
 The module is also usable as a CLI for ad-hoc invocation:
 
-    python3 -m yoke_core.tools.executors auto
-    python3 -m yoke_core.tools.executors health-check <url> [request-id]
-    python3 -m yoke_core.tools.executors ephemeral-verify <project> <repo> <branch> <workflow> <domain> [sha]
+    python3 -m yoke_core.tools.step_runners auto
+    python3 -m yoke_core.tools.step_runners health-check <url> [request-id]
+    python3 -m yoke_core.tools.step_runners ephemeral-verify <project> <repo> <branch> <workflow> <domain> [sha]
 
 The CLI exits with the same code the Python function returns.
 """
@@ -40,7 +40,7 @@ from yoke_core.domain.github_actions_rest import (
     latest_workflow_run,
     resolve_token,
 )
-from yoke_core.tools.executors_ephemeral_verify import verify_ephemeral_workflow
+from yoke_core.tools.step_runners_ephemeral_verify import verify_ephemeral_workflow
 
 # Clock aliases so the warmup loop's timing is monkeypatchable in tests.
 _monotonic = time.monotonic
@@ -53,7 +53,7 @@ _sleep = time.sleep
 
 
 def exec_auto() -> int:
-    """No-op executor for stages that require no action."""
+    """No-op step runner for stages that require no action."""
     print("exec-auto: stage complete (no-op)")
     return 0
 
@@ -292,7 +292,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     if not args:
         print(
-            "Usage: python3 -m yoke_core.tools.executors "
+            "Usage: python3 -m yoke_core.tools.step_runners "
             "{auto|health-check|ephemeral-verify} [args...]",
             file=sys.stderr,
         )
@@ -304,7 +304,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if cmd == "health-check":
         if len(rest) not in (1, 2):
             print(
-                "Usage: python3 -m yoke_core.tools.executors health-check "
+                "Usage: python3 -m yoke_core.tools.step_runners health-check "
                 "<url> [request-id]",
                 file=sys.stderr,
             )
@@ -315,7 +315,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if cmd == "ephemeral-verify":
         if len(rest) < 5 or len(rest) > 6:
             print(
-                "Usage: python3 -m yoke_core.tools.executors ephemeral-verify "
+                "Usage: python3 -m yoke_core.tools.step_runners ephemeral-verify "
                 "<project> <github_repo> <branch> <workflow> <domain> [commit_sha]",
                 file=sys.stderr,
             )
@@ -325,7 +325,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             rest[1], rest[2], rest[3], rest[4], commit_sha,
             project=rest[0],
         )
-    print(f"Error: unknown executor '{cmd}'", file=sys.stderr)
+    print(f"Error: unknown step_runner '{cmd}'", file=sys.stderr)
     return 1
 
 

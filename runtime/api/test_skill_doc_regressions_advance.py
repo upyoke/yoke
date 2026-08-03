@@ -66,16 +66,16 @@ class TestAdvanceFinalizeSkill:
         assert "items update {N} status refining-idea" not in section_text
         assert "items update {N} status refined-idea" not in section_text
 
-    def test_skip_routing_resolves_pinned_executor_bindings(self, finalize_doc: Path):
+    def test_skip_routing_resolves_pinned_skill_bindings(self, finalize_doc: Path):
         from yoke_core.domain import advance_skip_core
 
         text = _read(finalize_doc)
         assert "yoke_core.domain.advance_skip_core" in text
         assert "yoke_core.domain.lifecycle_progression" not in text
         assert "PRE_IMPLEMENTATION_STATUSES" not in text
-        assert "_executor_skip_route" in text
-        assert callable(advance_skip_core._executor_skip_route)
-        assert "executor_bindings" in text
+        assert "_skill_skip_route" in text
+        assert callable(advance_skip_core._skill_skip_route)
+        assert "skill_bindings" in text
         assert "transitions" in text
         for retired_name in (
             "_REFINE_ROUTING",

@@ -224,7 +224,7 @@ def _check_pipeline_scripts(_ctx: ValidateContext, counters: Counters) -> None:
         "yoke_core.domain.flow",
         "yoke_core.domain.deploy_pipeline",
         "yoke_core.domain.github_actions",
-        "yoke_core.tools.executors",
+        "yoke_core.tools.step_runners",
     ):
         if _module_available(module_name):
             _check_pass(counters, f"Python entrypoint exists: {module_name}")
@@ -290,8 +290,8 @@ def _check_deployment_flow_readiness(
         for stage in stages:
             if isinstance(stage, dict):
                 name = stage.get("name", "?")
-                executor = stage.get("executor", "?")
-                print(f"       - {name} ({executor})")
+                step_runner = stage.get("step_runner", "?")
+                print(f"       - {name} ({step_runner})")
 
 
 def _project_default_flow(conn, project_id: int) -> str | None:

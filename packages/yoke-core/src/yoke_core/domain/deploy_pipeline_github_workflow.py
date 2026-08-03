@@ -1,8 +1,8 @@
-"""github-actions-workflow stage executor — CI gate, trigger, reconcile, poll.
+"""github-actions-workflow stage step_runner — CI gate, trigger, reconcile, poll.
 
-Split from :mod:`yoke_core.domain.deploy_pipeline_executors` so the
+Split from :mod:`yoke_core.domain.deploy_pipeline_step_runners` so the
 dispatch table stays small; the dispatcher delegates the
-``github-actions-workflow`` executor here.
+``github-actions-workflow`` step_runner here.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def _dispatch_github_actions_workflow(
     image_tag: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
-    """Handle github-actions-workflow executor.
+    """Handle github-actions-workflow step_runner.
 
     Returns ``(exit_code, diagnostic)``.  ``diagnostic`` carries the GitHub
     Actions poll stdout+stderr when the poll declares stage failure so callers

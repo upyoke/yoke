@@ -104,8 +104,8 @@ class TestFlowInitializationOwnership:
 
         _insert_projects(test_db)
         project_stages = json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto"},
         ])
         test_db.execute(
             "INSERT INTO deployment_flows "
@@ -135,7 +135,7 @@ class TestFlowMigrationCapabilityValidation:
         stages = json.dumps([
             {"kind": "migration_apply", "model_name": "ghost",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         with pytest.raises(ValueError, match="undeclared model"):
             cmd_create(test_db, "f-undeclared", "yoke", "F", "D", stages)
@@ -150,7 +150,7 @@ class TestFlowMigrationCapabilityValidation:
         stages = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         with pytest.raises(ValueError, match="no migration_model capability"):
             cmd_create(test_db, "f-nocapability", "yoke", "F", "D", stages)
@@ -167,7 +167,7 @@ class TestFlowMigrationCapabilityValidation:
              "lifecycle_phase": "implementing"},
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         with pytest.raises(ValueError, match="more than once in the same flow"):
             cmd_create(test_db, "f-dup-within", "yoke", "F", "D", stages)
@@ -182,13 +182,13 @@ class TestFlowMigrationCapabilityValidation:
         stages_a = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         cmd_create(test_db, "f-a", "yoke", "A", "D", stages_a)
         stages_b = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         cmd_create(test_db, "f-b", "yoke", "B", "D", stages_b)
 
@@ -202,13 +202,13 @@ class TestFlowMigrationCapabilityValidation:
         stages_a = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         cmd_create(test_db, "f-p", "yoke", "P", "D", stages_a)
         stages_b = json.dumps([
             {"kind": "migration_apply", "model_name": "secondary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         cmd_create(test_db, "f-s", "yoke", "S", "D", stages_b)
 

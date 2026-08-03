@@ -189,7 +189,7 @@ class TestAttemptRollback:
         assert any("rollback compose write failed" in line for line in lines)
 
 
-class TestExecutorRollbackIntegration:
+class TestStepRunnerRollbackIntegration:
     """exec_core_container_deploy wires the rollback at the health gates."""
 
     def _setup(self, monkeypatch):

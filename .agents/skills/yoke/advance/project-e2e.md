@@ -5,7 +5,7 @@ Materializes and executes the project's attached deployed-stack QA plan cases.
 Skip for every other transition.
 
 For `worktrees=worker_and_integration_lanes`, execute the release case on each
-task lane through the pinned `conduct` executor; the parent item has no single
+task lane through the pinned `conduct` skill; the parent item has no single
 worktree and must not substitute the main checkout.
 
 The deployed-stack case uses the shared `Command` method. Its project-owned
@@ -79,7 +79,7 @@ second manual `qa.run` row.
 - Exit `0` with verdict `pass`: continue after every selected case passes.
 - Exit `1` with verdict `fail`: block the transition and report the returned run
   id and artifact id.
-- Exit `2`: treat the executor contract as invalid, block, and report the exact
+- Exit `2`: treat the skill contract as invalid, block, and report the exact
   error.
 
 After every deployed-stack case passes, return to the router for finalization.

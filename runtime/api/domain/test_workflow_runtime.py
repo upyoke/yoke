@@ -47,19 +47,19 @@ def test_runtime_interprets_pinned_issue(test_db):
     assert runtime.accepts_stage("planning") is False
     assert runtime.accepts_stage("failed") is True
     assert runtime.is_forward_transition("idea", "implementing") is True
-    assert runtime.executor_for_stage("idea") == "refine"
-    assert runtime.executor_for_stage("refined-idea") == "advance"
-    assert runtime.executor_for_stage("implemented") == "usher"
-    assert runtime.executor_for_stage("done") is None
+    assert runtime.skill_for_stage("idea") == "refine"
+    assert runtime.skill_for_stage("refined-idea") == "advance"
+    assert runtime.skill_for_stage("implemented") == "usher"
+    assert runtime.skill_for_stage("done") is None
 
 
-def test_runtime_interprets_epic_executor_segments(test_db):
+def test_runtime_interprets_epic_skill_segments(test_db):
     runtime = load_item_workflow_runtime(test_db, _create(test_db, "epic"))
 
-    assert runtime.executor_for_stage("idea") == "refine"
-    assert runtime.executor_for_stage("refined-idea") == "shepherd"
-    assert runtime.executor_for_stage("plan-drafted") == "refine"
-    assert runtime.executor_for_stage("planned") == "conduct"
+    assert runtime.skill_for_stage("idea") == "refine"
+    assert runtime.skill_for_stage("refined-idea") == "shepherd"
+    assert runtime.skill_for_stage("plan-drafted") == "refine"
+    assert runtime.skill_for_stage("planned") == "conduct"
 
 
 def test_delivery_redirect_stage_comes_from_pinned_transition_graph(test_db):

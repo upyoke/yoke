@@ -19,12 +19,12 @@ from runtime.api.cli.test_yoke_operations_cli_deployment import (
 
 def _declaration() -> dict:
     return {
-        "schema": 1,
+        "schema": 2,
         "flows": [
             {
                 "id": "acme-internal",
                 "name": "Internal",
-                "stages": [{"name": "complete", "executor": "auto"}],
+                "stages": [{"name": "complete", "step_runner": "auto"}],
             }
         ],
     }

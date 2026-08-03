@@ -1,4 +1,4 @@
-"""Transition-graph and executor-binding validation for workflows."""
+"""Transition-graph and skill-binding validation for workflows."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from collections import deque
 from typing import Any, Mapping
 
 from yoke_core.domain.workflow_definition_builders import (
-    REGISTERED_WORKFLOW_EXECUTOR_IDS,
+    REGISTERED_WORKFLOW_SKILL_IDS,
 )
 from yoke_core.domain.workflow_definition_validation_support import (
     WorkflowDefinitionError,
@@ -18,7 +18,7 @@ from yoke_core.domain.workflow_definition_validation_support import (
 
 _TRANSITION_KEYS = frozenset({"from_stage_id", "to_stage_id"})
 _BINDING_KEYS = frozenset({
-    "executor_id",
+    "skill_id",
     "from_stage_id",
     "through_stage_id",
 })
@@ -101,28 +101,28 @@ def validate_transition_graph(
     return edges
 
 
-def validate_executor_bindings(
+def validate_skill_bindings(
     definition: Mapping[str, Any],
     stage_ids: list[str],
     edges: list[tuple[str, str]],
 ) -> None:
-    """Require registered executors to cover every declared transition."""
+    """Require registered skills to cover every declared transition."""
     stage_index = {stage_id: index for index, stage_id in enumerate(stage_ids)}
     covered: set[tuple[str, str]] = set()
     for index, raw_binding in enumerate(
         require_sequence(
-            definition.get("executor_bindings"), "executor_bindings"
+            definition.get("skill_bindings"), "skill_bindings"
         )
     ):
-        path = f"executor_bindings[{index}]"
+        path = f"skill_bindings[{index}]"
         binding = require_mapping(raw_binding, path)
         require_exact_keys(binding, _BINDING_KEYS, path)
-        executor_id = require_nonempty_text(
-            binding.get("executor_id"), f"{path}.executor_id"
+        skill_id = require_nonempty_text(
+            binding.get("skill_id"), f"{path}.skill_id"
         )
-        if executor_id not in REGISTERED_WORKFLOW_EXECUTOR_IDS:
+        if skill_id not in REGISTERED_WORKFLOW_SKILL_IDS:
             raise WorkflowDefinitionError(
-                f"{path}.executor_id references unknown executor {executor_id!r}"
+                f"{path}.skill_id references unknown skill {skill_id!r}"
             )
         before = require_nonempty_text(
             binding.get("from_stage_id"), f"{path}.from_stage_id"
@@ -144,8 +144,8 @@ def validate_executor_bindings(
     missing = [edge for edge in edges if edge not in covered]
     if missing:
         raise WorkflowDefinitionError(
-            f"executor bindings do not cover transitions: {missing}"
+            f"skill bindings do not cover transitions: {missing}"
         )
 
 
-__all__ = ["validate_executor_bindings", "validate_transition_graph"]
+__all__ = ["validate_skill_bindings", "validate_transition_graph"]

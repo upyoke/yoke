@@ -41,12 +41,12 @@ broader but shallower fan-out when priority is equal.
 
 Count items in `implementing` or `reviewing-implementation` status for the project (excluding frozen items). These are the statuses that consume implementation WIP. `reviewed-implementation` and `polishing-implementation` are finishing-review states and do not consume conduct WIP slots.
 
-### Step 5: Resolve the registered executor
+### Step 5: Resolve the registered skill
 
 Each item loads its immutable `workflow_id` / `workflow_version_id` pin. The
 runtime finds the current stage in that definition and resolves the registered
-executor binding for the stage. The frontier adapter remains a coarse ranking
-category; scheduler `next_step` is the executor binding and is the dispatch
+skill binding for the stage. The frontier adapter remains a coarse ranking
+category; scheduler `next_step` is the skill binding and is the dispatch
 truth.
 
 Items with unsatisfied activation-gate hard-block dependencies are reclassified to `wait` regardless of their status-based adapter. Items with `items.blocked = 1` are also reported in the blocked bucket even when they do not have a hard-block dependency row.
@@ -208,7 +208,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
 3. **Select** -- use the highest-ranked item (or `--item PREFIX-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
-5. **Dispatch** -- invoke the registered executor in the item's `next_step`
+5. **Dispatch** -- invoke the registered skill in the item's `next_step`
    (not the raw `adapter`):
  - `refine` routes to `/yoke refine PREFIX-N`
  - `shepherd` routes to `/yoke shepherd PREFIX-N`

@@ -3,7 +3,7 @@
 Extracted from `preflight.md`. Covers the individual gate checks run before implementation work begins. Read and follow this file when `preflight.md` directs you here.
 
 **Context variables** (inherited from router): `{N}`, `_status`, `_target`,
-`_current_executor`, `_target_executor`, `_generated_children`,
+`_current_skill`, `_target_skill`, `_generated_children`,
 `_worktree_policy`, `_pinned_definition_json`, `--force` flag
 
 ---
@@ -64,7 +64,7 @@ If no blockers (kernel says `is_blocked=false` or check-hard-blocks exits 0), pr
 
 ## AC Presence Gate (step 4-ac)
 
-Skip if `_generated_children` is `epic_tasks`; the generated-task executor
+Skip if `_generated_children` is `epic_tasks`; the generated-task skill
 enforces task-level ACs before dispatch.
 
 Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (pre-implementation statuses where ACs are not yet required).
@@ -139,7 +139,7 @@ If the report contains `skipped=true` (helper unavailable, item id not found, et
 
 ## Spec Coverage Gate (step 4-cov)
 
-Skip if `_generated_children` is `epic_tasks`; its planning executor owns the
+Skip if `_generated_children` is `epic_tasks`; its planning skill owns the
 per-task path-claim handoff. Skip if target is `idea`, `refining-idea`, `refined-idea`,
 `planning`, `refining-plan`, or `planned` (claim widening can still happen
 during refine).
@@ -173,21 +173,21 @@ If `_cov_exit` is 0, proceed silently. The gate self-skips when:
 
 **Gate classification: `block-by-design`.** At implementation entry the worktree is about to be created; widening a claim onto additional paths *after* the worktree exists risks mutating coverage while edits are already landing, and refine is no longer reachable to author the claim repair (the item has moved past `refining-idea`). The earlier opportunities to repair are already wired: `/yoke idea` and `/yoke refine` both run `idea_readiness_check` and refine's entry handler auto-widens for pure `FILE_BUDGET_NOT_IN_CLAIM` against the existing non-terminal exclusive claim. The sanctioned remediation when this gate fires is either (a) fix the gap upstream by re-running `/yoke refine` on the item before re-attempting advance, or (b) when the spec is genuinely settled and only the claim is wrong, run `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item PREFIX-N` directly before re-running advance — the helper's stderr already prints that command. `--force` does not bypass this gate.
 
-## Pinned-Executor Advisory (step 5)
+## Pinned-Skill Advisory (step 5)
 
-If `_target_executor` is non-empty and differs from `_current_executor`, print:
+If `_target_skill` is non-empty and differs from `_current_skill`, print:
 > Note: The pinned workflow assigns target stage `{_target}` to
-> `/{_target_executor}`. Advancing manually through `/yoke advance`.
+> `/{_target_skill}`. Advancing manually through `/yoke advance`.
 
 Proceed anyway — manual override is valid.
 
-## Shepherd Executor Gate (step 5-shep)
+## Shepherd Skill Gate (step 5-shep)
 
-Read the ordered stages and `executor_bindings` from
+Read the ordered stages and `skill_bindings` from
 `_pinned_definition_json`. Apply this gate only when the definition contains a
 `shepherd` binding, the target is at or beyond that binding's handoff, and the
-current stage is still before the implementation executor has started. This is
-an executor-specific domain guard: workflows with no `shepherd` binding skip
+current stage is still before the implementation skill has started. This is
+a skill-specific domain guard: workflows with no `shepherd` binding skip
 it.
 
 **Pre-check:** Skip if current status is `implementing` or later. Also skip if current is `idea` and target is `implementing` (deliberate bypass).
@@ -207,7 +207,7 @@ _gate_reason=$(python3 -m yoke_core.domain.shepherd_gate check "PREFIX-{N}")
 _gate_exit=$?
 ```
 
-`planning_to_plan_drafted` is the terminal verdict the `shepherd` executor
+`planning_to_plan_drafted` is the terminal verdict the `shepherd` skill
 writes before its pinned handoff. The helper also accepts the legacy
 `planned_to_ready` transition for items that passed the pre-2026-04-07
 pipeline; no modern producer writes that name.
@@ -242,7 +242,7 @@ If `_task_count` is 0, **block**: point to `/yoke plan PREFIX-{N}`.
 ## Generated-Task Completion Gate (step 5a)
 
 Apply only when `_generated_children=epic_tasks` and the target stage is owned
-by `usher` or is terminal. Earlier executor segments skip it; a single task
+by `usher` or is terminal. Earlier skill segments skip it; a single task
 lane advancing through review never triggers the parent-item gate.
 **If `--force`:** skip with warning.
 

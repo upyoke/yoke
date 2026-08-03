@@ -16,7 +16,7 @@ from yoke_core.domain.workflow_registry import (
 )
 from yoke_core.domain.workflow_registry_sql import row_dict as _row_dict
 from yoke_core.domain.workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
 )
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
@@ -109,31 +109,31 @@ class WorkflowRuntime:
             return frozenset()
         return frozenset(str(gate["id"]) for gate in self.gates_for_stage(stage_id))
 
-    def executor_for_stage(self, stage_id: str) -> Optional[str]:
+    def skill_for_stage(self, stage_id: str) -> Optional[str]:
         position = self.stage_index(stage_id)
         if position is None or stage_id in self.terminal_stage_ids:
             return None
-        for binding in self.definition["executor_bindings"]:
+        for binding in self.definition["skill_bindings"]:
             start = self.stage_index(str(binding["from_stage_id"]))
             stop = self.stage_index(str(binding["through_stage_id"]))
             if start is not None and stop is not None and start <= position < stop:
-                return str(binding["executor_id"])
+                return str(binding["skill_id"])
         raise WorkflowRegistryError(
-            f"workflow {self.workflow_id}@{self.version} has no executor "
+            f"workflow {self.workflow_id}@{self.version} has no skill "
             f"for stage {stage_id!r}"
         )
 
-    def executor_has_started(
+    def skill_has_started(
         self,
         stage_id: str,
-        executor_ids: frozenset[str],
+        skill_ids: frozenset[str],
     ) -> bool:
         """Whether the current stage is inside, not at the entry to, a binding."""
         position = self.stage_index(stage_id)
         if position is None:
             return False
-        for binding in self.definition["executor_bindings"]:
-            if str(binding["executor_id"]) not in executor_ids:
+        for binding in self.definition["skill_bindings"]:
+            if str(binding["skill_id"]) not in skill_ids:
                 continue
             start = self.stage_index(str(binding["from_stage_id"]))
             stop = self.stage_index(str(binding["through_stage_id"]))
@@ -142,10 +142,10 @@ class WorkflowRuntime:
         return False
 
     def implementation_has_started(self, stage_id: str) -> bool:
-        """Whether an implementation executor has begun its bound segment."""
-        return self.executor_has_started(
+        """Whether an implementation skill has begun its bound segment."""
+        return self.skill_has_started(
             stage_id,
-            IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+            IMPLEMENTATION_WORKFLOW_SKILL_IDS,
         )
 
     def is_before_implementation(self, stage_id: str) -> bool:
@@ -154,8 +154,8 @@ class WorkflowRuntime:
         if position is None:
             return False
         starts = []
-        for binding in self.definition["executor_bindings"]:
-            if str(binding["executor_id"]) not in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS:
+        for binding in self.definition["skill_bindings"]:
+            if str(binding["skill_id"]) not in IMPLEMENTATION_WORKFLOW_SKILL_IDS:
                 continue
             start = self.stage_index(str(binding["from_stage_id"]))
             if start is not None:
@@ -168,7 +168,7 @@ class WorkflowRuntime:
             return True
         through_stages = {
             str(binding["through_stage_id"])
-            for binding in self.definition["executor_bindings"]
+            for binding in self.definition["skill_bindings"]
         }
         if stage_id in through_stages:
             return True

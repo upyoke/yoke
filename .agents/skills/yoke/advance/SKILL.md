@@ -28,8 +28,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 - `--env <name>` — Optional. Update the item's `deployed_to` field. Valid environments are resolved per-project from DB tables (`environments` via `sites`, `deployment_flows.target_env`, `project_capabilities`). Can be combined with a status advance or used standalone on an already-done item.
 - `--no-worktree` — Optional. Skip worktree creation when advancing to `implementing`. The item will remain on the current branch with no isolation. Use this for evidence-only / validation / proof items that intentionally make no repo changes; the done-transition empty-branch guard only applies when a worktree branch exists.
 - `--force` — Optional. Override the file-level collision blocker, generated-task existence/completion gates, or merge verification gate.
-- `--skip-polish` — Optional. Operator-asserted fast path across the pinned `polish` executor segment. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper), derives the hops from the binding's `from_stage_id`, `through_stage_id`, ordered stages, and transitions, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires the current status to equal that pinned binding's entry stage. Use when the current mission explicitly declares that polish is unnecessary, such as a bounded theme swap whose acceptance criteria require no implementation review. Do NOT infer a skip from the item title, and do NOT pass a target status with this flag — the flag owns the target.
-- `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` executor segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
+- `--skip-polish` — Optional. Operator-asserted fast path across the pinned `polish` skill segment. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper), derives the hops from the binding's `from_stage_id`, `through_stage_id`, ordered stages, and transitions, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires the current status to equal that pinned binding's entry stage. Use when the current mission explicitly declares that polish is unnecessary, such as a bounded theme swap whose acceptance criteria require no implementation review. Do NOT infer a skip from the item title, and do NOT pass a target status with this flag — the flag owns the target.
+- `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` skill segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
 
 Both skip flags:
 - Are operator-discoverable via `/yoke advance --help` and via `/yoke do` routing when the mission declares a skip.
@@ -88,7 +88,7 @@ The empty-branch guard exists to catch accidental merges of branches with no wor
 The item's `workflow_id` and `workflow_version_id` select the immutable
 definition. Never reconstruct a progression in this skill. Read the served
 definition for navigation and let `lifecycle.transition.execute` enforce the
-pinned version, stage order, gates, and registered executor binding.
+pinned version, stage order, gates, and registered skill binding.
 
 ## Steps
 
@@ -103,7 +103,7 @@ advance-skill plumbing, not an agent-facing product command; the operator surfac
 is `/yoke advance PREFIX-{N} --skip-polish` or `/yoke advance PREFIX-{N}
 --skip-refine`.
 
-The skip module validates the current status against the pinned executor
+The skip module validates the current status against the pinned skill
 binding, derives its hops from that definition's ordered stages and declared
 transitions, emits both the canonical `ItemStatusChanged` events (with
 `source=skip-polish` / `source=skip-refine`) and a sibling `SkipHopPerformed`
@@ -119,7 +119,7 @@ Extract the numeric part from the argument (strip `PREFIX-` prefix, leading zero
 Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
 exact pin and exports `_status`, `_pinned_definition_json`,
 `_generated_children`, `_worktree_policy`, `_parallelism_policy`, and
-`_current_executor`. Do not continue unless the read succeeds.
+`_current_skill`. Do not continue unless the read succeeds.
 
 When the requested advance target is `implementation`, map it to the canonical status `implementing` for lifecycle comparisons. `implementation` is the advance-target name (the sub-skill path); `implementing` is the DB status. Keep using `implementation` as the advance target in operator-facing examples and routed `/yoke do` invocations.
 
@@ -150,17 +150,17 @@ print(" ".join(stage["id"] for stage in envelope["result"]["definition"]["stages
  _target=$(printf '%s\n' $_prog | awk -v cur="$_status" 'found==1{print; exit} $0==cur{found=1}')
 fi
 
-_target_executor=$(printf '%s' "$_pinned_definition_json" | python3 -c '
+_target_skill=$(printf '%s' "$_pinned_definition_json" | python3 -c '
 import json,sys
 status=sys.argv[1]
 definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
-for binding in definition["executor_bindings"]:
+for binding in definition["skill_bindings"]:
     start=stages.index(binding["from_stage_id"])
     stop=stages.index(binding["through_stage_id"])
     if start <= position < stop:
-        print(binding["executor_id"])
+        print(binding["skill_id"])
         break
 ' "$_target")
 ```
@@ -195,7 +195,7 @@ stage table.
 Then determine the target:
 
 - **Explicit target = current status:** Re-entry request.
- - If target resolves to `implementing` → read and follow **worktree re-entry** (step 3 below), then continue the pinned executor's implementation loop. Do **not** stop after surfacing the worktree path.
+ - If target resolves to `implementing` → read and follow **worktree re-entry** (step 3 below), then continue the pinned skill's implementation loop. Do **not** stop after surfacing the worktree path.
  - If target is `reviewing-implementation` → re-entry into review phase. Use **worktree re-entry** (step 3) to recover the worktree, then continue the review loop in that worktree. Do **not** ask the operator whether to review now.
  - If target is `reviewed-implementation` → reviewed-implementation re-entry. Delegate to the reviewed-implementation boundary message in [`finalize.md`](finalize.md) (`## Pre-Release Next-Step Guidance`) and **stop**. Do not advertise `/yoke polish` from inside the advance flow — the routed loop owns the polish handoff.
  - Otherwise → `Cannot advance PREFIX-{N} from '{current}' to '{target}' — not a valid forward transition.`
@@ -204,7 +204,7 @@ Then determine the target:
 - **Explicit target before current:** → stop (not valid), except for the `reviewing-implementation` → `implementation` re-entry above.
 - **No target (auto-advance):** Next status in the applicable progression. If already `done` → stop.
 
-**Advance-executor transition semantics:**
+**Advance-skill transition semantics:**
 - `refined-idea -> implementing` — Implementation entry. Creates worktree and begins implementation.
 - `implementing -> reviewing-implementation` — Enter the review phase. Review-phase fixes and follow-up edits continue in the same worktree.
 - `reviewing-implementation` + advance target `implementation` — **Re-entry only.** This resumes the existing worktree without mutating status backward. The DB status stays `reviewing-implementation`.
@@ -234,11 +234,11 @@ if [ "$_worktree_policy" = "single_implementation_lane" ]; then
   --lane-role implementation --field branch 2>/dev/null)
 elif [ "$_worktree_policy" = "worker_and_integration_lanes" ] \
  || [ "$_worktree_policy" = "worker_lanes_optional_integration" ]; then
- if [ "$_current_executor" = "conduct" ]; then
-  echo "CONTRACT ERROR: the pinned conduct executor owns PREFIX-{N}'s task lanes."
+ if [ "$_current_skill" = "conduct" ]; then
+  echo "CONTRACT ERROR: the pinned conduct skill owns PREFIX-{N}'s task lanes."
   echo "Use /yoke conduct PREFIX-{N} to re-enter or advance a generated task lane."
  else
-  echo "CONTRACT ERROR: executor $_current_executor owns a multi-lane policy that advance cannot select."
+  echo "CONTRACT ERROR: skill $_current_skill owns a multi-lane policy that advance cannot select."
  fi
  exit 1
 else
@@ -266,10 +266,10 @@ After `WORKTREE_PATH` is ready:
 
 **Implementation entry (`_target = "implementing"`) is orchestrator-driven.** When `_target` resolves to `implementing` (the `/yoke advance PREFIX-N implementation` path), invoke the canonical orchestrator instead of reading and executing each phase doc inline:
 
-Before invocation, require `_target_executor=advance` and
+Before invocation, require `_target_skill=advance` and
 `_worktree_policy=single_implementation_lane`. Route `conduct` to `/yoke
 conduct PREFIX-{N}` and halt on every other mismatch; this engine is an
-executor-specific contract, not a generic transition shortcut.
+skill-specific contract, not a generic transition shortcut.
 
 The skill-router internal entrypoint is the advance implementation-entry engine
 for `PREFIX-{N}`. This engine is not a product CLI wrapper; the operator surface is
@@ -285,10 +285,10 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 
 **Preflight Gates:** Read `.agents/skills/yoke/advance/preflight.md`
 - Applies to: all non-implementing transitions (hard-block dependency, AC,
-  coverage, pinned-executor handoff, generated-task, merge-verification, and
+  coverage, pinned-skill handoff, generated-task, merge-verification, and
   done-redirect gates).
 - Generated-task gates run only when
-  `policies.generated_children=epic_tasks`; executor-specific gates run only
+  `policies.generated_children=epic_tasks`; skill-specific gates run only
   when the target path crosses that pinned binding. Merge and done gates remain
   target-stage-specific.
 

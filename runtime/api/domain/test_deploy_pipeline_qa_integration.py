@@ -89,7 +89,7 @@ _SCHEMA = """
     CREATE TABLE qa_runs (
         id INTEGER PRIMARY KEY,
         qa_requirement_id INTEGER,
-        executor_type TEXT,
+        step_runner_type TEXT,
         qa_kind TEXT,
         verdict TEXT,
         raw_result TEXT,
@@ -162,8 +162,8 @@ def deploy_db(tmp_path, monkeypatch):
 def _seed_flow(conn, flow_id="flow-test", project="yoke", stages=None, target_env="production"):
     if stages is None:
         stages = [
-            {"name": "deploy", "executor": "auto"},
-            {"name": "smoke-test", "executor": "auto", "qa_kind": "smoke"},
+            {"name": "deploy", "step_runner": "auto"},
+            {"name": "smoke-test", "step_runner": "auto", "qa_kind": "smoke"},
         ]
     conn.execute(
         "INSERT INTO deployment_flows (id, project_id, name, stages, target_env) "
@@ -266,8 +266,8 @@ class TestQaRecorderIntegration:
         def mock_flow_db(*args, script_dir=None):
             if "stages" in args:
                 return json.dumps([
-                    {"name": "deploy", "executor": "auto"},
-                    {"name": "smoke-test", "executor": "auto", "qa_kind": "smoke"},
+                    {"name": "deploy", "step_runner": "auto"},
+                    {"name": "smoke-test", "step_runner": "auto", "qa_kind": "smoke"},
                 ])
             return ""
 

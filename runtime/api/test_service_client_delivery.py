@@ -118,7 +118,7 @@ class TestCreateItem:
         """Flow belonging to different project should be rejected."""
         # Add a externalwebapp flow
         conn = connect_test_db(mutation_db["db_path"])
-        stages = json.dumps([{"name": "merged", "executor": "auto"}])
+        stages = json.dumps([{"name": "merged", "step_runner": "auto"}])
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
                VALUES ('externalwebapp-flow', 2, 'ExternalWebappFlow', %s, '2026-04-20T00:00:00Z')""",

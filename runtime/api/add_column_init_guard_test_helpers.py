@@ -84,7 +84,7 @@ def regression_db(tmp_db: str, tmp_path: Path):
         stages_json = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         conn.execute(
             "INSERT INTO deployment_flows "

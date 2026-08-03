@@ -1,4 +1,4 @@
-"""Origin-host convergence steps for the core-container deploy executor.
+"""Origin-host convergence steps for the core-container deploy step runner.
 
 Each function converges one aspect of the environment origin host over SSH
 and is idempotent: probe first, mutate only when the probe fails, verify

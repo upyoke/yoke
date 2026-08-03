@@ -8,7 +8,7 @@ Surfaces project documentation before the text-sensitive test audit and file dis
 
 ## a. Query project context metadata
 
-This phase is the pinned `advance` executor's own single-lane context loader.
+This phase is the pinned `advance` skill's own single-lane context loader.
 It does not depend on the `conduct` task-graph path.
 
 ```bash

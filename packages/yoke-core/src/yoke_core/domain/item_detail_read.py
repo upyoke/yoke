@@ -106,11 +106,11 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "version_id": runtime.workflow_version_id,
         "stage_id": stage_id,
         "stage_label": runtime.stage_label(stage_id),
-        "executor_id": (
-            runtime.executor_for_stage(stage_id) if stage_is_defined else None
+        "skill_id": (
+            runtime.skill_for_stage(stage_id) if stage_is_defined else None
         ),
-        "next_executor_id": (
-            runtime.executor_for_stage(next_stage_id)
+        "next_skill_id": (
+            runtime.skill_for_stage(next_stage_id)
             if next_stage_id is not None
             else None
         ),

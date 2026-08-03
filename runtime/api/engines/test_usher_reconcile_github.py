@@ -31,7 +31,7 @@ def wired(monkeypatch):
     def fake_flow_db(*args, sd=None):
         del sd
         if args[0] == "stages":
-            return '[{"name":"prod-deploy","executor":"github-actions-workflow","workflow":"deploy.yml"}]'
+            return '[{"name":"prod-deploy","step_runner":"github-actions-workflow","workflow":"deploy.yml"}]'
         return ""
 
     def fake_find_by_item(item_id, status=None, db_path=None):

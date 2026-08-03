@@ -182,7 +182,7 @@ class TestStatusToBoardBucket:
             workflow_definition=_definition("issue"),
         ) == "refined"
 
-    def test_arbitrary_stage_ids_follow_declared_executor_segments(self):
+    def test_arbitrary_stage_ids_follow_declared_skill_segments(self):
         stage_ids = (
             "captured",
             "shaping",
@@ -198,24 +198,24 @@ class TestStatusToBoardBucket:
         definition = {
             "stages": [{"id": stage_id} for stage_id in stage_ids],
             "terminal_stage_ids": ["closed"],
-            "executor_bindings": [
+            "skill_bindings": [
                 {
-                    "executor_id": "refine",
+                    "skill_id": "refine",
                     "from_stage_id": "captured",
                     "through_stage_id": "ready-to-build",
                 },
                 {
-                    "executor_id": "advance",
+                    "skill_id": "advance",
                     "from_stage_id": "ready-to-build",
                     "through_stage_id": "quality-approved",
                 },
                 {
-                    "executor_id": "polish",
+                    "skill_id": "polish",
                     "from_stage_id": "quality-approved",
                     "through_stage_id": "ready-to-ship",
                 },
                 {
-                    "executor_id": "usher",
+                    "skill_id": "usher",
                     "from_stage_id": "ready-to-ship",
                     "through_stage_id": "closed",
                 },

@@ -236,10 +236,10 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
 
     # Seed deployment flow with a human-approval stage
     _test_flow_stages = json.dumps([
-        {"name": "merged", "executor": "auto"},
-        {"name": "approve-deploy", "executor": "human-approval"},
-        {"name": "prod-deploy", "executor": "github-actions-workflow", "workflow": "deploy.yml"},
-        {"name": "complete", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
+        {"name": "approve-deploy", "step_runner": "human-approval"},
+        {"name": "prod-deploy", "step_runner": "github-actions-workflow", "workflow": "deploy.yml"},
+        {"name": "complete", "step_runner": "auto"},
     ])
     p = _p(conn)
     conn.execute(

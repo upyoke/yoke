@@ -129,7 +129,7 @@ const POLICY = {
   },
 };
 
-const EXECUTORS = {
+const SKILLS = {
   dash: ["dash"],
   blitz: ["refine", "blitz"],
   issue: ["refine", "advance", "polish", "usher"],
@@ -150,8 +150,8 @@ export function prototypeWorkflow(id) {
         : [],
     })),
     policies: POLICY[id],
-    executorBindings: EXECUTORS[id].map((executorId) => ({
-      executor_id: executorId,
+    skillBindings: SKILLS[id].map((skillId) => ({
+      skill_id: skillId,
       from_stage_id: STAGES[id][0],
       through_stage_id: STAGES[id].at(-1),
     })),

@@ -193,7 +193,7 @@ def test_db_router_read_only_path_passes(tmp_path, monkeypatch, conn):
         "python3 -m yoke_core.tools.watch_doctor -- --full --fix\n",
         "python3 -m yoke_core.tools.watch_merge done-transition YOK-N\n",
         "python3 -m yoke_core.domain.worktree create YOK-N /repo\n",
-        "python3 -m yoke_core.tools.executors ephemeral-verify p r b w d sha\n",
+        "python3 -m yoke_core.tools.step_runners ephemeral-verify p r b w d sha\n",
     ],
 )
 def test_permanent_tool_shaped_operation_passes(
