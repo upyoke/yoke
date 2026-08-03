@@ -18,13 +18,17 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_project,
     _write_module,
     create_table_on_audit_db,
+    gate_db_context,
     gate_audit_path,
     seed_audit_row,
 )
 from runtime.api.fixtures.backlog import insert_item
 
 
-pytest_plugins = ("runtime.api.domain.test_db_mutation_gate_evidence",)
+@pytest.fixture
+def gate_db(tmp_path: Path):
+    with gate_db_context(tmp_path) as (conn, repo_path):
+        yield conn, repo_path
 
 
 @pytest.fixture(autouse=True)
