@@ -206,8 +206,64 @@ __all__ = [
     "apply_event_parent_id",
     "apply_item_blocked_lifecycle",
     "apply_item_columns",
+    "apply_path_claims_typed_owner_cleanup",
+    "apply_wrapup_reports_drop",
     "verify_epic_task_blocked_by",
     "verify_event_parent_id",
     "verify_item_blocked_lifecycle",
     "verify_item_columns",
+    "verify_path_claims_typed_owner_cleanup",
+    "verify_wrapup_reports_drop",
 ]
+
+
+def apply_path_claims_typed_owner_cleanup(conn: Any) -> None:
+    _require_table(conn, "path_claims")
+    before = _row_count(conn, "path_claims")
+    for column in ("actor_id", "item_id", "session_id", "work_claim_id"):
+        _drop_column(conn, "path_claims", column)
+    _assert_row_count_unchanged(conn, "path_claims", before)
+    _require_columns(
+        conn,
+        "path_claims",
+        (
+            "owner_kind",
+            "owner_item_id",
+            "owner_session_id",
+            "owner_work_claim_id",
+            "registered_by_actor_id",
+            "registered_by_session_id",
+        ),
+    )
+
+
+def verify_path_claims_typed_owner_cleanup(conn: Any) -> None:
+    _require_table(conn, "path_claims")
+    _assert_columns_absent(
+        conn,
+        "path_claims",
+        ("actor_id", "item_id", "session_id", "work_claim_id"),
+    )
+    _require_columns(
+        conn,
+        "path_claims",
+        (
+            "owner_kind",
+            "owner_item_id",
+            "owner_session_id",
+            "owner_work_claim_id",
+            "registered_by_actor_id",
+            "registered_by_session_id",
+        ),
+    )
+
+
+def apply_wrapup_reports_drop(conn: Any) -> None:
+    if not _table_exists(conn, "wrapup_reports"):
+        return
+    conn.execute(f"DROP TABLE {_identifier('wrapup_reports')}")
+
+
+def verify_wrapup_reports_drop(conn: Any) -> None:
+    if _table_exists(conn, "wrapup_reports"):
+        raise AssertionError("wrapup_reports table still exists")

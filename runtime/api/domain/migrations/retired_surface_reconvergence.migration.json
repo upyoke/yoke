@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "drop_obsolete_item_columns",
+      "path_claims_typed_owner_cleanup",
+      "drop_wrapup_reports",
+      "drop_event_parent_id",
+      "drop_epic_task_blocked_by",
+      "retire_item_blocked_lifecycle"
+    ],
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Re-applies already-shipped drops to installs the 2026-08-02 pass missed; every serving build on both environments already runs the reader/writer-free code, so the old surfaces are dead weight.",
+    "compatibility_class": "pre_merge_safe",
+    "schema_kinds": [
+      "destructive"
+    ],
+    "count_preserving": false,
+    "affected_surfaces": [
+      {
+        "table": "items",
+        "columns": [
+          "flow",
+          "worktree"
+        ]
+      },
+      {
+        "table": "path_claims",
+        "columns": [
+          "actor_id",
+          "item_id",
+          "session_id",
+          "work_claim_id"
+        ]
+      },
+      {
+        "table": "wrapup_reports",
+        "columns": []
+      },
+      {
+        "table": "events",
+        "columns": [
+          "parent_id"
+        ]
+      },
+      {
+        "table": "epic_tasks",
+        "columns": [
+          "blocked_by"
+        ]
+      }
+    ]
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/obsolete_schema_cleanup.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_obsolete_item_columns.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_event_parent_id.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_epic_task_blocked_by.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/retire_item_blocked_lifecycle.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claims_typed_owner_cleanup.py",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_wrapup_reports.py",
+        "role": "writer"
+      }
+    ],
+    "invariants": [
+      "row counts unchanged on items, path_claims, events, epic_tasks across each column drop",
+      "no serving code path references the dropped surfaces (purged in the 2026-08-02 merges, serving since launch.171)",
+      "wrapup_reports drop removes the table only after confirming zero live readers"
+    ],
+    "rehearsal_commands": [
+      "uv run --frozen python3 -m pytest runtime/api/domain/test_retired_surface_drop_modules.py -q"
+    ],
+    "residual_risk_notes": "Both target column sets are verified-dead in every serving build; the only prior failure mode (old build writing events.parent_id during the drop window) is closed because current builds no longer reference the columns."
+  },
+  "module_sources": {
+    "drop_obsolete_item_columns": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_obsolete_item_columns.py",
+      "sha256": "71cab5cc14f36ca6f300af83e633d645c0b1c6794ae52cd425aaacd9706e320d"
+    },
+    "path_claims_typed_owner_cleanup": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claims_typed_owner_cleanup.py",
+      "sha256": "18bad892b95358d5e05bf5b463714d089376b819910ab27cad19b7bee48552ee"
+    },
+    "drop_wrapup_reports": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_wrapup_reports.py",
+      "sha256": "4a53e64d013b3392d999c1019191a87cec4ccf0fb1972d164d5fc8b9b679e287"
+    },
+    "drop_event_parent_id": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_event_parent_id.py",
+      "sha256": "5a888495f1658c67bf31ac4c260eadfaa9fa7a1284ef10893234b7dbc891ac10"
+    },
+    "drop_epic_task_blocked_by": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/drop_epic_task_blocked_by.py",
+      "sha256": "ecba1e8caafe3208893887696d9be92be58bf27d32609a59c2fa62d006d5fec1"
+    },
+    "retire_item_blocked_lifecycle": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/retire_item_blocked_lifecycle.py",
+      "sha256": "6b7f5cf8da712042e3a90278bb9cd110a47a93c3804cfa777fb5df5de1d26929"
+    }
+  }
+}
