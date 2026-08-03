@@ -139,6 +139,37 @@ def test_migration_rejects_mixed_vocabulary() -> None:
         migration.apply(conn)
 
 
+def test_migration_no_ops_on_definitions_past_its_target_version() -> None:
+    # A permanent history entry outlives the shape it was written against.
+    # This one moved definitions from 2 to 3; the codec has since gone to 4,
+    # and every boot converges built-in definitions at the current version
+    # BEFORE the history runs. Treating "newer than my target" as an error
+    # made this entry crash every boot on every universe -- the entry had not
+    # become wrong, it had become finished.
+    conn = _connection()
+    definition = _legacy_workflow()
+    definition["schema_version"] = 4
+    definition["skill_bindings"] = definition.pop("executor_bindings")
+    definition["skill_bindings"][0]["skill_id"] = definition["skill_bindings"][
+        0
+    ].pop("executor_id")
+    conn.execute(
+        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
+        (1, json.dumps(definition), definition_digest(definition), 4),
+    )
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    stored = json.loads(
+        conn.execute(
+            "SELECT definition_json FROM workflow_versions WHERE id=1"
+        ).fetchone()[0]
+    )
+    assert stored["schema_version"] == 4, "a later version must be left alone"
+    assert stored["skill_bindings"][0]["skill_id"] == "dash"
+
+
 def test_migration_preserves_historical_workflow_schema() -> None:
     conn = _connection()
     definition = _legacy_workflow()

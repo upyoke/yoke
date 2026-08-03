@@ -82,11 +82,31 @@ def _rewrite_workflow(definition: dict[str, Any]) -> dict[str, Any]:
     schema_version = rewritten.get("schema_version")
     if schema_version == 2:
         rewritten["schema_version"] = WORKFLOW_SCHEMA_VERSION
-    elif schema_version not in {1, WORKFLOW_SCHEMA_VERSION}:
+    elif not _schema_version_at_or_past_this_entry(schema_version):
         raise AssertionError(
             f"workflow definition has unsupported schema version {schema_version!r}"
         )
     return rewritten
+
+
+def _schema_version_at_or_past_this_entry(schema_version: object) -> bool:
+    """Whether a definition is already at or beyond what this entry produces.
+
+    A permanent history entry outlives the shape it was written against. This
+    one moved definitions from version 2 to 3; the codec has since gone past 3,
+    and every later version already satisfies what this entry exists to
+    establish. Treating "newer than my target" as an error would make an entry
+    that ran cleanly a year ago start failing boots the moment the schema moved
+    on — the entry has not become wrong, it has become finished.
+
+    Version 1 predates the versioned definition entirely and is left alone
+    exactly as it was before.
+    """
+    return schema_version == 1 or (
+        isinstance(schema_version, int)
+        and not isinstance(schema_version, bool)
+        and schema_version >= WORKFLOW_SCHEMA_VERSION
+    )
 
 
 def _rewrite_stages(stages: list[Any]) -> list[Any]:
@@ -174,7 +194,9 @@ def invariants(conn: Any) -> None:
         "FROM workflow_versions ORDER BY id"
     ).fetchall():
         definition = _object(row[2], subject=f"workflow version {row[0]}")
-        if definition.get("schema_version") not in {1, WORKFLOW_SCHEMA_VERSION}:
+        if not _schema_version_at_or_past_this_entry(
+            definition.get("schema_version")
+        ):
             raise AssertionError(
                 f"workflow version {row[0]} has stale schema version"
             )
