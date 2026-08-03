@@ -8,6 +8,10 @@ from typing import Any
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.flow_validation import validate_stages
 from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_schema import (
+    WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER,
+    _ensure_immutable_version_triggers,
+)
 
 
 MIGRATION_NAME = "workflow_and_deployment_stage_vocabulary"
@@ -94,25 +98,49 @@ def _rewrite_stages(stages: list[Any]) -> list[Any]:
     return rewritten
 
 
+def _allow_workflow_version_rewrite(conn: Any, *, allowed: bool) -> None:
+    """Temporarily cross the registry's immutability guard for this cutover."""
+    if db_backend.connection_is_postgres(conn):
+        action = "DISABLE" if allowed else "ENABLE"
+        conn.execute(
+            f"ALTER TABLE workflow_versions {action} TRIGGER "
+            f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}"
+        )
+        return
+    if allowed:
+        conn.execute(
+            f"DROP TRIGGER IF EXISTS {WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}_update"
+        )
+        conn.execute(
+            f"DROP TRIGGER IF EXISTS {WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}_delete"
+        )
+        return
+    _ensure_immutable_version_triggers(conn)
+
+
 def apply(conn: Any) -> None:
     """Rewrite storage keys without changing stage behavior or row identity."""
     marker = _marker(conn)
-    workflow_rows = conn.execute(
-        "SELECT id, definition_json FROM workflow_versions ORDER BY id"
-    ).fetchall()
-    for row in workflow_rows:
-        definition = _rewrite_workflow(
-            _object(row[1], subject=f"workflow version {row[0]}")
-        )
-        conn.execute(
-            "UPDATE workflow_versions SET definition_json="
-            f"{marker}, definition_digest={marker} WHERE id={marker}",
-            (
-                json_helper.dumps_compact(definition),
-                definition_digest(definition),
-                row[0],
-            ),
-        )
+    _allow_workflow_version_rewrite(conn, allowed=True)
+    try:
+        workflow_rows = conn.execute(
+            "SELECT id, definition_json FROM workflow_versions ORDER BY id"
+        ).fetchall()
+        for row in workflow_rows:
+            definition = _rewrite_workflow(
+                _object(row[1], subject=f"workflow version {row[0]}")
+            )
+            conn.execute(
+                "UPDATE workflow_versions SET definition_json="
+                f"{marker}, definition_digest={marker} WHERE id={marker}",
+                (
+                    json_helper.dumps_compact(definition),
+                    definition_digest(definition),
+                    row[0],
+                ),
+            )
+    finally:
+        _allow_workflow_version_rewrite(conn, allowed=False)
 
     flow_rows = conn.execute(
         "SELECT id, stages FROM deployment_flows ORDER BY id"

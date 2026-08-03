@@ -9,6 +9,7 @@ import pytest
 
 from yoke_core.domain.migrations import workflow_and_deployment_stage_vocabulary as migration
 from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_schema import _ensure_immutable_version_triggers
 
 
 def _connection() -> sqlite3.Connection:
@@ -22,6 +23,7 @@ def _connection() -> sqlite3.Connection:
         "CREATE TABLE deployment_flows ("
         "id TEXT PRIMARY KEY, stages TEXT NOT NULL)"
     )
+    _ensure_immutable_version_triggers(conn)
     return conn
 
 
@@ -69,6 +71,11 @@ def test_migration_rewrites_keys_and_preserves_rows() -> None:
 
     migration.apply(conn)
     migration.invariants(conn)
+
+    with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+        conn.execute(
+            "UPDATE workflow_versions SET definition_json='{}' WHERE id=1"
+        )
 
     stored = json.loads(
         conn.execute(
