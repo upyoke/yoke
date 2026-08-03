@@ -226,7 +226,7 @@ def _disposition(
         return PRODUCT_CLIENT
     if operation and operation.status == ops.PENDING:
         return LEGACY_DELETE
-    if operation and operation.status == ops.PERMANENT:
+    if operation and operation.status in (ops.TOOL_CLI, ops.PERMANENT):
         return (
             OPERATOR_DEBUG_PERMANENT
             if operation.reason == ops.REASON_OPERATOR_BREAK_GLASS

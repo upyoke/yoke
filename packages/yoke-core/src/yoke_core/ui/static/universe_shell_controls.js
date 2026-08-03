@@ -4,6 +4,14 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 
 const DEFAULT_DOCS_URL = "https://github.com/upyoke/yoke/tree/main/docs";
+// Items are searched on the server, so the cap travels with the query and
+// bounds the response. Sessions are still filtered from a cached roster, so
+// theirs bounds how much of that roster the browser holds.
+const SEARCH_RESULT_LIMIT = 8;
+const SESSION_INDEX_LIMIT = 500;
+// Exported so a caller waiting for search results waits on the real interval
+// rather than a copy of it.
+export const SEARCH_DEBOUNCE_MS = 150;
 let shellControlSequence = 0;
 
 function el(documentNode, tag, className, text) {
@@ -13,9 +21,9 @@ function el(documentNode, tag, className, text) {
   return node;
 }
 
-function successfulRows(callResult) {
+function successfulRows(callResult, key) {
   if (callResult.status !== 200 || !callResult.envelope?.success) return null;
-  return callResult.envelope.result?.rows || [];
+  return callResult.envelope.result?.[key] || [];
 }
 
 function itemResult(row) {
@@ -27,10 +35,6 @@ function itemResult(row) {
     kind: "Item",
     label: String(row.title || ref),
     meta: [ref, row.project, row.status].filter(Boolean).join(" · "),
-    terms: [
-      ref, row.title, row.project, row.project_name, row.status, row.owner,
-      row.workflow_id,
-    ],
   };
 }
 
@@ -79,12 +83,20 @@ function createSearch(documentNode, client) {
   results.hidden = true;
   host.appendChild(results);
 
-  let indexPromise = null;
+  let sessionIndexPromise = null;
   let activeIndex = -1;
   let resultLinks = [];
   let renderToken = 0;
+  let debounceTimer = null;
 
   const close = () => {
+    // Drop any pending query so a dismissal is not undone by a keystroke that
+    // has not been sent yet.
+    if (debounceTimer !== null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    renderToken += 1;
     results.hidden = true;
     input.setAttribute("aria-expanded", "false");
     activeIndex = -1;
@@ -93,29 +105,42 @@ function createSearch(documentNode, client) {
     results.hidden = false;
     input.setAttribute("aria-expanded", "true");
   };
-  const loadIndex = () => {
-    if (!indexPromise) {
-      indexPromise = Promise.allSettled([
-        client.call({
-          function: "items.overview.list", payload: { limit: 500 },
-        }),
-        client.call({ function: "sessions.list", payload: { limit: 500 } }),
-      ]).then((settled) => {
-        const calls = settled.map(
-          (outcome) => outcome.status === "fulfilled" ? outcome.value : null,
-        );
-        const itemRows = calls[0] ? successfulRows(calls[0]) : null;
-        const sessionRows = calls[1] ? successfulRows(calls[1]) : null;
-        if (itemRows === null && sessionRows === null) {
-          throw new Error("Search is unavailable");
-        }
-        return [
-          ...(itemRows || []).map(itemResult),
-          ...(sessionRows || []).map(sessionResult),
-        ];
+  // Sessions are matched from a cached roster: the read has no keyword
+  // filter, and its newest-activity ordering makes the cap a recency window.
+  const loadSessionIndex = () => {
+    if (!sessionIndexPromise) {
+      sessionIndexPromise = client.call({
+        function: "sessions.list", payload: { limit: SESSION_INDEX_LIMIT },
+      }).then((call) => {
+        const rows = successfulRows(call, "rows");
+        return rows === null ? null : rows.map(sessionResult);
       });
     }
-    return indexPromise;
+    return sessionIndexPromise;
+  };
+  // Items are matched on the server, so the whole backlog stays reachable no
+  // matter how far it has grown past any roster the browser could hold.
+  const collectMatches = async (query) => {
+    const [itemCall, sessionEntries] = await Promise.all([
+      client.call({
+        function: "items.search.run",
+        payload: { keywords: query, limit: SEARCH_RESULT_LIMIT },
+      }).catch(() => null),
+      loadSessionIndex().catch(() => null),
+    ]);
+    const itemRows = itemCall === null
+      ? null
+      : successfulRows(itemCall, "matches");
+    if (itemRows === null && sessionEntries === null) {
+      throw new Error("Search is unavailable");
+    }
+    const needle = query.toLowerCase();
+    return [
+      ...(itemRows || []).map(itemResult),
+      ...(sessionEntries || []).filter((entry) => entry.terms.some(
+        (term) => String(term || "").toLowerCase().includes(needle),
+      )),
+    ].slice(0, SEARCH_RESULT_LIMIT);
   };
   const selectResult = (next) => {
     if (!resultLinks.length) return;
@@ -124,11 +149,7 @@ function createSearch(documentNode, client) {
       link.classList.toggle("active", index === activeIndex);
     }
   };
-  const renderMatches = (entries, query) => {
-    const needle = query.toLowerCase();
-    const matches = entries.filter((entry) => entry.terms.some(
-      (term) => String(term || "").toLowerCase().includes(needle),
-    )).slice(0, 8);
+  const renderMatches = (matches, query) => {
     resultLinks = [];
     results.replaceChildren();
     if (!matches.length) {
@@ -173,8 +194,8 @@ function createSearch(documentNode, client) {
     open();
     if (query.length < 2) return;
     try {
-      const entries = await loadIndex();
-      if (token === renderToken) renderMatches(entries, query);
+      const matches = await collectMatches(query);
+      if (token === renderToken) renderMatches(matches, query);
     } catch (error) {
       if (token !== renderToken) return;
       results.replaceChildren(el(
@@ -184,9 +205,17 @@ function createSearch(documentNode, client) {
       open();
     }
   };
-  input.addEventListener("input", update);
+  // Each keystroke now costs a request, so let a burst of them settle first.
+  const scheduleUpdate = () => {
+    if (debounceTimer !== null) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      update();
+    }, SEARCH_DEBOUNCE_MS);
+  };
+  input.addEventListener("input", scheduleUpdate);
   input.addEventListener("focus", () => {
-    if (input.value.trim()) update();
+    if (input.value.trim()) scheduleUpdate();
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {

@@ -7,7 +7,7 @@ Yoke-owned shell surface an agent might invoke. Consumed by:
   accepted iff matching entry is ``status="permanent"`` or
   ``status="pending"``.
 * Deny-mode contract lint — denies multi-module recipes for
-  ``status="wrapped"`` entries; allows the other two classes.
+  ``status="wrapped"`` entries; allows the other three classes.
 * Skill body label authoring — emits the present-state label
   adjacent to each fallback recipe.
 * Doctor HC ``HC-fallback-registry-coherence`` —
@@ -43,6 +43,8 @@ from yoke_cli.operation_inventory_data import (
     REASON_OPERATOR_BREAK_GLASS,
     REASON_TOOL_SHAPED,
     REASON_WRAPPED_BY_YOKE_CLI,
+    TOOL_CLI,
+    TOOL_CLI_ROWS,
     WRAPPED,
     WRAPPED_ROWS,
 )
@@ -51,7 +53,7 @@ from yoke_cli.operation_inventory_data import (
 REASON_LOW_VOLUME_OPERATOR_DEBUG = "low_volume_operator_debug"
 
 
-_VALID_STATUSES: Tuple[str, ...] = (WRAPPED, PERMANENT, PENDING)
+_VALID_STATUSES: Tuple[str, ...] = (WRAPPED, TOOL_CLI, PERMANENT, PENDING)
 _VALID_REASONS: Tuple[str, ...] = (
     REASON_WRAPPED_BY_YOKE_CLI,
     REASON_OPERATOR_BREAK_GLASS,
@@ -70,7 +72,8 @@ class OperationEntry:
             multi-module form is always meaningful — wrapped entries
             still document the operator/debug fallback shape.
         family: Dotted family path (e.g. ``workflow_item.epic_task.review``).
-        status: One of ``wrapped`` | ``permanent`` | ``pending``.
+        status: One of ``wrapped`` | ``tool_cli`` | ``permanent`` |
+            ``pending``.
         reason: One of the closed-reason enum values above.
         proposed_function_id: Dotted function-id for ``status="pending"``
             rows (the handler-registration roster); ``None`` otherwise.
@@ -99,7 +102,7 @@ class OperationEntry:
                 "OperationEntry status='pending' requires "
                 f"proposed_function_id (shell_form={self.shell_form!r})"
             )
-        if self.status in (WRAPPED, PERMANENT) and self.proposed_function_id:
+        if self.status in (WRAPPED, TOOL_CLI, PERMANENT) and self.proposed_function_id:
             raise ValueError(
                 f"OperationEntry status={self.status!r} must not carry "
                 f"proposed_function_id (shell_form={self.shell_form!r})"
@@ -118,12 +121,13 @@ def _to_entry(row) -> OperationEntry:
 
 
 _ALL_ENTRIES: Tuple[OperationEntry, ...] = tuple(
-    _to_entry(row) for row in (*WRAPPED_ROWS, *PERMANENT_ROWS, *PENDING_ROWS)
+    _to_entry(row)
+    for row in (*WRAPPED_ROWS, *TOOL_CLI_ROWS, *PERMANENT_ROWS, *PENDING_ROWS)
 )
 
 
 def all_entries() -> Tuple[OperationEntry, ...]:
-    """Return every tracker entry in canonical order (wrapped, permanent, pending)."""
+    """Return every tracker entry in canonical status order."""
     return _ALL_ENTRIES
 
 
@@ -157,7 +161,7 @@ def is_wrapped(shell_form: str) -> bool:
 
 __all__ = [
     "OperationEntry",
-    "WRAPPED", "PERMANENT", "PENDING",
+    "WRAPPED", "TOOL_CLI", "PERMANENT", "PENDING",
     "REASON_WRAPPED_BY_YOKE_CLI", "REASON_OPERATOR_BREAK_GLASS",
     "REASON_TOOL_SHAPED", "REASON_LOW_VOLUME_OPERATOR_DEBUG",
     "REASON_NO_HANDLER_REGISTERED",

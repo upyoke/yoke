@@ -34,10 +34,14 @@ PreToolUse Bash chain order rationale:
    masks the command's exit code. Pure shape parse; runs beside the
    polling lint because both protect long-command output discipline.
 5b-ii. ``lint_raw_pytest_full_suite`` — steer a bare ``pytest`` sweep into
-   the watcher wrapper, which arbitrates for the machine-wide test-gate
-   admission slot. Denies the whole-surface shape, advises any other
-   directory sweep. Pure shape parse; sits beside the sibling above
-   because both keep heavy runs on paths that stay observable and bounded.
+    the watcher wrapper, which arbitrates for the machine-wide test-gate
+    admission slot. Denies the whole-surface shape, advises any other
+    directory sweep. Pure shape parse; sits beside the sibling above
+    because both keep heavy runs on paths that stay observable and bounded.
+5b-iii. ``lint_watcher_module_form`` — retire the module spelling for
+    watcher wrappers that have a first-class ``yoke watch`` adapter.
+    Runs after the pytest sweep guard so legacy long-command forms
+    converge on the same canonical CLI surface.
 5c. ``lint_if_status_capture`` — block ``fi`` followed by ``rc=$?``.
    Owns the shell status-capture footgun where the status of the ``if``
    compound masks the command that failed in the condition.
@@ -147,6 +151,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_long_command_polling",
     "yoke_core.domain.lint_pipe_to_truncator",
     "yoke_core.domain.lint_raw_pytest_full_suite",
+    "yoke_core.domain.lint_watcher_module_form",
     "yoke_core.domain.lint_if_status_capture",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.lint_session_cwd",

@@ -17,6 +17,7 @@ class _Row:
 
 
 WRAPPED = "wrapped"
+TOOL_CLI = "tool_cli"
 PERMANENT = "permanent"
 PENDING = "pending"
 
@@ -28,6 +29,10 @@ REASON_NO_HANDLER_REGISTERED = "no_handler_registered"
 
 def _w(shell_form: str, family: str) -> _Row:
     return _Row(shell_form, family, WRAPPED, REASON_WRAPPED_BY_YOKE_CLI)
+
+
+def _t(shell_form: str, family: str) -> _Row:
+    return _Row(shell_form, family, TOOL_CLI, REASON_TOOL_SHAPED)
 
 
 def _p(
@@ -49,8 +54,8 @@ def _q(shell_form: str, family: str, fn_id: str) -> _Row:
 
 
 __all__ = [
-    "_Row", "_w", "_p", "_q",
-    "WRAPPED", "PERMANENT", "PENDING",
+    "_Row", "_w", "_t", "_p", "_q",
+    "WRAPPED", "TOOL_CLI", "PERMANENT", "PENDING",
     "REASON_WRAPPED_BY_YOKE_CLI", "REASON_OPERATOR_BREAK_GLASS",
     "REASON_TOOL_SHAPED", "REASON_NO_HANDLER_REGISTERED",
 ]

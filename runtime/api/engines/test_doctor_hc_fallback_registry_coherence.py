@@ -26,6 +26,7 @@ class TestHcFallbackRegistryCoherence:
             f"unexpected FAIL detail: {result.detail}"
         )
         assert "wrapped" in result.detail
+        assert "tool_cli" in result.detail
         assert "pending" in result.detail
 
     def test_self_skips_when_tracker_missing(self) -> None:
@@ -79,3 +80,49 @@ class TestHcFallbackRegistryCoherence:
             rec = _run()
         assert rec.results[0].result == "FAIL"
         assert "not a multi-module" in rec.results[0].detail
+
+    def test_fails_when_tool_cli_row_has_no_adapter(self) -> None:
+        from yoke_cli import operation_inventory as inv
+
+        bogus = inv.OperationEntry(
+            shell_form="yoke missing tool",
+            family="bogus",
+            status=inv.TOOL_CLI,
+            reason=inv.REASON_TOOL_SHAPED,
+        )
+        _original = inv.by_status
+
+        def patched(status):
+            if status == inv.TOOL_CLI:
+                return [bogus]
+            return _original(status)
+
+        with patch.object(inv, "by_status", side_effect=patched):
+            rec = _run()
+        assert rec.results[0].result == "FAIL"
+        assert "not registered" in rec.results[0].detail
+
+    def test_fails_when_tool_cli_row_has_no_help(self) -> None:
+        from yoke_cli import operation_inventory as inv
+        from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS
+
+        bogus = inv.OperationEntry(
+            shell_form="yoke watch pytest",
+            family="bogus",
+            status=inv.TOOL_CLI,
+            reason=inv.REASON_TOOL_SHAPED,
+        )
+        _original = inv.by_status
+
+        def patched(status):
+            if status == inv.TOOL_CLI:
+                return [bogus]
+            return _original(status)
+
+        with patch.object(inv, "by_status", side_effect=patched), patch(
+            "yoke_project_checks.check_fallback_registry_coherence._resolve_tool_cli_registry",
+            return_value=(TOOL_SHAPED_SUBCOMMANDS, {}),
+        ):
+            rec = _run()
+        assert rec.results[0].result == "FAIL"
+        assert "no help/usage" in rec.results[0].detail

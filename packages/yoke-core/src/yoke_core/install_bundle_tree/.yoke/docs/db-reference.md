@@ -9,7 +9,7 @@ clients directly and never hardcode a DB path or DSN.
 
 Quickstart for session operators: `AGENTS.md` § Code Conventions, § Structured Item Writes, and § Governed DB Mutation. Update those sections when this file changes.
 
-The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
+The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, tool-shaped CLI adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
 
 This file is the **entry point**: it covers entry points, the bootstrap contract, the retired-schema registry, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under [.yoke/docs/db-reference/](db-reference/).
 
