@@ -24,6 +24,10 @@ from yoke_core.domain.workflow_registry_rows import (
     version_row,
     workflow_row,
 )
+from yoke_core.domain.builtin_workflow_version_compat import (
+    _comparable_form,
+    _rewrite_version_to_canonical,
+)
 from yoke_core.domain.workflow_registry_sql import marker, row_dict, rows_dict
 
 InsertVersion = Callable[..., dict]
@@ -99,6 +103,14 @@ def _converge_fixed_version(
         version=version,
     ):
         return existing
+    try:
+        stored = decode_definition(existing["definition_json"])
+    except WorkflowRegistryError:
+        stored = None
+    if stored is not None and canonical_definition_json(
+        _comparable_form(stored)
+    ) == canonical_definition_json(_comparable_form(definition)):
+        return _rewrite_version_to_canonical(conn, existing, definition)
     raise WorkflowRegistryError(
         f"published built-in {workflow_id}@{version} differs from "
         "the code-owned definition"
