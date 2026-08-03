@@ -149,23 +149,32 @@ def test_model_report_registers_the_named_model(
         "model": "cursor-grok-4.5-high",
         "model_id": "grok-4.5",
     }
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
     assert quiet_side_effects["register"] == [
         ("/repo", MAIN, "grok-4.5", "cursor-cli")
     ]
 
 
-def test_model_report_stays_silent_without_a_real_model(
+def test_model_report_skips_registration_without_a_real_model(
     quiet_side_effects: dict,
 ) -> None:
     payload = {"session_id": MAIN, "model": "default"}
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
     assert quiet_side_effects["register"] == []
 
 
-def test_model_report_stays_silent_without_a_session_id(
+def test_model_report_skips_registration_without_a_session_id(
     quiet_side_effects: dict,
 ) -> None:
     payload = {"model_id": "grok-4.5"}
-    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == ""
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
     assert quiet_side_effects["register"] == []
+
+
+def test_model_report_never_replies_empty(quiet_side_effects: dict) -> None:
+    """This event fires mid-generation and Cursor waits on the reply. An
+    empty stdout drops the stream — the operator sees the agent die with a
+    transport error, with nothing pointing at a hook. Every exit path must
+    hand back a JSON object, including the ones that do no work."""
+    for payload in ({}, {"session_id": MAIN}, {"session_id": MAIN, "model": "default"}):
+        assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"

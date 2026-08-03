@@ -23,6 +23,11 @@ from runtime.harness.hook_runner.resume_block_dispatch import render as _render_
 from runtime.harness.hook_runner.types import HookContext
 
 
+# Cursor keeps the generation stream open across a mid-turn hook and needs
+# a JSON object back before it resumes. Empty stdout drops the stream.
+_STREAM_SAFE_REPLY = "{}\n"
+
+
 def _payload_json(payload: dict) -> str:
     try:
         return json.dumps(payload)
@@ -158,12 +163,19 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
 def run_model_report(record: HookContext, root: str) -> str:
     """Heal a placeholder session model once a payload names a real one.
 
+    Always replies with an empty JSON object. This event fires while the
+    model stream is open, and Cursor requires a JSON reply to continue:
+    an empty stdout kills the generation stream, surfacing to the operator
+    as ``RetriableError: WritableIterable is closed`` rather than as
+    anything hook-shaped. Measured 3/3 failed ``cursor-agent -p`` runs on
+    the empty reply against 17 clean fires on ``{}``.
+
     Cursor multiplexes model providers, so the model a session actually
     runs under is only knowable from the event that reports it — the
     session-opening events name the ``"default"`` placeholder instead.
     Registration is idempotent and upgrade-only: an existing row heals a
     placeholder model in place and leaves a concrete one untouched, so
-    this needs no read-before-write and no reply body.
+    this needs no read-before-write.
 
     The sibling ``refresh_session_model_if_placeholder`` does not apply
     here: it recovers the model from a transcript, and Cursor transcripts
@@ -174,10 +186,11 @@ def run_model_report(record: HookContext, root: str) -> str:
     from runtime.harness.cursor import cursor_hooks_payload as _cursor
 
     model = _payload_model(record.payload)
-    if not model:
-        return ""
-    session_id = _cursor.resolve_session_id(_payload_json(record.payload))
-    if not session_id:
-        return ""
-    _lifecycle.register(root, session_id, model, _entrypoint())
-    return ""
+    session_id = (
+        _cursor.resolve_session_id(_payload_json(record.payload))
+        if model
+        else ""
+    )
+    if model and session_id:
+        _lifecycle.register(root, session_id, model, _entrypoint())
+    return _STREAM_SAFE_REPLY

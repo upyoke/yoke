@@ -254,7 +254,9 @@ _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
 # whose payload names a concrete model. Every other event — sessionStart
 # included — reports the literal placeholder "default" on the terminal
 # agent surface, so a session registered from them alone keeps an unknown
-# model for its whole life.
+# model for its whole life. It fires mid-generation, which makes its
+# handler's reply load-bearing: see the stream-safe reply in the Cursor
+# session dispatch.
 _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
     ("sessionStart", "SessionStart", None),
     ("sessionEnd", "SessionEnd", None),
