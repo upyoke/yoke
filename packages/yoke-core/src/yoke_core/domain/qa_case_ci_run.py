@@ -110,7 +110,12 @@ def _record_run(
     return run_id, int(artifact["qa_artifact_id"])
 
 
-def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
+def _resolve_checkout(
+    case: dict,
+    checkout_path: Optional[str | Path],
+    *,
+    allow_tree_mismatch: bool = False,
+) -> Path:
     from yoke_core.domain.qa_case_execution import _execution_checkout
 
     checkout = (
@@ -122,6 +127,7 @@ def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
     binding = verification_tree_binding.evaluate_run(
         surface=_TREE_BINDING_SURFACE, tree=str(checkout),
+        allow_mismatch=allow_tree_mismatch,
     )
     if binding.notice:
         print(binding.notice, file=sys.stderr, flush=True)
@@ -135,10 +141,13 @@ def execute_ci_case(
     *,
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Push the lane, run the project's CI workflow, record the verdict."""
-    checkout = _resolve_checkout(case, checkout_path)
+    checkout = _resolve_checkout(
+        case, checkout_path, allow_tree_mismatch=allow_tree_mismatch,
+    )
     configured = case["method_config"].get("timeout_seconds")
     budget = int(
         timeout_seconds

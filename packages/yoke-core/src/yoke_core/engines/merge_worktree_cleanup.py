@@ -19,6 +19,52 @@ def _parent():
     return _mw
 
 
+def _release_lane_row(ctx: MergeContext) -> None:
+    """Retire the lane row for the worktree this cleanup just removed.
+
+    The directory and the row describe one lane, so they retire together.
+    Leaving the row ``active`` over a removed directory strands every reader
+    that resolves a lane by its recorded path — including the verification
+    tree-binding guard, whose refusal then blocks the very done-gate run that
+    would have released the row.
+
+    Advisory by construction: the merge has already landed and been verified
+    against origin by the time this runs, so a control plane that cannot be
+    reached degrades to a warning rather than unwinding a completed merge.
+    """
+    mw = _parent()
+    if not ctx.item_id:
+        return
+    try:
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+
+        response = call_dispatcher(
+            function_id="item_worktrees.release_merged_lane",
+            target=TargetRef(kind="item", item_id=int(ctx.item_id)),
+            payload={"branch": ctx.args.branch},
+        )
+    except Exception as exc:  # noqa: BLE001 - advisory, never unwinds a merge
+        mw._print(
+            f"WARNING: lane row for {ctx.args.branch} left active after "
+            f"worktree removal: {exc}",
+            err=True,
+        )
+        return
+    if not response.success:
+        detail = (
+            response.error.message if response.error is not None
+            else "release refused"
+        )
+        mw._print(
+            f"WARNING: lane row for {ctx.args.branch} left active after "
+            f"worktree removal: {detail}",
+            err=True,
+        )
+
+
 def _post_merge_cleanup(
     ctx: MergeContext,
     no_changes: bool,
@@ -161,6 +207,7 @@ def _post_merge_cleanup(
             worktree_removed = wt_remove.returncode == 0
         if worktree_removed:
             _print(f"Cleaned up worktree: {ctx.worktree_path}")
+            _release_lane_row(ctx)
             # Clean empty parent
             parent = str(Path(ctx.worktree_path).parent)
             if "/.worktrees/" in parent:

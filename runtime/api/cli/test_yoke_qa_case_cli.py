@@ -85,6 +85,7 @@ def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
         expected_branch=None,
         expected_sha=None,
         timeout_seconds=None,
+        allow_tree_mismatch=False,
         actor=mock.ANY,
     )
     assert execute.call_args.kwargs["actor"].session_id == "engine-session"

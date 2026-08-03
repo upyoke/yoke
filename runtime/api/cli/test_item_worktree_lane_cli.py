@@ -7,6 +7,9 @@ from io import StringIO
 from types import SimpleNamespace
 
 from yoke_cli import operation_inventory
+from yoke_cli.commands.adapters import (
+    item_worktree_lane_evidence as lane_release_evidence,
+)
 from yoke_cli.commands.adapters import item_worktrees
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
@@ -149,6 +152,7 @@ def test_release_attests_a_clean_lane_before_dispatch(
             "branch": "YOK-952",
             "path": lane["path"],
             "observed_clean": True,
+            "evidence": lane_release_evidence.EVIDENCE_WORKTREE_CLEAN,
         },
     }
 
@@ -185,7 +189,7 @@ def test_clean_lane_attestation_counts_ignored_files_as_dirty(tmp_path) -> None:
     cache.mkdir()
     (cache / "generated.txt").write_text("preserve me too\n")
 
-    attestation, error = item_worktrees._attest_clean_lane(lane)
+    attestation, error = lane_release_evidence.attest_releasable_lane(lane)
 
     assert attestation is None
     assert error is not None

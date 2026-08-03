@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
-from pathlib import Path
 from typing import List
 
 from yoke_cli.commands._helpers import (
@@ -21,6 +19,9 @@ from yoke_cli.transport.dispatcher import (
     build_actor,
     call_dispatcher,
     emit_response,
+)
+from yoke_cli.commands.adapters.item_worktree_lane_evidence import (
+    attest_releasable_lane,
 )
 from yoke_contracts.item_worktrees import EVIDENCE_ONLY_RECOVERY_REASON
 
@@ -52,76 +53,6 @@ def _local_error(code: str, message: str) -> int:
         file=sys.stderr,
     )
     return 1
-
-
-def _attest_clean_lane(worktree: object) -> tuple[dict | None, str | None]:
-    """Prove the registered lane path is the matching, fully clean worktree."""
-    if not isinstance(worktree, dict):
-        return None, None
-    worktree_id = worktree.get("id")
-    branch = worktree.get("branch")
-    raw_path = worktree.get("path")
-    if (
-        not isinstance(worktree_id, int)
-        or not isinstance(branch, str)
-        or not branch
-        or not isinstance(raw_path, str)
-        or not raw_path
-    ):
-        return None, "the active lane has incomplete id, branch, or path metadata"
-    path = Path(raw_path)
-    if not path.is_absolute() or not path.is_dir():
-        return (
-            None,
-            f"the registered lane path is not an accessible directory: {raw_path}",
-        )
-
-    try:
-        branch_result = subprocess.run(
-            ["git", "-C", raw_path, "rev-parse", "--abbrev-ref", "HEAD"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if branch_result.returncode != 0:
-            return None, f"git could not verify the registered lane path: {raw_path}"
-        actual_branch = branch_result.stdout.strip()
-        if actual_branch != branch:
-            return None, (
-                f"registered lane branch {branch!r} does not match "
-                f"worktree branch {actual_branch!r}"
-            )
-        status_result = subprocess.run(
-            [
-                "git",
-                "-C",
-                raw_path,
-                "status",
-                "--porcelain",
-                "--ignored=matching",
-                "--untracked-files=all",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError as exc:
-        return None, f"git cleanliness verification could not run: {exc}"
-    if status_result.returncode != 0:
-        return None, f"git could not verify lane cleanliness at {raw_path}"
-    dirty = status_result.stdout.strip()
-    if dirty:
-        detail = "\n".join(dirty.splitlines()[:20])
-        return None, (
-            "the registered lane is not clean; preserve or commit modified "
-            f"tracked, untracked, and ignored files before retrying:\n{detail}"
-        )
-    return {
-        "worktree_id": worktree_id,
-        "branch": branch,
-        "path": raw_path,
-        "observed_clean": True,
-    }, None
 
 
 def item_worktrees_get(args: List[str]) -> int:
@@ -289,8 +220,11 @@ def item_worktrees_release(args: List[str]) -> int:
     )
     if not read_response.success:
         return emit_response(read_response, json_mode=parsed.json_mode)
-    worktree = (read_response.result or {}).get("worktree")
-    attestation, error = _attest_clean_lane(worktree)
+    attestation, error = attest_releasable_lane(
+        (read_response.result or {}).get("worktree"),
+        target=target,
+        session_id=parsed.session_id,
+    )
     if error is not None:
         return _local_error("worktree_cleanliness_unverified", error)
 

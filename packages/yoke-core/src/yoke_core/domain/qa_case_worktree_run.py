@@ -39,6 +39,7 @@ def execute_worktree_case(
     base_url: str = "",
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict:
     """Run the case's command in its worktree and record the verdict."""
@@ -68,6 +69,7 @@ def execute_worktree_case(
     # recorded, so the refusal belongs before the command, not after.
     binding = verification_tree_binding.evaluate_run(
         surface=_TREE_BINDING_SURFACE, tree=str(checkout),
+        allow_mismatch=allow_tree_mismatch,
     )
     if binding.notice:
         print(binding.notice, file=sys.stderr, flush=True)

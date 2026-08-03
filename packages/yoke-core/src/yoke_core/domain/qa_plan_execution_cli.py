@@ -82,6 +82,14 @@ def run(args: List[str]) -> int:
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)
+    parser.add_argument(
+        "--allow-tree-mismatch",
+        action="store_true",
+        help=(
+            "Run the roster's cases against the resolved checkout even when "
+            "it sits outside this session's claim-bound worktree."
+        ),
+    )
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
@@ -111,6 +119,7 @@ def run(args: List[str]) -> int:
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,
+            allow_tree_mismatch=parsed.allow_tree_mismatch,
             actor=actor,
         )
     except QaPlanExecutionError as exc:
