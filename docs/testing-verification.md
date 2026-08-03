@@ -234,20 +234,31 @@ feed a filter diagnostic to pytest as a filename.
 
 ## Which tree a run verified
 
-A green says nothing until the tree it came from is named. Every pytest
-entry point — `watch_pytest`, `run_tests`, and the `worktree_run` QA case
-executor — refuses to run outside the calling session's claim-bound
-worktree, because a run rooted in the wrong tree reports a pass for code
-nobody changed. The refusal names the claimed worktree and the tree the
-run would have used. A session with no claimed lane (inline skill work,
-main-checkout source-dev) passes through untouched.
+A green says nothing until the tree it came from is named. A pytest run
+rooted outside the calling session's claim-bound worktree is refused,
+because it reports a pass for code nobody changed. The refusal names the
+claimed worktree and the tree the run would have used. A session with no
+claimed lane (inline skill work, main-checkout source-dev) passes through
+untouched.
+
+The check lives at the pytest startup layer, in the repo root
+`conftest.py`, so the shape of the invocation does not matter: the
+watcher wrapper, `run_tests`, the `worktree_run` QA case executor, a bare
+`python3 -m pytest`, and an IDE run button all inherit it. The three
+entry points above still judge the tree first, so their refusal arrives
+before pytest starts at all; each hands the child process a marker so the
+startup check costs no second lookup, and the xdist workers inherit that
+same answer. A refused run stops before collection — one line on stderr,
+exit status 3, nothing collected and no cluster started.
 
 ```bash
 yoke watch pytest --allow-tree-mismatch --impacted main --bounded
+python3 -m pytest --allow-tree-mismatch runtime/api/domain
 ```
 
-`--allow-tree-mismatch` is the deliberate cross-tree run: it proceeds and
-prints one line naming both trees, so the result stays attributable.
+`--allow-tree-mismatch` is the deliberate cross-tree run, accepted by the
+wrapper and by pytest itself: it proceeds and prints one line naming both
+trees, so the result stays attributable.
 
 Records carry the same fact. A QA run's `raw_result` and a Dash execution
 evidence section both hold a `verification_tree` of worktree root plus
