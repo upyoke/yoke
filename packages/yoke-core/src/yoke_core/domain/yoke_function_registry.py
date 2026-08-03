@@ -37,7 +37,7 @@ from yoke_contracts.api.function_call import validate_function_id
 _STABILITY_VALUES = frozenset({"stable", "beta", "deprecated", "internal"})
 # A function whose CLI adapter exists and is callable is "live"; a function
 # reachable only through the dispatcher is "internal". Note this enum is NOT
-# the operation-inventory vocabulary (wrapped / permanent / pending), which
+# the operation-inventory vocabulary (wrapped / tool_cli / permanent / pending), which
 # classifies the same has-an-adapter question on a different axis -- "wrapped"
 # is not a value here and registering with it fails validation.
 _ADAPTER_STATUS_VALUES = frozenset({"live", "deprecated", "retired", "internal"})

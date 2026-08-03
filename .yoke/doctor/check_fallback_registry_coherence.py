@@ -1,6 +1,6 @@
 """HC-fallback-registry-coherence — verify yoke_operation_inventory consistency.
 
-Three invariants checked against the live registries:
+Four invariants checked against the live registries:
 
 1. Every ``status="wrapped"`` row in the tracker has a CLI-registry adapter
    and either a matching function-registry entry or an explicit client-local
@@ -8,7 +8,9 @@ Three invariants checked against the live registries:
 2. Every ``status="pending"`` row's ``shell_form`` parses as a valid
    Yoke-owned multi-module invocation (the operator-debug shape that
    future handler-registration slices will wrap).
-3. No tracker entry contradicts the function-registry (status=wrapped
+3. Every ``status="tool_cli"`` row names a real tool-shaped CLI adapter,
+   has a help entry, and carries no dispatcher function id.
+4. No tracker entry contradicts the function-registry (status=wrapped
    row whose function id is missing from the dispatcher) or
    CLI-registry (status=wrapped row whose yoke CLI tokens are not in
    the subcommand registry).
@@ -65,6 +67,17 @@ def _resolve_function_registry():
         return None
 
 
+def _resolve_tool_cli_registry():
+    try:
+        from yoke_cli.commands.tool_shaped import (
+            TOOL_SHAPED_SUBCOMMANDS,
+            TOOL_SHAPED_USAGE,
+        )
+    except Exception:
+        return None
+    return TOOL_SHAPED_SUBCOMMANDS, TOOL_SHAPED_USAGE
+
+
 def _wrapped_cli_tokens_for(shell_form: str) -> Tuple[str, ...]:
     """Translate a ``yoke X Y Z`` shell_form into its CLI token tuple."""
     parts = shell_form.split()
@@ -117,6 +130,41 @@ def _check_pending(inv) -> List[str]:
     return issues
 
 
+def _check_tool_cli(inv, tool_registry, sub_reg) -> List[str]:
+    """Validate local CLI adapters without inventing dispatcher ids."""
+    if tool_registry is None:
+        return ["tool_cli registry is unavailable"]
+    tool_subcommands, tool_usage = tool_registry
+    issues: List[str] = []
+    for entry in inv.by_status(inv.TOOL_CLI):
+        if not entry.shell_form.startswith("yoke "):
+            issues.append(
+                f"tool_cli row {entry.shell_form!r} does not start with 'yoke '"
+            )
+            continue
+        cli_tokens = _wrapped_cli_tokens_for(entry.shell_form)
+        if cli_tokens not in tool_subcommands:
+            issues.append(
+                f"tool_cli row {entry.shell_form!r} not registered in "
+                "tool-shaped CLI registry"
+            )
+        if not tool_usage.get(entry.shell_form, "").strip():
+            issues.append(
+                f"tool_cli row {entry.shell_form!r} has no help/usage entry"
+            )
+        if entry.proposed_function_id:
+            issues.append(
+                f"tool_cli row {entry.shell_form!r} carries a fake function id "
+                f"{entry.proposed_function_id!r}"
+            )
+        if cli_tokens in sub_reg:
+            issues.append(
+                f"tool_cli row {entry.shell_form!r} is also in the dispatcher "
+                "registry; use wrapped status for dispatched commands"
+            )
+    return issues
+
+
 def _format_issues(issues: List[str]) -> str:
     if not issues:
         return ""
@@ -146,7 +194,11 @@ def hc_fallback_registry_coherence(
         )
         return
     fn_ids = _resolve_function_registry()
-    issues = _check_wrapped(inv, sub_reg, fn_ids) + _check_pending(inv)
+    issues = (
+        _check_wrapped(inv, sub_reg, fn_ids)
+        + _check_pending(inv)
+        + _check_tool_cli(inv, _resolve_tool_cli_registry(), sub_reg)
+    )
     if issues:
         rec.record(
             _DEFAULT_HC_NAME, _DEFAULT_HC_DESCRIPTION, "FAIL",
@@ -154,10 +206,12 @@ def hc_fallback_registry_coherence(
         )
         return
     wrapped_count = len(inv.by_status(inv.WRAPPED))
+    tool_cli_count = len(inv.by_status(inv.TOOL_CLI))
     pending_count = len(inv.by_status(inv.PENDING))
     rec.record(
         _DEFAULT_HC_NAME, _DEFAULT_HC_DESCRIPTION, "PASS",
-        f"{wrapped_count} wrapped + {pending_count} pending rows "
+        f"{wrapped_count} wrapped + {tool_cli_count} tool_cli + "
+        f"{pending_count} pending rows "
         "coherent with function/client-local + CLI registries",
     )
 

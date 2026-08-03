@@ -5,7 +5,7 @@ operation surfaced by the audit, with self-consistent shape rules:
 
 * Every entry's status / reason is in the closed enum.
 * status=pending rows MUST carry proposed_function_id.
-* status=(wrapped|permanent) rows MUST NOT carry proposed_function_id.
+* status=(wrapped|tool_cli|permanent) rows MUST NOT carry proposed_function_id.
 * No two entries share the same shell_form.
 * Lookup helpers round-trip.
 """
@@ -59,6 +59,16 @@ class TestOperationEntryValidation:
                 proposed_function_id="foo.bar",
             )
 
+    def test_tool_cli_with_function_id_rejected(self) -> None:
+        with pytest.raises(ValueError):
+            inv.OperationEntry(
+                shell_form="yoke watch pytest",
+                family="tools.watch",
+                status=inv.TOOL_CLI,
+                reason=inv.REASON_TOOL_SHAPED,
+                proposed_function_id="fake.dispatcher.id",
+            )
+
 
 class TestRegistryShape:
     def test_no_duplicate_shell_forms(self) -> None:
@@ -101,6 +111,18 @@ class TestRegistryShape:
 
     def test_no_permanent_carries_function_id(self) -> None:
         for entry in inv.by_status(inv.PERMANENT):
+            assert entry.proposed_function_id is None
+
+    def test_tool_cli_rows_are_first_class_local_adapters(self) -> None:
+        assert {
+            entry.shell_form for entry in inv.by_status(inv.TOOL_CLI)
+        } == {
+            "yoke watch pytest",
+            "yoke watch doctor",
+            "yoke watch merge",
+        }
+        for entry in inv.by_status(inv.TOOL_CLI):
+            assert entry.reason == inv.REASON_TOOL_SHAPED
             assert entry.proposed_function_id is None
 
 
