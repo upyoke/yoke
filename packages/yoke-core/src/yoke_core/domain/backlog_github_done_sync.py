@@ -16,6 +16,7 @@ from typing import Any, Optional, TextIO
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
+from yoke_core.domain import control_plane_transport
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
@@ -52,6 +53,51 @@ def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str],
     return list(issue.labels), issue.state or "UNKNOWN"
 
 
+DONE_SYNC_FUNCTION_ID = "items.github_done_sync"
+
+
+def _connect() -> Any:
+    conn, _owns = _open_conn(None)
+    return conn
+
+
+def _done_sync_target(item_id: str):
+    """Address the item the way the caller named it.
+
+    Bare digits are internal ids on this surface — the same reading
+    :func:`_resolve_item_id` uses — so they go on ``item_id`` rather than
+    ``item_ref``, where the dispatcher would read them as project-local
+    sequence numbers and resolve a different item.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+
+    text = str(item_id).strip()
+    if text.isdigit():
+        return TargetRef(kind="item", item_id=int(text))
+    return TargetRef(kind="item", item_ref=text)
+
+
+def _relay_done_sync(
+    item_id: str,
+    old_status: str,
+    *,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> int:
+    """Run the closeout on the control plane the client cannot open."""
+    try:
+        result = control_plane_transport.relay(
+            DONE_SYNC_FUNCTION_ID,
+            {"old_status": old_status},
+            _done_sync_target(item_id),
+        )
+    except RuntimeError as exc:
+        print(f"Error: done sync failed for {item_id}: {exc}", file=stderr)
+        return 1
+    print(f"Done sync: item {result.get('item_id', item_id)} (relayed)", file=stdout)
+    return int(result.get("exit_code", 0))
+
+
 def sync_done_item(
     item_id: str,
     old_status: str = "",
@@ -65,8 +111,12 @@ def sync_done_item(
     stderr = stderr or sys.stderr
 
     owns_conn = False
+    if conn is None:
+        conn = control_plane_transport.local_connection_or_none(_connect)
+        if conn is None:
+            return _relay_done_sync(item_id, old_status, stdout=stdout, stderr=stderr)
+        owns_conn = True
     try:
-        conn, owns_conn = _open_conn(conn)
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
@@ -222,4 +272,4 @@ def sync_done_item(
         _close_if_owned(conn, owns_conn)
 
 
-__all__ = ["sync_done_item"]
+__all__ = ["DONE_SYNC_FUNCTION_ID", "sync_done_item"]

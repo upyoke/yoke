@@ -8,9 +8,22 @@ from typing import Any, Dict, Optional, Tuple
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.qa_command_plan_registration import (
+    CI_COMMAND_METHOD_ID,
+    LOCAL_COMMAND_METHOD_ID,
+)
 
 
 REGISTERED_SCOPES: Tuple[str, ...] = ("quick", "full", "e2e", "smoke")
+
+#: Methods a registered verification scope may be bound to. Where the
+#: command *executes* is a routing decision; a project's registered
+#: command is the same command either way, so every reader of "what does
+#: this project run?" must accept both bindings.
+REGISTERED_COMMAND_METHOD_IDS: Tuple[str, ...] = (
+    LOCAL_COMMAND_METHOD_ID,
+    CI_COMMAND_METHOD_ID,
+)
 
 
 def _placeholder(conn: Any) -> str:
@@ -37,8 +50,9 @@ def list_registered_commands_for_project_id(
         "JOIN qa_plan_cases c ON c.plan_id=p.id "
         f"WHERE p.project_id={marker} AND p.retired_at IS NULL "
         "AND substr(p.slug, 1, 19)='registered-command-' "
-        "AND c.method_id='command' ORDER BY p.slug, c.position",
-        (int(project_id),),
+        f"AND c.method_id IN ({', '.join([marker] * len(REGISTERED_COMMAND_METHOD_IDS))}) "
+        "ORDER BY p.slug, c.position",
+        (int(project_id), *REGISTERED_COMMAND_METHOD_IDS),
     )
     found: Dict[str, str] = {}
     for row in rows:

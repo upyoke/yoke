@@ -74,13 +74,19 @@ def _connect_live_schema():
     """
     import psycopg
 
+    from yoke_contracts.control_plane_locality import local_authority_exempt
     from yoke_core.domain import db_backend
 
-    return psycopg.connect(
-        db_backend.resolve_pg_dsn(),
-        autocommit=True,
-        connect_timeout=_live_schema_connect_timeout(),
-    )
+    # Declared exempt because probing IS the question: the caller treats any
+    # failure as "no live schema" and renders from the seed instead. A machine
+    # whose control plane is remote has no database to probe, which is one
+    # more way for the probe to come back empty.
+    with local_authority_exempt():
+        return psycopg.connect(
+            db_backend.resolve_pg_dsn(),
+            autocommit=True,
+            connect_timeout=_live_schema_connect_timeout(),
+        )
 
 
 def _try_live_schema(table: str) -> Optional[list[tuple[str, str]]]:

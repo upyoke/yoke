@@ -110,15 +110,13 @@ def seed_item_claim(
     now = iso8601_now()
     row = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, owner_kind, owner_item_id, "
-        "registered_by_actor_id, integration_target, registered_at, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, "
         "activated_at, base_commit_sha) "
-        "VALUES (%s, 'exclusive', %s, %s, 'item', %s, %s, 'main', "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "%s, %s, %s) RETURNING id",
         (
             state,
-            local_human(conn),
-            item_id,
             item_id,
             local_human(conn),
             now,

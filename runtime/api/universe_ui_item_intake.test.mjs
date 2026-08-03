@@ -36,6 +36,7 @@ test("New item derives web-fileability and settings from the definition", async 
         policies: {
           item_posture_allowlist: [
             "verification", "file_budget", "path_claims",
+            "path_survey",
             "approval_on_done", "deployment",
           ],
         },
@@ -63,13 +64,14 @@ test("New item derives web-fileability and settings from the definition", async 
   assert.match(rendered, /Verification/);
   assert.match(rendered, /File Budget/);
   assert.match(rendered, /Path claims/);
+  assert.match(rendered, /Path survey/);
   assert.match(rendered, /Approval on done/);
   assert.match(rendered, /Deploy after merge/);
   assert.deepEqual(
     byClass(root, "item-project-value").map((node) => node.textContent),
     ["🐜 acme"],
   );
-  assert.equal(byClass(root, "item-setting-row").length, 5);
+  assert.equal(byClass(root, "item-setting-row").length, 6);
   assert.deepEqual(requests.map((request) => request.function), [
     "workflows.definition.get",
     "qa.plan.list",
@@ -117,6 +119,7 @@ test("New item submits one atomic create and routes to the public ref", async ()
                 policies: {
                   item_posture_allowlist: [
                     "verification", "file_budget", "path_claims",
+                    "path_survey",
                     "approval_on_done", "deployment",
                   ],
                 },
@@ -158,9 +161,9 @@ test("New item submits one atomic create and routes to the public ref", async ()
     .dispatchEvent(new Event("click"));
   byClass(byClass(root, "item-setting-row")[2], "item-button")[0]
     .dispatchEvent(new Event("click"));
-  byClass(byClass(root, "item-setting-row")[3], "item-button")[0]
-    .dispatchEvent(new Event("click"));
   byClass(byClass(root, "item-setting-row")[4], "item-button")[0]
+    .dispatchEvent(new Event("click"));
+  byClass(byClass(root, "item-setting-row")[5], "item-button")[0]
     .dispatchEvent(new Event("click"));
   const input = allNodes(root).find((node) => node.tagName === "INPUT");
   const textarea = allNodes(root).find((node) => node.tagName === "TEXTAREA");

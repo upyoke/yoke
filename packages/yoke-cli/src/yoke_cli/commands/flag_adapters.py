@@ -256,7 +256,6 @@ from yoke_cli.commands.adapters.ouroboros_writes import (
     ouroboros_entry_insert,
     ouroboros_entry_mark_archived,
     ouroboros_entry_mark_reviewed,
-    ouroboros_wrapup_list,
 )
 from yoke_cli.commands.adapters.config import (
     config_example,
@@ -441,7 +440,6 @@ __all__ = [
     "ouroboros_entry_insert",
     "ouroboros_entry_mark_reviewed",
     "ouroboros_entry_mark_archived",
-    "ouroboros_wrapup_list",
     "github_actions_check_ci",
     "github_actions_secret_set",
     "github_actions_wait_run",

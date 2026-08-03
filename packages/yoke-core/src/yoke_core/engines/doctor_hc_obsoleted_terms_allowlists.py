@@ -4,7 +4,7 @@ Three kinds of allow-list live here:
 
 * :data:`EXEMPT_PATH_SEGMENTS` — directory-name segments that exempt any
   path containing the segment from the scan entirely. Historical record
-  trees (``archive``, ``ouroboros``, ``wrapup_reports``, ``qa-artifacts``,
+  trees (``archive``, ``ouroboros``, ``qa-artifacts``,
   ``legacy-plan-artifacts``) and dependency / build trees go here.
 
 * :data:`PATH_ALLOWLIST_ALL_PATTERNS` — files exempt from EVERY pattern.
@@ -18,10 +18,8 @@ Three kinds of allow-list live here:
   Per-pattern exemptions stay narrow: the file is only excused from the
   specific retired-surface it legitimately enumerates.
 
-Matching is prefix-based: an entry like
-``runtime/api/tools/shell_inventory`` covers every
-``shell_inventory_*.py`` sibling, while ``runtime/api/domain/observe.py``
-matches that exact path as a prefix of itself.
+Matching is prefix-based, so one entry can cover a file family while a
+fully-qualified entry can target one exact path.
 
 Splitting the constants out of ``check_obsoleted_terms.py`` keeps the
 scanner module under the 350-line file-line-limit budget while keeping the
@@ -37,7 +35,6 @@ from __future__ import annotations
 EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "archive",
     "ouroboros",
-    "wrapup_reports",
     "qa-artifacts",
     # Historical authoring evidence / planning snapshots for completed
     # cloud-runtime work items. See docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/atlas-evidence/README.md
@@ -127,13 +124,9 @@ YOKE_DB_AUDIT_PATHS: tuple[str, ...] = (
     # Conduct simulation regression test references the retired shape as
     # part of a skill-doc residue check.
     "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
-    # Zero-shell proof inventory and helpers enumerate retired shell
-    # wrappers (including yoke-db.sh) to prove they remain absent.
+    # Zero-shell proof and helpers enumerate retired shell wrappers (including
+    # yoke-db.sh) to prove they remain absent.
     "runtime/api/test_zero_shell_proof",
-    # Shell-inventory audit code and its rules enumerate retired shell
-    # wrappers by name.
-    "runtime/api/tools/shell_inventory",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory",
 )
 
 

@@ -272,7 +272,7 @@ def execute_create(
                 _insert_item(
                     conn, current_id, title,
                     status or workflow_runtime.stage_ids[0], priority,
-                    "accelerated", 0, 0,
+                    0, 0,
                     None, None,
                     body, now, now, source_token,
                     project_identity.id, current_sequence, deployment_flow,

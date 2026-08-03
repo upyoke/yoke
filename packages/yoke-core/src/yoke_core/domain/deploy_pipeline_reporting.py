@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
+from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 
 
 GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
@@ -170,21 +171,6 @@ def _project_db(*args: str, sd: Optional[str] = None) -> str:
     return r.stdout.strip()
 
 
-def _emit_event(*args: str, sd: Optional[str] = None) -> None:
-    """Emit an event via the native Python emitter.
-
-    Accepts the legacy ``--flag value`` argv style; the shared helper in
-    :mod:`yoke_core.domain.events` parses and dispatches to
-    :func:`emit_event` in-process. Non-fatal on failure.
-    """
-    del sd  # unused — kept for backwards-compatible signature
-    try:
-        from yoke_core.domain.events import emit_event_argv
-        emit_event_argv(list(args))
-    except Exception:
-        pass
-
-
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
     """Parse flow stages JSON into dicts with name, executor, kind, config.
 
@@ -209,48 +195,6 @@ def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
             "config": s,
         })
     return parsed
-
-
-# ---------------------------------------------------------------------------
-# Event emission
-# ---------------------------------------------------------------------------
-
-def _emit_run_event(
-    name: str,
-    outcome: str,
-    context: Dict[str, Any],
-    *,
-    member_items: List[str],
-    project: str = "yoke",
-    sd: Optional[str] = None,
-) -> None:
-    """Emit stage events per item and one canonical addressed terminal event."""
-    if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
-        from yoke_core.domain.deploy_pipeline_completion import emit_completion
-
-        emit_completion(
-            str(context["run_id"]),
-            name,
-            outcome,
-            context,
-        )
-        return
-    ctx_json = json.dumps(context)
-    targets = member_items if member_items else [""]
-    for item_id in targets:
-        args = [
-            "--name", name,
-            "--kind", "lifecycle",
-            "--type", "deployment_run",
-            "--source-type", "system",
-            "--severity", "STATUS",
-            "--project", project,
-            "--outcome", outcome,
-            "--context", ctx_json,
-        ]
-        if item_id:
-            args += ["--item-id", item_id]
-        _emit_event(*args, sd=sd)
 
 
 # ---------------------------------------------------------------------------

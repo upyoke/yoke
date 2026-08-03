@@ -33,6 +33,7 @@ from typing import Callable, Optional, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
+from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 
 # Re-exported so wrappers keep importing one watcher entrypoint.
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
@@ -146,6 +147,7 @@ def run_watcher(
     policy: Optional[ThrottlePolicy] = None,
     time_source: Optional[Callable[[], float]] = None,
     timeout_seconds: float | None = None,
+    liveness: Optional[SessionLivenessPump] = None,
 ) -> int:
     """Run *argv* under the shared raw + throttled-progress contract.
 
@@ -159,8 +161,13 @@ def run_watcher(
     ``policy`` and ``time_source`` are optional test seams; production callers
     use the config-driven defaults. ``timeout_seconds`` starts when the watched
     child starts, not while a caller waits for an external admission gate.
+
+    ``liveness`` keeps the session that started this command from going
+    stale while it waits: a long gate run is activity, and without the
+    refresh the stale-session sweep reclaims the item claim mid-run.
     """
     out: TextIO = stdout_stream or sys.stdout
+    pump = liveness if liveness is not None else SessionLivenessPump()
 
     raw_capture.parent.mkdir(parents=True, exist_ok=True)
     progress_capture.parent.mkdir(parents=True, exist_ok=True)
@@ -225,6 +232,9 @@ def run_watcher(
                         if deadline is not None:
                             wait_seconds = min(wait_seconds, max(0, deadline - clock()))
                         events = selector.select(timeout=wait_seconds)
+                        # Whether the child is chatty or silent, the run
+                        # itself is the session's liveness evidence.
+                        pump.tick()
                         if not events:
                             if proc.poll() is not None:
                                 break

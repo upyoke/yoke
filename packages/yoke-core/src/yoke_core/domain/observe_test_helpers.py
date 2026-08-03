@@ -90,9 +90,9 @@ def seed_item(conn, item_id: int, *, status: str, workflow: str = "issue") -> No
     )
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
-        "status, priority, flow, rework_count, frozen, created_at, "
+        "status, priority, rework_count, frozen, created_at, "
         "updated_at, source, project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, 'medium', 'accelerated', 0, 0, "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, 'medium', 0, 0, "
         f"{p}, {p}, 'test', 1, {p})",
         (
             item_id,

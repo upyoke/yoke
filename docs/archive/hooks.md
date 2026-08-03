@@ -223,7 +223,7 @@ Defined in `.claude/settings.json` and active for all sessions (main session + a
 - Staged files include at least one file NOT on the bookkeeping allowlist
 
 **Bookkeeping allowlist** (commits on main that are always OK):
-- `yoke/ouroboros/**` -- health reports, wrapups (gitignored since YOK-1157)
+- `yoke/ouroboros/**` -- health reports (gitignored since YOK-1157)
 - `yoke/flows.md` -- generated flows view
 - `yoke/designs/**` -- generated design views (gitignored since YOK-1157)
 - `yoke/projects/*/qa-artifacts/**` -- browser QA screenshots, reports (gitignored since YOK-1157)

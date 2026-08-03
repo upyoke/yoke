@@ -166,7 +166,6 @@ _OWNERSHIP_EXTRA_TABLES = """
         tool_name TEXT,
         duration_ms INTEGER,
         trace_id TEXT,
-        parent_id TEXT,
         anomaly_flags TEXT,
         tool_use_id TEXT,
         turn_id TEXT,

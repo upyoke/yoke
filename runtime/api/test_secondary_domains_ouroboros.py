@@ -49,20 +49,13 @@ class TestOuroboros:
         result = cmd_mark_archived(test_db, all_reviewed=True)
         assert result == "2"
 
-    def test_insert_wrapup(self, test_db):
-        from yoke_core.domain.ouroboros import cmd_insert_wrapup, cmd_list_wrapups
-        rid = cmd_insert_wrapup(test_db, "2024-01-01T10:00:00Z", "# Wrapup body")
-        assert rid.isdigit()
-        result = cmd_list_wrapups(test_db)
-        assert "2024-01-01T10:00:00Z" in result
-
     def test_list_entries_unreviewed(self, test_db):
         from yoke_core.domain.ouroboros import (
             cmd_insert_entry,
             cmd_list_entries,
             cmd_mark_reviewed,
         )
-        r1 = cmd_insert_entry(test_db, "t1", "a", None, "cat", "unrev")
+        cmd_insert_entry(test_db, "t1", "a", None, "cat", "unrev")
         r2 = cmd_insert_entry(test_db, "t2", "a", None, "cat", "rev")
         cmd_mark_reviewed(test_db, int(r2))
         result = cmd_list_entries(test_db, unreviewed=True)

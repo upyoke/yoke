@@ -34,9 +34,6 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
 )
 
-VALID_FRONTMATTER_FLOWS = {"accelerated", "full"}
-
-
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -44,13 +41,10 @@ def _p(conn) -> str:
 def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-frontmatter-schema: Backlog frontmatter schema validation.
 
-    ``items.flow`` is the historical intake speed field. Deployment
-    pipeline authority lives in ``items.deployment_flow`` and is checked by
-    ``HC-invalid-item-flows``.
+    Deployment pipeline authority lives in ``items.deployment_flow`` and is
+    checked by ``HC-invalid-item-flows``.
     """
     valid_priorities = {"high", "medium", "low"}
-    valid_flows = VALID_FRONTMATTER_FLOWS
-
     issues = [
         f"- {render_item_ref(conn, item_id)}: invalid workflow stage "
         f"'{stage}' ({reason})"
@@ -58,7 +52,7 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     ]
     rows = query_rows(
         conn,
-        "SELECT id, priority, github_issue, flow, rework_count FROM items",
+        "SELECT id, priority, github_issue, rework_count FROM items",
     )
     for row in rows:
         yok_id = render_item_ref(conn, row["id"])
@@ -68,10 +62,6 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         gh = row["github_issue"]
         if gh and gh != "null" and not re.match(r"^#\d+", gh):
             issues.append(f"- {yok_id}: github_issue '{gh}' does not match #N format")
-        fl = row["flow"]
-        if fl and fl != "null" and fl not in valid_flows:
-            alts = ", ".join(sorted(valid_flows)) if valid_flows else "(none registered)"
-            issues.append(f"- {yok_id}: invalid flow '{fl}' (expected: {alts})")
         rw = row["rework_count"]
         if rw is not None and str(rw) != "null" and str(rw) != "":
             try:

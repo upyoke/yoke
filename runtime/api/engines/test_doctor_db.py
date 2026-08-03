@@ -233,8 +233,8 @@ class TestHCBacklogHygiene:
 class TestHCFrontmatterSchema:
     def test_pass_valid(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue, flow) "
-            "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', '#42', 'full')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue) "
+            "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', '#42')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
@@ -261,30 +261,6 @@ class TestHCFrontmatterSchema:
         r = _get_result(rec, "HC-frontmatter-schema")
         assert r.result == "WARN"
         assert "does not match #N format" in r.detail
-
-    def test_pass_accelerated_frontmatter_flow(self, conn):
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue, flow) "
-            "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', '#42', 'accelerated')"
-        )
-        rec = RecordCollector()
-        hc_frontmatter_schema(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-frontmatter-schema")
-        assert r.result == "PASS"
-
-    def test_warn_unregistered_flow(self, conn):
-        # Deployment pipeline ids belong in deployment_flow, not the legacy
-        # frontmatter flow/speed column.
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, flow) "
-            "VALUES (1, 'Bad', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 'yoke-internal')"
-        )
-        rec = RecordCollector()
-        hc_frontmatter_schema(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-frontmatter-schema")
-        assert r.result == "WARN"
-        assert "invalid flow 'yoke-internal'" in r.detail
-
 
 class TestHCTitleLength:
     def test_pass_short_title(self, conn):

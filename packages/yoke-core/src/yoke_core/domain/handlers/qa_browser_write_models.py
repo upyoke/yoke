@@ -1,4 +1,11 @@
-"""Typed payloads for Browser QA run and artifact writes."""
+"""Typed payloads for Browser QA run and artifact writes.
+
+``execution_claim_id`` is the claim a long gate run bound when it started
+(see :mod:`yoke_core.domain.qa_start_bound_authority`, whose ``PAYLOAD_KEY``
+names this same field). The dispatcher reads it to authorize a recording
+leg whose live claim was reclaimed or handed off while the run was still
+going; the handlers themselves never consult it.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +21,7 @@ class QaRunAddRequest(BaseModel):
     execution_status: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
+    execution_claim_id: Optional[int] = None
 
 
 class QaRunAddResponse(BaseModel):
@@ -27,6 +35,7 @@ class QaRunCompleteRequest(BaseModel):
     execution_status: Optional[str] = None
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
+    execution_claim_id: Optional[int] = None
 
 
 class QaRunCompleteResponse(BaseModel):
@@ -39,6 +48,7 @@ class QaArtifactAddRequest(BaseModel):
     artifact_handle: dict
     content_type: Optional[str] = None
     metadata: Optional[str] = None
+    execution_claim_id: Optional[int] = None
 
 
 class QaArtifactAddResponse(BaseModel):

@@ -17,7 +17,7 @@ _LIVE_DDL = (
     "branch TEXT NOT NULL,path TEXT,lane_role TEXT NOT NULL,state TEXT NOT NULL,"
     "created_at TEXT,updated_at TEXT,released_at TEXT);"
     "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,current_item_id TEXT);"
-    "CREATE TABLE path_claims(id INTEGER PRIMARY KEY,item_id INTEGER,integration_target TEXT,state TEXT,mode TEXT DEFAULT 'exclusive',session_id TEXT,owner_kind TEXT,owner_item_id INTEGER,owner_session_id TEXT,owner_work_claim_id INTEGER);"
+    "CREATE TABLE path_claims(id INTEGER PRIMARY KEY,integration_target TEXT,state TEXT,mode TEXT DEFAULT 'exclusive',owner_kind TEXT,owner_item_id INTEGER,owner_session_id TEXT,owner_work_claim_id INTEGER,registered_by_actor_id INTEGER,registered_by_session_id TEXT);"
     "CREATE TABLE path_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,path_string TEXT UNIQUE,kind TEXT NOT NULL DEFAULT 'directory');"
     "CREATE TABLE path_claim_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,claim_id INTEGER,target_id INTEGER);"
     "CREATE TABLE path_claim_task_bindings(claim_id INTEGER NOT NULL,"
@@ -113,19 +113,20 @@ def live_db(tmp_path):
             )
             conn.execute(
                 "INSERT INTO path_claims "
-                "(id,item_id,integration_target,state,session_id,owner_kind,"
-                "owner_item_id,owner_session_id,owner_work_claim_id) "
+                "(id,integration_target,state,owner_kind,owner_item_id,"
+                "owner_session_id,owner_work_claim_id,registered_by_actor_id,"
+                "registered_by_session_id) "
                 f"VALUES({p},{p},{p},{p},{p},{p},{p},{p},{p})",
                 (
                     99,
-                    kw["item_id"],
                     "main",
                     "active",
-                    None,
                     "item",
                     kw["item_id"],
                     None,
                     None,
+                    1,
+                    kw["session_id"],
                 ),
             )
             for path in kw["covered_paths"]:

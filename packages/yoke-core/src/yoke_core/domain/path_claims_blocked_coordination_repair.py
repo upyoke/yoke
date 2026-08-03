@@ -178,13 +178,13 @@ def repair_coordination_only_blocked(
     params: list = []
     p = _p(conn)
     if item_id is not None:
-        where += f" AND item_id = {p}"
+        where += f" AND owner_kind = 'item' AND owner_item_id = {p}"
         params.append(int(item_id))
     if actor_id is not None:
-        where += f" AND actor_id = {p}"
+        where += f" AND registered_by_actor_id = {p}"
         params.append(int(actor_id))
     rows = conn.execute(
-        f"SELECT id, item_id, integration_target, blocked_reason "
+        f"SELECT id, owner_item_id, integration_target, blocked_reason "
         f"FROM path_claims WHERE {where} ORDER BY id",
         tuple(params),
     ).fetchall()

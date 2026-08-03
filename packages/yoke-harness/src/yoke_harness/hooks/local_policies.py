@@ -262,6 +262,15 @@ def db_error_advisory(payload: dict) -> PolicyResult:
 
 
 def deny_stdout(reason: str, event_name: str, executor: str) -> tuple[str, int]:
+    if executor.startswith("cursor"):
+        # Cursor reads its own JSON verdict shape on exit 0; the narrative
+        # travels in the message fields, never a nested envelope.
+        body = {
+            "permission": "deny",
+            "user_message": reason,
+            "agent_message": reason,
+        }
+        return json.dumps(body), 0
     body = {
         HOOK_SPECIFIC_OUTPUT_KEY: {
             "hookEventName": "PreToolUse" if event_name == "apply_patch" else event_name,

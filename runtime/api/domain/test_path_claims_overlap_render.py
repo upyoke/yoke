@@ -15,14 +15,16 @@ Split from `test_path_claims_overlap.py` so the parent stays under the
   `schema_api_context_*.py` stanzas register cleanly.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from yoke_core.domain._path_claims_test_helpers import (
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    register_test_claim as register,
     seed_target,
 )
-from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,

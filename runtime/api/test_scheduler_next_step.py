@@ -46,9 +46,9 @@ class TestAdvanceFeasibilityProbeRewrite:
     CREATE TABLE path_claims (
         id INTEGER PRIMARY KEY, state TEXT NOT NULL DEFAULT 'planned',
         mode TEXT NOT NULL DEFAULT 'exclusive',
-        actor_id INTEGER NOT NULL REFERENCES actors(id),
-        session_id TEXT REFERENCES harness_sessions(session_id),
-        item_id INTEGER, integration_target TEXT NOT NULL,
+        owner_kind TEXT, owner_item_id INTEGER, owner_session_id TEXT,
+        owner_work_claim_id INTEGER, registered_by_actor_id INTEGER,
+        registered_by_session_id TEXT, integration_target TEXT NOT NULL,
         registered_at TEXT NOT NULL, activated_at TEXT,
         released_at TEXT, cancelled_at TEXT
     );
@@ -94,9 +94,9 @@ class TestAdvanceFeasibilityProbeRewrite:
         )
         for claim_id, item_id in ((500, 42), (501, 43)):
             conn.execute(
-                "INSERT INTO path_claims (id, state, mode, actor_id, item_id, "
-                "integration_target, registered_at) "
-                "VALUES (%s, 'planned', 'exclusive', 1, %s, 'main', "
+                "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id, "
+                "registered_by_actor_id, integration_target, registered_at) "
+                "VALUES (%s, 'planned', 'exclusive', 'item', %s, 1, 'main', "
                 "'2026-05-19T00:00:00Z')",
                 (claim_id, item_id),
             )

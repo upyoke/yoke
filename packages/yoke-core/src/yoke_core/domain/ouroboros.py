@@ -1,8 +1,7 @@
 """Ouroboros CLI and public compatibility surface.
 
-Manages the ``ouroboros_entries`` and ``wrapup_reports`` tables through
-responsibility-named sibling modules while preserving the historical
-``python3 -m yoke_core.domain.ouroboros`` entrypoint.
+Manages the Ouroboros entry table through responsibility-named sibling
+modules while preserving the historical module entrypoint.
 
 CLI usage::
 
@@ -23,19 +22,9 @@ from yoke_core.domain.ouroboros_entries import (
     cmd_mark_archived,
     cmd_mark_reviewed,
 )
-from yoke_core.domain.ouroboros_wrapups import (
-    _resolve_wrapups_dir,
-    cmd_generate_wrapup,
-    cmd_insert_wrapup,
-    cmd_list_wrapups,
-)
-
 __all__ = [
-    "cmd_generate_wrapup",
     "cmd_insert_entry",
-    "cmd_insert_wrapup",
     "cmd_list_entries",
-    "cmd_list_wrapups",
     "cmd_mark_archived",
     "cmd_mark_reviewed",
     "main",
@@ -48,11 +37,8 @@ Subcommands:
   insert-entry <timestamp> <agent> <context> <category> <body>
   insert-entry --body-stdin <timestamp> <agent> <context> <category>
   insert-entry --agent <a> --category <c> [--context <x>] [--timestamp <t>] [--project <p>] --observation <o>
-  insert-wrapup <session_timestamp>     (body from stdin)
   list-entries [--unreviewed] [--project <p>]
-  list-wrapups
   mark-reviewed <id>
-  generate-wrapup <session_timestamp>
   mark-archived [--all-reviewed | <id>]
 """
 
@@ -188,14 +174,6 @@ def main(argv: Optional[List[str]] = None) -> None:
         if subcmd == "insert-entry":
             _handle_insert_entry(conn, rest)
 
-        elif subcmd == "insert-wrapup":
-            if not rest:
-                _cli_usage_error("Usage: ouroboros insert-wrapup <session_timestamp>")
-            body = _read_stdin_safe() or sys.stdin.read()
-            if not body:
-                _cli_error("Error: empty body from stdin", 1)
-            print(cmd_insert_wrapup(conn, rest[0], body))
-
         elif subcmd == "list-entries":
             unreviewed = "--unreviewed" in rest
             project = None
@@ -210,20 +188,10 @@ def main(argv: Optional[List[str]] = None) -> None:
             if result:
                 print(result)
 
-        elif subcmd == "list-wrapups":
-            result = cmd_list_wrapups(conn)
-            if result:
-                print(result)
-
         elif subcmd == "mark-reviewed":
             if not rest:
                 _cli_usage_error("Usage: ouroboros mark-reviewed <id>")
             print(cmd_mark_reviewed(conn, int(rest[0])))
-
-        elif subcmd == "generate-wrapup":
-            if not rest:
-                _cli_usage_error("Usage: ouroboros generate-wrapup <session_timestamp>")
-            print(cmd_generate_wrapup(conn, rest[0]))
 
         elif subcmd == "mark-archived":
             if rest and rest[0] == "--all-reviewed":

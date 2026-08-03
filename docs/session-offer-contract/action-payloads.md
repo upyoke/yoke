@@ -58,7 +58,7 @@ registered executor binding and tells the adapter which command to invoke:
 `scheduler.adapter` remains a coarse ranking category. `scheduler.next_step`
 is the dispatch truth from the pinned workflow.
 
-Yoke core checks the configured allowlist for the offering session's actual lane (`lane_paths_*`). If the required downstream path is not allowed for that lane, the decision engine returns `WAIT`.
+Yoke core checks the configured allowlist for the offering session's actual lane (`lane_paths.<LANE>` in the `session-routing` capability). If the required downstream path is not allowed for that lane, the decision engine returns `WAIT`.
 
 ## Session Shutdown
 
@@ -137,11 +137,11 @@ the full chain remains available to event and offer-envelope consumers:
 {
  "candidate_total": 13,
  "elimination_chain": [
-  {"filter": "lane_compatibility", "candidates_before": 13, "eliminated": 13, "candidates_after": 0, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths_altman"},
+  {"filter": "lane_compatibility", "candidates_before": 13, "eliminated": 13, "candidates_after": 0, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths.ALTMAN", "config_source": "project capability session-routing"},
   {"filter": "wip_cap", "candidates_before": 0, "eliminated": 0, "cap": 5, "active": 0, "occupying_items": []},
   {"filter": "claim_state", "candidates_before": 0, "eliminated": 0, "claim_state_counts": {}},
   {"filter": "posture_gate_holds", "candidates_before": 13, "eliminated": 0, "blocked": 0, "exceptional": 0, "frozen": 0},
-  {"filter": "process_offers", "candidates_before": 3, "eliminated": 2, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "do_process_offer_feed", "config_source": "project capability session-routing"}]}
+  {"filter": "process_offers", "candidates_before": 3, "eliminated": 2, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "process_offers.feed", "config_source": "project capability session-routing"}]}
  ],
  "top_eliminator": {"filter": "lane_compatibility", "eliminated": 13, "summary": "..."}
 }
@@ -208,7 +208,7 @@ When the decision engine recommended a process-backed action (`feed` or `strateg
 }
 ```
 
-Lane WAITs do **not** carry `skipped_process` and are not recorded as disabled-process skip memory. Skip memory is reserved for `do_process_offer_*=false` policy blocks (see `session_decision_process_gate.record_disabled_process_skip`). Operators reading the WAIT need only the `actual_lane` + `required_path` pair to act: either widen the lane allowlist (`lane_paths_<lane>=...,feed`) or switch to a lane that already permits the path.
+Lane WAITs do **not** carry `skipped_process` and are not recorded as disabled-process skip memory. Skip memory is reserved for `do_process_offer_*=false` policy blocks (see `session_decision_process_gate.record_disabled_process_skip`). Operators reading the WAIT need only the `actual_lane` + `required_path` pair to act: either widen the lane allowlist (`yoke projects capability-settings merge --cap-type session-routing --set 'lane_paths.<LANE>=[...,"feed"]'`) or switch to a lane that already permits the path.
 
 ### wait — disabled process suppressed (no alternative)
 

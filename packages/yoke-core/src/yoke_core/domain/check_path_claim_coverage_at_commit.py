@@ -99,7 +99,8 @@ def find_active_claim_for_item(
         p = _p(conn)
         row = conn.execute(
             "SELECT id, state FROM path_claims "
-            f"WHERE item_id = {p} AND state IN ('planned','blocked','active') "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND state IN ('planned','blocked','active') "
             "ORDER BY CASE state WHEN 'active' THEN 0 "
             "                  WHEN 'planned' THEN 1 "
             "                  WHEN 'blocked' THEN 2 END, id DESC "

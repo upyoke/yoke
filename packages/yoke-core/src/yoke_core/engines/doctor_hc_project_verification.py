@@ -6,6 +6,7 @@ from typing import Dict
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_command_plans import REGISTERED_COMMAND_METHOD_IDS
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -43,6 +44,10 @@ def hc_project_verification_configured(
     ):
         return
 
+    # Both Command bindings count: a project whose case runs on CI is
+    # configured, not inert — where the command executes is a routing
+    # decision, and only the presence of a command answers this check.
+    methods = ", ".join(f"'{method}'" for method in REGISTERED_COMMAND_METHOD_IDS)
     rows = query_rows(
         conn,
         "SELECT p.slug AS slug, c.method_config AS payload "
@@ -50,7 +55,7 @@ def hc_project_verification_configured(
         "LEFT JOIN qa_plans qp "
         "  ON qp.project_id=p.id AND qp.retired_at IS NULL "
         "LEFT JOIN qa_plan_cases c "
-        "  ON c.plan_id=qp.id AND c.method_id='command' "
+        f"  ON c.plan_id=qp.id AND c.method_id IN ({methods}) "
         "ORDER BY p.slug",
     )
     configured: Dict[str, bool] = {}

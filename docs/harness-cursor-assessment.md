@@ -76,7 +76,9 @@ Cursor config: project `.cursor/hooks.json` (`{"version": 1, "hooks": {…}}`),
 user `~/.cursor/hooks.json`; watched and hot-reloaded; matchers are
 JavaScript regexes over tool type, shell command, or subagent type. Exit 0 +
 JSON output, or exit 2 to block; `failClosed` opts a hook into
-deny-on-crash.
+deny-on-crash; per-entry `timeout` (seconds) bounds execution — unset
+entries inherit an undocumented platform default, so the rendered Yoke
+entries pin an explicit generous value.
 
 | Yoke canonical event | Claude native | Codex native | Cursor native | Cursor CLI `-p` | Cursor IDE |
 |---|---|---|---|---|---|

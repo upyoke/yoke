@@ -132,7 +132,7 @@ Supports project filtering (`--project <project-id>`). Runs inline in the main s
 
 ### wrapup
 
-Structured session wrap-up: ouroboros reflections (captures observations to `ouroboros_entries` table), unfinished business inventory, and session summary. Stores report in `wrapup_reports` table.
+Structured session wrap-up: Ouroboros reflections (captures observations to `ouroboros_entries`), unfinished business inventory, and session summary. Records continuity in item Progress Log and Ouroboros field-notes.
 
 ### refine
 

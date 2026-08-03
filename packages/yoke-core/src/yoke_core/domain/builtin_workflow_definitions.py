@@ -46,10 +46,11 @@ def _version_two_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
     definition["schema_version"] = 1
     policies = definition["policies"]
     policies.pop("file_budget")
+    policies.pop("path_survey", None)
     policies["item_posture_allowlist"] = [
         value
         for value in policies["item_posture_allowlist"]
-        if value != "file_budget"
+        if value not in {"file_budget", "path_survey"}
     ]
     return fixture
 

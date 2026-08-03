@@ -47,9 +47,12 @@ _REQUIRED_TABLE_COLUMNS = {
         "id",
         "state",
         "mode",
-        "actor_id",
-        "session_id",
-        "item_id",
+        "owner_kind",
+        "owner_item_id",
+        "owner_session_id",
+        "owner_work_claim_id",
+        "registered_by_actor_id",
+        "registered_by_session_id",
         "integration_target",
         "activated_at",
         "released_at",
@@ -219,7 +222,7 @@ def test_claim_required_gate_embeds_register_command() -> None:
         apply_fixture_ddl(
             conn,
             "CREATE TABLE path_claims (id INTEGER PRIMARY KEY, "
-            "item_id INTEGER, state TEXT, mode TEXT, "
+            "owner_kind TEXT, owner_item_id INTEGER, state TEXT, mode TEXT, "
             "exception_reason TEXT);"
             "CREATE TABLE path_claim_targets ("
             "claim_id INTEGER, target_id INTEGER);",

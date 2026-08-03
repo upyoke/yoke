@@ -97,7 +97,7 @@ def is_module_or_planned_ref(
                     "SELECT 1 FROM path_claim_targets pct "
                     "JOIN path_claims pc ON pc.id = pct.claim_id "
                     "JOIN path_targets pt ON pt.id = pct.target_id "
-                    f"WHERE pc.item_id = {p} "
+                    f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p} "
                     "  AND pc.state IN ('planned', 'active', 'blocked') "
                     "  AND pt.materialization_state IN "
                     "('planned', 'tentative') "

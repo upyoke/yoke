@@ -87,7 +87,7 @@ def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
         else:
             rows = conn.execute(
                 "SELECT id FROM path_claims "
-                f"WHERE item_id = {p} "
+                f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
                 "AND state IN ('planned', 'blocked', 'active') "
                 "ORDER BY id",
                 (item_id,),

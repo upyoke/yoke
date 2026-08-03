@@ -33,10 +33,22 @@ the hook-written process-anchor registry would otherwise pass every
 check by default, which is precisely the live configuration the drift
 was observed in.
 
-Every integration point fails open. A missing Yoke schema, an
-unresolvable session, a checkout with no git metadata — none of these
-block a run, because the check exists to catch drift, not to become a
-new way for verification to be unavailable.
+Both halves read through surfaces that follow the active connection.
+Session identity resolves through the canonical ambient chain
+(:mod:`yoke_core.domain.session_ambient_identity`), not a bare
+``YOKE_SESSION_ID`` read, and claims resolve through the registered
+``claims.work.holder_list`` function rather than a direct database
+connection. Either shortcut answers only on a machine that happens to
+hold identity in its environment and the control plane on its disk, and
+silently answers "nothing to check" everywhere else — which is exactly
+how a guard ends up inert on the installations it was written for.
+
+Nothing here blocks a run it could not judge: an unresolvable session, a
+checkout with no git metadata, or an unreachable control plane all let
+the run proceed, because the check exists to catch drift, not to become
+a new way for verification to be unavailable. But an unreachable lookup
+returns a *notice* rather than silence, so "not verified" never again
+looks identical to "verified clean".
 """
 
 from __future__ import annotations
@@ -64,6 +76,12 @@ TREE_BINDING_REFUSAL_TEMPLATE = (
 ALLOW_TREE_MISMATCH_NOTICE = (
     f"{{surface}}: {ALLOW_TREE_MISMATCH_FLAG} — verifying '{{tree}}' while "
     "the claimed worktree is '{wt}'."
+)
+
+UNVERIFIED_BINDING_NOTICE = (
+    "{surface}: could not confirm '{tree}' is this session's claimed "
+    "worktree — the control plane did not answer ({detail}). Proceeding "
+    "unverified; if this run matters, confirm the tree yourself."
 )
 
 
@@ -144,26 +162,58 @@ def evaluate_tree_binding(
     )
 
 
-def resolve_claim_worktrees(session_id: str) -> Sequence[str]:
-    """Worktree paths this session holds through active work claims.
+@dataclass(frozen=True)
+class ClaimLookup:
+    """What the claim lookup found, and whether it could look at all.
 
-    Any error (no DB, schema mismatch, import failure) returns ``[]`` so
-    the backstop fails open. Shares the claim view with the write lint
-    through :mod:`yoke_core.domain.session_claimed_worktrees`.
+    ``reachable=False`` means the control plane could not be consulted,
+    which is emphatically not the same answer as "this session holds no
+    claims" even though both yield an empty ``worktrees``. Collapsing
+    the two is what let this guard sit inert: an unreachable lookup
+    passed every run through while looking exactly like a clean one.
+    """
+
+    worktrees: tuple[str, ...] = ()
+    reachable: bool = True
+    detail: str = ""
+
+
+def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
+    """Worktree lanes this session holds through active work claims.
+
+    Goes through the registered ``claims.work.holder_list`` read, so the
+    answer follows the active connection: relayed to the server over
+    https, dispatched in process against a local universe. A direct
+    database connection would answer only on a machine that happens to
+    hold the control plane locally, and silently answer "no claims"
+    everywhere else.
     """
     if not session_id:
-        return []
+        return ClaimLookup()
     try:
-        from yoke_core.domain import db_helpers
-        from yoke_core.domain.session_claimed_worktrees import (
-            claimed_worktrees,
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
         )
 
-        with db_helpers.connect() as conn:
-            claims = list(claimed_worktrees(conn, session_id=session_id))
-    except Exception:
-        return []
-    return [claim.worktree_path for claim in claims if claim.worktree_path]
+        response = call_dispatcher(
+            function_id="claims.work.holder_list",
+            target=TargetRef(kind="global"),
+            payload={"session_id": session_id},
+        )
+    except Exception as exc:
+        return ClaimLookup(reachable=False, detail=str(exc) or type(exc).__name__)
+    if not response.success:
+        message = response.error.message if response.error else "lookup refused"
+        return ClaimLookup(reachable=False, detail=message)
+    holders = (response.result or {}).get("holders") or []
+    lanes: list[str] = []
+    for holder in holders:
+        for path in holder.get("lane_worktrees") or []:
+            candidate = str(path).strip()
+            if candidate and candidate not in lanes:
+                lanes.append(candidate)
+    return ClaimLookup(worktrees=tuple(lanes))
 
 
 def ambient_session_id() -> str:
@@ -183,40 +233,63 @@ def ambient_session_id() -> str:
         return ""
 
 
-def check(*, surface: str, tree: Optional[str] = None) -> Optional[str]:
-    """Resolve session and claims, then evaluate *tree* (default: cwd)."""
-    session_id = ambient_session_id()
-    if not session_id:
-        return None
-    worktrees = resolve_claim_worktrees(session_id)
-    if not worktrees:
-        return None
-    target = tree if tree is not None else os.getcwd()
-    return evaluate_tree_binding(
-        target, session_id, worktrees, surface=surface,
-    )
+@dataclass(frozen=True)
+class TreeBindingVerdict:
+    """What a caller should do about this run.
+
+    ``refusal`` stops the run; ``notice`` is printed and the run
+    proceeds. They are mutually exclusive.
+    """
+
+    refusal: Optional[str] = None
+    notice: Optional[str] = None
 
 
-def mismatch_notice(*, surface: str, tree: Optional[str] = None) -> Optional[str]:
-    """One line naming the cross-tree run an override is about to allow.
+def evaluate_run(
+    *,
+    surface: str,
+    tree: Optional[str] = None,
+    allow_mismatch: bool = False,
+) -> TreeBindingVerdict:
+    """Resolve session and claims, then judge *tree* (default: cwd).
 
-    Returns ``None`` when the run is bound to its claimed worktree, so an
-    override that changes nothing stays silent.
+    One lookup serves both the refusal and the override notice, so an
+    overridden run costs no more control-plane traffic than a bound one.
     """
     session_id = ambient_session_id()
     if not session_id:
-        return None
-    worktrees = resolve_claim_worktrees(session_id)
-    if not worktrees:
-        return None
+        return TreeBindingVerdict()
     target = tree if tree is not None else os.getcwd()
-    if evaluate_tree_binding(
-        target, session_id, worktrees, surface=surface,
-    ) is None:
-        return None
-    return ALLOW_TREE_MISMATCH_NOTICE.format(
-        surface=surface, tree=target, wt=worktrees[0],
+    if _tree_is_free(target):
+        # Settled without consulting anything: a free-path tree passes
+        # whatever the claims say, so asking would only add a round trip
+        # to every run that happens to live under a temp root.
+        return TreeBindingVerdict()
+    lookup = resolve_claim_worktrees(session_id)
+    if not lookup.reachable:
+        # Proceeding is right — an unreachable control plane must not
+        # ground every test run — but it is said out loud, because the
+        # whole point of this guard is that an unverified run never
+        # again reads like a verified one.
+        return TreeBindingVerdict(
+            notice=UNVERIFIED_BINDING_NOTICE.format(
+                surface=surface, tree=target, detail=lookup.detail,
+            )
+        )
+    if not lookup.worktrees:
+        return TreeBindingVerdict()
+    refusal = evaluate_tree_binding(
+        target, session_id, lookup.worktrees, surface=surface,
     )
+    if refusal is None:
+        return TreeBindingVerdict()
+    if allow_mismatch:
+        return TreeBindingVerdict(
+            notice=ALLOW_TREE_MISMATCH_NOTICE.format(
+                surface=surface, tree=target, wt=lookup.worktrees[0],
+            )
+        )
+    return TreeBindingVerdict(refusal=refusal)
 
 
 def _git(args: Sequence[str], cwd: str) -> Optional[str]:
@@ -260,11 +333,13 @@ __all__ = [
     "ALLOW_TREE_MISMATCH_FLAG",
     "ALLOW_TREE_MISMATCH_NOTICE",
     "TREE_BINDING_REFUSAL_TEMPLATE",
+    "UNVERIFIED_BINDING_NOTICE",
+    "ClaimLookup",
+    "TreeBindingVerdict",
     "TreeIdentity",
     "ambient_session_id",
-    "check",
+    "evaluate_run",
     "evaluate_tree_binding",
-    "mismatch_notice",
     "resolve_claim_worktrees",
     "resolve_tree_identity",
 ]

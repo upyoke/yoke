@@ -85,6 +85,78 @@ def test_existing_primary_lane_with_wire_lane_drives_reregister(monkeypatch):
     assert calls == ["s-lane"]
 
 
+def test_unresolved_lane_drives_reregister_from_project_routing(monkeypatch):
+    """A row the sentinel left unroutable repairs itself on any hook event.
+
+    Nothing rides the wire here — the executor on the row plus the project's
+    routing policy are the whole input, which is what lets a session stamped
+    before its policy could be read heal without operator action.
+    """
+    _patch_existing_row(monkeypatch)
+    calls: list[str] = []
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
+    )
+    monkeypatch.setattr(
+        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        lambda _conn, _project, _executor, **_kw: "DARIUS",
+    )
+
+    drove = register_module.ensure_registered_from_hook(
+        _Conn([{"execution_lane": "primary", "executor": "claude-code"}]),
+        "{}",
+        "s-lane-heal",
+        project_id=1,
+    )
+
+    assert drove is True
+    assert calls == ["s-lane-heal"]
+
+
+def test_healed_lane_stops_driving_reregister(monkeypatch):
+    """Once the row carries a real lane the probe goes quiet again."""
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("a resolved lane must not re-register"),
+    )
+    monkeypatch.setattr(
+        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        lambda *_a, **_kw: pytest.fail("resolved rows must not consult routing"),
+    )
+
+    assert register_module.ensure_registered_from_hook(
+        _Conn([{"execution_lane": "DARIUS", "executor": "claude-code"}]),
+        "{}",
+        "s-lane-healed",
+        project_id=1,
+    ) is False
+
+
+def test_unresolvable_lane_does_not_drive_reregister(monkeypatch):
+    """A project with no mapping for this executor must not loop forever."""
+    _patch_existing_row(monkeypatch)
+    monkeypatch.setattr(
+        register_module,
+        "_register_from_hook",
+        lambda *_a, **_kw: pytest.fail("an unresolvable lane must not re-register"),
+    )
+    monkeypatch.setattr(
+        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        lambda _conn, _project, _executor, **_kw: "primary",
+    )
+
+    assert register_module.ensure_registered_from_hook(
+        _Conn([{"execution_lane": "primary", "executor": "some-other-harness"}]),
+        "{}",
+        "s-lane-unmapped",
+        project_id=1,
+    ) is False
+
+
 def test_existing_real_lane_with_other_wire_lane_skips(monkeypatch):
     _patch_existing_row(monkeypatch)
     monkeypatch.setattr(

@@ -105,29 +105,23 @@ def _resolve_active_claim(
 ) -> Optional[Dict[str, Any]]:
     """DB-side resolution; safe against missing tables (returns None).
 
-    Prefers typed owner columns. A NULL ``owner_kind`` row (pre-
-    migration) matches via the legacy ``session_id`` / ``item_id``
-    columns; a typed row matches ONLY through its declared owner.
+    Matches only through the declared typed owner.
     """
     marker = _p(conn)
     placeholders = ",".join(marker for _ in _NON_TERMINAL_CLAIM_STATES)
-    # Step 1: session-owned claims (typed owner_kind='session') OR
-    # legacy un-typed rows where session_id matches.
+    # Step 1: session-owned claims.
     try:
         row = conn.execute(
-            "SELECT id, item_id, integration_target, state "
+            "SELECT id, owner_item_id AS item_id, integration_target, state "
             "FROM path_claims "
             f"WHERE state IN ({placeholders}) "
-            "AND ("
-            f"  (owner_kind = 'session' AND owner_session_id = {marker}) OR "
-            f"  (owner_kind IS NULL AND session_id = {marker})"
-            ") "
+            f"AND owner_kind = 'session' AND owner_session_id = {marker} "
             "ORDER BY CASE state "
             "  WHEN 'active' THEN 0 "
             "  WHEN 'planned' THEN 1 "
             "  WHEN 'blocked' THEN 2 "
             "END, id DESC LIMIT 1",
-            (*_NON_TERMINAL_CLAIM_STATES, session_id, session_id),
+            (*_NON_TERMINAL_CLAIM_STATES, session_id),
         ).fetchone()
     except db_backend.database_error_types(conn):
         return None
@@ -135,20 +129,13 @@ def _resolve_active_claim(
         item_id = _current_item_for_session(conn, session_id)
         if item_id is None:
             return None
-        # Step 2: item-owned claims (typed owner_kind='item' on the
-        # session's current item) OR legacy un-typed rows whose item_id
-        # matches and whose session_id matches the calling session or
-        # is NULL (cross-session leakage guard).
+        # Step 2: item-owned claims on the session's current item.
         try:
             row = conn.execute(
-                "SELECT id, item_id, integration_target, state "
+                "SELECT id, owner_item_id AS item_id, integration_target, state "
                 "FROM path_claims "
                 f"WHERE state IN ({placeholders}) "
-                "AND ("
-                f"  (owner_kind = 'item' AND owner_item_id = {marker}) OR "
-                f"  (owner_kind IS NULL AND item_id = {marker} AND "
-                f"   (session_id = {marker} OR session_id IS NULL))"
-                ") "
+                f"AND owner_kind = 'item' AND owner_item_id = {marker} "
                 "ORDER BY CASE state "
                 "  WHEN 'active' THEN 0 "
                 "  WHEN 'planned' THEN 1 "
@@ -157,8 +144,6 @@ def _resolve_active_claim(
                 (
                     *_NON_TERMINAL_CLAIM_STATES,
                     item_id,
-                    item_id,
-                    session_id,
                 ),
             ).fetchone()
         except db_backend.database_error_types(conn):

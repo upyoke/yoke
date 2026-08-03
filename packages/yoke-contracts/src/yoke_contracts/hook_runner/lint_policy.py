@@ -61,6 +61,11 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
               "Refuse same-capture polling loops on a running long command."),
     GuardSpec("lint_pipe_to_truncator", f"{_MODULE_PREFIX}lint_pipe_to_truncator", False,
               "Refuse piping a live long command into tail/head."),
+    GuardSpec("lint_raw_pytest_full_suite",
+              f"{_MODULE_PREFIX}lint_raw_pytest_full_suite", False,
+              "Refuse a raw pytest sweep over the whole verification "
+              "surface; it bypasses the machine-wide test-gate "
+              "admission slot."),
     GuardSpec("lint_if_status_capture", f"{_MODULE_PREFIX}lint_if_status_capture", False,
               "Refuse `$?` capture immediately after an `if` compound."),
     GuardSpec("lint_subagent_background", f"{_MODULE_PREFIX}lint_subagent_background", False,

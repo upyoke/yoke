@@ -146,7 +146,7 @@ class TestSessionOfferProcessGateCharge:
         # skipped_process metadata stays additive on the charge context.
         skipped = ctx["skipped_process"]
         assert skipped["process_key"] == "STRATEGIZE"
-        assert skipped["config_key"] == "do_process_offer_strategize"
+        assert skipped["config_key"] == "process_offers.strategize"
         assert skipped["recommended_action"] == "strategize"
         assert skipped["skip_reason"] == "process_disabled_by_config"
         assert skipped["direct_command"] == "/yoke strategize"
@@ -218,5 +218,5 @@ class TestSessionOfferProcessGateCharge:
         assert ctx["wait_reason"] == "process_suppressed_no_alternative"
         suppressed = ctx["suppressed_process_recommendation"]
         assert suppressed["process_key"] == "STRATEGIZE"
-        assert suppressed["config_key"] == "do_process_offer_strategize"
+        assert suppressed["config_key"] == "process_offers.strategize"
         assert suppressed["direct_command"] == "/yoke strategize"

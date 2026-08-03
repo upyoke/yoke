@@ -192,10 +192,10 @@ class TestCLIMain:
 
     def test_update_multi_subcommand(self, db_with_item, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_with_item)
-        rc = main(["update-multi", "1", "priority=high", "flow=standard"])
+        rc = main(["update-multi", "1", "priority=high", "title=Updated"])
         assert rc == 0
         assert query_item(1, "priority", db_path=db_with_item) == "high"
-        assert query_item(1, "flow", db_path=db_with_item) == "standard"
+        assert query_item(1, "title", db_path=db_with_item) == "Updated"
 
     def test_update_multi_bad_pair(self, db_with_item, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_with_item)
