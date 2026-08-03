@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_cli.config import project_worktrees_ignore
+from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
@@ -22,6 +23,7 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
 )
 from yoke_cli.project_install.preflight import preflight_apply
+from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_cli.project_install.validate import _validate_bundle
 
 _MANIFEST_OWNED_KEYS = frozenset(
@@ -41,6 +43,7 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "worktrees_ignore_created_file",
         "managed_markdown",
         "settings_permissions",
+        CURSOR_PERMISSIONS_MANIFEST_KEY,
         DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
         DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     }
@@ -189,6 +192,15 @@ def apply_bundle(
             repo_root, bundle.get("claude_settings_permissions"),
         )
     )
+    # Cursor's command-approval and network-sandbox regions. Their content is
+    # resolved from this machine's config rather than the bundle, because the
+    # allowed origins name the control plane this machine talks to.
+    cursor_permissions_records, cursor_permissions_report = (
+        cursor_permissions_layer.apply_cursor_permissions(
+            repo_root,
+            prior_records=old_manifest.get(CURSOR_PERMISSIONS_MANIFEST_KEY),
+        )
+    )
 
     # Carry unknown top-level manifest keys forward: a field written by a
     # newer CLI must survive this version's whole-object rewrite (the
@@ -215,6 +227,7 @@ def apply_bundle(
             "worktrees_ignore_created_file": worktrees_ignore_created_file,
             "managed_markdown": managed_markdown_records,
             "settings_permissions": settings_permissions_record,
+            CURSOR_PERMISSIONS_MANIFEST_KEY: cursor_permissions_records,
         }
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
@@ -255,6 +268,7 @@ def apply_bundle(
         "managed_markdown_actions": managed_markdown_report["actions"],
         "managed_markdown_written": managed_markdown_report["written"],
         "settings_permissions_actions": settings_permissions_report["actions"],
+        "cursor_permissions_actions": cursor_permissions_report["actions"],
         "created_settings_files": sorted(created_settings),
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,

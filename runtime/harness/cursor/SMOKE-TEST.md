@@ -45,6 +45,20 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 9. Confirm exactly ONE `harness_sessions` row exists for the whole run —
    sub-session ids must not register.
 
+## Approvals and network sandbox
+
+13. Confirm `.cursor/cli.json` and `.cursor/sandbox.json` are regular files
+    (not symlinks) and that `yoke doctor` reports
+    `HC-cursor-permission-config: PASS`.
+14. With the taught zero-prompt posture set in Cursor's settings, run a
+    network-touching `yoke` read in a fresh session and confirm it completes
+    with **no** permission or network prompt and **no** `full_network`
+    request. Confirm in the same session that hook telemetry recorded the
+    call — the posture must not cost hook delivery.
+15. Run an entire dash end to end (network `yoke` commands, git, merge) and
+    confirm zero prompts throughout while `HookDispatchTelemetry` events keep
+    arriving for the session.
+
 ## Registration proofs
 
 10. `python3 -m runtime.harness.harness_sessions list` shows the session

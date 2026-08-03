@@ -44,6 +44,26 @@ Yoke's container model applies: only the top-level session registers as a `harne
 
 Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; the `stop` hook's `followup_message` loop channel — Yoke's session chaining is core-owned; Cloud Agent handoff (`&`) — Yoke sessions are local.
 
+## Approvals and the network sandbox
+
+Cursor decides whether an agent command runs unprompted at three layers. Two are project files Yoke installs and keeps merged; the third is machine-level and yours to set. Getting only the first two right still leaves you approving commands one at a time.
+
+| Layer | Where | Who owns it |
+|-------|-------|-------------|
+| Command approvals | `.cursor/cli.json` → `permissions.allow` | Yoke installs and merges its region |
+| Network sandbox | `.cursor/sandbox.json` → `networkPolicy` | Yoke installs and merges its region |
+| Approval / execution mode | Cursor's own settings (Approvals, Execution mode) | You — no project file can reach it |
+
+**Recommended posture: zero prompts.** Set Execution mode to **Run Everything**. That matches how Yoke machines already run every other harness, and the rationale is the same: Yoke owns enforcement through its `PreToolUse` hook chain and lint fleet, so a harness approval prompt is redundant friction rather than a safety layer. Hooks keep firing in this mode — a hook deny holds even under `--force`. If you prefer to keep Auto-review, the closest zero-prompt composite is `yoke *`, `git *`, and `gh *` in the command allowlist plus a network mode that allows the origins already listed in `.cursor/sandbox.json`.
+
+Confirm your chosen mode on the first session of a new machine: run one network-touching `yoke` read and check that it completes with no prompt **and** that hook telemetry recorded the call. `yoke doctor` reports the machine-level posture it can see (`HC-cursor-approval-posture`) and prints the exact settings to change.
+
+**Do not request full-network permission.** Cursor treats an explicit `required_permissions: full_network` request as an escalation and prompts even for hosts the network policy already allows. Once `.cursor/sandbox.json` allows the control-plane origins, retry inside the sandbox instead — requesting the escalation causes the very per-command prompting these files exist to remove.
+
+**Explicit non-choices.** The `all` permission tier is never the answer: it disables the sandbox wholesale, filesystem included, which is strictly broader than the zero-prompt posture needs. Yoke's installed regions default `networkPolicy.default` to `deny` and allow only this machine's configured control-plane and GitHub endpoints — resolved from machine config, so a self-hosted or differently-tenanted installation allows its own origins.
+
+Both files are regular files, never symlinks (Cursor refuses project config paths containing symlinks). Yoke unions its entries in and never removes or reorders yours; `yoke project install` — or `yoke dev setup` in a Yoke source checkout — reapplies them idempotently, and `HC-cursor-permission-config` reports a missing or emptied region.
+
 ## Operational cautions
 
 - `.cursor/cli.json` requires `permissions.allow` (an allow-less deny-only file aborts every run before the agent starts) — the same all-or-nothing failure class as Claude's `settings.json`.
