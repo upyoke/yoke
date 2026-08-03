@@ -10,6 +10,9 @@ harness session is this process running under?":
    pid to its session id, so any shell the harness spawns self-identifies
    by walking its parent chain against the registry — even when no env
    stamp was delivered.
+3. **Conversation mapping:** a harness that neither stamps step 1 nor can
+   be anchored resolves through the pairing its own hooks record
+   (:mod:`yoke_contracts.cursor_session_map`).
 
 Pure standard library; takes ``anchors_dir`` as an argument so BOTH sides
 of the contract share one body:
@@ -32,9 +35,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
 
+from yoke_contracts.cursor_session_map import (
+    CURSOR_SESSION_MAP_DIR_NAME,
+    resolve_mapped_session_id,
+)
 from yoke_contracts.process_ancestry import (
     ProcessAnchor,
-    ancestor_pids,
+    anchor_candidate_pids,
     find_nearest_harness_anchor,
     process_start_time,
 )
@@ -204,17 +211,20 @@ def resolve_session_from_ancestry(
     *,
     start_time_of: Optional[Callable[[int], Optional[str]]] = None,
     parents: Optional[Dict[int, int]] = None,
+    name_of: Optional[Callable[[int], Optional[str]]] = None,
 ) -> Optional[str]:
     """Resolve the ambient session id by walking this process's ancestry.
 
-    For each ancestor pid (nearest first) holding a registry record, the
+    Walks :func:`anchor_candidate_pids`, so the chain ends at a
+    multiplexed harness host exactly as the write side's does, and for the
+    reason documented there. For each candidate pid (nearest first) holding a registry record, the
     record is trusted only when the ancestor's live start time equals the
     recorded one — a reused pid fails the comparison and the stale record
     is pruned. A record marked as shared by multiple sessions stops the
     walk with ``None``: the pid cannot identify one session, and no
     ancestor above it is less shared. Returns ``None`` when no live anchor
-    covers this process. Never raises. ``start_time_of`` / ``parents``
-    inject process-table lookups for tests.
+    covers this process. Never raises. ``start_time_of`` / ``parents`` /
+    ``name_of`` inject process-table lookups for tests.
     """
     try:
         directory = Path(anchors_dir)
@@ -227,7 +237,9 @@ def resolve_session_from_ancestry(
         resolve_start = (
             process_start_time if start_time_of is None else start_time_of
         )
-        for ancestor in ancestor_pids(pid, parents=parents):
+        for ancestor in anchor_candidate_pids(
+            pid, parents=parents, name_of=name_of,
+        ):
             path = directory / f"{ancestor}.json"
             if not path.is_file():
                 continue
@@ -289,23 +301,35 @@ def prune_stale_anchors(
 
 
 # ---------------------------------------------------------------------------
-# The unified ambient chain: env fast path, then the ancestry registry.
+# The unified ambient chain
 # ---------------------------------------------------------------------------
 
 def resolve_ambient_session_id(
     anchors_dir: _AnchorsDir,
     env: Optional[Mapping[str, str]] = None,
+    *,
+    cursor_map_dir: Optional[_AnchorsDir] = None,
 ) -> Optional[str]:
-    """Resolve ambient session identity: env chain, then ancestry registry.
+    """Resolve ambient session identity: env chain, ancestry, hook mapping.
 
-    Returns ``None`` when neither source yields an id. Never raises.
-    ``anchors_dir`` is the caller's ``<machine-home>/session-anchors``
-    directory (each layer resolves its own machine home).
+    Returns ``None`` when no source yields an id. Never raises. Each
+    layer resolves its own machine home and passes the two directories
+    below it; omitting ``cursor_map_dir`` skips the Cursor lane.
+
+    Ancestry precedes the mapping deliberately: a per-session harness
+    nested inside a Cursor agent inherits ``CURSOR_CONVERSATION_ID``
+    through the environment, and its own anchor — reached before the
+    shared Cursor host — is the truthful answer.
     """
     value = resolve_env_session_id(env)
     if value:
         return value
-    return resolve_session_from_ancestry(anchors_dir)
+    value = resolve_session_from_ancestry(anchors_dir)
+    if value:
+        return value
+    if cursor_map_dir is None:
+        return None
+    return resolve_mapped_session_id(cursor_map_dir, env)
 
 
 __all__ = [
@@ -313,6 +337,7 @@ __all__ = [
     "AMBIENT_ENV_VARS",
     "AMBIENT_RESOLUTION_FAILED",
     "ANCHORS_DIR_NAME",
+    "CURSOR_SESSION_MAP_DIR_NAME",
     "ContenderIsLive",
     "ProcessAnchor",
     "prune_stale_anchors",

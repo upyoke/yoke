@@ -74,8 +74,8 @@ class TestAmbientChain:
             ),
         )
         monkeypatch.setattr(
-            session_identity, "ancestor_pids",
-            lambda _pid=None, parents=None: [4242],
+            session_identity, "anchor_candidate_pids",
+            lambda _pid=None, parents=None, name_of=None: [4242],
         )
         monkeypatch.setattr(
             session_identity, "process_start_time",
@@ -109,8 +109,8 @@ class TestCliChokepointDelegation:
             ),
         )
         monkeypatch.setattr(
-            session_identity, "ancestor_pids",
-            lambda _pid=None, parents=None: [777],
+            session_identity, "anchor_candidate_pids",
+            lambda _pid=None, parents=None, name_of=None: [777],
         )
         monkeypatch.setattr(
             session_identity, "process_start_time",

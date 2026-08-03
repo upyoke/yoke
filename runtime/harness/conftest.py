@@ -61,19 +61,23 @@ def clean_markers(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _harness_session_anchor_isolation(tmp_path, monkeypatch):
-    """Keep harness tests out of the real session-anchor registry.
+def _harness_hook_written_identity_isolation(tmp_path, monkeypatch):
+    """Keep harness tests out of the real hook-written identity registries.
 
-    Parity with ``runtime.api.fixtures.runtime._yoke_session_anchor_isolation``
+    Parity with
+    ``runtime.api.fixtures.runtime._yoke_hook_written_identity_isolation``
     (this subtree has its own conftest, so the API-side autouse does not
     apply). Registration tests here drive ``_register_from_hook`` whose
     unmocked anchor write resolves real process ancestry — observed live
     poisoning the developer's own conversation anchor with a synthetic
-    session id.
+    session id — and Cursor payload tests drive the parser, which records a
+    conversation-to-session mapping the same way.
     """
-    from runtime.api.fixtures.runtime import isolate_session_anchor_registry
+    from runtime.api.fixtures.runtime import (
+        isolate_hook_written_identity_registries,
+    )
 
-    isolate_session_anchor_registry(tmp_path, monkeypatch)
+    isolate_hook_written_identity_registries(tmp_path, monkeypatch)
     yield
 
 
