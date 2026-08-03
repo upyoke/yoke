@@ -13,7 +13,10 @@ which stays local to this repository.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
+
+from yoke_core.domain.agents_render_project_install import write_project_install
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -26,12 +29,19 @@ SHIPPED_ROOTS = (
     REPO / "runtime" / "harness" / "claude" / "rules",
     REPO / "runtime" / "harness" / "claude" / "agents",
     REPO / "runtime" / "harness" / "codex" / "agents",
+    REPO / "runtime" / "harness" / "cursor" / "agents",
 )
 # Agent sidecar JSON carries the description shown in the agent-type listing,
 # so it reaches a target project the same way the prose does.
 SHIPPED_SUFFIXES = {".md", ".toml", ".json"}
 
-REPO_TEST_ANCHORS = "runtime/api/ runtime/harness/ tests/"
+REPO_LAYOUT_PATTERNS = (
+    ("runtime/api/", re.compile(r"runtime/api/")),
+    ("packages/yoke-", re.compile(r"packages/yoke-")),
+    ("top-level tests/", re.compile(r"(?<![A-Za-z0-9_./-])tests/")),
+    ("runtime.* package", re.compile(r"\bruntime\.[A-Za-z_][A-Za-z0-9_.]*")),
+)
+SOURCE_REPO_ONLY_LABEL = "yoke source repo only"
 REPO_ITEM_PREFIX = "YOK-"
 GENERIC_ITEM_PLACEHOLDER = "PREFIX-"
 
@@ -55,14 +65,73 @@ def _offenders(token: str) -> list[str]:
     return hits
 
 
-def test_shipped_surfaces_carry_no_repo_local_test_anchors() -> None:
-    """A target project's test layout is its own, not this repo's."""
-    offenders = _offenders(REPO_TEST_ANCHORS)
+def _repo_layout_offenders() -> list[str]:
+    """Return unlabelled source-tree references in installed copy surfaces."""
+    offenders = []
+    for path in _shipped_files():
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(),
+            start=1,
+        ):
+            if SOURCE_REPO_ONLY_LABEL in line.casefold():
+                continue
+            matched = [
+                name for name, pattern in REPO_LAYOUT_PATTERNS
+                if pattern.search(line)
+            ]
+            if matched:
+                offenders.append(
+                    f"{path.relative_to(REPO)}:{line_number} ({', '.join(matched)})"
+                )
+    return offenders
+
+
+def test_shipped_surfaces_annotate_or_avoid_repo_layout_paths() -> None:
+    """Installed instructions cannot assume this repository's source layout."""
+    offenders = _repo_layout_offenders()
     assert offenders == [], (
-        "repo-local test anchors found in install-bundle surfaces: "
-        f"{offenders}. Teach anchors in AGENTS.md below the managed-block "
-        "marker and keep shipped copy project-neutral."
+        "unlabelled source-repo layout paths found in install-bundle surfaces: "
+        f"{offenders}. Use portable module or command names, or label a "
+        "necessary implementation detail 'Yoke source repo only'."
     )
+
+
+def test_rendered_adapters_do_not_name_canonical_agent_sources() -> None:
+    """Installed adapters must point to materialized references, never sources."""
+    adapter_roots = (
+        REPO / "runtime" / "harness" / "claude" / "agents",
+        REPO / "runtime" / "harness" / "codex" / "agents",
+        REPO / "runtime" / "harness" / "cursor" / "agents",
+    )
+    offenders = []
+    for root in adapter_roots:
+        for path in root.rglob("*"):
+            if path.is_file() and path.suffix in {".md", ".toml"}:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                if "runtime/agents/" in text:
+                    offenders.append(str(path.relative_to(REPO)))
+    assert offenders == [], f"rendered adapters name runtime/agents/: {offenders}"
+
+
+def test_conditional_agent_reference_resolves_in_an_installed_project(
+    tmp_path: Path,
+) -> None:
+    """A rendered agent's conditional reference is copied into its target path."""
+    target = tmp_path / "project"
+    target.mkdir()
+    write_project_install(target_root=target)
+
+    prompt = (target / ".claude" / "agents" / "yoke-engineer.md").read_text()
+    reference = (
+        target
+        / ".claude"
+        / "agents"
+        / "references"
+        / "engineer"
+        / "migration-protocol.md"
+    )
+    assert ".claude/agents/references/engineer/migration-protocol.md" in prompt
+    assert reference.is_file()
 
 
 def test_shipped_surfaces_use_the_generic_item_prefix() -> None:

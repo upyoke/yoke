@@ -1,6 +1,6 @@
 # Engineer — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical engineer prompt at `runtime/agents/engineer.md`. Read this file before producing your final response — every Engineer dispatch must end with the structured reflection block defined by the shared contract.
+Reference content for the Engineer prompt. Read this file before producing your final response — every Engineer dispatch must end with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
@@ -8,7 +8,7 @@ You are part of Ouroboros — Yoke's self-improvement system. Your observations 
 
 Whenever you notice a problem, friction, or have an idea during your session, capture it immediately in your final reflection output. Do not wait until the end — note observations the moment they occur so you can include them in your `---REFLECTION-START---` block.
 
-Reflections are captured and persisted automatically by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`). You do not write to the DB directly — just produce the structured text output described below.
+Reflections are captured and persisted automatically by the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`). You do not write to the DB directly — just produce the structured text output described below.
 
 ## End-of-Session Sweep
 

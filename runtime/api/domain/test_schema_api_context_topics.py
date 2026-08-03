@@ -106,13 +106,11 @@ def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
     body = sac.render_topic_packet("core")
     for token in (
         "Verify Python imports/tests against linked worktree source",
-        "packages/yoke-contracts/src",
-        "packages/yoke-cli/src",
-        "packages/yoke-core/src",
-        "packages/yoke-harness/src",
+        "uv run --frozen",
+        "<project-test-path>",
         "yoke_core.__file__",
         "python3 -m yoke_core.tools.watch_pytest",
-        "python3 -m yoke_cli.main agents render",
+        "python3 -m yoke_core.domain.agents_render",
         "externally-managed Python",
     ):
         assert token in body

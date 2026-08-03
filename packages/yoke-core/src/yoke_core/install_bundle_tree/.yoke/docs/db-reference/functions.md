@@ -6,7 +6,7 @@ This file is the per-family function reference. The operator-readable Atlas (one
 
 ## Envelope
 
-Every function call accepts and returns the same envelope shape, defined in `packages/yoke-contracts/src/yoke_contracts/api/function_call.py`:
+Every function call accepts and returns the same envelope shape, defined in `yoke_contracts.api.function_call`:
 
 ```jsonc
 // Request
@@ -72,7 +72,7 @@ Every registered function declares one of five `claim_required_kind` values; the
 | Value | When the dispatcher enforces |
 |---|---|
 | `None` | No claim verification. Reads, `claims.work.acquire`, and project-wide side effects (`board.rebuild`, `agents.render.run`). |
-| `"item"` | Resolves the active work-claim row for `target.item_id` via `runtime.harness.harness_sessions.who_claims(item_id)`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
+| `"item"` | Resolves the active work-claim row for `target.item_id`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
 | `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.epic_id`). |
 | `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
 | `"operator_override"` | Requires the calling session to carry an operator-authored bypass marker (e.g. `path-claim-override`). Otherwise `error.code="operator_override_required"`. |
@@ -290,7 +290,7 @@ The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `it
 - `docs/event-catalog.md` (a yoke source-repo doc) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
 - `docs/atlas.md` (a yoke source-repo doc) — operator-readable Atlas of the agent-facing surfaces.
 - [items-and-epics.md § DB Claim — unified amendment workflow](items-and-epics.md) — the `db_claim.amend` payload shape.
-- `packages/yoke-contracts/src/yoke_contracts/api/function_call.py` — Pydantic envelope models.
-- `packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch.py` — dispatcher entry point.
-- `packages/yoke-core/src/yoke_core/domain/yoke_function_registry.py` — registry.
-- `packages/yoke-core/src/yoke_core/domain/handlers/__init_register__.py` — handler registration (idempotent).
+- `yoke_contracts.api.function_call` — Pydantic envelope models.
+- `yoke_core.domain.yoke_function_dispatch` — dispatcher entry point.
+- `yoke_core.domain.yoke_function_registry` — registry.
+- `yoke_core.domain.handlers` — handler registration (idempotent).

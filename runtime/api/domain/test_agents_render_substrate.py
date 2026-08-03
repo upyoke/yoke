@@ -25,10 +25,11 @@ from yoke_core.domain.agents_render import (
     CANONICAL_DIR,
     CODEX_NATIVE_AGENTS_DIR,
     CODEX_OUT_DIR,
-    ROLES_WITH_FRAGMENTS,
+    ROLES_WITH_INLINE_REFERENCES,
     detect_substrate_drift,
     write_all,
 )
+from yoke_core.domain.agents_render_references import inline_fragment_paths
 from yoke_core.domain.agents_render_claude import (
     render_claude_manifest_json,
     render_claude_settings_json,
@@ -42,13 +43,7 @@ from yoke_core.domain.agents_render_codex import (
 
 @pytest.fixture
 def repo_root() -> Path:
-    """Workspace-anchored live Yoke checkout root for read-only assertions.
-
-    Tests that *write* should use ``isolated_repo`` instead — see FR-6 in the
-    workspace-anchored renderer work item. Read-only assertions (existence,
-    parse-shape, content checks) keep using the live tree because they
-    document properties of the actual rendered substrate.
-    """
+    """Workspace-anchored live checkout for read-only assertions."""
     from runtime.api.domain.test_agents_render_workspace_fixtures import (
         resolve_live_repo_root,
     )
@@ -101,20 +96,21 @@ def test_codex_agent_runtime_path_is_surfaced_to_native_location(repo_root: Path
         )
 
 
-def test_render_codex_agent_body_includes_subdir_fragments(repo_root: Path) -> None:
-    """Roles with subdir fragments embed those fragments into the prompt."""
+def test_render_codex_agent_body_includes_unconditional_references(
+    repo_root: Path,
+) -> None:
+    """Always-needed role references are embedded into the prompt."""
     canonical = repo_root / CANONICAL_DIR
-    for role in ROLES_WITH_FRAGMENTS:
+    for role in ROLES_WITH_INLINE_REFERENCES:
         with patch("yoke_core.domain.schema_api_context._try_live_schema", return_value=None):
             body = render_codex_agent_body(canonical, role)
-        subdir = canonical / role
-        fragments = sorted(p for p in subdir.iterdir() if p.suffix == ".md")
-        assert fragments, f"{role}: expected fragments in {subdir}"
+        fragments = inline_fragment_paths(canonical, role)
+        assert fragments, f"{role}: expected inline references"
         for frag in fragments:
             text = frag.read_text(encoding="utf-8")
             marker = next((line for line in text.splitlines() if line.strip()), "")
             assert marker and marker in body, (
-                f"{role}: fragment {frag.name} marker {marker!r} not embedded"
+                f"{role}: reference {frag.name} marker {marker!r} not embedded"
             )
 
 
@@ -307,7 +303,7 @@ def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
         # ``Bash`` — that is the explicit deny half of the tool policy and must not
         # trip the assertion.
         tools_line = next(
-            (l for l in claude_text.splitlines() if l.startswith("tools:")), ""
+            (line for line in claude_text.splitlines() if line.startswith("tools:")), ""
         )
         assert tools_line, f"yoke-{agent}.md missing tools: line"
         assert "Bash" not in tools_line, (
@@ -316,7 +312,9 @@ def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
         # Codex emits no tools field; the Claude allowlist has no Codex meaning.
         codex_text = (codex_dir / f"yoke-{agent}.toml").read_text("utf-8")
         codex_header = codex_text.split('developer_instructions = """', 1)[0]
-        has_tools = any(l.lstrip().startswith("tools") for l in codex_header.splitlines())
+        has_tools = any(
+            line.lstrip().startswith("tools") for line in codex_header.splitlines()
+        )
         assert not has_tools, f"rendered Codex adapter for {agent} still emits tools"
 
 

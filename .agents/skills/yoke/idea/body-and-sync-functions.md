@@ -231,7 +231,7 @@ Register a new claim (function-call equivalent of the prior
   "target": {"kind": "item", "item_id": 42},
   "payload": {
     "item_id": 42,
-    "paths": ["packages/yoke-core/src/yoke_core/domain/foo.py"],
+    "paths": ["src/<package>/foo.py"],
     "mode": "exclusive",
     "allow_planned": false
   }

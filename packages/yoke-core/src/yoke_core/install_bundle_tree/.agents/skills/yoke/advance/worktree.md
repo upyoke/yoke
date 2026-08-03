@@ -1,6 +1,6 @@
 # Advance — Worktree Preflight + Re-entry
 
-> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator ([`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py)) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
+> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator (`yoke_core.engines.advance_implementation_entry`) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
 
 Called by the advance router when target status is `implementing` and the
 pinned definition binds `advance` to a single implementation lane. Owns

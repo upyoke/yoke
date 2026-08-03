@@ -45,7 +45,7 @@ registers on that authority), while a non-prod local-postgres connection
 dispatches in-process. It also resolves the canonical
 model from the session row's model field (see your `harness_sessions`
 packet stanza, preserving any `[variant]` suffix written by SessionStart)
-and falls back to `runtime.harness.hook_helpers_model.detect_model` on a
+and falls back to the harness model detector on a
 cold-start cache miss — the LLM agent never substitutes a model value.
 The wrapper writes `KEY=VALUE` lines to stdout; capture each value into
 your prompt context for substitution into later Bash calls.

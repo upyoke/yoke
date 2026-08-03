@@ -1,6 +1,6 @@
 # Simulator — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical simulator prompt at `runtime/agents/simulator.md`. Read this file before completing your final response — every Simulator dispatch must close with the structured reflection block defined by the shared contract.
+Reference content for the Simulator prompt. Read this file before completing your final response — every Simulator dispatch must close with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 

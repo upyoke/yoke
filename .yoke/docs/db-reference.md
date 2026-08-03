@@ -15,7 +15,7 @@ This file is the **entry point**: it covers entry points, the bootstrap contract
 
 ## Common column mistakes to avoid in raw SQL
 
-Quick reference for the columns most often mis-named in agent SQL. The DB-command column lint at `packages/yoke-core/src/yoke_core/domain/lint_db_rules_columns.py` denies these patterns and points here; legacy telemetry/check ids remain stable.
+Quick reference for the columns most often mis-named in agent SQL. The DB-command column lint at `yoke_core.domain.lint_db_rules_columns` denies these patterns and points here; legacy telemetry/check ids remain stable.
 
 - `epic_tasks`: use `epic_id` (NOT `item_id`), `task_num` (NOT `task_number`/`seq`), `dependencies` (NOT `depends_on`).
 - `epic_progress_notes`: content is in `body` (NOT `note`).
@@ -97,7 +97,7 @@ When a normal command runs against an existing DB whose baseline schema is missi
 
 ### Retired schema surface registry
 
-Columns (and tables) retired across a project's governed migration lifecycle are catalogued in [`runtime/api/domain/retired_schema_surfaces.yaml`](../runtime/api/domain/retired_schema_surfaces.yaml). The registry is the single live source authorised to name retired columns by their literal identifier.
+Columns (and tables) retired across a project's governed migration lifecycle are catalogued in the retired-schema registry. The registry is the single live source authorised to name retired columns by their literal identifier.
 
 It feeds three downstream checks:
 

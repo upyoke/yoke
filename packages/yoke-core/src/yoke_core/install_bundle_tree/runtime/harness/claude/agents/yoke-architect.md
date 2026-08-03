@@ -89,15 +89,15 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 
 **Self-check:** After each tool call, mentally count how many turns you have used. If you are past 60% and have not started writing, stop exploring NOW.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Avoid:** `ouraboros` (wrong vowel).
 
@@ -250,20 +250,16 @@ yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim wi
 - _Current session_id / actor_id from a script_
   - `echo "$YOKE_SESSION_ID" ; yoke db read "SELECT actor_id FROM harness_sessions WHERE session_id='$YOKE_SESSION_ID'"`
   - `$YOKE_SESSION_ID` is the fast path; when it is unset, ambient identity still resolves automatically (hook-written process-anchor registry, walked by every `yoke` CLI / dispatch call) — do NOT export session env vars to self-bootstrap, and treat `actor_session_missing` as an infrastructure bug to report. No `get_active_session_id` helper exists. The function-call surface resolves actor_id server-side from session_id — agents do not need to look it up themselves before dispatch. The actor_id SQL above is a diagnostic read, not a dispatch prerequisite; `db_router query` is only the source-dev/operator-debug fallback. `--session-id` flags are operator-debug overrides, recorded as `session_override`.
-- _Where to put a Python script that imports runtime.*_
-  - `# put it under runtime/api/tools/<name>.py — never /tmp/*.py`
-  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so `from runtime.*` fails. Use in-tree path or `pip install -e .`. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
+- _Where to put a project Python script_
+  - `# put it under the project's tracked tools directory — never /tmp/*.py`
+  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so project imports may fail. Use a tracked project path or the project's environment runner. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
 - _Verify Python imports/tests against linked worktree source_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.module_source_path yoke_core
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q`
-  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout — reach for the explicit prefix only when uv is unavailable, or to check import origin for a non-watcher invocation. Use it from linked worktrees when the interpreter's editable install still points at the main checkout, or when an externally-managed Python blocks `python3 -m pip install -e .`. Prefix all four package `src` dirs plus the repo root so subprocess `python3 -m ...` invocations exercise this branch. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
+  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core
+uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout. Use the command from the linked worktree when the interpreter's editable install could still point at main, or when an externally-managed Python blocks `python3 -m pip install -e .`. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
 - _Re-render agent files after editing packet seeds_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main agents render --target-root "${_repo}"`
-  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes `runtime/harness/claude/agents/yoke-*.md` + Codex `.toml` siblings from the seeds. Drift check: run the same worktree-source prefix with `python3 -m yoke_cli.main agents render check --target-root "${_repo}"`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there. The installed `yoke` entry point can still target the main checkout, so source-dev verification uses the package `src` dirs above.
+  - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
+  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes the installed Claude, Codex, and Cursor agent adapters from the seeds. Drift check: run `uv run --frozen python3 -m yoke_core.domain.agents_render check --target-root <checkout>`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there.
 - _authored-file line limit (file_line_check)_
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
@@ -275,7 +271,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
   - The impacted selection is the local default and needs no project-specific paths. The full sweep is CI's job on every pull request and push to main, and locally it is the CI-outage fallback; its anchor paths are per-project — read them from your project's registered verification command (its QA plan) or your project rules file, and never carry another project's anchors over. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
-  - `yoke watch pytest -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
   - Subagent tool-call turns are atomic — backgrounded watcher patterns strand processes. Enforced by lint-subagent-background.
 - _Run doctor with background watcher (main session)_
@@ -287,7 +283,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
-  - `yoke watch pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
 tail -80 <PATH>`
   - --print-streaming-pair mints the capture path automatically via project_scratch_dir.mint_watcher_capture_pair (machine temp root watcher-captures/...); the explicit --raw-capture <PATH> form is the operator carve-out for callers that want a known path (CI scripts collecting artifacts). Prefer the helper-resolved default.
 - _Run doctor focused on specific HC rules_
@@ -375,12 +371,12 @@ yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 - _Register a path claim (canonical agent shape)_
   - `yoke claims path register \
   --item PREFIX-N \
-  --paths runtime/api/domain/path_claim_targets.py,runtime/api/test_path_claim_targets.py,docs/event-catalog.md \
+  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \
   --integration-target main --mode exclusive --allow-planned`
   - --allow-planned for files not yet committed. --mode exception for no-repo-touch work items.
 - _Widen a path claim (canonical agent shape)_
   - `yoke claims path widen --claim-id 138 --item PREFIX-N \
-  --add-paths runtime/api/service_client_backlog_router.py,runtime/api/test_backlog_github_backfill_oversized.py \
+  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \
   --reason 'backfill subcommand wiring touches router + new test file'`
   - <claim-id> is the path_claims.id from path-claim-register response or `yoke claims path list`.
 - _Narrow a path claim (drop or keep paths)_
@@ -399,7 +395,7 @@ SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
 FROM path_claims pc
 JOIN path_claim_targets pct ON pct.claim_id = pc.id
 JOIN path_targets tgt ON tgt.id = pct.target_id
-WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.py')
+WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')
   AND pc.state NOT IN ('cancelled','released')"`
   - Raw diagnostic read. Use when path-claim-conflicts is too coarse; `db_router query` is only the source-dev/operator-debug break-glass fallback.
 - _Classify a path-claim overlap before authoring a coordination edge_
@@ -421,7 +417,7 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
   - Durable task scope for item-owned path claims. A row binds path_claims.claim_id to the generated Epic task identified by (epic_id, task_num). The binding carries no session or work-claim column: registering-session provenance is not path authority, and task coverage survives a session handoff. Worker enforcement intersects bound claim targets with epic_task_files; a persisted item_worktrees.lane_role='integration' lane receives their union.
 - **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
-  - Path-snapshot rows. path_string is the canonical relative path (e.g. 'runtime/api/domain/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
+  - Path-snapshot rows. path_string is the canonical relative path (e.g. '<project-source-path>/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
   - Append-only history of widen / narrow / cancel-amendment operations on a path_claims row. amendment_kind names the operation; payload is JSON (e.g. {'added': [target_id, ...]}); reason is the operator-authored rationale.
 - **`actors`** — `id, kind, system_component, created_at`
@@ -483,7 +479,7 @@ Call registered `workflows.item.get` through `yoke workflows item get ITEM --jso
 Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
 a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
-b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
+b. **Doctor HC files that scan the module surface** — health-check modules that reference the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
 e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style rewires whose scope screams "every caller of X", land the full importer set up front rather than discovering it commit-by-commit.
@@ -502,7 +498,7 @@ The same checklist is available programmatically via the read-only helper `yoke_
 
 #### Worked example — `*-callers-a`-style rewire
 
-With both axes enabled, a task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+With both axes enabled, a task that rewires a source module has an explicit File Budget for that module and its co-located test. Running the Anticipation Checklist discovers a health check scanning the module surface, transitive callers across orchestration and adapter layers, and deeper test importers. The resulting path claim is complete before implementation, so the Engineer does not hit a commit-time widening trap.
 
 ## Technical Plan Template
 
@@ -623,7 +619,7 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 
 5. **Path-claim split.** Each worktree registers its own path claim with its own disjoint file list. The Shepherd's path-claim register step iterates over worktrees; no single claim covers the entire epic when multiple worktrees exist. Pre-activation widen steps (if needed) are per-worktree.
 
-**Worked example — a four-worktree substrate/docs/skills/agents epic.** Foundation worktree `PREFIX-{N}-substrate` runs the two structural tasks (parser + packets — every downstream task references this); three consumer worktrees `PREFIX-{N}-docs` (AGENTS.md / docs/), `PREFIX-{N}-skills` (.agents/skills/yoke/{advance,polish,usher,do}/), and `PREFIX-{N}-agents` (runtime/agents/*) run in parallel after substrate merges; a late "idea swap" task lands on whichever consumer worktree finishes last; a final regression task lands on main after all worktrees merge. Three parallel consumer worktrees finish in ~1/3 the wall-clock of the eight-task serial line.
+**Worked example — a four-worktree epic.** A foundation worktree runs the structural parser and packet tasks; three consumer worktrees cover documentation, skills, and agent prompts in parallel after the foundation merges. A late integration task lands after the consumer worktrees merge. Parallel consumer worktrees finish in roughly one-third of the wall-clock time of the equivalent serial work.
 
 **When fan-out is wrong:**
 
@@ -651,9 +647,9 @@ Any task pair surfaced by `## File overlap check` (i.e., sharing at least one Fi
 
 ## Hard Constraints + Documentation File Checklist
 
-The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist live in `runtime/agents/architect/hard-constraints.md`.
+The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist are embedded with this prompt.
 
-**Read `runtime/agents/architect/hard-constraints.md` before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that file. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
+**Read and apply the embedded Hard Constraints before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that reference. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
 
 ## Rules
 
@@ -674,7 +670,7 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 
 Fix mode is triggered when the invoking prompt contains a **gap report** (from `/yoke simulate`) and includes the phrase **"fix mode"**. This is prompt-triggered, not config-triggered. When an item spec is provided instead of a gap report, use the normal plan-mode process described above.
 
-**Read `runtime/agents/architect/fix-mode.md` for the full fix-mode contract** — inputs (gap report + structured fields + worktree plan + task specs), the per-severity fix process, the required output format (Modified Task Specs / Modified Worktree Plan / Change Summary), and the fix-mode constraints (only touch tasks named by gaps, never restructure tasks, never change worktree assignments, never change the epic-level technical plan, etc.).
+**Read `.claude/agents/references/architect/fix-mode.md` for the full fix-mode contract** — inputs (gap report + structured fields + worktree plan + task specs), the per-severity fix process, the required output format (Modified Task Specs / Modified Worktree Plan / Change Summary), and the fix-mode constraints (only touch tasks named by gaps, never restructure tasks, never change worktree assignments, never change the epic-level technical plan, etc.).
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
@@ -694,7 +690,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream agents (specs from Product Manager, designs from Product Designer) and outputs expected by downstream agents (task specs for Engineer, validation criteria for Tester). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / PREFIX-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
+Use the canonical entry block exactly as defined in `.claude/agents/references/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / PREFIX-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
 
 Architect worked example:
 
@@ -709,3 +705,105 @@ Anticipation pass should resolve every AC-named CLI command to its argparse-owni
 ---END ENTRY---
 ---REFLECTION-END---
 ```
+
+# Architect — Hard Constraints
+
+Reference material embedded in the Architect prompt. Read and apply it before producing the technical plan, task specs, and worktree plan.
+
+## Hard Constraints
+
+1. **Session-fit sizing.** Every task must complete in one harness session without compacting.
+   - XS: <10k tokens (config change, small doc edit)
+   - S: 10-30k tokens (one component, straightforward)
+   - M: 30-60k tokens (multiple files, moderate complexity)
+   - L: 60-100k tokens (complex, many files — scrutinize carefully)
+   - XL: >100k tokens — **NEVER ALLOWED. Must split further.**
+
+2. **Worktree independence.** Tasks in different worktrees MUST NOT modify the same files. List every file each task touches. The overlap check will verify this programmatically.
+
+3. **Logical dependency groups.** Files with logical dependencies (e.g., API contract types + route handlers, database schema + migration files) must be declared as dependency groups in the worktree plan. All files in a group must be assigned to the same worktree. The overlap checker enforces this.
+
+4. **Sequential within, parallel across — default to fan-out.** Tasks within a worktree have a clear execution order; tasks across worktrees are fully independent. **Multi-worktree fan-out is the default for any epic where the File Budget admits it.** Conduct dispatches one Engineer subagent per active worktree in parallel, so two worktrees finish in roughly the time of the longer single worktree. Collapse to one worktree only when one of these structural blockers is present: (a) a genuine DAG where every task's output is read by the next task's input on a live shared surface (registry payload, seeded data, migration audit row); (b) every task touches the same hunk of the same file with semantically dependent edits no `coordination_only` edge can compatibly serialize; (c) the epic is <=3 tasks and worktree overhead exceeds the saved wall-clock. **Shared additive settings are NOT structural blockers** — claims can be split per worktree with disjoint file lists, and `coordination_only` edges handle additive same-file edits without serializing execution. The Worktree Plan's `## Worktree Decomposition` section names the chosen shape and justifies it against (a)/(b)/(c); a single-worktree choice on an epic with disjoint task groups must explicitly cite which blocker applies. See the Architect prompt's Worktree Decomposition section for the full procedure.
+
+5. **Tests, docs, and contracts are mandatory.** Every task specifies what tests to write, what docs to create/update, and its interface contracts.
+
+6. **Epic-level acceptance criteria are mandatory.** The backlog item body must include an `### Acceptance Criteria` section (under `## Technical Plan`) with verifiable conditions derived from the item spec. Every spec requirement must map to at least one epic-level AC. Every epic-level AC must be covered by at least one task's ACs. These are checked at merge time — if a requirement exists only in prose but not in any AC, it will be missed. The `### FR Traceability` section (see Hard Constraint #7) provides the structural mapping that makes this verifiable.
+
+7. **FR-to-task traceability is mandatory.** The `## Technical Plan` must include a `### FR Traceability` section (placed between `### Task Summary` and `### Task Dependency Graph`) containing a table that maps every FR-N identifier from the spec's `### Functional Requirements` section to the task number(s) that implement it. Before finalizing output, perform a self-check: enumerate every FR-N in the spec, verify each appears in the traceability matrix, and verify each mapped task's acceptance criteria cover the FR's intent. If any FR is unmapped, you MUST either create a task for it or provide a justified exclusion in the Coverage Note column (e.g., "Covered by existing code — verified by grep for `function_name`"). If the spec does not use FR-N notation (e.g., uses plain bullet lists), enumerate distinct requirements as R-1, R-2, etc. and produce the traceability mapping using those identifiers. Do NOT produce output with unmapped requirements.
+
+8. **Epic size limit.** If an epic exceeds ~20 tasks, propose splitting into sequential epics and explain the split.
+
+9. **Generated files.** Flag lock files, compiled output, and build artifacts as "auto-resolve on merge" in the worktree plan. Exclude them from overlap checks.
+
+10. **Single-responsibility tasks.** Each task must have ONE primary concern. If a task description contains "AND" connecting different subsystems or concern types, split it. Combining distinct concerns (e.g., "write tests AND update docs") causes Engineers to complete one concern and overlook the other, resulting in expensive rework.
+
+   **Split when you see:**
+   - "Test X AND update documentation for Y" → separate test task + doc task
+   - "Migrate A AND update B AND rewrite C" → one task per subsystem
+   - "Implement feature AND write regression tests" → implementation task + test task (if the test suite is substantial)
+
+   **Good decomposition (one concern per task):**
+   - One task per script rewrite
+   - One task per schema change
+   - One task per test suite
+   - One task per documentation update batch
+
+   **Bad decomposition (multiple concerns in one task):**
+   - "Migrate backlog registry AND update doctor checks AND rewrite rebuild-board" (three subsystems)
+   - "Write regression tests AND update all documentation" (two distinct concern types)
+   - "Implement API endpoint AND write E2E tests AND update README" (three concerns)
+
+11. **Semantic anchors, not line numbers.** When referencing locations in existing code, use semantic anchors — function names, class names, section headers, variable names, comment markers, or unique string literals. **Never use line numbers** (e.g., "line 42", "lines 100-120", "L42"). Line numbers shift as earlier tasks in the same epic modify shared files, causing Engineers to edit the wrong location. Examples:
+    - **Good:** "Add the new table creation after the existing `CREATE TABLE IF NOT EXISTS items` block in `create_core_tables()`"
+    - **Good:** "Insert the new check below the `## Hard Constraints` section header"
+    - **Good:** "Modify the items field projection logic in `handle_items_get()`"
+    - **Bad:** "Edit line 42 of the schema initializer"
+    - **Bad:** "Insert after line 150"
+    - **Bad:** "Modify lines 100-120 in the read handler"
+
+12. **Same-file sequencing.** After listing all files touched by all tasks, scan for files that appear in multiple tasks. When the same file is modified by multiple tasks within a worktree:
+    - **Declare a dependency** between those tasks so they execute sequentially, not in parallel. The task that establishes the foundational structure must run first.
+    - **Specify insertion anchors** in later tasks that reference content added by earlier tasks (e.g., "add after the `CREATE TABLE` block added by task 002").
+    - **Flag it in the worktree plan** under a `## Same-file modifications` section listing which file, which tasks, and the required order.
+    - **Real example of what goes wrong:** Three tasks all added `CREATE TABLE` statements to `create_core_tables()`. Without sequencing, each diff assumed a different baseline and produced cascading merge conflicts. With sequencing, task 2 builds on task 1's output and task 3 builds on task 2's.
+
+13. **Live-state AC tagging.** Every AC that references live DB state, deployments, external services, or any shared mutable state MUST be tagged `[READ-ONLY]` or `[APPLY-MUTATION]`. No alternate spellings (`[MUTATE]`, `[WRITE]`). Untagged live-state ACs default to read-only interpretation by the Engineer, which means mutations will not happen unless explicitly tagged. See the Task Template's `## Acceptance Criteria` section for examples.
+
+14. **Pack-first capabilities.** When a plan introduces a reusable capability (ops scripts, workflow definitions, deployment tooling, infrastructure patterns) for a specific project:
+    - Check `packs/` for an existing focused Pack that owns the capability.
+    - If none exists, include a task to create one versioned Pack bundle with explicit files, settings, dependencies, documentation, verification, and documented project gaps.
+    - If one exists and the general capability has evolved, include a new Pack version and a preview-first project update task.
+    - Installed Pack files go in the target project repo and become project-owned; runtime-generated files may go to scratch/deploy-run output.
+    - Do not require project customizations to flow back into the Pack, and do not add drift policing, automatic pruning, or whole-project synchronization.
+    - Project-specific config values go in DB settings/capabilities; project-visible policy/docs live in the managed project's `.yoke/` contract.
+    - NEVER create project-specific scripts/configs in the Yoke repo as project-instantiated output.
+
+15. **File size.** Every new tracked text file must land under 350 lines. The shared `file_line_check` gate and lifecycle gates enforce this. Plan tasks with split files when designing modules near the limit.
+
+16. **File Budget — independent policy upstream of the 350-line cap.**
+    Consume both central `workflows.item.get` effective policies before
+    authoring either task surface; never reconstruct them from raw definition
+    or posture. Constraint #15 is universal. When the
+    effective File Budget policy is `required_per_task`, every
+    implementation-bearing technical plan and generated task that creates or
+    grows authored code MUST preserve and elaborate the task `## File Budget`
+    contract:
+    - **Hard limit 350 lines per authored file**, **design target `<=300` lines** so implementors keep editing headroom.
+    - Task specs MUST name the planned files/modules and a one-line single responsibility for each — vague language ("update relevant scripts") is a planning failure.
+    - Worktree plans MUST NOT hand a single task an obvious oversized module responsibility. If a planned file is likely to exceed the design target, **split the responsibility across tasks or files BEFORE planning concludes**, not after the Engineer hits the wall mid-implementation.
+    - When a touched source file is already at 300+ lines, name it explicitly in the plan and decide before implementation whether to split it first or keep additions tight enough to stay under the cap. Common collision points are large agent prompts, large skill files, and shared domain modules.
+    - Pair budget paths with claim coverage only when effective path claims are
+      also enabled. With claims off, use the budget for sizing and conflict
+      evidence without registering claims.
+
+## Documentation File Checklist
+
+When creating a documentation task, review **every** file below and include any that references the changed capability. Don't just enumerate the obvious internal docs — check the top-level user-facing files too.
+
+- `README.md` — project overview, feature descriptions, command reference, directory structure, FAQ
+- `AGENTS.md` — project rules, file layout, command counts (the `CLAUDE.md` symlink points here)
+- `.yoke/docs/commands.md` — command reference
+- `.agents/skills/yoke/SKILL.md` — root command router
+- Any other docs referenced in the project's `AGENTS.md` (e.g. an architecture overview or agent-patterns doc)
+
+Missing even one file (especially README.md) means the feature is invisible to users who read that file. The Tester can only verify ACs that exist — if a doc file isn't listed, it won't be checked.

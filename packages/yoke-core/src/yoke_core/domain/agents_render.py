@@ -41,6 +41,7 @@ from yoke_core.domain.agents_render_context import (
 from yoke_core.domain.agents_render_field_note import (
     detect_field_note_marker_drift,
 )
+from yoke_core.domain.agents_render_references import rendered_reference_outputs
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
     CLAUDE_SPEC_KEY_ORDER,  # noqa: F401 - preserve the renderer's public exports
@@ -91,8 +92,8 @@ AGENTS = [
     "boss",
 ]
 
-# Roles whose Codex adapters concatenate per-role subdir fragments.
-ROLES_WITH_FRAGMENTS = {"architect", "engineer", "simulator", "tester"}
+# Roles whose rendered adapters embed an always-needed reference section.
+ROLES_WITH_INLINE_REFERENCES = {"architect", "tester"}
 
 
 def _resolve_reader_root(target_root: Optional[Path]) -> Path:
@@ -106,17 +107,17 @@ def _resolve_reader_root(target_root: Optional[Path]) -> Path:
 
 
 def write_all_claude(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[str, str]]:
-    """Render every Claude agent adapter and write (or inspect) the output tree.
-
-    ``target_root`` is required and keyword-only — there is no implicit cwd
-    fallback inside the writer hot path. Pass an explicit checkout root.
-    """
+    """Render Claude agents and on-demand references for an explicit checkout."""
     results: dict[str, tuple[str, str]] = {}
     root = Path(target_root)
-    for agent in AGENTS:
-        out_path = root / CLAUDE_OUT_DIR / f"yoke-{agent}.md"
-        rendered = render_claude_agent(agent, target_root=root)
-        rel = str(CLAUDE_OUT_DIR / f"yoke-{agent}.md")
+    outputs = [
+        (CLAUDE_OUT_DIR / f"yoke-{agent}.md", render_claude_agent(agent, target_root=root))
+        for agent in AGENTS
+    ]
+    outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
+    for rel_path, rendered in outputs:
+        out_path = root / rel_path
+        rel = str(rel_path)
         if dry_run:
             existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
             action = "would-write" if rendered != existing else "skip"
@@ -185,6 +186,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
         outputs.append(
             (CLAUDE_OUT_DIR / f"yoke-{agent}.md", render_claude_agent(agent, target_root=root))
         )
+    outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     outputs.append((CLAUDE_SETTINGS_PATH, render_claude_settings_json()))
     outputs.append((CLAUDE_MANIFEST_PATH, render_claude_manifest_json()))
     for agent in AGENTS:

@@ -40,8 +40,9 @@ buckets a readiness-check `issues` list into four classes:
 | `mixed_stale_count` | at least one recoverable claim-coverage code is present (`FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is claim-coverage or optional `STALE_LINE_COUNT` | Dispatch to the internal claim-coverage helper for `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` — it auto-widens / auto-narrows / refuses ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
 | `unrecoverable` | anything else (unresolved refs, missing sibling plan, or a code outside the recoverable set) | Release the claim with reason `readiness-check-blocked` and exit 1 — same terminal behavior refine had before. |
 
-The classifier is a pure function and is unit-tested in
-[`runtime/api/domain/test_idea_readiness_repair.py`](../../../../runtime/api/domain/test_idea_readiness_repair.py).
+The classifier is a pure function with focused regression coverage. Verify its
+behavior through the project's registered test command rather than assuming a
+repository-specific test layout.
 Refine MUST classify before deciding whether to release the claim;
 the order matters because release-then-classify burns the chain step
 even on the recoverable branch.
@@ -229,6 +230,7 @@ the prior unrecoverable branch).
 ```bash
 yoke readiness check {N}
 yoke readiness repair-stale-count --item {N}
+uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
 ```
 
 Plus your project's registered verification command for the paths this repair
@@ -263,7 +265,7 @@ planned, amend the claim through the same ``--paths`` flow without
 ``--tentative-paths`` after a fresh ``register-claim`` (the runtime's
 sticky-tentative rule prevents implicit upgrades through automatic
 re-resolution; see
-[packages/yoke-core/src/yoke_core/domain/path_targets_planning.py](../../../../packages/yoke-core/src/yoke_core/domain/path_targets_planning.py)).
+`yoke_core.domain.path_targets_planning`).
 
 ## Symlink-aware repair advisory
 

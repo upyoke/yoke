@@ -29,19 +29,6 @@ Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 from __future__ import annotations
 
 
-WORKTREE_SOURCE_PATH_SETUP = (
-    "_repo=$(git rev-parse --show-toplevel)\n"
-    "_src_path=\"${_repo}/packages/yoke-contracts/src:"
-    "${_repo}/packages/yoke-cli/src:"
-    "${_repo}/packages/yoke-core/src:"
-    "${_repo}/packages/yoke-harness/src:${_repo}\""
-)
-
-WORKTREE_SOURCE_PYTHONPATH_PREFIX = (
-    'PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}"'
-)
-
-
 OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
@@ -220,12 +207,12 @@ OPERATIONAL_COMMANDS: list[dict] = [
 
     {
         "topic": "core",
-        "purpose": "Where to put a Python script that imports runtime.*",
-        "recipe": "# put it under runtime/api/tools/<name>.py — never /tmp/*.py",
+        "purpose": "Where to put a project Python script",
+        "recipe": "# put it under the project's tracked tools directory — never /tmp/*.py",
         "notes": (
             "Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, "
-            "not cwd, so `from runtime.*` fails. Use in-tree path or "
-            "`pip install -e .`. Prefer the canonical `yoke` CLI adapter "
+            "not cwd, so project imports may fail. Use a tracked project "
+            "path or the project's environment runner. Prefer the canonical `yoke` CLI adapter "
             "(`yoke items structured-field replace --stdin`) for "
             "one-off structured-field writes."
         ),
@@ -234,23 +221,17 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Verify Python imports/tests against linked worktree source",
         "recipe": (
-            f"{WORKTREE_SOURCE_PATH_SETUP}\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            "python3 -m yoke_core.tools.module_source_path yoke_core\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            "python3 -m yoke_core.tools.watch_pytest -- "
-            "runtime/api/test_my_module.py -q"
+            "uv run --frozen python3 -m "
+            "yoke_core.tools.module_source_path yoke_core\n"
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
+            "<project-test-path> -q"
         ),
         "notes": (
             "Fallback shape. `yoke watch pytest -- <paths>` already binds "
-            "the worktree in a uv-managed checkout — reach for the explicit "
-            "prefix only when uv is unavailable, or to check import origin "
-            "for a non-watcher invocation. Use it from linked worktrees "
-            "when the interpreter's editable install still points at the "
-            "main checkout, or when an externally-managed Python blocks "
-            "`python3 -m pip install -e .`. Prefix all four package `src` "
-            "dirs plus the repo root so subprocess `python3 -m ...` "
-            "invocations exercise this branch. Confirm the printed "
+            "the worktree in a uv-managed checkout. Use the command from "
+            "the linked worktree when the interpreter's editable install "
+            "could still point at main, or when an externally-managed Python "
+            "blocks `python3 -m pip install -e .`. Confirm the printed "
             "`yoke_core.__file__` path is under the worktree before "
             "trusting a green test run."
         ),
@@ -259,24 +240,20 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Re-render agent files after editing packet seeds",
         "recipe": (
-            f"{WORKTREE_SOURCE_PATH_SETUP}\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            'python3 -m yoke_cli.main agents render --target-root "${_repo}"'
+            "uv run --frozen python3 -m yoke_core.domain.agents_render "
+            "render --target-root <checkout>"
         ),
         "notes": (
             "After editing any `schema_api_context_*.py` seed file "
             "(`commands_core`, `tables_python_helpers`, etc.) or any "
             "canonical agent body, run the renderer or "
             "`test_byte_identity` fails. The renderer writes "
-            "`runtime/harness/claude/agents/yoke-*.md` + Codex "
-            "`.toml` siblings from the seeds. Drift check: "
-            "run the same worktree-source prefix with `python3 -m "
-            "yoke_cli.main agents render check --target-root "
-            "\"${_repo}\"`. Use the explicit `--target-root` form from "
+            "the installed Claude, Codex, and Cursor agent adapters from "
+            "the seeds. Drift check: run `uv run --frozen python3 -m "
+            "yoke_core.domain.agents_render check --target-root <checkout>`. "
+            "Use the explicit `--target-root` form from "
             "linked worktrees; implicit cwd-based render targets are refused "
-            "there. The installed `yoke` entry point can still target the "
-            "main checkout, so source-dev verification uses the package "
-            "`src` dirs above."
+            "there."
         ),
     },
     {

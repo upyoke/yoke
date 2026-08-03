@@ -91,9 +91,9 @@ The amendment workflow accepts a single flat payload combining both halves:
   "compatibility_class": "pre_merge_safe",
   "schema_kinds": ["additive"],
   "affected_surfaces": [{"table": "items", "columns": ["due_date"]}],
-  "pre_merge_readers_writers": [{"path": "packages/yoke-core/src/yoke_core/domain/items.py", "role": "writer"}],
+  "pre_merge_readers_writers": [{"path": "src/<package>/items.py", "role": "writer"}],
   "invariants": ["items.due_date nullable after apply"],
-  "rehearsal_commands": ["yoke watch pytest -- runtime/api/"],
+  "rehearsal_commands": ["yoke watch pytest -- <project-test-path>"],
   "residual_risk_notes": "none"
 }
 ```
@@ -241,8 +241,8 @@ Every row in `item_dependencies` is a real enforced blocker with directional mea
 - `evidence_json` -- structured evidence/provenance payload (e.g., `{"created_by":"operator"}`)
 
 **Domain modules:**
-- `packages/yoke-core/src/yoke_core/domain/dependencies.py` -- low-level dependency evaluation primitives (`evaluate_satisfaction()`, `query_unsatisfied_at_gate()`, `query_frontier_blocks()`, `explain_dependency()`).
-- `packages/yoke-core/src/yoke_core/domain/dependency_planning.py` -- shared dependency-planning kernel. All gate consumers share this single module for both gate evaluation and ordered planning. Key functions:
+- `yoke_core.domain.dependencies` -- low-level dependency evaluation primitives (`evaluate_satisfaction()`, `query_unsatisfied_at_gate()`, `query_frontier_blocks()`, `explain_dependency()`).
+- `yoke_core.domain.dependency_planning` -- shared dependency-planning kernel. All gate consumers share this single module for both gate evaluation and ordered planning. Key functions:
  - `evaluate_item_gate(conn, item_id, gate_point)` -- evaluate all dependencies for one item at one gate point; returns `ItemGateEvaluation` with structured `BlockerDetail` for each unsatisfied dependency.
  - `evaluate_batch_gates(conn, gate_point)` -- batch-evaluate all dependencies at a gate point for frontier computation.
  - `plan_candidate_set(conn, candidate_ids, gate_point)` -- plan a candidate set; returns eligible items in topological order and blocked items with detail.

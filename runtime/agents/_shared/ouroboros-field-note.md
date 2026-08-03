@@ -1,6 +1,6 @@
 # Ouroboros Field-Note Channel
 
-Canonical long-form reference for the field-note channel. Auto-generated from `packages/yoke-contracts/src/yoke_contracts/field_note_text.py` constants; do not edit the block between markers by hand.
+Canonical long-form reference for the field-note channel. Auto-generated from `yoke_contracts.field_note_text` constants; do not edit the block between markers by hand.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.

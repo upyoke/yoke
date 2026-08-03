@@ -79,7 +79,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "purpose": "Run pytest foreground inside one tool call (subagent)",
         "recipe": (
             "yoke watch pytest -- "
-            "runtime/api/test_my_module.py -q\n"
+            "<project-test-path>/test_my_module.py -q\n"
             "# Blocks within the same tool call; the wrapper mints raw + "
             "progress captures via project_scratch_dir.watcher_capture_path "
             "under the machine temp root's watcher-captures directory and prints them; "
@@ -129,7 +129,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch pytest "
             "--raw-capture <PATH> -- "
-            "runtime/api/test_my_module.py -q\n"
+            "<project-test-path>/test_my_module.py -q\n"
             "tail -80 <PATH>"
         ),
         "notes": (

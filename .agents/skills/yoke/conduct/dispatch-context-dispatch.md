@@ -109,7 +109,7 @@ task spec/execution document and survey instead. When path claims are off,
 omit both claim blocks; an enabled File Budget remains sizing/conflict
 evidence rather than write authorization.
 
-The Tester's dispatch prompt MUST include the same `## Active Path Claim Coverage` block read-only (per the Tester no-write contract in `runtime/agents/tester.md` § *Path-Claim Awareness*) so the Tester knows which paths are in-scope for validation versus paths whose failures route back to the parent session as "uncovered fix path" findings.
+The Tester's dispatch prompt MUST include the same `## Active Path Claim Coverage` block read-only (per the Tester prompt's *Path-Claim Awareness* contract) so the Tester knows which paths are in-scope for validation versus paths whose failures route back to the parent session as "uncovered fix path" findings.
 
 **After ALL Engineers return** (the Agent tool blocks until each returns):
 

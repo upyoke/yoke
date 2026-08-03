@@ -96,12 +96,12 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
         INSERT INTO path_claims (id, owner_kind, owner_item_id, state)
           VALUES (7, 'item', 42, 'active');
         INSERT INTO path_targets (id, path_string)
-          VALUES (9, 'runtime/api/domain/foo.py');
+          VALUES (9, '<project-source-path>/foo.py');
         INSERT INTO path_claim_targets (id, claim_id, target_id)
           VALUES (11, 7, 9);
         """
     )
 
     assert conn.execute(sql).fetchall() == [
-        (7, "item", 42, "active", "runtime/api/domain/foo.py")
+        (7, "item", 42, "active", "<project-source-path>/foo.py")
     ]
