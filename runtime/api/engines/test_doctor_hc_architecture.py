@@ -132,6 +132,17 @@ def conn(tmp_path: Path) -> Any:
 
 
 class TestUnclassifiedPath:
+    @pytest.mark.parametrize("check", [
+        hc_architecture_unclassified_path,
+        hc_architecture_forbidden_edge,
+        hc_architecture_cross_cutting_entrypoint,
+    ])
+    def test_missing_project_self_skips(self, conn, check):
+        rec = RecordCollector()
+        check(conn, _args("missing"), rec)
+        assert rec.results[-1].result == "PASS"
+        assert "architecture_model not set" in rec.results[-1].detail
+
     def test_path_without_layer_or_domain_warns(self, conn):
         _seed_model(conn)
         tid = mint_target(conn, "yoke", "runtime/api/domain/floater.py")
