@@ -52,6 +52,12 @@ PreToolUse Bash chain order rationale:
    main sessions never see the deny path.
 7. ``lint_session_cwd`` — broadest cwd-mismatch gate; runs first among
    the new entries because it scopes the rest.
+7b. ``lint_lane_main_write`` — refuse tracked source writes to the main
+   checkout while the session holds an implementation-lane work claim.
+   Runs immediately after ``lint_session_cwd`` on write-shaped tools
+   because ``lint_session_cwd`` still authorises control-plane targets
+   for reads and orchestration; this guard closes the cwd-flip write
+   hole for lane holders.
 8. ``lint_workspace_cwd_match`` — deny writer-class commands (pytest, the
    renderer CLI, run_tests) when the ambient session has active worktree
    claims and the cwd is outside those claims. Runs after lint_session_cwd
@@ -108,9 +114,11 @@ PreToolUse Bash chain order rationale:
 PreToolUse Edit/Write chain order rationale:
 
 1. ``lint_session_cwd`` — broadest cwd gate, runs first.
-2. ``path_claim_pre_edit_guard`` — claim-aware edit guard before file lints.
-3. ``lint_*`` (e.g., ``lint_write_path``, ``lint_tc_label``) — file-shape lints.
-4. ``observe_pre`` — telemetry tail.
+2. ``lint_lane_main_write`` — refuse main-checkout source writes while a
+   lane is held; runs before path-claim and file-shape lints.
+3. ``path_claim_pre_edit_guard`` — claim-aware edit guard before file lints.
+4. ``lint_*`` (e.g., ``lint_write_path``, ``lint_tc_label``) — file-shape lints.
+5. ``observe_pre`` — telemetry tail.
 
 PostToolUse Bash chain order rationale:
 
@@ -155,6 +163,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_if_status_capture",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.lint_session_cwd",
+    "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.lint_workspace_cwd_match",
     "yoke_core.domain.path_claim_bash_guard",
     "yoke_core.domain.lint_structured_field_transform_shell",
@@ -172,6 +181,7 @@ _PRE_BASH: tuple[str, ...] = (
 
 _PRE_EDIT: tuple[str, ...] = (
     "yoke_core.domain.lint_session_cwd",
+    "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
     "runtime.harness.hook_helpers_heartbeat",
@@ -180,6 +190,7 @@ _PRE_EDIT: tuple[str, ...] = (
 
 _PRE_WRITE: tuple[str, ...] = (
     "yoke_core.domain.lint_session_cwd",
+    "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_write_path",
     "yoke_core.domain.lint_python_runtime_import_in_tmp",
@@ -217,6 +228,7 @@ _PRE_MONITOR: tuple[str, ...] = (
 # has a stable ordering; module ids match the same policy modules.
 _PRE_APPLY_PATCH: tuple[str, ...] = (
     "yoke_core.domain.lint_session_cwd",
+    "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
     "runtime.harness.hook_helpers_heartbeat",
