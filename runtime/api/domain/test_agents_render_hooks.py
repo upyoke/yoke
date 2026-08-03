@@ -8,6 +8,8 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
+from yoke_harness.hooks import cursor_model_spool
+
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
     render_claude_hooks_block,
@@ -53,13 +55,25 @@ def test_claude_omits_verbs_no_claude_surface_fires() -> None:
     assert "AgentModelReported" not in block
 
 
-def test_cursor_wires_the_event_that_names_the_model() -> None:
-    """``afterAgentThought`` is the only Cursor event carrying a concrete
-    model, so unwiring it leaves terminal-agent sessions unattributed."""
-    hooks = render_cursor_hooks_block()["hooks"]
-    entries = hooks["afterAgentThought"]
+def test_model_capture_hook_never_starts_the_interpreter() -> None:
+    """``afterAgentThought`` fires inside the token stream, where starting
+    Python already exceeds what Cursor tolerates — a 0.25s hook carrying no
+    Yoke code at all kills 4 of 6 runs. Its command must stay shell-only and
+    must still reply, since empty stdout drops the stream too."""
+    entries = render_cursor_hooks_block()["hooks"]["afterAgentThought"]
     assert len(entries) == 1, entries
-    assert entries[0]["command"].endswith("yoke hook evaluate AgentModelReported'")
+    command = entries[0]["command"]
+    assert "yoke hook evaluate" not in command, command
+    assert "python" not in command.lower(), command
+    assert command.rstrip("'").endswith("echo {}"), command
+
+
+def test_model_capture_hook_and_reader_share_one_directory() -> None:
+    """The shell writes the spool and Python reads it; the directory name
+    has to come from the same constant or they silently miss each other."""
+    command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
+    assert cursor_model_spool.SPOOL_DIR_NAME in command
+    assert cursor_model_spool.SPOOL_DIR_NAME == cursor_model_spool.spool_dir().name
 
 
 def test_cursor_entries_carry_explicit_timeout() -> None:

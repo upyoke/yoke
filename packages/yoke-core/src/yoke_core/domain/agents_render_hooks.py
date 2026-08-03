@@ -21,6 +21,8 @@ from yoke_core.domain.agents_render_manifests import (
     CODEX_MANIFEST,
     CURSOR_MANIFEST,
 )
+from yoke_harness.hooks import cursor_model_spool
+
 from yoke_contracts.hook_runner.hook_ordering import (
     HOOK_ORDERING,
     matchers_for,
@@ -250,13 +252,10 @@ _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
 # container-mapping guard exists in session dispatch; wiring them first
 # would feed per-subagent session ids into ensure-register.
 #
-# afterAgentThought is wired for one reason: it is the only Cursor event
-# whose payload names a concrete model. Every other event — sessionStart
-# included — reports the literal placeholder "default" on the terminal
-# agent surface, so a session registered from them alone keeps an unknown
-# model for its whole life. It fires mid-generation, which makes its
-# handler's reply load-bearing: see the stream-safe reply in the Cursor
-# session dispatch.
+# afterAgentThought is deliberately absent from this table: it is the one
+# Cursor event that cannot afford to run the hook command at all. It fires
+# inside the token stream and is wired separately, to shell only, by
+# `cursor_model_spool` — see that module for the measurements.
 _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
     ("sessionStart", "SessionStart", None),
     ("sessionEnd", "SessionEnd", None),
@@ -267,7 +266,6 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
     ("postToolUse", "PostToolUse", "Write|Read|Task"),
     ("postToolUseFailure", "PostToolUseFailure", None),
     ("stop", "Stop", None),
-    ("afterAgentThought", "AgentModelReported", None),
 )
 
 
@@ -277,6 +275,11 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
 # generous ceiling keeps a slow transport from being killed mid-dispatch
 # by whatever the platform default happens to be.
 _CURSOR_HOOK_TIMEOUT_S = 30
+
+# The streaming event whose hook must stay at shell cost. Its command comes
+# from the spool module rather than `_cursor_command`, which would start the
+# interpreter this event cannot afford.
+_CURSOR_MODEL_CAPTURE_EVENT = "afterAgentThought"
 
 
 def _cursor_command(event_verb: str) -> str:
@@ -306,4 +309,8 @@ def render_cursor_hooks_block() -> dict:
         if matcher is not None:
             entry["matcher"] = matcher
         hooks.setdefault(cursor_event, []).append(entry)
+    hooks[_CURSOR_MODEL_CAPTURE_EVENT] = [{
+        "command": f"/bin/zsh -lc '{cursor_model_spool.capture_command()}'",
+        "timeout": _CURSOR_HOOK_TIMEOUT_S,
+    }]
     return {"version": 1, "hooks": hooks}
