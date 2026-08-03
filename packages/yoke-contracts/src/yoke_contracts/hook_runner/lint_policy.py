@@ -75,6 +75,8 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
               "Refuse background/Monitor backgrounding tools in subagent context."),
     GuardSpec("lint_session_cwd", f"{_MODULE_PREFIX}lint_session_cwd", False,
               "Confine writes to the session's claimed worktree / allowlist."),
+    GuardSpec("lint_lane_main_write", f"{_MODULE_PREFIX}lint_lane_main_write", False,
+              "Refuse source writes to main checkout while an implementation lane is held."),
     GuardSpec("lint_workspace_cwd_match", f"{_MODULE_PREFIX}lint_workspace_cwd_match", False,
               "Refuse cross-checkout pytest/render/test-runner Bash invocations."),
     GuardSpec("path_claim_bash_guard", f"{_MODULE_PREFIX}path_claim_bash_guard", False,

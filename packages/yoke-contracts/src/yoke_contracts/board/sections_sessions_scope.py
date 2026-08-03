@@ -70,10 +70,15 @@ def session_lane_presentation(
         normalized_project_id = int(project_id)
     except (TypeError, ValueError):
         return lane_presentation(str(lane or ""))
-    rows = db.query_quiet(
-        "SELECT settings FROM project_capabilities WHERE project_id = %s AND type = %s",
-        (normalized_project_id, SESSION_ROUTING_CAPABILITY),
+    sql = (
+        "SELECT settings FROM project_capabilities "
+        "WHERE project_id = %s AND type = %s"
     )
+    params = (normalized_project_id, SESSION_ROUTING_CAPABILITY)
+    has_query_quiet = getattr(db, "has_query_quiet", None)
+    if callable(has_query_quiet) and not has_query_quiet(sql, params):
+        return lane_presentation(str(lane or ""))
+    rows = db.query_quiet(sql, params)
     if not rows:
         return lane_presentation(str(lane or ""))
     raw_settings = rows[0][0]

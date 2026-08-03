@@ -13,7 +13,7 @@ from pathlib import Path
 from yoke_core.tools import impacted_tests, watch_pytest
 from yoke_core.tools.impacted_tests import Selection, build_import_index, select
 
-from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor
+from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
 
 
 def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
@@ -34,15 +34,53 @@ def test_bounded_selection_declines_to_widen(tmp_path: Path) -> None:
 def test_bounded_selection_still_runs_the_computable_subset(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 
-    bounded = select(
-        ["docs/lifecycle.md", "runtime/api/leaf.py"], index, bounded=True
-    )
+    bounded = select(["docs/lifecycle.md", "runtime/api/leaf.py"], index, bounded=True)
 
     assert bounded.full_sweep is False
     assert bounded.fallback_rule == "unmapped_file_kind"
     # The Python half of the edit is still bounded by reachability, so its
     # reachable test runs rather than being lost with the unbounded half.
-    assert "runtime/api/test_middle.py" in bounded.tests
+    assert "runtime/api/test_middle.py" in bounded.files
+
+
+def test_bounded_test_tooling_change_does_not_reexpand_through_importers(
+    tmp_path: Path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    tooling = "packages/yoke-core/src/yoke_core/tools/watch_pytest.py"
+    _write(root, tooling, "VALUE = 1\n")
+    _write(
+        root,
+        "runtime/api/test_watch_consumer.py",
+        "from yoke_core.tools import watch_pytest\n",
+    )
+    bounded = select([tooling], build_import_index(root), bounded=True)
+
+    assert bounded.fallback_rule == "test_tooling_module"
+    assert bounded.files == _with_floor()
+    assert "runtime/api/test_watch_consumer.py" not in bounded.files
+
+
+def test_bounded_near_total_reachability_defers_instead_of_expanding(
+    tmp_path: Path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    _write(root, "runtime/api/foundation.py", "VALUE = 1\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root,
+            f"runtime/api/test_foundation_{number}.py",
+            "from runtime.api import foundation\n",
+        )
+
+    index = build_import_index(root)
+    plain = select(["runtime/api/foundation.py"], index)
+    bounded = select(["runtime/api/foundation.py"], index, bounded=True)
+
+    assert plain.full_sweep is True
+    assert plain.fallback_rule == "effectively_full_selection"
+    assert bounded.bounded_deferral is True
+    assert bounded.files == _with_floor()
 
 
 def test_bounded_selection_leaves_a_bounded_verdict_alone(tmp_path: Path) -> None:
@@ -93,29 +131,62 @@ def test_telemetry_line_is_greppable_and_field_shaped() -> None:
     widened = Selection(
         full_sweep=True,
         reason="x",
+        total_files=10,
         fallback_rule="shared_test_fixture",
         trigger_paths=("runtime/api/conftest.py",),
     )
     bounded = Selection(
         full_sweep=False,
         reason="y",
-        tests=("a/test_b.py",),
+        files=("a/test_b.py",),
+        total_files=10,
         fallback_rule="unmapped_file_kind",
         trigger_paths=("docs/a.md",),
         bounded_deferral=True,
     )
-    plain = Selection(full_sweep=False, reason="z", tests=("a/test_b.py",))
+    plain = Selection(
+        full_sweep=False, reason="z", files=("a/test_b.py",), total_files=10
+    )
 
     assert widened.telemetry() == (
         "impacted-selection scope=full_sweep rule=shared_test_fixture "
-        "triggers=runtime/api/conftest.py tests=0"
+        "triggers=runtime/api/conftest.py files=10 of 10 "
+        "items=unknown of unknown"
     )
     assert bounded.telemetry() == (
         "impacted-selection scope=bounded_deferral rule=unmapped_file_kind "
-        "triggers=docs/a.md tests=1"
+        "triggers=docs/a.md files=1 of 10 items=unknown of unknown"
     )
     assert plain.telemetry() == (
-        "impacted-selection scope=impacted rule=none triggers=none tests=1"
+        "impacted-selection scope=impacted rule=none triggers=none "
+        "files=1 of 10 items=unknown of unknown"
+    )
+
+
+def test_item_counts_are_distinct_from_file_counts() -> None:
+    selection = Selection(
+        full_sweep=False,
+        reason="x",
+        files=("a/test_b.py",),
+        total_files=10,
+        selected_items=7,
+        total_items=83,
+    )
+
+    assert selection.count_summary() == "files=1 of 10 items=7 of 83"
+
+
+def test_watcher_footer_reports_collected_items_and_denominator() -> None:
+    full = Selection(full_sweep=True, reason="x", total_files=10)
+    partial = Selection(
+        full_sweep=False, reason="x", files=("a/test_b.py",), total_files=10
+    )
+
+    assert watch_pytest._selection_footer(full, 83).endswith(
+        "files=10 of 10 items=83 of 83"
+    )
+    assert watch_pytest._selection_footer(partial, 7).endswith(
+        "files=1 of 10 items=7 of unknown"
     )
 
 
@@ -124,9 +195,7 @@ def test_fallback_rules_covers_every_rule_the_selector_can_emit() -> None:
     # published set and the rule table must not drift apart.
     from_table = {rule for rule, _paths, _why in impacted_tests._PATH_RULES}
     assert from_table <= set(impacted_tests.FALLBACK_RULES)
-    assert len(impacted_tests.FALLBACK_RULES) == len(
-        set(impacted_tests.FALLBACK_RULES)
-    )
+    assert len(impacted_tests.FALLBACK_RULES) == len(set(impacted_tests.FALLBACK_RULES))
 
 
 def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
@@ -138,14 +207,12 @@ def test_wrapper_prints_prose_reason_and_telemetry(capsys, monkeypatch) -> None:
         fallback_rule="shared_test_fixture",
         trigger_paths=("runtime/api/conftest.py",),
     )
-    monkeypatch.setattr(
-        impacted_tests, "selection_for", lambda *a, **k: selection
-    )
+    monkeypatch.setattr(impacted_tests, "selection_for", lambda *a, **k: selection)
 
-    paths = watch_pytest._impacted_selection("main")
+    selected = watch_pytest._impacted_selection("main")
 
     out = capsys.readouterr().out
-    assert paths == list(impacted_tests.TEST_ANCHORS)
+    assert selected is selection
     assert "watch_pytest full sweep: " in out
     assert "watch_pytest impacted-selection scope=full_sweep" in out
     assert "rule=shared_test_fixture" in out
@@ -156,7 +223,7 @@ def test_wrapper_passes_bounded_through_to_selection(monkeypatch) -> None:
 
     def record(repo_root, base, *, bounded=False):
         seen["bounded"] = bounded
-        return Selection(full_sweep=False, reason="ok", tests=("a/test_b.py",))
+        return Selection(full_sweep=False, reason="ok", files=("a/test_b.py",))
 
     monkeypatch.setattr(impacted_tests, "selection_for", record)
 
