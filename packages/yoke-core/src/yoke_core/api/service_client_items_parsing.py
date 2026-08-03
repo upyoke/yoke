@@ -54,13 +54,14 @@ def _parse_item_id(raw: str) -> str | None:
     internal id happens against the DB in :func:`_resolve_item_ref` —
     per-project prefix resolution needs a connection.
     """
-    from yoke_core.domain.project_identity import _PUBLIC_REF_RE
+    from yoke_contracts.item_ref import parse_public_item_ref
 
     raw = raw.strip()
     if not raw:
         return None
     body = raw.rsplit("/", 1)[-1]
-    if body.isdigit() or _PUBLIC_REF_RE.match(body):
+    _, sequence = parse_public_item_ref(body)
+    if sequence is not None:
         return raw
     return None
 
