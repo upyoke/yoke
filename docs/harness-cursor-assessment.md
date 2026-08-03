@@ -106,13 +106,40 @@ configured" — `sessionStart` included, so a session registered from those
 events alone keeps `model=unknown` for its whole life. `afterAgentThought`
 is the sole carrier of a concrete id: `model_id` (`grok-4.5`) plus a
 variant-qualified `model` (`cursor-grok-4.5-high`) and a `model_params`
-list. Yoke maps it to the `AgentModelReported` verb, whose handler
-re-registers the session so the upgrade-only healing path replaces the
-placeholder. The signal arrives after the first assistant turn, so the
-model is unknown for the opening moments of a terminal-agent session by
-construction. Nothing else recovers it: Cursor transcripts record only
+list. Nothing else recovers it: Cursor transcripts record only
 `{role, message}`, hook processes are children of the `/bin/zsh -lc`
 wrapper rather than of `cursor-agent`, and no model env var is exported.
+
+**That event cannot run the hook command.** It fires inside the token
+stream — 17 times during one two-token reply — and Cursor holds the stream
+open across the hook, so hook duration is charged against the generation
+connection. Measured on cursor-agent 2026.07.23, six `cursor-agent -p` runs
+per configuration:
+
+| hook on `afterAgentThought` | duration | clean runs |
+|---|---|---|
+| none | — | 6/6 |
+| `echo {}` | 0.04s | 4/4 |
+| `sleep 0.25; echo {}`, no Yoke code | 0.25s | 2/6 |
+| `yoke hook evaluate`, work detached after replying | ~0.3s | 3/6 |
+| `yoke hook evaluate`, synchronous | ~0.7s | 2/6 |
+
+Failures surface as `RetriableError: WritableIterable is closed` — a
+transport error naming nothing hook-shaped. Two independent causes stack:
+an empty stdout drops the stream outright (0/3 runs survived before the
+handler replied `{}`), and beyond roughly 250ms the stream dies anyway.
+Starting the Yoke CLI costs ~0.23s of shell and interpreter startup before
+any Yoke code runs, so deferring work *inside* the handler cannot help —
+the budget is spent before the handler exists. Deny-capability is not the
+mechanism: `beforeShellExecution` and `beforeReadFile` are deny-capable and
+run the full command safely, because they fire between operations rather
+than during generation.
+
+So the streaming event runs shell only — it appends its payload to a spool
+directory and echoes `{}` — and the next ordinary hook drains the spool and
+ships the model through the existing client-identity channel. Recording is
+near-real-time rather than deferred to session end, because `preToolUse` and
+`postToolUse` fire within seconds. Owner: `yoke_harness.hooks.cursor_model_spool`.
 
 ### Decision wire format and context injection
 

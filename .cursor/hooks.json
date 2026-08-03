@@ -59,7 +59,7 @@
     ],
     "afterAgentThought": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate AgentModelReported'",
+        "command": "/bin/zsh -lc 'D=\"${YOKE_MACHINE_HOME:-$HOME/.yoke}\"/cursor-model-spool; mkdir -p \"$D\"; cat > \"$D/$$.json\"; echo {}'",
         "timeout": 30
       }
     ]
