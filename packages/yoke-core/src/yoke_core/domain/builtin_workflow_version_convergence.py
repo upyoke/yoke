@@ -36,16 +36,45 @@ InsertVersion = Callable[..., dict]
 # Requiring a self-consistent canonical payload keeps supported databases
 # bootable without treating arbitrary definition drift as history. Version 3
 # was first published with the schema-v2 binding vocabulary before the
-# canonical schema-v3 fixtures were introduced.
+# canonical schema-v3 fixtures were introduced; some databases then received
+# the governed vocabulary migration that rewrote those exact rows to schema 3.
 _COMPATIBLE_FIXED_VERSION_DIGESTS = {
-    ("issue", 1): "3daf973869d819ad3efee5869c9be1f4a71bd28711c919f7fda9c3a7c6d523ad",
-    ("epic", 1): "7e15484395d46766c933e27ccc29a6d8af2a6a5cf44f85e9b8e0067cdf03ed36",
-    ("blitz", 1): "dd75d375706225bc131120fe1839179477ae492d8c16f284d8d1c44cd0c6dcce",
-    ("dash", 1): "30ec3957c785b7748ba2a76ab8f34c4a5d73a166bf6c7fa34d1cca2cb594d369",
-    ("issue", 3): "92cd9641c34e4189115515df23a89eb854f98aca737c0e278be6a5a35fee0777",
-    ("epic", 3): "85cdf0ef0b70848a0e193f39f995a2e1c4570ce3afebda89bb6c1fcd1f191231",
-    ("blitz", 3): "e8b105ced9262225fc6a91da4e137735d4dafc8e432c692afa764a3a642099d9",
-    ("dash", 3): "7c2e47fb60470298f74417ac82707f1fde9b4e8dd64b0be0a3e66aa289f0711f",
+    ("issue", 1): frozenset(
+        {"3daf973869d819ad3efee5869c9be1f4a71bd28711c919f7fda9c3a7c6d523ad"}
+    ),
+    ("epic", 1): frozenset(
+        {"7e15484395d46766c933e27ccc29a6d8af2a6a5cf44f85e9b8e0067cdf03ed36"}
+    ),
+    ("blitz", 1): frozenset(
+        {"dd75d375706225bc131120fe1839179477ae492d8c16f284d8d1c44cd0c6dcce"}
+    ),
+    ("dash", 1): frozenset(
+        {"30ec3957c785b7748ba2a76ab8f34c4a5d73a166bf6c7fa34d1cca2cb594d369"}
+    ),
+    ("issue", 3): frozenset(
+        {
+            "92cd9641c34e4189115515df23a89eb854f98aca737c0e278be6a5a35fee0777",
+            "354fdc4d4728068ee0cbaacec3693f559a74bd7bb274de7d9eff970eb21ad49b",
+        }
+    ),
+    ("epic", 3): frozenset(
+        {
+            "85cdf0ef0b70848a0e193f39f995a2e1c4570ce3afebda89bb6c1fcd1f191231",
+            "cea051353acdf03a61fa6ba50f4048067ed0b95d75b9d834cc0b033728f6d5af",
+        }
+    ),
+    ("blitz", 3): frozenset(
+        {
+            "e8b105ced9262225fc6a91da4e137735d4dafc8e432c692afa764a3a642099d9",
+            "3b1e60c448df15c77dfd9c0e3477868cdd6f08dead29b660b4f4b5b0ba534071",
+        }
+    ),
+    ("dash", 3): frozenset(
+        {
+            "7c2e47fb60470298f74417ac82707f1fde9b4e8dd64b0be0a3e66aa289f0711f",
+            "69a96fa61c05848a10d21af0b97424c82963a0431b8454d840d9844e338d6515",
+        }
+    ),
 }
 
 
@@ -67,10 +96,13 @@ def _matches_compatible_fixed_version(
     workflow_id: str,
     version: int,
 ) -> bool:
-    accepted_digest = _COMPATIBLE_FIXED_VERSION_DIGESTS.get(
+    accepted_digests = _COMPATIBLE_FIXED_VERSION_DIGESTS.get(
         (workflow_id, version)
     )
-    if accepted_digest is None or str(existing["definition_digest"]) != accepted_digest:
+    if (
+        accepted_digests is None
+        or str(existing["definition_digest"]) not in accepted_digests
+    ):
         return False
     try:
         decoded = decode_definition(existing["definition_json"])
