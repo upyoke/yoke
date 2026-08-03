@@ -32,8 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Sequence, Set, Tuple
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.migration_apply_contract import MigrationApplyError
+from yoke_core.domain import db_backend, migration_restore_point
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 
 #: Advisory-lock id serializing migration apply on one database. Postgres
@@ -48,10 +47,6 @@ MIGRATION_APPLY_LOCK_KEY = int.from_bytes(
 )
 
 LEDGER_TABLE = "applied_migrations"
-
-
-class RestorePointRequired(MigrationApplyError):
-    """Refused to apply because no restore point covers the change."""
 
 
 @dataclass(frozen=True)
@@ -147,7 +142,7 @@ def apply_pending(
     if not pending_entries(conn, history):
         return ApplyOutcome(applied=(), restore_point=None)
 
-    restore_point = _resolve_restore_point(
+    restore_point = migration_restore_point.establish(
         conn,
         backup_root=backup_root,
         external_restore_point=external_restore_point,
@@ -167,37 +162,6 @@ def apply_pending(
         return ApplyOutcome(applied=tuple(applied), restore_point=restore_point)
     finally:
         _release_apply_lock(conn)
-
-
-def _resolve_restore_point(
-    conn: Any,
-    *,
-    backup_root: Optional[Path],
-    external_restore_point: Optional[str],
-) -> str:
-    if external_restore_point and backup_root:
-        raise RestorePointRequired(
-            "supply either backup_root or external_restore_point, not both; "
-            "two restore points means neither is authoritative in a recovery"
-        )
-    if external_restore_point:
-        return external_restore_point
-    if backup_root is None:
-        raise RestorePointRequired(
-            "refusing to apply pending migrations with no restore point: pass "
-            "backup_root to dump before applying, or external_restore_point to "
-            "name a snapshot already taken"
-        )
-    if not db_backend.connection_is_postgres(conn):
-        raise RestorePointRequired(
-            "restore-point dumps are Postgres-only; a non-Postgres authoritative "
-            "database needs its own explicit restore contract"
-        )
-    from yoke_core.domain.migration_apply_targets import dump_postgres_to_directory
-
-    return dump_postgres_to_directory(
-        db_backend.resolve_pg_dsn(), "pre-migration-apply", Path(backup_root)
-    )
 
 
 def _apply_one(
@@ -321,7 +285,6 @@ __all__ = [
     "ApplyOutcome",
     "LEDGER_TABLE",
     "MIGRATION_APPLY_LOCK_KEY",
-    "RestorePointRequired",
     "applied_names",
     "apply_pending",
     "pending_entries",

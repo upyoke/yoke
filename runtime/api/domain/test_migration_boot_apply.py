@@ -8,12 +8,12 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.migration_boot_apply import (
-    RestorePointRequired,
     applied_names,
     apply_pending,
     pending_entries,
     stamp_history,
 )
+from yoke_core.domain.migration_restore_point import RestorePointRequired
 from yoke_core.domain.migration_history import ordered_entries
 
 RESTORE_POINT = "snapshot:test-restore-point"

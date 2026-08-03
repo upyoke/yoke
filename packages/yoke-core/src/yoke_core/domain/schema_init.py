@@ -35,6 +35,7 @@ from yoke_core.domain.qa_plan_execution_schema import (
 from yoke_core.domain.qa_plan_review_schema import (
     ensure_qa_plan_review_schema,
 )
+from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -93,19 +94,23 @@ def _converge_registered_command_plans(conn) -> None:
 
 
 def converge_core_schema(conn) -> None:
-    """Idempotently bring an existing DB's schema up to the current code.
+    """Bring a database's schema up to the current code.
 
     Runs every schema-CREATION step — tables, indexes, and strictly additive
     columns — in FK-dependency order, then inserts any missing code-owned
-    deployment-flow definitions. It performs no destructive drops, data
-    backfills, row deletions, or history-bound flow rewrites. Exact recognized
-    built-in predecessors may be disabled after their bindings are terminal,
-    while a code-owned successor becomes the project default. Modified project
-    definitions remain untouched. Safe to run on every server boot of an
-    already-born universe, which is what propagates newly deployed tables,
-    columns, and built-in flow definitions to existing prod / self-host
-    universes on the boot after a deploy (see
-    :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
+    deployment-flow definitions, and finally applies whatever the ordered
+    migration history says this database still owes. Exact recognized built-in
+    predecessors may be disabled after their bindings are terminal, while a
+    code-owned successor becomes the project default. Modified project
+    definitions remain untouched. This runs on every server boot, which is what
+    propagates newly deployed tables, columns, built-in flow definitions, and
+    pending migrations to existing prod / self-host universes on the boot after
+    a deploy (see :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
+
+    The creation steps themselves stay strictly non-destructive. Destructive
+    change is not absent — it is confined to the history, where it is ordered,
+    recorded per database, and covered by a restore point, rather than being an
+    inline repair nothing can audit.
 
     This is the single source of the schema-creation sequence: :func:`cmd_init`
     runs it, then layers seeds and the birth-only data-shape migrations on top.
@@ -113,6 +118,16 @@ def converge_core_schema(conn) -> None:
     organizations (created by ``create_auth_tables``), and roles, so those
     creation steps precede it.
     """
+    # Read born-ness BEFORE creating anything. A database that is already a
+    # live universe owes the history; a newborn one gets its schema from this
+    # very call and therefore already satisfies every historical entry. After
+    # the creation steps run, the two are indistinguishable — which is why
+    # ``cmd_init`` calling this first makes an empty ledger useless as a birth
+    # signal, and why the question is asked here instead.
+    from yoke_core.domain.environment_bootstrap import universe_is_born_on
+
+    was_born = universe_is_born_on(conn)
+
     create_core_tables(conn)
     create_actor_identity_tables(conn)
     # actor_ui_preferences FKs into actors, so this follows the identity step.
@@ -171,6 +186,51 @@ def converge_core_schema(conn) -> None:
         create_or_replace_item_progress_view(conn)
     if _table_exists(conn, "qa_runs"):
         _ensure_qa_runs_verdict_trigger(conn)
+    converge_migration_history(conn, was_born=was_born)
+
+
+def converge_migration_history(conn, *, was_born: bool) -> None:
+    """Bring this database up to the ordered migration history.
+
+    Runs last, after every creation step, so an entry can rely on the current
+    schema being present. ``was_born`` must be the caller's observation from
+    *before* any of those steps ran — see :func:`converge_core_schema`.
+
+    Guarded to real Postgres only, which is what separates an authoritative
+    universe from the generic SQLite validation surface
+    (``schema_common._using_generic_sqlite_validation`` is exactly this
+    predicate, negated). There is no capability check: a project capability
+    row cannot gate this, because a freshly born universe has none and would
+    silently skip its own history — the failure this whole mechanism exists to
+    remove.
+    """
+    if not db_backend.connection_is_postgres(conn):
+        return
+
+    from yoke_core.domain import migrations as migration_history_package
+    from yoke_core.domain.migration_boot_apply import apply_pending, stamp_history
+    from yoke_core.domain.migration_restore_point import configured_restore_point
+    from yoke_core.domain.migration_history import history_dir, ordered_entries
+
+    history = ordered_entries(history_dir(migration_history_package))
+    if not history:
+        return
+
+    if not was_born:
+        # A newborn database got its schema from the code that owns this
+        # history, so every entry is already true of it. Record them and run
+        # none: this is Flyway's baseline / Django's fake-initial.
+        stamp_history(conn, history, applied_by="birth")
+        return
+
+    backup_root, external_restore_point = configured_restore_point()
+    apply_pending(
+        conn,
+        history=history,
+        applied_by="boot-converge",
+        backup_root=backup_root,
+        external_restore_point=external_restore_point,
+    )
 
 
 def cmd_init() -> None:

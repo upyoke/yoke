@@ -132,3 +132,34 @@ def ensure_migration_audit_table_postgres(conn: Any) -> None:
     """Idempotently create ``migration_audit`` using native Postgres DDL."""
     conn.execute(MIGRATION_AUDIT_POSTGRES_DDL)
     conn.commit()
+
+
+#: The per-database cursor into the ordered migration history: one row per
+#: applied entry, keyed by the history's own identity (the module filename
+#: stem). A cursor, not a receipt store — the pending set is
+#: ``history - ledger``, so a database answers "am I current?" from its own
+#: rows plus the code it is running, with no central registry to consult and
+#: nothing to keep in sync. Rich per-apply evidence stays in ``migration_audit``.
+#:
+#: Portable DDL with no foreign keys, deliberately: it is created on the
+#: control plane, on any authoritative database a governed migration targets,
+#: and in the pytest fixture schema, which strips foreign keys.
+APPLIED_MIGRATIONS_DDL = """
+    CREATE TABLE IF NOT EXISTS applied_migrations (
+        migration_name TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL,
+        applied_by TEXT
+    );
+"""
+
+
+def ensure_applied_migrations_table(conn: Any) -> None:
+    """Idempotently create ``applied_migrations`` on *conn*.
+
+    Shares its DDL with every consumer for the same reason
+    :func:`ensure_migration_audit_table` does: a ledger that differs between
+    the control plane, a project's authoritative database, and the test
+    fixture schema would make "is this database current?" mean three things.
+    """
+    execute_schema_script(conn, APPLIED_MIGRATIONS_DDL)
+    conn.commit()

@@ -281,28 +281,13 @@ def create_core_tables(conn: Any) -> None:
 
 
 def create_governed_tables(conn: Any) -> None:
-    from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
+    from yoke_core.domain.migration_audit_schema import (
+        ensure_applied_migrations_table,
+        ensure_migration_audit_table,
+    )
 
     ensure_migration_audit_table(conn)
-
-    # applied_migrations — the per-database cursor into the ordered
-    # migration history.  One row per applied entry, keyed by the
-    # history's own identity (the module filename stem).  This is a
-    # cursor, not a receipt store: the pending set is
-    # ``history - ledger``, so a database can answer "am I current?"
-    # from its own rows plus the installed code, with no central
-    # registry to consult and nothing to keep in sync.  Rich per-apply
-    # evidence stays in ``migration_audit``.
-    execute_schema_script(
-        conn,
-        """
-        CREATE TABLE IF NOT EXISTS applied_migrations (
-            migration_name TEXT PRIMARY KEY,
-            applied_at TEXT NOT NULL,
-            applied_by TEXT
-        );
-    """,
-    )
+    ensure_applied_migrations_table(conn)
 
     # coordination_leases — shared-operation lease primitive keyed on
     # (project_id, lease_key).  The migration consumer scopes per-model
