@@ -315,13 +315,13 @@ def execute_create(
         # Body completeness warning
         title_threshold = len(f"# {title}") + 4
         body_len = len(body)
-        if body_len <= title_threshold:
+        if not clean_instruction and body_len <= title_threshold:
             print("", file=out)
             print(f"WARNING: {item_ref} created with no body content.", file=out)
             print("Cold-start sessions need full context: problem, fix plan, acceptance criteria.", file=out)
             print(
-                f"Use: printf '%s' \"$content\" | python3 -m yoke_core.cli.db_router "
-                f"items update {current_id} spec --stdin",
+                f"Use: printf '%s' \"$content\" | yoke items structured-field "
+                f"replace {item_ref} --field spec --stdin",
                 file=out,
             )
             print("", file=out)

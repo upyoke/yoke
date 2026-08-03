@@ -184,6 +184,51 @@ class TestExecuteCreate:
         assert _item_field(tmp_db, result["item_id"], "status") == "idea"
         patched["_rebuild_board"].assert_called_once_with(out)
 
+    def test_dash_instruction_does_not_emit_empty_body_warning(self, tmp_db):  # noqa: F811
+        out = io.StringIO()
+        instruction = "Fix the footer and verify every link."
+        with _patch_externals(), \
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
+            result = backlog.execute_create(
+                title="Dash item",
+                workflow="dash",
+                project="yoke",
+                entry_surface="harness_skill",
+                instruction=instruction,
+                out=out,
+            )
+
+        assert result["success"] is True
+        assert _item_field(tmp_db, result["item_id"], "spec") == instruction
+        assert "created with no body content" not in out.getvalue()
+
+    def test_empty_dash_body_warns_with_registered_structured_field_recipe(self, tmp_db):  # noqa: F811
+        out = io.StringIO()
+        with _patch_externals(), \
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
+            result = backlog.execute_create(
+                title="Empty Dash item",
+                workflow="dash",
+                project="yoke",
+                entry_surface="harness_skill",
+                out=out,
+            )
+
+        assert result["success"] is True
+        log = out.getvalue()
+        assert "created with no body content" in log
+        assert (
+            f"yoke items structured-field replace {result['item_ref']} "
+            "--field spec --stdin"
+        ) in log
+        assert "python3 -m yoke_core.cli.db_router" not in log
+
     def test_create_validation_failure(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         with _patch_externals(), \
