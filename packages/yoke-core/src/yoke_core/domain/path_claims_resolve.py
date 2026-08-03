@@ -181,7 +181,7 @@ def resolve_or_plan_paths_to_target_ids(
 
     Path kind defaults to ``file``. Pass ``directory_paths`` to mark a
     subset as directory targets — useful when operators claim a future
-    directory like ``runtime/api/domain/migrations/`` separately from
+    directory like ``packages/yoke-core/src/yoke_core/domain/migrations/`` separately from
     files inside it.
 
     ``project_root`` is retained for older callers; symlink expansion is

@@ -16,7 +16,10 @@ When the spec proposes a concrete implementation path (a file, directory, or pac
 
 If the path does not resolve, re-derive from the live tree before writing. Canonical re-derivation sources, in order:
 
+<<<<<<< HEAD
 1. The project's verified one-shot migration package root. New migration ideas reference the live package that discovery resolves, never a guessed directory.
+=======
+>>>>>>> YOK-2002
 2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
 3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
 
