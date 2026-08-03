@@ -66,7 +66,12 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "args after `--`."
     ),
     "yoke watch merge": (
-        "Run done-transition or merge-worktree under the shared raw+progress watcher."
+        "Run done-transition, merge-item, or merge-worktree under the shared "
+        "raw+progress watcher."
+    ),
+    "yoke watch qa-case": (
+        "Run the QA gate under the shared raw+progress watcher; pass bare "
+        "`qa case run` flags after `--`."
     ),
     "yoke watch tail": (
         "Follow a watcher progress capture and exit on the wrapper's exit sentinel."

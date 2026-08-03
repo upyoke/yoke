@@ -15,6 +15,7 @@ TOOL_CLI_ROWS: Tuple[_Row, ...] = (
     _t("yoke watch pytest", "tools.watch"),
     _t("yoke watch doctor", "tools.watch"),
     _t("yoke watch merge", "tools.watch"),
+    _t("yoke watch qa-case", "tools.watch"),
 )
 
 

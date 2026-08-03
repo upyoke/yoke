@@ -120,6 +120,7 @@ class TestRegistryShape:
             "yoke watch pytest",
             "yoke watch doctor",
             "yoke watch merge",
+            "yoke watch qa-case",
         }
         for entry in inv.by_status(inv.TOOL_CLI):
             assert entry.reason == inv.REASON_TOOL_SHAPED
