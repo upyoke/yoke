@@ -14,7 +14,6 @@ from yoke_core.domain.workflow_schema import (
 )
 
 
-MIGRATION_NAME = "workflow_and_deployment_stage_vocabulary"
 WORKFLOW_SCHEMA_VERSION = 3
 
 
@@ -216,4 +215,4 @@ def invariants(conn: Any) -> None:
                 )
 
 
-__all__ = ["MIGRATION_NAME", "apply", "invariants"]
+__all__ = ["apply", "invariants"]

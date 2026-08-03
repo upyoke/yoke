@@ -1,4 +1,4 @@
-"""Coverage for the retained stage-vocabulary data migration."""
+"""Coverage for the stage-vocabulary entry in the migration history."""
 
 from __future__ import annotations
 
@@ -7,9 +7,26 @@ import sqlite3
 
 import pytest
 
-from yoke_core.domain.migrations import workflow_and_deployment_stage_vocabulary as migration
+from yoke_core.domain import migrations as migration_history_package
+from yoke_core.domain.migration_history import (
+    history_dir,
+    load_migration_module,
+    ordered_entries,
+)
 from yoke_core.domain.workflow_definition_codec import definition_digest
 from yoke_core.domain.workflow_schema import _ensure_immutable_version_triggers
+
+# History entries are named ``NNNN_slug``, which is not an importable
+# identifier, so the module loads through the history loader the applier
+# itself uses. Selecting by slug rather than by full name keeps this test
+# working across a renumbering (a squash renumbers; it does not rename).
+_ENTRY_SLUG = "workflow_and_deployment_stage_vocabulary"
+_entry = next(
+    entry
+    for entry in ordered_entries(history_dir(migration_history_package))
+    if entry.name.endswith(_ENTRY_SLUG)
+)
+migration = load_migration_module(_entry.path, _entry.name)
 
 
 def _connection() -> sqlite3.Connection:
