@@ -17,6 +17,7 @@ import pytest
 
 from runtime.api.conftest import insert_item
 from yoke_core.domain import db_backend
+from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODULES_DIR
 from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
 from yoke_core.domain.migration_apply_targets import (
     POSTGRES_VALIDATION_ENV_SUFFIX,
@@ -164,7 +165,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
     """
     worktree = tmp_path / "yoke-repo"
     worktree.mkdir(parents=True, exist_ok=True)
-    modules_dir = worktree / "runtime" / "api" / "domain" / "migrations"
+    modules_dir = worktree / DEFAULT_MODULES_DIR
     modules_dir.mkdir(parents=True, exist_ok=True)
     (modules_dir / "__init__.py").write_text("", encoding="utf-8")
     (modules_dir / "sample_migration.py").write_text(
@@ -198,9 +199,6 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
             ),
         )
         seed = governed_postgres_test_seed()
-        seed["models"]["primary"]["runner"]["config"]["modules_dir"] = (
-            "packages/yoke-core/src/yoke_core/domain/migrations"
-        )
         seed_json = json.dumps(seed, sort_keys=True)
         conn.execute(
             "INSERT INTO project_capabilities "

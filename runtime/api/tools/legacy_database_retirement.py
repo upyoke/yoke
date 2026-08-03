@@ -21,6 +21,8 @@ import sys
 
 import psycopg
 
+from yoke_contracts.control_plane_locality import local_authority_exempt
+
 from yoke_core.domain import db_backend
 
 _TENANT_NAME = re.compile(r"^yoke_tenant_\d+$")
@@ -33,12 +35,21 @@ _ACTIVITY_PROBES = (
 
 
 def _connect(dbname: str):
-    return psycopg.connect(db_backend.resolve_pg_dsn(dbname), autocommit=True)
+    # Cluster-admin maintenance on orphan databases: this tool exists to
+    # operate on databases the control plane does not own, under an
+    # explicit *-db-admin env selected by the operator.
+    with local_authority_exempt():
+        return psycopg.connect(
+            db_backend.resolve_pg_dsn(dbname), autocommit=True
+        )
 
 
 def _authority_dbname() -> str:
-    with psycopg.connect(db_backend.resolve_pg_dsn()) as conn:
-        return str(conn.execute("SELECT current_database()").fetchone()[0])
+    with local_authority_exempt():
+        with psycopg.connect(db_backend.resolve_pg_dsn()) as conn:
+            return str(
+                conn.execute("SELECT current_database()").fetchone()[0]
+            )
 
 
 def inspect(dbname: str) -> int:
