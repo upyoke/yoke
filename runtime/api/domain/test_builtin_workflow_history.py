@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+import pytest
+
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definition,
@@ -79,6 +81,29 @@ def _schema_two_version_three_definition(workflow_id: str) -> dict:
     return definition
 
 
+def _migrated_schema_three_version_three_definition(workflow_id: str) -> dict:
+    definition = _schema_two_version_three_definition(workflow_id)
+    definition["schema_version"] = 3
+    definition["skill_bindings"] = [
+        {
+            ("skill_id" if key == "executor_id" else key): value
+            for key, value in binding.items()
+        }
+        for binding in definition.pop("executor_bindings")
+    ]
+    for stage in definition["stages"]:
+        if not isinstance(stage.get("description"), str):
+            continue
+        stage["description"] = (
+            stage["description"]
+            .replace("Executors", "Skills")
+            .replace("Executor", "Skill")
+            .replace("executors", "skills")
+            .replace("executor", "skill")
+        )
+    return definition
+
+
 def _reset_to_version_one(conn, history: list[dict]) -> None:
     conn.execute("TRUNCATE workflows, workflow_versions RESTART IDENTITY CASCADE")
     for fixture in history:
@@ -119,7 +144,17 @@ def _reset_to_version_one(conn, history: list[dict]) -> None:
     conn.commit()
 
 
-def test_schema_two_version_three_history_converges_without_rewriting(test_db):
+@pytest.mark.parametrize(
+    "version_three_definition",
+    (
+        _schema_two_version_three_definition,
+        _migrated_schema_three_version_three_definition,
+    ),
+    ids=("schema-two", "migrated-schema-three"),
+)
+def test_fixed_version_three_history_converges_without_rewriting(
+    test_db, version_three_definition
+):
     history = builtin_workflow_version_history()
     _reset_to_version_one(test_db, history)
     version_two = {
@@ -131,7 +166,7 @@ def test_schema_two_version_three_history_converges_without_rewriting(test_db):
     for workflow_id in BUILTIN_WORKFLOW_IDS:
         for version, definition in (
             (2, version_two[workflow_id]),
-            (3, _schema_two_version_three_definition(workflow_id)),
+            (3, version_three_definition(workflow_id)),
         ):
             payload = canonical_definition_json(definition)
             digest = definition_digest(definition)
