@@ -92,8 +92,7 @@
       "wrapup_reports drop removes the table only after confirming zero live readers"
     ],
     "rehearsal_commands": [
-      "governed runner rehearse against the stage validation surface for all six modules",
-      "governed runner rehearse against the prod validation surface for drop_event_parent_id and drop_epic_task_blocked_by"
+      "uv run --frozen python3 -m pytest runtime/api/domain/test_retired_surface_drop_modules.py -q"
     ],
     "residual_risk_notes": "Both target column sets are verified-dead in every serving build; the only prior failure mode (old build writing events.parent_id during the drop window) is closed because current builds no longer reference the columns."
   },
