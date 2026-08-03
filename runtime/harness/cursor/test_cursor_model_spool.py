@@ -27,11 +27,15 @@ def spool_home(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
 
 def _fire_capture_hook(payload: dict, home) -> int:
-    """Run the rendered hook exactly as Cursor runs it."""
-    command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
+    """Run the real shell fragment Cursor's hook runs.
+
+    Executes ``capture_command()`` itself rather than the rendered
+    ``/bin/zsh -lc '...'`` wrapper, so the assertions cover the fragment's
+    quoting and paths on any POSIX shell — CI runners have no zsh. The
+    wrapper's own shape is asserted separately, without executing it.
+    """
     completed = subprocess.run(
-        command,
-        shell=True,
+        ["/bin/sh", "-c", cursor_model_spool.capture_command()],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -39,6 +43,13 @@ def _fire_capture_hook(payload: dict, home) -> int:
     )
     assert completed.stdout.strip() == "{}", completed
     return completed.returncode
+
+
+def test_rendered_command_runs_the_fragment_under_a_login_shell() -> None:
+    """The fragment is executed above; this pins the wrapper around it, which
+    is what Cursor actually invokes."""
+    command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
+    assert command == f"/bin/zsh -lc '{cursor_model_spool.capture_command()}'"
 
 
 def test_rendered_shell_hook_spools_where_the_reader_looks(spool_home) -> None:
