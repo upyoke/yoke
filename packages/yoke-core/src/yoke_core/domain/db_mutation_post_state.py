@@ -83,7 +83,7 @@ def verify_destructive_post_state(
     except RetiredSchemaRegistryError as exc:
         return [
             f"retired-schema registry is malformed: {exc}. "
-            "Fix runtime/api/domain/retired_schema_surfaces.yaml before re-running advance."
+            "Fix yoke_core/domain/retired_schema_surfaces.yaml before re-running advance."
         ]
 
     offending_columns: List[Tuple[str, str, Optional[str]]] = [

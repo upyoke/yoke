@@ -21,8 +21,10 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
     gate_audit_path,
     seed_audit_row,
 )
-from runtime.api.domain.test_db_mutation_gate_evidence import gate_db  # noqa: F401 — pytest fixture
 from runtime.api.fixtures.backlog import insert_item
+
+
+pytest_plugins = ("runtime.api.domain.test_db_mutation_gate_evidence",)
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +86,15 @@ def _write_table_registry(
     table_name: str,
     module: str,
 ) -> None:
-    target = repo_path / "runtime" / "api" / "domain" / "retired_schema_surfaces.yaml"
+    target = (
+        repo_path
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "retired_schema_surfaces.yaml"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         "surfaces:\n"
@@ -145,7 +155,15 @@ def test_table_level_unregistered_surface_does_not_block(gate_db) -> None:
         repo_path,
         "CREATE TABLE demo_backup (id INTEGER PRIMARY KEY)",
     )
-    target = repo_path / "runtime" / "api" / "domain" / "retired_schema_surfaces.yaml"
+    target = (
+        repo_path
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "retired_schema_surfaces.yaml"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("surfaces: []\n", encoding="utf-8")
     rsr.clear_cache()

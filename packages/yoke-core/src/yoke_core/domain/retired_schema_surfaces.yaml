@@ -5,12 +5,10 @@
 # must never be re-added by ambient init / idempotent bootstrap logic.
 #
 # Consumed by:
-#   * runtime.api.domain.retired_schema_registry (loader + query helpers)
-#   * runtime.api.domain.projects_restart (ADD COLUMN guard)
-#   * runtime.api.domain.db_mutation_gate (post-state verification for
-#     check_implementing_to_reviewing_implementation_gate when a work item's
-#     db_mutation_profile.affected_surfaces names a registered surface)
-#   * runtime.api.engines.doctor_hc_retired_schema (health check)
+#   * yoke_core.domain.retired_schema_registry (loader + query helpers)
+#   * yoke_core.domain.projects_restart (ADD COLUMN guard)
+#   * yoke_core.domain.db_mutation_gate (post-state verification)
+#   * yoke_core.engines.doctor_hc_retired_schema (health check)
 #
 # Contract:
 #   * Every entry names the project, the authoritative model, the
@@ -19,21 +17,17 @@
 #   * Retiring a new surface means: the governed cutover has landed,
 #     decision record authored, authoritative DB no longer exposes the
 #     surface. Listing a surface that is still present on the
-#     authoritative DB is honest — the doctor health check will surface
-#     the drift as a WARN, which is how operators discover incomplete
-#     cutovers.
-#   * The grep residue check for obsoleted terms deliberately excludes
-#     this file (it is the one live source that must name retired
-#     surfaces; the alternative would be re-populating from git history
-#     on every gate evaluation).
+#     authoritative DB is honest: the doctor health check reports drift.
+#   * Obsoleted-term scans exclude this file because it is the one live
+#     source that must retain retired identifiers.
 #
 # Schema:
 #   surfaces:
-#     - module: <migration_module_name>      # slug, matches migration_audit.migration_name
-#       project: <project_id>                # e.g. yoke
-#       model: <migration_model_name>        # e.g. primary
+#     - module: <migration_module_name>
+#       project: <project_slug>
+#       model: <migration_model_name>
 #       table: <table_name>
-#       column: <column_name>                # omit for table-level retirement
+#       column: <column_name>  # omit for table-level retirement
 #       decision_record: docs/archive/decisions/<slug>.md
 #
 surfaces:
