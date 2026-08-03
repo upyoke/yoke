@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import (
     _register_qa_requirement_runs,
     doctor_last_run as _doctor_last_run,
     items_listing as _items_listing,
+    items_search as _items_search,
     reads as _reads,
     reads_misc as _reads_misc,
     projects_checkout_context as _projects_checkout_context,
@@ -63,11 +64,11 @@ def register(registry) -> None:
     )
     registry.register(
         "items.search.run",
-        _items_listing.handle_items_search,
-        _items_listing.ItemsSearchRequest,
-        _items_listing.ItemsSearchResponse,
+        _items_search.handle_items_search,
+        _items_search.ItemsSearchRequest,
+        _items_search.ItemsSearchResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.items_listing",
+        owner_module="yoke_core.domain.handlers.items_search",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

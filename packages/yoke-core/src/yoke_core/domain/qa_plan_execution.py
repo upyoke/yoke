@@ -98,6 +98,7 @@ def execute_plan(
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
@@ -241,6 +242,7 @@ def execute_plan(
                     expected_sha=expected_sha,
                     timeout_seconds=timeout_seconds,
                     checkout_path=checkout_path,
+                    allow_tree_mismatch=allow_tree_mismatch,
                     actor=resolved_actor,
                 )
                 advance_result = True

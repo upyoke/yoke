@@ -167,6 +167,8 @@ The substrate renderer produces:
 
 Regeneration is idempotent. Doctor's `HC-agent-canonical-drift` health check fails when any rendered adapter body diverges from its canonical source.
 
+`.cursor/cli.json` and `.cursor/sandbox.json` are deliberately absent from that table. They are not rendered outputs: the install pass in `yoke_cli.project_install.cursor_permissions` unions Yoke's region into each file, so operator entries survive and there is no byte-exact drift to check. Their network origins also resolve from the installing machine's config, which a renderer running anywhere else cannot know. `HC-cursor-permission-config` checks the region rather than the bytes.
+
 ## Adding a new harness
 
 To add a third harness adapter:

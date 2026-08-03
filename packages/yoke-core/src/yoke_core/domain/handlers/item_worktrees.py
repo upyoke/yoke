@@ -52,6 +52,11 @@ class CleanLaneAttestation(BaseModel):
     branch: str = Field(..., min_length=1)
     path: str = Field(..., min_length=1)
     observed_clean: bool = False
+    #: How the caller established the lane holds no unpreserved work — a
+    #: git-verified clean checkout, or a landed branch whose lane directory
+    #: the merge already removed. See
+    #: :mod:`yoke_core.domain.item_worktree_lane_release_evidence`.
+    evidence: str = ""
 
 
 class ItemWorktreesReleaseRequest(BaseModel):
@@ -65,6 +70,16 @@ class ItemWorktreesReleaseResponse(BaseModel):
     released_count: int
     released_worktree_ids: list[int]
     reason: str
+
+
+class ItemWorktreesReleaseMergedLaneRequest(BaseModel):
+    branch: str = Field(..., min_length=1)
+
+
+class ItemWorktreesReleaseMergedLaneResponse(BaseModel):
+    item_id: int
+    branch: str
+    released_count: int
 
 
 def _error(code: str, message: str, *, jsonpath: str | None = None) -> HandlerOutcome:
@@ -233,13 +248,66 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_release_merged_lane(request: FunctionCallRequest) -> HandlerOutcome:
+    """Retire the lane row for a branch whose worktree the merge removed.
+
+    The merge engine deletes the lane directory once the branch is proven
+    contained by the target. Leaving the row ``active`` afterwards points
+    every reader at a path that no longer exists — and one of those readers
+    is the verification tree-binding guard, which then refuses the done-gate
+    run that is the only thing that would have released the row. Releasing
+    here keeps the directory and the row retired by the same act, so that
+    cycle cannot form.
+
+    Idempotent: a retry after the row is already released reports zero.
+    """
+    item_id = _item_id(request)
+    if item_id is None:
+        return _error(
+            "target_invalid",
+            "item_worktrees.release_merged_lane requires target.kind='item' "
+            "with item_id",
+        )
+    try:
+        payload = ItemWorktreesReleaseMergedLaneRequest.model_validate(
+            request.payload or {}
+        )
+    except Exception as exc:
+        return _error(
+            "payload_invalid", f"release_merged_lane payload invalid: {exc}"
+        )
+
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.item_worktrees import release_item_worktrees
+
+    with db_helpers.connect() as conn:
+        lock_item_workflow_bindings(conn, (item_id,))
+        released_count = release_item_worktrees(
+            conn,
+            item_id=item_id,
+            branch=payload.branch,
+        )
+    response = ItemWorktreesReleaseMergedLaneResponse(
+        item_id=item_id,
+        branch=payload.branch,
+        released_count=released_count,
+    )
+    return HandlerOutcome(
+        result_payload=response.model_dump(),
+        primary_success=True,
+    )
+
+
 __all__ = [
     "ItemWorktreeLane",
     "ItemWorktreesGetRequest",
     "ItemWorktreesGetResponse",
     "CleanLaneAttestation",
+    "ItemWorktreesReleaseMergedLaneRequest",
+    "ItemWorktreesReleaseMergedLaneResponse",
     "ItemWorktreesReleaseRequest",
     "ItemWorktreesReleaseResponse",
     "handle_get",
     "handle_release",
+    "handle_release_merged_lane",
 ]

@@ -147,6 +147,7 @@ def execute_case_context(
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict:
     """Execute a server-authorized immutable case context locally."""
@@ -156,14 +157,16 @@ def execute_case_context(
 
         return execute_worktree_case(
             case, base_url=base_url, timeout_seconds=timeout_seconds,
-            checkout_path=checkout_path, actor=actor,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch, actor=actor,
         )
     if executor_id == "ci_run":
         from yoke_core.domain.qa_case_ci_run import execute_ci_case
 
         return execute_ci_case(
             case, timeout_seconds=timeout_seconds,
-            checkout_path=checkout_path, actor=actor,
+            checkout_path=checkout_path,
+            allow_tree_mismatch=allow_tree_mismatch, actor=actor,
         )
     if executor_id == "browser_substrate":
         return _browser_result(
@@ -192,6 +195,7 @@ def execute_case(
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict:
     """Authorize, snapshot, and execute one registered materialized case."""
@@ -203,6 +207,7 @@ def execute_case(
         expected_sha=expected_sha,
         timeout_seconds=timeout_seconds,
         checkout_path=checkout_path,
+        allow_tree_mismatch=allow_tree_mismatch,
         actor=actor,
     )
 

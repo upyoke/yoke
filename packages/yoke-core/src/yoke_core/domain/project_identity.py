@@ -9,21 +9,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Any, Collection, Optional, Union
 
 from yoke_core.domain import machine_config
 from yoke_core.domain.db_backend import connection_is_postgres
 
-# Pure item-ref formatting moved to the shipped yoke_contracts.item_ref tier
-# (so the board render ships core-free); re-exported here for existing callers.
+# Pure item-ref formatting and parsing moved to the shipped
+# yoke_contracts.item_ref tier (so the board render ships core-free);
+# re-exported here for existing callers.
 from yoke_contracts.item_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
+    parse_public_item_ref,
 )
 from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
-
-_PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
 
 
 @dataclass(frozen=True)
@@ -232,18 +231,14 @@ def resolve_item_id(
     """Resolve ``PREFIX-N`` or project-context bare sequence to internal id."""
     if isinstance(raw_ref, int):
         return raw_ref
-    text = str(raw_ref).strip()
-    if text.isdigit():
+    prefix, sequence = parse_public_item_ref(raw_ref)
+    if sequence is None:
+        return None
+    if prefix is None:
         if project is None:
             return None
         ident = resolve_project(conn, project, required=True)
-        sequence = int(text.lstrip("0") or "0")
     else:
-        match = _PUBLIC_REF_RE.match(text)
-        if not match:
-            return None
-        prefix = match.group("prefix").upper()
-        sequence = int(match.group("seq").lstrip("0") or "0")
         ident = resolve_project_for_public_prefix(conn, prefix, required=True)
     assert ident is not None
     p = placeholder(conn)

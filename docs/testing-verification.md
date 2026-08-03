@@ -257,8 +257,19 @@ python3 -m pytest --allow-tree-mismatch runtime/api/domain
 ```
 
 `--allow-tree-mismatch` is the deliberate cross-tree run, accepted by the
-wrapper and by pytest itself: it proceeds and prints one line naming both
-trees, so the result stays attributable.
+wrapper, by pytest itself, and by `yoke qa case run` / `yoke qa plan run`,
+which run the gate through the same guard: it proceeds and prints one line
+naming both trees, so the result stays attributable. The flag every refusal
+advertises is real on every surface that can raise the refusal.
+
+A claimed lane whose directory no longer exists gets its own refusal. A
+merge retires the lane row in the same act that removes its directory
+(`item_worktrees.release_merged_lane`), so this state means the row was
+stranded rather than retired; telling that reader to `cd` into the recorded
+path would name a directory that is gone. The refusal instead names the two
+recoveries that work — re-materialize the lane with
+`yoke direct-workflow worktree prepare <item> --workflow <workflow>`, or
+pass `--allow-tree-mismatch` to verify the tree as it stands.
 
 Records carry the same fact. A QA run's `raw_result` and a Dash execution
 evidence section both hold a `verification_tree` of worktree root plus

@@ -14,7 +14,7 @@ from yoke_cli.transport.dispatcher import build_actor
 QA_CASE_RUN_USAGE = (
     "yoke qa case run --requirement-id N [--base-url URL] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N] [--session-id S]"
+    "[--timeout-seconds N] [--allow-tree-mismatch] [--session-id S]"
 )
 QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
@@ -22,7 +22,7 @@ QA_PLAN_RUN_USAGE = (
     "--deployment-run-id RUN --plan PLAN --project P) "
     "[--project P] [--base-url URL] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N] [--session-id S]"
+    "[--timeout-seconds N] [--allow-tree-mismatch] [--session-id S]"
 )
 QA_PLAN_ABORT_USAGE = (
     "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "

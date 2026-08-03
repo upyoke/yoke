@@ -1,15 +1,14 @@
-"""Items listing/search handlers: items.list.run, items.search.run.
+"""Items roster handler: ``items.list.run``.
 
-``items.list.run`` reuses the same filter/projection building blocks as
-the ``db_router items list`` operator-debug CLI
-(:class:`yoke_core.domain.queries.ItemFilter` +
-``build_where_clause`` + ``item_project_join_select``).
-``items.search.run`` wraps :func:`yoke_core.domain.backlog.dedup_search`
-(the keyword reader behind ``db_router items dedup-search``).
+Reuses the same filter/projection building blocks as the ``db_router items
+list`` operator-debug CLI (:class:`yoke_core.domain.queries.ItemFilter` +
+``build_where_clause`` + ``item_project_join_select``). Keyword and
+reference matching is a different read — see
+:mod:`yoke_core.domain.handlers.items_search`.
 
-Virtual fields (``body``) are rejected for list — rendering every body
-server-side is the wrong shape for a list read; use ``items.get.run``
-per item instead. Both ids carry ``claim_required_kind=None`` (reads).
+Virtual fields (``body``) are rejected — rendering every body server-side
+is the wrong shape for a list read; use ``items.get.run`` per item instead.
+Carries ``claim_required_kind=None`` (a read).
 """
 
 from __future__ import annotations
@@ -23,9 +22,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.actor_project_visibility import (
-    actor_visible_project_ids,
-    numeric_actor_id,
+from yoke_core.domain.handlers.items_project_scope import (
+    actor_visible_scope,
+    ambiguous_project_error,
+    resolve_visible_project_id,
 )
 
 
@@ -54,15 +54,6 @@ class ItemsListRequest(BaseModel):
 class ItemsListResponse(BaseModel):
     rows: List[Dict[str, Any]]
     count: int
-
-
-class ItemsSearchRequest(BaseModel):
-    keywords: str
-    project: Optional[str] = None
-
-
-class ItemsSearchResponse(BaseModel):
-    matches: List[Dict[str, Any]]
 
 
 def _validated_list_fields(
@@ -153,16 +144,16 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
-        scoped = _actor_visible_scope(conn, request)
+        scoped = actor_visible_scope(conn, request)
         if scoped is not None and not scoped:
             rows = []
         else:
             try:
-                project_id = _resolve_visible_project_id(
+                project_id = resolve_visible_project_id(
                     conn, explicit_project, scoped,
                 )
             except AmbiguousProjectRefError as exc:
-                return _ambiguous_project_error(str(exc), "$.payload.project")
+                return ambiguous_project_error(str(exc), "$.payload.project")
             if explicit_project is not None and project_id is None:
                 rows = []
             else:
@@ -197,60 +188,6 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def handle_items_search(request: FunctionCallRequest) -> HandlerOutcome:
-    payload = request.payload or {}
-    keywords = payload.get("keywords")
-    if not keywords or not str(keywords).strip():
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message="keywords is required and must be non-empty",
-                jsonpath="$.payload.keywords",
-            ),
-        )
-
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.project_identity import AmbiguousProjectRefError
-
-    conn = connect()
-    try:
-        scoped = _actor_visible_scope(conn, request)
-        explicit_project = payload.get("project") or None
-        if scoped is not None and not scoped:
-            matches = []
-        else:
-            try:
-                project_id = _resolve_visible_project_id(
-                    conn, explicit_project, scoped,
-                )
-            except AmbiguousProjectRefError as exc:
-                return _ambiguous_project_error(str(exc), "$.payload.project")
-            if explicit_project is not None and project_id is None:
-                matches = []
-            else:
-                matches = _search_items(
-                    conn,
-                    str(keywords),
-                    project_id=project_id,
-                    visible_project_ids=scoped,
-                )
-    finally:
-        conn.close()
-    return HandlerOutcome(
-        result_payload={"matches": matches},
-        primary_success=True,
-    )
-
-
-def _actor_visible_scope(
-    conn: Any,
-    request: FunctionCallRequest,
-) -> Optional[set[int]]:
-    actor = request.actor.actor_id if request.actor else None
-    return actor_visible_project_ids(conn, numeric_actor_id(actor))
-
-
 def _append_project_visibility(
     where_clause: str,
     params: List[Any],
@@ -274,66 +211,8 @@ def _append_project_id(
     return where_clause + prefix + "i.project_id = %s", [*params, int(project_id)]
 
 
-def _resolve_visible_project_id(
-    conn: Any,
-    project: Optional[str],
-    visible_project_ids: Optional[set[int]],
-) -> Optional[int]:
-    if project is None:
-        return None
-    from yoke_core.domain.project_identity import resolve_project
-
-    ident = resolve_project(
-        conn, project, required=False, visible_project_ids=visible_project_ids,
-    )
-    return None if ident is None else ident.id
-
-
-def _ambiguous_project_error(message: str, jsonpath: str) -> HandlerOutcome:
-    return HandlerOutcome(
-        primary_success=False,
-        error=FunctionError(
-            code="ambiguous_project",
-            message=message,
-            jsonpath=jsonpath,
-        ),
-    )
-
-
-def _search_items(
-    conn: Any,
-    keywords: str,
-    *,
-    project_id: Optional[int],
-    visible_project_ids: Optional[set[int]],
-) -> list[dict[str, Any]]:
-    if visible_project_ids is not None and not visible_project_ids:
-        return []
-    pattern = f"%{keywords.lower()}%"
-    where = (
-        "WHERE (LOWER(title) LIKE %s OR LOWER(spec) LIKE %s "
-        "OR LOWER(design_spec) LIKE %s OR LOWER(technical_plan) LIKE %s)"
-    )
-    params: list[Any] = [pattern, pattern, pattern, pattern]
-    if project_id is not None:
-        where += " AND project_id = %s"
-        params.append(int(project_id))
-    if visible_project_ids is not None:
-        ordered_ids = sorted(visible_project_ids)
-        markers = ", ".join("%s" for _ in ordered_ids)
-        where += f" AND project_id IN ({markers})"
-        params.extend(ordered_ids)
-    rows = conn.execute(
-        f"SELECT id, title, status FROM items {where} ORDER BY id",
-        tuple(params),
-    ).fetchall()
-    return [
-        {"id": int(row["id"]), "title": row["title"], "status": row["status"]}
-        for row in rows
-    ]
-
-
 __all__ = [
-    "ItemsListRequest", "ItemsListResponse", "handle_items_list",
-    "ItemsSearchRequest", "ItemsSearchResponse", "handle_items_search",
+    "ItemsListRequest",
+    "ItemsListResponse",
+    "handle_items_list",
 ]

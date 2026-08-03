@@ -7,52 +7,45 @@ converge here:
 1. **Silent drift.** The harness re-applies a prior working directory
    between tool calls, so a session whose claimed lane is a linked
    worktree can find itself invoking pytest from the main checkout with
-   no explicit ``cd`` in sight. pytest's positional collection resolves
-   against the invocation directory, so the main tree is collected and
-   the worktree's changes are never exercised. The existing
+   no explicit ``cd`` in sight, collecting the main tree while the
+   worktree's changes go unexercised. Neither existing guard fires: the
    out-of-checkout refusal in :mod:`yoke_core.tools._source_pythonpath`
-   does not fire, because main *is* a legitimate checkout — just not the
-   claimed one. The write-authority lint
-   (:mod:`yoke_core.domain.lint_session_cwd`) does not fire either,
-   because a test run is a read.
+   sees main as a legitimate checkout, just not the claimed one, and the
+   write-authority lint (:mod:`yoke_core.domain.lint_session_cwd`) sees a
+   test run as a read.
 
 2. **Indistinguishable evidence.** A recorded green that carries no tree
    identity cannot be told apart from a green produced against the wrong
    tree, so the drift survives into the audit trail.
 
 This module owns both answers. :func:`evaluate_tree_binding` is the pure
-decision — refuse when the session holds claim-bound worktrees and the
-run would execute outside all of them — and :func:`resolve_tree_identity`
-names a tree by its root and HEAD sha so a run can record what it
-actually verified.
+decision — refuse when the session holds claim-bound worktrees and the run
+would execute outside all of them — and :func:`resolve_tree_identity` names
+a tree by its root and HEAD sha so a run can record what it verified.
 
 An entry point covers only the invocations that reach it, so
 :mod:`yoke_core.domain.verification_tree_binding_pytest_startup` hosts
 the same decision at the layer pytest itself starts.
-
-Session identity resolves through the canonical ambient chain
-(:mod:`yoke_core.domain.session_ambient_identity`), not a bare
-``YOKE_SESSION_ID`` read: harnesses that publish identity only through
-the hook-written process-anchor registry would otherwise pass every
-check by default, which is precisely the live configuration the drift
-was observed in.
 
 Both halves read through surfaces that follow the active connection.
 Session identity resolves through the canonical ambient chain
 (:mod:`yoke_core.domain.session_ambient_identity`), not a bare
 ``YOKE_SESSION_ID`` read, and claims resolve through the registered
 ``claims.work.holder_list`` function rather than a direct database
-connection. Either shortcut answers only on a machine that happens to
-hold identity in its environment and the control plane on its disk, and
-silently answers "nothing to check" everywhere else — which is exactly
-how a guard ends up inert on the installations it was written for.
+connection. Either shortcut answers only on a machine that happens to hold
+identity in its environment and the control plane on its disk, and silently
+answers "nothing to check" everywhere else — which is exactly how a guard
+ends up inert on the installations it was written for, and precisely the
+live configuration the drift was observed in.
+
+Refusal wording: :mod:`yoke_core.domain.verification_tree_binding_messages`.
 
 Nothing here blocks a run it could not judge: an unresolvable session, a
-checkout with no git metadata, or an unreachable control plane all let
-the run proceed, because the check exists to catch drift, not to become
-a new way for verification to be unavailable. But an unreachable lookup
-returns a *notice* rather than silence, so "not verified" never again
-looks identical to "verified clean".
+checkout with no git metadata, or an unreachable control plane all let the
+run proceed, because the check exists to catch drift, not to become a new
+way for verification to be unavailable. But an unreachable lookup returns
+a *notice* rather than silence, so "not verified" never looks identical to
+"verified clean".
 """
 
 from __future__ import annotations
@@ -63,29 +56,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Sequence
 
-#: Wrapper/CLI flag that runs a deliberate cross-tree verification.
-ALLOW_TREE_MISMATCH_FLAG = "--allow-tree-mismatch"
-
-TREE_BINDING_REFUSAL_TEMPLATE = (
-    "{surface} TREE-BINDING REFUSAL: session {sid} holds an active "
-    "work-claim with worktree '{wt}', but this run would execute in "
-    "'{tree}', outside that worktree. Verification that runs in the wrong "
-    "tree reports a green for code nobody changed.\n"
-    "To verify the claimed worktree:\n"
-    '  cd "{wt}"\n'
-    f"and re-run, or pass {ALLOW_TREE_MISMATCH_FLAG} for a deliberate "
-    "cross-tree run."
-)
-
-ALLOW_TREE_MISMATCH_NOTICE = (
-    f"{{surface}}: {ALLOW_TREE_MISMATCH_FLAG} — verifying '{{tree}}' while "
-    "the claimed worktree is '{wt}'."
-)
-
-UNVERIFIED_BINDING_NOTICE = (
-    "{surface}: could not confirm '{tree}' is this session's claimed "
-    "worktree — the control plane did not answer ({detail}). Proceeding "
-    "unverified; if this run matters, confirm the tree yourself."
+from yoke_core.domain.verification_tree_binding_messages import (
+    ALLOW_TREE_MISMATCH_FLAG,
+    ALLOW_TREE_MISMATCH_NOTICE,
+    MISSING_LANE_REFUSAL_TEMPLATE,
+    TREE_BINDING_REFUSAL_TEMPLATE,
+    UNVERIFIED_BINDING_NOTICE,
 )
 
 
@@ -143,6 +119,7 @@ def evaluate_tree_binding(
     claim_worktrees: Sequence[str],
     *,
     surface: str,
+    lane_item_id: Optional[int] = None,
 ) -> Optional[str]:
     """Pure decision — a remediation string, or ``None`` to proceed.
 
@@ -150,6 +127,10 @@ def evaluate_tree_binding(
     claim-bound worktrees (inline ``/yoke`` skill work and main-checkout
     source-dev both land here), a tree under the free-path allowlist, or
     a tree inside any claimed worktree.
+
+    A refusal names a recovery the reader can actually run. When every
+    claimed lane directory is gone, ``cd`` into the recorded path is not
+    one, so that case gets its own template.
     """
     if not session_id:
         return None
@@ -161,8 +142,17 @@ def evaluate_tree_binding(
     for worktree in worktrees:
         if _is_inside(tree, worktree):
             return None
+    live = [path for path in worktrees if Path(path).is_dir()]
+    if not live:
+        return MISSING_LANE_REFUSAL_TEMPLATE.format(
+            surface=surface,
+            sid=session_id,
+            wt=worktrees[0],
+            tree=tree,
+            item=lane_item_id if lane_item_id is not None else "<item>",
+        )
     return TREE_BINDING_REFUSAL_TEMPLATE.format(
-        surface=surface, sid=session_id, wt=worktrees[0], tree=tree,
+        surface=surface, sid=session_id, wt=live[0], tree=tree,
     )
 
 
@@ -180,6 +170,9 @@ class ClaimLookup:
     worktrees: tuple[str, ...] = ()
     reachable: bool = True
     detail: str = ""
+    #: Item owning the first reported lane, so a refusal can name the item
+    #: its recovery command needs instead of a placeholder.
+    lane_item_id: Optional[int] = None
 
 
 def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
@@ -212,12 +205,15 @@ def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
         return ClaimLookup(reachable=False, detail=message)
     holders = (response.result or {}).get("holders") or []
     lanes: list[str] = []
+    lane_item_id: Optional[int] = None
     for holder in holders:
         for path in holder.get("lane_worktrees") or []:
             candidate = str(path).strip()
             if candidate and candidate not in lanes:
                 lanes.append(candidate)
-    return ClaimLookup(worktrees=tuple(lanes))
+                if lane_item_id is None and holder.get("item_id") is not None:
+                    lane_item_id = int(holder["item_id"])
+    return ClaimLookup(worktrees=tuple(lanes), lane_item_id=lane_item_id)
 
 
 def ambient_session_id() -> str:
@@ -283,7 +279,11 @@ def evaluate_run(
     if not lookup.worktrees:
         return TreeBindingVerdict()
     refusal = evaluate_tree_binding(
-        target, session_id, lookup.worktrees, surface=surface,
+        target,
+        session_id,
+        lookup.worktrees,
+        surface=surface,
+        lane_item_id=lookup.lane_item_id,
     )
     if refusal is None:
         return TreeBindingVerdict()
@@ -336,6 +336,7 @@ def resolve_tree_identity(start: Optional[str | Path] = None) -> Optional[TreeId
 __all__ = [
     "ALLOW_TREE_MISMATCH_FLAG",
     "ALLOW_TREE_MISMATCH_NOTICE",
+    "MISSING_LANE_REFUSAL_TEMPLATE",
     "TREE_BINDING_REFUSAL_TEMPLATE",
     "UNVERIFIED_BINDING_NOTICE",
     "ClaimLookup",
