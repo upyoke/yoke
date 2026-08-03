@@ -1,21 +1,18 @@
-"""Work-claim-derived write authority for workspace-anchored writers.
+"""Work-claim-derived authority for workspace-anchored operations.
 
-Replaces the prior ``$YOKE_BOUND_WORKSPACE`` env-var anchor with a
-**live work-claim** check: the calling harness session may write a
-repo-tree file only when the target lands under one of the session's
-active worktree work-claims, or the free-path allowlist (``/tmp``,
-``/var/folders/...``). Sessions with no worktree claims fall through
-to no-op (operator maintenance / test fixtures / orchestrator shape) —
-the same posture :mod:`yoke_core.domain.lint_session_cwd_validate`
-takes for the no-claims case.
+The calling harness session may write a repo-tree file only when the
+target lands under one of its active worktree claims, or the free-path
+allowlist (``/tmp``, ``/var/folders/...``). Sessions with no worktree
+claims fall through to no-op (operator maintenance / test fixtures /
+orchestrator shape) — the same posture
+:mod:`yoke_core.domain.lint_session_cwd_validate` takes for the
+no-claims case.
 
-The contrast that matters: ``$YOKE_BOUND_WORKSPACE`` is set once at
-SessionStart and goes stale the moment a session rotates claims. The
-authority signal here is the live row in ``work_claims`` itself —
-the same source the per-tool-call lint consumes. When a session holds
-a worktree work-claim but a writer's resolved target lands in main,
-this helper raises ``RuntimeError`` before the rename step lands a
-wrong-tree write.
+The authority signal is the live row in ``work_claims`` itself — the
+same source used by reader and per-tool-call lint surfaces. When a
+session holds a worktree claim but a writer's resolved target lands in
+main, this helper raises ``RuntimeError`` before the rename step lands
+a wrong-tree write.
 
 The helper is **no-op** when ``$YOKE_SESSION_ID`` is unset (operator
 maintenance, test fixtures with no harness session) — preserving the
@@ -53,7 +50,38 @@ def _resolve_session_id(explicit: Optional[str]) -> str:
     if explicit and explicit.strip():
         return explicit.strip()
     raw = os.environ.get(SESSION_ID_ENV_VAR, "")
-    return raw.strip()
+    if raw.strip():
+        return raw.strip()
+    try:
+        from yoke_core.domain.session_ambient_identity import (
+            resolve_ambient_session_id,
+        )
+
+        return (resolve_ambient_session_id() or "").strip()
+    except Exception:
+        return ""
+
+
+def resolve_session_worktree_paths(
+    session_id: Optional[str] = None,
+) -> List[str]:
+    """Return active worktree paths claimed by the ambient session.
+
+    Reader and lint consumers use the same live claim lookup as the
+    write-authority guard. Missing identity, an unavailable database, or an
+    incomplete validation schema fails open with no paths.
+    """
+    sid = _resolve_session_id(session_id)
+    if not sid:
+        return []
+    try:
+        from yoke_core.domain import db_helpers
+
+        with db_helpers.connect() as conn:
+            claims = claimed_worktrees(conn, session_id=sid)
+    except Exception:
+        return []
+    return [claim.worktree_path for claim in claims if claim.worktree_path]
 
 
 def _resolve_for_display(target: Path) -> str:
@@ -278,4 +306,5 @@ __all__ = [
     "SESSION_ID_ENV_VAR",
     "assert_target_under_session_work_authority",
     "assert_seed_source_under_target_root",
+    "resolve_session_worktree_paths",
 ]

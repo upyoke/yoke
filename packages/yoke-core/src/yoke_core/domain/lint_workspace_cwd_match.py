@@ -1,10 +1,9 @@
 """PreToolUse Bash hook: deny writer-class commands from a cross-checkout cwd.
 
-Closes the leak shape structurally. When ``$YOKE_BOUND_WORKSPACE``
-is set (exported at SessionStart by the harness session-workspace helper)
-and the Bash command is a writer-class tool whose execution cwd is *not*
-under that workspace, the hook denies the call before the writer subprocess
-runs.
+Closes the leak shape structurally. When the ambient session holds one or
+more active worktree claims and the Bash command is a writer-class tool whose
+execution cwd is *not* under any claimed worktree, the hook denies the call
+before the writer subprocess runs.
 
 Writer-class verbs caught today:
 
@@ -34,14 +33,13 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
 
 CHECK_ID = "lint-workspace-cwd-match"
 HOOK_NAME = "lint-workspace-cwd-match"
 SUPPRESSION_TOKEN = "# lint:no-workspace-cwd-check"
-
-BOUND_WORKSPACE_ENV_VAR = "YOKE_BOUND_WORKSPACE"
 
 # Statement separators used by the path_claim_bash_guard sibling. Same shape
 # so writer-class verbs anywhere in a compound command are detected.
@@ -161,15 +159,15 @@ def _format_reason(
         suffix = (
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock — the "
-            "rule still denies. Run the command from the bound workspace, or use "
+            "rule still denies. Run the command from a claimed worktree, or use "
             "a command surface that names the target root explicitly."
         )
     body = (
         "BLOCKED: writer-class command invoked from a cross-checkout cwd.\n\n"
-        f"Bound workspace: {workspace}\n"
+        f"Claimed worktrees: {workspace}\n"
         f"Current cwd:     {cwd}\n"
         f"Command shape:   {head}\n\n"
-        "Remediation: re-run the command from the bound workspace (e.g. `git -C "
+        "Remediation: re-run the command from a claimed worktree (e.g. `git -C "
         f"{workspace} ...`, `python3 -m pytest --rootdir {workspace} ...`), "
         "or use a writer surface that takes an explicit `--target-root` / "
         "`YOKE_RENDER_TARGET_ROOT` anchor."
@@ -185,8 +183,8 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     tool = _extract_tool_name(payload)
     if tool and tool != "Bash":
         return None
-    workspace = os.environ.get(BOUND_WORKSPACE_ENV_VAR, "").strip()
-    if not workspace:
+    workspaces = resolve_session_worktree_paths()
+    if not workspaces:
         return None
     command = _extract_command(payload)
     if not command:
@@ -194,14 +192,16 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     cwd = _extract_cwd(payload)
     if not cwd:
         return None
-    if _is_under(cwd, workspace):
+    if any(_is_under(cwd, workspace) for workspace in workspaces):
         return None
     suppression_seen = SUPPRESSION_TOKEN in command
     for tokens in _statements(command):
         if not _matches_writer_verb(tokens):
             continue
         mode = _read_mode(payload)
-        reason = _format_reason(workspace, cwd, tokens, suppression_seen, mode)
+        reason = _format_reason(
+            ", ".join(workspaces), cwd, tokens, suppression_seen, mode,
+        )
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     return None
@@ -233,7 +233,7 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
 
 
 def evaluate(record: HookContext) -> HookDecision:
-    """Typed entry. Reads ``$YOKE_BOUND_WORKSPACE``; no DB access."""
+    """Typed entry. Reads active worktree claims through the live authority."""
     payload = record.payload if isinstance(record.payload, dict) else {}
     verdict = evaluate_payload(payload)
     if verdict is None:

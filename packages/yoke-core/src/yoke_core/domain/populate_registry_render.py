@@ -107,7 +107,7 @@ def _render_catalog(db_path: Optional[str], repo_root: Path) -> Path:
     lines.append("# Event Catalog")
     lines.append("")
     lines.append(f"> Auto-generated on {timestamp}")
-    lines.append("> Regenerate: `python3 -m yoke_core.domain.populate_registry`")
+    lines.append("> Regenerate through the source-dev registry workflow from a Yoke checkout.")
     lines.append("")
     lines.append("| Event Name | Kind | Type | Owner Service | Description | Severity | Status |")
     lines.append("|---|---|---|---|---|---|---|")

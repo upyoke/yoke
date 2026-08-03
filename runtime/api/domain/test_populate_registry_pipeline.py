@@ -301,7 +301,8 @@ def test_catalog_rendered_with_expected_sections(fake_repo: Path):
     body = catalog.read_text()
 
     assert "# Event Catalog" in body
-    assert "python3 -m yoke_core.domain.populate_registry" in body
+    assert "source-dev registry workflow" in body
+    assert "python3 -m yoke_core.domain.populate_registry" not in body
     assert "Event Name" in body
     assert "Kind" in body
     assert "Type" in body

@@ -246,7 +246,7 @@ If `--project` is omitted but `--item-id` is present, `yoke_core.domain.events.e
 
 ## 3. Reserved Fields for DR-1 / QA-1
 
-Downstream epics (DR-1 deployment events, QA-1 review events) emit through the existing `events` table with reserved `event_kind` / `event_type` / `event_name` / `context.detail.*` conventions. The full reserved-field tables and the "How to emit a new domain event" walkthrough live in [event-contract/reserved-fields-dr1-qa1.md](event-contract/reserved-fields-dr1-qa1.md).
+Downstream epics (DR-1 deployment events, QA-1 review events) emit through the existing `events` table with reserved `event_kind` / `event_type` / `event_name` / `context.detail.*` conventions. The live event catalog and the "How to emit a new domain event" walkthrough live in [event-catalog.md](event-catalog.md).
 
 ---
 
@@ -324,4 +324,4 @@ The seven-step migration pattern, compatibility-view COALESCE design, domain-sta
 
 The live `events` ledger is production telemetry. Synthetic test rows must not land in it under any normal workflow. Write-time isolation is enforced by the native emitter and CLI owner via `YOKE_EVENTS_ISOLATION=1`, with explicit escape hatches (Postgres `yoke_test_*` authority, legacy file-backed `YOKE_DB` test paths, `YOKE_EVENTS_CAPTURE` + `YOKE_EVENTS_FILE`, intentional `synthetic_smoke` lineage marker, explicit `conn=` arguments).
 
-Full coverage — escape-hatch table, pytest autouse fixture, smoke-row tagging, legacy query-time filter, synthetic-row cleanup, sentinel session IDs (`unknown`, `migration-zero-legacy`, `status-events-backfill`), null-`item_id` rows, and the `migrate-events-backfill` / `migrate-events-correlation` normalization scripts — lives in [event-contract/isolation-and-querying.md](event-contract/isolation-and-querying.md).
+Full coverage — escape-hatch table, pytest autouse fixture, smoke-row tagging, legacy query-time filter, synthetic-row cleanup, sentinel session IDs (`unknown`, `migration-zero-legacy`, `status-events-backfill`), and null-`item_id` rows — lives in [event-contract/isolation-and-querying.md](event-contract/isolation-and-querying.md).

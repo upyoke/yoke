@@ -4,15 +4,10 @@ Codex SessionStart parity — slim resume block on reactivation.
 Legacy-surface guard — old per-event files removed.
 Runner lifecycle path exercised end-to-end (Stop/SessionEnd route
 through ``_end_session`` with the new chain-end rationale).
-Workspace export — SessionStart exports ``$YOKE_BOUND_WORKSPACE`` so the
-cross-checkout PreToolUse lint and the renderer's ``_atomic_write`` guard
-can refuse leaks across linked worktrees.
 """
 
 from __future__ import annotations
 
-import os
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -201,147 +196,6 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
                 "/repo", "sess-r", "UserPromptSubmit",
             )
         self.assertEqual(result, "")
-
-
-class TestSessionWorkspaceExport(unittest.TestCase):
-    """SessionStart exports ``YOKE_BOUND_WORKSPACE``."""
-
-    def test_persist_bound_workspace_to_env_file_is_idempotent(self) -> None:
-        from runtime.harness.hook_runner.session_workspace import (
-            BOUND_WORKSPACE_ENV_VAR,
-            persist_bound_workspace_to_env_file,
-        )
-
-        with tempfile.TemporaryDirectory() as tmp:
-            env_file = os.path.join(tmp, "claude.env")
-            workspace = "/Users/x/yoke/.worktrees/YOK-EX1"
-            ok1 = persist_bound_workspace_to_env_file(workspace, env_file)
-            ok2 = persist_bound_workspace_to_env_file(workspace, env_file)
-            self.assertTrue(ok1)
-            self.assertTrue(ok2)
-            with open(env_file, encoding="utf-8") as fh:
-                contents = fh.read()
-            self.assertEqual(
-                contents.count(f"export {BOUND_WORKSPACE_ENV_VAR}={workspace}\n"),
-                1,
-                "second persist call must be a no-op when the line already exists",
-            )
-
-    def test_persist_bound_workspace_replaces_stale_env_file_value(self) -> None:
-        from runtime.harness.hook_runner.session_workspace import (
-            BOUND_WORKSPACE_ENV_VAR,
-            persist_bound_workspace_to_env_file,
-        )
-
-        with tempfile.TemporaryDirectory() as tmp:
-            env_file = os.path.join(tmp, "claude.env")
-            with open(env_file, "w", encoding="utf-8") as fh:
-                fh.write(f"export {BOUND_WORKSPACE_ENV_VAR}=/old/workspace\n")
-            workspace = "/Users/x/yoke/.worktrees/YOK-NEW"
-            self.assertTrue(persist_bound_workspace_to_env_file(workspace, env_file))
-            with open(env_file, encoding="utf-8") as fh:
-                contents = fh.read()
-            self.assertNotIn("/old/workspace", contents)
-            self.assertIn(f"export {BOUND_WORKSPACE_ENV_VAR}={workspace}\n", contents)
-
-    def test_persist_bound_workspace_quotes_shell_sensitive_paths(self) -> None:
-        from runtime.harness.hook_runner.session_workspace import (
-            BOUND_WORKSPACE_ENV_VAR,
-            persist_bound_workspace_to_env_file,
-        )
-
-        with tempfile.TemporaryDirectory() as tmp:
-            env_file = os.path.join(tmp, "claude.env")
-            workspace = "/Users/x/Yoke Worktrees/YOK-SPACE"
-            self.assertTrue(persist_bound_workspace_to_env_file(workspace, env_file))
-            with open(env_file, encoding="utf-8") as fh:
-                contents = fh.read()
-            self.assertIn(
-                f"export {BOUND_WORKSPACE_ENV_VAR}='/Users/x/Yoke Worktrees/YOK-SPACE'\n",
-                contents,
-            )
-
-    def test_export_bound_workspace_for_session_sets_environ(self) -> None:
-        from runtime.harness.hook_runner.session_workspace import (
-            BOUND_WORKSPACE_ENV_VAR,
-            export_bound_workspace_for_session,
-        )
-
-        prior = os.environ.pop(BOUND_WORKSPACE_ENV_VAR, None)
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                env_file = os.path.join(tmp, "claude.env")
-                ok = export_bound_workspace_for_session("/some/workspace", env_file)
-                self.assertTrue(ok)
-                self.assertEqual(
-                    os.environ.get(BOUND_WORKSPACE_ENV_VAR), "/some/workspace"
-                )
-        finally:
-            if prior is None:
-                os.environ.pop(BOUND_WORKSPACE_ENV_VAR, None)
-            else:
-                os.environ[BOUND_WORKSPACE_ENV_VAR] = prior
-
-    def test_claude_session_start_persists_workspace_to_env_file(self) -> None:
-        from runtime.harness.hook_runner import session_dispatch
-        from runtime.harness.hook_runner.session_workspace import (
-            BOUND_WORKSPACE_ENV_VAR,
-        )
-        from runtime.harness.hook_runner.types import HookContext
-
-        with tempfile.TemporaryDirectory() as tmp:
-            env_file = os.path.join(tmp, "claude.env")
-            with open(env_file, "w", encoding="utf-8") as fh:
-                fh.write("# pre-existing env file\n")
-            workspace = "/Users/x/yoke/.worktrees/YOK-EX2"
-            db_path = os.path.join(workspace, "data", "yoke.db")
-            ctx = HookContext(
-                event_name="SessionStart",
-                executor_family="claude",
-                executor_surface="claude",
-                payload={"session_id": "fixture-sid"},
-            )
-            with mock.patch.dict(os.environ, {"CLAUDE_ENV_FILE": env_file}, clear=False), \
-                 mock.patch(
-                     "runtime.harness.hook_runner.session_dispatch._root_and_db",
-                     return_value=(workspace, db_path),
-                 ), \
-                 mock.patch(
-                     "runtime.harness.hook_runner.session_dispatch._is_yoke_target",
-                     return_value=True,
-                 ), \
-                 mock.patch(
-                     "runtime.harness.hook_runner_register._register_from_hook",
-                     return_value=("", "claude-code", "anthropic", "claude-opus-4-7", None),
-                 ), \
-                 mock.patch(
-                     "runtime.harness.hook_runner.identity.persist_session_id_to_env_file",
-                     return_value=True,
-                 ):
-                # Exercise the dispatch entry that the runner calls — proves
-                # the workspace export lands inside the canonical SessionStart
-                # codepath, not via a sibling helper.
-                session_dispatch.evaluate(ctx)
-                # Inside the patch context: mock.patch.dict snapshots os.environ
-                # at __enter__ and restores on __exit__, which would un-set the
-                # var we just added. Assert the in-process binding before exit.
-                self.assertEqual(
-                    os.environ.get(BOUND_WORKSPACE_ENV_VAR),
-                    workspace,
-                    "SessionStart must set YOKE_BOUND_WORKSPACE in the runner process",
-                )
-            # Env-file write survives the patch context — verify after exit.
-            with open(env_file, encoding="utf-8") as fh:
-                contents = fh.read()
-            self.assertIn(
-                f"export {BOUND_WORKSPACE_ENV_VAR}={workspace}",
-                contents,
-                "SessionStart must persist YOKE_BOUND_WORKSPACE for subsequent Bash calls",
-            )
-
-    def tearDown(self) -> None:
-        # Avoid leaking the env var to sibling tests.
-        os.environ.pop("YOKE_BOUND_WORKSPACE", None)
 
 
 if __name__ == "__main__":

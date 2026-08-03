@@ -10,7 +10,6 @@ from pathlib import Path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import db_backend
-from yoke_core.domain.agents_render_workspace import BOUND_WORKSPACE_ENV_VAR
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -62,7 +61,6 @@ def run_identity_pytest(*, cwd: Path, repo_root: Path) -> tuple[int, str]:
     environment["PYTHONPATH"] = str(repo_root) + (
         os.pathsep + environment["PYTHONPATH"] if environment.get("PYTHONPATH") else ""
     )
-    environment[BOUND_WORKSPACE_ENV_VAR] = str(repo_root)
     completed = subprocess.run(
         command,
         cwd=str(cwd),

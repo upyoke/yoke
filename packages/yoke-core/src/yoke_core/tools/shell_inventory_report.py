@@ -125,7 +125,7 @@ def _execution_plan_lines() -> list[str]:
         Shared merge branch/worktree:
 
         - Branch: `zero-shell-wave-3`
-        - Worktree: `/Users/dev/yoke/.worktrees/zero-shell-wave-3`
+        - Worktree: `<repo-root>/.worktrees/zero-shell-wave-3`
         - Every worker lane branches from that shared head, not from `main`.
 
         #### Worker Lanes
@@ -205,7 +205,7 @@ def _execution_plan_lines() -> list[str]:
 
         #### How To Execute Wave 3
 
-        1. Refresh or recreate `/Users/dev/yoke/.worktrees/zero-shell-wave-3`
+        1. Refresh or recreate `<repo-root>/.worktrees/zero-shell-wave-3`
            on branch `zero-shell-wave-3` from `main`.
         2. File / refine `db-wrapper-retirement` through `external-artifact-shell-retirement`, plus the updated
            `shell-test-runner-retirement`, against that shared branch/worktree.
