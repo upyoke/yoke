@@ -134,6 +134,36 @@ class TestEndSessionCommand(unittest.TestCase):
         )
 
 
+    def test_model_report_routes_to_the_reporting_harness(self) -> None:
+        """Only a harness that reports its model has a handler for the
+        verb; every other family returns without side effects."""
+        from runtime.harness.hook_runner import session_dispatch
+        from runtime.harness.hook_runner.types import HookContext
+
+        def _context(family: str) -> HookContext:
+            return HookContext(
+                event_name="AgentModelReported",
+                executor_family=family,
+                executor_surface=family,
+                payload={"session_id": "sess-model", "model_id": "grok-4.5"},
+            )
+
+        with mock.patch(
+            "runtime.harness.hook_runner.session_dispatch._root_and_db",
+            return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
+        ), mock.patch(
+            "runtime.harness.hook_runner.session_dispatch._is_yoke_target",
+            return_value=True,
+        ), mock.patch(
+            "runtime.harness.hook_runner.session_dispatch_cursor.run_model_report",
+            return_value="",
+        ) as report:
+            session_dispatch.evaluate(_context("cursor"))
+            report.assert_called_once()
+            session_dispatch.evaluate(_context("claude"))
+            report.assert_called_once()
+
+
 class TestResumeBlockDispatchSubprocess(unittest.TestCase):
     """Slim resume block subprocess routes through the canonical CLI."""
 

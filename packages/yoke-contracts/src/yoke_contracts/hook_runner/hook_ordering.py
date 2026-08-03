@@ -249,19 +249,9 @@ _PERMISSION_REQUEST: tuple[str, ...] = (
     "yoke_core.domain.observe_pre",
 )
 
-_SESSION_START: tuple[str, ...] = (
-    "runtime.harness.hook_runner.session_dispatch",
-)
-
-_SESSION_END: tuple[str, ...] = (
-    "runtime.harness.hook_runner.session_dispatch",
-)
-
-_USER_PROMPT_SUBMIT: tuple[str, ...] = (
-    "runtime.harness.hook_runner.session_dispatch",
-)
-
-_STOP_DEFAULT: tuple[str, ...] = (
+# Every session-lifecycle event routes to the one dispatch entry; none of
+# them has a policy chain of its own.
+_LIFECYCLE_DISPATCH: tuple[str, ...] = (
     "runtime.harness.hook_runner.session_dispatch",
 )
 
@@ -291,16 +281,21 @@ _HOOK_ORDERING: dict[str, dict[str, tuple[str, ...]]] = {
         "_default": _PERMISSION_REQUEST,
     },
     "SessionStart": {
-        "_default": _SESSION_START,
+        "_default": _LIFECYCLE_DISPATCH,
     },
     "SessionEnd": {
-        "_default": _SESSION_END,
+        "_default": _LIFECYCLE_DISPATCH,
     },
     "UserPromptSubmit": {
-        "_default": _USER_PROMPT_SUBMIT,
+        "_default": _LIFECYCLE_DISPATCH,
     },
     "Stop": {
-        "_default": _STOP_DEFAULT,
+        "_default": _LIFECYCLE_DISPATCH,
+    },
+    # A harness that multiplexes model providers names its active model on
+    # a dedicated event rather than on the events that open the session.
+    "AgentModelReported": {
+        "_default": _LIFECYCLE_DISPATCH,
     },
 }
 

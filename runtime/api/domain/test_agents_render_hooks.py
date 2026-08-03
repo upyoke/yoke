@@ -45,6 +45,23 @@ def test_entries_are_unique_per_event() -> None:
         assert len(matchers) == len(set(matchers)), (event, matchers)
 
 
+def test_claude_omits_verbs_no_claude_surface_fires() -> None:
+    """The ordering registry is cross-harness. A verb only one harness
+    reports must stay out of settings.json — Claude disables every hook in
+    the file when one entry fails validation."""
+    block = render_claude_hooks_block()
+    assert "AgentModelReported" not in block
+
+
+def test_cursor_wires_the_event_that_names_the_model() -> None:
+    """``afterAgentThought`` is the only Cursor event carrying a concrete
+    model, so unwiring it leaves terminal-agent sessions unattributed."""
+    hooks = render_cursor_hooks_block()["hooks"]
+    entries = hooks["afterAgentThought"]
+    assert len(entries) == 1, entries
+    assert entries[0]["command"].endswith("yoke hook evaluate AgentModelReported'")
+
+
 def test_cursor_entries_carry_explicit_timeout() -> None:
     """Every rendered Cursor hook entry pins an explicit generous timeout
     so a slow relay is bounded by our ceiling, not the platform default."""

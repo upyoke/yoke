@@ -28,6 +28,10 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
    - `preToolUse` fires for `Read`/`Write`/`Task` with canonicalized
      `tool_name` (`Shell` payloads arrive as `Bash` after the parser).
    - `sessionEnd` fires at process exit with `reason`/`final_status`.
+   - `afterAgentThought` fires once the model starts generating, and the
+     session row's `model` moves off `unknown` to the id its `model_id`
+     names. Registration at `sessionStart` records `unknown` on this
+     surface by design — the vendor reports `model: "default"` there.
 6. Confirm the print-mode gaps are still gaps (assessment doc must be
    updated if the vendor closes them): no `beforeSubmitPrompt`, no `stop`,
    no `subagentStart`/`subagentStop` despite a `Task` dispatch.
