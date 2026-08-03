@@ -45,10 +45,11 @@ Do NOT pass a full command-shape after ``--``. The wrapper rejects both
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from yoke_core.tools import _watch_runner
 from yoke_core.tools._watch_pytest_classify import classify_pytest_line
@@ -156,6 +157,21 @@ def _is_nested_invocation(args: Sequence[str]) -> bool:
 def _case_run_argv(args: Sequence[str]) -> list[str]:
     """Build the underlying gate invocation."""
     return [sys.executable, "-m", CASE_RUN_MODULE, *list(args)]
+
+
+def unbuffered_environment(env: Mapping[str, str]) -> dict[str, str]:
+    """A copy of *env* that keeps the gate's output flowing through the pipe.
+
+    Watching a command replaces its terminal with a pipe, and Python
+    block-buffers stdout when it is not a TTY. The gate's poll lines are
+    plain ``print`` calls, so under a pipe they would sit in the child's
+    buffer and arrive in one burst at exit — a progress stream that
+    reports nothing until there is nothing left to report, which is the
+    blindness this wrapper exists to remove. Unbuffering the child costs
+    nothing at this line rate and covers every print in it, not only the
+    poll lines that motivated it.
+    """
+    return {**env, "PYTHONUNBUFFERED": "1"}
 
 
 HELP_EPILOG = """\
@@ -271,6 +287,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         raw_capture=raw_path,
         progress_capture=progress_path,
         kind=KIND,
+        env=unbuffered_environment(os.environ),
     )
 
 
