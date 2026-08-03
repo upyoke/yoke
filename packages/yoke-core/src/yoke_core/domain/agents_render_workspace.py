@@ -10,16 +10,15 @@ Owns the helpers that the renderer's writer hot path used to inline:
   to ``_repo_root`` only when neither is provided AND the cwd is not inside a
   linked git worktree.
 - ``require_reader_root``: strict resolver for the renderer's reader hot
-  path. Prefers an explicit ``target_root``, then ``$YOKE_BOUND_WORKSPACE``
-  as a legacy fallback for reader-only callers, and raises ``RuntimeError``
-  when neither is supplied. The opt-in ``allow_ambient=True`` keyword
-  unlocks the ``_repo_root`` fallback for legitimate CLI consumers.
+  path. Prefers an explicit ``target_root``, then the calling session's
+  active worktree claim, and raises ``RuntimeError`` when neither is
+  supplied. The opt-in ``allow_ambient=True`` keyword unlocks the
+  ``_repo_root`` fallback for legitimate CLI consumers.
 
 The writer-side guard previously owned here lives in
 :mod:`yoke_core.domain.workspace_authority`
 (``assert_target_under_session_work_authority``) and validates the
-calling session's live ``work_claims`` rows rather than the stale
-``$YOKE_BOUND_WORKSPACE`` env-var snapshot.
+calling session's live ``work_claims`` rows.
 
 The writer hot path requires every public renderer entry point to take
 ``target_root`` as a required keyword argument; the reader hot path now
@@ -29,17 +28,16 @@ no longer reachable through the substrate renderer's public surface.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Optional
 
 from yoke_contracts.project_contract.workspace_roots import (
-    BOUND_WORKSPACE_ENV_VAR,
     RENDER_TARGET_ROOT_ENV_VAR,
     _is_inside_linked_worktree,
     _repo_root,
     resolve_target_root_for_cli as _resolve_target_root_for_cli,
 )
+from yoke_core.domain.workspace_authority import resolve_session_worktree_paths
 
 
 def require_reader_root(
@@ -52,30 +50,29 @@ def require_reader_root(
     Precedence:
 
     1. ``target_root`` when provided — caller-supplied anchor always wins.
-    2. ``$YOKE_BOUND_WORKSPACE`` when set and non-empty — the
-       SessionStart-exported session anchor.
+    2. The first active worktree claimed by the ambient session.
     3. ``_repo_root()`` only when ``allow_ambient=True`` (CLI / explicit
        opt-in path for tooling that genuinely wants the ambient repo root).
 
-    When neither ``target_root`` nor ``YOKE_BOUND_WORKSPACE`` is set AND
-    ``allow_ambient`` is False, raise ``RuntimeError`` naming both missing
-    inputs. The error message is structured so the operator immediately
+    When neither ``target_root`` nor a claimed worktree is available AND
+    ``allow_ambient`` is False, raise ``RuntimeError`` naming the missing
+    anchor. The error message is structured so the operator immediately
     sees which input to supply.
     """
     if target_root is not None:
         return Path(target_root)
-    workspace = os.environ.get(BOUND_WORKSPACE_ENV_VAR, "").strip()
-    if workspace:
-        return Path(workspace).resolve()
+    worktrees = resolve_session_worktree_paths()
+    if worktrees:
+        return Path(worktrees[0]).resolve()
     if allow_ambient:
         return _repo_root().resolve()
     raise RuntimeError(
         "agents_render reader: no anchor available. "
         "target_root was not supplied and "
-        f"${BOUND_WORKSPACE_ENV_VAR} is unset. "
-        "Pass target_root=<path> to the reader, set the env var via the "
-        "SessionStart hook, or call the helper with allow_ambient=True from "
-        "a CLI surface that explicitly opts into cwd-based resolution."
+        "the ambient session has no active worktree claim. "
+        "Pass target_root=<path> to the reader, acquire a worktree claim, "
+        "or call the helper with allow_ambient=True from a CLI surface that "
+        "explicitly opts into cwd-based resolution."
     )
 
 
@@ -141,7 +138,6 @@ def run_cli(*, write_all, detect_substrate_drift) -> None:
 
 
 __all__ = [
-    "BOUND_WORKSPACE_ENV_VAR",
     "RENDER_TARGET_ROOT_ENV_VAR",
     "_repo_root",
     "_is_inside_linked_worktree",

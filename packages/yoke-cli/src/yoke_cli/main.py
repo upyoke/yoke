@@ -14,6 +14,7 @@ auth, same handler across both branches.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from typing import List, Optional, Sequence
@@ -34,9 +35,13 @@ from yoke_cli.commands.tool_shaped import (
     resolve_tool_shaped,
 )
 from yoke_cli.config import install_binding, machine_config
+from yoke_contracts.control_plane_locality import (
+    local_authority_is_pinned,
+    remote_control_plane,
+)
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.machine_config import schema as machine_schema
-from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE, TRANSPORT_HTTPS
 
 
 _BARE_ONBOARD_COMMAND = "yoke onboard"
@@ -214,6 +219,35 @@ def _extract_global_env(argv: List[str]) -> tuple[List[str], Optional[str], bool
     return out, selected, True
 
 
+def _control_plane_is_remote(explicit_env: Optional[str]) -> bool:
+    """Return whether this invocation has no local database it could open.
+
+    An explicitly pinned DSN answers False whatever the machine config says:
+    that pin IS a local authority, it already wins inside the DSN resolver,
+    and a machine reached over https can still be handed one for a break-glass
+    admin session. Otherwise the declared transport decides — keyed on the
+    transport alone, not on a resolved relay target, because a missing token
+    changes whether the relay can run, never whether a database exists to open
+    instead. Any machine-config problem answers False, leaving the guard off
+    and the pre-existing error for that problem to surface where it already
+    does.
+    """
+    if local_authority_is_pinned():
+        return False
+    try:
+        connection = machine_config.active_connection(explicit_env=explicit_env)
+    except Exception:  # noqa: BLE001 - config problems are reported elsewhere
+        return False
+    return str(connection.get("transport") or "") == TRANSPORT_HTTPS
+
+
+def _control_plane_locality(explicit_env: Optional[str]):
+    """Return the locality context this invocation's adapter runs under."""
+    if _control_plane_is_remote(explicit_env):
+        return remote_control_plane()
+    return contextlib.nullcontext()
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the ``yoke`` CLI for one invocation. Returns the exit code."""
     if argv is None:
@@ -265,12 +299,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         if global_env:
             os.environ[ENV_OVERRIDE] = global_env
-        try:
-            return adapter(remaining)
-        except SystemExit as exc:
-            return exc.code if isinstance(exc.code, int) else 1
-        except KeyboardInterrupt:
-            return _emit_interrupted()
+        # Marked here, around the adapter rather than around the relay,
+        # because the code that must not open a connection is the engine work
+        # the adapter runs locally — worktree preflight, merge, resync,
+        # GitHub sync — not the relay call itself.
+        with _control_plane_locality(global_env):
+            try:
+                return adapter(remaining)
+            except SystemExit as exc:
+                return exc.code if isinstance(exc.code, int) else 1
+            except KeyboardInterrupt:
+                return _emit_interrupted()
     finally:
         if global_env:
             if old_env is None:

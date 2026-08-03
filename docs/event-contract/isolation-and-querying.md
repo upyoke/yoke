@@ -117,8 +117,3 @@ Some event families have rows where `item_id` is null. This is expected in these
 | `HarnessSessionStarted` / `HarnessSessionEnded` | Always | Session-level events, not item-level |
 | `FrontierComputed` | Always | Frontier is a project-wide computation |
 | `HarnessToolCallStarted` / `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessToolCallDenied` | Main-session calls with multiple in-flight items or shared-main overlap | Execution context resolution is still best-effort for non-worktree sessions |
-
-## Normalization Scripts
-
-- the events-backfill migration -- Backfills `tool_use_id`, `turn_id`, `hook_event_name` from envelope/event data, and normalizes prefixed or bare `item_id` values to canonical numeric text. Idempotent and safe to re-run. Batch-processed for safety.
-- the events-correlation migration -- Adds the correlation columns (`turn_id`, `hook_event_name`) to the events table and refreshes any legacy duplicate-session schema. Prerequisite for backfill; called automatically by `migrate-events-backfill`.

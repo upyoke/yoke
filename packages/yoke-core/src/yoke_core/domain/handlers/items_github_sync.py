@@ -25,6 +25,12 @@ class GithubSyncRequest(BaseModel):
     """Payload for ``items.github_sync``."""
 
 
+class GithubDoneSyncRequest(BaseModel):
+    """Payload for ``items.github_done_sync``."""
+
+    old_status: str = ""
+
+
 class GithubSyncResponse(BaseModel):
     item_id: int
     exit_code: int
@@ -83,7 +89,77 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
+    """Run the done-state GitHub closeout for one item.
+
+    Registered so the done-transition engine can run this server-side. The
+    closeout reads the item, renders its body, and stamps sync state, all of
+    which need a control-plane connection — which the machine running the
+    transition does not have when its control plane is reached over https.
+    """
+    if request.target.kind != "item" or request.target.item_id is None:
+        return _error_outcome(
+            "invalid_payload",
+            "items.github_done_sync target must carry kind='item' + item_id.",
+        )
+    try:
+        payload = GithubDoneSyncRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _error_outcome("invalid_payload", f"payload invalid: {exc}")
+
+    item_id = int(request.target.item_id)
+    item_ref = str(item_id)
+    allowed, _reason, holder = check_ownership(
+        item_ref,
+        session_id=request.actor.session_id or None,
+    )
+    if not allowed:
+        return _error_outcome(
+            "claim_conflict",
+            f"Refusing to sync item for {item_ref}: "
+            f"work claim held by session {holder}",
+        )
+
+    rc = backlog_github_sync.sync_done_item(item_ref, payload.old_status)
+    if rc != 0:
+        return _error_outcome(
+            "github_sync_failed",
+            f"GitHub done sync failed for YOK-{item_id} with exit code {rc}.",
+        )
+
+    backlog._maybe_rebuild_board(True)
+    response = GithubSyncResponse(
+        item_id=item_id,
+        exit_code=rc,
+        board_rebuild_requested=True,
+    )
+    return HandlerOutcome(
+        result_payload=response.model_dump(),
+        primary_success=True,
+    )
+
+
 REGISTRATIONS: List[Dict[str, Any]] = [
+    {
+        "function_id": "items.github_done_sync",
+        "handler": handle_github_done_sync,
+        "request_model": GithubDoneSyncRequest,
+        "response_model": GithubSyncResponse,
+        "stability": "stable",
+        "owner_module": "yoke_core.domain.handlers.items_github_sync",
+        "target_kinds": ["item"],
+        "side_effects": ["github_sync", "rebuild_board"],
+        "emitted_event_names": ["YokeFunctionCalled"],
+        "guardrails": [
+            "allow_unclaimed_ownership_guard",
+            "project_github_auth_required",
+        ],
+        # No CLI adapter: the done-transition engine is the only caller, and
+        # it reaches this by relay when it has no local control plane. An
+        # operator syncing an item by hand uses `yoke items github-sync`.
+        "adapter_status": "internal",
+        "claim_required_kind": None,
+    },
     {
         "function_id": "items.github_sync",
         "handler": handle_github_sync,
@@ -105,8 +181,10 @@ REGISTRATIONS: List[Dict[str, Any]] = [
 
 
 __all__ = [
+    "GithubDoneSyncRequest",
     "GithubSyncRequest",
     "GithubSyncResponse",
     "REGISTRATIONS",
+    "handle_github_done_sync",
     "handle_github_sync",
 ]

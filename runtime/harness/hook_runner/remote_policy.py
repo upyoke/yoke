@@ -23,8 +23,8 @@ the https relay evaluates one chain split across the two sides:
   chain members the client handles outside policy evaluation (e.g.
   ``session_dispatch``). None of these fail closed: each one's deny is
   contingent on *confirming* local facts (current branch, threatened
-  uncommitted state, bound-workspace env, on-disk file content), and each
-  already fails open by design when its probe is unavailable.
+  uncommitted state, or on-disk file content), and each already fails open
+  by design when its probe is unavailable.
 
 ``RunControls`` is the runner-facing knob bundle: an injected total budget
 (the remaining shared deadline), the skip classifier, payload augmentation,
@@ -51,8 +51,6 @@ __all__ = [
 # Policies whose verdict needs the CLIENT machine. One line of why each:
 LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
     {
-        # Client env $YOKE_BOUND_WORKSPACE + client cwd comparison.
-        "yoke_core.domain.lint_workspace_cwd_match",
         # `git -C <worktree> status` / stash inspection on the client FS.
         "yoke_core.domain.lint_destructive_git",
         # Walks the write target's parent dirs (.git / pyproject.toml).

@@ -20,14 +20,12 @@ from yoke_harness.hooks.local_policy_common import (
     PolicyResult,
     branch,
     command_from_payload,
-    cwd_from_payload,
     git,
     git_invocations,
     porcelain,
     repo_cwd,
     response_text,
     staged,
-    statements,
     write_fields,
 )
 
@@ -203,38 +201,6 @@ def lint_shell_backtick_search(payload: dict) -> PolicyResult:
     return PolicyResult(NOOP)
 
 
-def lint_workspace_cwd_match(payload: dict) -> PolicyResult:
-    workspace = os.environ.get("YOKE_BOUND_WORKSPACE", "").strip()
-    if not workspace:
-        return PolicyResult(NOOP)
-    cwd = cwd_from_payload(payload)
-    try:
-        Path(cwd).resolve().relative_to(Path(workspace).resolve())
-        return PolicyResult(NOOP)
-    except (OSError, ValueError):
-        pass
-    command = command_from_payload(payload)
-    writer = any(
-        tokens[:1] == ["pytest"]
-        or tokens[:3] in (
-            ["python", "-m", "pytest"],
-            ["python3", "-m", "pytest"],
-            ["python", "-m", "yoke_core.domain.agents_render"],
-            ["python3", "-m", "yoke_core.domain.agents_render"],
-            ["python", "-m", "yoke_core.tools.run_tests"],
-            ["python3", "-m", "yoke_core.tools.run_tests"],
-        )
-        for tokens in statements(command)
-    )
-    if not writer:
-        return PolicyResult(NOOP)
-    return PolicyResult(
-        DENY,
-        "BLOCKED: writer-class command invoked from a cross-checkout cwd.\n\n"
-        f"Bound workspace: {workspace}\nCurrent cwd:     {cwd}",
-    )
-
-
 def lint_tmp_runtime_import(payload: dict) -> PolicyResult:
     file_path, content = write_fields(payload)
     if not file_path.endswith(".py") or not file_path.startswith(_TMP_PREFIXES):
@@ -334,5 +300,4 @@ __all__ = [
     "lint_main_commit",
     "lint_shell_backtick_search",
     "lint_tmp_runtime_import",
-    "lint_workspace_cwd_match",
 ]

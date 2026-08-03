@@ -25,6 +25,7 @@ from typing import Any, Optional, Sequence
 
 import psycopg
 
+from yoke_contracts.control_plane_locality import local_authority_exempt
 from yoke_core.domain import db_backend
 
 
@@ -50,10 +51,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _platform_dsn() -> str:
-    """Return the selected authority DSN re-pointed at the Platform DB."""
-    with psycopg.connect(db_backend.resolve_pg_dsn()) as conn:
-        info = conn.info
-        host, port, user, password = info.host, info.port, info.user, info.password
+    """Return the selected authority DSN re-pointed at the Platform DB.
+
+    Opening the authority directly is the point of this operator-debug
+    reader: it is run against an admin env that names a local Postgres, and
+    it borrows that connection's host/port/user only to reach a sibling
+    database on the same cluster.
+    """
+    with local_authority_exempt():
+        with psycopg.connect(db_backend.resolve_pg_dsn()) as conn:
+            info = conn.info
+            host, port, user, password = (
+                info.host, info.port, info.user, info.password,
+            )
     parts = [f"host={host}", f"port={port}", f"user={user}", f"dbname={PLATFORM_DB}"]
     if password:
         parts.append(f"password={password}")

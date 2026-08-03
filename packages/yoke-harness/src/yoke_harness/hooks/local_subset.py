@@ -23,7 +23,6 @@ from yoke_harness.hooks.local_policies import (
     lint_main_commit,
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
-    lint_workspace_cwd_match,
 )
 from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP
 
@@ -31,7 +30,6 @@ from yoke_harness.hooks.local_policy_common import ADVISORY, DENY, NOOP
 LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
     {
         "yoke_core.domain.lint_main_commit",
-        "yoke_core.domain.lint_workspace_cwd_match",
         "yoke_core.domain.lint_shell_backtick_search",
         "yoke_core.domain.lint_destructive_git",
         "yoke_core.domain.lint_python_runtime_import_in_tmp",
@@ -103,7 +101,6 @@ def _local_modules(
 
 _POLICY_EVALUATORS = {
     "yoke_core.domain.lint_main_commit": lint_main_commit,
-    "yoke_core.domain.lint_workspace_cwd_match": lint_workspace_cwd_match,
     "yoke_core.domain.lint_shell_backtick_search": lint_shell_backtick_search,
     "yoke_core.domain.lint_destructive_git": lint_destructive_git,
     "yoke_core.domain.lint_python_runtime_import_in_tmp": lint_tmp_runtime_import,

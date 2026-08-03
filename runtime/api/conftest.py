@@ -190,26 +190,6 @@ def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _clear_bound_workspace_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Clear the workspace anchor env for every API test.
-
-    Active Yoke sessions export ``YOKE_BOUND_WORKSPACE`` from the
-    SessionStart hook. The substrate renderer's reader hot path still
-    consults that env via
-    ``yoke_core.domain.agents_render_workspace.require_reader_root``
-    as a legacy fallback, and the PreToolUse lint
-    ``yoke_core.domain.lint_workspace_cwd_match`` reads it directly.
-    Clearing it here keeps tests that exercise reader / writer paths
-    against ``tmp_path`` from picking up the ambient session anchor;
-    the writer-side work-claim authority guard
-    (``yoke_core.domain.workspace_authority.assert_target_under_session_work_authority``)
-    is independently gated on ``$YOKE_SESSION_ID`` so it stays
-    no-op for tests with no harness session.
-    """
-    monkeypatch.delenv("YOKE_BOUND_WORKSPACE", raising=False)
-
-
-@pytest.fixture(autouse=True)
 def _clear_ci_authority_selection_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Require tests to opt into GitHub Actions credential authority.
 

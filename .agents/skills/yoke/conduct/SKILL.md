@@ -204,18 +204,18 @@ After pre-dispatch gates pass, follow this phased-read sequence. **Do NOT read a
 
 | Phase | File | When to read | Approx size |
 |---|---|---|---|
-| 1. Entry & Activation | `entry-activation.md` | **Always — read first** | ~300 lines |
-| 2. Engineer/Tester Loop | `engineer-tester-loop.md` | After activation completes (S6f done) | ~340 lines |
-| 3. Simulation Gate | `simulation-gate.md` | After all tasks pass (all `reviewed-implementation`) | ~370 lines |
-| 4. Cleanup & Report | `cleanup-report.md` | After simulation (or on any exit path) | ~100 lines |
+| 1. Entry & Activation | `entry-activation.md` | **Always — read first** | 137 lines |
+| 2. Engineer/Tester Loop | `engineer-tester-loop.md` | After activation completes (S6f done) | 91 lines |
+| 3. Simulation Gate | `simulation-gate.md` | After all tasks pass (all `reviewed-implementation`) | 35 lines |
+| 4. Cleanup & Report | `cleanup-report.md` | After simulation (or on any exit path) | 117 lines |
 
 **Supplemental files — read only when a phase step references them:**
 
 | File | Read when | Safe-read guidance |
 |---|---|---|
-| `dispatch-context.md` (~1445 lines) | Steps in the loop reference specific sections (5f-rehydrate, 5m, 5n, 5i-minimal, etc.) | **Read only the referenced section.** Use `offset`/`limit` on the Read tool: section index is at the top of the file. Never read end-to-end. |
-| `simulation-autofix.md` (~582 lines) | `simulation-gate.md` Branch 3 (GAPS FOUND with CRITICALs) | Read fully only when entering the autofix flow. |
-| `error-handling.md` (~61 lines) | Reference only — halt conditions and non-halting failure notes | Small enough to read in full when needed. |
+| `dispatch-context.md` (227 lines) | Steps in the loop reference specific sections (5f-rehydrate, 5m, 5n, 5i-minimal, etc.) | **Read only the referenced section.** Use `offset`/`limit` on the Read tool: section index is at the top of the file. Never read end-to-end. |
+| `simulation-autofix.md` (55 lines) | `simulation-gate.md` Branch 3 (GAPS FOUND with CRITICALs) | Read fully only when entering the autofix flow. |
+| `error-handling.md` (70 lines) | Reference only — halt conditions and non-halting failure notes | Small enough to read in full when needed. |
 
 **Large-file read discipline for subagent dispatch prompts:** When a phase file builds an Engineer, Tester, or Simulator prompt that references known-large documents (task bodies, diffs, specs), that phase file includes explicit size-gate guidance. Follow it — do not blind-read oversized content into prompts.
 

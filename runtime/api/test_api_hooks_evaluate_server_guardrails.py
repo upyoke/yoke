@@ -117,4 +117,4 @@ def test_hooks_evaluate_runs_claim_ownership_guard_server_side(client) -> None:
     assert "yoke_core.domain.lint_claim_ownership_mutations" not in (
         payload["degraded"]
     )
-    assert "yoke_core.domain.lint_workspace_cwd_match" in payload["degraded"]
+    assert "yoke_core.domain.lint_workspace_cwd_match" not in payload["degraded"]
