@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,6 +80,45 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
     response = json.loads(result.stdout)
     assert response["success"] is False
     assert response["error"]["code"] == "local_postgres_core_unavailable"
+
+
+def test_builtin_dispatch_selects_only_explicit_client_local_entrypoint(
+    monkeypatch,
+) -> None:
+    from yoke_cli.transport import dispatcher
+    from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
+
+    calls: list[str] = []
+
+    def _response(request, selected: str):
+        calls.append(selected)
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version=request.version,
+            request_id=request.request_id,
+            result={"selected": selected},
+        )
+
+    module = SimpleNamespace(
+        dispatch=lambda request: _response(request, "control-plane"),
+        dispatch_local=lambda request: _response(request, "client-local"),
+    )
+    monkeypatch.setattr(dispatcher.importlib, "import_module", lambda _name: module)
+    monkeypatch.setattr(
+        dispatcher.local_github_dispatch,
+        "call_with_machine_github_authorization",
+        lambda request, dispatch, **_kwargs: dispatch(request),
+    )
+    request = dispatcher.build_request(
+        function_id="packets.check.run",
+        target=TargetRef(kind="global"),
+    )
+
+    dispatcher._call_local(request, None)
+    dispatcher._call_local(request, None, client_local=True)
+
+    assert calls == ["control-plane", "client-local"]
 
 
 def test_local_dispatch_allows_explicit_prod_flag_when_local_core_is_available(

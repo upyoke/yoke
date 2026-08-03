@@ -143,7 +143,7 @@ def call_dispatcher(
     )
     if local_only:
         return _redact_response(
-            _call_local(request, _local_dispatch), sensitive_values,
+            _call_local(request, _local_dispatch, client_local=True), sensitive_values,
         )
     try:
         https = https_transport.resolve_https_connection()
@@ -238,6 +238,7 @@ def _resolve_session_id() -> Optional[str]:
 def _call_local(
     request: FunctionCallRequest,
     local_dispatch: Optional[LocalDispatch],
+    client_local: bool = False,
 ) -> FunctionCallResponse:
     dispatch_module = None
     if local_dispatch is None:
@@ -258,7 +259,7 @@ def _call_local(
                     "`yoke env use <env>`."
                 ),
             )
-        local_dispatch = dispatch_module.dispatch_local
+        local_dispatch = getattr(dispatch_module, "dispatch_local" if client_local else "dispatch")
     return local_github_dispatch.call_with_machine_github_authorization(
         request,
         local_dispatch,
