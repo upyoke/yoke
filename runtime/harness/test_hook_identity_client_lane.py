@@ -11,7 +11,7 @@ patch those real surfaces.
 
 from __future__ import annotations
 
-from yoke_harness.hooks.identity import client_lane, client_model
+from yoke_harness.hooks.identity import client_entrypoint, client_lane, client_model
 
 _RELAY = "yoke_harness.hooks.identity_relay"
 _MACHINE_CONFIG = "yoke_cli.config.machine_config"
@@ -114,3 +114,37 @@ def test_client_project_id_scalar_keys_still_resolve(monkeypatch) -> None:
 
     assert client_project_id({"cwd": "/checkouts/app"}) == 3
     assert client_project_id({"workspace_roots": [], "cwd": ""}) is None
+
+
+def test_client_entrypoint_resolves_cursor_surface_from_executor(monkeypatch) -> None:
+    """Cursor's surface comes from the executor family, not ambient transcript env.
+
+    On an https machine the client-side register self-skips, so this is the
+    only entrypoint that reaches the server. The rendered Cursor hook
+    command pins the family, and the IDE surface has not exported
+    ``CURSOR_TRANSCRIPT_PATH`` yet at sessionStart — so an env-only
+    resolution would answer ``None`` and leave the alias unrecorded.
+    """
+    for var in (
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CODEX_THREAD_ID",
+        "CURSOR_INVOKED_AS",
+        "CURSOR_TRANSCRIPT_PATH",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    assert client_entrypoint("cursor", {"session_id": "s-1"}) == "cursor-desktop"
+
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    assert client_entrypoint("cursor", {"session_id": "s-1"}) == "cursor-cli"
+
+
+def test_client_entrypoint_non_cursor_families_unchanged(monkeypatch) -> None:
+    for var in ("CODEX_THREAD_ID", "CURSOR_INVOKED_AS", "CURSOR_TRANSCRIPT_PATH"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("CLAUDE_CODE_ENTRYPOINT", "claude-desktop")
+
+    assert client_entrypoint("claude-code", {}) == "claude-desktop"
+
+    monkeypatch.delenv("CLAUDE_CODE_ENTRYPOINT")
+    assert client_entrypoint("claude-code", {}) is None

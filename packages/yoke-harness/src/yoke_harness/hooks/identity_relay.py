@@ -13,9 +13,11 @@ from yoke_harness.hooks.identity_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
     _is_placeholder_model,
+    cursor_surface_entrypoint,
     detect_entrypoint,
     detect_model,
     is_codex,
+    is_cursor,
     resolve_session_id,
 )
 
@@ -136,10 +138,21 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
 
 
 def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
+    """Resolve the client's surface alias for the relayed registration.
+
+    On an https machine this is the only entrypoint that reaches the server:
+    the client-side register self-skips and the relayed server-side
+    ensure-register owns the row. The executor argument names the family
+    (the rendered hook command pins it), so Cursor resolves its surface
+    from that rather than from ``detect_entrypoint``, whose Cursor branch
+    needs env the IDE surface has not exported yet at sessionStart.
+    """
     try:
         if is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             return _codex_resolve_entrypoint(thread_id=sid or None) or None
+        if is_cursor(executor):
+            return cursor_surface_entrypoint()
         return detect_entrypoint() or None
     except Exception:
         return None

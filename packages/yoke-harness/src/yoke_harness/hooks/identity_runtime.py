@@ -26,6 +26,11 @@ _CLAUDE_LEGACY = "claude"
 _CLAUDE_COARSE = "claude-code"
 _CODEX_COARSE = "codex"
 _CURSOR_COARSE = "cursor"
+_CURSOR_AGENT_ENV = "CURSOR_INVOKED_AS"
+_CURSOR_AGENT_VALUE = "cursor-agent"
+_CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
+_CURSOR_SURFACE_CLI = "cli"
+_CURSOR_SURFACE_DESKTOP = "desktop"
 _PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
 
 
@@ -118,6 +123,33 @@ def compose_executor_from_entrypoint(
     return value
 
 
+def cursor_surface_entrypoint() -> str:
+    """Return the Cursor surface alias for the current hook process.
+
+    ``CURSOR_INVOKED_AS=cursor-agent`` marks the standalone terminal agent;
+    every other Cursor hook process is the IDE surface. This deliberately
+    does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
+    a session's first hook events, which is exactly when session
+    registration runs, so keying the surface on it loses the alias on the
+    IDE surface and leaves ``executor_display_name`` NULL.
+
+    Callers that must first decide whether this is a Cursor process at all
+    still gate on the env vars; this resolver only answers *which surface*.
+    """
+    surface = (
+        _CURSOR_SURFACE_CLI
+        if os.environ.get(_CURSOR_AGENT_ENV) == _CURSOR_AGENT_VALUE
+        else _CURSOR_SURFACE_DESKTOP
+    )
+    return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
+
+
+def _in_cursor_process() -> bool:
+    return bool(
+        os.environ.get(_CURSOR_TRANSCRIPT_ENV) or os.environ.get(_CURSOR_AGENT_ENV)
+    )
+
+
 def resolve_session_id(stdin_data: str) -> str:
     return (
         os.environ.get("CODEX_THREAD_ID", "")
@@ -137,9 +169,8 @@ def detect_executor() -> str:
     # CURSOR_TRANSCRIPT_PATH and the standalone terminal agent sets
     # CURSOR_INVOKED_AS=cursor-agent. The rendered Cursor hook command pins
     # YOKE_EXECUTOR=cursor, so this branch covers unpinned subprocesses.
-    if os.environ.get("CURSOR_TRANSCRIPT_PATH") or os.environ.get("CURSOR_INVOKED_AS"):
-        surface = "cli" if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent" else "desktop"
-        return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return _compose_executor(
         "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
     )
@@ -165,10 +196,8 @@ def detect_entrypoint() -> Optional[str]:
         return val
     if os.environ.get("CODEX_THREAD_ID"):
         return _codex_resolve_entrypoint()
-    if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent":
-        return "cursor-cli"
-    if os.environ.get("CURSOR_TRANSCRIPT_PATH"):
-        return "cursor-desktop"
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return None
 
 

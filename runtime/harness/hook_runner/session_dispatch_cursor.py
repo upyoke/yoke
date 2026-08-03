@@ -44,9 +44,9 @@ def _payload_model(payload: dict) -> str:
 
 
 def _entrypoint() -> str:
-    if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent":
-        return "cursor-cli"
-    return "cursor-desktop"
+    from yoke_harness.hooks.identity import cursor_surface_entrypoint
+
+    return cursor_surface_entrypoint()
 
 
 def _render_orientation(

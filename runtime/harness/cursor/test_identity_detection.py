@@ -76,3 +76,30 @@ def test_detect_entrypoint_cursor_surfaces(
     monkeypatch.delenv("CURSOR_INVOKED_AS")
     monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", "/x/abc/abc.jsonl")
     assert identity.detect_entrypoint() == "cursor-desktop"
+
+
+@BOTH
+def test_cursor_surface_entrypoint_defaults_to_desktop_without_transcript(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The IDE surface resolves even before the transcript path exists.
+
+    Cursor does not export ``CURSOR_TRANSCRIPT_PATH`` for a session's first
+    hook events, which is exactly when session registration runs. The
+    surface resolver must therefore key on the CLI discriminator alone and
+    treat its absence as the IDE surface.
+    """
+    monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
+    monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
+    assert identity.cursor_surface_entrypoint() == "cursor-desktop"
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    assert identity.cursor_surface_entrypoint() == "cursor-cli"
+
+
+@BOTH
+def test_cursor_surface_entrypoint_ignores_unrecognized_invoked_as(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "something-else")
+    assert identity.cursor_surface_entrypoint() == "cursor-desktop"
