@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
@@ -148,39 +149,57 @@ def _allow_workflow_version_rewrite(conn: Any, *, allowed: bool) -> None:
 
 
 def apply(conn: Any) -> None:
-    """Rewrite storage keys without changing stage behavior or row identity."""
+    """Rewrite storage keys without changing stage behavior or row identity.
+
+    Writes only rows that actually change. That is not an optimization: these
+    rows are published immutable definitions, and this entry has to disable
+    their immutability trigger to touch any of them. Rewriting a row that
+    already carries the new vocabulary would re-serialize it and recompute its
+    digest for no reason — and a published definition whose digest no longer
+    matches the code-owned one is a startup abort, not a cosmetic difference.
+    An entry that is already done must therefore write nothing at all.
+    """
     marker = _marker(conn)
-    _allow_workflow_version_rewrite(conn, allowed=True)
-    try:
-        workflow_rows = conn.execute(
-            "SELECT id, definition_json, definition_schema_version "
-            "FROM workflow_versions ORDER BY id"
-        ).fetchall()
-        for row in workflow_rows:
-            definition = _rewrite_workflow(
-                _object(row[1], subject=f"workflow version {row[0]}")
-            )
-            conn.execute(
-                "UPDATE workflow_versions SET definition_json="
-                f"{marker}, definition_digest={marker}, "
-                f"definition_schema_version={marker} WHERE id={marker}",
-                (
-                    json_helper.dumps_compact(definition),
-                    definition_digest(definition),
-                    definition["schema_version"],
-                    row[0],
-                ),
-            )
-    finally:
-        _allow_workflow_version_rewrite(conn, allowed=False)
+    workflow_rows = conn.execute(
+        "SELECT id, definition_json, definition_schema_version "
+        "FROM workflow_versions ORDER BY id"
+    ).fetchall()
+    rewrites = []
+    for row in workflow_rows:
+        original = _object(row[1], subject=f"workflow version {row[0]}")
+        # Deep copy: _rewrite_workflow edits stage descriptions in place, so a
+        # shallow copy would mutate the baseline it is compared against and
+        # every row would look unchanged.
+        definition = _rewrite_workflow(copy.deepcopy(original))
+        if definition != original:
+            rewrites.append((row[0], definition))
+
+    if rewrites:
+        _allow_workflow_version_rewrite(conn, allowed=True)
+        try:
+            for row_id, definition in rewrites:
+                conn.execute(
+                    "UPDATE workflow_versions SET definition_json="
+                    f"{marker}, definition_digest={marker}, "
+                    f"definition_schema_version={marker} WHERE id={marker}",
+                    (
+                        json_helper.dumps_compact(definition),
+                        definition_digest(definition),
+                        definition["schema_version"],
+                        row_id,
+                    ),
+                )
+        finally:
+            _allow_workflow_version_rewrite(conn, allowed=False)
 
     flow_rows = conn.execute(
         "SELECT id, stages FROM deployment_flows ORDER BY id"
     ).fetchall()
     for row in flow_rows:
-        stages = _rewrite_stages(
-            _array(row[1], subject=f"deployment flow {row[0]}")
-        )
+        original = _array(row[1], subject=f"deployment flow {row[0]}")
+        stages = _rewrite_stages(copy.deepcopy(original))
+        if stages == original:
+            continue
         conn.execute(
             f"UPDATE deployment_flows SET stages={marker} WHERE id={marker}",
             (json_helper.dumps_compact(stages), row[0]),

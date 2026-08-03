@@ -170,6 +170,47 @@ def test_migration_no_ops_on_definitions_past_its_target_version() -> None:
     assert stored["skill_bindings"][0]["skill_id"] == "dash"
 
 
+def test_migration_leaves_already_migrated_rows_byte_identical() -> None:
+    # These are published immutable definitions, and this entry disables their
+    # immutability trigger to touch them. Re-serializing a row that already
+    # carries the new vocabulary would recompute its digest for no reason, and
+    # a published definition whose digest stops matching the code-owned one is
+    # a startup abort. So an entry that is already done must write nothing.
+    conn = _connection()
+    definition = _legacy_workflow()
+    conn.execute(
+        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
+        (1, json.dumps(definition), definition_digest(definition), 2),
+    )
+    conn.execute(
+        "INSERT INTO deployment_flows VALUES (?, ?)",
+        ("release", json.dumps([{"name": "merged", "step_runner": "auto"}])),
+    )
+    migration.apply(conn)
+
+    before = conn.execute(
+        "SELECT definition_json, definition_digest FROM workflow_versions "
+        "WHERE id=1"
+    ).fetchone()
+    flow_before = conn.execute(
+        "SELECT stages FROM deployment_flows WHERE id='release'"
+    ).fetchone()[0]
+
+    # Second run: the immutability trigger is live again, so a write here
+    # would raise rather than silently churn the digest.
+    migration.apply(conn)
+
+    after = conn.execute(
+        "SELECT definition_json, definition_digest FROM workflow_versions "
+        "WHERE id=1"
+    ).fetchone()
+    flow_after = conn.execute(
+        "SELECT stages FROM deployment_flows WHERE id='release'"
+    ).fetchone()[0]
+    assert tuple(after) == tuple(before)
+    assert flow_after == flow_before
+
+
 def test_migration_preserves_historical_workflow_schema() -> None:
     conn = _connection()
     definition = _legacy_workflow()
