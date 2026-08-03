@@ -17,7 +17,8 @@ def _connection() -> sqlite3.Connection:
     conn.execute(
         "CREATE TABLE workflow_versions ("
         "id INTEGER PRIMARY KEY, definition_json TEXT NOT NULL, "
-        "definition_digest TEXT NOT NULL)"
+        "definition_digest TEXT NOT NULL, "
+        "definition_schema_version INTEGER NOT NULL)"
     )
     conn.execute(
         "CREATE TABLE deployment_flows ("
@@ -30,7 +31,13 @@ def _connection() -> sqlite3.Connection:
 def _legacy_workflow() -> dict:
     return {
         "schema_version": 2,
-        "stages": [{"id": "idea"}, {"id": "done"}],
+        "stages": [
+            {
+                "id": "idea",
+                "description": "The executor owns this stage.",
+            },
+            {"id": "done"},
+        ],
         "terminal_stage_ids": ["done"],
         "transitions": [{"from_stage_id": "idea", "to_stage_id": "done"}],
         "entry_surfaces": ["harness_skill"],
@@ -49,8 +56,8 @@ def test_migration_rewrites_keys_and_preserves_rows() -> None:
     conn = _connection()
     definition = _legacy_workflow()
     conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition)),
+        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
+        (1, json.dumps(definition), definition_digest(definition), 2),
     )
     conn.execute(
         "INSERT INTO deployment_flows VALUES (?, ?)",
@@ -84,7 +91,11 @@ def test_migration_rewrites_keys_and_preserves_rows() -> None:
     )
     assert stored["schema_version"] == 3
     assert stored["skill_bindings"][0]["skill_id"] == "dash"
+    assert stored["stages"][0]["description"] == "The skill owns this stage."
     assert "executor_bindings" not in stored
+    assert conn.execute(
+        "SELECT definition_schema_version FROM workflow_versions WHERE id=1"
+    ).fetchone()[0] == 3
     stages = json.loads(
         conn.execute(
             "SELECT stages FROM deployment_flows WHERE id='release'"
@@ -103,8 +114,8 @@ def test_migration_rejects_mixed_vocabulary() -> None:
     definition = _legacy_workflow()
     definition["skill_bindings"] = []
     conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition)),
+        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
+        (1, json.dumps(definition), definition_digest(definition), 2),
     )
 
     with pytest.raises(AssertionError, match="both binding vocabularies"):
@@ -116,8 +127,8 @@ def test_migration_preserves_historical_workflow_schema() -> None:
     definition = _legacy_workflow()
     definition["schema_version"] = 1
     conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition)),
+        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
+        (1, json.dumps(definition), definition_digest(definition), 1),
     )
 
     migration.apply(conn)

@@ -109,7 +109,7 @@ def _seed_work_claim(test_db) -> None:
     now = iso8601_now()
     test_db.execute(
         "INSERT INTO harness_sessions ("
-        "session_id, skill, provider, model, execution_lane, workspace, "
+        "session_id, executor, provider, model, execution_lane, workspace, "
         "project_id, offered_at, last_heartbeat"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (

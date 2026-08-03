@@ -70,6 +70,16 @@ def _rewrite_workflow(definition: dict[str, Any]) -> dict[str, Any]:
         normalized.append(binding)
 
     rewritten["skill_bindings"] = normalized
+    for stage in rewritten.get("stages") or []:
+        if not isinstance(stage, dict) or not isinstance(stage.get("description"), str):
+            continue
+        stage["description"] = (
+            stage["description"]
+            .replace("Executors", "Skills")
+            .replace("Executor", "Skill")
+            .replace("executors", "skills")
+            .replace("executor", "skill")
+        )
     schema_version = rewritten.get("schema_version")
     if schema_version == 2:
         rewritten["schema_version"] = WORKFLOW_SCHEMA_VERSION
@@ -124,7 +134,8 @@ def apply(conn: Any) -> None:
     _allow_workflow_version_rewrite(conn, allowed=True)
     try:
         workflow_rows = conn.execute(
-            "SELECT id, definition_json FROM workflow_versions ORDER BY id"
+            "SELECT id, definition_json, definition_schema_version "
+            "FROM workflow_versions ORDER BY id"
         ).fetchall()
         for row in workflow_rows:
             definition = _rewrite_workflow(
@@ -132,10 +143,12 @@ def apply(conn: Any) -> None:
             )
             conn.execute(
                 "UPDATE workflow_versions SET definition_json="
-                f"{marker}, definition_digest={marker} WHERE id={marker}",
+                f"{marker}, definition_digest={marker}, "
+                f"definition_schema_version={marker} WHERE id={marker}",
                 (
                     json_helper.dumps_compact(definition),
                     definition_digest(definition),
+                    definition["schema_version"],
                     row[0],
                 ),
             )
@@ -158,10 +171,10 @@ def apply(conn: Any) -> None:
 def invariants(conn: Any) -> None:
     """Prove all live definitions use only the new vocabulary."""
     for row in conn.execute(
-        "SELECT id, definition_json, definition_digest "
+        "SELECT id, definition_schema_version, definition_json, definition_digest "
         "FROM workflow_versions ORDER BY id"
     ).fetchall():
-        definition = _object(row[1], subject=f"workflow version {row[0]}")
+        definition = _object(row[2], subject=f"workflow version {row[0]}")
         if definition.get("schema_version") not in {1, WORKFLOW_SCHEMA_VERSION}:
             raise AssertionError(
                 f"workflow version {row[0]} has stale schema version"
@@ -178,7 +191,17 @@ def invariants(conn: Any) -> None:
                 raise AssertionError(
                     f"workflow version {row[0]} has stale skill binding vocabulary"
                 )
-        if definition_digest(definition) != str(row[2]):
+        for stage in definition.get("stages") or []:
+            description = str(stage.get("description") or "").lower()
+            if "executor" in description:
+                raise AssertionError(
+                    f"workflow version {row[0]} retains executor stage prose"
+                )
+        if int(row[1]) != int(definition["schema_version"]):
+            raise AssertionError(
+                f"workflow version {row[0]} schema versions disagree"
+            )
+        if definition_digest(definition) != str(row[3]):
             raise AssertionError(f"workflow version {row[0]} digest is stale")
 
     for row in conn.execute(

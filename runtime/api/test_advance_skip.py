@@ -34,7 +34,7 @@ from runtime.api.test_backlog import (
 class TestSkipPolishHappyPath:
     def test_writes_transit_and_end(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("reviewed-implementation", "issue", executor=exec_recorder)
+        patches = _patch_core("reviewed-implementation", "issue", update_recorder=exec_recorder)
         _enter_all(patches)
         try:
             result = advance_skip.skip_polish(42, out=io.StringIO())
@@ -56,7 +56,7 @@ class TestSkipPolishHappyPath:
 
     def test_bypass_set_during_hops(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("reviewed-implementation", "issue", executor=exec_recorder)
+        patches = _patch_core("reviewed-implementation", "issue", update_recorder=exec_recorder)
         _enter_all(patches)
         try:
             advance_skip.skip_polish(43, out=io.StringIO())
@@ -82,7 +82,7 @@ class TestSkipPolishHappyPath:
 
     def test_board_rebuild_only_happens_on_final_hop(self):
         exec_recorder = _CallRecorder()
-        patches = _patch_core("reviewed-implementation", "issue", executor=exec_recorder)
+        patches = _patch_core("reviewed-implementation", "issue", update_recorder=exec_recorder)
         _enter_all(patches)
         try:
             advance_skip.skip_polish(44, out=io.StringIO())
@@ -115,7 +115,7 @@ class TestSkipPolishHappyPath:
     def test_epic_item_also_supported(self):
         exec_recorder = _CallRecorder()
         patches = _patch_core(
-            "reviewed-implementation", "epic", executor=exec_recorder
+            "reviewed-implementation", "epic", update_recorder=exec_recorder
         )
         _enter_all(patches)
         try:
@@ -282,7 +282,7 @@ class TestCli:
         )
         exec_recorder = _CallRecorder()
         patches = _patch_core(
-            "reviewed-implementation", "issue", executor=exec_recorder
+            "reviewed-implementation", "issue", update_recorder=exec_recorder
         )
         _enter_all(patches)
         try:
