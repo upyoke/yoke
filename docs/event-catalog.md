@@ -1,7 +1,7 @@
 # Event Catalog
 
 > Auto-generated on 2026-07-17T13:37:13Z
-> Regenerate: `python3 -m yoke_core.domain.populate_registry`
+> Regenerate through the source-dev registry workflow from a Yoke checkout.
 
 | Event Name | Kind | Type | Owner Service | Description | Severity | Status |
 |---|---|---|---|---|---|---|
@@ -218,3 +218,19 @@ The single source of truth is the `OUTCOMES` frozenset in `yoke_core.domain.even
 ### Historical drift backfill — `event_outcome_drift_cutover_at`
 
 Before the event-outcome classifier cutover, live emitters could silently false-success `HarnessToolCallCompleted` rows whose tool response carried a parseable nonzero `Exit code N` or a non-empty top-level `error` field. The one-shot `backfill_event_outcomes` migration (decision record in the yoke source repo: `docs/archive/decisions/backfill-event-outcomes.md`) rewrites historical rows whose true outcome is reconstructable from the envelope. After live apply, the machine-config key `event_outcome_drift_cutover_at` (ISO-8601 UTC) marks the boundary between legacy and post-cutover rows. The doctor health check `HC-event-outcome-drift` treats a completed audit row without that explicit marker as WARN-only, then FAILs on any marker-bounded post-cutover row that still records the drift shape — that signature is a regression in the live emitters and not an artifact of the legacy data.
+
+## Emitting a registered event
+
+Use the installed CLI surface for event writes. Event names and their current metadata are listed in the catalog above; registry changes remain a source-dev/admin operation.
+
+```sh
+yoke events emit \
+ --name "TaskStatusChanged" \
+ --kind lifecycle \
+ --type task_status_change \
+ --source-type system \
+ --severity STATUS \
+ --outcome completed \
+ --item-id "42" \
+ --context '{"from_status":"implementing","to_status":"reviewing-implementation"}'
+```

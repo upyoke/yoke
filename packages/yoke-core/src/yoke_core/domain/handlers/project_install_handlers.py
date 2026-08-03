@@ -56,6 +56,9 @@ class ProjectInstallResponse(BaseModel):
     # Source-link-strategy fields (absent from copy reports).
     symlinks_created: Optional[int] = None
     symlinks_ok: Optional[int] = None
+    materialized_files_created: Optional[int] = None
+    materialized_files_updated: Optional[int] = None
+    materialized_files_ok: Optional[int] = None
     actions: Optional[List[str]] = None
 
 

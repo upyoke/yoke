@@ -2,8 +2,8 @@
 
 Validation runbook for the Cursor adapter, mirroring
 `runtime/harness/codex/SMOKE-TEST.md`. Run wrapper-only steps first; the
-hook-enhanced steps assume `.cursor/hooks.json` is the rendered symlink into
-`runtime/harness/cursor/hooks.json`. Expected values below were measured on
+hook-enhanced steps assume `.cursor/hooks.json` is the rendered, materialized
+copy of `runtime/harness/cursor/hooks.json`. Expected values below were measured on
 Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 
 ## Wrapper-only

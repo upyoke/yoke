@@ -18,11 +18,12 @@ import pytest
 from runtime.api.cli.test_yoke_operations_cli_hooks import (  # noqa: F401
     _FakeResponse,
     cli_main,
-    https_connection,
-    local_subset,
 )
 from yoke_harness.hooks.decision_render import HOOK_SPECIFIC_OUTPUT_KEY
 from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
+from yoke_harness.hooks.relay import degrade_to_noop
+
+pytest_plugins = ("runtime.api.cli.test_yoke_operations_cli_hooks",)
 
 
 def _context_envelope(body: str, event_name: str = "PreToolUse") -> str:
@@ -234,3 +235,26 @@ def test_non_200_degrades_to_noop_with_empty_client_half(
     assert rc == 0
     assert out.out == ""
     assert "HTTP 500" in out.err
+
+
+def test_cursor_degradation_is_visible_in_context_and_stderr(
+    monkeypatch, capsys,
+) -> None:
+    """Cursor surfaces relay degradation instead of hiding a sandbox failure."""
+    monkeypatch.setattr(
+        "yoke_harness.hooks.relay.detect_executor", lambda: "cursor",
+    )
+
+    rc = degrade_to_noop(
+        "SessionStart",
+        "network sandbox denied the relay",
+        preserved_stdout=json.dumps({"additional_context": "orientation"}),
+    )
+
+    out = capsys.readouterr()
+    assert rc == 0
+    payload = json.loads(out.out)
+    assert "orientation" in payload["additional_context"]
+    assert "local-only allow" in payload["additional_context"]
+    assert "YOKE_HOOK_DEGRADED" in out.err
+    assert "network sandbox denied the relay" in out.err

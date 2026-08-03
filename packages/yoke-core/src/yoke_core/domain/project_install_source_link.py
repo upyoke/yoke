@@ -1,16 +1,20 @@
 """Source-link delivery strategy for ``yoke dev setup``.
 
 The Yoke source checkout IS the bundle source, so its harness surfaces
-are git-tracked symlinks into the live tree (edit a canonical file, run
-``agents.render.run``, every consumer sees the change instantly).
+are git-tracked links into the live tree (edit a canonical file, run
+``agents.render.run``, every consumer sees the change instantly). Cursor's
+hook config is a tracked regular file because Cursor refuses symlinked project
+config files; the renderer and this setup path keep it byte-identical to the
+canonical runtime file.
 ``source-link`` owns that wiring:
 
-1. Dev symlinks — ``.claude/`` + ``.codex/`` surfaces pointing at the
+1. Dev links — ``.claude/`` + ``.codex/`` surfaces pointing at the
    canonical ``runtime/harness/...`` targets, the
    ``.claude/skills/yoke`` compatibility link, and the tester-browser
-   reference link. The links are git-tracked, so a fresh clone already
-   has them; install/refresh repairs drift (deleted/replaced links)
-   idempotently.
+   reference link. Cursor's ``.cursor/hooks.json`` is materialized from its
+   canonical runtime file so Cursor's symlink refusal cannot disable the hook
+   chain. The links and file are git-tracked, so a fresh clone already has
+   them; install/refresh repairs drift idempotently.
 2. Git hooks — the pre-commit + post-commit shims via
    :mod:`project_install_git_hooks` (same refuse/refresh/create
    semantics as copy mode; linked worktrees skip gracefully).
@@ -63,6 +67,10 @@ DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
     ),
 )
 
+DEV_MATERIALIZED_FILES: Tuple[Tuple[str, str], ...] = (
+    (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
+)
+
 # Display name used for in-checkout contract rendering; the detection
 # guard already pins the package name to "yoke".
 SOURCE_DISPLAY_NAME = "Yoke"
@@ -74,6 +82,7 @@ _SOURCE_LINK_OWNED_KEYS = frozenset({
     "yoke_version",
     MODE_KEY,
     "symlinks",
+    "materialized_files",
     "git_hooks",
     "contract_files",
 })
@@ -139,6 +148,64 @@ def ensure_dev_symlink(
     result.installed += 1
 
 
+def ensure_dev_materialized_file(
+    target_root: Path,
+    rel: str,
+    source_rel: str,
+    result: BootstrapResult,
+) -> None:
+    """Materialize a tracked source-dev file from its canonical source.
+
+    Cursor rejects hook configuration paths containing symlinks. A previous
+    source-link setup may still have created one, so migration removes the
+    old link before writing the canonical bytes. Regular-file edits are
+    repaired; directories and other obstructions remain operator-owned.
+    """
+    files_layer.assert_resolved_targets_within(
+        target_root,
+        [rel, source_rel],
+        context="source-link materialized file mutation",
+    )
+    source = target_root / source_rel
+    try:
+        content = source.read_bytes()
+    except OSError as exc:
+        raise ProjectInstallError(
+            f"canonical source-link file {source_rel!r} is unreadable: {exc}"
+        ) from exc
+
+    target = target_root / rel
+    was_link = target.is_symlink()
+    if was_link:
+        target.unlink()
+    had_file = target.is_file()
+    if target.exists() and not target.is_file():
+        result.warn(
+            f"{rel} exists as a regular file/dir. Move or remove it and "
+            "re-run `yoke dev setup` so the materialized file can be created."
+        )
+        return
+    if target.is_file() and not was_link:
+        try:
+            if target.read_bytes() == content:
+                result.note(f"Exists: {rel} (materialized from {source_rel})")
+                result.skipped += 1
+                return
+        except OSError:
+            pass
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_bytes(content)
+    os.replace(str(temporary), str(target))
+    action = "Updated" if was_link or had_file else "Created"
+    result.note(f"{action}: {rel} (materialized from {source_rel})")
+    if action == "Updated":
+        result.updated += 1
+    else:
+        result.installed += 1
+
+
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
     return ProjectInstallError(
         f"refusing to uninstall: {root} uses the source-link strategy — "
@@ -160,6 +227,9 @@ def install_source_link(
     links = BootstrapResult()
     for rel, link_target in DEV_SYMLINKS:
         ensure_dev_symlink(repo_root, rel, link_target, links)
+    materialized = BootstrapResult()
+    for rel, source_rel in DEV_MATERIALIZED_FILES:
+        ensure_dev_materialized_file(repo_root, rel, source_rel, materialized)
     hooks = BootstrapResult()
     install_git_hooks(repo_root, hooks)
 
@@ -188,6 +258,9 @@ def install_source_link(
         "yoke_version": yoke_version(),
         MODE_KEY: MODE_SOURCE_LINK,
         "symlinks": {rel: target for rel, target in DEV_SYMLINKS},
+        "materialized_files": {
+            rel: source_rel for rel, source_rel in DEV_MATERIALIZED_FILES
+        },
         "git_hooks": list(GIT_HOOK_NAMES),
         "contract_files": contract_map,
     })
@@ -200,20 +273,25 @@ def install_source_link(
         "source": "in-checkout",
         "symlinks_created": links.installed,
         "symlinks_ok": links.skipped,
+        "materialized_files_created": materialized.installed,
+        "materialized_files_updated": materialized.updated,
+        "materialized_files_ok": materialized.skipped,
         "hooks_installed_or_updated": hooks.installed + hooks.updated,
-        "actions": links.actions + hooks.actions,
+        "actions": links.actions + materialized.actions + hooks.actions,
         "contract_files_written": contract_written,
         "contract_files_existing": contract_existing,
         "contract_files_adopted": contract_adopted,
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,
-        "warnings": links.warnings + hooks.warnings,
+        "warnings": links.warnings + materialized.warnings + hooks.warnings,
     }
 
 
 __all__ = [
+    "DEV_MATERIALIZED_FILES",
     "DEV_SYMLINKS",
     "SOURCE_DISPLAY_NAME",
+    "ensure_dev_materialized_file",
     "ensure_dev_symlink",
     "install_source_link",
     "is_yoke_source_checkout",

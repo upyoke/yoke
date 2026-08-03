@@ -184,8 +184,14 @@ class MachineQaFixtureRepositoryOperations:
             "runtime/harness/claude/agents/.gitkeep",
             "runtime/harness/claude/agents/references/.gitkeep",
             "runtime/harness/codex/.gitkeep",
+            "runtime/harness/cursor/hooks.json",
         ):
-            self._upload(f"{root}/{relative}", "")
+            content = (
+                '{"version": 1, "hooks": {}}\n'
+                if relative.endswith("cursor/hooks.json")
+                else ""
+            )
+            self._upload(f"{root}/{relative}", content)
         self._upload(
             f"{root}/.agents/skills/yoke/SKILL.md",
             "# Yoke skill\n",

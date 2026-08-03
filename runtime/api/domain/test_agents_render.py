@@ -40,8 +40,8 @@ from runtime.api.domain.test_agents_render_workspace_fixtures import (
 def repo_root() -> Path:
     """Return the workspace-anchored live Yoke checkout root.
 
-    Resolves via ``$YOKE_BOUND_WORKSPACE`` or a ``Path(__file__)``
-    walk-up — never via the process cwd, so byte-identity tests produce
+    Resolves via a ``Path(__file__)`` walk-up — never via the process cwd, so
+    byte-identity tests produce
     identical outcomes from main, from a linked worktree, or from /tmp.
     """
     return resolve_live_repo_root()

@@ -10,7 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 TARGET_DOCS = {
     "docs/event-contract.md",
     "docs/event-contract/migration-guidance.md",
-    "docs/event-contract/reserved-fields-dr1-qa1.md",
+    "docs/event-catalog.md",
     "docs/onboard-external-project.md",
 }
 HIDDEN_ONBOARDING_TERMS = (

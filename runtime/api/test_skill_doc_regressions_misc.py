@@ -297,10 +297,3 @@ class TestCanonicalOwnerPaths:
         assert "They do not drain claims." in text
         assert "item-worktree auto-commit" in text
         assert "HarnessSessionStopped" in text
-
-    def test_session_workspace_comment_is_functional(self):
-        text = _read(
-            REPO / "runtime" / "harness" / "hook_runner" / "session_workspace.py"
-        )
-        assert "approved addendum" not in text
-        assert "session_dispatch.py`` is at" in text

@@ -8,9 +8,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from runtime.harness.hook_runner.session_workspace import export_bound_workspace_for_session
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 from runtime.harness.hook_runner import session_dispatch_codex_lifecycle as _codex_lifecycle
+from runtime.harness.hook_runner.resume_block_dispatch import render as _render_resume_block
 
 _register_codex = _codex_lifecycle.register
 _session_begin_recovery_command = _codex_lifecycle.recovery_command
@@ -117,9 +117,6 @@ def _end_session_if_empty(
     run_session_end_cleanup(
         root, session_id, executor=executor, event_source=event_source,
     )
-
-from runtime.harness.hook_runner.resume_block_dispatch import render as _render_resume_block
-
 
 def _first_prompt(session_id: str, *, codex: bool) -> bool:
     from runtime.harness.hook_runner.session_dispatch_first_prompt import (
@@ -233,8 +230,6 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
         )
     _codex.write_runtime_cache(session_id, raw)
     os.environ["YOKE_SESSION_ID"] = session_id
-    if root:
-        export_bound_workspace_for_session(root)
     if _field(record.payload, "source") == "startup" and not _field(record.payload, "transcript_path"):
         return ""
     if not _codex.check_and_arm_marker(_codex.session_marker_path(session_id)):
@@ -280,11 +275,6 @@ def _run_claude_session_start(record: HookContext) -> None:
     env_file = os.environ.get("CLAUDE_ENV_FILE", "")
     telemetry.persist_session_id_to_env_file(session_id, env_file)
     _register_from_hook(raw, session_id)
-    # Defense in depth: pin YOKE_BOUND_WORKSPACE for the writer guard +
-    # cross-checkout PreToolUse lint.
-    root, _ = _root_and_db(record)
-    if root:
-        export_bound_workspace_for_session(root, env_file)
 
 def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
     from runtime.harness.hook_runner import telemetry

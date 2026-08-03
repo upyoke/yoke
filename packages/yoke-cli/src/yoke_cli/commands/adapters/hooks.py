@@ -30,7 +30,8 @@ HOOK_EVALUATE_USAGE = (
 
 def _degrade_to_noop(event_name: str, detail: str) -> int:
     sys.stderr.write(
-        f"yoke hook evaluate {event_name}: yoke-harness unavailable; "
+        f"WARNING: YOKE_HOOK_DEGRADED: yoke hook evaluate {event_name}: "
+        "yoke-harness unavailable; "
         f"degraded to no-op allow ({detail})\n"
     )
     return 0

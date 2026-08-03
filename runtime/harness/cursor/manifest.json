@@ -31,6 +31,17 @@
       "stop_hook"
     ]
   },
+  "worktree_hook_enablement": {
+    "config_path": ".cursor/hooks.json",
+    "operations": [
+      "verify_hook_config",
+      "verify_environment_export"
+    ],
+    "environment": {
+      "root_variable": "YOKE_ROOT",
+      "root_expression": "${CURSOR_PROJECT_DIR:-$PWD}"
+    }
+  },
   "telemetry": {
     "canonical_source": "yoke_core",
     "optional_local_sources": [
