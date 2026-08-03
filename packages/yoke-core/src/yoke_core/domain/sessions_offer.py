@@ -22,6 +22,7 @@ from .sessions_offer_lane import (
 from .sessions_offer_revalidation import emit_chain_budget_unused_if_remaining
 from .sessions_queries import _filter_schedule_for_offer, list_claims_for_session, resolve_harness_capabilities
 from .sessions_queries_chain import read_chain_skip_memory
+from .project_settings import resolve_default_wip_cap
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def session_offer_with_ownership(
     lane_allowed_paths: Optional[Dict[str, List[str]]] = None,
     step: int = 1,
     project_scope: Optional[List[int]] = None,
-    wip_cap: int = 5,
+    wip_cap: Optional[int] = None,
     max_chain_steps: int = 3,
 ) -> Dict[str, Any]:
     """Transaction-safe session-offer path: require-active-session + heartbeat + schedule + claim.
@@ -93,7 +94,9 @@ def session_offer_with_ownership(
             upstream by ``resolve_session_project_scope``; ``None`` is
             normalized to ``[]`` (defensive — production callers always
             pass an explicit list).
-        wip_cap: WIP cap for scheduling.
+        wip_cap: WIP cap for scheduling. When omitted, resolves from the
+            single-project ``project-policy`` capability (or the
+            ``RECOGNIZED_PROJECT_KEYS`` source default).
 
     Returns:
         A dict with keys:
@@ -117,6 +120,8 @@ def session_offer_with_ownership(
         scope = resolve_session_project_scope(conn, override=None)
     else:
         scope = list(project_scope)
+    if wip_cap is None:
+        wip_cap = resolve_default_wip_cap(scope)
 
     # Server-side capability derivation. If Yoke owns a harness
     # manifest for this executor, shared registry truth plus manifest-declared

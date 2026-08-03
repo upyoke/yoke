@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from yoke_core.api.main import app
+from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 from runtime.api.test_api_deploy_test_helpers import (
     frontier_db,  # noqa: F401 — re-exported pytest fixture
 )
@@ -63,6 +64,12 @@ class TestChargeFrontierEndpoint:
         # Yoke items should not appear
         assert "YOK-20" not in runnable_ids
         assert "YOK-21" not in runnable_ids
+
+    def test_frontier_omitted_wip_cap_uses_project_default(self):
+        """Omitting wip_cap resolves the project-policy / source default."""
+        resp = self.client.get("/v1/charge/frontier")
+        assert resp.status_code == 200
+        assert resp.json()["wip_cap"] == DEFAULT_WIP_CAP
 
     def test_frontier_wip_cap_override(self):
         """WIP cap parameter overrides default."""
@@ -137,6 +144,12 @@ class TestChargeScheduleEndpoint:
         self.client = TestClient(app)
         self.client.headers.update(frontier_db["auth_headers"])
         self.db_info = frontier_db
+
+    def test_schedule_omitted_wip_cap_uses_project_default(self):
+        """Omitting wip_cap resolves the project-policy / source default."""
+        resp = self.client.get("/v1/charge/schedule")
+        assert resp.status_code == 200
+        assert resp.json()["wip_cap"] == DEFAULT_WIP_CAP
 
     def test_schedule_step_has_all_fields(self):
         """Shared scheduler surface exposes downstream_depth on scheduled steps."""

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
+
 class NextStep(str, Enum):
     """Scheduler-level action for an item on the frontier.
 
@@ -255,7 +257,7 @@ class SchedulerResult:
     ranked_steps: List[ScheduledStep] = field(default_factory=list)
     blocked_steps: List[ScheduledStep] = field(default_factory=list)
     exceptional_steps: List[ScheduledStep] = field(default_factory=list)
-    wip_cap: int = 5
+    wip_cap: int = DEFAULT_WIP_CAP
     wip_active: int = 0
     wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[ScheduledStep] = field(default_factory=list)

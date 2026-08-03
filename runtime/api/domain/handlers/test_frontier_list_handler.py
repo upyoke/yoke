@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_PREFERRED_VERSION,
 )
@@ -97,7 +98,7 @@ class TestReadyRows:
         # Readiness prose is composed server-side from computed facts.
         assert "no unsatisfied activation gates" in row["why_ready"].lower()
         assert "unclaimed" in row["why_ready"]
-        assert result["wip_cap"] == 5
+        assert result["wip_cap"] == DEFAULT_WIP_CAP
         assert result["wip_active"] == 1
         assert result["frozen_count"] == 0
 
