@@ -69,6 +69,8 @@ class TestSeedRows(unittest.TestCase):
                 "SessionCwdMismatchAllowedReadOnly",
                 "SessionCwdBindingFailOpen",
                 "SessionCwdBindingHealthCheckFailed",
+                "LaneMainWriteDenied",
+                "LaneMainWriteEscapeUsed",
             },
         )
 
@@ -80,7 +82,8 @@ class TestSeedRows(unittest.TestCase):
 
     def test_TC_session_cwd_events_share_event_type(self):
         types_for_sc = {
-            row[2] for row in SEED_ROWS if row[0].startswith("SessionCwd")
+            row[2] for row in SEED_ROWS
+            if row[0].startswith(("SessionCwd", "LaneMainWrite"))
         }
         self.assertEqual(types_for_sc, {"session_cwd"})
 
@@ -148,6 +151,8 @@ class TestSeedApply(unittest.TestCase):
                 "SessionCwdBindingHealthCheckFailed",
                 "SessionCwdMismatchAllowedReadOnly",
                 "SessionCwdMismatchDenied",
+                "LaneMainWriteDenied",
+                "LaneMainWriteEscapeUsed",
             ]
         )
         self.assertEqual(len(rows), len(expected))
@@ -172,6 +177,8 @@ class TestSeedApply(unittest.TestCase):
             "SessionCwdMismatchAllowedReadOnly",
             "SessionCwdBindingFailOpen",
             "SessionCwdBindingHealthCheckFailed",
+            "LaneMainWriteDenied",
+            "LaneMainWriteEscapeUsed",
         ):
             row = rows[name]
             self.assertEqual(row[1], "lifecycle")
@@ -182,6 +189,7 @@ class TestSeedApply(unittest.TestCase):
         self.assertEqual(
             rows["SessionCwdMismatchAllowedReadOnly"][5], "INFO"
         )
+        self.assertEqual(rows["LaneMainWriteEscapeUsed"][5], "INFO")
 
     def test_TC_seed_is_idempotent(self):
         seed(db_path=self.db_path)

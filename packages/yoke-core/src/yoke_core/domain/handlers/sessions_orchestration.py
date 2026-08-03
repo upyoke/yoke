@@ -232,10 +232,9 @@ def handle_offer(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def _resolve_default_wip_cap(project_scope: List[int]) -> int:
-    from yoke_core.domain.project_settings import get_project_int_for_id
+    from yoke_core.domain.project_settings import resolve_default_wip_cap
 
-    project_id = project_scope[0] if len(project_scope) == 1 else None
-    return get_project_int_for_id(project_id, "wip_cap")
+    return resolve_default_wip_cap(project_scope)
 
 
 def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:

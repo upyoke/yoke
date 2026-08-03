@@ -266,7 +266,10 @@ class ProducerLiteralCleanupTest(unittest.TestCase):
 
         # Allow-path rows surface as INFO (no warning when the call
         # passed); deny / fail-open / health-check rows surface as WARN.
-        info_names = {"SessionCwdMismatchAllowedReadOnly"}
+        info_names = {
+            "SessionCwdMismatchAllowedReadOnly",
+            "LaneMainWriteEscapeUsed",
+        }
         for row in SEED_ROWS:
             name, severity = row[0], row[5]
             expected = "INFO" if name in info_names else "WARN"

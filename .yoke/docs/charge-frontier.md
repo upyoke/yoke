@@ -145,12 +145,12 @@ class AdapterCategory(str, Enum):
 ### REST Endpoint
 
 ```
-GET /v1/charge/frontier?project=yoke&wip_cap=5
+GET /v1/charge/frontier?project=yoke&wip_cap=30
 ```
 
 **Parameters:**
 - `project` (string, default: `"yoke"`) -- project to scope the frontier to.
-- `wip_cap` (integer, default: `5`) -- maximum number of conduct-eligible items.
+- `wip_cap` (integer, optional) -- maximum number of conduct-eligible items; omit to use the project's `project-policy.wip_cap` (source default `30`).
 
 **Response:** JSON object matching the `FrontierResult` structure.
 
@@ -175,7 +175,7 @@ GET /v1/charge/frontier?project=yoke&wip_cap=5
  ],
  "blocked": [],
  "frozen": [],
- "wip_cap": 5,
+ "wip_cap": 30,
  "wip_active": 2,
  "conduct_eligible": [...]
 }
@@ -196,7 +196,7 @@ Outputs the same JSON structure as the REST endpoint. The service client resolve
 ```python
 from yoke_core.domain.frontier import compute_frontier
 
-result = compute_frontier(conn, project="yoke", wip_cap=5)
+result = compute_frontier(conn, project="yoke", wip_cap=30)
 # result is a FrontierResult dataclass
 ```
 
@@ -225,7 +225,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 | `--dry-run` | off | Show frontier table and stop (no dispatch) |
 | `--item PREFIX-N` | -- | Target a specific item instead of highest-ranked |
 | `--project P` | `yoke` | Project scope |
-| `--wip-cap N` | project-policy | WIP cap override; unset resolves the single-project DB `project-policy.wip_cap`, else `5` |
+| `--wip-cap N` | project-policy | WIP cap override; unset resolves the single-project DB `project-policy.wip_cap`, else the `RECOGNIZED_PROJECT_KEYS` source default (`30`) |
 
 ## Events
 

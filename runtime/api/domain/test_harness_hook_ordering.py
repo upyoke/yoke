@@ -59,6 +59,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.lint_session_cwd",
+                "yoke_core.domain.lint_lane_main_write",
                 "yoke_core.domain.lint_workspace_cwd_match",
                 "yoke_core.domain.path_claim_bash_guard",
                 "yoke_core.domain.lint_structured_field_transform_shell",
@@ -187,7 +188,8 @@ class TestPreToolUseEditWrite(unittest.TestCase):
     def test_TC_edit_chain_starts_with_cwd_and_claim_guard(self):
         chain = ordered_pipeline_for("PreToolUse", "Edit")
         self.assertEqual(chain[0], "yoke_core.domain.lint_session_cwd")
-        self.assertEqual(chain[1], "yoke_core.domain.path_claim_pre_edit_guard")
+        self.assertEqual(chain[1], "yoke_core.domain.lint_lane_main_write")
+        self.assertEqual(chain[2], "yoke_core.domain.path_claim_pre_edit_guard")
 
     def test_TC_edit_chain_observe_pre_is_last(self):
         chain = ordered_pipeline_for("PreToolUse", "Edit")
@@ -196,7 +198,8 @@ class TestPreToolUseEditWrite(unittest.TestCase):
     def test_TC_write_chain_starts_with_cwd_and_claim_guard(self):
         chain = ordered_pipeline_for("PreToolUse", "Write")
         self.assertEqual(chain[0], "yoke_core.domain.lint_session_cwd")
-        self.assertEqual(chain[1], "yoke_core.domain.path_claim_pre_edit_guard")
+        self.assertEqual(chain[1], "yoke_core.domain.lint_lane_main_write")
+        self.assertEqual(chain[2], "yoke_core.domain.path_claim_pre_edit_guard")
 
     def test_TC_write_chain_observe_pre_is_last(self):
         chain = ordered_pipeline_for("PreToolUse", "Write")
@@ -215,7 +218,8 @@ class TestPreToolUseEditWrite(unittest.TestCase):
         # Codex apply_patch is treated as a multi-file write; same gate ordering.
         chain = ordered_pipeline_for("PreToolUse", "apply_patch")
         self.assertEqual(chain[0], "yoke_core.domain.lint_session_cwd")
-        self.assertEqual(chain[1], "yoke_core.domain.path_claim_pre_edit_guard")
+        self.assertEqual(chain[1], "yoke_core.domain.lint_lane_main_write")
+        self.assertEqual(chain[2], "yoke_core.domain.path_claim_pre_edit_guard")
         self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
 
 

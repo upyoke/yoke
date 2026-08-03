@@ -19,6 +19,7 @@ from yoke_contracts.github_app_public import (
     GitHubAppAdvertisement,
     GitHubAppUnavailable,
 )
+from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
 
 
@@ -157,7 +158,7 @@ class FrontierResultModel(BaseModel):
     runnable: List[FrontierItemModel] = Field(default_factory=list)
     blocked: List[FrontierItemModel] = Field(default_factory=list)
     frozen: List[FrontierItemModel] = Field(default_factory=list)
-    wip_cap: int = 5
+    wip_cap: int = DEFAULT_WIP_CAP
     wip_active: int = 0
     conduct_eligible: List[FrontierItemModel] = Field(default_factory=list)
 
@@ -216,7 +217,7 @@ class SchedulerResultModel(BaseModel):
     ranked_steps: List[ScheduledStepModel] = Field(default_factory=list)
     blocked_steps: List[ScheduledStepModel] = Field(default_factory=list)
     exceptional_steps: List[ScheduledStepModel] = Field(default_factory=list)
-    wip_cap: int = 5
+    wip_cap: int = DEFAULT_WIP_CAP
     wip_active: int = 0
     conduct_eligible: List[ScheduledStepModel] = Field(default_factory=list)
     frozen_steps: List[ScheduledStepModel] = Field(default_factory=list)

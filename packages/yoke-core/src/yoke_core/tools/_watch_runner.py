@@ -148,6 +148,7 @@ def run_watcher(
     time_source: Optional[Callable[[], float]] = None,
     timeout_seconds: float | None = None,
     liveness: Optional[SessionLivenessPump] = None,
+    footer_metadata: Callable[[], str | None] | None = None,
 ) -> int:
     """Run *argv* under the shared raw + throttled-progress contract.
 
@@ -162,7 +163,9 @@ def run_watcher(
     use the config-driven defaults. ``timeout_seconds`` starts when the watched
     child starts, not while a caller waits for an external admission gate.
 
-    ``liveness`` keeps the session that started this command from going
+    ``footer_metadata`` supplies wrapper-specific summary evidence after the
+    child exits and before the exit sentinel. ``liveness`` keeps the session
+    that started this command from going
     stale while it waits: a long gate run is activity, and without the
     refresh the stale-session sweep reclaims the item claim mid-run.
     """
@@ -315,6 +318,11 @@ def run_watcher(
         if last_summary is not None:
             summary_footer = f"# watch_{kind} summary: {last_summary.rstrip()}\n"
             _emit_immediate(summary_footer, progress_f=progress_f, out=out)
+        if footer_metadata is not None:
+            metadata = footer_metadata()
+            if metadata:
+                line = metadata if metadata.endswith("\n") else f"{metadata}\n"
+                _emit_immediate(line, progress_f=progress_f, out=out)
         footer_extras = ""
         if gate.total_suppressed > 0:
             footer_extras = (
