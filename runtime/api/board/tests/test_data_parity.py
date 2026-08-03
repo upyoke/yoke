@@ -17,7 +17,14 @@ import pytest
 from yoke_contracts.board.config import parse_config
 from yoke_contracts.board.art import ArtConfig, parse_art_config
 from yoke_contracts.board.renderer import render_board_from_payload
-from yoke_contracts.board.sections_items_query import _items_sql, query_item_rows
+from yoke_contracts.board.sections_definition_queries import (
+    _epic_task_rows_sql,
+    _items_sql,
+    _precomputed_epic_tasks_sql,
+    query_epic_task_rows,
+    query_item_rows,
+    query_precomputed_epic_task_rows,
+)
 from yoke_core.board.data import (
     BoardDataMissError,
     ReplayBoardDB,
@@ -260,6 +267,33 @@ def test_item_rows_fall_back_to_legacy_recorded_query():
     assert query_item_rows(replay, "") == [(
         *legacy_row[:-1], None, None, legacy_row[-1],
     )]
+
+
+def test_epic_task_rows_fall_back_to_legacy_recorded_queries():
+    detail_sql = _epic_task_rows_sql(definition_metadata=False)
+    batch_sql = _precomputed_epic_tasks_sql("", definition_metadata=False)
+    replay = ReplayBoardDB.from_payload({
+        "version": 1,
+        "entries": [
+            {
+                "kind": "query",
+                "sql": detail_sql,
+                "params": [7],
+                "rows": [[1, "Task", "done"]],
+            },
+            {
+                "kind": "query_quiet",
+                "sql": batch_sql,
+                "params": None,
+                "rows": [[7, 1, "Task", "done"]],
+            },
+        ],
+    })
+
+    assert query_epic_task_rows(replay, 7) == [(1, "Task", "done", None)]
+    assert query_precomputed_epic_task_rows(replay, "") == [
+        (7, 1, "Task", "done", None),
+    ]
 
 
 def test_payload_versions_must_match(populated_db, config_file):
