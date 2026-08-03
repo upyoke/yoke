@@ -8,7 +8,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.flow_validation import validate_stages
-from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_definition_codec import (
+    canonical_definition_json,
+    definition_digest,
+)
 from yoke_core.domain.workflow_schema import (
     WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER,
     _ensure_immutable_version_triggers,
@@ -183,7 +186,12 @@ def apply(conn: Any) -> None:
                     f"{marker}, definition_digest={marker}, "
                     f"definition_schema_version={marker} WHERE id={marker}",
                     (
-                        json_helper.dumps_compact(definition),
+                        # The canonical form the registry's own writer uses --
+                        # sorted keys, non-ASCII left literal. Serializing a
+                        # digest-guarded row any other way stores bytes no
+                        # other writer would produce, and that drift is
+                        # indistinguishable from corruption to a reader.
+                        canonical_definition_json(definition),
                         definition_digest(definition),
                         definition["schema_version"],
                         row_id,
