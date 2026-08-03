@@ -26,8 +26,8 @@ COMMAND_SCOPE_POLICIES = {
         "ci_routable": True,
     },
     "full": {
-        "preferred_transition": "reviewed-implementation",
-        "fallback_transition": "done",
+        "preferred_transition": None,
+        "fallback_transition": None,
         "qa_phase": "verification",
         "ci_routable": True,
     },
@@ -159,6 +159,18 @@ def _workflow_stages(conn: Any) -> dict[str, set[str]]:
     }
 
 
+def _policy_transitions(conn: Any, policy: dict[str, Any]) -> dict[str, str]:
+    preferred = policy["preferred_transition"]
+    if preferred is None:
+        return {}
+    fallback = policy["fallback_transition"]
+    return {
+        workflow_id: str(preferred if preferred in stage_ids else fallback)
+        for workflow_id, stage_ids in _workflow_stages(conn).items()
+        if (preferred if preferred in stage_ids else fallback) in stage_ids
+    }
+
+
 def ensure_registered_command_plan(
     conn: Any,
     *,
@@ -187,16 +199,15 @@ def ensure_registered_command_plan(
         command=command,
         ci_workflow=ci_workflow,
     )
-    preferred = str(policy["preferred_transition"])
-    fallback = str(policy["fallback_transition"])
     qa_phase = str(policy["qa_phase"])
-    workflows = _workflow_stages(conn)
-    attached_workflows = []
-    transitions = {}
-    for workflow_id, stage_ids in workflows.items():
-        transition_id = preferred if preferred in stage_ids else fallback
-        if transition_id not in stage_ids:
-            continue
+    transitions = _policy_transitions(conn, policy)
+    marker = _p(conn)
+    conn.execute(
+        f"DELETE FROM qa_plan_project_defaults WHERE plan_id={marker}",
+        (plan_id,),
+    )
+    conn.commit()
+    for workflow_id, transition_id in transitions.items():
         set_project_default(
             conn,
             plan_id=plan_id,
@@ -204,15 +215,13 @@ def ensure_registered_command_plan(
             transition_id=transition_id,
             qa_phase=qa_phase,
         )
-        attached_workflows.append(workflow_id)
-        transitions[workflow_id] = transition_id
     return {
         "project": project,
         "scope": scope,
         "plan_id": plan_id,
         "transitions": transitions,
         "qa_phase": qa_phase,
-        "workflow_ids": attached_workflows,
+        "workflow_ids": list(transitions),
         "ci_workflow": ci_workflow,
     }
 
@@ -221,7 +230,7 @@ def _registered_scope_bindings(conn: Any) -> list[dict]:
     """Return every project's registered scopes with their current binding."""
     return list(query_rows(
         conn,
-        "SELECT p.project_id AS project_id, pr.slug AS project, "
+        "SELECT p.id AS plan_id, p.project_id AS project_id, pr.slug AS project, "
         "p.slug AS plan_slug, c.method_id AS method_id, "
         "c.method_config AS method_config "
         "FROM qa_plans p "
@@ -273,9 +282,20 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
         )
         current_workflow = str(config.get("ci_workflow") or "").strip()
+        current_transitions = {
+            (str(default["workflow_id"]), str(default["transition_id"]))
+            for default in query_rows(
+                conn,
+                "SELECT workflow_id, transition_id "
+                "FROM qa_plan_project_defaults WHERE plan_id=" + _p(conn),
+                (int(row["plan_id"]),),
+            )
+        }
+        desired_transitions = set(_policy_transitions(conn, policy).items())
         if (
             str(row["method_id"]) == desired_method
             and current_workflow == ci_workflow
+            and current_transitions == desired_transitions
         ):
             continue
         ensure_registered_command_plan(
