@@ -136,18 +136,10 @@ def compute_schedule(
     # 5. Convert runnable FrontierItems to definition-selected next steps.
     ranked_steps: List[ScheduledStep] = []
     for rank_idx, fi in enumerate(raw.runnable):
-        # Strip the "YOK-" prefix when present so the probe gets a bare int.
-        _bare_id = fi.item_id
-        if isinstance(_bare_id, str) and _bare_id.startswith("YOK-"):
-            _bare_id = _bare_id[4:]
-        try:
-            _probe_item_id = int(_bare_id)
-        except (TypeError, ValueError):
-            _probe_item_id = None
         step_result = _compute_next_step(
             fi.adapter,
             probe_path_claim_activation=fi.probe_path_claim_activation,
-            conn=conn, item_id=_probe_item_id,
+            conn=conn, item_id=fi.item_id,
         )
         step = ScheduledStep(
             item_id=fi.item_id,
@@ -229,9 +221,8 @@ def compute_schedule(
     exceptional_steps: List[ScheduledStep] = []
     exceptional_items = query_exceptional_items(conn, project_scope)
     for ei in exceptional_items:
-        item_id_str = f"YOK-{ei['id']}"
         exceptional_steps.append(ScheduledStep(
-            item_id=item_id_str,
+            item_id=int(ei["id"]),
             workflow_id=ei.get("workflow_id") or "",
             workflow_version_id=int(ei.get("workflow_version_id") or 0),
             workflow_version=int(ei.get("workflow_version") or 0),
@@ -292,6 +283,7 @@ def compute_schedule(
         exceptional_steps=exceptional_steps,
         wip_cap=raw.wip_cap,
         wip_active=raw.wip_active,
+        wip_active_items=list(raw.wip_active_items),
         conduct_eligible=conduct_eligible,
         frozen_steps=frozen_steps,
     )

@@ -6,10 +6,10 @@ and the Codex agent ``.toml`` tree from canonical Yoke source. The
 legacy Claude agent-render surface (``.md`` adapters) is covered by
 ``test_agents_render.py``.
 
-Acceptance criteria covered: AC-2 (drift check + idempotency), AC-3
-(seven Codex agents), AC-4 (subdir fragments embedded), AC-6 (per-output
-render coverage), AC-7 (do-not-hand-edit marker), AC-8 (no second
-canonical Codex prompt body).
+Behavior covered: drift check + idempotency, the seven Codex agents,
+embedded subdir fragments, per-output render coverage, the
+do-not-hand-edit marker, and the absence of a second
+canonical Codex prompt body.
 """
 
 from __future__ import annotations
@@ -25,10 +25,11 @@ from yoke_core.domain.agents_render import (
     CANONICAL_DIR,
     CODEX_NATIVE_AGENTS_DIR,
     CODEX_OUT_DIR,
-    ROLES_WITH_FRAGMENTS,
+    ROLES_WITH_INLINE_REFERENCES,
     detect_substrate_drift,
     write_all,
 )
+from yoke_core.domain.agents_render_references import inline_fragment_paths
 from yoke_core.domain.agents_render_claude import (
     render_claude_manifest_json,
     render_claude_settings_json,
@@ -42,13 +43,7 @@ from yoke_core.domain.agents_render_codex import (
 
 @pytest.fixture
 def repo_root() -> Path:
-    """Workspace-anchored live Yoke checkout root for read-only assertions.
-
-    Tests that *write* should use ``isolated_repo`` instead — see FR-6 in the
-    workspace-anchored renderer work item. Read-only assertions (existence,
-    parse-shape, content checks) keep using the live tree because they
-    document properties of the actual rendered substrate.
-    """
+    """Workspace-anchored live checkout for read-only assertions."""
     from runtime.api.domain.test_agents_render_workspace_fixtures import (
         resolve_live_repo_root,
     )
@@ -66,20 +61,22 @@ def isolated_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     canonical.mkdir(parents=True)
     claude_spec = '{"name": "yoke-architect", "description": "x", "tools": "Read"}'
     codex_spec = '{"name": "yoke-architect", "description": "x"}'
+    cursor_spec = '{"name": "yoke-architect", "description": "x"}'
     (canonical / "architect.md").write_text("# canonical body\n", encoding="utf-8")
     (canonical / "architect.claude.json").write_text(claude_spec, encoding="utf-8")
     (canonical / "architect.codex.json").write_text(codex_spec, encoding="utf-8")
+    (canonical / "architect.cursor.json").write_text(cursor_spec, encoding="utf-8")
     monkeypatch.setattr("yoke_core.domain.agents_render.AGENTS", ["architect"])
     return tmp_path
 
 
 # ---------------------------------------------------------------------------
-# Codex agent .toml tree — AC-3, AC-4, AC-6, AC-8
+# Codex agent .toml tree
 # ---------------------------------------------------------------------------
 
 
 def test_render_codex_agent_tree_present(repo_root: Path) -> None:
-    """AC-3: every Yoke agent has a rendered Codex .toml adapter on disk."""
+    """Every Yoke agent has a rendered Codex .toml adapter on disk."""
     for agent in AGENTS:
         out = repo_root / CODEX_OUT_DIR / f"yoke-{agent}.toml"
         assert out.exists(), f"missing rendered Codex adapter for {agent}: {out}"
@@ -99,25 +96,26 @@ def test_codex_agent_runtime_path_is_surfaced_to_native_location(repo_root: Path
         )
 
 
-def test_render_codex_agent_body_includes_subdir_fragments(repo_root: Path) -> None:
-    """AC-4: roles with subdir fragments embed those fragments into the prompt."""
+def test_render_codex_agent_body_includes_unconditional_references(
+    repo_root: Path,
+) -> None:
+    """Always-needed role references are embedded into the prompt."""
     canonical = repo_root / CANONICAL_DIR
-    for role in ROLES_WITH_FRAGMENTS:
+    for role in ROLES_WITH_INLINE_REFERENCES:
         with patch("yoke_core.domain.schema_api_context._try_live_schema", return_value=None):
             body = render_codex_agent_body(canonical, role)
-        subdir = canonical / role
-        fragments = sorted(p for p in subdir.iterdir() if p.suffix == ".md")
-        assert fragments, f"{role}: expected fragments in {subdir}"
+        fragments = inline_fragment_paths(canonical, role)
+        assert fragments, f"{role}: expected inline references"
         for frag in fragments:
             text = frag.read_text(encoding="utf-8")
             marker = next((line for line in text.splitlines() if line.strip()), "")
             assert marker and marker in body, (
-                f"{role}: fragment {frag.name} marker {marker!r} not embedded"
+                f"{role}: reference {frag.name} marker {marker!r} not embedded"
             )
 
 
 def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
-    """AC-8: the Codex adapter must not have a parallel `.codex.md` canonical body.
+    """The Codex adapter must not have a parallel `.codex.md` canonical body.
 
     The Codex prompt sources entirely from `runtime/agents/{role}.md` plus the
     role's subdir fragments — no second canonical body is allowed.
@@ -128,7 +126,7 @@ def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
 
 
 def test_render_emits_seven_codex_agents() -> None:
-    """AC-3: AGENTS contains exactly the seven primary Yoke agents."""
+    """AGENTS contains exactly the seven primary Yoke agents."""
     expected = {
         "architect", "boss", "engineer",
         "product-designer", "product-manager",
@@ -139,7 +137,7 @@ def test_render_emits_seven_codex_agents() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Hook + manifest content — AC-6, AC-7
+# Hook + manifest content
 # ---------------------------------------------------------------------------
 
 
@@ -155,7 +153,7 @@ def test_render_codex_hooks_json_matches_strict_schema_and_matchers() -> None:
 
 
 def test_render_claude_settings_json_has_generated_marker_and_hooks() -> None:
-    """AC-6 + AC-7: rendered Claude settings.json carries marker, hooks, permissions."""
+    """Rendered Claude settings.json carries marker, hooks, permissions."""
     rendered = render_claude_settings_json()
     payload = json.loads(rendered)
     assert "_generated" in payload
@@ -196,7 +194,7 @@ def test_claude_hook_commands_wrap_in_login_zsh_for_path_loading() -> None:
 
 
 def test_render_claude_manifest_has_generated_marker_and_schema_keys() -> None:
-    """AC-6 + AC-7: rendered Claude manifest carries marker and schema keys."""
+    """Rendered Claude manifest carries marker and schema keys."""
     rendered = render_claude_manifest_json()
     payload = json.loads(rendered)
     assert "_generated" in payload
@@ -214,7 +212,7 @@ def test_render_claude_manifest_has_generated_marker_and_schema_keys() -> None:
 
 
 def test_render_codex_manifest_has_generated_marker_and_no_legacy_terms() -> None:
-    """AC-6 + AC-7: rendered Codex manifest carries marker, drops metadata-only/bash_*_hook."""
+    """Rendered Codex manifest carries marker, drops metadata-only/bash_*_hook."""
     rendered = render_codex_manifest_json()
     assert "metadata-only" not in rendered
     assert "bash_pre_tool_hook" not in rendered
@@ -226,12 +224,12 @@ def test_render_codex_manifest_has_generated_marker_and_no_legacy_terms() -> Non
 
 
 # ---------------------------------------------------------------------------
-# Drift detection + idempotency — AC-2
+# Drift detection + idempotency
 # ---------------------------------------------------------------------------
 
 
 def test_check_passes_after_render(isolated_repo: Path) -> None:
-    """AC-2: drift check exits 0 immediately after a render against an isolated repo."""
+    """Drift check exits 0 immediately after a render against an isolated repo."""
     write_all(target_root=isolated_repo, dry_run=False)
     drifted = detect_substrate_drift(target_root=isolated_repo)
     assert drifted == [], f"drift after render: {drifted}"
@@ -259,9 +257,11 @@ def _seed_minimal_canonical_tree(repo: Path) -> None:
     canonical.mkdir(parents=True)
     claude_spec = '{"name": "yoke-architect", "description": "x", "tools": "Read"}'
     codex_spec = '{"name": "yoke-architect", "description": "x"}'
+    cursor_spec = '{"name": "yoke-architect", "description": "x"}'
     (canonical / "architect.md").write_text("# canonical body\n", encoding="utf-8")
     (canonical / "architect.claude.json").write_text(claude_spec)
     (canonical / "architect.codex.json").write_text(codex_spec)
+    (canonical / "architect.cursor.json").write_text(cursor_spec)
 
 
 def test_drift_detection_reports_handedited_file(tmp_path: Path) -> None:
@@ -300,10 +300,10 @@ def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
         claude_text = (claude_dir / f"yoke-{agent}.md").read_text("utf-8")
         # Frontmatter ``tools:`` line lists comma-separated grants. The
         # ``disallowedTools:`` line is a different field and may include
-        # ``Bash`` — that is the explicit deny half of AC-6 and must not
+        # ``Bash`` — that is the explicit deny half of the tool policy and must not
         # trip the assertion.
         tools_line = next(
-            (l for l in claude_text.splitlines() if l.startswith("tools:")), ""
+            (line for line in claude_text.splitlines() if line.startswith("tools:")), ""
         )
         assert tools_line, f"yoke-{agent}.md missing tools: line"
         assert "Bash" not in tools_line, (
@@ -312,7 +312,9 @@ def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
         # Codex emits no tools field; the Claude allowlist has no Codex meaning.
         codex_text = (codex_dir / f"yoke-{agent}.toml").read_text("utf-8")
         codex_header = codex_text.split('developer_instructions = """', 1)[0]
-        has_tools = any(l.lstrip().startswith("tools") for l in codex_header.splitlines())
+        has_tools = any(
+            line.lstrip().startswith("tools") for line in codex_header.splitlines()
+        )
         assert not has_tools, f"rendered Codex adapter for {agent} still emits tools"
 
 

@@ -16,7 +16,7 @@ from runtime.api.session_start_test_helpers import (
 
 
 class TestDecideNextActionChainability:
-    """AC-5: chainable is True only for resume and charge."""
+    """Chainable is True only for resume and charge."""
 
     def test_resume_is_chainable(self):
         offer = _make_offer()
@@ -55,7 +55,7 @@ class TestDecideNextActionChainability:
 
 
 class TestDecideNextActionPurity:
-    """AC-6: Module has no DB access, no file I/O, no side effects."""
+    """Module has no DB access, no file I/O, no side effects."""
 
     def test_no_import_of_sqlite3(self):
         import yoke_core.domain.session as mod

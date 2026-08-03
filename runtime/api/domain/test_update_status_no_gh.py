@@ -83,7 +83,7 @@ def _ok_response(body=None) -> RestResponse:
 
 
 class TestRunGhSymbolRetired:
-    """AC-2: ``_run_gh`` is no longer exported from update_status."""
+    """``_run_gh`` is no longer exported from update_status."""
 
     def test_run_gh_not_present(self):
         assert not hasattr(us, "_run_gh"), (
@@ -226,7 +226,7 @@ class TestEpicCheckboxRest:
 
 
 class TestNoGithubIssueShortCircuit:
-    """AC-14: gate is ``if not github_issue: return``; no shutil.which gate."""
+    """Gate is ``if not github_issue: return``; no shutil.which gate."""
 
     def test_skips_when_no_github_issue(self, monkeypatch):
         _mask_path(monkeypatch)

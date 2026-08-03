@@ -7,6 +7,9 @@ Split out of ``test_db_mutation_gate.py`` to keep authored files under the
 
 from __future__ import annotations
 
+from yoke_core.domain.migration_model_capability_defaults import (
+    DEFAULT_MODULES_DIR,
+)
 import json
 from pathlib import Path
 from typing import Any, Dict, Mapping
@@ -83,10 +86,10 @@ class TestJointGate:
     def test_pre_merge_breaking_passes_without_attestation(
         self, gate_db
     ) -> None:
-        # AC-10 only requires authored fields when class=pre_merge_safe.
+        # Authored fields are only required when class=pre_merge_safe.
         # A pre_merge_breaking declaration with valid model+flow+module passes.
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "create_demo_table",
                       body="""MIGRATION = '''\nCREATE TABLE demo (id INTEGER);\n'''\n""")
         item_id = self._stage(
@@ -105,7 +108,7 @@ class TestJointGate:
 
     def test_pre_merge_safe_missing_attestation_blocks(self, gate_db) -> None:
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "add_demo_col")
         item_id = self._stage(
             gate_db,
@@ -136,7 +139,7 @@ class TestJointGate:
         # until the operator either fills the field or declares
         # pre_merge_breaking explicitly.
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "add_demo_col")
         attestation_without_risk_notes = {
             "pre_merge_readers_writers": [
@@ -170,7 +173,7 @@ class TestJointGate:
 
     def test_pre_merge_safe_full_attestation_passes(self, gate_db) -> None:
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "add_demo_col")
         item_id = self._stage(
             gate_db,
@@ -241,7 +244,7 @@ class TestJointGate:
 
     def test_scanner_pattern_escalates_on_pre_merge_safe(self, gate_db) -> None:
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(
             repo_path,
             modules_dir,
@@ -280,7 +283,7 @@ class TestJointGate:
 
     def test_no_flow_with_migration_apply_blocks(self, gate_db) -> None:
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "m")
         item_id = self._stage(
             gate_db,
@@ -303,7 +306,7 @@ class TestJointGate:
 
     def test_cross_work_item_overlap_blocks(self, gate_db) -> None:
         _conn, repo_path = gate_db
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, "m")
         item_id = self._stage(gate_db, profile=_overlap_profile("m"))
         # Other work item: also non-terminal, same column.
@@ -326,7 +329,7 @@ class TestJointGate:
         the dependency-pair read swallows the missing table and reports no
         edges, so the overlap blocks instead of the gate crashing."""
         _conn, repo_path = gate_db
-        _write_module(repo_path, "runtime/api/domain/migrations", "m")
+        _write_module(repo_path, DEFAULT_MODULES_DIR, "m")
         item_id = self._stage(gate_db, profile=_overlap_profile("m"))
         insert_item(
             _conn,

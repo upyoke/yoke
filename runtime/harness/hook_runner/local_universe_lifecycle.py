@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Optional, Tuple
 
 __all__ = ["run_local_universe_session_lifecycle", "local_universe_active"]
@@ -109,7 +108,10 @@ def _register(conn, session_id: str, payload: dict, project_id: int, workspace: 
         detect_provider,
     )
     from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
-    from yoke_core.domain.session_process_anchors import record_session_anchor
+    from yoke_core.domain.session_process_anchors import (
+        prune_stale_anchors,
+        record_session_anchor,
+    )
 
     executor = detect_executor()
     provider = detect_provider(executor)
@@ -127,6 +129,7 @@ def _register(conn, session_id: str, payload: dict, project_id: int, workspace: 
         if isinstance(payload_entrypoint, str) and payload_entrypoint
         else detect_entrypoint()
     )
+    prune_stale_anchors()
     record_session_anchor(session_id, transcript_path=transcript_path)
     begin_session(
         conn,

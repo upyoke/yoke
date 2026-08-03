@@ -45,7 +45,6 @@ def _make_conn():
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
             github_issue TEXT,
-            flow TEXT,
             rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
@@ -118,8 +117,7 @@ def _make_conn():
             id INTEGER PRIMARY KEY,
             state TEXT,
             owner_kind TEXT,
-            owner_item_id INTEGER,
-            item_id INTEGER
+            owner_item_id INTEGER
         );
     """))
     from yoke_core.domain.workflow_registry import converge_builtin_workflows

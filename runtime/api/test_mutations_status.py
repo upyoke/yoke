@@ -71,7 +71,7 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for issue"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "issue@3" in result.error
+            assert "issue@4" in result.error
             assert "Defined stages:" in result.error
 
     def test_issue_accepts_issue_family_statuses(self):
@@ -131,7 +131,7 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for epic"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "epic@3" in result.error
+            assert "epic@4" in result.error
             assert "Defined stages:" in result.error
 
     def test_epic_accepts_exceptional_statuses(self):
@@ -145,7 +145,7 @@ class TestStatusTransition:
             assert result.success is True, f"Expected acceptance of '{status}' for epic"
 
     def test_epic_accepts_idea_backward_compat(self):
-        """AC-7: Epic items accept 'idea' (backward compatibility)."""
+        """Epic items accept 'idea' (backward compatibility)."""
         item = _make_item(workflow="epic", status="planning")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(

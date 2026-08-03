@@ -24,6 +24,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import (
     _connect_raw,
     _get_columns as _schema_get_columns,
@@ -51,6 +52,8 @@ class CoverageResult:
         missing_paths: ``file_budget_paths - claim_paths``, sorted.
         active_claim_ids: Non-terminal claim ids contributing coverage.
         no_claims: True when the item has no non-terminal claim rows.
+        item_ref: The item's public display ref (``PREFIX-sequence``),
+            used in operator-facing messages.
     """
 
     item_id: int
@@ -60,10 +63,12 @@ class CoverageResult:
     missing_paths: List[str] = field(default_factory=list)
     active_claim_ids: List[int] = field(default_factory=list)
     no_claims: bool = False
+    item_ref: str = ""
 
     def to_dict(self) -> dict:
         return {
             "item_id": self.item_id,
+            "item_ref": self.item_ref,
             "is_blocked": self.is_blocked,
             "file_budget_paths": list(self.file_budget_paths),
             "claim_paths": list(self.claim_paths),
@@ -118,7 +123,8 @@ def _active_claim_coverage(
     marker = _p(conn)
     placeholders = ",".join(marker for _ in _NON_TERMINAL_CLAIM_STATES)
     claim_rows = conn.execute(
-        f"SELECT id FROM path_claims WHERE item_id = {marker} "
+        f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        f"AND owner_item_id = {marker} "
         f"AND state IN ({placeholders}) ORDER BY id",
         (item_id, *_NON_TERMINAL_CLAIM_STATES),
     ).fetchall()
@@ -163,9 +169,16 @@ def evaluate(
             load_item_effective_workflow_policies,
         )
 
+        # Resolved while the connection is open so every CoverageResult
+        # below (including the ones built after ``finally`` closes an
+        # owned connection) carries the public display ref.
+        item_ref = render_item_ref(conn, item_id)
+
         effective = load_item_effective_workflow_policies(conn, item_id)
         if not effective.requires_budget_claim_parity:
-            return CoverageResult(item_id=item_id, is_blocked=False)
+            return CoverageResult(
+                item_id=item_id, is_blocked=False, item_ref=item_ref
+            )
         task_scoped = effective.path_claims == "required_per_task"
         if task_scoped:
             from yoke_core.domain.path_claim_task_coverage import (
@@ -184,6 +197,7 @@ def evaluate(
                 missing_paths=list(coverage.uncovered_paths),
                 active_claim_ids=list(claim_ids),
                 no_claims=not claim_ids,
+                item_ref=item_ref,
             )
         spec = _read_spec_text(conn, item_id)
         budget_paths = extract_file_budget_paths(spec)
@@ -192,6 +206,7 @@ def evaluate(
                 item_id=item_id,
                 is_blocked=False,
                 file_budget_paths=budget_paths,
+                item_ref=item_ref,
             )
         claim_ids, claim_paths = _active_claim_coverage(conn, item_id)
     finally:
@@ -207,6 +222,7 @@ def evaluate(
             missing_paths=[],
             active_claim_ids=[],
             no_claims=True,
+            item_ref=item_ref,
         )
 
     claim_set = set(claim_paths)
@@ -219,12 +235,13 @@ def evaluate(
         missing_paths=missing,
         active_claim_ids=claim_ids,
         no_claims=False,
+        item_ref=item_ref,
     )
 
 
 def _format_block_message(result: CoverageResult) -> str:
     lines = [
-        f"BLOCKED: YOK-{result.item_id} File Budget lists "
+        f"BLOCKED: {result.item_ref} File Budget lists "
         f"{len(result.missing_paths)} path(s) not covered by any "
         f"active path_claim.",
         "",
@@ -246,7 +263,7 @@ def _format_block_message(result: CoverageResult) -> str:
         lines.append(
             f"  yoke claims path widen --claim-id {target_id} "
             f'--add-paths "{added}" --reason "..." '
-            f"--item YOK-{result.item_id} [--allow-planned]"
+            f"--item {result.item_ref} [--allow-planned]"
         )
         lines.append(
             "Use --allow-planned when the file does not yet exist on "
@@ -271,11 +288,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    raw = args.item_id
-    if isinstance(raw, str) and raw.upper().startswith("YOK-"):
-        raw = raw.split("-", 1)[1]
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
     try:
-        item_id = int(raw)
+        item_id = parse_item_id(args.item_id, allow_bare_internal=True)
     except (TypeError, ValueError):
         print(f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr)
         return 2
@@ -287,7 +303,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(_format_block_message(result), file=sys.stderr)
     else:
         print(
-            f"OK: YOK-{result.item_id} File Budget coverage matches "
+            f"OK: {result.item_ref} File Budget coverage matches "
             f"active claims ({len(result.file_budget_paths)} path(s) "
             f"checked)."
         )

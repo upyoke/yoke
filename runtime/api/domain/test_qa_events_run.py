@@ -1,6 +1,6 @@
 """Tests for ``qa_events.emit_qa_run_event``.
 
-Covers AC-9 (c) and the run-side best-effort discipline from AC-9 (d):
+Covers event emission and the run-side best-effort discipline:
 with and without ``verdict``, and graceful handling when ``emit_event``
 or the fallback ``query_one`` raises.
 """
@@ -31,7 +31,7 @@ def conn():
 
 
 # ---------------------------------------------------------------------------
-# AC-9 (c): emit_qa_run_event
+# emit_qa_run_event
 # ---------------------------------------------------------------------------
 
 def test_emit_run_event_without_verdict(conn, monkeypatch):
@@ -112,7 +112,7 @@ def test_emit_run_event_for_deployment_target(conn, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# AC-9 (d): best-effort discipline for emit_qa_run_event
+# Best-effort discipline for emit_qa_run_event
 # ---------------------------------------------------------------------------
 
 def test_emit_run_event_swallows_exceptions(conn, monkeypatch):

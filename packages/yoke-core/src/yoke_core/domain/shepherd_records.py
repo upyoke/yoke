@@ -5,6 +5,11 @@ import re
 import select as select_mod
 import sys
 from datetime import datetime, timezone
+from typing import Any
+
+from yoke_core.domain.item_ref_columns import render_column_item_ref
+
+_ITEM_REF_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$")
 
 
 def now_iso() -> str:
@@ -15,15 +20,21 @@ def format_row(row) -> str:
     return "|".join("" if value is None else str(value) for value in tuple(row))
 
 
-def normalize_item_id(raw: str) -> str:
-    """Normalize numeric or YOK-prefixed input to canonical YOK-N format."""
-    num = re.sub(r"^[Yy][Oo][Kk]-", "", raw)
-    if not num or not num.isdigit():
-        raise ValueError(f"invalid item ID: {raw} (expected numeric item ID or YOK-N ref)")
-    num = num.lstrip("0") or "0"
-    if num == "0":
-        raise ValueError(f"invalid item ID: {raw} (expected numeric item ID or YOK-N ref)")
-    return f"YOK-{num}"
+def normalize_item_id(raw: str, conn: Any) -> str:
+    """Canonicalize an item token to the public ref the DB columns store.
+
+    ``item_dependencies.dependent_item`` / ``.blocking_item`` hold public
+    refs, so the result is rendered from the resolved item's own project —
+    a blocker in another project canonicalizes to that project's prefix,
+    never the caller's. Accepts a public ``PREFIX-N`` ref or a bare item
+    id; anything else raises.
+    """
+    match = _ITEM_REF_RE.match(str(raw).strip())
+    if match is None or int(match.group(1)) == 0:
+        raise ValueError(
+            f"invalid item ID: {raw} (expected an item id or a PREFIX-N ref)"
+        )
+    return render_column_item_ref(conn, str(raw).strip())
 
 
 def read_stdin_safe() -> str:

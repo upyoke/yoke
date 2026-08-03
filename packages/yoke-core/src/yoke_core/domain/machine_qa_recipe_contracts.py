@@ -155,6 +155,7 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "operator_gate",
             "ready_text",
             "ready_timeout_seconds",
+            "target_environment_id",
             "wait_seconds",
         }
         unknown = set(action) - allowed
@@ -178,6 +179,11 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "keys": keys,
             "capture": capture,
         }
+        if "target_environment_id" in action:
+            target_id = str(action["target_environment_id"]).strip()
+            if not 0 < len(target_id) <= 200:
+                raise MachineQaRecipeError("target_environment_id is invalid")
+            normalized_action["target_environment_id"] = target_id
         try:
             normalized_action.update(
                 normalize_action_readiness(action, strings=_strings)
@@ -238,7 +244,7 @@ def validate_terminal_recipe(
     if not completion or completion not in {action["step"] for action in actions}:
         raise MachineQaRecipeError("required_completion must name a typed action step")
     mode = str(config["execution_mode"])
-    if mode not in {"terminal", "ssh-command"}:
+    if mode not in {"terminal", "terminal-multiplexer", "ssh-command"}:
         raise MachineQaRecipeError("execution_mode is not registered")
     if mode == "ssh-command" and (len(actions) != 1 or actions[0]["keys"]):
         raise MachineQaRecipeError(
@@ -321,10 +327,7 @@ def validate_terminal_recipe(
         "capture_checkpoints": checkpoints,
         "execution_mode": mode,
         "expected_return_codes": list(expected_codes),
-        "expected_text": _strings(
-            config["expected_text"],
-            field="expected_text",
-        ),
+        "expected_text": _strings(config["expected_text"], field="expected_text"),
         "max_wall_seconds": float(max_wall),
         "notes": notes,
         "post_checks": post_checks,

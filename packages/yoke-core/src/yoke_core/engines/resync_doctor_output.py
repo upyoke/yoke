@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import List, Tuple
 
 from yoke_core.engines.doctor_hc_gh_skip import GH_APP_AUTH_UNAVAILABLE_SKIP_REASON
-from yoke_core.engines.resync_detect import DriftRecord
+from yoke_core.engines.resync_detect import DriftRecord, LocalOrphan
 
 
 def _emit_doctor_format(
-    local_orphans: List[Tuple[str, str, str, str]],
+    local_orphans: List[LocalOrphan],
     gh_orphans: List[Tuple[int, str, str, str]],
     drifts: List[DriftRecord],
     mode: str,
@@ -18,21 +18,25 @@ def _emit_doctor_format(
     # HC-missing-gh-issues
     hc28_detail = ""
     hc28_status = "PASS"
-    for oid, ofile, otype, oproj in local_orphans:
-        if otype != "backlog":
+    for orphan in local_orphans:
+        if orphan.kind != "backlog":
             continue
         hc28_status = "WARN"
-        hc28_detail += f"- {oid}: no GitHub issue linked (project={oproj})\\n"
+        hc28_detail += (
+            f"- {orphan.ref}: no GitHub issue linked (project={orphan.project})\\n"
+        )
     print(f"HC-missing-gh-issues|Missing GitHub issues|{hc28_status}|{hc28_detail}")
 
     # HC-orphan-epic-tasks
     hc44_detail = ""
     hc44_status = "PASS"
-    for oid, ofile, otype, oproj in local_orphans:
-        if otype != "epic_task":
+    for orphan in local_orphans:
+        if orphan.kind != "epic_task":
             continue
         hc44_status = "WARN"
-        hc44_detail += f"- {oid}: no GitHub issue linked (project={oproj})\\n"
+        hc44_detail += (
+            f"- {orphan.ref}: no GitHub issue linked (project={orphan.project})\\n"
+        )
     print(f"HC-orphan-epic-tasks|Orphan epic tasks|{hc44_status}|{hc44_detail}")
 
     # HC-title-drift
@@ -43,9 +47,9 @@ def _emit_doctor_format(
             continue
         hc29_status = "WARN"
         if mode == "fix":
-            hc29_detail += f"- {d.id}: title drift -- FIXED (updated GitHub)\\n"
+            hc29_detail += f"- {d.ref}: title drift -- FIXED (updated GitHub)\\n"
         else:
-            hc29_detail += f"- {d.id}: local='{d.local}' vs GitHub='{d.github}'\\n"
+            hc29_detail += f"- {d.ref}: local='{d.local}' vs GitHub='{d.github}'\\n"
     print(f"HC-title-drift|Title drift|{hc29_status}|{hc29_detail}")
 
     # HC-body-drift
@@ -56,9 +60,9 @@ def _emit_doctor_format(
             continue
         hc30_status = "WARN"
         if mode == "fix":
-            hc30_detail += f"- {d.id}: body drift -- FIXED (synced to GitHub)\\n"
+            hc30_detail += f"- {d.ref}: body drift -- FIXED (synced to GitHub)\\n"
         else:
-            hc30_detail += f"- {d.id}: body differs from GitHub\\n"
+            hc30_detail += f"- {d.ref}: body differs from GitHub\\n"
     print(f"HC-body-drift|Body drift|{hc30_status}|{hc30_detail}")
 
     # HC-reverse-completeness
@@ -78,9 +82,9 @@ def _emit_doctor_format(
             continue
         hc32_status = "WARN"
         if mode == "fix":
-            hc32_detail += f"- {d.id}: no **Status:** comment -- FIXED (posted)\\n"
+            hc32_detail += f"- {d.ref}: no **Status:** comment -- FIXED (posted)\\n"
         else:
-            hc32_detail += f"- {d.id}: done but no **Status:** comment on GitHub\\n"
+            hc32_detail += f"- {d.ref}: done but no **Status:** comment on GitHub\\n"
     print(f"HC-comment-sync|Comment sync|{hc32_status}|{hc32_detail}")
 
     # HC-label-drift
@@ -94,9 +98,9 @@ def _emit_doctor_format(
             continue
         hc39_status = "WARN"
         if mode == "fix":
-            hc39_detail += f"- {d.id}: {d.field} drift ({d.local} vs {d.github}) -- FIXED\\n"
+            hc39_detail += f"- {d.ref}: {d.field} drift ({d.local} vs {d.github}) -- FIXED\\n"
         else:
-            hc39_detail += f"- {d.id}: {d.field} drift ({d.local} vs {d.github})\\n"
+            hc39_detail += f"- {d.ref}: {d.field} drift ({d.local} vs {d.github})\\n"
     print(f"HC-label-drift|Label drift|{hc39_status}|{hc39_detail}")
 
     # HC-state-drift
@@ -107,9 +111,9 @@ def _emit_doctor_format(
             continue
         hc40_status = "WARN"
         if mode == "fix":
-            hc40_detail += f"- {d.id}: expected {d.local}, GitHub is {d.github} -- FIXED\\n"
+            hc40_detail += f"- {d.ref}: expected {d.local}, GitHub is {d.github} -- FIXED\\n"
         else:
-            hc40_detail += f"- {d.id}: expected {d.local}, GitHub is {d.github}\\n"
+            hc40_detail += f"- {d.ref}: expected {d.local}, GitHub is {d.github}\\n"
     print(f"HC-state-drift|State drift|{hc40_status}|{hc40_detail}")
 
     # HC-frozen-label-drift / HC-blocked-label-drift
@@ -124,9 +128,9 @@ def _emit_doctor_format(
                 continue
             st = "WARN"
             if mode == "fix":
-                det += f"- {d.id}: {d.local} vs {d.github} -- FIXED\\n"
+                det += f"- {d.ref}: {d.local} vs {d.github} -- FIXED\\n"
             else:
-                det += f"- {d.id}: {d.local} vs {d.github}\\n"
+                det += f"- {d.ref}: {d.local} vs {d.github}\\n"
         print(f"{slug}|{label}|{st}|{det}")
 
     # HC-task-label-drift -- not reimplemented here; requires per-task gh calls

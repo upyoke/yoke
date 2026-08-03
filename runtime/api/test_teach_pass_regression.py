@@ -47,9 +47,12 @@ _REQUIRED_TABLE_COLUMNS = {
         "id",
         "state",
         "mode",
-        "actor_id",
-        "session_id",
-        "item_id",
+        "owner_kind",
+        "owner_item_id",
+        "owner_session_id",
+        "owner_work_claim_id",
+        "registered_by_actor_id",
+        "registered_by_session_id",
         "integration_target",
         "activated_at",
         "released_at",
@@ -88,10 +91,14 @@ def test_columns_render_adjacent_to_owning_table(
         )
 
 
+# The packet ships verbatim into every target project, so its recipe
+# placeholders use the generic ``PREFIX-`` form rather than any one
+# project's item prefix. Runtime-composed denial bodies further down this
+# module still carry a concrete ref because they name a real item.
 _CLI_ANCHORS_REQUIRED = (
     # Canonical ``yoke <subcommand>`` agent shapes (current):
-    "yoke claims work acquire --item YOK-",
-    "yoke claims work release --item YOK-",
+    "yoke claims work acquire --item PREFIX-",
+    "yoke claims work release --item PREFIX-",
     "yoke claims path register",
     "yoke claims path widen",
     "yoke lifecycle transition",
@@ -100,8 +107,8 @@ _CLI_ANCHORS_REQUIRED = (
     "yoke items progress-log append",
     "yoke ouroboros field-note append",
     # Source-dev/admin fallbacks the packet explicitly labels.
-    "yoke claims path list --item YOK-N",
-    "yoke db-claim amend YOK-N",
+    "yoke claims path list --item PREFIX-N",
+    "yoke db-claim amend PREFIX-N",
     "--state none",
     "backlog-cli",
     "lifecycle.transition",
@@ -215,7 +222,7 @@ def test_claim_required_gate_embeds_register_command() -> None:
         apply_fixture_ddl(
             conn,
             "CREATE TABLE path_claims (id INTEGER PRIMARY KEY, "
-            "item_id INTEGER, state TEXT, mode TEXT, "
+            "owner_kind TEXT, owner_item_id INTEGER, state TEXT, mode TEXT, "
             "exception_reason TEXT);"
             "CREATE TABLE path_claim_targets ("
             "claim_id INTEGER, target_id INTEGER);",

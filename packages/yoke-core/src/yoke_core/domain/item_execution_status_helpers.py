@@ -66,7 +66,9 @@ def worktree_state(
             resolve_item_worktree,
         )
 
-        resolved = resolve_item_worktree(f"YOK-{item_id}", db_path=db_path)
+        # ``item_id`` is already the internal id; pass it bare rather than
+        # reconstructing a ``YOK-N`` token for the resolver to strip back off.
+        resolved = resolve_item_worktree(str(item_id), db_path=db_path)
         paths = list(resolved.paths)
         branches = list(resolved.branches)
         if not paths:
@@ -159,7 +161,7 @@ def collect_path_claims(
     rows = query_rows(
         conn,
         "SELECT id, state, blocked_reason FROM path_claims "
-        f"WHERE item_id={p} ORDER BY id",
+        f"WHERE owner_kind = 'item' AND owner_item_id={p} ORDER BY id",
         (item_id,),
     )
     state_counts: Dict[str, int] = {}

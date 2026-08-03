@@ -31,6 +31,18 @@
       "stop_hook"
     ]
   },
+  "worktree_hook_enablement": {
+    "config_path": ".claude/settings.json",
+    "operations": [
+      "verify_hook_config",
+      "seed_directory_approval",
+      "verify_environment_export"
+    ],
+    "environment": {
+      "root_variable": "YOKE_ROOT",
+      "root_expression": "${CLAUDE_PROJECT_DIR:-$PWD}"
+    }
+  },
   "telemetry": {
     "canonical_source": "yoke_core",
     "optional_local_sources": [

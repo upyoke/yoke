@@ -23,9 +23,10 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_wizard_github_state as github_state
 from yoke_cli.config import onboard_wizard_github_plan
+from yoke_cli.config.onboard_terminal import native_text_selection_terminal
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
-    GITHUB_ADOPTION_BACKLOG_ONLY,
+    GITHUB_ADOPTION_DISABLED,
 )
 
 PROJECT_GITHUB_REUSE_MACHINE = "reuse-machine"
@@ -190,7 +191,9 @@ class WizardResult:
             return onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_FALLBACK
         return None
 
-    def build_report_kwargs(self, *, apply: bool, check_identity: bool) -> dict[str, Any]:
+    def build_report_kwargs(
+        self, *, apply: bool, check_identity: bool
+    ) -> dict[str, Any]:
         return {
             "config_path": self.config_path,
             "env_name": self.env_name,
@@ -221,9 +224,7 @@ class WizardResult:
             "existing_project_match_source": self.existing_project_match_source,
             "existing_project_local_source": self.existing_project_local_source,
             "project_github_adoption": self.project_github_adoption,
-            "project_github_adoption_preserve": (
-                self.project_github_adoption_preserve
-            ),
+            "project_github_adoption_preserve": (self.project_github_adoption_preserve),
             "project_publish": self.build_publish_request(),
             "project_clone": self.build_clone_plan(),
             "project_keep_existing_remote": self.project_keep_existing_remote,
@@ -282,7 +283,10 @@ def run_wizard(
         ) from exc
 
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
-    app.run()
+    # Apple Terminal cannot copy Textual's internal selection through its
+    # native Command-C/Edit menu. Leaving mouse reporting off lets operators
+    # drag a normal terminal selection while preserving the rich TUI styles.
+    app.run(mouse=not native_text_selection_terminal())
     if app.cancelled:
         return WizardRunResult(
             exit_code=130,
@@ -309,7 +313,7 @@ def reuse_choice_to_adoption(choice: str) -> str:
     if choice == PROJECT_GITHUB_REUSE_MACHINE:
         return GITHUB_ADOPTION_APP_BINDING
     if choice == "skip":
-        return GITHUB_ADOPTION_BACKLOG_ONLY
+        return GITHUB_ADOPTION_DISABLED
     return choice
 
 

@@ -1,9 +1,12 @@
 """Tests for the path-claim integration-target validator.
 
-Covers AC-7 (omitted target defaults to project trunk), AC-8 (supplied
-unresolved target fails before claim mutation), and AC-9 (omitted-flag
-defaulting + supplied valid acceptance + blank/missing
-``projects.default_branch`` fallback).
+Covers a supplied target that resolves and one that does not (rejected
+before any claim mutation), an omitted target defaulting to the project's
+configured trunk with a fallback to ``main`` when
+``projects.default_branch`` is null or blank, the conditions under which
+validation skips entirely (no checkout, not a git repo, an item with no
+project, missing tables), and the error message naming the configured
+trunk.
 """
 
 from __future__ import annotations

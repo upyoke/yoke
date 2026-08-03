@@ -22,6 +22,11 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_dispatch_io import print_error
+from yoke_core.domain.project_identity import (
+    DEFAULT_PUBLIC_ITEM_PREFIX,
+    format_item_ref,
+    render_item_ref,
+)
 from yoke_core.api.service_client_shared_session_resolver import (
     current_session_id as _current_session_id,
 )
@@ -38,9 +43,16 @@ class OwnershipDenial(Exception):
         claim_id: Optional[int],
         caller_session_id: str,
         holder_session_id: Optional[str],
+        item_ref: Optional[str] = None,
     ) -> None:
         self.action = action
         self.item_id = int(item_id)
+        # Live callers pass the canonical public ref rendered from a conn;
+        # a conn-less construction falls back to the default-prefix form of
+        # the internal id (mirrors ``render_item_ref``'s own fallback).
+        self.item_ref = item_ref or format_item_ref(
+            None, DEFAULT_PUBLIC_ITEM_PREFIX, self.item_id, item_id=self.item_id
+        )
         self.claim_id = int(claim_id) if claim_id is not None else None
         self.caller_session_id = caller_session_id or ""
         self.holder_session_id = holder_session_id or None
@@ -57,12 +69,12 @@ class OwnershipDenial(Exception):
         recovery = (
             "acquire the work claim first: "
             "yoke claims work acquire "
-            f'--item YOK-{self.item_id} --reason "<intent>"'
+            f'--item {self.item_ref} --reason "<intent>"'
         )
-        inspect = f"yoke claims work holder-get YOK-{self.item_id}"
+        inspect = f"yoke claims work holder-get {self.item_ref}"
         return (
             f"path-claims {self.action} requires the ambient session to "
-            f"hold item YOK-{self.item_id}'s work claim. "
+            f"hold item {self.item_ref}'s work claim. "
             f"caller={caller}{who}. Recovery: {recovery}. Inspect: {inspect}."
         )
 
@@ -74,7 +86,7 @@ class OwnershipDenial(Exception):
             "holder_session_id": self.holder_session_id,
             "recovery": (
                 "yoke claims work acquire "
-                f'--item YOK-{self.item_id} --reason "<intent>"'
+                f'--item {self.item_ref} --reason "<intent>"'
             ),
         }
         if self.claim_id is not None:
@@ -97,10 +109,11 @@ def _p(conn: Any) -> str:
 def _item_id_for_claim(conn: Any, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (int(claim_id),),
     ).fetchone()
-    value = _row_value(row, "item_id")
+    value = _row_value(row, "owner_item_id")
     if value is None:
         return None
     return int(value)
@@ -152,6 +165,7 @@ def require_item_ownership(
             claim_id=claim_id,
             caller_session_id=caller,
             holder_session_id=holder,
+            item_ref=render_item_ref(conn, int(item_id)),
         )
     return int(item_id)
 

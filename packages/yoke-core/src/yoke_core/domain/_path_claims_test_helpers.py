@@ -171,11 +171,11 @@ def seed_claim(
     """Insert a ``path_claims`` row plus target binding and return its id."""
     row = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
-        "registered_at, blocked_reason) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, blocked_reason) "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (state, local_human(conn), item_id, blocked_reason),
+        (state, item_id, local_human(conn), blocked_reason),
     ).fetchone()
     claim_id = int(row[0])
     if state == "active":
@@ -257,6 +257,24 @@ def seed_test_holder_session(
         "ON CONFLICT(session_id) DO NOTHING",
         (session_id,),
     )
+
+
+def register_test_claim(conn: Any, **kwargs: Any) -> int:
+    """Register a valid typed-owner claim for lifecycle/classifier tests.
+
+    Tests concerned with path coverage rather than item/process authority use
+    the canonical live test session as the claim owner. Item- and
+    process-owned calls pass through unchanged.
+    """
+    from yoke_core.domain.path_claims import register
+
+    if not any(
+        kwargs.get(key) is not None
+        for key in ("item_id", "work_claim_id", "session_id")
+    ):
+        seed_test_holder_session(conn)
+        kwargs["session_id"] = HOLDER_SESSION_ID
+    return register(conn, **kwargs)
 
 
 def seed_work_claim_for(

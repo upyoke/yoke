@@ -16,8 +16,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.domain import project_settings, runtime_settings
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
     item_worktree_authority_is_https,
@@ -41,6 +40,7 @@ from yoke_core.domain.worktree_provision import (
     count_active_worktrees as _count_active_worktrees,
     project_field as _project_field,
     provision_worktree as _provision_worktree,
+    provision_worktree_harness_enablement as _provision_worktree_harness_enablement,
 )
 
 
@@ -83,14 +83,21 @@ def create_worktree(
             find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
         )
 
-    fallback_branch = f"YOK-{item_id}"
+    # Cosmetic branch label for early error returns before the lane resolver
+    # runs; the real created names come from resolve_worktree_lanes_for_item.
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
+    fallback_branch = worktree_name_for_item(None, item_id)
     repo_root_was_explicit = repo_root is not None
 
     # --- Resolve repo root ---
     if repo_root is None:
         if project:
-            with connect(db_path) as conn:
-                checkout = checkout_for_project(conn, project)
+            # Resolve the project slug to its machine-local checkout through
+            # the transport-aware relay so this works over an https control
+            # plane, not only a local Postgres connection. The hosted-lane
+            # path below already relays; only this slug->id read did not.
+            checkout = checkout_for_project_slug(project)
             repo_root = str(checkout) if checkout is not None else ""
             if not repo_root or not os.path.isdir(os.path.join(repo_root, ".git")):
                 return CreateWorktreeResult(
@@ -244,6 +251,12 @@ def create_worktree(
                 failed_branch=entry.branch,
             )
         entry.created = True
+
+    # Every harness contributes its lane-enablement operations through its
+    # manifest. This runs for reused lanes as well as new ones so a lane
+    # prepared before an adapter update is repaired on the next preparation.
+    for entry in plan.worktrees:
+        _provision_worktree_harness_enablement(repo_root, entry.path)
 
     # --- Stable primary result plus universal lane persistence ---
     primary = plan.primary or plan.worktrees[0]

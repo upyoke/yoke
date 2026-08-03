@@ -38,7 +38,7 @@ def _capture():
 
 
 class TestRecordDisabledProcessSkip:
-    """AC-19 / AC-42 / AC-45: persist chain-skip + emit SchedulerOfferSkipped."""
+    """Persist chain-skip + emit SchedulerOfferSkipped."""
 
     def test_records_skip_when_charge_swap_payload_present(self, conn):
         _register(conn, session_id="rec-charge")
@@ -164,7 +164,7 @@ class TestRecordDisabledProcessSkip:
 
 
 class TestMergeSkipMemoryWithPolicy:
-    """AC-5: chain_skip_memory.process_key entries disable the matching key."""
+    """Chain_skip_memory.process_key entries disable the matching key."""
 
     def test_no_memory_returns_policy_unchanged(self):
         policy = ProcessOfferPolicy(per_process={"feed": True})

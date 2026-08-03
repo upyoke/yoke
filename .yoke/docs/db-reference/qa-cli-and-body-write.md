@@ -22,19 +22,19 @@ not an agent-facing command recipe. Full platform documentation:
 ```sh
 # Add an item-bound review requirement
 yoke qa requirement add \
- --item YOK-N --qa-kind implementation_review --qa-phase verification \
+ --item PREFIX-N --qa-kind implementation_review --qa-phase verification \
  --workflow-transition reviewed-implementation
 
 # Bind a method case to a stage in the item's pinned workflow
 yoke qa requirement add \
- --item YOK-N --method-id browser-check --qa-phase verification \
+ --item PREFIX-N --method-id browser-check --qa-phase verification \
  --workflow-transition reviewing-implementation \
  --instructions "Inspect the workflow view." \
  --expected-outcome "The workflow view is correct." \
  --method-config '{"steps":[{"action":"navigate","route":"/workflows"}]}'
 
 # List requirements
-yoke qa requirement list --item YOK-N
+yoke qa requirement list --item PREFIX-N
 
 # Get a single requirement
 yoke qa requirement get --requirement-id 1
@@ -64,7 +64,7 @@ yoke qa artifact add \
  --artifact-handle '{"backend":"local","path":"/tmp/img.png"}'
 
 # Preview blocking QA gaps before a reviewed-implementation transition
-yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
+yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 ```
 
 | Subcommand | Args | Description |
@@ -103,7 +103,7 @@ Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 
 ## Body Write Path
 
-**`items.body` is a virtual rendered field.** Not stored in the DB. Read via `items get YOK-N body`, which renders on demand from structured fields via `render_body.py`. Raw body writes were removed. All content must go through structured field writes.
+**`items.body` is a virtual rendered field.** Not stored in the DB. Read via `items get PREFIX-N body`, which renders on demand from structured fields via `render_body.py`. Raw body writes were removed. All content must go through structured field writes.
 
 ### Structured field writes (the only supported path)
 
@@ -122,7 +122,7 @@ execute_structured_write() writes the structured field to DB
  +---> Board rebuild (options.rebuild_board)
 ```
 
-Reading `items get YOK-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
+Reading `items get PREFIX-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
 
 Valid structured fields are `spec`, `design_spec`, `technical_plan`,
 `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, and
@@ -146,17 +146,17 @@ GitHub sync operations route through the Python-owned `yoke_core.domain.backlog_
 
 There is no separate fallback chain: per-project token env-var lookup, project token-file lookup, and silent host-credential fallback are not part of the resolution path.
 
-**Fail-closed on missing or broken auth.** When the resolver cannot produce a usable repo + App token (missing binding, missing installation, removed repo access, missing permission, private-key/config failure, or GitHub REST transport failure), it raises a typed diagnostic with a concrete `repair_command_hint`. Yoke-owned callers surface the diagnostic instead of silently falling through to host credentials or treating the remote as empty. Operators repair by connecting GitHub, adding repository access, binding the project repo, or switching the project to backlog-only. The runtime never instructs the operator to authenticate at the host CLI level as the answer to a project-auth/config problem.
+**Fail-closed on missing or broken auth.** When the resolver cannot produce a usable repo + App token (missing binding, missing installation, removed repo access, missing permission, private-key/config failure, or GitHub REST transport failure), it raises a typed diagnostic with a concrete `repair_command_hint`. Yoke-owned callers surface the diagnostic instead of silently falling through to host credentials or treating the remote as empty. Operators repair by connecting GitHub, adding repository access, binding the project repo, or switching the project to disabled. The runtime never instructs the operator to authenticate at the host CLI level as the answer to a project-auth/config problem.
 
 **Cross-project coverage.** Item sync, status comments, issue close/reopen, body/title sync, resync repair, and doctor GitHub checks all route through the canonical resolver. Resync iterates per project; each iteration calls `resolve_project_github_auth(project)` and uses bearer-token REST calls for that project. Doctor's GitHub orphan and wrong-repo checks validate label coverage and confirm that each item's GitHub issue exists in the correct repo for its project.
 
-**Per-project sync switch precedes auth.** A project with `projects.github_sync_mode='backlog_only'` never reaches the resolver: every sync helper skips it with one mode-language log line (return code 0, flows continue), and resync excludes it from fetch/classification/repair. The skip is policy, not an auth failure — a backlog-only project needs no GitHub authorization. See [github-sync.md](../github-sync.md).
+**Per-project sync switch precedes auth.** A project with `projects.github_sync_mode='disabled'` never reaches the resolver: every sync helper skips it with one mode-language log line (return code 0, flows continue), and resync excludes it from fetch/classification/repair. The skip is policy, not an auth failure — a disabled project needs no GitHub authorization. See [github-sync.md](../github-sync.md).
 
 ### GitHub issue body size limit
 
 GitHub rejects issue bodies above ~65,536 characters. Before calling GitHub's issue-body update endpoint, `items sync-body` and the shared body-update helper measure the rendered Yoke body against a conservative threshold (~62KB) defined in `yoke_core.domain.backlog_github_body_budget`. When the rendered body fits, full-body sync proceeds normally. When it exceeds the threshold, the helpers route to the **compact mirror** path instead.
 
-**Compact mirror contents.** The compact mirror is the substitute body written to GitHub when the full rendered body is over budget. It contains item title, `YOK-N`, project, status, lifecycle state, an explicit note that the Yoke DB holds the canonical full body, key commands/links, and the latest evidence summary. The Yoke DB retains the full body — nothing is lost; the mirror just replaces what gets pushed to GitHub.
+**Compact mirror contents.** The compact mirror is the substitute body written to GitHub when the full rendered body is over budget. It contains item title, `PREFIX-N`, project, status, lifecycle state, an explicit note that the Yoke DB holds the canonical full body, key commands/links, and the latest evidence summary. The Yoke DB retains the full body — nothing is lost; the mirror just replaces what gets pushed to GitHub.
 
 **Degradation reporting.** Compact-mirror sync is reported by the structured-write side-effect surface as `degraded_body_budget`, distinct from a successful full-body sync and distinct from an auth/config failure. Auth/config failures take precedence: if `resolve_project_github_auth` fails, no GitHub call is made and the surface reports the auth/config diagnostic, not a body-budget degradation.
 

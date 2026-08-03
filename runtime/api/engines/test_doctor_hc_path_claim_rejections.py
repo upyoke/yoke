@@ -34,7 +34,8 @@ CREATE TABLE item_dependencies (
 _PATH_CLAIMS_DDL = """
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
-    item_id INTEGER
+    owner_kind TEXT,
+    owner_item_id INTEGER
 )
 """
 
@@ -118,7 +119,8 @@ def _add_dep_edge(
 
 def _seed_path_claim(conn, *, claim_id: int, item_id: int) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, item_id) VALUES (%s, %s)",
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id) VALUES (%s, 'item', %s)",
         (claim_id, item_id),
     )
     conn.commit()

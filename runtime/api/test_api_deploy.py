@@ -26,7 +26,7 @@ class TestChargeFrontierEndpoint:
         self.db_info = frontier_db
 
     def test_frontier_returns_valid_json(self):
-        """AC-1: GET /v1/charge/frontier returns valid JSON with correct structure."""
+        """GET /v1/charge/frontier returns valid JSON with correct structure."""
         resp = self.client.get("/v1/charge/frontier")
         assert resp.status_code == 200
         data = resp.json()
@@ -48,22 +48,24 @@ class TestChargeFrontierEndpoint:
         # done items should not appear anywhere
         all_ids = runnable_ids + blocked_ids + [i["item_id"] for i in data["frozen"]]
         assert "YOK-23" not in all_ids
-        # externalwebapp-project items should not appear (default project=yoke)
-        assert "YOK-24" not in all_ids
+        # externalwebapp-project items should not appear (default project=yoke);
+        # their true public ref renders under the project's EXT prefix.
+        assert "EXT-24" not in all_ids
 
     def test_frontier_project_filter(self):
-        """AC-2: Project filter correctly scopes results."""
+        """Project filter correctly scopes results."""
         resp = self.client.get("/v1/charge/frontier?project=externalwebapp")
         assert resp.status_code == 200
         data = resp.json()
         runnable_ids = [item["item_id"] for item in data["runnable"]]
-        assert "YOK-24" in runnable_ids
+        # The externalwebapp project renders its true public prefix.
+        assert "EXT-24" in runnable_ids
         # Yoke items should not appear
         assert "YOK-20" not in runnable_ids
         assert "YOK-21" not in runnable_ids
 
     def test_frontier_wip_cap_override(self):
-        """AC-3: WIP cap parameter overrides default."""
+        """WIP cap parameter overrides default."""
         resp = self.client.get("/v1/charge/frontier?wip_cap=1")
         assert resp.status_code == 200
         data = resp.json()
@@ -73,7 +75,7 @@ class TestChargeFrontierEndpoint:
         assert len(data["conduct_eligible"]) <= 1
 
     def test_frontier_item_has_all_fields(self):
-        """AC-6: Pydantic model fields match FrontierItem dataclass fields 1:1."""
+        """Pydantic model fields match FrontierItem dataclass fields 1:1."""
         resp = self.client.get("/v1/charge/frontier")
         assert resp.status_code == 200
         data = resp.json()
@@ -115,7 +117,7 @@ class TestChargeFrontierEndpoint:
         assert "YOK-25" not in runnable_ids
 
     def test_frontier_invalid_wip_cap(self):
-        """AC-5: Invalid wip_cap returns 422."""
+        """Invalid wip_cap returns 422."""
         resp = self.client.get("/v1/charge/frontier?wip_cap=0")
         assert resp.status_code == 422
         resp = self.client.get("/v1/charge/frontier?wip_cap=999")

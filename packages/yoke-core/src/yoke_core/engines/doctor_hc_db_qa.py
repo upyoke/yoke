@@ -14,6 +14,7 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.time_parse import age_hours_since
 
 import yoke_core.engines.doctor_report as _base
@@ -78,7 +79,8 @@ def hc_validation_no_qa_reqs(conn, args: DoctorArgs, rec: RecordCollector) -> No
     )
     for row in rows:
         issues.append(
-            f"- YOK-{row['id']}: '{row['title']}' — in reviewing-implementation with zero qa_requirements"
+            f"- {render_item_ref(conn, int(row['id']))}: '{row['title']}' "
+            "— in reviewing-implementation with zero qa_requirements"
         )
 
     # Epic tasks

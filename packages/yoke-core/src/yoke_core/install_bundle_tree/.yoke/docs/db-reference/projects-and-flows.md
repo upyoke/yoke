@@ -18,11 +18,11 @@ name TEXT NOT NULL -- display name
 emoji TEXT DEFAULT '' -- project emoji (e.g., '🐂', '🧩'); shown in BOARD.md title
 github_repo TEXT -- GitHub repo in owner/repo format (e.g., 'example-org/external-webapp')
 default_branch TEXT DEFAULT 'main'
-github_sync_mode TEXT -- 'enabled' | 'backlog_only'; new rows use backlog_only, legacy NULL resolves enabled
+github_sync_mode TEXT NOT NULL DEFAULT 'disabled' -- 'enabled' | 'disabled'; legacy NULL/empty values normalize to disabled
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-**Per-project GitHub sync switch** — new projects start `backlog_only`, which keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. Enabling requires an active verified App binding. Dry-run or normalize legacy effective-enabled rows with `yoke projects github-sync-mode repair [--apply]`. The verified App binding is outbound repository authority; `github_repo` is its compatibility display projection. Full semantics and safe repository-rebinding order live in [github-sync.md](../github-sync.md).
+**Per-project GitHub sync switch** — new projects start `disabled`, which keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. Enabling requires an active verified private App binding unless `--allow-public-github-sync` is explicit. Dry-run or normalize legacy/empty modes with `yoke projects github-sync-mode repair [--apply]`. The verified App binding is outbound repository authority; `github_repo` is its compatibility display projection. Full semantics and safe repository-rebinding order live in [github-sync.md](../github-sync.md).
 
 **Project-level deployment-flow default** — read the project default via `yoke project-structure deploy-defaults get --project <project>` or, from Python, `yoke_core.domain.deploy_defaults.get_default_flow(project_id)`. Entries live in `project_structure` with `family='deploy_defaults'`, `attachment_value='project'`, payload `{"deployment_flow": "<flow-id>"}`. Absence is a valid state; callers treat it as "no project default" and fall back to inference.
 
@@ -89,7 +89,7 @@ python3 -m yoke_core.cli.db_router project-structure seed <project-id>
 python3 -m yoke_core.cli.db_router project-structure family-list
 ```
 
-The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. The write surface takes a single imperative op list with `ops`; see `packages/yoke-core/src/yoke_core/domain/project_structure.py` for the full contract.
+The same commands are available through the service-client CLI as `project-structure-get`, `project-structure-patch`, and `project-structure-seed`. The write surface takes a single imperative op list with `ops`; see `yoke_core.domain.project_structure` for the full contract.
 
 ## Table: sites
 
@@ -200,7 +200,7 @@ id TEXT PRIMARY KEY -- e.g., 'project-production-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
-stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, executor, ...}]
+stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, step_runner, ...}]
 on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 target_env TEXT DEFAULT NULL -- target deployment environment; auto-sets deployed_to on pipeline completion
@@ -209,11 +209,11 @@ status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'dis
 UNIQUE(project, name)
 ```
 
-Stage objects come in two shapes. Executor-shaped stages require `name` (string) and `executor` (string, closed set). Valid executor types: `auto`, `health-check`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. Kind-shaped stages carry `kind` instead (`migration_apply` is the only kind; fields `model_name` + `lifecycle_phase`, optional `name`) and bind the project's governed migration contract into the flow. The pipeline derives the stage name from the kind (`migration_apply` → `migration-apply`; an explicit `name` wins) for `deployment_runs.current_stage`, `--from-stage` resume, and stage telemetry — live flow rows need no `name` key. Dispatch (`yoke_core.domain.deploy_pipeline_migration`) verifies per member item the same evidence gate the lifecycle enforces at `implementing → reviewing-implementation` (completed `migration_audit` rows written only by the governed runner; `{"state":"none"}` claims and item-less runs pass with an explicit stage-result note on `DeploymentRunStageCompleted`); the governed apply itself (rehearse → lease → backup → live-apply) never runs inside the pipeline.
+Stage objects come in two shapes. Step-runner stages require `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. Kind-shaped stages carry `kind` instead (`migration_apply` is the only kind; fields `model_name` + `lifecycle_phase`, optional `name`) and bind the project's governed migration contract into the flow. The pipeline derives the stage name from the kind (`migration_apply` → `migration-apply`; an explicit `name` wins) for `deployment_runs.current_stage`, `--from-stage` resume, and stage telemetry — live flow rows need no `name` key. Dispatch (`yoke_core.domain.deploy_pipeline_migration`) verifies per member item the same evidence gate the lifecycle enforces at `implementing → reviewing-implementation` (completed `migration_audit` rows written only by the governed runner; `{"state":"none"}` claims and item-less runs pass with an explicit stage-result note on `DeploymentRunStageCompleted`); the governed apply itself (rehearse → lease → backup → live-apply) never runs inside the pipeline.
 
-**`github-actions-workflow` executor type:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
+**`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
-**`health-check` executor type:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
+**`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
 Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a materialized flow with `yoke deployment-flows get <flow-id>` / `stages`. External project
 repositories own their desired definitions in `.yoke/deployment-flows.json`;

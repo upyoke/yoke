@@ -42,7 +42,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_event_registry_extract import (

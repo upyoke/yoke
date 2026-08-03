@@ -74,7 +74,7 @@ export function activationClient(activation, overrides = {}) {
     },
     "deployment_runs.list": {
       rows: [{
-        id: "run-1", flow: "stage-flow", target_env: "stage",
+        id: "run-1", project: "yoke", flow: "stage-flow", target_env: "stage",
         status: "succeeded", created_at: "1h",
       }],
     },

@@ -39,7 +39,7 @@ def _override_event_contexts(conn, *, path_claim_id: int) -> list:
 
 
 class TestEmitOverridePayload:
-    """AC-10: payload carries the canonical 8 fields plus conflict_reason."""
+    """Payload carries the canonical 8 fields plus conflict_reason."""
 
     def test_creation_override_minimal_payload(self, conn):
         actor = local_human(conn)

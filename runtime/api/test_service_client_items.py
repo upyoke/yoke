@@ -21,7 +21,7 @@ CREATE TABLE projects (
 CREATE TABLE items (
     id INTEGER PRIMARY KEY, title TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'idea', priority TEXT NOT NULL DEFAULT 'medium',
-    flow TEXT DEFAULT 'accelerated', rework_count INTEGER DEFAULT 0,
+    rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, blocked INTEGER DEFAULT 0, blocked_reason TEXT,
     github_issue TEXT, deployed_to TEXT, merged_at TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, source TEXT NOT NULL DEFAULT '2',
@@ -61,10 +61,10 @@ def _seed_items_and_flow() -> None:
         workflow_pin = workflow_registry.resolve_current_workflow_pin(conn, "issue")
         workflow_id, workflow_version_id = workflow_pin
         stages_json = json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "approve-deploy", "executor": "human-approval"},
-            {"name": "prod-deploy", "executor": "github-actions-workflow"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "approve-deploy", "step_runner": "human-approval"},
+            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+            {"name": "complete", "step_runner": "auto"},
         ])
         conn.execute(
             "INSERT INTO projects (id, slug, name, public_item_prefix) "
@@ -101,7 +101,7 @@ def test_db(tmp_path):
 
 
 class TestApproveCheck:
-    """Regression tests for approve-check (AC-1: approval semantics via domain layer)."""
+    """Regression tests for approve-check (approval semantics via domain layer)."""
 
     def test_valid_approval_returns_next_stage(self, test_db):
         result = _run_client(["approve-check", "test-flow", "approve-deploy"], db_path=test_db["db_path"])
@@ -135,8 +135,8 @@ class TestApproveCheck:
         """Approving the last human-approval stage (if it were last) returns 'complete'."""
         conn = connect_test_db(test_db["db_path"])
         stages = json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "approve-final", "executor": "human-approval"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "approve-final", "step_runner": "human-approval"},
         ])
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)
@@ -154,7 +154,7 @@ class TestApproveCheck:
 
 
 class TestActiveQueue:
-    """Regression tests for active-queue (AC-2: query path via domain layer)."""
+    """Regression tests for active-queue (query path via domain layer)."""
 
     def test_excludes_done_cancelled_frozen(self, test_db):
         result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])

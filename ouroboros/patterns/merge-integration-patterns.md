@@ -37,7 +37,7 @@ YOK-196 used `_query_item()` as inline fallback; YOK-195's `item-db.sh` exports 
 **Occurrences:** 6+ entries across T2, T4 conductor sessions
 **Status:** Partially addressed (YOK-235 expanded YOKE_SHARED_FILES; per-track pre-merge sweep not yet implemented)
 
-Parallel track sessions modify files on main (release notes, doctor.sh, backlog items, wrapups) without committing. merge-worktree.sh exit 4 blocks on these "user-authored files at risk."
+Parallel track sessions modify files on main (release notes, doctor.sh, backlog items, and health output) without committing. merge-worktree.sh exit 4 blocks on these "user-authored files at risk."
 
 **Action:** YOK-235 expanded YOKE_SHARED_FILES. Recommendation: before starting merge phase, run a single sweep to commit all dirty files on main.
 
@@ -65,4 +65,4 @@ Generated files (health reports from `doctor.sh --only status-consistency`, BOAR
 
 Before starting the merge phase of a track, run a single sweep to commit all dirty files on main. This avoids discovering stray files one-by-one during sequential merges. The 4-retry cycle for YOK-232 (~10 min overhead) would have been eliminated.
 
-**Action:** Recommendation: add pre-merge commit step to conductor flow or done sub-skill step 2b. Should sweep yoke/backlog/*, yoke/BOARD.md, yoke/releases/, and yoke/ouroboros/wrapups/.
+**Action:** Recommendation: add pre-merge commit step to conductor flow or done sub-skill step 2b. Should sweep yoke/backlog/*, yoke/BOARD.md, yoke/releases/, and yoke/ouroboros/health/.

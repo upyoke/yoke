@@ -5,7 +5,7 @@
 Called by the advance router when target is `implementing` and the pinned
 definition selects item-level implementation. Handles ephemeral env setup for
 browser QA. Skip for other targets or task-graph workflows (their conduct
-executor owns E1-E5).
+skill owns E1-E5).
 
 **Context variables** (set by router/worktree phase): `{N}`,
 `_worktree_policy`, `_current_executor`, `_item_project`, `WORKTREE_PATH`
@@ -47,7 +47,7 @@ Success:
 ## Create Environment Record (step 5b-eph.c)
 
 ```bash
-yoke ephemeral-env create "$_item_project" "$_branch" --item "YOK-{N}" --json
+yoke ephemeral-env create "$_item_project" "$_branch" --item "PREFIX-{N}" --json
 ```
 
 Empty result → advisory, skip URL derivation.

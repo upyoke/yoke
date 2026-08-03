@@ -1,7 +1,7 @@
 """Loader + query helpers for the retired-schema surface registry.
 
-The declarative source is the runtime-owned
-``runtime/api/domain/retired_schema_surfaces.yaml`` asset. Every entry names a
+The declarative source is the wheel-owned
+``yoke_core/domain/retired_schema_surfaces.yaml`` asset. Every entry names a
 retired schema surface (column on a
 table, or a table on its own) that must not be re-created by any
 ambient init or idempotent bootstrap path.
@@ -36,7 +36,9 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 
 
-_REGISTRY_REL_PATH = "runtime/api/domain/retired_schema_surfaces.yaml"
+_REGISTRY_REL_PATH = (
+    "packages/yoke-core/src/yoke_core/domain/retired_schema_surfaces.yaml"
+)
 
 
 class RetiredSchemaRegistryError(Exception):
@@ -305,7 +307,7 @@ def _emit_resurrection_warn(
                 "caller": caller,
                 "guidance": (
                     "ADD COLUMN skipped because the surface is registered as "
-                    "retired in runtime/api/domain/retired_schema_surfaces.yaml. "
+                    "retired in yoke_core/domain/retired_schema_surfaces.yaml. "
                     "Investigate the caller if the surface should be "
                     "restored via an explicit governed mutation."
                 ),

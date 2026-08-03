@@ -1,4 +1,4 @@
-"""Deployment pipeline orchestration — stage iteration, executor dispatch, CI gates.
+"""Deployment pipeline orchestration — stage iteration, step_runner dispatch, CI gates.
 
 CLI usage::
 
@@ -18,8 +18,8 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain import deploy_qa_recorder
-from yoke_core.domain.deploy_pipeline_executors import (
-    _dispatch_executor,
+from yoke_core.domain.deploy_pipeline_step_runners import (
+    _dispatch_step_runner,
 )
 from yoke_core.domain.deploy_pipeline_environment import release_control_plane_env
 from yoke_core.domain.deploy_pipeline_gates import (
@@ -84,28 +84,18 @@ def run_pipeline(
         if not member_items:
             print(f"Run {run_id} has no member items (environment-level deploy)")
     else:
-        item_num = primary_arg.replace("YOK-", "").replace("yok-", "")
-        print("Warning: Legacy item-based pipeline invocation. Auto-creating a deployment run.", file=sys.stderr)
+        from yoke_core.domain.deploy_pipeline_item_run import (
+            create_run_for_item_ref,
+        )
 
-        flow_id = _yoke_db("items", "get", f"YOK-{item_num}", "deployment_flow", sd=sd)
-        project = _yoke_db("items", "get", f"YOK-{item_num}", "project", sd=sd)
-
-        if not flow_id:
-            print(f"Error: YOK-{item_num} has no deployment_flow assigned", file=sys.stderr)
+        item_run = create_run_for_item_ref(primary_arg, sd=sd)
+        if item_run is None:
             return EXIT_USAGE
-        if not project:
-            print(f"Error: YOK-{item_num} has no project assigned", file=sys.stderr)
-            return EXIT_USAGE
-
-        run_id = _yoke_db("runs", "create-run", project, flow_id, "--created-by", "system", sd=sd)
-        if not run_id:
-            print(f"Error: failed to auto-create deployment run for YOK-{item_num}", file=sys.stderr)
-            return EXIT_USAGE
-
-        _yoke_db("runs", "add-item", run_id, item_num, sd=sd)
-        member_items = [item_num]
+        run_id = item_run.run_id
+        project = item_run.project
+        flow_id = item_run.flow_id
+        member_items = list(item_run.member_items)
         run_status = "created"
-        print(f"Auto-created run {run_id} for YOK-{item_num}")
 
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
@@ -195,7 +185,7 @@ def run_pipeline(
             else:
                 continue
 
-        print(f"--- Stage: {s_name} (executor: {stage['executor']}) ---")
+        print(f"--- Stage: {s_name} (step_runner: {stage['step_runner']}) ---")
 
         # Start run execution on first stage
         if not run_started:
@@ -224,12 +214,12 @@ def run_pipeline(
         # Emit stage started
         _emit_run_event(
             "DeploymentRunStageStarted", "started",
-            {"run_id": run_id, "stage": s_name, "executor": stage["executor"], "flow": flow_id},
+            {"run_id": run_id, "stage": s_name, "step_runner": stage["step_runner"], "flow": flow_id},
             member_items=member_items, project=project, sd=sd,
         )
 
-        # Dispatch executor
-        exec_rc, exec_diag = _dispatch_executor(
+        # Dispatch step_runner
+        exec_rc, exec_diag = _dispatch_step_runner(
             stage,
             run_id=run_id,
             member_items=member_items,
@@ -253,7 +243,7 @@ def run_pipeline(
             # Awaiting human approval
             return EXIT_AWAITING_APPROVAL
         if exec_rc == -3:
-            # Executor pre-emitted the stage completion event (e.g.
+            # Step runner pre-emitted the stage completion event (e.g.
             # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
             deploy_qa_recorder.cmd_record_stage_result(
@@ -274,10 +264,10 @@ def run_pipeline(
             )
         else:
             if exec_diag:
-                print(f"Executor diagnostic: {exec_diag}", file=sys.stderr)
+                print(f"Step runner diagnostic: {exec_diag}", file=sys.stderr)
             failure_ctx = {"run_id": run_id, "stage": s_name, "result": "failed", "exit_code": exec_rc}
             if exec_diag:
-                failure_ctx["executor_diagnostic"] = exec_diag
+                failure_ctx["step_runner_diagnostic"] = exec_diag
             _emit_run_event(
                 "DeploymentRunStageFailed", "failed",
                 failure_ctx,

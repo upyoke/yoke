@@ -1,6 +1,6 @@
 """Skill-prompt-assembly tests for simulator dispatch.
 
-Owns the AC-8 contract: assembled retry-tier prompts must contain the epic
+Owns the contract: assembled retry-tier prompts must contain the epic
 ID verbatim in the correct templated location, and empty ``_epic_id`` must
 halt before any dispatch invocation. The actual prompt assembly happens
 inside conduct's bash flow as it reads ``simulation-gate-criteria.md``;
@@ -11,14 +11,13 @@ Sibling justification: ``test_skill_doc_regressions_conduct_simulation.py``
 keeps the broader conduct skill-doc regression coverage focused on
 persistence wiring, retry-tier doc structure, and gap-handoff branching.
 This sibling file is scoped to prompt-assembly invariants only — making the
-AC-8 deliverable independently visible and easy to extend when new dispatch
+contract independently visible and easy to extend when new dispatch
 templates land.
 """
 
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -107,7 +106,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         self, criteria_text: str
     ):
         # Match the documented retry-tier instruction
-        assert "EPIC: YOK-${_epic_id}" in criteria_text
+        assert "EPIC: PREFIX-${_epic_id}" in criteria_text
         # And the formatting-omission section names the requirement
         assert "FIRST TWO LINES" in criteria_text
 
@@ -115,7 +114,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
         # The aggressive retry tier instruction is explicit
         assert (
             "two-line verdict block requirement (`SIMULATION:` line then "
-            "`EPIC: YOK-${_epic_id}` line)" in criteria_text
+            "`EPIC: PREFIX-${_epic_id}` line)" in criteria_text
         )
 
     def test_ultra_compressed_no_tool_fallback_carries_epic_placeholder(
@@ -123,7 +122,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
     ):
         # The fallback section requires the same two-line block
         assert (
-            "Two-line verdict block (`SIMULATION:` then `EPIC: YOK-${_epic_id}`)"
+            "Two-line verdict block (`SIMULATION:` then `EPIC: PREFIX-${_epic_id}`)"
             in criteria_text
         )
 
@@ -132,7 +131,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
     ):
         # Plan / integration / compressed templates use {item_id}
         # as the epic-ID placeholder (rendered by the simulate skill)
-        matches = re.findall(r"EPIC: YOK-\{item_id\}", dispatch_prompts_text)
+        matches = re.findall(r"EPIC: PREFIX-\{item_id\}", dispatch_prompts_text)
         assert len(matches) >= 3, (
             f"expected EPIC placeholder in plan/integration/compressed prompts, "
             f"got {len(matches)} occurrence(s)"
@@ -140,7 +139,7 @@ class TestRetryPromptsCarryEpicIdVerbatim:
 
     def test_retry_placeholder_count_at_least_three(self, criteria_text: str):
         # Three retry tiers (formatting-omission, aggressive, ultra-compressed)
-        assert criteria_text.count("EPIC: YOK-${_epic_id}") >= 3
+        assert criteria_text.count("EPIC: PREFIX-${_epic_id}") >= 3
 
 
 # ---------------------------------------------------------------------------
@@ -217,13 +216,13 @@ class TestExitCodeContractSurfacedToOperator:
         assert "| 17 | missing-epic body" in criteria_text
 
     def test_exit_16_diagnostic_names_both_epics(self, criteria_text: str):
-        assert "CLI passed YOK-${_epic_id}" in criteria_text
+        assert "CLI passed PREFIX-${_epic_id}" in criteria_text
         assert "body attested a different epic" in criteria_text
 
     def test_exit_17_diagnostic_names_attestation_requirement(
         self, criteria_text: str
     ):
-        assert "EPIC: YOK-N attestation line" in criteria_text
+        assert "EPIC: PREFIX-N attestation line" in criteria_text
 
     def test_dispatch_prompts_warn_about_persistence_rejection(
         self, dispatch_prompts_text: str

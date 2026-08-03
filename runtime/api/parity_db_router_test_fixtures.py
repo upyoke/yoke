@@ -162,8 +162,8 @@ def _apply_item_query_schema() -> None:
 
     # Deployment flow for progress view test
     flow_stages = json.dumps([
-        {"name": "merged", "executor": "auto"},
-        {"name": "prod-deploy", "executor": "github-actions-workflow"},
+        {"name": "merged", "step_runner": "auto"},
+        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
     ])
     conn.execute(
         """INSERT INTO deployment_flows

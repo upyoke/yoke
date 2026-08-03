@@ -14,8 +14,46 @@ imports continue to work.
 from __future__ import annotations
 
 import os
+import pathlib
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Project-local check package
+# ---------------------------------------------------------------------------
+#
+# This project's own doctor checks live in ``.yoke/doctor/`` and run under
+# the ``yoke_project_checks`` package namespace. Registering it here lets a
+# test import a check exactly the way the runner loads it, instead of
+# re-deriving a file path per test module.
+from yoke_core.engines.doctor_project_checks import (  # noqa: E402
+    project_checks_dir,
+    register_project_checks_package,
+)
+
+register_project_checks_package(
+    project_checks_dir(pathlib.Path(__file__).resolve().parents[2])
+)
+
+# ---------------------------------------------------------------------------
+# Assertion-rewrite registration for dual-use helper modules
+# ---------------------------------------------------------------------------
+#
+# These modules are BOTH declared as ``pytest_plugins`` by one test module and
+# imported directly (``from ... import _seed_item``) by several others. Plugin
+# registration happens when the declaring test module is collected, so whenever
+# a direct importer is collected first the module is already in ``sys.modules``
+# and pytest emits ``PytestAssertRewriteWarning: Module already imported so
+# cannot be rewritten`` — asserts inside the helper then report bare
+# ``AssertionError`` with no operand introspection. Registering here, before any
+# test module is imported, makes the rewrite collection-order-independent.
+#
+# Helpers whose filename already starts with ``test_`` do not need an entry:
+# pytest collects and rewrites them as test modules regardless of import order.
+pytest.register_assert_rewrite(
+    "runtime.api.backlog_mutations_test_helpers",
+    "runtime.api.sessions_api_stale_test_helpers",
+)
 
 # ---------------------------------------------------------------------------
 # Import-time DB-init isolation
@@ -57,7 +95,10 @@ if not (
 ):
     from yoke_core.tools import pg_testcluster as _pg_testcluster  # noqa: E402
 
-    _pg_rc = _pg_testcluster.ensure_started()
+    # prepare_for_pytest, not ensure_started: a run launched directly (raw
+    # pytest, an IDE, a -k filter) never passes through a wrapper, so this is
+    # where it inherits the ownership-gated orphan sweep too.
+    _pg_rc = _pg_testcluster.prepare_for_pytest()
     if _pg_rc != 0:
         raise RuntimeError(
             "failed to start local Postgres test cluster; run "
@@ -149,26 +190,6 @@ def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _clear_bound_workspace_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Clear the workspace anchor env for every API test.
-
-    Active Yoke sessions export ``YOKE_BOUND_WORKSPACE`` from the
-    SessionStart hook. The substrate renderer's reader hot path still
-    consults that env via
-    ``yoke_core.domain.agents_render_workspace.require_reader_root``
-    as a legacy fallback, and the PreToolUse lint
-    ``yoke_core.domain.lint_workspace_cwd_match`` reads it directly.
-    Clearing it here keeps tests that exercise reader / writer paths
-    against ``tmp_path`` from picking up the ambient session anchor;
-    the writer-side work-claim authority guard
-    (``yoke_core.domain.workspace_authority.assert_target_under_session_work_authority``)
-    is independently gated on ``$YOKE_SESSION_ID`` so it stays
-    no-op for tests with no harness session.
-    """
-    monkeypatch.delenv("YOKE_BOUND_WORKSPACE", raising=False)
-
-
-@pytest.fixture(autouse=True)
 def _clear_ci_authority_selection_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Require tests to opt into GitHub Actions credential authority.
 
@@ -195,6 +216,32 @@ def _close_leaked_pg_connections():
         os.environ[_db_backend.PG_DSN_FILE_ENV] = _AMBIENT_TEST_PG_DSN_FILE
     else:
         os.environ.pop(_db_backend.PG_DSN_FILE_ENV, None)
+
+@pytest.fixture(autouse=True)
+def _forget_schema_readiness_verdict():
+    """Keep one test's schema-probe verdict out of the next test's database.
+
+    The health route remembers a positive probe for its process lifetime so
+    container liveness polling stops reopening database connections. Tests
+    share a process but not a database, so that verdict has to be cleared
+    between them. Imported here rather than at module scope: the app is still
+    mid-build during conftest import, and pulling in a route module then would
+    re-enter that build.
+
+    ``main`` is imported first on purpose. The route module imports ``main`` at
+    module scope and ``main`` builds the app by importing the routes back, so
+    the route module is only safe to import once ``main`` is loaded. A test
+    that builds the app has already done that; one that never touches the API
+    has not, and reaching for the route first drops it into that cycle
+    mid-initialization.
+    """
+    import yoke_core.api.main  # noqa: F401
+    from yoke_core.api.routes import items_health
+
+    items_health.reset_schema_readiness_cache()
+    yield
+    items_health.reset_schema_readiness_cache()
+
 
 # ---------------------------------------------------------------------------
 # Backward-compatible re-exports

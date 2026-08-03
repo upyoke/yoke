@@ -93,7 +93,7 @@ def test_verifier_passes_against_live_non_yoke_substrate(live_db):
 def test_verify_all_projects_covers_both_alt_and_skips_empty(
     live_db,
 ):
-    # Add a second registered project with no substrate. AC-15 says it
+    # Add a second registered project with no substrate. The run
     # produces a skip row, not a silent fallback.
     p = _p(live_db)
     live_db.execute(

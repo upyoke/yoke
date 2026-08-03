@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.epic_parsing import (
     DISPATCH_CHAIN_COLUMNS,
     TASK_COLUMNS,
@@ -289,18 +290,15 @@ def simulation_get(conn, epic_id: str, phase: str) -> str:
 def orphan_check(conn) -> str:
     """Find epics with tasks but no Technical Plan.
 
-    Returns one YOK-N per line, or empty string.
+    Returns one public item ref per line, or empty string.
     checks technical_plan structured field instead of retired body column.
     """
     rows = query_rows(
         conn,
-        # ``et.epic_id`` is in the DISTINCT select list so the numeric ORDER BY
-        # is valid on Postgres (SELECT DISTINCT requires ORDER BY exprs to appear
-        # in the select list); the redundant ``item_ref`` is dropped at projection.
-        """SELECT DISTINCT et.epic_id as epic_id, 'YOK-' || et.epic_id as item_ref
+        """SELECT DISTINCT et.epic_id as epic_id
            FROM epic_tasks et
            JOIN items i ON i.id = et.epic_id
            WHERE i.technical_plan IS NULL OR TRIM(i.technical_plan) = ''
            ORDER BY et.epic_id ASC""",
     )
-    return "\n".join(r["item_ref"] for r in rows)
+    return "\n".join(render_item_ref(conn, int(r["epic_id"])) for r in rows)

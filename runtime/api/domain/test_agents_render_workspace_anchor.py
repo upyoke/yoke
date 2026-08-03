@@ -2,15 +2,15 @@
 
 Lives in a sibling module so the main ``test_agents_render.py`` stays
 under the file-line cap. Covers:
-- AC-1: ``_resolve_reader_root(None)`` raises a structured error when
-  neither ``target_root`` nor ``$YOKE_BOUND_WORKSPACE`` is supplied.
-- AC-2: every reader entrypoint propagates ``target_root`` correctly
+- ``_resolve_reader_root(None)`` raises a structured error when
+  neither ``target_root`` nor an active worktree claim is supplied.
+- Every reader entrypoint propagates ``target_root`` correctly
   when the caller supplies it (regression for the strict-resolver swap).
-- AC-5: the byte-identity tests produce identical outcomes from any
+- The byte-identity tests produce identical outcomes from any
   pytest subprocess cwd. The cross-cwd regression test is the structural
   defense — when the reader hot path falls back to ambient cwd somewhere,
   outcomes diverge across cwds and the test fails with a per-cwd diff.
-- AC-6: ``_atomic_write`` refuses targets outside the calling session's
+- ``_atomic_write`` refuses targets outside the calling session's
   worktree work-claim (the YOK-1784 incident shape), enforced through
   ``workspace_authority.assert_target_under_session_work_authority``.
 """
@@ -36,7 +36,6 @@ from yoke_core.domain.agents_render import (
     load_claude_spec,
     render_claude_agent,
 )
-from yoke_core.domain.agents_render_workspace import BOUND_WORKSPACE_ENV_VAR
 from yoke_core.domain.workspace_authority import SESSION_ID_ENV_VAR
 
 
@@ -54,7 +53,7 @@ def repo_root() -> Path:
 @pytest.fixture
 def temp_agent_env(tmp_path: Path) -> Path:
     """Minimal canonical + output tree in a temp checkout root.
-    Mirrors the shape of ``test_agents_render.temp_agent_env`` so the AC-2
+    Mirrors the shape of ``test_agents_render.temp_agent_env`` so the target_root
     propagation test can exercise the reader entrypoints against an
     isolated tree without depending on the live ``runtime/agents`` files.
     """
@@ -80,23 +79,39 @@ def temp_agent_env(tmp_path: Path) -> Path:
 def test_resolve_reader_root_raises_without_anchor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-1: reader resolver refuses None when no anchor is supplied.
-    With both ``target_root`` and ``$YOKE_BOUND_WORKSPACE`` absent, the
-    resolver raises ``RuntimeError`` naming both missing inputs — the
+    """Reader resolver refuses None when no anchor is supplied.
+    With both ``target_root`` and active worktree claims absent, the
+    resolver raises ``RuntimeError`` naming the missing claim anchor — the
     structural defense against silent ambient-cwd reads from the
     renderer's reader hot path.
     """
     from yoke_core.domain.agents_render import _resolve_reader_root
 
-    monkeypatch.delenv(BOUND_WORKSPACE_ENV_VAR, raising=False)
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_workspace.resolve_session_worktree_paths",
+        lambda: [],
+    )
     with pytest.raises(RuntimeError) as exc:
         _resolve_reader_root(None)
     msg = str(exc.value)
     assert "target_root" in msg, "error must name the missing target_root input"
-    assert BOUND_WORKSPACE_ENV_VAR in msg, (
-        "error must name the missing env var so the operator knows which "
-        "anchor to provide"
+    assert "worktree claim" in msg, (
+        "error must name the missing claim anchor so the operator knows "
+        "which authority to provide"
     )
+
+
+def test_resolve_reader_root_uses_claimed_worktree(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """Reader helpers use the live worktree claim when no target is explicit."""
+    from yoke_core.domain.agents_render import _resolve_reader_root
+
+    monkeypatch.setattr(
+        "yoke_core.domain.agents_render_workspace.resolve_session_worktree_paths",
+        lambda: [str(tmp_path)],
+    )
+    assert _resolve_reader_root(None) == tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +122,7 @@ def test_resolve_reader_root_raises_without_anchor(
 def test_reader_helpers_propagate_target_root_when_supplied(
     temp_agent_env: Path,
 ) -> None:
-    """AC-2: reader entrypoints honor an explicit ``target_root``.
+    """Reader entrypoints honor an explicit ``target_root``.
     Confirms that the strict ``require_reader_root`` delegation does not
     regress the existing ``target_root=`` pass-through path used by every
     CLI consumer and the substrate drift surface.
@@ -129,7 +144,7 @@ def test_byte_identity_tests_are_cwd_independent(
     repo_root: Path,
     tmp_path: Path,
 ) -> None:
-    """AC-5: the byte-identity tests produce identical outcomes from any cwd.
+    """The byte-identity tests produce identical outcomes from any cwd.
     Runs the three workspace-anchored byte-identity tests in pytest
     subprocesses with three distinct cwd values (the live repo root,
     a linked-worktree path when one exists, and an unrelated ``tmp_path``).
@@ -173,7 +188,7 @@ def test_atomic_write_refuses_main_target_under_worktree_claim(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-6 / AC-10: reproduce the YOK-1784 incident shape end-to-end.
+    """Reproduce the YOK-1784 incident shape end-to-end.
     A session bound to a worktree work-claim invokes the substrate
     renderer's atomic-write hot path against a main-checkout target —
     exactly the misuse shape that landed 10 adapter files in main from
@@ -207,6 +222,15 @@ def test_atomic_write_refuses_main_target_under_worktree_claim(
         )
         monkeypatch.setenv(SESSION_ID_ENV_VAR, SESSION_REGRESSION)
         monkeypatch.setenv("YOKE_DB", str(db_path))
+        from yoke_core.domain import verification_tree_binding
+
+        monkeypatch.setattr(
+            verification_tree_binding,
+            "resolve_claim_worktrees",
+            lambda _session_id: verification_tree_binding.ClaimLookup(
+                worktrees=(str(repo_root / ".worktrees" / "YOK-1784"),),
+            ),
+        )
 
         with pytest.raises(RuntimeError) as exc:
             _atomic_write(

@@ -31,10 +31,10 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
     target_definition["stages"][0]["label"] = "Offer routing target"
     advance_binding = next(
         binding
-        for binding in target_definition["executor_bindings"]
-        if binding["executor_id"] == "advance"
+        for binding in target_definition["skill_bindings"]
+        if binding["skill_id"] == "advance"
     )
-    advance_binding["executor_id"] = "dash"
+    advance_binding["skill_id"] = "dash"
     target = publish_workflow_version(
         test_db,
         workflow_id="issue",
@@ -108,7 +108,7 @@ def test_migration_first_offer_releases_claim_instead_of_stale_routing(
         session_id="offer-pin-session",
     )
     assert fresh_schedule.selected_step is not None
-    assert fresh_schedule.selected_step.item_id == f"YOK-{ITEM_ID}"
+    assert fresh_schedule.selected_step.item_id == ITEM_ID
     assert fresh_schedule.selected_step.next_step.value == "dash"
     assert int(fresh_schedule.selected_step.workflow_version_id) == int(
         target["version_id"]

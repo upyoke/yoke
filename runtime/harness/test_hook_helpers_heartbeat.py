@@ -14,7 +14,7 @@ The tests below cover:
 * Generic ``Exception`` from the heartbeat writer collapses to NOOP.
 * Hook is wired into the universal PreToolUse chain via
   :data:`yoke_contracts.hook_runner.hook_ordering.HOOK_ORDERING`.
-* AC-15: adapter render path (``agents_render_subagent_hooks``) reads
+* Adapter render path (``agents_render_subagent_hooks``) reads
   ``HOOK_ORDERING`` purely structurally, so adding the helper to the
   chain propagates to every Bash-capable subagent with zero per-agent
   authoring.
@@ -216,7 +216,7 @@ def test_evaluate_decision_shape(base_context):
 
 
 # ---------------------------------------------------------------------------
-# AC-15 — wired into the universal PreToolUse chain
+# Wired into the universal PreToolUse chain
 # ---------------------------------------------------------------------------
 
 

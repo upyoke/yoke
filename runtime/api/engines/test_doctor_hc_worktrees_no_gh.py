@@ -145,7 +145,7 @@ class TestProjectGhSecretsNoGitHubAuth:
         assert rec.results[0].detail == _canonical_skip("externalwebapp")
 
     def test_skips_with_canonical_reason_on_403_scope_failure(self):
-        """AC-11: 403 (GitHub App auth lacks secrets:read scope) -> SKIP, not FAIL."""
+        """403 (GitHub App auth lacks secrets:read scope) -> SKIP, not FAIL."""
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", "org/externalwebapp")
         with patch(

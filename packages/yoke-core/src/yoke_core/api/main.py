@@ -163,6 +163,7 @@ from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
 from yoke_core.domain.item_workflow_validation import (
     invalid_item_workflow_stages,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 # ---------------------------------------------------------------------------
 # Startup gate — kept inline so monkey-patches against
@@ -203,7 +204,8 @@ def _ensure_db_initialized() -> None:
         bad_rows = invalid_item_workflow_stages(conn)
         if bad_rows:
             details = ", ".join(
-                f"YOK-{item_id}={stage}" for item_id, stage, _reason in bad_rows[:10]
+                f"{render_item_ref(conn, item_id)}={stage}"
+                for item_id, stage, _reason in bad_rows[:10]
             )
             raise RuntimeError(
                 f"{len(bad_rows)} items have invalid workflow pins or stages "

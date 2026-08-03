@@ -78,19 +78,19 @@ def test_rg_pattern_operand_not_extracted():
 def test_sed_range_script_in_compound_not_extracted():
     """field-note 8765: a sed range address parses as path-like but is a
     script, not a target."""
-    cmd = f"cd {WT} && sed -n '/AC-11/,/AC-12/p' spec.md"
+    cmd = f"cd {WT} && sed -n '/BEGIN/,/END/p' spec.md"
     assert extract_command_targets(cmd) == [WT]
 
 
 def test_sed_single_address_script_not_extracted():
-    assert extract_command_targets("sed -n '/AC-11/p' spec.md") == []
+    assert extract_command_targets("sed -n '/BEGIN/p' spec.md") == []
 
 
 def test_sed_still_surfaces_its_file_argument():
     """The sed *file* positional is a real read target and must still be
     surfaced — only the inline script is skipped (matches the existing
     ``/^``-anchor behaviour)."""
-    cmd = "sed -n '/AC-11/p' /tmp/spec.md"
+    cmd = "sed -n '/BEGIN/p' /tmp/spec.md"
     assert extract_command_targets(cmd) == ["/tmp/spec.md"]
 
 

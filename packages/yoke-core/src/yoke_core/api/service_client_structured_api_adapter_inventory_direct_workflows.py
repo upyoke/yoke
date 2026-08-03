@@ -35,6 +35,15 @@ DIRECT_WORKFLOW_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="direct_workflow.conflict_survey.status",
+        cli_invocation=(
+            "yoke direct-workflow conflict-survey status ITEM "
+            "[--project P]"
+        ),
+        notes="read-only recorded-survey + live conflict re-check",
+        read_shape=True,
+    ),
+    AdapterEntry(
         function_id="ouroboros.field_note.promote",
         cli_invocation=(
             "yoke ouroboros field-note promote ENTRY --title TITLE"

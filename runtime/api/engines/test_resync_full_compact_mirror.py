@@ -1,4 +1,4 @@
-"""AC-4 stage-2 compare tests: compact-mirror suppression in the body detector.
+"""Stage-2 compare tests: compact-mirror suppression in the body detector.
 
 Split from ``test_resync_full_compare_text.py`` so each authored test
 file stays under the 350-line limit. Other stage-2 tests (title, body,
@@ -62,11 +62,11 @@ def _seed_oversize_item(db_path: str, *, item_id: int, spec_size: int) -> None:
 
 
 class TestCompactMirrorSuppression:
-    """Pre-AC-4, the detector compared the local body byte-for-byte against
+    """A byte-for-byte compare would pit the local body against
     the GitHub body. When the write path published a compact mirror for an
     oversized body, every detect run flagged a false-positive body drift,
     ``--fix`` re-pushed the same compact mirror, and the next run flagged
-    the same drift forever. AC-4 teaches the detector the compact-mirror
+    the same drift forever. The detector instead honors the compact-mirror
     contract: when the local body is over budget and GitHub carries the
     deterministic footer, recompute the expected compact mirror and
     suppress drift only when it matches (tolerating the ``## Evidence``
@@ -136,7 +136,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-910", "/tmp/910.md", 900, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-910", "/tmp/910.md", 900, "backlog", "yoke", "", item_id=910)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert body_drifts == [], (
@@ -176,7 +176,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-911", "/tmp/911.md", 901, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-911", "/tmp/911.md", 901, "backlog", "yoke", "", item_id=911)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1, (
@@ -205,7 +205,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-912", "/tmp/912.md", 902, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-912", "/tmp/912.md", 902, "backlog", "yoke", "", item_id=912)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1, (

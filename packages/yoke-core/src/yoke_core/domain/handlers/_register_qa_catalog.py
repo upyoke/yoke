@@ -147,6 +147,21 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
+        "qa.project_default.unset",
+        _writes.handle_project_default_unset,
+        _writes.ProjectDefaultUnsetRequest,
+        _writes.MutationResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_writes",
+        target_kinds=["global"],
+        side_effects=["qa_plan_project_defaults_delete"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["project_scope_required"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
         "qa.item_plan.attach",
         _writes.handle_item_attach,
         _writes.ItemAttachRequest,
@@ -177,6 +192,20 @@ def register(registry) -> None:
         ],
         adapter_status="live",
         claim_required_kind="qa_subject",
+    )
+    registry.register(
+        "qa.plan.rematerialize",
+        _writes.handle_rematerialize,
+        _writes.RematerializeRequest,
+        _writes.MutationResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_writes",
+        target_kinds=["item"],
+        side_effects=["qa_requirements_update", "qa_requirements_insert"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["snapshot_replacement", "claim_required"],
+        adapter_status="live",
+        claim_required_kind="item",
     )
 
 

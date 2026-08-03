@@ -27,6 +27,27 @@ def conn(tmp_path: Path):
                 )
                 """
             )
+            # Minimal project-identity tables so public PREFIX-N refs in
+            # current_item_id resolve via prefix + project_sequence.
+            c.execute(
+                """
+                CREATE TABLE projects (
+                    id INTEGER PRIMARY KEY,
+                    slug TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    public_item_prefix TEXT NOT NULL
+                )
+                """
+            )
+            c.execute(
+                """
+                CREATE TABLE items (
+                    id INTEGER PRIMARY KEY,
+                    project_id INTEGER,
+                    project_sequence INTEGER
+                )
+                """
+            )
             c.commit()
         finally:
             c.close()
@@ -66,11 +87,14 @@ class TestExpectedWorktreePath:
 
 
 class TestNormalizeItemId:
-    def test_strips_sun_prefix(self):
-        assert mod._normalize_item_id("YOK-42") == 42
-
+    # DB-free shapes only: ``PREFIX-N`` public-ref resolution routes
+    # through the canonical parser (prefix + ``items.project_sequence``)
+    # and is covered by the yok_n_parser tests.
     def test_passes_int_through(self):
         assert mod._normalize_item_id(42) == 42
+
+    def test_parses_bare_digit_string_as_internal_id(self):
+        assert mod._normalize_item_id("42") == 42
 
     def test_returns_none_for_garbage(self):
         assert mod._normalize_item_id("garbage") is None
@@ -137,6 +161,27 @@ class TestResolveActiveWorktreeContext:
         assert ctx is not None
         assert ctx.is_inside_worktree is False
         assert ctx.expected_worktree_root is None
+
+    def test_public_ref_current_item_resolves_via_project_sequence(
+        self, conn, tmp_path: Path,
+    ):
+        # Divergent identity: internal id and public sequence differ, so
+        # a persisted PREFIX-N ref must resolve through project_sequence.
+        conn.execute(
+            "INSERT INTO projects (id, slug, name, public_item_prefix) "
+            "VALUES (1, 'yoke', 'Yoke', 'YOK')"
+        )
+        conn.execute(
+            "INSERT INTO items (id, project_id, project_sequence) "
+            "VALUES (901, 1, 777)"
+        )
+        _seed_session(conn, "sess-div", "YOK-777")
+        ctx = mod.resolve_active_worktree_context(
+            conn, cwd=str(tmp_path), session_id="sess-div",
+        )
+        assert ctx is not None
+        assert ctx.item_id == 901
+        assert ctx.worktree_branch == "YOK-901"
 
     def test_session_without_current_item(
         self, conn, tmp_path: Path,

@@ -215,8 +215,6 @@ def _read_field(item_id: int, field: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 from yoke_core.domain.item_field_transform_sections import (  # noqa: E402
-    SECTION_APPEND as _SECTION_APPEND,
-    SECTION_UPSERT as _SECTION_UPSERT,
     section_append,
     section_upsert,
 )

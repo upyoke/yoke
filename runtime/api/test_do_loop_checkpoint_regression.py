@@ -9,7 +9,7 @@ ADVANCE_SKILL = REPO_ROOT / ".agents/skills/yoke/advance/SKILL.md"
 
 
 def test_loop_routing_pre_dispatch_checkpoint_before_resume():
-    """AC-3/AC-6: pre-dispatch checkpoint appears before the first action-specific dispatch section."""
+    """Pre-dispatch checkpoint appears before the first action-specific dispatch section."""
     text = LOOP_ROUTING.read_text()
 
     pre_dispatch_idx = text.find("--outcome \"pre-dispatch\"")
@@ -140,13 +140,13 @@ def test_finalize_step_10b_do_loop_context_is_target_aware():
 
     assert "advance contract is NOT complete" in review_bullet
     assert "same session and worktree" in review_bullet
-    assert "/yoke advance YOK-{N} reviewed-implementation" in review_bullet
+    assert "/yoke advance PREFIX-{N} reviewed-implementation" in review_bullet
     assert "advance contract IS complete" in boundary_bullet
     assert "Return to /yoke do Step C (chain decision)" in boundary_bullet
 
 
 def test_advance_handoff_prose_does_not_advertise_polish_command():
-    """AC-1/AC-2/AC-3: advance prose at the reviewed-implementation boundary
+    """Advance prose at the reviewed-implementation boundary
     must not invite the routed agent to invoke `/yoke polish` directly.
     The boundary message routes back through `/yoke do` (or stops for a
     fresh entrypoint); polish is the routed loop's call to make."""
@@ -155,11 +155,11 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
 
     # Finalize.md no longer advertises the inline polish command at the boundary
     assert "Or run `/yoke polish" not in finalize_text, (
-        "AC-2: advance/finalize.md must not present an inline `/yoke polish` "
+        "advance/finalize.md must not present an inline `/yoke polish` "
         "command at the reviewed-implementation boundary"
     )
     assert "scheduler will route this item to `/yoke polish`" not in finalize_text, (
-        "AC-2: advance/finalize.md must not promise the scheduler will route to "
+        "advance/finalize.md must not promise the scheduler will route to "
         "`/yoke polish` from inside the advance flow"
     )
 
@@ -173,7 +173,7 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
     )
     # Only one occurrence of this bullet
     assert finalize_text.count(boundary_section) == 1, (
-        "AC-1: exactly one reviewed-implementation Pre-Release Next-Step bullet"
+        "exactly one reviewed-implementation Pre-Release Next-Step bullet"
     )
     # The bullet routes through /yoke do
     boundary_block_end = finalize_text.find(
@@ -183,10 +183,10 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
         boundary_block_end = len(finalize_text)
     boundary_block = finalize_text[boundary_idx:boundary_block_end]
     assert "Return to `/yoke do`" in boundary_block, (
-        "AC-1: reviewed-implementation boundary must route back through `/yoke do`"
+        "reviewed-implementation boundary must route back through `/yoke do`"
     )
     assert "fresh command entrypoint" in boundary_block, (
-        "AC-1: reviewed-implementation boundary must mention the fresh-entrypoint "
+        "reviewed-implementation boundary must mention the fresh-entrypoint "
         "alternative for direct operator invocation"
     )
 
@@ -200,15 +200,15 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
     review_reentry_end = skill_text.find("\n", review_reentry_idx)
     review_reentry_line = skill_text[review_reentry_idx:review_reentry_end]
     assert "invoke `/yoke polish`" not in review_reentry_line, (
-        "AC-3: SKILL.md re-entry bullet must not invite `/yoke polish` invocation"
+        "SKILL.md re-entry bullet must not invite `/yoke polish` invocation"
     )
     assert "boundary" in review_reentry_line, (
-        "AC-3: SKILL.md re-entry bullet must delegate to the boundary message"
+        "SKILL.md re-entry bullet must delegate to the boundary message"
     )
 
 
 def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
-    """AC-9: do-loop WAIT rendering must have a special branch for
+    """Do-loop WAIT rendering must have a special branch for
     `wait_reason="no_lane_compatible_work"` and must not print the generic
     `No actionable work exists on the frontier` line in that branch."""
     text = LOOP_ROUTING.read_text()
@@ -218,16 +218,16 @@ def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
     wait_section = text[wait_section_idx:]
 
     assert '"no_lane_compatible_work"' in wait_section, (
-        "AC-9: WAIT branch must explicitly handle wait_reason=\"no_lane_compatible_work\""
+        "WAIT branch must explicitly handle wait_reason=\"no_lane_compatible_work\""
     )
     assert "context.actual_lane" in wait_section, (
-        "AC-9: WAIT lane-filtered branch must surface context.actual_lane to the operator"
+        "WAIT lane-filtered branch must surface context.actual_lane to the operator"
     )
     assert "Paths blocked for this lane" in wait_section, (
-        "AC-9: WAIT lane-filtered branch must render the lane_filtered_paths view"
+        "WAIT lane-filtered branch must render the lane_filtered_paths view"
     )
     assert "Truly-empty branch" in wait_section, (
-        "AC-9: WAIT must keep a separate truly-empty branch for the generic idle case"
+        "WAIT must keep a separate truly-empty branch for the generic idle case"
     )
 
     # The lane-filtered branch must not duplicate the generic idle text — the
@@ -236,12 +236,12 @@ def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
     truly_empty_idx = wait_section.find("Truly-empty branch")
     lane_branch_window = wait_section[lane_branch_idx:truly_empty_idx]
     assert "No actionable work exists on the frontier" not in lane_branch_window, (
-        "AC-9: lane-filtered WAIT branch must not print the generic frontier-empty text"
+        "lane-filtered WAIT branch must not print the generic frontier-empty text"
     )
 
 
 def test_loop_routing_escalate_branch_no_longer_emits_lane_mismatch():
-    """AC-5/AC-7: lane_mismatch is no longer an escalate reason. The escalate
+    """Lane_mismatch is no longer an escalate reason. The escalate
     branch keeps the lane-filtered ride-along rendering for blocker cases but
     drops the standalone lane_mismatch options block."""
     text = LOOP_ROUTING.read_text()
@@ -253,9 +253,9 @@ def test_loop_routing_escalate_branch_no_longer_emits_lane_mismatch():
 
     # Lane-filtered count rendering still applies to the escalate ride-along case
     assert "context.lane_filtered_count > 0" in escalate_section, (
-        "AC-7: escalate must still render lane_filtered detail when both apply"
+        "escalate must still render lane_filtered detail when both apply"
     )
     # The standalone lane mismatch path is gone from escalate — it is now WAIT.
     assert '"lane_mismatch"' not in escalate_section, (
-        "AC-5/AC-7: escalate must no longer branch on the lane-mismatch reason"
+        "escalate must no longer branch on the lane-mismatch reason"
     )

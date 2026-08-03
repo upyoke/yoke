@@ -1,9 +1,9 @@
 """Tests for yoke_core.domain.agents_render_context — marker expansion.
 
-Covers acceptance criteria AC-17 (marker syntax across all five canonical
-agent prompts), AC-18 (Claude / Codex byte-identical packet bodies),
-AC-19 (no hand-authored DB Quick Reference content alongside markers in
-canonical agent prompts), and AC-21 (stale-term absence regression).
+Covers marker syntax across all five canonical agent prompts, Claude /
+Codex byte-identical packet bodies, the absence of hand-authored DB Quick
+Reference content alongside markers in canonical agent prompts, and the
+stale-term absence regression.
 """
 
 from __future__ import annotations
@@ -252,7 +252,7 @@ _BASH_CAPABLE = ("architect", "engineer", "tester", "simulator", "boss")
 
 
 def test_canonical_agent_prompts_have_no_stale_terms(repo_root: Path) -> None:
-    """AC-21: canonical Bash-capable agent prompts must not contain stale schema names."""
+    """Canonical Bash-capable agent prompts must not contain stale schema names."""
     for role in _BASH_CAPABLE:
         path = repo_root / CANONICAL_DIR / f"{role}.md"
         text = path.read_text(encoding="utf-8")
@@ -261,7 +261,7 @@ def test_canonical_agent_prompts_have_no_stale_terms(repo_root: Path) -> None:
 
 
 def test_rendered_claude_adapters_have_no_stale_terms(repo_root: Path) -> None:
-    """AC-21: rendered Claude adapters must not contain stale schema names."""
+    """Rendered Claude adapters must not contain stale schema names."""
     for role in _BASH_CAPABLE:
         rendered = render_claude_agent(role, target_root=repo_root)
         for stale in seed.STALE_TERMS:
@@ -271,7 +271,7 @@ def test_rendered_claude_adapters_have_no_stale_terms(repo_root: Path) -> None:
 
 
 def test_canonical_agent_prompts_have_marker_pairs(repo_root: Path) -> None:
-    """AC-17: each Bash-capable canonical prompt declares its expected marker pairs."""
+    """Each Bash-capable canonical prompt declares its expected marker pairs."""
     for role in _BASH_CAPABLE:
         text = (repo_root / CANONICAL_DIR / f"{role}.md").read_text(encoding="utf-8")
         pairs = find_marker_pairs(text)
@@ -284,7 +284,7 @@ def test_canonical_agent_prompts_have_marker_pairs(repo_root: Path) -> None:
 
 
 def test_canonical_marker_bodies_are_empty_or_fresh(repo_root: Path) -> None:
-    """AC-19: hand-authored DB Quick Reference content must not coexist with markers.
+    """Hand-authored DB Quick Reference content must not coexist with markers.
 
     Canonical marker pair bodies are either empty (whitespace only) or
     byte-identical to the freshly generated packet. Anything else means a
@@ -307,7 +307,7 @@ def test_canonical_marker_bodies_are_empty_or_fresh(repo_root: Path) -> None:
 def test_claude_and_codex_adapters_have_byte_identical_packet_bodies(
     repo_root: Path,
 ) -> None:
-    """AC-18: same role + topic produces byte-identical body in Claude and Codex output."""
+    """Same role + topic produces byte-identical body in Claude and Codex output."""
     canonical_dir = repo_root / CANONICAL_DIR
     for role in _BASH_CAPABLE:
         canonical_text = (canonical_dir / f"{role}.md").read_text(encoding="utf-8")

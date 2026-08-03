@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionStart'",
+        "timeout": 30
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionEnd'",
+        "timeout": 30
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate UserPromptSubmit'",
+        "timeout": 30
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'",
+        "timeout": 30
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'",
+        "timeout": 30
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'",
+        "timeout": 30,
+        "matcher": "Write|Read|Task"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'",
+        "timeout": 30,
+        "matcher": "Write|Read|Task"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUseFailure'",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate Stop'",
+        "timeout": 30
+      }
+    ],
+    "afterAgentThought": [
+      {
+        "command": "/bin/zsh -lc 'D=\"${YOKE_MACHINE_HOME:-$HOME/.yoke}\"/cursor-model-spool; mkdir -p \"$D\"; cat > \"$D/$$.json\"; echo {}'",
+        "timeout": 30
+      }
+    ]
+  }
+}

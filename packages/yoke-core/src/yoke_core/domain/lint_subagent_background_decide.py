@@ -93,8 +93,8 @@ def format_reason(
 
     guidance = (
         "\n\nCanonical subagent long-command shape:\n"
-        "  python3 -m yoke_core.tools.watch_pytest -- <pytest args>\n"
-        "  python3 -m yoke_core.tools.watch_merge done-transition <args>\n"
+        "  yoke watch pytest -- <pytest args>\n"
+        "  yoke watch merge done-transition <args>\n"
         "Each blocks foreground in one Bash call, writes raw + filtered "
         "captures under the helper-resolved scratch root "
         "(`project_scratch_dir.watcher_capture_path(...)`), and exits "

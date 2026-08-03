@@ -225,7 +225,7 @@ class TestSectionUpsertRoute(_ApiSuite):
             payload={"content": ""},
         )
         resp = self.client.post("/v1/functions/call", json=env)
-        # empty_body maps to HTTP 422 per AC-3.2 wiring.
+        # empty_body maps to HTTP 422.
         self.assertEqual(resp.status_code, 422)
         body = resp.json()
         self.assertFalse(body["success"])

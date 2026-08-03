@@ -138,7 +138,7 @@ class TestParallelFanoutLint:
     def test_item_level_claim_does_not_grant_sibling_worktrees(
         self, conn, tmp_path,
     ):
-        """AC-17: after the hotfix rollback, an item-level claim on an
+        """After the hotfix rollback, an item-level claim on an
         epic with sibling-branch task worktrees no longer authorises
         the sibling paths. Only explicit ``target_kind='epic_task'``
         claims grant per-task authority.

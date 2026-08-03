@@ -38,13 +38,13 @@ class TestShepherdFileBackedInputContract:
         # scratch root override (YOKE_SCRATCH_ROOT / machine config) flows
         # through one resolver.
         assert "_pm_input_path=" in text
-        assert 'yoke scratch dispatch-inputs "YOK-${_num}" "${_session_id}" "${_attempt}"' in text
+        assert 'yoke scratch dispatch-inputs "PREFIX-${_num}" "${_session_id}" "${_attempt}"' in text
         assert 'printf \'%s\' "$_pre_pm_spec" >"$_pm_input_path"' in text
 
     def test_pm_prompt_names_input_path_and_requires_read(self) -> None:
         block = _prompt_block(
             self.text,
-            " Write a structured spec for backlog epic YOK-{N}.",
+            " Write a structured spec for backlog epic PREFIX-{N}.",
             "Capture the PM's output as `_worker_output`.",
         )
         # The prompt must direct the PM to Read the named input file and not
@@ -60,7 +60,7 @@ class TestShepherdFileBackedInputContract:
         # The dispatch prompt's context block (substituted at runtime) must
         # advertise the absolute path and the MUST-Read contract, with a
         # fail-closed branch when the path is unreadable.
-        assert "Your input ${_pre_pm_source} for YOK-${_num} is at ${_pm_input_path}" in text
+        assert "Your input ${_pre_pm_source} for PREFIX-${_num} is at ${_pm_input_path}" in text
         assert "If the path is unreadable" in text
         assert "stop from that premise" in text
 
@@ -79,7 +79,7 @@ class TestShepherdFileBackedInputContract:
     def test_designer_prompt_names_input_path_and_requires_read(self) -> None:
         block = _prompt_block(
             self.text,
-            " Create a UX/design spec for YOK-{N}.",
+            " Create a UX/design spec for PREFIX-{N}.",
             "Write the Designer's output to the `items.design_spec` structured field.",
         )
         assert "{_pre_designer_context_block if non-empty}" in block
@@ -90,7 +90,7 @@ class TestShepherdFileBackedInputContract:
 
     def test_designer_context_block_advertises_file_path_to_agent(self) -> None:
         text = self.text
-        assert "Your input ${_pre_designer_source} for YOK-${_num} is at ${_pd_input_path}" in text
+        assert "Your input ${_pre_designer_source} for PREFIX-${_num} is at ${_pd_input_path}" in text
         assert "If the path is unreadable" in text
 
     def test_doc_does_not_re_introduce_inline_data_fences(self) -> None:
@@ -161,7 +161,7 @@ class TestPMAgentBodyTeachesFileBackedContract:
 
 
 class TestLargeSpecPreservationByConstruction:
-    """AC-6 (file-backed contract preserves all `##` headings of a large
+    """Structural fix (file-backed contract preserves all `##` headings of a large
     inherited spec): the original failure mode was silent inline truncation in
     the dispatch-prompt embedding pipeline. The fix is structural — the
     inherited content is written to a file and the dispatch prompt names the
@@ -192,7 +192,7 @@ class TestLargeSpecPreservationByConstruction:
         that carries the inherited content into the dispatch."""
         block = _prompt_block(
             self.text,
-            " Write a structured spec for backlog epic YOK-{N}.",
+            " Write a structured spec for backlog epic PREFIX-{N}.",
             "Capture the PM's output as `_worker_output`.",
         )
         assert "$_pre_pm_spec" not in block
@@ -201,7 +201,7 @@ class TestLargeSpecPreservationByConstruction:
     def test_pd_prompt_does_not_inline_spec_variable(self) -> None:
         block = _prompt_block(
             self.text,
-            " Create a UX/design spec for YOK-{N}.",
+            " Create a UX/design spec for PREFIX-{N}.",
             "Write the Designer's output to the `items.design_spec` structured field.",
         )
         assert "$_pre_designer_spec" not in block

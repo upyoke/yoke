@@ -76,6 +76,23 @@ case-level overrides, and project-local methods can only be used by plans in
 that same project. Case rerun and waiver stay case-scoped, and the transition
 consumes the union of all materialized outcomes.
 
+If a plan definition needs correction after it has materialized, replace the
+active snapshot with:
+
+```text
+yoke qa plan rematerialize --item <PREFIX-N> --transition <stage>
+```
+
+The operation refreshes matching plan requirements in place, retains their run
+history, creates any newly added cases, and waives cases no longer in the plan.
+
+Before an item can enter any terminal lifecycle stage, its QA records must be
+settled. A run without a verdict (including a timed-out run), or an active,
+waiting, or review-pending plan execution blocks the transition even when other
+QA gates are bypassed. Complete the run with its verdict, or waive the
+requirement, while the item claim is still active; terminal records are not
+correctable afterward.
+
 A deployment run can instead own one named plan directly, without inventing
 an item or workflow transition:
 
@@ -214,3 +231,113 @@ git diff --name-only --diff-filter=ACMR <base>...HEAD \
 Review the newline-delimited output, then pass the exact existing paths to
 `watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.
+
+## Which tree a run verified
+
+A green says nothing until the tree it came from is named. A pytest run
+rooted outside the calling session's claim-bound worktree is refused,
+because it reports a pass for code nobody changed. The refusal names the
+claimed worktree and the tree the run would have used. A session with no
+claimed lane (inline skill work, main-checkout source-dev) passes through
+untouched.
+
+The check lives at the pytest startup layer, in the repo root
+`conftest.py`, so the shape of the invocation does not matter: the
+watcher wrapper, `run_tests`, the `worktree_run` QA case executor, a bare
+`python3 -m pytest`, and an IDE run button all inherit it. The three
+entry points above still judge the tree first, so their refusal arrives
+before pytest starts at all; each hands the child process a marker so the
+startup check costs no second lookup, and the xdist workers inherit that
+same answer. A refused run stops before collection — one line on stderr,
+exit status 3, nothing collected and no cluster started.
+
+```bash
+yoke watch pytest --allow-tree-mismatch --impacted main --bounded
+python3 -m pytest --allow-tree-mismatch runtime/api/domain
+```
+
+`--allow-tree-mismatch` is the deliberate cross-tree run, accepted by the
+wrapper, by pytest itself, and by `yoke qa case run` / `yoke qa plan run`,
+which run the gate through the same guard: it proceeds and prints one line
+naming both trees, so the result stays attributable. The flag every refusal
+advertises is real on every surface that can raise the refusal.
+
+A claimed lane whose directory no longer exists gets its own refusal. A
+merge retires the lane row in the same act that removes its directory
+(`item_worktrees.release_merged_lane`), so this state means the row was
+stranded rather than retired; telling that reader to `cd` into the recorded
+path would name a directory that is gone. The refusal instead names the two
+recoveries that work — re-materialize the lane with
+`yoke direct-workflow worktree prepare <item> --workflow <workflow>`, or
+pass `--allow-tree-mismatch` to verify the tree as it stands.
+
+Records carry the same fact. A QA run's `raw_result` and a Dash execution
+evidence section both hold a `verification_tree` of worktree root plus
+HEAD sha, so a green produced against the wrong tree cannot be recorded
+indistinguishably from one produced against the right tree. The client
+resolves that identity — only the machine holding the checkout can — and
+`yoke direct-workflow dash evidence` accepts `--tree-root` /
+`--tree-head-sha` when evidence is recorded from somewhere other than the
+tree that was verified.
+
+## Full-suite authority: CI
+
+The full three-anchor suite runs off-machine in CI on both the pull
+request and the merged commit on `main`, so local verification stays
+change-scoped: iterate with impacted selection, and let the item's QA
+case run be the one full execution for a tree.
+
+That contract — the iteration loop, why the same tree is never proved
+twice, how to read a widened selection, the CI-disagreement triage, and
+the red-main and CI-outage protocols — lives in
+[`testing-verification/full-suite-authority.md`](testing-verification/full-suite-authority.md).
+
+## Concurrent local runs
+
+One disposable PostgreSQL cluster serves every test invocation on the
+machine, and any number of them may run at once — a full three-anchor gate,
+a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
+at the same time. Isolation comes from the database names rather than from a
+cluster per run:
+
+Correctness is not the same as capacity, though. *Heavy* invocations —
+anything sweeping directories rather than named files — additionally queue
+behind the machine-wide admission slot (`yoke_core.tools.gate_admission`), so
+one heavy gate runs at a time and a queued one reports who holds the slot and
+how many runs are behind it. Every wrapper-driven path arbitrates for that
+slot; a bare `python3 -m pytest <dirs>` does not, which is why
+`lint-raw-pytest-full-suite` denies the whole-verification-surface shape
+outside the wrapper and advises on any other directory sweep. Run sweeps
+through `yoke watch pytest`; file-scoped runs stay unqueued and free.
+
+- Every database an invocation creates carries that invocation's run tag,
+  minted once and published through `YOKE_TEST_RUN_TAG` so pytest-xdist
+  workers share their controller's identity.
+- An invocation may only ever drop databases carrying its own tag. Nothing a
+  running suite does can reach another run's databases.
+- Databases left behind by an interrupted run are reclaimed by an orphan
+  sweep that first confirms the owning process has exited, then drops with
+  `FORCE` under a bounded statement timeout.
+
+The sweep never sits in a starting suite's critical path. Cluster preparation
+launches it detached and returns immediately, because dropping a database is
+seconds of disk work on a loaded machine — a synchronous sweep of a large
+backlog delayed pytest collection by minutes, which is the stall the cleanup
+exists to prevent. One sweeper runs at a time (a lock file under the cluster
+root; others skip instantly rather than queueing), and each pass stops at a
+time budget, so a large backlog drains over several runs and reports how many
+it deferred. Run one directly with:
+
+```bash
+python3 -m yoke_core.tools.pg_testcluster prune
+```
+
+Interrupting a run through `watch_pytest`, `run_tests`, or a QA registered
+command terminates and reaps the whole process group, so xdist workers do
+not outlive the run and keep its databases open. Only `SIGKILL` can bypass
+that, which is what the orphan sweep backstops.
+
+`YOKE_PG_CLUSTER_ROOT` still points an invocation at a wholly private
+cluster. That is an escape hatch for a wedged shared cluster, not the normal
+isolation mechanism — a full `initdb` per run would slow ordinary iteration
+without adding safety the run tag does not already provide.

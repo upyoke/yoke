@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, List, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import (
     scope_project_id,
     visible_project_ids,
+)
+from yoke_contracts.session_lane import lane_presentation
+from yoke_contracts.project_contract.project_keys import (
+    SESSION_ROUTING_CAPABILITY,
 )
 
 
@@ -55,6 +60,39 @@ def session_project_label(
     return _format_project_label(project) if project else "—"
 
 
+def session_lane_presentation(
+    db: BoardDBLike,
+    project_id: Any,
+    lane: Any,
+) -> dict[str, str]:
+    """Read one lane's display metadata from its project capability."""
+    try:
+        normalized_project_id = int(project_id)
+    except (TypeError, ValueError):
+        return lane_presentation(str(lane or ""))
+    sql = (
+        "SELECT settings FROM project_capabilities "
+        "WHERE project_id = %s AND type = %s"
+    )
+    params = (normalized_project_id, SESSION_ROUTING_CAPABILITY)
+    has_query_quiet = getattr(db, "has_query_quiet", None)
+    if callable(has_query_quiet) and not has_query_quiet(sql, params):
+        return lane_presentation(str(lane or ""))
+    rows = db.query_quiet(sql, params)
+    if not rows:
+        return lane_presentation(str(lane or ""))
+    raw_settings = rows[0][0]
+    try:
+        settings = (
+            raw_settings
+            if isinstance(raw_settings, dict)
+            else json.loads(str(raw_settings or "{}"))
+        )
+    except (TypeError, ValueError):
+        settings = {}
+    return lane_presentation(str(lane or ""), settings)
+
+
 def _scope_filter(
     db: BoardDBLike,
     scope: str,
@@ -86,8 +124,7 @@ def _claim_scope_filter(
 ) -> tuple[str, tuple[Any, ...]]:
     wc_terminal = "AND wc.released_at IS NULL" if active_only else ""
     pc_terminal = (
-        "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL"
-        if active_only else ""
+        "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
     lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
     return (
@@ -97,10 +134,12 @@ def _claim_scope_filter(
             JOIN items wi ON wi.id = wc.item_id
             WHERE wi.project_id = %s {wc_terminal}
             UNION
-            SELECT pc.session_id
+            SELECT wc.session_id
             FROM path_claims pc
-            JOIN items pi ON pi.id = pc.item_id
-            WHERE pi.project_id = %s AND pc.session_id IS NOT NULL {pc_terminal}
+            JOIN items pi ON pi.id = pc.owner_item_id
+            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            WHERE pc.owner_kind = 'item'
+              AND pi.project_id = %s {pc_terminal} {wc_terminal}
             UNION
             SELECT cl.session_id
             FROM coordination_leases cl
@@ -118,7 +157,8 @@ def _multi_project_scope_filter(
     if not project_ids:
         return "AND 1=0", ()
     claim_sql, claim_params = _claim_scope_filter_for_projects(
-        project_ids, active_only=active_only,
+        project_ids,
+        active_only=active_only,
     )
     markers = ", ".join("%s" for _ in project_ids)
     return (
@@ -140,8 +180,7 @@ def _claim_scope_filter_for_projects(
     markers = ", ".join("%s" for _ in project_ids)
     wc_terminal = "AND wc.released_at IS NULL" if active_only else ""
     pc_terminal = (
-        "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL"
-        if active_only else ""
+        "AND pc.released_at IS NULL AND pc.cancelled_at IS NULL" if active_only else ""
     )
     lease_terminal = "AND cl.released_at IS NULL" if active_only else ""
     return (
@@ -151,10 +190,12 @@ def _claim_scope_filter_for_projects(
             JOIN items wi ON wi.id = wc.item_id
             WHERE wi.project_id IN ({markers}) {wc_terminal}
             UNION
-            SELECT pc.session_id
+            SELECT wc.session_id
             FROM path_claims pc
-            JOIN items pi ON pi.id = pc.item_id
-            WHERE pi.project_id IN ({markers}) AND pc.session_id IS NOT NULL {pc_terminal}
+            JOIN items pi ON pi.id = pc.owner_item_id
+            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            WHERE pc.owner_kind = 'item'
+              AND pi.project_id IN ({markers}) {pc_terminal} {wc_terminal}
             UNION
             SELECT cl.session_id
             FROM coordination_leases cl

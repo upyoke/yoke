@@ -253,7 +253,7 @@ def test_freshness_window_boundary_just_inside_is_busy(conn, stub_who_claims):
 
 
 def test_unrelated_task_activity_does_not_keep_task_busy(conn, stub_who_claims):
-    """AC-10: per-task scoping is structural — a sibling task's recent
+    """Per-task scoping is structural — a sibling task's recent
     activity must not keep this task head busy."""
     stub_who_claims(None)
     _seed_prior(conn, heartbeat_age_s=_FRESHNESS_WINDOW_S * 10)

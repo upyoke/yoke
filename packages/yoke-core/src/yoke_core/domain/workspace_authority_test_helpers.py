@@ -70,13 +70,36 @@ def conn():
 
 @pytest.fixture
 def patch_conn(conn, monkeypatch):
-    from yoke_core.domain import db_helpers
+    from yoke_core.domain import verification_tree_binding
+    from yoke_core.domain.session_claimed_worktrees import claimed_worktrees
 
-    class _Wrapper:
-        def __enter__(self): return conn
-        def __exit__(self, *exc): return False
+    def _lookup(session_id: str):
+        rows = claimed_worktrees(conn, session_id=session_id)
+        current = conn.execute(
+            "SELECT i.id, i.status FROM harness_sessions hs "
+            "JOIN items i ON i.id = hs.current_item_id "
+            "WHERE hs.session_id = %s LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        before_implementation = None
+        if current is not None:
+            from yoke_core.domain.workflow_runtime import (
+                load_item_workflow_runtime,
+            )
 
-    monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: _Wrapper())
+            before_implementation = load_item_workflow_runtime(
+                conn, int(current["id"]),
+            ).is_before_implementation(str(current["status"]))
+        return verification_tree_binding.ClaimLookup(
+            worktrees=tuple(row.worktree_path for row in rows),
+            current_item_before_implementation=before_implementation,
+        )
+
+    monkeypatch.setattr(
+        verification_tree_binding,
+        "resolve_claim_worktrees",
+        _lookup,
+    )
     return conn
 
 

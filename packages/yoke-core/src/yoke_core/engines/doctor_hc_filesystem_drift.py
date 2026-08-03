@@ -1,8 +1,6 @@
-"""Filesystem health checks — stray files and architecture consistency.
+"""Filesystem health check — stray root-level project output directories.
 
-Cluster: HC checks for stray root-level project files and schema completeness.
-
-HC functions: HC-stray-project-files, HC-arch-consistency.
+HC function: HC-stray-project-files.
 """
 
 from __future__ import annotations
@@ -45,30 +43,3 @@ def hc_stray_project_files(conn, args: DoctorArgs, rec: RecordCollector) -> None
                     "\n".join(issues))
     else:
         rec.record("HC-stray-project-files", "Stray project output directories", "PASS", "")
-
-def hc_arch_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-arch-consistency: Architectural consistency audit."""
-    repo_root = _base._resolve_repo_root()
-    if not repo_root:
-        rec.record("HC-arch-consistency", "Architectural consistency audit", "PASS", "")
-        return
-
-    issues: List[str] = []
-
-    # Pattern 2: Retired root state dir
-    if (Path(repo_root) / "data").exists():
-        issues.append("- Retired root data directory still exists: data/")
-
-    # Pattern 4: Schema completeness
-    for tbl_name, label in [
-        ("ouroboros_entries", "ouroboros log"),
-        ("wrapup_reports", "wrapup reports"),
-        ("epic_tasks", "epic task metadata"),
-    ]:
-        if not _base._table_exists(conn, tbl_name):
-            issues.append(f"- Schema gap: '{tbl_name}' table missing")
-
-    if issues:
-        rec.record("HC-arch-consistency", "Architectural consistency audit", "WARN", "\n".join(issues))
-    else:
-        rec.record("HC-arch-consistency", "Architectural consistency audit", "PASS", "")

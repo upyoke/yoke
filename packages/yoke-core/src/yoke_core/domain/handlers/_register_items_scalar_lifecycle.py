@@ -1,6 +1,5 @@
-"""Handler registrations for items.scalar.update +
-lifecycle.transition + lifecycle.skip handlers.
-"""
+"""Handler registrations for item-scalar and lifecycle write handlers."""
+
 from __future__ import annotations
 
 from yoke_core.domain.handlers.items_scalar import (
@@ -8,6 +7,9 @@ from yoke_core.domain.handlers.items_scalar import (
 )
 from yoke_core.domain.handlers.lifecycle_skip import (
     REGISTRATIONS as _LIFECYCLE_SKIP_REGS,
+)
+from yoke_core.domain.handlers.lifecycle_repair_status import (
+    REGISTRATIONS as _LIFECYCLE_REPAIR_STATUS_REGS,
 )
 from yoke_core.domain.handlers.lifecycle_transition import (
     REGISTRATIONS as _LIFECYCLE_TRANSITION_REGS,
@@ -19,6 +21,7 @@ def register(registry) -> None:
     for _entry in (
         _ITEMS_SCALAR_REGS
         + _LIFECYCLE_TRANSITION_REGS
+        + _LIFECYCLE_REPAIR_STATUS_REGS
         + _LIFECYCLE_SKIP_REGS
     ):
         if registry.lookup(_entry["function_id"]) is None:

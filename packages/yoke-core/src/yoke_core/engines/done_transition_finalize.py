@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.engines.done_transition_item_context import format_workflow_route
-
-
-def _parent():
-    from yoke_core.engines import done_transition as _dt
-
-    return _dt
 
 
 def _p(conn) -> str:
@@ -23,32 +20,39 @@ def _finalize_done_local_side_effects(
     item_project: str,
     env_name: str,
 ) -> None:
-    """Run local DB-only done side effects with one control-plane connection."""
+    """Run the collapsed local done finalization through the transport.
+
+    The deployed_to resolution + conditional ``items.deployed_to`` update +
+    ``release_entries`` upsert are relayed as ONE atomic
+    ``done_transition.finalize_local_side_effects`` write so the whole
+    transaction runs server-side on a single connection (over an https
+    control plane as well as a local Postgres connection). Finalization is
+    advisory: matching the inline ``connect()`` behavior, any failure
+    degrades with a note and the item still reaches done — it never raises.
+    """
     print("\n=== Step 6c/6d/7/10: Local done finalization ===")
     try:
-        with _parent()._connect() as conn:
-            deployed_to = _resolve_deployed_to(conn, item_id, env_name)
-            if deployed_to:
-                p = _p(conn)
-                conn.execute(
-                    f"UPDATE items SET deployed_to = {p} WHERE id = {p}",
-                    (deployed_to, item_id),
-                )
-            release_note = _insert_release_note(
-                conn,
-                item_id,
-                release_category,
-                title,
-                item_project,
-            )
-            conn.commit()
-    except db_backend.operational_error_types() as exc:
-        print(f"Advisory: local done finalization partly skipped: {exc}")
-        return
-    except Exception as exc:  # pragma: no cover - defensive
+        resp = call_dispatcher(
+            function_id="done_transition.finalize_local_side_effects",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={
+                "release_category": release_category,
+                "env_name": env_name,
+                "title": title,
+                "item_project": item_project,
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 - advisory; matches inline degrade
         print(f"Advisory: local done finalization failed: {exc}")
         return
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        print(f"Advisory: local done finalization partly skipped: {message}")
+        return
 
+    result = resp.result or {}
+    deployed_to = str(result.get("deployed_to") or "")
+    release_note = bool(result.get("release_note"))
     deploy_msg = (
         f"deployed_to={deployed_to}" if deployed_to else "deployed_to unchanged"
     )
@@ -111,8 +115,10 @@ def finish_done_transition(
     workflow,
     repo_root,
     merge_ran: bool,
+    item_ref: str | None = None,
 ) -> int:
     """Rebuild, persist, push, and report a successful done transition."""
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     print("\n=== Step 11: Rebuild board ===")
     done_transition._rebuild_board_direct()
     result.add_step("11")
@@ -122,7 +128,7 @@ def finish_done_transition(
     diff = done_transition._run_git(["diff", "--cached", "--quiet"], capture=True)
     if diff.returncode != 0:
         commit = done_transition._run_git(
-            ["commit", "-m", f"YOK-{item_id}: {old_status} -> done"]
+            ["commit", "-m", f"{ref}: {old_status} -> done"]
         )
         commit_ran = commit.returncode == 0
         if commit_ran:
@@ -152,7 +158,7 @@ def finish_done_transition(
 
     print("\n=== Step 14: Report ===")
     print("==========================================")
-    print(f"YOK-{item_id} ({title}): {old_status} -> done")
+    print(f"{ref} ({title}): {old_status} -> done")
     print("==========================================\n")
     print(format_workflow_route(workflow))
     result.add_step("14")

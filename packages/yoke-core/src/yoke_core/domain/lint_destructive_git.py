@@ -14,25 +14,14 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_core.domain import lint_destructive_git_commands as command_checks
+from yoke_core.domain import lint_destructive_git_messages as messages
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-destructive-git"
 HOOK_NAME = "lint-destructive-git"
-SUPPRESSION_TOKEN = "# lint:no-uncommitted-wipe-check"
-
-_SHAPES = {
-    "reset_hard": ("git reset --hard", "Stash or commit first (`git stash push -u`), or use `git reset --soft` to only move the branch tip."),
-    "checkout_path_discard": ("git checkout -- <path>", "Stash the path edits (`git stash push -- <path>`) or commit before discarding."),
-    "checkout_force_branch": ("git checkout -f <branch>", "Stash or commit first; checking out without `-f` lets git surface the conflict."),
-    "restore_worktree_path": ("git restore --worktree <path>", "Stash the path edits or use `git restore --staged <path>` to unstage without discarding."),
-    "clean_force": ("git clean -f", "Review with `git clean -n`; .gitignore or stash relevant files before cleaning."),
-    "worktree_remove": ("git worktree remove <path>", "Verify the worktree is clean including ignored files, has no active claim, and preserve or commit any work before removing it."),
-    "rm_rf_worktree": ("rm -rf .worktrees/<path>", "Use `git worktree remove <path>` after verifying clean status, ignored files, and active claims."),
-    "stash_drop": ("git stash drop", "Inspect with `git stash show -p stash@{N}`; pop or apply what you need first."),
-    "stash_clear": ("git stash clear", "Inspect each stash (`git stash list`); drop only the entries you actually want gone."),
-}
+GUARD_KEY = "lint_destructive_git"
+SUPPRESSION_TOKEN = messages.SUPPRESSION_TOKEN
 
 
 def _extract_command(payload: dict) -> str:
@@ -72,12 +61,20 @@ def _toplevel() -> str:
     return r.stdout.strip() if r and r.returncode == 0 else ""
 
 
-def _read_mode(payload: object | None = None) -> str:
+def _read_mode(payload: object | None = None, root: Optional[str] = None) -> str:
     # Single surface: resolve via the lint_config registry (.yoke/lint-config),
-    # which applies the protected-guard clamp uniformly.
+    # which applies the protected-guard clamp uniformly. ``root`` is the
+    # worktree the refused command actually targets, so policy is read from
+    # the same checkout whose state is being judged.
     from yoke_core.domain import lint_config
 
-    return lint_config.resolve_mode_for_payload("lint_destructive_git", payload)
+    return lint_config.resolve_mode_for_payload(GUARD_KEY, payload, root=root)
+
+
+def _config_note(mode: str, root: Optional[str] = None) -> str:
+    from yoke_core.domain import lint_config
+
+    return lint_config.describe_config_source(GUARD_KEY, mode, root=root)
 
 
 def _parse_git_invocations(command: str) -> list[Tuple[list[str], str]]:
@@ -188,25 +185,6 @@ def _pathspec_covers(pathspec: str, rel: str) -> bool:
     return rel == norm or rel.startswith(norm + "/")
 
 
-def _format_reason(shape: str, threatened: list[str], suppression_seen: bool, mode: str) -> str:
-    label, remediation = _SHAPES.get(shape, (shape, "Stash or commit work before retrying."))
-    if shape in ("stash_drop", "stash_clear"):
-        threat = f"Stashes that would be discarded: {threatened[0]}"
-    else:
-        listed = "\n  ".join(threatened[:10]) + (
-            f"\n  ... and {len(threatened) - 10} more" if len(threatened) > 10 else "")
-        threat = f"Files at risk:\n  {listed}"
-    suffix = "\n\n[mode=warn] this hook would block in deny mode." if mode == "warn" else (
-        f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
-        "evidence (outcome=suppression_attempted) but does NOT unblock — the rule "
-        "still denies. Stop, stash/commit, then retry." if suppression_seen else "")
-    return append_field_note_footer(
-        f"BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
-        f"Shape: {label}\n{threat}\n\nRemediation: {remediation}\n"
-        f"Doctrine: AGENTS.md `## Destructive Operation Discipline`{suffix}",
-        rule_id="lint-destructive-git")
-
-
 def _check_threat(shape: str, worktree: str, args: list[str]) -> Optional[list[str]]:
     if not _is_git_repo(worktree):
         return None
@@ -271,8 +249,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         threatened = _check_threat(shape, worktree, args)
         if not threatened:
             continue
-        mode = _read_mode(payload)
-        reason = _format_reason(shape, threatened, suppression_seen, mode)
+        mode = _read_mode(payload, root=worktree)
+        reason = messages.format_reason(
+            shape, threatened, suppression_seen, mode,
+            config_note=_config_note(mode, root=worktree))
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     cwd = _resolve_worktree("", payload)
@@ -288,8 +268,10 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         threatened.extend(_claimed_worktree_threats(worktree_targets))
         if not threatened:
             continue
-        mode = _read_mode(payload)
-        reason = _format_reason("rm_rf_worktree", threatened, suppression_seen, mode)
+        mode = _read_mode(payload, root=cwd)
+        reason = messages.format_reason(
+            "rm_rf_worktree", threatened, suppression_seen, mode,
+            config_note=_config_note(mode, root=cwd))
         outcome = "suppression_attempted" if suppression_seen else "denied"
         return (mode, reason, outcome)
     return None

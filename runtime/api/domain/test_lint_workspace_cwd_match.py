@@ -4,10 +4,10 @@ Covers the FR-9 acceptance criteria:
 
 - ``test_denies_event_622168_shape``: the exact pytest-from-main
   shape that leaked state across checkouts is denied when
-  ``$YOKE_BOUND_WORKSPACE`` points at a worktree and cwd is main.
-- ``test_noop_when_workspace_unset``: the lint allows the same
-  command when ``$YOKE_BOUND_WORKSPACE`` is unset (operator/maintenance
-  mode flexibility preserved).
+  the ambient session claims a worktree and cwd is main.
+- ``test_noop_without_worktree_claim``: the lint allows the same
+  command when no worktree claim exists (operator/maintenance mode
+  flexibility preserved).
 - Supporting tests round out the writer-verb allowlist, the cwd-under-
   workspace pass case, the suppression-token audit shape, and the warn
   mode fallthrough.
@@ -20,7 +20,6 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.lint_workspace_cwd_match import (
-    BOUND_WORKSPACE_ENV_VAR,
     SUPPRESSION_TOKEN,
     evaluate_payload,
 )
@@ -47,15 +46,24 @@ def _event_622168_payload(cwd: str) -> dict:
     }
 
 
+def _claim_workspace(
+    monkeypatch: pytest.MonkeyPatch, workspace: Path,
+) -> None:
+    monkeypatch.setattr(
+        "yoke_core.domain.lint_workspace_cwd_match.resolve_session_worktree_paths",
+        lambda: [str(workspace)],
+    )
+
+
 def test_denies_event_622168_shape(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-7: bound to a worktree, running pytest from main is denied."""
+    """Bound to a worktree, running pytest from main is denied."""
     workspace = tmp_path / "worktree"
     main_checkout = tmp_path / "main"
     workspace.mkdir()
     main_checkout.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     # Mock the machine-config read to a stub that says deny:
     monkeypatch.setattr(
         "yoke_core.domain.lint_workspace_cwd_match._read_mode",
@@ -72,11 +80,14 @@ def test_denies_event_622168_shape(
     assert str(main_checkout) in reason
 
 
-def test_noop_when_workspace_unset(
+def test_noop_without_worktree_claim(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-8: env var unset means no check fires."""
-    monkeypatch.delenv(BOUND_WORKSPACE_ENV_VAR, raising=False)
+    """No active worktree claim means no check fires."""
+    monkeypatch.setattr(
+        "yoke_core.domain.lint_workspace_cwd_match.resolve_session_worktree_paths",
+        lambda: [],
+    )
     payload = _event_622168_payload(str(tmp_path / "main"))
     assert evaluate_payload(payload) is None
 
@@ -91,7 +102,7 @@ def test_pass_when_cwd_is_under_workspace(
 ) -> None:
     workspace = tmp_path / "worktree"
     workspace.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     payload = _event_622168_payload(str(workspace))
     assert evaluate_payload(payload) is None
 
@@ -102,7 +113,7 @@ def test_pass_when_cwd_is_a_subdirectory_of_workspace(
     workspace = tmp_path / "worktree"
     sub = workspace / "runtime" / "api"
     sub.mkdir(parents=True)
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     payload = _event_622168_payload(str(sub))
     assert evaluate_payload(payload) is None
 
@@ -131,7 +142,7 @@ def test_writer_verb_allowlist_denies_each_shape(
     main_checkout = tmp_path / "main"
     workspace.mkdir()
     main_checkout.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     monkeypatch.setattr(
         "yoke_core.domain.lint_workspace_cwd_match._read_mode",
         lambda payload=None: "deny",
@@ -154,7 +165,7 @@ def test_unrelated_commands_pass_through(
     main_checkout = tmp_path / "main"
     workspace.mkdir()
     main_checkout.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     # Non-writer Bash shapes — should not match the lint at all.
     for command in (
         "git status",
@@ -181,12 +192,12 @@ def test_unrelated_commands_pass_through(
 def test_suppression_token_records_audit_but_does_not_unblock(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-17: the suppression token is audit evidence only, never an unblock."""
+    """The suppression token is audit evidence only, never an unblock."""
     workspace = tmp_path / "worktree"
     main_checkout = tmp_path / "main"
     workspace.mkdir()
     main_checkout.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     monkeypatch.setattr(
         "yoke_core.domain.lint_workspace_cwd_match._read_mode",
         lambda payload=None: "deny",
@@ -218,7 +229,7 @@ def test_warn_mode_audits_without_block(
     main_checkout = tmp_path / "main"
     workspace.mkdir()
     main_checkout.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     monkeypatch.setattr(
         "yoke_core.domain.lint_workspace_cwd_match._read_mode",
         lambda payload=None: "warn",
@@ -241,7 +252,7 @@ def test_non_bash_tool_is_ignored(
 ) -> None:
     workspace = tmp_path / "worktree"
     workspace.mkdir()
-    monkeypatch.setenv(BOUND_WORKSPACE_ENV_VAR, str(workspace))
+    _claim_workspace(monkeypatch, workspace)
     payload = {
         "tool_name": "Edit",
         "tool_input": {"command": "python3 -m pytest runtime/harness/"},
@@ -250,7 +261,7 @@ def test_non_bash_tool_is_ignored(
     assert evaluate_payload(payload) is None
 
 
-# AC-6 / AC-7 static-scan tests live in
+# Static-scan tests live in
 # ``test_lint_workspace_repo_root_scan.py`` so this file stays under the
 # 350-line authoring cap. That sibling module exercises the helper at
 # ``lint_workspace_repo_root_scan.scan_repo_root_references``.

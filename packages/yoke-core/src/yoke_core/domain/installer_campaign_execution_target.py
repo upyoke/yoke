@@ -9,8 +9,8 @@ from yoke_contracts.api_urls import (
     DISTRIBUTION_STAGE_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-from yoke_core.domain.installer_campaign_screen_ready_cases import (
-    SCREEN_READY_INSTALLER_CAMPAIGN_CASES,
+from yoke_core.domain.installer_campaign_current_text_cases import (
+    CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
 from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_PRODUCTION_KEYS,
@@ -23,9 +23,11 @@ def _replace_text(value: str, target: Mapping[str, Any]) -> str:
     endpoints = target["endpoints"]
     environment = str(target["environment"]["name"]).lower()
     production = environment in {"prod", "production"}
+    release_channel = str(endpoints["release_channel"])
     replacements = (
         (DISTRIBUTION_STAGE_URL, str(endpoints["installer_base_url"])),
         (HOSTED_STAGE_PLATFORM_URL, str(endpoints["app_url"])),
+        ("YOKE_CHANNEL=latest", f"YOKE_CHANNEL={release_channel}"),
         ("stage.upyoke.com", "upyoke.com" if production else "stage.upyoke.com"),
         ("public Stage", "public Production" if production else "public Stage"),
         ("Stage hosted", "Production hosted" if production else "Stage hosted"),
@@ -33,12 +35,30 @@ def _replace_text(value: str, target: Mapping[str, Any]) -> str:
         ("live Stage", "live Production" if production else "live Stage"),
         ("Stage browser", "Production browser" if production else "Stage browser"),
         ("Stage machine", "Production machine" if production else "Stage machine"),
-        ("Stage onboarding", "Production onboarding" if production else "Stage onboarding"),
+        (
+            "Stage onboarding",
+            "Production onboarding" if production else "Stage onboarding",
+        ),
     )
     result = value
     for source, replacement in replacements:
         result = result.replace(source, replacement)
     return result
+
+
+def _bind_release_channel(value: Any, channel: str) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: (
+                channel
+                if key == "channel" and child in {"latest", "stable"}
+                else _bind_release_channel(child, channel)
+            )
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_bind_release_channel(child, channel) for child in value]
+    return value
 
 
 def _project(value: Any, target: Mapping[str, Any]) -> Any:
@@ -53,11 +73,14 @@ def _project(value: Any, target: Mapping[str, Any]) -> Any:
 
 def _target_destination_keys(target: Mapping[str, Any]) -> list[str]:
     environment = str(target["environment"]["name"]).lower()
-    selected = (
-        CHOOSE_STAGE_KEYS
-        if environment in {"stage", "staging"}
-        else CHOOSE_PRODUCTION_KEYS
-    )
+    if environment in {"stage", "staging"}:
+        selected = CHOOSE_STAGE_KEYS
+    elif environment in {"prod", "production"}:
+        selected = CHOOSE_PRODUCTION_KEYS
+    else:
+        raise ValueError(
+            f"installer campaign does not support environment {environment!r}"
+        )
     return list(selected)
 
 
@@ -66,6 +89,7 @@ def _bind_destination_actions(
     target: Mapping[str, Any],
 ) -> None:
     keys = _target_destination_keys(target)
+    environment_id = str(target["environment"]["id"])
     for case in cases:
         raw_config = case.get("method_config")
         if not isinstance(raw_config, dict):
@@ -81,8 +105,12 @@ def _bind_destination_actions(
             if not isinstance(actions, list):
                 continue
             for action in actions:
-                if isinstance(action, dict) and action.get("step") == "destination-picker":
+                if (
+                    isinstance(action, dict)
+                    and action.get("step") == "destination-picker"
+                ):
                     action["keys"] = list(keys)
+                    action["target_environment_id"] = environment_id
 
 
 def installer_campaign_cases_for_target(
@@ -90,8 +118,13 @@ def installer_campaign_cases_for_target(
 ) -> list[dict[str, Any]]:
     """Return concrete current cases whose endpoints all come from *target*."""
     cases = _project(
-        deepcopy(list(SCREEN_READY_INSTALLER_CAMPAIGN_CASES)),
+        deepcopy(list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES)),
         target,
+    )
+    assert isinstance(cases, list)
+    cases = _bind_release_channel(
+        cases,
+        str(target["endpoints"]["release_channel"]),
     )
     assert isinstance(cases, list)
     _bind_destination_actions(cases, target)

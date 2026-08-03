@@ -1,5 +1,5 @@
 """Tests for ``path_snapshot_enrichment``: per-entry enrichment column
-computation (AC-4 population).
+computation and population.
 
 The pure functions (line_count / language / module_name / dependency
 edges) test directly; ``enrich_entry`` and the inherited-context

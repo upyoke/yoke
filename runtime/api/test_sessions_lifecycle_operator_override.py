@@ -32,7 +32,7 @@ class TestOperatorOverrideReleaseClaim:
             insert_item(conn, id=item_id, workflow_id="issue")
 
     def test_ac7_release_targeted_claim(self, conn):
-        """AC-7: Override releases only the targeted claim atomically."""
+        """Override releases only the targeted claim atomically."""
         _register(conn)
         c1 = claim_work(conn, session_id="sess-1", item_id="YOK-10")
         claim_work(conn, session_id="sess-1", item_id="YOK-20")
@@ -57,7 +57,7 @@ class TestOperatorOverrideReleaseClaim:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_ac7_emits_both_events(self, mock_emit, conn):
-        """AC-7: Override emits WorkReleased + OperatorClaimOverride."""
+        """Override emits WorkReleased + OperatorClaimOverride."""
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id="YOK-10")
         mock_emit.reset_mock()
@@ -72,7 +72,7 @@ class TestOperatorOverrideReleaseClaim:
         assert wr_call[1]["context"]["release_reason_intent"] == "operator-override"
 
     def test_ac7_rejects_hook_context(self, conn):
-        """AC-7: Override rejects when YOKE_HOOK_EVENT is set."""
+        """Override rejects when YOKE_HOOK_EVENT is set."""
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id="YOK-10")
         with patch.dict(os.environ, {"YOKE_HOOK_EVENT": "SessionEnd"}):

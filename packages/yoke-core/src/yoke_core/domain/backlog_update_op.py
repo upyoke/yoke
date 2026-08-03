@@ -34,13 +34,14 @@ from yoke_core.domain.deployment_flow_validator import (
 from yoke_core.domain.item_block_notifications import (
     emit_item_block_state_change_if_needed,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def _execute_update_once(
     item_id: int,
     field: str,
-    value: str,
+    value: str, resolution: Optional[str] = None,
     done_nonce_verified: bool = False,
     force: bool = False,
     qa_bypass: bool = False,
@@ -232,18 +233,21 @@ def _execute_update_once(
                 "error": mutation_result.error or "Unknown error",
                 "error_code": error_code,
             }
-
+        if field == "status" and value == "cancelled":
+            mutation_result.field_writes["resolution"] = resolution
         if field == "status":
             claim_verified, claim_reason = _verify_status_claim(
                 conn, item_id, out, session_id=session_id
             )
             if not claim_verified:
+                item_ref = render_item_ref(conn, item_id)
                 return {
                     "success": False,
                     "error": (
-                        f"Claim verification denied for YOK-{item_id}: {claim_reason}\n"
-                        f'  Claim first: yoke claims work acquire --item YOK-{item_id} --reason "<intent>"\n'
-                        "  Incident recovery: python3 -m yoke_core.engines.repair_status (emits audit events)\n"
+                        f"Claim verification denied for {item_ref}: {claim_reason}\n"
+                        f'  Claim first: yoke claims work acquire --item {item_ref} --reason "<intent>"\n'
+                        f"  Incident recovery: yoke lifecycle repair-status {item_ref} "
+                        f'--to {value} --reason "reconcile lifecycle state"\n'
                         "  Audit bypass: set YOKE_CLAIM_BYPASS=<source> for sanctioned system transitions"
                     ),
                 }
@@ -309,7 +313,7 @@ def _execute_update_once(
         )
         if field == "status":
             conn.commit()
-        print(f"Updated: YOK-{item_id} {field} → {value}", file=out)
+        print(f"Updated: {render_item_ref(conn, item_id)} {field} → {value}", file=out)
         run_post_commit_update_effects(
             conn,
             receipt=effect_receipt,

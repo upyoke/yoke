@@ -1,7 +1,7 @@
 # Event Catalog
 
 > Auto-generated on 2026-07-17T13:37:13Z
-> Regenerate: `python3 -m yoke_core.domain.populate_registry`
+> Regenerate through the source-dev registry workflow from a Yoke checkout.
 
 | Event Name | Kind | Type | Owner Service | Description | Severity | Status |
 |---|---|---|---|---|---|---|
@@ -163,7 +163,7 @@
 | ReflectionCapturePersistFailed | domain | reflection_capture | yoke_core.domain.reflection_capture | persist_entries swallowed an exception while inserting one parsed reflection entry into ouroboros_entries. Carries agent, category, body_excerpt (first 200 chars), exception_type so operators can surface silent drops; backed by HC-reflection-capture-persist-failed (24h WARN surface). | WARN | active |
 | ReflectionMarkerParseFailed | domain | reflection_marker_parse_failed | yoke_core.domain.reflection_capture_field_note | Subagent reflection block carried a field_note_kind marker whose value is outside the closed enum (failed|new|unclear|observation). The reflection itself was captured as plain text; the field-note was NOT fired. Context carries raw_value, valid_values, agent, entry_context, body_preview so operators can surface stale PM/PD body teaching. | WARN | active |
 | RenderRelationshipRecorded | system | Unknown | event_registry_seed_render_relationship.py | Auto-discovered from packages/yoke-core/src/yoke_core/domain/event_registry_seed_render_relationship.py | INFO | active |
-| RetiredSchemaResurrectionAttempt | system | schema_guard | yoke_core.domain.retired_schema_registry | Ambient init/bootstrap attempted to re-add a column registered in runtime/api/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module. | WARN | active |
+| RetiredSchemaResurrectionAttempt | system | schema_guard | yoke_core.domain.retired_schema_registry | Ambient init/bootstrap attempted to re-add a column registered in yoke_core/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module. | WARN | active |
 | SMLChangeApproved | lifecycle | strategize | strategize-skill | SML change approved by operator | STATUS | active |
 | SMLChangeProposed | lifecycle | strategize | strategize-skill | SML change proposed to operator | INFO | active |
 | SMLRefreshCompleted | lifecycle | strategize | strategize-skill | SML refresh phase completed | INFO | active |
@@ -218,3 +218,19 @@ The single source of truth is the `OUTCOMES` frozenset in `yoke_core.domain.even
 ### Historical drift backfill — `event_outcome_drift_cutover_at`
 
 Before the event-outcome classifier cutover, live emitters could silently false-success `HarnessToolCallCompleted` rows whose tool response carried a parseable nonzero `Exit code N` or a non-empty top-level `error` field. The one-shot `backfill_event_outcomes` migration (decision record in the yoke source repo: `docs/archive/decisions/backfill-event-outcomes.md`) rewrites historical rows whose true outcome is reconstructable from the envelope. After live apply, the machine-config key `event_outcome_drift_cutover_at` (ISO-8601 UTC) marks the boundary between legacy and post-cutover rows. The doctor health check `HC-event-outcome-drift` treats a completed audit row without that explicit marker as WARN-only, then FAILs on any marker-bounded post-cutover row that still records the drift shape — that signature is a regression in the live emitters and not an artifact of the legacy data.
+
+## Emitting a registered event
+
+Use the installed CLI surface for event writes. Event names and their current metadata are listed in the catalog above; registry changes remain a source-dev/admin operation.
+
+```sh
+yoke events emit \
+ --name "TaskStatusChanged" \
+ --kind lifecycle \
+ --type task_status_change \
+ --source-type system \
+ --severity STATUS \
+ --outcome completed \
+ --item-id "42" \
+ --context '{"from_status":"implementing","to_status":"reviewing-implementation"}'
+```

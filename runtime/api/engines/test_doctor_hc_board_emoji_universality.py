@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.engines import doctor_hc_board_emoji_universality as emoji_hc
+from yoke_project_checks import check_board_emoji_universality as emoji_hc
 from yoke_core.engines.doctor_report import _resolve_repo_root
 
 

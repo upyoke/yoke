@@ -22,7 +22,10 @@ import os
 import sys
 from typing import List, Optional, Tuple
 
-from yoke_core.domain.reflection_capture_shape_parsers import ReflectionEntry
+from yoke_core.domain.reflection_capture_shape_parsers import (
+    CANONICAL_REFLECTION_CATEGORIES,
+    ReflectionEntry,
+)
 from yoke_core.domain.reflection_capture_shapes import CaptureResult, parse_text
 
 
@@ -35,7 +38,7 @@ CANONICAL_ENTRY_TEMPLATE = (
     "timestamp: 2026-05-14T12:00:00Z\n"
     "agent: engineer\n"
     "context: YOK-N task M (optional free-form)\n"
-    "category: dispatch-context | path-claim | file-budget | ...\n"
+    f"category: {' | '.join(CANONICAL_REFLECTION_CATEGORIES)}\n"
     "<entry body — observation, systemic root cause, improvement>\n"
     "---END ENTRY---\n"
     "(repeat ---BEGIN ENTRY--- ... ---END ENTRY--- per reflection)\n"

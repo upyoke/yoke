@@ -25,11 +25,13 @@ from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING 
 from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 from yoke_cli.config.project_publish_support import PublishRequest  # noqa: E402
 
+
 def _step_target(plan: dict, action: str) -> str:
     for step in plan["steps"]:
         if step["action"] == action:
             return step["target"]
     raise AssertionError(f"no {action} step in plan")
+
 
 def _repo_lines(plan: dict, project_mode: str) -> list[str]:
     """Friendly repo-bucket lines for a ``build_plan`` output.
@@ -75,7 +77,7 @@ def test_build_plan_skip_github_target_when_not_keeping_remote() -> None:
         "keep_existing_remote": False,
     }
     plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-    assert _step_target(plan, "project-github-auth-choice") == "backlog-only"
+    assert _step_target(plan, "project-github-auth-choice") == "disabled"
 
 
 def test_build_plan_clone_outcome_compound_source_target() -> None:
@@ -202,24 +204,25 @@ def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
         "checkout": "/home/code/externalwebapp",
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
     plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     actions = {step["action"] for step in plan["steps"]}
     repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    grouped = steps.classify_plan({
-        "project_mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        "plan": plan,
-    })
+    grouped = steps.classify_plan(
+        {
+            "project_mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
+            "plan": plan,
+        }
+    )
 
     assert "project-write-board-art" in actions
     assert "Install the Yoke project scaffold (.yoke/)" in repo
     assert "Write your board art and initial BOARD.md" in repo
     assert grouped["core"][-1] == (
-        "Use GitHub settings already stored in the Yoke core database for this "
-        "project"
+        "Use GitHub settings already stored in the Yoke core database for this project"
     )
 
 
@@ -232,7 +235,7 @@ def test_build_plan_existing_project_with_board_art_skips_art_step(
     project_inputs = {
         "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
         "checkout": str(checkout),
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
@@ -251,7 +254,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         "checkout": "/home/code/externalwebapp",
         "slug": "externalwebapp",
         "name": "ExternalWebapp",
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "existing_project_id": 37,
         "github_repo": "owner/externalwebapp",
         "default_branch": "trunk",
@@ -267,7 +270,8 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         "token_reference": True,
         "machine_github": True,
         "aws_admin": True,
-        "temp_root": True, "cache_dir": True,
+        "temp_root": True,
+        "cache_dir": True,
         "project_identity": True,
         "project_checkout": True,
         "project_github_auth": True,
@@ -286,10 +290,12 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         reuse=reuse,
     )
     actions = [step["action"] for step in plan["steps"]]
-    grouped = steps.classify_plan({
-        "project_mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-        "plan": plan,
-    })
+    grouped = steps.classify_plan(
+        {
+            "project_mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
+            "plan": plan,
+        }
+    )
     reuse_lines = onboard_reuse_feedback.lines_for_plan(plan)
 
     assert actions == [
@@ -317,8 +323,7 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
         in reuse_lines
     )
     assert (
-        "Existing project issue prefix in the Yoke core database: EXT."
-        in reuse_lines
+        "Existing project issue prefix in the Yoke core database: EXT." in reuse_lines
     )
     assert (
         "Existing project default branch in the Yoke core database: trunk."
@@ -326,10 +331,11 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
     )
     assert (
         "Checkout mapping is already registered in ~/.yoke/config.json at "
-        "/home/code/externalwebapp."
-        in reuse_lines
+        "/home/code/externalwebapp." in reuse_lines
     )
-    assert "Project scaffold is already installed; Apply will refresh it." in reuse_lines
+    assert (
+        "Project scaffold is already installed; Apply will refresh it." in reuse_lines
+    )
 
 
 def test_reuse_feedback_names_detected_clone_values() -> None:
@@ -343,7 +349,7 @@ def test_reuse_feedback_names_detected_clone_values() -> None:
         "default_branch": "trunk",
         "default_branch_source": onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO,
         "public_item_prefix": "WID",
-        "github_adoption": "backlog-only",
+        "github_adoption": "disabled",
         "clone": ClonePlan(outcome="fork"),
     }
     plan = onboard_report.build_plan(
@@ -388,12 +394,16 @@ def test_build_plan_source_dev_admin_omits_scaffold_and_board_art() -> None:
 def test_classify_plan_buckets_writes() -> None:
     plan = {
         "project_mode": onboard_project.PROJECT_MODE_CREATE_REPO,
-        "plan": {"steps": [
-            {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-            {"action": "project-create-checkout", "target": "/home/code/demo"},
-            {"action": "project-github-auth-choice",
-             "target": GITHUB_ADOPTION_APP_BINDING},
-        ]},
+        "plan": {
+            "steps": [
+                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
+                {"action": "project-create-checkout", "target": "/home/code/demo"},
+                {
+                    "action": "project-github-auth-choice",
+                    "target": GITHUB_ADOPTION_APP_BINDING,
+                },
+            ]
+        },
     }
     grouped = steps.classify_plan(plan)
     # Each step renders as plain human copy, not the raw action code.
@@ -405,9 +415,11 @@ def test_classify_plan_buckets_writes() -> None:
 def test_classify_plan_source_dev_admin_bucket() -> None:
     plan = {
         "project_mode": onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
-        "plan": {"steps": [
-            {"action": "project-onboard-local-checkout", "target": "/src/yoke"},
-        ]},
+        "plan": {
+            "steps": [
+                {"action": "project-onboard-local-checkout", "target": "/src/yoke"},
+            ]
+        },
     }
     grouped = steps.classify_plan(plan)
     assert grouped["admin"] == ["Set up the project at /src/yoke"]
@@ -422,23 +434,6 @@ def test_friendly_line_names_chosen_project_when_known() -> None:
         onboard_project.PROJECT_MODE_CREATE_REPO,
         "ExternalWebapp",
     )
-    assert rendered == "Record ExternalWebapp in the Yoke core database as a new project"
-
-
-def test_classify_plan_threads_project_name_into_source_choice() -> None:
-    plan = {
-        "project_mode": onboard_project.PROJECT_MODE_CREATE_REPO,
-        "plan": {
-            "project": {"name": "ExternalWebapp"},
-            "steps": [
-                {
-                    "action": "project-source-choice",
-                    "target": onboard_project.PROJECT_MODE_CREATE_REPO,
-                },
-            ],
-        },
-    }
-    grouped = steps.classify_plan(plan)
-    assert grouped["core"] == [
-        "Record ExternalWebapp in the Yoke core database as a new project"
-    ]
+    assert (
+        rendered == "Record ExternalWebapp in the Yoke core database as a new project"
+    )

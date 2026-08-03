@@ -179,7 +179,7 @@ class TestEnumRoundtrip:
 
 
 class TestNonzeroExitAndAnomalyAreIndependent:
-    """AC-8: a failed row has both ``event_outcome=failed`` AND ``nonzero_exit``."""
+    """A failed row has both ``event_outcome=failed`` AND ``nonzero_exit``."""
 
     def test_failed_outcome_carries_nonzero_exit_anomaly(self, memory_db):
         payload = {

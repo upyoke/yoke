@@ -14,11 +14,11 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain.executor_canonical_labels import (
+from yoke_contracts.executor_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
 )
-from yoke_core.engines.doctor_hc_executor_canonicalization import (
+from yoke_project_checks.check_executor_canonicalization import (
     HC_LABEL,
     HC_SLUG,
     hc_executor_canonicalization,
@@ -95,7 +95,7 @@ def _only_result(rec: RecordCollector):
 
 
 def test_pass_when_only_canonical_rows(db_conn):
-    """AC-3: canonical executor rows do not trip the HC."""
+    """Canonical executor rows do not trip the HC."""
     _seed_session(
         db_conn,
         session_id="s-1",
@@ -125,7 +125,7 @@ def test_pass_when_only_canonical_rows(db_conn):
 
 
 def test_warn_when_leaked_with_null_display_name(db_conn):
-    """AC-2: ``executor='claude-desktop'`` with NULL display_name trips."""
+    """``executor='claude-desktop'`` with NULL display_name trips."""
     _seed_session(
         db_conn,
         session_id="s-leak-null",
@@ -143,7 +143,7 @@ def test_warn_when_leaked_with_null_display_name(db_conn):
 
 
 def test_warn_when_leaked_with_populated_display_name(db_conn):
-    """AC-9: populated display_name does not exempt a leaked executor."""
+    """Populated display_name does not exempt a leaked executor."""
     _seed_session(
         db_conn,
         session_id="s-leak-populated",
@@ -160,7 +160,7 @@ def test_warn_when_leaked_with_populated_display_name(db_conn):
 
 
 def test_warn_catches_future_surface_label_via_pattern(db_conn):
-    """AC-8: pattern detection trips on a Yoke-family surface
+    """Pattern detection trips on a Yoke-family surface
     label not present in :data:`KNOWN_SURFACE_LABELS`."""
     novel_surface = "codex-jetbrains"
     assert novel_surface not in KNOWN_SURFACE_LABELS
@@ -221,7 +221,7 @@ def test_skip_on_minimal_schema():
 def test_offender_list_truncates_with_overflow_marker(db_conn):
     """More than ``_MAX_OFFENDERS_REPORTED`` leaked rows show a
     ``... +N more`` overflow line."""
-    from yoke_core.engines.doctor_hc_executor_canonicalization import (
+    from yoke_project_checks.check_executor_canonicalization import (
         _MAX_OFFENDERS_REPORTED,
     )
 

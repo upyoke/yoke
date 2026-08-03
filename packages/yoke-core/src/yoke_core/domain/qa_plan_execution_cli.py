@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import sys
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from yoke_core.domain.qa_case_execution_cli import WAITING_RETRY_EXIT
 from yoke_core.domain.qa_plan_execution import (
@@ -14,6 +16,52 @@ from yoke_core.domain.qa_plan_execution import (
 )
 
 AGENT_REVIEW_REQUIRED_EXIT = 12
+
+
+def _review_connection_env() -> str:
+    explicit = os.environ.get("YOKE_ENV", "").strip()
+    if explicit:
+        return explicit
+    from yoke_contracts.machine_config.runtime import active_env
+
+    return active_env()
+
+
+def _qualify_review_dispatch(result: dict[str, Any]) -> None:
+    bundle = result.get("review_bundle")
+    if not isinstance(bundle, dict):
+        return
+    dispatch = bundle.get("dispatch")
+    if not isinstance(dispatch, dict):
+        raise QaPlanExecutionError("QA review bundle lacks a dispatch contract")
+    authority = dispatch.get("authority")
+    if not isinstance(authority, dict) or authority.get("state") != "bound":
+        raise QaPlanExecutionError("QA review bundle lacks immutable target authority")
+    connection_env = _review_connection_env()
+    authority["connection_env"] = connection_env
+    prefix = f"yoke --env {shlex.quote(connection_env)}"
+    commands = dispatch.get("artifact_read_commands")
+    if not isinstance(commands, list) or any(
+        not isinstance(command, str) or not command.startswith("yoke ")
+        for command in commands
+    ):
+        raise QaPlanExecutionError(
+            "QA review bundle lacks typed artifact-read commands"
+        )
+    dispatch["artifact_read_commands"] = [
+        command.replace("yoke ", f"{prefix} ", 1) for command in commands
+    ]
+    submit = dispatch.get("submit_command")
+    if not isinstance(submit, str) or not submit.startswith("yoke "):
+        raise QaPlanExecutionError(
+            "QA review bundle lacks a typed verdict submission command"
+        )
+    dispatch["submit_command"] = submit.replace("yoke ", f"{prefix} ", 1)
+    dispatch["prompt"] = (
+        f"{str(dispatch.get('prompt') or '').strip()} Use the exact Yoke "
+        f"connection `{connection_env}` carried by this handoff for every "
+        "registered read and submission; do not use the ambient connection."
+    )
 
 
 def run(args: List[str]) -> int:
@@ -34,6 +82,14 @@ def run(args: List[str]) -> int:
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)
+    parser.add_argument(
+        "--allow-tree-mismatch",
+        action="store_true",
+        help=(
+            "Run the roster's cases against the resolved checkout even when "
+            "it sits outside this session's claim-bound worktree."
+        ),
+    )
     parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
@@ -63,11 +119,18 @@ def run(args: List[str]) -> int:
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,
+            allow_tree_mismatch=parsed.allow_tree_mismatch,
             actor=actor,
         )
     except QaPlanExecutionError as exc:
         print(f"yoke qa plan run: {exc}", file=sys.stderr)
         return 2
+    if result.get("state") == "awaiting_agent_review":
+        try:
+            _qualify_review_dispatch(result)
+        except QaPlanExecutionError as exc:
+            print(f"yoke qa plan run: {exc}", file=sys.stderr)
+            return 2
     print(json.dumps(result, sort_keys=True))
     state = result.get("state")
     if state == "waiting":

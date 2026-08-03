@@ -26,7 +26,7 @@ from runtime.api.domain.test_agents_render_workspace_fixtures import (
     resolve_live_repo_root,
 )
 
-# AC-1 / AC-2 / AC-5 reader-anchor regressions live in the sibling module
+# Reader-anchor regressions live in the sibling module
 # ``test_agents_render_workspace_anchor.py`` so this file stays under the
 # 350-line authoring cap.
 
@@ -40,8 +40,8 @@ from runtime.api.domain.test_agents_render_workspace_fixtures import (
 def repo_root() -> Path:
     """Return the workspace-anchored live Yoke checkout root.
 
-    Resolves via ``$YOKE_BOUND_WORKSPACE`` or a ``Path(__file__)``
-    walk-up — never via the process cwd, so byte-identity tests produce
+    Resolves via a ``Path(__file__)`` walk-up — never via the process cwd, so
+    byte-identity tests produce
     identical outcomes from main, from a linked worktree, or from /tmp.
     """
     return resolve_live_repo_root()
@@ -70,10 +70,10 @@ def temp_agent_env(tmp_path: Path) -> Path:
 
 def test_render_format(repo_root: Path) -> None:
     """Output starts with ---\\n, contains frontmatter block, body follows."""
-    from yoke_core.domain.agents_render_context import expand_markers
-    from yoke_core.domain.agents_render_field_note import (
-        expand_field_note_markers,
+    from yoke_core.domain.agents_render_references import (
+        render_agent_prompt_body,
     )
+    from yoke_core.domain.agents_render_conditional import CLAUDE_HARNESS_ID
 
     rendered = render_claude_agent("architect", target_root=repo_root)
     assert rendered.startswith("---\n"), "Must start with YAML frontmatter delimiter"
@@ -81,10 +81,12 @@ def test_render_format(repo_root: Path) -> None:
     assert second_delim > 4, "Must have a closing --- delimiter"
     after = rendered[second_delim + 4 :]
     assert after.startswith("\n"), "Body must be separated from frontmatter by a blank line"
-    expanded = expand_field_note_markers(
-        expand_markers(load_canonical("architect", target_root=repo_root))
+    expected_body = render_agent_prompt_body(
+        repo_root / CANONICAL_DIR,
+        "architect",
+        harness_id=CLAUDE_HARNESS_ID,
     ).lstrip("\n")
-    assert expanded in rendered
+    assert expected_body in rendered
 
 
 def test_render_deterministic(repo_root: Path) -> None:
@@ -209,7 +211,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
     stale snippet, `detect_substrate_drift` must report a `stale-term:`
     drift entry. The presence of the marker means the agent already gets
     the generated packet; an additional stale example is exactly the
-    kind of duplication AC-8 forbids."""
+    kind of duplication the drift check forbids."""
 
     from yoke_core.domain.agents_render import (
         CANONICAL_DIR,
@@ -219,7 +221,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
     repo = tmp_path
     canonical = repo / CANONICAL_DIR
     canonical.mkdir(parents=True)
-    # qa_kind='review' is in seed.STALE_TERMS and is what AC-7 / AC-18
+    # qa_kind='review' is in seed.STALE_TERMS and is what stale-term checks
     # specifically forbid in rendered Tester adapters.
     bad_term = "qa_kind=" "'review'"
     (canonical / "tester.md").write_text(
@@ -247,7 +249,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
 def test_detect_substrate_drift_flags_unmatched_conditional_marker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-3: an unmatched YOKE:HARNESS start marker must surface as a
+    """An unmatched YOKE:HARNESS start marker must surface as a
     drift entry from the universal substrate drift surface so the existing
     HC-harness-substrate-drift health check catches it.
     """
@@ -284,7 +286,7 @@ def test_detect_substrate_drift_flags_unmatched_conditional_marker(
 
 
 def test_codex_adapters_emit_no_tools_field() -> None:
-    """AC-2 / AC-15: Codex adapter metadata carries no `tools` field — the
+    """Codex adapter metadata carries no `tools` field — the
     Claude-only allowlist (Monitor included) has no Codex subagent meaning."""
     from yoke_core.domain.agents_render import CANONICAL_DIR
     from yoke_core.domain.agents_render_codex import render_codex_agent
@@ -303,4 +305,4 @@ def test_codex_adapters_emit_no_tools_field() -> None:
         )
 
 
-# AC-5 cross-cwd regression test lives in test_agents_render_workspace_anchor.py.
+# The cross-cwd regression test lives in test_agents_render_workspace_anchor.py.

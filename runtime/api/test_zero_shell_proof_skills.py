@@ -5,7 +5,7 @@ assertions keyed on the canonical
 ``RECIPE_RESIDUE_PATTERNS`` vocabulary plus per-skill-family function-call
 expectations. Each new test below documents which AC family it covers:
 
-* AC-15.1 / AC-15.4 — banned-pattern hits in skill prose use the same
+* Banned-pattern hits in skill prose use the same
   ``RECIPE_RESIDUE_PATTERNS`` constant as the manifest test and Doctor HC.
 * False-Teacher Eradication Contract — Progress Log writes teach the
   ``items.progress_log.append`` adapter; structured-field writes teach the
@@ -141,7 +141,7 @@ def test_no_task_update_body_body_file_examples_in_live_docs() -> None:
 
     assert not offenders, (
         "Live docs/skills still teach ``task-update-body ... --body-file`` "
-        "as the default path (YOK-1438 AC-8). Prefer stdin-first examples.\n"
+        "as the default path. Prefer stdin-first examples.\n"
         + "\n".join(f"  {f}:{n}: {line}" for f, n, line in offenders)
     )
 
@@ -162,7 +162,7 @@ def test_no_items_update_body_file_examples_in_live_docs() -> None:
 
     assert not offenders, (
         "Live docs/skills still teach ``items update ... --body-file`` "
-        "as the default transport path (YOK-1438 AC-3/AC-9). Prefer stdin-first examples.\n"
+        "as the default transport path. Prefer stdin-first examples.\n"
         + "\n".join(f"  {f}:{n}: {line}" for f, n, line in offenders)
     )
 
@@ -175,7 +175,7 @@ def test_no_items_update_body_file_examples_in_live_docs() -> None:
 
 
 def test_no_recipe_residue_patterns_in_skill_files() -> None:
-    """AC-15.1 / AC-15.4: skill prose contains zero banned residue patterns.
+    """Skill prose contains zero banned residue patterns.
 
     Single source of truth is
     ``yoke_core.domain.lint_structured_field_transform_shell_messages.
@@ -284,7 +284,7 @@ def test_structured_writes_use_stdin_or_body_file_not_mktemp() -> None:
 
 
 def test_recipe_residue_patterns_used_canonically() -> None:
-    """AC-15.4: this test module imports ``RECIPE_RESIDUE_PATTERNS`` directly
+    """This test module imports ``RECIPE_RESIDUE_PATTERNS`` directly
     so the assertion class cannot drift from the canonical vocabulary.
 
     A future refactor that copies the patterns into a sibling module

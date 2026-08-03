@@ -1,6 +1,6 @@
 # Simulator — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical simulator prompt at `runtime/agents/simulator.md`. Read this file before completing your final response — every Simulator dispatch must close with the structured reflection block defined by the shared contract.
+Reference content for the Simulator prompt. Read this file before completing your final response — every Simulator dispatch must close with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
@@ -27,7 +27,7 @@ Simulator worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T19:00:00Z
 agent: simulator
-context: epic YOK-N integration trace
+context: epic PREFIX-N integration trace
 category: process-improvement
 Cross-task path tracing currently requires re-reading every task body inline. A compact interface-contract index emitted at plan time would cut simulation context size dramatically and let the Simulator reach more tasks before hitting the budget.
 ---END ENTRY---

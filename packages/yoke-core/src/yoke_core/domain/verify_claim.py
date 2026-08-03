@@ -37,18 +37,20 @@ import os
 import sys
 from typing import Optional
 
+from yoke_contracts.item_ref import format_item_ref
+from yoke_core.domain.claim_recovery import canonical_item_ref
+from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
+
 
 def _normalize_item_id(raw: str) -> Optional[int]:
-    stripped = raw.strip()
-    if stripped.upper().startswith("YOK-"):
-        stripped = stripped[4:]
-    stripped = stripped.lstrip("0")
-    if stripped == "":
-        return None
-    try:
-        return int(stripped)
-    except ValueError:
-        return None
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    return parse_item_id_or_none(raw, allow_bare_internal=True)
 
 
 def _resolve_session_id() -> str:
@@ -68,10 +70,14 @@ def _ambient_resolution_failed() -> str:
 
 
 def _resolve_bypass() -> str:
-    direct = os.environ.get("YOKE_CLAIM_BYPASS", "")
+    # Request-scoped override first (done-transition status relays post it on a
+    # ContextVar), then the process-global env vars so env-driven callers are
+    # unchanged.
+    ctx_bypass, ctx_source = resolve_claim_bypass()
+    direct = ctx_bypass or os.environ.get("YOKE_CLAIM_BYPASS", "")
     if direct:
         return direct
-    status_source = os.environ.get("YOKE_STATUS_SOURCE", "")
+    status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")
     if status_source.startswith("repair-status:"):
         return status_source
     return ""
@@ -177,7 +183,9 @@ def verify(item_id: int) -> tuple[int, dict]:
     Returns ``(exit_code, result_dict)`` where the dict is the JSON
     payload written to stdout by ``main``.
     """
-    item_ref = f"YOK-{item_id}"
+    item_ref = canonical_item_ref(item_id) or format_item_ref(
+        None, None, None, item_id=item_id
+    )
     session_id = _resolve_session_id()
     bypass_source = _resolve_bypass()
 

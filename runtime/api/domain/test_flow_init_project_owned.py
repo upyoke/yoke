@@ -58,8 +58,8 @@ def test_yoke_checkout_owns_valid_flow_declarations() -> None:
     assert "yoke-branch-preview" in by_id
     assert by_id["yoke-branch-preview"].target_env == "ephemeral"
     assert json.loads(by_id["yoke-branch-preview"].stages) == [
-        {"name": "ephemeral-deploy", "executor": "ephemeral-deploy"},
-        {"name": "complete", "executor": "auto"},
+        {"name": "ephemeral-deploy", "step_runner": "ephemeral-deploy"},
+        {"name": "complete", "step_runner": "auto"},
     ]
     assert "yoke-ephemeral-deploy" not in by_id
 
@@ -73,7 +73,7 @@ def test_yoke_hosted_flows_keep_dispatch_correlation() -> None:
         stage
         for flow in normalized.flows
         for stage in json.loads(flow.stages)
-        if stage.get("executor") == "github-actions-workflow"
+        if stage.get("step_runner") == "github-actions-workflow"
     ]
     assert stages
     assert {stage["dispatch_correlation_input"] for stage in stages} == {

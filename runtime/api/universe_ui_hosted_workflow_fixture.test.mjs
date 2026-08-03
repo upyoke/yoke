@@ -93,9 +93,9 @@ const EXPECTED_DESCRIPTION_COPY = {
 
 const EXPECTED_VERSION_ONE_DESCRIPTIONS = {
   dash: {
-    implementing: "The executor surveys conflicts and completes the instruction.",
+    implementing: "The skill surveys conflicts and completes the instruction.",
     "reviewing-implementation":
-      "The executor self-checks plus any item-declared verification.",
+      "The skill self-checks plus any item-declared verification.",
     done: "The result and verification evidence are recorded on the item.",
   },
   blitz: {
@@ -254,6 +254,14 @@ test("the hosted visual fixture serves distinct immutable version definitions", 
       workflowId,
     );
     assert.deepEqual(currentDefinition.policies.approval_defaults, {}, workflowId);
+    if (["dash", "blitz"].includes(workflowId)) {
+      assert.equal(
+        Object.hasOwn(historicalDefinition.policies, "path_survey"),
+        false,
+        workflowId,
+      );
+      assert.equal(currentDefinition.policies.path_survey, "required", workflowId);
+    }
     assert.notDeepEqual(historicalDefinition, currentDefinition, workflowId);
   }
 });

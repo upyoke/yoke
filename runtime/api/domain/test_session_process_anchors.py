@@ -28,6 +28,17 @@ def machine_home(tmp_path, monkeypatch):
     return home
 
 
+@pytest.fixture(autouse=True)
+def _no_liveness_probe(monkeypatch):
+    """Keep registry unit tests on file state alone.
+
+    The shim wires a transport-backed liveness probe into contended writes;
+    healing behavior has its own suite (``test_session_anchor_contention``).
+    Without a probe, contention stays fail-closed exactly as before.
+    """
+    monkeypatch.setattr(anchors, "_liveness_probe", lambda: None)
+
+
 def _anchor(pid=200, start=_START, name="claude"):
     return ProcessAnchor(pid=pid, start_time=start, process_name=name)
 
@@ -52,10 +63,39 @@ class TestRecordSessionAnchor:
         assert on_disk["anchor_process_name"] == "claude"
         assert on_disk["registered_at"]
 
-    def test_rewrite_same_pid_last_writer_wins(self, machine_home):
+    def test_rewrite_by_same_session_refreshes_in_place(self, machine_home):
+        anchors.record_session_anchor("sess-1", anchor=_anchor())
+        anchors.record_session_anchor("sess-1", anchor=_anchor())
+        on_disk = _record_for(machine_home, 200)
+        assert on_disk["session_id"] == "sess-1"
+        assert "shared_by_multiple_sessions" not in on_disk
+
+    def test_second_live_session_on_one_pid_marks_contention(self, machine_home):
         anchors.record_session_anchor("sess-old", anchor=_anchor())
         anchors.record_session_anchor("sess-new", anchor=_anchor())
-        assert _record_for(machine_home, 200)["session_id"] == "sess-new"
+        on_disk = _record_for(machine_home, 200)
+        # Neither session may claim a pid that hosts both of them — and the
+        # marker names them, plus the writer, so contention is attributable.
+        assert on_disk["shared_by_multiple_sessions"] is True
+        assert on_disk["session_id"] == ""
+        assert on_disk["contending_session_ids"] == ["sess-new", "sess-old"]
+        assert on_disk["last_writer_pid"]
+        assert "last_writer_argv" in on_disk
+
+    def test_contention_marker_survives_further_writers(self, machine_home):
+        anchors.record_session_anchor("sess-a", anchor=_anchor())
+        anchors.record_session_anchor("sess-b", anchor=_anchor())
+        anchors.record_session_anchor("sess-c", anchor=_anchor())
+        assert _record_for(machine_home, 200)["shared_by_multiple_sessions"]
+
+    def test_pid_reuse_lets_a_new_session_claim_the_pid(self, machine_home):
+        anchors.record_session_anchor("sess-old", anchor=_anchor(start="s-old"))
+        anchors.record_session_anchor("sess-new", anchor=_anchor(start="s-new"))
+        on_disk = _record_for(machine_home, 200)
+        # A different start time means the old process is gone, so this is a
+        # reused pid rather than two live sessions sharing one host.
+        assert on_disk["session_id"] == "sess-new"
+        assert "shared_by_multiple_sessions" not in on_disk
 
     def test_no_harness_ancestor_returns_none(self, machine_home, monkeypatch):
         monkeypatch.setattr(
@@ -114,7 +154,7 @@ class TestResolveSessionFromAncestry:
         def _boom(*_a, **_k):
             raise AssertionError("process table must not be consulted")
 
-        monkeypatch.setattr(session_identity, "ancestor_pids", _boom)
+        monkeypatch.setattr(session_identity, "anchor_candidate_pids", _boom)
         assert anchors.resolve_session_from_ancestry(400) is None
 
     def test_unrelated_anchor_does_not_resolve(self, machine_home):
@@ -125,6 +165,71 @@ class TestResolveSessionFromAncestry:
             start_time_of=lambda _pid: _START,
         )
         assert resolved is None
+
+    def test_hosting_process_blocks_the_anchor_above_it(self, machine_home):
+        # A session hosted by a multiplexing harness that was launched from
+        # an anchored one has a perfectly good anchor two hops up, naming a
+        # DIFFERENT session. Resolving through the shared host would hand
+        # the hosted session the launching session's identity — and with it
+        # authority over the launching session's claims and item.
+        anchors.record_session_anchor(
+            "launching-session", anchor=_anchor(pid=100, start="s100"),
+        )
+        tree = {400: 300, 300: 200, 200: 100, 100: 1}
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents=tree,
+            start_time_of={100: "s100"}.get,
+            name_of={300: "zsh", 200: "cursor-agent", 100: "claude"}.get,
+        )
+        assert resolved is None
+        # Same tree, nothing multiplexed between: the anchor resolves, so
+        # the refusal above is the hosting process and not the shape.
+        assert (
+            anchors.resolve_session_from_ancestry(
+                400,
+                parents=tree,
+                start_time_of={100: "s100"}.get,
+                name_of={300: "zsh", 200: "zsh", 100: "claude"}.get,
+            )
+            == "launching-session"
+        )
+
+    def test_contended_pid_refuses_rather_than_guessing(self, machine_home):
+        anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))
+        anchors.record_session_anchor("sess-b", anchor=_anchor(pid=200))
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 1},
+            start_time_of=lambda _pid: _START,
+        )
+        assert resolved is None
+
+    def test_contended_pid_stops_the_walk_at_that_ancestor(self, machine_home):
+        # An ancestor above a pid that already hosts two sessions can only be
+        # more widely shared, so resolution must not fall through to it.
+        anchors.record_session_anchor("outer", anchor=_anchor(pid=100, start="s100"))
+        anchors.record_session_anchor("shared-a", anchor=_anchor(pid=200, start="s200"))
+        anchors.record_session_anchor("shared-b", anchor=_anchor(pid=200, start="s200"))
+        resolved = anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 100, 100: 1},
+            start_time_of={100: "s100", 200: "s200"}.get,
+        )
+        assert resolved is None
+
+    def test_contention_marker_is_not_pruned_while_its_pid_lives(
+        self, machine_home
+    ):
+        anchors.record_session_anchor("sess-a", anchor=_anchor(pid=200))
+        anchors.record_session_anchor("sess-b", anchor=_anchor(pid=200))
+        anchors.resolve_session_from_ancestry(
+            400,
+            parents={400: 200, 200: 1},
+            start_time_of=lambda _pid: _START,
+        )
+        registry = machine_home / anchors.ANCHORS_DIR_NAME
+        assert (registry / "200.json").exists()
 
     def test_corrupt_record_is_pruned_and_skipped(self, machine_home):
         registry = machine_home / anchors.ANCHORS_DIR_NAME
@@ -149,6 +254,25 @@ class TestResolveSessionFromAncestry:
             402, parents={402: 202, 202: 1}, start_time_of=starts,
         )
         assert (shell_a, shell_b) == ("sess-a", "sess-b")
+
+
+class TestRegistryIsolationGuard:
+    def test_default_registry_is_never_the_machine_home(self, tmp_path):
+        """Without an explicit pin, test writes land in the guard dir.
+
+        The real registry poisoning class: an unmocked anchor write in any
+        test resolves real process ancestry and would land a synthetic
+        session id on the developer's own conversation anchor.
+        """
+        from pathlib import Path
+
+        resolved = anchors.anchors_dir()
+        assert not str(resolved).startswith(str(Path.home()))
+        anchors.record_session_anchor("sess-guarded", anchor=_anchor())
+        assert (Path(resolved) / "200.json").exists()
+
+    def test_machine_home_pin_is_honored(self, machine_home):
+        assert str(anchors.anchors_dir()).startswith(str(machine_home))
 
 
 class TestPruneStaleAnchors:

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.config import project_worktrees_ignore
+from yoke_cli.project_install import cursor_permissions as cursor_permissions_layer
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
@@ -14,6 +15,7 @@ from yoke_cli.project_install import (
     settings_permissions as settings_permissions_layer,
 )
 from yoke_cli.project_install import strategy as strategy_layer
+from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 
 
 def preflight_apply(
@@ -49,6 +51,7 @@ def preflight_apply(
         *(entry["path"] for entry in contracts),
         *strategy_layer.strategy_mutation_paths(strategies),
         *hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY.values(),
+        *CURSOR_CONFIG_RELS,
         *managed_markdown_targets,
         files_layer.MANIFEST_REL,
         ".gitignore",
@@ -91,6 +94,9 @@ def preflight_apply(
             repo_root, bundle.get("claude_settings_permissions"),
         )
     )
+    cursor_permissions_preview = (
+        cursor_permissions_layer.preview_cursor_permissions(repo_root)
+    )
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     return {
         "hook_plans": hook_plans,
@@ -99,6 +105,7 @@ def preflight_apply(
         "owned_git_hook_hashes": owned_git_hook_hashes,
         "managed_markdown_preview": managed_markdown_preview,
         "settings_permissions_preview": settings_permissions_preview,
+        "cursor_permissions_preview": cursor_permissions_preview,
         "worktrees_ignore": worktrees_ignore,
     }
 

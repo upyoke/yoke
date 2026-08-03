@@ -1,6 +1,6 @@
 """Coverage for the dep-graph resolver helpers.
 
-Covers AC-11/AC-12 register-side awareness:
+Covers register-side awareness:
 
 * ``has_bidirectional_dep_edge`` returns True for forward + reverse
   edges, False otherwise.
@@ -77,11 +77,11 @@ def _seed_claim(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
-        "activated_at, base_commit_sha) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, activated_at, base_commit_sha) "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', %s) RETURNING id",
-        (state, actor, item_id, SNAP),
+        (state, item_id, actor, SNAP),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(

@@ -9,23 +9,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Any, Collection, Optional, Union
 
 from yoke_core.domain import machine_config
 from yoke_core.domain.db_backend import connection_is_postgres
 
-# Pure item-ref formatting moved to the shipped yoke_contracts.item_ref tier
-# (so the board render ships core-free); re-exported here for existing callers.
+# Pure item-ref formatting and parsing moved to the shipped
+# yoke_contracts.item_ref tier (so the board render ships core-free);
+# re-exported here for existing callers.
 from yoke_contracts.item_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
+    parse_public_item_ref,
 )
-
-
-DEFAULT_PROJECT_SLUG = "yoke"
-
-_PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
+from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -234,18 +231,14 @@ def resolve_item_id(
     """Resolve ``PREFIX-N`` or project-context bare sequence to internal id."""
     if isinstance(raw_ref, int):
         return raw_ref
-    text = str(raw_ref).strip()
-    if text.isdigit():
+    prefix, sequence = parse_public_item_ref(raw_ref)
+    if sequence is None:
+        return None
+    if prefix is None:
         if project is None:
             return None
         ident = resolve_project(conn, project, required=True)
-        sequence = int(text.lstrip("0") or "0")
     else:
-        match = _PUBLIC_REF_RE.match(text)
-        if not match:
-            return None
-        prefix = match.group("prefix").upper()
-        sequence = int(match.group("seq").lstrip("0") or "0")
         ident = resolve_project_for_public_prefix(conn, prefix, required=True)
     assert ident is not None
     p = placeholder(conn)
@@ -259,22 +252,45 @@ def resolve_item_id(
     return int(row_value(row, "id", 0))
 
 
+def _fetch_item_ref_row(conn: Any, sql: str, params: tuple) -> Any:
+    """Fetch the ref-projection row, tolerating a schema without the project
+    tables/columns (e.g. doctor HCs on bare/legacy schemas). A savepoint (when
+    the backend supports one) keeps the connection usable if the read raises;
+    returns ``None`` so the caller emits the prefix+id fallback.
+    """
+    transaction = getattr(conn, "transaction", None)
+    if callable(transaction):
+        try:
+            with transaction():
+                return conn.execute(sql, params).fetchone()
+        except Exception:
+            return None
+    try:
+        return conn.execute(sql, params).fetchone()
+    except Exception:
+        return None
+
+
 def render_item_ref(
     conn: Any,
     item_id: int,
     *,
     qualify: bool = False,
+    required: bool = False,
 ) -> str:
     del qualify
     p = placeholder(conn)
-    row = conn.execute(
+    row = _fetch_item_ref_row(
+        conn,
         f"""SELECT p.slug, p.public_item_prefix, i.project_sequence
             FROM items i
             JOIN projects p ON p.id = i.project_id
             WHERE i.id = {p}""",
         (item_id,),
-    ).fetchone()
+    )
     if row is None:
+        if required:
+            raise LookupError(f"item identity not found: {item_id}")
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
     prefix = row_value(row, "public_item_prefix", 1)
     sequence = row_value(row, "project_sequence", 2)

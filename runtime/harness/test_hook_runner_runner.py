@@ -68,14 +68,14 @@ def _run_cli(*args: str, stdin: str = "") -> subprocess.CompletedProcess:
     )
 
 def test_cli_help_exits_zero_and_lists_flags() -> None:
-    """AC-5: ``--help`` exits 0 and surfaces ``event_name`` + ``--dry-run``."""
+    """``--help`` exits 0 and surfaces ``event_name`` + ``--dry-run``."""
     completed = _run_cli("--help")
     assert completed.returncode == 0, completed.stderr
     assert "event_name" in completed.stdout
     assert "--dry-run" in completed.stdout
 
 def test_cli_dry_run_pretooluse_lists_chain_and_exits_zero() -> None:
-    """AC-6: ``PreToolUse --dry-run`` prints the chain and exits 0."""
+    """``PreToolUse --dry-run`` prints the chain and exits 0."""
     completed = _run_cli("PreToolUse", "--dry-run")
     assert completed.returncode == 0, completed.stderr
     assert "PreToolUse:Bash" in completed.stdout

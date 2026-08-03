@@ -20,7 +20,7 @@ from yoke_core.api.service_client_shared import queries
 # Canonical field list -- "body" is a virtual rendered field
 _QI_ALL_FIELDS = {
     "id", "title", "workflow_id", "workflow_version_id", "status",
-    "priority", "flow", "rework_count",
+    "priority", "rework_count",
     "frozen", "blocked", "blocked_reason",
     "github_issue", "deployed_to", "body",
     "merged_at", "created_at", "updated_at", "source", "project",
@@ -54,13 +54,14 @@ def _parse_item_id(raw: str) -> str | None:
     internal id happens against the DB in :func:`_resolve_item_ref` —
     per-project prefix resolution needs a connection.
     """
-    from yoke_core.domain.project_identity import _PUBLIC_REF_RE
+    from yoke_contracts.item_ref import parse_public_item_ref
 
     raw = raw.strip()
     if not raw:
         return None
     body = raw.rsplit("/", 1)[-1]
-    if body.isdigit() or _PUBLIC_REF_RE.match(body):
+    _, sequence = parse_public_item_ref(body)
+    if sequence is not None:
         return raw
     return None
 

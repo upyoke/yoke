@@ -1,10 +1,10 @@
 # Tester — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical tester prompt at `runtime/agents/tester.md`. Read this file before producing your final verdict — every Tester dispatch closes with the structured reflection block defined by the shared contract.
+Reference content for the Tester prompt. Read this file before producing your final verdict — every Tester dispatch closes with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
-Reflections are captured by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) and persisted to the `ouroboros_entries` table. You do not write to the DB directly — just produce the structured text output described below.
+Reflections are captured by the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) and persisted to the `ouroboros_entries` table. You do not write to the DB directly — just produce the structured text output described below.
 
 ## End-of-Session Sweep
 
@@ -20,7 +20,7 @@ Before producing your final verdict, review the session and answer these **four*
 
 ## Entry Block Shape
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: tester` and `context:` to the YOK-N / epic-task identifier you reviewed. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: tester` and `context:` to the PREFIX-N / epic-task identifier you reviewed. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Tester worked example:
 
@@ -29,7 +29,7 @@ Tester worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T18:30:00Z
 agent: tester
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: problem
 The full-branch diff was 5566 lines because TASK_BASELINE was pre-merge; the actual task-only changes were 1211 lines after subtracting the main merge. Dispatch context should pre-compute and surface the task-only line count so the Tester does not have to size-gate against the merge-inflated value.
 ---END ENTRY---

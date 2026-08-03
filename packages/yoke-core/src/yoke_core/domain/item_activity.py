@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
 _TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS item_activity_days (
@@ -82,14 +83,21 @@ def touch_item_activity(
     caller's own ``conn.commit()`` persists the row. Returns True when
     the upsert executed (including conflict no-ops), False when skipped.
     """
-    try:
-        numeric_item = int(str(item_id).strip().upper().replace("YOK-", ""))
-    except (TypeError, ValueError):
-        return False
     bucket = day or current_utc_day()
     p = _p(conn)
     try:
         conn.execute("SAVEPOINT item_activity_touch")
+        # Public refs (``PREFIX-N``) resolve via prefix + project_sequence;
+        # bare integers are internal ids. Resolution runs under the
+        # savepoint so a missing-table failure on a minimal fixture DB
+        # never poisons the caller's open transaction.
+        numeric_item = parse_item_id_or_none(
+            item_id, conn=conn, allow_bare_internal=True
+        )
+        if numeric_item is None:
+            conn.execute("ROLLBACK TO SAVEPOINT item_activity_touch")
+            conn.execute("RELEASE SAVEPOINT item_activity_touch")
+            return False
         if project_id is None:
             row = conn.execute(
                 f"SELECT project_id FROM items WHERE id = {p}",

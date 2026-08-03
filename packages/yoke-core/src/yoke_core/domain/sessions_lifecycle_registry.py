@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from . import db_backend
 from . import sessions_analytics as _sa
 from .session_activity_state import episode_column_present
 from .sessions_analytics import EVENT_HARNESS_SESSION_STARTED, SessionError
+from .sessions_ended_recovery import session_ended_message
 from .sessions_lifecycle_canonicalize import canonicalize_executor as _canonicalize_executor
 from .sessions_lifecycle_identity import (
-    DEFAULT_EXECUTION_LANE,
     refresh_active_duplicate_identity,
     resolve_reactivation_identity,
 )
@@ -129,7 +130,7 @@ def register_session(
     executor: str,
     provider: str,
     model: str,
-    execution_lane: str = DEFAULT_EXECUTION_LANE,
+    execution_lane: str = UNRESOLVED_EXECUTION_LANE,
     capabilities: Optional[List[str]] = None,
     workspace: str,
     project_id: int,
@@ -321,10 +322,7 @@ def heartbeat(conn: Any, session_id: str) -> Dict[str, Any]:
     if row is None:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
     if row["ended_at"] is not None:
-        raise SessionError(
-            "SESSION_ENDED",
-            f"Session '{session_id}' has already ended.",
-        )
+        raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
 
     conn.execute(
         f"UPDATE harness_sessions SET last_heartbeat = {_p(conn)} "
@@ -359,10 +357,7 @@ def set_session_mode(
     if row is None:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
     if row["ended_at"] is not None:
-        raise SessionError(
-            "SESSION_ENDED",
-            f"Session '{session_id}' has already ended.",
-        )
+        raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
 
     conn.execute(
         f"UPDATE harness_sessions SET mode = {_p(conn)} WHERE session_id = {_p(conn)}",

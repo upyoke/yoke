@@ -8,7 +8,13 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
-from yoke_core.domain.agents_render_hooks import render_claude_hooks_block
+from yoke_harness.hooks import cursor_model_spool
+
+from yoke_core.domain.agents_render_hooks import (
+    _CURSOR_HOOK_TIMEOUT_S,
+    render_claude_hooks_block,
+    render_cursor_hooks_block,
+)
 
 
 def test_default_only_events_render_single_matcherless_entry() -> None:
@@ -39,3 +45,43 @@ def test_entries_are_unique_per_event() -> None:
     for event, entries in block.items():
         matchers = [e.get("matcher") for e in entries]
         assert len(matchers) == len(set(matchers)), (event, matchers)
+
+
+def test_claude_omits_verbs_no_claude_surface_fires() -> None:
+    """The ordering registry is cross-harness. A verb only one harness
+    reports must stay out of settings.json — Claude disables every hook in
+    the file when one entry fails validation."""
+    block = render_claude_hooks_block()
+    assert "AgentModelReported" not in block
+
+
+def test_model_capture_hook_never_starts_the_interpreter() -> None:
+    """``afterAgentThought`` fires inside the token stream, where starting
+    Python already exceeds what Cursor tolerates — a 0.25s hook carrying no
+    Yoke code at all kills 4 of 6 runs. Its command must stay shell-only and
+    must still reply, since empty stdout drops the stream too."""
+    entries = render_cursor_hooks_block()["hooks"]["afterAgentThought"]
+    assert len(entries) == 1, entries
+    command = entries[0]["command"]
+    assert "yoke hook evaluate" not in command, command
+    assert "python" not in command.lower(), command
+    assert command.rstrip("'").endswith("echo {}"), command
+
+
+def test_model_capture_hook_and_reader_share_one_directory() -> None:
+    """The shell writes the spool and Python reads it; the directory name
+    has to come from the same constant or they silently miss each other."""
+    command = render_cursor_hooks_block()["hooks"]["afterAgentThought"][0]["command"]
+    assert cursor_model_spool.SPOOL_DIR_NAME in command
+    assert cursor_model_spool.SPOOL_DIR_NAME == cursor_model_spool.spool_dir().name
+
+
+def test_cursor_entries_carry_explicit_timeout() -> None:
+    """Every rendered Cursor hook entry pins an explicit generous timeout
+    so a slow relay is bounded by our ceiling, not the platform default."""
+    document = render_cursor_hooks_block()
+    assert document["version"] == 1
+    for event, entries in document["hooks"].items():
+        for entry in entries:
+            assert entry.get("timeout") == _CURSOR_HOOK_TIMEOUT_S, (event, entry)
+    assert _CURSOR_HOOK_TIMEOUT_S >= 30

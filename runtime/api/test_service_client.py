@@ -11,8 +11,8 @@ Covers:
 - apply-approval: validates approval-apply mutation (task 3)
 
 These tests verify parity between the service-client CLI output and the
-underlying domain layer, ensuring AC-1 (approval cutover) and AC-2
-(query cutover) plus the mutation command JSON
+underlying domain layer, ensuring the approval cutover and the
+query cutover plus the mutation command JSON
 contracts from the mutation CLI migration.
 """
 
@@ -116,10 +116,10 @@ def _apply_service_client_schema_on_conn(conn) -> None:
 
     # Seed a flow with human-approval stage
     stages_json = json.dumps([
-        {"name": "merged", "executor": "auto"},
-        {"name": "approve-deploy", "executor": "human-approval"},
-        {"name": "prod-deploy", "executor": "github-actions-workflow"},
-        {"name": "complete", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
+        {"name": "approve-deploy", "step_runner": "human-approval"},
+        {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+        {"name": "complete", "step_runner": "auto"},
     ])
     conn.execute(
         """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)

@@ -7,25 +7,16 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
+from yoke_project_checks.check_agents import hc_browser_substrate
 from yoke_core.engines.doctor import (
-    RecordCollector,
-    _resolve_main_root,
-    _resolve_repo_root,
-    hc_arch_consistency,
-    hc_browser_substrate,
-    hc_claudemd_drift,
-    hc_config_validation,
     hc_stray_db,
     hc_stray_project_files,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
     _cp,
-    _make_conn,
     _run_hc,
 )
 
@@ -114,7 +105,7 @@ class TestRepoFileHealthChecksB:
         (browser_dir / "package.json").write_text("{}")
         (browser_dir / "node_modules").mkdir()
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir", return_value=browser_dir
+            "yoke_harness.browser_runtime_home.runtime_dir", return_value=browser_dir
         ), patch(
             "yoke_core.engines.doctor_report._run", return_value=_cp(returncode=1, stdout="")
         ):
@@ -124,7 +115,7 @@ class TestRepoFileHealthChecksB:
 
     def test_browser_substrate_warns_when_not_materialized(self, tmp_path):
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir",
+            "yoke_harness.browser_runtime_home.runtime_dir",
             return_value=tmp_path / "browser-runtime",
         ):
             rec = _run_hc(hc_browser_substrate)

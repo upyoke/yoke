@@ -36,7 +36,7 @@ class ExistingProject:
     github_repo: str
     default_branch: str
     public_item_prefix: str
-    github_sync_mode: str = "backlog_only"
+    github_sync_mode: str = "disabled"
 
 
 @dataclass(frozen=True)
@@ -299,7 +299,9 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
     try:
         project_id = int(row.get("id") or 0)
     except (TypeError, ValueError) as exc:
-        raise ExistingProjectLookupError("matched project row has no numeric id") from exc
+        raise ExistingProjectLookupError(
+            "matched project row has no numeric id"
+        ) from exc
     if project_id <= 0:
         raise ExistingProjectLookupError("matched project row has no numeric id")
     slug = _text(row.get("slug"))
@@ -314,7 +316,7 @@ def _project_from_row(row: Mapping[str, Any]) -> ExistingProject:
         github_repo=github_repo,
         default_branch=_text(row.get("default_branch")) or "main",
         public_item_prefix=_text(row.get("public_item_prefix")) or "YOK",
-        github_sync_mode=_text(row.get("github_sync_mode")) or "backlog_only",
+        github_sync_mode=_text(row.get("github_sync_mode")) or "disabled",
     )
 
 

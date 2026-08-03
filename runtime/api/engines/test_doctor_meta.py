@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import datetime
 import json
+from pathlib import Path
 
+from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines._doctor_meta_test_helpers import (
     _args,
     _insert_deployment_flow,
@@ -41,30 +43,51 @@ from yoke_core.engines.doctor import (
 )
 
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Checks the engine registers for every project it inspects.
+_ENGINE_HC_SLUGS = (
+    "schema-drift",
+    "backlog-quality",
+    "deploy-stage-integrity",
+    "zombie-ephemeral-envs",
+    "orphaned-active-items",
+    "reviewed-implementation-epics-no-sim",
+    "file-line-limit",
+    "config-validation",
+    "event-registry-coverage",
+    "stale-sessions",
+)
+
+# Checks that encode this repo's own conventions, declared in .yoke/doctor/.
+_PROJECT_HC_SLUGS = (
+    "browser-substrate",
+    "doc-drift",
+    "agent-consistency",
+    "hook-executability",
+    "self-test",
+    "claudemd-drift",
+)
+
+
 class TestHCRegistryCompleteness:
-    """AC-2: Verify that the HC registry covers all shell HCs."""
+    """Verify that the registries cover every known HC."""
 
     def test_known_hc_ids_registered(self):
-        """Every HC slug in the HEALTH_CHECKS list maps to an 'HC-' prefixed ID."""
+        """Every known HC slug is registered, in the engine or in the project."""
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         for s in _DELEGATED_SYNC_HCS:
             slugs.add(s)
-        assert "schema-drift" in slugs
-        assert "backlog-quality" in slugs
-        assert "deploy-stage-integrity" in slugs
-        assert "zombie-ephemeral-envs" in slugs
-        assert "orphaned-active-items" in slugs
-        assert "reviewed-implementation-epics-no-sim" in slugs
-        assert "file-line-limit" in slugs
-        assert "config-validation" in slugs
-        assert "event-registry-coverage" in slugs
-        assert "browser-substrate" in slugs
-        assert "doc-drift" in slugs
-        assert "agent-consistency" in slugs
-        assert "hook-executability" in slugs
-        assert "self-test" in slugs
-        assert "stale-sessions" in slugs
-        assert "claudemd-drift" in slugs
+        for slug in _ENGINE_HC_SLUGS:
+            assert slug in slugs, f"{slug} missing from HEALTH_CHECKS"
+        project_slugs = {
+            hc.slug for hc in discover_project_checks(REPO_ROOT).checks
+        }
+        for slug in _PROJECT_HC_SLUGS:
+            assert slug in project_slugs, (
+                f"{slug} missing from the checks discovered under {REPO_ROOT}"
+            )
+        assert not (slugs & set(_PROJECT_HC_SLUGS))
 
     def test_minimum_hc_count(self):
         """Python engine has at least as many HCs as the known shell count."""

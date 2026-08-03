@@ -1,0 +1,34 @@
+"""Stable output fields for the session roster read model."""
+
+SESSION_LIST_FIELDS = (
+    "session_id",
+    "liveness",
+    "activity_at",
+    "execution_lane",
+    "lane_label",
+    "lane_glyph",
+    "mode",
+    "actor_id",
+    "actor_kind",
+    "actor_label",
+    "project_id",
+    "project",
+    "executor",
+    "executor_display_name",
+    "executor_mark",
+    "executor_class_name",
+    "model",
+    "workspace",
+    "offered_at",
+    "ended_at",
+    "current_item",
+    "current_item_title",
+    "current_item_workflow_id",
+    "current_item_workflow_version_id",
+    "work_role",
+    "owns_current_item",
+    "claim_started_at",
+    "claims",
+)
+
+__all__ = ["SESSION_LIST_FIELDS"]

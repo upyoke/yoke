@@ -1,7 +1,7 @@
 """Targeted handler tests for ``claims.path.widen`` planned-path resolution.
 
 Lives in a sibling file because ``test_api_claims_functions.py`` already
-sits at the 350-line hard limit. Coverage matches AC-6 / AC-10 / AC-13:
+sits at the 350-line hard limit. Coverage:
 
 - ``add_paths`` resolves through the strict resolver by default.
 - ``allow_planned=True`` routes through ``resolve_or_plan_paths_to_target_ids``
@@ -87,7 +87,7 @@ class TestWidenPlannedPaths(unittest.TestCase):
         return resp, strict, planned, widen
 
     def test_strict_resolver_when_allow_planned_omitted(self):
-        """AC-13 strict half: default keeps the existing resolver."""
+        """Strict half: the default keeps the existing resolver."""
         resp, strict, planned, widen = self._run(
             {
                 "claim_id": 116,
@@ -102,7 +102,7 @@ class TestWidenPlannedPaths(unittest.TestCase):
         self.assertEqual(widen.call_args.kwargs["add_target_ids"], [2960])
 
     def test_allow_planned_routes_through_planned_resolver(self):
-        """AC-6 / AC-10 / AC-13 planned half."""
+        """Planned half: ``allow_planned=True`` uses the planning resolver."""
         resp, strict, planned, widen = self._run(
             {
                 "claim_id": 116,

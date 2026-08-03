@@ -1,23 +1,23 @@
 """Parity matrix test for the CLI-to-dispatcher adapter.
 
-Covers AC-8.5, AC-8.6, AC-8.8, AC-8.9, AC-8.10 of
-- AC-8.6: each (CLI invocation, equivalent dispatch call) pair produces
+Covers:
+- Each (CLI invocation, equivalent dispatch call) pair produces
   identical typed result payloads. The test calls
   :func:`yoke_core.api.service_client_structured_api_adapter.call_dispatcher`
   once and the same dispatcher entrypoint twice with identical inputs,
   asserts the responses match, and asserts the registry's recorded
   ``YokeFunctionCalled`` event row carries the same payload shape both
   times.
-- AC-8.5 / AC-8.9: every retained adapter supports ``--json`` mode and
+- Every retained adapter supports ``--json`` mode and
   returns the typed envelope verbatim. The test imports the typed
   envelope, dispatches a synthetic function via the adapter, and asserts
   the JSON output is a verbatim ``response.model_dump(mode="json")``.
-- AC-8.8: the parity matrix is generated from the registry + the
+- The parity matrix is generated from the registry + the
   retained-adapter inventory, so adding a new function id with
   ``adapter_status="live"`` without an adapter inventory entry fails the
   test. The reverse — an inventory entry for an unregistered function
   id — also fails so stale inventory rows get caught.
-- AC-8.10: ``adapter_for`` returns a structured result, not a shell
+- ``adapter_for`` returns a structured result, not a shell
   exit-code probe; capability checks need no ``2>&1; echo $?``
   choreography.
 """
@@ -78,7 +78,7 @@ def _live_function_ids() -> set[str]:
 
 
 class TestRegistryInventoryParity:
-    """AC-8.8 — adapter inventory tracks the live registry one-to-one."""
+    """Adapter inventory tracks the live registry one-to-one."""
 
     def test_every_live_function_has_an_adapter_entry(self) -> None:
         live = _live_function_ids()
@@ -142,7 +142,7 @@ class TestRegistryInventoryParity:
             assert "non-lifecycle claim flows" in claim_entry.direct_use_caveat
 
     def test_adapter_for_returns_structured_result(self) -> None:
-        """AC-8.10 — structured lookup, no shell exit-code probes."""
+        """Structured lookup, no shell exit-code probes."""
         sample = CLI_ADAPTERS[0]
         result = adapter_for(sample.function_id)
         assert isinstance(result, AdapterEntry)
@@ -200,7 +200,7 @@ def synthetic_handler(monkeypatch):
 
 
 class TestDispatchParity:
-    """AC-8.6 — CLI invocation and direct dispatch produce identical results."""
+    """CLI invocation and direct dispatch produce identical results."""
 
     def test_call_dispatcher_returns_typed_envelope(
         self, synthetic_handler
@@ -253,12 +253,12 @@ class TestDispatchParity:
 
 
 # ---------------------------------------------------------------------------
-# JSON emission — AC-8.5 / AC-8.9
+# JSON emission
 # ---------------------------------------------------------------------------
 
 
 class TestJsonMode:
-    """AC-8.5 / AC-8.9 — ``--json`` returns the FunctionCallResponse verbatim."""
+    """``--json`` returns the FunctionCallResponse verbatim."""
 
     def _make_response(
         self,

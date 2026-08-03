@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.engines.doctor_hc_heading_casing import hc_heading_casing_canon
+from yoke_project_checks.check_heading_casing import hc_heading_casing_canon
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 

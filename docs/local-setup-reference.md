@@ -82,6 +82,17 @@ Machine-local runtime context lives in `~/.yoke/config.json`. It owns the
 active env, credential source, temp/cache roots, checkout-to-project
 bindings, board render path, and physical worktree layout.
 
+Its `settings` object owns machine-local runtime tunables only — timeouts,
+retry budgets, guardrail modes, and per-machine thresholds. Every recognized
+key, its source default, and its one-line meaning live in
+`yoke_contracts.machine_config.settings_keys`; an absent key behaves exactly
+like a key set to its default, so the file only needs entries that differ.
+`HC-config-validation` flags two shapes: a key with no reader, and a key that
+duplicates DB authority. The second matters more — once a project id is
+known, routing and project policy resolve from the capability rows below and
+the machine copy is never consulted, so an edit there silently changes
+nothing.
+
 Project-local configuration lives in the project checkout:
 
 - `.yoke/board.json` controls board rendering appearance and behavior.
@@ -95,8 +106,9 @@ Project-local configuration lives in the project checkout:
 Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
-  `default_priority`, `merge_conflict_threshold`, `max_attempts`, and
-  `file_line_limit`.
+  `default_priority`, `merge_conflict_threshold`, and `max_attempts`. The
+  authored-file line limit is not among them: it must hold in a fresh clone
+  with no DB reachable, so it is checked-in project-file policy.
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 
@@ -247,3 +259,34 @@ Source-dev/admin-only work includes:
 Do not teach these as normal project setup. Normal operators use
 `yoke onboard`, `yoke status`, project create/import/onboard/install, and
 the durable checklist handoff.
+
+## Parking a Development VPS
+
+A non-production VPS bills around the clock whether or not anyone is using it.
+When you are developing Yoke itself and do not need the stage host awake, stop
+it and start it again on demand:
+
+```bash
+yoke vps status --stack yoke-platform-stage-vps
+yoke vps stop   --stack yoke-platform-stage-vps
+yoke vps start  --stack yoke-platform-stage-vps
+```
+
+Credentials come from the project's `aws-admin` capability, not the ambient
+shell, so no `AWS_*` variables need exporting. `--project` defaults to
+`platform` and `--region` to `us-east-1`.
+
+This is deliberately a manual command rather than a schedule in the
+infrastructure. A schedule would have to know when everything else needs the
+host — the runner fleet SSHes to the VPS stacks named in its capability during
+deploys, and a host stopped underneath a deploy fails it. Stopping the host by
+hand keeps that judgement with the person who knows whether anything is
+running.
+
+What stopping does and does not save:
+
+- The instance-hours stop billing. That is the whole saving.
+- The root volume and the Elastic IP survive and keep billing, which is what
+  makes the host safe to stop: data and address are unchanged on `start`.
+- Anything pointed at the host is down while it is stopped, including
+  `api.stage.upyoke.com` and any CI deploy that targets it.

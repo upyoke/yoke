@@ -15,6 +15,7 @@ preserving the merged ``CORE_COMMANDS`` export the renderer consumes.
 Recipe shape doctrine (current):
     The core function ids (`items.get.run`, `items.structured_field.replace`,
     `items.progress_log.append`, `lifecycle.transition.execute`,
+    `lifecycle.repair_status.execute`,
     `events.query.run`, `claims.work.*`, `claims.path.{register,widen}`,
     `ouroboros.field_note.append`) use the strict ``yoke <subcommand>``
     grammar. Session-lifecycle CLIs, the `agents_render` renderer, the
@@ -28,29 +29,16 @@ Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 from __future__ import annotations
 
 
-WORKTREE_SOURCE_PATH_SETUP = (
-    "_repo=$(git rev-parse --show-toplevel)\n"
-    "_src_path=\"${_repo}/packages/yoke-contracts/src:"
-    "${_repo}/packages/yoke-cli/src:"
-    "${_repo}/packages/yoke-core/src:"
-    "${_repo}/packages/yoke-harness/src:${_repo}\""
-)
-
-WORKTREE_SOURCE_PYTHONPATH_PREFIX = (
-    'PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}"'
-)
-
-
 OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N "
-            "--reason 'superseded by YOK-X'\n"
-            "yoke lifecycle transition YOK-N --to cancelled "
-            "--reason 'superseded by YOK-X'\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
+            "--reason 'superseded by PREFIX-X'\n"
+            "yoke lifecycle transition PREFIX-N --to cancelled "
+            "--reason 'superseded by PREFIX-X'\n"
+            "yoke claims work release --item PREFIX-N "
             "--reason cancelled"
         ),
         "notes": (
@@ -64,9 +52,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "Move a work item forward in lifecycle (claim → transition → release)"
         ),
         "recipe": (
-            "yoke claims work acquire --item YOK-N --reason transition\n"
-            "yoke lifecycle transition YOK-N --to refined-idea\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N --reason transition\n"
+            "yoke lifecycle transition PREFIX-N --to refined-idea\n"
+            "yoke claims work release --item PREFIX-N "
             "--reason transition-complete"
         ),
         "notes": (
@@ -80,12 +68,12 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Append to a work item's Progress Log (canonical agent shape)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
             "--reason progress-log-append\n"
-            "yoke items progress-log append YOK-N "
+            "yoke items progress-log append PREFIX-N "
             "--headline \"dispatched engineer\" --source orchestrator "
             "--content-file PATH\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work release --item PREFIX-N "
             "--reason progress-log-append-complete"
         ),
         "notes": (
@@ -123,23 +111,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": (
-            "Session lifecycle — heartbeat / checkpoint / mode-switch / "
-            "surrender-claims"
-        ),
+        "purpose": "Operator-mode lifecycle repair after authoritative drift",
         "recipe": (
-            "yoke claims work release --all-mine"
+            "yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET "
+            "--reason 'operator-authored reconciliation' --dry-run"
         ),
         "notes": (
-            "Session heartbeat/checkpoint/touch/offer remain pending "
-            "wrapper surfaces and are harness/orchestrator responsibilities, "
-            "not agent recipes. The harness owns session lifecycle — Stop / "
-            "SessionEnd hooks run the hook-runner cleanup helper; subagents "
-            "never terminate sessions themselves. "
-            "`yoke claims work release --all-mine` is the agent-shaped "
-            "primitive for surrendering work without terminating the session; "
-            "the pre-tool lint `lint_no_agent_session_end` refuses "
-            "agent-dispatched shutdown-helper invocations."
+            "First run `yoke sessions touch --mode operator`; drop --dry-run "
+            "to apply. `lifecycle.repair_status.execute` works over "
+            "HTTPS/local, checks project permission and the pinned workflow, "
+            "and limits its audited claim bypass to this request. Use "
+            "`yoke claims work release --all-mine` to surrender claims "
+            "without ending the session."
         ),
     },
     {
@@ -152,9 +135,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "$(yoke projects github-binding status --project yoke "
             "--field github_repo) "
             "ci.yml --branch main --project yoke\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N "
+            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
             "status --porcelain\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N "
+            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
             "rev-parse HEAD"
         ),
         "notes": (
@@ -224,12 +207,12 @@ OPERATIONAL_COMMANDS: list[dict] = [
 
     {
         "topic": "core",
-        "purpose": "Where to put a Python script that imports runtime.*",
-        "recipe": "# put it under runtime/api/tools/<name>.py — never /tmp/*.py",
+        "purpose": "Where to put a project Python script",
+        "recipe": "# put it under the project's tracked tools directory — never /tmp/*.py",
         "notes": (
             "Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, "
-            "not cwd, so `from runtime.*` fails. Use in-tree path or "
-            "`pip install -e .`. Prefer the canonical `yoke` CLI adapter "
+            "not cwd, so project imports may fail. Use a tracked project "
+            "path or the project's environment runner. Prefer the canonical `yoke` CLI adapter "
             "(`yoke items structured-field replace --stdin`) for "
             "one-off structured-field writes."
         ),
@@ -238,45 +221,39 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Verify Python imports/tests against linked worktree source",
         "recipe": (
-            f"{WORKTREE_SOURCE_PATH_SETUP}\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            "python3 -m yoke_core.tools.module_source_path yoke_core\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            "python3 -m yoke_core.tools.watch_pytest -- "
-            "runtime/api/test_my_module.py -q"
+            "uv run --frozen python3 -m "
+            "yoke_core.tools.module_source_path yoke_core\n"
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
+            "<project-test-path> -q"
         ),
         "notes": (
-            "Use this from linked worktrees when the interpreter's editable "
-            "install still points at the main checkout, or when an "
-            "externally-managed Python blocks `python3 -m pip install -e .`. "
-            "Prefix all four package `src` dirs plus the repo root so "
-            "subprocess `python3 -m ...` invocations exercise this branch. "
-            "Confirm the printed `yoke_core.__file__` path is under the "
-            "worktree before trusting a green test run."
+            "Fallback shape. `yoke watch pytest -- <paths>` already binds "
+            "the worktree in a uv-managed checkout. Use the command from "
+            "the linked worktree when the interpreter's editable install "
+            "could still point at main, or when an externally-managed Python "
+            "blocks `python3 -m pip install -e .`. Confirm the printed "
+            "`yoke_core.__file__` path is under the worktree before "
+            "trusting a green test run."
         ),
     },
     {
         "topic": "core",
         "purpose": "Re-render agent files after editing packet seeds",
         "recipe": (
-            f"{WORKTREE_SOURCE_PATH_SETUP}\n"
-            f"{WORKTREE_SOURCE_PYTHONPATH_PREFIX} "
-            'python3 -m yoke_cli.main agents render --target-root "${_repo}"'
+            "uv run --frozen python3 -m yoke_core.domain.agents_render "
+            "render --target-root <checkout>"
         ),
         "notes": (
             "After editing any `schema_api_context_*.py` seed file "
             "(`commands_core`, `tables_python_helpers`, etc.) or any "
             "canonical agent body, run the renderer or "
             "`test_byte_identity` fails. The renderer writes "
-            "`runtime/harness/claude/agents/yoke-*.md` + Codex "
-            "`.toml` siblings from the seeds. Drift check: "
-            "run the same worktree-source prefix with `python3 -m "
-            "yoke_cli.main agents render check --target-root "
-            "\"${_repo}\"`. Use the explicit `--target-root` form from "
+            "the installed Claude, Codex, and Cursor agent adapters from "
+            "the seeds. Drift check: run `uv run --frozen python3 -m "
+            "yoke_core.domain.agents_render check --target-root <checkout>`. "
+            "Use the explicit `--target-root` form from "
             "linked worktrees; implicit cwd-based render targets are refused "
-            "there. The installed `yoke` entry point can still target the "
-            "main checkout, so source-dev verification uses the package "
-            "`src` dirs above."
+            "there."
         ),
     },
     {

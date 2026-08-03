@@ -47,10 +47,11 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "executor stores only the canonical harness_id enum values "
-            "claude-code or codex (resolved at write time via "
+            "claude-code, codex, or cursor (resolved at write time via "
             "yoke_harness.hooks.identity.canonical_harness_id); "
             "the surface-specific alias (claude-desktop, codex-vscode, "
-            "claude-vscode, codex-cli, codex-desktop, etc.) lives in "
+            "claude-vscode, codex-cli, codex-desktop, cursor-desktop, "
+            "cursor-cli, etc.) lives in "
             "executor_display_name when known and is NULL otherwise. "
             "Board/session rendering prefers executor_display_name and "
             "falls back to executor; event-envelope executor fields are "
@@ -166,7 +167,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "here; a work_claims row's authority is just session_id + "
             "target_kind + item_id/epic_id/task_num. The claim timestamp "
             "is `claimed_at` (there is no `created_at` on this table). For "
-            "holder lookups prefer `yoke claims work holder-get YOK-N` "
+            "holder lookups prefer `yoke claims work holder-get PREFIX-N` "
             "over a raw SELECT against this table. "
             "Canonical SELECTs: all active claims a session holds — "
             "`SELECT id, item_id, epic_id, task_num, claim_type, "
@@ -190,10 +191,6 @@ CLAIMS_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("state", "TEXT"),
             ("mode", "TEXT"),
-            ("actor_id", "INTEGER"),
-            ("session_id", "TEXT"),
-            ("item_id", "INTEGER"),
-            ("work_claim_id", "INTEGER"),
             ("owner_kind", "TEXT"),
             ("owner_item_id", "INTEGER"),
             ("owner_session_id", "TEXT"),
@@ -216,18 +213,11 @@ CLAIMS_TABLES: dict[str, dict] = {
             "| 'blocked'. Typed ownership is explicit: owner_kind ∈ "
             "('item','session','process') and the matching one of "
             "owner_item_id / owner_session_id / owner_work_claim_id is "
-            "populated. New readers MUST consult typed owner fields — "
-            "NEVER treat the legacy session_id column as path authority; "
-            "it is provenance ONLY (the registering session, same as "
-            "registered_by_session_id). An item-owned claim survives the "
-            "registering session ending. The legacy actor_id / session_id "
-            "/ item_id / work_claim_id columns remain populated alongside "
-            "the typed owner fields during cutover for backwards "
-            "compatibility and roundtrip; readers should prefer the "
-            "typed columns. HC-path-claim-owner-kind flags non-terminal "
+            "populated. An item-owned claim survives the registering "
+            "session ending. HC-path-claim-owner-kind flags non-terminal "
             "rows that lack typed ownership or carry contradictory "
             "owner_kind / owner-field combinations. Lookup by item via "
-            "`yoke claims path list --item YOK-N`. Covered-path list "
+            "`yoke claims path list --item PREFIX-N`. Covered-path list "
             "is an API response field, not a column — there is no "
             "`path_claims.paths`, `path_claims.path`, or bare `path` "
             "column (stale guesses). It is reachable only by JOIN through "
@@ -304,7 +294,7 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Path-snapshot rows. path_string is the canonical relative "
-            "path (e.g. 'runtime/api/domain/foo.py'). kind is 'file' or "
+            "path (e.g. '<project-source-path>/foo.py'). kind is 'file' or "
             "'directory'. materialization_state is 'observed' (exists on "
             "integration target) or 'planned' (claim-minted future file "
             "via --allow-planned). There is NO `path` column; use "

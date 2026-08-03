@@ -6,6 +6,9 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.qa_gates import check_epic_simulation_gate
 from yoke_core.domain.worktree import resolve_main_root
 from yoke_core.engines.done_transition_merge_guards import (  # noqa: F401
@@ -19,6 +22,27 @@ def _parent():
     from yoke_core.engines import done_transition as _dt
 
     return _dt
+
+
+def _ref(item_id: int, item_ref: Optional[str] = None) -> str:
+    """Best-effort public ref for operator-facing gate messages.
+
+    ``item_ref`` is preferred when the runner already resolved it over the
+    transport. The local lookup remains a compatibility path for direct
+    callers and tests.
+    Falls back to the default-prefix form when the control-plane DB cannot
+    be reached, so a gate refusal never fails on the ref render.
+    """
+    if item_ref:
+        return item_ref
+    try:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import render_item_ref
+
+        with connect() as conn:
+            return render_item_ref(conn, item_id)
+    except Exception:
+        return format_item_ref(None, None, None, item_id=item_id)
 
 
 def _resolve_repo_root() -> Path:
@@ -36,32 +60,52 @@ def _resolve_repo_root() -> Path:
     return Path(root)
 
 
+def _resolve_default_branch(project: str) -> str:
+    """Relay the project's ``default_branch`` (empty when unset/unavailable).
+
+    Project context is best-effort: a refused relay or transport error
+    yields an empty default branch, and the base-branch fallback fills in
+    downstream — matching the old ``cmd_get(...) or ""`` treatment.
+    """
+    try:
+        resp = call_dispatcher(
+            function_id="projects.get",
+            target=TargetRef(kind="global"),
+            payload={"project": project, "field": "default_branch"},
+        )
+    except Exception:  # noqa: BLE001 - project context is best-effort.
+        return ""
+    if not resp.success:
+        return ""
+    value = str((resp.result or {}).get("value") or "").strip()
+    return "" if value == "null" else value
+
+
 def _resolve_project_context(
     item_id: int, item_project: str, repo_root: Path
 ) -> Tuple[Path, str]:
-    """Resolve project checkout and default branch."""
-    from yoke_core.domain import projects as _projects
+    """Resolve project checkout and default branch.
 
+    The checkout mapping and default-branch reads route through the
+    transport-aware relay so a non-yoke project's context resolves over an
+    https control plane; the machine-local checkout mapping itself stays
+    local. Project context is best-effort — a failed read leaves the main
+    checkout and an empty default branch.
+    """
     project_repo = repo_root
     default_branch = ""
     if item_project and item_project != "yoke":
-        db_path = None
         try:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect(db_path) as conn:
-                checkout = checkout_for_project(conn, item_project)
+            checkout = checkout_for_project_slug(item_project)
             if checkout is not None and Path(checkout).is_dir():
                 project_repo = Path(checkout)
-        except Exception:
+        except Exception:  # noqa: BLE001 - default main checkout is safe.
             pass
-        db_val = (
-            _projects.cmd_get(item_project, field="default_branch", db_path=db_path)
-            or ""
-        ).strip()
-        if db_val and db_val != "null":
-            default_branch = db_val
+        default_branch = _resolve_default_branch(item_project)
     return project_repo, default_branch
 
 
@@ -74,12 +118,14 @@ def _get_base_branch(default_branch: str, repo_root: "Path | None" = None) -> st
     return project_settings.get_project_str(repo_root, "base_branch")
 
 
-def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
+def _check_simulation_gate(
+    item_id: int, skip: bool, *, item_ref: Optional[str] = None
+) -> Optional[int]:
     """Check integration simulation gate for epics. Returns exit code or None."""
     if skip:
         print(
             "WARNING: Integration simulation gate bypassed via --skip-simulation "
-            f"for YOK-{item_id}"
+            f"for {_ref(item_id, item_ref)}"
         )
         return None
 
@@ -95,6 +141,8 @@ def _check_empty_branch(
     project_repo: Path,
     base_branch: str,
     item_id: int,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Check for empty worktree branch. Returns exit code or None."""
     if not lane_branch:
@@ -141,7 +189,7 @@ def _check_empty_branch(
         )
         print(
             "    Future evidence-only items should enter implementing with "
-            f"/yoke advance YOK-{item_id} implementing --no-worktree.",
+            f"/yoke advance {_ref(item_id, item_ref)} implementing --no-worktree.",
             file=sys.stderr,
         )
         return 8
@@ -155,7 +203,9 @@ def _check_recovery(old_status: str, lane_branch: str) -> Tuple[bool, bool]:
     return False, False
 
 
-def _check_blocked_flag(item_id: int) -> Optional[int]:
+def _check_blocked_flag(
+    item_id: int, *, item_ref: Optional[str] = None
+) -> Optional[int]:
     """refuse done-transition while items.blocked=1.
 
     Returns exit code 9 when the flag is set, None when clear or when
@@ -163,42 +213,56 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
     automatically when status flips to done — this gate ensures the flip
     cannot happen while the flag is still set, so the operator sees an
     explicit refusal instead of having the cleanup silently swallow it.
+
+    The blocked read routes through the transport-aware
+    ``done_transition.blocked_gate`` relay so it runs over an https control
+    plane as well as a local Postgres connection; it degrades to a skip
+    (``None``) when the read is unavailable, preserving the advisory
+    ``except: return None`` behavior.
     """
     try:
-        from yoke_core.domain.advance_blocked_gate import evaluate as _eval
-
-        conn = _parent()._connect()
-        try:
-            decision = _eval(conn, item_id)
-        finally:
-            conn.close()
-    except Exception:  # noqa: BLE001 - degrade if DB unavailable
+        resp = call_dispatcher(
+            function_id="done_transition.blocked_gate",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+    except Exception:  # noqa: BLE001 - degrade if the read is unavailable
         return None
-    if not decision.blocked:
+    if not resp.success:
         return None
+    data = resp.result or {}
+    if not data.get("blocked"):
+        return None
+    reason = data.get("reason")
+    ref = _ref(item_id, item_ref)
     print(
         f"\n=== Blocked-flag refusal ===\n"
-        f"Item YOK-{item_id} has items.blocked=1; cannot transition to done.\n"
-        + (f"Reason: {decision.reason}\n" if decision.reason else "")
-        + f"Run /yoke unblock YOK-{item_id} first."
+        f"Item {ref} has items.blocked=1; cannot transition to done.\n"
+        + (f"Reason: {reason}\n" if reason else "")
+        + f"Run /yoke unblock {ref} first."
     )
     return 9
 
 
 def _check_deployment_redirect(
-    deploy_flow: str, skip_deploy: bool, item_id: int
+    deploy_flow: str,
+    skip_deploy: bool,
+    item_id: int,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
+        ref = _ref(item_id, item_ref)
         print("\n=== Deployment flow redirect ===")
-        print(f"Item YOK-{item_id} has deployment flow '{deploy_flow}'.")
+        print(f"Item {ref} has deployment flow '{deploy_flow}'.")
         print(
-            f"Use '/yoke usher YOK-{item_id}' to merge and deploy through the pipeline."
+            f"Use '/yoke usher {ref}' to merge and deploy through the pipeline."
         )
         print(
             f"If deployment was handled out-of-band, use "
-            f"'/yoke advance YOK-{item_id} done --skip-deploy'."
+            f"'/yoke advance {ref} done --skip-deploy'."
         )
         return 7
     return None

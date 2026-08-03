@@ -1,4 +1,4 @@
-"""Tests for the environment-activate executor (fake-runner state machine)."""
+"""Tests for the environment-activate step runner (fake-runner state machine)."""
 
 from __future__ import annotations
 

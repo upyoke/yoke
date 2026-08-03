@@ -23,7 +23,9 @@ from runtime.api.fixtures.pg_testdb import test_database
 
 
 def _request(
-    function_id: str, target: TargetRef, payload=None,
+    function_id: str,
+    target: TargetRef,
+    payload=None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function_id,
@@ -37,11 +39,17 @@ def _seed_two_items(conn) -> None:
     insert_item(conn, id=42, title="A", status="implementing")
     insert_item(conn, id=43, title="B", status="implementing")
     insert_qa_requirement(
-        conn, id=10, item_id=42, qa_kind="ac_verification",
+        conn,
+        id=10,
+        item_id=42,
+        qa_kind="ac_verification",
         qa_phase="verification",
     )
     insert_qa_requirement(
-        conn, id=11, item_id=43, qa_kind="ac_verification",
+        conn,
+        id=11,
+        item_id=43,
+        qa_kind="ac_verification",
         qa_phase="verification",
     )
     conn.commit()
@@ -66,8 +74,13 @@ class TestRequirementList(unittest.TestCase):
         with test_database() as conn:
             insert_item(conn, id=50, title="E", workflow_id="epic", status="planning")
             insert_qa_requirement(
-                conn, id=20, item_id=None, epic_id=50, task_num=2,
-                qa_kind="implementation_review", qa_phase="verification",
+                conn,
+                id=20,
+                item_id=None,
+                epic_id=50,
+                task_num=2,
+                qa_kind="implementation_review",
+                qa_phase="verification",
             )
             conn.commit()
             outcome = qa_reads.handle_qa_requirement_list(
@@ -82,6 +95,28 @@ class TestRequirementList(unittest.TestCase):
         self.assertEqual([r["id"] for r in rows], [20])
         self.assertEqual(rows[0]["epic_id"], 50)
         self.assertEqual(rows[0]["task_num"], 2)
+
+    def test_deployment_run_target_filters_rows(self):
+        with test_database() as conn:
+            insert_qa_requirement(
+                conn,
+                id=21,
+                item_id=None,
+                deployment_run_id="run-20260731-001",
+                qa_kind="deployment_check",
+                qa_phase="verification",
+            )
+            outcome = qa_reads.handle_qa_requirement_list(
+                _request(
+                    "qa.requirement.list",
+                    TargetRef(
+                        kind="deployment_run",
+                        deployment_run_id="run-20260731-001",
+                    ),
+                ),
+            )
+        self.assertTrue(outcome.primary_success, outcome.error)
+        self.assertEqual([row["id"] for row in outcome.result_payload["rows"]], [21])
 
     def test_unfiltered_global_lists_all(self):
         with test_database() as conn:
@@ -133,11 +168,15 @@ class TestRunList(unittest.TestCase):
         with test_database() as conn:
             _seed_two_items(conn)
             insert_qa_run(
-                conn, qa_requirement_id=10, qa_kind="ac_verification",
+                conn,
+                qa_requirement_id=10,
+                qa_kind="ac_verification",
                 verdict="pass",
             )
             insert_qa_run(
-                conn, qa_requirement_id=11, qa_kind="ac_verification",
+                conn,
+                qa_requirement_id=11,
+                qa_kind="ac_verification",
                 verdict="fail",
             )
             conn.commit()
@@ -172,7 +211,9 @@ class TestRunGet(unittest.TestCase):
         with test_database() as conn:
             _seed_two_items(conn)
             run_row = insert_qa_run(
-                conn, qa_requirement_id=10, qa_kind="ac_verification",
+                conn,
+                qa_requirement_id=10,
+                qa_kind="ac_verification",
                 verdict="pass",
             )
             run_id = int(run_row["id"])
@@ -224,7 +265,9 @@ class TestGateSummary(unittest.TestCase):
             )
             before = qa_reads.handle_qa_gate_summary(request)
             insert_qa_run(
-                conn, qa_requirement_id=10, qa_kind="ac_verification",
+                conn,
+                qa_requirement_id=10,
+                qa_kind="ac_verification",
                 verdict="pass",
             )
             conn.commit()
@@ -232,7 +275,8 @@ class TestGateSummary(unittest.TestCase):
         self.assertTrue(before.primary_success, before.error)
         self.assertFalse(before.result_payload["satisfied"])
         self.assertEqual(
-            before.result_payload["blocking_unsatisfied_count"], 1,
+            before.result_payload["blocking_unsatisfied_count"],
+            1,
         )
         self.assertTrue(after.primary_success, after.error)
         self.assertTrue(after.result_payload["satisfied"])
@@ -242,8 +286,13 @@ class TestGateSummary(unittest.TestCase):
         with test_database() as conn:
             insert_item(conn, id=50, title="E", workflow_id="epic", status="planning")
             insert_qa_requirement(
-                conn, id=20, item_id=None, epic_id=50, task_num=2,
-                qa_kind="implementation_review", qa_phase="verification",
+                conn,
+                id=20,
+                item_id=None,
+                epic_id=50,
+                task_num=2,
+                qa_kind="implementation_review",
+                qa_phase="verification",
             )
             conn.commit()
             outcome = qa_reads.handle_qa_gate_summary(

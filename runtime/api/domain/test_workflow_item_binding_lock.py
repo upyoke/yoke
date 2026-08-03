@@ -24,24 +24,27 @@ def _connection(path_claim_columns: str) -> sqlite3.Connection:
     return conn
 
 
-def test_legacy_path_claim_schema_locks_item_id() -> None:
-    conn = _connection("item_id INTEGER")
+def test_untyped_path_claim_does_not_lock_an_item() -> None:
+    conn = _connection("owner_kind TEXT, owner_item_id INTEGER")
     try:
-        conn.execute("INSERT INTO path_claims (id, item_id) VALUES (1, 42)")
-        assert lock_path_claim_workflow_binding(conn, 1) == (42,)
+        conn.execute(
+            "INSERT INTO path_claims (id, owner_kind, owner_item_id) "
+            "VALUES (1, NULL, NULL)"
+        )
+        assert lock_path_claim_workflow_binding(conn, 1) == ()
     finally:
         conn.close()
 
 
 def test_typed_path_claim_schema_uses_only_item_owner() -> None:
     conn = _connection(
-        "item_id INTEGER, owner_kind TEXT, owner_item_id INTEGER",
+        "owner_kind TEXT, owner_item_id INTEGER",
     )
     try:
         conn.execute(
             "INSERT INTO path_claims "
-            "(id, item_id, owner_kind, owner_item_id) VALUES "
-            "(1, 42, 'session', NULL), (2, NULL, 'item', 99)",
+            "(id, owner_kind, owner_item_id) VALUES "
+            "(1, 'session', NULL), (2, 'item', 99)",
         )
         assert lock_path_claim_workflow_binding(conn, 1) == ()
         assert lock_path_claim_workflow_binding(conn, 2) == (99,)

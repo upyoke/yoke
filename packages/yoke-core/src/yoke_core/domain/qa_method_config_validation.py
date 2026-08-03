@@ -13,15 +13,15 @@ class QaMethodConfigError(ValueError):
     """A case configuration does not satisfy its method contract."""
 
 
-def validate_method_config(method_id: str, raw: Any) -> dict:
-    """Return a normalized method config for the built-in executable methods."""
+def validate_method_config(config_contract_id: str, raw: Any) -> dict:
+    """Normalize config through the contract selected by the method row."""
     if raw is None:
         config: dict = {}
     elif isinstance(raw, dict):
         config = dict(raw)
     else:
         raise QaMethodConfigError("method_config must be a JSON object")
-    if method_id == "command":
+    if config_contract_id == "command":
         command = config.get("command")
         if not isinstance(command, str) or not command.strip():
             raise QaMethodConfigError(
@@ -37,16 +37,15 @@ def validate_method_config(method_id: str, raw: Any) -> dict:
             )
         requires_base_url = config.get("requires_base_url")
         if requires_base_url is not None and not isinstance(
-            requires_base_url, bool,
+            requires_base_url,
+            bool,
         ):
-            raise QaMethodConfigError(
-                "Command requires_base_url must be true or false"
-            )
-    elif method_id in {"browser-check", "browser-inspection"}:
+            raise QaMethodConfigError("Command requires_base_url must be true or false")
+    elif config_contract_id in {"browser-check", "browser-inspection"}:
         steps = config.get("steps")
         if not isinstance(steps, list) or not steps:
             raise QaMethodConfigError(
-                f"{method_id} cases require a non-empty method_config.steps"
+                f"{config_contract_id} cases require a non-empty method_config.steps"
             )
         if any(
             not isinstance(step, dict)
@@ -55,16 +54,16 @@ def validate_method_config(method_id: str, raw: Any) -> dict:
             for step in steps
         ):
             raise QaMethodConfigError(
-                f"{method_id} steps require a non-empty action"
+                f"{config_contract_id} steps require a non-empty action"
             )
         base_url = config.get("base_url")
         if base_url is not None and (
             not isinstance(base_url, str) or not base_url.strip()
         ):
             raise QaMethodConfigError(
-                f"{method_id} base_url must be a non-empty string"
+                f"{config_contract_id} base_url must be a non-empty string"
             )
-        violation = browser_method_contract_violation(method_id, steps)
+        violation = browser_method_contract_violation(config_contract_id, steps)
         if violation is not None:
             raise QaMethodConfigError(violation.message)
     return config

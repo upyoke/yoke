@@ -209,10 +209,10 @@ class TestSessionOfferCommand:
 
     @pytest.mark.parametrize(
         "executor",
-        ["claude-code", "claude-desktop", "codex", "codex-desktop"],
+        ["claude-code", "claude-desktop", "codex", "codex-desktop", "cursor", "cursor-cli"],
     )
     def test_session_offer_supported_harness_requires_session_id(self, session_offer_db, executor):
-        """AC-6: supported harnesses must pass their canonical session ID."""
+        """Supported harnesses must pass their canonical session ID."""
         from runtime.harness.hook_helpers import is_codex
         result = _run_client(
             [
@@ -227,4 +227,4 @@ class TestSessionOfferCommand:
         assert result.returncode == 1
         assert "--session-id" in result.stderr
         assert "canonical harness session ID" in result.stderr
-        assert "Auto-generating a fallback ID is not allowed" in result.stderr
+        assert "fallback IDs are not allowed for supported harnesses" in result.stderr

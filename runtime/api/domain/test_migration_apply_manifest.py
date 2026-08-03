@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.migration_model_capability_defaults import (
+    DEFAULT_MODULES_DIR,
+)
 import hashlib
 import subprocess
 from pathlib import Path
@@ -27,11 +30,11 @@ from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401
 from yoke_core.domain.schema_common import _table_exists
 
 
-_MANIFEST_REL = Path("runtime/api/domain/migrations/sample_migration.migration.json")
+_MANIFEST_REL = Path(DEFAULT_MODULES_DIR) / "sample_migration.migration.json"
 
 
 def _manifest(root: Path) -> dict:
-    module_path = Path("runtime/api/domain/migrations/sample_migration.py")
+    module_path = Path(DEFAULT_MODULES_DIR) / "sample_migration.py"
     module_digest = hashlib.sha256((root / module_path).read_bytes()).hexdigest()
     return {
         "version": 1,
@@ -57,7 +60,7 @@ def _manifest(root: Path) -> dict:
         "attestation": {
             "pre_merge_readers_writers": [
                 {
-                    "path": "runtime/api/domain/migrations/sample_migration.py",
+                    "path": f"{DEFAULT_MODULES_DIR}/sample_migration.py",
                     "symbol": "apply",
                     "role": "writer",
                 }
@@ -141,7 +144,7 @@ def test_manifest_rehearse_and_live_apply_without_item(manifest_env) -> None:
         control.close()
     assert after_items == before_items
     assert (
-        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
+        manifest_env["worktree"] / DEFAULT_MODULES_DIR / "sample_migration.py"
     ).is_file()
 
 
@@ -230,7 +233,7 @@ def test_manifest_resolution_refuses_untracked_source(manifest_env) -> None:
 
 def test_manifest_resolution_refuses_tracked_module_symlink(manifest_env) -> None:
     module = (
-        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
+        manifest_env["worktree"] / DEFAULT_MODULES_DIR / "sample_migration.py"
     )
     target = module.with_name("sample_migration_target.py")
     target.write_text(module.read_text(encoding="utf-8"), encoding="utf-8")
@@ -267,7 +270,7 @@ def test_live_revalidates_source_after_backup(manifest_env, monkeypatch) -> None
         control_db_path=manifest_env["control_db"],
     )
     module = (
-        manifest_env["worktree"] / "runtime/api/domain/migrations/sample_migration.py"
+        manifest_env["worktree"] / DEFAULT_MODULES_DIR / "sample_migration.py"
     )
 
     def mutate_source_during_backup(*args, **kwargs) -> str:
@@ -278,7 +281,7 @@ def test_live_revalidates_source_after_backup(manifest_env, monkeypatch) -> None
         _git(
             manifest_env["worktree"],
             "add",
-            "runtime/api/domain/migrations/sample_migration.py",
+            f"{DEFAULT_MODULES_DIR}/sample_migration.py",
         )
         _git(
             manifest_env["worktree"],

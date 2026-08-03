@@ -201,7 +201,7 @@ class TestRegisterSession:
         assert result["offered_at"] == original["offered_at"]
 
     def test_register_executor_is_write_once_on_reentry(self, conn):
-        """AC-2: SESSION_EXISTS path leaves stored executor untouched.
+        """SESSION_EXISTS path leaves stored executor untouched.
 
         The canonical executor and display alias both persist write-once
         from the first INSERT — a sibling surface arriving later does not
@@ -226,7 +226,7 @@ class TestRegisterSession:
     # under the 350-line authored-file cap.
 
     def test_register_session_event_uses_stored_executor_on_reactivation(self, conn):
-        """AC-10: HarnessSessionStarted event reports the stored canonical
+        """HarnessSessionStarted event reports the stored canonical
         executor and the preserved display alias.
 
         When a closed session is reactivated under a different executor arg,
@@ -262,7 +262,7 @@ class TestRegisterSession:
         assert ctx["executor_display_name"] == "claude-desktop"
 
     def test_register_returns_all_identity_fields(self, conn):
-        """AC-1: all identity fields from the session-identity contract."""
+        """All identity fields from the session-identity contract."""
         result = _register(conn)
         for field in (
             "session_id",

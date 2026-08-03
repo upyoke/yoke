@@ -160,7 +160,7 @@ class TestEvaluatePayload(unittest.TestCase):
         self.assertEqual(ctx.get("capture_file"), "/tmp/foo.out")
 
     def test_repeated_peeks_on_different_files_not_flagged(self) -> None:
-        # Two peeks, different capture files — AC-11 is scoped to same capture.
+        # Two peeks, different capture files — the guard is scoped to one capture.
         recent = [
             ("turn-0", "2026-04-24T12:00:00", "tail -80 /tmp/other.out"),
         ]

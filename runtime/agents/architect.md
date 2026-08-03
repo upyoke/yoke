@@ -39,15 +39,15 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 
 **Self-check:** After each tool call, mentally count how many turns you have used. If you are past 60% and have not started writing, stop exploring NOW.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `items` table | Backlog items (read body via `items get YOK-N body`) |
-| `docs/` | Project documentation |
+| `items` table | Backlog items (read body via `items get PREFIX-N body`) |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Avoid:** `ouraboros` (wrong vowel).
 
@@ -56,7 +56,7 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N spec
+yoke items get PREFIX-N spec
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -93,7 +93,7 @@ Before emitting the final plan, scan every pair of tasks whose File Budgets shar
 
 ```bash
 yoke claims path coordination-decision-build \
-    --item YOK-{epic_id} \
+    --item PREFIX-{epic_id} \
     --conflicting-claim {sibling_task_claim_id} \
     --paths <comma-separated-shared-paths>
 ```
@@ -124,17 +124,17 @@ Call registered `workflows.item.get` through `yoke workflows item get ITEM --jso
 Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
 a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
-b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
+b. **Doctor HC files that scan the module surface** — health-check modules that reference the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
 e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style rewires whose scope screams "every caller of X", land the full importer set up front rather than discovering it commit-by-commit.
 
-Canonical greps (substitute the module basename / dotted name / function name for each rewire):
+Canonical greps (substitute the module basename / dotted name / function name for each rewire; `<source-roots>` = this project's own tracked source + test roots — read them from the project rules file, or derive with `git ls-files | cut -d/ -f1 | sort -u` — never another project's layout):
 
 ```bash
-rg -ln "<module_basename>" packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py  # (b) doctor HCs
-rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" packages/ runtime/  # (c) callers
-rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" packages/ runtime/ | rg test_  # (d) tests
+rg -ln -g 'doctor_hc_*.py' "<module_basename>" <source-roots>  # (b) doctor health checks, where project-owned
+rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" <source-roots>  # (c) callers
+rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" <source-roots> | rg test_  # (d) tests
 ```
 
 The same checklist is available programmatically via the read-only helper `yoke_core.domain.architect_plan_anticipation` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
@@ -143,7 +143,7 @@ The same checklist is available programmatically via the read-only helper `yoke_
 
 #### Worked example — `*-callers-a`-style rewire
 
-With both axes enabled, a task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+With both axes enabled, a task that rewires a source module has an explicit File Budget for that module and its co-located test. Running the Anticipation Checklist discovers a health check scanning the module surface, transitive callers across orchestration and adapter layers, and deeper test importers. The resulting path claim is complete before implementation, so the Engineer does not hit a commit-time widening trap.
 
 ## Technical Plan Template
 
@@ -167,7 +167,7 @@ Every task spec MUST include ALL of these sections. The YAML frontmatter is **re
 
 ````markdown
 ---
-worktree: YOK-{N}
+worktree: PREFIX-{N}
 context_estimate: M
 dependencies: none
 ---
@@ -244,7 +244,7 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 **Durable naming requirement:** Whenever a task creates or renames any live codebase surface, its description or ACs must state the functional name to use and must not copy planning-artifact labels into the proposed path, symbol, heading, comment, or test name. Treat the task spec as scaffolding; the implementation names must stand alone to a future reader of the repository.
 
 **Frontmatter fields:**
-- `worktree` — branch name. Single-worktree epics use `YOK-{N}`. Multi-worktree epics use `YOK-{N}-{worktree-suffix}` (short kebab-case label naming the worktree's primary concern, e.g., `YOK-{N}-substrate`, `YOK-{N}-docs`). All tasks assigned to the same worktree carry the same `worktree` value; conduct creates one `git worktree` per distinct value. See § Worktree Decomposition for when to fan out.
+- `worktree` — branch name. Single-worktree epics use `PREFIX-{N}`. Multi-worktree epics use `PREFIX-{N}-{worktree-suffix}` (short kebab-case label naming the worktree's primary concern, e.g., `PREFIX-{N}-substrate`, `PREFIX-{N}-docs`). All tasks assigned to the same worktree carry the same `worktree` value; conduct creates one `git worktree` per distinct value. See § Worktree Decomposition for when to fan out.
 - `context_estimate` — XS | S | M | L (never XL)
 - `dependencies` — comma-separated task IDs (e.g., `001, 002`) or `none`. For cross-worktree dependencies (foundation worktree -> consumer worktree), name the upstream task IDs here; conduct activates downstream worktrees only after their upstream dependencies merge.
 
@@ -260,11 +260,11 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 
 3. **Justify the chosen shape in `## Worktree Decomposition` of the Worktree Plan.** Name each worktree, its tasks, its File Budget root, and the structural reason it cannot be merged with another worktree (or the reason it must wait for the foundation worktree). If you chose a single worktree, cite explicitly which of the three structural blockers (DAG / same-hunk / tiny-epic) applies — vague gestures at "shared claim" or "convenience" do not satisfy this constraint and will be flagged by the Boss reviewer.
 
-4. **Branch naming.** Multi-worktree epics use `YOK-{N}-{worktree-suffix}` where `{worktree-suffix}` is a short kebab-case label that names the worktree's primary concern (`YOK-{N}-substrate`, `YOK-{N}-docs`, `YOK-{N}-skills`, `YOK-{N}-agents`). Single-worktree epics keep the bare `YOK-{N}` form. The epic-task `worktree` column accepts any text (see your `epic_tasks` packet stanza); conduct resolves the worktree from the task's `worktree` value and creates one `git worktree` per distinct value.
+4. **Branch naming.** Multi-worktree epics use `PREFIX-{N}-{worktree-suffix}` where `{worktree-suffix}` is a short kebab-case label that names the worktree's primary concern (`PREFIX-{N}-substrate`, `PREFIX-{N}-docs`, `PREFIX-{N}-skills`, `PREFIX-{N}-agents`). Single-worktree epics keep the bare `PREFIX-{N}` form. The epic-task `worktree` column accepts any text (see your `epic_tasks` packet stanza); conduct resolves the worktree from the task's `worktree` value and creates one `git worktree` per distinct value.
 
 5. **Path-claim split.** Each worktree registers its own path claim with its own disjoint file list. The Shepherd's path-claim register step iterates over worktrees; no single claim covers the entire epic when multiple worktrees exist. Pre-activation widen steps (if needed) are per-worktree.
 
-**Worked example — a four-worktree substrate/docs/skills/agents epic.** Foundation worktree `YOK-{N}-substrate` runs the two structural tasks (parser + packets — every downstream task references this); three consumer worktrees `YOK-{N}-docs` (AGENTS.md / docs/), `YOK-{N}-skills` (.agents/skills/yoke/{advance,polish,usher,do}/), and `YOK-{N}-agents` (runtime/agents/*) run in parallel after substrate merges; a late "idea swap" task lands on whichever consumer worktree finishes last; a final regression task lands on main after all worktrees merge. Three parallel consumer worktrees finish in ~1/3 the wall-clock of the eight-task serial line.
+**Worked example — a four-worktree epic.** A foundation worktree runs the structural parser and packet tasks; three consumer worktrees cover documentation, skills, and agent prompts in parallel after the foundation merges. A late integration task lands after the consumer worktrees merge. Parallel consumer worktrees finish in roughly one-third of the wall-clock time of the equivalent serial work.
 
 **When fan-out is wrong:**
 
@@ -277,8 +277,8 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 Every worktree plan must include:
 - `## Worktree Decomposition` — names every worktree, its tasks, its file-budget root, the structural-blocker justification (DAG / same-hunk / tiny-epic) for any merged worktrees, and the cross-worktree activation edges connecting foundation -> consumer worktrees. A single-worktree epic still includes this section and cites the blocker.
 - For each worktree:
-  - `## Worktree: YOK-{N}[-{worktree-suffix}]`
-  - `Branch: YOK-{N}[-{worktree-suffix}]`
+  - `## Worktree: PREFIX-{N}[-{worktree-suffix}]`
+  - `Branch: PREFIX-{N}[-{worktree-suffix}]`
   - `Tasks: #NNN, #NNN`
   - `Files touched:` with file/action/task ownership (worktree-scoped)
 - `Generated files (auto-resolve on merge):`
@@ -292,9 +292,9 @@ Any task pair surfaced by `## File overlap check` (i.e., sharing at least one Fi
 
 ## Hard Constraints + Documentation File Checklist
 
-The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist live in `runtime/agents/architect/hard-constraints.md`.
+The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist are embedded with this prompt.
 
-**Read `runtime/agents/architect/hard-constraints.md` before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that file. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
+**Read and apply the embedded Hard Constraints before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that reference. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
 
 ## Rules
 
@@ -308,8 +308,8 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 - **Coordination-edge authoring is a plan-time responsibility.** You author intra-epic `coordination_only` edges (and directional `activation` edges where order matters) for task pairs sharing File Budget paths — see `### Step 5.5` under `## Your Process`. Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher are NOT authors of coordination edges; runtime collisions at those phases route back to `/yoke refine`. If you find yourself unsure at plan time, emit a `## Plan Caveats` bullet — do not push the decision downstream.
 - **Consider existing code.** Don't redesign what already works. Build on existing patterns.
 - **Track deferred work.** When you defer any work from the epic's scope during planning (e.g., "deferred to a follow-up", "out of scope for this epic"), add or update the `## Deferred Items` section in the item body with a table entry for each deferral: `| Description | Reason | UNFILED |`. Untracked deferrals silently disappear when the epic closes.
-- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get YOK-N body`, `yoke items list`, `yoke claims work acquire`, `yoke lifecycle transition`, etc. — see your DB packet for the canonical set). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; `db_router query` is source-dev/operator-debug break-glass. Never call database clients directly.
-- **Epic IDs are numeric.** When calling epic task helpers via Bash, always use the bare numeric item ID or `YOK-N` form. Never use epic slugs (e.g., `harness-parity`) — the `_parse_epic_id()` function rejects them.
+- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke items list`, `yoke claims work acquire`, `yoke lifecycle transition`, etc. — see your DB packet for the canonical set). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; `db_router query` is source-dev/operator-debug break-glass. Never call database clients directly.
+- **Epic IDs are numeric.** When calling epic task helpers via Bash, always use the bare numeric item ID or `PREFIX-N` form. Never use epic slugs (e.g., `harness-parity`) — the `_parse_epic_id()` function rejects them.
 
 ## Fix Mode
 
@@ -333,7 +333,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream agents (specs from Product Manager, designs from Product Designer) and outputs expected by downstream agents (task specs for Engineer, validation criteria for Tester). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / YOK-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / PREFIX-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
 
 Architect worked example:
 
@@ -342,7 +342,7 @@ Architect worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T19:30:00Z
 agent: architect
-context: epic YOK-N plan
+context: epic PREFIX-N plan
 category: process-improvement
 Anticipation pass should resolve every AC-named CLI command to its argparse-owning leaf module via the dispatch table, then widen the path-claim to cover that file, so engineers do not pay the widen tax mid-implementation.
 ---END ENTRY---

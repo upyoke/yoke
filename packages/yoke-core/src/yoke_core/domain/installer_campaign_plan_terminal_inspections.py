@@ -8,6 +8,7 @@ from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_BACKLOG_KEYS,
     HOSTED_CONNECTED_TEXT,
     HOSTED_STAGE_ONBOARD,
+    PATH_READY_TEXT,
     PUBLIC_STAGE_WELCOME,
     REVIEW_TEXT,
     action,
@@ -67,7 +68,7 @@ CONNECT_WAIT = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("connect-wait"),
         ),
@@ -98,7 +99,7 @@ REVIEW_FRAME = terminal_case(
     "terminal-inspection",
     instructions=(
         "Approve the live Stage machine authorization in the browser, stay "
-        "backlog-only for GitHub, and inspect the machine-only Review frame "
+        "disabled for GitHub, and inspect the machine-only Review frame "
         "without choosing Apply."
     ),
     expected_outcome=(
@@ -107,7 +108,7 @@ REVIEW_FRAME = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("browser-approval"),
             transition(

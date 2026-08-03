@@ -40,8 +40,9 @@ buckets a readiness-check `issues` list into four classes:
 | `mixed_stale_count` | at least one recoverable claim-coverage code is present (`FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is claim-coverage or optional `STALE_LINE_COUNT` | Dispatch to the internal claim-coverage helper for `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` — it auto-widens / auto-narrows / refuses ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
 | `unrecoverable` | anything else (unresolved refs, missing sibling plan, or a code outside the recoverable set) | Release the claim with reason `readiness-check-blocked` and exit 1 — same terminal behavior refine had before. |
 
-The classifier is a pure function and is unit-tested in
-[`runtime/api/domain/test_idea_readiness_repair.py`](../../../../runtime/api/domain/test_idea_readiness_repair.py).
+The classifier is a pure function with focused regression coverage. Verify its
+behavior through the project's registered test command rather than assuming a
+repository-specific test layout.
 Refine MUST classify before deciding whether to release the claim;
 the order matters because release-then-classify burns the chain step
 even on the recoverable branch.
@@ -72,7 +73,7 @@ is the Python entry point. It:
    audit failure does not fail the repair).
 
 The registered CLI surface is
-``yoke readiness repair-stale-count --item YOK-N``; it runs the
+``yoke readiness repair-stale-count --item PREFIX-N``; it runs the
 check, classifies, attempts the repair when applicable, re-runs, and
 prints the structured payload.
 
@@ -84,7 +85,7 @@ The readiness issue's `context.recovery_command` is a ready-to-paste invocation 
 
 1. Invoke
    ``yoke claims path coordination-decision-build
-   --item YOK-N --conflicting-claim M --paths <shared>``
+   --item PREFIX-N --conflicting-claim M --paths <shared>``
    (or run the recovery command emitted on the issue).
 2. Read the returned context packet (both specs, conflicting claim
    state, three suggested commands — one per decision option).
@@ -103,7 +104,7 @@ Authoring command — coordination-only compatible overlap (independent):
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{candidate} YOK-{conflicting-item} refine \
+    PREFIX-{candidate} PREFIX-{conflicting-item} refine \
     --gate-point coordination_only \
     --rationale "<non-empty: shared paths + disjoint subsections evidence>"
 ```
@@ -112,7 +113,7 @@ Authoring command — directional activation (order-dependent overlap):
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{candidate} YOK-{upstream} refine \
+    PREFIX-{candidate} PREFIX-{upstream} refine \
     --gate-point activation \
     --satisfaction fact:merged \
     --rationale "decision=directional. <why order matters: what upstream lands that this candidate inherits>"
@@ -139,9 +140,9 @@ case "$_class" in
     _repair_rc=$?
     if [ "$_repair_rc" -ne 0 ]; then
       printf '%s\n' "$_repair_json"
-      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
       yoke claims work release \
-        --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" \
+        --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
         >/dev/null 2>&1 || true
       exit 1
     fi
@@ -159,9 +160,9 @@ case "$_class" in
     ;;
   unrecoverable)
     printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
     yoke claims work release \
-      --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" \
+      --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
       >/dev/null 2>&1 || true
     exit 1
     ;;
@@ -227,10 +228,14 @@ the prior unrecoverable branch).
 ## Verification
 
 ```bash
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/domain/test_idea_readiness_repair.py runtime/api/test_skill_doc_regressions_file_budget.py
 yoke readiness check {N}
 yoke readiness repair-stale-count --item {N}
+uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
 ```
+
+Plus your project's registered verification command for the paths this repair
+touched — the anchor paths are per-project, so read them from that command (or
+the project rules file) rather than hardcoding a test-file list.
 
 ## When to use tentative path-claim coverage
 
@@ -260,7 +265,7 @@ planned, amend the claim through the same ``--paths`` flow without
 ``--tentative-paths`` after a fresh ``register-claim`` (the runtime's
 sticky-tentative rule prevents implicit upgrades through automatic
 re-resolution; see
-[packages/yoke-core/src/yoke_core/domain/path_targets_planning.py](../../../../packages/yoke-core/src/yoke_core/domain/path_targets_planning.py)).
+`yoke_core.domain.path_targets_planning`).
 
 ## Symlink-aware repair advisory
 

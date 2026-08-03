@@ -10,6 +10,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional
 
 from yoke_cli.config import machine_config
+from yoke_cli.transport import function_version_skew
 from yoke_cli.transport import https as https_transport
 from yoke_cli.transport import local_github_dispatch
 from yoke_contracts.api.function_call import (
@@ -19,8 +20,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
+from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
+    CURSOR_SESSION_MAP_DIR_NAME,
     resolve_ambient_session_id,
 )
 
@@ -141,7 +144,7 @@ def call_dispatcher(
     )
     if local_only:
         return _redact_response(
-            _call_local(request, _local_dispatch), sensitive_values,
+            _call_local(request, _local_dispatch, client_local=True), sensitive_values,
         )
     try:
         https = https_transport.resolve_https_connection()
@@ -150,13 +153,18 @@ def call_dispatcher(
             request, "https_transport_misconfigured", str(exc)
         ), sensitive_values)
     if https is not None:
+        handshake = https_transport.ServerHandshake()
         response = (
-            https_transport.relay_https(request, https, timeout_s=timeout_s)
+            https_transport.relay_https(
+                request, https, timeout_s=timeout_s, handshake=handshake
+            )
             if timeout_s is not None
-            else https_transport.relay_https(request, https)
+            else https_transport.relay_https(request, https, handshake=handshake)
         )
         return _redact_response(
-            _enrich_https_function_drift(response, request, _function_hint),
+            _apply_version_skew_gate(
+                response, request, https, handshake, _function_hint
+            ),
             sensitive_values,
         )
     return _redact_response(
@@ -211,19 +219,20 @@ def emit_response(
 def _resolve_session_id() -> Optional[str]:
     """Resolve the caller's harness session via the canonical ambient chain.
 
-    Env chain first, then the hook-written process-anchor ancestry registry.
-    The ancestry fallback is load-bearing on the https transport: the remote
-    server cannot inspect the caller's process tree, so the client MUST stamp
-    the session here. Delegating to the shared
+    Everything past the env chain is load-bearing on the https transport:
+    the remote server cannot inspect the caller's process tree, so the
+    client MUST stamp the session here. Delegating to the shared
     :func:`yoke_contracts.session_identity.resolve_ambient_session_id`
     keeps the client resolver in lockstep with the engine core — an
     env-only copy here silently dropped the ancestry fallback and denied
-    every mutating CLI call from a harness that does not export a session
-    env var (e.g. Claude Desktop) on https.
+    every mutating CLI call from a harness with no session env var.
     """
     try:
-        anchors_dir = machine_config.yoke_home() / ANCHORS_DIR_NAME
-        return resolve_ambient_session_id(anchors_dir, os.environ)
+        home = machine_config.yoke_home()
+        return resolve_ambient_session_id(
+            home / ANCHORS_DIR_NAME, os.environ,
+            cursor_map_dir=home / CURSOR_SESSION_MAP_DIR_NAME,
+        )
     except Exception:  # never break dispatch on identity resolution
         return None
 
@@ -231,6 +240,7 @@ def _resolve_session_id() -> Optional[str]:
 def _call_local(
     request: FunctionCallRequest,
     local_dispatch: Optional[LocalDispatch],
+    client_local: bool = False,
 ) -> FunctionCallResponse:
     dispatch_module = None
     if local_dispatch is None:
@@ -251,7 +261,7 @@ def _call_local(
                     "`yoke env use <env>`."
                 ),
             )
-        local_dispatch = dispatch_module.dispatch
+        local_dispatch = getattr(dispatch_module, "dispatch_local" if client_local else "dispatch")
     return local_github_dispatch.call_with_machine_github_authorization(
         request,
         local_dispatch,
@@ -259,24 +269,38 @@ def _call_local(
     )
 
 
-def _enrich_https_function_drift(
+def _apply_version_skew_gate(
     response: FunctionCallResponse,
     request: FunctionCallRequest,
+    connection: "https_transport.HttpsConnection",
+    handshake: "https_transport.ServerHandshake",
     function_hint: Optional[HintResolver],
 ) -> FunctionCallResponse:
+    """Retype a relayed unserved-function answer as client/server skew.
+
+    The server says ``function_not_registered`` about its own registry;
+    for a function this build can dispatch, that answer is a version-skew
+    fact and is replaced with the typed error naming both engine versions
+    and the direction-matched recovery. A function id this build does not
+    know is a genuine unknown function, so the server's answer stands.
+    """
     if response.success or response.error is None:
         return response
-    if response.error.code != "function_not_registered" or function_hint is None:
+    if response.error.code != "function_not_registered":
         return response
-    hint = function_hint(request.function)
-    if not hint:
+    if request.function not in function_version_skew.local_function_ids():
         return response
-    existing = response.error.recovery_hint or ""
-    if hint in existing:
-        return response
-    joined = f"{hint}\n\n{existing}" if existing else hint
+    extra_hint = function_hint(request.function) if function_hint else ""
     return response.model_copy(
-        update={"error": response.error.model_copy(update={"recovery_hint": joined})}
+        update={
+            "error": function_version_skew.skew_error(
+                function_id=request.function,
+                client_version=local_handshake_version(),
+                server_version=handshake.engine_version,
+                env_name=connection.env,
+                extra_hint=extra_hint or "",
+            )
+        }
     )
 
 

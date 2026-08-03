@@ -24,7 +24,7 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.github_binding.unbind",
         cli_invocation="yoke projects github-binding unbind --project NAME",
-        notes="removes the repo binding and marks the project backlog-only",
+        notes="removes the repo binding and marks the project disabled",
     ),
     _read_entry(
         function_id="projects.github_binding.status",
@@ -37,7 +37,7 @@ PROJECT_ADAPTERS = [
         ),
         notes=(
             "dry-runs by default; --apply normalizes effectively-enabled "
-            "projects that lack an active verified App binding to backlog-only"
+            "projects that lack an active verified App binding to disabled"
         ),
     ),
     _read_entry(

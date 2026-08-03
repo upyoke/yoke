@@ -15,10 +15,10 @@ from yoke_core.domain.observe_cli import _resolve_db_fallback
 from yoke_core.domain.observe_constants import BUSY_TIMEOUT_MS
 from yoke_core.domain.observe_codex_transcript import _TRANSCRIPT_TAIL_BYTES
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
-from yoke_core.domain.observe_normalization import (
-    _compute_duration,
-    _resolve_main_session_attribution,
+from yoke_core.domain.observe_db_reads import (
+    compute_tool_call_duration as _compute_duration,
 )
+from yoke_core.domain.observe_normalization import _resolve_main_session_attribution
 from yoke_core.domain.observe_parsing import (
     EventRecord,
     _extract_response_text,

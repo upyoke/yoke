@@ -18,7 +18,9 @@ from yoke_cli.transport.https import HttpsConnection
 from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 
+from yoke_harness.hooks import cursor_session_map
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
     merge_allow_stdout,
@@ -27,6 +29,8 @@ from yoke_harness.hooks.decision_render import (
 from yoke_harness.hooks.identity import (
     detect_executor,
     is_codex,
+    is_cursor,
+    prune_stale_session_anchors,
     record_session_anchor,
     relay_identity_payload,
     resolve_session_id,
@@ -41,16 +45,46 @@ from yoke_harness.hooks.local_subset import (
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
 _HOOK_WIRE_SCHEMA = 1
+_CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
+_DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
+
+
+def _cursor_degradation_stdout(
+    event_name: str,
+    detail: str,
+    preserved_stdout: str,
+) -> str:
+    """Expose relay degradation through Cursor's visible context channel."""
+    if not is_cursor(detect_executor()) or event_name not in _CURSOR_CONTEXT_EVENTS:
+        return preserved_stdout
+    warning = (
+        "WARNING: Yoke hook relay degraded to local-only allow; "
+        f"server policy was not evaluated ({detail})"
+    )
+    try:
+        payload = json.loads(preserved_stdout) if preserved_stdout else {}
+    except (json.JSONDecodeError, TypeError):
+        payload = {}
+    if isinstance(payload, dict) and isinstance(
+        payload.get("additional_context"), str,
+    ):
+        payload["additional_context"] += "\n\n" + warning
+        return json.dumps(payload)
+    return json.dumps({"additional_context": warning})
 
 
 def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "") -> int:
     """Fail open for hook transport/local harness failures."""
     sys.stderr.write(
-        f"yoke hook evaluate {event_name}: https transport degraded "
+        f"WARNING: {_DEGRADED_MARKER}: yoke hook evaluate {event_name}: "
+        "https transport degraded "
         f"to no-op allow ({detail})\n"
     )
-    if preserved_stdout:
-        sys.stdout.write(preserved_stdout)
+    visible_stdout = _cursor_degradation_stdout(
+        event_name, detail, preserved_stdout,
+    )
+    if visible_stdout:
+        sys.stdout.write(visible_stdout)
     return 0
 
 
@@ -62,12 +96,14 @@ def _parse_payload(stdin_data: str) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _record_client_anchor(payload: dict) -> None:
+def _record_client_anchor(payload: dict, *, session_start: bool = False) -> None:
     try:
         session_id = payload.get("session_id")
         if not isinstance(session_id, str) or not session_id or session_id == "unknown":
             return
         tp = payload.get("transcript_path")
+        if session_start:
+            prune_stale_session_anchors()
         record_session_anchor(
             session_id,
             transcript_path=tp if isinstance(tp, str) else "",
@@ -86,7 +122,7 @@ def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
 
 
 def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
-    if event_name != "SessionStart" or not is_codex(executor):
+    if event_name != SESSION_START_EVENT or not is_codex(executor):
         return
     try:
         sid = resolve_session_id(stdin_data)
@@ -97,7 +133,9 @@ def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
 
 
 def _with_extra_context(
-    stdout: str, extra_context: Optional[str], event_name: str,
+    stdout: str,
+    extra_context: Optional[str],
+    event_name: str,
 ) -> str:
     """Merge caller-supplied context into an ALLOW-path stdout.
 
@@ -140,6 +178,7 @@ def evaluate_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
+    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -176,9 +215,12 @@ def relay_hook_event(
         stdin_data = sys.stdin.read()
     payload = _parse_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
-    _record_client_anchor(payload)
+    _record_client_anchor(
+        payload, session_start=event_name == SESSION_START_EVENT,
+    )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
+    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
     _codex_capture(event_name, stdin_data, executor)
 
     local = evaluate_local_subset(

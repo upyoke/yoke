@@ -54,3 +54,19 @@ def test_doctor_product_surface_stays_https_relay() -> None:
     row = _rows()["yoke doctor run"]
     assert row.disposition == inventory.HTTPS_RELAY
     assert row.import_edges == ()
+
+
+def test_watcher_cli_adapters_are_client_local_tool_surfaces() -> None:
+    rows = _rows()
+    for shell_form in (
+        "yoke watch pytest",
+        "yoke watch doctor",
+        "yoke watch merge",
+    ):
+        row = rows[shell_form]
+        assert row.disposition == inventory.CLIENT_LOCAL_HELPER
+        assert row.transport_branch == "client-local-tool"
+        entry = ops.lookup(shell_form)
+        assert entry is not None
+        assert entry.status == ops.TOOL_CLI
+        assert entry.reason == ops.REASON_TOOL_SHAPED

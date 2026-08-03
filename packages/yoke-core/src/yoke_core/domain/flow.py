@@ -6,7 +6,7 @@ plus the small set of CLI helpers used inside :func:`main`.  The
 substantive logic lives in responsibility-named siblings:
 
 - :mod:`yoke_core.domain.flow_validation` — stage-shape validation
-  and the executor/kind vocabularies.
+  and the step_runner/kind vocabularies.
 - :mod:`yoke_core.domain.flow_init` — table DDL, seed flows, and the
   ``item_progress_view`` projection.
 - :mod:`yoke_core.domain.flow_cross_reference` — project-level
@@ -43,14 +43,14 @@ from yoke_core.domain.flow_crud import (
 )
 from yoke_core.domain.flow_init import cmd_init
 from yoke_core.domain.flow_validation import (
-    VALID_EXECUTORS,
+    VALID_STEP_RUNNERS,
     VALID_MIGRATION_APPLY_LIFECYCLE_PHASES,
     VALID_STAGE_KINDS,
     validate_stages,
 )
 
 __all__ = [
-    "VALID_EXECUTORS",
+    "VALID_STEP_RUNNERS",
     "VALID_MIGRATION_APPLY_LIFECYCLE_PHASES",
     "VALID_STAGE_KINDS",
     "cmd_create",

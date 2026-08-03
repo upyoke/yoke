@@ -11,61 +11,8 @@ from typing import Optional, Tuple
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
-
-def _cross_project_commit_guard(
-    item_id: int, item_project: str, repo_root: Optional[Path] = None,
-) -> None:
-    """Advisory cross-project commit guard (scans the Yoke repo)."""
-    if item_project == "yoke":
-        return
-    print("\n=== Step 5c: Cross-project commit guard ===")
-    from yoke_core.domain import project_settings
-
-    base_br = project_settings.get_project_str(repo_root, "base_branch")
-    log_result = _parent()._run_git(
-        ["log", base_br, "--oneline", f"--grep=YOK-{item_id}",
-         "--format=%H"],
-        capture=True,
-    )
-    if not log_result.stdout or not log_result.stdout.strip():
-        print("No cross-project commit contamination detected.")
-        return
-    warnings = []
-    for commit_hash in log_result.stdout.strip().split("\n"):
-        if not commit_hash.strip():
-            continue
-        files_result = _parent()._run_git(
-            ["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash],
-            capture=True,
-        )
-        bad_files = []
-        for f in (files_result.stdout or "").strip().split("\n"):
-            f = f.strip()
-            if not f:
-                continue
-            # Bookkeeping allowlist
-            if any(f.startswith(p) for p in [
-                "ouroboros/", ".agents/", ".claude/",
-            ]):
-                continue
-            bad_files.append(f)
-        if bad_files:
-            short = commit_hash[:10]
-            msg_result = _parent()._run_git(
-                ["log", "--format=%s", "-1", commit_hash], capture=True
-            )
-            msg = (msg_result.stdout or "").strip()
-            warnings.append((short, msg, bad_files))
-    if warnings:
-        print(f"\nWARNING: Cross-project commit contamination detected for "
-              f"YOK-{item_id} (project={item_project}).")
-        for short, msg, files in warnings:
-            print(f"  Commit {short} ({msg}):")
-            for f in files:
-                print(f"    {f}")
-    else:
-        print("No cross-project commit contamination detected.")
 
 
 def _pre_merge_commit(repo_root: Path) -> None:
@@ -86,11 +33,12 @@ def _pre_merge_commit(repo_root: Path) -> None:
         for f in yoke_files:
             _parent()._run_git(["add", f], cwd=repo_root, capture=True)
         # Check if there's anything staged
-        diff = _parent()._run_git(["diff", "--cached", "--quiet"], cwd=repo_root, capture=True)
+        diff = _parent()._run_git(
+            ["diff", "--cached", "--quiet"], cwd=repo_root, capture=True
+        )
         if diff.returncode != 0:
             _parent()._run_git(
-                ["commit", "-m",
-                 "chore: auto-commit Yoke bookkeeping before merge"],
+                ["commit", "-m", "chore: auto-commit Yoke bookkeeping before merge"],
                 cwd=repo_root,
             )
             print("Pre-merge commit: Yoke-managed files committed.")
@@ -102,16 +50,29 @@ def _do_merge(
     base_branch: str,
     task_parent_ref: str,
     project_repo: Path,
+    item_project: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
-    # Resolve actual branch from worktree directory
+    # Resolve actual branch from worktree directory. Lanes live at
+    # .worktrees/<branch>, so locate the directory from the recorded branch
+    # (public ref or legacy name) rather than reconstructing YOK-{internal_id}.
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
     actual_branch = lane_branch
-    wt_dir = project_repo / ".worktrees" / f"YOK-{item_id}"
+    wt_name = lane_branch or worktree_name_for_item(None, item_id)
+    wt_dir = project_repo / ".worktrees" / wt_name
     if wt_dir.is_dir():
-        br = _parent()._run_git(["-C", str(wt_dir), "branch", "--show-current"], capture=True)
+        br = _parent()._run_git(
+            ["-C", str(wt_dir), "branch", "--show-current"], capture=True
+        )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
-            print(f"Warning: branch mismatch for YOK-{item_id}", file=sys.stderr)
+            from yoke_contracts.item_ref import format_item_ref
+
+            ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+            print(f"Warning: branch mismatch for {ref}", file=sys.stderr)
             print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
             print("  Using actual branch for merge.", file=sys.stderr)
@@ -120,9 +81,25 @@ def _do_merge(
     print(f"\n--- Merging branch: {actual_branch} -> {base_branch} ---")
     from yoke_core.engines.merge_worktree import MergeArgs, run as merge_run
 
-    merge_env_key = "YOKE_DONE_TRANSITION"
-    prev_merge_env = os.environ.get(merge_env_key)
-    os.environ[merge_env_key] = "1"
+    # A branch with no epic lane is a standalone item merge, and every one of
+    # those routes through the same boundary so the merge lock, telemetry, and
+    # merged_at stamp land the same way regardless of caller.
+    if not task_parent_ref:
+        from yoke_core.domain.standalone_item_merge import (
+            merge_standalone_branch,
+        )
+
+        outcome = merge_standalone_branch(
+            item_id=item_id,
+            branch=actual_branch,
+            target=base_branch,
+            repo_root=str(project_repo),
+            project=item_project,
+            local_merge=False,
+        )
+        for warning in outcome.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return outcome.exit_code, outcome.output, outcome.ok
 
     # Capture merge output for YOKE_REPO_ROOT parsing by the re-verify step.
     captured = io.StringIO()
@@ -132,7 +109,7 @@ def _do_merge(
         merge_args = MergeArgs(
             branch=actual_branch,
             target=base_branch,
-            epic_ref=task_parent_ref or None,
+            epic_ref=task_parent_ref,
             local_merge=False,
             force_lock=False,
             keep_remote=False,
@@ -141,10 +118,6 @@ def _do_merge(
         rc = merge_run(merge_args)
     finally:
         sys.stdout = saved_stdout
-        if prev_merge_env is None:
-            os.environ.pop(merge_env_key, None)
-        else:
-            os.environ[merge_env_key] = prev_merge_env
     return rc, captured.getvalue(), rc == 0
 
 
@@ -169,30 +142,48 @@ def _verify_cwd_after_merge(
                 os.chdir(root)
     cwd = Path.cwd()
     if "/.worktrees/" in str(cwd):
-        print("Error: CWD is inside a worktree after merge. Cannot continue.",
-              file=sys.stderr)
+        print(
+            "Error: CWD is inside a worktree after merge. Cannot continue.",
+            file=sys.stderr,
+        )
         return None
     print(f"CWD verified: {cwd}")
 
     # Verify main repo is on main/master branch
-    br = _parent()._run_git(["-C", str(project_repo), "rev-parse", "--abbrev-ref", "HEAD"],
-                   capture=True)
+    br = _parent()._run_git(
+        ["-C", str(project_repo), "rev-parse", "--abbrev-ref", "HEAD"], capture=True
+    )
     current = (br.stdout or "").strip()
     if current and current not in ("main", "master", "HEAD"):
-        print(f"Warning: Main repo is on branch '{current}', not main. "
-              "Switching to main.")
+        print(
+            f"Warning: Main repo is on branch '{current}', not main. Switching to main."
+        )
         # Stash if dirty
         stashed = False
-        st = _parent()._run_git(["-C", str(project_repo), "status", "--porcelain"],
-                       capture=True)
+        st = _parent()._run_git(
+            ["-C", str(project_repo), "status", "--porcelain"], capture=True
+        )
         if st.stdout and st.stdout.strip():
-            _parent()._run_git(["-C", str(project_repo), "stash", "push",
-                       "--include-untracked", "-m", "yoke-step5-branch-fix"],
-                      capture=True)
+            _parent()._run_git(
+                [
+                    "-C",
+                    str(project_repo),
+                    "stash",
+                    "push",
+                    "--include-untracked",
+                    "-m",
+                    "yoke-step5-branch-fix",
+                ],
+                capture=True,
+            )
             stashed = True
-        co = _parent()._run_git(["-C", str(project_repo), "checkout", "main"], capture=True)
+        co = _parent()._run_git(
+            ["-C", str(project_repo), "checkout", "main"], capture=True
+        )
         if co.returncode != 0:
-            _parent()._run_git(["-C", str(project_repo), "checkout", "master"], capture=True)
+            _parent()._run_git(
+                ["-C", str(project_repo), "checkout", "master"], capture=True
+            )
         else:
             print("Switched to main.")
         if stashed:
@@ -208,13 +199,29 @@ _SCHEMA_GATE_PREFIXES = (
     "runtime/api/domain/migration",
 )
 
+
 def _schema_gate(*, merge_ran: bool = True, project_repo: Path | None = None) -> None:
-    """Post-merge schema refresh (step 5a)."""
+    """Post-merge schema refresh (step 5a).
+
+    Over an https control plane the server owns and converges its own
+    schema on boot; there is no local DB to re-converge and re-converging
+    the server's schema from the client is neither possible nor correct, so
+    the refresh (schema + shepherd init) is skipped. On a local Postgres
+    connection the merge just updated the schema source on disk, so the
+    local DB is re-converged in-process exactly as before.
+    """
     from yoke_core.domain import schema as _schema_domain, shepherd as _shepherd_domain
+    from yoke_core.domain.worktree_create_db import item_worktree_authority_is_https
 
     print("\n=== Step 5a: Schema gate ===")
     if not _schema_gate_needed(merge_ran, project_repo):
         print("[schema-gate] schema current - skipping refresh.")
+        return
+    if item_worktree_authority_is_https():
+        print(
+            "[schema-gate] Skipping schema refresh over https "
+            "(server owns its own schema)."
+        )
         return
     print("[schema-gate] Running schema refresh...")
     try:
@@ -238,7 +245,16 @@ def _schema_gate_needed(merge_ran: bool, project_repo: Path | None) -> bool:
         return False
     repo = project_repo or _parent()._resolve_repo_root()
     changed = _parent()._run_git(
-        ["-C", str(repo), "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "HEAD"],
+        [
+            "-C",
+            str(repo),
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "-m",
+            "HEAD",
+        ],
         capture=True,
     )
     if changed.returncode != 0:
@@ -246,12 +262,23 @@ def _schema_gate_needed(merge_ran: bool, project_repo: Path | None) -> bool:
     paths = (line.strip() for line in (changed.stdout or "").splitlines())
     return any(path.startswith(_SCHEMA_GATE_PREFIXES) for path in paths if path)
 
+
 def _handle_already_done(
-    item_id: int, project_repo: Path, result, result_file: str
+    item_id: int,
+    project_repo: Path,
+    result,
+    result_file: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
-    print(f"Pre-flight: YOK-{item_id} is already completed (status=done, "
-          "worktree cleared).")
+    from yoke_contracts.item_ref import format_item_ref
+
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
+    print(
+        f"Pre-flight: {ref} is already completed (status=done, "
+        "worktree cleared)."
+    )
     print("No cleanup or discovery work needed on idempotent re-run.")
     result.already_completed = True
     result.new_status = "done"

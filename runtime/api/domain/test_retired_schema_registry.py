@@ -17,7 +17,15 @@ def _clear_cache() -> None:
 
 
 def _write_registry(root: Path, body: str) -> None:
-    target = root / "runtime" / "api" / "domain" / "retired_schema_surfaces.yaml"
+    target = (
+        root
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "retired_schema_surfaces.yaml"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body, encoding="utf-8")
 
@@ -102,7 +110,7 @@ class TestQueryHelpers:
     @pytest.fixture
     def registry_root(self, tmp_path: Path) -> Path:
         # Synthetic retirement names so the residue grep asserted by
-        # AC-11 stays clean outside the registry file itself.
+        # the obsoleted-terms check stays clean outside the registry file.
         _write_registry(
             tmp_path,
             "surfaces:\n"

@@ -105,10 +105,10 @@ class TestHaltResolution:
 
 
 _SAMPLE_STAGES_JSON = json.dumps([
-    {"name": "merged", "executor": "auto"},
-    {"name": "approve-deploy", "executor": "human-approval"},
-    {"name": "prod-deploy", "executor": "github-actions-workflow", "workflow": "deploy.yml"},
-    {"name": "complete", "executor": "auto"},
+    {"name": "merged", "step_runner": "auto"},
+    {"name": "approve-deploy", "step_runner": "human-approval"},
+    {"name": "prod-deploy", "step_runner": "github-actions-workflow", "workflow": "deploy.yml"},
+    {"name": "complete", "step_runner": "auto"},
 ])
 
 
@@ -119,9 +119,9 @@ class TestFlowStageParsing:
         stages = parse_flow_stages(_SAMPLE_STAGES_JSON)
         assert len(stages) == 4
         assert stages[0].name == "merged"
-        assert stages[0].executor == "auto"
+        assert stages[0].step_runner == "auto"
         assert stages[1].name == "approve-deploy"
-        assert stages[1].executor == "human-approval"
+        assert stages[1].step_runner == "human-approval"
         assert stages[2].config == {"workflow": "deploy.yml"}
 
     def test_find_stage_index(self):
@@ -165,7 +165,7 @@ class TestApprovalResolution:
     def test_approve_at_last_stage_returns_complete(self):
         """If the approval is at the last stage, next_stage should be 'complete'."""
         stages_json = json.dumps([
-            {"name": "final-approval", "executor": "human-approval"},
+            {"name": "final-approval", "step_runner": "human-approval"},
         ])
         stages = parse_flow_stages(stages_json)
         result = resolve_approval(stages, "final-approval")
@@ -175,9 +175,9 @@ class TestApprovalResolution:
     def test_approve_at_second_to_last_stage(self):
         """Approval at second-to-last stage advances to the last stage."""
         stages_json = json.dumps([
-            {"name": "build", "executor": "auto"},
-            {"name": "gate", "executor": "human-approval"},
-            {"name": "deploy", "executor": "github-actions-workflow"},
+            {"name": "build", "step_runner": "auto"},
+            {"name": "gate", "step_runner": "human-approval"},
+            {"name": "deploy", "step_runner": "github-actions-workflow"},
         ])
         stages = parse_flow_stages(stages_json)
         result = resolve_approval(stages, "gate")

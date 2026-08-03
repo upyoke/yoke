@@ -225,7 +225,7 @@ class TestLabelSyncFieldsCoverage:
     """Pin the frozenset membership that wires the trigger.
 
     The label-sync trigger in ``backlog_update_op.execute_update`` is a
-    one-line ``if field in LABEL_SYNC_FIELDS`` check. Pre-AC-1, ``source``
+    one-line ``if field in LABEL_SYNC_FIELDS`` check. Previously ``source``
     and ``owner`` were absent from the set and silently bypassed
     ``_sync_labels`` on every mutation — that produced 1962 label-owner
     plus 434 label-source drift rows. The unsupported-field bridge owns

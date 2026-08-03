@@ -27,22 +27,23 @@ COMMANDS
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
  /yoke idea [--workflow issue|epic|blitz] {title} Capture a new backlog item
- /yoke dash "instruction" | YOK-N File and execute instruction-sized work, or resume a Dash
- /yoke blitz YOK-N Execute a refined Blitz from its single linked strategy document
- /yoke shepherd YOK-N Drive an epic through quality-gated planning to planned
- /yoke conduct YOK-N Engineer/Tester loop for a single epic
- /yoke usher [YOK-N] Merge and deploy implemented/release items
+ /yoke dash "instruction" | PREFIX-N File and execute instruction-sized work, or resume a Dash
+ /yoke blitz PREFIX-N Execute a refined Blitz from its single linked strategy document
+ /yoke shepherd PREFIX-N Drive an epic through quality-gated planning to planned
+ /yoke conduct PREFIX-N Engineer/Tester loop for a single epic
+ /yoke usher [PREFIX-N] Merge and deploy implemented/release items
  /yoke doctor [project] Health checks and diagnostics (--fix for auto-repair)
- /yoke freeze YOK-N Freeze a backlog item
- /yoke thaw YOK-N Thaw a frozen item
- /yoke block YOK-N "<reason>" Block an item (preserves lifecycle status)
- /yoke unblock YOK-N Clear an item's blocked flag
+ /yoke freeze PREFIX-N Freeze a backlog item
+ /yoke thaw PREFIX-N Thaw a frozen item
+ /yoke block PREFIX-N "<reason>" Block an item (preserves lifecycle status)
+ /yoke unblock PREFIX-N Clear an item's blocked flag
  /yoke resync Detect and repair drift between local and GitHub
  /yoke curate Curate the Ouroboros learning log
  /yoke wrapup Structured session wrap-up
- /yoke refine YOK-N Critique and improve item artifacts (no worktree)
- /yoke advance YOK-N implementation Issue implementation entry: create or re-enter the worktree
- /yoke polish YOK-N Review and finish implementation in existing worktree
+ /yoke refine PREFIX-N Critique and improve item artifacts (no worktree)
+ /yoke advance PREFIX-N implementation Issue implementation entry: create or re-enter the worktree
+ /yoke polish PREFIX-N Review and finish implementation in existing worktree
+ /yoke simulate PREFIX-N | --system Trace integration paths or audit system consistency (harness slash skill; no terminal `yoke simulate` adapter)
 
 LOCAL TERMINAL HELPERS
  yoke onboard
@@ -71,11 +72,11 @@ AUTONOMOUS MODE
  /yoke strategize -> refresh + research + propose + approve SML changes
 
 TYPICAL FLOW
- 1. /yoke idea "my feature" -> YOK-N in backlog
- 2. /yoke refine YOK-N -> issue idea/refinement -> refined-idea
- 3. /yoke advance YOK-N implementation -> issue worktree -> reviewed-implementation
- 4. /yoke polish YOK-N -> reviewed-implementation -> implemented
- 5. /yoke usher YOK-N -> merge -> deploy -> done
+ 1. /yoke idea "my feature" -> PREFIX-N in backlog
+ 2. /yoke refine PREFIX-N -> issue idea/refinement -> refined-idea
+ 3. /yoke advance PREFIX-N implementation -> issue worktree -> reviewed-implementation
+ 4. /yoke polish PREFIX-N -> reviewed-implementation -> implemented
+ 5. /yoke usher PREFIX-N -> merge -> deploy -> done
 
  Epics use /yoke shepherd and /yoke conduct for their planning and implementation loop.
 
@@ -84,18 +85,18 @@ TYPICAL FLOW
 
  BLITZ FLOW
  1. /yoke idea --workflow blitz "my document-led plan" -> Blitz at idea
- 2. /yoke refine YOK-N -> link exactly one execution strategy document -> refined-idea
- 3. /yoke blitz YOK-N -> execute integrated slices -> reconcile document -> done
+ 2. /yoke refine PREFIX-N -> link exactly one execution strategy document -> refined-idea
+ 3. /yoke blitz PREFIX-N -> execute integrated slices -> reconcile document -> done
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.
- yoke shepherd dependency-list YOK-N
+ yoke shepherd dependency-list PREFIX-N
  Show the full dependency graph for an item (both directions).
  Dependencies are enforced by advance (before implementing) and usher (before merge).
  usher --dry-run shows the dependency edges driving merge order.
 
 INTERNAL (called by orchestration commands, not operator-facing)
- advance targets other than implementation, merge, approve, amend, plan, simulate
+ advance targets other than implementation, merge, approve, amend, plan
 
 For full documentation, see README.md
 ```

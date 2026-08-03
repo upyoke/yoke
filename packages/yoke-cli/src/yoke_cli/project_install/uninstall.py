@@ -18,6 +18,9 @@ from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
 from yoke_cli.project_install import managed_markdown as managed_markdown_layer
 from yoke_cli.project_install import (
+    cursor_permissions as cursor_permissions_layer,
+)
+from yoke_cli.project_install import (
     settings_permissions as settings_permissions_layer,
 )
 from yoke_cli.project_install.files import (
@@ -106,6 +109,9 @@ def uninstall(
     managed_markdown_removed = managed_markdown_layer.remove_managed_markdown(
         root, manifest.get("managed_markdown"),
     )
+    cursor_permissions_removed = cursor_permissions_layer.remove_cursor_permissions(
+        root, manifest.get(cursor_permissions_layer.MANIFEST_KEY),
+    )
     created = set(manifest.get("created_settings_files") or [])
     hooks_removed: Dict[str, List[Dict[str, Any]]] = {}
     settings_deleted: List[str] = []
@@ -161,6 +167,7 @@ def uninstall(
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
         "settings_permissions_removed": settings_permissions_removed,
+        "cursor_permissions_removed": cursor_permissions_removed,
         "managed_markdown_removed_files": managed_markdown_removed["removed_files"],
         "managed_markdown_stripped_blocks": (
             managed_markdown_removed["stripped_blocks"]

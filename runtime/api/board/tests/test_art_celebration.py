@@ -28,7 +28,7 @@ class TestCelebrationMode:
         return [f"{WHITE}{WHITE}{WHITE}"] * 3
 
     def test_fill_progress_celebration_replaces_done(self):
-        """AC-1: celebration emoji replaces done color in grid."""
+        """Celebration emoji replaces done color in grid."""
         grid = self._grid_3x3()
         counts = {"done": 9, "total": 9}
         emoji = "\U0001f680"  # 🚀
@@ -38,7 +38,7 @@ class TestCelebrationMode:
         assert C_DONE not in joined
 
     def test_fill_progress_no_celebration_uses_done(self):
-        """AC-5: without celebration, normal done color is used."""
+        """Without celebration, normal done color is used."""
         grid = self._grid_3x3()
         counts = {"done": 9, "total": 9}
         result = _fill_progress(grid, counts)
@@ -46,7 +46,7 @@ class TestCelebrationMode:
         assert C_DONE in joined
 
     def test_stats_box_celebration_replaces_done_emoji(self):
-        """AC-2: stats box uses celebration emoji for Done row."""
+        """Stats box uses celebration emoji for Done row."""
         emoji = "\U0001f389"  # 🎉
         lines = _render_stats_box(
             {"active": 0, "pipeline": 0, "backlog": 0, "done": 100, "frozen": 0},
@@ -58,7 +58,7 @@ class TestCelebrationMode:
         assert "\U0001f3c6" not in done_line  # no trophy
 
     def test_stats_box_no_celebration_uses_check(self):
-        """AC-2 inverse: without celebration, the ✅ check is used."""
+        """Inverse: without celebration, the ✅ check is used."""
         lines = _render_stats_box(
             {"active": 1, "pipeline": 0, "backlog": 0, "done": 99, "frozen": 0},
             100,
@@ -67,12 +67,12 @@ class TestCelebrationMode:
         assert "\u2705" in done_line
 
     def test_celebration_emoji_pool_size(self):
-        """AC-4: at least 10 distinct emojis in the pool."""
+        """At least 10 distinct emojis in the pool."""
         assert len(CELEBRATION_EMOJIS) >= 10
         assert len(set(CELEBRATION_EMOJIS)) >= 10
 
     def test_render_header_celebration_triggers(self):
-        """AC-1/AC-2/AC-3: full render_header uses celebration when all done."""
+        """Full render_header uses celebration when all done."""
         art_config = ArtConfig(
             master_map=[f"{WHITE}{WHITE}{WHITE}"] * 14,
         )
@@ -115,7 +115,7 @@ class TestCelebrationMode:
         assert "\u2705" in done_stats_line  # ✅ check, not a celebration emoji
 
     def test_render_header_no_celebration_with_active(self):
-        """AC-5: celebration does NOT trigger when active items exist."""
+        """Celebration does NOT trigger when active items exist."""
         art_config = ArtConfig(
             master_map=[f"{WHITE}{WHITE}{WHITE}"] * 14,
         )
@@ -135,7 +135,7 @@ class TestCelebrationMode:
         assert C_DONE in header
 
     def test_celebration_consistent_within_render(self):
-        """AC-3: same celebration emoji used in grid, stats Done row, and legend."""
+        """Same celebration emoji used in grid, stats Done row, and legend."""
         art_config = ArtConfig(
             master_map=[f"{WHITE}{WHITE}{WHITE}"] * 14,
         )

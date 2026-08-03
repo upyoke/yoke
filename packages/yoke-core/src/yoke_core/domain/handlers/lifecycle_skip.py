@@ -114,7 +114,11 @@ def handle_record_recoverable_substrate_skip(
     except Exception as exc:
         return _error_outcome("invalid_payload", f"payload invalid: {exc}")
 
-    item_id_str = f"YOK-{int(target.item_id)}"
+    # Chain-skip memory stores the bare internal id; readers normalize
+    # before comparing. Fabricating a public-ref shape from an internal id
+    # would render a ref that belongs to a different item once an item's
+    # project sequence diverges from its internal id.
+    item_id_str = str(int(target.item_id))
 
     from yoke_core.domain import db_helpers
 

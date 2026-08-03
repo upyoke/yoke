@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
 
 from yoke_core.engines.doctor_report import (
@@ -104,7 +105,8 @@ def hc_epic_task_worktree_backfill(conn, args: DoctorArgs, rec: RecordCollector)
     )
     for row in rows:
         issues.append(
-            f"- YOK-{row['id']} (epic={row['epic_id']}, status={row['status']}): "
+            f"- {render_item_ref(conn, int(row['id']))} "
+            f"(epic={row['epic_id']}, status={row['status']}): "
             f"task {row['task_num']} '{row['title']}' has no lane link"
         )
 
@@ -160,7 +162,7 @@ def hc_epic_task_scope_state(conn, args: DoctorArgs, rec: RecordCollector) -> No
     )
     if rows:
         details = [
-            f"- YOK-{row['epic_id']} task {row['task_num']}: "
+            f"- {render_item_ref(conn, int(row['epic_id']))} task {row['task_num']}: "
             f"scope={row['scope_state']} files={row['file_count']} "
             f"item_status={row['status']}"
             for row in rows

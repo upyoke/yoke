@@ -11,6 +11,10 @@ maps to one verification predicate:
   the claim row.
 - ``"operator_override"`` — require the actor's session row to carry the
   operator mode marker.
+- ``"qa_subject"`` — delegate to
+  :func:`yoke_core.domain.yoke_function_dispatch_qa_claims.qa_subject_claim_verdict`,
+  which accepts a live item claim or the claim a long gate run bound at
+  its start.
 
 Tests monkeypatch :func:`who_claims_for_item` and :func:`is_operator_session`
 to inject synthetic rows without touching the live DB.
@@ -26,8 +30,11 @@ from yoke_contracts.api.function_call import (
     FunctionError,
 )
 from yoke_core.domain.yoke_function_dispatch_qa_claims import (
+    qa_subject_claim_verdict as _qa_subject_claim_verdict,
     resolve_qa_requirement_item_id as _resolve_qa_requirement_item_id,
-    resolve_qa_requirement_subject as _qa_requirement_subject,
+)
+from yoke_core.domain.claim_recovery import (
+    canonical_item_ref as _claim_recovery_item_ref,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -39,12 +46,7 @@ def _placeholder(conn: Any) -> str:
 
 
 def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
-    """Return the active item-target work_claims row for ``item_id``.
-
-    Thin adapter over the canonical lookup
-    ``yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit``.
-    Returns ``None`` when no live claim exists or the lookup fails.
-    """
+    """Return the active item-target claim, if one can be read."""
     try:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.sessions_queries_lookup import (
@@ -193,42 +195,14 @@ def verify_claim(
     ver = entry.version
 
     if kind == "qa_subject":
-        if target.kind == "deployment_run" and target.deployment_run_id:
+        allowed, code, message = _qa_subject_claim_verdict(
+            target, actor_session, request.payload
+        )
+        if allowed:
             return None
-        target_id = target.item_id if target.kind == "item" else None
-        if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
-            target_id, deployment_run_id, err_code, err_msg = _qa_requirement_subject(
-                target.qa_requirement_id
-            )
-            if err_code is not None:
-                return _claim_error(
-                    request,
-                    fid,
-                    ver,
-                    err_code,
-                    err_msg or "",
-                )
-            if deployment_run_id is not None:
-                return None
-        if target_id is None:
-            return _claim_error(
-                request,
-                fid,
-                ver,
-                "claim_required",
-                "QA operation target has no item or deployment-run subject",
-            )
-        row = who_claims_for_item(int(target_id))
-        claim_session = str((row or {}).get("session_id") or "")
-        if not row or claim_session != actor_session:
-            return _claim_error(
-                request,
-                fid,
-                ver,
-                "claim_required",
-                f"no active claim by session {actor_session!r} on item {target_id}",
-            )
-        return None
+        return _claim_error(
+            request, fid, ver, code or "claim_required", message or ""
+        )
 
     if kind in ("item", "epic"):
         target_id = target.item_id if kind == "item" else target.epic_id
@@ -255,15 +229,23 @@ def verify_claim(
         row = who_claims_for_item(int(target_id))
         claim_session = str((row or {}).get("session_id") or "")
         if not row or claim_session != actor_session:
+            item_ref = (
+                _claim_recovery_item_ref(int(target_id)) if kind == "item" else None
+            )
+            recovery = (
+                f'yoke claims work acquire --item {item_ref} --reason "<intent>"'
+                if item_ref
+                else "acquire the required claim before retrying"
+            )
+            target_ref = item_ref or str(target_id)
             return _claim_error(
                 request,
                 fid,
                 ver,
                 "claim_required",
                 f"no active claim by session {actor_session!r} on "
-                f"{kind} {target_id}; acquire one first: "
-                f"yoke claims work acquire "
-                f'--item YOK-{target_id} --reason "<intent>"',
+                f"{kind} {target_ref}; acquire one first: "
+                f"{recovery}",
             )
         return None
 

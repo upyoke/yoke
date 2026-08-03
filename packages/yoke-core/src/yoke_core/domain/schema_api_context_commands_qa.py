@@ -102,7 +102,11 @@ QA_COMMANDS: list[dict] = [
             "expected_outcome, immutable method_config, and the plan's "
             "environment/tenant/project execution target. Read the "
             "result with `yoke qa requirement list --item PREFIX-N`; "
-            "never rewrite the case snapshot during execution."
+            "standard materialization never rewrites an existing case snapshot. "
+            "For a corrected definition, run `yoke qa plan rematerialize "
+            "--item PREFIX-N --transition reviewed-implementation`; it refreshes "
+            "matching requirements without losing runs, adds new cases, and waives "
+            "removed cases."
         ),
     },
     {
@@ -117,8 +121,8 @@ QA_COMMANDS: list[dict] = [
             "The environment must belong to the plan project and match the "
             "hosted runtime. A stale updated_at refuses "
             "the write and preserves the edited file. v1 accepts only the "
-            "all-pass policy; materialized item requirements remain immutable "
-            "snapshots."
+            "all-pass policy; materialized item requirements stay unchanged "
+            "until an explicit re-materialization."
         ),
     },
     {
@@ -204,7 +208,7 @@ QA_COMMANDS: list[dict] = [
             "Registered read qa.gate_summary.run. Use --item for a standalone "
             "issue, or --epic-id E --task-num K for an epic task. The summary "
             "is diagnostic only — even with passing tests, route via "
-            "`/yoke advance YOK-N reviewed-implementation` (never raw items "
+            "`/yoke advance PREFIX-N reviewed-implementation` (never raw items "
             "update) so the gate runs and claim handoff fires."
         ),
     },
@@ -229,7 +233,7 @@ QA_COMMANDS: list[dict] = [
     {
         "topic": "qa",
         "purpose": "Inspect events for an item (canonical agent shape)",
-        "recipe": ("yoke events query --item YOK-N --limit 20"),
+        "recipe": ("yoke events query --item PREFIX-N --limit 20"),
         "notes": (
             "Add `--event-name X`, `--since ISO|'2 hours ago'`, "
             "`--until ...` for narrowing; `--session S "

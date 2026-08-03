@@ -17,6 +17,7 @@ from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    register_test_claim as register,
     seed_item,
     seed_target,
 )
@@ -28,7 +29,6 @@ from yoke_core.domain.path_claims import (
     activate,
     cancel,
     get_claim,
-    register,
     release,
 )
 from yoke_core.domain.path_registry import KIND_FILE
@@ -168,7 +168,7 @@ class TestActivate:
     def test_activate_serial_downstream_after_upstream_release(self, conn):
         """A blocked downstream can activate once the upstream releases.
 
-        Mirrors the AC-13 lifecycle proxy: the activation gate proves
+        Mirrors the lifecycle proxy: the activation gate proves
         the upstream is in a terminal merged state before promoting
         the downstream to ``active``.
         """

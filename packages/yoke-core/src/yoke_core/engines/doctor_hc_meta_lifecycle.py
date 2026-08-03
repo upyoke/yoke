@@ -17,6 +17,7 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -55,7 +56,7 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if min_item_id is not None and row["id"] < min_item_id:
             continue
         issues.append(
-            f"- YOK-{row['id']}: status is '{row['status']}' but no "
+            f"- {render_item_ref(conn, row['id'])}: status is '{row['status']}' but no "
             f"refined_idea_to_planning READY/CAVEATS verdict found"
         )
         reported_ids.add(row["id"])
@@ -84,7 +85,7 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             continue
         if row["id"] not in reported_ids:
             issues.append(
-                f"- YOK-{row['id']}: status is '{row['status']}' but no "
+                f"- {render_item_ref(conn, row['id'])}: status is '{row['status']}' but no "
                 f"planning_to_plan_drafted READY/CAVEATS verdict found"
             )
 
@@ -126,12 +127,15 @@ def hc_lifecycle_continuity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
     if rows:
         detail_lines = []
         for row in rows:
-            detail_lines.append(f"  - YOK-{row['id']} ({row['status']}): {row['title']}")
+            detail_lines.append(
+                f"  - {render_item_ref(conn, row['id'])} ({row['status']}): {row['title']}"
+            )
         detail = (
             f"{len(rows)} item(s) have status changes with no matching "
             "item_status_transitions row:\n"
             + "\n".join(detail_lines)
-            + "\nRemediation: run python3 -m yoke_core.engines.repair_status <id> <status> "
+            + "\nRemediation: run yoke lifecycle repair-status <PREFIX-N> "
+            '--to TARGET_STATUS --reason "reconcile lifecycle state" '
             "for targeted repair."
         )
         rec.record("HC-lifecycle-continuity", "Lifecycle transition continuity", "WARN", detail)

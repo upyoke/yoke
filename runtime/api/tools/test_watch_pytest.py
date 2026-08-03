@@ -10,7 +10,6 @@ Covers:
 
 from __future__ import annotations
 
-import io
 import os
 import re
 import shlex
@@ -26,7 +25,7 @@ from yoke_core.tools._watch_runner import filter_match
 
 
 # Representative non-TTY pytest output captured by hand. Includes:
-# - File-progress lines with [ N%] markers (AC-4 fixture)
+# - File-progress lines with [ N%] markers
 # - A FAILED test summary line
 # - A collection-error ERROR line
 # - A summary banner with mixed pass/fail
@@ -145,7 +144,7 @@ class TestPytestFilterCoverage:
         assert not filter_match(watch_pytest.PYTEST_PROGRESS_PATTERN, noise)
 
     def test_fixture_distinguishes_signal_from_noise(self) -> None:
-        # The fixture is the AC-4 representative output. Verify the filter
+        # The fixture is the representative output. Verify the filter
         # picks up at least one progress line, the FAILED line, the ERROR
         # line, the collection notice, and the summary banner — but never
         # picks up the "test session starts" or assertion-detail lines.
@@ -189,8 +188,8 @@ class TestPrintStreamingPair:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_pytest" in out
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{command_anchor} pytest" in out
         # The locked-environment prefix binds the pasted command to this
         # checkout's dev dependencies; no PYTHONPATH prefix is emitted.
         assert "PYTHONPATH" not in out
@@ -199,7 +198,7 @@ class TestPrintStreamingPair:
         # Progress tail = auto-exiting watch_tail follower (not `tail -f`);
         # raw inspection = `tail -80`. Helper-resolved captures land under
         # the scratch root's ``watcher-captures`` subdir.
-        assert f"{anchor} yoke_core.tools.watch_tail" in out
+        assert f"{command_anchor} tail" in out
         assert ".progress." in out and ".raw." in out
         assert "tail -80" in out
         assert "watcher-captures" in out
@@ -212,7 +211,7 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
     monkeypatch.delenv("CI", raising=False)
     monkeypatch.delenv("PYTEST_XDIST_AUTO_NUM_WORKERS", raising=False)
-    monkeypatch.setattr(watch_pytest._watch_worktree_binding, "check", lambda: None)
+    monkeypatch.setattr(watch_pytest.verification_tree_binding, "evaluate_run", lambda **_: watch_pytest.verification_tree_binding.TreeBindingVerdict())
     monkeypatch.setattr(
         watch_pytest._source_pythonpath,
         "import_origin_refusal",

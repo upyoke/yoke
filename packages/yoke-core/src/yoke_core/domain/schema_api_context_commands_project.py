@@ -31,7 +31,7 @@ PROJECT_COMMANDS: list[dict] = [
             "Registered read ephemeral_env.get (works over https). The result "
             "contains the environment row, including status, url, workflow run, "
             "ports, and deployed SHA. Use the actual worktree branch; do not "
-            "guess a YOK-N branch or read the table directly."
+            "guess a PREFIX-N branch or read the table directly."
         ),
     },
     {
@@ -93,9 +93,9 @@ PROJECT_COMMANDS: list[dict] = [
         "notes": (
             "This is a client-local tool-shaped boundary, not a dispatcher "
             "function. Its canonical CLI adapter is "
-            "`packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py`; "
+            "`yoke_cli.commands.adapters.pulumi`; "
             "the execution workhorse is "
-            "`packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never "
+            "`yoke_core.tools.pulumi_exec`. Never "
             "guess a sibling `commands/pulumi_exec.py` module. The selected "
             "stack must be declared in the project pulumi-state capability. "
             "Output reads require one exact output name and never expose "

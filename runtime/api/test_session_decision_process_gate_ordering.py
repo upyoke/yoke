@@ -136,7 +136,7 @@ class TestPolicyWinsWhenBothGatesBlock:
 
 
 class TestLaneWinsWhenPolicyEnabled:
-    """AC-2 / AC-5: lane WAIT preserved when the global policy enables the process."""
+    """Lane WAIT preserved when the global policy enables the process."""
 
     def test_lane_block_fires_when_strategize_policy_enabled(self):
         # Inverse of the above: STRATEGIZE is globally enabled, but
@@ -179,7 +179,7 @@ class TestLaneWinsWhenPolicyEnabled:
 
 
 class TestPolicyEnabledLaneAllows:
-    """AC-2: when both gates pass, the original action proceeds unchanged."""
+    """When both gates pass, the original action proceeds unchanged."""
 
     def test_action_passes_through_when_policy_and_lane_permit(self):
         original = _make_action(

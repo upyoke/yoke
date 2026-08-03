@@ -74,9 +74,9 @@ def item_binding_runtime_state(
             raise WorkflowItemBindingError(
                 f"item {item_id} has undeclared workflow stage {status!r}"
             )
-        if runtime.executor_for_stage(status) is None:
+        if runtime.skill_for_stage(status) is None:
             raise WorkflowItemBindingError(
-                f"workflow stage {status!r} has no active executor"
+                f"workflow stage {status!r} has no active skill"
             )
     return runtime, status
 

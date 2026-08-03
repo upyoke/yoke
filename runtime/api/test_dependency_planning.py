@@ -107,7 +107,7 @@ class TestEvaluateItemGate:
         assert len(result.unsatisfied_blockers) == 2
 
     def test_closure_gate_accepted(self):
-        """AC-6: closure gate is accepted by the planner."""
+        """Closure gate is accepted by the planner."""
         conn = _create_test_db()
         _insert_item(conn, 1)
         _insert_item(conn, 2, status="implementing")
@@ -272,7 +272,7 @@ class TestPlanCandidateSet:
         assert len(result.blocked) == 2
 
     def test_closure_gate_plan(self):
-        """AC-6: closure gate works in planning."""
+        """Closure gate works in planning."""
         conn = _create_test_db()
         _insert_item(conn, 1, status="implemented")
         _insert_item(conn, 2, status="implemented")

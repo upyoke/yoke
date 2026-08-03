@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -45,9 +46,10 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
         if item_id in flagged:
             continue
         flagged.add(item_id)
+        ref = render_item_ref(conn, item_id)
         issues.append(
-            f"- YOK-{item_id} (status: {row['status']}): merged_at is set but status is not done. "
-            f"Run: `/yoke usher YOK-{item_id}` to complete the done transition."
+            f"- {ref} (status: {row['status']}): merged_at is set but status is not done. "
+            f"Run: `/yoke usher {ref}` to complete the done transition."
         )
 
     # Check items with active lane branches merged into main
@@ -77,9 +79,10 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
                       timeout=5)
             if r.returncode == 0:
                 flagged.add(item_id)
+                ref = render_item_ref(conn, item_id)
                 issues.append(
-                    f"- YOK-{item_id} (status: {row['status']}): branch '{wt}' is merged to {main_branch}. "
-                    f"Run: `/yoke usher YOK-{item_id}` to complete the done transition."
+                    f"- {ref} (status: {row['status']}): branch '{wt}' is merged to {main_branch}. "
+                    f"Run: `/yoke usher {ref}` to complete the done transition."
                 )
 
     if issues:
@@ -99,7 +102,8 @@ def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "AND (merged_at IS NULL OR merged_at = '') ORDER BY id",
     )
     issues = [
-        f"- YOK-{r['id']} ({r['workflow_id']}: {r['title']}): status=done but merged_at is null"
+        f"- {render_item_ref(conn, r['id'])} ({r['workflow_id']}: {r['title']}): "
+        "status=done but merged_at is null"
         for r in rows if min_item_id is None or r["id"] >= min_item_id
     ]
 
@@ -124,7 +128,10 @@ def hc_shepherd_spec_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> 
         item_id = row["id"]
         # Check for epics past idea without specs
         if not row["spec"] and not row["design_spec"] and not row["technical_plan"]:
-            issues.append(f"- YOK-{item_id}: epic past idea status but has no spec/design_spec/technical_plan")
+            issues.append(
+                f"- {render_item_ref(conn, item_id)}: epic past idea status but "
+                "has no spec/design_spec/technical_plan"
+            )
 
     if issues:
         rec.record("HC-shepherd-spec-integrity", "Shepherd spec body integrity", "WARN",
@@ -171,7 +178,8 @@ def hc_reviewed_implementation_epics_no_sim(
 
     rows = rows_generating_task_graph(conn, rows)
     issues = [
-        f"- YOK-{r['id']}: status is 'reviewed-implementation' but no integration simulation record exists"
+        f"- {render_item_ref(conn, r['id'])}: status is 'reviewed-implementation' "
+        "but no integration simulation record exists"
         for r in rows
     ]
 
@@ -212,7 +220,8 @@ def hc_missing_flow(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "ORDER BY i.id",
     )
     issues = [
-        f"- YOK-{r['id']} (status: {r['status']}, project: {r['project'] or 'null'}): no deployment_flow"
+        f"- {render_item_ref(conn, r['id'])} (status: {r['status']}, "
+        f"project: {r['project'] or 'null'}): no deployment_flow"
         for r in rows
     ]
 

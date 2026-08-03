@@ -31,6 +31,11 @@ class HolderRow(BaseModel):
     task_num: Optional[int] = None
     claimed_at: Optional[str] = None
     last_heartbeat: Optional[str] = None
+    # Recorded paths of the claim's active worktree lanes. Carried on the
+    # holder row so a caller asking "which trees may this session write
+    # and verify in?" gets its answer in one round trip instead of a
+    # detail fetch per claim.
+    lane_worktrees: List[str] = Field(default_factory=list)
 
 
 class HolderGetResponse(BaseModel):
@@ -44,6 +49,7 @@ class HolderListRequest(BaseModel):
 
 class HolderListResponse(BaseModel):
     holders: List[HolderRow] = Field(default_factory=list)
+    current_item_before_implementation: Optional[bool] = None
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -51,6 +57,35 @@ def _err(code: str, message: str) -> HandlerOutcome:
         primary_success=False,
         error=FunctionError(code=code, message=message),
     )
+
+
+def _current_item_before_implementation(
+    conn: Any, session_id: str,
+) -> Optional[bool]:
+    """Server-computed lifecycle posture for the session's current item."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    try:
+        row = conn.execute(
+            "SELECT i.id, i.status FROM harness_sessions hs "
+            "JOIN items i ON i.id = hs.current_item_id "
+            f"WHERE hs.session_id = {p} LIMIT 1",
+            (session_id,),
+        ).fetchone()
+    except db_backend.database_error_types(conn):
+        return None
+    if row is None:
+        return None
+    item_id = int(row["id"] if hasattr(row, "keys") else row[0])
+    stage_id = str(row["status"] if hasattr(row, "keys") else row[1])
+    try:
+        return load_item_workflow_runtime(
+            conn, item_id,
+        ).is_before_implementation(stage_id)
+    except Exception:
+        return None
 
 
 def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -73,10 +108,13 @@ def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     with db_helpers.connect() as conn:
         row = get_claim_for_work_unit(conn, item_id=str(int(item_id)))
+        holder = _holder_row_to_dict(row) if row else None
+        if holder is not None:
+            holder["lane_worktrees"] = _lane_worktrees(conn, [holder]).get(
+                holder["claim_id"], []
+            )
 
-    return HandlerOutcome(
-        result_payload={"holder": _holder_row_to_dict(row) if row else None}
-    )
+    return HandlerOutcome(result_payload={"holder": holder})
 
 
 def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
@@ -112,12 +150,67 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
             params.append(body.session_id)
         sql += " ORDER BY claimed_at DESC"
         rows = conn.execute(sql, tuple(params)).fetchall()
+        holders = [_holder_row_to_dict(_row_dict(r)) for r in rows]
+        lanes = _lane_worktrees(conn, holders)
+        before_implementation = (
+            _current_item_before_implementation(conn, body.session_id)
+            if body.session_id else None
+        )
 
-    return HandlerOutcome(
-        result_payload={
-            "holders": [_holder_row_to_dict(_row_dict(r)) for r in rows]
-        },
-    )
+    for holder in holders:
+        holder["lane_worktrees"] = lanes.get(holder["claim_id"], [])
+    return HandlerOutcome(result_payload={
+        "holders": holders,
+        "current_item_before_implementation": before_implementation,
+    })
+
+
+def _lane_worktrees(conn: Any, rows: List[Dict[str, Any]]) -> Dict[int, List[str]]:
+    """Recorded paths of each claim's active worktree lanes, by claim id.
+
+    Reads ``item_worktrees.path`` rather than recomputing the path from a
+    checkout mapping, because the caller may be a server that holds no
+    checkout of its own — the recorded column is the only answer that
+    survives the relay.
+
+    An ``epic_task`` claim resolves through its epic, and the lane table
+    keys lanes by item alone, so such a claim reports every active lane
+    under that epic. The binding check that consumes this only ever
+    widens what it accepts, so the breadth cannot produce a false
+    refusal.
+    """
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.schema_common import _table_exists
+
+    owners = {
+        int(row["item_id"] or row["epic_id"]): int(row["claim_id"])
+        for row in rows
+        if row.get("item_id") or row.get("epic_id")
+    }
+    # A holder read stays answerable on a schema that carries claims but
+    # no lane table — minimal fixtures and partially-converged universes
+    # both hit this — so the lanes are reported as unknown rather than
+    # failing the whole lookup.
+    if not owners or not _table_exists(conn, "item_worktrees"):
+        return {}
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    placeholders = ", ".join(p for _ in owners)
+    lanes: Dict[int, List[str]] = {}
+    found = conn.execute(
+        "SELECT item_id, path FROM item_worktrees "
+        f"WHERE released_at IS NULL AND item_id IN ({placeholders}) "
+        "ORDER BY id",
+        tuple(owners),
+    ).fetchall()
+    for lane in found:
+        lane_row = _row_dict(lane)
+        owner_id = int(lane_row.get("item_id") or 0)
+        path = str(lane_row.get("path") or "").strip()
+        claim_id = owners.get(owner_id)
+        if claim_id is None or not path:
+            continue
+        lanes.setdefault(claim_id, []).append(path)
+    return lanes
 
 
 def _row_dict(row: Any) -> Dict[str, Any]:

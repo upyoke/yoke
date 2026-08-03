@@ -13,15 +13,18 @@ import {
 
 export { renderQaMethodDetail } from "./qa_view_method_detail.js";
 
-const METHOD_ORDER = [
+const LEGACY_METHOD_ORDER = [
   "command", "browser-check", "browser-inspection",
   "terminal-check", "terminal-inspection",
   "machine-state-check",
 ];
 
 function methodOrder(method) {
-  const index = METHOD_ORDER.indexOf(method.id);
-  return index < 0 ? METHOD_ORDER.length : index;
+  if (Number.isFinite(Number(method.display_order))) {
+    return Number(method.display_order);
+  }
+  const index = LEGACY_METHOD_ORDER.indexOf(method.id);
+  return index < 0 ? LEGACY_METHOD_ORDER.length : index;
 }
 
 function scopeParam(scope) {
@@ -74,7 +77,7 @@ function methodCard(context, method, scope) {
   );
   const top = el(documentNode, "span", "qa-method-top");
   top.appendChild(el(
-    documentNode, "span", "qa-method-icon", methodIcon(method.id),
+    documentNode, "span", "qa-method-icon", methodIcon(method),
   ));
   const identity = el(documentNode, "span", "qa-method-identity");
   identity.appendChild(el(documentNode, "strong", null, method.name));
@@ -94,7 +97,10 @@ function methodCard(context, method, scope) {
   foot.appendChild(el(documentNode, "span", null, "capability"));
   foot.appendChild(el(
     documentNode, "strong", "qa-capability-name",
-    capabilityLabel(method.required_capability_kind),
+    capabilityLabel(
+      method.required_capability_kind,
+      method.required_capability_label,
+    ),
   ));
   const state = method.required_capability_kind
     ? capabilityStateNode(

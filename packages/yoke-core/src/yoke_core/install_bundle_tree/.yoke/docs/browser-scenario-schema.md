@@ -41,7 +41,7 @@ override it.
 ```
 
 The step vocabulary matches
-`packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-executor.js`.
+the browser step executor implementation.
 There is no translation layer.
 
 ## Action reference
@@ -85,7 +85,7 @@ more than one item:
 
 ```bash
 yoke qa item-plan attach \
-  --item YOK-N \
+  --item PREFIX-N \
   --project <project> \
   --plan-id <plan-id> \
   --transition reviewing-implementation
@@ -95,7 +95,7 @@ For a one-off check, add an explicit method-backed requirement:
 
 ```bash
 yoke qa requirement add \
-  --item YOK-N \
+  --item PREFIX-N \
   --method-id browser-check \
   --qa-phase verification \
   --workflow-transition reviewed-implementation \
@@ -114,7 +114,7 @@ through the shared case executor:
 
 ```bash
 yoke qa plan materialize \
-  --item YOK-N \
+  --item PREFIX-N \
   --transition reviewing-implementation \
   --json
 

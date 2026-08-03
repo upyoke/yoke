@@ -18,7 +18,7 @@ class TestDaemonRetry:
     """_ensure_daemon_running performs bounded auto-recovery."""
 
     def test_retry_succeeds_on_second_attempt(self) -> None:
-        """AC-5: If a retry succeeds, execution continues normally."""
+        """If a retry succeeds, execution continues normally."""
         call_count = 0
 
         def _fake_start(**_kw: Any) -> Dict[str, Any]:
@@ -38,7 +38,7 @@ class TestDaemonRetry:
         assert call_count == 2  # first failed, second succeeded
 
     def test_retry_exhausted_returns_error_with_diagnostics(self) -> None:
-        """AC-2/AC-4: After max retries, returns error with diagnostics."""
+        """After max retries, returns error with diagnostics."""
         with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
              mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=RuntimeError("persistent failure")), \
              mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
@@ -63,7 +63,7 @@ class TestDaemonRetry:
         assert "persistent failure" in call_kwargs[1]["last_error"]
 
     def test_retry_logs_each_attempt(self) -> None:
-        """AC-3: Each retry attempt and outcome are logged."""
+        """Each retry attempt and outcome are logged."""
         logged_messages: List[str] = []
 
         def _capture_log(msg: str) -> None:
@@ -104,7 +104,7 @@ class TestDaemonRetry:
         assert result is None
 
     def test_emit_event_called_on_exhausted_retries(self) -> None:
-        """AC-4: BrowserDaemonStartupFailed event emitted on final failure."""
+        """BrowserDaemonStartupFailed event emitted on final failure."""
         with mock.patch("yoke_core.domain.browser_client.daemon_running", return_value=False), \
              mock.patch("yoke_core.domain.browser_client.daemon_start", side_effect=RuntimeError("boom")), \
              mock.patch("yoke_core.domain.browser_client.daemon_stop", return_value="stopped"), \
@@ -136,7 +136,7 @@ class TestDaemonRetry:
         assert "boom" in result
 
     def test_emit_event_uses_native_runtime_emitter(self) -> None:
-        """AC-4: event helper uses the native runtime emitter with item context."""
+        """Event helper uses the native runtime emitter with item context."""
         env_override = {
             "CODEX_THREAD_ID": "codex-session",
             "YOKE_SESSION_ID": "",
@@ -165,7 +165,7 @@ class TestDaemonRetry:
             severity="ERROR",
             outcome="failed",
             project="yoke",
-            item_id="YOK-1407",
+            item_id=1407,
             context={
                 "attempt_count": 3,
                 "last_error": "boom",
@@ -179,10 +179,10 @@ class TestDaemonRetry:
 
 
 class TestCollectDaemonDiagnostics:
-    """AC-1: diagnostics collection."""
+    """Diagnostics collection."""
 
     def test_collects_stderr_tail(self, tmp_path: Path) -> None:
-        """AC-1: stderr log content is captured in diagnostics."""
+        """Stderr log content is captured in diagnostics."""
         stderr_log = tmp_path / ".daemon-stderr.log"
         stderr_log.write_text("line1\nline2\nERROR: port already in use\n")
 

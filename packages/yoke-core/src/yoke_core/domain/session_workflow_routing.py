@@ -7,8 +7,8 @@ from typing import Any, Optional
 
 from . import db_backend
 from .frontier_classify import classify_next_action
+from .item_ref_resolution import resolve_internal_item_id
 from .scheduler_routing import _compute_next_step
-from .sessions_offer_revalidation import normalize_item_id
 from .workflow_registry import WorkflowRegistryError
 from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
 
@@ -20,7 +20,7 @@ def read_item_project_and_workflow(
     item_id: str,
 ) -> tuple[Optional[str], Optional[WorkflowRuntime]]:
     """Read project identity and a verified immutable workflow pin."""
-    bare = normalize_item_id(item_id)
+    bare = resolve_internal_item_id(conn, item_id)
     if bare is None:
         return None, None
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"

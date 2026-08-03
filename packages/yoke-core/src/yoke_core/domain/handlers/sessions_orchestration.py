@@ -238,9 +238,13 @@ def _resolve_default_wip_cap(project_scope: List[int]) -> int:
     return get_project_int_for_id(project_id, "wip_cap")
 
 
-def _scheduled_step_to_dict(step: Any) -> Dict[str, Any]:
+def _scheduled_step_to_dict(step: Any, conn: Any = None) -> Dict[str, Any]:
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
     return {
-        "item_id": step.item_id,
+        # Presentation boundary: the charge-schedule JSON carries the
+        # true public ref, rendered from the internal scheduler id.
+        "item_id": display_claim_item_id(str(step.item_id), conn),
         "workflow_id": step.workflow_id,
         "workflow_version_id": step.workflow_version_id,
         "workflow_version": step.workflow_version,
@@ -280,26 +284,26 @@ def _scheduled_step_to_dict(step: Any) -> Dict[str, Any]:
     }
 
 
-def _scheduler_result_to_dict(result: Any) -> Dict[str, Any]:
+def _scheduler_result_to_dict(result: Any, conn: Any = None) -> Dict[str, Any]:
     return {
         "project_scope": list(result.project_scope),
         "sml_state": {"coherent": result.sml_state.coherent},
         "selected_step": (
-            _scheduled_step_to_dict(result.selected_step)
+            _scheduled_step_to_dict(result.selected_step, conn)
             if result.selected_step
             else None
         ),
-        "ranked_steps": [_scheduled_step_to_dict(s) for s in result.ranked_steps],
-        "blocked_steps": [_scheduled_step_to_dict(s) for s in result.blocked_steps],
+        "ranked_steps": [_scheduled_step_to_dict(s, conn) for s in result.ranked_steps],
+        "blocked_steps": [_scheduled_step_to_dict(s, conn) for s in result.blocked_steps],
         "exceptional_steps": [
-            _scheduled_step_to_dict(s) for s in result.exceptional_steps
+            _scheduled_step_to_dict(s, conn) for s in result.exceptional_steps
         ],
         "wip_cap": result.wip_cap,
         "wip_active": result.wip_active,
         "conduct_eligible": [
-            _scheduled_step_to_dict(s) for s in result.conduct_eligible
+            _scheduled_step_to_dict(s, conn) for s in result.conduct_eligible
         ],
-        "frozen_steps": [_scheduled_step_to_dict(s) for s in result.frozen_steps],
+        "frozen_steps": [_scheduled_step_to_dict(s, conn) for s in result.frozen_steps],
     }
 
 
@@ -328,7 +332,8 @@ def handle_charge_schedule(request: FunctionCallRequest) -> HandlerOutcome:
         if wip_cap is None:
             wip_cap = _resolve_default_wip_cap(project_scope)
         result = compute_schedule(conn, project_scope=project_scope, wip_cap=wip_cap)
-    return HandlerOutcome(result_payload=_scheduler_result_to_dict(result))
+        payload = _scheduler_result_to_dict(result, conn)
+    return HandlerOutcome(result_payload=payload)
 
 
 __all__ = [

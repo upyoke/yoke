@@ -121,3 +121,53 @@ def test_whole_batch_is_validated_before_the_first_mutation() -> None:
     with pytest.raises(MachineQaFixtureOperationError):
         executor.execute_setup_operations([valid, invalid])
     assert remote.commands == []
+
+
+def test_current_release_accepts_environment_bound_distribution_values() -> None:
+    remote = FakeRemote()
+    executor = _executor(remote)
+
+    result = executor.execute_setup_operations(
+        [
+            _operation(
+                "installer.current-release-prepare",
+                base_url="https://downloads.example.net/yoke",
+                channel="customer-canary.7",
+                evidence_name="external-release",
+                no_onboard=True,
+                remove_existing_launcher=True,
+            )
+        ]
+    )
+
+    assert result.ok
+
+
+@pytest.mark.parametrize(
+    ("base_url", "channel"),
+    [
+        ("file:///tmp/yoke", "stable"),
+        ("https://user@example.net/yoke", "stable"),
+        ("https://example.net/yoke?token=secret", "stable"),
+        ("https://example.net/yoke", "bad channel"),
+    ],
+)
+def test_current_release_rejects_unsafe_distribution_values(
+    base_url: str,
+    channel: str,
+) -> None:
+    executor = _executor(FakeRemote())
+
+    with pytest.raises(MachineQaFixtureOperationError):
+        executor.execute_setup_operations(
+            [
+                _operation(
+                    "installer.current-release-prepare",
+                    base_url=base_url,
+                    channel=channel,
+                    evidence_name="invalid-release",
+                    no_onboard=True,
+                    remove_existing_launcher=True,
+                )
+            ]
+        )

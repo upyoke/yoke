@@ -63,10 +63,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     *ITEMS_ADAPTERS,
     AdapterEntry(
         function_id="lifecycle.transition.execute",
-        cli_invocation=(
-            "python3 -m yoke_core.cli.db_router items update YOK-N "
-            "status <next>"
-        ),
+        cli_invocation="yoke lifecycle transition YOK-N --to <next>",
         notes="Lifecycle status transitions ride on items.scalar.update",
         agent_path="skill-orchestrated",
         canonical_skill_invocation="/yoke advance YOK-N <next>",
@@ -74,6 +71,14 @@ CLI_ADAPTERS: List[AdapterEntry] = [
             "skips finalize re-anchor, claim lifecycle, source=advance "
             "attribution, and finalize_evidence_bundle."
         ),
+    ),
+    AdapterEntry(
+        function_id="lifecycle.repair_status.execute",
+        cli_invocation=(
+            "yoke lifecycle repair-status YOK-N --to STATUS "
+            "--reason TEXT"
+        ),
+        notes="operator-only audited lifecycle reconciliation",
     ),
     AdapterEntry("lifecycle.skip.record_recoverable_substrate", "yoke lifecycle skip record-recoverable-substrate YOK-N --chain-step N --project P --routed-action ACTION --failure-class CLASS --remediation-owner YOK-N"),
     # qa-family entries live in the _qa sibling module (350-cap split).
@@ -281,6 +286,15 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         notes=(
             "Server half of the board rebuild composition: returns the "
             "recorded query plan; rendering and file writes stay client-side."
+        ),
+    ),
+    _read_entry(
+        function_id="lint.config.show",
+        cli_invocation="yoke lint config show [--root PATH]",
+        notes=(
+            "Reports the resolved .yoke/lint-config, how its root was chosen, "
+            "and each guard's effective mode, including a protected-guard warn "
+            "clamped back to deny for a missing allow-warn token."
         ),
     ),
     AdapterEntry(

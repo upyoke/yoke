@@ -2,19 +2,25 @@
 
 The normal substrate renderer owns files inside the Yoke source checkout
 (``runtime/harness/...``). External project repos receive an installed
-layer instead: ``.claude/``, ``.codex/``, and ``.agents/skills/yoke``.
+layer instead: ``.claude/``, ``.codex/``, ``.cursor/``, and
+``.agents/skills/yoke``.
 This module compares and writes that installed shape from the current Yoke
 source tree.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from yoke_core.domain.agents_render_claude import render_claude_settings_json
 from yoke_core.domain.agents_render_codex import (
     render_codex_agent,
     render_codex_hooks_json,
+)
+from yoke_core.domain.agents_render_cursor import (
+    render_cursor_agent,
+    render_cursor_hooks_json,
 )
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
@@ -27,7 +33,9 @@ from yoke_core.domain.workspace_authority import (
 
 _CLAUDE_SKILL_LINK = Path(".claude") / "skills" / "yoke"
 _CODEX_SKILL_LINK = Path(".codex") / "skills" / "yoke"
+_CURSOR_SKILL_LINK = Path(".cursor") / "skills" / "yoke"
 _SKILL_LINK_TARGET = "../../.agents/skills/yoke"
+_INSTALL_MANIFEST = Path(".yoke") / "install-manifest.json"
 
 
 def is_project_install_root(target_root: Path) -> bool:
@@ -35,7 +43,7 @@ def is_project_install_root(target_root: Path) -> bool:
     root = Path(target_root)
     if (root / CANONICAL_DIR).exists():
         return False
-    return any((root / p).exists() for p in (".claude", ".codex", ".agents"))
+    return any((root / p).exists() for p in (".claude", ".codex", ".cursor", ".agents"))
 
 
 def detect_project_install_drift(
@@ -46,19 +54,23 @@ def detect_project_install_drift(
     """Compare a project-local installed layer against current Yoke source."""
     root = Path(target_root)
     drift: list[str] = []
-    for rel_path, rendered in _project_install_outputs(source_root):
+    copy_skills = _installed_delivery_mode(root) == "copy"
+    for rel_path, rendered in _project_install_outputs(
+        source_root, copy_skills=copy_skills
+    ):
         out_path = root / rel_path
         if not out_path.exists():
             drift.append(f"missing: {rel_path}")
             continue
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
-    for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK):
-        full = root / link_path
-        if not full.is_symlink():
-            drift.append(f"missing: {link_path}")
-        elif full.readlink().as_posix() != _SKILL_LINK_TARGET:
-            drift.append(f"drift: {link_path}")
+    if not copy_skills:
+        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
+            full = root / link_path
+            if not full.is_symlink():
+                drift.append(f"missing: {link_path}")
+            elif full.readlink().as_posix() != _SKILL_LINK_TARGET:
+                drift.append(f"drift: {link_path}")
     return drift
 
 
@@ -71,7 +83,10 @@ def write_project_install(
     """Write the project-local installed layer into *target_root*."""
     root = Path(target_root)
     results: dict[str, tuple[str, str]] = {}
-    for rel_path, rendered in _project_install_outputs(source_root):
+    copy_skills = _installed_delivery_mode(root) == "copy"
+    for rel_path, rendered in _project_install_outputs(
+        source_root, copy_skills=copy_skills
+    ):
         out_path = root / rel_path
         existing = out_path.read_text(encoding="utf-8") if out_path.exists() else None
         action = "skip" if existing == rendered else "would-write" if dry_run else "write"
@@ -80,9 +95,10 @@ def write_project_install(
             out_path.parent.mkdir(parents=True, exist_ok=True)
             out_path.write_text(rendered, encoding="utf-8")
         results[str(rel_path)] = (action, rendered)
-    for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK):
-        action = _ensure_skill_link(root / link_path, dry_run=dry_run)
-        results[str(link_path)] = (action, _SKILL_LINK_TARGET)
+    if not copy_skills:
+        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
+            action = _ensure_skill_link(root / link_path, dry_run=dry_run)
+            results[str(link_path)] = (action, _SKILL_LINK_TARGET)
     return results
 
 
@@ -108,6 +124,8 @@ def drift_if_applicable(*, target_root: Path) -> list[str] | None:
 
 def _project_install_outputs(
     source_root: Path | None,
+    *,
+    copy_skills: bool = False,
 ) -> list[tuple[Path, str]]:
     root = Path(source_root) if source_root is not None else _source_root_from_module()
     outputs: list[tuple[Path, str]] = []
@@ -135,11 +153,34 @@ def _project_install_outputs(
             )
         )
     outputs.append((Path(".codex") / "hooks.json", render_codex_hooks_json()))
-    outputs.extend(_copied_tree_outputs(
-        root / ".agents" / "skills" / "yoke",
-        Path(".agents") / "skills" / "yoke",
-    ))
+    for agent in _agents():
+        outputs.append(
+            (
+                Path(".cursor") / "agents" / f"yoke-{agent}.md",
+                render_cursor_agent(root / CANONICAL_DIR, agent),
+            )
+        )
+    outputs.append((Path(".cursor") / "hooks.json", render_cursor_hooks_json()))
+    skill_source = root / ".agents" / "skills" / "yoke"
+    outputs.extend(
+        _copied_tree_outputs(skill_source, Path(".agents") / "skills" / "yoke")
+    )
+    if copy_skills:
+        outputs.extend(_copied_tree_outputs(skill_source, _CLAUDE_SKILL_LINK))
+        outputs.extend(_copied_tree_outputs(skill_source, _CODEX_SKILL_LINK))
+        outputs.extend(_copied_tree_outputs(skill_source, _CURSOR_SKILL_LINK))
     return outputs
+
+
+def _installed_delivery_mode(target_root: Path) -> str:
+    manifest = target_root / _INSTALL_MANIFEST
+    if not manifest.is_file():
+        return "link"
+    try:
+        mode = json.loads(manifest.read_text(encoding="utf-8")).get("mode")
+    except (OSError, json.JSONDecodeError):
+        return "link"
+    return "copy" if mode == "copy" else "link"
 
 
 def _copied_tree_outputs(source_dir: Path, target_dir: Path) -> list[tuple[Path, str]]:

@@ -51,7 +51,7 @@ _MAKE_CONN_DDL = """
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
-            status TEXT, priority TEXT, flow TEXT,
+            status TEXT, priority TEXT,
             rework_count INTEGER, frozen INTEGER,
             blocked INTEGER DEFAULT 0, blocked_reason TEXT,
             github_issue TEXT, deployed_to TEXT,
@@ -81,7 +81,7 @@ _MAKE_CONN_DDL = """
             item_worktree_id INTEGER, context_estimate TEXT, dependencies TEXT,
             status TEXT, dispatch_attempts INTEGER, body TEXT,
             github_issue TEXT,
-            blocked_by TEXT, max_attempts INTEGER, agent_id TEXT,
+            max_attempts INTEGER, agent_id TEXT,
             last_heartbeat TEXT
         );
         CREATE TABLE shepherd_verdicts (
@@ -146,7 +146,7 @@ _MAKE_CONN_DDL = """
             actor_id INTEGER, environment TEXT, service TEXT, project_id INTEGER,
             item_id TEXT, task_num INTEGER, agent TEXT, tool_name TEXT,
             duration_ms INTEGER, exit_code INTEGER, trace_id TEXT,
-            parent_id TEXT, anomaly_flags TEXT, envelope TEXT, created_at TEXT
+            anomaly_flags TEXT, envelope TEXT, created_at TEXT
         );
         CREATE TABLE event_registry (
             event_name TEXT PRIMARY KEY, event_kind TEXT, event_type TEXT,

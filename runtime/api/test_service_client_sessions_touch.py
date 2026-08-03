@@ -33,7 +33,7 @@ class TestSessionTouchCommand:
         )
 
     def test_session_touch_heartbeats_active_session(self, session_offer_db):
-        """AC-3: session-touch heartbeats an active session."""
+        """Session-touch heartbeats an active session."""
         sid = "touch-heartbeat"
         db = session_offer_db["db_path"]
         r = self._create_session(session_offer_db, sid)
@@ -63,7 +63,7 @@ class TestSessionTouchCommand:
         assert row[0] != "2026-04-01T00:00:00Z"
 
     def test_session_touch_with_mode_updates_mode(self, session_offer_db):
-        """AC-4: session-touch with --mode heartbeats AND updates mode."""
+        """Session-touch with --mode heartbeats AND updates mode."""
         sid = "touch-mode"
         db = session_offer_db["db_path"]
         r = self._create_session(session_offer_db, sid)
@@ -88,7 +88,7 @@ class TestSessionTouchCommand:
         assert row[0] == "shepherd"
 
     def test_session_touch_nonexistent_returns_exit_1(self, session_offer_db):
-        """AC-5: session-touch on non-existent session returns exit 1."""
+        """Session-touch on non-existent session returns exit 1."""
         db = session_offer_db["db_path"]
         r = _run_client(
             ["session-touch", "--session-id", "no-such-session"],
@@ -99,7 +99,7 @@ class TestSessionTouchCommand:
         assert "session-begin" in r.stderr
 
     def test_session_touch_ended_session_returns_exit_1(self, session_offer_db):
-        """AC-6: session-touch on ended session returns exit 1."""
+        """Session-touch on ended session returns exit 1."""
         sid = "touch-ended"
         db = session_offer_db["db_path"]
         r = self._create_session(session_offer_db, sid)
@@ -117,5 +117,7 @@ class TestSessionTouchCommand:
             db_path=db,
         )
         assert r2.returncode == 1
-        assert "has ended" in r2.stderr
-        assert "inactive session" in r2.stderr
+        assert "has already ended" in r2.stderr
+        # The refusal must carry the populated re-register recipe, not just
+        # the fact that the row is closed.
+        assert f"yoke sessions begin --session-id {sid}" in r2.stderr

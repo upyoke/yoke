@@ -12,7 +12,7 @@ export function hostedFrameEpicWorkflow() {
     description:
       "Planned task decomposition with parallel worktree lanes and an integration boundary.",
     entrySurfaces: ["harness_skill"],
-    executors: [
+    skills: [
       "refine", "shepherd", "refine", "conduct", "polish", "usher",
     ],
     stages: [

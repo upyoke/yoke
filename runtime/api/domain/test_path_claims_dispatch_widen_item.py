@@ -1,6 +1,6 @@
 # ruff: noqa: F811
 """Coverage for ``path-claims widen --item YOK-N`` resolution.
-Pins AC-30 behavior: the shared ``cmd_widen`` parser accepts either the
+The shared ``cmd_widen`` parser accepts either the
 positional ``claim_id`` or ``--item YOK-N`` (resolves to the one
 non-terminal exclusive claim for that item). Zero matches and multiple
 matches are refused with actionable USAGE messages; positional and
@@ -81,14 +81,16 @@ def _register_claim(conn, *, item_id: int) -> int:
     )
     assert rc == 0
     row = conn.execute(
-        "SELECT id FROM path_claims WHERE item_id = %s ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM path_claims "
+        "WHERE owner_kind = 'item' AND owner_item_id = %s "
+        "ORDER BY id DESC LIMIT 1",
         (item_id,),
     ).fetchone()
     return int(row[0])
 
 
 class TestWidenItemResolution:
-    """AC-30: ``--item YOK-N`` resolves to the one widenable claim."""
+    """``--item YOK-N`` resolves to the one widenable claim."""
 
     def test_item_flag_resolves_to_single_active_claim(
         self, patch_conn, capsys,
@@ -155,9 +157,10 @@ class TestWidenItemResolution:
         # planned/active row on the same item to simulate ambiguity.
         first = _register_claim(patch_conn, item_id=item_id)
         patch_conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, item_id, "
+            "INSERT INTO path_claims "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
             "integration_target, registered_at) "
-            "VALUES ('active', 'exclusive', 1, %s, 'main', "
+            "VALUES ('active', 'exclusive', 'item', %s, 1, 'main', "
             "'2026-05-01T00:00:00Z')",
             (item_id,),
         )

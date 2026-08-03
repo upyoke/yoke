@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.idea_readiness_check import Issue, _strip_sun_prefix
+from yoke_core.domain.idea_readiness_check import Issue
 from yoke_core.domain.path_claim_coordination_decision import (
     build_coordination_context,
 )
@@ -43,6 +43,7 @@ from yoke_core.domain.path_claims_dependency_resolver_coordination import (
     has_forward_serial_edge,
 )
 from yoke_core.domain.path_claims_override import is_active_override
+from yoke_core.domain.project_identity import render_item_ref
 
 
 ISSUE_CODE = "cross_item_overlap"
@@ -91,7 +92,7 @@ def probe_cross_item_overlap(
 ) -> List[Issue]:
     """Return one ``Issue`` per unresolved cross-item INCOMPATIBLE cluster."""
     clusters = _find_unresolved_clusters(conn, item_id=int(item_id))
-    return [_cluster_to_issue(c) for c in clusters]
+    return [_cluster_to_issue(conn, c) for c in clusters]
 
 
 def attempt_cross_item_overlap_repair(
@@ -137,18 +138,21 @@ def attempt_cross_item_overlap_repair(
 
 _OVERLAP_SQL = """
 SELECT pc_cand.id AS cand_claim_id, pc_other.id AS other_claim_id,
-       pc_other.item_id AS other_item_id,
+       pc_other.owner_item_id AS other_item_id,
        pc_cand.integration_target AS itarget, pt.path_string AS path
   FROM path_claims pc_cand
   JOIN path_claim_targets pct_cand ON pct_cand.claim_id = pc_cand.id
   JOIN path_targets pt ON pt.id = pct_cand.target_id
   JOIN path_claim_targets pct_other ON pct_other.target_id = pct_cand.target_id
   JOIN path_claims pc_other ON pc_other.id = pct_other.claim_id
- WHERE pc_cand.item_id = {p} AND pc_cand.state IN ({states})
+ WHERE pc_cand.owner_kind = 'item'
+   AND pc_cand.owner_item_id = {p}
+   AND pc_cand.state IN ({states})
+   AND pc_other.owner_kind = 'item'
    AND pc_other.id <> pc_cand.id AND pc_other.state IN ({states})
    AND pc_other.integration_target = pc_cand.integration_target
    AND pc_other.mode <> 'exception'
-   AND (pc_other.item_id IS NULL OR pc_other.item_id <> pc_cand.item_id)
+   AND pc_other.owner_item_id <> pc_cand.owner_item_id
 """
 
 
@@ -235,12 +239,14 @@ def _row_get(row: Any, key: str, index: int) -> Any:
     return row[index]
 
 
-def _cluster_to_issue(cluster: OverlapCluster) -> Issue:
+def _cluster_to_issue(conn: Any, cluster: OverlapCluster) -> Issue:
+    candidate_ref = render_item_ref(conn, cluster.candidate_item_id)
+    conflicting_ref = render_item_ref(conn, cluster.conflicting_item_id)
     paths = list(cluster.shared_paths)
     shared_join = ",".join(paths) if paths else "<shared-paths>"
     recovery_command = (
         "yoke claims path coordination-decision-build "
-        f"--item YOK-{cluster.candidate_item_id} "
+        f"--item {candidate_ref} "
         f"--conflicting-claim {cluster.conflicting_claim_id} "
         f"--paths {shared_join}"
     )
@@ -248,14 +254,14 @@ def _cluster_to_issue(cluster: OverlapCluster) -> Issue:
         code=ISSUE_CODE,
         message=(
             f"path-claim overlap on {len(paths)} shared path(s) with "
-            f"YOK-{cluster.conflicting_item_id} "
+            f"{conflicting_ref} "
             f"(claim_id={cluster.conflicting_claim_id}) is unresolved"
         ),
         remediation=(
             f"classify the overlap with {recovery_command} and author "
             f"the matching item_dependencies row via "
-            f"`yoke shepherd dependency-add YOK-{cluster.candidate_item_id} "
-            f"YOK-{cluster.conflicting_item_id} refine --gate-point "
+            f"`yoke shepherd dependency-add {candidate_ref} "
+            f"{conflicting_ref} refine --gate-point "
             f"coordination_only|activation --rationale '...'`"
         ),
         context={
@@ -284,7 +290,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        item_id = int(_strip_sun_prefix(args.item))
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
+        item_id = parse_item_id(args.item, allow_bare_internal=True)
     except ValueError:
         print(json.dumps({"success": False,
                           "error": f"invalid item: {args.item!r}"}))

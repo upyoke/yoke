@@ -40,6 +40,14 @@ LOW_CAPACITY_PARALLEL_WORKERS = "1"
 DEFAULT_RAM_THRESHOLD_MB = 3 * 1024
 DEFAULT_LOCAL_POSTGRES_AUTO_WORKERS = "10"
 
+#: Worker count for a file-scoped run on the local cluster. Such a run is
+#: deliberately exempt from gate admission so a quick check stays quick
+#: while a full gate holds the slot — but the exemption is worthless if the
+#: quick check then claims the same worker fleet as the gate and both
+#: crawl. A small fleet keeps it fast in wall-clock terms (few files, few
+#: workers) without competing for the machine.
+NARROW_LOCAL_POSTGRES_AUTO_WORKERS = "4"
+
 NO_PARALLEL_FLAG = "--no-parallel"
 PYTEST_XDIST_AUTO_WORKERS_ENV = "PYTEST_XDIST_AUTO_NUM_WORKERS"
 LOCAL_POSTGRES_AUTO_WORKERS_ENV = "YOKE_PG_PYTEST_AUTO_WORKERS"
@@ -72,16 +80,19 @@ def uses_xdist_auto_workers(args: Sequence[str]) -> bool:
 
 
 def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
-    """Start and prune the local test cluster before workers spawn.
+    """Start the local test cluster and reclaim orphans before workers spawn.
 
     ``YOKE_PG_DSN`` is normally ABSENT here. The suite's conftest binds it to
     the test cluster at import time, inside the pytest process — long after
     this parent-process decision is made. Treating an unset value as "not the
-    test cluster" therefore skipped the prune on every ordinary local run,
+    test cluster" therefore skipped the sweep on every ordinary local run,
     letting databases orphaned by interrupted runs accumulate until cloning a
     template slowed enough to stall every xdist worker behind the maintenance
-    lock. Absence means the conftest will bind this cluster, so prune it; only
+    lock. Absence means the conftest will bind this cluster, so sweep it; only
     a DSN that explicitly names a DIFFERENT cluster is a reason to skip.
+
+    The sweep only ever reclaims databases whose owning invocation has exited,
+    so running it here cannot disturb a suite already in flight.
     """
     try:
         from yoke_core.tools import pg_testcluster
@@ -104,6 +115,15 @@ def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
                 os.environ["YOKE_PG_CLUSTER_ROOT"] = prior_root
 
 
+def _local_postgres_auto_workers(args: Sequence[str]) -> str:
+    """Worker count for this invocation's shape on the local cluster."""
+    from yoke_core.tools.gate_admission import is_heavy_invocation
+
+    if is_heavy_invocation(args):
+        return DEFAULT_LOCAL_POSTGRES_AUTO_WORKERS
+    return NARROW_LOCAL_POSTGRES_AUTO_WORKERS
+
+
 def apply_postgres_xdist_auto_env(
     args: Sequence[str],
     env: dict[str, str] | None = None,
@@ -115,6 +135,10 @@ def apply_postgres_xdist_auto_env(
     ``-n auto`` while the local Postgres test cluster avoids connection storms.
     CI keeps the platform CPU-derived ``auto`` value; GitHub's matrix currently
     resolves that to two workers and is already green.
+
+    The count also depends on the invocation's shape: a full sweep gets the
+    fast fleet, while a file-scoped run — which bypasses gate admission and
+    so may be sharing the machine with a running gate — gets a small one.
     """
     resolved = dict(os.environ if env is None else env)
     if not uses_xdist_auto_workers(args):
@@ -126,7 +150,7 @@ def apply_postgres_xdist_auto_env(
 
     workers = resolved.get(
         LOCAL_POSTGRES_AUTO_WORKERS_ENV,
-        DEFAULT_LOCAL_POSTGRES_AUTO_WORKERS,
+        _local_postgres_auto_workers(args),
     )
     if workers:
         resolved[PYTEST_XDIST_AUTO_WORKERS_ENV] = workers

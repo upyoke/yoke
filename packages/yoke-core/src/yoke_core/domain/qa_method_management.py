@@ -9,6 +9,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.qa_method_definitions import method_metadata_for_executor
 
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -61,8 +62,7 @@ def register_project_method(
         )
     if verdict_path not in contract["verdict_paths"]:
         raise QaMethodError(
-            f"executor {executor_id!r} does not support verdict path "
-            f"{verdict_path!r}"
+            f"executor {executor_id!r} does not support verdict path {verdict_path!r}"
         )
     if concurrency_mode not in {"parallel", "serial"}:
         raise QaMethodError("concurrency_mode must be parallel or serial")
@@ -74,9 +74,7 @@ def register_project_method(
     }
     empty = [field for field, value in required.items() if not str(value).strip()]
     if empty:
-        raise QaMethodError(
-            "project method requires non-empty " + ", ".join(empty)
-        )
+        raise QaMethodError("project method requires non-empty " + ", ".join(empty))
     method_id = f"project-{identity.slug}-{slug}"
     marker = _p(conn)
     existing = query_one(
@@ -87,12 +85,30 @@ def register_project_method(
     if existing is not None and int(existing["project_id"] or 0) != int(identity.id):
         raise QaMethodError(f"QA method {method_id!r} is already registered")
     stamp = iso8601_now()
+    metadata = method_metadata_for_executor(executor_id, verdict_path)
     columns = (
-        "id", "name", "description", "source_kind", "source_ref",
-        "project_id", "executor_id", "required_capability_kind",
-        "verdict_path", "verdict_contract", "evidence_contract",
-        "success_policy_id", "success_policy_params", "concurrency_mode",
-        "created_at", "updated_at",
+        "id",
+        "name",
+        "description",
+        "source_kind",
+        "source_ref",
+        "project_id",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
+        "verdict_contract",
+        "evidence_contract",
+        "success_policy_id",
+        "success_policy_params",
+        "concurrency_mode",
+        "display_icon",
+        "display_order",
+        "display_group",
+        "config_contract_id",
+        "proof_kind",
+        "executor_gloss",
+        "created_at",
+        "updated_at",
     )
     conn.execute(
         f"INSERT INTO qa_methods ({', '.join(columns)}) "
@@ -106,6 +122,12 @@ def register_project_method(
         "evidence_contract=EXCLUDED.evidence_contract, "
         "success_policy_params=EXCLUDED.success_policy_params, "
         "concurrency_mode=EXCLUDED.concurrency_mode, "
+        "display_icon=EXCLUDED.display_icon, "
+        "display_order=EXCLUDED.display_order, "
+        "display_group=EXCLUDED.display_group, "
+        "config_contract_id=EXCLUDED.config_contract_id, "
+        "proof_kind=EXCLUDED.proof_kind, "
+        "executor_gloss=EXCLUDED.executor_gloss, "
         "updated_at=EXCLUDED.updated_at",
         (
             method_id,
@@ -122,6 +144,12 @@ def register_project_method(
             "all-pass",
             json.dumps(success_policy_params or {}, sort_keys=True),
             concurrency_mode,
+            metadata["display_icon"],
+            metadata["display_order"],
+            metadata["display_group"],
+            metadata["config_contract_id"],
+            metadata["proof_kind"],
+            metadata["executor_gloss"],
             stamp,
             stamp,
         ),

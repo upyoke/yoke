@@ -18,7 +18,7 @@ Before writing any changes, complete these mandatory checks and carry the findin
 - **Cleanup coverage:** If the artifact replaces or removes behavior, explicitly identify dead code, dead docs, dead tests, dead config, compatibility shims, and migration residue that should be deleted.
 - **Failure/recovery coverage:** If the artifact describes a state-changing or write path, ensure it names failure modes, partial-state behavior, and operator recovery/rollback expectations.
 - **Open-question closure:** For `REFINE_ARTIFACT_SCOPE=item_artifact`, resolve open questions or assign explicit defaults whenever the answer would change interfaces, files touched, data model, or user-visible behavior.
-- **Blitz execution document:** When `ITEM_NEXT_EXECUTOR=blitz`, identify exactly
+- **Blitz execution document:** When `ITEM_NEXT_SKILL=blitz`, identify exactly
   one unarchived strategy document in the item project. Verify that it can
   cold-start execution from required outcomes, explicit slice boundaries,
   affected areas, coordination dependencies, verification and delivery
@@ -35,7 +35,7 @@ Before writing any changes, complete these mandatory checks and carry the findin
 - **File Budget (when enabled by effective workflow policy):** A first-class readiness check, not advisory. Consume the central `workflows.item.get` effective value before applying this rubric; do not reconstruct it from raw policy or posture. The hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`) in every posture; the design target is `<=300` lines. When File Budget is off, do not author a section merely to satisfy this rubric.
   - **Item-artifact refinement.** When item-scoped File Budget is enabled and the work item is implementation-bearing but has no `## File Budget` section, **add one** as part of the same refinement pass — list likely files/modules with single responsibilities. If the file shape is genuinely unknown, either resolve it through investigation or escalate per `update-protocol.md`'s File Budget escalation rule.
   - **Generated-task-plan refinement.** When the effective policy is `required_per_task`, every generated task that creates or grows authored code must carry a task-level File Budget. Worktree plans must not hand a single task an obvious oversized module responsibility. Plan refinement must flag missing or vague task-level budgets before advancing to `REFINE_TARGET_STATUS`.
-  - **Surfacing file-size pressure.** When a touched source file is already at 300+ lines, name it explicitly in the critique under the File Budget heading. The most common collision points are large agent prompts (`runtime/agents/engineer.md`, `runtime/agents/tester.md`), large skill files, and shared domain modules — splitting them before adding new content is cheaper than splitting them mid-implementation.
+  - **Surfacing file-size pressure.** When a touched source file is already at 300+ lines, name it explicitly in the critique under the File Budget heading. The most common collision points are large Engineer or Tester prompts, large skill files, and shared domain modules — splitting them before adding new content is cheaper than splitting them mid-implementation.
 - **DB claim consistency:** If the spec, technical plan,
   or any structured field names governed DB mutation — `ALTER TABLE`,
   `INSERT INTO <governed table>`, `migration_audit`, `governed
@@ -118,13 +118,13 @@ Evaluate each non-empty artifact against these dimensions:
 
 **Shepherd caveats**
 - Open question resolution: For `REFINE_ARTIFACT_SCOPE=item_artifact`, ALL open questions MUST be resolved or given explicit default answers before the item reaches its execution-ready handoff state. Heuristic: if resolving an open question would change the number of files touched or the data model, it is a spec decision that MUST be resolved. If it only changes task ordering, it can be deferred. FRs must never reference unresolved open questions as firm requirements.
-- Are deferred items captured with YOK-N references?
+- Are deferred items captured with PREFIX-N references?
 - Are any "deferred to future work item" items actually common-sense requirements that belong in THIS work item? Challenge deferrals that would leave the feature incomplete from the operator's perspective.
 
 Emit a structured critique:
 
 ```
-## Refinement Critique — YOK-{N}
+## Refinement Critique — PREFIX-{N}
 
 ### Strengths
 - {what is already good}

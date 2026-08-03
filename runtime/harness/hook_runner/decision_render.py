@@ -51,6 +51,7 @@ __all__ = [
     "merge_allow_stdout",
     "render_claude_decision",
     "render_codex_decision",
+    "render_cursor_decision",
 ]
 
 
@@ -178,6 +179,87 @@ def render_codex_decision(
     contexts = _collect_additional_contexts(decisions)
     if contexts:
         return (_render_additional_context_envelope(contexts, event_name), 0)
+    return ("", 0)
+
+
+# Cursor hook events that gate an action and therefore expect an explicit
+# permission verdict in the JSON reply. Other events treat stdout JSON as
+# event-specific output (additional_context, followup_message, ...).
+_CURSOR_PERMISSION_EVENTS = frozenset({"PreToolUse", "apply_patch"})
+
+
+def _plain_deny_narrative(text: str) -> str:
+    """Return the human narrative from a possibly pre-rendered deny message.
+
+    Some policy modules set ``decision.message`` to the already-rendered
+    ``hookSpecificOutput`` deny envelope (the wire shape Claude and Codex
+    consume directly). Cursor's envelope carries the narrative in its own
+    ``user_message``/``agent_message`` fields, so re-wrapping that JSON
+    would hand the model a stringified blob; unwrap it to the
+    ``permissionDecisionReason`` narrative so the cursor family renders
+    the deny exactly once.
+    """
+    try:
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return text
+    if not isinstance(parsed, dict) or set(parsed) != {HOOK_SPECIFIC_OUTPUT_KEY}:
+        return text
+    inner = parsed[HOOK_SPECIFIC_OUTPUT_KEY]
+    if not isinstance(inner, dict):
+        return text
+    reason = inner.get("permissionDecisionReason")
+    if isinstance(reason, str) and reason.strip():
+        return reason
+    return text
+
+# Cursor events whose allow-time reply may carry ``additional_context``.
+# Measured on Cursor IDE 3.14.7 / cursor-agent 2026.07.23: sessionStart and
+# postToolUse accept it; preToolUse has no allow-time injection channel.
+_CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
+
+
+def render_cursor_decision(
+    decisions: list[HookDecision],
+    event_name: str,
+) -> tuple[str, int]:
+    """Render decisions into Cursor's hook stdout/exit-code shape.
+
+    Cursor reads a JSON object from stdout on exit 0 (exit 2 also blocks,
+    but the JSON shape carries the model-facing narrative, so the renderer
+    always uses exit 0 + JSON):
+
+    * Deny present -> ``{"permission": "deny", "agent_message": ...,
+      "user_message": ...}``. ``agent_message`` reaches the model;
+      ``user_message`` reaches the operator. Both carry the narrative.
+    * No deny + at least one advisory on a context-accepting event ->
+      ``{"additional_context": ...}``.
+    * Otherwise -> an explicit allow on permission events
+      (``{"permission": "allow"}``), empty stdout elsewhere.
+
+    Advisory text is intentionally dropped when a deny exists so the deny
+    narrative cannot be hidden or replaced, and dropped on events with no
+    allow-time injection channel (the Cursor adapter's
+    ``pretool_omissions`` already elides advisory-only modules from those
+    chains).
+    """
+    narratives = [
+        _plain_deny_narrative(n) for n in _collect_deny_narratives(decisions)
+    ]
+    if narratives:
+        message = _join_narratives(narratives)
+        envelope = {
+            "permission": "deny",
+            "user_message": message,
+            "agent_message": message,
+        }
+        return (json.dumps(envelope), 0)
+    contexts = _collect_additional_contexts(decisions)
+    if contexts and event_name in _CURSOR_CONTEXT_EVENTS:
+        body = contexts[0] if len(contexts) == 1 else "\n\n".join(contexts)
+        return (json.dumps({"additional_context": body}), 0)
+    if event_name in _CURSOR_PERMISSION_EVENTS:
+        return (json.dumps({"permission": "allow"}), 0)
     return ("", 0)
 
 

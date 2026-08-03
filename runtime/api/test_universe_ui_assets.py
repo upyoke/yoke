@@ -226,6 +226,12 @@ def test_page_module_wires_the_workbench_shell():
     for reference in ("export function mountUniverseApp", "projects.list"):
         assert reference in shell, reference
 
+    # Header search queries items on the server so the whole backlog stays
+    # reachable; only the session arm still filters a cached roster.
+    controls = static_root.joinpath("universe_shell_controls.js").read_text()
+    for reference in ("items.search.run", "sessions.list"):
+        assert reference in controls, reference
+
     view_references = {
         "universe_views_strategy.js": (
             "strategy.surface.list",

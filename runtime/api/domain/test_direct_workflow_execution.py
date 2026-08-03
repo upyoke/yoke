@@ -149,6 +149,7 @@ def test_dash_evidence_cannot_self_attest_enabled_posture(test_db):
         commit_sha="abc1234",
         merge_sha="def5678",
         touched_files=["ui/footer.js"],
+        tree_root="/repo/.worktrees/lane", tree_head_sha="abc1234",
         posture_checks={"deployment": "completed"},
     )
     evidence = evaluate_dash_evidence(test_db, 2110)
@@ -309,6 +310,7 @@ def test_dash_evidence_gate_accepts_complete_close_record(
         commit_sha="abc1234",
         merge_sha="def5678",
         touched_files=["src/direct.py"],
+        tree_root="/repo/.worktrees/lane", tree_head_sha="abc1234",
     )
     monkeypatch.setattr(
         dash_evidence_gate,

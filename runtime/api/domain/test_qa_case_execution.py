@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest import mock
 import json
 
+
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import (
@@ -207,7 +208,7 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
     )
     scenario = ScenarioResult(
         verdict="pass",
-        runs=[RunResult(41, "browser_smoke", "pass", qa_run_id=7)],
+        runs=[RunResult(41, "plan_case", "pass", qa_run_id=7)],
         executed=1,
     )
     actor = ActorContext(actor_id="7", session_id="qa-case-test")

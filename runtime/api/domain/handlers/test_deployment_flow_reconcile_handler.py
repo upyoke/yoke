@@ -34,7 +34,7 @@ def test_reconcile_uses_target_project() -> None:
             _request(
                 function="deployment_flows.reconcile_project",
                 target=TargetRef(kind="global", project_id="acme"),
-                payload={"schema": 1, "flows": []},
+                payload={"schema": 2, "flows": []},
             )
         )
 
@@ -43,7 +43,7 @@ def test_reconcile_uses_target_project() -> None:
     reconcile.assert_called_once_with(
         conn,
         "acme",
-        {"schema": 1, "flows": []},
+        {"schema": 2, "flows": []},
         preview_only=False,
     )
     conn.close.assert_called_once()
@@ -53,7 +53,7 @@ def test_reconcile_requires_explicit_target_project() -> None:
     outcome = deployment_flows.handle_deployment_flow_reconcile_project(
         _request(
             function="deployment_flows.reconcile_project",
-            payload={"schema": 1, "flows": []},
+            payload={"schema": 2, "flows": []},
         )
     )
     assert not outcome.primary_success

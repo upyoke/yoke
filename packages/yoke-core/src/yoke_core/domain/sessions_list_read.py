@@ -31,7 +31,10 @@ from yoke_core.domain.actors import (
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
+from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
+from yoke_core.domain.session_presentation_read import session_presentation
 
 
 LIVENESS_ACTIVE = "active"
@@ -42,34 +45,12 @@ LIVENESS_STATES = (LIVENESS_ACTIVE, LIVENESS_STALE, LIVENESS_ENDED)
 DEFAULT_SESSIONS_LIST_LIMIT = 100
 MAX_SESSIONS_LIST_LIMIT = 500
 
-#: Row keys every ``sessions.list`` row carries, in presentation order.
-#: ``claims`` is a list of ``{target_kind, target, claimed_at, reason}``
-#: dicts; every other field is a scalar.
-SESSION_LIST_FIELDS = (
-    "session_id",
-    "liveness",
-    "activity_at",
-    "execution_lane",
-    "mode",
-    "actor_id",
-    "actor_kind",
-    "actor_label",
-    "project_id",
-    "project",
-    "executor",
-    "model",
-    "workspace",
-    "offered_at",
-    "ended_at",
-    "current_item",
-    "current_item_title",
-    "current_item_workflow_id",
-    "current_item_workflow_version_id",
-    "work_role",
-    "owns_current_item",
-    "claim_started_at",
-    "claims",
-)
+#: Under the unscoped (``project=None``) roster read with ``per_project=True``,
+#: the newest-N sessions kept PER PROJECT — each project, and the NULL-project
+#: partition, gets its own slice — so a busy project cannot crowd a quiet one
+#: out of the fetch window. Opt-in so the flat unscoped read (search, the full
+#: roster view) keeps its universe-wide newest-N behavior.
+PER_PROJECT_SESSIONS_LIST_CAP = 20
 
 
 def _parse_timestamp(value: Any) -> Optional[datetime]:
@@ -105,10 +86,10 @@ def _latest_activity(
     return str(raw), parsed
 
 
-def _claim_target_display(claim: Dict[str, Any]) -> str:
+def _claim_target_display(conn: Any, claim: Dict[str, Any]) -> str:
     kind = str(claim.get("target_kind") or "")
     if kind == "item":
-        return str(display_claim_item_id(str(claim.get("item_id"))) or "")
+        return str(display_claim_item_id(str(claim.get("item_id")), conn) or "")
     if kind == "epic_task":
         return f"epic {claim.get('epic_id')} task {claim.get('task_num')}"
     return str(claim.get("process_key") or "")
@@ -148,7 +129,7 @@ def _active_claims_by_session(
         grouped.setdefault(session_id, []).append(
             {
                 "target_kind": str(claim.get("target_kind") or ""),
-                "target": _claim_target_display(claim),
+                "target": _claim_target_display(conn, claim),
                 "claimed_at": claim.get("claimed_at"),
                 "reason": claim.get("reason"),
             }
@@ -186,6 +167,7 @@ def list_sessions(
     project: Optional[str] = None,
     liveness: Optional[str] = None,
     limit: int = DEFAULT_SESSIONS_LIST_LIMIT,
+    per_project: bool = False,
 ) -> List[Dict[str, Any]]:
     """List harness sessions, newest activity first.
 
@@ -195,49 +177,44 @@ def list_sessions(
     prunes in SQL, while the active/stale split classifies within the
     ``limit`` window (the TTL is executor-aware, so it cannot live in
     the WHERE clause).
+
+    ``per_project`` only takes effect on the unscoped roster
+    (``project=None``): the fetch window becomes each project's own
+    newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice (NULL-project
+    sessions form their own partition), so a busy project cannot crowd a
+    quiet one out. The flat unscoped read is unchanged when it is off.
     """
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
             f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
         )
     bounded_limit = max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
+    windowed = per_project and not project
 
     conn = db_helpers.connect()
     try:
         clauses: List[str] = []
-        params: List[Any] = []
+        where_params: List[Any] = []
         if project:
             clauses.append("s.project_id = %s")
-            params.append(resolve_project_id(conn, project))
+            where_params.append(resolve_project_id(conn, project))
         if liveness == LIVENESS_ENDED:
             clauses.append("s.ended_at IS NOT NULL")
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
             clauses.append("s.ended_at IS NULL")
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        params.append(bounded_limit)
 
         # Timestamps are uniform ISO-8601 text, so lexicographic GREATEST
         # matches chronological order for the coarse fetch window; the
-        # precise per-row classification below re-parses real datetimes.
-        rows = conn.execute(
-            "SELECT s.session_id, s.executor, s.model, s.execution_lane, "
-            "s.mode, s.workspace, s.project_id, pr.slug AS project, "
-            "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
-            "s.ended_at, s.current_item_id, s.actor_id, "
-            "a.kind AS actor_kind, i.title AS current_item_title, "
-            "i.workflow_id AS current_item_workflow_id, "
-            "i.workflow_version_id AS current_item_workflow_version_id "
-            "FROM harness_sessions s "
-            "LEFT JOIN projects pr ON pr.id = s.project_id "
-            "LEFT JOIN actors a ON a.id = s.actor_id "
-            "LEFT JOIN items i ON CAST(i.id AS TEXT) = "
-            "CAST(s.current_item_id AS TEXT) "
-            f"{where} "
-            "ORDER BY GREATEST(COALESCE(s.last_tool_call_at, ''), "
-            "s.last_heartbeat) DESC "
-            "LIMIT %s",
-            tuple(params),
-        ).fetchall()
+        # precise per-row classification below re-parses real datetimes. The
+        # windowed shape gives each project (and the NULL-project partition)
+        # its own newest-N slice so a busy project cannot crowd a quiet one out.
+        query = build_sessions_query(where, windowed=windowed)
+        if windowed:
+            params = [*where_params, PER_PROJECT_SESSIONS_LIST_CAP, bounded_limit]
+        else:
+            params = [*where_params, bounded_limit]
+        rows = conn.execute(query, tuple(params)).fetchall()
 
         claims_by_session, roles_by_session = _active_claims_by_session(conn)
         label_cache: Dict[int, str] = {}
@@ -262,7 +239,7 @@ def list_sessions(
             session_id = str(row["session_id"])
             current_item = row.get("current_item_id")
             current_item_display = (
-                display_claim_item_id(str(current_item)) if current_item else None
+                display_claim_item_id(str(current_item), conn) if current_item else None
             )
             claims = claims_by_session.get(session_id, [])
             item_claims = [
@@ -291,12 +268,16 @@ def list_sessions(
             work_role = next(iter(task_roles or item_roles), None)
             if not work_role and current_item_display:
                 work_role = "item" if owns_current_item else "attached"
+            executor_display_name = row.get("executor_display_name")
+            presentation = session_presentation(conn, row)
             result.append(
                 {
                     "session_id": session_id,
                     "liveness": state,
                     "activity_at": activity_at,
                     "execution_lane": row.get("execution_lane"),
+                    "lane_label": presentation["lane_label"],
+                    "lane_glyph": presentation["lane_glyph"],
                     "mode": row.get("mode"),
                     "actor_id": row.get("actor_id"),
                     "actor_kind": row.get("actor_kind"),
@@ -308,6 +289,9 @@ def list_sessions(
                     "project_id": row.get("project_id"),
                     "project": row.get("project"),
                     "executor": row.get("executor"),
+                    "executor_display_name": executor_display_name,
+                    "executor_mark": presentation["executor_mark"],
+                    "executor_class_name": presentation["executor_class_name"],
                     "model": row.get("model"),
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),
@@ -340,6 +324,7 @@ __all__ = [
     "LIVENESS_STALE",
     "LIVENESS_STATES",
     "MAX_SESSIONS_LIST_LIMIT",
+    "PER_PROJECT_SESSIONS_LIST_CAP",
     "SESSION_LIST_FIELDS",
     "list_sessions",
 ]

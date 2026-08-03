@@ -7,7 +7,7 @@ Covers handlers in ``yoke_core.domain.handlers.reads`` and
 - ``epic_tasks.list.run``
 - ``path_claims.conflicts.list``
 - ``doctor.run.run``
-- ``projects.capability.has`` (AC-7.9)
+- ``projects.capability.has``
 
 The events.* read handlers are covered by
 ``runtime/api/domain/handlers/test_events_reads.py``.
@@ -246,7 +246,7 @@ class TestDoctorRun(unittest.TestCase):
 
 
 class TestProjectsCapabilityHas(unittest.TestCase):
-    """AC-7.9 — typed boolean replacement for ``has-capability ... 2>&1; echo``."""
+    """Typed boolean replacement for ``has-capability ... 2>&1; echo``."""
 
     def test_rejects_missing_project(self):
         req = _request(

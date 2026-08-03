@@ -17,7 +17,7 @@ This gate runs **before** worktree/environment phases to ensure bypass-created i
 backpointer from an ordinary backlog row to `epic_tasks`; the generated-task
 table references its parent instead. Any ordinary item reaching this gate runs
 the generic reconciliation path, which is benign when its `deployment_flow`
-was already populated by the owning executor's handoff. If an exemption
+was already populated by the owning skill's handoff. If an exemption
 becomes mechanically necessary, add a real relation first; do not infer one
 from `epic_task_files` or another indirect signal.
 
@@ -50,7 +50,7 @@ If `_item_flow` is empty or null:
 
   Emit: `Reconciled: deployment_flow auto-filled to '{_default_flow}' from project default.`
 - If `_default_flow` is empty → **hard block**:
- > **Blocked:** YOK-{N} has no `deployment_flow` and project '{_item_project}' has no configured `deploy_defaults` entry. Set a flow before advancing to `implementing`. Use the registered item scalar wrapper (`yoke items scalar update YOK-{N} --field deployment_flow --value <flow-name>`) for the item value. Project-wide deploy-default repair is source-dev/admin only today; no registered product CLI wrapper exists for that helper.
+ > **Blocked:** PREFIX-{N} has no `deployment_flow` and project '{_item_project}' has no configured `deploy_defaults` entry. Set a flow before advancing to `implementing`. Use the registered item scalar wrapper (`yoke items scalar update PREFIX-{N} --field deployment_flow --value <flow-name>`) for the item value. Project-wide deploy-default repair is source-dev/admin only today; no registered product CLI wrapper exists for that helper.
 
  Do NOT update status. Do NOT create worktree. **Stop.**
 
@@ -94,7 +94,7 @@ PY
 ```
 
 If `_body_incomplete` is `1`:
-> **Advisory:** YOK-{N} has minimal body content. Cold-start sessions need full context (problem, fix plan, acceptance criteria). Consider updating the body before implementation.
+> **Advisory:** PREFIX-{N} has minimal body content. Cold-start sessions need full context (problem, fix plan, acceptance criteria). Consider updating the body before implementation.
 
 Do not block.
 
@@ -113,7 +113,7 @@ If `_item_project` is not `yoke` and `_has_pack_reuse` is 0:
  _has_pack_reuse_body=$(printf '%s' "$_item_body" | grep -c '## Pack Reuse' 2>/dev/null) || _has_pack_reuse_body=0
  ```
 - If both are 0:
- > **Advisory:** YOK-{N} (project={_item_project}) has no `## Pack Reuse` stance. Record whether the change is `project-owned` or a reusable `pack-update` before implementation.
+ > **Advisory:** PREFIX-{N} (project={_item_project}) has no `## Pack Reuse` stance. Record whether the change is `project-owned` or a reusable `pack-update` before implementation.
 
 Do not block.
 
@@ -139,7 +139,7 @@ fi
 # before release: the target env's declared deploy branch (environments.settings.git.branch),
 # which is main for prod/internal flows and stage for stage flows.
 # Resolver is source-dev/admin only; no registered product CLI wrapper exists yet.
-_mv_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
+_mv_branches=$(python3 -m yoke_core.domain.worktree_item_resolve PREFIX-{N} --branches 2>/dev/null) || true
 ```
 
 If `_mv_branches` is empty → advisory warning, proceed.
@@ -170,7 +170,7 @@ fi
 ## Done Transition Redirect (step 5c, target `done`)
 
 If target is `done`, do NOT update status. Print redirect and **return immediately**:
-> Cannot advance to `done` directly. Use `/yoke usher YOK-{N}` to merge and deploy.
+> Cannot advance to `done` directly. Use `/yoke usher PREFIX-{N}` to merge and deploy.
 
 ---
 

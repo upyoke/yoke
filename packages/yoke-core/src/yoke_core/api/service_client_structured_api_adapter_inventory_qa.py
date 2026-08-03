@@ -81,12 +81,20 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa project-default set --project P --plan-id N --workflow W --transition T",
     ),
     AdapterEntry(
+        "qa.project_default.unset",
+        "yoke qa project-default unset --project P --plan-id N --workflow W --transition T",
+    ),
+    AdapterEntry(
         "qa.item_plan.attach",
         "yoke qa item-plan attach --item YOK-N --project P --plan-id N --transition T",
     ),
     AdapterEntry(
         "qa.plan.materialize",
         "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
+    ),
+    AdapterEntry(
+        "qa.plan.rematerialize",
+        "yoke qa plan rematerialize --item PREFIX-N --transition T",
     ),
     AdapterEntry(
         "qa.requirement.update",

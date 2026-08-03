@@ -269,7 +269,9 @@ def record_worker_item_worktree(
     active = list_item_worktrees(conn, int(item_id), active_only=True)
     if any(row["lane_role"] == LANE_INTEGRATION for row in active):
         return worker
-    integration_branch = f"YOK-{item_id}"
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
+    integration_branch = worktree_name_for_item(conn, item_id)
     if any(row["branch"] == integration_branch for row in active):
         integration_branch += "-integration"
     record_item_worktree(

@@ -124,6 +124,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.engines.usher_reconcile_github",
     ): ("source_dev_admin", "sanctioned usher recovery source-dev/admin command"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/watchers.py",
+        "yoke_core.tools.watch_entrypoints",
+    ): ("client_local_diagnostics", "wrappers behind the yoke watch commands"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/source_authority.py",
         "yoke_core.domain.source_authority_cutover",
     ): (
@@ -244,6 +248,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.deploy_remote",
     ): ("source_dev_admin", "explicit aws-admin capability subprocess helper"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/vps.py",
+        "yoke_core.domain.deploy_remote",
+    ): ("source_dev_admin", "explicit VPS power-control capability helper"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/runner_fleet.py",
         "yoke_core.tools.runner_fleet_exec",
     ): (
@@ -331,6 +339,9 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_diagnostics",
         "compose session orientation from this machine's own git and files",
     ),
+    ("packages/yoke-cli/src/yoke_cli/commands/adapters/dash.py",
+     "yoke_core.domain.verification_tree_binding"):
+        ("client_local_diagnostics", "name the verification tree from git"),
 }
 
 

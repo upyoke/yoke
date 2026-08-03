@@ -6,7 +6,6 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import backlog_github_sync, epic_task_sync  # noqa: F401
-from yoke_core.domain.epic import task_update_field  # noqa: F401
 from yoke_core.domain.worktree import (  # noqa: F401
     resolve_yoke_root as resolve_worktree_yoke_root,
 )
@@ -26,6 +25,7 @@ from yoke_core.engines.resync_runtime import (  # noqa: F401
     _call_domain_sync,
 )
 from yoke_core.engines.resync_detect import (  # noqa: F401
+    LocalOrphan,
     PairedItem,
     DriftRecord,
     _trim_trailing,
@@ -53,6 +53,7 @@ from yoke_core.engines.resync_wrappers import (  # noqa: F401
     _repair_local_orphan_epic_task,
     _repair_drift,
 )
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Run the resync engine. Returns exit code."""
@@ -104,22 +105,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         i += 1
 
-    # The database is authoritative for item and epic-task content.  A source
-    # checkout is optional here: ``stage1_linkage`` retains a display-only
-    # legacy file field, but detection and repair use DB ids and registered
-    # GitHub bindings.  Hosted Doctor runs from an installed wheel and
-    # therefore have no repository root to discover.
+    # A source checkout is optional; detection and repair use DB identities.
     try:
         yoke_root = _resolve_yoke_root()
     except (FileNotFoundError, RuntimeError):
         yoke_root = ""
 
-    # Linkage. Yoke GitHub read failures fail-closed at the engine boundary;
-    # per-project failures for other projects become unavailable states.
+    # Yoke reads fail closed; other project failures become unavailable states.
     try:
         linkage_kwargs = {"project": project} if project else {}
         paired, local_orphans, gh_orphans, gh_by_project = stage1_linkage(
-            db_path, yoke_root, **linkage_kwargs,
+            db_path,
+            yoke_root,
+            **linkage_kwargs,
         )
     except ProjectGithubAuthError as exc:
         print(
@@ -158,11 +156,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(f"    Repair: {hint}")
         print()
 
-    # Sync-disabled projects (github_sync_mode=backlog_only) are excluded
-    # from the run by design: no fetch, no orphan classification, no
-    # repair. Named explicitly so an operator-invoked resync never looks
-    # like it silently ignored a project. Not a failure — exit code
-    # reflects the enabled projects only.
+    # Disabled projects are excluded and named in the report, not treated as failures.
     sync_disabled_projects: list[tuple[str, str]] = []
     for proj, value in sorted(gh_by_project.items()):
         if _project_sync_disabled(value):
@@ -190,8 +184,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if local_orphan_count > 0:
             print("Local orphans (no GitHub issue linked):")
-            for oid, ofile, otype, oproj in local_orphans:
-                print(f"  - {oid} ({otype}, project={oproj})")
+            for orphan in local_orphans:
+                print(f"  - {orphan.ref} ({orphan.kind}, project={orphan.project})")
             print()
 
         if gh_orphan_count > 0:
@@ -234,7 +228,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if drift_count > 0:
             for d in drifts:
-                print(f"  - {d.id} | {d.field} | local={d.local} | github={d.github}")
+                print(f"  - {d.ref} | {d.field} | local={d.local} | github={d.github}")
             print()
 
     # Repair
@@ -245,12 +239,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not doctor_format:
             print("=== Stage 3: Repair ===")
 
-        # Repair local orphans. ``_repair_local_orphan_backlog`` returns
-        # (success, reused, issue_num) so the engine can distinguish "created"
-        # from "reused existing" in the log line.
-        for oid, ofile, otype, oproj in local_orphans:
-            if otype == "backlog":
-                ok, reused, issue_num = _repair_local_orphan_backlog(oid, oproj)
+        # Repair local orphans by typed identity: internal ``items.id``
+        # for backlog items, ``(epic_id, task_num)`` for epic tasks. The
+        # display ref is never parsed back into an id.
+        # ``_repair_local_orphan_backlog`` returns (success, reused,
+        # issue_num) so the engine can distinguish "created" from
+        # "reused existing" in the log line.
+        for orphan in local_orphans:
+            oid, oproj = orphan.ref, orphan.project
+            if orphan.kind == "backlog" and orphan.item_id is not None:
+                ok, reused, issue_num = _repair_local_orphan_backlog(
+                    orphan.item_id,
+                    oproj,
+                )
                 if ok:
                     repaired += 1
                     if not doctor_format:
@@ -271,31 +272,53 @@ def main(argv: Optional[List[str]] = None) -> int:
                             f"  FAILED: {oid} -- could not create GitHub issue "
                             f"(project={oproj})"
                         )
-            else:
-                if _repair_local_orphan_epic_task(oid, oproj, db_path):
+            elif (
+                orphan.kind == "epic_task"
+                and orphan.epic_id is not None
+                and orphan.task_num is not None
+            ):
+                if _repair_local_orphan_epic_task(
+                    orphan.epic_id,
+                    orphan.task_num,
+                    oproj,
+                    db_path,
+                ):
                     repaired += 1
                     if not doctor_format:
-                        print(f"  FIXED: {oid} -- created GitHub issue (project={oproj})")
+                        print(
+                            f"  FIXED: {oid} -- created GitHub issue (project={oproj})"
+                        )
                 else:
                     failed += 1
                     if not doctor_format:
-                        print(f"  FAILED: {oid} -- could not create GitHub issue (project={oproj})")
+                        print(
+                            f"  FAILED: {oid} -- could not create GitHub issue (project={oproj})"
+                        )
+            else:
+                failed += 1
+                if not doctor_format:
+                    print(
+                        f"  FAILED: {oid} -- orphan record carries no typed "
+                        f"identity (project={oproj})"
+                    )
 
         # GitHub orphans: report only
         if gh_orphans and not doctor_format:
             for num, title, state, proj in gh_orphans:
-                print(f"  REPORT: #{num} -- GitHub orphan: {title} ({state}, source={proj})")
+                print(
+                    f"  REPORT: #{num} -- GitHub orphan: {title} ({state}, source={proj})"
+                )
 
         # Repair drifts
         for d in drifts:
             if _repair_drift(d, paired, db_path):
                 repaired += 1
                 if not doctor_format:
-                    print(f"  FIXED: {d.id} -- {d.field} repaired")
+                    print(f"  FIXED: {d.ref} -- {d.field} repaired")
             else:
                 failed += 1
                 if not doctor_format:
-                    print(f"  FAILED: {d.id} -- {d.field} repair failed")
+                    print(f"  FAILED: {d.ref} -- {d.field} repair failed")
 
         if not doctor_format:
             print()
@@ -321,6 +344,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if total_issues > 0 or github_failures:
         return 1
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

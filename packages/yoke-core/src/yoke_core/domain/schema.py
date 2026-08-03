@@ -1,7 +1,7 @@
 """Shared schema facade for the canonical Yoke control-plane schema.
 
 Converges the canonical ``items`` table with all columns, shared tables
-(ouroboros_entries, wrapup_reports, release_entries, epic_tasks,
+(ouroboros_entries, release_entries, epic_tasks,
 epic_task_files, epic_dispatch_chains, epic_progress_notes, qa_requirements,
 qa_runs, qa_artifacts, merge_locks, item_sections, harness_sessions,
 work_claims), compatibility indexes, and runs idempotent ADD COLUMN

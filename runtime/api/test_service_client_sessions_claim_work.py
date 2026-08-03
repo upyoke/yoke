@@ -21,7 +21,7 @@ class TestClaimItem:
     """Tests for claim-work command."""
 
     def test_claim_item_active_session_creates_claim(self, session_offer_db):
-        """AC-1: claim-work with active session creates a work_claims row."""
+        """Claim-work with active session creates a work_claims row."""
         db_path = session_offer_db["db_path"]
         sid = "claim-test-active"
 
@@ -127,7 +127,7 @@ class TestClaimItem:
         )
 
     def test_claim_item_missing_session_returns_error(self, session_offer_db):
-        """AC-2: claim-work with missing session returns exit 1 with truthful error."""
+        """Claim-work with missing session returns exit 1 with truthful error."""
         db_path = session_offer_db["db_path"]
 
         result = _run_client(
@@ -141,7 +141,7 @@ class TestClaimItem:
         assert "no active session" in err["error"]
 
     def test_claim_item_ended_session_returns_error(self, session_offer_db):
-        """AC-3: claim-work with ended session returns exit 1 with session-ended error."""
+        """Claim-work with ended session returns exit 1 with session-ended error."""
         db_path = session_offer_db["db_path"]
         sid = "claim-test-ended"
 
@@ -166,11 +166,13 @@ class TestClaimItem:
 
         err = json.loads(result.stderr)
         assert err["success"] is False
-        assert "has ended" in err["error"]
+        assert "has already ended" in err["error"]
         assert sid in err["error"]
+        # The refusal must carry the populated re-register recipe.
+        assert f"yoke sessions begin --session-id {sid}" in err["error"]
 
     def test_claim_item_conflict_returns_error(self, session_offer_db):
-        """AC-4: claim-work with conflict returns exit 1 with conflict message."""
+        """Claim-work with conflict returns exit 1 with conflict message."""
         db_path = session_offer_db["db_path"]
 
         # Create two active sessions.  Owner needs a FRESH heartbeat so the

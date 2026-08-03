@@ -151,8 +151,8 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertIn("YOK-17", excluded)
-        detail = excluded["YOK-17"]
+        self.assertIn(17, excluded)
+        detail = excluded[17]
         self.assertEqual(detail["prior_owner_session_id"], "owner")
         self.assertEqual(detail["defense_class"], "session_ended")
         self.assertEqual(detail["release_reason_intent"], "session_ended")
@@ -195,7 +195,7 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertNotIn("YOK-21", excluded)
+        self.assertNotIn(21, excluded)
 
     # Branch B — non-terminal release-intent defense (release-gap defense).
 
@@ -209,8 +209,8 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertIn("YOK-22", excluded)
-        detail = excluded["YOK-22"]
+        self.assertIn(22, excluded)
+        detail = excluded[22]
         self.assertEqual(detail["defense_class"], "non_terminal_intent")
         self.assertEqual(
             detail["release_reason_intent"], "readiness-check-blocked",
@@ -227,7 +227,7 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertNotIn("YOK-23", excluded)
+        self.assertNotIn(23, excluded)
 
     def test_completed_release_column_does_not_defend(self) -> None:
         conn = self._build_conn()
@@ -238,7 +238,7 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertNotIn("YOK-24", excluded)
+        self.assertNotIn(24, excluded)
 
     def test_detail_dict_includes_checkpoint_outcome(self) -> None:
         conn = self._build_conn()
@@ -259,9 +259,9 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertIn("YOK-25", excluded)
+        self.assertIn(25, excluded)
         self.assertEqual(
-            excluded["YOK-25"]["checkpoint_outcome"], "readiness-blocked",
+            excluded[25]["checkpoint_outcome"], "readiness-blocked",
         )
 
     def test_missing_intent_column_keeps_session_ended_branch(self) -> None:
@@ -278,8 +278,8 @@ class TestRoutedOwnershipExclusions(unittest.TestCase):
         excluded = routed_ownership_exclusions(
             conn, window_s=300, requesting_session_id="other",
         )
-        self.assertIn("YOK-26", excluded)
-        self.assertNotIn("YOK-27", excluded)
+        self.assertIn(26, excluded)
+        self.assertNotIn(27, excluded)
 
 
 if __name__ == "__main__":

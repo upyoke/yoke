@@ -18,6 +18,7 @@ from yoke_harness.hooks.identity import (
     detect_model,
     is_claude,
     is_codex,
+    is_cursor,
 )
 
 from yoke_core.api.service_client_shared import (
@@ -42,6 +43,7 @@ from yoke_core.api.routing_config import (
 )
 from yoke_core.domain.frontier_compute import _canonical_project_label
 from yoke_core.domain.session_decision_process_gate import merge_skip_memory_with_policy, record_disabled_process_skip
+from yoke_core.domain.sessions_offer_envelope_merge import persist_offer_diagnostics
 from yoke_core.domain.session_project_scope import (
     parse_project_cli_arg,
     resolve_session_project_scope,
@@ -86,12 +88,11 @@ def run_session_offer(
 ) -> dict:
     """Run the canonical session-offer flow and return ``NextAction`` JSON."""
     if not session_id:
-        if is_claude(executor) or is_codex(executor):
+        if is_claude(executor) or is_codex(executor) or is_cursor(executor):
             raise SessionOfferCommandError(
-                f"Error: session-offer for executor '{executor}' requires "
-                f"--session-id (the canonical harness session ID). "
-                f"Auto-generating a fallback ID is not allowed for supported harnesses. "
-                f"Pass $CLAUDE_SESSION_ID (Claude Code) or $CODEX_THREAD_ID (Codex)."
+                f"Error: session-offer for executor '{executor}' requires --session-id "
+                f"(the canonical harness session ID); fallback IDs are not allowed for supported "
+                f"harnesses. Pass $CLAUDE_SESSION_ID, $CODEX_THREAD_ID, or the hook-payload session_id (Cursor)."
             )
         from datetime import datetime, timezone
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -245,9 +246,7 @@ def run_session_offer(
         _ok, _err = handle_charge_invariant(conn, session_id=session_id, result=result, new_claim=_new_claim, ownership=ownership, surface=CLI_SURFACE, project=project_label)
         if not _ok:
             raise SessionOfferCommandError(f"Error: {_err}")
-
         set_session_mode(conn, session_id, result.action.value)
-
         record_disabled_process_skip(
             conn,
             session_id=session_id,
@@ -255,7 +254,7 @@ def run_session_offer(
             project=project_label,
             action=result,
         )
-
+        persist_offer_diagnostics(conn, session_id, (result.context or {}).get("offer_diagnostics"))
         if should_emit_drift_review_checkpoint(result, drift_dict):
             # State first: advance each scoped project's checkpoint anchor,
             # then emit the matching telemetry event.

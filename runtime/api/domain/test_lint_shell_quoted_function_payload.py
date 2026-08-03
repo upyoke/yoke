@@ -274,7 +274,7 @@ class TestSubcommandPathTokenization(unittest.TestCase):
 
 
 class TestAdapterIndex(unittest.TestCase):
-    """AC-1: the adapter index carries only ``"<module> <sub-path>"`` keys
+    """The adapter index carries only ``"<module> <sub-path>"`` keys
     — no bare-module fallback."""
 
     def test_subcommand_aware_keys_present(self) -> None:

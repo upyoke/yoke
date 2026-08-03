@@ -1,4 +1,4 @@
-"""Tests for yoke_core.tools.transcript_reflection_audit (AC-21 verification path)."""
+"""Tests for yoke_core.tools.transcript_reflection_audit."""
 from __future__ import annotations
 
 import io

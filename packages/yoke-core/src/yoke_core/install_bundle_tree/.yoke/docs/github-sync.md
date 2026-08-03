@@ -29,11 +29,11 @@ GitHub issues at all:
 | Value          | Meaning                                                              |
 |---             |---                                                                   |
 | `enabled`      | Backlog items and epic tasks mirror to GitHub issues. An explicit enable requires an active, verified GitHub App repository binding. |
-| `backlog_only` | The backlog lives ONLY in the Yoke DB. Every GitHub issue sync surface skips or refuses for the project. |
+| `disabled`     | The backlog lives only in the Yoke DB. Every GitHub issue sync surface skips or refuses for the project. |
 
-New projects default to `backlog_only`. A legacy `NULL`/empty stored value
-still resolves to `enabled` for compatibility, but it is not the creation
-default and should be normalized when the project has no usable App binding.
+New projects default to `disabled`. A legacy `NULL`, empty, or unrecognized
+stored value also resolves to `disabled` and is normalized during schema
+initialization or by the repair command.
 
 Reader: `yoke_core.domain.projects_github_sync_mode`. The mode vocabulary
 is single-sourced in `yoke_contracts.project_contract.github_sync_mode`.
@@ -42,35 +42,36 @@ Read and flip through the registered projects surface:
 
 ```bash
 yoke projects get --project <slug> --field github_sync_mode
-yoke projects update --slug <slug> --name <Name> --github-sync-mode backlog_only
+yoke projects update --slug <slug> --name <Name> --github-sync-mode disabled
 yoke projects github-sync-mode repair
 yoke projects github-sync-mode repair --apply
 ```
 
 The repair command is a dry-run unless `--apply` is explicit. It finds
-projects whose stored `enabled` or legacy `NULL` mode is effectively enabled
-without an active verified binding, and normalizes only those rows to
-`backlog_only`. Use `--project <slug>` to inspect or repair one project.
+projects with a legacy, empty, or unrecognized stored mode, enabled projects
+without an active verified binding, and stale repository/capability
+projections. It normalizes the affected modes to `disabled`. Use `--project
+<slug>` to inspect or repair one project.
 
-`backlog_only` is independent of the GitHub App repo binding: a project can
+`disabled` is independent of the GitHub App repo binding: a project can
 keep the binding for code delivery (pushes, CI, deploys) while never
 mirroring backlog content to that repo's issue tracker. This is the
 "repo connection optional — sync off" posture.
 
-## Backlog-only semantics
+## Disabled semantics
 
 - **Item flows skip silently-and-logged.** Sync helpers invoked from item
   lifecycle flows (create, body/title sync, status comments, labels,
   close/reopen, done closeout, epic-task sync, progress notes) return
   success and print one canonical mode-language line
   (`GitHub <operation> skipped for project '<slug>':
-  github_sync_mode=backlog_only ...`). The flow continues; nothing
-  reaches GitHub. A backlog-only project resolves no GitHub App token — the
+  github_sync_mode=disabled ...`). The flow continues; nothing
+  reaches GitHub. A disabled project resolves no GitHub App token — the
   skip fires before auth resolution and is never reported as an auth failure.
 - **Structured-field writes with `options.sync_github_body=true` no-op
   cleanly.** The body-sync step reports success (no `sync_warning`); the
   DB write and board rebuild proceed as normal.
-- **`yoke resync` names the exclusion.** Backlog-only projects are
+- **`yoke resync` names the exclusion.** Disabled projects are
   excluded from the GitHub fetch and from classification: their items are
   never local orphans (so `--fix` can never mass-create them as issues),
   never drift, never repair. The report prints a
@@ -78,7 +79,7 @@ mirroring backlog content to that repo's issue tracker. This is the
   excluded project; the exit code reflects the enabled projects only.
 - **Explicit issue-creating operations refuse.** `migrate_issue_to_repo`
   (cross-repo issue migration) returns non-zero with the mode-language
-  message when the target project is backlog-only, instead of creating an
+  message when the target project is disabled, instead of creating an
   issue there.
 
 ## Rebinding a project repository — ordering
@@ -87,7 +88,7 @@ Changing the verified App binding does not move existing issues. If the
 backlog should not immediately sync into the replacement repository, use this
 order:
 
-1. **Sync off first:** set `github_sync_mode=backlog_only` for the
+1. **Sync off first:** set `github_sync_mode=disabled` for the
    project and verify (`yoke projects get --project <slug> --field
    github_sync_mode`).
 2. **Bind verified App access:** run `yoke projects github-binding bind` with
@@ -95,7 +96,7 @@ order:
 3. **Migrate intentionally or keep history:** existing `items.github_issue` /
    `epic_tasks.github_issue` numbers keep pointing at the old repo's
    issues until the explicit issue-migration flow moves them. No sync writes
-   land while the project remains `backlog_only`.
+   land while the project remains `disabled`.
 
 Re-enable sync only after the binding and issue disposition are verified; the
 registered project update rejects `enabled` while that binding is unavailable.

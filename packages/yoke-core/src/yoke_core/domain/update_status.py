@@ -37,6 +37,10 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one, query_scalar
 from yoke_core.domain.github_constraints import is_real_issue_num
+from yoke_core.domain.status_claim_bypass_context import (
+    resolve_claim_bypass,
+    resolve_task_done_verified,
+)
 from yoke_core.domain.task_lifecycle import is_valid_task_status
 
 # Re-export shared low-level helpers so existing callers see no change.
@@ -150,7 +154,14 @@ def update_task_status(
         return 0
 
     # --- done guard ---
-    if new_status == "done" and os.environ.get("YOKE_TASK_DONE_VERIFIED", "0") != "1":
+    # Request-scoped override first (the done-transition cascade relay posts it
+    # on a ContextVar), then the process-global env var so env-driven callers
+    # (merge/SKILL.md, done-transition.sh) are unchanged.
+    task_done_verified = (
+        resolve_task_done_verified()
+        or os.environ.get("YOKE_TASK_DONE_VERIFIED", "0") == "1"
+    )
+    if new_status == "done" and not task_done_verified:
         print("Error: epic-task done requires merge-verified context.", file=stderr)
         print("Epic tasks should reach 'reviewed-implementation' via conduct, then 'done' only through:", file=stderr)
         print("  - done-transition.sh (parent epic cascade)", file=stderr)
@@ -200,13 +211,16 @@ def update_task_status(
 
     # Record the transition (state) + history insert (TaskStatusChanged telemetry)
     from yoke_core.domain.item_status_transitions import record_task_transition
+    # Request-scoped status source first (relay-posted), else the env var,
+    # keeping the historical "update-status" default.
+    _, ctx_status_source = resolve_claim_bypass()
     record_task_transition(
         conn,
         epic_id=epic_id,
         task_num=task_num,
         from_status=old_status,
         to_status=new_status,
-        source=os.environ.get("YOKE_STATUS_SOURCE", "update-status"),
+        source=ctx_status_source or os.environ.get("YOKE_STATUS_SOURCE", "update-status"),
     )
     conn.commit()
     _history_insert(epic_id, task_num, old_status, new_status, note)

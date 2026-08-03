@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.api_urls import HOSTED_STAGE_API_URL
 from yoke_core.tools.atlas_render_docs_tables import _md_table
 
 
 def _render_teaching(report: Dict[str, Any]) -> List[str]:
-    out = ["## 5. Teaching coverage", ""]
+    out = ["## 6. Teaching coverage", ""]
     totals = report["teaching_places"]["totals"]
     out.extend(_md_table(
         ("path glob", "count"),
@@ -30,7 +31,7 @@ def _render_teaching(report: Dict[str, Any]) -> List[str]:
 
 
 def _render_field_notes(report: Dict[str, Any]) -> List[str]:
-    out = ["## 6. Field-note hotspots", ""]
+    out = ["## 7. Field-note hotspots", ""]
     fn = report["field_notes"]
     if fn.get("error"):
         out.append(f"_Field-note read failed: {fn['error']}_")
@@ -56,7 +57,7 @@ def _render_field_notes(report: Dict[str, Any]) -> List[str]:
 
 
 def _render_contradictions(report: Dict[str, Any]) -> List[str]:
-    out = ["## 7. Contradictions", ""]
+    out = ["## 8. Contradictions", ""]
     rows = report["contradictions"]
     if not rows:
         out.append("_No tracked contradictions._")
@@ -74,7 +75,7 @@ def _render_contradictions(report: Dict[str, Any]) -> List[str]:
 
 
 def _render_next_slice(report: Dict[str, Any]) -> List[str]:
-    out = ["## 8. Next-slice recommendation", ""]
+    out = ["## 9. Next-slice recommendation", ""]
     candidates = report["followup_candidates"]
     if not candidates:
         out.append("_No outstanding follow-ups — the harness has nothing to recommend._")
@@ -94,7 +95,7 @@ def _render_curl_floor() -> List[str]:
     the default; curl is the floor.
     """
     return [
-        "## 9. Curl floor — the envelope shape under every family",
+        "## 10. Curl floor — the envelope shape under every family",
         "",
         "Every registered function id above accepts the same"
         " `FunctionCallRequest` envelope at the active env's"
@@ -102,7 +103,7 @@ def _render_curl_floor() -> List[str]:
         " curl is the operator floor when no CLI is installed:",
         "",
         "```bash",
-        "API=https://app.stage.upyoke.com/api/orgs/yoke-stage"
+        f"API={HOSTED_STAGE_API_URL}"
         "   # the active env's api_url",
         "TOKEN_FILE=~/.yoke/secrets/stage.token",
         "",

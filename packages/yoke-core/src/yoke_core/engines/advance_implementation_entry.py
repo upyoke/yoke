@@ -13,8 +13,12 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from yoke_core.domain import db_helpers
-from yoke_core.domain.events import emit_event
+from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.events import TRANSPORT_NO_LOCAL_DB_REASON, emit_event
+from yoke_core.engines.advance_implementation_preflight_gates import (
+    _run_preflight_gates,
+)
 
 
 PHASE_PREFLIGHT = "preflight"
@@ -31,11 +35,14 @@ IMPLEMENTATION_PHASE_STATUSES = frozenset({
 
 
 def _parse_item_id(raw: Any) -> int:
-    s = str(raw).strip()
-    if s.upper().startswith("YOK-"):
-        s = s[4:]
-    s = s.lstrip("0") or "0"
-    return int(s)
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:
@@ -49,25 +56,32 @@ def _resolve_session_id(explicit: Optional[str]) -> str:
 
 
 def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
-    with db_helpers.connect() as conn:
-        row = conn.execute(
-            "SELECT i.id, i.workflow_id, i.workflow_version_id, "
-            "i.status, i.title, p.slug AS project "
-            "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-            "WHERE i.id = %s",
-            (int(item_id),),
-        ).fetchone()
-    if row is None:
+    """Read the item's routing fields through the transport-aware relay.
+
+    Routes ``items.detail.get`` through ``call_dispatcher`` so the read
+    works over an https control plane as well as an in-process local
+    Postgres connection. Returns ``None`` when the item is not found (or
+    the read is refused), matching the previous local-query contract.
+    """
+    response = call_dispatcher(
+        function_id="items.detail.get",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={},
+    )
+    if not response.success:
         return None
-    if hasattr(row, "keys"):
-        return {k: row[k] for k in row.keys()}
+    item = (response.result or {}).get("item") or {}
+    if not item:
+        return None
+    workflow = item.get("workflow") or {}
+    project = item.get("project") or {}
     return {
-        "id": row[0],
-        "workflow_id": row[1],
-        "workflow_version_id": row[2],
-        "status": row[3],
-        "title": row[4],
-        "project": row[5],
+        "id": item.get("id"),
+        "workflow_id": workflow.get("id"),
+        "workflow_version_id": workflow.get("version_id"),
+        "status": item.get("status"),
+        "title": item.get("title"),
+        "project": project.get("slug"),
     }
 
 
@@ -86,7 +100,13 @@ def _record_phase(
         event_kind="workflow", event_type="advance_phase",
         session_id=session_id, item_id=str(item_id), context=payload,
     )
-    if result is not None and not result.ok:
+    # Over an https control plane there is no local DB to write client-side
+    # telemetry to; that is a best-effort drop, not a failure to surface.
+    if (
+        result is not None
+        and not result.ok
+        and getattr(result, "reason", "") != TRANSPORT_NO_LOCAL_DB_REASON
+    ):
         raise RuntimeError(
             f"AdvancePhaseCompleted emission failed: {result.reason}"
         )
@@ -95,65 +115,36 @@ def _record_phase(
 
 
 def _release_claim(item_id: int, session_id: str, reason: str) -> None:
-    """Best-effort release. Never raises."""
+    """Best-effort release through the transport-aware relay. Never raises."""
     try:
-        with db_helpers.connect() as conn:
-            from yoke_core.domain.sessions_lifecycle_release import (
-                release_item_claim_for_execution,
-            )
-            release_item_claim_for_execution(
-                conn, session_id, str(item_id), reason,
-            )
+        call_dispatcher(
+            function_id="claims.work.release",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            actor=ActorContext(session_id=session_id),
+            payload={"reason": reason},
+        )
     except Exception:
         pass
 
 
-def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
-    """Hard-block dep + AC presence + spec coverage. Returns (ok, narrative)."""
-    if force:
-        return True, ""
-    from yoke_core.domain import check_hard_blocks
-    from yoke_core.domain import check_ac_presence
-    from yoke_core.domain import file_budget_required_gate
-    from yoke_core.domain import path_claim_spec_coverage_gate
-
-    blockers = check_hard_blocks.evaluate_blockers(
-        item_id, gate_filter="activation",
-    )
-    if blockers:
-        return False, "Blocked by dependencies:\n  " + "\n  ".join(blockers)
-    canonical, _unlabeled, title = check_ac_presence.evaluate_item(item_id)
-    if title is None:
-        return False, f"YOK-{item_id} not found in DB."
-    if canonical <= 0:
-        return False, (
-            f"YOK-{item_id} has no acceptance criteria. Add "
-            f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
-        )
-    with db_helpers.connect() as conn:
-        budget = file_budget_required_gate.evaluate(conn, item_id)
-    if budget["verdict"] != "pass":
-        return False, f"BLOCKED: {budget['reason']}"
-    cov = path_claim_spec_coverage_gate.evaluate(item_id)
-    if cov.is_blocked:
-        return False, (
-            f"BLOCKED: YOK-{item_id} File Budget lists "
-            f"{len(cov.missing_paths)} path(s) not covered by any active "
-            f"path_claim.\nMissing: " + ", ".join(cov.missing_paths)
-        )
-    return True, ""
-
-
 def _resolve_env_repo_root(item: Dict[str, Any], worktree_path: str) -> str:
-    """Resolve the local checkout used by worktree preflight."""
+    """Resolve the local checkout used by worktree preflight.
+
+    The project-slug-to-checkout resolution routes through the
+    transport-aware ``checkout_for_project_slug`` (relays ``projects.get``,
+    then reads the machine-local checkout mapping), so it works over an
+    https control plane as well as an in-process local Postgres connection.
+    Falls back to the worktree-path-derived repo root when no machine-local
+    checkout is mapped.
+    """
     project = item.get("project")
     if project:
         try:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect() as conn:
-                checkout = checkout_for_project(conn, str(project))
+            checkout = checkout_for_project_slug(str(project))
             if checkout is not None:
                 return str(checkout)
         except Exception:
@@ -176,12 +167,12 @@ def _flip_status(
     item_id: int, *, from_status: str, to_status: str, session_id: str,
     force: bool, qa_bypass: bool,
 ):
-    from yoke_core.domain.yoke_function_dispatch import dispatch
-    from yoke_contracts.api.function_call import (
-        ActorContext, FunctionCallRequest, TargetRef,
-    )
-    return dispatch(FunctionCallRequest(
-        function="lifecycle.transition.execute",
+    # Route through the transport-aware facade so the transition executes
+    # over an https control plane as well as an in-process local Postgres
+    # connection. On a local connection this dispatches the same
+    # ``lifecycle.transition.execute`` call in-process.
+    return call_dispatcher(
+        function_id="lifecycle.transition.execute",
         actor=ActorContext(session_id=session_id),
         target=TargetRef(kind="item", item_id=int(item_id)),
         intent="advance_finalize",
@@ -191,7 +182,7 @@ def _flip_status(
             "force": force, "qa_bypass": qa_bypass,
         },
         options={"sync_github_body": True},
-    ))
+    )
 
 
 def run(
@@ -209,7 +200,7 @@ def run(
     resolved_session = _resolve_session_id(session_id)
     item = _read_item(item_id_int)
     if item is None:
-        print(f"ERROR: YOK-{item_id_int} not found.", file=sys.stderr)
+        print(f"ERROR: item {item_id!r} not found.", file=sys.stderr)
         return 2
 
     pre_status = item.get("status") or ""

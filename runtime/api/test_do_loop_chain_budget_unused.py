@@ -1,7 +1,7 @@
 """ChainBudgetUnused emission and terminal-reason classification regressions.
 
 Sibling of :mod:`runtime.api.test_do_loop_offer_revalidation`. Keeps the
-revalidation/skip-memory regressions there small and the AC-7 / AC-12
+revalidation/skip-memory regressions there small and this file's
 terminal-reason coverage isolated. The helpers under test here operate on
 plain dicts and do not need the items-schema fixture, so the file has no
 DB setup of its own.
@@ -22,7 +22,7 @@ def _sun(item_id: int) -> str:
 
 
 class TestClassifyTerminalReason:
-    """AC-7 / AC-12: classify the terminal reason from this-step skip entries."""
+    """Classify the terminal reason from this-step skip entries."""
 
     def test_empty_returns_no_candidates(self):
         assert classify_terminal_reason([]) == "no_candidates"
@@ -74,7 +74,7 @@ class TestClassifyTerminalReason:
 
 
 class TestEmitChainBudgetUnusedIfRemaining:
-    """AC-12: emit ChainBudgetUnused on a non-chainable offer with budget left."""
+    """Emit ChainBudgetUnused on a non-chainable offer with budget left."""
 
     def _capture_events(self):
         captured: list[dict] = []

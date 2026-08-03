@@ -54,7 +54,7 @@ class TestNoFlagsAutoRelease:
         _seed_claim_targets(conn, PRIMARY_ITEM_ID, SECONDARY_ITEM_ID)
 
     def test_ac1_no_flags_releases_active_claim_and_ends(self, conn):
-        """AC-1: no-flags end_session auto-releases active claims and ends."""
+        """No-flags end_session auto-releases active claims and ends."""
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
 
@@ -78,7 +78,7 @@ class TestNoFlagsAutoRelease:
         assert "claim_id" in entry
 
     def test_ac2_no_claims_path_unchanged(self, conn):
-        """AC-2: end_session with no claims still succeeds with no released_claims field."""
+        """End_session with no claims still succeeds with no released_claims field."""
         _register(conn)
         result = end_session(conn, "sess-1")
         assert result["ended_at"] is not None
@@ -96,7 +96,7 @@ class TestNoFlagsAutoRelease:
         assert len(result["released_claims"]) == 1
 
     def test_ac3_chain_pending_still_blocks_no_flags(self, conn):
-        """AC-3: CHAIN_PENDING guard still fires before the auto-release path."""
+        """CHAIN_PENDING guard still fires before the auto-release path."""
         _register(conn, session_id="sess-cp")
         update_chain_checkpoint(
             conn,
@@ -150,7 +150,7 @@ class TestNoFlagsAutoRelease:
         assert ended_ctx["released_claims_count"] == 1
 
     def test_ac12_multiple_claims_all_released(self, conn):
-        """AC-12: multiple claims (item targets) all release on no-flags end."""
+        """Multiple claims (item targets) all release on no-flags end."""
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
         claim_work(conn, session_id="sess-1", item_id=SECONDARY_ITEM_REF)
@@ -164,7 +164,7 @@ class TestNoFlagsAutoRelease:
         assert item_ids == {PRIMARY_ITEM_ID, SECONDARY_ITEM_ID}
 
     def test_historical_incident_regression(self, conn):
-        """AC-1 follow-up: every claimed session ends cleanly on the no-flags branch.
+        """Every claimed session ends cleanly on the no-flags branch.
 
         Six sessions each hold one claim. With the new contract, each
         end_session call succeeds, releases the claim, and leaves the

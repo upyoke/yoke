@@ -225,7 +225,7 @@ def test_deprecate_retired_events(fake_repo: Path):
         assert "deprecated" in row, f"{name} was not deprecated"
 
 
-def test_retire_mode_chosen(fake_repo: Path):
+def test_purged_registry_name_is_removed(fake_repo: Path):
     from yoke_core.domain import events_crud
 
     db = str(fake_repo / "runtime" / "yoke.db")
@@ -242,8 +242,8 @@ def test_retire_mode_chosen(fake_repo: Path):
 
     _run_populator(fake_repo)
 
-    row = events_crud.cmd_registry_get(db_path=db, name="ModeChosen")
-    assert "retired" in row
+    with pytest.raises(LookupError):
+        events_crud.cmd_registry_get(db_path=db, name="ModeChosen")
 
 
 def test_cleanup_test_sourced_entries(fake_repo: Path):
@@ -301,7 +301,8 @@ def test_catalog_rendered_with_expected_sections(fake_repo: Path):
     body = catalog.read_text()
 
     assert "# Event Catalog" in body
-    assert "python3 -m yoke_core.domain.populate_registry" in body
+    assert "source-dev registry workflow" in body
+    assert "python3 -m yoke_core.domain.populate_registry" not in body
     assert "Event Name" in body
     assert "Kind" in body
     assert "Type" in body

@@ -22,8 +22,8 @@ class TestPrecomputeEpicTaskRows:
 
         assert result == {
             40: [
-                (1, "Yoke first", "done"),
-                (2, "Yoke second", "implementing"),
+                (1, "Yoke first", "done", "✅"),
+                (2, "Yoke second", "implementing", "🔨"),
             ]
         }
 

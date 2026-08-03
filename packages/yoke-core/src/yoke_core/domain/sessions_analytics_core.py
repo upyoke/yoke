@@ -33,6 +33,9 @@ DEFAULT_STALE_THRESHOLD_MINUTES = get_int("session_stale_ttl_minutes", 20)
 DEFAULT_PROGRESS_THRESHOLD_MINUTES = 90
 EXECUTOR_STALE_TTL_OVERRIDES_MINUTES: Dict[str, int] = {
     "codex": get_int("session_stale_ttl_minutes_codex_override", 60),
+    # Cursor IDE sessions stay open without a sessionEnd for hours, the
+    # same long-lived shape as Codex Desktop threads.
+    "cursor": get_int("session_stale_ttl_minutes_cursor_override", 60),
 }
 
 
@@ -316,8 +319,10 @@ def _emit_session_event(
 # Telemetry emission functions (session-offer post-decision)
 # ---------------------------------------------------------------------------
 
-# Canonical downstream path names keyed by scheduler next_step values.
-# Keep this in sync with yoke_core.domain.session._NEXT_STEP_TO_PATH.
+# Canonical downstream path names keyed by scheduler next_step values. This is
+# the single definition: the decision engine (``session_decision_charge``), the
+# offer-time compatibility filter (``sessions_queries_base``), and dispatch
+# telemetry all import it from here, so a new routable next_step is added once.
 _NEXT_STEP_TO_PATH: Dict[str, str] = {
     "refine": "refine",
     "shepherd": "shepherd",

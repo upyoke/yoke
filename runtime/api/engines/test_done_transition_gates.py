@@ -106,7 +106,6 @@ class TestEmptyBranchGuard:
             mock.patch.object(
                 done_transition, "_check_deployment_flow_guard", return_value=None
             ),
-            mock.patch.object(done_transition, "_cross_project_commit_guard"),
             mock.patch.object(done_transition, "_populate_merged_at"),
             mock.patch.object(
                 done_transition, "_update_status_to_done", return_value=True
@@ -216,7 +215,9 @@ class TestCLIParsing:
             skip_qa=False,
         )
 
-    def test_sun_prefix_stripped(self, dt_db):
+    def test_prefix_ref_resolves_project_sequence(self, dt_db):
+        db_path, _ = dt_db
+        _insert_item(db_path, 42)
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
             done_transition.main(["YOK-042"])
         mock_run.assert_called_once_with(

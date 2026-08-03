@@ -17,8 +17,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 class TestNormalizeId(unittest.TestCase):
-    def test_basic(self) -> None:
-        self.assertEqual(mod._normalize_item_id(TEST_ITEM_REF), TEST_ITEM_ID)
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
+    def test_bare_internal_passthrough(self) -> None:
         self.assertEqual(mod._normalize_item_id("007"), 7)
         self.assertEqual(mod._normalize_item_id(str(TEST_ITEM_ID)), TEST_ITEM_ID)
 
@@ -121,6 +122,18 @@ class TestVerify(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertFalse(payload["verified"])
         self.assertIn("no active claim", payload["reason"])
+
+    def test_no_active_claim_uses_canonical_public_ref(self) -> None:
+        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
+             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
+             mock.patch.object(mod, "_db_available", return_value=True), \
+             mock.patch.object(mod, "_fetch_claim", return_value=None), \
+             mock.patch.object(mod, "canonical_item_ref", return_value="BUZ-7"), \
+             mock.patch.object(mod, "_emit_lifecycle_event"):
+            code, payload = mod.verify(42)
+        self.assertEqual(code, 1)
+        self.assertIn("BUZ-7", payload["reason"])
+        self.assertNotIn("YOK-42", payload["reason"])
 
     def test_matching_claim_verifies(self) -> None:
         with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
@@ -302,7 +315,7 @@ class TestMain(unittest.TestCase):
                 },
             ),
         ):
-            rc, out, _ = self._run(["--item-id", TEST_ITEM_REF])
+            rc, out, _ = self._run(["--item-id", str(TEST_ITEM_ID)])
         self.assertEqual(rc, 0)
         payload = json.loads(out.strip())
         self.assertTrue(payload["verified"])

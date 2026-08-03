@@ -38,7 +38,7 @@ class TestStage2CompareStateMisc:
             "state": "OPEN",
             "body": "Done body",
         }])
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -54,7 +54,7 @@ class TestStage2CompareStateMisc:
             "state": "OPEN",
             "body": "Cancel body",
         }])
-        paired = [PairedItem("YOK-45", "/tmp/045.md", 103, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-45", "/tmp/045.md", 103, "backlog", "yoke", "", item_id=45)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -69,7 +69,7 @@ class TestStage2CompareStateMisc:
             "state": "OPEN",
             "body": "Release body",
         }])
-        paired = [PairedItem("YOK-46", "/tmp/046.md", 104, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-46", "/tmp/046.md", 104, "backlog", "yoke", "", item_id=46)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -90,7 +90,7 @@ class TestStage2CompareStateMisc:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         frozen_drifts = [d for d in drifts if d.field == "label-frozen"]
         assert len(frozen_drifts) == 1
@@ -112,7 +112,7 @@ class TestStage2CompareStateMisc:
             "state": "OPEN",
             "body": "Frozen body",
         }])
-        paired = [PairedItem("YOK-47", "/tmp/047.md", 105, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-47", "/tmp/047.md", 105, "backlog", "yoke", "", item_id=47)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         frozen_drifts = [d for d in drifts if d.field == "label-frozen"]
         assert len(frozen_drifts) == 1
@@ -138,7 +138,7 @@ class TestStage2CompareStateMisc:
             "body": "Done body",
             "comments": [{"body": "Just a note"}],
         }}}
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
         assert len(comment_drifts) == 1
@@ -162,7 +162,7 @@ class TestStage2CompareStateMisc:
             "body": "Done body",
             "comments": [{"body": "**Status:** done"}],
         }}}
-        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43)]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
         assert len(comment_drifts) == 0
@@ -181,7 +181,7 @@ class TestStage2CompareStateMisc:
             "state": "CLOSED",
             "body": "Different",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         fields = {d.field for d in drifts}
         assert "title" in fields

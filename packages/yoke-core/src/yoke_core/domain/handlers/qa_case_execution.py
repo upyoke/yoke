@@ -158,6 +158,10 @@ def handle_case_execution_begin(
         QaCaseExecutionError,
         get_case_execution_context,
     )
+    from yoke_core.domain.qa_start_bound_authority import (
+        PAYLOAD_KEY,
+        resolve_start_bound_claim_id,
+    )
 
     try:
         with connect() as conn:
@@ -165,6 +169,17 @@ def handle_case_execution_begin(
                 conn,
                 requirement_id=int(requirement_id),
             )
+            # The dispatcher just verified this session's claim to admit
+            # the call. Hand that verified claim back on the contract so
+            # the run records against it later instead of re-deriving
+            # authority from a claim table an hour of suite has moved on.
+            item_id = result.get("item_id")
+            if item_id is not None:
+                result[PAYLOAD_KEY] = resolve_start_bound_claim_id(
+                    conn,
+                    item_id=int(item_id),
+                    session_id=request.actor.session_id,
+                )
     except QaCaseExecutionError as exc:
         return _error("not_found", str(exc), "$.target.qa_requirement_id")
     return HandlerOutcome(

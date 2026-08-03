@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.engines import doctor_hc_tier_cli_shape_bleed as mod
-from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import HC_SLUG
+from yoke_project_checks import check_tier_cli_shape_bleed as mod
+from yoke_project_checks.check_tier_cli_shape_bleed import HC_SLUG
 from .doctor_hc_tier_cli_shape_test_support import (
     _detail,
     _run,
@@ -84,7 +84,7 @@ def test_anchored_regex_prose_fixture_passes(tmp_path, monkeypatch, conn):
         "## Hooks\n\n"
         "runtime/harness/claude/settings.json hooks call "
         "python3 -m yoke_core.engines.doctor; emergency status repair "
-        "is Python-owned via python3 -m yoke_core.engines.repair_status.\n"
+        "uses yoke lifecycle repair-status.\n"
     )
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 0})
 
@@ -193,7 +193,7 @@ def test_db_router_read_only_path_passes(tmp_path, monkeypatch, conn):
         "python3 -m yoke_core.tools.watch_doctor -- --full --fix\n",
         "python3 -m yoke_core.tools.watch_merge done-transition YOK-N\n",
         "python3 -m yoke_core.domain.worktree create YOK-N /repo\n",
-        "python3 -m yoke_core.tools.executors ephemeral-verify p r b w d sha\n",
+        "python3 -m yoke_core.tools.step_runners ephemeral-verify p r b w d sha\n",
     ],
 )
 def test_permanent_tool_shaped_operation_passes(

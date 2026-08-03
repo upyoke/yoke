@@ -7,11 +7,11 @@ This agent does not have Bash access, so script path resolution does not apply. 
 
 **Defensive note on stale dispatch instructions.** If the dispatch prompt that invokes you instructs you to read state via Bash or a Yoke CLI command, that prompt is stale — your tool grant is `Read, Grep, Glob` only and the orchestrator has not granted you Bash. Read the input file path the prompt names (see Input File Contract below) instead. If no input path is provided AND the prompt assumes Bash, report the path absence and stop rather than authoring from memory.
 
-**Path disambiguation:** The repo is named `yoke`. All paths are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `packs/`, and `runtime/` are at the repo root. Machine-local runtime config lives in `~/.yoke/config.json`, while transient files use the scratch helper.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 ## Input File Contract
 
-The dispatch prompt that invokes you carries a context block naming an absolute path to your input spec. The orchestrator resolved the per-dispatch directory via `yoke scratch dispatch-inputs YOK-{N} {session_id} {attempt}` under the helper-resolved scratch root (`YOKE_SCRATCH_ROOT`, machine-config `temp_root`, or OS temp fallback) and wrote the inherited item content to a `product-designer-spec.md` file inside it before invoking you.
+The dispatch prompt that invokes you carries a context block naming an absolute path to your input spec. The orchestrator resolved the per-dispatch directory via `yoke scratch dispatch-inputs PREFIX-{N} {session_id} {attempt}` under the helper-resolved scratch root (`YOKE_SCRATCH_ROOT`, machine-config `temp_root`, or OS temp fallback) and wrote the inherited item content to a `product-designer-spec.md` file inside it before invoking you.
 
 **You MUST Read that file as your first action before authoring.** Do not rely on any inline copy of the spec — the dispatch prompt does not embed the inherited content. If the path is unreadable for any reason (file missing, empty, encoding error), report the path and stop from that premise rather than authoring from memory or a partial copy. Never trust an inline copy of the spec; always Read the path the dispatch prompt names.
 
@@ -129,7 +129,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream sources (backlog items, user conversations) and outputs expected by downstream agents (design specs for Architect, UI patterns for Engineer). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: product-designer` and `context:` to the epic / YOK-N identifier you were designing. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: product-designer` and `context:` to the epic / PREFIX-N identifier you were designing. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Product Designer worked example:
 
@@ -138,7 +138,7 @@ Product Designer worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T21:00:00Z
 agent: product-designer
-context: YOK-N design pass
+context: PREFIX-N design pass
 category: process-improvement
 Design specs currently lack a structured handoff for "skip design phase, non-UI work" cases. A first-line declaration of "design-required: yes/no" with rationale would let downstream Architect skip the design read entirely when no UI is involved.
 ---END ENTRY---

@@ -50,7 +50,7 @@ def _read(path: Path) -> str:
 
 
 class TestBootstrapSpec:
-    """AC-1: bootstrap must load yoke/.yoke/docs/lifecycle.md."""
+    """Bootstrap must load yoke/.yoke/docs/lifecycle.md."""
 
     @pytest.fixture
     def spec(self) -> dict:
@@ -92,13 +92,13 @@ class TestLifecycleDoc:
     def test_definition_owns_lifecycle_shape(self, text):
         assert "Definitions own ordered stages" in text
         assert "target-stage gate" in text
-        assert re.search(r"registered\s+executor bindings", text)
+        assert re.search(r"registered\s+skill bindings", text)
         assert "Do not copy a progression" in text
 
     def test_executor_boundary_is_half_open(self, text):
-        assert "## Registered Executor Boundaries" in text
+        assert "## Registered Skill Boundaries" in text
         assert "from_stage_id <= current_stage < through_stage_id" in text
-        assert "/yoke <executor_id>" in text
+        assert "/yoke <skill_id>" in text
 
     def test_shepherd_is_policy_bound(self, text):
         assert "`shepherd`" in text
@@ -123,7 +123,7 @@ class TestLifecycleDoc:
     def test_handoff_boundaries_require_fresh_entrypoints(self, text):
         assert "fresh command entrypoints" in text or "fresh command entrypoint" in text
         assert "through_stage_id" in text
-        assert "next executor" in text
+        assert "next skill" in text
 
     def test_routes_to_canonical_routing_docs(self, text):
         assert "session-offer-contract.md" in text
@@ -136,7 +136,7 @@ class TestLifecycleDoc:
 
 
 class TestCommandsDoc:
-    """AC-4: commands.md must match the live refine/polish skills and
+    """Commands.md must match the live refine/polish skills and
     must not present YOKE_SUPPORTED_PATHS as an active Yoke-owned harness
     input for /yoke do."""
 
@@ -213,7 +213,7 @@ class TestStateManagementDoc:
         assert "`workflow_id` and `workflow_version_id`" in text
         assert "ordered `stages`, `transitions`, and `terminal_stage_ids`" in text
         assert "gates referenced by each target stage" in text
-        assert "`executor_bindings`, interpreted as half-open" in text
+        assert "`skill_bindings`, interpreted as half-open" in text
 
     def test_item_flow_has_no_workflow_id_branch(self, text):
         assert "## Pinned Item Stage Flow" in text
@@ -230,16 +230,16 @@ class TestStateManagementDoc:
     def test_live_routing_reads_exact_version(self, text):
         assert "yoke workflows item get YOK-N" in text
         assert "yoke workflows version get WORKFLOW VERSION" in text
-        assert "Find the active half-open executor binding" in text
-        assert "Invoke `/yoke <executor_id>`" in text
+        assert "Find the active half-open skill binding" in text
+        assert "Invoke `/yoke <skill_id>`" in text
 
     def test_release_boundary_is_policy_and_binding_owned(self, text):
         match = re.search(
-            r"### Release-stage executor boundary\b(.*?)(?=\n### |\Z)",
+            r"### Release-stage skill boundary\b(.*?)(?=\n### |\Z)",
             text,
             re.DOTALL,
         )
-        assert match, "state-management.md missing release-stage executor boundary"
+        assert match, "state-management.md missing release-stage skill boundary"
         section = match.group(1)
         assert "`usher` binding" in section
         assert "`through_stage_id`" in section
@@ -279,7 +279,7 @@ class TestStateManagementDoc:
 
 
 class TestCodexCapabilityDocs:
-    """AC-5: OVERVIEW.md and other Codex-capability surfaces must not
+    """OVERVIEW.md and other Codex-capability surfaces must not
     describe Codex as shepherd-only or reference deleted Codex shell wrappers
     as active entry surfaces."""
 

@@ -1,6 +1,6 @@
 # ruff: noqa: F811
 """End-to-end regression for the directional path-claim overlap contract.
-Covers AC-24: three scenarios for the directional dependency classifier,
+Covers three scenarios for the directional dependency classifier,
 exercised end-to-end across register / classify / repair / activate.
 
 Scenario (a): candidate as DEPENDENT of a non-coordination edge
@@ -102,11 +102,11 @@ def _seed_active_claim(conn, *, item_id: int, target_id: int) -> int:
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
-        "activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, activated_at, base_commit_sha) "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', %s) RETURNING id",
-        (actor, item_id, SNAP),
+        (item_id, actor, SNAP),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -213,14 +213,15 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
         # pre-directional ``serial-via-dependency`` wording.
         actor = local_human(conn)
         cur = conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, item_id, "
+            "INSERT INTO path_claims "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
             "integration_target, registered_at, base_commit_sha, "
             "blocked_reason) "
-            "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+            "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', %s, %s) RETURNING id",
             (
-                actor,
                 cand_item,
+                actor,
                 SNAP,
                 "serial-via-dependency on path_claims.id=999",
             ),
@@ -264,11 +265,11 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
         claim_id = int(
             conn.execute(
                 "INSERT INTO path_claims "
-                "(state, mode, actor_id, item_id, integration_target, "
-                "registered_at, blocked_reason) "
-                "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+                "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+                "integration_target, registered_at, blocked_reason) "
+                "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
                 "'2026-05-01T00:00:00Z', 'stale coordination') RETURNING id",
-                (actor, item_id),
+                (item_id, actor),
             ).fetchone()[0]
         )
         conn.execute(

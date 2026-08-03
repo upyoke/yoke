@@ -20,7 +20,7 @@ _INSERT_FLAG_MAP = {f"--{k.replace('_', '-')}": k for k in (
     "event_type", "event_name", "event_outcome", "org_id",
     "actor_id", "environment", "service", "project", "item_id", "task_num",
     "agent", "tool_name", "duration_ms", "exit_code", "trace_id",
-    "parent_id", "anomaly_flags", "envelope", "tool_use_id", "turn_id",
+    "anomaly_flags", "envelope", "tool_use_id", "turn_id",
     "hook_event_name",
 )}
 

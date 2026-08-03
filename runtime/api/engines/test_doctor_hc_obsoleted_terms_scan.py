@@ -13,7 +13,8 @@ from runtime.api.engines.obsoleted_terms_scan_test_support import (
     db_router_items_command,
     retired_parent_epic_symbol,
 )
-from yoke_core.engines.doctor_hc_obsoleted_terms import (
+from yoke_project_checks import check_obsoleted_terms
+from yoke_project_checks.check_obsoleted_terms import (
     hc_obsoleted_terms,
     scan_repo,
 )
@@ -46,7 +47,7 @@ def test_scan_detects_obsoleted_term_in_doc(tmp_path: Path):
 
 
 def test_scan_detects_sql_form_in_doc(tmp_path: Path):
-    """AC-4 positive: ``items WHERE epic={epic-id}`` and the screenshot-shape
+    """Positive coverage: ``items WHERE epic={epic-id}`` and the screenshot-shape
     ``items WHERE epic_id IN (...)`` must both be detected by the scan."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_sql.md").write_text(
@@ -77,7 +78,7 @@ def test_scan_detects_sql_select_list_form_in_doc(tmp_path: Path):
 
 
 def test_scan_detects_epic_field_prose_in_doc(tmp_path: Path):
-    """AC-4 positive: ``the `epic` field on a backlog item`` prose must be
+    """Positive coverage: ``the `epic` field on a backlog item`` prose must be
     detected by the scan."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_prose.md").write_text(
@@ -111,7 +112,7 @@ def test_scan_detects_type_issue_epic_parent_prose(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_legitimate_epic_tasks_sql(tmp_path: Path):
-    """AC-7 negative: ``epic_tasks WHERE epic_id IN (...)`` is the legitimate
+    """Negative coverage: ``epic_tasks WHERE epic_id IN (...)`` is the legitimate
     foreign-key reference and must NOT trigger the SQL pattern."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "valid.md").write_text(
@@ -124,7 +125,7 @@ def test_scan_does_not_fire_on_legitimate_epic_tasks_sql(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_qualified_epic_id_in_items_query(tmp_path: Path):
-    """AC-7 negative: ``items`` queries that filter on ``id={epic-id-...}``
+    """Negative coverage: ``items`` queries that filter on ``id={epic-id-...}``
     placeholders or on the literal ``type='epic'`` value must NOT trigger
     the SQL pattern, because the ``epic`` token is preceded by ``{``, ``-``,
     or ``'`` rather than a SQL delimiter from ``[\\s,(]``."""
@@ -154,7 +155,7 @@ def test_scan_does_not_cross_python_query_arguments(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_corrected_ontology_prose(tmp_path: Path):
-    """AC-7 negative: the corrected ontology that names the epic relation as
+    """Negative coverage: the corrected ontology that names the epic relation as
     ``the numeric `id` on the epic backlog item, which equals the `epic_id`
     foreign key in `epic_tasks``` must NOT trigger any pattern."""
     (tmp_path / "docs").mkdir()
@@ -201,22 +202,18 @@ def test_scan_ignores_archive_path(tmp_path: Path):
 
 
 def test_scan_ignores_hc_self(tmp_path: Path):
-    """The HC file declares patterns as escaped regex. The escaped form does not
-    contain the bare term as a substring, so a fresh scan should find nothing
-    even when the HC file is part of the scanned tree."""
-    hc_dir = tmp_path / "runtime" / "api" / "engines"
-    hc_dir.mkdir(parents=True)
-    copy_of_hc = hc_dir / "doctor_hc_obsoleted_terms.py"
-    source = Path(
-        REPO_ROOT
-        / "packages"
-        / "yoke-core"
-        / "src"
-        / "yoke_core"
-        / "engines"
-        / "doctor_hc_obsoleted_terms.py"
-    ).read_text(encoding="utf-8")
-    copy_of_hc.write_text(source)
+    """The scanner declares its patterns as escaped regex, and exempts itself by
+    module identity rather than by location, so a fresh scan finds nothing even
+    when a copy of the scanner sits in a scanned tree.
+
+    The source is read from the live module's own ``__file__`` so the fixture
+    tracks the scanner wherever it lives.
+    """
+    source = Path(check_obsoleted_terms.__file__).read_text(encoding="utf-8")
+    for rel_dir in (Path("runtime") / "api" / "engines", Path(".yoke") / "doctor"):
+        hc_dir = tmp_path / rel_dir
+        hc_dir.mkdir(parents=True)
+        (hc_dir / Path(check_obsoleted_terms.__file__).name).write_text(source)
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "clean.md").write_text("nothing obsolete here\n")
     assert scan_repo(tmp_path) == []
@@ -231,7 +228,7 @@ def test_hc_records_pass_on_clean_repo(monkeypatch, tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "clean.md").write_text("nothing obsolete here\n")
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_obsoleted_terms._resolve_repo_root",
+        "yoke_project_checks.check_obsoleted_terms._resolve_repo_root",
         lambda: str(tmp_path),
     )
     rec = RecordCollector()
@@ -247,7 +244,7 @@ def test_hc_records_warn_on_residue(monkeypatch, tmp_path: Path):
         f"Tutorial mentioning {retired_parent_epic_symbol()} and yoke-db.sh together.\n"
     )
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_obsoleted_terms._resolve_repo_root",
+        "yoke_project_checks.check_obsoleted_terms._resolve_repo_root",
         lambda: str(tmp_path),
     )
     rec = RecordCollector()
@@ -258,7 +255,7 @@ def test_hc_records_warn_on_residue(monkeypatch, tmp_path: Path):
 
 
 def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
-    """AC-2: un-patched ``Path("runtime/harness/codex/codex_hooks_tool_events.py")``
+    """Un-patched ``Path("runtime/harness/codex/codex_hooks_tool_events.py")``
     in a runtime Python source flips the scanner via slash-form normalisation."""
     target = tmp_path / "runtime" / "api" / "engines"
     target.mkdir(parents=True)
@@ -275,7 +272,7 @@ def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
 
 
 def test_scan_widening_catches_dotted_form_hook_module(tmp_path: Path):
-    """AC-3: dotted-form retired hook module reference in a runtime Python
+    """Dotted-form retired hook module reference in a runtime Python
     source flips the scanner via the standard dotted pattern."""
     target = tmp_path / "runtime" / "api" / "engines"
     target.mkdir(parents=True)
@@ -290,28 +287,26 @@ def test_scan_widening_catches_dotted_form_hook_module(tmp_path: Path):
 
 
 def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
-    """AC-7: an allow-listed prefix exempts files under it from the
+    """An allow-listed prefix exempts files under it from the
     ``yoke-db.sh`` pattern; a sibling outside the allow-list still trips.
     The exemption is path-scoped (file-level), not pattern-wide (global)."""
-    allow_dir = tmp_path / "runtime" / "api" / "tools"
+    allow_dir = tmp_path / "runtime" / "api" / "domain"
     allow_dir.mkdir(parents=True)
-    (allow_dir / "shell_inventory_test_fixture.py").write_text(
+    (allow_dir / "lint_db_rules_fixture.py").write_text(
         '_RETIRED = "yoke-db.sh"\n',
         encoding="utf-8",
     )
-    leak_dir = tmp_path / "runtime" / "api" / "domain"
-    leak_dir.mkdir(parents=True)
-    (leak_dir / "new_module.py").write_text(
+    (allow_dir / "new_module.py").write_text(
         '_LEAK = "yoke-db.sh runs find-by-item"\n',
         encoding="utf-8",
     )
     paths = {hit.split(":", 1)[0] for hit in scan_repo(tmp_path)}
-    assert "runtime/api/tools/shell_inventory_test_fixture.py" not in paths
+    assert "runtime/api/domain/lint_db_rules_fixture.py" not in paths
     assert "runtime/api/domain/new_module.py" in paths
 
 
 def test_scan_widening_skips_python_files_outside_runtime(tmp_path: Path):
-    """AC-1: ``.py`` scanning is scoped to ``runtime/`` only — Python files
+    """``.py`` scanning is scoped to ``runtime/`` only — Python files
     under ``docs/`` or ``.yoke/strategy/`` are not in scope (the .md scan covers
     those dirs)."""
     (tmp_path / "docs").mkdir()

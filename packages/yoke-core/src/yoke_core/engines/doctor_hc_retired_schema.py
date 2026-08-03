@@ -1,6 +1,6 @@
 """HC-retired-schema-resurrection: retired-surface post-cutover drift.
 
-Scans every project declared in ``runtime/api/domain/retired_schema_surfaces.yaml``
+Scans every project declared in ``yoke_core/domain/retired_schema_surfaces.yaml``
 and verifies that each registered column or table is actually absent on
 the model's schema target. A registered surface that is still present
 is the precise failure mode governance targets: the cutover audit row is
@@ -43,7 +43,6 @@ import sqlite3
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
-import yoke_core.engines.doctor_report as _base
 from yoke_core.domain.retired_schema_registry import (
     RetiredSchemaRegistryError,
     RetiredSurface,

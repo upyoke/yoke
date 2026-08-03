@@ -19,7 +19,7 @@ from yoke_core.domain.path_context import (
     FAMILY_ARCHITECTURE_LAYER,
     read_context_value,
 )
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import resolve_project
 
 
 LIST_PREVIEW = 10
@@ -32,10 +32,13 @@ _PACKAGE_ROOTS: Dict[str, Tuple[str, ...]] = {
 }
 
 
-def _resolve_project(conn: Any, project_id: str | int) -> int:
+def _resolve_project(
+    conn: Any, project_id: str | int, *, required: bool = True,
+) -> Optional[int]:
     if isinstance(project_id, int) or str(project_id).isdigit():
         return int(project_id)
-    return resolve_project_id(conn, project_id)
+    identity = resolve_project(conn, project_id, required=required)
+    return identity.id if identity is not None else None
 
 
 def load_architecture_model(
@@ -45,7 +48,9 @@ def load_architecture_model(
     None when absent / malformed / table missing."""
     if not _base._table_exists(conn, "project_structure"):
         return None
-    numeric_project_id = _resolve_project(conn, project_id)
+    numeric_project_id = _resolve_project(conn, project_id, required=False)
+    if numeric_project_id is None:
+        return None
     row = conn.execute(
         "SELECT payload FROM project_structure "
         "WHERE project_id = %s AND family = 'architecture_model'",

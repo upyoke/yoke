@@ -22,7 +22,7 @@ from yoke_core.engines._merge_worktree_test_helpers import mw_db
 
 
 class TestYokeStateDirResolution:
-    """AC-1, AC-2, AC-3: Yoke artifact dir must be distinct from both
+    """Yoke artifact dir must be distinct from both
     the project repo root and the Yoke control-repo root, and the
     non-``yoke`` project case must preserve the distinction."""
 
@@ -45,7 +45,7 @@ class TestYokeStateDirResolution:
         assert state_dir != Path(ctx.yoke_repo_root)
 
     def test_state_dir_for_non_yoke_project(self, tmp_path):
-        """AC-3: when ctx.repo_root is rewritten to a project repo, the
+        """When ctx.repo_root is rewritten to a project repo, the
         Yoke state dir is still derived from ctx.yoke_repo_root (the
         Yoke control-repo root), not from ctx.repo_root."""
         control = self._make_yoke_control_repo(tmp_path)
@@ -79,7 +79,7 @@ class TestYokeStateDirResolution:
 
 
 class TestRegenerateViewsTargetsStateDir:
-    """AC-1, AC-4: _regenerate_views targets the Yoke control repo
+    """_regenerate_views targets the Yoke control repo
     and invokes board.rebuild.run through a subprocess."""
 
     def _make_yoke_control_repo(self, tmp_path: Path) -> Path:
@@ -133,7 +133,7 @@ class TestRegenerateViewsTargetsStateDir:
 
 
 class TestRegenerateViewsExitCode5:
-    """AC-5, AC-6: _regenerate_views_or_exit5 catches
+    """_regenerate_views_or_exit5 catches
     post-merge-cleanup failures and returns exit code 5 with a precise
     MergeEngineFailed event (phase=post_merge_cleanup, merge_committed=true)."""
 
@@ -197,7 +197,7 @@ class TestRegenerateViewsExitCode5:
 
 
 class TestMergeWorktreeNoLegacyBugPattern:
-    """AC-9: regression guard — the literal ``Path(ctx.yoke_repo_root) / "backlog"``
+    """Regression guard — the literal ``Path(ctx.yoke_repo_root) / "backlog"``
     pattern must not reappear in the engine.  Any future refactor that
     re-introduces it reopens the 2026-04-11 incident."""
 
@@ -235,12 +235,12 @@ class TestMergeWorktreeNoLegacyBugPattern:
 
 
 class TestResolveContextUsesMainRoot:
-    """AC-1/AC-4/AC-6: resolve_context must call resolve_main_root
+    """Resolve_context must call resolve_main_root
     to get ctx.repo_root, so that invoking from a worktree CWD still
     resolves to the main repo root."""
 
     def test_resolve_context_uses_resolve_main_root(self, mw_db, tmp_path, monkeypatch):
-        """AC-4/AC-6: ctx.repo_root resolves to the main repo, not
+        """Ctx.repo_root resolves to the main repo, not
         the worktree, when resolve_main_root returns the main root."""
         main_root = tmp_path / "main-repo"
         main_root.mkdir()
@@ -249,7 +249,6 @@ class TestResolveContextUsesMainRoot:
             "yoke_core.domain.worktree.resolve_main_root",
             lambda: str(main_root),
         )
-        monkeypatch.setenv("YOKE_DONE_TRANSITION", "1")
         # Stub git calls that happen after repo_root is set
         monkeypatch.setattr(
             merge_worktree, "_run_git",
@@ -258,7 +257,7 @@ class TestResolveContextUsesMainRoot:
             ),
         )
 
-        args = MergeArgs(branch="YOK-99")
+        args = MergeArgs(branch="YOK-99", standalone=True)
         ctx = merge_worktree.resolve_context(args)
 
         assert ctx.repo_root == str(main_root)

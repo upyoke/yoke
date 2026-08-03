@@ -29,7 +29,7 @@ pytest_plugins = ("runtime.api.test_worktree_db_resolution_test_helpers",)
 
 
 class TestUnifiedResolverFromWorktree:
-    """AC-2: CLI invocation from inside a linked worktree resolves main-repo DB."""
+    """CLI invocation from inside a linked worktree resolves main-repo DB."""
 
     def test_db_helpers_resolves_main_db_from_worktree(self, fake_repo):
         """db_helpers.resolve_db_path() returns main-repo DB when called from
@@ -60,7 +60,7 @@ class TestUnifiedResolverFromWorktree:
 
 
 class TestResolveYokeRootBehavior:
-    """AC-2/AC-4: resolve_yoke_root returns .yoke/ and normalizes YOKE_ROOT."""
+    """Resolve_yoke_root returns .yoke/ and normalizes YOKE_ROOT."""
 
     def test_resolve_yoke_root_returns_project_yoke_dir(self, fake_repo):
         """resolve_yoke_root() returns {repo_root}/.yoke."""
@@ -108,7 +108,7 @@ class TestResolveYokeRootBehavior:
         assert str(retired_path) in message
 
 class TestResolveNamedPathSplit:
-    """AC-3: resolve_named_path splits state modes from content modes."""
+    """Resolve_named_path splits state modes from content modes."""
 
     def test_state_modes_resolve_via_project_yoke_or_machine_config(
         self, fake_repo, monkeypatch
@@ -168,7 +168,7 @@ class TestResolveNamedPathSplit:
 
 
 class TestNoStrayDbCreation:
-    """AC-1: advance from main repo does not create worktree-local yoke.db."""
+    """Advance from main repo does not create worktree-local yoke.db."""
 
     def test_no_stray_db_after_resolution(self, fake_repo):
         """Simulates the advance lifecycle: resolve DB from worktree context,

@@ -10,6 +10,8 @@ Function ids registered here:
 - ``agents.render.check.run`` — invokes
   :func:`yoke_core.domain.agents_render.detect_substrate_drift` and
   returns the structured drift list.
+- ``agents.render_relationships.record`` — server-owned deterministic refresh
+  of the renderer's path-context relationships. The client supplies no paths.
 
 Both route through the existing renderer without forking. Both carry
 ``claim_required_kind=None`` (renders are project-wide, not item-scoped).
@@ -107,6 +109,14 @@ class AgentsRenderCheckResponse(BaseModel):
     drift: List[str]
 
 
+class AgentsRenderRelationshipsRecordRequest(BaseModel):
+    session_id: str = ""
+
+
+class AgentsRenderRelationshipsRecordResponse(BaseModel):
+    written: int
+
+
 def handle_agents_render_check(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.agents_render import detect_substrate_drift
 
@@ -133,9 +143,45 @@ def handle_agents_render_check(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_agents_render_relationships_record(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Refresh canonical render relationships on the server authority."""
+    try:
+        payload = AgentsRenderRelationshipsRecordRequest.model_validate(
+            request.payload or {}
+        )
+    except Exception as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=f"render relationship payload invalid: {exc}",
+            ),
+        )
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.agents_render_path_context import (
+        record_render_relationships,
+    )
+
+    with db_helpers.connect() as conn:
+        written = record_render_relationships(
+            conn,
+            session_id=payload.session_id,
+        )
+        conn.commit()
+    return HandlerOutcome(
+        result_payload={"written": written},
+        primary_success=True,
+    )
+
+
 __all__ = [
     "AgentsRenderRunRequest", "AgentsRenderRunResponse",
     "handle_agents_render_run",
     "AgentsRenderCheckRequest", "AgentsRenderCheckResponse",
     "handle_agents_render_check",
+    "AgentsRenderRelationshipsRecordRequest",
+    "AgentsRenderRelationshipsRecordResponse",
+    "handle_agents_render_relationships_record",
 ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
     definition_fixture,
-    executor_binding,
+    skill_binding,
     gate_ref,
     workflow_stage,
 )
@@ -80,9 +80,9 @@ BLITZ_WORKFLOW_VERSION_ONE = definition_fixture(
         ),
     ),
     entry_surfaces=("harness_skill",),
-    executor_bindings=(
-        executor_binding("refine", "idea", "refined-idea"),
-        executor_binding("blitz", "refined-idea", "done"),
+    skill_bindings=(
+        skill_binding("refine", "idea", "refined-idea"),
+        skill_binding("blitz", "refined-idea", "done"),
     ),
     policies={
         "ownership": "session_item_and_document_claim",
@@ -119,7 +119,7 @@ DASH_WORKFLOW_VERSION_ONE = definition_fixture(
                 gate_ref(GATE_CONFLICT_SURVEY),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The executor surveys conflicts and completes the instruction.",
+            "The skill surveys conflicts and completes the instruction.",
         ),
         workflow_stage(
             "reviewing-implementation",
@@ -129,7 +129,7 @@ DASH_WORKFLOW_VERSION_ONE = definition_fixture(
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The executor self-checks plus any item-declared verification.",
+            "The skill self-checks plus any item-declared verification.",
         ),
         workflow_stage(
             "done",
@@ -143,7 +143,7 @@ DASH_WORKFLOW_VERSION_ONE = definition_fixture(
         ),
     ),
     entry_surfaces=("web_form", "cli", "harness_skill", "promotion"),
-    executor_bindings=(executor_binding("dash", "idea", "done"),),
+    skill_bindings=(skill_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
         "path_claims": "optional",

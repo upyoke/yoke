@@ -1,4 +1,11 @@
-"""Scope filters for the Doctor function-call handler."""
+"""Scope helpers for the Doctor function-call handler.
+
+Scope is what the caller asked for (``--quick`` / ``--full`` / ``--only``).
+Whether a requested check can honestly answer for a given project and
+runtime is a separate question, answered by the applicability model in
+:mod:`yoke_core.engines.doctor_applicability` — the runner reports anything
+out of scope as not-applicable rather than filtering it out of the report.
+"""
 
 from __future__ import annotations
 
@@ -6,26 +13,24 @@ from collections.abc import Iterable
 from typing import Any
 
 
-SOURCE_TREE_HEALTH_CHECK_SLUGS = frozenset({
-    "atlas-integrity",
-    "agent-canonical-drift",
-    "workspace-anchored-writer-authority",
-    "field-note-coherence",
-    "harness-substrate-drift",
-    "codex-hook-matchers",
-    "codex-hook-doc-drift",
-    "path-claim-bash-guard",
-    "event-outcome-enum-coverage",
-    "server-checkout-independence",
-    "platform-namespace-boundary",
-})
-
+#: The checks a caller holding only project-read permission may run against
+#: a project it can see. This is a *permission* boundary, not an
+#: applicability one: the set is small because the actor is low-privilege,
+#: not because the other checks have nothing to say.
 PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS = frozenset({
     "project-lookup",
     "project-gh-auth",
     "project-deploy-flows",
     "projects-ci-workflow-configured",
 })
+
+
+def project_safe_quick_checks(checks: Iterable[Any]) -> list[Any]:
+    """Narrow *checks* to the project-read-permission set."""
+    return [
+        check for check in checks
+        if check.slug in PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS
+    ]
 
 
 def doctor_scope_label(args: Any) -> str:
@@ -59,30 +64,9 @@ def _resolve_known_slugs() -> set[str]:
     return known
 
 
-def filter_source_tree_checks(
-    checks: Iterable[Any],
-    *,
-    skip: bool,
-    project_safe_quick: bool = False,
-) -> list[Any]:
-    selected = list(checks)
-    if project_safe_quick:
-        return [
-            check for check in selected
-            if check.slug in PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS
-        ]
-    if not skip:
-        return selected
-    return [
-        check for check in selected
-        if check.slug not in SOURCE_TREE_HEALTH_CHECK_SLUGS
-    ]
-
-
 __all__ = [
-    "doctor_scope_label",
     "PROJECT_SAFE_QUICK_HEALTH_CHECK_SLUGS",
-    "SOURCE_TREE_HEALTH_CHECK_SLUGS",
-    "filter_source_tree_checks",
+    "doctor_scope_label",
+    "project_safe_quick_checks",
     "validate_only_slugs",
 ]

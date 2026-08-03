@@ -1,6 +1,6 @@
 """Tests for the joint-gate auto-stamp branch in ``backlog_updates_helpers``.
 
-AC-18 regression: transitioning a fresh item from ``idea`` to
+Regression: transitioning a fresh item from ``idea`` to
 ``refining-idea`` with ``db_mutation_profile={"state":"none"}`` must
 leave ``db_compatibility_attestation.frozen_at`` unset. Only declared
 claims receive a freeze stamp.
@@ -111,14 +111,14 @@ class TestProfileDeclaresMutation:
 
 
 # ---------------------------------------------------------------------------
-# AC-18 regression: joint-gate auto-stamp skipped for state=none
+# Regression: joint-gate auto-stamp skipped for state=none
 # ---------------------------------------------------------------------------
 
 
 class TestJointGateAutoStampAc18:
     def test_state_none_item_does_not_get_frozen_at(self, helper_db) -> None:
         """Transitioning an item with state=none through the joint-gate
-        dispatch must leave frozen_at unset — FR-3 / AC-4 / AC-18."""
+        dispatch must leave frozen_at unset."""
         conn, db_path = helper_db
         insert_item(
             conn,
@@ -174,7 +174,7 @@ class TestJointGateAutoStampAc18:
 
 
 class TestProseVsClaimGate:
-    """Coverage for the FR-8 / AC-7 prose-vs-claim consistency gate."""
+    """Coverage for the prose-vs-claim consistency gate."""
 
     def test_prose_clean_state_none_passes(self, helper_db) -> None:
         conn, db_path = helper_db

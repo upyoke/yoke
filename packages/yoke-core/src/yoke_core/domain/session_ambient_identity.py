@@ -12,7 +12,13 @@ Single owner of the ambient chain every Yoke surface uses to answer
    agent pid to its session id, so any shell spawned by that harness
    self-identifies with zero agent involvement even when no env stamp
    was delivered (:mod:`yoke_core.domain.session_process_anchors`).
-3. ``None`` — no ambient identity. Mutating dispatch surfaces treat
+3. **Cursor conversation mapping:** the hook-written pairing under
+   ``<machine-home>/cursor-session-map/`` resolves the conversation id a
+   Cursor shell carries to the top-level session Yoke registered for it
+   (:mod:`yoke_contracts.cursor_session_map`) — the lane for a harness
+   that stamps nothing step 1 reads and hosts every conversation in one
+   process, so step 2 can record no anchor.
+4. ``None`` — no ambient identity. Mutating dispatch surfaces treat
    this as a Yoke infrastructure gap (``actor_session_missing``), not
    a condition for agents to work around.
 
@@ -29,6 +35,9 @@ import os
 from typing import Mapping, Optional, Tuple
 
 
+# Cursor is deliberately absent: the id it exports names the *conversation*
+# that spawned the shell, which for a dispatched subagent is not a
+# registered session. Cursor resolves through step 3's mapping instead.
 AMBIENT_ENV_VARS: Tuple[str, ...] = (
     "YOKE_SESSION_ID",
     "CLAUDE_SESSION_ID",
@@ -62,9 +71,9 @@ def resolve_env_session_id(
 def resolve_ambient_session_id(
     env: Optional[Mapping[str, str]] = None,
 ) -> Optional[str]:
-    """Resolve ambient session identity: env chain, then ancestry registry.
+    """Resolve ambient session identity: env chain, ancestry, hook mapping.
 
-    Returns ``None`` when neither source yields an id. Never raises.
+    Returns ``None`` when no source yields an id. Never raises.
     """
     value = resolve_env_session_id(env)
     if value:
@@ -73,7 +82,18 @@ def resolve_ambient_session_id(
         resolve_session_from_ancestry,
     )
 
-    return resolve_session_from_ancestry()
+    value = resolve_session_from_ancestry()
+    if value:
+        return value
+    from yoke_contracts.cursor_session_map import (
+        CURSOR_SESSION_MAP_DIR_NAME,
+        resolve_mapped_session_id,
+    )
+    from yoke_core.domain import machine_config
+
+    return resolve_mapped_session_id(
+        machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME, env,
+    )
 
 
 __all__ = [

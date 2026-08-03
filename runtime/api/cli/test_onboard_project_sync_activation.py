@@ -17,7 +17,7 @@ from yoke_cli.config import project_onboard_progress
             ["projects.github_binding.bind", "projects.update"],
             "enabled",
         ),
-        ("pending", ["projects.github_binding.bind"], "backlog_only"),
+        ("pending", ["projects.github_binding.bind"], "disabled"),
     ],
 )
 def test_app_binding_enables_issue_sync_only_after_active_verification(

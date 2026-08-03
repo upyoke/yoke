@@ -82,7 +82,7 @@ class TestCodexBashFailureTruth:
         "session_id": "codex-session",
     }
 
-    # --- AC-2: PostToolUseFailure Codex Bash -> HarnessToolCallFailed --------------
+    # --- PostToolUseFailure Codex Bash -> HarnessToolCallFailed --------------------
 
     def test_post_tool_use_failure_produces_tool_call_failed(self):
         rec = parse_hook_event(
@@ -98,7 +98,7 @@ class TestCodexBashFailureTruth:
         assert env["event_outcome"] == "failed"
         assert env["exit_code"] == 1
 
-    # --- AC-3: successful Bash PostToolUse stays HarnessToolCallCompleted ---------
+    # --- Successful Bash PostToolUse stays HarnessToolCallCompleted ---------------
 
     def test_post_tool_use_success_still_produces_tool_call_completed(self):
         rec = parse_hook_event(
@@ -114,7 +114,7 @@ class TestCodexBashFailureTruth:
         assert env["event_outcome"] == "completed"
         assert env["exit_code"] == 0
 
-    # --- AC-4: ambiguous hard-failure text -> NOT clean success ------------
+    # --- Ambiguous hard-failure text -> NOT clean success ------------------
 
     def test_ambiguous_no_such_file_reclassified_as_failure(self):
         rec = parse_hook_event(
@@ -180,7 +180,7 @@ class TestCodexBashFailureTruth:
         assert rec.is_failure is False
         assert rec.exit_code == 0
 
-    # --- AC-5: preserve structured-exit and benign-failure behavior --------
+    # --- Preserve structured-exit and benign-failure behavior --------------
 
     def test_approval_gate_structured_exit_not_reclassified(self):
         """An approval-gate payload is routed through PostToolUseFailure

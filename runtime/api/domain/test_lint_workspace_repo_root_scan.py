@@ -1,4 +1,4 @@
-"""AC-6 / AC-7 tests for :mod:`lint_workspace_repo_root_scan`.
+"""Tests for :mod:`lint_workspace_repo_root_scan`.
 
 Covers the static-scan helper that flags direct ``_repo_root`` references
 (``from ... import _repo_root``, ``agents_render._repo_root(...)``,
@@ -30,7 +30,7 @@ def _seed_source_tree(repo: Path, files: dict[str, str]) -> None:
 
 
 def test_scan_flags_renderer_module_importing_repo_root(tmp_path: Path) -> None:
-    """AC-6 positive case: a renderer-adjacent module importing `_repo_root`
+    """Positive case: a renderer-adjacent module importing `_repo_root`
     is flagged when its path is not in :data:`REPO_ROOT_REFERENCE_ALLOWLIST`."""
     bad_rel = (
         "packages/yoke-core/src/yoke_core/domain/"
@@ -53,7 +53,7 @@ def test_scan_flags_renderer_module_importing_repo_root(tmp_path: Path) -> None:
 
 
 def test_scan_does_not_flag_allowlisted_cli_re_export(tmp_path: Path) -> None:
-    """AC-6 negative case: the renderer module re-exports `_repo_root` for
+    """Negative case: the renderer module re-exports `_repo_root` for
     CLI/legacy consumers; that file is in the allowlist and must not flag."""
     allowlisted_rel = "packages/yoke-core/src/yoke_core/domain/agents_render.py"
     assert allowlisted_rel in REPO_ROOT_REFERENCE_ALLOWLIST
@@ -72,7 +72,7 @@ def test_scan_does_not_flag_allowlisted_cli_re_export(tmp_path: Path) -> None:
 def test_scan_flags_test_fixture_that_calls_repo_root_directly(
     tmp_path: Path,
 ) -> None:
-    """AC-7: a hypothetical `test_*.py` file that imports `_repo_root` and
+    """A hypothetical `test_*.py` file that imports `_repo_root` and
     calls it inside a fixture is flagged. The lint surfaces the leak shape
     that the rewritten ``test_agents_render.repo_root`` fixture used to
     have before this work item replaced it with the workspace-anchored helper.
@@ -95,7 +95,7 @@ def test_scan_flags_test_fixture_that_calls_repo_root_directly(
 
 
 def test_scan_flags_mock_patch_against_repo_root_symbol(tmp_path: Path) -> None:
-    """AC-6: ``mock.patch("...agents_render._repo_root", ...)`` is the third
+    """``mock.patch("...agents_render._repo_root", ...)`` is the third
     leak shape and must be flagged. This is the pattern the prior
     `detect_drift` tests used before they were rewritten to pass
     `target_root=` explicitly.
@@ -118,7 +118,7 @@ def test_scan_flags_mock_patch_against_repo_root_symbol(tmp_path: Path) -> None:
 
 
 def test_scan_returns_empty_when_no_violations(tmp_path: Path) -> None:
-    """AC-6: a runtime tree without any `_repo_root` reference is clean."""
+    """A runtime tree without any `_repo_root` reference is clean."""
     _seed_source_tree(tmp_path, {
         "runtime/api/domain/some_module.py": "def f():\n    return 1\n",
         "runtime/harness/some_helper.py": "x = 2\n",

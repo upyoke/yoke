@@ -39,7 +39,8 @@ WORKFLOW_ADAPTERS = [
         function_id="workflows.policy_defaults.publish",
         cli_invocation=(
             "yoke workflows policy-defaults publish WORKFLOW "
-            "(--file-budget on|off | --path-claims on|off) "
+            "(--file-budget on|off | --path-claims on|off | "
+            "--path-survey on|off) "
             "--expected-current-version N "
             "[--session-id S] [--json]"
         ),

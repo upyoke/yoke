@@ -76,14 +76,17 @@ where = ["src"]
 [tool.setuptools.package-data]
 # The universe UI runtime and its declaration-emitting host contract ship in
 # the wheel; the server exposes only the closed static asset roster.
+"yoke_core.domain" = ["retired_schema_surfaces.yaml"]
 "yoke_core.ui" = ["static/*", "contracts/*"]
 "yoke_core.install_bundle_tree" = [
     "AGENTS.md",
     "CODEX.md",
+    "CURSOR.md",
     ".agents/skills/yoke/**/*",
     "runtime/harness/claude/agents/**/*",
     "runtime/harness/claude/rules/**/*",
     "runtime/harness/codex/agents/**/*",
+    "runtime/harness/cursor/agents/**/*",
     "packs/**/*",
     # Glob `*` skips dotfiles, so scaffold entries like .gitignore, .gitkeep,
     # and .github/workflows need explicit hidden-component patterns.

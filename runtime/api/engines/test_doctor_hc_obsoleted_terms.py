@@ -28,7 +28,7 @@ REPO = _repo_root()
 
 
 # ---------------------------------------------------------------------------
-# Residue checks — AC-21 + Pass 3 residue requirements
+# Residue checks — retired terms must not survive in live tracked files
 # ---------------------------------------------------------------------------
 
 
@@ -77,13 +77,21 @@ def _filter_tolerated(
 # obsoleted terms. The HC's OBSOLETED_TERM_LABELS has to reference the bare
 # term to be useful; the enforcement code that parses legacy command shapes
 # (``observe.py``'s cmdline regexes, the ``lint_db_rules*`` siblings'
-# command-text lint) needs the literal name; the shell-inventory ledger and
-# zero-shell audit legitimately enumerate retired script names. Every other
+# command-text lint) needs the literal name; the zero-shell audit legitimately
+# enumerates retired script names. Every other
 # live path must stay clean.
 _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms.py",
+    # Project-local health checks: the scanner declares the retired terms it
+    # hunts for, and the agent-prompt detector names the retired command
+    # shape it looks for in tracked prompts.
+    ".yoke/doctor/check_obsoleted_terms.py",
+    # The catalogue holds the retired names the scanner hunts for; it
+    # declares them rather than leaking them.
+    ".yoke/doctor/_obsoleted_terms_catalog.py",
+    ".yoke/doctor/check_agents_prompts.py",
+    "packages/yoke-core/src/yoke_core/engines/check_obsoleted_terms.py",
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_allowlists.py",
-    "runtime/api/engines/doctor_hc_obsoleted_terms.py",
+    "runtime/api/engines/check_obsoleted_terms.py",
     "runtime/api/engines/doctor_hc_obsoleted_terms_allowlists.py",
     "runtime/api/engines/test_doctor_hc_obsoleted_terms.py",
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_scan.py",
@@ -96,20 +104,8 @@ _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
     "runtime/api/domain/lint_db_rules_operators.py",
     "runtime/api/domain/lint_db_rules_preprocess.py",
     "runtime/api/domain/test_lint_db_cmd.py",
-    "runtime/api/tools/shell_inventory.py",
-    "runtime/api/tools/shell_inventory_classify.py",
-    "runtime/api/tools/shell_inventory_report.py",
-    "runtime/api/tools/shell_inventory_rules.py",
-    "runtime/api/tools/shell_inventory_scan.py",
-    "runtime/api/tools/shell_inventory_closeout.py",
     "packages/yoke-core/src/yoke_core/domain/runs.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_agents_prompts.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_classify.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_report.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_rules.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_scan.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_closeout.py",
+    "packages/yoke-core/src/yoke_core/engines/check_agents_prompts.py",
     "runtime/api/test_zero_shell_proof.py",
     "runtime/api/test_zero_shell_proof_test_helpers.py",
     "ouroboros/",
@@ -144,7 +140,7 @@ def _db_router_items_cmd(verb: str, item_ref: str, field: str, value: str = "") 
 
 
 def test_items_epic_has_no_live_residue():
-    """AC-21: the retired parent-epic item field must not appear in any tracked
+    """The retired parent-epic item field must not appear in any tracked
     file outside the authorized declaration path(s)."""
     hits = _run_git_grep(_retired_parent_epic_symbol_pattern())
     tolerated = _filter_tolerated(
@@ -188,7 +184,7 @@ def test_yoke_core_domain_doctor_has_no_live_residue():
 
 
 def test_yoke_db_sh_has_no_live_prose_residue():
-    """Pass 3 residue check applied to the AC-8 prose surface.
+    """Residue check applied to the operator-facing prose surface.
 
     ``yoke-db.sh`` is retired. It must not appear in live operator-facing
     prose — doctrine, docs, or skill bodies — outside the authorized
@@ -214,7 +210,7 @@ def test_yoke_db_sh_has_no_live_prose_residue():
         "runtime/api/domain/test_lint_db_cmd_lifecycle.py",
         "runtime/api/domain/test_lint_db_cmd_operators.py",
         "runtime/api/domain/test_lint_tc_label.py",
-        "runtime/api/engines/doctor_hc_agents_prompts.py",
+        "runtime/api/engines/check_agents_prompts.py",
         "runtime/api/engines/test_doctor_filesystem_full.py",
         "runtime/api/engines/test_doctor_filesystem_full_repo.py",
         "runtime/api/engines/test_doctor_hc_obsoleted_terms_scan.py",

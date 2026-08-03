@@ -42,9 +42,12 @@ GENERATED_PATH_GLOBS: tuple[str, ...] = (
     ".claude/skills/yoke/**",
     ".codex/agents/yoke-*.toml",
     ".codex/skills/yoke/**",
+    ".cursor/agents/yoke-*.md",
+    ".cursor/skills/yoke/**",
     # Upstream layout: where Yoke's own repo authors the same content.
     "runtime/harness/claude/agents/yoke-*.md",
     "runtime/harness/codex/agents/yoke-*.toml",
+    "runtime/harness/cursor/agents/yoke-*.md",
     # Shipped reference docs — authored in the Yoke repo, installer-rendered
     # into managed projects at the same path. Long reference material (schema
     # catalogs, command references), not authored code, so exempt from the

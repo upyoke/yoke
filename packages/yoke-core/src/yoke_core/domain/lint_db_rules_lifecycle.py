@@ -199,7 +199,7 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
                                 "permissionDecisionReason": (
                                     "BLOCKED: Do not mutate %s.%s via db_router query.\n"
                                     "Lifecycle-sensitive columns must go through sanctioned mutators:\n%s"
-                                    "For emergency repair: python3 -m yoke_core.engines.repair_status <id> <status>\n"
+                                    'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                                     "Direct writes bypass status validation, lifecycle events, and derived-view refresh.\n"
                                     "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
                                 ) % (_lt_table, _lc, _repair_hint, chr(39), chr(39)),
@@ -216,7 +216,7 @@ if uses_raw_query_escape_hatch(command) and "# lint:no-lifecycle-mutation-check"
                         "permissionDecisionReason": (
                             "BLOCKED: Do not DELETE from %s via db_router query.\n"
                             "Row deletion on lifecycle-owned tables bypasses cleanup, events, and derived-view refresh.\n"
-                            "For emergency repair: python3 -m yoke_core.engines.repair_status <id> <status>\n"
+                            'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                             "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
                         ) % (_lt_table, chr(39), chr(39)),
                     }
@@ -243,7 +243,7 @@ for py_code in extract_python_payloads(original_command):
                         "BLOCKED: Inline Python mutates lifecycle-owned table %s%s%s.\n"
                         "Lifecycle mutations must go through sanctioned mutators "
                         "(service_client backlog-cli update, domain.epic task-update-status, domain.emit_event).\n"
-                        "For emergency repair: python3 -m yoke_core.engines.repair_status <id> <status>\n"
+                        'For emergency repair: yoke lifecycle repair-status PREFIX-N --to TARGET_STATUS --reason "reconcile lifecycle state"\n'
                         "Add %s# lint:no-lifecycle-mutation-check%s to suppress for legitimate repair."
                     ) % (chr(39), _lt_table, chr(39), chr(39), chr(39)),
                 }

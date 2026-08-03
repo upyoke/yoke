@@ -8,11 +8,11 @@ envelope reaches stdout for both Claude and Codex.
 
 Coverage map:
 
-* AC-6 — ``hint_posttool_field_note`` on a non-zero Yoke CLI PostToolUse
+* ``hint_posttool_field_note`` on a non-zero Yoke CLI PostToolUse
   payload emits the canonical field-note footer.
-* AC-7 — ``hint_monitor_relay`` on a Claude ``Monitor`` PreToolUse payload
+* ``hint_monitor_relay`` on a Claude ``Monitor`` PreToolUse payload
   emits the relay-only reminder.
-* AC-8 — ``hint_file_line_limit_approach`` on a ``Write`` payload that crosses
+* ``hint_file_line_limit_approach`` on a ``Write`` payload that crosses
   the 350-line cap emits the cap-approach hint.
 
 Renderer-contract coverage for synthetic decisions lives
@@ -79,7 +79,7 @@ def _post_tool_use_payload(command: str, exit_code: int) -> str:
 def test_field_note_through_runner_reaches_claude_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-6: a non-zero Yoke CLI exit produces the field-note footer."""
+    """A non-zero Yoke CLI exit produces the field-note footer."""
     capability = _capability(
         monkeypatch, family="claude",
         chain=["yoke_core.domain.hint_posttool_field_note"],
@@ -102,7 +102,7 @@ def test_field_note_through_runner_reaches_claude_output(
 def test_field_note_through_runner_reaches_codex_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-6 + AC-4: same footer reaches Codex through the shared runner."""
+    """Same footer reaches Codex through the shared runner."""
     capability = _capability(
         monkeypatch, family="codex",
         chain=["yoke_core.domain.hint_posttool_field_note"],
@@ -151,7 +151,7 @@ def test_field_note_zero_exit_emits_no_envelope(
 def test_monitor_relay_through_runner_reaches_claude_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-7: Monitor PreToolUse payload triggers the relay reminder envelope."""
+    """Monitor PreToolUse payload triggers the relay reminder envelope."""
     capability = _capability(
         monkeypatch, family="claude",
         chain=["yoke_core.domain.hint_monitor_relay"],
@@ -204,7 +204,7 @@ def test_monitor_relay_non_monitor_tool_emits_no_envelope(
 def test_file_line_limit_through_runner_reaches_claude_output(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Any,
 ) -> None:
-    """AC-8: Write payload over the cap triggers the file-line-approach envelope."""
+    """Write payload over the cap triggers the file-line-approach envelope."""
     monkeypatch.setenv("YOKE_REPO_ROOT", str(tmp_path))
     capability = _capability(
         monkeypatch, family="claude",

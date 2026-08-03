@@ -10,20 +10,59 @@ from typing import Any, Mapping
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.pack_catalog import load_pack_descriptor, packs_root
+from yoke_core.domain.qa_catalog_schema import ensure_qa_method_metadata_columns
 
 
 MACHINE_QA_PACK = "machine-qa"
-_METHOD_KEYS = frozenset({
-    "id",
-    "name",
-    "description",
-    "executor_id",
-    "required_capability_kind",
-    "verdict_path",
-    "verdict_contract",
-    "evidence_contract",
-    "concurrency_mode",
-})
+_METHOD_KEYS = frozenset(
+    {
+        "id",
+        "name",
+        "description",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
+        "verdict_contract",
+        "evidence_contract",
+        "concurrency_mode",
+    }
+)
+_METHOD_METADATA_KEYS = frozenset(
+    {
+        "display_icon",
+        "display_order",
+        "display_group",
+        "config_contract_id",
+        "proof_kind",
+        "executor_gloss",
+    }
+)
+_LEGACY_METHOD_METADATA = {
+    "terminal-check": (
+        "⌨",
+        50,
+        "Machine",
+        "terminal-check",
+        "terminal-check",
+        "SSH + PTY on the capability-named machine",
+    ),
+    "terminal-inspection": (
+        "⌘",
+        60,
+        "Machine",
+        "terminal-inspection",
+        "terminal-inspection",
+        "SSH + PTY on the capability-named machine",
+    ),
+    "machine-state-check": (
+        "≡",
+        70,
+        "Machine",
+        "machine-state-check",
+        "machine-state-check",
+        "shell assertions on the controlled host",
+    ),
+}
 _METHOD_ID = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 
 
@@ -47,8 +86,7 @@ def _definition_path(
     root = packs_root() / MACHINE_QA_PACK / str(record["source"])
     path = root / candidate
     file_sources = {
-        str(row["source"]) for row in record.get("files", [])
-        if isinstance(row, dict)
+        str(row["source"]) for row in record.get("files", []) if isinstance(row, dict)
     }
     if relative not in file_sources or not path.is_file():
         raise MachineQaPackError(
@@ -57,12 +95,13 @@ def _definition_path(
     return path
 
 
-def _method(raw: Any) -> dict[str, str]:
-    if not isinstance(raw, dict) or set(raw) != _METHOD_KEYS:
+def _method(raw: Any, *, schema: int) -> dict[str, Any]:
+    expected_keys = _METHOD_KEYS | (_METHOD_METADATA_KEYS if schema >= 2 else set())
+    if not isinstance(raw, dict) or set(raw) != expected_keys:
         raise MachineQaPackError(
             "machine-qa methods require the complete registered contract"
         )
-    row = {key: str(raw[key] or "").strip() for key in _METHOD_KEYS}
+    row: dict[str, Any] = {key: str(raw[key] or "").strip() for key in _METHOD_KEYS}
     if not _METHOD_ID.fullmatch(row["id"]):
         raise MachineQaPackError("machine-qa method id is invalid")
     for key in (
@@ -86,8 +125,36 @@ def _method(raw: Any) -> dict[str, str]:
             f"machine-qa method {row['id']} has invalid verdict_path"
         )
     if row["concurrency_mode"] != "serial":
-        raise MachineQaPackError(
-            f"machine-qa method {row['id']} must be serial"
+        raise MachineQaPackError(f"machine-qa method {row['id']} must be serial")
+    if schema >= 2:
+        row.update(
+            {
+                key: str(raw[key] or "").strip()
+                for key in _METHOD_METADATA_KEYS - {"display_order"}
+            }
+        )
+        display_order = raw["display_order"]
+        if isinstance(display_order, bool) or not isinstance(display_order, int):
+            raise MachineQaPackError(
+                f"machine-qa method {row['id']} display_order must be an integer"
+            )
+        row["display_order"] = display_order
+    else:
+        metadata = _LEGACY_METHOD_METADATA[row["id"]]
+        row.update(
+            dict(
+                zip(
+                    (
+                        "display_icon",
+                        "display_order",
+                        "display_group",
+                        "config_contract_id",
+                        "proof_kind",
+                        "executor_gloss",
+                    ),
+                    metadata,
+                )
+            )
         )
     return row
 
@@ -95,7 +162,7 @@ def _method(raw: Any) -> dict[str, str]:
 def load_machine_qa_methods(
     *,
     version: str | None = None,
-) -> tuple[str, list[dict[str, str]]]:
+) -> tuple[str, list[dict[str, Any]]]:
     """Load and validate method contracts from the immutable Pack source."""
     descriptor = load_pack_descriptor(MACHINE_QA_PACK)
     selected = version or str(descriptor["latest_version"])
@@ -105,13 +172,16 @@ def load_machine_qa_methods(
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise MachineQaPackError("machine-qa method definitions are unreadable") from exc
-    if not isinstance(payload, dict) or payload.get("schema") != 1:
-        raise MachineQaPackError("machine-qa method definitions require schema 1")
+        raise MachineQaPackError(
+            "machine-qa method definitions are unreadable"
+        ) from exc
+    if not isinstance(payload, dict) or payload.get("schema") not in {1, 2}:
+        raise MachineQaPackError("machine-qa method definitions require schema 1 or 2")
     methods = payload.get("methods")
     if not isinstance(methods, list) or not methods:
         raise MachineQaPackError("machine-qa method definitions are empty")
-    rows = [_method(raw) for raw in methods]
+    schema = int(payload["schema"])
+    rows = [_method(raw, schema=schema) for raw in methods]
     ids = [row["id"] for row in rows]
     if len(ids) != len(set(ids)):
         raise MachineQaPackError("machine-qa method ids must be unique")
@@ -122,21 +192,40 @@ def sync_machine_qa_pack_methods(
     conn: Any,
     *,
     commit: bool = True,
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Project Pack methods, committing unless the caller owns the transaction."""
     _, methods = load_machine_qa_methods()
+    ensure_qa_method_metadata_columns(conn)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     now = iso8601_now()
     columns = (
-        "id", "name", "description", "source_kind", "source_ref",
-        "project_id", "executor_id", "required_capability_kind",
-        "verdict_path", "verdict_contract", "evidence_contract",
-        "success_policy_id", "success_policy_params", "concurrency_mode",
-        "created_at", "updated_at",
+        "id",
+        "name",
+        "description",
+        "source_kind",
+        "source_ref",
+        "project_id",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
+        "verdict_contract",
+        "evidence_contract",
+        "success_policy_id",
+        "success_policy_params",
+        "concurrency_mode",
+        "display_icon",
+        "display_order",
+        "display_group",
+        "config_contract_id",
+        "proof_kind",
+        "executor_gloss",
+        "created_at",
+        "updated_at",
     )
     assignments = ", ".join(
         f"{column}=EXCLUDED.{column}"
-        for column in columns if column not in {"id", "created_at"}
+        for column in columns
+        if column not in {"id", "created_at"}
     )
     sql = (
         f"INSERT INTO qa_methods({', '.join(columns)}) "
@@ -161,6 +250,12 @@ def sync_machine_qa_pack_methods(
                 "all-pass",
                 "{}",
                 method["concurrency_mode"],
+                method["display_icon"],
+                method["display_order"],
+                method["display_group"],
+                method["config_contract_id"],
+                method["proof_kind"],
+                method["executor_gloss"],
                 now,
                 now,
             ),

@@ -26,6 +26,11 @@ runtime/harness/
     hooks.json            # Hook configuration (surfaced via .codex/hooks.json symlink)
     agents/               # Rendered Codex custom-agent adapters (yoke-*.toml)
     # Python entrypoints live under runtime.harness.codex.*
+  cursor/                 # Cursor adapter
+    manifest.json         # Adapter manifest (identity, affordances, limitations)
+    hooks.json            # Hook configuration (copied to the source-dev .cursor surface)
+    agents/               # Rendered Cursor custom-agent adapters (yoke-*.md, surfaced via .cursor/agents)
+    # Python entrypoints live under runtime.harness.cursor.*
   {future-harness}/       # Future adapters follow the same pattern
     manifest.json
     agents/
@@ -91,8 +96,9 @@ Not all harnesses support the same hook events. The table below documents how ea
 |---------|-----------|----------|---------------|
 | Claude Code | `yoke hook evaluate SessionStart` calls `session-begin`; `yoke hook evaluate UserPromptSubmit` re-registers idempotently and renders orientation | `yoke hook evaluate SessionEnd` runs bounded `session-end-if-empty` directly | Yes (fallback) |
 | Codex | `.codex/hooks.json` calls `yoke hook evaluate SessionStart` | `.codex/hooks.json` calls `yoke hook evaluate Stop` | Yes (fallback for claimed/stale sessions) |
+| Cursor | `.cursor/hooks.json` maps `sessionStart` to `yoke hook evaluate SessionStart`; orientation returns through the reply's `additional_context` | `sessionEnd`/`stop` map to `yoke hook evaluate SessionEnd`/`Stop` (the IDE surface may never fire `sessionEnd` while a chat stays open) | Yes (fallback; 60-minute TTL override like Codex) |
 
-Both harnesses now share the same direct Stop / SessionEnd cleanup behavior: the hook runs the existing `end_session_if_empty` domain primitive immediately under machine-config `hook_session_end_cleanup_timeout_ms` as the DB busy-wait budget. Claimless sessions end during the hook; sessions with active claims or chain-pending checkpoints stay active and rely on prompt reactivation or stale-session reclaim.
+Every harness shares the same direct Stop / SessionEnd cleanup behavior: the hook runs the existing `end_session_if_empty` domain primitive immediately under machine-config `hook_session_end_cleanup_timeout_ms` as the DB busy-wait budget. Claimless sessions end during the hook; sessions with active claims or chain-pending checkpoints stay active and rely on prompt reactivation or stale-session reclaim.
 
 ### Stale-Session Reclaim
 

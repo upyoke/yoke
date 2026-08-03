@@ -35,8 +35,8 @@ def _seed_claim(conn, *, state: str = "planned", item_id: int = 1) -> None:
     conn.execute(
         """
         INSERT INTO path_claims
-            (id, item_id, state, actor_id, integration_target, registered_at)
-        VALUES (10, %s, %s, 4242, 'main', %s)
+            (id, owner_kind, owner_item_id, state, integration_target, registered_at)
+        VALUES (10, 'item', %s, %s, 'main', %s)
         """,
         (item_id, state, iso8601_now()),
     )
@@ -122,7 +122,7 @@ class TestVerifyFileBudgetClaimConsistency:
     def test_blocked_widened_claim_matches_file_budget(
         self, conn_with_claim,
     ):
-        """AC-7: a blocked dependent claim with widened coverage matching
+        """A blocked dependent claim with widened coverage matching
         the File Budget passes consistency even while the upstream claim is
         still non-terminal."""
         conn, _ = conn_with_claim

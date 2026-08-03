@@ -2,11 +2,11 @@
 
 The Yoke function-call surface is the **agent-facing** mutation surface for the Yoke control plane. Agents call typed function ids through one envelope shape; the dispatcher routes to a handler, verifies the calling session's claim, writes through the canonical domain owner, and emits structured events. Shell-quoted JSON payloads are not the operator path: the `python3 -m yoke_core.cli.db_router ...` and `python3 -m yoke_core.api.service_client ...` CLI commands remain as **retained operator/debug adapters** that build a typed `FunctionCallRequest` internally and dispatch through the same registry.
 
-This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the permanent / pending rosters and live promise-vs-live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
+This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the tool-shaped CLI, permanent, and pending rosters and live promise-vs-live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
 
 ## Envelope
 
-Every function call accepts and returns the same envelope shape, defined in `packages/yoke-contracts/src/yoke_contracts/api/function_call.py`:
+Every function call accepts and returns the same envelope shape, defined in `yoke_contracts.api.function_call`:
 
 ```jsonc
 // Request
@@ -72,7 +72,7 @@ Every registered function declares one of five `claim_required_kind` values; the
 | Value | When the dispatcher enforces |
 |---|---|
 | `None` | No claim verification. Reads, `claims.work.acquire`, and project-wide side effects (`board.rebuild`, `agents.render.run`). |
-| `"item"` | Resolves the active work-claim row for `target.item_id` via `runtime.harness.harness_sessions.who_claims(item_id)`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
+| `"item"` | Resolves the active work-claim row for `target.item_id`. The calling session's `session_id` must match. Otherwise `error.code="claim_required"` (HTTP 409). |
 | `"epic"` | Same as `"item"` but resolves the parent epic id from `target.kind="epic_task"` (`target.epic_id`). |
 | `"self_only"` | The claim itself is the target (e.g. `claims.work.release`). The handler reads the claim row by target and asserts `actor.session_id == row.session_id`. |
 | `"operator_override"` | Requires the calling session to carry an operator-authored bypass marker (e.g. `path-claim-override`). Otherwise `error.code="operator_override_required"`. |
@@ -146,7 +146,7 @@ The handler reads the existing `Progress Log` section, appends a timestamped ent
 
 | Function id | claim_required_kind | Handler | Notes |
 |---|---|---|---|
-| `item_worktrees.create` | `"item"` | `yoke_core.domain.handlers.item_worktree_create.handle_create` | With an empty payload, idempotently ensures the sole policy-required default lane (`YOK-N`); with `lane_role` + `branch`, registers one explicit `worker` or `integration` lane. The item must be active and claimed, the path-claim worktree gate must pass, and the branch must be valid and project-unique. Multiple workers remain allowed; a second integration lane and branch-role reuse are refused. |
+| `item_worktrees.create` | `"item"` | `yoke_core.domain.handlers.item_worktree_create.handle_create` | With an empty payload, idempotently ensures the sole policy-required default lane (`PREFIX-N`); with `lane_role` + `branch`, registers one explicit `worker` or `integration` lane. The item must be active and claimed, the path-claim worktree gate must pass, and the branch must be valid and project-unique. Multiple workers remain allowed; a second integration lane and branch-role reuse are refused. |
 | `item_worktrees.get` | `None` (read) | `yoke_core.domain.handlers.item_worktrees.handle_get` | Returns one active lane selected by `payload.lane_role`; `result.worktree` is null when no matching lane exists. |
 | `item_worktrees.list` | `None` (read) | `yoke_core.domain.handlers.item_worktree_paths.handle_list` | Returns every active lane in `result.worktrees`, preserving repeated worker lanes instead of collapsing by role. |
 | `item_worktrees.path_record` | `"item"` | `yoke_core.domain.handlers.item_worktree_paths.handle_path_record` | Records an absolute machine-local path after provisioning. Requires the active item claim plus `preconditions.worktree_id` and `preconditions.branch`; a released/replaced lane or changed branch fails stale instead of updating another row. |
@@ -255,6 +255,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `qa.browser_context.get` (read) | `None` | `yoke_core.domain.handlers.qa_browser` — one requirement-scoped read for the shared case runner: the named unwaived `browser-check` / `browser-inspection` case plus (with `expected_branch`) the latest `ephemeral_environments.deployed_sha`; echoes the resolved numeric `item_id` so ref-shaped callers learn it. Internal CLI adapter: `yoke qa browser-context get --requirement-id N`. |
 | `qa.run.add` / `qa.run.complete` | `"item"` | `yoke_core.domain.handlers.qa_browser_writes` — the two-phase capture shape (`add` lands started/captured rows, `complete` finalizes in place); both verify the run belongs to the targeted requirement and emit `QARunStarted`/`QARunCaptured`/`QARunCompleted` by field presence. CLI adapters: `yoke qa run add` / `yoke qa run complete`. |
 | `qa.artifact.add` | `"item"` | `yoke_core.domain.handlers.qa_browser_writes` — records one `qa_artifacts` row against a run. CLI adapter: `yoke qa artifact add`. |
+| Start-bound recording authority | — | All three recording legs accept `execution_claim_id`: the item claim the run pinned at `qa.case_execution.begin`, where the dispatcher verified it. The `qa_subject` check accepts that claim when the live one is gone, so an hour-long gate records the verdict it earned even after the stale-session sweep reclaimed the claim or the item was handed off mid-run. Owner: `yoke_core.domain.qa_start_bound_authority`; the window is `AUTHORITY_WINDOW_SECONDS`, sized to the longest permitted case command. |
 | Browser method execution | — | The tool-shaped `yoke qa case run --requirement-id N` fetches one immutable case through `qa.case_execution.get`, then uses the Browser context/run/artifact ids above when its registered executor is `browser_substrate`. There is no aggregate Browser execution entry. |
 | `qa.requirement.list` / `qa.requirement.get` / `qa.run.list` (reads) | `None` | `yoke_core.domain.handlers.qa_reads` — typed qa reads over the canonical column rosters (`qa_constants.REQ_COLUMNS` / `RUN_COLUMNS`; run rows include `execution_status`). `requirement.list` filters by item target (relay shape), payload `epic_id`, or payload `deployment_run_id`. CLI adapters: `yoke qa requirement list` / `yoke qa requirement get` / `yoke qa run list`. |
 | `qa.gate_summary.run` (read) | `None` | `yoke_core.domain.handlers.qa_reads.handle_qa_gate_summary` — wraps `yoke_core.domain.qa_gate_summary.render_gate_summary` for an item or `epic_task` target with payload `transition` ∈ (`reviewed-implementation`, `implemented`); the dispatcher-backed replacement for the checkout-shaped `db_router qa gate-summary` agent leg. CLI adapter: `yoke qa gate-summary`. |
@@ -266,7 +267,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `overview.activation.get` (read + latch) / `overview.module.dismiss` / `overview.module.restore` | `None` | `yoke_core.domain.handlers.overview_activation` — the workbench Overview's activation modules. The get derives every module/submodule state from universe signals in one dispatch (payload `{host_facts: {machine_connected?: bool}}` forwarded by the browser) and latches newly satisfied modules into `overview_activation_facts` — a universe-scoped monotone latch, its one sanctioned side effect. The dismiss/restore pair upserts/deletes the calling actor's `actor_ui_preferences` row (`pref_key = overview.module.dismissed.<module_key>`) and refuses without a bound actor. Browser-proxied surfaces (`adapter_status="internal"`): the local `yoke ui` proxy resolves the machine's operator actor for them, the hosted doorman binds the bearer's actor; no agent CLI adapter. |
 | `packets.render` / `packets.check` | `None` | same |
 | `agents.render.run` / `agents.render.check` | `None` | same (routes through `yoke_core.domain.agents_render`) |
-| `doctor.run.run` (read) | `None` | `yoke_core.domain.handlers.reads_misc.handle_doctor_run` — machine Doctor surface: takes `{project, db_path, fix, only, quick, full}`, returns structured `{results[], scope, project, fail_count, warn_count, pass_count}`. Callers must pick exactly one scope (`quick`, `full`, or `only`); a JSON caller missing the scope flag receives `error.code="scope_required"`. Unknown HC slugs in `only` return `error.code="invalid_check"`. The retained human CLI is `yoke doctor run --json`, with byte-shape parity against this function. |
+| `doctor.run.run` (read) | `None` | `yoke_core.domain.handlers.reads_misc.handle_doctor_run` — machine Doctor surface: takes `{project, db_path, fix, only, quick, full, runtime}`, returns structured `{results[], scope, project, runtime, fail_count, warn_count, pass_count, na_count}`. `project` defaults to the project bound to the caller's checkout. `runtime` names the deployment destination executing the checks (`local` / `server` / `hosted`); omitted, the handler derives it from the runner's own evidence. Checks outside the applicable set for that project and runtime come back with `severity="N/A"` and the reason in `detail` — they are never counted as passes and never dropped. Callers must pick exactly one scope (`quick`, `full`, or `only`); a JSON caller missing the scope flag receives `error.code="scope_required"`. Unknown HC slugs in `only` return `error.code="invalid_check"`. The retained human CLI is `yoke doctor run --json`, with byte-shape parity against this function. |
 | `events.query` (read) | `None` | same |
 | `items.get` (read) | `None` | same |
 | `epic_tasks.list` (read) | `None` | same |
@@ -289,7 +290,7 @@ The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `it
 - `docs/event-catalog.md` (a yoke source-repo doc) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
 - `docs/atlas.md` (a yoke source-repo doc) — operator-readable Atlas of the agent-facing surfaces.
 - [items-and-epics.md § DB Claim — unified amendment workflow](items-and-epics.md) — the `db_claim.amend` payload shape.
-- `packages/yoke-contracts/src/yoke_contracts/api/function_call.py` — Pydantic envelope models.
-- `packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch.py` — dispatcher entry point.
-- `packages/yoke-core/src/yoke_core/domain/yoke_function_registry.py` — registry.
-- `packages/yoke-core/src/yoke_core/domain/handlers/__init_register__.py` — handler registration (idempotent).
+- `yoke_contracts.api.function_call` — Pydantic envelope models.
+- `yoke_core.domain.yoke_function_dispatch` — dispatcher entry point.
+- `yoke_core.domain.yoke_function_registry` — registry.
+- `yoke_core.domain.handlers` — handler registration (idempotent).

@@ -1,10 +1,10 @@
 # Advance — Preflight Gates
 
-> **Orchestrator role:** For implementation-entry advances (`/yoke advance YOK-N implementation`), the orchestrator [`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py) calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `check_ac_presence.evaluate_item`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
+> **Orchestrator role:** For implementation-entry advances (`/yoke advance PREFIX-N implementation`), the orchestrator `yoke_core.engines.advance_implementation_entry` calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `check_ac_presence.evaluate_item`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
 
 Called by the advance router after identity/lifecycle resolution for
 non-implementing transitions. Runs the hard-block dependency gate, AC presence
-gate, active reconciliation gate, pinned-executor/generated-task gates, and
+gate, active reconciliation gate, pinned-skill/generated-task gates, and
 the merge verification gate.
 
 **Context variables** (set by router): `{N}`, `_status`, `_target`,
@@ -21,8 +21,8 @@ Covers (in order):
 - **Hard-Block Dependency Gate** (step 4-dep): blocks if unresolved dependencies at the activation or integration gate point
 - **AC Presence Gate** (step 4-ac): blocks if no checkbox ACs found for implementation-stage targets
 - **Spec Coverage Gate** (step 4-cov): applies only when effective File Budget and path claims are both enabled; blocks when `## File Budget` lists paths the active claim does not cover
-- **Pinned-Executor Advisory** (step 5): identifies a manual transition into a different registered executor's segment
-- **Shepherd Executor Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
+- **Pinned-Skill Advisory** (step 5): identifies a manual transition into a different registered skill's segment
+- **Shepherd Skill Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
 - **Generated-Task Existence Gate** (step 5-gate): applies only when `generated_children=epic_tasks` and dispatch is at or beyond the `conduct` handoff
 - **Generated-Task Completion Gate** (step 5a): applies only when a task-graph parent enters its `usher` or terminal segment
 - **Deferred Items Gate** (step 5a-defer): applies only to a generated-task parent entering a pinned terminal stage

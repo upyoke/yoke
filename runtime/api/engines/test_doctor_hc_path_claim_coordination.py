@@ -2,13 +2,13 @@
 
 Pins:
 
-* AC-3: PASS against a clean DB.
-* AC-4: FAIL when a coordination_only ``item_dependencies`` row carries
+* PASS against a clean DB.
+* FAIL when a coordination_only ``item_dependencies`` row carries
   empty rationale.
-* AC-5: FAIL when a blocked ``path_claims`` row's ``blocked_reason``
+* FAIL when a blocked ``path_claims`` row's ``blocked_reason``
   names a released upstream while another non-terminal overlap on the
   same target survives.
-* AC-13: ``test_hc_ignores_exception_mode_claims`` pins that
+* ``test_hc_ignores_exception_mode_claims`` pins that
   ``mode='exception'`` rows are sanctioned operator-override and
   silently skipped even when they otherwise match failure-mode 1.
 """
@@ -28,7 +28,8 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _DDL = """
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY, state TEXT NOT NULL,
-    mode TEXT NOT NULL DEFAULT 'exclusive', item_id INTEGER,
+    mode TEXT NOT NULL DEFAULT 'exclusive', owner_kind TEXT,
+    owner_item_id INTEGER,
     integration_target TEXT NOT NULL, blocked_reason TEXT
 );
 CREATE TABLE path_claim_targets (
@@ -63,8 +64,8 @@ def _seed_claim(
     mode: str = "exclusive", blocked_reason: str | None = None,
 ) -> None:
     conn.execute(
-        "INSERT INTO path_claims (id, state, mode, item_id, "
-        "integration_target, blocked_reason) VALUES (%s, %s, %s, %s, 'main', %s)",
+        "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id, "
+        "integration_target, blocked_reason) VALUES (%s, %s, %s, 'item', %s, 'main', %s)",
         (claim_id, state, mode, claim_id + 8000, blocked_reason),
     )
     conn.execute(
@@ -185,7 +186,7 @@ def test_pass_when_blocked_reason_names_active_upstream(conn):
 
 
 def test_hc_ignores_exception_mode_claims(conn):
-    """AC-13: ``mode='exception'`` is sanctioned operator-override and
+    """``mode='exception'`` is sanctioned operator-override and
     must NOT be flagged even when matching failure-mode 1.
 
     Seed two rows that BOTH match the stale-blocked_reason pattern:

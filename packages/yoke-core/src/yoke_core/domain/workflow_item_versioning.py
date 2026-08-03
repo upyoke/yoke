@@ -154,7 +154,7 @@ def _implementation_entry_reached(
 ) -> bool:
     """Whether a nonterminal stage must satisfy implementation-lane policy."""
     from yoke_core.domain.workflow_definition_builders import (
-        IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+        IMPLEMENTATION_WORKFLOW_SKILL_IDS,
     )
 
     if stage_id in runtime.terminal_stage_ids or stage_id in ENGINE_TERMINAL_STAGE_IDS:
@@ -164,8 +164,8 @@ def _implementation_entry_reached(
         return True
     starts = [
         runtime.stage_index(str(binding["from_stage_id"]))
-        for binding in runtime.definition["executor_bindings"]
-        if str(binding["executor_id"]) in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS
+        for binding in runtime.definition["skill_bindings"]
+        if str(binding["skill_id"]) in IMPLEMENTATION_WORKFLOW_SKILL_IDS
     ]
     positions = [position for position in starts if position is not None]
     return bool(positions) and current > min(positions)

@@ -47,13 +47,31 @@ def execute_terminal_recipe(
         return with_staged_cleanup(run, failed, staged)
     all_secrets = tuple(secret_values) + staged_secrets
     try:
-        if config["execution_mode"] == "ssh-command":
+        mode = config["execution_mode"]
+        if mode == "ssh-command":
             result = run_command_recipe(
                 run,
                 entry_surface=entry_surface,
                 config=config,
                 staged=staged,
                 secret_values=all_secrets,
+            )
+        elif mode == "terminal":
+            from yoke_core.domain.ssh_mac_terminal_app_recipe import (
+                run_terminal_app_recipe,
+            )
+
+            result = run_terminal_app_recipe(
+                run,
+                entry_surface=entry_surface,
+                required_completion=required_completion,
+                config=config,
+                evidence_parent=evidence_parent,
+                secret_values=all_secrets,
+                staged=staged,
+                terminal_size=terminal_size,
+                progress_callback=progress_callback,
+                allowed_operator_urls=allowed_operator_urls,
             )
         else:
             from yoke_core.domain.ssh_mac_terminal_recipe import (

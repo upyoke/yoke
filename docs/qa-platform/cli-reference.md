@@ -5,9 +5,9 @@ function ids. The implementation still lives in modules such as
 `yoke_core.domain.qa` and `yoke_core.domain.qa_gates`, but those module
 names are code references, not command recipes.
 
-Cross-link back from [qa-platform.md](../qa-platform.md) for the four-layer
+Cross-link back from [qa-platform.md](../../.yoke/docs/qa-platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
-reads and writes. See [`.yoke/docs/db-reference/functions.md`](../db-reference/functions.md)
+reads and writes. See [`.yoke/docs/db-reference/functions.md`](../../.yoke/docs/db-reference/functions.md)
 for the function-call envelope and [`docs/atlas.md`](../atlas.md) for the
 operator-readable Atlas of registered surfaces.
 
@@ -26,6 +26,9 @@ yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
 
 # Materialize project-default and item-attached plan cases
 yoke qa plan materialize --item YOK-N --transition reviewing-implementation
+
+# Refresh corrected plan cases without losing their QA run history
+yoke qa plan rematerialize --item YOK-N --transition reviewing-implementation
 
 # Execute the materialized cases in immutable plan/case/baseline order
 yoke qa plan run \
@@ -92,6 +95,7 @@ run owns its delivery context.
 | `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P --workflow-transition T [opts]` | Insert one transition-bound item requirement |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
+| `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |
@@ -117,6 +121,27 @@ side effect, pins the complete roster and digest server-side, and advances one
 canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
 cursor.
+
+A Command case is executed live rather than collected. Its combined output
+streams to **stderr** line by line as it arrives, preceded by a banner naming
+the raw capture file, so a long registered command is followable while it runs
+and re-readable afterwards; the same output is stored whole as the run's
+`command_output` artifact. On completion the case runner restates
+`verdict=… outcome=… exit_code=… capture=…` on stderr, leaving stdout as the
+machine-readable result JSON. Because this run produces the recorded verdict,
+it is the one full execution of that command for the tree — see
+[`full-suite-authority.md`](../testing-verification/full-suite-authority.md)
+for the iterate-narrow-then-gate loop. A run that outlives its
+`timeout_seconds` exits `124` with its whole process group reaped.
+
+`timeout_seconds` budgets execution, not queueing. A registered command that
+waits for the machine-wide test gate before it launches pytest carries its
+budget inside the wrapper, so the clock starts when the gate admits the run
+rather than when the command was invoked — a gate that queues for longer than
+its own budget still gets the whole budget once admitted. A timed-out run
+records the same `fail` verdict a broken branch does, so its run record and
+the stderr restatement both carry a `timeout_summary` naming the expired
+budget and any queue wait that preceded it.
 
 When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
 includes `review_bundle.dispatch`. The harness must immediately dispatch the

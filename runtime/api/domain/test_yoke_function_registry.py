@@ -53,7 +53,7 @@ class _RegistryTestBase(unittest.TestCase):
 
 
 class TestRegistryEmpty(_RegistryTestBase):
-    """AC-1.2: empty registry returns no entries until a handler registers."""
+    """Empty registry returns no entries until a handler registers."""
 
     def test_list_empty(self):
         self.assertEqual(list_entries(), [])
@@ -109,7 +109,7 @@ class TestRegistryHappyPath(_RegistryTestBase):
 
 
 class TestRegistryValidation(_RegistryTestBase):
-    """AC-1.4 + AC-1.5: duplicates and deprecation rules are enforced."""
+    """Duplicates and deprecation rules are enforced."""
 
     def test_duplicate_id_rejected(self):
         register(
@@ -191,7 +191,7 @@ class TestRegistryValidation(_RegistryTestBase):
 
 
 class TestClaimRequiredKindEnumeration(_RegistryTestBase):
-    """AC-1.15: registry accepts exactly the five canonical kinds."""
+    """Registry accepts exactly the five canonical kinds."""
 
     def test_all_five_kinds_accepted(self):
         kinds = (None, "item", "epic", "self_only", "operator_override")
@@ -220,7 +220,7 @@ class TestClaimRequiredKindEnumeration(_RegistryTestBase):
 
 
 class TestFunctionIdShape(_RegistryTestBase):
-    """AC-28: ids match ``<family>.<subfamily>.<operation>``."""
+    """Ids match ``<family>.<subfamily>.<operation>``."""
 
     def test_valid_three_segment_id(self):
         entry = register(
@@ -234,7 +234,7 @@ class TestFunctionIdShape(_RegistryTestBase):
 
 
 class TestVersioningMetadata(_RegistryTestBase):
-    """AC-30: registry preserves stability + replacement + removal_target_version."""
+    """Registry preserves stability + replacement + removal_target_version."""
 
     def test_versioning_metadata_preserved(self):
         entry = register(

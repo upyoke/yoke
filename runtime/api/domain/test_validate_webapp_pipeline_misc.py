@@ -139,8 +139,8 @@ def _apply_seed(
             flow_stages
             if flow_stages is not None
             else [
-                {"name": "build", "executor": "github-actions"},
-                {"name": "deploy", "executor": "github-actions"},
+                {"name": "build", "step_runner": "github-actions"},
+                {"name": "deploy", "step_runner": "github-actions"},
             ]
         )
         conn.execute(
@@ -275,7 +275,7 @@ def test_run_validation_reports_python_pipeline_entrypoints(tmp_path: Path, monk
             "yoke_core.domain.flow",
             "yoke_core.domain.deploy_pipeline",
             "yoke_core.domain.github_actions",
-            "yoke_core.tools.executors",
+            "yoke_core.tools.step_runners",
         ):
             assert f"Python entrypoint exists: {module_name}" in out
 

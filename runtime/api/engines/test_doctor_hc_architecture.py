@@ -2,12 +2,12 @@
 
 Covers the four positive-and-negative cases the ACs name explicitly:
 
-* AC-7: domain_invariants → orchestration import fails forbidden-edge.
-* AC-8: direct ``sqlite3.connect`` import from an unapproved module
+* Domain_invariants → orchestration import fails forbidden-edge.
+* Direct ``sqlite3.connect`` import from an unapproved module
   fails cross-cutting-entrypoint.
-* AC-9: a snapshot path with no inherited layer / domain fails
+* A snapshot path with no inherited layer / domain fails
   unclassified-path; an exemption-marked path passes.
-* AC-21: corrupt ``dependency_edges`` JSON fires scan-error.
+* Corrupt ``dependency_edges`` JSON fires scan-error.
 
 Item-side tests cover the impact-declaration HC: invalid enum values
 fire findings, ``uncertain`` past ``refined-idea`` fires findings,
@@ -132,6 +132,17 @@ def conn(tmp_path: Path) -> Any:
 
 
 class TestUnclassifiedPath:
+    @pytest.mark.parametrize("check", [
+        hc_architecture_unclassified_path,
+        hc_architecture_forbidden_edge,
+        hc_architecture_cross_cutting_entrypoint,
+    ])
+    def test_missing_project_self_skips(self, conn, check):
+        rec = RecordCollector()
+        check(conn, _args("missing"), rec)
+        assert rec.results[-1].result == "PASS"
+        assert "architecture_model not set" in rec.results[-1].detail
+
     def test_path_without_layer_or_domain_warns(self, conn):
         _seed_model(conn)
         tid = mint_target(conn, "yoke", "runtime/api/domain/floater.py")
@@ -191,7 +202,7 @@ class TestUnclassifiedPath:
 
 class TestForbiddenEdge:
     def test_domain_to_engine_import_fires(self, conn):
-        """AC-7: a domain_invariants module importing
+        """A domain_invariants module importing
         yoke_core.engines.foo fails the HC."""
         _seed_model(conn)
         src = mint_target(
@@ -255,7 +266,7 @@ class TestForbiddenEdge:
 
 class TestCrossCuttingEntrypoint:
     def test_unapproved_sqlite_connect_fires(self, conn):
-        """AC-8: a module that imports sqlite3.connect directly while
+        """A module that imports sqlite3.connect directly while
         outside the approved entrypoint list fails the HC."""
         _seed_model(conn)
         tid = mint_target(

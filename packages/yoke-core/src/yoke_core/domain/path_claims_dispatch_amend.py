@@ -8,7 +8,7 @@ from typing import Any, Optional, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
 from yoke_core.domain import path_claims_events as _events
-from yoke_core.domain.path_claims import PathClaimError, get_claim
+from yoke_core.domain.path_claims import PathClaimError
 from yoke_core.domain.path_claims_amend import (
     AmendmentError,
     AmendmentNotFound,
@@ -26,6 +26,7 @@ from yoke_core.domain.path_claims_dispatch_io import (
     print_json,
 )
 from yoke_core.domain.path_claims_dispatch_ownership import deny_if_not_owner
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_read import claim_projection
 from yoke_core.domain.path_claims_resolve import (
     PathResolveError,
@@ -66,7 +67,8 @@ def _project_for_claim_id(conn, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
         "SELECT i.project_id FROM path_claims pc "
-        "JOIN items i ON pc.item_id = i.id "
+        "JOIN items i ON pc.owner_kind = 'item' "
+        "AND pc.owner_item_id = i.id "
         f"WHERE pc.id = {p}",
         (claim_id,),
     ).fetchone()
@@ -92,19 +94,21 @@ def _resolve_item_to_claim_id(conn, item_arg: str) -> tuple[Optional[int], Optio
         return None, str(exc)
     p = _p(conn)
     rows = conn.execute(
-        f"SELECT id FROM path_claims WHERE item_id = {p} AND mode = 'exclusive' "
+        f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+        f"AND owner_item_id = {p} AND mode = 'exclusive' "
         "AND state IN ('planned', 'blocked', 'active') ORDER BY id ASC",
         (item_id,),
     ).fetchall()
+    item_ref = render_item_ref(conn, item_id)
     if not rows:
         return None, (
-            f"--item YOK-{item_id}: no non-terminal exclusive claim "
+            f"--item {item_ref}: no non-terminal exclusive claim "
             "(planned/blocked/active). Pass the positional claim id."
         )
     if len(rows) > 1:
         ids = ", ".join(str(r[0]) for r in rows)
         return None, (
-            f"--item YOK-{item_id}: {len(rows)} non-terminal exclusive "
+            f"--item {item_ref}: {len(rows)} non-terminal exclusive "
             f"claims match ({ids}). Pass the positional claim id."
         )
     return int(rows[0][0]), None
@@ -207,7 +211,7 @@ def cmd_widen(argv: Sequence[str]) -> int:
                 )
                 p = _p(conn)
                 item_id_for_attr = conn.execute(
-                    f"SELECT item_id FROM path_claims WHERE id = {p}",
+                    f"SELECT owner_item_id FROM path_claims WHERE id = {p}",
                     (args.claim_id,),
                 ).fetchone()
                 target_ids = resolve_or_plan_paths_to_target_ids(

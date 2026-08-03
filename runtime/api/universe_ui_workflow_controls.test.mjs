@@ -195,8 +195,8 @@ test("the editable path-claims default publishes a new immutable version", async
     id: "dash",
     name: "Dash",
     currentVersion: 1,
-    executorBindings: [{
-      executor_id: "dash",
+    skillBindings: [{
+      skill_id: "dash",
       from_stage_id: "draft",
       through_stage_id: "ship",
     }],

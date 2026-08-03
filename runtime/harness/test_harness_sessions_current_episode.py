@@ -1,6 +1,6 @@
 """Tests: ``who-claims --current-episode`` shows inheritance, never hides.
 
-Covers AC-3, AC-4, AC-12: inherited claims remain visible with an
+Inherited claims remain visible with an
 explicit ``episode_scope`` marker; reacquired claims show inheritance
 fact; missing boundary still surfaces the claim row. Boundary truth is
 ``harness_sessions.episode_started_at`` (stamped at register/resume).
@@ -115,7 +115,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
         self.assertIn("episode_boundary=2026-05-01T00:00:00Z", out)
 
     def test_current_episode_marks_inherited_when_claim_predates_boundary(self) -> None:
-        """AC-12: inherited claims are visible, not hidden."""
+        """Inherited claims are visible, not hidden."""
         with _build_conn() as conn:
             # Claim acquired BEFORE the most recent resume boundary;
             # the resume re-stamped episode_started_at past it.
@@ -126,7 +126,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
                 caller_session_id="sess-inh",
                 current_episode=True,
             )
-        # Inheritance is visible. AC-12: it is NOT omitted.
+        # Inheritance is visible: it is NOT omitted.
         self.assertIn("episode_scope=inherited_from_prior_episode", out)
         self.assertIn("episode_boundary=2026-05-02T00:00:00Z", out)
         # The canonical claim row is still the first line.

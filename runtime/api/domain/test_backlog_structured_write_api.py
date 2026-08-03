@@ -138,7 +138,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertIsNone(outcome.error)
         payload = outcome.result_payload
-        # Envelope required fields per AC-3.5
+        # Envelope required fields
         for key in (
             "old_line_count", "new_line_count", "old_hash", "new_hash",
             "payload_byte_count", "verification", "github_sync",
@@ -150,7 +150,7 @@ class TestReplaceHandler(unittest.TestCase):
                          "new content\nline two\n")
 
     def test_empty_content_rejected_with_empty_body_error(self) -> None:
-        # AC-3.2: empty content rejected even when field is already empty
+        # Empty content rejected even when field is already empty
         self.db.insert_item(101, spec=None)
         req = _request(
             "items.structured_field.replace",
@@ -162,7 +162,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.assertEqual(outcome.error.code, "empty_body")
 
     def test_empty_content_allowed_with_precondition_opt_in(self) -> None:
-        # AC-3.3: allow_empty + reason bypasses the handler's empty_body guard.
+        # Allow_empty + reason bypasses the handler's empty_body guard.
         # The owner may still refuse to overwrite a non-empty field with empty;
         # we assert the handler does not produce the early invalid_payload
         # rejection (the precondition was honored).
@@ -179,7 +179,7 @@ class TestReplaceHandler(unittest.TestCase):
             self.assertNotEqual(outcome.error.code, "empty_body")
 
     def test_sun_1664_regression_empty_stdin_rejected(self) -> None:
-        # AC-3.6: initial spec write with empty content cannot succeed.
+        # Initial spec write with empty content cannot succeed.
         # Even when the existing field is empty (newly-created item), the
         # handler MUST reject without the allow_empty precondition.
         self.db.insert_item(101, spec=None)
@@ -192,7 +192,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.assertEqual(outcome.error.code, "empty_body")
 
     def test_invalid_field_rejected(self) -> None:
-        # AC-3.4: invalid field → typed error
+        # Invalid field → typed error
         self.db.insert_item(101, spec=None)
         req = _request(
             "items.structured_field.replace",
@@ -203,7 +203,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.assertEqual(outcome.error.code, "invalid_field")
 
     def test_sync_warning_surfaces_as_github_sync_degraded(self) -> None:
-        # AC-3.10: sync failure → warning with code="github_sync_degraded"
+        # Sync failure → warning with code="github_sync_degraded"
         self.db.insert_item(101, spec="x\n")
         with mock.patch.object(
             backlog_rendering, "_sync_body", return_value=(False, None),

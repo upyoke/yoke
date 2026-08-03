@@ -31,7 +31,7 @@ def test_project_owned_yoke_flows_declare_dispatch_correlation() -> None:
         stage
         for flow in declaration["flows"]
         for stage in flow["stages"]
-        if stage.get("executor") == "github-actions-workflow"
+        if stage.get("step_runner") == "github-actions-workflow"
     ]
     assert stages
     assert {stage.get("dispatch_correlation_input") for stage in stages} == {

@@ -12,8 +12,8 @@ If `--dry-run`:
 
 For each item in merge order, read deployment flow and project:
 ```bash
-yoke items get YOK-{N} deployment_flow
-yoke items get YOK-{N} project
+yoke items get PREFIX-{N} deployment_flow
+yoke items get PREFIX-{N} project
 ```
 
 Group by `(project, deployment_flow)`. Resolve target env per group:
@@ -26,7 +26,7 @@ Before displaying, query the authoritative hard-block edges for the batch to sho
 # Collect unique hard-block edges that affect the items being ushered.
 _dep_ids=""
 for _item in $_ready_items; do
- _dep_ids="${_dep_ids}${_dep_ids:+,}'YOK-${_item}'"
+ _dep_ids="${_dep_ids}${_dep_ids:+,}'PREFIX-${_item}'"
 done
 _dep_edges=$(yoke db read --format lines "
  SELECT dependent_item || ' depends-on ' || blocking_item
@@ -45,17 +45,17 @@ Items to process: {count}
 Merge order: {listed above}
 
 Dependencies (hard-block edges from item_dependencies — authoritative source):
- {for each edge in _dep_edges: " YOK-X depends-on YOK-Y (hard-block)"}
+ {for each edge in _dep_edges: " PREFIX-X depends-on PREFIX-Y (hard-block)"}
  {or " (none)"}
- Inspect: yoke shepherd dependency-list YOK-{N}
+ Inspect: yoke shepherd dependency-list PREFIX-{N}
 
 Deployment routing:
  Route A (internal -- no run):
- YOK-{id}: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
+ PREFIX-{id}: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
 
  Route B (deployment runs):
  Run 1: project={project}, flow={flow}, target={target_env}
- YOK-{id}, YOK-{id}
+ PREFIX-{id}, PREFIX-{id}
 
 Approval gates expected:
  {list any flows with approval stages, or "None"}

@@ -216,7 +216,7 @@ class TestWorktreeResolution:
     def test_yoke_root_no_stray_creation(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """AC-5: repo-root YOKE_ROOT must not create
+        """Repo-root YOKE_ROOT must not create
         ``<repo>/yoke.db`` as a side effect."""
         repo = tmp_path / "testrepo"
         state_dir = repo / "data"

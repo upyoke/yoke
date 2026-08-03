@@ -53,6 +53,44 @@ def checkout_for_project(
     return checkout_for_project_id(project_id, config_path=config_path)
 
 
+def checkout_for_project_slug(
+    project: str,
+    *,
+    config_path: str | Path | None = None,
+) -> Optional[Path]:
+    """Resolve a project slug to this machine's checkout via the relay.
+
+    Transport-aware sibling of :func:`checkout_for_project`: instead of
+    reading the project id from a caller-supplied DB connection it resolves
+    the id through the ``projects.get`` registered function, which relays
+    over https and dispatches in-process on a local Postgres connection.
+    The checkout mapping is machine-local, so :func:`checkout_for_project_id`
+    needs no connection. Returns ``None`` when the project cannot be
+    resolved or has no machine-local checkout mapping.
+    """
+
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    response = call_dispatcher(
+        function_id="projects.get",
+        target=TargetRef(kind="global"),
+        payload={"project": str(project), "field": "id"},
+    )
+    if not response.success:
+        return None
+    value = (response.result or {}).get("value")
+    if value in (None, ""):
+        return None
+    try:
+        project_id = int(value)
+    except (TypeError, ValueError):
+        return None
+    return checkout_for_project_id(project_id, config_path=config_path)
+
+
 def item_worktree_path(
     conn: Any,
     item_id: int,
@@ -157,6 +195,7 @@ def _row_value(row: Any, key: str, index: int) -> Any:
 __all__ = [
     "checkout_for_project",
     "checkout_for_project_id",
+    "checkout_for_project_slug",
     "epic_task_worktree_path",
     "item_worktree_path",
     "worktree_path_for_branch",

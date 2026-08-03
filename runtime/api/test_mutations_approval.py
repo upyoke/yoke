@@ -41,9 +41,9 @@ class TestPrepareApproval:
     def _make_flow_stages(self):
         """Create a typical 3-stage flow."""
         return [
-            FlowStage(name="build", executor="github-actions", config={}),
-            FlowStage(name="staging-gate", executor="human-approval", config={}),
-            FlowStage(name="deploy-prod", executor="github-actions", config={}),
+            FlowStage(name="build", step_runner="github-actions", config={}),
+            FlowStage(name="staging-gate", step_runner="human-approval", config={}),
+            FlowStage(name="deploy-prod", step_runner="github-actions", config={}),
         ]
 
     def test_successful_approval(self):
@@ -124,7 +124,7 @@ class TestPrepareApproval:
     def test_approval_last_stage(self):
         """Approval at the last stage returns 'complete'."""
         stages = [
-            FlowStage(name="final-gate", executor="human-approval", config={}),
+            FlowStage(name="final-gate", step_runner="human-approval", config={}),
         ]
         item = _make_item(
             deploy_stage="final-gate",

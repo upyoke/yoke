@@ -1,4 +1,4 @@
-"""AC-23: per-item aggregation in :func:`check_boundary_for_item`.
+"""Per-item aggregation in :func:`check_boundary_for_item`.
 
 Single-claim items keep today's behavior. Multi-claim items accept when
 the union of declared coverage across all non-terminal claims covers
@@ -58,7 +58,8 @@ def _make_branch_apply_schema(repo_root: Path):
             )
             conn.execute(
                 "CREATE TABLE path_claims ("
-                "id INTEGER PRIMARY KEY, item_id INTEGER, state TEXT)"
+                "id INTEGER PRIMARY KEY, owner_kind TEXT, "
+                "owner_item_id INTEGER, state TEXT)"
             )
             conn.execute(
                 "INSERT INTO projects (id, slug) VALUES (3, 'demo')",
@@ -71,8 +72,16 @@ def _make_branch_apply_schema(repo_root: Path):
                 "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', NULL)",
                 (str(repo_root / ".worktrees" / "YOK-9"),),
             )
-            conn.execute("INSERT INTO path_claims VALUES (1, 9, 'active')")
-            conn.execute("INSERT INTO path_claims VALUES (2, 9, 'active')")
+            conn.execute(
+                "INSERT INTO path_claims "
+                "(id, owner_kind, owner_item_id, state) "
+                "VALUES (1, 'item', 9, 'active')"
+            )
+            conn.execute(
+                "INSERT INTO path_claims "
+                "(id, owner_kind, owner_item_id, state) "
+                "VALUES (2, 'item', 9, 'active')"
+            )
             conn.commit()
         finally:
             conn.close()
@@ -129,7 +138,7 @@ class TestAggregationBranching:
         with init_test_db(
             tmp_path, apply_schema=_make_branch_apply_schema(repo_root)
         ) as db_path:
-            # AC-23 expectation: union of declared (foo+bar) covers union
+            # Expectation: union of declared (foo+bar) covers union
             # of touched (foo+bar), so item-level verdict is accept.
             verdict = _gate.check_boundary_for_item(
                 item_id=9,
@@ -195,7 +204,7 @@ class TestAggregationBranching:
 
 
 class TestAggregationGitignoreFilter:
-    """AC-47: aggregation gate honors `.gitignore` for committed paths."""
+    """Aggregation gate honors `.gitignore` for committed paths."""
 
     def _git(self, repo: Path, *args: str) -> str:
         env = {

@@ -12,14 +12,37 @@ from yoke_core.domain.project_github_binding_active import (
 )
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.projects_github_sync_mode import (
-    GITHUB_SYNC_BACKLOG_ONLY,
+    GITHUB_SYNC_DISABLED,
     GITHUB_SYNC_ENABLED,
+    VALID_GITHUB_SYNC_MODES,
 )
+from yoke_core.domain.schema_common import _column_exists as _schema_column_exists
 
 
-REPAIR_ACTION_SET_BACKLOG_ONLY = "set_github_sync_mode_backlog_only"
+REPAIR_ACTION_SET_DISABLED = "set_github_sync_mode_disabled"
 REPAIR_ACTION_CLEAR_REPO_PROJECTION = "clear_github_repo_projection"
 REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION = "remove_github_capability_projection"
+REPAIR_ACTION_CLEAR_COMPACT_PENDING = "clear_github_body_compact_pending"
+
+COMPACT_PENDING_COLUMN = "github_body_compact_pending"
+
+
+def _compact_pending_counts_by_project(conn: Any) -> dict[int, int]:
+    """Count items still flagged as compact-mirror pending, per project.
+
+    The flag is stamped and cleared only by a successful body sync, so a
+    project whose sync is off can never clear one through the normal path.
+    Absent on minimal fixture schemas, which report no counts at all.
+    """
+    if not _schema_column_exists(conn, "items", COMPACT_PENDING_COLUMN):
+        return {}
+    rows = query_rows(
+        conn,
+        f"SELECT project_id, COUNT(*) AS pending FROM items "
+        f"WHERE {COMPACT_PENDING_COLUMN} IS NOT NULL GROUP BY project_id",
+        (),
+    )
+    return {int(row["project_id"]): int(row["pending"]) for row in rows}
 
 
 def cmd_repair_unbound_enabled_sync_modes(
@@ -31,10 +54,13 @@ def cmd_repair_unbound_enabled_sync_modes(
 ) -> dict[str, Any]:
     """Find or normalize unsafe modes and stale unbound projections.
 
-    Dry-run is the default. Legacy NULL/empty values count as effectively
-    enabled because the compatibility reader resolves them that way. A project
-    with no repository-binding row also cannot retain the binding-owned
-    ``projects.github_repo`` or canonical GitHub capability projection.
+    Dry-run is the default. Legacy, empty, and unrecognized values normalize
+    to ``disabled``. A project with no repository-binding row also cannot
+    retain the binding-owned ``projects.github_repo`` or canonical GitHub
+    capability projection. A project whose effective mode is ``disabled``
+    also cannot retain compact-mirror pending flags on its items: only a
+    successful body sync clears one, and every sync surface skips a
+    disabled project, so the flag would otherwise strand permanently.
 
     Retired ``capability_secrets`` and shared installation rows are deliberately
     outside this repair's mutation boundary.
@@ -62,10 +88,17 @@ def cmd_repair_unbound_enabled_sync_modes(
             sql += " WHERE p.id=%s"
             params += (selected_id,)
         sql += " ORDER BY p.id"
+        compact_pending = _compact_pending_counts_by_project(conn)
         candidates = []
         for row in query_rows(conn, sql, params):
             stored_mode = row["github_sync_mode"]
-            effective_mode = str(stored_mode or "").strip() or GITHUB_SYNC_ENABLED
+            cleaned_mode = str(stored_mode or "").strip()
+            effective_mode = (
+                cleaned_mode
+                if cleaned_mode in VALID_GITHUB_SYNC_MODES
+                else GITHUB_SYNC_DISABLED
+            )
+            needs_normalization = cleaned_mode != effective_mode
             project_id = int(row["id"])
             has_binding = bool(row["has_binding"])
             has_github_capability = bool(row["has_github_capability"])
@@ -81,17 +114,22 @@ def cmd_repair_unbound_enabled_sync_modes(
                 github_repo or has_github_capability
             )
             if (
-                effective_mode == GITHUB_SYNC_ENABLED and not active_verified_binding
-            ) or (
-                has_stale_unbound_projection
-                and effective_mode != GITHUB_SYNC_BACKLOG_ONLY
+                needs_normalization
+                or (
+                    effective_mode == GITHUB_SYNC_ENABLED
+                    and not active_verified_binding
+                )
+                or (
+                    has_stale_unbound_projection
+                    and effective_mode != GITHUB_SYNC_DISABLED
+                )
             ):
                 actions.append(
                     {
-                        "action": REPAIR_ACTION_SET_BACKLOG_ONLY,
+                        "action": REPAIR_ACTION_SET_DISABLED,
                         "column": "github_sync_mode",
                         "from": stored_mode,
-                        "to": GITHUB_SYNC_BACKLOG_ONLY,
+                        "to": GITHUB_SYNC_DISABLED,
                     }
                 )
             if not has_binding and github_repo:
@@ -109,6 +147,16 @@ def cmd_repair_unbound_enabled_sync_modes(
                         "action": REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION,
                         "table": "project_capabilities",
                         "type": GITHUB_CAPABILITY_TYPE,
+                    }
+                )
+            pending_count = compact_pending.get(project_id, 0)
+            if effective_mode == GITHUB_SYNC_DISABLED and pending_count:
+                actions.append(
+                    {
+                        "action": REPAIR_ACTION_CLEAR_COMPACT_PENDING,
+                        "table": "items",
+                        "column": COMPACT_PENDING_COLUMN,
+                        "items": pending_count,
                     }
                 )
             if not actions:
@@ -129,10 +177,10 @@ def cmd_repair_unbound_enabled_sync_modes(
         if apply:
             for candidate in candidates:
                 for action in candidate["actions"]:
-                    if action["action"] == REPAIR_ACTION_SET_BACKLOG_ONLY:
+                    if action["action"] == REPAIR_ACTION_SET_DISABLED:
                         conn.execute(
                             "UPDATE projects SET github_sync_mode=%s WHERE id=%s",
-                            (GITHUB_SYNC_BACKLOG_ONLY, candidate["id"]),
+                            (GITHUB_SYNC_DISABLED, candidate["id"]),
                         )
                     elif action["action"] == REPAIR_ACTION_CLEAR_REPO_PROJECTION:
                         conn.execute(
@@ -144,6 +192,13 @@ def cmd_repair_unbound_enabled_sync_modes(
                             "DELETE FROM project_capabilities "
                             "WHERE project_id=%s AND type=%s",
                             (candidate["id"], GITHUB_CAPABILITY_TYPE),
+                        )
+                    elif action["action"] == REPAIR_ACTION_CLEAR_COMPACT_PENDING:
+                        conn.execute(
+                            f"UPDATE items SET {COMPACT_PENDING_COLUMN}=NULL "
+                            f"WHERE project_id=%s "
+                            f"AND {COMPACT_PENDING_COLUMN} IS NOT NULL",
+                            (candidate["id"],),
                         )
                 normalized += 1
             if owns_conn:
@@ -160,8 +215,10 @@ def cmd_repair_unbound_enabled_sync_modes(
 
 
 __all__ = [
+    "COMPACT_PENDING_COLUMN",
+    "REPAIR_ACTION_CLEAR_COMPACT_PENDING",
     "REPAIR_ACTION_CLEAR_REPO_PROJECTION",
     "REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION",
-    "REPAIR_ACTION_SET_BACKLOG_ONLY",
+    "REPAIR_ACTION_SET_DISABLED",
     "cmd_repair_unbound_enabled_sync_modes",
 ]

@@ -23,7 +23,7 @@ from yoke_core.domain.qa_constants import (
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (a): VALID_* tuples
+# VALID_* tuples
 # ---------------------------------------------------------------------------
 
 def test_valid_qa_phases_tuple():
@@ -71,30 +71,21 @@ def test_all_valid_tuples_are_nonempty():
 
 @pytest.mark.parametrize("method_id", BROWSER_METHOD_IDS)
 def test_browser_method_requirement_uses_method_identity(method_id):
-    assert is_browser_method_requirement(method_id, qa_kind="plan_case")
+    assert is_browser_method_requirement(method_id)
 
 
-def test_non_browser_method_does_not_inherit_legacy_kind():
-    assert not is_browser_method_requirement(
-        "unit-test",
-        qa_kind="browser_smoke",
-    )
+def test_non_browser_method_is_not_browser_execution():
+    assert not is_browser_method_requirement("unit-test")
+    assert not is_browser_method_requirement(None)
 
 
-def test_legacy_browser_kind_is_private_compatibility_for_unidentified_rows():
-    assert is_browser_method_requirement(None, qa_kind="browser_smoke")
-    assert is_browser_method_requirement(None, qa_kind="browser_diff")
-
-
-def test_browser_requirement_predicate_is_method_first_with_null_method_fallback():
+def test_browser_requirement_predicate_uses_only_method_identity():
     predicate = browser_requirement_predicate("req")
-    assert "req.method_id IN ('browser-check', 'browser-inspection')" in predicate
-    assert "req.method_id IS NULL" in predicate
-    assert "req.qa_kind IN ('browser_smoke', 'browser_diff')" in predicate
+    assert predicate == "req.method_id IN ('browser-check', 'browser-inspection')"
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (b): _normalize_qa_phase
+# _normalize_qa_phase
 # ---------------------------------------------------------------------------
 
 def test_normalize_qa_phase_canonical_passes_through():
@@ -118,15 +109,11 @@ def test_normalize_qa_phase_is_case_sensitive():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (c): _normalize_qa_kind
+# _normalize_qa_kind
 # ---------------------------------------------------------------------------
 
-def test_normalize_qa_kind_browser_smoke_round_trips():
-    assert _normalize_qa_kind("browser_smoke") == "browser_smoke"
-
-
-def test_normalize_qa_kind_browser_diff_round_trips():
-    assert _normalize_qa_kind("browser_diff") == "browser_diff"
+def test_normalize_qa_kind_plan_case_round_trips():
+    assert _normalize_qa_kind("plan_case") == "plan_case"
 
 
 def test_normalize_qa_kind_legacy_review_rewritten():
@@ -138,7 +125,7 @@ def test_normalize_qa_kind_unknown_passes_through():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (d): _coalesce
+# _coalesce
 # ---------------------------------------------------------------------------
 
 def test_coalesce_none_returns_empty_default():
@@ -169,7 +156,7 @@ def test_coalesce_empty_string_passthrough():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (e): _pipe_row on an authority row object
+# _pipe_row on an authority row object
 # ---------------------------------------------------------------------------
 
 @pytest.fixture

@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Mapping, Optional
 
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_helpers
 from yoke_core.domain.db_mutation_gate_evidence import (
     _audit_row_completed_for_module,
     _verify_retire_record,
@@ -107,21 +107,20 @@ def check_implementing_to_reviewing_implementation_gate(
                 ],
             )
 
-        repo_path = _resolve_repo_path(c, project)
-        if repo_path is None:
-            return GateOutcome(
-                passed=False,
-                errors=[
-                    f"project '{project}' has no machine-local checkout mapping; "
-                    "cannot verify retire decision records"
-                ],
-            )
-
         errors: List[str] = []
         intent = profile["mutation_intent"]
         identifiers: List[str] = list(profile["migration_modules"])
+        repo_path = _resolve_repo_path(c, project)
 
         if intent == MUTATION_INTENT_RETIRE:
+            if repo_path is None:
+                return GateOutcome(
+                    passed=False,
+                    errors=[
+                        f"project '{project}' has no machine-local checkout "
+                        "mapping; cannot verify retire decision records"
+                    ],
+                )
             for identifier in identifiers:
                 ok, reason = _verify_retire_record(
                     repo_path, identifier, profile["model_name"]
@@ -189,11 +188,13 @@ def check_implementing_to_reviewing_implementation_gate(
 
 
 def _resolve_audit_db_path(
-    repo_path: Path, model: Mapping[str, Any]
+    repo_path: Optional[Path], model: Mapping[str, Any]
 ) -> Optional[str]:
     auth = model.get("authoritative_db") or {}
     if auth.get("kind") != "sqlite_file":
         return CONNECTED_POSTGRES_AUDIT_TOKEN
+    if repo_path is None:
+        return None
     location = auth.get("location") or {}
     rel = location.get("path")
     if not rel:

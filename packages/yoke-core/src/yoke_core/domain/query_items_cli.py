@@ -31,7 +31,7 @@ body filtering the `yoke items get` adapter does not expose yet):
 
 Field matrix for `get` (canonical YOKE backlog item columns):
   scalar:  id, title, status, workflow_id, workflow_version_id, priority, project, deployment_flow,
-           frozen, blocked, blocked_reason, worktree, github_issue, deployed_to
+           frozen, blocked, blocked_reason, github_issue, deployed_to
   structured: spec, design_spec, technical_plan, worktree_plan,
               shepherd_log, shepherd_caveats, test_results, deploy_log
   virtual: body (rendered on demand from structured fields + sections;

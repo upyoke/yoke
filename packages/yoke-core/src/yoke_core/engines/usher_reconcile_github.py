@@ -42,13 +42,16 @@ class ReconcileResult:
 
 
 def _parse_item_id(arg: str) -> int:
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
     if not arg or not arg.strip():
         raise ValueError("missing item id")
-    s = arg.strip().upper()
-    if s.startswith("YOK-"):
-        s = s[4:]
-    s = s.lstrip("0") or "0"
-    return int(s)
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(arg, allow_bare_internal=True)
 
 
 def _resolve_run_for_item(item_id: int) -> str:
@@ -150,13 +153,26 @@ def _error(item_id: int, deploy_stage: str, message: str) -> ReconcileResult:
     return ReconcileResult(outcome="error", item_id=item_id, deploy_stage=deploy_stage, message=message)
 
 
+def _display_item_ref(item_id: int) -> str:
+    """Render a public item ref without making reconciliation depend on it."""
+    try:
+        from yoke_core.domain.project_identity import render_item_ref
+
+        with connect() as conn:
+            return render_item_ref(conn, item_id)
+    except Exception:  # noqa: BLE001 - display fallback only
+        return f"YOK-{item_id}"
+
+
 def reconcile_item(
     item_id: int,
     *,
     workflow_run_id_override: str = "",
 ) -> ReconcileResult:
-    item_ref = f"YOK-{item_id}"
-    deploy_stage = (_yoke_db("items", "get", item_ref, "deploy_stage") or "").strip()
+    # Display ref renders from the item's project prefix + sequence; the
+    # adapter call passes the bare internal id so no re-resolution happens.
+    item_ref = _display_item_ref(item_id)
+    deploy_stage = (_yoke_db("items", "get", str(item_id), "deploy_stage") or "").strip()
     if not deploy_stage:
         return ReconcileResult(
             outcome="no-action", item_id=item_id,

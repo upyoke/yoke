@@ -55,6 +55,25 @@ hook payload:
 | Claude Code | Uses `fallback-$$-$(date +%s)` only for local fire-once guard and `Your Session:` display; emits degraded-mode WARNING in orientation; does NOT attempt registration or call `session-offer` with that fallback |
 | Codex | Emits degraded-mode WARNING in orientation; exits without registration (no fabricated IDs) |
 
+### Registration refuses an id it cannot corroborate
+
+"No fabricated IDs" is enforced, not just expected. `yoke sessions begin`
+compares an explicitly declared `--session-id` against this process's own
+ambient resolution and refuses when the two disagree
+(`yoke_cli.commands.session_begin_corroboration`). A legitimate caller
+always passes the id its harness gave it, so ambient resolution reproduces
+it; a caller that could not resolve identity has nothing to register, and
+minting an id there creates a board row for a conversation that never
+existed while hiding the resolution failure that caused it.
+
+The check is client-side by necessity: the declared id travels inside the
+request envelope, so a server — especially across the https transport —
+has nothing left to compare it against. Only the calling process can see
+its own environment and process ancestry. Server-side marking of
+unregistered-session calls (`provenance_unverified` in the dispatcher's
+event context) and `HC-session-identity-provenance` are the second and
+third lines of defense, not substitutes.
+
 ## Bash Propagation
 
 Claude Code's Python-owned session-start hook appends
@@ -92,6 +111,64 @@ Resolution is the second step of the canonical ambient chain owned by
 3. `None` → mutating dispatch rejects with `actor_session_missing`, an
    infrastructure-bug signal to report — never a prompt to export env
    vars.
+
+### A pid is only an anchor when it belongs to one session
+
+The registry maps a pid to a session, so a pid shared by concurrent
+conversations cannot identify any of them. Two defenses keep a shared pid
+from answering:
+
+- **Known session-hosting processes are never anchors.**
+  `process_ancestry.MULTIPLEXED_PROCESS_BASENAMES` lists harness processes
+  that host every concurrent conversation in one process (the Codex
+  desktop app server and its code-mode host). `find_nearest_harness_anchor`
+  stops at one and returns `None` rather than walking to an ancestor that
+  can only be more widely shared. Those harnesses stamp identity per
+  conversation into the environment, so step 1 already covers them and the
+  registry is not needed.
+- **Contention is recorded, not overwritten.** When a second live session
+  resolves the same anchor pid — same pid *and* same start time, so not a
+  reused pid — `record_session_anchor` replaces the record with a
+  `shared_by_multiple_sessions` marker instead of taking the pid over.
+  Resolution stops at such a record and returns `None`. Silently
+  overwriting would hand the displaced session's shell processes the new
+  session's id, which is worse than not resolving: an
+  `actor_session_missing` refusal is visible, and acting under another
+  session's identity is not.
+
+Both defenses fail toward step 3. That is the intended outcome — an
+unresolvable identity is an infrastructure gap to report, and a confidently
+wrong one is a correctness bug that spreads through claims and attribution.
+
+### Contention is a marker that heals, never a latch
+
+A contention marker records the state it refuses over, and every anchor
+write re-decides tenancy (`yoke_contracts.session_anchor_contention`):
+
+- The marker carries `contending_session_ids` plus a
+  `last_writer_pid` / `last_writer_argv` breadcrumb, so a contended pid is
+  attributable instead of blank.
+- The **writer is always a live candidate** — its hook event is proof of
+  the process even while its session row is transiently ended.
+- A recorded contender **drops out** when the probe positively says it is
+  not a live session — its row is ended, or it has no row at all (rows are
+  never deleted, so an unregistered id is not a conversation on this
+  control plane; that is the anchor-poisoning class). Probed through the
+  `sessions.list` single-session projection, over either transport. A
+  *clean* registry record anchoring the contender to a different live
+  process also drops it — one conversation has one per-conversation
+  process, so a live home elsewhere means this pid's claim on it was
+  written in error. A failed probe keeps the contender: genuine ambiguity
+  still fails closed.
+- One live candidate left → the record becomes that session's clean
+  anchor again. Two or more → the marker persists, now naming them, and
+  the engine-side writer emits `SessionAnchorContentionObserved` for
+  ledger visibility. `HC-session-anchor-contention` flags any live marker
+  whose recorded contenders are not two-or-more live sessions.
+
+Markers written before contender recording heal the same way: the next
+write from the surviving tenant finds a single candidate and reclaims the
+pid.
 
 The `actor_session_missing` rejection is the default for mutating dispatch,
 but a bounded **bootstrap/config class** opts out with
@@ -142,9 +219,22 @@ idempotent. Remote hook evaluation (`/v1/hooks/evaluate`) runs the DB
 registration half server-side, but never writes the process-anchor
 registry there — the server's process context is not the caller's. The
 relay client writes the anchor locally before the POST and carries the
-client-only identity fields (`entrypoint`, real `model`, and
+client-only identity fields (`entrypoint`, real `model`, and — only when
+this machine's own config declares a matching executor key —
 `execution_lane`) on the wire so server-side registration can heal
 placeholder rows without reading client-local state.
+
+The lane is the one field the client usually has no opinion about.
+Routing policy normally lives in the project's `session-routing`
+capability, which only the control plane can read, so `client_lane`
+answers `None` on a local miss rather than shipping a placeholder. That
+placeholder would arrive as an *explicit* lane and outrank the project's
+own `executor_default_lanes` mapping, stamping a session with the
+unresolved sentinel — a value no `lane_paths` entry declares, which the
+offer gate then treats as an unknown lane and refuses to route work on.
+Defence in depth sits on the server too: `resolve_execution_lane` treats
+the sentinel like `default`, so even an older client's placeholder yields
+to routing policy.
 
 ## Session Reactivation and Work Claims
 

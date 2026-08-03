@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from . import db_backend
+from .item_ref_resolution import resolve_internal_item_id
 from .scheduler_events import emit_chain_budget_unused, emit_scheduler_offer_skipped
 from .scheduler_skip_reasons import (
     SKIP_REASON_STALE_LIFECYCLE,
@@ -50,11 +51,9 @@ def _p(conn: Any) -> str:
 
 def normalize_item_id(item_id: Any) -> Optional[int]:
     """Return the bare integer form of an item id, or None when unparseable."""
-    if item_id is None:
-        return None
     if isinstance(item_id, int):
         return item_id
-    text = str(item_id).strip()
+    text = str(item_id or "").strip()
     if text.upper().startswith("YOK-"):
         text = text[4:]
     try:
@@ -66,7 +65,7 @@ def normalize_item_id(item_id: Any) -> Optional[int]:
 def revalidate_candidate_status(
     conn: Any,
     *,
-    item_id: str,
+    item_id: Any,
     expected_status: str,
 ) -> Tuple[bool, Optional[str]]:
     """Confirm the candidate's DB status still matches the schedule snapshot.
@@ -78,7 +77,7 @@ def revalidate_candidate_status(
     ``ScheduledStep``. Returns ``(is_valid, current_status)``. The
     candidate is invalid when the row is missing or the status changed.
     """
-    bare = normalize_item_id(item_id)
+    bare = resolve_internal_item_id(conn, item_id)
     if bare is None:
         return False, None
     row = conn.execute(f"SELECT status FROM items WHERE id = {_p(conn)}", (bare,)).fetchone()
@@ -90,7 +89,7 @@ def revalidate_candidate_status(
 
 def holder_session_for_item(
     conn: Any,
-    item_id: str,
+    item_id: Any,
 ) -> Dict[str, Any]:
     """Return canonical context about the live exclusive claim on ``item_id``.
 
@@ -106,7 +105,7 @@ def holder_session_for_item(
     Returns ``{"holder_unknown": True}`` when no live claim row is found
     (the lookup may race against release).
     """
-    bare = normalize_item_id(item_id)
+    bare = resolve_internal_item_id(conn, item_id)
     if bare is None:
         return {}
     row = conn.execute(
@@ -141,7 +140,7 @@ def record_offer_skip(
     conn: Any,
     *,
     session_id: str,
-    item_id: str,
+    item_id: Any,
     skip_reason: str,
     chain_step: int,
     project: str,

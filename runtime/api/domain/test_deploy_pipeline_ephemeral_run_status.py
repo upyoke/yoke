@@ -1,8 +1,8 @@
 """Run/stage state coherence for ephemeral-deploy through the real pipeline.
 
 Pure-unit like the sibling pipeline tests (every DB seam mocked), but the
-executor dispatch layer is REAL: ``run_pipeline`` -> ``_dispatch_executor``
--> mocked ``exec_ephemeral_deploy``. Proves the new executor advances the
+step_runner dispatch layer is REAL: ``run_pipeline`` -> ``_dispatch_step_runner``
+-> mocked ``exec_ephemeral_deploy``. Proves the new step_runner advances the
 existing ``deployment_runs`` stage/status state coherently, emits the
 stage events, halts the chain on failure, and receives the worktree-tier
 branch (item-bound) or the stage-config branch (item-less).
@@ -15,7 +15,7 @@ from unittest import mock
 
 from yoke_core.domain import (
     deploy_pipeline,
-    deploy_pipeline_executors,
+    deploy_pipeline_step_runners,
     deploy_pipeline_gates,
     deploy_pipeline_reporting,
     deploy_qa_recorder,
@@ -23,9 +23,9 @@ from yoke_core.domain import (
 
 _RUN_ID = "run-eph-001"
 _STAGES = json.dumps([
-    {"name": "ephemeral-deploy", "executor": "ephemeral-deploy",
+    {"name": "ephemeral-deploy", "step_runner": "ephemeral-deploy",
      "branch": "cfg-branch"},
-    {"name": "complete", "executor": "auto"},
+    {"name": "complete", "step_runner": "auto"},
 ])
 
 
@@ -83,7 +83,7 @@ class _Harness:
         ), mock.patch.object(
             deploy_pipeline, "query_scalar", return_value=0,
         ), mock.patch.object(
-            deploy_pipeline_executors, "_item_label",
+            deploy_pipeline_step_runners, "_item_label",
             side_effect=lambda first: f"YOK-{first}" if first else "",
         ), mock.patch.object(
             deploy_pipeline_gates,
@@ -153,7 +153,7 @@ class TestEphemeralRunStatusItemless:
 
 
 class TestEphemeralRunStatusItemBound:
-    def test_worktree_branch_reaches_executor_without_merged_gate(
+    def test_worktree_branch_reaches_step_runner_without_merged_gate(
         self, capsys
     ):
         harness = _Harness(member_items=["42"])

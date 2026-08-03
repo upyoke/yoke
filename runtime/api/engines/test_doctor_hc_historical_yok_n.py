@@ -18,7 +18,7 @@ from unittest import mock
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.engines import doctor_hc_historical_yok_n as hc
+from yoke_project_checks import check_historical_yok_n as hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 _CHECK_ID = "HC-historical-yok-n-cruft"
@@ -169,6 +169,17 @@ class TestIsGeneratedOutputPath(unittest.TestCase):
         self.assertTrue(
             hc._is_generated_output_path("runtime/harness/codex/agents/yoke-x.toml")
         )
+
+    def test_every_rendered_adapter_dir_matches(self) -> None:
+        # Derived from the renderer's own list, so onboarding a harness extends
+        # the exemption instead of leaving one mirror scanned as authored prose.
+        from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
+
+        for directory in RENDERED_AGENT_DIRS:
+            with self.subTest(adapter_dir=directory.as_posix()):
+                self.assertTrue(
+                    hc._is_generated_output_path(f"{directory.as_posix()}/yoke-x.md")
+                )
 
     def test_live_source_does_not_match(self) -> None:
         self.assertFalse(hc._is_generated_output_path(".yoke/docs/lifecycle.md"))

@@ -35,7 +35,7 @@ def project_db(monkeypatch):
         pg_testdb.drop_test_database(db_name)
 
 
-def _verified() -> VerifiedProjectGitHubBinding:
+def _verified(*, repository_is_private: bool = True) -> VerifiedProjectGitHubBinding:
     return VerifiedProjectGitHubBinding(
         installation_id="8801",
         account_id="991",
@@ -56,11 +56,12 @@ def _verified() -> VerifiedProjectGitHubBinding:
         repository_id="7701",
         github_repo="Example/ExternalWebapp",
         default_branch="main",
+        repository_is_private=repository_is_private,
         installation_status="active",
     )
 
 
-def _bind_externalwebapp() -> None:
+def _bind_externalwebapp(*, repository_is_private: bool = True) -> None:
     cmd_bind_project_repo(
         "externalwebapp",
         installation_id="8801",
@@ -68,18 +69,20 @@ def _bind_externalwebapp() -> None:
         github_repo="Example/ExternalWebapp",
         expected_api_url="https://api.github.com",
         github_user_access_token="short-lived-user-token",
-        verifier=lambda **_kwargs: _verified(),
+        verifier=lambda **_kwargs: _verified(
+            repository_is_private=repository_is_private,
+        ),
     )
 
 
-def test_authoritative_and_legacy_creates_default_backlog_only(project_db):
+def test_authoritative_and_legacy_creates_default_disabled(project_db):
     result = cmd_upsert(slug="new-safe", name="New Safe", mode="create")
 
     assert result["created"] is True
-    assert result["project"]["github_sync_mode"] == "backlog_only"
+    assert result["project"]["github_sync_mode"] == "disabled"
 
     assert cmd_create("legacy-safe", "Legacy Safe") == ("Created project: legacy-safe")
-    assert cmd_get("legacy-safe", "github_sync_mode") == "backlog_only"
+    assert cmd_get("legacy-safe", "github_sync_mode") == "disabled"
 
 
 def test_create_rejects_explicit_enabled_without_binding(project_db):
@@ -105,7 +108,7 @@ def test_enabled_updates_require_active_verified_binding(project_db):
     cmd_upsert(
         slug="externalwebapp",
         name="ExternalWebapp",
-        github_sync_mode="backlog_only",
+        github_sync_mode="disabled",
         mode="update",
     )
 
@@ -130,6 +133,20 @@ def test_enabled_updates_require_active_verified_binding(project_db):
     assert cmd_update("externalwebapp", "github_sync_mode", "enabled").startswith(
         "Updated project"
     )
+
+
+def test_public_repository_requires_explicit_sync_override(project_db):
+    _bind_externalwebapp(repository_is_private=False)
+
+    with pytest.raises(GithubSyncModeError, match="private GitHub repository"):
+        cmd_update("externalwebapp", "github_sync_mode", "enabled")
+
+    assert cmd_update(
+        "externalwebapp",
+        "github_sync_mode",
+        "enabled",
+        allow_public_github_sync=True,
+    ).startswith("Updated project")
 
 
 def test_omitted_update_does_not_silently_repair_existing_mode(project_db):

@@ -11,6 +11,8 @@ from typing import Dict, List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.worktree_naming import candidate_worktree_names
 
 import yoke_core.engines.doctor_report as _base
 
@@ -147,7 +149,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for row in done_rows:
         did = row["id"]
         proj = row["project"]
-        pattern = f"YOK-{did}"
+        item_ref = render_item_ref(conn, int(did))
 
         # Resolve only the owning project's inspected checkout. Never use the
         # current/default repository for a different project's item.
@@ -157,52 +159,59 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
             continue
         cache, target_repo, target_branch = context
 
-        if pattern not in cache:
+        # A stale branch may be named by the item's public ref, the legacy
+        # YOK-{internal_id} scheme, or any branch recorded in item_worktrees;
+        # inspect every present candidate rather than one reconstructed guess.
+        present = sorted(
+            name for name in candidate_worktree_names(conn, int(did)) if name in cache
+        )
+        if not present:
             continue
 
         proj_label = f" [{proj}]" if proj and proj != "null" and proj != "yoke" else ""
 
-        if args.fix:
-            if _safe_prune.item_cleanup_authority_blocks_prune(conn, int(did)):
-                preserved += 1
-                issues.append(
-                    f"- PRESERVED stale remote branch {pattern}{proj_label}: "
-                    "cleanup authority is active or could not be proven idle"
-                )
-                continue
-
-            result = delete_remote_branch_if_merged(
-                run_git=lambda command: _base._run(
-                    ["git", "-C", target_repo, *command],
-                    timeout=15,
-                ),
-                branch=pattern,
-                target_branch=target_branch,
-            )
-            if result.cleanup_complete:
-                fixed += 1
-                if result.status == "deleted":
+        for pattern in present:
+            if args.fix:
+                if _safe_prune.item_cleanup_authority_blocks_prune(conn, int(did)):
+                    preserved += 1
                     issues.append(
-                        f"- Fixed: deleted stale remote branch "
-                        f"{pattern}{proj_label} -- YOK-{did} is done/cancelled"
+                        f"- PRESERVED stale remote branch {pattern}{proj_label}: "
+                        "cleanup authority is active or could not be proven idle"
                     )
+                    continue
+
+                result = delete_remote_branch_if_merged(
+                    run_git=lambda command: _base._run(
+                        ["git", "-C", target_repo, *command],
+                        timeout=15,
+                    ),
+                    branch=pattern,
+                    target_branch=target_branch,
+                )
+                if result.cleanup_complete:
+                    fixed += 1
+                    if result.status == "deleted":
+                        issues.append(
+                            f"- Fixed: deleted stale remote branch "
+                            f"{pattern}{proj_label} -- {item_ref} is done/cancelled"
+                        )
+                    else:
+                        issues.append(
+                            f"- Fixed: stale remote branch {pattern}{proj_label} "
+                            "was already absent"
+                        )
                 else:
+                    preserved += 1
                     issues.append(
-                        f"- Fixed: stale remote branch {pattern}{proj_label} "
-                        "was already absent"
+                        f"- PRESERVED stale remote branch {pattern}{proj_label}: "
+                        f"{result.reason}"
                     )
             else:
-                preserved += 1
                 issues.append(
-                    f"- PRESERVED stale remote branch {pattern}{proj_label}: "
-                    f"{result.reason}"
+                    f"- Stale remote branch: {pattern}{proj_label} "
+                    f"-- {item_ref} is done/cancelled "
+                    "(rerun this check with --fix for proof-gated cleanup)"
                 )
-        else:
-            issues.append(
-                f"- Stale remote branch: {pattern}{proj_label} "
-                f"-- YOK-{did} is done/cancelled "
-                "(rerun this check with --fix for proof-gated cleanup)"
-            )
 
     if issues:
         if args.fix:

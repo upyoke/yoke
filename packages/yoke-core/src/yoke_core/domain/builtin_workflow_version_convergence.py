@@ -24,6 +24,10 @@ from yoke_core.domain.workflow_registry_rows import (
     version_row,
     workflow_row,
 )
+from yoke_core.domain.builtin_workflow_version_compat import (
+    _comparable_form,
+    _rewrite_version_to_canonical,
+)
 from yoke_core.domain.workflow_registry_sql import marker, row_dict, rows_dict
 
 InsertVersion = Callable[..., dict]
@@ -99,6 +103,14 @@ def _converge_fixed_version(
         version=version,
     ):
         return existing
+    try:
+        stored = decode_definition(existing["definition_json"])
+    except WorkflowRegistryError:
+        stored = None
+    if stored is not None and canonical_definition_json(
+        _comparable_form(stored)
+    ) == canonical_definition_json(_comparable_form(definition)):
+        return _rewrite_version_to_canonical(conn, existing, definition)
     raise WorkflowRegistryError(
         f"published built-in {workflow_id}@{version} differs from "
         "the code-owned definition"
@@ -124,6 +136,29 @@ def _matching_version(
     return None
 
 
+def _semantically_matching_version(
+    conn: Any,
+    workflow_id: str,
+    definition: Mapping[str, Any],
+) -> Optional[dict]:
+    """Row whose decoded content equals *definition* modulo compat forms."""
+    bind = marker(conn)
+    cursor = conn.execute(
+        "SELECT * FROM workflow_versions "
+        f"WHERE workflow_id = {bind} ORDER BY version",
+        (workflow_id,),
+    )
+    target = canonical_definition_json(_comparable_form(definition))
+    for row in rows_dict(cursor):
+        try:
+            stored = decode_definition(row["definition_json"])
+        except WorkflowRegistryError:
+            continue
+        if canonical_definition_json(_comparable_form(stored)) == target:
+            return row
+    return None
+
+
 def _ensure_current_version(
     conn: Any,
     fixture: Mapping[str, Any],
@@ -135,6 +170,9 @@ def _ensure_current_version(
     existing = _matching_version(conn, workflow_id, definition)
     if existing is not None:
         return existing
+    drifted = _semantically_matching_version(conn, workflow_id, definition)
+    if drifted is not None:
+        return _rewrite_version_to_canonical(conn, drifted, definition)
     bind = marker(conn)
     row = conn.execute(
         "SELECT COALESCE(MAX(version), 0) FROM workflow_versions "

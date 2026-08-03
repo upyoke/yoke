@@ -57,8 +57,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     const result = [
       {
         session_id: "a7b4pl", liveness: "active",
-        execution_lane: "ALTMAN", mode: "resume",
-        executor: "claude-code", model: "claude-opus-4-8",
+        execution_lane: "ALTMAN", lane_label: "Integration", lane_glyph: "🧭",
+        mode: "resume", executor: "claude-code", model: "claude-opus-4-8",
+        executor_mark: "A", executor_class_name: "h-claude",
         actor_id: 2, actor_kind: "human", actor_label: "Ben",
         project_id: 1, project: "yoke",
         current_item: "YOK-2001",
@@ -74,6 +75,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         session_id: "v8c2qa", liveness: "stale",
         execution_lane: "DARIUS", mode: "wait",
         executor: "codex", model: "gpt-5.6-sol",
+        executor_mark: "X", executor_class_name: "h-codex",
         actor_id: 7, actor_kind: "system", actor_label: "preview-ci",
         project_id: 1, project: "yoke",
         current_item: "YOK-2001",
@@ -149,7 +151,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
       (badge) => [badge.textContent, badge.className],
     ),
     [
-      ["C", "session-harness h-claude"],
+      ["A", "session-harness h-claude"],
       ["X", "session-harness h-codex"],
     ],
   );
@@ -171,7 +173,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   const cardText = cards.map(visibleText);
   for (const expected of [
     "claude-code", "YOK-2001", "Execute WORKFLOW-TYPES",
-    "ALTMAN", "claude-opus-4-8", "claim held", "ben", "a7b4pl",
+    "🧭 Integration", "claude-opus-4-8", "claim held", "ben", "a7b4pl",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);
   }
@@ -218,6 +220,7 @@ test("Sessions keeps local identity honest and renders the exact empty state", a
     session_id: "local-1", liveness: "active",
     execution_lane: "DARIUS", mode: "charge",
     executor: "codex", model: "gpt-5.6-sol",
+    executor_mark: "X", executor_class_name: "h-codex",
     actor_id: 2, actor_kind: "human", actor_label: "Ben",
     project_id: 1, project: "yoke", current_item: null,
     current_item_title: null, activity_at: "2026-07-26T12:00:00Z",

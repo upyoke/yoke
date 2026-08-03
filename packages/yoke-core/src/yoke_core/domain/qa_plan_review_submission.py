@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.qa_constants import case_outcome_for_verdict
+from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
 from yoke_core.domain.qa_plan_execution_store import canonical, marker
 from yoke_core.domain.qa_plan_review import QaPlanReviewError, _public_bundle
 
@@ -34,6 +35,34 @@ def _validated_verdicts(
             "agent review must submit exactly one verdict for every bundle case"
         )
     return result
+
+
+def _reviewed_execution_state(
+    recorded_results: Sequence[Mapping[str, Any]],
+    reviewed_verdicts: Mapping[int, tuple[str, str]],
+) -> str:
+    """Fold reviewer verdicts into every durable execution result."""
+    state = "passed"
+    seen_reviewed: set[int] = set()
+    for row in recorded_results:
+        requirement_id = int(row.get("requirement_id") or 0)
+        raw_result = row.get("result")
+        if requirement_id < 1 or not isinstance(raw_result, Mapping):
+            raise QaPlanReviewError(
+                "QA execution contains an invalid durable case result"
+            )
+        result = dict(raw_result)
+        if requirement_id in reviewed_verdicts:
+            verdict = reviewed_verdicts[requirement_id][0]
+            result["verdict"] = verdict
+            result["case_outcome"] = case_outcome_for_verdict(verdict)
+            seen_reviewed.add(requirement_id)
+        state = aggregate_state(state, result)
+    if seen_reviewed != set(reviewed_verdicts):
+        raise QaPlanReviewError(
+            "agent review cases do not match durable execution results"
+        )
+    return state
 
 
 def _record_verdict(
@@ -247,6 +276,12 @@ def submit_plan_review(
             reviewer_actor_id=reviewer_actor_id,
             reviewer_session_id=reviewer_session_id,
         )
+        from yoke_core.domain.qa_plan_execution_store import result_rows
+
+        settled_state = _reviewed_execution_state(
+            result_rows(conn, str(execution["id"])),
+            validated,
+        )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -265,18 +300,10 @@ def submit_plan_review(
             )
         except Exception:
             conn.rollback()
-    outcomes = [value[0] for value in validated.values()]
-    state = (
-        "failed"
-        if "fail" in outcomes
-        else "needs_review"
-        if "inconclusive" in outcomes
-        else "passed"
-    )
     return {
         "execution_id": str(execution["id"]),
         "bundle_id": bundle_id,
-        "state": state,
+        "state": settled_state,
         "verdicts": [
             {
                 "requirement_id": requirement_id,

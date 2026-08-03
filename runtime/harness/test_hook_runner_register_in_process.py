@@ -14,6 +14,20 @@ import pytest
 from runtime.harness import hook_runner_register as register_module
 
 
+@pytest.fixture(autouse=True)
+def _no_real_anchor_writes(monkeypatch):
+    """These are registrar-branch unit tests; the anchor side has its own.
+
+    An unmocked ``_record_process_anchor`` resolves real process ancestry —
+    the write this file once leaked into the developer's live anchor
+    registry (the conftest guard now contains that class; this keeps the
+    unit under test to the registrar branch itself).
+    """
+    monkeypatch.setattr(
+        register_module, "_record_process_anchor", lambda *_a, **_k: None,
+    )
+
+
 class TestRegisterInProcess:
     """register_in_process=True bypasses checkout gating + the subprocess."""
 
@@ -136,7 +150,7 @@ def test_in_process_payload_entrypoint_preferred(monkeypatch):
 class TestEnsureForceReregister:
     def test_force_skips_probe_and_registers(self, monkeypatch):
         monkeypatch.setattr(
-            "yoke_core.domain.events_session_actor.session_actor_lookup",
+            "yoke_core.domain.sessions_ended_recovery.session_registration_state",
             lambda *_a: pytest.fail("force path must not probe"),
         )
         calls = []
@@ -160,8 +174,8 @@ class TestEnsureActorBackfill:
 
     def _patch_lookup(self, monkeypatch, stored_actor_id):
         monkeypatch.setattr(
-            "yoke_core.domain.events_session_actor.session_actor_lookup",
-            lambda _conn, _sid: (True, stored_actor_id),
+            "yoke_core.domain.sessions_ended_recovery.session_registration_state",
+            lambda _conn, _sid: (True, stored_actor_id, False),
         )
 
     def test_actor_less_row_with_verified_actor_drives_backfill(self, monkeypatch):

@@ -24,6 +24,7 @@ class ClaimContext:
     covered_target_kinds: Tuple[Tuple[str, str], ...] = ()
     project_repo_path: Optional[str] = None
     project: str = "yoke"
+    item_ref: Optional[str] = None
     task_lanes: bool = False
     chain_worktrees: Tuple[Tuple[str, str], ...] = ()
 
@@ -41,7 +42,7 @@ class ClaimContext:
         )
         return cls(
             claim_id=int(claim.get("id") or claim.get("claim_id") or 0),
-            item_id=_coerce_int(claim.get("item_id")),
+            item_id=_coerce_int(claim.get("owner_item_id")),
             integration_target=str(claim.get("integration_target") or ""),
             state=str(claim.get("state") or ""),
             covered_paths=covered,
@@ -49,6 +50,9 @@ class ClaimContext:
             worktree_path=claim.get("worktree_path"),
             project_repo_path=claim.get("project_repo_path"),
             project=str(claim.get("project") or "yoke"),
+            item_ref=(str(claim["item_ref"]).strip() or None)
+            if claim.get("item_ref") is not None
+            else None,
             task_lanes=bool(claim.get("task_lanes", False)),
             chain_worktrees=chains,
         )

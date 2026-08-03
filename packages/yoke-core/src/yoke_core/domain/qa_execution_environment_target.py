@@ -15,7 +15,8 @@ from yoke_contracts.api_urls import (
     HOSTED_PLATFORM_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain import qa_case_environment_coherence as case_coherence
 
 
 class QaExecutionTargetError(ValueError):
@@ -103,12 +104,13 @@ def _yoke_endpoints(environment: str, tenant_slug: str) -> dict[str, Any]:
     installer_base = (
         DISTRIBUTION_STAGE_URL if selected == "stage" else DISTRIBUTION_PROD_URL
     )
+    release_channel = "latest" if selected == "stage" else "stable"
     return {
         "api_url": f"{app_url}/api/orgs/{tenant_slug}",
         "app_url": app_url,
         "installer_base_url": installer_base,
         "installer_url": f"{installer_base}/install",
-        "release_channel": "latest",
+        "release_channel": release_channel,
         "capability_endpoints": {
             "browser_authorization": app_url,
             "distribution": installer_base,
@@ -158,7 +160,7 @@ def resolve_plan_execution_target(
         "FROM qa_plans qp JOIN projects p ON p.id=qp.project_id "
         "JOIN organizations o ON o.id=p.org_id "
         "LEFT JOIN environments e ON e.id=qp.target_environment_id "
-        "LEFT JOIN sites s ON s.id=e.site AND s.project_id=p.id "
+        "LEFT JOIN sites s ON s.id=e.site "
         f"WHERE qp.id={marker}",
         (int(plan_id),),
     )
@@ -171,9 +173,15 @@ def resolve_plan_execution_target(
             f"QA plan {plan_id} has no execution environment target"
         )
     if row["environment_id"] is None or row["site_id"] is None:
-        raise QaExecutionTargetError(
-            "QA plan execution environment does not belong to its project"
+        raise QaExecutionTargetError("QA plan execution environment is unavailable")
+    try:
+        hosted_identity.require_plan_environment_access(
+            conn,
+            plan_project_id=int(row["project_id"]),
+            environment_id=str(row["environment_id"]),
         )
+    except ValueError as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
     settings = _decode(row["settings"])
     environment_name = str(row["environment_name"])
     endpoints = (
@@ -207,15 +215,16 @@ def resolve_plan_execution_target(
 
 def select_backfill_environment(conn: Any, *, project_id: int) -> str:
     """Select the current hosted runtime's one project environment."""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = _mapping_rows(
-        conn.execute(
-            "SELECT e.id,e.name FROM environments e "
-            "JOIN sites s ON s.id=e.site "
-            f"WHERE s.project_id={marker} ORDER BY e.id",
-            (int(project_id),),
+    rows = [
+        {
+            "id": row["environment_id"],
+            "name": row["environment_name"],
+        }
+        for row in hosted_identity.eligible_plan_environment_rows(
+            conn,
+            plan_project_id=int(project_id),
         )
-    )
+    ]
     runtime = runtime_environment_name()
     aliases = {"production": "prod", "staging": "stage"}
     runtime = aliases.get(runtime, runtime)
@@ -257,18 +266,16 @@ def validate_plan_target_environment(
     project_id: int,
     environment_id: str,
 ) -> None:
-    """Require a same-project environment compatible with this runtime."""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT e.name FROM environments e JOIN sites s ON s.id=e.site "
-        f"WHERE e.id={marker} AND s.project_id={marker}",
-        (str(environment_id), int(project_id)),
-    ).fetchone()
-    if row is None:
-        raise QaExecutionTargetError(
-            f"environment {environment_id!r} does not belong to the plan project"
+    """Require an authorized environment compatible with this runtime."""
+    try:
+        target = hosted_identity.require_plan_environment_access(
+            conn,
+            plan_project_id=int(project_id),
+            environment_id=str(environment_id),
         )
-    environment_name = row["name"] if hasattr(row, "keys") else row[0]
+    except ValueError as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
+    environment_name = target["environment_name"]
     require_runtime_target({"environment": {"name": environment_name}})
 
 
@@ -308,6 +315,13 @@ def require_case_target(
         str(target["environment"]["name"]).lower(),
     )
     endpoints = target["endpoints"]
+    try:
+        case_coherence.require_case_environment_bindings(
+            case,
+            target=target,
+        )
+    except ValueError as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
     target_hosts = {
         urlsplit(str(value)).netloc
         for key, value in endpoints.items()
@@ -334,16 +348,3 @@ def require_case_target(
                 raise QaExecutionTargetError(
                     f"mixed-environment QA endpoint at {path}: {parsed.netloc}"
                 )
-
-
-__all__ = [
-    "QaExecutionTargetError",
-    "canonical_target",
-    "only_project_environment",
-    "require_case_target",
-    "require_runtime_target",
-    "resolve_plan_execution_target",
-    "select_backfill_environment",
-    "target_digest",
-    "validate_plan_target_environment",
-]

@@ -17,6 +17,7 @@ from runtime.harness.hook_runner.adapter_capability import AdapterCapability
 from runtime.harness.hook_runner.decision_render import (
     render_claude_decision,
     render_codex_decision,
+    render_cursor_decision,
 )
 
 
@@ -35,17 +36,27 @@ def _stub_payload_parser(stdin_data: str) -> dict[str, Any]:
 
 def resolve_capability(executor: str, dry_run: bool = False) -> AdapterCapability:
     """Return the harness ``AdapterCapability`` for *executor*."""
-    family = "codex" if executor.startswith("codex") else "claude"
+    if executor.startswith("codex"):
+        family = "codex"
+    elif executor.startswith("cursor"):
+        family = "cursor"
+    else:
+        family = "claude"
     try:
         if family == "codex":
             from runtime.harness.codex.adapter import CAPABILITY  # noqa: PLC0415
+        elif family == "cursor":
+            from runtime.harness.cursor.adapter import CAPABILITY  # noqa: PLC0415
         else:
             from runtime.harness.claude.adapter import CAPABILITY  # noqa: PLC0415
         return CAPABILITY
     except ImportError:
         if not dry_run:
             raise
-    renderer = render_codex_decision if family == "codex" else render_claude_decision
+    renderer = {
+        "codex": render_codex_decision,
+        "cursor": render_cursor_decision,
+    }.get(family, render_claude_decision)
     return AdapterCapability(
         family=family,
         payload_parser=_stub_payload_parser,

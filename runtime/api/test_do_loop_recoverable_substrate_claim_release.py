@@ -55,7 +55,7 @@ def _captured_events(captured):
 
 
 class TestReleasesActiveClaim:
-    """AC-1, AC-2: the helper releases the active claim, preserves skip memory."""
+    """The helper releases the active claim, preserves skip memory."""
 
     def test_releases_active_claim_and_emits_offer_skipped(self, conn):
         item_id = 9001
@@ -139,7 +139,7 @@ class TestReleasesActiveClaim:
 
 
 class TestReleaseConstantSingleSource:
-    """AC-3: the reason-intent value lives in one Python constant."""
+    """The reason-intent value lives in one Python constant."""
 
     def test_constant_value_is_canonical_intent(self):
         assert RELEASE_REASON_RECOVERABLE_SUBSTRATE_SKIP == "recoverable-substrate-skip"
@@ -172,7 +172,7 @@ class TestReleaseConstantSingleSource:
 
 
 class TestReleaseFailureIsNonBlocking:
-    """AC-4: release failure must not prevent skip-memory or event emission."""
+    """Release failure must not prevent skip-memory or event emission."""
 
     def test_release_returning_failure_does_not_block(self, conn):
         # Intruder session never held a claim on the item, so the
@@ -237,7 +237,7 @@ class TestReleaseFailureIsNonBlocking:
 
 
 class TestItemIdNoneSkipsRelease:
-    """AC-5: ``item_id=None`` keeps existing skip-memory + event flow only."""
+    """``item_id=None`` keeps existing skip-memory + event flow only."""
 
     def test_no_release_attempted_when_item_id_is_none(self, conn):
         session_id = "substrate-no-item-session"

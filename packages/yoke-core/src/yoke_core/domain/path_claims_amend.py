@@ -188,7 +188,7 @@ def widen(
             conn.commit()
         return amendment_id
     union = sorted(existing | set(truly_new))
-    item_id = claim["item_id"]
+    item_id = claim["owner_item_id"]
     decision = classify_widen_overlap(
         conn,
         claim_id=claim_id,
@@ -327,7 +327,7 @@ def narrow(
 
 
 def _project_for_claim(conn: Any, claim: dict) -> Optional[int]:
-    item_id = claim.get("item_id")
+    item_id = claim.get("owner_item_id")
     if item_id is None:
         return None
     p = _p(conn)

@@ -24,8 +24,6 @@ share the same underlying domain helper, so the typed envelope emitted by
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from typing import Optional
 
 from yoke_contracts.api.function_call import TargetRef

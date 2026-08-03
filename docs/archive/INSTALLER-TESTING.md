@@ -254,9 +254,9 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `PUBLISH-006` | `prepared-git` | App cannot create private repo | Block before Apply |
 | `PUBLISH-007` | `prepared-git` | App can create but cannot push | Block before orphaning empty repo |
 | `PUBLISH-008` | `fault-injection` | Repo created then push fails | Failure report names repo, start-over cleanup, and retry resumes push |
-| `PUBLISH-009` | `prepared-git` | Project uses backlog-only mode | No binding stored |
+| `PUBLISH-009` | `prepared-git` | Project uses disabled mode | No binding stored |
 | `PUBLISH-010` | `prepared-git` | Project GitHub App binding | Project records the selected App installation/repository |
-| `PUBLISH-011` | `prepared-git` | Project GitHub App binding unavailable | Project remains backlog-only; no credential secret is stored |
+| `PUBLISH-011` | `prepared-git` | Project GitHub App binding unavailable | Project remains disabled; no credential secret is stored |
 | `PUBLISH-012` | `prepared-git` | Project GitHub App binding reuse | Project binding traces to the installed App repository |
 
 ### Wave 9: Review, Apply, Resume
@@ -342,7 +342,7 @@ not a pass.
 | `MODE-PICKER-002` | `prepared-yoke` | Onboard destination = team server | Server URL and OIDC sign-in are required; Post-apply: connection uses `https`; no local universe is born |
 | `MODE-PICKER-003` | `prepared-yoke` | Onboard destination = upyoke.com | Post-apply: hosted sign-in completes; existing hosted projects are listed for clone/map; no duplicate project is created |
 | `SELF-HOST-001` | `prepared-yoke` | Initialize the published self-host bundle, Compose up, then `yoke connect` | Post-apply: server and Postgres containers are healthy; OIDC door signs in; connected CLI reports the exact server release; mounted App key is file-only and absent from retained evidence |
-| `HOSTED-CONNECT-001` | `prepared-yoke` | Sign in to upyoke.com, create an org/project backlog-only, then connect the CLI | Post-apply: platform membership maps to one tenant actor; board skeleton exists before machine mapping; CLI reuses the hosted project instead of creating another |
+| `HOSTED-CONNECT-001` | `prepared-yoke` | Sign in to upyoke.com, create an org/project disabled, then connect the CLI | Post-apply: platform membership maps to one tenant actor; board skeleton exists before machine mapping; CLI reuses the hosted project instead of creating another |
 | `HOSTED-GITHUB-001` | `prepared-yoke` | Install the hosted GitHub App, choose a repository, create and bind its project | Post-apply: platform installation and repository inventory exist; tenant binding is active; issue sync uses installation-token auth; no user token appears in browser, reports, or project settings |
 | `PORTABILITY-001` | `prepared-yoke` | Export a populated local universe and upload it to a fresh hosted org | Post-apply: stable-table digest and row counts match; hosted actor/token identities are regenerated; imported items, strategy, and projects render |
 | `PORTABILITY-002` | `prepared-yoke` | Download a hosted universe and import it into a fresh local universe | Post-apply: stable-table digest and row counts match; platform identities are absent; local bootstrap actor can read the imported work |
@@ -766,7 +766,7 @@ ssh "$MAC_SSH_HOST" 'chmod 600 /tmp/yoke-stage.token /tmp/yoke-prod.token'
 ```
 
 In the wizard, choose token-from-file and use `/tmp/yoke-stage.token` for
-stage auth. GitHub uses the Yoke GitHub App connection flow or backlog-only
+stage auth. GitHub uses the Yoke GitHub App connection flow or disabled
 skip.
 
 ### Claude Code SSH Smoke
@@ -817,7 +817,7 @@ curl -fsSL https://api.stage.upyoke.com/install | bash
 Manual proof path: accept uv install if missing, accept PATH repair, confirm
 handoff into `yoke onboard`, pick upyoke.com on the destination picker, choose
 stage, use `/tmp/yoke-stage.token`, choose the GitHub App connection or
-backlog-only skip, clone/import under `~/code`, apply, and record the report
+disabled skip, clone/import under `~/code`, apply, and record the report
 path.
 
 Post-run checks:
@@ -886,7 +886,7 @@ yoke onboard project "$HOME/code/my-project" \
   --name "My Project" \
   --default-branch main \
   --public-item-prefix MYPR \
-  --github-adoption backlog-only \
+  --github-adoption disabled \
   --config "$HOME/.yoke/config.json" \
   --yes \
   --json

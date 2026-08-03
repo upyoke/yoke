@@ -14,7 +14,7 @@ import subprocess
 import textwrap
 
 from yoke_core.engines.doctor import DoctorArgs, RecordCollector
-from yoke_core.engines._project_identity_test_helpers import (
+from yoke_core.engines._project_identity_test_helpers import (  # noqa: F401
     _insert_deployment_flow,
     _insert_item,
     _project_id,
@@ -39,13 +39,15 @@ def _make_conn():
 
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
-    apply_fixture_ddl(conn, textwrap.dedent("""\
+    apply_fixture_ddl(
+        conn,
+        textwrap.dedent("""\
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
             status TEXT, priority TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
-            github_issue TEXT, flow TEXT, rework_count INTEGER,
+            github_issue TEXT, rework_count INTEGER,
             deployed_to TEXT, updated_at TEXT,
             deployment_flow TEXT, merged_at TEXT,
             deploy_stage TEXT, created_at TEXT
@@ -66,14 +68,15 @@ def _make_conn():
         CREATE TABLE projects (
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT,
             default_branch TEXT, created_at TEXT,
-            github_repo TEXT, public_item_prefix TEXT DEFAULT 'YOK'
+            github_repo TEXT, public_item_prefix TEXT DEFAULT 'YOK',
+            github_sync_mode TEXT NOT NULL DEFAULT 'disabled'
         );
         INSERT INTO projects
             (id, slug, name, default_branch, created_at,
-             github_repo, public_item_prefix)
+             github_repo, public_item_prefix, github_sync_mode)
         VALUES
             (1, 'yoke', 'Yoke', 'main',
-             '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK');
+             '2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK', 'enabled');
         CREATE TABLE ouroboros_entries (
             id INTEGER PRIMARY KEY, agent TEXT, context TEXT,
             category TEXT, body TEXT, created_at TEXT,
@@ -97,7 +100,8 @@ def _make_conn():
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY, project_id INTEGER, stages TEXT
         );
-    """))
+    """),
+    )
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema
 

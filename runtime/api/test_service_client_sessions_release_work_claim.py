@@ -17,7 +17,7 @@ class TestReleaseItemClaim:
     """Tests for release-work-claim command."""
 
     def test_release_item_claim_active_claim(self, session_offer_db):
-        """AC-1: release-work-claim releases an active item claim."""
+        """Release-work-claim releases an active item claim."""
         db_path = session_offer_db["db_path"]
         sid = "release-item-test"
         item_id = 99

@@ -28,16 +28,10 @@ from yoke_core.domain._stale_string_audit_constants import DEFAULT_TEST_DIRS
 
 
 def _normalize_item_id(raw: str) -> Optional[int]:
-    stripped = raw.strip()
-    if stripped.upper().startswith("YOK-"):
-        stripped = stripped[4:]
-    stripped = stripped.lstrip("0")
-    if stripped == "":
-        return None
-    try:
-        return int(stripped)
-    except ValueError:
-        return None
+    # PREFIX-N resolves via the project sequence; bare N = internal id.
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    return parse_item_id_or_none(raw, allow_bare_internal=True)
 
 
 def _get_project_for_item(item_id: int) -> Optional[str]:

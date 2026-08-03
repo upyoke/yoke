@@ -1,12 +1,10 @@
-"""Meta health checks — drift cluster (vocabulary, project, dependency).
+"""Meta health checks — drift cluster (project, dependency).
 
-Cluster: HC checks for cross-cutting drift detection — API vocabulary,
-approval contract, NULL project items, project metadata alignment, and
-dependency-row drift.
+Cluster: HC checks for cross-cutting drift detection — NULL project items,
+project metadata alignment, and dependency-row drift.
 
-HC functions: HC-api-vocabulary-drift, HC-approval-contract-drift,
-HC-null-project-items, HC-projects-config-alignment, HC-dependency-drift,
-HC-cancelled-blocker-dependencies
+HC functions: HC-null-project-items, HC-projects-config-alignment,
+HC-dependency-drift, HC-cancelled-blocker-dependencies
 """
 
 from __future__ import annotations
@@ -15,6 +13,7 @@ from typing import List
 
 from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 
 import yoke_core.engines.doctor_report as _base
 
@@ -28,27 +27,20 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def hc_api_vocabulary_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-api-vocabulary-drift: API vocabulary drift."""
-    rec.record("HC-api-vocabulary-drift", "API vocabulary drift", "PASS", "")
-
-
-
-def hc_approval_contract_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-approval-contract-drift: Approval contract drift."""
-    rec.record("HC-approval-contract-drift", "Approval contract drift", "PASS", "")
-
-
-
 def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-null-project-items: NULL project items."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     rows = query_rows(
         conn,
         "SELECT id, title FROM items "
         "WHERE project_id IS NULL "
         "AND status NOT IN ('done', 'cancelled') ORDER BY id",
     )
-    issues = [f"- YOK-{r['id']}: '{r['title']}' has NULL project_id" for r in rows]
+    issues = [
+        f"- {render_item_ref(conn, r['id'])}: '{r['title']}' has NULL project_id"
+        for r in rows
+    ]
 
     if issues:
         rec.record("HC-null-project-items", "NULL project items", "FAIL", "\n".join(issues))
@@ -130,14 +122,14 @@ def hc_cancelled_blocker_dependencies(
         )
         return
 
+    blocking_item_id = column_item_id_sql(conn, "d.blocking_item")
     rows = query_rows(
         conn,
         "SELECT d.dependent_item, d.blocking_item, d.gate_point, "
         "d.satisfaction, COALESCE(i.resolution, ''), "
         "COALESCE(i.resolution_ref, '') "
         "FROM item_dependencies d "
-        "JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') "
-        "AS INTEGER) "
+        f"JOIN items i ON i.id = {blocking_item_id} "
         "WHERE i.status = 'cancelled' "
         "ORDER BY d.dependent_item, d.blocking_item, d.gate_point",
     )

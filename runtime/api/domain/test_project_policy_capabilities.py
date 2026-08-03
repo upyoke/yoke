@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.migrations import project_policy_capabilities as migration
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.file_test_db import apply_sql_script
 from yoke_core.domain.project_policy_capabilities import (
@@ -65,8 +64,7 @@ def policy_conn() -> Iterator[Any]:
 
 def _settings(conn: Any, project_id: int, cap_type: str) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT settings FROM project_capabilities "
-        "WHERE project_id=%s AND type=%s",
+        "SELECT settings FROM project_capabilities WHERE project_id=%s AND type=%s",
         (project_id, cap_type),
     ).fetchone()
     assert row is not None
@@ -80,18 +78,30 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     assert report["1"][PROJECT_POLICY_CAPABILITY]["created"] is True
     policy = _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "stage"
-    assert policy["wip_cap"] == 5
+    assert policy["wip_cap"] == 30
     routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
     assert routing["executor_default_lanes"]["claude*"] == "DARIUS"
     assert routing["executor_default_lanes"]["DARIUS"] == "DARIUS"
     assert "conduct" in routing["lane_paths"]["DARIUS"]
     assert "feed" in routing["lane_paths"]["DARIUS"]
     assert routing["process_offers"]["default"] is False
+    assert routing["lane_metadata"] == {
+        "DARIUS": {"label": "DARIUS", "glyph": "🐎"},
+        "ALTMAN": {"label": "ALTMAN", "glyph": "👓"},
+    }
+
+
+def test_default_lane_paths_allow_dash_on_every_lane(policy_conn: Any) -> None:
+    ensure_default_policy_capabilities(policy_conn, 1)
+    policy_conn.commit()
+
+    routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
+    for lane, paths in routing["lane_paths"].items():
+        assert "dash" in paths, f"lane {lane} cannot run dash"
 
 
 def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> None:
-    conn = policy_conn
-    conn.execute(
+    policy_conn.execute(
         "INSERT INTO project_capabilities "
         "(project_id, type, settings, created_at) "
         "VALUES (%s, %s, %s, %s)",
@@ -102,24 +112,14 @@ def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> No
             "2026-06-30T00:00:00Z",
         ),
     )
-    conn.commit()
+    policy_conn.commit()
 
-    report = ensure_default_policy_capabilities(conn, 2)
-    conn.commit()
+    report = ensure_default_policy_capabilities(policy_conn, 2)
+    policy_conn.commit()
 
     repaired = report["2"][PROJECT_POLICY_CAPABILITY]["repaired_keys"]
     assert "default_priority" in repaired
-    policy = _settings(conn, 2, PROJECT_POLICY_CAPABILITY)
+    policy = _settings(policy_conn, 2, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "release"
     assert policy["wip_cap"] == 9
     assert policy["default_priority"] == "medium"
-
-
-def test_migration_repairs_every_project(policy_conn: Any) -> None:
-    migration.apply(policy_conn)
-    migration.apply(policy_conn)
-    policy_conn.commit()
-
-    migration.invariants(policy_conn)
-    assert _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
-    assert _settings(policy_conn, 2, SESSION_ROUTING_CAPABILITY)

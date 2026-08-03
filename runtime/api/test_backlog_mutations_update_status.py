@@ -117,7 +117,7 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "idea"
 
     def test_claim_denied_error_includes_remediation_hints(self, tmp_db):
-        """Error body must point at claim-work, repair_status, and the bypass env var.
+        """Error body points at claim, registered repair, and bypass surfaces.
 
         Covers three branches: no session id, no active claim, wrong session.
         """
@@ -127,7 +127,7 @@ class TestExecuteUpdate:
 
         required_hints = (
             'yoke claims work acquire --item YOK-10 --reason "<intent>"',
-            "python3 -m yoke_core.engines.repair_status",
+            "yoke lifecycle repair-status YOK-10",
             "YOKE_CLAIM_BYPASS",
         )
 

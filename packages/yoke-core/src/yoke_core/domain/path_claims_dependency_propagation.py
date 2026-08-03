@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Set
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.path_claims_dependency_binding_lock import (
     lock_candidate_item_bindings,
 )
@@ -20,19 +21,13 @@ def _p(conn: Any) -> str:
 def _claim_owning_item(conn: Any, claim_id: int):
     p = _p(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None or row[0] is None:
         return None
     return int(row[0])
-
-
-def _strip_sun(text: str) -> str:
-    text = str(text or "").strip()
-    if text[:4].lower() == "yok-":
-        text = text[4:]
-    return text.lstrip("0") or "0"
 
 
 def _item_status(conn: Any, item_id: int) -> str:
@@ -88,18 +83,24 @@ def _dep_satisfied_downstream_claims(
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
+    # Stored refs are public (prefix + project sequence); resolve every side
+    # to an internal id in one query before comparing to the claim's item id.
+    resolved = internal_ids_for_refs(
+        conn,
+        {str(edge[0]) for edge in edges} | {str(edge[1]) for edge in edges},
+    )
     satisfied_dependent_items: Set[int] = set()
     for raw_dep, raw_blk, sat in edges:
-        if _strip_sun(raw_blk) != str(blocking_item_id):
+        if resolved.get(str(raw_blk)) != blocking_item_id:
             continue
         sat_text = str(sat or "status:done").strip()
         if sat_text.startswith("status:"):
             wanted = sat_text.split(":", 1)[1].strip()
             if blocking_status == wanted:
-                try:
-                    satisfied_dependent_items.add(int(_strip_sun(raw_dep)))
-                except ValueError:
+                dependent_id = resolved.get(str(raw_dep))
+                if dependent_id is None:
                     continue
+                satisfied_dependent_items.add(dependent_id)
 
     if not satisfied_dependent_items:
         return []
@@ -107,7 +108,8 @@ def _dep_satisfied_downstream_claims(
     placeholders = ",".join(p for _ in satisfied_dependent_items)
     rows = conn.execute(
         f"SELECT id FROM path_claims "
-        f"WHERE state = 'blocked' AND item_id IN ({placeholders})",
+        f"WHERE state = 'blocked' AND owner_kind = 'item' "
+        f"AND owner_item_id IN ({placeholders})",
         tuple(int(i) for i in satisfied_dependent_items),
     ).fetchall()
     return [int(r[0]) for r in rows]
@@ -192,7 +194,7 @@ def propagate_release_unblock(
     flipped: List[int] = []
     for claim_id in candidates:
         row = conn.execute(
-            "SELECT state, integration_target, item_id FROM path_claims "
+            "SELECT state, integration_target, owner_item_id FROM path_claims "
             f"WHERE id = {p}",
             (claim_id,),
         ).fetchone()
@@ -210,7 +212,8 @@ def propagate_release_unblock(
             (claim_id,),
         ).fetchall()
         owning_item_id = conn.execute(
-            f"SELECT item_id FROM path_claims WHERE id = {p}",
+            f"SELECT owner_item_id FROM path_claims "
+            f"WHERE id = {p} AND owner_kind = 'item'",
             (claim_id,),
         ).fetchone()
         candidate_item_id = (
@@ -276,7 +279,7 @@ def _refresh_blocked_reason(
     """Refresh blocked_reason to a surviving upstream when one remains."""
     p = _p(conn)
     row = conn.execute(
-        f"SELECT blocked_reason, item_id FROM path_claims WHERE id = {p}",
+        f"SELECT blocked_reason, owner_item_id FROM path_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
     prior = str(row[0] or "") if row else ""

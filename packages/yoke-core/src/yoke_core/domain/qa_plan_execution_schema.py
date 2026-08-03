@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import (
     _column_exists,
+    _get_check_constraint_defs,
     _index_exists,
     _table_exists,
 )
@@ -14,6 +16,7 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 QA_PLAN_EXECUTION_TABLE = "qa_plan_executions"
 QA_PLAN_EXECUTION_RESULT_TABLE = "qa_plan_execution_results"
+_QA_PLAN_EXECUTION_SUBJECT_CHECK = "qa_plan_executions_subject_check"
 
 QA_PLAN_EXECUTION_COLUMNS = (
     "id",
@@ -126,25 +129,118 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
             "QA plan execution records require the deployed qa_requirements table"
         )
     if _table_exists(conn, QA_PLAN_EXECUTION_TABLE):
-        from yoke_core.domain import db_backend
-
         if db_backend.connection_is_postgres(conn):
-            from yoke_core.domain.migrations.qa_plan_execution_deployment_subject import (
-                apply as expand_deployment_subject,
-                invariants as assert_deployment_subject,
-            )
-
             try:
-                assert_deployment_subject(conn)
+                assert_qa_plan_execution_subject_invariants(conn)
             except AssertionError:
-                expand_deployment_subject(conn)
+                converge_qa_plan_execution_subject_schema(conn)
         for column in QA_PLAN_EXECUTION_TARGET_COLUMNS:
             if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, column):
                 conn.execute(
-                    f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} "
-                    f"ADD COLUMN {column} TEXT"
+                    f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} ADD COLUMN {column} TEXT"
                 )
     execute_schema_script(conn, QA_PLAN_EXECUTION_SCHEMA_SQL)
+
+
+def converge_qa_plan_execution_subject_schema(conn: Any) -> None:
+    """Allow a plan execution to belong to an item or a deployment run."""
+    if not db_backend.connection_is_postgres(conn):
+        raise RuntimeError("QA plan execution subjects require Postgres authority")
+    required = (QA_PLAN_EXECUTION_TABLE, "deployment_runs")
+    missing = [table for table in required if not _table_exists(conn, table)]
+    if missing:
+        raise RuntimeError(
+            "QA plan execution subjects require deployed tables: " + ", ".join(missing)
+        )
+    if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, "deployment_run_id"):
+        conn.execute(
+            f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} ADD COLUMN deployment_run_id TEXT"
+        )
+    conn.execute(
+        f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} ALTER COLUMN item_id DROP NOT NULL"
+    )
+    conn.execute(
+        f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} "
+        "ALTER COLUMN transition_id DROP NOT NULL"
+    )
+    row = conn.execute(
+        "SELECT 1 FROM pg_constraint "
+        f"WHERE conrelid='{QA_PLAN_EXECUTION_TABLE}'::regclass "
+        "AND conname=%s",
+        (_QA_PLAN_EXECUTION_SUBJECT_CHECK,),
+    ).fetchone()
+    if row is None:
+        conn.execute(
+            f"ALTER TABLE {QA_PLAN_EXECUTION_TABLE} "
+            f"ADD CONSTRAINT {_QA_PLAN_EXECUTION_SUBJECT_CHECK} CHECK ("
+            "(item_id IS NOT NULL AND deployment_run_id IS NULL "
+            "AND transition_id IS NOT NULL) OR "
+            "(item_id IS NULL AND deployment_run_id IS NOT NULL "
+            "AND transition_id IS NULL))"
+        )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_qa_plan_executions_deployment_active "
+        f"ON {QA_PLAN_EXECUTION_TABLE}(deployment_run_id) "
+        "WHERE deployment_run_id IS NOT NULL "
+        "AND state IN ('active','waiting')"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_qa_requirement_deployment_materialization "
+        "ON qa_requirements("
+        "deployment_run_id, plan_id, plan_case_key, "
+        "COALESCE(host_baseline, '')"
+        ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
+    )
+
+
+def assert_qa_plan_execution_subject_invariants(conn: Any) -> None:
+    """Require the item-or-deployment-run subject contract."""
+    if not db_backend.connection_is_postgres(conn):
+        raise RuntimeError("QA plan execution subjects require Postgres authority")
+    if not _column_exists(conn, QA_PLAN_EXECUTION_TABLE, "deployment_run_id"):
+        raise AssertionError("qa_plan_executions.deployment_run_id is missing")
+    nullability = {
+        str(row[0]): str(row[1])
+        for row in conn.execute(
+            "SELECT column_name,is_nullable FROM information_schema.columns "
+            "WHERE table_schema=current_schema() "
+            f"AND table_name='{QA_PLAN_EXECUTION_TABLE}' "
+            "AND column_name IN ('item_id','transition_id')"
+        ).fetchall()
+    }
+    if nullability != {"item_id": "YES", "transition_id": "YES"}:
+        raise AssertionError(
+            "QA plan execution item and transition columns must be nullable"
+        )
+    checks = _get_check_constraint_defs(conn, QA_PLAN_EXECUTION_TABLE)
+    if not any(
+        "deployment_run_id" in definition
+        and "item_id" in definition
+        and "transition_id" in definition
+        for definition in checks
+    ):
+        raise AssertionError(
+            "QA plan executions lack the item-or-deployment-run subject check"
+        )
+    required_indexes = (
+        (
+            "idx_qa_plan_executions_deployment_active",
+            QA_PLAN_EXECUTION_TABLE,
+        ),
+        ("idx_qa_requirement_deployment_materialization", "qa_requirements"),
+    )
+    missing_indexes = [
+        index
+        for index, table in required_indexes
+        if not _index_exists(conn, index, table)
+    ]
+    if missing_indexes:
+        raise AssertionError(
+            "QA plan execution subject indexes are missing: "
+            + ", ".join(missing_indexes)
+        )
 
 
 def assert_qa_plan_execution_schema_invariants(conn: Any) -> None:
@@ -193,6 +289,8 @@ __all__ = [
     "QA_PLAN_EXECUTION_TABLE",
     "QA_PLAN_EXECUTION_TARGET_COLUMNS",
     "assert_qa_plan_execution_schema_invariants",
+    "assert_qa_plan_execution_subject_invariants",
     "converge_qa_plan_execution_schema",
+    "converge_qa_plan_execution_subject_schema",
     "qa_plan_execution_schema_sql",
 ]

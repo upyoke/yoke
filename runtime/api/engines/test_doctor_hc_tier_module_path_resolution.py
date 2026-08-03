@@ -12,8 +12,8 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_core.engines import doctor_hc_tier_module_path_resolution as mod
-from yoke_core.engines.doctor_hc_tier_module_path_resolution import (
+from yoke_project_checks import check_tier_module_path_resolution as mod
+from yoke_project_checks.check_tier_module_path_resolution import (
     HC_SLUG,
     hc_tier_module_path_resolution,
 )
@@ -189,7 +189,7 @@ def test_consumes_upstream_constants_from_task_001():
 
 
 def test_finding_label_matches_ac_2():
-    """HC slug and label match the AC-2 contract."""
+    """HC slug and label match their canonical strings."""
 
     assert HC_SLUG == "HC-tier-module-path-resolution"
     assert mod.HC_LABEL == (

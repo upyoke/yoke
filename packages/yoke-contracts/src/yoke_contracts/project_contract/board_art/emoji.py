@@ -21,7 +21,7 @@ Allocation registry (canonical owner per glyph; reassignments noted):
     📝 refine · ✨ polish · ⚡ charge · 🧠 strategize · 🚨 escalate · 🔧 manual
     🔄 resume · ⏩ advance · ⏳ wait · 🎼 conduct · 🧑‍🌾 shepherd · 🎬 usher
     🧹 curate · 🩺 doctor · 🔮 simulate · 💡 idea · 🧾 wrapup · 🎮 do · 🍴 feed
-    📌 plan · 🪝 hook
+    📌 plan · 🪝 hook · 💨 dash
   Executors (sections_sessions_cells._EXECUTOR_EMOJI):
     🤖 claude-code · 🍎 claude-desktop · 🪟 claude-vscode · 📟 claude-cli
     📕 codex · 💻 codex-desktop · 🪄 codex-vscode · 📠 codex-cli
@@ -38,18 +38,20 @@ from __future__ import annotations
 import random
 from typing import Dict, Optional
 
+from yoke_contracts.lifecycle_status import LEGACY_STATUS_GLYPHS
+
 # ---------------------------------------------------------------------------
 # Bucket vocabulary — shared by the stats box (art_stats) and the section
 # headers (renderer_sections). One label + one glyph per bucket.
 # ---------------------------------------------------------------------------
 
-ACTIVE_LABEL, ACTIVE_EMOJI = "Active", "🎫"           # 🎫 work items
-PIPELINE_LABEL, PIPELINE_EMOJI = "Pipeline", "💧"    # 💧 droplet (flow)
-BACKLOG_LABEL, BACKLOG_EMOJI = "Backlog", "🌱"         # 🌱 seedling
-BLOCKED_LABEL, BLOCKED_EMOJI = "Blocked", "⛔"             # ⛔ no-entry
-FROZEN_LABEL, FROZEN_EMOJI = "Frozen", "🧊"            # 🧊 snowflake
-DONE_LABEL, DONE_EMOJI = "Done", "✅"                      # ✅
-UNKNOWN_LABEL, UNKNOWN_EMOJI = "Unknown", "❓"             # ❓
+ACTIVE_LABEL, ACTIVE_EMOJI = "Active", "🎫"  # 🎫 work items
+PIPELINE_LABEL, PIPELINE_EMOJI = "Pipeline", "💧"  # 💧 droplet (flow)
+BACKLOG_LABEL, BACKLOG_EMOJI = "Backlog", "🌱"  # 🌱 seedling
+BLOCKED_LABEL, BLOCKED_EMOJI = "Blocked", "⛔"  # ⛔ no-entry
+FROZEN_LABEL, FROZEN_EMOJI = "Frozen", "🧊"  # 🧊 snowflake
+DONE_LABEL, DONE_EMOJI = "Done", "✅"  # ✅
+UNKNOWN_LABEL, UNKNOWN_EMOJI = "Unknown", "❓"  # ❓
 
 # ---------------------------------------------------------------------------
 # Per-row lifecycle status glyphs (was sections_classify._STATUS_EMOJI_PREFIX).
@@ -57,50 +59,31 @@ UNKNOWN_LABEL, UNKNOWN_EMOJI = "Unknown", "❓"             # ❓
 # 👍 reviewed → ⛳ implemented → ✅ done.
 # ---------------------------------------------------------------------------
 
-STATUS_EMOJI: Dict[str, str] = {
-    "idea": "\U0001f4a1",                       # 💡
-    "refining-idea": "📝",            # 📝
-    "refined-idea": "\U0001f48e",               # 💎
-    "planning": "📐",                       # 📐 triangular ruler — Architect drafts the epic plan
-    "plan-drafted": "📋",                       # 📋 clipboard — the drafted plan
-    "refining-plan": "📝",            # 📝
-    "planned": "💎",                        # 💎 refined/ready — parallel to refined-idea
-    "implementing": "\U0001f528",               # 🔨
-    "reviewing-implementation": "\U0001f440",   # 👀
-    "reviewed-implementation": "👍",  # 👍
-    "polishing-implementation": "✨",       # ✨
-    "implemented": "⛳",              # ⛳
-    "release": "\U0001f680",                    # 🚀
-    "done": DONE_EMOJI,                         # ✅
-    "blocked": BLOCKED_EMOJI,                   # ⛔ no-entry
-    "stopped": "\U0001f6d1",                # 🛑 stop sign
-    "cancelled": "🚫",                # 🚫
-    "failed": "❗",                         # ❗
-}
+STATUS_EMOJI: Dict[str, str] = dict(LEGACY_STATUS_GLYPHS)
 
 # ---------------------------------------------------------------------------
 # Badge glyphs (widgets_badges) — centralized here as the single source.
 # ---------------------------------------------------------------------------
 
-BADGE_CLOCK = "\U0001f550"        # 🕐 age-heatmap label
-BADGE_WORKFLOW = "🔖"             # 🔖 workflow badges
-BADGE_MILESTONE = "\U0001f3c5"    # 🏅 milestone achievement
-BADGE_STREAK = "\U0001f3af"       # 🎯 streak achievement
-BADGE_ZERO_BUGS = "🛟"            # 🛟 zero-bugs achievement
-BADGE_INBOX_ZERO = "\U0001f4ed"   # 📭 inbox-zero achievement
+BADGE_CLOCK = "\U0001f550"  # 🕐 age-heatmap label
+BADGE_WORKFLOW = "🔖"  # 🔖 workflow badges
+BADGE_MILESTONE = "\U0001f3c5"  # 🏅 milestone achievement
+BADGE_STREAK = "\U0001f3af"  # 🎯 streak achievement
+BADGE_ZERO_BUGS = "🛟"  # 🛟 zero-bugs achievement
+BADGE_INBOX_ZERO = "\U0001f4ed"  # 📭 inbox-zero achievement
 
 # Age heatmap (recency scale; colored-square family, exempt from semantic dedup)
-AGE_FRESH = "\U0001f7e9"          # 🟩
-AGE_WEEK = "\U0001f7e8"           # 🟨
-AGE_BIWEEK = "\U0001f7e7"         # 🟧
-AGE_MONTH = "\U0001f7e5"          # 🟥
-AGE_ANCIENT = "\U0001f480"        # 💀
+AGE_FRESH = "\U0001f7e9"  # 🟩
+AGE_WEEK = "\U0001f7e8"  # 🟨
+AGE_BIWEEK = "\U0001f7e7"  # 🟧
+AGE_MONTH = "\U0001f7e5"  # 🟥
+AGE_ANCIENT = "\U0001f480"  # 💀
 
 # ---------------------------------------------------------------------------
 # Velocity-meter glyphs (widgets_velocity_meter)
 # ---------------------------------------------------------------------------
 
-VELOCITY_CODE = "\U0001f4be"      # 💾 code
+VELOCITY_CODE = "\U0001f4be"  # 💾 code
 VELOCITY_DELIVERY = "\U0001f4e6"  # 📦 delivery
 VELOCITY_STRATEGY = "\U0001f9ed"  # 🧭 strategy
 
@@ -110,9 +93,18 @@ VELOCITY_STRATEGY = "\U0001f9ed"  # 🧭 strategy
 # ---------------------------------------------------------------------------
 
 CELEBRATION_EMOJIS = [
-    "\U0001f680", "\U0001f31f", "\U0001f386", "\U0001f389",
-    "\U0001f3c6", "\U0001f4ab", "\U0001f525", "\U0001f48e",
-    "\U0001f984", "\U0001f308", "\U0001f3af", "\U0001f4a5",
+    "\U0001f680",
+    "\U0001f31f",
+    "\U0001f386",
+    "\U0001f389",
+    "\U0001f3c6",
+    "\U0001f4ab",
+    "\U0001f525",
+    "\U0001f48e",
+    "\U0001f984",
+    "\U0001f308",
+    "\U0001f3af",
+    "\U0001f4a5",
 ]
 
 

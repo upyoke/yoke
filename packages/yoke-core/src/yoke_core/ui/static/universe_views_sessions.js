@@ -32,16 +32,17 @@ function statRow(documentNode, facts) {
   return row;
 }
 function harnessIdentity(row) {
-  const executor = String(row.executor || "unreported");
+  const executor = String(row.executor_display_name || row.executor || "unreported");
   const normalized = executor.toLowerCase();
   if (row.actor_kind === "system" && normalized.includes("ci")) {
     return { mark: "⚙", className: "h-machine", label: executor };
   }
-  if (normalized.includes("claude")) {
-    return { mark: "C", className: "h-claude", label: executor };
-  }
-  if (normalized.includes("codex")) {
-    return { mark: "X", className: "h-codex", label: executor };
+  if (row.executor_mark && row.executor_class_name) {
+    return {
+      mark: row.executor_mark,
+      className: row.executor_class_name,
+      label: executor,
+    };
   }
   return {
     mark: executor.slice(0, 1).toUpperCase() || "?",
@@ -95,11 +96,13 @@ function appendAssignment(documentNode, body, row, projectIds) {
 }
 function appendRuntime(documentNode, body, row) {
   const runtime = el(documentNode, "div", "session-runtime");
+  const laneLabel = row.lane_label || row.execution_lane || "no lane";
+  const laneText = row.lane_glyph ? `${row.lane_glyph} ${laneLabel}` : laneLabel;
   const lane = el(
     documentNode,
     "span",
     "session-lane",
-    row.execution_lane || "no lane",
+    laneText,
   );
   lane.title = "execution lane — the job Yoke assigned, not the harness";
   runtime.appendChild(lane);

@@ -1,8 +1,8 @@
 """Tests for HC-terminal-recipe-residue.
 
-Covers AC-14.4 (banned-literal list keyed off
-RECIPE_RESIDUE_PATTERNS), AC-14.6 (fixture-based regression guard),
-AC-14.7 (registry-aware second pass), and the allowlist contract
+Covers the banned-literal list keyed off
+RECIPE_RESIDUE_PATTERNS, the fixture-based regression guard,
+the registry-aware second pass, and the allowlist contract
 (docs/archive/**, .yoke/docs/db-reference/**, runtime/api/**/test_*.py).
 """
 
@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from yoke_core.engines import doctor_hc_terminal_recipe_residue as hc
+from yoke_project_checks import check_terminal_recipe_residue as hc
 from yoke_core.engines.doctor_hc_terminal_recipe_residue_scan import (
     iter_scan_paths,
     path_in_allowlist,
@@ -28,7 +28,7 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _FIXTURE_DIR = (
     Path(__file__).resolve().parent
     / "test_fixtures"
-    / "doctor_hc_terminal_recipe_residue"
+    / "check_terminal_recipe_residue"
 )
 
 
@@ -51,7 +51,7 @@ def _copy_fixture_into(tmp_root: Path) -> None:
 
 
 class TestRecipeResidueScan(unittest.TestCase):
-    """AC-14.4 + AC-14.6: banned-literal residue scan."""
+    """Banned-literal residue scan."""
 
     def test_fixture_flagged_outside_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -99,7 +99,7 @@ class TestRecipeResidueScan(unittest.TestCase):
 
 
 class TestRegistryChoreographyScan(unittest.TestCase):
-    """AC-14.7 + AC-14.8 + AC-14.9: registry-aware second pass."""
+    """Registry-aware second pass."""
 
     def test_fixture_flagged_for_function_covered_recipe(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -231,7 +231,7 @@ class TestHcFullRun(unittest.TestCase):
             tmp = Path(td)
             _copy_fixture_into(tmp)
             with mock.patch(
-                "yoke_core.engines.doctor_hc_terminal_recipe_residue."
+                "yoke_project_checks.check_terminal_recipe_residue."
                 "_resolve_repo_root",
                 return_value=str(tmp),
             ):
@@ -250,7 +250,7 @@ class TestHcFullRun(unittest.TestCase):
                 "# clean guidance\n\nNo banned recipes.\n", encoding="utf-8",
             )
             with mock.patch(
-                "yoke_core.engines.doctor_hc_terminal_recipe_residue."
+                "yoke_project_checks.check_terminal_recipe_residue."
                 "_resolve_repo_root",
                 return_value=str(tmp),
             ):
@@ -262,7 +262,7 @@ class TestHcFullRun(unittest.TestCase):
     def test_hc_skips_when_no_repo_root(self) -> None:
         rec = RecordCollector()
         with mock.patch(
-            "yoke_core.engines.doctor_hc_terminal_recipe_residue."
+            "yoke_project_checks.check_terminal_recipe_residue."
             "_resolve_repo_root",
             return_value="",
         ):

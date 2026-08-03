@@ -19,8 +19,7 @@ from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.schema_common import _table_exists
 
 _YOKE_FULL_TEST_COMMAND = (
-    "python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
+    "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 )
 
 
@@ -153,7 +152,7 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
                 and _table_exists(conn, "qa_plans")
                 and _table_exists(conn, "qa_plan_project_defaults")
             ):
-                from yoke_core.domain.qa_command_plan_migration import (
+                from yoke_core.domain.qa_command_plan_registration import (
                     ensure_registered_command_plan,
                 )
 

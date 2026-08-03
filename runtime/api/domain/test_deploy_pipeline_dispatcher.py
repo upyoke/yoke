@@ -1,6 +1,6 @@
 """Deploy pipeline dispatcher coverage.
 
-Covers diagnostic propagation from the github-actions-workflow executor onto
+Covers diagnostic propagation from the github-actions-workflow step_runner onto
 ``DeploymentRunStageFailed`` and reconcile-from-truth resume behavior when a
 prior workflow run for the same head_sha already concluded success.
 """
@@ -20,10 +20,10 @@ _STAGE_CONFIG = {
 }
 
 
-class TestExecutorDiagnosticPropagation:
+class TestStepRunnerDiagnosticPropagation:
     """gh poll output must reach the failure event.
 
-    The github-actions-workflow executor preserves the poll diagnostic; the
+    The github-actions-workflow step_runner preserves the poll diagnostic; the
     pipeline includes it on ``DeploymentRunStageFailed`` so operators can
     root-cause without manual log archaeology.
     """
@@ -60,8 +60,8 @@ class TestExecutorDiagnosticPropagation:
                 sd="/tmp/sd",
             )
 
-    def test_executor_returns_diagnostic_tuple_on_poll_failure(self):
-        # When poll fails, the executor surfaces the gh CLI diagnostic
+    def test_step_runner_returns_diagnostic_tuple_on_poll_failure(self):
+        # When poll fails, the step_runner surfaces the gh CLI diagnostic
         # alongside the exit code so the caller can route it onward.
         rc, diag = self._dispatch_with_poll(
             (1, "completed: failure\nstep `deploy` exited 137"),
@@ -70,7 +70,7 @@ class TestExecutorDiagnosticPropagation:
         assert "completed: failure" in diag
         assert "exited 137" in diag
 
-    def test_executor_returns_empty_diagnostic_on_poll_success(self):
+    def test_step_runner_returns_empty_diagnostic_on_poll_success(self):
         # Successful polls do not carry a diagnostic — payload stays clean.
         rc, diag = self._dispatch_with_poll((0, "completed: success"))
         assert rc == 0

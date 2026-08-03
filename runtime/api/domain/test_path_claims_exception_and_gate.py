@@ -1,6 +1,7 @@
 """Tests for the no-claim exception mode and the claim-required gate.
 
-Covers AC-1, AC-3, AC-4, AC-15, AC-22, AC-24 from the spec.
+Covers exception registration and its rejections, gate pass/block
+outcomes across claim shapes, and the catch-up coverage audit.
 """
 
 from __future__ import annotations
@@ -212,9 +213,9 @@ class TestClaimRequiredGate:
         _seed_item(conn, item_id=202)
         conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, "
-            " registered_at) "
-            "VALUES ('active', 'exclusive', %s, 202, 'main', "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at) "
+            "VALUES ('active', 'exclusive', 'item', 202, %s, 'main', "
             "'2026-05-01T00:00:00Z')",
             (actor,),
         )
@@ -279,9 +280,9 @@ class TestCatchUpAudit:
         actor = local_human(conn)
         conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, "
-            " registered_at) "
-            "VALUES ('active', 'exclusive', %s, 411, 'main', "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at) "
+            "VALUES ('active', 'exclusive', 'item', 411, %s, 'main', "
             "'2026-05-01T00:00:00Z')",
             (actor,),
         )

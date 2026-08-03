@@ -1,10 +1,10 @@
-"""Path allow-lists for ``doctor_hc_obsoleted_terms``.
+"""Path allow-lists for ``check_obsoleted_terms``.
 
 Three kinds of allow-list live here:
 
 * :data:`EXEMPT_PATH_SEGMENTS` — directory-name segments that exempt any
   path containing the segment from the scan entirely. Historical record
-  trees (``archive``, ``ouroboros``, ``wrapup_reports``, ``qa-artifacts``,
+  trees (``archive``, ``ouroboros``, ``qa-artifacts``,
   ``legacy-plan-artifacts``) and dependency / build trees go here.
 
 * :data:`PATH_ALLOWLIST_ALL_PATTERNS` — files exempt from EVERY pattern.
@@ -13,17 +13,15 @@ Three kinds of allow-list live here:
   entry against each pattern they touch.
 
 * :data:`YOKE_DB_AUDIT_PATHS` and :data:`CODEX_HOOKS_AUDIT_PATHS` — file
-  prefixes that ``doctor_hc_obsoleted_terms`` composes into
+  prefixes that ``check_obsoleted_terms`` composes into
   ``_PER_PATTERN_PATH_ALLOWLIST`` for the specific pattern they apply to.
   Per-pattern exemptions stay narrow: the file is only excused from the
   specific retired-surface it legitimately enumerates.
 
-Matching is prefix-based: an entry like
-``runtime/api/tools/shell_inventory`` covers every
-``shell_inventory_*.py`` sibling, while ``runtime/api/domain/observe.py``
-matches that exact path as a prefix of itself.
+Matching is prefix-based, so one entry can cover a file family while a
+fully-qualified entry can target one exact path.
 
-Splitting the constants out of ``doctor_hc_obsoleted_terms.py`` keeps the
+Splitting the constants out of ``check_obsoleted_terms.py`` keeps the
 scanner module under the 350-line file-line-limit budget while keeping the
 scan-scope logic close to the registry.
 """
@@ -37,7 +35,6 @@ from __future__ import annotations
 EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "archive",
     "ouroboros",
-    "wrapup_reports",
     "qa-artifacts",
     # Historical authoring evidence / planning snapshots for completed
     # cloud-runtime work items. See docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/atlas-evidence/README.md
@@ -115,8 +112,9 @@ YOKE_DB_AUDIT_PATHS: tuple[str, ...] = (
     # Doctor HC for agent prompts detects yoke-db.sh references in the
     # tracked prompt files; the detector code names the substring it looks
     # for.
-    "runtime/api/engines/doctor_hc_agents_prompts.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_agents_prompts.py",
+    "runtime/api/engines/check_agents_prompts.py",
+    "packages/yoke-core/src/yoke_core/engines/check_agents_prompts.py",
+    ".yoke/doctor/check_agents_prompts.py",
     # test_doctor_filesystem_full_repo synthesizes prompts that contain
     # the retired wrapper so the doctor HC tests can fire.
     "runtime/api/engines/test_doctor_filesystem_full_repo.py",
@@ -126,13 +124,9 @@ YOKE_DB_AUDIT_PATHS: tuple[str, ...] = (
     # Conduct simulation regression test references the retired shape as
     # part of a skill-doc residue check.
     "runtime/api/test_skill_doc_regressions_conduct_simulation.py",
-    # Zero-shell proof inventory and helpers enumerate retired shell
-    # wrappers (including yoke-db.sh) to prove they remain absent.
+    # Zero-shell proof and helpers enumerate retired shell wrappers (including
+    # yoke-db.sh) to prove they remain absent.
     "runtime/api/test_zero_shell_proof",
-    # Shell-inventory audit code and its rules enumerate retired shell
-    # wrappers by name.
-    "runtime/api/tools/shell_inventory",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory",
 )
 
 

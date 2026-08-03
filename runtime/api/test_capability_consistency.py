@@ -5,7 +5,7 @@ shared Yoke registry, with each harness manifest only declaring identity and
 explicit substrate limitations. This module locks the agreement so that:
 
 1. The shared registry declares the registered operator entrypoints used by
-   current immutable workflow-version executor bindings.
+   current immutable workflow-version skill bindings.
 2. ``CODEX.md`` lists the same entrypoints and downstream paths in its
    operator-facing tables.
 3. ``CODEX.md``, ``docs/OVERVIEW.md``, and ``docs/harness-bootstrap.md``
@@ -105,7 +105,7 @@ def advance_skill_md() -> str:
 
 class TestSharedRegistryAdvertisesAdvance:
     """The shared registry must list ``/yoke advance`` so capability truth
-    aligns with registered workflow executor bindings."""
+    aligns with registered workflow skill bindings."""
 
     def test_advance_in_entrypoints(self):
         entrypoints = shared_entrypoints()
@@ -283,7 +283,7 @@ class TestHarnessBootstrapClassifiesAdvance:
 
 class TestAdvanceSkillNotInternalOnly:
     """The ``advance`` skill body must not claim it is purely internal —
-    that wording contradicts the workflow executor registry and harness
+    that wording contradicts the workflow skill registry and harness
     manifest."""
 
     def test_skill_does_not_claim_not_operator_facing(self, advance_skill_md):
@@ -295,24 +295,24 @@ class TestAdvanceSkillNotInternalOnly:
 
 
 class TestLifecycleDocsAlignWithManifest:
-    """Lifecycle docs must derive commands from immutable executor bindings."""
+    """Lifecycle docs must derive commands from immutable skill bindings."""
 
-    def test_lifecycle_md_names_registered_executor_resolution(self, lifecycle_md):
+    def test_lifecycle_md_names_registered_skill_resolution(self, lifecycle_md):
         assert "immutable workflow version" in lifecycle_md
-        assert "executor_bindings" in lifecycle_md
-        assert "/yoke <executor_id>" in lifecycle_md
+        assert "skill_bindings" in lifecycle_md
+        assert "/yoke <skill_id>" in lifecycle_md
 
-    def test_lifecycle_registered_executor_table_includes_advance(self, lifecycle_md):
+    def test_lifecycle_registered_skill_table_includes_advance(self, lifecycle_md):
         match = re.search(
-            r"## Registered Executor Boundaries\b(.*?)(?=\n## )",
+            r"## Registered Skill Boundaries\b(.*?)(?=\n## )",
             lifecycle_md,
             re.DOTALL,
         )
         assert match, (
-            ".yoke/docs/lifecycle.md missing '## Registered Executor Boundaries'"
+            ".yoke/docs/lifecycle.md missing '## Registered Skill Boundaries'"
         )
         section = match.group(1)
         assert "`advance`" in section, (
-            "lifecycle.md registered executor table must list advance"
+            "lifecycle.md registered skill table must list advance"
         )
         assert "from_stage_id <= current_stage < through_stage_id" in section

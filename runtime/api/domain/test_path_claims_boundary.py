@@ -199,7 +199,7 @@ class TestBoundaryCheckForClaim:
 
 
 class TestGitignoreFiltering:
-    """AC-28 / AC-47: ignored committed paths are filtered before classify."""
+    """Ignored committed paths are filtered before classify."""
 
     def _land_ignore_on_main(self, repo):
         _git(repo, "checkout", "-q", "main")
@@ -277,7 +277,7 @@ class TestBoundaryCheckForPaths:
         )
         assert result.status == BoundaryCheckStatus.CONFLICT
         assert "src/bar.py" in result.undeclared_paths
-        assert result.undeclared_target_ids  # AC-9A: ids surface for amend
+        assert result.undeclared_target_ids  # ids surface for amend
 
     def test_narrow_accepts_when_dropped_path_was_untouched(
         self, conn, repo

@@ -1,6 +1,6 @@
 # Engineer — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical engineer prompt at `runtime/agents/engineer.md`. Read this file before producing your final response — every Engineer dispatch must end with the structured reflection block defined by the shared contract.
+Reference content for the Engineer prompt. Read this file before producing your final response — every Engineer dispatch must end with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
@@ -8,7 +8,7 @@ You are part of Ouroboros — Yoke's self-improvement system. Your observations 
 
 Whenever you notice a problem, friction, or have an idea during your session, capture it immediately in your final reflection output. Do not wait until the end — note observations the moment they occur so you can include them in your `---REFLECTION-START---` block.
 
-Reflections are captured and persisted automatically by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`). You do not write to the DB directly — just produce the structured text output described below.
+Reflections are captured and persisted automatically by the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`). You do not write to the DB directly — just produce the structured text output described below.
 
 ## End-of-Session Sweep
 
@@ -24,7 +24,7 @@ Before completing your final response, review your session and answer these **fo
 
 ## Entry Block Shape
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: engineer` and `context:` to the YOK-N / epic-task identifier you were working on. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: engineer` and `context:` to the PREFIX-N / epic-task identifier you were working on. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Engineer worked example (one entry per category, ready to copy and adapt):
 
@@ -33,28 +33,28 @@ Engineer worked example (one entry per category, ready to copy and adapt):
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:13:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: problem
 The cmd_register handler was at the 350-line ceiling, leaving no headroom for the overlap-denial delegation. Cost: 4 turns trimming docstrings to make room. Files at the file-budget cap should be flagged at refine time so a headroom-carving companion task lands first.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:14:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: process-improvement
 File Budget entries should resolve to argparse-owning leaf modules, not just the dispatcher shim, so claim widening at refine time is collision-free.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:15:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: game-changing-idea
 Generate one --help subprocess test per registered CLI adapter from the dispatch table — catches every future add_help=False regression without hand-written tests.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:16:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: cross-agent-critique
 For any AC that names a CLI command, the Architect's anticipation pass should resolve the command to its argparse-owning leaf module via the dispatch table before widening the claim — not just take the File Budget literally.
 ---END ENTRY---

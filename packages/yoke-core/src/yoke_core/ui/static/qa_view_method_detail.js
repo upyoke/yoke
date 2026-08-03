@@ -45,7 +45,10 @@ function capabilityContract(context, method, project) {
     documentNode,
     "a",
     "qa-capability-link",
-    `${capabilityLabel(method.required_capability_kind)} →`,
+    `${capabilityLabel(
+      method.required_capability_kind,
+      method.required_capability_label,
+    )} →`,
   );
   link.href = capabilityRoute(
     context, project, method.required_capability_kind,
@@ -63,7 +66,7 @@ function capabilityContract(context, method, project) {
 function methodContractRows(context, method, project) {
   const rows = [
     ["Executor", executorContractNode(
-      context.document, method.executor_id, method.id,
+      context.document, method.executor_id, method.executor_gloss,
     )],
     ["Capability", capabilityContract(context, method, project)],
     ["Verdict", `${method.verdict_path} — ${method.verdict_contract}`],

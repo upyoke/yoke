@@ -1,4 +1,4 @@
-"""AC-1.16 claim-verification matrix for the dispatcher.
+"""Claim-verification matrix for the dispatcher.
 
 Split out of :mod:`test_yoke_function_dispatch` so the dispatcher test
 module stays under the file-line budget. Exercises every
@@ -109,7 +109,7 @@ class _ClaimMatrixSuite(unittest.TestCase):
 
 
 class TestClaimRequiredPaths(_ClaimMatrixSuite):
-    """AC-1.16: exercise every claim_required_kind value."""
+    """Exercise every claim_required_kind value."""
 
     def test_none_kind_runs_handler_regardless(self):
         register(
@@ -182,6 +182,49 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
         self.assertEqual(resp.error.code, "claim_required")
         self.assertIn("yoke claims work acquire", resp.error.message)
         self.assertNotIn("service_client", resp.error.message)
+
+    def test_item_claim_recovery_uses_the_public_project_ref(self):
+        register(
+            "itemclaimpublic.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
+            **_stable_kwargs(),
+            claim_required_kind="item",
+        )
+        public_ref = "BUZZ-7"
+        with (
+            patch.object(claims_module, "who_claims_for_item", return_value=None),
+            patch.object(
+                claims_module,
+                "_claim_recovery_item_ref",
+                return_value=public_ref,
+            ),
+        ):
+            resp = dispatch(_make_request("itemclaimpublic.family.op"))
+
+        self.assertFalse(resp.success)
+        assert resp.error is not None
+        self.assertIn(f"item {public_ref}", resp.error.message)
+        self.assertIn(f"--item {public_ref}", resp.error.message)
+        self.assertNotIn("--item YOK-42", resp.error.message)
+
+    def test_claim_recovery_ref_uses_the_canonical_renderer(self):
+        public_ref = "BUZZ-7"
+        with (
+            patch("yoke_core.domain.db_helpers.connect") as connect,
+            patch(
+                "yoke_core.domain.project_identity.render_item_ref",
+                return_value=public_ref,
+            ) as render_item_ref,
+        ):
+            result = claims_module._claim_recovery_item_ref(42)
+
+        self.assertEqual(result, public_ref)
+        render_item_ref.assert_called_once_with(
+            connect.return_value.__enter__.return_value,
+            42,
+        )
 
     def test_epic_kind_resolves_epic_id(self):
         register(

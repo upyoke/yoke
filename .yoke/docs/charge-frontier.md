@@ -14,7 +14,7 @@ A WIP cap limits how many conduct-eligible items are returned, preventing overco
 
 ## Algorithm
 
-The `compute_frontier()` function exported by `packages/yoke-core/src/yoke_core/domain/frontier.py` and implemented in `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` owns the full computation:
+The `compute_frontier()` function exported by `yoke_core.domain.frontier` and implemented in `yoke_core.domain.frontier_compute` owns the full computation:
 
 ### Step 1: Fetch candidate items
 
@@ -41,12 +41,12 @@ broader but shallower fan-out when priority is equal.
 
 Count items in `implementing` or `reviewing-implementation` status for the project (excluding frozen items). These are the statuses that consume implementation WIP. `reviewed-implementation` and `polishing-implementation` are finishing-review states and do not consume conduct WIP slots.
 
-### Step 5: Resolve the registered executor
+### Step 5: Resolve the registered skill
 
 Each item loads its immutable `workflow_id` / `workflow_version_id` pin. The
 runtime finds the current stage in that definition and resolves the registered
-executor binding for the stage. The frontier adapter remains a coarse ranking
-category; scheduler `next_step` is the executor binding and is the dispatch
+skill binding for the stage. The frontier adapter remains a coarse ranking
+category; scheduler `next_step` is the skill binding and is the dispatch
 truth.
 
 Items with unsatisfied activation-gate hard-block dependencies are reclassified to `wait` regardless of their status-based adapter. Items with `items.blocked = 1` are also reported in the blocked bucket even when they do not have a hard-block dependency row.
@@ -70,7 +70,7 @@ DB-backed `session-routing` capability (exact
 `executor_default_lane_unknown` -> `primary`). Machine config is only the
 no-project/operator fallback. Downstream-path truth comes from the shared
 registry plus coarse-manifest limitations (`codex-desktop` ->
-`runtime/harness/codex/manifest.json`).
+the installed Codex manifest).
 
 ## Ranking Algorithm
 
@@ -91,20 +91,28 @@ The sort is stable and deterministic: identical DB state always produces identic
 ```python
 @dataclass
 class FrontierItem:
- item_id: str # "YOK-N"
+ item_id: int # internal items.id (scheduler-internal currency)
  title: str
  status: str # canonical status
  priority: str # high, medium, low
  project: str
  workflow_id: str
  workflow_version_id: int
- adapter: AdapterCategory # refine, shepherd, conduct, polish, usher, wait, skip
- blocked_by: List[str] # ["YOK-N"] (blocked items only)
+ adapter: AdapterCategory # refine, shepherd, conduct, advance, dash, blitz, polish, usher, wait, skip
+ blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents
  downstream_depth: int # longest downstream activation chain
  created_at: str # ISO 8601
 ```
+
+The in-process dataclass carries the internal ``items.id``. Every serialized
+surface (REST endpoints, service-client JSON, offer/NextAction payloads)
+renders ``item_id`` as the item's TRUE public ref
+(``{projects.public_item_prefix}-{items.project_sequence}`` — the prefix is
+per-project, so the same shape renders ``EXT-12`` in one project and
+``PLAT-12`` in another) via ``project_identity.render_item_ref`` — the
+sequence and prefix may diverge from the internal id.
 
 ### FrontierResult
 
@@ -150,7 +158,7 @@ GET /v1/charge/frontier?project=yoke&wip_cap=5
 {
  "runnable": [
  {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "title": "Implement widget",
  "status": "planned",
  "priority": "high",
@@ -198,16 +206,16 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 
 1. **Compute** -- call `python3 -m yoke_core.api.service_client charge-frontier` to get the ranked frontier.
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
-3. **Select** -- use the highest-ranked item (or `--item YOK-N` override).
+3. **Select** -- use the highest-ranked item (or `--item PREFIX-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
-5. **Dispatch** -- invoke the registered executor in the item's `next_step`
+5. **Dispatch** -- invoke the registered skill in the item's `next_step`
    (not the raw `adapter`):
- - `refine` routes to `/yoke refine YOK-N`
- - `shepherd` routes to `/yoke shepherd YOK-N`
- - `conduct` routes to `/yoke conduct YOK-N`
- - `advance` routes to `/yoke advance YOK-N implementation`
- - `polish` routes to `/yoke polish YOK-N`
- - `usher` routes to `/yoke usher YOK-N`
+ - `refine` routes to `/yoke refine PREFIX-N`
+ - `shepherd` routes to `/yoke shepherd PREFIX-N`
+ - `conduct` routes to `/yoke conduct PREFIX-N`
+ - `advance` routes to `/yoke advance PREFIX-N implementation`
+ - `polish` routes to `/yoke polish PREFIX-N`
+ - `usher` routes to `/yoke usher PREFIX-N`
  - `wait` reports blockers and stops
 
 ### Arguments
@@ -215,7 +223,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--dry-run` | off | Show frontier table and stop (no dispatch) |
-| `--item YOK-N` | -- | Target a specific item instead of highest-ranked |
+| `--item PREFIX-N` | -- | Target a specific item instead of highest-ranked |
 | `--project P` | `yoke` | Project scope |
 | `--wip-cap N` | project-policy | WIP cap override; unset resolves the single-project DB `project-policy.wip_cap`, else `5` |
 
@@ -225,17 +233,17 @@ The charge flow emits structured events:
 
 | Event | Kind | When | Emitter |
 |-------|------|------|---------|
-| `FrontierComputed` | workflow | On every `compute_frontier()` call | `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` (core-owned) |
+| `FrontierComputed` | workflow | On every `compute_frontier()` call | `yoke_core.domain.frontier_compute` (core-owned) |
 | `ChargeDecisionMade` | lifecycle | On every terminal charge exit | charge skill via `yoke_core.domain.events.emit_event` |
 
-`FrontierComputed` is emitted by the core Python frontier path, not by the charge skill. See `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` for the canonical emitter.
+`FrontierComputed` is emitted by the core Python frontier path, not by the charge skill. See `yoke_core.domain.frontier_compute` for the canonical emitter.
 
 ### ChargeDecisionMade envelope
 
 ```json
 {
  "detail": {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "adapter": "conduct",
  "dispatched": true,
  "reason": "dispatched",
@@ -248,7 +256,7 @@ The `reason` field distinguishes terminal outcomes:
 - `dispatched` — item was dispatched to a downstream adapter
 - `no_runnable_items` — frontier had no runnable items
 - `dry_run` — `--dry-run` flag prevented dispatch
-- `requested_item_unavailable` — `--item YOK-N` targeted an item that was not runnable; `target_bucket` records whether it was `blocked`, `frozen`, or `not_found` in the frontier response
+- `requested_item_unavailable` — `--item PREFIX-N` targeted an item that was not runnable; `target_bucket` records whether it was `blocked`, `frozen`, or `not_found` in the frontier response
 - `operator_cancelled` — operator chose to cancel at confirmation
 - `wait_adapter_encountered` — an unexpected `wait` adapter appeared at dispatch time and the command stopped without routing work
 
@@ -273,10 +281,10 @@ Computes the frontier for the default project, presents the top item, and dispat
 ### Charge a specific item
 
 ```
-/yoke charge --item YOK-N
+/yoke charge --item PREFIX-N
 ```
 
-Skips ranking and targets YOK-N directly. If YOK-N is not in the runnable set, reports why (blocked, frozen, or terminal).
+Skips ranking and targets PREFIX-N directly. If PREFIX-N is not in the runnable set, reports why (blocked, frozen, or terminal).
 
 ### Override WIP cap
 

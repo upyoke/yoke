@@ -16,7 +16,7 @@ class TestReleaseAllClaims:
     """Tests for release-all-claims command."""
 
     def test_release_all_claims_active_session(self, session_offer_db):
-        """AC-4: release-all-claims releases all claims for a session."""
+        """Release-all-claims releases all claims for a session."""
         db_path = session_offer_db["db_path"]
         sid = "release-all-test"
 
@@ -77,7 +77,7 @@ class TestReleaseAllClaims:
         assert out.get("no_session") is True
 
     def test_session_stays_active_after_last_claim_release(self, session_offer_db):
-        """AC-5: Releasing the last claim does NOT end the session."""
+        """Releasing the last claim does NOT end the session."""
         db_path = session_offer_db["db_path"]
         sid = "release-last-claim-test"
 

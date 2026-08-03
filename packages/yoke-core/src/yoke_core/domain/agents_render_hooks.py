@@ -16,6 +16,13 @@ lines.
 
 from __future__ import annotations
 
+from yoke_core.domain.agents_render_manifests import (
+    CLAUDE_MANIFEST,
+    CODEX_MANIFEST,
+    CURSOR_MANIFEST,
+)
+from yoke_harness.hooks import cursor_model_spool
+
 from yoke_contracts.hook_runner.hook_ordering import (
     HOOK_ORDERING,
     matchers_for,
@@ -36,6 +43,12 @@ from yoke_contracts.hook_runner.hook_ordering import (
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 
 
+def _environment_export(manifest: dict) -> str:
+    """Render the manifest-declared workspace export for hook subprocesses."""
+    environment = manifest["worktree_hook_enablement"]["environment"]
+    return f'{environment["root_variable"]}="{environment["root_expression"]}"'
+
+
 def _claude_command(event: str) -> str:
     # Wrap in a zsh login shell so the operator's ``~/.zprofile`` (or system
     # equivalent) loads the brew shellenv before ``yoke`` runs. macOS GUI
@@ -45,7 +58,11 @@ def _claude_command(event: str) -> str:
     # source ``~/.zprofile``; ``-c`` keeps the shell non-interactive so it exits
     # after the command. Stdin is forwarded through the shell to the CLI
     # child, so Claude's hook event JSON payload still reaches the runner.
-    return f"/bin/zsh -lc '{_YOKE_HOOK_EVALUATE} {event}'"
+    return (
+        "/bin/zsh -lc '"
+        f"env {_environment_export(CLAUDE_MANIFEST)} "
+        f"{_YOKE_HOOK_EVALUATE} {event}'"
+    )
 
 
 def _claude_hook_entry(event: str) -> dict:
@@ -69,6 +86,18 @@ _CLAUDE_DEFAULT_ONLY_EVENTS = {
     "Stop",
     "UserPromptSubmit",
 }
+
+# Canonical verbs no Claude surface fires. The ordering registry is
+# cross-harness, so a verb only one harness reports must not reach
+# settings.json: the entry would be dead config, and Claude silently
+# disables *every* hook in the file when one entry fails validation.
+# Codex is immune by construction — it renders from its own explicit
+# verb map below rather than from the registry.
+_CLAUDE_UNSUPPORTED_EVENTS = {
+    "AgentModelReported",
+}
+
+
 def render_claude_hooks_block() -> dict:
     """Render the Claude ``settings.json`` ``hooks`` block.
 
@@ -79,6 +108,8 @@ def render_claude_hooks_block() -> dict:
     """
     block: dict[str, list[dict]] = {}
     for event in HOOK_ORDERING.keys():
+        if event in _CLAUDE_UNSUPPORTED_EVENTS:
+            continue
         entries: list[dict] = []
         if event in _CLAUDE_DEFAULT_ONLY_EVENTS:
             if _claude_chain_for(event, "_default"):
@@ -141,7 +172,8 @@ _CODEX_IDENTITY_ENV = "YOKE_EXECUTOR=codex YOKE_PROVIDER=openai"
 def _codex_command(event_name: str) -> str:
     return (
         "/bin/zsh -lc '"
-        f"env {_CODEX_IDENTITY_ENV} {_YOKE_HOOK_EVALUATE} {event_name}"
+        f"env {_environment_export(CODEX_MANIFEST)} {_CODEX_IDENTITY_ENV} "
+        f"{_YOKE_HOOK_EVALUATE} {event_name}"
         "'"
     )
 
@@ -199,3 +231,86 @@ def render_codex_hooks_block() -> dict:
     # Stop — no matcher.
     block["Stop"] = [_codex_entry(None, _CODEX_VERB_BY_EVENT["Stop"])]
     return block
+
+
+# ---------------------------------------------------------------------------
+# Cursor hooks.json — runner-per-event rendering
+# ---------------------------------------------------------------------------
+
+# Cursor exports no session env var to hook subprocesses, and its payloads
+# multiplex model providers, so the generated command pins the executor
+# family the same way the Codex command pins its identity. Provider stays
+# payload-derived.
+_CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
+
+# Cursor-native event -> canonical runner verb. The runner receives the
+# canonical verb as argv; the Cursor payload parser owns payload-shape
+# differences. The shell gate anchors on beforeShellExecution (raw command
+# + sandbox state; a deny holds even under the CLI's force mode) rather
+# than a preToolUse Shell matcher — wiring both would run the Bash chain
+# twice per command. Subagent lifecycle events stay unwired until the
+# container-mapping guard exists in session dispatch; wiring them first
+# would feed per-subagent session ids into ensure-register.
+#
+# afterAgentThought is deliberately absent from this table: it is the one
+# Cursor event that cannot afford to run the hook command at all. It fires
+# inside the token stream and is wired separately, to shell only, by
+# `cursor_model_spool` — see that module for the measurements.
+_CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
+    ("sessionStart", "SessionStart", None),
+    ("sessionEnd", "SessionEnd", None),
+    ("beforeSubmitPrompt", "UserPromptSubmit", None),
+    ("beforeShellExecution", "PreToolUse", None),
+    ("afterShellExecution", "PostToolUse", None),
+    ("preToolUse", "PreToolUse", "Write|Read|Task"),
+    ("postToolUse", "PostToolUse", "Write|Read|Task"),
+    ("postToolUseFailure", "PostToolUseFailure", None),
+    ("stop", "Stop", None),
+)
+
+
+# Cursor terminates a hook entry after `timeout` seconds; entries without
+# one inherit an undocumented platform default. A live https relay dispatch
+# measures ~1.7s and the runner's internal budget is 3s, so an explicit
+# generous ceiling keeps a slow transport from being killed mid-dispatch
+# by whatever the platform default happens to be.
+_CURSOR_HOOK_TIMEOUT_S = 30
+
+# The streaming event whose hook must stay at shell cost. Its command comes
+# from the spool module rather than `_cursor_command`, which would start the
+# interpreter this event cannot afford.
+_CURSOR_MODEL_CAPTURE_EVENT = "afterAgentThought"
+
+
+def _cursor_command(event_verb: str) -> str:
+    return (
+        "/bin/zsh -lc '"
+        f"env {_environment_export(CURSOR_MANIFEST)} {_CURSOR_IDENTITY_ENV} "
+        f"{_YOKE_HOOK_EVALUATE} {event_verb}"
+        "'"
+    )
+
+
+def render_cursor_hooks_block() -> dict:
+    """Render the Cursor ``hooks.json`` document (schema version 1).
+
+    Returns the complete file content — Cursor wraps the event map in
+    ``{"version": 1, "hooks": {...}}`` and hot-reloads the file on save.
+    Matchers are JavaScript regexes over the Cursor tool vocabulary
+    (pre-parser names: ``Shell``, ``Read``, ``Write``, ``Task``); events
+    without a matcher fire unconditionally.
+    """
+    hooks: dict[str, list[dict]] = {}
+    for cursor_event, verb, matcher in _CURSOR_EVENTS:
+        entry: dict = {
+            "command": _cursor_command(verb),
+            "timeout": _CURSOR_HOOK_TIMEOUT_S,
+        }
+        if matcher is not None:
+            entry["matcher"] = matcher
+        hooks.setdefault(cursor_event, []).append(entry)
+    hooks[_CURSOR_MODEL_CAPTURE_EVENT] = [{
+        "command": f"/bin/zsh -lc '{cursor_model_spool.capture_command()}'",
+        "timeout": _CURSOR_HOOK_TIMEOUT_S,
+    }]
+    return {"version": 1, "hooks": hooks}

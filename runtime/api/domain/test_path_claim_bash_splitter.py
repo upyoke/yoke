@@ -1,6 +1,6 @@
 """Unit tests for the quote-aware pipeline splitter.
 
-Targets AC-6 and AC-9: ``-separator "|"`` (quoted pipe) must
+``-separator "|"`` (quoted pipe) must
 not produce an ambiguous pipeline; real pipelines still split; quoted
 ``;``, ``&&``, and ``||`` operators are literal; backslash escapes are
 honoured.

@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.backlog_item_db_writes import _update_item_multi
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -31,10 +32,11 @@ def lock_status_write_precondition(
         (int(item_id),),
     ).fetchone()
     if row is None:
+        item_ref = render_item_ref(conn, int(item_id))
         conn.rollback()
         return {
             "success": False,
-            "error": f"Item YOK-{item_id} no longer exists",
+            "error": f"Item {item_ref} no longer exists",
             "error_code": WORKFLOW_STATUS_PRECONDITION_FAILED,
         }
     live_status = str(row["status"] if hasattr(row, "keys") else row[0])

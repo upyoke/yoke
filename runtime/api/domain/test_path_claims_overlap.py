@@ -7,15 +7,18 @@ file-line gate. The classifier under test lives in
 only checks `active` siblings).
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    register_test_claim as register,
     seed_target,
 )
-from yoke_core.domain.path_claims import activate, register
+from yoke_core.domain.path_claims import activate
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,
@@ -192,10 +195,10 @@ class TestCoordinationOnlySemantics:
 
     The four classification cases the new contract pins:
 
-    * AC-1: coord-only-only between candidate and blocker -> ``NONE``.
-    * AC-2: mixed coord-only + ``activation`` -> ``SERIAL_VIA_DEPENDENCY``.
-    * AC-3: explicit ``--upstream-claim-id`` forces serial regardless.
-    * AC-4: no ``item_dependencies`` edge between the pair -> ``INCOMPATIBLE``
+    * Coord-only-only between candidate and blocker -> ``NONE``.
+    * Mixed coord-only + ``activation`` -> ``SERIAL_VIA_DEPENDENCY``.
+    * Explicit ``--upstream-claim-id`` forces serial regardless.
+    * No ``item_dependencies`` edge between the pair -> ``INCOMPATIBLE``
       (existing behaviour preserved; covered by
       ``test_overlap_with_active_is_incompatible`` above).
     """

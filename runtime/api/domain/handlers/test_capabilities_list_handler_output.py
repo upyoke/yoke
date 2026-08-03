@@ -90,6 +90,22 @@ class TestScopeAndSummary:
         )
         assert list_capabilities()[0]["settings_summary"] == ""
 
+    def test_capability_type_definition_projects_display_metadata(self, test_db):
+        _insert_capability(test_db, "test-machine")
+        row = list_capabilities()[0]
+        assert (row["display_label"], row["display_order"], row["detail_view"]) == (
+            "Test Mac",
+            0,
+            "test-machine",
+        )
+
+    def test_unknown_capability_type_gets_neutral_display_metadata(self, test_db):
+        _insert_capability(test_db, "custom-provider")
+        row = list_capabilities()[0]
+        assert row["display_label"] == "custom provider"
+        assert row["display_order"] == 1000
+        assert row["detail_view"] == ""
+
 
 class TestSecretsExclusion:
     def test_secret_values_never_reach_the_payload(self, test_db):

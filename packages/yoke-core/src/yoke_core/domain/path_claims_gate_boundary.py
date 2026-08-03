@@ -39,6 +39,7 @@ from typing import Any, List, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_checkout_locations import item_worktree_path
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _GATED_TARGETS = ("reviewed-implementation", "implemented", "release")
@@ -70,7 +71,8 @@ def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
         task_scoped = pinned_task_claim_policy(conn, item_id)
     except Exception as exc:
         raise PinnedPathClaimPolicyUnreadable(
-            f"cannot resolve pinned path-claim policy for YOK-{item_id}: {exc}"
+            f"cannot resolve pinned path-claim policy for "
+            f"{render_item_ref(conn, item_id)}: {exc}"
         ) from exc
     try:
         if task_scoped:
@@ -85,7 +87,7 @@ def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
         else:
             rows = conn.execute(
                 "SELECT id FROM path_claims "
-                f"WHERE item_id = {p} "
+                f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
                 "AND state IN ('planned', 'blocked', 'active') "
                 "ORDER BY id",
                 (item_id,),

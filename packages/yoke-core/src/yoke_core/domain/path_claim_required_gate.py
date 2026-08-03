@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
 
 _NON_TERMINAL_STATES = ("planned", "blocked", "active")
 
@@ -48,6 +49,7 @@ def evaluate(
     lists the claim ids that pass the gate (empty when blocked) so
     consumers can audit which row carried the coverage.
     """
+    item_ref = render_item_ref(conn, item_id)
     try:
         from yoke_core.domain.workflow_effective_policies import (
             load_item_effective_workflow_policies,
@@ -58,7 +60,7 @@ def evaluate(
         return {
             "verdict": GATE_BLOCK,
             "reason": (
-                f"item YOK-{item_id} has an unreadable pinned path-claim policy: {exc}"
+                f"item {item_ref} has an unreadable pinned path-claim policy: {exc}"
             ),
             "satisfying_claims": [],
         }
@@ -66,7 +68,7 @@ def evaluate(
         return {
             "verdict": GATE_PASS,
             "reason": (
-                f"item YOK-{item_id} effective workflow policy makes "
+                f"item {item_ref} effective workflow policy makes "
                 "path claims optional"
             ),
             "satisfying_claims": [],
@@ -75,6 +77,7 @@ def evaluate(
         conn,
         item_id,
         task_scoped=effective.path_claims == "required_per_task",
+        item_ref=item_ref,
     )
 
 
@@ -83,8 +86,10 @@ def evaluate_required_coverage(
     item_id: int,
     *,
     task_scoped: bool = False,
+    item_ref: str | None = None,
 ) -> Dict[str, object]:
     """Evaluate concrete claim coverage without applying workflow opt-outs."""
+    item_ref = item_ref or render_item_ref(conn, item_id)
     if task_scoped:
         from yoke_core.domain.path_claim_task_coverage import (
             evaluate_task_coverage,
@@ -95,7 +100,7 @@ def evaluate_required_coverage(
             return {
                 "verdict": GATE_PASS,
                 "reason": (
-                    f"item YOK-{item_id} defers task-scoped path coverage "
+                    f"item {item_ref} defers task-scoped path coverage "
                     "until planning persists generated tasks"
                 ),
                 "satisfying_claims": [],
@@ -115,7 +120,7 @@ def evaluate_required_coverage(
                   WHERE pct.claim_id = pc.id
                ) AS target_count
           FROM path_claims pc
-         WHERE pc.item_id = {p}
+         WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p}
            AND pc.state IN ({placeholders})
         ORDER BY pc.id
         """,
@@ -142,7 +147,7 @@ def evaluate_required_coverage(
             satisfying,
         )
         base_reason = (
-            f"item YOK-{item_id} has {len(satisfying)} satisfying claim row(s)"
+            f"item {item_ref} has {len(satisfying)} satisfying claim row(s)"
         )
         if blocked_addenda:
             reason = base_reason + " — " + "; ".join(blocked_addenda)
@@ -156,12 +161,12 @@ def evaluate_required_coverage(
     return {
         "verdict": GATE_BLOCK,
         "reason": (
-            f"item YOK-{item_id} has no non-terminal path claim and no "
+            f"item {item_ref} has no non-terminal path claim and no "
             f"active no-claim exception. Register coverage with "
             f"`yoke claims path register "
-            f"--item YOK-{item_id} --integration-target main "
+            f"--item {item_ref} --integration-target main "
             f'--paths "<comma-separated paths>" [--allow-planned]` or '
-            f"record one with `yoke claims path register --item YOK-{item_id} "
+            f"record one with `yoke claims path register --item {item_ref} "
             f"--mode exception --exception-reason "
             f'"<why this item touches no repo surface>"`.'
         ),
@@ -223,8 +228,8 @@ def _describe_blocked_satisfying_claims(
             out.append(f"path claim {cid} blocked: {reason or '(unknown)'}")
             continue
         upstream_row = conn.execute(
-            "SELECT pc.item_id, COALESCE(i.status, '') FROM path_claims pc "
-            "LEFT JOIN items i ON i.id = pc.item_id "
+            "SELECT pc.owner_item_id, COALESCE(i.status, '') FROM path_claims pc "
+            "LEFT JOIN items i ON i.id = pc.owner_item_id "
             f"WHERE pc.id = {p}",
             (upstream_id,),
         ).fetchone()
@@ -234,9 +239,10 @@ def _describe_blocked_satisfying_claims(
         up_item = upstream_row[0]
         up_status = upstream_row[1]
         if up_item is not None:
+            up_ref = render_item_ref(conn, int(up_item))
             out.append(
                 f"path claim {cid} blocked on path claim {upstream_id} "
-                f"(YOK-{int(up_item)}, status: {up_status or 'unknown'})"
+                f"({up_ref}, status: {up_status or 'unknown'})"
             )
         else:
             out.append(f"path claim {cid} blocked on path claim {upstream_id}")
@@ -263,13 +269,6 @@ def _extract_upstream_claim_id(blocked_reason: str) -> int | None:
     return int(digits)
 
 
-def _parse_item_id(raw: str) -> int:
-    text = raw.strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    return int(text.lstrip("0") or "0")
-
-
 def main(argv: list[str] | None = None) -> int:
     """CLI surface so skill prose can call the gate directly.
 
@@ -294,15 +293,23 @@ def main(argv: list[str] | None = None) -> int:
             "when coverage is satisfied, 1 when blocked."
         ),
     )
-    parser.add_argument("item", help="YOK-N or N")
+    parser.add_argument("item", help="PREFIX-N or bare project sequence")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
-    try:
-        item_id = _parse_item_id(args.item)
-    except ValueError as exc:
-        print(json.dumps({"verdict": GATE_BLOCK, "reason": str(exc)}))
-        return 2
+    from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
+
     conn = db_helpers.connect()
     try:
+        item_id = resolve_cli_item_ref(conn, args.item)
+        if item_id is None:
+            print(
+                json.dumps(
+                    {
+                        "verdict": GATE_BLOCK,
+                        "reason": f"could not resolve item reference {args.item!r}",
+                    }
+                )
+            )
+            return 2
         result = evaluate(conn, item_id)
     finally:
         conn.close()

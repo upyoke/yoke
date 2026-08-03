@@ -168,10 +168,10 @@ class PidFileTests(unittest.TestCase):
 
 @unittest.skipUnless(
     _dispatcher_available(),
-    "Yoke function dispatcher not present on this branch (AC-17.6(a)).",
+    "Yoke function dispatcher not present on this branch.",
 )
 class DispatcherOverheadSyntheticTests(unittest.TestCase):
-    """AC-17.6(a): dispatcher p99 overhead over a synthetic no-op handler.
+    """Dispatcher p99 overhead over a synthetic no-op handler.
 
     Isolates lookup + envelope validation + idempotency check + event
     emission from any underlying domain mutation cost.
@@ -259,10 +259,10 @@ class DispatcherOverheadSyntheticTests(unittest.TestCase):
 
 @unittest.skipUnless(
     _structured_field_handler_registered(),
-    "items.structured_field.replace not registered (AC-17.6(b)).",
+    "items.structured_field.replace not registered.",
 )
 class DispatcherOverheadStructuredFieldReplaceTests(unittest.TestCase):
-    """AC-17.6(b): dispatcher p99 overhead for ``items.structured_field.replace``.
+    """Dispatcher p99 overhead for ``items.structured_field.replace``.
 
     Underlying ``execute_structured_write`` is mocked at the boundary so the
     measurement is pure dispatcher overhead and no live DB state is touched.

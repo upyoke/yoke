@@ -121,9 +121,7 @@ def cmd_run_add_batch(
                     sys.exit(2)
             if (
                 row["executor_type"] == "agent"
-                and is_browser_method_requirement(
-                    requirement["method_id"], row["qa_kind"],
-                )
+                and is_browser_method_requirement(requirement["method_id"])
             ):
                 print(
                     f"Error: row {idx}: executor_type 'agent' is not "

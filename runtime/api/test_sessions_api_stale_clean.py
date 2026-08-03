@@ -213,7 +213,7 @@ class TestCleanStaleHarnessSessions:
     def test_aborts_reclaim_when_fresh_activity_lands_before_mutation(
         self, conn_with_events, monkeypatch,
     ):
-        """AC-14: fresh activity between snapshot and mutation aborts reclaim.
+        """Fresh activity between snapshot and mutation aborts reclaim.
 
         Snapshot picks the holder up as ``heartbeat_stale``; the
         recheck (``classify_reclaimable``) is monkey-patched to refresh

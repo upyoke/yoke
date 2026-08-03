@@ -4,36 +4,49 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-WORKFLOW_DEFINITION_SCHEMA_VERSION = 2
-BUILTIN_WORKFLOW_PREFERRED_VERSION = 3
+from yoke_contracts.lifecycle_status import (
+    LEGACY_STATUS_BUCKETS,
+    LEGACY_STATUS_GLYPHS,
+)
+
+WORKFLOW_DEFINITION_SCHEMA_VERSION = 4
+BUILTIN_WORKFLOW_PREFERRED_VERSION = 4
 WORKFLOW_FILE_BUDGET_OPTIONAL = "optional"
 WORKFLOW_FILE_BUDGET_REQUIRED = "required"
 WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_CLAIMS_OPTIONAL = "optional"
 WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
-REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
-    "advance",
-    "blitz",
-    "conduct",
-    "dash",
-    "polish",
-    "refine",
-    "shepherd",
-    "usher",
-})
-IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS = frozenset({
-    "advance",
-    "blitz",
-    "conduct",
-    "dash",
-})
-ENTRY_SURFACE_IDS = frozenset({
-    "cli",
-    "harness_skill",
-    "promotion",
-    "web_form",
-})
+WORKFLOW_PATH_SURVEY_OPTIONAL = WORKFLOW_PATH_CLAIMS_OPTIONAL
+WORKFLOW_PATH_SURVEY_REQUIRED = WORKFLOW_PATH_CLAIMS_REQUIRED
+REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
+    {
+        "advance",
+        "blitz",
+        "conduct",
+        "dash",
+        "polish",
+        "refine",
+        "shepherd",
+        "usher",
+    }
+)
+IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset(
+    {
+        "advance",
+        "blitz",
+        "conduct",
+        "dash",
+    }
+)
+ENTRY_SURFACE_IDS = frozenset(
+    {
+        "cli",
+        "harness_skill",
+        "promotion",
+        "web_form",
+    }
+)
 
 
 def gate_ref(gate_id: str, mode: Optional[str] = None) -> Dict[str, str]:
@@ -61,14 +74,14 @@ def workflow_stage(
     return stage
 
 
-def executor_binding(
-    executor_id: str,
+def skill_binding(
+    skill_id: str,
     from_stage_id: str,
     through_stage_id: str,
 ) -> Dict[str, str]:
-    """Bind a registered executor to a contiguous lifecycle segment."""
+    """Bind a registered skill to a contiguous lifecycle segment."""
     return {
-        "executor_id": executor_id,
+        "skill_id": skill_id,
         "from_stage_id": from_stage_id,
         "through_stage_id": through_stage_id,
     }
@@ -82,13 +95,19 @@ def definition_fixture(
     version: int = 1,
     stages: Sequence[Dict[str, Any]],
     entry_surfaces: Sequence[str],
-    executor_bindings: Sequence[Dict[str, str]],
+    skill_bindings: Sequence[Dict[str, str]],
     policies: Dict[str, Any],
     approval_defaults: Optional[Dict[str, Any]] = None,
     schema_version: int = WORKFLOW_DEFINITION_SCHEMA_VERSION,
 ) -> Dict[str, Any]:
     """Build one immutable built-in workflow-version fixture."""
-    stage_ids = [stage["id"] for stage in stages]
+    normalized_stages = [dict(stage) for stage in stages]
+    if schema_version >= 4:
+        for stage in normalized_stages:
+            stage_id = str(stage["id"])
+            stage["glyph"] = LEGACY_STATUS_GLYPHS.get(stage_id, "▫")
+            stage["board_bucket"] = LEGACY_STATUS_BUCKETS.get(stage_id, "unknown")
+    stage_ids = [stage["id"] for stage in normalized_stages]
     normalized_policies = dict(policies)
     if approval_defaults is not None:
         normalized_policies["approval_defaults"] = dict(approval_defaults)
@@ -102,14 +121,14 @@ def definition_fixture(
         "version": version,
         "definition": {
             "schema_version": schema_version,
-            "stages": list(stages),
+            "stages": normalized_stages,
             "terminal_stage_ids": [stage_ids[-1]],
             "transitions": [
                 {"from_stage_id": before, "to_stage_id": after}
                 for before, after in zip(stage_ids, stage_ids[1:])
             ],
             "entry_surfaces": list(entry_surfaces),
-            "executor_bindings": list(executor_bindings),
+            "skill_bindings": list(skill_bindings),
             "policies": normalized_policies,
         },
     }
@@ -118,8 +137,8 @@ def definition_fixture(
 __all__ = [
     "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
-    "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
-    "REGISTERED_WORKFLOW_EXECUTOR_IDS",
+    "IMPLEMENTATION_WORKFLOW_SKILL_IDS",
+    "REGISTERED_WORKFLOW_SKILL_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "WORKFLOW_FILE_BUDGET_OPTIONAL",
     "WORKFLOW_FILE_BUDGET_REQUIRED",
@@ -127,8 +146,10 @@ __all__ = [
     "WORKFLOW_PATH_CLAIMS_OPTIONAL",
     "WORKFLOW_PATH_CLAIMS_REQUIRED",
     "WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK",
+    "WORKFLOW_PATH_SURVEY_OPTIONAL",
+    "WORKFLOW_PATH_SURVEY_REQUIRED",
     "definition_fixture",
-    "executor_binding",
+    "skill_binding",
     "gate_ref",
     "workflow_stage",
 ]

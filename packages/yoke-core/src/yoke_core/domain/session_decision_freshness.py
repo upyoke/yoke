@@ -12,6 +12,7 @@ from .db_helpers import connect
 from .scheduler_events import emit_scheduler_offer_skipped
 from .scheduler_skip_reasons import SKIP_REASON_STALE_LIFECYCLE
 from .session_decision_lane_gate import evaluate_lane_gate
+from .sessions_analytics_core import _NEXT_STEP_TO_PATH
 from .sessions_lifecycle_release import release_item_claim_for_execution
 from .sessions_offer_revalidation import holder_session_for_item, revalidate_candidate_status
 from .sessions_queries_chain import append_chain_skip_entry
@@ -21,7 +22,9 @@ from .session_workflow_routing import (
 )
 _logger = logging.getLogger(__name__)
 
-_SERVICEABLE_STEPS = frozenset({"refine", "shepherd", "conduct", "advance", "polish", "usher"})
+# Every routable next_step is serviceable in principle; supported_paths and
+# lane policy narrow it per session below.
+_SERVICEABLE_STEPS = frozenset(_NEXT_STEP_TO_PATH)
 class FreshnessOutcome(str, Enum):
     UNCHANGED = "unchanged"
     UNAVAILABLE = "unavailable"
@@ -137,11 +140,18 @@ def _record_unserviceable(
     holder = holder_session_for_item(conn, item_id)
     if release_claim:
         try:
+            # ``item_id`` may be a rendered public ref whose sequence
+            # diverges from the internal id; release by internal id.
+            from .item_ref_resolution import resolve_internal_item_id
+
+            internal_id = resolve_internal_item_id(conn, item_id)
             release_item_claim_for_execution(
-                conn, session_id, item_id, "offer-stale-after-claim",
+                conn, session_id,
+                str(internal_id if internal_id is not None else item_id),
+                "offer-stale-after-claim",
             )
         except Exception as exc:
-            _logger.debug("freshness release failed YOK-%s: %s", item_id, exc)
+            _logger.debug("freshness release failed for %s: %s", item_id, exc)
 
     entry: Dict[str, Any] = {
         "item_id": str(item_id),

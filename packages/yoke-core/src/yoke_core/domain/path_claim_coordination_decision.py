@@ -15,10 +15,10 @@ from __future__ import annotations
 from typing import Any, List, TypedDict
 
 from yoke_core.domain import db_backend, runtime_settings
-from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.dependency_types import GatePoint
 from yoke_core.domain.items_queries import query_item
 from yoke_core.domain.path_registry import ancestors_of, target_at
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _DEFAULT_SPEC_TRUNCATION_BYTES = 4096
@@ -68,14 +68,15 @@ def _read_spec(item_id: int) -> str:
 
 def _conflicting_claim_row(conn: Any, claim_id: int) -> dict:
     row = conn.execute(
-        "SELECT id, state, item_id, integration_target FROM path_claims "
-        f"WHERE id = {_p(conn)}", (claim_id,),
+        "SELECT id, state, owner_item_id, integration_target FROM path_claims "
+        "WHERE owner_kind = 'item' "
+        f"AND id = {_p(conn)}", (claim_id,),
     ).fetchone()
     if row is None:
         raise ValueError(f"path_claim {claim_id} not found")
     return {
         "id": int(row["id"]), "state": str(row["state"]),
-        "item_id": int(row["item_id"]) if row["item_id"] is not None else 0,
+        "item_id": int(row["owner_item_id"]) if row["owner_item_id"] is not None else 0,
         "integration_target": str(row["integration_target"]),
     }
 
@@ -111,10 +112,13 @@ _RATIONALE_CHECKLIST: List[str] = [
 
 
 def _suggested_commands(
-    cand_id: int, other_id: int, shared_paths: List[str],
+    conn: Any, cand_id: int, other_id: int, shared_paths: List[str],
     conflicting_claim_id: int,
 ) -> List[str]:
-    cand, other = f"YOK-{cand_id}", f"YOK-{other_id}"
+    # Public refs, rendered from each item's own project — the pasted
+    # command must name the item the operator sees, across projects too.
+    cand = render_item_ref(conn, cand_id)
+    other = render_item_ref(conn, other_id)
     co = GatePoint.COORDINATION_ONLY.value
     dep_add = "yoke shepherd dependency-add"
     shared = ",".join(shared_paths) if shared_paths else "<shared-paths>"
@@ -129,15 +133,15 @@ def _suggested_commands(
         "why_order_matters=<what upstream lands that the candidate inherits>"
     )
     return [
-        f"# option: coordination_only (independent same-file edits, "
+        "# option: coordination_only (independent same-file edits, "
         "path-claim mutex with no lifecycle gate)",
         f"{dep_add} {cand} {other} <source> --gate-point {co} "
         f"--rationale \"{coord_rationale}\"",
-        f"# option: directional activation (order-dependent edits, "
+        "# option: directional activation (order-dependent edits, "
         "lifecycle gate + path-claim mutex)",
         f"{dep_add} {cand} {other} <source> --gate-point activation "
         f"--satisfaction fact:merged --rationale \"{dir_rationale}\"",
-        f"# option: escalate (operator override, last resort)",
+        "# option: escalate (operator override, last resort)",
         "python3 -m yoke_core.api.service_client path-claim-override "
         f"--item {cand} --reason \"<operator-authored rationale per "
         "AGENTS.md ## Path Claims — Hard Rule>\"",
@@ -174,7 +178,7 @@ def build_coordination_context(
         shared_paths=list(shared_paths),
         shared_path_metadata=_shared_path_metadata(conn, shared_paths),
         suggested_commands=_suggested_commands(
-            candidate_item_id, other_id, list(shared_paths),
+            conn, candidate_item_id, other_id, list(shared_paths),
             conflicting_claim_id,
         ),
         decision_options=list(DECISION_OPTIONS),

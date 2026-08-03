@@ -27,8 +27,10 @@ from runtime.api.fixtures.migration_model_test import governed_postgres_test_see
 from runtime.api.test_backlog import (
     _conn,
     _patch_externals,
-    tmp_db,  # noqa: F401  -- re-exported for fixture discovery
 )
+
+
+pytest_plugins = ("runtime.api.test_backlog",)
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +41,15 @@ def _clear_registry_cache() -> None:
 
 
 def _write_registry(root: Path, body: str) -> None:
-    target = root / "runtime" / "api" / "domain" / "retired_schema_surfaces.yaml"
+    target = (
+        root
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "domain"
+        / "retired_schema_surfaces.yaml"
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body, encoding="utf-8")
 
@@ -74,7 +84,7 @@ def regression_db(tmp_db: str, tmp_path: Path):
         stages_json = json.dumps([
             {"kind": "migration_apply", "model_name": "primary",
              "lifecycle_phase": "implementing"},
-            {"name": "merged", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
         ])
         conn.execute(
             "INSERT INTO deployment_flows "

@@ -126,6 +126,7 @@ def _run_interactive_recipe(
                 )
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
+            browser_evidence: dict[str, Any] | None = None
             operator_gate = action.get("operator_gate")
             if operator_gate == "machine_browser_approval":
                 gate_result = run_machine_browser_approval(
@@ -137,6 +138,7 @@ def _run_interactive_recipe(
                     allowed_base_urls=allowed_operator_urls,
                 )
                 ready_transcript = gate_result.transcript
+                browser_evidence = gate_result.browser_evidence
                 if not gate_result.ok:
                     captures.append(
                         {
@@ -144,6 +146,7 @@ def _run_interactive_recipe(
                             "reached": False,
                             "transcript": ready_transcript,
                             "operator_gate": operator_gate,
+                            "browser_approval": browser_evidence,
                         }
                     )
                     return HostActionResult(
@@ -152,6 +155,7 @@ def _run_interactive_recipe(
                             "steps": captures,
                             "terminal_backend": backend,
                             "operator_gate": operator_gate,
+                            "browser_approval": browser_evidence,
                         },
                         gate_result.error_code,
                     )
@@ -194,20 +198,22 @@ def _run_interactive_recipe(
                         },
                         "terminal_action_not_ready",
                     )
-            if operator_gate is None and action["keys"] and not send_recipe_keys(
-                run,
-                backend=backend,
-                session=session,
-                keys=action["keys"],
+            if (
+                operator_gate is None
+                and action["keys"]
+                and not send_recipe_keys(
+                    run,
+                    backend=backend,
+                    session=session,
+                    keys=action["keys"],
+                )
             ):
                 return HostActionResult(
                     False,
                     {"steps": captures, "terminal_backend": backend},
                     "terminal_input_failed",
                 )
-            if operator_gate is None and (
-                action["keys"] or "wait_seconds" in action
-            ):
+            if operator_gate is None and (action["keys"] or "wait_seconds" in action):
                 time.sleep(float(action.get("wait_seconds", config["step_delay"])))
             key = str(action["step"])
             transcript = (
@@ -224,6 +230,8 @@ def _run_interactive_recipe(
                 "reached": bool(transcript.strip()),
                 "transcript": transcript,
             }
+            if browser_evidence is not None:
+                capture["browser_approval"] = browser_evidence
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:
@@ -272,7 +280,7 @@ def _run_interactive_recipe(
         if required_completion not in reached:
             failures.append("required completion was not reached")
         evidence = {
-            "execution_mode": "terminal",
+            "execution_mode": "terminal-multiplexer",
             "terminal_backend": backend,
             "staged_files": staged,
             "steps": captures,

@@ -1,21 +1,21 @@
 ---
 name: shepherd
 description: "Execute a pinned Shepherd planning segment through its quality gates"
-argument-hint: "{YOK-N}"
+argument-hint: "{PREFIX-N}"
 ---
 
-# /yoke shepherd {YOK-N}
+# /yoke shepherd {PREFIX-N}
 
 Execute the `shepherd` segment registered by the item's immutable workflow
 version, applying Boss quality gates at every transition. Each step is: Worker
 produces artifact -> Boss reviews -> persist verdict -> advance or retry.
 
-Shepherd is selected by an active `executor_bindings` interval, not by an item
+Shepherd is selected by an active `skill_bindings` interval, not by an item
 type or workflow id. This implementation supports the generated-task planning
 contract (`generated_children=epic_tasks`) and verifies the exact pinned
 segment before it writes anything.
 
-> Standalone mode (`/yoke shepherd YOK-N`) is the primary usage. The `--subagent` mode is retained for backward compatibility and potential future use.
+> Standalone mode (`/yoke shepherd PREFIX-N`) is the primary usage. The `--subagent` mode is retained for backward compatibility and potential future use.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -25,7 +25,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{YOK-N}` -- Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `{PREFIX-N}` -- Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 - `--subagent --session <id>` -- Run in subagent mode (no user interaction, auto-advance, exit 1 on failure).
 
 ## Constants
@@ -62,7 +62,7 @@ The shepherd must not let item body content pollute its orchestration context.
 
 ### 1. Parse Arguments
 
-Extract the numeric ID from `YOK-N` and detect standalone vs subagent mode.
+Extract the numeric ID from `PREFIX-N` and detect standalone vs subagent mode.
 
 ### 2. Read Item
 
@@ -70,8 +70,8 @@ Load the immutable item pin and then its exact logical version:
 
 ```bash
 _num={N}
-_item_pin_json=$(yoke workflows item get "YOK-$_num" --json) || {
- echo "Item YOK-{N} not found."
+_item_pin_json=$(yoke workflows item get "PREFIX-$_num" --json) || {
+ echo "Item PREFIX-{N} not found."
  exit 1
 }
 _workflow_id=$(printf '%s' "$_item_pin_json" | python3 -c \
@@ -88,7 +88,7 @@ _pinned_definition_json=$(yoke workflows version get \
 }
 ```
 
-If any query returns empty, stop with `Item YOK-{N} not found.`
+If any query returns empty, stop with `Item PREFIX-{N} not found.`
 
 Interpret the ordered stages, the unique Shepherd binding, and its policy
 contract from that response:
@@ -100,8 +100,8 @@ status=sys.argv[1]
 definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
-bindings=definition["executor_bindings"]
-shepherd=[row for row in bindings if row["executor_id"] == "shepherd"]
+bindings=definition["skill_bindings"]
+shepherd=[row for row in bindings if row["skill_id"] == "shepherd"]
 if len(shepherd) != 1:
     raise SystemExit("definition must contain exactly one shepherd binding")
 binding=shepherd[0]
@@ -112,7 +112,7 @@ for row in bindings:
     row_start=stages.index(row["from_stage_id"])
     row_stop=stages.index(row["through_stage_id"])
     if row_start <= position < row_stop:
-        current=row["executor_id"]
+        current=row["skill_id"]
         break
 policies=definition["policies"]
 segment=stages[start:stop + 1]
@@ -123,7 +123,7 @@ supported=(
 )
 location="before" if position < start else ("after" if position >= stop else "active")
 print(json.dumps({
-    "current_executor": current,
+    "current_skill": current,
     "source_stage": binding["from_stage_id"],
     "through_stage": binding["through_stage_id"],
     "path_claims": policies["path_claims"],
@@ -131,11 +131,11 @@ print(json.dumps({
     "supported": supported,
 }))
 ' "$_item_status") || {
- echo "Cannot interpret the pinned Shepherd segment for YOK-{N}."
+ echo "Cannot interpret the pinned Shepherd segment for PREFIX-{N}."
  exit 1
 }
-_current_executor=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["current_executor"])')
+_current_skill=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["current_skill"])')
 _shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["source_stage"])')
 _shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
@@ -153,8 +153,8 @@ cannot execute the planning shape published by that pinned version.
 
 If `_shepherd_location` is `after`, stop as a no-op: the item has crossed the
 binding's `through_stage_id`. If the location is `before` or
-`_current_executor` is not `shepherd`, reject with the current registered
-executor and route to `/yoke {_current_executor} YOK-{N}`. Never infer that
+`_current_skill` is not `shepherd`, reject with the current registered
+skill and route to `/yoke {_current_skill} PREFIX-{N}`. Never infer that
 route from `_workflow_id`.
 
 After validation passes, register the work claim:
@@ -163,7 +163,7 @@ After validation passes, register the work claim:
 # Session touch + claim
 yoke sessions touch --mode shepherd >/dev/null 2>&1 || true
 yoke claims work acquire \
- --item "YOK-$_num"
+ --item "PREFIX-$_num"
 ```
 
 ### 3. Derive Transitions From The Validated Binding
@@ -172,8 +172,8 @@ The supported pinned Shepherd segment yields:
 - `refined-idea` -> `refined_idea_to_planning`, `planning_to_plan_drafted`
 - `planning` -> `planning_to_plan_drafted`
 
-These transition ids are Shepherd verdict keys for this executor contract.
-They are not a global item progression. The next executor at
+These transition ids are Shepherd verdict keys for this skill contract.
+They are not a global item progression. The next skill at
 `_shepherd_through_stage` comes from the pinned definition.
 
 ### 4. Resume Logic
@@ -181,8 +181,8 @@ They are not a global item progression. The next executor at
 Before executing transitions, read prior verdict history:
 
 ```bash
-_completed=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND (verdict='READY' OR verdict='CAVEATS' OR verdict='SKIPPED') ORDER BY id")
-_blocked=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='YOK-$_num' AND verdict='BLOCKED' ORDER BY id")
+_completed=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND (verdict='READY' OR verdict='CAVEATS' OR verdict='SKIPPED') ORDER BY id")
+_blocked=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND verdict='BLOCKED' ORDER BY id")
 ```
 
 Rules:

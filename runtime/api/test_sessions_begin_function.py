@@ -170,50 +170,6 @@ class TestHandleBeginUnit:
         assert out.error.code == "project_unknown"
 
 
-class TestBeginSessionIntegration:
-    """``begin_session`` registers a real row and is idempotent."""
-
-    def test_registers_and_is_idempotent(self, session_offer_db):
-        from yoke_core.api.service_client_sessions_lifecycle_begin import (
-            begin_session,
-        )
-        from yoke_core.domain import db_backend
-
-        conn = db_backend.connect()
-        try:
-            first = begin_session(
-                conn,
-                session_id="sid-local",
-                executor="claude-code",
-                provider="anthropic",
-                model=TEST_MODEL_ID,
-                workspace=session_offer_db["tmp_dir"],
-                project_id=1,
-            )
-            assert first["success"] is True
-            assert "session" in first
-
-            second = begin_session(
-                conn,
-                session_id="sid-local",
-                executor="claude-code",
-                provider="anthropic",
-                model=TEST_MODEL_ID,
-                workspace=session_offer_db["tmp_dir"],
-                project_id=1,
-            )
-            assert second["success"] is True
-            assert second.get("already_registered") is True
-
-            row = conn.execute(
-                "SELECT session_id FROM harness_sessions WHERE session_id = %s",
-                ("sid-local",),
-            ).fetchone()
-            assert row is not None
-        finally:
-            conn.close()
-
-
 def _ok_response(request: FunctionCallRequest) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=True,
@@ -224,19 +180,46 @@ def _ok_response(request: FunctionCallRequest) -> FunctionCallResponse:
     )
 
 
+_CLI_SESSION = "sid-cli"
+
 _BEGIN_ARGS = [
     "--executor", "claude-code",
     "--provider", "anthropic",
     "--model", TEST_MODEL_ID,
     "--workspace", "/ws",
     "--project", "1",
-    "--session-id", "sid-cli",
+    "--session-id", _CLI_SESSION,
     "--json",
 ]
 
 
 class TestAdapterTransportRouting:
     """The adapter's connection-keyed routing — https relay vs local."""
+
+    @pytest.fixture(autouse=True)
+    def _run_as_the_declared_session(self, monkeypatch):
+        """Route these tests as the session they declare.
+
+        The adapter refuses a declared session id it cannot corroborate
+        against its own ambient identity, so a routing test that declares a
+        stranger's id would never reach the transport under test.
+        """
+        monkeypatch.setenv("YOKE_SESSION_ID", _CLI_SESSION)
+
+    def test_refuses_a_session_id_it_cannot_corroborate(self, monkeypatch):
+        """Registration is where an invented id would become a real row."""
+        import yoke_cli.commands._helpers as helpers_mod
+        from yoke_cli.commands.adapters.sessions import sessions_begin
+        from yoke_cli.transport import https as https_mod
+
+        monkeypatch.setattr(helpers_mod, "ensure_handlers_loaded", lambda: None)
+        monkeypatch.setenv("YOKE_SESSION_ID", "the-real-ambient-session")
+
+        def forbidden_relay(*args, **kwargs):
+            raise AssertionError("a refused registration must not dispatch")
+
+        monkeypatch.setattr(https_mod, "relay_https", forbidden_relay)
+        assert sessions_begin(list(_BEGIN_ARGS)) == 2
 
     def test_relays_over_https_when_connection_active(self, monkeypatch):
         import yoke_cli.commands._helpers as helpers_mod

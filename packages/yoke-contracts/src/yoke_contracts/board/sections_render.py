@@ -11,6 +11,10 @@ from __future__ import annotations
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
+from yoke_contracts.board.sections_definition_queries import (
+    query_epic_task_rows,
+    query_precomputed_epic_task_rows,
+)
 from yoke_contracts.board.sections_classify import (
     EpicStats,
     ItemRow,
@@ -20,7 +24,7 @@ from yoke_contracts.board.sections_classify import (
 )
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 
-EpicTaskRow = Tuple[int, str, str]
+EpicTaskRow = Tuple[int, str, str] | Tuple[int, str, str, Optional[str]]
 
 # ---------------------------------------------------------------------------
 # Epic progress
@@ -87,11 +91,8 @@ def epic_task_rows(
     Returns:
         List of markdown table row strings.
     """
-    rows = db.query(
-        "SELECT task_num, title, status FROM epic_tasks WHERE epic_id = %s ORDER BY task_num",
-        (epic_id,),
-    )
-    return _format_epic_task_rows(rows, parent_id_padded, celebration)
+    enriched = query_epic_task_rows(db, epic_id)
+    return _format_epic_task_rows(enriched, parent_id_padded, celebration)
 
 
 def _format_epic_task_rows(
@@ -106,11 +107,17 @@ def _format_epic_task_rows(
     pad = " " * len(parent_id_padded)
 
     result: List[str] = []
-    for task_num, title, task_status in rows:
+    for row in rows:
+        task_num, title, task_status = row[:3]
+        task_glyph = row[3] if len(row) > 3 else None
         tnum_pad = f"{task_num:03d}"
         # Escape pipe chars in title
         title_clean = title.replace("|", "∣") if title else ""
-        tstat_emoji = status_emoji(task_status or "", celebration)
+        tstat_emoji = status_emoji(
+            task_status or "",
+            celebration,
+            glyph=task_glyph,
+        )
         result.append(
             f"| {pad} | {tstat_emoji} | | | task | | └ {tnum_pad}: {title_clean} |"
         )
@@ -124,19 +131,16 @@ def precompute_epic_task_rows(
 ) -> Dict[int, List[EpicTaskRow]]:
     """Batch-query task rows for all epics in the rendered scope."""
     pf = _project_filter_sql(scope, db=db)
-    rows = db.query_quiet(
-        f"""
-        SELECT et.epic_id, et.task_num, et.title, et.status
-        FROM epic_tasks et
-        JOIN items i ON i.id = et.epic_id
-        WHERE 1=1{pf}
-        ORDER BY et.epic_id, et.task_num
-        """,
-    )
+    rows = query_precomputed_epic_task_rows(db, pf)
     result: Dict[int, List[EpicTaskRow]] = {}
-    for epic_id, task_num, title, status in rows:
+    for epic_id, task_num, title, status, task_glyph in rows:
         result.setdefault(int(epic_id), []).append(
-            (int(task_num), title or "", status or "")
+            (
+                int(task_num),
+                title or "",
+                status or "",
+                str(task_glyph) if task_glyph else None,
+            )
         )
     return result
 
@@ -226,7 +230,8 @@ def render_section(
 
     sec_count = task_expanded_count(items, epic_task_counts)
     count_label = (
-        str(sec_count) if heading_count is None or heading_count == sec_count
+        str(sec_count)
+        if heading_count is None or heading_count == sec_count
         else f"showing {sec_count} of {heading_count}"
     )
 
@@ -249,7 +254,11 @@ def render_section(
 
     for item in items:
         rid_padded = item.id.ljust(max_id_width)
-        rstat_emoji = status_emoji(item.status, celebration)
+        rstat_emoji = status_emoji(
+            item.status,
+            celebration,
+            glyph=item.status_glyph,
+        )
         lines.append(
             f"| {rid_padded} | {rstat_emoji} | {item.project} | "
             f"{item.priority} | {item.workflow_id} | {item.progress} | {item.title} |"

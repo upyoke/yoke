@@ -14,6 +14,7 @@ from unittest import mock
 
 from yoke_core.engines.resync import (
     DriftRecord,
+    LocalOrphan,
     _emit_doctor_format,
     main,
 )
@@ -51,7 +52,7 @@ class TestDoctorFormat:
 
     def test_warn_on_local_orphans(self, test_db):
         """Doctor format shows WARN for local orphans."""
-        orphans = [("YOK-99", "/tmp/099.md", "backlog", "yoke")]
+        orphans = [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -243,7 +244,7 @@ class TestMainCLI:
         def fake_linkage(db_path, yoke_root):
             return (
                 [],  # paired
-                [("YOK-99", "/tmp/099.md", "backlog", "yoke")],  # local orphans
+                [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)],  # local orphans
                 [],  # gh orphans
                 {},  # gh_by_project
             )

@@ -109,7 +109,7 @@ class TestSessionOfferNoWork:
     def test_action_hint_no_work_returns_wait_with_holder(
         self, session_offer_db
     ):
-        """AC-1, AC-2, AC-5, AC-12: live-claim conflict → non-charge, no charge.
+        """Live-claim conflict → non-charge, no charge.
 
         With events-backed liveness, ``scheduler_claims._evaluate_claim_states`` routes
         through :func:`session_reclaim_activity.latest_activity`, so a
@@ -119,7 +119,7 @@ class TestSessionOfferNoWork:
         try-and-fail through the reclaim classifier. The terminal action
         is now non-charge (``WAIT`` when no other branches fire, or
         ``ESCALATE`` when the FEED process gate is disabled by config);
-        AC-1 (the load-bearing invariant) is preserved in both shapes.
+        the load-bearing no-charge invariant is preserved in both shapes.
         """
         holder = "yok-1628-holder"
         _seed_stale_holder_with_recent_activity(
@@ -159,7 +159,7 @@ class TestSessionOfferNoWork:
         assert not data.get("chainable")
 
     def test_skip_memory_filter_is_targeted_not_blanket(self):
-        """AC-3 / AC-6: skip-memory filter drops only named ids, keeps the rest.
+        """Skip-memory filter drops only named ids, keeps the rest.
 
         Builds a SchedulerResult with two assignable items and asserts the
         filter only removes the explicitly skipped one. This covers the
@@ -181,7 +181,7 @@ class TestSessionOfferNoWork:
 
         steps = [
             ScheduledStep(
-                item_id="YOK-10",
+                item_id=10,
                 workflow_id="issue",
                 workflow_version_id=1,
                 workflow_version=1,
@@ -193,7 +193,7 @@ class TestSessionOfferNoWork:
                 claim_state=ClaimState.CLAIMED_BY_STALE,
             ),
             ScheduledStep(
-                item_id="YOK-13",
+                item_id=13,
                 workflow_id="issue",
                 workflow_version_id=1,
                 workflow_version=1,
@@ -214,8 +214,9 @@ class TestSessionOfferNoWork:
 
         # No skip filter: both runnable, selected is the higher-priority item.
         baseline = build_frontier_state_from_schedule(schedule)
-        assert baseline.runnable_items == ["YOK-10", "YOK-13"]
-        assert baseline.selected_item == "YOK-10"
+        # Conn-less frontier build falls back to bare internal-id strings.
+        assert baseline.runnable_items == ["10", "13"]
+        assert baseline.selected_item == "10"
 
         # With the selected id in skip memory: it is dropped from
         # runnable_items, and the next-ranked item is promoted into
@@ -224,8 +225,8 @@ class TestSessionOfferNoWork:
         filtered = build_frontier_state_from_schedule(
             schedule, skip_memory_item_ids={"YOK-10"},
         )
-        assert filtered.runnable_items == ["YOK-13"]
-        assert filtered.selected_item == "YOK-13"
+        assert filtered.runnable_items == ["13"]
+        assert filtered.selected_item == "13"
         assert filtered.scheduler_context["next_step"] == "advance"
         assert filtered.scheduler_context["workflow_id"] == "issue"
 

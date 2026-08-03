@@ -20,6 +20,12 @@ from typing import Optional
 _CLAUDE_LEGACY = "claude"
 _CLAUDE_COARSE = "claude-code"
 _CODEX_COARSE = "codex"
+_CURSOR_COARSE = "cursor"
+_CURSOR_AGENT_ENV = "CURSOR_INVOKED_AS"
+_CURSOR_AGENT_VALUE = "cursor-agent"
+_CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
+_CURSOR_SURFACE_CLI = "cli"
+_CURSOR_SURFACE_DESKTOP = "desktop"
 
 
 def is_codex(executor: Optional[str]) -> bool:
@@ -28,6 +34,14 @@ def is_codex(executor: Optional[str]) -> bool:
         return False
     e = executor.strip().lower()
     return e == _CODEX_COARSE or e.startswith("codex-")
+
+
+def is_cursor(executor: Optional[str]) -> bool:
+    """True for the coarse Cursor executor and any ``cursor-*`` surface."""
+    if not executor:
+        return False
+    e = executor.strip().lower()
+    return e == _CURSOR_COARSE or e.startswith("cursor-")
 
 
 def is_claude(executor: Optional[str]) -> bool:
@@ -41,18 +55,21 @@ def is_claude(executor: Optional[str]) -> bool:
 def canonical_harness_id(executor: Optional[str]) -> str:
     """Map a coarse or surface-specific executor value to the canonical ``harness_id`` enum.
 
-    Returns exactly ``claude-code`` or ``codex``. Raises :class:`ValueError`
-    for empty / ``None`` / unknown inputs — silent coercion of an unknown
-    executor into a canonical value would poison attribution downstream.
-    Callers that legitimately tolerate unknowns (for example the historical-
-    rows migration) catch the exception and route the row through the
-    explicit refuse-or-report policy instead of substituting a guess.
+    Returns exactly ``claude-code``, ``codex``, or ``cursor``. Raises
+    :class:`ValueError` for empty / ``None`` / unknown inputs — silent
+    coercion of an unknown executor into a canonical value would poison
+    attribution downstream. Callers that legitimately tolerate unknowns
+    (for example the historical-rows migration) catch the exception and
+    route the row through the explicit refuse-or-report policy instead of
+    substituting a guess.
     """
     if not executor or not executor.strip():
         raise ValueError("canonical_harness_id requires a non-empty executor")
     e = executor.strip().lower()
     if is_codex(e):
         return _CODEX_COARSE
+    if is_cursor(e):
+        return _CURSOR_COARSE
     if is_claude(e):
         return _CLAUDE_COARSE
     raise ValueError(f"unknown harness executor: {executor!r}")
@@ -82,6 +99,33 @@ def _compose_executor(family: str, coarse: str, raw_entrypoint: Optional[str]) -
     return f"{family}-{normalized}"
 
 
+def cursor_surface_entrypoint() -> str:
+    """Return the Cursor surface alias for the current hook process.
+
+    ``CURSOR_INVOKED_AS=cursor-agent`` marks the standalone terminal agent;
+    every other Cursor hook process is the IDE surface. This deliberately
+    does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
+    a session's first hook events, which is exactly when session
+    registration runs, so keying the surface on it loses the alias on the
+    IDE surface and leaves ``executor_display_name`` NULL.
+
+    Callers that must first decide whether this is a Cursor process at all
+    still gate on the env vars; this resolver only answers *which surface*.
+    """
+    surface = (
+        _CURSOR_SURFACE_CLI
+        if os.environ.get(_CURSOR_AGENT_ENV) == _CURSOR_AGENT_VALUE
+        else _CURSOR_SURFACE_DESKTOP
+    )
+    return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
+
+
+def _in_cursor_process() -> bool:
+    return bool(
+        os.environ.get(_CURSOR_TRANSCRIPT_ENV) or os.environ.get(_CURSOR_AGENT_ENV)
+    )
+
+
 def compose_executor_from_entrypoint(
     executor: Optional[str],
     entrypoint: Optional[str],
@@ -99,6 +143,8 @@ def compose_executor_from_entrypoint(
     value = (executor or "").strip()
     if is_codex(value):
         return _compose_executor("codex", _CODEX_COARSE, entrypoint)
+    if is_cursor(value):
+        return _compose_executor("cursor", _CURSOR_COARSE, entrypoint)
     if is_claude(value):
         return _compose_executor("claude", _CLAUDE_COARSE, entrypoint)
     return value
@@ -126,15 +172,30 @@ def detect_executor() -> str:
         from runtime.harness.codex.codex_model import resolve_entrypoint
 
         return _compose_executor(_CODEX_COARSE, _CODEX_COARSE, resolve_entrypoint())
+    # Cursor exports no session env var; its hook processes carry
+    # CURSOR_TRANSCRIPT_PATH, and the standalone terminal agent additionally
+    # sets CURSOR_INVOKED_AS=cursor-agent. The rendered Cursor hook command
+    # pins YOKE_EXECUTOR=cursor, so this branch covers unpinned subprocesses.
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return _compose_executor("claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
 
 
 def detect_provider(executor: Optional[str] = None) -> str:
-    """Detect the inference provider."""
+    """Detect the inference provider.
+
+    Cursor multiplexes providers — one session may run Anthropic, OpenAI,
+    or Cursor-hosted models, with the active model named only in each hook
+    payload — so the Cursor family maps to ``cursor`` rather than a model
+    vendor. ``YOKE_PROVIDER`` still wins when a hook command pins it.
+    """
     if os.environ.get("YOKE_PROVIDER"):
         return os.environ["YOKE_PROVIDER"]
-    if is_codex(executor or detect_executor()):
+    resolved = executor or detect_executor()
+    if is_codex(resolved):
         return "openai"
+    if is_cursor(resolved):
+        return "cursor"
     return "anthropic"
 
 
@@ -155,4 +216,6 @@ def detect_entrypoint() -> Optional[str]:
         from runtime.harness.codex.codex_model import resolve_entrypoint
 
         return resolve_entrypoint()
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return None

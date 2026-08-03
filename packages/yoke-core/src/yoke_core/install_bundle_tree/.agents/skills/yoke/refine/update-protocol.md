@@ -29,7 +29,7 @@ For each recommended change, **enhance** the existing content — do not replace
   the existing guarded structured-write path, and re-reads to verify. It
   refuses empty content, preserves shrinkage/freeze/empty guards, and
   returns evidence the success summary can quote.
-  Operator/debug adapter: `printf '%s\n' "<addendum>" | yoke items structured-field append-addendum YOK-N --field spec --heading "..." --source refine --stdin`.
+  Operator/debug adapter: `printf '%s\n' "<addendum>" | yoke items structured-field append-addendum PREFIX-N --field spec --heading "..." --source refine --stdin`.
 - **Full field rewrite (you authored the entire intended content):**
   dispatch `items.structured_field.replace` with `payload = {field,
   content, source: "refine"}`. Keep skill examples replace-first for
@@ -38,7 +38,7 @@ For each recommended change, **enhance** the existing content — do not replace
   the PreToolUse Bash lint catches that pattern and the remediation
   points to the addendum / section-upsert / section-append handlers
   above. Bypass token: `# lint:no-structured-transform-check` (audited).
-  Operator/debug adapter: `printf '%s\n' "<full field content>" | yoke items structured-field replace YOK-N --field spec --source refine --stdin`.
+  Operator/debug adapter: `printf '%s\n' "<full field content>" | yoke items structured-field replace PREFIX-N --field spec --source refine --stdin`.
 
 Raw `items.body` writes are unsupported — body is a virtual rendered
 field, always go through a structured field or `item_sections` (via
@@ -106,7 +106,7 @@ Field routing (dispatch `items.structured_field.replace` with
   `items.section.upsert` — that pattern is caught by the
   structured-transform lint and the remediation now points at
   `items.progress_log.append`.
-  Operator/debug adapter: `printf '%s\n' "<entry body>" | yoke items progress-log append YOK-N --headline "..." --source refine --stdin`.
+  Operator/debug adapter: `printf '%s\n' "<entry body>" | yoke items progress-log append PREFIX-N --headline "..." --source refine --stdin`.
 
 AC rules:
 
@@ -133,7 +133,7 @@ failure/recovery coverage where applicable.
 
 ### 7b. Link And Verify A Blitz Execution Document
 
-When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
+When `ITEM_NEXT_SKILL=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md). Select exactly
 one project strategy document, invoke the registered
 `strategy.execution.link` operation through
@@ -151,7 +151,7 @@ claim; `/yoke blitz` activation owns that atomic step.
 Before status advancement, capture the details you will present after cleanup is finished. Do not emit the success summary yet:
 
 ```
-## Refinement Complete — YOK-{N}
+## Refinement Complete — PREFIX-{N}
 
 **Fields updated:** {list of fields written}
 **Changes applied:** {count}
@@ -169,11 +169,11 @@ binding; do not reconstruct them from a workflow name.
 
 Final output should include:
 
-> **YOK-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
-> Next executor: `/yoke {ITEM_NEXT_EXECUTOR}`
+> **PREFIX-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
+> Next skill: `/yoke {ITEM_NEXT_SKILL}`
 
-When `ITEM_NEXT_EXECUTOR=blitz`, include the verified execution-document slug
-and the exact `/yoke blitz YOK-{N}` handoff.
+When `ITEM_NEXT_SKILL=blitz`, include the verified execution-document slug
+and the exact `/yoke blitz PREFIX-{N}` handoff.
 
 GitHub body sync runs implicitly on the lifecycle transition; explicit
 re-sync is not required.
@@ -229,7 +229,7 @@ swallow it.
 After status advancement and claim release, emit:
 
 ```
-## Refinement Complete — YOK-{N}
+## Refinement Complete — PREFIX-{N}
 
 **Fields updated:** {list of fields written}
 **Changes applied:** {count}
@@ -237,9 +237,9 @@ After status advancement and claim release, emit:
 {Brief summary of what changed and why}
 ```
 
-Include the served status transition and next-executor note from step 9. When
-`ITEM_NEXT_EXECUTOR=blitz`, also include the linked execution-document slug
-and `/yoke blitz YOK-{N}` handoff.
+Include the served status transition and next-skill note from step 9. When
+`ITEM_NEXT_SKILL=blitz`, also include the linked execution-document slug
+and `/yoke blitz PREFIX-{N}` handoff.
 
 ### 12. Completion
 
@@ -248,7 +248,7 @@ Refinement is complete when:
 - Identified issues have been addressed in the appropriate structured fields
 - Every updated field has been re-read successfully after the write
 - Status has been advanced to `REFINE_TARGET_STATUS`
-- A `blitz` next-executor handoff has exactly one execution strategy document linked and verified
+- A `blitz` next-skill handoff has exactly one execution strategy document linked and verified
   through `strategy.execution.get`
 - The item claim has been released with reason `completed`
 - The operator has been shown what changed in the final output

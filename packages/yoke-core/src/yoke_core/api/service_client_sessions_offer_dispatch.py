@@ -77,7 +77,7 @@ def dispatch_decision_engine(
             claim_ctx = resolve_claimed_work_context(conn, claim)
             active_claims.append(
                 ClaimedWork(
-                    item_id=display_claim_item_id(claim.get("item_id")),
+                    item_id=display_claim_item_id(claim.get("item_id"), conn),
                     epic_id=claim.get("epic_id"),
                     task_num=claim.get("task_num"),
                     status=claim_ctx.get("status"),
@@ -114,6 +114,7 @@ def dispatch_decision_engine(
             schedule,
             drift_review_dict=drift_dict,
             last_completed_step=last_step,
+            conn=conn,
         )
         result = resolve_monkeypatchable("decide_next_action")(
             offer,
@@ -129,7 +130,11 @@ def dispatch_decision_engine(
         # Construct WAIT directly rather than letting the schedule_result
         # branch hand decide_next_action a stale runnable list.
         result = build_no_work_wait_action(
-            session_id=session_id, ownership=ownership, step=step,
+            session_id=session_id,
+            ownership=ownership,
+            step=step,
+            process_offer_policy=effective_policy,
+            actual_lane=offer.execution_lane,
         )
         return result, None
 
@@ -152,6 +157,7 @@ def dispatch_decision_engine(
             schedule,
             drift_review_dict=drift_dict,
             skip_memory_item_ids=skip_ids or None,
+            conn=conn,
         )
         result = resolve_monkeypatchable("decide_next_action")(
             offer,

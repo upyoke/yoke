@@ -35,22 +35,23 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke strategize` | Direct-mode: guided SML review (research, propose, approve) |
 | `/yoke onboard [--project P] [--run-id RUN]` | Make a wired project execution-ready: strategy, profile, Packs, hosting, environments, gated first deploy, seeded work |
 | `/yoke idea [--workflow issue\|epic\|blitz] {title}` | Capture a new backlog item; use the typed `blitz` selection for document-led execution |
-| `/yoke dash "instruction"` or `/yoke dash YOK-N` | File and execute instruction-sized work, or resume a Dash |
-| `/yoke blitz YOK-N` | Execute a refined Blitz from its single linked strategy document |
-| `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to ready |
-| `/yoke conduct YOK-N` | Engineer/Tester loop for a single item |
-| `/yoke usher [YOK-N]` | Merge and deploy passed items |
+| `/yoke dash "instruction"` or `/yoke dash PREFIX-N` | File and execute instruction-sized work, or resume a Dash |
+| `/yoke blitz PREFIX-N` | Execute a refined Blitz from its single linked strategy document |
+| `/yoke shepherd PREFIX-N` | Drive item through quality-gated lifecycle to ready |
+| `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single item |
+| `/yoke usher [PREFIX-N]` | Merge and deploy passed items |
 | `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
-| `/yoke freeze YOK-N` | Freeze a backlog item |
-| `/yoke thaw YOK-N` | Thaw a frozen item |
-| `/yoke block YOK-N "<reason>"` | Block an item (preserves lifecycle status) |
-| `/yoke unblock YOK-N` | Clear an item's blocked flag |
+| `/yoke freeze PREFIX-N` | Freeze a backlog item |
+| `/yoke thaw PREFIX-N` | Thaw a frozen item |
+| `/yoke block PREFIX-N "<reason>"` | Block an item (preserves lifecycle status) |
+| `/yoke unblock PREFIX-N` | Clear an item's blocked flag |
 | `/yoke resync` | Detect and repair drift between local and GitHub |
 | `/yoke curate` | Curate the Ouroboros learning log |
 | `/yoke wrapup` | Structured session wrap-up |
-| `/yoke refine YOK-N` | Critique and improve item artifacts (no worktree, no code) |
-| `/yoke advance YOK-N implementation` | Issue implementation entry: create or re-enter the worktree |
-| `/yoke polish YOK-N` | Review and finish implementation in existing worktree |
+| `/yoke refine PREFIX-N` | Critique and improve item artifacts (no worktree, no code) |
+| `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree |
+| `/yoke polish PREFIX-N` | Review and finish implementation in existing worktree |
+| `/yoke simulate PREFIX-N` or `/yoke simulate --system` | Trace integration paths or audit system-wide consistency; harness slash skill only, with no terminal `yoke simulate` adapter |
 | `/yoke help` | Show this command reference |
 
 ### Local Terminal Helpers
@@ -74,9 +75,8 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance YOK-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance PREFIX-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
 | `/yoke merge {epic-id}` | usher | Sequential PR + merge per branch |
-| `/yoke approve YOK-N` | usher | Approve a deployment stage awaiting human approval |
+| `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
 | `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
-| `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps |

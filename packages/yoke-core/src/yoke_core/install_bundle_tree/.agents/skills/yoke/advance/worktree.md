@@ -1,6 +1,6 @@
 # Advance — Worktree Preflight + Re-entry
 
-> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator ([`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py)) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
+> **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator (`yoke_core.engines.advance_implementation_entry`) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
 
 Called by the advance router when target status is `implementing` and the
 pinned definition binds `advance` to a single implementation lane. Owns
@@ -46,8 +46,8 @@ The envelope shape is the operator-defined shape — see the Operator Handoff Ad
 {
   "ok": true,
   "item_id": 1234,
-  "branch": "YOK-N",
-  "worktree_path": "/Users/.../.worktrees/YOK-N",
+  "branch": "PREFIX-N",
+  "worktree_path": "/Users/.../.worktrees/PREFIX-N",
   "semantic_scope": "worktree",
   "physical_cwd_mode": "static",
   "actions_taken": ["work-claim:already-owned", "path-claim:activated=[39]", "worktree:reused"],
@@ -59,7 +59,7 @@ The envelope shape is the operator-defined shape — see the Operator Handoff Ad
 
 A harness may keep its physical cwd at the main checkout even after the worktree is provisioned. The envelope reports `physical_cwd_mode=matched` when cwd is inside the worktree and `physical_cwd_mode=static` when cwd stayed at main. Yoke treats both as supported — write authority comes from the session's work-claim, not from cwd.
 
-**`cd "<worktree>"` is the canonical first action after worktree provisioning** when the harness supports a sticky cwd. The implementation sub-skill teaches it as Step 0 of [`implementing/implementation.md`](implementing/implementation.md); read that step verbatim. On sticky-cwd harnesses (Claude Code / Claude Desktop), the `cd` silently persists across subsequent Bash tool calls because `.worktrees/<branch>/` lives inside the declared project root — every later Read/Edit/Write/Grep/Glob and every later `pytest` / `python3 -m pytest` / `python3 -m yoke_core.tools.watch_pytest` invocation resolves relative paths against the worktree automatically. Without the `cd`, sticky cwd stays at the main checkout, pytest's positional collection path resolves under main, and the wrong tree gets exercised silently. `watch_pytest` hard-refuses wrong-cwd invocations under a worktree-bearing claim — `cd` once at the top of the session and the refusal never fires.
+**`cd "<worktree>"` is the canonical first action after worktree provisioning** when the harness supports a sticky cwd. The implementation sub-skill teaches it as Step 0 of [`implementing/implementation.md`](implementing/implementation.md); read that step verbatim. On sticky-cwd harnesses (Claude Code / Claude Desktop), the `cd` silently persists across subsequent Bash tool calls because `.worktrees/<branch>/` lives inside the declared project root — every later Read/Edit/Write/Grep/Glob and every later `pytest` / `python3 -m pytest` / `yoke watch pytest` invocation resolves relative paths against the worktree automatically. Without the `cd`, sticky cwd stays at the main checkout, pytest's positional collection path resolves under main, and the wrong tree gets exercised silently. `watch_pytest` hard-refuses wrong-cwd invocations under a worktree-bearing claim — `cd` once at the top of the session and the refusal never fires.
 
 On static-cwd harnesses (Codex's terminal — `physical_cwd_mode=static` AND no sticky cwd between Bash calls), the `cd` does not persist between calls. Use absolute paths for worktree-bound tool calls — `git -C <worktree> ...` for git ops, absolute paths under `<worktree>/...` for Edit/Read/Write, and `python3 -m pytest --rootdir <worktree> <test-target>` for pytest (run directly as a foreground command since Codex relies on native PTY streaming).
 
@@ -74,9 +74,9 @@ relative recursive commands that the per-call target-path validator would
 flag as ambiguous:
 
 ```bash
-python3 -m yoke_core.tools.search_code --item YOK-{N} --pattern PATTERN \
+python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
     --scope worktree   # default — searches the bound worktree(s)
-python3 -m yoke_core.tools.search_code --item YOK-{N} --pattern PATTERN \
+python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
     --scope main       # searches the project repo root only when explicit
 ```
 
@@ -96,7 +96,7 @@ worktree` when the recursive walk is the point.
 
 - **Step 1 — Work claim.** Idempotent for same-session re-claim. A live conflict surfaces a `work-claim-conflict` block with a narrative that explicitly disclaims claim-widening as the wrong remediation.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
-- **Step 3 — Worktree resolution.** Canonical `YOK-N` is reused idempotently.
+- **Step 3 — Worktree resolution.** Canonical `PREFIX-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. Tracked or staged dirt blocks as `dirty-tracked`; untracked non-gitignored files block as `dirty-untracked`. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
 - **Step 4 — Worktree creation + DB write.** `create_worktree` records the branch, path, and implementation role in `item_worktrees`; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
 - **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).

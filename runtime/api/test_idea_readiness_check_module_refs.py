@@ -1,4 +1,4 @@
-"""AC-6: package-submodule and planned-ref carve-outs in verify_function_owners."""
+"""Package-submodule and planned-ref carve-outs in verify_function_owners."""
 
 from __future__ import annotations
 
@@ -19,7 +19,8 @@ from yoke_core.domain.idea_readiness_check import verify_function_owners
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS path_claims (
     id INTEGER PRIMARY KEY,
-    item_id INTEGER NOT NULL,
+    owner_kind TEXT NOT NULL,
+    owner_item_id INTEGER NOT NULL,
     state TEXT NOT NULL DEFAULT 'planned'
 );
 CREATE TABLE IF NOT EXISTS path_targets (
@@ -47,7 +48,9 @@ def _build_conn(
     apply_fixture_ddl(conn, _SCHEMA)
     if planned_paths:
         conn.execute(
-            "INSERT INTO path_claims (id, item_id, state) VALUES (1, %s, %s)",
+            "INSERT INTO path_claims "
+            "(id, owner_kind, owner_item_id, state) "
+            "VALUES (1, 'item', %s, %s)",
             (item_id, state),
         )
         for i, planned_path in enumerate(planned_paths, start=1):

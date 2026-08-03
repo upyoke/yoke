@@ -1,0 +1,74 @@
+# Retired schema surface registry.
+#
+# Declarative source of truth for schema surfaces (columns, tables) that
+# have been retired across a project's governed migration lifecycle and
+# must never be re-added by ambient init / idempotent bootstrap logic.
+#
+# Consumed by:
+#   * yoke_core.domain.retired_schema_registry (loader + query helpers)
+#   * yoke_core.domain.projects_restart (ADD COLUMN guard)
+#   * yoke_core.domain.db_mutation_gate (post-state verification)
+#   * yoke_core.engines.doctor_hc_retired_schema (health check)
+#
+# Contract:
+#   * Every entry names the project, the authoritative model, the
+#     migration module that retired it, the surface (table + column, or
+#     table-only for full drops), and the decision record path.
+#   * Retiring a new surface means: the governed cutover has landed,
+#     decision record authored, authoritative DB no longer exposes the
+#     surface. Listing a surface that is still present on the
+#     authoritative DB is honest: the doctor health check reports drift.
+#   * Obsoleted-term scans exclude this file because it is the one live
+#     source that must retain retired identifiers.
+#
+# Schema:
+#   surfaces:
+#     - module: <migration_module_name>
+#       project: <project_slug>
+#       model: <migration_model_name>
+#       table: <table_name>
+#       column: <column_name>  # omit for table-level retirement
+#       decision_record: docs/archive/decisions/<slug>.md
+#
+surfaces:
+  - module: events_actor_identity
+    project: yoke
+    model: primary
+    table: events
+    column: user_id
+    decision_record: docs/archive/decisions/events-actor-identity.md
+  - module: deploy_defaults_cutover
+    project: yoke
+    model: primary
+    table: projects
+    column: default_deployment_flow
+    decision_record: docs/archive/decisions/deploy_defaults_cutover.md
+  - module: events_envelope_backup_drop
+    project: yoke
+    model: primary
+    table: events_envelope_backup
+    decision_record: docs/archive/decisions/events_envelope_backup_drop.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: actor_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: session_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: item_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: work_claim_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md

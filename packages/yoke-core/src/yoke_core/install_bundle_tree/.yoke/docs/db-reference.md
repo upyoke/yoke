@@ -9,13 +9,13 @@ clients directly and never hardcode a DB path or DSN.
 
 Quickstart for session operators: `AGENTS.md` § Code Conventions, § Structured Item Writes, and § Governed DB Mutation. Update those sections when this file changes.
 
-The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
+The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, tool-shaped CLI adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
 
 This file is the **entry point**: it covers entry points, the bootstrap contract, the retired-schema registry, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under [.yoke/docs/db-reference/](db-reference/).
 
 ## Common column mistakes to avoid in raw SQL
 
-Quick reference for the columns most often mis-named in agent SQL. The DB-command column lint at `packages/yoke-core/src/yoke_core/domain/lint_db_rules_columns.py` denies these patterns and points here; legacy telemetry/check ids remain stable.
+Quick reference for the columns most often mis-named in agent SQL. The DB-command column lint at `yoke_core.domain.lint_db_rules_columns` denies these patterns and points here; legacy telemetry/check ids remain stable.
 
 - `epic_tasks`: use `epic_id` (NOT `item_id`), `task_num` (NOT `task_number`/`seq`), `dependencies` (NOT `depends_on`).
 - `epic_progress_notes`: content is in `body` (NOT `note`).
@@ -29,7 +29,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `project_capabilities`: use `type` (NOT `capability`/`name`/`capability_type`), `config` for full JSON (may contain secrets), `settings` for non-sensitive JSON.
 - `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Work-item-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
 - **Domain names**: `epic` (NOT `epics`), `events registry` (NOT `registry`), `runs` (NOT `deploy-events`); board rebuild is `yoke board rebuild`.
-- **Live-claim holder lookup** (often mis-guessed): `python3 -m runtime.harness.harness_sessions who-claims <item-id>`. Do not guess owner/session columns or retired per-item claim tables; the typed `work_claims` model uses `target_kind` plus the matching specialized columns. See [qa-and-sessions.md § Live claim-holder lookup](db-reference/qa-and-sessions.md).
+- **Live-claim holder lookup** (often mis-guessed): `yoke claims work holder-get PREFIX-N`. Do not guess owner/session columns or retired per-item claim tables; the typed `work_claims` model uses `target_kind` plus the matching specialized columns. See [qa-and-sessions.md § Live claim-holder lookup](db-reference/qa-and-sessions.md).
 
 ## Agent-context packet
 
@@ -51,7 +51,7 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 
 - `core` — control plane + structured fields (`epic_tasks`, `epic_progress_notes`, `events`) plus item-dependency wrapper recipes (`shepherd dependency-list`, `dependency-add`, `dependency-update`, `dependency-remove`).
 - `claims` — `harness_sessions`, `work_claims`, `path_claims` plus the `who-claims` / `path-claim-list` / `release-work-claim` wrappers.
-- `qa` — `qa_requirements`, `qa_runs`, the QA discovery wrappers (`yoke qa requirement list`, `yoke qa run list`, `yoke qa run add`), and the reviewed-implementation gate preview surfaced through `/yoke advance YOK-N reviewed-implementation`. The packet teaches that running the test suite alone does not satisfy the gate — agents must route reviewed-implementation transitions through `/yoke advance YOK-N reviewed-implementation`, never raw `items update`.
+- `qa` — `qa_requirements`, `qa_runs`, the QA discovery wrappers (`yoke qa requirement list`, `yoke qa run list`, `yoke qa run add`), and the reviewed-implementation gate preview surfaced through `/yoke advance PREFIX-N reviewed-implementation`. The packet teaches that running the test suite alone does not satisfy the gate — agents must route reviewed-implementation transitions through `/yoke advance PREFIX-N reviewed-implementation`, never raw `items update`.
 - `project` — `project_structure` declarations plus project QA plans and
   deployment defaults. Executable verification belongs to immutable QA plan
   cases, not Project Structure command fields.
@@ -65,7 +65,7 @@ substrate contract. The doctrine is mirrored in `docs/agents.md`.
 
 ## Topic Index
 
-- [items-and-epics.md](db-reference/items-and-epics.md) — `items`, `item_sections`, `shepherd_verdicts`, `caveat_dispositions`, `item_dependencies`, `ouroboros_entries`, `wrapup_reports`, `epic_tasks`, `epic_task_files`, `epic_dispatch_chains`, `item_progress_view`, `epic_progress_notes`. Includes the **Backlog ontology** note (items are flat rows; epic decomposition lives in `epic_tasks` keyed on `(epic_id, task_num)` where `epic_id` is the epic item's own `items.id`), the **DB Claim — unified amendment workflow**, and the `deploy_stage` cache contract.
+- [items-and-epics.md](db-reference/items-and-epics.md) — `items`, `item_sections`, `shepherd_verdicts`, `caveat_dispositions`, `item_dependencies`, `ouroboros_entries`, `epic_tasks`, `epic_task_files`, `epic_dispatch_chains`, `item_progress_view`, `epic_progress_notes`. Includes the **Backlog ontology** note (items are flat rows; epic decomposition lives in `epic_tasks` keyed on `(epic_id, task_num)` where `epic_id` is the epic item's own `items.id`), the **DB Claim — unified amendment workflow**, and the `deploy_stage` cache contract.
 - [qa-and-sessions.md](db-reference/qa-and-sessions.md) — `qa_requirements`, `qa_runs`, `qa_artifacts`, `release_entries`, `merge_locks`, `harness_sessions`, `work_claims`. Includes session-offer endpoint behavior and chain checkpoint persistence.
 - [projects-and-flows.md](db-reference/projects-and-flows.md) — `projects`, the Project Structure aggregate (state/entries/audit), `sites`, `environments`, `project_capabilities`, `capability_secrets`, `capability_templates`, `deployment_flows`. Includes deployment-flow defaulting rules and seed data.
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_preview_environments`, `ephemeral_environments`. Includes the branch-naming contract.
@@ -97,7 +97,7 @@ When a normal command runs against an existing DB whose baseline schema is missi
 
 ### Retired schema surface registry
 
-Columns (and tables) retired across a project's governed migration lifecycle are catalogued in [`runtime/api/domain/retired_schema_surfaces.yaml`](../runtime/api/domain/retired_schema_surfaces.yaml). The registry is the single live source authorised to name retired columns by their literal identifier.
+Columns (and tables) retired across a project's governed migration lifecycle are catalogued in the retired-schema registry. The registry is the single live source authorised to name retired columns by their literal identifier.
 
 It feeds three downstream checks:
 
@@ -122,7 +122,7 @@ Adding a new retirement: the governed cutover lands first (authoritative DB no l
 | `events` | `yoke_core.domain.events_crud` | Structured event logging and event registry |
 | `qa` | `yoke_core.domain.qa` | QA requirements, runs, and artifacts |
 | `release` | `yoke_core.domain.release_notes` | Release notes management |
-| `ouroboros` | `yoke_core.domain.ouroboros` | Learning loop entries and wrapups |
+| `ouroboros` | `yoke_core.domain.ouroboros` | Learning loop entries and field-notes |
 | `query` | parameterized read-only SQL escape hatch | Raw SQL for exploratory reads — not for lifecycle mutations |
 | `init` | `yoke_core.engines.schema` | Initialize DB schema |
 | `help` | built-in | Print domain list or domain-specific subcommands |
@@ -135,13 +135,13 @@ creation adapters are internal to that workflow or test/dry-run surfaces.
 **Examples:**
 ```sh
 # Item reads
-yoke items get YOK-N status
+yoke items get PREFIX-N status
 yoke items list --status implementing
 yoke items list --status done --fields id,title,status --limit 100
 
 # Item writes
 /yoke idea "my title"
-yoke lifecycle transition YOK-N --to implementing
+yoke lifecycle transition PREFIX-N --to implementing
 
 # Epic task operations
 yoke epic-tasks list --epic 42
@@ -156,28 +156,28 @@ yoke workflow-item epic-task body-get --epic 42 --task-num 3
 yoke ouroboros entry list --unreviewed
 
 # Shepherd
-yoke shepherd dependency-list YOK-N
+yoke shepherd dependency-list PREFIX-N
 
 # Structured field reads
-yoke items get YOK-N spec
-yoke items get YOK-N design_spec
-yoke items get YOK-N technical_plan
+yoke items get PREFIX-N spec
+yoke items get PREFIX-N design_spec
+yoke items get PREFIX-N technical_plan
 
 # Structured field writes
 # Each CLI adapter constructs a FunctionCallRequest internally and dispatches through the same registry.
-printf '%s' "$SPEC_CONTENT" | yoke items structured-field replace YOK-N --field spec --stdin
-printf '%s' "$DESIGN_CONTENT" | yoke items structured-field replace YOK-N --field design_spec --stdin
+printf '%s' "$SPEC_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin
+printf '%s' "$DESIGN_CONTENT" | yoke items structured-field replace PREFIX-N --field design_spec --stdin
 
 # Item sections
-yoke items section upsert YOK-N --section "Goals" --content-file /tmp/goals.md --ordering 100
-yoke items section get YOK-N --section "Goals"
-yoke items get YOK-N --json
-yoke items section delete YOK-N --section "Goals"
+yoke items section upsert PREFIX-N --section "Goals" --content-file /tmp/goals.md --ordering 100
+yoke items section get PREFIX-N --section "Goals"
+yoke items get PREFIX-N --json
+yoke items section delete PREFIX-N --section "Goals"
 
 # Section-preserving structured transforms
-yoke items structured-field section-upsert YOK-N --section "Goals" --content-file /tmp/goals.md --ordering 100 --source operator
-yoke items structured-field section-append YOK-N --section "Progress Log" --headline "Polish verification" --content-file /tmp/update.md --source operator
-yoke items structured-field append-addendum YOK-N --field shepherd_caveats --heading "Polish verification" --content-file /tmp/caveat.md --source operator
+yoke items structured-field section-upsert PREFIX-N --section "Goals" --content-file /tmp/goals.md --ordering 100 --source operator
+yoke items structured-field section-append PREFIX-N --section "Progress Log" --headline "Polish verification" --content-file /tmp/update.md --source operator
+yoke items structured-field append-addendum PREFIX-N --field shepherd_caveats --heading "Polish verification" --content-file /tmp/caveat.md --source operator
 
 # Project operations
 yoke projects get --project external-webapp --field github_repo
@@ -201,8 +201,8 @@ yoke events anomalies --min-severity WARN
 
 # QA requirements and runs
 # Item-bound review requirement / run (full schema in db-reference/qa-cli-and-body-write.md)
-yoke qa requirement add --item YOK-N --qa-kind implementation_review --qa-phase verification --workflow-transition reviewed-implementation
-yoke qa requirement list --item YOK-N
+yoke qa requirement add --item PREFIX-N --qa-kind implementation_review --qa-phase verification --workflow-transition reviewed-implementation
+yoke qa requirement list --item PREFIX-N
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 yoke qa run add --requirement-id 1 --executor-type agent --qa-kind implementation_review --verdict pass
 yoke qa run list --requirement-id 1
@@ -275,10 +275,10 @@ The `coordination_leases.lease_id` join already linked the audit row to the leas
 CLI shape (both subcommands):
 
 ```bash
-python3 -m yoke_core.domain.migration_apply rehearse YOK-N \
+python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N \
   --module-path-override /path/under/active/worktree/<slug>.py
 
-python3 -m yoke_core.domain.migration_apply live-apply YOK-N \
+python3 -m yoke_core.domain.migration_apply live-apply PREFIX-N \
   --module-path-override /path/under/active/worktree/<slug>.py
 ```
 
@@ -318,7 +318,7 @@ These columns are annotated `-- → JSONB on Postgres` at their declaration site
 
 - `items.spec`, `items.design_spec`, `items.technical_plan`, `items.worktree_plan`, `items.shepherd_log`, `items.shepherd_caveats`, `items.test_results`, `items.deploy_log` — structured markdown per the virtual-body-field model (`docs/archive/decisions/virtual-body-field.md`).
 - `epic_progress_notes.body` — markdown.
-- `shepherd_verdicts.caveats`, `ouroboros_entries.body`, `wrapup_reports.body` — markdown.
+- `shepherd_verdicts.caveats`, `ouroboros_entries.body` — markdown.
 - `release_entries.title`, `release_entries.version`, `release_entries.category`, `release_entries.project` — plain-text identifiers.
 
 Postgres target for markdown/plain-text columns: `TEXT` (or `VARCHAR(N)` for bounded identifiers).

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 
 from yoke_core.engines.done_transition_runtime import (  # noqa: F401
@@ -41,7 +40,6 @@ from yoke_core.engines.done_transition_cascade import (  # noqa: F401
     _update_status_to_done,
     _cascade_epic_tasks_to_done,
     _batch_github_sync_tasks,
-    _cross_project_commit_guard,
     _pre_merge_commit,
     _do_merge,
     _cleanup_stale_branches,
@@ -82,11 +80,12 @@ def main(argv: list[str] | None = None) -> int:
         elif arg == "--skip-qa":
             skip_qa = True
         elif item_id is None:
-            cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", arg).lstrip("0")
-            if not cleaned.isdigit():
+            from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+            item_id = parse_item_id_or_none(arg, allow_bare_internal=True)
+            if item_id is None:
                 print(f"Error: unexpected argument: {arg}", file=sys.stderr)
                 return 2
-            item_id = int(cleaned)
         else:
             print(f"Error: unexpected argument: {arg}", file=sys.stderr)
             return 2

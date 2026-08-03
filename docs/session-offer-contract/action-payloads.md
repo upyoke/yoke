@@ -1,6 +1,6 @@
 # Action-Specific Context Payloads
 
-The `NextAction.context` dict carries action-specific data. These are conventions, not enforced schemas — adapters should handle missing keys gracefully. Cross-link back from [session-offer-contract.md](../session-offer-contract.md) for the request envelope, response envelope, identity model, event shapes, and adapter responsibilities that surround these payloads.
+The `NextAction.context` dict carries action-specific data. These are conventions, not enforced schemas — adapters should handle missing keys gracefully. Cross-link back from [session-offer-contract.md](../../.yoke/docs/session-offer-contract.md) for the request envelope, response envelope, identity model, event shapes, and adapter responsibilities that surround these payloads.
 
 ## resume
 
@@ -47,18 +47,18 @@ Repeated same-session `resume` responses are also bounded: if the prior persiste
 ```
 
 The `scheduler.next_step` field is resolved from the pinned definition's
-registered executor binding and tells the adapter which command to invoke:
-- `refine` — run the refinement executor
-- `shepherd` — run the design/planning executor
-- `conduct` — run the task-graph implementation executor
-- `advance` — run the item-level implementation executor
+registered skill binding and tells the adapter which command to invoke:
+- `refine` — run the refinement skill
+- `shepherd` — run the design/planning skill
+- `conduct` — run the task-graph implementation skill
+- `advance` — run the item-level implementation skill
 - `polish` — item in reviewed-implementation/polishing-implementation, run polish pipeline
 - `usher` — implemented/release, merge and deploy
 
 `scheduler.adapter` remains a coarse ranking category. `scheduler.next_step`
 is the dispatch truth from the pinned workflow.
 
-Yoke core checks the configured allowlist for the offering session's actual lane (`lane_paths_*`). If the required downstream path is not allowed for that lane, the decision engine returns `WAIT`.
+Yoke core checks the configured allowlist for the offering session's actual lane (`lane_paths.<LANE>` in the `session-routing` capability). If the required downstream path is not allowed for that lane, the decision engine returns `WAIT`.
 
 ## Session Shutdown
 
@@ -128,6 +128,25 @@ When the frontier also carries lane-filtered detail (current session's lane excl
 }
 ```
 
+Every offer response carries a numbered `offer_diagnostics` object in
+`context`, including WAITs and process-policy skips. The decision engine and
+the `/yoke do` loop use `top_eliminator.summary` for the short human message;
+the full chain remains available to event and offer-envelope consumers:
+
+```json
+{
+ "candidate_total": 13,
+ "elimination_chain": [
+  {"filter": "lane_compatibility", "candidates_before": 13, "eliminated": 13, "candidates_after": 0, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths.ALTMAN", "config_source": "project capability session-routing"},
+  {"filter": "wip_cap", "candidates_before": 0, "eliminated": 0, "cap": 5, "active": 0, "occupying_items": []},
+  {"filter": "claim_state", "candidates_before": 0, "eliminated": 0, "claim_state_counts": {}},
+  {"filter": "posture_gate_holds", "candidates_before": 13, "eliminated": 0, "blocked": 0, "exceptional": 0, "frozen": 0},
+  {"filter": "process_offers", "candidates_before": 3, "eliminated": 2, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "process_offers.feed", "config_source": "project capability session-routing"}]}
+ ],
+ "top_eliminator": {"filter": "lane_compatibility", "eliminated": 13, "summary": "..."}
+}
+```
+
 ### wait — no lane-compatible work
 
 When the decision engine returns `wait` with `wait_reason: "no_lane_compatible_work"`, the frontier has items but the offering session's lane policy filters every one of them. Blocker-driven `escalate` retains precedence — this WAIT only fires when no blockers/exceptional items are present and the SML is coherent. The context carries the lane situation:
@@ -189,7 +208,7 @@ When the decision engine recommended a process-backed action (`feed` or `strateg
 }
 ```
 
-Lane WAITs do **not** carry `skipped_process` and are not recorded as disabled-process skip memory. Skip memory is reserved for `do_process_offer_*=false` policy blocks (see `session_decision_process_gate.record_disabled_process_skip`). Operators reading the WAIT need only the `actual_lane` + `required_path` pair to act: either widen the lane allowlist (`lane_paths_<lane>=...,feed`) or switch to a lane that already permits the path.
+Lane WAITs do **not** carry `skipped_process` and are not recorded as disabled-process skip memory. Skip memory is reserved for `do_process_offer_*=false` policy blocks (see `session_decision_process_gate.record_disabled_process_skip`). Operators reading the WAIT need only the `actual_lane` + `required_path` pair to act: either widen the lane allowlist (`yoke projects capability-settings merge --cap-type session-routing --set 'lane_paths.<LANE>=[...,"feed"]'`) or switch to a lane that already permits the path.
 
 ### wait — disabled process suppressed (no alternative)
 

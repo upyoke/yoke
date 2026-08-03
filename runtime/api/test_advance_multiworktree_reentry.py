@@ -23,7 +23,7 @@ class TestAdvanceSkillReentry:
         """A single implementation lane reads the canonical lane model."""
         text = self._read()
         assert 'if [ "$_worktree_policy" = "single_implementation_lane" ]; then' in text
-        assert "_wt_branch=$(yoke item-worktrees get YOK-{N}" in text
+        assert "_wt_branch=$(yoke item-worktrees get PREFIX-{N}" in text
         assert "--lane-role implementation --field branch" in text
         assert "yoke items get {N} worktree" not in text
 
@@ -99,7 +99,7 @@ class TestLanePolicySurfaces:
         """Deployed-stack QA delegates a multi-lane policy to conduct."""
         text = PROJECT_E2E_MD.read_text()
         assert "worktrees=worker_and_integration_lanes" in text
-        assert "pinned `conduct` executor" in text
+        assert "pinned `conduct` skill" in text
         assert "parent item has no single" in text
 
     def test_preflight_recovery_uses_resolver(self):

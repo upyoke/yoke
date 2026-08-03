@@ -1,6 +1,6 @@
 """Yoke function-call dispatcher — synchronous routing layer.
 
-Single entry point :func:`dispatch` performs envelope validation, registry
+Control-plane entry point :func:`dispatch` performs envelope validation, registry
 lookup, claim verification, idempotency replay, handler dispatch, and
 event emission. The dispatcher is *thin* — it does not store data, does
 not validate payload shape (handlers do), and does not duplicate domain
@@ -18,6 +18,9 @@ deleted. The dispatcher is a first pass, not the permanent end-state.
 Public surface:
 
 - :func:`dispatch` — synchronous in-process entry point.
+- :func:`dispatch_local` — routes explicitly client-local functions without
+  touching control-plane identity, ledger, permission, claim, or event state;
+  every other function falls through to :func:`dispatch`.
 
 Sibling modules:
 
@@ -322,4 +325,13 @@ def dispatch(
         return response
 
 
-__all__ = ["dispatch"]
+def dispatch_local(request: Any) -> FunctionCallResponse:
+    """Dispatch from the caller's machine with client-local scope awareness."""
+    from yoke_core.domain.yoke_function_dispatch_client_local import (
+        dispatch_client_local,
+    )
+
+    return dispatch_client_local(request)
+
+
+__all__ = ["dispatch", "dispatch_local"]

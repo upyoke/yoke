@@ -31,6 +31,18 @@
       "stop_hook"
     ]
   },
+  "worktree_hook_enablement": {
+    "config_path": ".codex/hooks.json",
+    "operations": [
+      "verify_hook_config",
+      "mirror_hook_trust",
+      "verify_environment_export"
+    ],
+    "environment": {
+      "root_variable": "YOKE_ROOT",
+      "root_expression": "${YOKE_ROOT:-$PWD}"
+    }
+  },
   "telemetry": {
     "canonical_source": "yoke_core",
     "optional_local_sources": [

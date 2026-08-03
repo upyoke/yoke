@@ -20,7 +20,7 @@ class TestSessionEndCommand:
     """Tests for service_client.py session-end command."""
 
     def test_session_end_auto_releases_active_claims(self, session_offer_db):
-        """AC-1/AC-11: session-end (no flags) auto-releases claims and ends.
+        """Session-end (no flags) auto-releases claims and ends.
 
         Detailed released_claims payload assertions live in the sibling
         test_service_client_sessions_end_claim_release.py.
@@ -130,7 +130,7 @@ class TestSessionEndCommand:
         assert data["code"] == "CHAIN_PENDING"
 
     def test_session_end_force_alone_still_returns_chain_pending(self, session_offer_db):
-        """AC-9 / AC-13: ``--force`` alone no longer bypasses CHAIN_PENDING via the CLI."""
+        """``--force`` alone no longer bypasses CHAIN_PENDING via the CLI."""
         sid = "end-chain-force"
         checkpoint = {
             "step": 1,
@@ -174,7 +174,7 @@ class TestSessionEndCommand:
         assert data["code"] == "CHAIN_PENDING"
 
     def test_session_end_override_without_rationale_returns_2(self, session_offer_db):
-        """AC-9 / AC-13: ``--override-chain-end`` without rationale fails fast at exit 2."""
+        """``--override-chain-end`` without rationale fails fast at exit 2."""
         sid = "end-empty-rationale"
         checkpoint = {
             "step": 1, "action": "resume", "chainable": True,
@@ -210,7 +210,7 @@ class TestSessionEndCommand:
         assert data["code"] == "OVERRIDE_RATIONALE_REQUIRED"
 
     def test_session_end_override_with_rationale_no_claims_succeeds(self, session_offer_db):
-        """AC-9 / AC-13: ``--override-chain-end --chain-end-rationale TEXT`` ends the session."""
+        """``--override-chain-end --chain-end-rationale TEXT`` ends the session."""
         sid = "end-override-noclaim"
         checkpoint = {
             "step": 1, "action": "resume", "chainable": True,

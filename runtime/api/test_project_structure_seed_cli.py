@@ -44,7 +44,7 @@ class TestSeed:
     # no project-level deployment default; callers treat absence as a valid
     # "no project default" state.
     # ``architecture_model`` is in the optional set until Slice 6
-    # authors the concrete yoke architecture_model.payload seed; AC-2 lands
+    # authors the concrete yoke architecture_model.payload seed, which lands
     # there alongside the AGENTS.md architecture-model documentation surface.
     _SEED_COVERAGE_OPTIONAL = {
         "deploy_defaults", "architecture_model",

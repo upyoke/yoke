@@ -98,6 +98,22 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="item",
     )
+    registry.register(
+        "item_worktrees.release_merged_lane",
+        _item_worktrees.handle_release_merged_lane,
+        _item_worktrees.ItemWorktreesReleaseMergedLaneRequest,
+        _item_worktrees.ItemWorktreesReleaseMergedLaneResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.item_worktrees",
+        target_kinds=["item"],
+        side_effects=["item_worktrees_update_state"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["actor_holds_item_claim"],
+        # No CLI adapter by design: the merge engine is the only caller, and
+        # it invokes this in the same act that removes the lane directory.
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
 
 
 __all__ = ["register"]

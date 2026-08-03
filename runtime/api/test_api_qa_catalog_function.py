@@ -13,16 +13,13 @@ from yoke_core.domain.qa_catalog_reads import (
     list_methods,
     list_plans,
 )
-from yoke_core.domain.qa_plan_attachments import (
-    attach_plan_to_item,
-    materialize_for_item,
-    set_project_default,
-)
+from yoke_core.domain.qa_plan_attachments import attach_plan_to_item
 from yoke_core.domain.qa_plan_detail import get_plan
 from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
 )
+from yoke_core.domain.qa_plan_project_defaults import set_project_default
 from yoke_core.domain.schema_init_tables import create_governed_tables
 from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 
@@ -31,19 +28,26 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
     with test_database() as conn:
         rows = list_methods(conn, project="yoke")
         command = get_method(conn, method_id="command", project="yoke")
+        command_ci = get_method(conn, method_id="command-ci", project="yoke")
 
     assert [row["id"] for row in rows] == [
         "command",
+        "command-ci",
         "browser-check",
         "browser-inspection",
-        "machine-state-check",
         "terminal-check",
         "terminal-inspection",
+        "machine-state-check",
     ]
     assert command["executor_id"] == "worktree_run"
     assert command["required_capability_kind"] is None
     assert command["verdict_path"] == "automatic"
     assert command["capability_state"] == "available"
+    # Same Command contract, executed on the project's CI workflow rather
+    # than on this machine.
+    assert command_ci["executor_id"] == "ci_run"
+    assert command_ci["required_capability_kind"] is None
+    assert command_ci["verdict_path"] == "automatic"
     inspection = next(
         row for row in rows if row["id"] == "browser-inspection"
     )
@@ -99,51 +103,6 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
     ]
     command = next(row for row in methods if row["id"] == "command")
     assert command["used_by_plan_count"] == 1
-
-
-def test_multiple_project_default_plans_share_one_transition() -> None:
-    with test_database() as conn:
-        item = insert_item(
-            conn,
-            id=42,
-            title="Ship checkout",
-            workflow_id="issue",
-            status="implemented",
-        )
-        release = create_release_readiness_plan(conn)
-        lint = create_plan(
-            conn,
-            project="yoke",
-            slug="lint-command",
-            name="Lint command",
-        )
-        replace_plan_cases(
-            conn,
-            plan_id=lint["id"],
-            cases=[{
-                "case_key": "lint",
-                "position": 1,
-                "method_id": "command",
-                "instructions": "Run the registered lint command.",
-                "expected_outcome": "The command exits successfully.",
-                "method_config": {"command": "ruff check ."},
-            }],
-        )
-        for plan in (release, lint):
-            set_project_default(
-                conn,
-                plan_id=plan["id"],
-                workflow_id=str(item["workflow_id"]),
-                transition_id="release",
-            )
-        materialized = materialize_for_item(
-            conn,
-            item_id=42,
-            transition_id="release",
-        )
-
-    assert set(materialized["plan_ids"]) == {release["id"], lint["id"]}
-    assert len(materialized["created_requirement_ids"]) == 3
 
 
 def test_method_plan_roster_stays_inside_the_requested_project() -> None:

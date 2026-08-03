@@ -72,7 +72,7 @@ class TestIntrinsicReasonsAdapter:
     """Adapter parity tests for FrontierState.intrinsic_blocked_reasons."""
 
     def test_intrinsic_only_populates_intrinsic_channel_and_leaves_gates_none(self):
-        """AC-2: intrinsic-only blockage -> intrinsic_blocked_reasons populated, blocked_details=None."""
+        """Intrinsic-only blockage -> intrinsic_blocked_reasons populated, blocked_details=None."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -99,7 +99,7 @@ class TestIntrinsicReasonsAdapter:
         assert entry["reasons"] == bs.blocked_reasons
 
     def test_gates_only_populates_blocked_details_and_leaves_intrinsic_none(self):
-        """AC-2: gate-only blockage -> blocked_details populated, intrinsic_blocked_reasons=None."""
+        """Gate-only blockage -> blocked_details populated, intrinsic_blocked_reasons=None."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -121,7 +121,7 @@ class TestIntrinsicReasonsAdapter:
         assert result.intrinsic_blocked_reasons is None
 
     def test_both_channels_coexist_when_step_carries_intrinsic_and_gate(self):
-        """AC-7: both channels populate when a step has both intrinsic reasons and unsatisfied gates."""
+        """Both channels populate when a step has both intrinsic reasons and unsatisfied gates."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -147,7 +147,7 @@ class TestIntrinsicReasonsAdapter:
         assert any("operator" in r.lower() for r in intrinsic["reasons"])
 
     def test_idea_incomplete_reason_string_round_trips_verbatim(self):
-        """AC-5: idea-incomplete reason from frontier_compute._IDEA_INCOMPLETE_REASON arrives verbatim."""
+        """Idea-incomplete reason from frontier_compute._IDEA_INCOMPLETE_REASON arrives verbatim."""
         from yoke_core.domain.idea_body_completeness import INCOMPLETE_REASON as _IDEA_INCOMPLETE_REASON
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
@@ -169,7 +169,7 @@ class TestIntrinsicReasonsAdapter:
         assert _IDEA_INCOMPLETE_REASON in result.intrinsic_blocked_reasons[0]["reasons"][0]
 
     def test_operator_block_rendering_round_trips(self):
-        """AC-6: operator-set block rendering ``Blocked by operator: <reason>`` arrives verbatim."""
+        """Operator-set block rendering ``Blocked by operator: <reason>`` arrives verbatim."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -184,7 +184,7 @@ class TestIntrinsicReasonsAdapter:
         assert result.intrinsic_blocked_reasons[0]["reasons"] == [rendered]
 
     def test_routed_ownership_defense_reason_round_trips(self):
-        """AC-11: routed-ownership defense reason surfaces through intrinsic_blocked_reasons."""
+        """Routed-ownership defense reason surfaces through intrinsic_blocked_reasons."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -202,7 +202,7 @@ class TestIntrinsicReasonsAdapter:
         assert result.intrinsic_blocked_reasons[0]["reasons"] == [routed_reason]
 
     def test_both_channels_none_when_blocked_steps_empty(self):
-        """AC-10 supporting case: empty blocked_steps leaves both channels None."""
+        """Empty blocked_steps leaves both channels None."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -233,7 +233,7 @@ class TestDecisionEngineEscalateCopy:
         )
 
     def test_escalate_branch_copies_intrinsic_blocked_reasons(self):
-        """AC-3: when intrinsic_blocked_reasons is non-empty, the escalate context carries it."""
+        """When intrinsic_blocked_reasons is non-empty, the escalate context carries it."""
         from yoke_core.domain.session_contract import FrontierState
         from yoke_core.domain.session_decision import decide_next_action
 
@@ -255,7 +255,7 @@ class TestDecisionEngineEscalateCopy:
         assert action.context.get("intrinsic_blocked_reasons") == frontier.intrinsic_blocked_reasons
 
     def test_escalate_branch_omits_intrinsic_key_when_field_is_none(self):
-        """AC-10 supporting: when intrinsic_blocked_reasons is None, escalate ctx does not set the key."""
+        """When intrinsic_blocked_reasons is None, escalate ctx does not set the key."""
         from yoke_core.domain.session_contract import FrontierState
         from yoke_core.domain.session_decision import decide_next_action
 

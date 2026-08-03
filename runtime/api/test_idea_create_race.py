@@ -296,10 +296,9 @@ def test_layer2_title_only_idea_is_classified_blocked():
     assert isinstance(result, FrontierResult)
     runnable_ids = [fi.item_id for fi in result.runnable]
     blocked_ids = [fi.item_id for fi in result.blocked]
-    stale_ref = f"YOK-{stale_id}"
-    assert stale_ref in blocked_ids
-    assert f"YOK-{real_id}" in runnable_ids
-    blocked_50 = next(fi for fi in result.blocked if fi.item_id == stale_ref)
+    assert stale_id in blocked_ids
+    assert real_id in runnable_ids
+    blocked_50 = next(fi for fi in result.blocked if fi.item_id == stale_id)
     assert blocked_50.adapter == AdapterCategory.WAIT
     assert any(INCOMPLETE_REASON in r for r in blocked_50.blocked_reasons)
 
@@ -313,7 +312,7 @@ def test_layer2_empty_spec_idea_is_classified_blocked():
 
     result = compute_frontier(conn, project_scope=["yoke"])
     blocked_ids = [fi.item_id for fi in result.blocked]
-    assert f"YOK-{item_num}" in blocked_ids
+    assert item_num in blocked_ids
 
 
 def test_layer2_helper_recognises_title_only_row():

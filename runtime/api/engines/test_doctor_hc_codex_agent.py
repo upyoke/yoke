@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.engines import doctor_hc_codex_agent as mod
-from yoke_core.engines.doctor_hc_codex_agent import (
+from yoke_project_checks import check_codex_agent as mod
+from yoke_project_checks.check_codex_agent import (
     _CANONICAL_AGENTS,
     hc_codex_agent_adapter_drift,
     hc_codex_subagent_surface_truth,
@@ -112,7 +112,7 @@ def test_adapter_drift_picks_up_per_role_subdir_fragments(monkeypatch, tmp_path,
 
 
 def test_adapter_drift_fail_on_stale_schema_residue(monkeypatch, tmp_path, conn):
-    """AC-10: an adapter carrying the retired schema (prompt / string tools /
+    """An adapter carrying the retired schema (prompt / string tools /
     max_turns / model="opus") fails the HC even when its canonical body is
     present — the schema-residue scan is independent of byte parity."""
     root = _make_adapter_tree(tmp_path)

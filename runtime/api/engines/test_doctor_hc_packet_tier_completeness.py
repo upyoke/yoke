@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.engines import doctor_hc_packet_tier_completeness as mod
-from yoke_core.engines.doctor_hc_packet_tier_completeness import (
+from yoke_project_checks import check_packet_tier_completeness as mod
+from yoke_project_checks.check_packet_tier_completeness import (
     HC_SLUG,
     SKILL_SCAN_TARGETS,
     hc_packet_tier_completeness,
@@ -87,7 +87,7 @@ def _packet_section(topic: str, table_bullets: list[tuple[str, str]]) -> str:
     return "".join(lines) + "\n"
 
 
-# --- AC-7 Check A: anchor-positive case ---
+# --- Check A: anchor-positive case ---
 
 
 def test_check_a_anchor_positive_qa_requirements_required(
@@ -110,7 +110,7 @@ def test_check_a_anchor_positive_qa_requirements_required(
     assert "missing column qa_requirements.required" in _detail(rec)
 
 
-# --- AC-7 Anchor distinguisher (column in neighbouring bullet, not target) ---
+# --- Anchor distinguisher (column in neighbouring bullet, not target) ---
 
 
 def test_check_a_anchor_distinguisher_lane_link_in_epic_tasks_bullet(
@@ -176,7 +176,7 @@ def test_check_a_rejects_longer_compact_column_token(
     assert "deployment_runs" in _detail(rec)
 
 
-# --- AC-7 Check B (main_agent envelope) ---
+# --- Check B (main_agent envelope) ---
 
 
 def test_check_b_envelope_missing_actor(tmp_path, monkeypatch, conn):
@@ -208,7 +208,7 @@ def test_check_b_envelope_missing_function_id(tmp_path, monkeypatch, conn):
     assert "REQUIRED_FUNCTION_IDS" in _detail(rec)
 
 
-# --- AC-7 Check B negative: live packet passes ---
+# --- Check B negative: live packet passes ---
 
 
 def test_check_b_negative_live_main_agent_packet_passes_envelope(
@@ -225,7 +225,7 @@ def test_check_b_negative_live_main_agent_packet_passes_envelope(
     assert "REQUIRED_FUNCTION_IDS" not in detail
 
 
-# --- AC-7 Edge: missing skill files emit staleness WARN (not FAIL) ---
+# --- Edge: missing skill files emit staleness WARN (not FAIL) ---
 
 
 def test_missing_skill_file_emits_staleness_warn(tmp_path, monkeypatch, conn):
@@ -260,7 +260,7 @@ def test_missing_skill_file_emits_one_finding_per_path(
     assert rel_a in detail and rel_b in detail
 
 
-# --- AC-7 Edge: empty SKILL_SCAN_TARGETS[role] skips role cleanly ---
+# --- Edge: empty SKILL_SCAN_TARGETS[role] skips role cleanly ---
 
 
 def test_empty_targets_for_role_skips_cleanly(tmp_path, monkeypatch, conn):
@@ -279,7 +279,7 @@ def test_empty_targets_for_role_skips_cleanly(tmp_path, monkeypatch, conn):
     assert "missing skill path" not in detail
 
 
-# --- AC-6: other roles skip Check B ---
+# --- Other roles skip Check B ---
 
 
 def test_engineer_agent_does_not_trigger_envelope_check(

@@ -38,7 +38,6 @@ _SCHEMA_DDL = """
         workflow_version_id INTEGER,
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
-        flow TEXT DEFAULT 'accelerated',
         rework_count INTEGER DEFAULT 0,
         frozen INTEGER DEFAULT 0,
         github_issue TEXT,
@@ -155,10 +154,10 @@ def _seed(db_path: str) -> None:
         from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
         stages_json = json.dumps([
-            {"name": "merged", "executor": "auto"},
-            {"name": "approve-deploy", "executor": "human-approval"},
-            {"name": "prod-deploy", "executor": "github-actions-workflow"},
-            {"name": "complete", "executor": "auto"},
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "approve-deploy", "step_runner": "human-approval"},
+            {"name": "prod-deploy", "step_runner": "github-actions-workflow"},
+            {"name": "complete", "step_runner": "auto"},
         ])
         conn.execute(
             """INSERT INTO deployment_flows (id, project_id, name, stages, created_at)

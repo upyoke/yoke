@@ -31,7 +31,9 @@ from runtime.api.fixtures.pg_testdb import test_database
 
 def _issue(number: int, title: str) -> github_rest.Issue:
     return github_rest.Issue(
-        number=number, title=title, state="OPEN",
+        number=number,
+        title=title,
+        state="OPEN",
         html_url=f"https://github.com/org/externalwebapp/issues/{number}",
     )
 
@@ -40,8 +42,8 @@ def _issue(number: int, title: str) -> github_rest.Issue:
 def epic_db():
     with test_database() as conn:
         conn.execute(
-            "UPDATE projects SET github_repo = %s WHERE id = %s",
-            ("org/externalwebapp", SEED_PROJECT_IDS["externalwebapp"]),
+            "UPDATE projects SET github_repo = %s, github_sync_mode = %s WHERE id = %s",
+            ("org/externalwebapp", "enabled", SEED_PROJECT_IDS["externalwebapp"]),
         )
         conn.commit()
         yield conn
@@ -68,15 +70,19 @@ def _mock_project_github_auth():
         repo="org/externalwebapp",
         token="ghs_externalwebapp_test",
     )
-    with patch(
-        "yoke_core.domain.epic_task_sync_github_orchestrator.resolve_project_github_auth",
-        return_value=auth,
-    ), patch(
-        "yoke_core.domain.epic_task_sync_github.resolve_project_github_auth",
-        return_value=auth,
-    ), patch(
-        "yoke_core.domain.epic_task_sync_github_create.resolve_project_github_auth",
-        return_value=auth,
+    with (
+        patch(
+            "yoke_core.domain.epic_task_sync_github_orchestrator.resolve_project_github_auth",
+            return_value=auth,
+        ),
+        patch(
+            "yoke_core.domain.epic_task_sync_github.resolve_project_github_auth",
+            return_value=auth,
+        ),
+        patch(
+            "yoke_core.domain.epic_task_sync_github_create.resolve_project_github_auth",
+            return_value=auth,
+        ),
     ):
         yield
 
@@ -85,16 +91,23 @@ def _mock_project_github_auth():
 def _stub_typed_rest_surfaces():
     """Stub the non-dedup typed surfaces so the orchestrator's pre-create
     label seeding and sub-issue fallback don't try real REST."""
-    with patch(
-        "yoke_core.domain.epic_task_sync_github._label_rest.ensure_label",
-    ), patch(
-        "yoke_core.domain.github_rest.add_sub_issue",
-        side_effect=github_rest.RestTransportError("sub-issue not supported", status=404),
-    ), patch(
-        "yoke_core.domain.epic_task_sync_github_orchestrator_body."
-        "append_task_list_to_epic_body",
-    ), patch(
-        "yoke_core.domain.backlog_github_label_sync_rest.add_labels",
+    with (
+        patch(
+            "yoke_core.domain.epic_task_sync_github._label_rest.ensure_label",
+        ),
+        patch(
+            "yoke_core.domain.github_rest.add_sub_issue",
+            side_effect=github_rest.RestTransportError(
+                "sub-issue not supported", status=404
+            ),
+        ),
+        patch(
+            "yoke_core.domain.epic_task_sync_github_orchestrator_body."
+            "append_task_list_to_epic_body",
+        ),
+        patch(
+            "yoke_core.domain.backlog_github_label_sync_rest.add_labels",
+        ),
     ):
         yield
 
@@ -107,8 +120,10 @@ def _patches(*, dedup_results, create_response=None):
     ``None`` when the test expects no creation).
     """
     if create_response is None:
+
         def _create_side(*a, **kw):
             raise AssertionError("Should not create — dedup should find existing")
+
         create_kwargs = {"side_effect": _create_side}
     else:
         create_kwargs = {"return_value": create_response}
@@ -127,16 +142,27 @@ def _patches(*, dedup_results, create_response=None):
 
 class TestSyncEpicTasksDedup:
     def test_task_path_reuses_exact_prefix_match(self, epic_db):
-        """AC-5 (task path, exact reuse): typed list_issues whose title
+        """Task path, exact reuse: typed list_issues whose title
         matches the new-format prefix ``[YOK-N] NNN <task title>`` is
         reused (no create call).
         """
         insert_item(
-            epic_db, id=10, workflow_id="epic", status="implementing", project="externalwebapp",
-            spec="Epic body", github_issue="#99",
+            epic_db,
+            id=10,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+            spec="Epic body",
+            github_issue="#99",
         )
-        insert_epic_task(epic_db, epic_id="10", task_num=1, title="Some task",
-                         status="planned", body="body")
+        insert_epic_task(
+            epic_db,
+            epic_id="10",
+            task_num=1,
+            title="Some task",
+            status="planned",
+            body="body",
+        )
         set_no_files_scope(epic_db, 10, 1)
         finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
@@ -147,7 +173,9 @@ class TestSyncEpicTasksDedup:
         )
         with patches[0], patches[1]:
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10", conn=epic_db, stdout=stdout,
+                "YOK-10",
+                conn=epic_db,
+                stdout=stdout,
             )
 
         assert rc == 0
@@ -158,15 +186,26 @@ class TestSyncEpicTasksDedup:
         assert row[0] == "#555"
 
     def test_task_path_rejects_fuzzy_substring(self, epic_db):
-        """AC-5 (task path, fuzzy non-reuse) + AC-3 regression at the task
-        call site.
+        """Task path, fuzzy non-reuse: a title that merely contains a
+        similar substring is not reused at the task call site.
         """
         insert_item(
-            epic_db, id=1500, workflow_id="epic", status="implementing", project="externalwebapp",
-            spec="Epic body", github_issue="#99",
+            epic_db,
+            id=1500,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+            spec="Epic body",
+            github_issue="#99",
         )
-        insert_epic_task(epic_db, epic_id="1500", task_num=1, title="Decomp lower",
-                         status="planned", body="body")
+        insert_epic_task(
+            epic_db,
+            epic_id="1500",
+            task_num=1,
+            title="Decomp lower",
+            status="planned",
+            body="body",
+        )
         set_no_files_scope(epic_db, 1500, 1)
         finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
@@ -181,7 +220,9 @@ class TestSyncEpicTasksDedup:
         patches = _patches(dedup_results=[fuzzy], create_response=created)
         with patches[0], patches[1]:
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-1500", conn=epic_db, stdout=stdout,
+                "YOK-1500",
+                conn=epic_db,
+                stdout=stdout,
             )
 
         assert rc == 0
@@ -194,14 +235,26 @@ class TestSyncEpicTasksDedup:
         assert "#3543" not in stdout.getvalue()
 
     def test_parent_path_reuses_exact_prefix_match(self, epic_db):
-        """AC-5 (epic parent path, exact reuse): when the parent epic has
+        """Epic parent path, exact reuse: when the parent epic has
         no github_issue, the parent dedup search reuses an issue whose
         title starts with the exact bracketed prefix ``[YOK-N]``.
         """
-        insert_item(epic_db, id=10, workflow_id="epic", status="implementing",
-                    project="externalwebapp", spec="Epic body")
-        insert_epic_task(epic_db, epic_id="10", task_num=1, title="First task",
-                         status="planned", body="body")
+        insert_item(
+            epic_db,
+            id=10,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+            spec="Epic body",
+        )
+        insert_epic_task(
+            epic_db,
+            epic_id="10",
+            task_num=1,
+            title="First task",
+            status="planned",
+            body="body",
+        )
         set_no_files_scope(epic_db, 10, 1)
         finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
@@ -211,30 +264,49 @@ class TestSyncEpicTasksDedup:
         parent_match = _issue(808, "[YOK-10] Existing parent epic")
         task_created = _issue(9100, "[YOK-10] 001 First task")
 
-        with patch(
-            "yoke_core.domain.github_dedup.github_rest.list_issues",
-            side_effect=[[parent_match], [], []],
-        ), patch(
-            "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
-            return_value=task_created,
+        with (
+            patch(
+                "yoke_core.domain.github_dedup.github_rest.list_issues",
+                side_effect=[[parent_match], [], []],
+            ),
+            patch(
+                "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
+                return_value=task_created,
+            ),
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-10", conn=epic_db, stdout=stdout,
+                "YOK-10",
+                conn=epic_db,
+                stdout=stdout,
             )
 
         assert rc == 0
-        parent = epic_db.execute("SELECT github_issue FROM items WHERE id = 10").fetchone()
+        parent = epic_db.execute(
+            "SELECT github_issue FROM items WHERE id = 10"
+        ).fetchone()
         assert parent[0] == "#808"
         assert "reusing" in stdout.getvalue().lower()
 
     def test_parent_path_rejects_fuzzy_substring(self, epic_db):
-        """AC-5 (epic parent path, fuzzy non-reuse) + AC-3 regression at
-        the parent call site.
+        """Epic parent path, fuzzy non-reuse: a title that merely contains
+        a similar substring is not reused at the parent call site.
         """
-        insert_item(epic_db, id=1500, workflow_id="epic", status="implementing",
-                    project="externalwebapp", spec="Epic body")
-        insert_epic_task(epic_db, epic_id="1500", task_num=1, title="First task",
-                         status="planned", body="body")
+        insert_item(
+            epic_db,
+            id=1500,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+            spec="Epic body",
+        )
+        insert_epic_task(
+            epic_db,
+            epic_id="1500",
+            task_num=1,
+            title="First task",
+            status="planned",
+            body="body",
+        )
         set_no_files_scope(epic_db, 1500, 1)
         finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
@@ -249,18 +321,25 @@ class TestSyncEpicTasksDedup:
         # Parent dedup returns fuzzy (rejected) → parent create returns
         # epic_created; task dedup returns nothing → task create returns
         # task_created.
-        with patch(
-            "yoke_core.domain.github_dedup.github_rest.list_issues",
-            side_effect=[[fuzzy], [], []],
-        ), patch(
-            "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
-            side_effect=[epic_created, task_created],
+        with (
+            patch(
+                "yoke_core.domain.github_dedup.github_rest.list_issues",
+                side_effect=[[fuzzy], [], []],
+            ),
+            patch(
+                "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
+                side_effect=[epic_created, task_created],
+            ),
         ):
             rc = epic_task_sync.sync_epic_tasks(
-                "YOK-1500", conn=epic_db, stdout=stdout,
+                "YOK-1500",
+                conn=epic_db,
+                stdout=stdout,
             )
 
         assert rc == 0
-        parent = epic_db.execute("SELECT github_issue FROM items WHERE id = 1500").fetchone()
+        parent = epic_db.execute(
+            "SELECT github_issue FROM items WHERE id = 1500"
+        ).fetchone()
         assert parent[0] != "#3543"
         assert parent[0] == "#9001"

@@ -42,7 +42,6 @@ def create_core_tables(conn: Any) -> None:
           title TEXT NOT NULL,
           status TEXT NOT NULL,
           priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
-          flow TEXT DEFAULT 'accelerated',
           rework_count INTEGER DEFAULT 0,
           frozen INTEGER DEFAULT 0 CHECK(frozen IN (0,1)),
           blocked INTEGER DEFAULT 0 CHECK(blocked IN (0,1)),
@@ -74,12 +73,6 @@ def create_core_tables(conn: Any) -> None:
           archived_at TEXT,
           created_at TEXT NOT NULL,
           project_id INTEGER DEFAULT NULL REFERENCES projects(id)
-        );
-        CREATE TABLE IF NOT EXISTS wrapup_reports (
-          id INTEGER PRIMARY KEY,
-          session_timestamp TEXT NOT NULL UNIQUE,
-          body TEXT NOT NULL,
-          created_at TEXT NOT NULL
         );
         -- durable bounded carry-forward for Strategize landed-work review:
         -- one row per (project_id, item_id) ever seen as landed. `state`
@@ -266,7 +259,9 @@ def create_core_tables(conn: Any) -> None:
           branch TEXT NOT NULL,
           epic_id TEXT,
           acquired_at TEXT NOT NULL,
-          expires_at TEXT NOT NULL
+          expires_at TEXT NOT NULL,
+          project_slug TEXT,
+          target_branch TEXT
         );
         CREATE TABLE IF NOT EXISTS item_sections (
           item_id INTEGER NOT NULL,

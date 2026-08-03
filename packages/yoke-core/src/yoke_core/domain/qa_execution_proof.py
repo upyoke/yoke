@@ -115,6 +115,7 @@ def qa_proof_summary(
     capture_degraded_reason: str | None,
     host_baseline: str | None,
     precondition_reason: str | None,
+    proof_kind: str | None = None,
 ) -> str:
     """Summarize evidence for the latest run, never the expected result."""
     if run_id is None:
@@ -130,17 +131,18 @@ def qa_proof_summary(
         return f"baseline {baseline} {reason} — case did not run"
 
     payload = _payload(raw_result)
+    selected_proof_kind = proof_kind or method_id
     evidence_count = sum(artifacts.values())
     screenshots = _matching_artifact_count(artifacts, "screenshot")
     traces = _matching_artifact_count(artifacts, "trace")
-    if method_id == "command":
+    if selected_proof_kind == "command":
         exit_code = payload.get("exit_code")
         return (
             f"exit {exit_code} · output tail"
             if exit_code is not None
             else "command output"
         )
-    if method_id == "browser-check":
+    if selected_proof_kind == "browser-check":
         if traces:
             return "assertions · trace"
         if screenshots:
@@ -149,19 +151,19 @@ def qa_proof_summary(
                 f"{'screenshot' if screenshots == 1 else 'screenshots'}"
             )
         return "assertion result"
-    if method_id == "browser-inspection":
+    if selected_proof_kind == "browser-inspection":
         recorded = int(payload.get("recorded_screenshots") or screenshots)
         if recorded:
             return f"{recorded} {'screenshot' if recorded == 1 else 'screenshots'}"
         return "no screenshot evidence"
-    if method_id == "terminal-check":
+    if selected_proof_kind == "terminal-check":
         suffix = (
             f" · {screenshots} {'screenshot' if screenshots == 1 else 'screenshots'}"
             if screenshots
             else ""
         )
         return f"step transcript{suffix}"
-    if method_id == "terminal-inspection":
+    if selected_proof_kind == "terminal-inspection":
         if capture_degraded_reason:
             return f"text capture + reason — {capture_degraded_reason}"
         if screenshots:
@@ -170,7 +172,7 @@ def qa_proof_summary(
                 f"{'screenshot' if screenshots == 1 else 'screenshots'}"
             )
         return "text capture · no image evidence"
-    if method_id == "machine-state-check":
+    if selected_proof_kind == "machine-state-check":
         return "assertion commands · outputs"
     if evidence_count:
         return f"{evidence_count} {'artifact' if evidence_count == 1 else 'artifacts'}"

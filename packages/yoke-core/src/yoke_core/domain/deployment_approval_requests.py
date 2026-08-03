@@ -206,7 +206,7 @@ def emit_deployment_completion(
 def dispatch_deployment_stage_approval(
     run_id: str, stage_name: str,
 ) -> tuple[int, str]:
-    """Deployment-executor adapter for one human approval stage."""
+    """Deployment-step_runner adapter for one human approval stage."""
     from yoke_core.domain.db_helpers import connect
 
     conn = connect()

@@ -1,10 +1,10 @@
 ---
 name: refine
 description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
-argument-hint: "{YOK-N}"
+argument-hint: "{PREFIX-N}"
 ---
 
-# /yoke refine {YOK-N}
+# /yoke refine {PREFIX-N}
 
 Standalone capability for refining backlog item artifacts. Reads the item's structured fields, critiques them for completeness, clarity, and testability, and writes improved content back through sanctioned Yoke update surfaces.
 
@@ -18,18 +18,18 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{YOK-N}` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `{PREFIX-N}` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 ## Modes
 
-Refine always advances status on successful completion, whether invoked directly (e.g., `/yoke refine YOK-N`) or via scheduler routing.
+Refine always advances status on successful completion, whether invoked directly (e.g., `/yoke refine PREFIX-N`) or via scheduler routing.
 
 ### Lifecycle transitions
 
 Resolve the active `refine` segment from the item's immutable workflow pin.
-Interpret `executor_bindings` against the ordered `stages` with the runtime's
+Interpret `skill_bindings` against the ordered `stages` with the runtime's
 half-open interval (`from_stage_id <= current < through_stage_id`). This skill
-supports the refine executor's three-rung contract: binding source → one
+supports the refine skill's three-rung contract: binding source → one
 in-progress stage → binding handoff. Use those served stage ids for entry,
 re-entry, and completion; never select a branch from a literal workflow id.
 
@@ -78,7 +78,7 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 ### Corollaries (reinforcing the cardinal rule)
 
-**Concrete decisions are sacred.** If the spec already contains concrete structural decisions — directory trees, file layouts, explicit "X stays at Y" / "X moves to Y" statements, specific naming choices, architectural diagrams, or interface shapes — those represent decisions the operator already approved. You may add discovery commands around them, add blast-radius analysis, or add supporting ACs — but you may NEVER abstract a concrete decision into vague prose. "`runtime/harness/` subpackage unifies all harness code with claude/ and codex/ subdirs" is a concrete decision. "A single truthful ownership model for harness code" is an abstraction that loses the decision.
+**Concrete decisions are sacred.** If the spec already contains concrete structural decisions — directory trees, file layouts, explicit "X stays at Y" / "X moves to Y" statements, specific naming choices, architectural diagrams, or interface shapes — those represent decisions the operator already approved. You may add discovery commands around them, add blast-radius analysis, or add supporting ACs — but you may NEVER abstract a concrete decision into vague prose. "The harness package unifies all harness code with Claude and Codex subdirectories" is a concrete decision. "A single truthful ownership model for harness code" is an abstraction that loses the decision.
 
 **ACs are additive, not replacive.** You may add new ACs, renumber, improve wording, and add verification commands. You may NOT delete or replace the substance of an existing AC. Every concrete AC in the original must have a corresponding concrete AC in the enhanced version.
 
@@ -115,7 +115,7 @@ If the spec contains a major error — wrong file references, contradictory requ
 Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
 exact pin and exports `ITEM_*`, `REFINE_SOURCE_STATUS`,
 `REFINE_ACTIVE_STATUS`, `REFINE_TARGET_STATUS`, and
-`REFINE_ARTIFACT_SCOPE`. Do not continue unless its executor guard passes.
+`REFINE_ARTIFACT_SCOPE`. Do not continue unless its skill guard passes.
 
 ### 1b. Claim and Set Entry Status
 
@@ -131,7 +131,7 @@ Register the work claim BEFORE the status transition (claim-before-status orderi
 ```bash
 # Reuse ITEM_REF and ITEM_NUM from step 1. The items.get dispatcher already
 # resolved prefixed, zero-padded, and project-local bare-number input.
-# Session touch + claim (AC-4)
+# Session touch + claim
 yoke sessions touch --mode refine
 yoke claims work acquire \
  --item "$ITEM_REF"
@@ -184,7 +184,7 @@ EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
 If all fields are empty or trivial, emit:
-> **Advisory:** YOK-{N} has minimal content. Consider populating the body first or running `/yoke shepherd YOK-{N}` before refining.
+> **Advisory:** PREFIX-{N} has minimal content. Consider populating the body first or running `/yoke shepherd PREFIX-{N}` before refining.
 
 Proceed anyway — refinement can still add structure to sparse items.
 
@@ -239,7 +239,7 @@ Pick the field(s) to refine based on the current status and whatever structured 
 
 - For `REFINE_ARTIFACT_SCOPE=item_artifact`, focus on `spec` first, then
   `design_spec` if the item already has UX or flow detail.
-- When `ITEM_NEXT_EXECUTOR=blitz`, also identify the one strategy document that will remain the
+- When `ITEM_NEXT_SKILL=blitz`, also identify the one strategy document that will remain the
   live execution plan. Apply the document-readiness rubric in
   `review-rubric.md`; do not treat the item body as the execution document.
 - For `REFINE_ARTIFACT_SCOPE=generated_task_plan`, focus on `technical_plan`
@@ -264,7 +264,7 @@ The universal 350-line authored-file limit remains enforced in every posture.
 Run the path-claim gate only when effective path claims are enabled:
 
 ```bash
-yoke claims path required-gate YOK-{N}
+yoke claims path required-gate PREFIX-{N}
 ```
 
 Branch on the result:
@@ -284,14 +284,14 @@ Branch on the result:
   3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
 
   For `required_per_task` with generated tasks, repair each failing task with
-  `yoke claims path register --item YOK-N --task-num <N> ...`; an unbound
+  `yoke claims path register --item PREFIX-N --task-num <N> ...`; an unbound
   parent claim never satisfies this verdict.
 
   When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
 
 When both axes are enabled and refine widens the File Budget mid-pass
 (discovers additional files), use `yoke claims path widen --claim-id <id>
---add-paths <added> --reason "<why widening>" --item YOK-N` rather than
+--add-paths <added> --reason "<why widening>" --item PREFIX-N` rather than
 registering a fresh claim — widen preserves the audit trail in
 `path_claim_amendments`. If refine narrows, use the checkout-local
 `path-claims narrow` operator-debug/refine disposition; no public narrow
@@ -318,7 +318,7 @@ critiquing the plan against the universal 350-line cap.
 
 Read [`update-protocol.md`](update-protocol.md) for the full update protocol: applying additive improvements (step 6), verifying writes (step 7), capturing the final summary (step 8), advancing status on success (step 9), releasing the item claim (step 10), final output (step 11), and completion criteria (step 12).
 
-When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
+When `ITEM_NEXT_SKILL=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md) after step 7 and
 before step 9. Refine is not complete until the registered link write has
 been verified through `strategy.execution.get`.

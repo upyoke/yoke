@@ -58,28 +58,32 @@ def _is_numeric_ref(epic_ref: str) -> bool:
     return _NUMERIC_REF_RE.fullmatch(epic_ref) is not None
 
 
-def _normalize_item_id(epic_ref: str) -> str:
-    match = _NUMERIC_REF_RE.fullmatch(epic_ref)
-    if not match:
-        raise ValueError(epic_ref)
-    raw = match.group(1).lstrip("0")
-    return raw or "0"
-
-
 def _resolve_epic(
     conn: Any, epic_ref: str
 ) -> tuple[str, str]:
-    """Return ``(display_ref, canonical_epic_id)``."""
+    """Return ``(display_ref, canonical_epic_id)``.
+
+    ``PREFIX-N`` resolves via the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
 
     display_ref = epic_ref
     if not _is_numeric_ref(epic_ref):
         return display_ref, epic_ref
 
-    item_id = _normalize_item_id(epic_ref)
-    resolved = _query_scalar(
-        conn,
-        f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
-        (item_id,),
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    item_id = parse_item_id_or_none(
+        epic_ref, conn=conn, allow_bare_internal=True
+    )
+    resolved = (
+        None
+        if item_id is None
+        else _query_scalar(
+            conn,
+            f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
+            (item_id,),
+        )
     )
     if not resolved:
         raise ValueError(f"Item {epic_ref} does not exist")
@@ -121,7 +125,6 @@ __all__ = [
     "_query_scalar",
     "_int_scalar",
     "_is_numeric_ref",
-    "_normalize_item_id",
     "_resolve_epic",
     "_parse_timestamp",
     "_p",

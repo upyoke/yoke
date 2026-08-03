@@ -23,7 +23,7 @@ def _postgres_subprocess_env() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Service client charge-frontier tests (Task 003 AC-4)
+# Service client charge-frontier tests
 # ---------------------------------------------------------------------------
 
 
@@ -31,7 +31,7 @@ class TestServiceClientChargeFrontier:
     """Tests for service_client.py charge-frontier command."""
 
     def test_charge_frontier_prints_json(self, frontier_db):
-        """AC-4: charge-frontier outputs valid JSON (direct DB, not HTTP)."""
+        """Charge-frontier outputs valid JSON (direct DB, not HTTP)."""
         import subprocess
 
         env = _postgres_subprocess_env()
@@ -75,7 +75,8 @@ class TestServiceClientChargeFrontier:
         assert result.returncode == 0, f"stderr: {result.stderr}"
         data = json.loads(result.stdout)
         runnable_ids = [item["item_id"] for item in data["runnable"]]
-        assert "YOK-24" in runnable_ids
+        # The externalwebapp project renders its true public prefix.
+        assert "EXT-24" in runnable_ids
         assert "YOK-20" not in runnable_ids
 
     def test_charge_frontier_wip_cap(self, frontier_db):

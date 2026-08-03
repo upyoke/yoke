@@ -181,7 +181,7 @@ class TestSessionOfferWithOwnership:
         assert row["ended_at"] is None
 
     def test_heartbeats_existing_session(self, ownership_conn):
-        """AC-1: re-offer heartbeats existing session instead of failing."""
+        """Re-offer heartbeats existing session instead of failing."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "test-sess-hb", ws, model="opus")
         session_offer_with_ownership(
@@ -197,7 +197,7 @@ class TestSessionOfferWithOwnership:
         assert result["session"]["session_id"] == "test-sess-hb"
 
     def test_charge_persists_exclusive_claim(self, ownership_conn):
-        """AC-2: charge persists a work_claims row before returning."""
+        """Charge persists a work_claims row before returning."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "test-sess-claim", ws, model="opus")
         result = session_offer_with_ownership(
@@ -215,7 +215,7 @@ class TestSessionOfferWithOwnership:
         assert claim_row["item_id"] == 100
 
     def test_concurrent_offers_no_double_assign(self, ownership_conn):
-        """AC-3: two concurrent offers never both claim the same item."""
+        """Two concurrent offers never both claim the same item."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-A", ws, executor="A", model="opus")
         _ensure_active_session(conn, "sess-B", ws, executor="B", model="opus")
@@ -237,7 +237,7 @@ class TestSessionOfferWithOwnership:
         assert r2["new_claim"] is None
 
     def test_resume_when_claim_exists(self, ownership_conn):
-        """AC-4: re-offer with same session returns resume, not charge."""
+        """Re-offer with same session returns resume, not charge."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-resume", ws, model="opus")
         r1 = session_offer_with_ownership(

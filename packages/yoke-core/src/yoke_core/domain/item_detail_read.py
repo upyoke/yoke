@@ -64,7 +64,8 @@ def _path_claims(conn: Any, item_id: int) -> dict[str, Any]:
     marker = _p(conn)
     rows = conn.execute(
         "SELECT state, COUNT(*) AS total FROM path_claims "
-        f"WHERE item_id = {marker} GROUP BY state ORDER BY state",
+        f"WHERE owner_kind = 'item' AND owner_item_id = {marker} "
+        "GROUP BY state ORDER BY state",
         (item_id,),
     ).fetchall()
     states = {str(row[0]): int(row[1]) for row in rows}
@@ -105,11 +106,11 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "version_id": runtime.workflow_version_id,
         "stage_id": stage_id,
         "stage_label": runtime.stage_label(stage_id),
-        "executor_id": (
-            runtime.executor_for_stage(stage_id) if stage_is_defined else None
+        "skill_id": (
+            runtime.skill_for_stage(stage_id) if stage_is_defined else None
         ),
-        "next_executor_id": (
-            runtime.executor_for_stage(next_stage_id)
+        "next_skill_id": (
+            runtime.skill_for_stage(next_stage_id)
             if next_stage_id is not None
             else None
         ),

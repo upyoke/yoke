@@ -26,26 +26,18 @@ from typing import Any, Iterable, Optional, Set
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _strip_sun_prefix(item_ref: str) -> str:
-    """Normalize ``YOK-N`` / ``N`` into the bare integer string."""
-    if not item_ref:
-        return ""
-    text = str(item_ref).strip()
-    if text[:4].upper() == "YOK-":
-        text = text[4:]
-    return text.lstrip("0") or "0"
-
-
 def _claim_owning_item(conn: Any, claim_id: int) -> Optional[int]:
     p = _placeholder(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None or row[0] is None:
@@ -62,25 +54,28 @@ def _has_dep_edge(
     """Return True when ``dependent_item`` declares a non-terminal edge
     to ``blocking_item`` (one-way, callers compose for bidirectional).
 
-    ``item_dependencies`` rows store YOK-prefixed strings; we normalize
-    and match on the bare numeric form. Terminal status on the *blocking*
-    item is interpreted by the satisfaction predicate elsewhere; the
-    resolver itself only checks for the edge's existence. When the
-    ``item_dependencies`` table does not exist (test fixtures that omit
-    it, restricted projects), the resolver returns ``False`` rather than
-    raising — dep-graph awareness is additive over today's behavior.
+    ``item_dependencies`` rows store public text refs (``PREFIX-N``);
+    each ref resolves to its internal ``items.id`` through the canonical
+    parser before comparison — a stripped ``PREFIX-N`` number is a
+    project sequence, not the internal id the claim rows carry. Terminal
+    status on the *blocking* item is interpreted by the satisfaction
+    predicate elsewhere; the resolver itself only checks for the edge's
+    existence. When the ``item_dependencies`` table does not exist (test
+    fixtures that omit it, restricted projects), the resolver returns
+    ``False`` rather than raising — dep-graph awareness is additive over
+    today's behavior.
     """
-    dep = str(dependent_item_id)
-    blk = str(blocking_item_id)
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
     rows = fetch_optional_rows(
         conn,
         "SELECT dependent_item, blocking_item FROM item_dependencies",
         savepoint="_yoke_item_dependencies_probe",
     )
     for raw_dep, raw_blk in rows:
-        rd = _strip_sun_prefix(raw_dep)
-        rb = _strip_sun_prefix(raw_blk)
-        if rd == dep and rb == blk:
+        rd = parse_item_id_or_none(raw_dep, conn=conn, allow_bare_internal=True)
+        rb = parse_item_id_or_none(raw_blk, conn=conn, allow_bare_internal=True)
+        if rd == dependent_item_id and rb == blocking_item_id:
             return True
     return False
 
@@ -330,8 +325,8 @@ def cross_check_explicit_upstream(
         return None
     return (
         f"Advisory: --upstream-claim-id {upstream_claim_id} (item "
-        f"YOK-{upstream_item}) has no item_dependencies edge from/to "
-        f"YOK-{item_id}. Honoring explicit upstream."
+        f"{render_item_ref(conn, upstream_item)}) has no item_dependencies edge "
+        f"from/to {render_item_ref(conn, item_id)}. Honoring explicit upstream."
     )
 
 

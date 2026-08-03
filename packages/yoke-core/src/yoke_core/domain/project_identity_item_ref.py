@@ -1,9 +1,11 @@
 """CLI/API item-reference resolution with the bare-number project ladder.
 
 Splits the higher-level resolver surface out of ``project_identity`` (which
-owns the storage-level primitives ``resolve_item_id`` / ``resolve_project`` and
-the ``_PUBLIC_REF_RE`` shape). This module layers the actor-aware, machine-aware
-ladder used by CLI/API boundaries on top of those primitives.
+owns the storage-level primitives ``resolve_item_id`` / ``resolve_project``).
+Reference shape itself is read with
+:func:`yoke_contracts.item_ref.parse_public_item_ref`. This module layers the
+actor-aware, machine-aware ladder used by CLI/API boundaries on top of those
+primitives.
 """
 
 from __future__ import annotations
@@ -11,9 +13,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from yoke_contracts.item_ref import parse_public_item_ref
 from yoke_core.domain import machine_config
 from yoke_core.domain.project_identity import (
-    _PUBLIC_REF_RE,
     placeholder,
     resolve_item_id,
     row_value,
@@ -102,9 +104,10 @@ def resolve_cli_item_ref(
     if "/" in text:
         slug, ref = text.split("/", 1)
         return resolve_item_id(conn, ref, project=slug)
-    if _PUBLIC_REF_RE.match(text):
+    prefix, sequence = parse_public_item_ref(text)
+    if prefix is not None:
         return resolve_item_id(conn, text)
-    if text.isdigit():
+    if sequence is not None:
         project = _bare_number_project_context(
             conn, actor_id=actor_id, explicit=project_context
         )

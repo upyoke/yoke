@@ -1,4 +1,4 @@
-"""AC-20 widen-direction dep-graph awareness tests.
+"""Widen-direction dep-graph awareness tests.
 
 When a claim that registered with a non-terminal item_dependencies edge
 widens its coverage, the widen-phase classify_overlap call inherits the
@@ -63,11 +63,12 @@ def _seed_active_claim_with_targets(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, "
         "activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', %s) RETURNING id",
-        (actor, item_id, SNAP),
+        (item_id, actor, SNAP),
     )
     cid = int(cur.fetchone()[0])
     for tid in target_ids:
@@ -86,10 +87,11 @@ def _seed_planned_claim_with_targets(
     actor = local_human(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        "VALUES ('planned', 'exclusive', %s, %s, 'main', "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        "VALUES ('planned', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (actor, item_id),
+        (item_id, actor),
     )
     cid = int(cur.fetchone()[0])
     for tid in target_ids:
@@ -140,7 +142,7 @@ class TestWidenReverseEdge:
         # Scenario: YOK-A holds an active claim, YOK-B
         # registered with --upstream-claim-id A. A wants to widen its
         # coverage to a path that B has — without bidirectional dep
-        # awareness this would fail. With AC-20 it succeeds because B
+        # awareness this would fail. With it, the widen succeeds because B
         # depends on A.
         t1 = seed_target(conn, path_string="runtime/api/domain")
         t2 = seed_target(conn, path_string="docs")
@@ -154,7 +156,7 @@ class TestWidenReverseEdge:
         )
         _add_edge(conn, dependent=b_item, blocking=a_item)
 
-        # A widens to also cover t2 (B's territory). Without AC-20 this
+        # A widens to also cover t2 (B's territory). Without the edge this
         # would reject; with bidirectional awareness it succeeds.
         widen(
             conn,

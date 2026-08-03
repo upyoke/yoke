@@ -11,6 +11,8 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
+    WORKFLOW_PATH_SURVEY_OPTIONAL,
+    WORKFLOW_PATH_SURVEY_REQUIRED,
 )
 from yoke_core.domain.workflow_definition_codec import WorkflowRegistryError
 from yoke_core.domain.workflow_registry import (
@@ -27,6 +29,7 @@ def publish_workflow_policy_defaults(
     expected_current_version: int,
     file_budget_default: Optional[bool] = None,
     path_claims_default: Optional[bool] = None,
+    path_survey_default: Optional[bool] = None,
     approval_defaults: Optional[Mapping[str, Any]] = None,
     published_by_actor_id: Optional[int] = None,
 ) -> dict:
@@ -46,6 +49,7 @@ def publish_workflow_policy_defaults(
     supplied = sum((
         file_budget_default is not None,
         path_claims_default is not None,
+        path_survey_default is not None,
         approval_defaults is not None,
     ))
     if supplied == 0:
@@ -110,6 +114,29 @@ def publish_workflow_policy_defaults(
             else WORKFLOW_PATH_CLAIMS_OPTIONAL
         )
         result_fields = {"path_claims_default": bool(path_claims_default)}
+    elif path_survey_default is not None:
+        existing = str(
+            policies.get("path_survey", WORKFLOW_PATH_SURVEY_REQUIRED)
+        )
+        if "path_survey" not in set(policies["item_posture_allowlist"]):
+            raise WorkflowRegistryError(
+                f"workflow {workflow_id!r} does not expose path survey "
+                "as an operator-editable default"
+            )
+        if existing not in {
+            WORKFLOW_PATH_SURVEY_OPTIONAL,
+            WORKFLOW_PATH_SURVEY_REQUIRED,
+        }:
+            raise WorkflowRegistryError(
+                f"workflow {workflow_id!r} path-survey policy {existing!r} "
+                "is not an editable default"
+            )
+        policies["path_survey"] = (
+            WORKFLOW_PATH_SURVEY_REQUIRED
+            if path_survey_default
+            else WORKFLOW_PATH_SURVEY_OPTIONAL
+        )
+        result_fields = {"path_survey_default": bool(path_survey_default)}
     else:
         assert approval_defaults is not None
         role_order = {"owner": 0, "operator": 1, "admin": 2}

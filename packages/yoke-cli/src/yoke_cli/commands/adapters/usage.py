@@ -15,6 +15,7 @@ from yoke_cli.commands.adapters.claims import (
     CLAIM_WORK_ACQUIRE_USAGE,
     CLAIM_WORK_RELEASE_USAGE,
 )
+from yoke_cli.commands.adapters.lint_config import LINT_CONFIG_SHOW_USAGE
 from yoke_cli.commands.adapters.organizations import ORGANIZATIONS_GET_USAGE
 from yoke_cli.commands.adapters.identity import IDENTITY_USAGE
 from yoke_cli.commands.adapters.claims_read import (
@@ -53,17 +54,7 @@ from yoke_cli.commands.adapters.doctor import (
     DOCTOR_LAST_RUN_GET_USAGE,
     DOCTOR_RUN_USAGE,
 )
-from yoke_cli.commands.adapters.deployment import (
-    DEPLOYMENT_FLOWS_GET_USAGE,
-    DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
-    DEPLOYMENT_FLOWS_STAGES_USAGE,
-    DEPLOYMENT_RUNS_CREATE_USAGE,
-    DEPLOYMENT_RUNS_APPROVE_USAGE,
-    DEPLOYMENT_RUNS_GET_USAGE,
-    DEPLOYMENT_RUNS_LIST_USAGE,
-    DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
-    DEPLOYMENT_RUNS_UPDATE_USAGE,
-)
+from yoke_cli.commands.adapters.usage_deployment import DEPLOYMENT_USAGE
 from yoke_cli.commands.adapters.ephemeral_env import (
     EPHEMERAL_ENV_GET_USAGE,
     EPHEMERAL_ENV_UPDATE_USAGE,
@@ -99,6 +90,7 @@ from yoke_cli.commands.adapters.items import (
     PROGRESS_LOG_USAGE,
     STRUCTURED_FIELD_USAGE,
 )
+from yoke_cli.commands.adapters.lifecycle_repair import LIFECYCLE_REPAIR_STATUS_USAGE
 from yoke_cli.commands.adapters.items_create import ITEMS_CREATE_USAGE
 from yoke_cli.commands.adapters.items_scalar import ITEMS_SCALAR_UPDATE_USAGE
 from yoke_cli.commands.adapters.items_section import (
@@ -120,12 +112,12 @@ from yoke_cli.commands.adapters.shepherd_dependency import (
     SHEPHERD_DEPENDENCY_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.misc import (
-    OUROBOROS_ENTRY_GET_USAGE,
-    OUROBOROS_ENTRY_LIST_USAGE,
-    OUROBOROS_FIELD_NOTE_GET_USAGE,
-    OUROBOROS_FIELD_NOTE_LIST_USAGE,
-    OUROBOROS_USAGE,
+    OUROBOROS_ENTRY_GET_USAGE, OUROBOROS_ENTRY_LIST_USAGE,
     SCRATCH_DISPATCH_INPUTS_USAGE,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    OUROBOROS_FIELD_NOTE_GET_USAGE, OUROBOROS_FIELD_NOTE_LIST_USAGE,
+    OUROBOROS_USAGE,
 )
 from yoke_cli.commands.adapters.projects import (
     PROJECTS_CAPABILITY_HAS_USAGE,
@@ -173,28 +165,7 @@ from yoke_cli.commands.adapters.project_github_binding import (
 from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_usage
 from yoke_cli.commands.adapters import qa as _qa_usage
 from yoke_cli.commands.adapters import shepherd_writes as _shepherd_writes
-from yoke_cli.commands.adapters.qa import (
-    QA_REQUIREMENT_UPDATE_USAGE,
-    QA_RUN_RECORD_VERDICT_USAGE,
-)
-from yoke_cli.commands.adapters.qa_crud import (
-    QA_REQUIREMENT_ADD_BATCH_USAGE,
-    QA_REQUIREMENT_ADD_USAGE,
-)
-from yoke_cli.commands.adapters.qa_read import (
-    QA_GATE_SUMMARY_USAGE,
-    QA_REQUIREMENT_GET_USAGE,
-    QA_REQUIREMENT_LIST_USAGE,
-    QA_RUN_GET_USAGE,
-    QA_RUN_LIST_USAGE,
-)
-from yoke_cli.commands.adapters.qa_browser import (
-    QA_ARTIFACT_ADD_USAGE,
-    QA_ARTIFACT_PRESIGN_USAGE,
-    QA_BROWSER_CONTEXT_GET_USAGE,
-    QA_RUN_ADD_USAGE,
-    QA_RUN_COMPLETE_USAGE,
-)
+from yoke_cli.commands.adapters.usage_qa import QA_ADAPTER_USAGE
 from yoke_cli.commands.adapters.board import BOARD_REBUILD_USAGE
 from yoke_cli.commands.adapters.render import (
     AGENTS_RENDER_CHECK_USAGE,
@@ -237,9 +208,7 @@ from yoke_cli.commands.adapters.sessions import (
 )
 from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
-
 __all__ = ["ADAPTER_USAGE"]
-
 # Function-id → usage-line map consumed by the entrypoint's grouped
 # ``--help`` text. New CLI families add one line each.
 ADAPTER_USAGE: Dict[str, str] = {
@@ -285,32 +254,12 @@ ADAPTER_USAGE: Dict[str, str] = {
     "packets.check.run": PACKETS_CHECK_USAGE,
     "board.rebuild.run": BOARD_REBUILD_USAGE,
     "board.data.get": BOARD_DATA_GET_USAGE,
+    "lint.config.show": LINT_CONFIG_SHOW_USAGE,
     **EPIC_USAGE,
-    "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
-    "qa.browser_context.get": QA_BROWSER_CONTEXT_GET_USAGE,
-    "qa.run.add": QA_RUN_ADD_USAGE,
-    "qa.run.complete": QA_RUN_COMPLETE_USAGE,
-    "qa.artifact.add": QA_ARTIFACT_ADD_USAGE,
-    "qa.artifact.presign": QA_ARTIFACT_PRESIGN_USAGE,
-    "qa.requirement.list": QA_REQUIREMENT_LIST_USAGE,
-    "qa.requirement.get": QA_REQUIREMENT_GET_USAGE,
-    "qa.requirement.add": QA_REQUIREMENT_ADD_USAGE,
-    "qa.requirement.add_batch": QA_REQUIREMENT_ADD_BATCH_USAGE,
-    "qa.run.list": QA_RUN_LIST_USAGE,
-    "qa.run.get": QA_RUN_GET_USAGE,
-    "qa.gate_summary.run": QA_GATE_SUMMARY_USAGE,
+    **QA_ADAPTER_USAGE,
     "doctor.run.run": DOCTOR_RUN_USAGE,
     "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
-    "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
-    "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
-    "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
-    "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
-    "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
-    "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
-    "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
-    "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
-    "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+    **DEPLOYMENT_USAGE,
     "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "ephemeral_env.get": EPHEMERAL_ENV_GET_USAGE,
@@ -350,6 +299,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "shepherd.dependency_update.run": SHEPHERD_DEPENDENCY_UPDATE_USAGE,
     "shepherd.dependency_remove.run": SHEPHERD_DEPENDENCY_REMOVE_USAGE,
     "lifecycle.transition.execute": LIFECYCLE_TRANSITION_USAGE,
+    "lifecycle.repair_status.execute": LIFECYCLE_REPAIR_STATUS_USAGE,
     "lifecycle.skip.record_recoverable_substrate": LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     "ouroboros.field_note.append": OUROBOROS_USAGE,
     "ouroboros.field_note.list": OUROBOROS_FIELD_NOTE_LIST_USAGE,

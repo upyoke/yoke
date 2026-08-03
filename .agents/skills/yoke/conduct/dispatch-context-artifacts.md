@@ -2,14 +2,14 @@
 
 Extracted from `dispatch-context.md`. Contains artifact formats, output capture, QA lifecycle management, and commit patterns used during and after dispatch.
 
-**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_advance`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
+**Watcher capture paths.** When conduct invokes a Yoke watcher (`watch_pytest`, `watch_merge`, `watch_doctor`, `watch_qa_case`, `watch_advance`, `watch_lifecycle`, `watch_session_offer`) the raw + progress captures land under the helper-resolved `<scratch_root>/watcher-captures/` — they are minted by `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair(...)` (or `watcher_capture_path(...)` for one stream) and the wrapper prints the resolved paths through `--print-streaming-pair`. Read the path the wrapper printed; do not hardcode an OS-temp watcher-capture literal in dispatch artifacts. The operator carve-out for pinning the capture file is `--raw-capture <path>` (CI / artifact collection).
 
 ---
 
 ## Anticipated path coverage (pre-authorized)
 
 When effective path claims are enabled, the Architect runs the plan-time
-**Anticipation Checklist** (`runtime/agents/architect.md` § *Anticipation
+**Anticipation Checklist** (the Architect prompt's *Anticipation
 Checklist*) and widens claim coverage to include cross-cutting surfaces.
 When File Budget is also enabled, its explicit paths seed that checklist;
 otherwise the task execution spec does. The Architect persists the resulting
@@ -31,7 +31,7 @@ The Engineer prompt template surfaces this block under the heading `Anticipated 
 
 ```bash
 if [ "${YOKE_EXECUTOR:-}" = "codex" ]; then
-    _project=$(yoke items get "YOK-${_id}" project 2>/dev/null || echo yoke)
+    _project=$(yoke items get "PREFIX-${_id}" project 2>/dev/null || echo yoke)
     printf '%s' "$_subagent_response" | python3 -m yoke_core.domain.reflection_capture \
         --default-agent "$_role" \
         --project "$_project" || true
@@ -51,7 +51,7 @@ After the Tester returns, check if any files were created in the worktree and co
 ```bash
 cd {_worktree_path}
 git add -A 2>/dev/null
-git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [YOK-${_id}]"
+git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [PREFIX-${_id}]"
 ```
 
 **Note:** Reviews and Ouroboros reflections are written directly to the DB, not to the worktree filesystem. This catches any other filesystem artifacts the Tester may have created.
@@ -122,7 +122,7 @@ db_router qa requirement-waive {requirement-id} "Rationale text" --source operat
 yoke qa run add --requirement-id {req-id} --executor-type "agent" --qa-kind "ac_verification" --verdict "pass" --raw-result "Brief evidence"
 
 # List requirements for an item:
-yoke qa requirement list --item "YOK-{N}"
+yoke qa requirement list --item "PREFIX-{N}"
 
 # List runs for a requirement:
 yoke qa run list --requirement-id {req-id}

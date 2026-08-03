@@ -109,7 +109,8 @@ def test_second_concrete_registration_widens_existing_claim(conn):
     )
 
     concrete_count = conn.execute(
-        "SELECT COUNT(*) FROM path_claims WHERE item_id = %s "
+        "SELECT COUNT(*) FROM path_claims "
+        "WHERE owner_kind = 'item' AND owner_item_id = %s "
         "AND mode <> 'exception'",
         (12306,),
     ).fetchone()[0]

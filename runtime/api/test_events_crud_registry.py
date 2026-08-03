@@ -29,7 +29,7 @@ class TestRegistry:
         assert "system" in result
 
     def test_list(self, db_path: str) -> None:
-        """AC-2: registry list matches shell output format."""
+        """Registry list matches shell output format."""
         self._add_test_event(db_path, "EventA")
         self._add_test_event(db_path, "EventB")
         result = ec.cmd_registry_list(db_path)
@@ -158,3 +158,17 @@ class TestDiscover:
         expected_rel = "packages/yoke-core/src/yoke_core/engines/merge_worktree.py"
         assert f"MergeEngineStarted|{expected_rel}" in result
         assert f"MergeVerificationPassed|{expected_rel}" in result
+
+    def test_discover_module_event_name_constant(self, tmp_path: Path) -> None:
+        pkg_dir = tmp_path / "packages" / "yoke-core" / "src" / "yoke_core" / "domain"
+        pkg_dir.mkdir(parents=True)
+
+        (pkg_dir / "field_notes.py").write_text(
+            'FIELD_NOTE_EVENT_NAME = "OuroborosFieldNoteAppended"\n'
+            "def append():\n"
+            "    emit_event(event_name=FIELD_NOTE_EVENT_NAME)\n"
+        )
+
+        result = ec.cmd_registry_discover(str(tmp_path))
+        expected_rel = "packages/yoke-core/src/yoke_core/domain/field_notes.py"
+        assert f"OuroborosFieldNoteAppended|{expected_rel}" in result

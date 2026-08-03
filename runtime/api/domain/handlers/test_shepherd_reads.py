@@ -7,6 +7,7 @@ from yoke_core.domain.handlers import (
     shepherd_reads,
     shepherd_verdict_writes,
 )
+from runtime.api.conftest import insert_item
 from yoke_core.domain.shepherd_dependency import cmd_dependency_add
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -48,6 +49,8 @@ class TestShepherdDependencyList:
     def test_lists_both_directions(self, test_db):
         # 10 depends on 5; 20 depends on 10 — so for item 10 we expect one
         # 'depends-on' row (other=5) and one 'blocks' row (other=20).
+        for item_id in (5, 10, 20):
+            insert_item(test_db, id=item_id, title=f"item {item_id}")
         cmd_dependency_add(test_db, "YOK-10", "YOK-5", "operator")
         cmd_dependency_add(test_db, "YOK-20", "YOK-10", "operator")
         test_db.commit()

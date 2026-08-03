@@ -87,7 +87,7 @@ class TestUpsert:
         assert stored["profile"]["migration_modules"] == ["m1"]
 
     def test_ac_17_flip_state_none_with_frozen_to_declared(self, db_conn):
-        """AC-17: existing refining-idea row with state=none + frozen_at
+        """Existing refining-idea row with state=none + frozen_at
         can flip to state=declared via the workflow without rollback."""
         insert_item(
             db_conn,

@@ -1,4 +1,4 @@
-"""Scheduler routing from registered executor adapters."""
+"""Scheduler routing from registered skill adapters."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _compute_next_step(
     conn: Optional[Any] = None,
     item_id: Optional[int] = None,
 ) -> _StepResult:
-    """Convert a definition-selected executor into a scheduler action."""
+    """Convert a definition-selected skill into a scheduler action."""
     step = _ADAPTER_TO_STEP.get(adapter, NextStep.WAIT)
 
     if (

@@ -19,6 +19,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.qa_execution_subjects import (
     qa_artifact_read,
     qa_plan_materialize_for_item,
+    qa_plan_rematerialize,
 )
 from yoke_cli.commands.adapters.qa_catalog_usage import USAGE_BY_FUNCTION_ID
 from yoke_contracts.api.function_call import TargetRef
@@ -268,31 +269,6 @@ def _configure_attachment(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--qa-phase", default="verification")
 
 
-def qa_plan_project_default_set(args: List[str]) -> int:
-    usage = (
-        "yoke qa project-default set --project P --plan-id N "
-        "--workflow W --transition T [--qa-phase PHASE] [--json]"
-    )
-
-    def configure(parser: argparse.ArgumentParser) -> None:
-        _configure_attachment(parser)
-        parser.add_argument("--workflow", required=True)
-
-    return _global(
-        args,
-        prog="yoke qa project-default set",
-        usage=usage,
-        function_id="qa.project_default.set",
-        configure=configure,
-        payload=lambda parsed: {
-            "plan_id": parsed.plan_id,
-            "workflow_id": parsed.workflow,
-            "transition_id": parsed.transition,
-            "qa_phase": parsed.qa_phase,
-        },
-    )
-
-
 def qa_plan_item_attach(args: List[str]) -> int:
     usage = (
         "yoke qa item-plan attach --item PREFIX-N --project P --plan-id N "
@@ -334,5 +310,5 @@ __all__ = [
     "qa_plan_item_attach",
     "qa_plan_list",
     "qa_plan_materialize_for_item",
-    "qa_plan_project_default_set",
+    "qa_plan_rematerialize",
 ]

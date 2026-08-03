@@ -1,7 +1,7 @@
 """packet additions for the agent-context generator.
 
 Project topic, qa-gate preview, dependency wrappers, and stale-term /
-role-topic doctrine. Tests for older AC-1..AC-22 surface live in
+role-topic doctrine. Tests for the older packet surface live in
 ``test_schema_api_context.py``; this sibling stays small so neither
 file presses the file-line cap.
 """
@@ -50,12 +50,12 @@ def test_qa_topic_includes_gate_preview_with_both_target_forms() -> None:
     assert "--item" in body
     assert "--epic-id" in body
     assert "--task-num" in body
-    # AC-5 anchor: the recipe must instruct routing through advance.
+    # The recipe must instruct routing through advance.
     assert "/yoke advance" in body
 
 
 def test_qa_topic_includes_requirement_list_recipe_matching_cli() -> None:
-    """AC-16: the packet teaches the registered QA requirement-list wrapper.
+    """The packet teaches the registered QA requirement-list wrapper.
 
     The legacy domain CLI still has a different flag spelling; packets must
     prefer the product wrapper and avoid teaching task-num filtering on the
@@ -89,11 +89,11 @@ def test_qa_topic_includes_run_get_recipe_matching_cli() -> None:
 
 
 def test_core_topic_includes_dependency_wrappers() -> None:
-    """AC-13: dependency wrappers route through `shepherd dependency-*`."""
+    """Dependency wrappers route through `shepherd dependency-*`."""
 
     body = sac.render_topic_packet("core")
     assert "shepherd dependency-list" in body
-    assert "dependent_item/blocking_item store public YOK-N text refs" in body
+    assert "dependent_item/blocking_item store public PREFIX-N text refs" in body
     assert "not numeric items.id values" in body
     assert "Dependency add/update/remove are authoring-time surfaces" in body
     assert "registered command adapters land" in body
@@ -106,13 +106,11 @@ def test_every_role_packet_teaches_worktree_source_pythonpath() -> None:
     body = sac.render_topic_packet("core")
     for token in (
         "Verify Python imports/tests against linked worktree source",
-        "packages/yoke-contracts/src",
-        "packages/yoke-cli/src",
-        "packages/yoke-core/src",
-        "packages/yoke-harness/src",
+        "uv run --frozen",
+        "<project-test-path>",
         "yoke_core.__file__",
         "python3 -m yoke_core.tools.watch_pytest",
-        "python3 -m yoke_cli.main agents render",
+        "python3 -m yoke_core.domain.agents_render",
         "externally-managed Python",
     ):
         assert token in body
@@ -164,7 +162,7 @@ _NEW_STALE_TERMS_2026_05 = (
 
 
 def test_new_stale_terms_in_seed() -> None:
-    """AC-6 / AC-14: the stale-term additions are present in the
+    """The stale-term additions are present in the
     seed regression list."""
 
     for term in _NEW_STALE_TERMS_2026_05:
@@ -172,7 +170,7 @@ def test_new_stale_terms_in_seed() -> None:
 
 
 def test_engineer_and_tester_receive_project_and_qa_topics() -> None:
-    """AC-9: Engineer and Tester get every topic; Architect / Simulator /
+    """Engineer and Tester get every topic; Architect / Simulator /
     Boss intentionally omit `qa` and `project` (they plan, trace, or
     review without invoking project execution surfaces directly)."""
 
@@ -225,7 +223,7 @@ def test_main_agent_role_includes_packs_and_deployment_run_hint() -> None:
 
 
 def test_qa_topic_includes_gate_summary_recipe_matching_cli() -> None:
-    """/ AC-10: the qa packet must surface the
+    """The qa packet must surface the
     ``qa gate-summary`` command and its supported targets so main-session
     agents do not regress to raw ``qa_requirements`` SQL during the
     final reviewed-implementation / implemented gate check. Recipe text
@@ -249,7 +247,7 @@ def test_qa_topic_includes_gate_summary_recipe_matching_cli() -> None:
 
 
 def test_qa_topic_events_recipe_matches_supported_filter_shape() -> None:
-    """/ AC-9: the events recipe must teach the supported
+    """The events recipe must teach the supported
     filter shape. The canonical agent recipe is the registered
     ``yoke events query`` form carrying ``--item``; the db_router
     long form survives only as a labelled operator-debug fallback."""
@@ -260,14 +258,14 @@ def test_qa_topic_events_recipe_matches_supported_filter_shape() -> None:
     assert "events query --item" in body
     # The retired unbounded db_router recipe is not taught as the
     # primary shape.
-    assert "events list --item YOK-N\n" not in body
+    assert "events list --item PREFIX-N\n" not in body
     # The packet teaches the bounded form (with --limit) so agents do
     # not paste an unbounded dump command.
     assert "--limit" in body
 
 
 def test_role_keys_use_layer_explicit_agent_suffix() -> None:
-    """/ AC-12: every role key in ROLE_TOPICS ends in
+    """Every role key in ROLE_TOPICS ends in
     ``_agent`` so the LLM-facing packet layer is unambiguous and cannot
     be confused with the harness manifest substrate contract
     (``harness_contract``) or with the bare per-role identifiers used

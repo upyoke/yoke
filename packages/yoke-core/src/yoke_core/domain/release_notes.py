@@ -17,8 +17,8 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows, query_scalar
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 
 VALID_CATEGORIES = frozenset({"features", "improvements", "bug_fixes", "internal"})
 
@@ -60,10 +60,10 @@ def _current_version() -> str:
 
 
 def _parse_item_id(raw: str) -> int:
-    """Parse item ID, stripping YOK- prefix and leading zeros."""
-    import re
-    cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", raw).lstrip("0") or "0"
-    return int(cleaned)
+    # PREFIX-N resolves via the project sequence; bare N = internal id.
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _p(conn) -> str:
@@ -106,7 +106,10 @@ def cmd_insert(conn, item_id: int, category: str, title: str,
         (item_id, category, title, version, project_id, iso8601_now()),
     )
     conn.commit()
-    return f"Release entry: YOK-{item_id} -> {category} ({version}, project={project})"
+    return (
+        f"Release entry: {render_item_ref(conn, item_id)} -> {category} "
+        f"({version}, project={project})"
+    )
 
 
 def cmd_exists(conn, item_id: int, version: Optional[str] = None,
@@ -175,7 +178,6 @@ def main(argv: Optional[List[str]] = None) -> None:
     try:
         if subcmd == "insert":
             # Parse: positional args + optional --project flag
-            item_id_raw = None
             category = None
             title = None
             version = None
@@ -203,7 +205,6 @@ def main(argv: Optional[List[str]] = None) -> None:
             print(cmd_insert(conn, item_id, category, title, version, project))
 
         elif subcmd == "exists":
-            item_id_raw = None
             version = None
             project = None
             positionals = []

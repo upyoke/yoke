@@ -26,7 +26,7 @@ def _insert_projects(conn):
 
 def test_delete_refuses_cross_project_repoint(test_db):
     _insert_projects(test_db)
-    stages = json.dumps([{"name": "s1", "executor": "auto"}])
+    stages = json.dumps([{"name": "s1", "step_runner": "auto"}])
     cmd_create(test_db, "f-yoke-old", "yoke", "YokeOld", "D", stages)
     cmd_create(
         test_db,

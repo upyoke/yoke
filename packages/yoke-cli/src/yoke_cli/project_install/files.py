@@ -16,9 +16,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
-from yoke_contracts.project_contract.install_policy import (
-    FORBIDDEN_CONTRACT_RELATIVE_PATHS,
-)
+from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
+from yoke_contracts.project_contract.install_policy import FORBIDDEN_CONTRACT_RELATIVE_PATHS
 
 MANIFEST_SCHEMA = 1
 MANIFEST_REL = ".yoke/install-manifest.json"
@@ -35,7 +34,7 @@ DISCARDED_PRIOR_STRATEGY_RECORDS_KEY = "_discarded_prior_strategy_records"
 
 # Hook-merge targets — bundle ``files`` must never name these directly;
 # their content flows through the bundle's ``hooks`` subtrees.
-HOOK_MERGE_TARGETS = (".claude/settings.json", ".codex/hooks.json")
+HOOK_MERGE_TARGETS = (".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json")
 
 class ProjectInstallError(RuntimeError):
     """Install/refresh/uninstall cannot proceed; message names the repair."""
@@ -162,15 +161,15 @@ def assert_safe_bundle_paths(paths: Iterable[str]) -> None:
             not raw
             or path.is_absolute()
             or ".." in path.parts
-            or raw in HOOK_MERGE_TARGETS
+            or raw in HOOK_MERGE_TARGETS + CURSOR_CONFIG_RELS
             or (path.parts[0] == ".yoke" and path.parts[:2] != (".yoke", "docs"))
         )
         if bad:
             raise ProjectInstallError(
                 f"bundle names an unsafe path {raw!r}: paths must be "
                 "repo-relative, must not traverse '..', must not land under "
-                ".yoke/ (except .yoke/docs/), and hook config flows through the "
-                "bundle's hooks subtrees rather than literal settings files"
+                ".yoke/ (except .yoke/docs/), and merge-managed harness "
+                "config flows through its install pass, not a literal file"
             )
 
 

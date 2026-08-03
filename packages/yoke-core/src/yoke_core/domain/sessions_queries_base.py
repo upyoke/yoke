@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
-from .scheduler_types import is_assignable_claim_state
+from .scheduler_types import NextStep, is_assignable_claim_state
+from .session_offer_diagnostics import build_schedule_offer_diagnostics
 from .session_decision_lane_gate import evaluate_lane_gate
 from .sessions_analytics import _NEXT_STEP_TO_PATH
 from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
@@ -31,22 +32,32 @@ def normalize_session_item_id(item_id: str) -> str:
     return item_id
 
 
-def display_claim_item_id(item_id: Optional[str]) -> Optional[str]:
-    """Render internal numeric claim IDs back to display-only YOK-N form."""
+def display_claim_item_id(
+    item_id: Optional[str],
+    conn: Any = None,
+) -> Optional[str]:
+    """Render a claim's item id for display.
+
+    ``work_claims.item_id`` stores the internal bare ``items.id``. The ref
+    an operator should see is project-scoped
+    (``{projects.public_item_prefix}-{items.project_sequence}``), which can
+    diverge from the internal id. When ``conn`` is supplied, resolve the true
+    public ref via ``render_item_ref`` (which itself falls back to a
+    prefix+id string when the item row is missing). Without a connection —
+    routing callers that resolve work back by internal id — return the bare
+    internal-id string; a prefixed form here would leak a wrong public ref
+    for items whose sequence diverges from the internal id.
+    """
     if item_id is None:
         return None
     normalized = normalize_claim_item_id(str(item_id))
     if normalized.isdigit():
-        return f"YOK-{normalized}"
+        if conn is not None:
+            from .project_identity import render_item_ref
+
+            return render_item_ref(conn, int(normalized))
+        return normalized
     return str(item_id)
-
-
-def _claim_item_lookup_pair(item_id: str) -> tuple[str, str]:
-    """Return the canonical storage value plus its legacy prefixed alias."""
-    normalized = normalize_claim_item_id(item_id)
-    if normalized.isdigit():
-        return normalized, f"YOK-{normalized}"
-    return normalized, normalized
 
 
 # ---------------------------------------------------------------------------
@@ -181,12 +192,13 @@ def _step_is_compatible_with_offer(
     return True
 
 
-def _serialize_filtered_step(step: Any) -> Dict[str, Any]:
+def _serialize_filtered_step(step: Any, conn: Any = None) -> Dict[str, Any]:
     """Serialize an incompatible ScheduledStep for downstream rendering.
 
     Captures the fields the decision engine and ``/yoke do`` loop need to
     explain a lane-policy mismatch to the operator: which items were dropped
-    and what path they need.
+    and what path they need. ``item_id`` is operator-facing: rendered as
+    the true public ref when a connection is available.
     """
     next_step_val = getattr(step, "next_step", None)
     if hasattr(next_step_val, "value"):
@@ -194,8 +206,9 @@ def _serialize_filtered_step(step: Any) -> Dict[str, Any]:
     claim_state_val = getattr(step, "claim_state", None)
     if hasattr(claim_state_val, "value"):
         claim_state_val = claim_state_val.value
+    raw_item_id = getattr(step, "item_id", "")
     return {
-        "item_id": getattr(step, "item_id", ""),
+        "item_id": display_claim_item_id(str(raw_item_id), conn) or "",
         "title": getattr(step, "title", ""),
         "status": getattr(step, "status", ""),
         "next_step": next_step_val,
@@ -211,6 +224,7 @@ def _filter_schedule_for_offer(
     execution_lane: str,
     supported_paths: Optional[List[str]],
     lane_allowed_paths: Optional[Dict[str, List[str]]],
+    conn: Any = None,
 ) -> Any:
     """Filter a scheduler result down to work runnable by this offer.
 
@@ -223,9 +237,10 @@ def _filter_schedule_for_offer(
     ``schedule.lane_filtered_items`` so the decision engine can explain the
     mismatch to the operator instead of silently routing to FEED.
     """
+    candidate_steps = list(schedule.ranked_steps)
     compatible_ranked_steps: List[Any] = []
     incompatible_ranked_steps: List[Any] = []
-    for step in schedule.ranked_steps:
+    for step in candidate_steps:
         if _step_is_compatible_with_offer(
             step,
             execution_lane=execution_lane,
@@ -247,17 +262,43 @@ def _filter_schedule_for_offer(
         )
     ]
 
-    compatible_assignable_steps = [
+    conduct_eligible_ids = {step.item_id for step in compatible_conduct_eligible}
+    wip_filtered_steps = [
         step
         for step in compatible_ranked_steps
+        if step.next_step == NextStep.CONDUCT
+        and step.item_id not in conduct_eligible_ids
+    ]
+    wip_surviving_steps = [
+        step for step in compatible_ranked_steps if step not in wip_filtered_steps
+    ]
+    claim_filtered_steps = [
+        step
+        for step in wip_surviving_steps
+        if not is_assignable_claim_state(step.claim_state)
+    ]
+    compatible_assignable_steps = [
+        step
+        for step in wip_surviving_steps
         if is_assignable_claim_state(step.claim_state)
     ]
 
     schedule.lane_filtered_count = len(incompatible_ranked_steps)
     schedule.lane_filtered_items = [
-        _serialize_filtered_step(step) for step in incompatible_ranked_steps
+        _serialize_filtered_step(step, conn) for step in incompatible_ranked_steps
     ]
-    schedule.ranked_steps = compatible_ranked_steps
+    schedule.offer_diagnostics = build_schedule_offer_diagnostics(
+        candidate_steps=candidate_steps,
+        compatible_steps=compatible_ranked_steps,
+        lane_filtered_steps=incompatible_ranked_steps,
+        wip_filtered_steps=wip_filtered_steps,
+        claim_filtered_steps=claim_filtered_steps,
+        schedule=schedule,
+        execution_lane=execution_lane,
+        lane_allowed_paths=lane_allowed_paths,
+        conn=conn,
+    )
+    schedule.ranked_steps = wip_surviving_steps
     schedule.conduct_eligible = compatible_conduct_eligible
     schedule.selected_step = compatible_assignable_steps[0] if compatible_assignable_steps else None
     return schedule

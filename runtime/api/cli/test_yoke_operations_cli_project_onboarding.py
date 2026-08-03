@@ -135,7 +135,7 @@ def test_project_create_new_repo_binds_identity_and_installs(
         "github_repo": "owner/demo",
         "default_branch": "main",
         "public_item_prefix": "DMO",
-        "github_sync_mode": "backlog_only",
+        "github_sync_mode": "disabled",
     }
     bind_call = api.function_call("projects.github_binding.bind")
     assert bind_call["payload"] == {
@@ -216,7 +216,7 @@ def test_onboard_create_project_permission_denied_is_friendly(
                 "--public-item-prefix",
                 "DMO",
                 "--github-adoption",
-                "backlog-only",
+                "disabled",
             ]
         )
 
@@ -345,7 +345,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
                 "--public-item-prefix",
                 "IMP",
                 "--github-adoption",
-                "backlog-only",
+                "disabled",
                 "--config",
                 str(config),
                 "--yes",
@@ -373,7 +373,7 @@ def test_project_import_clones_existing_remote_binds_identity_and_installs(
         "github_repo": "owner/imported",
         "default_branch": "trunk",
         "public_item_prefix": "IMP",
-        "github_sync_mode": "backlog_only",
+        "github_sync_mode": "disabled",
     }
     assert (checkout / "README.md").read_text(encoding="utf-8") == ("# imported\n")
     assert git_output(checkout, "remote", "get-url", "origin") == str(remote)
@@ -423,7 +423,7 @@ def test_onboard_existing_project_clone_uses_project_id_without_create(
             project_default_branch="trunk",
             project_public_item_prefix="EXT",
             existing_project_id=37,
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             project_clone=onboard_project.ClonePlan(),
         )
 

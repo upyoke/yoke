@@ -47,7 +47,7 @@ class TestNextAction:
         assert na.context is None
 
     def test_all_six_action_kinds(self):
-        """AC-2: All six canonical values must be representable."""
+        """All six canonical values must be representable."""
         for kind in ("resume", "charge", "feed", "strategize", "wait", "escalate"):
             na = NextAction(
                 action=kind,
@@ -123,7 +123,7 @@ class TestNextAction:
 
 
 class TestNextActionKindAlias:
-    """AC-2: NextAction has a 'kind' property that aliases 'action'."""
+    """NextAction has a 'kind' property that aliases 'action'."""
 
     def test_kind_matches_action(self):
         na = NextAction(
@@ -145,7 +145,7 @@ class TestNextActionKindAlias:
 
 
 class TestNextActionChainable:
-    """AC-2: NextAction has chainable field.  AC-5: chainable semantics."""
+    """NextAction has a chainable field."""
 
     def test_chainable_defaults_to_false(self):
         na = NextAction(

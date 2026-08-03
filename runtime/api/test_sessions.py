@@ -260,7 +260,7 @@ EMIT_PATH_TABLES = """
         event_outcome TEXT, org_id TEXT, environment TEXT,
         service TEXT, project_id INTEGER DEFAULT 1, item_id TEXT,
         task_num INTEGER, agent TEXT, tool_name TEXT, duration_ms INTEGER,
-        trace_id TEXT, parent_id TEXT, anomaly_flags TEXT, tool_use_id TEXT,
+        trace_id TEXT, anomaly_flags TEXT, tool_use_id TEXT,
         turn_id TEXT, hook_event_name TEXT, envelope TEXT,
         created_at TEXT NOT NULL
     );

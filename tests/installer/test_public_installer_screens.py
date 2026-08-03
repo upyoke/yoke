@@ -209,7 +209,7 @@ def test_channel_resolution_failure_prints_reason_and_rerun() -> None:
     assert "Traceback" not in rendered
 
 
-def test_latest_channel_failure_points_to_stage_distribution_origin() -> None:
+def test_non_default_channel_failure_stays_on_requested_origin() -> None:
     installer_mod = load_installer()
     output = io.StringIO()
     runner = RecordingRunner()
@@ -228,13 +228,54 @@ def test_latest_channel_failure_points_to_stage_distribution_origin() -> None:
     try:
         installer.run()
     except installer_mod.InstallError as exc:
-        assert "latest channel is published from" in str(exc)
+        assert "publishes the stable channel, not latest" in str(exc)
     else:
         raise AssertionError("expected latest channel fetch failure")
 
     rendered = output.getvalue()
     assert runner.commands == []
-    assert "https://api.stage.upyoke.com" in rendered
-    assert "pre-stable releases" in rendered
-    assert "curl -fsSL https://api.stage.upyoke.com/install | sh" in rendered
-    assert "curl -fsSL https://upyoke.com/install | sh" not in rendered
+    assert "https://api.stage.upyoke.com" not in rendered
+    assert (
+        "curl -fsSL https://upyoke.com/install | sh -s -- --channel stable" in rendered
+    )
+
+
+def test_stage_installer_channel_failure_uses_stage_default(
+    monkeypatch,
+) -> None:
+    installer_mod = load_installer()
+    output = io.StringIO()
+    runner = RecordingRunner()
+    stage_origin = "https://api.stage.upyoke.com"
+    monkeypatch.setattr(installer_mod, "DEFAULT_BASE_URL", stage_origin)
+    monkeypatch.setattr(installer_mod, "DEFAULT_CHANNEL", "latest")
+
+    def failing_fetcher(url: str) -> bytes:
+        raise installer_mod.InstallError(f"could not fetch {url}: HTTP Error 403")
+
+    installer = installer_mod.Installer(
+        _options(
+            installer_mod,
+            base_url=stage_origin,
+            channel="stable",
+        ),
+        fetcher=failing_fetcher,
+        runner=runner,
+        which=lambda name: f"/usr/bin/{name}",
+        stdout=output,
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        assert "publishes the latest channel, not stable" in str(exc)
+    else:
+        raise AssertionError("expected stable channel fetch failure")
+
+    rendered = output.getvalue()
+    assert runner.commands == []
+    assert "https://api.upyoke.com/install" not in rendered
+    assert (
+        "curl -fsSL https://stage.upyoke.com/install | sh -s -- --channel latest"
+        in rendered
+    )

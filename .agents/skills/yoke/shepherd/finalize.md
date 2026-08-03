@@ -7,7 +7,7 @@ This phase owns Shepherd Log persistence, transition continuity, progress commit
 Render the Shepherd Log:
 
 ```bash
-_log=$(yoke items get "YOK-$_num" shepherd_log)
+_log=$(yoke items get "PREFIX-$_num" shepherd_log)
 ```
 
 Before writing, verify `_log` is non-empty and contains at least one `### ` subheading. If the rendered log is empty or malformed, skip the write and preserve the existing body content.
@@ -48,7 +48,7 @@ Only pause in standalone mode when the verdict is NOT_READY and the operator mus
 After each transition completes, commit progress:
 
 ```bash
-git diff --cached --quiet || git commit -m "shepherd: YOK-{N} {_transition} — {_verdict}"
+git diff --cached --quiet || git commit -m "shepherd: PREFIX-{N} {_transition} — {_verdict}"
 ```
 
 ## 9. Final Report
@@ -56,7 +56,7 @@ git diff --cached --quiet || git commit -m "shepherd: YOK-{N} {_transition} — 
 After all transitions complete successfully, report:
 
 ```text
-Shepherd complete: YOK-{N} ({_title})
+Shepherd complete: PREFIX-{N} ({_title})
 
 Status: `{_original_status}` -> `planned`
 
@@ -102,5 +102,5 @@ On all exits (success, failure, or error), release the item claim:
 
 ```bash
 yoke claims work release \
- --item "YOK-$_num" --reason "completed" >/dev/null 2>&1 || true
+ --item "PREFIX-$_num" --reason "completed" >/dev/null 2>&1 || true
 ```

@@ -1,7 +1,7 @@
 """Tests for the recurring work-claim process registry.
 
-Covers AC-2 (STRATEGIZE + FEED share ``strategy-control-plane:<project>``
-and conflict on the same project) and the DOCTOR process claim. The
+STRATEGIZE + FEED share ``strategy-control-plane:<project>``
+and conflict on the same project; the DOCTOR process claim is covered too. The
 process claim is a pure process lock — strategy doc/file enumeration
 lives in :mod:`yoke_core.domain.strategy_docs`.
 """
@@ -43,7 +43,7 @@ class TestProcessRegistry:
 
 
 class TestConflictGroupSemantics:
-    """AC-2: STRATEGIZE and FEED share strategy-control-plane:<project>."""
+    """STRATEGIZE and FEED share strategy-control-plane:<project>."""
 
     def test_strategize_and_feed_share_group_on_same_project(self):
         a = conflict_group_for(PROCESS_STRATEGIZE, "yoke")
@@ -96,7 +96,7 @@ class TestRegistryShape:
 
 
 class TestActionKindToProcessKey:
-    """AC-17 / AC-23 / AC-43: bridge ActionKind value -> registered process key."""
+    """Bridge ActionKind value -> registered process key."""
 
     def test_strategize_action_value_maps_to_strategize_process(self):
         assert action_kind_to_process_key("strategize") == PROCESS_STRATEGIZE

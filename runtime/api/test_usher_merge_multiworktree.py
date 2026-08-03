@@ -45,7 +45,7 @@ def _add_git_worktree(git_repo, branch: str):
 
 
 class TestMergeMdEpicDelegation:
-    """AC-1: usher/merge.md delegates epic merge to /yoke merge, not merge_worktree."""
+    """Usher/merge.md delegates epic merge to /yoke merge, not merge_worktree."""
 
     def _read_merge_md(self) -> str:
         return MERGE_MD.read_text()
@@ -53,8 +53,8 @@ class TestMergeMdEpicDelegation:
     def test_no_direct_epic_merge_worktree_call(self):
         """merge.md must not call merge_worktree with an epic ref directly."""
         text = self._read_merge_md()
-        # The old pattern: merge_worktree YOK-{N} main YOK-{N}
-        assert "merge_worktree YOK-{N} main YOK-{N}" not in text, (
+        # The old pattern: merge_worktree PREFIX-{N} main PREFIX-{N}
+        assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in text, (
             "merge.md still has a direct epic merge_worktree call — "
             "must delegate to /yoke merge {N} instead"
         )
@@ -67,10 +67,10 @@ class TestMergeMdEpicDelegation:
         )
 
     def test_single_lane_path_still_present(self):
-        """merge.md must retain the single-lane merge-worktree path."""
+        """merge.md must retain the single-lane standalone-item merge call."""
         text = self._read_merge_md()
-        assert "merge-worktree -- YOK-{N}" in text, (
-            "merge.md lost the single-lane merge-worktree call"
+        assert "merge-item -- PREFIX-{N} --skip-status" in text, (
+            "merge.md lost the single-lane standalone-item merge call"
         )
 
     def test_7e_scoped_to_single_lane_policy(self):
@@ -88,7 +88,7 @@ class TestMergeMdEpicDelegation:
             "_usher_generated_children",
             "_usher_worktree_policy",
             "_usher_parallelism",
-            "executor_bindings",
+            "skill_bindings",
         ):
             assert required in text
         assert 'if [ "$_item_workflow_id" = "epic" ]' not in text
@@ -101,7 +101,7 @@ class TestMergeMdWorktreeIteration:
         """The ephemeral-verify branch resolution must use the resolver, not db_router worktree."""
         text = MERGE_MD.read_text()
         # The old single-field read (without resolver) was on one line; check it is gone
-        assert "items get YOK-{N} worktree" not in text, (
+        assert "items get PREFIX-{N} worktree" not in text, (
             "merge.md still reads the retired item-level branch projection — "
             "must use worktree_item_resolve instead"
         )
@@ -131,7 +131,7 @@ class TestMergeMdWorktreeIteration:
 
 
 class TestMergeMdHaltClassRelease:
-    """AC-39: usher/merge.md halt branches release the work claim with a
+    """Usher/merge.md halt branches release the work claim with a
     halt-class reason BEFORE printing recovery instructions.
     """
 
@@ -173,7 +173,7 @@ class TestMergeMdHaltClassRelease:
         assert release_idx < summary_idx, (
             "merge.md halt-class release section must appear before the "
             "halt-summary recovery instructions (release must run BEFORE "
-            "recovery prose per AC-39)"
+            "recovery prose)"
         )
 
     def test_exit_5_names_halt_class_release(self):
@@ -208,7 +208,7 @@ class TestMergeMdHaltClassRelease:
 
 
 class TestResolverCLI:
-    """AC-6: worktree_item_resolve has a CLI that returns branches for multi-worktree epics."""
+    """Worktree_item_resolve has a CLI that returns branches for multi-worktree epics."""
 
     def _run_resolver(
         self,

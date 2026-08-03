@@ -17,7 +17,9 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.item_worktrees import list_item_worktrees
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _p(conn) -> str:
@@ -55,6 +57,9 @@ def execute_close(
         )
 
         lock_item_workflow_bindings(conn, (int(item_id),))
+        # Best-effort public ref for every operator-facing message; falls
+        # back to the default prefix form when the item cannot be resolved.
+        item_ref = render_item_ref(conn, item_id)
         row = conn.execute(
             "SELECT i.*, p.slug AS project FROM items i "
             "LEFT JOIN projects p ON p.id = i.project_id "
@@ -62,7 +67,7 @@ def execute_close(
             (item_id,),
         ).fetchone()
         if row is None:
-            return {"success": False, "error": f"Item YOK-{item_id} not found"}
+            return {"success": False, "error": f"Item {item_ref} not found"}
 
         item = dict(row)
         status = item["status"]
@@ -70,7 +75,7 @@ def execute_close(
 
         if status == "cancelled" and (item.get("resolution") or "") == reason:
             print(
-                f"YOK-{item_id} already cancelled with resolution={reason} — no-op.",
+                f"{item_ref} already cancelled with resolution={reason} — no-op.",
                 file=out,
             )
             return {"success": True, "item_id": item_id, "noop": True}
@@ -78,7 +83,7 @@ def execute_close(
         if status == "done":
             return {
                 "success": False,
-                "error": f"YOK-{item_id} is already done — cannot close a delivered item.",
+                "error": f"{item_ref} is already done — cannot close a delivered item.",
             }
 
         if status in {
@@ -90,7 +95,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"YOK-{item_id} is in delivery tail (status={status}). "
+                    f"{item_ref} is in delivery tail (status={status}). "
                     "Cannot close items past review."
                 ),
             }
@@ -100,7 +105,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"YOK-{item_id} has merged_at set ({merged_at}). "
+                    f"{item_ref} has merged_at set ({merged_at}). "
                     "Cannot close items with merge evidence."
                 ),
             }
@@ -111,7 +116,7 @@ def execute_close(
             return {
                 "success": False,
                 "error": (
-                    f"YOK-{item_id} has active worktree lanes ({branches}). "
+                    f"{item_ref} has active worktree lanes ({branches}). "
                     "Complete or release those lanes before cancellation."
                 ),
             }
@@ -126,16 +131,16 @@ def execute_close(
         # tooling. Deletion statements run on the same connection as
         # `_update_item_multi` below so the status change and
         # deterministic deletions commit atomically.
-        sun_ref = f"YOK-{item_id}"
+        dependency_ref = render_column_item_ref(conn, item_id)
         outbound_rows = conn.execute(
             "SELECT blocking_item, gate_point, satisfaction "
             f"FROM item_dependencies WHERE dependent_item = {p}",
-            (sun_ref,),
+            (dependency_ref,),
         ).fetchall()
         inbound_rows = conn.execute(
             "SELECT dependent_item, gate_point, satisfaction "
             f"FROM item_dependencies WHERE blocking_item = {p}",
-            (sun_ref,),
+            (dependency_ref,),
         ).fetchall()
 
         removed_outbound: list[dict] = []
@@ -150,7 +155,7 @@ def execute_close(
         if outbound_rows:
             conn.execute(
                 f"DELETE FROM item_dependencies WHERE dependent_item = {p}",
-                (sun_ref,),
+                (dependency_ref,),
             )
 
         removed_absorbed: list[dict] = []
@@ -167,7 +172,7 @@ def execute_close(
                     "DELETE FROM item_dependencies "
                     f"WHERE dependent_item = {p} AND blocking_item = {p} "
                     f"AND gate_point = {p}",
-                    (dependent_item, sun_ref, gate_point),
+                    (dependent_item, dependency_ref, gate_point),
                 )
                 removed_absorbed.append(
                     {
@@ -180,7 +185,7 @@ def execute_close(
                 preserved_ambiguous.append(
                     {
                         "dependent_item": dependent_item,
-                        "blocking_item": sun_ref,
+                        "blocking_item": dependency_ref,
                         "gate_point": gate_point,
                         "satisfaction": satisfaction,
                     }
@@ -223,7 +228,7 @@ def execute_close(
         conn.commit()
 
         print(
-            f"Updated: YOK-{item_id} status → cancelled (resolution: {reason})",
+            f"Updated: {item_ref} status → cancelled (resolution: {reason})",
             file=out,
         )
         run_post_commit_update_effects(
@@ -234,19 +239,19 @@ def execute_close(
         if removed_outbound:
             print(
                 f"Reconciled: removed {len(removed_outbound)} outbound "
-                f"dependency row(s) where YOK-{item_id} was the dependent_item.",
+                f"dependency row(s) where {item_ref} was the dependent_item.",
                 file=out,
             )
         if removed_absorbed:
             print(
                 f"Reconciled: removed {len(removed_absorbed)} absorbed-self "
-                f"inbound row(s) where YOK-{item_id} blocked {normalized_resolution_ref}.",
+                f"inbound row(s) where {item_ref} blocked {normalized_resolution_ref}.",
                 file=out,
             )
         if preserved_ambiguous:
             print(
                 f"Warning: {len(preserved_ambiguous)} inbound dependency "
-                f"row(s) preserved — cancelled YOK-{item_id} still listed as "
+                f"row(s) preserved — cancelled {item_ref} still listed as "
                 "blocker. Review with `python3 -m yoke_core.cli.db_router "
                 "shepherd dependency-list` and remove with "
                 "`dependency-remove` if stale:",
@@ -267,7 +272,7 @@ def execute_close(
 
         if _bu._is_dry_run():
             print(
-                f"[DRY-RUN] Skipping GitHub: close + comment for YOK-{item_id}",
+                f"[DRY-RUN] Skipping GitHub: close + comment for {item_ref}",
                 file=out,
             )
         else:

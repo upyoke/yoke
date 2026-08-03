@@ -60,6 +60,10 @@ _LIFECYCLE_EVENTS: frozenset[str] = frozenset({
 # path on one convention instead of inventing a second.
 SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 
+# The canonical name for the event a harness fires once when a session
+# opens, before any tool call. Several client-side paths key on it.
+SESSION_START_EVENT = "SessionStart"
+
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:
     """Return the ordered policy module list for ``(event_name, matcher)``.

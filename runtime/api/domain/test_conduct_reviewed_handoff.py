@@ -25,9 +25,8 @@ TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
 
 
 class TestNormalizeId(unittest.TestCase):
-    def test_sun_prefix(self) -> None:
-        self.assertEqual(mod._normalize_item_id(TEST_EPIC_REF), TEST_EPIC_ID)
-
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
     def test_zero_padded(self) -> None:
         self.assertEqual(mod._normalize_item_id("007"), 7)
 
@@ -155,13 +154,13 @@ class TestMain(unittest.TestCase):
 
     def test_forwards_to_run(self) -> None:
         with mock.patch.object(mod, "run", return_value=0) as run_mock:
-            rc = mod.main([TEST_EPIC_REF])
+            rc = mod.main([str(TEST_EPIC_ID)])
         self.assertEqual(rc, 0)
         run_mock.assert_called_once_with(TEST_EPIC_ID, session_id=None)
 
     def test_forwards_explicit_session_id(self) -> None:
         with mock.patch.object(mod, "run", return_value=0) as run_mock:
-            rc = mod.main(["--session-id", "sess-1", TEST_EPIC_REF])
+            rc = mod.main(["--session-id", "sess-1", str(TEST_EPIC_ID)])
         self.assertEqual(rc, 0)
         run_mock.assert_called_once_with(TEST_EPIC_ID, session_id="sess-1")
 

@@ -41,7 +41,7 @@ def _ensure_column(conn, table: str, column: str, ddl: str) -> None:
 
     Skips the ADD COLUMN (and emits
     :event:`RetiredSchemaResurrectionAttempt`) when the column is
-    registered in ``runtime/api/domain/retired_schema_surfaces.yaml``. Skipping is
+    registered in ``yoke_core/domain/retired_schema_surfaces.yaml``. Skipping is
     preferred over hard failure so operator-invoked recovery scenarios
     do not block on the guard.
     """

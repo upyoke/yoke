@@ -27,7 +27,7 @@ class TestClassifyItems:
             assert result[section] == []
 
     def test_blocked_flag_routes_to_blocked_section(self, test_db):
-        """/ AC-3b: items with blocked=1 render in the
+        """Items with blocked=1 render in the
         blocked section regardless of their preserved lifecycle status."""
         insert_item(test_db, 1, status="implementing")
         insert_item(test_db, 2, status="refined-idea")
@@ -112,7 +112,7 @@ class TestClassifyItems:
         assert result["freezer"][0].id == "YOK-50"
 
     def test_unknown_status_routing(self, test_db):
-        """AC-4: Items with unrecognized statuses go to 'unknown' section."""
+        """Items with unrecognized statuses go to 'unknown' section."""
         insert_item(test_db, 1, status="novelstatus")
         result = classify_items(test_db, "yoke")
         assert len(result["unknown"]) == 1
@@ -239,14 +239,14 @@ class TestClassifyItems:
         assert "EXT-2" in all_ids
 
     def test_implemented_in_active_section(self, test_db):
-        """AC-3: Items with status=implemented appear in the active section."""
+        """Items with status=implemented appear in the active section."""
         insert_item(test_db, 1, status="implemented")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
         assert "YOK-1" in active_ids
 
     def test_release_in_active_section(self, test_db):
-        """AC-3: Items with status=release appear in the active section."""
+        """Items with status=release appear in the active section."""
         insert_item(test_db, 1, status="release")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
@@ -255,7 +255,7 @@ class TestClassifyItems:
         assert item_row.status == "release"
 
     def test_epic_refined_idea_goes_to_pipeline(self, test_db):
-        """AC-11: epic refined-idea -> planning bucket -> pipeline section."""
+        """Epic refined-idea -> planning bucket -> pipeline section."""
         insert_item(test_db, 1, status="refined-idea", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         pipeline_ids = {r.id for r in result["pipeline"]}
@@ -283,7 +283,7 @@ class TestClassifyItems:
         assert "YOK-1" in pipeline_ids
 
     def test_epic_reviewing_implementation_goes_to_active(self, test_db):
-        """AC-11: epic reviewing-implementation -> implementing bucket -> active section."""
+        """Epic reviewing-implementation -> implementing bucket -> active section."""
         insert_item(test_db, 1, status="reviewing-implementation", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}

@@ -1,7 +1,7 @@
 """Tests for tentative path-claim registration plumbing.
 
-Covers AC-2 (callers register tentative without broad parent claims)
-and AC-10 (idea/readiness reference checks treat tentative registered
+Covers registration (callers register tentative without broad parent claims)
+and reference checks (idea/readiness checks treat tentative registered
 path targets as planned-equivalent implementation surfaces).
 """
 
@@ -57,7 +57,7 @@ class TestRegisterTentative:
 
 
 class TestReadinessRefs:
-    """AC-10 — readiness suppresses dotted refs for tentative targets too."""
+    """Readiness suppresses dotted refs for tentative targets too."""
 
     def test_tentative_target_suppresses_unresolved_function_ref(self, conn):
         """A dotted ref to a tentative-registered module file is suppressed.

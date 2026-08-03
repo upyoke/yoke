@@ -41,7 +41,7 @@ CREATE TABLE items (
     title TEXT DEFAULT '',
     status TEXT DEFAULT 'idea',
     priority TEXT DEFAULT 'medium',
-    flow TEXT, rework_count INTEGER DEFAULT 0,
+    rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, github_issue INTEGER,
     deployed_to TEXT, merged_at TEXT,
     created_at TEXT, updated_at TEXT, source TEXT,
@@ -124,6 +124,10 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                             "done",
                         ),
                     )
+                    # Keep the control-plane primary key and the public
+                    # project sequence in different keyspaces. Recovery
+                    # messages must render the latter, never assume they are
+                    # interchangeable.
                     conn.commit()
                 finally:
                     conn.close()
@@ -137,15 +141,19 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                     reset_registry_for_tests()
 
     def test_prefix_ref_resolves_server_side(self) -> None:
+        envelope = _envelope({"kind": "item", "item_ref": "YOK-4242"})
+        envelope["payload"] = {"fields": ["status", "project_sequence"]}
         resp = self.client.post(
             "/v1/functions/call",
-            json=_envelope({"kind": "item", "item_ref": "YOK-4242"}),
+            json=envelope,
         )
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertTrue(body["success"])
         self.assertEqual(body["result"]["item_id"], 9001)
         self.assertEqual(body["result"]["fields"]["status"], "done")
+        self.assertEqual(body["result"]["fields"]["project_sequence"], "4242")
+        self.assertNotEqual(body["result"]["item_id"], 4242)
 
     def test_bare_number_with_project_context_resolves(self) -> None:
         resp = self.client.post(

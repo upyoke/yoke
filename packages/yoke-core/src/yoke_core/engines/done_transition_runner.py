@@ -11,11 +11,14 @@ from yoke_core.domain.workflow_behavior import (
     requires_plan_simulation,
 )
 from yoke_core.engines.done_transition_item_context import (
-    load_done_item_context,
+    load_done_item_context_over_transport,
 )
 from yoke_core.engines.done_transition_finalize import finish_done_transition
 from yoke_core.engines.done_transition_preconditions import (
     enforce_preconditions as _enforce_preconditions,
+)
+from yoke_core.engines.done_transition_branch_lookup import (
+    branch_exists_for_item,
 )
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
 
@@ -40,7 +43,6 @@ def run(
     mw = _parent()
     TransitionResult = mw.TransitionResult
     _resolve_repo_root = mw._resolve_repo_root
-    _connect = mw._connect
     _resolve_project_context = mw._resolve_project_context
     _query_item_field = mw._query_item_field
     _get_base_branch = mw._get_base_branch
@@ -54,11 +56,11 @@ def run(
     _check_deployment_redirect = mw._check_deployment_redirect
     _do_merge = mw._do_merge
     _run_git = mw._run_git
+    _connect = mw._connect
     _cleanup_stale_branches = mw._cleanup_stale_branches
     _verify_cwd_after_merge = mw._verify_cwd_after_merge
     _schema_gate = mw._schema_gate
     _check_deployment_flow_guard = mw._check_deployment_flow_guard
-    _cross_project_commit_guard = mw._cross_project_commit_guard
     _populate_merged_at = mw._populate_merged_at
     _update_status_to_done = mw._update_status_to_done
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
@@ -66,10 +68,15 @@ def run(
     _sync_done_item_direct = mw._sync_done_item_direct
     _apply_discovery_scan = mw._apply_discovery_scan
 
-    result = TransitionResult(item=f"YOK-{item_id}")
+    # The public item ref is resolved once, server-side, by the transport
+    # context relay (project-sequence aware, no local connection). Until that
+    # load completes the only identity available is the bare items.id, so the
+    # temp result-file name and the "item not found" error carry the raw id
+    # (not a fabricated ref); every user-facing ref below is context.item_ref.
+    result = TransitionResult(item=str(item_id))
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
-        f"done-transition-result.YOK-{item_id}.json",
+        f"done-transition-result.{item_id}.json",
     )
 
     repo_root = _resolve_repo_root()
@@ -80,12 +87,13 @@ def run(
     _reseat_runtime_paths(repo_root)
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
-    with _connect() as conn:
-        context = load_done_item_context(conn, item_id)
+    context = load_done_item_context_over_transport(item_id)
     if context is None:
-        print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
+        print(f"Error: Item {item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
+    item_ref = context.item_ref
+    result.item = item_ref
     title = context.title
     old_status = context.stage_id
     lane_branch = context.lane_branch
@@ -96,7 +104,7 @@ def run(
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
         lane_branch = ""
-    print(f"\n=== Done transition: YOK-{item_id} ===")
+    print(f"\n=== Done transition: {item_ref} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
     print(f"Workflow: {workflow.workflow_id}@{workflow.version}\n")
@@ -115,11 +123,15 @@ def run(
     base_branch = _get_base_branch(project_default_branch, project_repo)
 
     if requires_plan_simulation(workflow):
-        sim_exit = _check_simulation_gate(item_id, skip_simulation)
+        sim_exit = _check_simulation_gate(
+            item_id, skip_simulation, item_ref=item_ref
+        )
         if sim_exit is not None:
             return result.fail(result_file, sim_exit, "2a")
     result.add_step("2a")
-    if (blocked_exit := mw._check_blocked_flag(item_id)) is not None:
+    if (
+        blocked_exit := mw._check_blocked_flag(item_id, item_ref=item_ref)
+    ) is not None:
         return result.fail(result_file, blocked_exit, "2a-blocked")
 
     branch_already_merged = _check_merge_guard(lane_branch, project_repo, base_branch)
@@ -127,7 +139,11 @@ def run(
 
     if not branch_already_merged:
         empty_exit = _check_empty_branch(
-            lane_branch, project_repo, base_branch, item_id
+            lane_branch,
+            project_repo,
+            base_branch,
+            item_id,
+            item_ref=item_ref,
         )
         if empty_exit is not None:
             print(f"RESULT_FILE={result_file}")
@@ -137,13 +153,21 @@ def run(
     already_done, resume_from_step6 = _check_recovery(old_status, lane_branch)
 
     if already_done:
-        return _handle_already_done(item_id, project_repo, result, result_file)
+        return _handle_already_done(
+            item_id, project_repo, result, result_file, item_ref=item_ref
+        )
 
     if (
         resume_from_step6
         and (
             rc := _handle_resume_from_step6(
-                item_id, project_repo, base_branch, old_status, result, result_file
+                item_id,
+                project_repo,
+                base_branch,
+                old_status,
+                result,
+                result_file,
+                item_ref=item_ref,
             )
         )
         is not None
@@ -155,7 +179,9 @@ def run(
     result.add_step("3")
 
     if not resume_from_step6:
-        redirect = _check_deployment_redirect(deploy_flow, skip_deploy, item_id)
+        redirect = _check_deployment_redirect(
+            deploy_flow, skip_deploy, item_id, item_ref=item_ref
+        )
         if redirect is not None:
             print(f"RESULT_FILE={result_file}")
             return result.fail(result_file, redirect, "3b")
@@ -171,6 +197,8 @@ def run(
                 base_branch,
                 task_parent_ref,
                 project_repo,
+                item_project,
+                item_ref=item_ref,
             )
             if merge_exit == 0:
                 merge_ran = True
@@ -206,33 +234,12 @@ def run(
                     "with post-merge steps."
                 )
             else:
-                branch_exists = False
-                verify = _run_git(
-                    [
-                        "-C",
-                        str(project_repo),
-                        "rev-parse",
-                        "--verify",
-                        f"YOK-{item_id}",
-                    ],
-                    capture=True,
+                branch_exists = branch_exists_for_item(
+                    item_id,
+                    project_repo=project_repo,
+                    run_git=_run_git,
+                    connect=_connect,
                 )
-                if verify.returncode == 0:
-                    branch_exists = True
-                else:
-                    ls = _run_git(
-                        [
-                            "-C",
-                            str(project_repo),
-                            "ls-remote",
-                            "--heads",
-                            "origin",
-                            f"YOK-{item_id}",
-                        ],
-                        capture=True,
-                    )
-                    if ls.stdout and f"YOK-{item_id}" in ls.stdout:
-                        branch_exists = True
                 if not branch_exists:
                     print(
                         "No active worktree lane and no branch found — "
@@ -271,6 +278,7 @@ def run(
         item_project,
         old_status,
         delivery_redirect_stage(workflow),
+        item_ref=item_ref,
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard
@@ -279,21 +287,18 @@ def run(
         return result.fail(result_file, exit_code, "5b")
     result.add_step("5b")
 
-    _cross_project_commit_guard(item_id, item_project, repo_root)
-    result.add_step("5c")
-
     if _enforce_preconditions(
         item_id,
         deploy_flow,
         requires_plan_simulation(workflow),
     ):
         print(f"RESULT_FILE={result_file}")
-        return result.fail(result_file, 7, "5d-preconditions")
-    result.add_step("5d")
+        return result.fail(result_file, 7, "5c-preconditions")
+    result.add_step("5c")
     print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
-    success = _update_status_to_done(item_id, skip_qa)
+    success = _update_status_to_done(item_id, skip_qa, item_ref=item_ref)
     if not success:
         verify = _query_item_field(item_id, "status")
         print(
@@ -321,13 +326,13 @@ def run(
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, task_parent_ref)
+        _cascade_epic_tasks_to_done(item_id, task_parent_ref, item_ref=item_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     print("\n=== Step 8: Sync done state to GitHub ===")
     from yoke_core.engines.done_transition_github_sync import apply_step_8
 
-    apply_step_8(item_id, old_status, result)
+    apply_step_8(item_id, old_status, result, item_ref=item_ref)
     _apply_discovery_scan(item_id, result)
     for _s in ("9", "10"):
         result.add_step(_s)
@@ -341,4 +346,5 @@ def run(
         workflow=workflow,
         repo_root=repo_root,
         merge_ran=merge_ran,
+        item_ref=item_ref,
     )

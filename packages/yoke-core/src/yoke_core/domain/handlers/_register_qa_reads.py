@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import (
     _register_qa_requirement_runs,
     doctor_last_run as _doctor_last_run,
     items_listing as _items_listing,
+    items_search as _items_search,
     reads as _reads,
     reads_misc as _reads_misc,
     projects_checkout_context as _projects_checkout_context,
@@ -63,11 +64,11 @@ def register(registry) -> None:
     )
     registry.register(
         "items.search.run",
-        _items_listing.handle_items_search,
-        _items_listing.ItemsSearchRequest,
-        _items_listing.ItemsSearchResponse,
+        _items_search.handle_items_search,
+        _items_search.ItemsSearchRequest,
+        _items_search.ItemsSearchResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.items_listing",
+        owner_module="yoke_core.domain.handlers.items_search",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
@@ -301,5 +302,22 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
         adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "agents.render_relationships.record",
+        _orch_agents.handle_agents_render_relationships_record,
+        _orch_agents.AgentsRenderRelationshipsRecordRequest,
+        _orch_agents.AgentsRenderRelationshipsRecordResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.orchestration_agents",
+        target_kinds=["global"],
+        side_effects=["path_context_values_upsert"],
+        emitted_event_names=[
+            "RenderRelationshipRecorded",
+            "YokeFunctionCalled",
+        ],
+        guardrails=["deterministic_server_owned_relationship_map"],
+        adapter_status="internal",
         claim_required_kind=None,
     )

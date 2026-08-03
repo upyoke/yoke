@@ -19,7 +19,7 @@ class TestSessionCheckpointCommand:
     """Tests for session-checkpoint and session-checkpoint-read."""
 
     def test_checkpoint_write_and_read_round_trip(self, session_offer_db):
-        """AC-1, AC-2: checkpoint persisted and readable via CLI."""
+        """Checkpoint persisted and readable via CLI."""
         sid = "cp-test-sess"
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
@@ -104,7 +104,7 @@ class TestSessionCheckpointCommand:
         assert r.returncode == 1
 
     def test_checkpointed_chain_step_supports_second_next_action_event(self, session_offer_db, monkeypatch):
-        """AC-3, AC-7: checkpointed chain steps preserve second-offer lineage."""
+        """Checkpointed chain steps preserve second-offer lineage."""
         sid = "cp-chain-reoffer"
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]

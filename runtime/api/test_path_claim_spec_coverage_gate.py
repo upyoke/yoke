@@ -94,12 +94,12 @@ def _seed_active_claim(
     target_ids: list[int],
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO path_claims (state, mode, actor_id, item_id, "
-        "integration_target, base_commit_sha, registered_at, "
+        "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+        "registered_by_actor_id, integration_target, base_commit_sha, registered_at, "
         "activated_at) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', 'snap-base', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', 'snap-base', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z') RETURNING id",
-        (actor_id, item_id),
+        (item_id, actor_id),
     )
     claim_id = int(cur.fetchone()[0])
     for target_id in target_ids:
@@ -124,7 +124,7 @@ class TestExtractFileBudgetPaths:
 - Hard limit: 350 lines.
 - Expected implementation shape:
   - `runtime/api/domain/foo.py` — does X.
-  - `runtime/api/test_foo.py` — covers AC-1.
+  - `runtime/api/test_foo.py` — covers the new branch.
   - `.yoke/docs/lifecycle.md` — operator note.
 """
         paths = extract_file_budget_paths(spec)
@@ -205,7 +205,7 @@ class TestExtractFileBudgetPaths:
 
 
 class TestSharedParserParity:
-    """AC-2 parity: idea_readiness_check and path_claim_spec_coverage_gate
+    """Parity: idea_readiness_check and path_claim_spec_coverage_gate
     must use one shared File Budget parser. The compatibility wrapper
     inside ``idea_readiness_check`` delegates to the shared module without
     owning a second regex allowlist; both surfaces must accept identical

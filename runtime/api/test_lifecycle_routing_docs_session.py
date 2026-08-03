@@ -45,7 +45,7 @@ class TestLifecycleRoutingSection:
 
     def test_no_flat_advance_to_done(self, section_body: str) -> None:
         stale = re.compile(
-            r"/yoke advance YOK-N implementation.*work.*/yoke advance YOK-N done",
+            r"/yoke advance PREFIX-N implementation.*work.*/yoke advance PREFIX-N done",
             re.IGNORECASE | re.DOTALL,
         )
         assert not stale.search(section_body), (
@@ -57,12 +57,12 @@ class TestLifecycleRoutingSection:
         self, section_body: str
     ) -> None:
         assert "`workflow_id` / `workflow_version_id`" in section_body
-        assert "yoke workflows item get YOK-N" in section_body
+        assert "yoke workflows item get PREFIX-N" in section_body
         assert "yoke workflows version get WORKFLOW VERSION" in section_body
 
-    def test_section_routes_by_executor_binding(self, section_body: str) -> None:
+    def test_section_routes_by_skill_binding(self, section_body: str) -> None:
         assert "half-open interval" in section_body
-        assert "/yoke <executor_id>" in section_body
+        assert "/yoke <skill_id>" in section_body
         assert "`through_stage_id`" in section_body
 
     def test_section_uses_policies_not_item_type(self, section_body: str) -> None:

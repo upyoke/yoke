@@ -13,15 +13,12 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
     validate_fixture_operation_refs,
     validate_terminal_recipe,
 )
+from yoke_core.domain.machine_qa_pack import load_machine_qa_methods
 
-
-MACHINE_METHODS = frozenset(
-    {
-        "terminal-check",
-        "terminal-inspection",
-        "machine-state-check",
-    }
-)
+_MACHINE_METHOD_DEFINITIONS = {
+    row["id"]: row for row in load_machine_qa_methods()[1]
+}
+MACHINE_METHODS = frozenset(_MACHINE_METHOD_DEFINITIONS)
 _REGISTERED_HOST_BASELINES = frozenset(HOST_BASELINE_OPERATIONS)
 _MAX_STEPS = 100
 _MAX_ASSERTIONS = 50
@@ -29,6 +26,14 @@ _MAX_ASSERTIONS = 50
 
 class MachineQaExecutionError(ValueError):
     """A case cannot execute through the registered Machine QA contract."""
+
+
+def machine_method_definition(method_id: str) -> Mapping[str, Any]:
+    """Resolve one Pack-owned Machine QA definition or fail closed."""
+    definition = _MACHINE_METHOD_DEFINITIONS.get(method_id)
+    if definition is None:
+        raise MachineQaExecutionError(f"unknown Machine QA method {method_id!r}")
+    return definition
 
 
 def validate_machine_method_config(
@@ -40,8 +45,7 @@ def validate_machine_method_config(
     host_baseline: str | None = None,
 ) -> dict[str, Any]:
     """Validate bounded structured case input; shell strings are never accepted."""
-    if method_id not in MACHINE_METHODS:
-        raise MachineQaExecutionError(f"unknown Machine QA method {method_id!r}")
+    definition = machine_method_definition(method_id)
     if not isinstance(config, Mapping):
         raise MachineQaExecutionError("method_config must be an object")
     if host_baseline is not None and host_baseline not in _REGISTERED_HOST_BASELINES:
@@ -69,7 +73,7 @@ def validate_machine_method_config(
             )
         if host_baseline is not None:
             return _validate_baseline_variant(
-                method_id,
+                str(definition["config_contract_id"]),
                 raw_variants[host_baseline],
                 entry_surface=entry_surface,
                 required_completion=required_completion,
@@ -77,7 +81,7 @@ def validate_machine_method_config(
         return {
             "baseline_configs": {
                 name: _validate_baseline_variant(
-                    method_id,
+                    str(definition["config_contract_id"]),
                     raw_variants[name],
                     entry_surface=entry_surface,
                     required_completion=required_completion,
@@ -86,7 +90,7 @@ def validate_machine_method_config(
             }
         }
     return _validate_single_method_config(
-        method_id,
+        str(definition["config_contract_id"]),
         config,
         entry_surface=entry_surface,
         required_completion=required_completion,
@@ -94,7 +98,7 @@ def validate_machine_method_config(
 
 
 def _validate_baseline_variant(
-    method_id: str,
+    config_contract_id: str,
     raw: Any,
     *,
     entry_surface: str | None,
@@ -107,7 +111,7 @@ def _validate_baseline_variant(
     if "baseline_configs" in raw:
         raise MachineQaExecutionError("baseline_configs cannot be nested")
     return _validate_single_method_config(
-        method_id,
+        config_contract_id,
         raw,
         entry_surface=entry_surface,
         required_completion=required_completion,
@@ -115,7 +119,7 @@ def _validate_baseline_variant(
 
 
 def _validate_single_method_config(
-    method_id: str,
+    config_contract_id: str,
     config: Mapping[str, Any],
     *,
     entry_surface: str | None,
@@ -127,7 +131,7 @@ def _validate_single_method_config(
         raise MachineQaExecutionError(str(exc)) from exc
     if blocker is not None:
         return {"execution_blocker": blocker}
-    if method_id in {"terminal-check", "terminal-inspection"}:
+    if config_contract_id in {"terminal-check", "terminal-inspection"}:
         if "actions" in config:
             try:
                 return validate_terminal_recipe(
@@ -254,5 +258,6 @@ def _assertion(raw: Any) -> dict[str, Any]:
 __all__ = [
     "MACHINE_METHODS",
     "MachineQaExecutionError",
+    "machine_method_definition",
     "validate_machine_method_config",
 ]

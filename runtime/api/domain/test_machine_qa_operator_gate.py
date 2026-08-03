@@ -10,7 +10,9 @@ import pytest
 from runtime.api.domain.machine_qa_terminal_recipe_test_support import completed
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval,
+    run_machine_browser_approval_with_io,
 )
+from yoke_core.domain.ssh_mac_browser_approval import BrowserApprovalResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     MachineQaRecipeError,
     validate_terminal_recipe,
@@ -28,15 +30,17 @@ def _gate_action() -> dict[str, object]:
     }
 
 
+@pytest.mark.parametrize("detail_marker", ("-", "•"))
 def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
+    detail_marker: str,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcripts = iter(
         (
             "Approve this machine.\n"
-            "One-time code: AB12-CD34\n"
-            "Open: https://app.stage.upyoke.com/machine/approve\n",
+            f"  {detail_marker} One-time code: AB12-CD34\n"
+            f"  {detail_marker} Open: https://app.stage.upyoke.com/connect\n",
             "Waiting for browser approval",
             "Yoke token connected.",
         )
@@ -48,6 +52,11 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         commands.append(command)
         if " hardcopy -h " in command:
             return completed(command, stdout=next(transcripts))
+        if 'tell application "Safari"' in command:
+            return completed(
+                command,
+                stdout=("approved|https://app.stage.upyoke.com/orgs/acme#/overview\n"),
+            )
         return completed(command)
 
     monotonic = iter((0.0, 0.0, 1.0))
@@ -78,8 +87,77 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         "code": "AB12-CD34",
         "event": "machine_qa.operator_gate",
         "kind": "machine_browser_approval",
-        "url": "https://app.stage.upyoke.com/machine/approve",
+        "url": "https://app.stage.upyoke.com/connect",
     }
+    assert result.browser_evidence == {
+        "approval_entry": "/connect",
+        "browser": "Safari",
+        "result_url": "https://app.stage.upyoke.com/orgs/acme",
+        "visible_control": "Approve machine",
+    }
+
+
+def test_browser_gate_ignores_stale_outcomes_before_current_code(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_gate = (
+        "One-time code: EF56-GH78\nOpen: https://app.stage.upyoke.com/machine\n"
+    )
+    retained_history = "Yoke token connected.\nauthorization expired\n"
+    transcripts = iter(
+        (
+            retained_history + current_gate,
+            retained_history + current_gate + "Waiting for browser approval\n",
+            retained_history + current_gate + "Yoke token connected.\n",
+        )
+    )
+    monotonic = iter((0.0, 0.0, 1.0))
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_operator_gate.time.monotonic",
+        lambda: next(monotonic),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_operator_gate.time.sleep",
+        lambda _seconds: None,
+    )
+
+    result = run_machine_browser_approval_with_io(
+        read_transcript=lambda: next(transcripts),
+        send_keys=lambda _keys: True,
+        action=_gate_action(),
+        progress_callback=None,
+        allowed_base_urls=("https://app.stage.upyoke.com",),
+        approve_browser=lambda _url, _code: BrowserApprovalResult(
+            True,
+            {"browser": "Safari"},
+        ),
+    )
+
+    assert result.ok is True
+    assert result.error_code is None
+    assert result.transcript.endswith("Yoke token connected.\n")
+    assert result.browser_evidence == {"browser": "Safari"}
+    assert json.loads(capsys.readouterr().out)["code"] == "EF56-GH78"
+
+
+def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
+    called: list[bool] = []
+    result = run_machine_browser_approval_with_io(
+        read_transcript=lambda: (
+            "One-time code: AB12-CD34\nOpen: https://app.stage.upyoke.com/anything\n"
+        ),
+        send_keys=lambda _keys: True,
+        action=_gate_action(),
+        progress_callback=None,
+        allowed_base_urls=("https://app.stage.upyoke.com",),
+        approve_browser=lambda _url, _code: (
+            called.append(True) or BrowserApprovalResult(True, {})
+        ),
+    )
+
+    assert result.error_code == "machine_browser_approval_context_missing"
+    assert called == []
 
 
 def test_operator_sleep_is_rejected_by_the_recipe_contract() -> None:

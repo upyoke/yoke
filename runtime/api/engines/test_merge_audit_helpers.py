@@ -14,10 +14,17 @@ from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
 
 @pytest.fixture()
 def tmp_db(tmp_path):
-    """Hold a disposable Postgres DB open for CLI subprocess tests."""
-    from runtime.api.fixtures import pg_testdb
+    """Hold a disposable Postgres DB open for CLI subprocess tests.
 
-    with pg_testdb.test_database():
+    Seeds item 42 so PREFIX-N refs resolve through the project
+    sequence in subprocess invocations.
+    """
+    from runtime.api.fixtures import pg_testdb
+    from runtime.api.fixtures.backlog import insert_item
+
+    with pg_testdb.test_database() as conn:
+        insert_item(conn, id=42, title="epic under audit", project="yoke")
+        conn.commit()
         yield
 
 
@@ -102,8 +109,8 @@ class TestCLI:
         assert result.returncode == 1
         assert "invalid epic ID" in result.stderr
 
-    def test_sun_prefix_stripped(self, tmp_db, fake_repo):
-        """YOK- prefix is stripped from epic ID argument."""
+    def test_prefix_ref_resolves_project_sequence(self, tmp_db, fake_repo):
+        """A PREFIX-N epic ref resolves through the project sequence."""
         env = {
             **os.environ,
             "MERGE_AUDIT_REPO_ROOT": fake_repo,

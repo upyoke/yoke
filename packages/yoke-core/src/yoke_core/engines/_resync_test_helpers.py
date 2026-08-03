@@ -57,8 +57,8 @@ def _apply_resync_schema() -> None:
             )
         """)
         conn.execute(
-            "UPDATE projects SET github_repo=%s WHERE slug='yoke'",
-            ("upyoke/yoke",),
+            "UPDATE projects SET github_repo=%s, github_sync_mode=%s WHERE slug='yoke'",
+            ("upyoke/yoke", "enabled"),
         )
         install_workflow_registry_and_pin_items(conn)
         conn.commit()

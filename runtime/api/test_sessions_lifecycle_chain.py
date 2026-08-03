@@ -195,7 +195,7 @@ class TestEndSessionChainPendingGuard:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_chain_pending_blocks_normal_end(self, mock_emit, conn):
-        """AC-1: Normal end with pending chainable checkpoint raises CHAIN_PENDING."""
+        """Normal end with pending chainable checkpoint raises CHAIN_PENDING."""
         self._setup_chain_pending(conn)
         with pytest.raises(SessionError) as exc_info:
             end_session(conn, "sess-chain")
@@ -213,14 +213,14 @@ class TestEndSessionChainPendingGuard:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_no_checkpoint_allows_end(self, mock_emit, conn):
-        """AC-2: No checkpoint means normal end succeeds."""
+        """No checkpoint means normal end succeeds."""
         _register(conn, session_id="sess-no-cp")
         result = end_session(conn, "sess-no-cp")
         assert result["ended_at"] is not None
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_not_chainable_allows_end(self, mock_emit, conn):
-        """AC-2: Non-chainable checkpoint allows normal end (claims pre-released)."""
+        """Non-chainable checkpoint allows normal end (claims pre-released)."""
         _register(conn, session_id="sess-nc")
         c = claim_work(conn, session_id="sess-nc", item_id=_sun(200))
         release_claim(conn, c["id"], reason="completed")
@@ -234,7 +234,7 @@ class TestEndSessionChainPendingGuard:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_exhausted_chain_allows_end(self, mock_emit, conn):
-        """AC-2: step >= max_chain_steps allows normal end."""
+        """Step >= max_chain_steps allows normal end."""
         _register(conn, session_id="sess-exh")
         update_chain_checkpoint(
             conn, "sess-exh",

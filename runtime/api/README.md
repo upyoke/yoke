@@ -299,7 +299,7 @@ Shared business logic lives in the installed `yoke_core.domain` package:
 
 | Module | Responsibility |
 |--------|---------------|
-| `workflow_runtime.py` | Immutable item pin interpretation: stages, gates, policies, and executor bindings |
+| `workflow_runtime.py` | Immutable item pin interpretation: stages, gates, policies, and skill bindings |
 | `workflow_stage_vocabulary.py` | Published stage-id union used by collection filters |
 | `task_lifecycle.py` | Independent canonical lifecycle vocabulary for `epic_tasks` rows |
 | `approval.py` | Halt states, approval actions, flow-stage parsing, approval resolution |
@@ -317,7 +317,7 @@ The service client (`python3 -m yoke_core.api.service_client`) is a CLI adapter 
 
 ```bash
 # Full suite (recommended — uses pyproject.toml testpaths):
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+yoke watch pytest -- runtime/api/
 ```
 
 Targeted suites: `test_domain.py` (domain layer), `test_api.py` (endpoints), `test_service_client.py` (CLI adapter), `test_parity.py` (CLI/API agreement). The suites use temporary test databases and mock subprocess calls for write endpoints; no real backlog items are created. Parity tests verify the API and CLI surfaces return identical results for the same logical operations.

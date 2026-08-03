@@ -26,9 +26,9 @@ const VERSION_ONE_STAGE_DESCRIPTIONS = {
     done: "The document records completion and parent reconciliation.",
   },
   dash: {
-    implementing: "The executor surveys conflicts and completes the instruction.",
+    implementing: "The skill surveys conflicts and completes the instruction.",
     "reviewing-implementation":
-      "The executor self-checks plus any item-declared verification.",
+      "The skill self-checks plus any item-declared verification.",
     done: "The result and verification evidence are recorded on the item.",
   },
 };
@@ -36,6 +36,12 @@ const VERSION_ONE_STAGE_DESCRIPTIONS = {
 function versionOneDefinition(workflowId, currentDefinition) {
   const definition = structuredClone(currentDefinition);
   delete definition.policies.approval_defaults;
+  if (["blitz", "dash"].includes(workflowId)) {
+    delete definition.policies.path_survey;
+    definition.policies.item_posture_allowlist = (
+      definition.policies.item_posture_allowlist || []
+    ).filter((key) => key !== "path_survey");
+  }
   const descriptions = VERSION_ONE_STAGE_DESCRIPTIONS[workflowId] || {};
   for (const workflowStage of definition.stages) {
     workflowStage.label =
@@ -64,14 +70,14 @@ export function workflow({
   description,
   stages,
   entrySurfaces,
-  executors,
+  skills,
   policies,
 }) {
   const definition = {
     stages,
     entry_surfaces: entrySurfaces,
-    executor_bindings: executors.map((executorId) => ({
-      executor_id: executorId,
+    skill_bindings: skills.map((skillId) => ({
+      skill_id: skillId,
     })),
     policies: {
       ...policies,

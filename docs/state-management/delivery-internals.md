@@ -1,10 +1,10 @@
 # Delivery Lifecycle Internals
 
 Detail pages for the deployment-run pipeline used when an item's pinned
-workflow version binds the `usher` executor and declares
+workflow version binds the `usher` skill and declares
 `policies.delivery=release_stage`. The high-level handoff lives in
 [state-management.md](../state-management.md#delivery-lifecycle); this file
-covers the run mechanics, halt states, deployment executor types, and
+covers the run mechanics, halt states, deployment step runner types, and
 ephemeral environments referenced from there.
 
 ## Deployment Runs
@@ -36,9 +36,9 @@ Those names are definition-owned, not a universal item progression.
 
 Two conditions act as halt states during deployment run execution (items at these halt states remain at `status=release`):
 
-**`needs-capability`** — An executor script detected a missing or misconfigured project capability (exit code 2). The run is blocked until the operator configures the capability in `project_capabilities` and re-runs `/yoke usher YOK-N`. The Usher does not attempt to proceed or guess — it exits cleanly.
+**`needs-capability`** — A step runner detected a missing or misconfigured project capability (exit code 2). The run is blocked until the operator configures the capability in `project_capabilities` and re-runs `/yoke usher YOK-N`. The Usher does not attempt to proceed or guess — it exits cleanly.
 
-**Human approval gate** — When the pipeline encounters a stage with `executor: "human-approval"`, the run halts at that stage. The item is blocked until the operator runs `/yoke approve YOK-N [--note "..."]`, which advances the run's `current_stage` to the next stage in the flow. The operator then re-runs `/yoke usher YOK-N` to resume.
+**Human approval gate** — When the pipeline encounters a stage with `step_runner: "human-approval"`, the run halts at that stage. The item is blocked until the operator runs `/yoke approve YOK-N [--note "..."]`, which advances the run's `current_stage` to the next stage in the flow. The operator then re-runs `/yoke usher YOK-N` to resume.
 
 **External projects:** When a project-owned `github-actions-workflow` stage
 targets a protected GitHub environment, GitHub's native protection rules pause
@@ -52,9 +52,9 @@ Both halt states are visible on the board. Items at `release` with halted runs a
 
 ## Capability Self-Invention
 
-When an executor encounters a missing capability, it follows the capability self-invention protocol:
+When a step runner encounters a missing capability, it follows the capability self-invention protocol:
 
-1. Executor exits with code 2 and writes capability details to stdout (`CAPABILITY_NEEDED`, `REASON`, `TEMPLATE`)
+1. The step runner exits with code 2 and writes capability details to stdout (`CAPABILITY_NEEDED`, `REASON`, `TEMPLATE`)
 2. Usher records the capability need as an event via `yoke_core.domain.events.emit_event`
 3. If the template is novel (`TEMPLATE = 'NEW'`), Usher saves it to `capability_templates`
 4. Usher halts the deployment run and exits (items stay at `release`)
@@ -62,7 +62,7 @@ When an executor encounters a missing capability, it follows the capability self
 
 ## Human Approval Gate
 
-When the pipeline encounters a `human-approval` executor stage:
+When the pipeline encounters a `human-approval` step runner stage:
 
 1. Pipeline halts the deployment run at the approval stage and exits with code 2
 2. Items remain at `status = 'release'` with the run halted
@@ -70,20 +70,20 @@ When the pipeline encounters a `human-approval` executor stage:
 4. Approve advances the run's `current_stage` to the next stage in the flow
 5. Operator re-runs `/yoke usher YOK-N` to continue from that next stage
 
-## Executor Dispatch
+## Step Runner Dispatch
 
-The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline dispatches each stage by `executor` (or by `kind` for governed migration stages). Known current types:
+The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline dispatches each stage by `step_runner` (or by `kind` for governed migration stages). Known current types:
 
-| Stage shape | Executor/kind | Description | Exit codes |
+| Stage shape | Step runner/kind | Description | Exit codes |
 |-----------------|--------|-------------|------------|
-| executor | `auto` | No-op stage (`merged`, `complete`) | 0 (always) |
+| step runner | `auto` | No-op stage (`merged`, `complete`) | 0 (always) |
 | kind | `migration_apply` | Verifies governed migration evidence for member items; item-less runs pass with explicit run-stage evidence | 0=pass, 1=failure |
-| executor | `environment-activate` | Ensures the target environment host is running and reachable | 0=ready, 1=failure |
-| executor | `core-container-deploy` | Builds/pushes/reuses the pinned Yoke core image and converges the target host | 0=deployed, 1=failure |
-| executor | `health-check` | HTTP GET; Yoke core env checks require x-request-id echo | 0=healthy, 1=failure |
-| executor | `ephemeral-deploy` / `ephemeral-teardown` / `ephemeral-verify` | Manages preview environments | 0=pass, 1=failure |
-| executor | `human-approval` | Halts pipeline for human approval | Pipeline exits 2 |
-| executor | `github-actions-workflow` | Triggers and polls GitHub Actions workflow | 0=success, 1=failed |
+| step runner | `environment-activate` | Ensures the target environment host is running and reachable | 0=ready, 1=failure |
+| step runner | `core-container-deploy` | Builds/pushes/reuses the pinned Yoke core image and converges the target host | 0=deployed, 1=failure |
+| step runner | `health-check` | HTTP GET; Yoke core env checks require x-request-id echo | 0=healthy, 1=failure |
+| step runner | `ephemeral-deploy` / `ephemeral-teardown` / `ephemeral-verify` | Manages preview environments | 0=pass, 1=failure |
+| step runner | `human-approval` | Halts pipeline for human approval | Pipeline exits 2 |
+| step runner | `github-actions-workflow` | Triggers and polls GitHub Actions workflow | 0=success, 1=failed |
 
 **`github-actions-workflow`:** Used for external projects where deployment is managed by GitHub Actions. The Python deploy pipeline resolves repository authority from DB/project capabilities, triggers or finds the configured workflow run, stores the workflow run id in deployment telemetry, and polls until the workflow reaches a terminal state. GitHub Actions run states map as follows:
 
@@ -97,7 +97,7 @@ The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline di
 ## Current `release_stage` Usher State Machine
 
 ```
-Entry: the pinned definition's active executor is `usher`
+Entry: the pinned definition's active skill is `usher`
        and its current built-in handoff stage is `implemented`
 
 1. Create deployment_run (status = 'created')
@@ -108,7 +108,7 @@ Entry: the pinned definition's active executor is `usher`
 For each stage in deployment_flow.stages:
  1. Set run.current_stage = stage.name
  2. Emit DeploymentRunStageStarted event
- 3. Dispatch executor for stage type
+ 3. Dispatch the step runner for the stage type
  4. Read exit code:
  0 (pass) → emit DeploymentRunStageCompleted, continue to next stage
  1 (fail) → emit DeploymentRunStageFailed
@@ -133,7 +133,7 @@ do not inherit this fast path.
 
 ## Ephemeral Environments
 
-Ephemeral environments are an implementation-executor capability, not a
+Ephemeral environments are an implementation-skill capability, not a
 deployment-flow stage. The current task-graph workflow uses them inside its
 definition-bound `conduct` segment, commonly while moving from
 `implementing` toward `reviewing-implementation`:

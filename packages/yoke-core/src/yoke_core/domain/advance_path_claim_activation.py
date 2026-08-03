@@ -9,7 +9,7 @@ Blocked rows name the upstream claim instead of upgrading automatically.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, List, Mapping, Optional
 
 from yoke_core.domain.advance_path_claim_activation_events import (
     record_blocked_claim,
@@ -67,9 +67,9 @@ def _claim_project(conn: Any, claim_id: int) -> tuple[Optional[str], Optional[in
     p = _p(conn)
     row = conn.execute(
         "SELECT p.slug, i.project_id FROM path_claims pc "
-        "JOIN items i ON pc.item_id = i.id "
+        "JOIN items i ON pc.owner_item_id = i.id "
         "LEFT JOIN projects p ON p.id = i.project_id "
-        f"WHERE pc.id = {p}",
+        f"WHERE pc.id = {p} AND pc.owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None:
@@ -85,7 +85,8 @@ def _list_claims_for_session(conn: Any, *, item_id: int, actor_id: int) -> List[
     rows = conn.execute(
         "SELECT id, state, blocked_reason, integration_target "
         "FROM path_claims "
-        f"WHERE item_id = {p} AND actor_id = {p} "
+        f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+        f"AND registered_by_actor_id = {p} "
         "AND state NOT IN ('released', 'cancelled') "
         "ORDER BY id",
         (item_id, actor_id),
@@ -98,37 +99,47 @@ def _activate_one(
     *,
     claim_id: int,
     integration_target: str,
+    resolved_head: Optional[str] = None,
 ) -> ActivationOutcome:
-    project_slug, numeric_project_id = _claim_project(conn, claim_id)
-    checkout = checkout_for_project_id(numeric_project_id)
-    if not project_slug or checkout is None:
-        return ActivationOutcome(
-            claim_id=claim_id,
-            state_before="planned",
-            state_after="planned",
-            error=(
-                "claim's item has no machine-local checkout mapping; "
-                "cannot resolve integration head"
-            ),
+    # ``resolved_head`` is the integration-target head resolved by the
+    # caller from its machine-local checkout. The server has no checkout
+    # over an https transport, so the transport-aware worktree preflight
+    # resolves the head client-side and supplies it here. When it is
+    # absent (the in-process CLI path and any direct caller), resolve it
+    # locally exactly as before — the checkout is present on that host.
+    if resolved_head:
+        commit_sha: Optional[str] = resolved_head
+    else:
+        project_slug, numeric_project_id = _claim_project(conn, claim_id)
+        checkout = checkout_for_project_id(numeric_project_id)
+        if not project_slug or checkout is None:
+            return ActivationOutcome(
+                claim_id=claim_id,
+                state_before="planned",
+                state_after="planned",
+                error=(
+                    "claim's item has no machine-local checkout mapping; "
+                    "cannot resolve integration head"
+                ),
+            )
+        # Backend lock errors are bounded-retried in the sibling helper;
+        # surviving lock failures surface with the db-lock: prefix so the
+        # block-kind classifier can tag them as
+        # BLOCK_DB_LOCK rather than BLOCK_PATH_CLAIM.
+        rr = resolve_integration_head_with_retry(
+            conn,
+            project_id=project_slug,
+            repo_path=str(checkout),
+            integration_target=integration_target,
         )
-    # Backend lock errors are bounded-retried in the sibling helper;
-    # surviving lock failures surface with the db-lock: prefix so the
-    # block-kind classifier can tag them as
-    # BLOCK_DB_LOCK rather than BLOCK_PATH_CLAIM.
-    rr = resolve_integration_head_with_retry(
-        conn,
-        project_id=project_slug,
-        repo_path=str(checkout),
-        integration_target=integration_target,
-    )
-    if rr.error is not None:
-        return ActivationOutcome(
-            claim_id=claim_id,
-            state_before="planned",
-            state_after="planned",
-            error=rr.error,
-        )
-    commit_sha = rr.commit_sha
+        if rr.error is not None:
+            return ActivationOutcome(
+                claim_id=claim_id,
+                state_before="planned",
+                state_after="planned",
+                error=rr.error,
+            )
+        commit_sha = rr.commit_sha
     try:
         activate_with_events(
             conn,
@@ -159,6 +170,7 @@ def run_activation_phase(
     item_id: int,
     actor_id: int,
     session_id: Optional[str] = None,
+    resolved_heads: Optional[Mapping[int, str]] = None,
 ) -> ActivationResult:
     """Activate planned claims for ``(item_id, actor_id)``. Pre-loop,
     legacy coord-only mutex residue (``state='blocked'`` rows the live
@@ -166,7 +178,15 @@ def run_activation_phase(
     surface ``"claim N is blocked by upstream M"`` and emit one
     ``PathClaimActivationBlocked`` event; active claims are no-ops;
     diverged refs surface via :attr:`diverged_error`.
+
+    ``resolved_heads`` maps ``claim_id -> integration-target head SHA``
+    resolved by the caller from its machine-local checkout. When a head
+    is supplied for a claim it is used directly (the https path, where
+    the server has no checkout); when absent the head is resolved
+    locally (the in-process path). Keys for claims that are not
+    activated are ignored, so an over-provisioned map is harmless.
     """
+    heads = {int(k): str(v) for k, v in (resolved_heads or {}).items()}
     result = ActivationResult(item_id=item_id, actor_id=actor_id)
     task_block = task_activation_block_reason(conn, item_id)
     if task_block:
@@ -206,6 +226,7 @@ def run_activation_phase(
             conn,
             claim_id=claim_id,
             integration_target=integration_target,
+            resolved_head=heads.get(claim_id),
         )
         result.outcomes.append(outcome)
         if outcome.error:
@@ -246,99 +267,46 @@ def check_work_claim_ownership(
     return None if other == session_id else other
 
 
+def resolve_item_actor(
+    conn: Any, item_id: int
+) -> tuple[Optional[int], Optional[str]]:
+    """Resolve an item's owning actor as ``COALESCE(owner, source)``.
+
+    Returns ``(actor_id, None)`` on success or ``(None, error)`` when
+    the item is missing or carries no owner/source actor for path-claim
+    activation. The activation loop filters ``path_claims`` by this
+    actor, so the owning actor — not the calling session's actor — is
+    the correct scope. Shared by the CLI entrypoint and the
+    ``claims.path.activation_run`` handler so the resolution lives in
+    one place.
+    """
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT COALESCE(owner, source) FROM items WHERE id = {p}",
+        (int(item_id),),
+    ).fetchone()
+    if row is None:
+        return None, f"item {item_id} not found"
+    actor_value = row[0]
+    if actor_value in (None, ""):
+        return None, "item has no owner/source actor for path-claim activation"
+    return int(actor_value), None
+
+
+# CLI entrypoint lives in the sibling module to keep this file under the
+# authored file-line cap; re-exported so ``main`` and the ``-m`` module
+# path stay callable from here.
+from yoke_core.domain.advance_path_claim_activation_cli import main  # noqa: E402
+
+
 __all__ = [
     "ActivationOutcome",
     "ActivationResult",
     "check_work_claim_ownership",
+    "resolve_item_actor",
     "run_activation_phase",
     "main",
 ]
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    """CLI entrypoint for advance path-claim activation.
-
-    Resolves the control-plane DB, looks up the item's
-    ``COALESCE(owner, source)`` actor, verifies the caller's session
-    owns the work claim, then dispatches to
-    :func:`run_activation_phase`. Exit codes: ``0`` success (prints
-    ``activated=[ids]``); ``1`` blocked/diverged; ``2`` missing item
-    / missing actor / invalid argument.
-    """
-    import argparse
-    import os
-    import sys
-    from yoke_core.domain import db_helpers
-
-    parser = argparse.ArgumentParser(prog="advance_path_claim_activation")
-    parser.add_argument("--item", required=True)
-    parser.add_argument(
-        "--session-id",
-        default=(
-            os.environ.get("YOKE_SESSION_ID")
-            or os.environ.get("CLAUDE_SESSION_ID")
-            or os.environ.get("CODEX_THREAD_ID")
-            or ""
-        ),
-        help="Session id for the work-claim ownership check.",
-    )
-    args = parser.parse_args(argv)
-    raw = str(args.item).strip()
-    if raw.upper().startswith("YOK-"):
-        raw = raw[4:]
-    try:
-        item_id = int(raw)
-    except ValueError:
-        print(f"ERROR: invalid --item value: {args.item!r}", file=sys.stderr)
-        return 2
-
-    conn = db_helpers.connect()
-    try:
-        p = _p(conn)
-        actor_row = conn.execute(
-            f"SELECT COALESCE(owner, source) FROM items WHERE id = {p}",
-            (item_id,),
-        ).fetchone()
-        if actor_row is None:
-            print(f"ERROR: item {item_id} not found", file=sys.stderr)
-            return 2
-        actor_value = actor_row[0]
-        if actor_value in (None, ""):
-            print(
-                "BLOCKED: item has no owner/source actor for path-claim activation",
-                file=sys.stderr,
-            )
-            return 1
-        other_session = check_work_claim_ownership(
-            conn,
-            item_id=item_id,
-            session_id=str(args.session_id or ""),
-        )
-        if other_session:
-            print(
-                f"BLOCKED: work claim for item {item_id} held by "
-                f"session '{other_session}'; activation refused to "
-                "avoid stranded path claims",
-                file=sys.stderr,
-            )
-            return 1
-        result = run_activation_phase(
-            conn,
-            item_id=item_id,
-            actor_id=int(actor_value),
-            session_id=str(args.session_id or "") or None,
-        )
-    finally:
-        conn.close()
-
-    if result.is_blocked:
-        if result.diverged_error:
-            print(f"DIVERGED: {result.diverged_error}", file=sys.stderr)
-        for msg in result.blocked_errors:
-            print(f"BLOCKED: {msg}", file=sys.stderr)
-        return 1
-    print(f"activated={result.activated_claim_ids}")
-    return 0
 
 
 if __name__ == "__main__":

@@ -27,11 +27,12 @@ from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING, ordered_pipeline_for
 from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
 from runtime.harness.codex.adapter import CAPABILITY as CODEX_CAPABILITY
+from runtime.harness.cursor.adapter import CAPABILITY as CURSOR_CAPABILITY
 from runtime.harness.hook_runner import runner as runner_module
 from runtime.harness.hook_runner.adapter_capability import AdapterCapability
 
 
-_CAPABILITIES = (CLAUDE_CAPABILITY, CODEX_CAPABILITY)
+_CAPABILITIES = (CLAUDE_CAPABILITY, CODEX_CAPABILITY, CURSOR_CAPABILITY)
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +142,7 @@ def test_chain_module_is_typed_or_subprocess_carveout(module_id: str) -> None:
     in_subprocess_carveout = (
         module_id in CLAUDE_CAPABILITY.subprocess_modules
         or module_id in CODEX_CAPABILITY.subprocess_modules
+        or module_id in CURSOR_CAPABILITY.subprocess_modules
     )
     if in_subprocess_carveout:
         return
@@ -165,7 +167,7 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
     is not itself a grep hit. The hit-filter additionally excludes (a) any
     ``docs/archive/`` decision records that legitimately preserve history,
     (b) this file (the term must appear here to be searched for), and (c)
-    ``doctor_hc_obsoleted_terms.py`` — the canonical registry where retired
+    ``check_obsoleted_terms.py`` — the canonical registry where retired
     terms are enumerated by name so the HC scanner can detect them in other
     files. References inside the registry are the contract surface; they
     are not "live" consumers.
@@ -184,7 +186,7 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
         if line.strip()
         and "/docs/archive/" not in line
         and Path(__file__).name not in line
-        and "doctor_hc_obsoleted_terms.py" not in line
+        and "check_obsoleted_terms.py" not in line
     ]
     assert hits == [], (
         f"{target} still referenced in live runtime tree:\n" + "\n".join(hits)

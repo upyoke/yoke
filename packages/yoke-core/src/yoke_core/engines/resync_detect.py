@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from yoke_core.engines.resync_detect_models import (  # noqa: F401
+    ITEM_REF_TITLE_PREFIX_RE,
+    LocalOrphan,
     PairedItem,
     DriftRecord,
     _trim_trailing,

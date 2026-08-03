@@ -1,6 +1,6 @@
-"""Health-gate rollback for the core-container deploy executor.
+"""Health-gate rollback for the core-container deploy step runner.
 
-Before the container swap, the executor records the image the box is
+Before the container swap, the step runner records the image the box is
 currently running. When a post-swap health gate fails (container health,
 origin nginx, public URL), the box would otherwise be left running the
 NEW broken image; this module redeploys the recorded prior image — one
@@ -72,7 +72,7 @@ def attempt_rollback(
     """One bounded rollback to ``prior_image_ref`` after a failed health gate.
 
     ``render_compose`` maps an image ref to the compose YAML for this env
-    (the executor passes its own renderer so the rollback compose matches
+    (the step runner passes its own renderer so the rollback compose matches
     the failed deploy in everything but the image). Returns True when the
     prior container reported healthy again; never raises — the caller
     re-raises the ORIGINAL health-gate failure either way.

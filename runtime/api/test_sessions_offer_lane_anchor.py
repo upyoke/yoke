@@ -1,6 +1,6 @@
 """Unit + integration coverage for the row-anchored lane fix.
 
-Covers AC-1 and AC-2:
+Covers:
 
 * :func:`anchor_lane_on_row` always returns the row value as
   authoritative, even when callers pass a mismatching ``--lane``.
@@ -180,7 +180,7 @@ def _seed_session_with_lane(db_path: str, session_id: str, lane: str) -> None:
 
 
 class TestSessionOfferWithOwnershipAnchorsLane:
-    """AC-1 + AC-2 — ownership emits the WARN event and uses the row lane."""
+    """Ownership emits the WARN event and uses the row lane."""
 
     def test_caller_mismatch_emits_lane_override_ignored(
         self, session_offer_db, monkeypatch

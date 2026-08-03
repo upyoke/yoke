@@ -193,7 +193,7 @@ function toggledScope(scope, projectId, projects) {
 export function createScopePicker(options) {
   const {
     documentNode, entry, scope, projects, renderRoute, scopeSelections,
-    segment, windowNode,
+    segment, windowNode, onScopeChange,
   } = options;
   const multi = entry.scope === SCOPE_MULTI;
   const bar = el(documentNode, "div", "scope-bar");
@@ -201,35 +201,60 @@ export function createScopePicker(options) {
     documentNode, "span", "scope-label", multi ? "Projects" : "Project",
   ));
 
+  // The picker holds its own live scope so a chip toggle after an external
+  // setScope (a held view's in-place rescope) reads the current selection, not
+  // the value baked in at build time.
+  let currentScope = scope;
+  const chips = [];
+  const selectedFor = (scopeValue, projectId) => {
+    if (projectId === null) return scopeValue === "all";
+    return multi
+      ? Array.isArray(scopeValue) && scopeValue.includes(projectId)
+      : String(scopeValue) === projectId;
+  };
+  const syncChips = (scopeValue) => {
+    for (const { projectId, button } of chips) {
+      button.classList.toggle("on", selectedFor(scopeValue, projectId));
+    }
+  };
   const apply = (next) => {
+    currentScope = next;
+    syncChips(next);
     scopeSelections.set(entry.id, next);
     // Re-scoping stays on the same facet: the segment (a tab, when the
     // view declares tabs) survives the scope change.
     windowNode.location.hash = buildUniverseRoute(
       entry.id, serializeScope(next), segment || null,
     );
-    renderRoute();
+    // A held view repaints in place from its own data; every other view falls
+    // back to a full route render (which refetches).
+    if (onScopeChange) onScopeChange(next);
+    else renderRoute();
   };
 
-  const chip = (label, selected, onClick) => {
+  const chip = (label, projectId, onClick) => {
     const button = el(documentNode, "button", "scope-chip", label);
     button.type = "button";
-    button.classList.toggle("on", selected);
     button.addEventListener("click", onClick);
+    chips.push({ projectId, button });
     bar.appendChild(button);
   };
 
-  if (multi) chip("All", scope === "all", () => apply("all"));
+  if (multi) chip("All", null, () => apply("all"));
   for (const row of projects) {
     const projectId = String(row.id);
-    const selected = multi
-      ? Array.isArray(scope) && scope.includes(projectId)
-      : String(scope) === projectId;
-    chip(row.slug || row.name || projectId, selected, () => {
-      apply(multi ? toggledScope(scope, projectId, projects) : projectId);
+    chip(row.slug || row.name || projectId, projectId, () => {
+      apply(multi ? toggledScope(currentScope, projectId, projects) : projectId);
     });
   }
+  syncChips(currentScope);
 
+  // Update the chip highlights to an externally-resolved scope with no route
+  // side effect (used by the held-view in-place rescope path).
+  bar.setScope = (next) => {
+    currentScope = next;
+    syncChips(next);
+  };
   return bar;
 }
 

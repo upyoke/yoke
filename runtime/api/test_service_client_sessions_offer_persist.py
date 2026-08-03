@@ -59,7 +59,7 @@ class TestSessionOfferPersistence:
     """Tests for harness_sessions/work_claims persistence and concurrency."""
 
     def test_session_offer_persists_session_record(self, session_offer_db):
-        """AC-1: session-offer requires a pre-registered harness_sessions row."""
+        """Session-offer requires a pre-registered harness_sessions row."""
         sid = "ownership-test-sess"
         _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
         result = _run_client(
@@ -82,9 +82,11 @@ class TestSessionOfferPersistence:
         conn.close()
         assert row is not None
         assert row["ended_at"] is None
+        envelope = json.loads(row["offer_envelope"])
+        assert envelope["offer_diagnostics"]["elimination_chain"]
 
     def test_session_offer_persists_claim_on_charge(self, session_offer_db):
-        """AC-2: charge persists a work_claims row."""
+        """Charge persists a work_claims row."""
         sid = "claim-test-sess"
         _pre_register_session(session_offer_db["db_path"], sid, workspace=session_offer_db["tmp_dir"])
         result = _run_client(
@@ -112,7 +114,7 @@ class TestSessionOfferPersistence:
         assert claim["item_id"] is not None
 
     def test_concurrent_session_offers_no_double_assign(self, session_offer_db):
-        """AC-3: two concurrent offers never both get same item."""
+        """Two concurrent offers never both get same item."""
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
         _pre_register_session(db, "sess-concur-A", executor="A", workspace=ws)
@@ -148,7 +150,7 @@ class TestSessionOfferPersistence:
             assert d2["action"] != "charge" or d2["context"]["selected_item"] != d1["context"]["selected_item"]
 
     def test_reoffer_same_session_returns_resume(self, session_offer_db):
-        """AC-4: re-offer with same session_id returns resume."""
+        """Re-offer with same session_id returns resume."""
         sid = "reoffer-sess"
         ws = session_offer_db["tmp_dir"]
         db = session_offer_db["db_path"]
@@ -184,7 +186,7 @@ class TestMergeOfferEnvelope:
     """Unit tests for merge_offer_envelope."""
 
     def test_empty_or_malformed_existing_returns_per_offer(self):
-        """AC-6: None, empty, malformed JSON, and non-dict all treated as empty."""
+        """None, empty, malformed JSON, and non-dict all treated as empty."""
         per = {"session_id": "x", "step": 1}
         for existing in (None, "", "not json", json.dumps([1, 2, 3])):
             assert merge_offer_envelope(existing, per) == per
@@ -204,7 +206,7 @@ class TestMergeOfferEnvelope:
         assert merged["chain_checkpoint"] == {"step": 1, "action": "charge"}
 
     def test_per_offer_overrides_existing_identity(self):
-        """AC-5: per-offer identity/step fields overwrite existing."""
+        """Per-offer identity/step fields overwrite existing."""
         existing = json.dumps({"session_id": "old", "step": 1, "model": "old-model"})
         per = {"session_id": "new", "step": 5, "model": "new-model"}
         merged = merge_offer_envelope(existing, per)
@@ -234,7 +236,7 @@ class TestSessionOfferCrossCallPersistence:
     """Cross-call envelope persistence regression."""
 
     def test_chain_skip_memory_survives_next_offer(self, session_offer_db):
-        """AC-1: chain_skip_memory written between offers is preserved."""
+        """Chain_skip_memory written between offers is preserved."""
         from yoke_core.domain.sessions_queries_chain import append_chain_skip_entry
         sid = "persist-skip-sess"
         db = session_offer_db["db_path"]
@@ -265,7 +267,7 @@ class TestSessionOfferCrossCallPersistence:
         )
 
     def test_chain_checkpoint_survives_next_offer(self, session_offer_db):
-        """AC-2: chain_checkpoint written between offers is preserved."""
+        """Chain_checkpoint written between offers is preserved."""
         from yoke_core.domain.sessions_queries_chain import update_chain_checkpoint
         sid = "persist-checkpoint-sess"
         db = session_offer_db["db_path"]
@@ -293,7 +295,7 @@ class TestSessionOfferCrossCallPersistence:
         assert cp["item_id"] == "YOK-10"
 
     def test_skipped_item_not_reselected_in_next_offer(self, session_offer_db):
-        """AC-3: skipped item is deduplicated from the next offer's candidates."""
+        """Skipped item is deduplicated from the next offer's candidates."""
         from yoke_core.domain.sessions_queries_chain import append_chain_skip_entry
         sid = "dedup-sess"
         db = session_offer_db["db_path"]

@@ -15,7 +15,7 @@ BYPASS_SKIP_REFINE = "skip-refine"
 
 @dataclass(frozen=True)
 class _SkipRoute:
-    """One definition-owned executor segment to fast-forward."""
+    """One definition-owned skill segment to fast-forward."""
 
     to_stage: str
     skipped_phase: str
@@ -26,14 +26,14 @@ class _SkipRoute:
         return frozenset(self.hops)
 
 
-def _executor_skip_route(
+def _skill_skip_route(
     workflow: WorkflowRuntime,
     current_stage: str,
     *,
-    executor_id: str,
+    skill_id: str,
     require_entry: bool = False,
 ) -> _SkipRoute:
-    """Build a skip route from the pinned definition's executor binding."""
+    """Build a skip route from the pinned definition's skill binding."""
     position = workflow.stage_index(current_stage)
     if position is None:
         raise ValueError(
@@ -43,8 +43,8 @@ def _executor_skip_route(
 
     entry_stages: list[str] = []
     selected: tuple[int, int] | None = None
-    for binding in workflow.definition["executor_bindings"]:
-        if str(binding["executor_id"]) != executor_id:
+    for binding in workflow.definition["skill_bindings"]:
+        if str(binding["skill_id"]) != skill_id:
             continue
         start = workflow.stage_index(str(binding["from_stage_id"]))
         stop = workflow.stage_index(str(binding["through_stage_id"]))
@@ -57,15 +57,15 @@ def _executor_skip_route(
 
     if selected is None:
         raise ValueError(
-            f"--skip-{executor_id} requires a stage owned by the pinned "
-            f"{executor_id!r} executor; valid entry stages are "
+            f"--skip-{skill_id} requires a stage owned by the pinned "
+            f"{skill_id!r} skill; valid entry stages are "
             f"{sorted(entry_stages)!r}, got {current_stage!r}."
         )
 
     start, stop = selected
     if require_entry and position != start:
         raise ValueError(
-            f"--skip-{executor_id} requires current status "
+            f"--skip-{skill_id} requires current status "
             f"{workflow.stage_ids[start]!r}, got {current_stage!r}."
         )
 
@@ -89,7 +89,7 @@ def _executor_skip_route(
     if not hops:
         raise ValueError(
             f"Pinned {workflow.workflow_id}@{workflow.version} has no stages "
-            f"to skip for executor {executor_id!r} from {current_stage!r}."
+            f"to skip for skill {skill_id!r} from {current_stage!r}."
         )
     skipped_phase = hops[0] if position == start else current_stage
     return _SkipRoute(

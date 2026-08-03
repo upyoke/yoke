@@ -29,16 +29,21 @@ def _claim_dict(
     covered_paths=("runtime/api/domain",),
     worktree_path="/tmp/yoke-worktrees/YOK-1577",
     project_repo_path="",
+    item_ref=None,
 ) -> Dict:
-    return {
+    claim = {
         "id": claim_id,
-        "item_id": item_id,
+        "owner_kind": "item",
+        "owner_item_id": item_id,
         "integration_target": integration_target,
         "state": state,
         "covered_paths": covered_paths,
         "worktree_path": worktree_path,
         "project_repo_path": project_repo_path,
     }
+    if item_ref is not None:
+        claim["item_ref"] = item_ref
+    return claim
 
 
 def _record(
@@ -115,6 +120,22 @@ class TestOutOfClaim:
             '--reason "cover target path" --item YOK-1577'
         ) in verdict.narrative
 
+    def test_deny_with_widen_template_uses_resolved_public_ref(self, tmp_path):
+        worktree = tmp_path / "item-worktree"
+        worktree.mkdir()
+        claim = _claim_dict(
+            worktree_path=str(worktree),
+            item_ref="BUZ-7",
+        )
+        record = _record(
+            changed_paths=("docs/never-covered.md",),
+            cwd=str(worktree),
+        )
+        verdict = evaluate_payload(record, claim=claim)
+        assert verdict.outcome == "deny"
+        assert "--item BUZ-7" in verdict.narrative
+        assert "--item YOK-1577" not in verdict.narrative
+
     def test_deny_records_target_path(self, tmp_path):
         worktree = tmp_path / "YOK-1577"
         worktree.mkdir()
@@ -129,7 +150,7 @@ class TestOutOfClaim:
 
 
 class TestWorktreeUnresolved:
-    """AC-22/AC-23: distinct failure.mode + narrative when claim is
+    """Distinct failure.mode + narrative when claim is
     not worktree-bound. Narrative teaches ``worktree_preflight`` and
     intentionally omits claim-widen guidance."""
 

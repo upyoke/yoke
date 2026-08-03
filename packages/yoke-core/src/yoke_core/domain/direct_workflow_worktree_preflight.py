@@ -10,12 +10,6 @@ import os
 import sys
 from typing import Iterator, List, Optional
 
-from yoke_core.domain.conflict_survey import (
-    read_recorded_survey,
-    survey_conflicts,
-)
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
 from yoke_core.domain.worktree_preflight import run_preflight
 
 
@@ -40,46 +34,52 @@ def _prepare_dash_path_claim(
     touch_paths: tuple[str, ...],
     integration_target: str,
 ) -> Optional[str]:
-    from yoke_core.domain.dash_path_claim_posture import (
-        ensure_survey_path_claim,
-    )
-    from yoke_core.domain.path_claims import PathClaimError
-    from yoke_core.domain.path_claims_register import (
-        PathClaimRegistrationError,
-    )
-    from yoke_core.domain.path_claims_resolve import PathResolveError
+    """Ensure the selected-Dash path claim reflects the live survey.
 
-    try:
-        with connect() as conn:
-            from yoke_core.domain.dash_posture_read import marker
+    Routes both the work-claim-holder read and the register/widen
+    through the transport-aware dispatcher so an https-connected session
+    relays them to the control plane instead of opening a local Postgres
+    connection. The holder read (``claims.work.holder_get``) preserves
+    the "no live item work claim" refusal; the register-or-widen decision
+    stays server-side behind ``claims.path.survey_ensure`` (the register
+    function alone cannot express the widen case). Returns an error
+    string to block preparation, or ``None`` on success / no-op.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
 
-            placeholder = marker(conn)
-            claim = conn.execute(
-                "SELECT session_id FROM work_claims "
-                "WHERE target_kind = 'item' "
-                f"AND item_id = {placeholder} AND released_at IS NULL "
-                "ORDER BY claimed_at DESC, id DESC LIMIT 1",
-                (int(item_id),),
-            ).fetchone()
-            if claim is None:
-                return "Dash path-claim preparation has no live item work claim"
-            claim_session = str(
-                claim["session_id"] if hasattr(claim, "keys") else claim[0]
-            )
-            ensure_survey_path_claim(
-                conn,
-                item_id=item_id,
-                session_id=claim_session,
-                touch_paths=touch_paths,
-                integration_target=integration_target,
-            )
-    except (
-        PathClaimError,
-        PathClaimRegistrationError,
-        PathResolveError,
-        ValueError,
-    ) as exc:
-        return str(exc)
+    target = TargetRef(kind="item", item_id=int(item_id))
+    holder = call_dispatcher(
+        function_id="claims.work.holder_get",
+        target=target,
+    )
+    if not holder.success:
+        err = holder.error
+        return (
+            f"{err.code}: {err.message}"
+            if err is not None
+            else "work-claim holder lookup failed"
+        )
+    holder_row = (holder.result or {}).get("holder")
+    if not holder_row or not holder_row.get("session_id"):
+        return "Dash path-claim preparation has no live item work claim"
+
+    ensured = call_dispatcher(
+        function_id="claims.path.survey_ensure",
+        target=target,
+        payload={
+            "touch_paths": list(touch_paths),
+            "integration_target": integration_target,
+        },
+    )
+    if not ensured.success:
+        err = ensured.error
+        return (
+            err.message if err is not None
+            else "Dash path-claim preparation failed"
+        )
     return None
 
 
@@ -97,73 +97,84 @@ def run(args: List[str]) -> int:
     )
     parsed = parser.parse_args(args)
 
-    with connect() as conn:
-        item_id = resolve_cli_item_ref(
-            conn,
-            parsed.item,
-            project_context=parsed.project,
+    # Route control-plane reads through the transport-aware dispatcher so an
+    # https-connected session relays them to the server instead of opening a
+    # local Postgres connection (which the https transport refuses). Item-ref
+    # resolution happens server-side from the ``item_ref`` target; the
+    # recorded-survey read and conflict re-check run server-side too.
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    detail = call_dispatcher(
+        function_id="items.detail.get",
+        target=TargetRef(
+            kind="item",
+            item_ref=str(parsed.item),
+            project_id=parsed.project,
+        ),
+    )
+    if not detail.success:
+        message = (
+            detail.error.message if detail.error is not None
+            else "item ref resolution failed"
         )
-        if item_id is None:
-            parser.error(f"could not resolve item {parsed.item!r}")
-        row = conn.execute(
-            "SELECT workflow_id FROM items WHERE id = %s",
-            (item_id,),
-        ).fetchone()
-        if row is None or str(row[0]) != parsed.workflow:
-            actual = str(row[0]) if row else "missing"
-            parser.error(
-                f"item uses workflow {actual!r}, not {parsed.workflow!r}"
-            )
-        recorded = read_recorded_survey(conn, int(item_id))
-        if not recorded:
-            print(json.dumps({
-                "ok": False,
-                "block_kind": "conflict-survey-missing",
-                "narrative": (
-                    "Record the inferred touch set before worktree preparation."
-                ),
-                "item_id": int(item_id),
-            }))
-            return 1
-        live = survey_conflicts(
-            conn,
-            item_id=int(item_id),
-            touch_paths=recorded.get("touch_paths") or (),
-            integration_target=str(
-                recorded.get("integration_target") or "main"
+        parser.error(f"could not resolve item {parsed.item!r}: {message}")
+    item = (detail.result or {}).get("item") or {}
+    item_id = int(item["id"])
+    workflow_id = str((item.get("workflow") or {}).get("id") or "missing")
+    if workflow_id != parsed.workflow:
+        parser.error(
+            f"item uses workflow {workflow_id!r}, not {parsed.workflow!r}"
+        )
+
+    status = call_dispatcher(
+        function_id="direct_workflow.conflict_survey.status",
+        target=TargetRef(kind="item", item_id=item_id),
+    )
+    if not status.success:
+        message = (
+            status.error.message if status.error is not None
+            else "conflict survey status failed"
+        )
+        parser.error(f"conflict survey status unavailable: {message}")
+    survey = status.result or {}
+    if not survey.get("found"):
+        print(json.dumps({
+            "ok": False,
+            "block_kind": "conflict-survey-missing",
+            "narrative": (
+                "Record the inferred touch set before worktree preparation."
             ),
-        )
-        if not live.clear:
-            print(json.dumps({
-                "ok": False,
-                "block_kind": "conflict-survey-blocked",
-                "narrative": (
-                    "Registered coordination wins over claim-less work."
-                ),
-                "item_id": int(item_id),
-                "blockers": [
-                    {
-                        "kind": blocker.kind,
-                        "owner_item_id": blocker.owner_item_id,
-                        "path": blocker.path,
-                        "state": blocker.state,
-                        "detail": blocker.detail,
-                    }
-                    for blocker in live.blockers
-                ],
-            }))
-            return 1
+            "item_id": item_id,
+        }))
+        return 1
+    if not survey.get("clear"):
+        print(json.dumps({
+            "ok": False,
+            "block_kind": "conflict-survey-blocked",
+            "narrative": (
+                "Registered coordination wins over claim-less work."
+            ),
+            "item_id": item_id,
+            "blockers": survey.get("blockers") or [],
+        }))
+        return 1
+    touch_paths = tuple(survey.get("touch_paths") or ())
+    integration_target = str(survey.get("integration_target") or "main")
+
     with _session_identity(parsed.session_id):
         claim_preparer = None
         if parsed.workflow == "dash":
             claim_preparer = partial(
                 _prepare_dash_path_claim,
-                item_id=int(item_id),
-                touch_paths=live.touch_paths,
-                integration_target=live.integration_target,
+                item_id=item_id,
+                touch_paths=touch_paths,
+                integration_target=integration_target,
             )
         outcome = run_preflight(
-            item_id=int(item_id),
+            item_id=item_id,
             project=parsed.project,
             session_id=parsed.session_id,
             actual_cwd=os.getcwd(),

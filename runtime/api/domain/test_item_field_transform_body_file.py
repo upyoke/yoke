@@ -104,7 +104,7 @@ class TestStructuredFieldInputHelper(unittest.TestCase):
 
 
 class TestAppendAddendumBodyFile(_BodyFileTransformCase):
-    """AC-1: append-addendum --body-file applies the additive write."""
+    """Append-addendum --body-file applies the additive write."""
 
     def test_body_file_applies_addendum(self) -> None:
         self.db.insert_item(401, spec="# Spec\n\nbase\n")
@@ -126,7 +126,7 @@ class TestAppendAddendumBodyFile(_BodyFileTransformCase):
 
 
 class TestSectionUpsertBodyFile(_BodyFileTransformCase):
-    """AC-2: section-upsert --body-file applies identically to --stdin."""
+    """Section-upsert --body-file applies identically to --stdin."""
 
     def test_body_file_upserts_section(self) -> None:
         self.db.insert_item(402)
@@ -146,7 +146,7 @@ class TestSectionUpsertBodyFile(_BodyFileTransformCase):
 
 
 class TestSectionAppendBodyFile(_BodyFileTransformCase):
-    """AC-2: section-append --body-file applies identically to --stdin."""
+    """Section-append --body-file applies identically to --stdin."""
 
     def test_body_file_appends_entry(self) -> None:
         self.db.insert_item(403)
@@ -168,7 +168,7 @@ class TestSectionAppendBodyFile(_BodyFileTransformCase):
 
 
 class TestBodyFileErrors(_BodyFileTransformCase):
-    """AC-3, AC-4, AC-5: error paths through the CLI surface."""
+    """Error paths through the CLI surface."""
 
     def setUp(self) -> None:
         super().setUp()

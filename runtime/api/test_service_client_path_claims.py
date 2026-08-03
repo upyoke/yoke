@@ -1,12 +1,12 @@
 """Service-client surface coverage for path-claim commands.
 
-Focused on the AC-18 contract: ``path-claim-override`` distinguishes
+Focused on the override contract: ``path-claim-override`` distinguishes
 ``HOOK_CONTEXT`` rejection (``YOKE_HOOK_EVENT`` set) from
 ``EMPTY_ACTOR_REASON`` rejection (whitespace-only reason). Each
 rejection class returns a non-zero exit and a different error code
 on stdout so the surface is grep-able.
 
-Also covers AC-30 / AC-31: the service-client wrappers for
+Also covers the service-client wrappers for
 ``path-claim-widen`` (``--item YOK-N`` resolution) and
 ``path-claim-get`` (positional ``<claim-id>``) carry useful
 ``--help`` text and align with the db_router surface.
@@ -80,9 +80,9 @@ def path_claims_db(tmp_path, monkeypatch):
                 "'2026-05-01T00:00:00Z')"
             )
             conn.execute(
-                "INSERT INTO path_claims (state, mode, actor_id, item_id, "
-                "integration_target, registered_at) "
-                "VALUES ('planned', 'exclusive', 1, 40001, 'main', "
+                "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+                "registered_by_actor_id, integration_target, registered_at) "
+                "VALUES ('planned', 'exclusive', 'item', 40001, 1, 'main', "
                 "'2026-05-01T00:00:00Z')"
             )
             conn.commit()
@@ -101,7 +101,7 @@ def _capture(func, *args):
 
 
 class TestOverrideRejectionDistinct:
-    """AC-18: empty-reason and hook-context rejections are distinguishable."""
+    """Empty-reason and hook-context rejections are distinguishable."""
 
     def test_path_claim_override_registered_in_commands_table(self):
         assert "path-claim-override" in PATH_CLAIMS_COMMANDS
@@ -207,7 +207,7 @@ def _run_subprocess_help(cmd: str) -> subprocess.CompletedProcess:
 
 
 class TestServiceClientPathClaimHelp:
-    """AC-31: path-claim wrapper ``--help`` surfaces no longer fall through.
+    """Path-claim wrapper ``--help`` surfaces no longer fall through.
 
     The historical failure mode was the generic "no docstring registered"
     fallback. After the wrapper docstrings + add_help=True parsers land,
@@ -231,7 +231,7 @@ class TestServiceClientPathClaimHelp:
 
 
 class TestWidenItemRoutesThroughServiceClient:
-    """AC-30: the service-client widen wrapper accepts ``--item YOK-N`` too.
+    """The service-client widen wrapper accepts ``--item YOK-N`` too.
 
     Invoked in-process — the wrapper forwards to the shared
     ``cmd_widen`` parser, so ``--item`` resolution and rejections
@@ -264,7 +264,7 @@ class TestWidenItemRoutesThroughServiceClient:
 
 
 class TestPathClaimGetPositionalShape:
-    """AC-31: ``path-claim-get`` accepts a positional claim id; the wrapper
+    """``path-claim-get`` accepts a positional claim id; the wrapper
     surfaces NOT_FOUND for unknown ids and exits non-zero with a parseable
     JSON payload."""
 

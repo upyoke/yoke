@@ -5,48 +5,61 @@ from __future__ import annotations
 from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
-CANONICAL_WATCH_PYTEST = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
-)
+CANONICAL_WATCH_PYTEST = "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
+IMPACTED_WATCH_PYTEST = "yoke watch pytest --impacted main"
 
 
 def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:
     text = _read(REPO / "AGENTS.md")
+    # Impacted selection is the local default; the three-anchor sweep stays
+    # taught as CI's job and the CI-outage fallback.
+    assert IMPACTED_WATCH_PYTEST in text
     assert CANONICAL_WATCH_PYTEST in text
-    assert "it injects xdist `-n auto`" in text
+    assert "inject xdist `-n auto`" in text
     assert "The canonical verification target for Yoke code is `python3 -m pytest" not in text
 
 
 def test_advance_summary_default_uses_watcher() -> None:
     text = _read(SKILLS / "advance" / "finalize.md")
-    assert CANONICAL_WATCH_PYTEST in text
+    assert IMPACTED_WATCH_PYTEST in text
     assert '"python3 -m pytest runtime/api/" (yoke default)' not in text
 
 
-def test_readiness_repair_verification_uses_watcher() -> None:
+def test_readiness_repair_verification_defers_to_project_command() -> None:
+    """This skill ships verbatim into target projects, so its Verification
+    block names the registered readiness commands and then points at the
+    project's own verification command instead of pinning test anchors that
+    only exist in this repo."""
     text = _read(SKILLS / "refine" / "readiness-repair.md")
-    assert (
-        "python3 -m yoke_core.tools.watch_pytest -- "
-        "runtime/api/domain/test_idea_readiness_repair.py "
-        "runtime/api/test_skill_doc_regressions_file_budget.py"
-    ) in text
-    assert "python3 -m pytest runtime/api/domain/test_idea_readiness_repair.py" not in text
+    tail = text[text.index("## Verification") :]
+    next_heading = tail.find("\n## ", 1)
+    verification = tail if next_heading == -1 else tail[:next_heading]
+
+    assert "yoke readiness check {N}" in verification
+    assert "yoke readiness repair-stale-count --item {N}" in verification
+    assert "your project's registered verification command" in verification
+    assert "rather than hardcoding a test-file list" in verification
+
+    # Neither a raw-pytest recipe nor this repo's own test anchors may
+    # return to the block agents copy from.
+    assert "python3 -m pytest" not in text
+    assert "runtime/api/domain/test_idea_readiness_repair.py" not in verification
+    assert "runtime/api/test_skill_doc_regressions_file_budget.py" not in verification
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
     text = _read(REPO / ".yoke" / "docs" / "db-reference" / "items-and-epics.md")
     assert (
         '"rehearsal_commands": '
-        '["python3 -m yoke_core.tools.watch_pytest -- runtime/api/"]'
+        '["yoke watch pytest -- <project-test-path>"]'
     ) in text
-    assert '"rehearsal_commands": ["python3 -m pytest runtime/api/"]' not in text
+    assert '"rehearsal_commands": ["python3 -m pytest <project-test-path>"]' not in text
 
 
 def test_api_readmes_use_watcher_for_test_recipes() -> None:
     for rel in ("runtime/api/README.md", "runtime/api/board/README.md"):
         text = _read(REPO / rel)
-        assert "python3 -m yoke_core.tools.watch_pytest --" in text
+        assert "yoke watch pytest --" in text
         assert "python3 -m pytest runtime/api" not in text
 
 
@@ -55,7 +68,7 @@ def test_pg_cluster_example_uses_watcher() -> None:
         REPO / "packages" / "yoke-core" / "src"
         / "yoke_core" / "tools" / "pg_testcluster.py"
     )
-    assert "python3 -m yoke_core.tools.watch_pytest -- runtime/api/" in text
+    assert "yoke watch pytest -- runtime/api/" in text
     assert "python3 -m pytest runtime/api/ -q" not in text
 
 

@@ -3,7 +3,7 @@
 Extracted from `preflight.md`. Covers the individual gate checks run before implementation work begins. Read and follow this file when `preflight.md` directs you here.
 
 **Context variables** (inherited from router): `{N}`, `_status`, `_target`,
-`_current_executor`, `_target_executor`, `_generated_children`,
+`_current_skill`, `_target_skill`, `_generated_children`,
 `_worktree_policy`, `_pinned_definition_json`, `--force` flag
 
 ---
@@ -26,14 +26,14 @@ service-client handler with no registered product CLI wrapper; it routes through
 the same kernel used by frontier, scheduler, usher/collect, and merge preflight.
 
 ```bash
-# Internal dependency-gate evaluation: populate _dep_gate_json for YOK-{N}
+# Internal dependency-gate evaluation: populate _dep_gate_json for PREFIX-{N}
 # and "{gate_point}". Do not teach this service-client handler as product flow.
 ```
 
 If the service-client handler succeeds and returns JSON, parse `is_blocked` and `unsatisfied_blockers`:
 - If `is_blocked` is true, **block**. Format the output for the operator using the structured blocker details from the kernel response.
 
-> **Blocked:** YOK-{N} has unresolved dependencies at the `{gate_point}` gate. All blockers must be satisfied before advancing to `{_target}`.
+> **Blocked:** PREFIX-{N} has unresolved dependencies at the `{gate_point}` gate. All blockers must be satisfied before advancing to `{_target}`.
 
 For each entry in `unsatisfied_blockers`:
 > - **{blocking_item}** ({blocking_status}): {rationale}
@@ -41,7 +41,7 @@ For each entry in `unsatisfied_blockers`:
 **Fallback:** If the service-client handler is not available (missing python3, missing script, or non-zero exit with no JSON), fall back to the shell-native checker:
 ```bash
 _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/advance-hard-blocks.XXXXXX")
-if python3 -m yoke_core.domain.check_hard_blocks "YOK-{N}" --gate-point "{gate_point}" >"$_dep_output_file" 2>/dev/null; then
+if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-{N}" --gate-point "{gate_point}" >"$_dep_output_file" 2>/dev/null; then
  _dep_exit=0
 else
  _dep_exit=$?
@@ -54,7 +54,7 @@ If `_dep_exit` is non-zero (blockers found), **block** with the same format as a
 
 Then emit the inspection command:
 > Inspect the full dependency graph (both directions):
-> `yoke shepherd dependency-list YOK-{N}`
+> `yoke shepherd dependency-list PREFIX-{N}`
 
 Do NOT update status. Do NOT create worktree. Do NOT run any subsequent gates. **Stop.**
 
@@ -64,7 +64,7 @@ If no blockers (kernel says `is_blocked=false` or check-hard-blocks exits 0), pr
 
 ## AC Presence Gate (step 4-ac)
 
-Skip if `_generated_children` is `epic_tasks`; the generated-task executor
+Skip if `_generated_children` is `epic_tasks`; the generated-task skill
 enforces task-level ACs before dispatch.
 
 Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (pre-implementation statuses where ACs are not yet required).
@@ -78,7 +78,7 @@ Run the shared AC presence checker (accepts both canonical `- [ ] AC-N:` and unl
 ```bash
 _ac_output_file=$(mktemp "${TMPDIR:-/tmp}/advance-ac-check.XXXXXX")
 _ac_stderr_file=$(mktemp "${TMPDIR:-/tmp}/advance-ac-stderr.XXXXXX")
-if python3 -m yoke_core.domain.check_ac_presence "YOK-{N}" >"$_ac_output_file" 2>"$_ac_stderr_file"; then
+if python3 -m yoke_core.domain.check_ac_presence "PREFIX-{N}" >"$_ac_output_file" 2>"$_ac_stderr_file"; then
  _ac_exit=0
 else
  _ac_exit=$?
@@ -90,18 +90,18 @@ rm -f "$_ac_output_file" "$_ac_stderr_file"
 
 If `_ac_exit` is non-zero (no ACs found), **block**:
 
-> **Blocked:** YOK-{N} has no acceptance criteria.
+> **Blocked:** PREFIX-{N} has no acceptance criteria.
 > No checkbox ACs found in the item spec or body — neither canonical `- [ ] AC-N:` nor unlabeled `- [ ] ` under `## Acceptance Criteria`.
 > Conduct requires ACs to verify each item.
 >
 > **Remediation:** Add a `## Acceptance Criteria` section with `- [ ] AC-{N}: {description}` checkboxes to the item spec, then retry.
-> Or run `/yoke shepherd YOK-{N}` to drive the item through the full quality pipeline.
+> Or run `/yoke shepherd PREFIX-{N}` to drive the item through the full quality pipeline.
 
 Do NOT update status. Do NOT create worktree. Do NOT run any subsequent gates. **Stop.**
 
 If `_ac_exit` is 0 (ACs present):
 - If `_ac_stderr` contains "unlabeled checkbox AC", emit advisory:
- > **Advisory:** YOK-{N} has unlabeled checkbox ACs under `## Acceptance Criteria`. Canonical format is `- [ ] AC-N: {description}`. Consider normalizing via `/yoke shepherd YOK-{N}`; the direct label-normalization helper is source-dev/admin only and has no registered product CLI wrapper.
+ > **Advisory:** PREFIX-{N} has unlabeled checkbox ACs under `## Acceptance Criteria`. Canonical format is `- [ ] AC-N: {description}`. Consider normalizing via `/yoke shepherd PREFIX-{N}`; the direct label-normalization helper is source-dev/admin only and has no registered product CLI wrapper.
 - Proceed regardless (unlabeled ACs satisfy the gate).
 
 ---
@@ -131,7 +131,7 @@ PY
 
 Parse the JSON. If `is_blocked=true`, **advise** (do not hard-block — the gate itself still enforces at the status mutation; this is the operator-facing preview so they can apply modules before wasting a commit round-trip):
 
-> **Advisory:** YOK-{N}'s DB claim evidence is not yet on the authoritative DB. The advance will be rejected by `check_implementing_to_reviewing_implementation_gate` unless the declared migration modules are applied first.
+> **Advisory:** PREFIX-{N}'s DB claim evidence is not yet on the authoritative DB. The advance will be rejected by `check_implementing_to_reviewing_implementation_gate` unless the declared migration modules are applied first.
 >
 > For each entry in `errors`, the message ends with a `Remediation: ...` fragment. Follow it verbatim. Exception-pathway modules (those calling `record_audit_fingerprint`) require an explicit apply against the active Postgres authority — the worktree's validation surface apply is not sufficient. See `.agents/skills/yoke/advance/implementing/test-and-record.md` section a4.
 
@@ -139,7 +139,7 @@ If the report contains `skipped=true` (helper unavailable, item id not found, et
 
 ## Spec Coverage Gate (step 4-cov)
 
-Skip if `_generated_children` is `epic_tasks`; its planning executor owns the
+Skip if `_generated_children` is `epic_tasks`; its planning skill owns the
 per-task path-claim handoff. Skip if target is `idea`, `refining-idea`, `refined-idea`,
 `planning`, `refining-plan`, or `planned` (claim widening can still happen
 during refine).
@@ -159,7 +159,7 @@ The path-claim-required gate (run by `/yoke refine` when enabled) verifies
 cover everything the enabled `## File Budget` section promises.
 
 ```bash
-# Internal coverage-gate helper: evaluate path-claim/spec coverage for YOK-{N}.
+# Internal coverage-gate helper: evaluate path-claim/spec coverage for PREFIX-{N}.
 # No registered product CLI wrapper exists yet.
 _cov_exit=$?
 ```
@@ -171,23 +171,23 @@ If `_cov_exit` is 0, proceed silently. The gate self-skips when:
 - the File Budget lists no path-shaped tokens, or
 - the item has no non-terminal claim rows (path-claim-required gate handles that case).
 
-**Gate classification: `block-by-design`.** At implementation entry the worktree is about to be created; widening a claim onto additional paths *after* the worktree exists risks mutating coverage while edits are already landing, and refine is no longer reachable to author the claim repair (the item has moved past `refining-idea`). The earlier opportunities to repair are already wired: `/yoke idea` and `/yoke refine` both run `idea_readiness_check` and refine's entry handler auto-widens for pure `FILE_BUDGET_NOT_IN_CLAIM` against the existing non-terminal exclusive claim. The sanctioned remediation when this gate fires is either (a) fix the gap upstream by re-running `/yoke refine` on the item before re-attempting advance, or (b) when the spec is genuinely settled and only the claim is wrong, run `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item YOK-N` directly before re-running advance — the helper's stderr already prints that command. `--force` does not bypass this gate.
+**Gate classification: `block-by-design`.** At implementation entry the worktree is about to be created; widening a claim onto additional paths *after* the worktree exists risks mutating coverage while edits are already landing, and refine is no longer reachable to author the claim repair (the item has moved past `refining-idea`). The earlier opportunities to repair are already wired: `/yoke idea` and `/yoke refine` both run `idea_readiness_check` and refine's entry handler auto-widens for pure `FILE_BUDGET_NOT_IN_CLAIM` against the existing non-terminal exclusive claim. The sanctioned remediation when this gate fires is either (a) fix the gap upstream by re-running `/yoke refine` on the item before re-attempting advance, or (b) when the spec is genuinely settled and only the claim is wrong, run `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item PREFIX-N` directly before re-running advance — the helper's stderr already prints that command. `--force` does not bypass this gate.
 
-## Pinned-Executor Advisory (step 5)
+## Pinned-Skill Advisory (step 5)
 
-If `_target_executor` is non-empty and differs from `_current_executor`, print:
+If `_target_skill` is non-empty and differs from `_current_skill`, print:
 > Note: The pinned workflow assigns target stage `{_target}` to
-> `/{_target_executor}`. Advancing manually through `/yoke advance`.
+> `/{_target_skill}`. Advancing manually through `/yoke advance`.
 
 Proceed anyway — manual override is valid.
 
-## Shepherd Executor Gate (step 5-shep)
+## Shepherd Skill Gate (step 5-shep)
 
-Read the ordered stages and `executor_bindings` from
+Read the ordered stages and `skill_bindings` from
 `_pinned_definition_json`. Apply this gate only when the definition contains a
 `shepherd` binding, the target is at or beyond that binding's handoff, and the
-current stage is still before the implementation executor has started. This is
-an executor-specific domain guard: workflows with no `shepherd` binding skip
+current stage is still before the implementation skill has started. This is
+a skill-specific domain guard: workflows with no `shepherd` binding skip
 it.
 
 **Pre-check:** Skip if current status is `implementing` or later. Also skip if current is `idea` and target is `implementing` (deliberate bypass).
@@ -203,23 +203,23 @@ it.
 
 **Check:**
 ```bash
-_gate_reason=$(python3 -m yoke_core.domain.shepherd_gate check "YOK-{N}")
+_gate_reason=$(python3 -m yoke_core.domain.shepherd_gate check "PREFIX-{N}")
 _gate_exit=$?
 ```
 
-`planning_to_plan_drafted` is the terminal verdict the `shepherd` executor
+`planning_to_plan_drafted` is the terminal verdict the `shepherd` skill
 writes before its pinned handoff. The helper also accepts the legacy
 `planned_to_ready` transition for items that passed the pre-2026-04-07
 pipeline; no modern producer writes that name.
 
 If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reason` followed by this remediation:
-> **Blocked:** YOK-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
+> **Blocked:** PREFIX-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
 >
-> Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='YOK-{N}' ORDER BY id DESC"`.
+> Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='PREFIX-{N}' ORDER BY id DESC"`.
 >
 > If the modern verdict (`planning_to_plan_drafted`) is missing after the
 > pinned shepherd handoff, the upstream shepherd run did not emit it. Re-run
-> `/yoke shepherd YOK-{N}` only while the current stage still belongs to that
+> `/yoke shepherd PREFIX-{N}` only while the current stage still belongs to that
 > binding; otherwise file a follow-up work item against the shepherd producer.
 
 Do NOT update status.
@@ -232,22 +232,22 @@ binding. **If `--force`:** skip with warning.
 
 ```bash
 # Convention: see your `epic_tasks` packet stanza for the epic_id column shape.
-# The generated-task parent is the item's own numeric ID. Never YOK-prefix it.
+# The generated-task parent is the item's own numeric ID. Never PREFIX-prefix it.
 _epic_id={N}
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
 ```
 
-If `_task_count` is 0, **block**: point to `/yoke plan YOK-{N}`.
+If `_task_count` is 0, **block**: point to `/yoke plan PREFIX-{N}`.
 
 ## Generated-Task Completion Gate (step 5a)
 
 Apply only when `_generated_children=epic_tasks` and the target stage is owned
-by `usher` or is terminal. Earlier executor segments skip it; a single task
+by `usher` or is terminal. Earlier skill segments skip it; a single task
 lane advancing through review never triggers the parent-item gate.
 **If `--force`:** skip with warning.
 
 ```bash
-# Convention: see your `epic_tasks` packet stanza for the epic_id column shape; bare integer, never YOK-prefixed.
+# Convention: see your `epic_tasks` packet stanza for the epic_id column shape; bare integer, never PREFIX-prefixed.
 _epic_id={N}
 _total=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
 _done=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id} AND status IN ('done','reviewed-implementation','implemented','release')")
@@ -264,7 +264,7 @@ pinned definition's `terminal_stage_ids`. **If `--force`:** skip with warning.
 
 **a.** Read deferred items SILENTLY from `item_sections` table:
 ```bash
-_defer_section=$(yoke items section get YOK-{N} --section "Deferred Items" 2>/dev/null)
+_defer_section=$(yoke items section get PREFIX-{N} --section "Deferred Items" 2>/dev/null)
 if [ -z "$_defer_section" ]; then
  _defer_spec=$(yoke items get {N} spec 2>/dev/null)
  _defer_section=$(printf '%s' "$_defer_spec" | sed -n '/^## Deferred Items/,/^## /{ /^## Deferred Items/d; /^## /d; p; }')
@@ -276,7 +276,7 @@ fi
 
 **c.** Scan spec for deferral language outside `## Deferred Items` (patterns:
 "deferred to follow-up", "out of scope for this item", etc.). Exclude lines
-with YOK-N refs, lines in fenced code blocks, and lines inside the Deferred
+with PREFIX-N refs, lines in fenced code blocks, and lines inside the Deferred
 Items section.
 
 If untracked deferral language found → **block**.

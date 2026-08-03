@@ -175,7 +175,7 @@ def test_no_start_api_sh_in_active_md_docs():
 
 # ---------------------------------------------------------------------------
 # Retired DB columns and other obsoleted surface names are enforced by
-# HC-obsoleted-terms (see runtime/api/engines/doctor_hc_obsoleted_terms.py and
+# HC-obsoleted-terms (see runtime/api/engines/check_obsoleted_terms.py and
 # the matching test module). This file keeps only the per-script retired-path
 # guards that predate the generic HC.
 # ---------------------------------------------------------------------------
@@ -221,7 +221,7 @@ def test_no_hardcoded_yok42_in_test_files():
     This count must not increase. Reduce toward zero via.
     Use TEST_ITEM_ID / TEST_ITEM_REF pattern when fixing each file.
     """
-    # Baseline established during an earlier AC-8 pass; reduce to 0 via.
+    # Baseline established during an earlier pass; reduce to 0 via.
     LEGACY_BASELINE = 244
     hits: list[str] = []
     test_globs = [

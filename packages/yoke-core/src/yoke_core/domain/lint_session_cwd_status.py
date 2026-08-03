@@ -6,7 +6,7 @@ in a pre-implementing status. A session can hold a work claim before
 lint would happily accept every Edit/Write into ``.worktrees/<branch>/``
 even though the lifecycle never crossed into ``implementing``. The set
 of pre-implementing statuses is the canonical
-the item's pinned workflow executor bindings.
+the item's pinned workflow skill bindings.
 
 Mode is pinned by the machine config key ``lint_session_cwd_status_mode``
 (``warn`` records audit only; ``deny`` blocks). Suppression token

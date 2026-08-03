@@ -300,7 +300,7 @@ def test_run_validation_missing_project_and_token(tmp_path: Path, monkeypatch, c
     assert "No github capability for externalwebapp" in out
     assert "No deployment flows for externalwebapp" in out
     # GitHub App auth-only validator no longer probes the host gh CLI. Banned
-    # strings built by concatenation so the AC-1 / AC-2 grep recipes
+    # strings built by concatenation so the grep recipes
     # return zero hits anywhere in the live tree.
     assert ("gh CLI" + " not installed") not in out
     assert ("brew" + " install gh") not in out

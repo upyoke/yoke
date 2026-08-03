@@ -1,6 +1,6 @@
 """Tests: ``events list --current-episode`` boundary filtering.
 
-Covers AC-2, AC-10, AC-11: explicit session filter required, fail-closed
+Covers the explicit session filter requirement, fail-closed
 empty-set behavior when no boundary is recorded, AND-composition with
 other filters, and boundary resolution against
 ``harness_sessions.episode_started_at`` (the events-side filtering of
@@ -61,7 +61,6 @@ CREATE TABLE events (
     duration_ms INTEGER,
     exit_code INTEGER,
     trace_id TEXT,
-    parent_id TEXT,
     anomaly_flags TEXT,
     envelope TEXT,
     hook_event_name TEXT,
@@ -251,7 +250,7 @@ class TestCurrentEpisodeFlag(unittest.TestCase):
             self.assertNotIn("OtherSessionEvent", result)
 
     def test_composes_with_event_name_filter(self) -> None:
-        """AC-11: filter composition is AND across all predicates."""
+        """Filter composition is AND across all predicates."""
         with _setup_db() as db_path:
             _insert_event(
                 db_path,

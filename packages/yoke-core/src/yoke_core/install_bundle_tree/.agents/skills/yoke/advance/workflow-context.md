@@ -2,11 +2,11 @@
 
 Called by `SKILL.md` before target resolution. Registered
 `workflows.item.get` supplies the item's immutable pin and central effective
-policies; read the exact definition separately for executor interpretation:
+policies; read the exact definition separately for skill interpretation:
 
 ```bash
-_item_workflow_json=$(yoke workflows item get YOK-{N} --json) || {
- echo "Item YOK-{N} not found."
+_item_workflow_json=$(yoke workflows item get PREFIX-{N} --json) || {
+ echo "Item PREFIX-{N} not found."
  exit 1
 }
 _workflow_id=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
@@ -30,22 +30,22 @@ _worktree_policy=$(printf '%s' "$_pinned_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["worktrees"])')
 _parallelism_policy=$(printf '%s' "$_pinned_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["parallelism"])')
-_current_executor=$(printf '%s' "$_pinned_definition_json" | python3 -c '
+_current_skill=$(printf '%s' "$_pinned_definition_json" | python3 -c '
 import json,sys
 status=sys.argv[1]
 definition=json.load(sys.stdin)["result"]["definition"]
 stages=[stage["id"] for stage in definition["stages"]]
 position=stages.index(status)
-for binding in definition["executor_bindings"]:
+for binding in definition["skill_bindings"]:
     start=stages.index(binding["from_stage_id"])
     stop=stages.index(binding["through_stage_id"])
     if start <= position < stop:
-        print(binding["executor_id"])
+        print(binding["skill_id"])
         break
 ' "$_status")
 ```
 
-The executor interpreter uses the runtime's half-open interval
+The skill interpreter uses the runtime's half-open interval
 (`from_stage_id <= current < through_stage_id`). `workflow_id` is only the
 registry key for the exact version read; no behavior branches on its value.
 File Budget and path claims are independent effective axes. `optional` is off

@@ -9,13 +9,16 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_harness.hooks import cursor_model_spool
 from yoke_harness.hooks.identity_runtime import (
     _codex_resolve_entrypoint,
     _codex_resolve_model,
     _is_placeholder_model,
+    cursor_surface_entrypoint,
     detect_entrypoint,
     detect_model,
     is_codex,
+    is_cursor,
     resolve_session_id,
 )
 
@@ -59,7 +62,11 @@ def client_model(event_name: str, payload: dict[str, Any], executor: str) -> Opt
         except Exception:
             return None
     try:
-        if is_codex(executor):
+        if is_cursor(executor):
+            # Cursor names the model only on its streaming event, whose hook
+            # cannot afford to do anything but spool the payload.
+            model = cursor_model_spool.drain_model(session_id) or ""
+        elif is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             model = _codex_resolve_model(thread_id=sid or None) or ""
         else:
@@ -94,6 +101,15 @@ def _routing_settings() -> dict[str, str]:
 
 
 def client_lane(event_name: str, executor: str) -> Optional[str]:
+    """Return the machine-config lane for ``executor``, or ``None``.
+
+    ``None`` means "this client has no lane opinion" and is the answer
+    whenever machine config declares no matching executor key — the common
+    case, because routing policy normally lives in the project's
+    ``session-routing`` capability, which only the server can read. Inventing
+    a placeholder here instead would ship an explicit lane on the wire and
+    overrule that project policy at registration.
+    """
     if event_name not in REGISTRATION_EVENTS:
         return None
     try:
@@ -121,30 +137,61 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
                 matched = prefix
         if matched is not None:
             return wildcards[matched]
-        return exact.get("unknown", "primary")
+        return exact.get("unknown") or None
     except Exception:
         return None
 
 
 def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
+    """Resolve the client's surface alias for the relayed registration.
+
+    On an https machine this is the only entrypoint that reaches the server:
+    the client-side register self-skips and the relayed server-side
+    ensure-register owns the row. The executor argument names the family
+    (the rendered hook command pins it), so Cursor resolves its surface
+    from that rather than from ``detect_entrypoint``, whose Cursor branch
+    needs env the IDE surface has not exported yet at sessionStart.
+    """
     try:
         if is_codex(executor):
             sid = resolve_session_id(json.dumps(payload))
             return _codex_resolve_entrypoint(thread_id=sid or None) or None
+        if is_cursor(executor):
+            return cursor_surface_entrypoint()
         return detect_entrypoint() or None
     except Exception:
         return None
 
 
-def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+def _workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
+    """Ordered workspace paths a hook payload may carry.
+
+    ``workspace_roots`` (a list of absolute paths, first entry = the
+    workspace the harness opened) leads because it names the harness
+    workspace directly; the scalar keys follow for payloads that carry
+    only a per-event directory.
+    """
+    candidates: list[str] = []
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list):
+        candidates.extend(
+            root for root in roots if isinstance(root, str) and root.strip()
+        )
     for key in ("cwd", "workspace", "project_dir"):
         value = payload.get(key)
-        if not isinstance(value, str) or not value.strip():
-            continue
+        if isinstance(value, str) and value.strip():
+            candidates.append(value)
+    return candidates
+
+
+def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+    for value in _workspace_path_candidates(payload):
         try:
-            return machine_config.project_id(Path(value))
+            resolved = machine_config.project_id(Path(value))
         except Exception:
-            return None
+            continue
+        if resolved is not None:
+            return resolved
     return None
 
 

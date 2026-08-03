@@ -10,15 +10,7 @@ from .session_decision_freshness import (
     evaluate_freshness,
 )
 from .session_decision_lane_gate import LaneGateVerdict, evaluate_lane_gate
-
-_NEXT_STEP_TO_PATH: Dict[str, str] = {
-    "refine": "refine",
-    "shepherd": "shepherd",
-    "conduct": "conduct",
-    "advance": "advance",
-    "polish": "polish",
-    "usher": "usher",
-}
+from .sessions_analytics_core import _NEXT_STEP_TO_PATH
 
 
 def build_charge_context(frontier: FrontierState) -> Dict[str, Any]:
@@ -177,6 +169,7 @@ def decide_charge_action(
                     drift_review=frontier.drift_review,
                     selected_item=frontier.selected_item,
                     scheduler_context=verdict.refreshed_context,
+                    offer_diagnostics=frontier.offer_diagnostics,
                     lane_filtered_count=frontier.lane_filtered_count,
                     lane_filtered_items=frontier.lane_filtered_items,
                     last_completed_step=frontier.last_completed_step,

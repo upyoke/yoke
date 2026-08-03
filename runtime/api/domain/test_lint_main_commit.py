@@ -258,7 +258,7 @@ class TestMain(unittest.TestCase):
 
 
 class TestQuotedGitCommitEvidence(unittest.TestCase):
-    """AC-5 regression: text containing ``git commit`` inside quoted CLI
+    """Regression: text containing ``git commit`` inside quoted CLI
     arguments must not trigger the main-commit lint as a real commit."""
 
     def test_field_note_evidence_text_is_allowed(self) -> None:

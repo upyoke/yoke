@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
+
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
 
 def _parent():
@@ -24,10 +27,16 @@ class MergeArgs:
     branch: str
     target: str = "main"
     epic_ref: Optional[str] = None
+    item_id: Optional[int] = None
+    expected_repo_root: Optional[str] = None
     local_merge: bool = False
     force_lock: bool = False
     keep_remote: bool = False
     skip_simulation: bool = False
+    # Permission to merge a branch that belongs to an item rather than an
+    # epic lane. Held by the standalone-item merge operation, which owns the
+    # surrounding item bookkeeping the engine does not.
+    standalone: bool = False
 
 
 @dataclass
@@ -82,12 +91,6 @@ def _sql_task_terminal_success_list() -> str:
     return ", ".join(f"'{s}'" for s in _TASK_TERMINAL_SUCCESS)
 
 
-def _p(conn) -> str:
-    from yoke_core.domain import db_backend
-
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _matches_glob(filepath: str, patterns: list[str]) -> bool:
     """Check if filepath matches any of the given glob patterns."""
     import fnmatch
@@ -103,7 +106,8 @@ def validate_args(args: MergeArgs) -> Optional[str]:
     if not args.branch:
         return (
             "Usage: python3 -m yoke_core.engines.merge_worktree "
-            "[--local] [--keep-remote] [--skip-simulation] <branch> "
+            "[--local] [--keep-remote] [--skip-simulation] [--standalone] "
+            "<branch> "
             "[target-branch] [epic-ref]"
         )
 
@@ -113,8 +117,6 @@ def validate_args(args: MergeArgs) -> Optional[str]:
 def resolve_context(args: MergeArgs) -> MergeContext:
     """Resolve full merge context from arguments."""
     from yoke_core.domain.worktree import resolve_main_root
-
-    mw = _parent()
 
     ctx = MergeContext(args=args)
 
@@ -129,57 +131,81 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         raise RuntimeError("Not in a git repository")
     ctx.yoke_repo_root = ctx.repo_root
 
-    # Parse item ID from branch name
-    match = re.search(r"YOK-(\d+)", args.branch)
-    if match:
-        ctx.item_id = match.group(1)
-
-    # Resolve epic ID
-    ctx.epic_id = args.epic_ref
-    if ctx.epic_id:
-        # Resolve YOK-N or numeric
-        clean_id = re.sub(r"^[Yy][Oo][Kk]-", "", ctx.epic_id).lstrip("0") or "0"
-        conn = None
+    # Resolve the branch's public item ref to the internal items.id every
+    # downstream consumer expects. The ref carries the project sequence,
+    # which is not the internal id once the two diverge, so it is passed
+    # as ``item_ref`` for the dispatcher to resolve server-side — that
+    # keeps resolution authoritative over an https control plane as well
+    # as an in-process local connection, with no client DB read.
+    ctx.item_id = str(args.item_id) if args.item_id is not None else None
+    match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
+    if ctx.item_id is None and match:
         try:
-            conn = mw._connect()
-            row = conn.execute(
-                f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
-                (int(clean_id),),
-            ).fetchone()
-            if row:
-                ctx.epic_id = row[0]
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_ref=match.group(1)),
+                payload={},
+            )
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                if item.get("id") is not None:
+                    ctx.item_id = str(item["id"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
-        finally:
-            if conn is not None:
-                conn.close()
 
-    # Guard: standalone item branches need YOKE_DONE_TRANSITION
-    if (not ctx.epic_id or ctx.epic_id == "null") and args.branch.startswith("YOK-"):
-        if os.environ.get("YOKE_DONE_TRANSITION", "0") != "1":
+    # Resolve epic ID the same way: PREFIX-N resolves through the project
+    # sequence, a bare number is a project-local ref, both server-side.
+    ctx.epic_id = args.epic_ref
+    if ctx.epic_id:
+        try:
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_ref=str(ctx.epic_id).strip()),
+                payload={},
+            )
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                if item.get("id") is not None:
+                    ctx.epic_id = str(item["id"])
+        except Exception:  # noqa: BLE001 - DB context is advisory here.
+            pass
+
+    # Guard: an item branch with no epic lane is a standalone merge, which
+    # carries item bookkeeping (merged_at, evidence, status) the engine does
+    # not own. Callers declare that they own it by passing ``standalone``.
+    if (
+        not ctx.epic_id or ctx.epic_id == "null"
+    ) and (ctx.item_id is not None or match is not None):
+        if not args.standalone:
             raise RuntimeError(
-                f"merge_worktree called for standalone item branch '{args.branch}' "
-                "without an epic ID. Standalone items must be merged via "
-                "`python3 -m yoke_core.engines.done_transition`."
+                f"merge_worktree called for standalone item branch "
+                f"'{args.branch}' without the standalone permission. "
+                "Merge a standalone item branch with "
+                "`yoke merge item <ITEM>`."
             )
 
-    # Project-aware repo root resolution
+    # Project-aware repo root resolution. Item/project reads and the
+    # machine-local checkout mapping route through the transport-aware relay
+    # so a non-yoke project's checkout + default branch resolve over an https
+    # control plane; the checkout mapping itself stays machine-local.
     if ctx.item_id:
-        conn = None
         try:
-            conn = mw._connect()
-            row = conn.execute(
-                "SELECT p.slug FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-                f"WHERE i.id={_p(conn)}",
-                (int(ctx.item_id),),
-            ).fetchone()
-            if row and row[0] and row[0] != "yoke":
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_id=int(ctx.item_id)),
+                payload={},
+            )
+            slug = None
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                slug = (item.get("project") or {}).get("slug")
+            if slug and slug != "yoke":
                 from yoke_core.domain.project_checkout_locations import (
-                    checkout_for_project,
+                    checkout_for_project_slug,
                 )
 
-                ctx.project = row[0]
-                checkout = checkout_for_project(conn, ctx.project)
+                ctx.project = slug
+                checkout = checkout_for_project_slug(slug)
                 if checkout is None:
                     raise RuntimeError(
                         f"project '{ctx.project}' has no machine-local checkout mapping"
@@ -187,19 +213,31 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 ctx.repo_root = str(checkout)
                 # Resolve default branch for non-yoke projects
                 if not args.target or args.target == "main":
-                    branch_row = conn.execute(
-                        f"SELECT default_branch FROM projects WHERE slug={_p(conn)}",
-                        (ctx.project,),
-                    ).fetchone()
-                    if branch_row and branch_row[0]:
-                        args.target = branch_row[0]
+                    branch_resp = call_dispatcher(
+                        function_id="projects.get",
+                        target=TargetRef(kind="global"),
+                        payload={"project": slug, "field": "default_branch"},
+                    )
+                    if branch_resp.success:
+                        value = (branch_resp.result or {}).get("value")
+                        if value:
+                            args.target = value
             else:
-                ctx.project = row[0] if row else None
-        except Exception:  # noqa: BLE001 - default Yoke repo context is safe.
-            pass
-        finally:
-            if conn is not None:
-                conn.close()
+                ctx.project = slug or None
+        except Exception as exc:
+            if args.item_id is not None:
+                raise RuntimeError(
+                    f"could not resolve project checkout for item {ctx.item_id}"
+                ) from exc
+
+    if args.expected_repo_root:
+        expected_root = Path(args.expected_repo_root).resolve()
+        resolved_root = Path(ctx.repo_root).resolve()
+        if resolved_root != expected_root:
+            raise RuntimeError(
+                "resolved merge checkout does not match the item-bound checkout: "
+                f"expected {expected_root}, got {resolved_root}"
+            )
 
     if not args.target:
         from yoke_core.domain import project_settings

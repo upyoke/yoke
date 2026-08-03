@@ -1,4 +1,4 @@
-"""AC-29 — non-`yoke` project coverage for the path-snapshot bootstrap.
+"""Non-`yoke` project coverage for the path-snapshot bootstrap.
 
 The Yoke-repo graph fixture in
 :mod:`runtime.api.domain.test_path_snapshots_yoke_graph` exercises a
@@ -69,7 +69,7 @@ def conn_with_project(tmp_path: Path, fake_project: Path):
 def test_bootstrap_against_non_yoke_repo(conn_with_project, fake_project):
     """The bootstrap mints path_targets and a snapshot for a project
     whose id is not 'yoke' and whose checkout lives outside the
-    Yoke tree. This is the regression coverage AC-29 demands."""
+    Yoke tree."""
     snap_id = build_head_snapshot(conn_with_project, "alt")
     assert isinstance(snap_id, int)
     project_id = _project_id(conn_with_project, "alt")

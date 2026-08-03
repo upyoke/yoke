@@ -25,13 +25,32 @@ prose teaching primitives that do not exist in its harness.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 
 # Canonical harness ids. Adding a harness extends this surface; call sites
 # import these names instead of duplicating literal strings.
 CLAUDE_HARNESS_ID = "claude"
 CODEX_HARNESS_ID = "codex"
-HARNESS_IDS: frozenset[str] = frozenset({CLAUDE_HARNESS_ID, CODEX_HARNESS_ID})
+CURSOR_HARNESS_ID = "cursor"
+HARNESS_IDS: frozenset[str] = frozenset(
+    {CLAUDE_HARNESS_ID, CODEX_HARNESS_ID, CURSOR_HARNESS_ID}
+)
+
+
+def rendered_agents_dir(harness_id: str) -> Path:
+    """Return the repo-relative directory holding *harness_id*'s adapters."""
+    return Path("runtime") / "harness" / harness_id / "agents"
+
+
+#: Every rendered per-harness adapter directory. Consumers that must treat all
+#: adapters alike — prose checks exempting content that only mirrors a
+#: canonical body — read this instead of naming harnesses one at a time, so
+#: onboarding a harness cannot leave one of them behind. Sorted for a stable
+#: order; the renderer keeps its own per-harness names for render sequencing.
+RENDERED_AGENT_DIRS: tuple[Path, ...] = tuple(
+    rendered_agents_dir(harness_id) for harness_id in sorted(HARNESS_IDS)
+)
 
 
 # Match either a *block-level* marker (alone on its line: leading

@@ -140,7 +140,7 @@ class TestCLI:
 
         handler.assert_called_once_with(db, *expected_args)
 
-    # AC-8.3 dispatcher-parity tests for task-update-body live in the
+    # Dispatcher-parity tests for task-update-body live in the
     # sibling ``test_epic_cli_task_update_body_dispatch.py`` to keep this
     # file under the 350-line authored-file budget.
 

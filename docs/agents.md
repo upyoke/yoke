@@ -190,7 +190,7 @@ Epic-level integration gap detection. Runs at two optional points:
 
 **Gap report severity levels:** `[CRITICAL]` (blocks proceeding), `[WARNING]` (should fix, not blocking), `[NOTE]` (informational). Bracket prefixes are machine-parseable.
 
-**VERDICT-FIRST rule:** The Simulator must emit its verdict (`SIMULATION VERDICT: PASS` or `FAIL`) before the detailed gap report. This ensures the verdict is never lost to context truncation in long reports.
+**VERDICT-FIRST rule:** The Simulator begins with `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND`, followed by `EPIC: PREFIX-N` for an epic simulation or `SCOPE: SYSTEM` for a system-wide audit. This keeps both the verdict and dispatched scope ahead of a potentially long report.
 
 **Construct Verification:** The Simulator verifies that cross-task constructs (shared types, helper functions, configuration structures) are defined consistently across all tasks that reference them. Mismatches in type shapes, function signatures, or config keys between producer and consumer tasks generate `[CRITICAL]` gaps.
 
@@ -198,7 +198,7 @@ Epic-level integration gap detection. Runs at two optional points:
 
 **Failure Path Analysis:** The Simulator traces error handling paths across task boundaries -- what happens when a shared service returns an error, when a DB query fails, or when an API call times out. Missing or inconsistent error handling across producer/consumer boundaries generates `[WARNING]` gaps.
 
-**Recommendation Contract with Conduct:** The Simulator's gap report includes a `fix_level` classification for each gap: `spec` (fixable by Architect in fix mode), `code` (requires Engineer via `/yoke amend`), or `process` (requires human decision). The Conduct uses this classification to route fixes automatically.
+**Recommendation Contract with Conduct:** The Simulator's gap report includes a `fix_level` classification for each gap: `plan`, `code`, or `mixed`. Conduct uses that classification to route plan-only corrections to the Architect and any code-bearing correction through implementation.
 
 **Key rule:** All DB access goes through registered `yoke ...` commands or a registered Yoke function -- never direct database-client calls. When running scripts that may call GitHub, set `YOKE_DRY_RUN=1` to prevent creating real issues/labels.
 
@@ -302,4 +302,4 @@ All 7 agents have an `## Ouroboros -- End-of-Session Reflection` section at the 
 - Each agent answers 4 reflection questions at session end: problems encountered, process improvement ideas, game-changing feature ideas, and cross-critique observations about other agents' work
 - **All agents use hook-captured reflection semantics.** Each agent includes reflections in its final response using `---REFLECTION-START---` / `---REFLECTION-END---` delimiters with `---BEGIN ENTRY---` / `---END ENTRY---` blocks inside. The PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) captures these blocks automatically when the subagent's `Agent` tool call returns and persists them to `ouroboros_entries`. No agent writes directly to the DB.
 - **`yoke/ouroboros/log.md` has been removed** — all observations go to the DB via the hook-captured reflection surface.
-- `/yoke curate` reads from the `ouroboros_entries` table -- clustering, creating work items, archiving, and promoting patterns
+- `/yoke curate` reads from the `ouroboros_entries` table -- clustering, promoting field-notes to Dashes, filing work items for root causes, and archiving

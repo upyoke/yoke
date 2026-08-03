@@ -152,10 +152,14 @@ function renderDetail(context, main, detail, reload) {
   );
 }
 
-export async function renderTestMachineDetail(context, main, project) {
+export async function renderTestMachineDetail(
+  context, main, project, navigation = {},
+) {
   const documentNode = context.document;
-  const reload = () => renderTestMachineDetail(context, main, project);
-  main.replaceChildren(el(documentNode, "p", "empty", "loading Test Mac…"));
+  const reload = () => renderTestMachineDetail(
+    context, main, project, navigation,
+  );
+  main.replaceChildren(el(documentNode, "p", "empty", "loading capability…"));
   let result;
   try {
     result = await callFunction(
@@ -176,12 +180,12 @@ export async function renderTestMachineDetail(context, main, project) {
   if (!result.envelope.success) {
     const message = result.envelope?.error?.message || "";
     if (message.includes("has no test-machine capability")) {
-      const missing = panel(documentNode, "Test Mac");
+      const missing = panel(documentNode, "Capability");
       missing.body.appendChild(el(
         documentNode,
         "p",
         "empty",
-        "Test Mac is not configured for this project.",
+        "This capability is not configured for the project.",
       ));
       const back = el(
         documentNode, "a", "btn", "Back to capabilities",
@@ -194,6 +198,9 @@ export async function renderTestMachineDetail(context, main, project) {
       renderError(main, result);
     }
     return;
+  }
+  if (typeof navigation.setDetailLabel === "function") {
+    navigation.setDetailLabel(result.envelope.result.display_name);
   }
   renderDetail(context, main, result.envelope.result, reload);
 }

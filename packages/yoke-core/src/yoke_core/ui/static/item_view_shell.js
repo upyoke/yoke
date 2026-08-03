@@ -100,14 +100,14 @@ export function commandPanel(documentNode, item) {
     "item-muted item-command-copy",
     copy,
   ));
-  const executor = item.workflow.next_executor_id ||
-    item.workflow.executor_id ||
+  const skill = item.workflow.next_skill_id ||
+    item.workflow.skill_id ||
     item.workflow.id;
   body.appendChild(el(
     documentNode,
     "code",
     "item-command",
-    `/yoke ${executor} ${item.public_ref}`,
+    `/yoke ${skill} ${item.public_ref}`,
   ));
   return panel;
 }

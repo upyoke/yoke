@@ -88,7 +88,7 @@ Full bodies in [patterns/spec-process-patterns.md](patterns/spec-process-pattern
 
 ## Patterns from 2026-04-04 Curate (1685 entries)
 
-Full bodies in [patterns/curate-2026-04-04-patterns.md](patterns/curate-2026-04-04-patterns.md).
+Full bodies in [docs/archive/curate-2026-04-04-patterns.md](../docs/archive/curate-2026-04-04-patterns.md) — a single-run artifact, archived; the catalog entries below stay live.
 
 - **P-53: Specs with phantom code references waste engineering time.** Single largest source of wasted engineering time; refine/polish/PM/Boss now check explicitly. (Partially addressed)
 - **P-54: Blast radius needs grep discovery, not hardcoded file lists.** Refine requires discovery commands; prd-validate.sh blocks rename-heavy specs that omit them. (Partially addressed)

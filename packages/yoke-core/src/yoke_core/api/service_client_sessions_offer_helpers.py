@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain.session_contract import ActionKind, NextAction
+from yoke_core.domain.session_offer_diagnostics import attach_offer_diagnostics
 from yoke_core.domain.sessions_offer_revalidation import (
     build_no_work_wait_context,
     normalize_item_id,
@@ -29,6 +30,8 @@ def build_no_work_wait_action(
     session_id: str,
     ownership: Dict[str, Any],
     step: int,
+    process_offer_policy: Any = None,
+    actual_lane: Optional[str] = None,
 ) -> NextAction:
     """Construct a WAIT NextAction for the ``action_hint=no_work`` path.
 
@@ -65,12 +68,18 @@ def build_no_work_wait_action(
             f"(terminal_reason={wait_context['terminal_reason']}); no claim "
             "could be acquired."
         )
-    return NextAction(
+    action = NextAction(
         action=ActionKind.WAIT,
         reason=reason,
         chainable=False,
         correlation_id=session_id,
         context=wait_context,
+    )
+    return attach_offer_diagnostics(
+        action,
+        getattr(schedule, "offer_diagnostics", None) if schedule else None,
+        process_offer_policy=process_offer_policy,
+        actual_lane=actual_lane,
     )
 
 
@@ -87,6 +96,7 @@ def should_return_no_work_wait(ownership: Dict[str, Any], step: int) -> bool:
 def validate_charge_claim_invariant(
     result: NextAction,
     new_claim: Optional[Dict[str, Any]],
+    conn: Any = None,
 ) -> Tuple[bool, Optional[str]]:
     """Confirm a CHARGE result is backed by a fresh claim on the dispatch target.
 
@@ -110,10 +120,18 @@ def validate_charge_claim_invariant(
             "acquire any candidate; refusing to emit a charge directive."
         )
     claim_item = new_claim.get("item_id")
-    # selected_item is rendered as ``YOK-N`` while new_claim.item_id is the
-    # bare integer; normalize both before comparing.
-    selected_norm = normalize_item_id(ctx_selected)
-    claim_norm = normalize_item_id(claim_item)
+    # selected_item is the rendered public ref while new_claim.item_id is
+    # the bare internal integer; resolve both to internal ids before
+    # comparing (project sequences may diverge from internal ids). The
+    # conn-less fallback keeps the legacy numeric-tail comparison.
+    if conn is not None:
+        from yoke_core.domain.item_ref_resolution import resolve_internal_item_id
+
+        selected_norm = resolve_internal_item_id(conn, ctx_selected)
+        claim_norm = resolve_internal_item_id(conn, claim_item)
+    else:
+        selected_norm = normalize_item_id(ctx_selected)
+        claim_norm = normalize_item_id(claim_item)
     if (
         selected_norm is not None
         and claim_norm is not None

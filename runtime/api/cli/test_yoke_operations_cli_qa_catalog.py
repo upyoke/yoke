@@ -191,6 +191,24 @@ def test_project_default_and_item_attachment_use_distinct_targets() -> None:
     assert default_request.function == "qa.project_default.set"
     assert default_request.target.kind == "global"
 
+    result, unset_request = _run(
+        "qa",
+        "project-default",
+        "unset",
+        "--project",
+        "yoke",
+        "--plan-id",
+        "17",
+        "--workflow",
+        "issue",
+        "--transition",
+        "reviewed-implementation",
+    )
+    assert result == 0
+    assert unset_request.function == "qa.project_default.unset"
+    assert unset_request.target.kind == "global"
+    assert unset_request.payload["transition_id"] == "reviewed-implementation"
+
     result, item_request = _run(
         "qa",
         "item-plan",

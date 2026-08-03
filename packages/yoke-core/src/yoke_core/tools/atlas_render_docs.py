@@ -7,9 +7,9 @@ on-disk file is stale (the ``generated_at`` timestamp is normalised so
 a stale timestamp alone does not trip the check).
 
 Sections (sorted, deterministic): summary; wrapped operation roster;
-permanent command-shaped boundary roster; pending handler-registration
-roster; teaching coverage; field-note hotspots; contradictions;
-next-slice recommendation.
+tool-shaped CLI roster; permanent command-shaped boundary roster; pending
+handler-registration roster; teaching coverage; field-note hotspots;
+contradictions; next-slice recommendation.
 """
 
 from __future__ import annotations
@@ -44,10 +44,10 @@ _TIMESTAMP_PLACEHOLDER = "_Audit generated_at: <stripped for diff>_"
 # churns continuously and would always flag the doc as stale.
 # Normalise the entire section out of the staleness comparison.
 _FIELD_NOTE_SECTION_RE = re.compile(
-    r"^## 6\. Field-note hotspots\n.*?(?=^## )",
+    r"^## 7\. Field-note hotspots\n.*?(?=^## )",
     re.MULTILINE | re.DOTALL,
 )
-_FIELD_NOTE_PLACEHOLDER = "## 6. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
+_FIELD_NOTE_PLACEHOLDER = "## 7. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
 _FIELD_NOTE_SUMMARY_RE = re.compile(
     r"^- Recent field-notes inspected: \d+$",
     re.MULTILINE,
@@ -78,6 +78,7 @@ def _render_summary(report: Dict[str, Any]) -> List[str]:
     out.append(
         "- Operation tracker: "
         f"**{tracker.get('wrapped', 0)} wrapped**, "
+        f"{tracker.get('tool_cli', 0)} tool_cli, "
         f"{tracker.get('permanent', 0)} permanent, "
         f"{tracker.get('pending', 0)} pending"
     )
@@ -132,23 +133,26 @@ def _render_wrapped_roster(report: Dict[str, Any]) -> List[str]:
     return out
 
 
-def _render_permanent_roster(report: Dict[str, Any]) -> List[str]:
-    out = ["## 3. Permanent command-shaped boundary roster", ""]
-    rows = [r for r in report["operation_tracker"]["rows"] if r["status"] == "permanent"]
+def _render_tool_cli_roster(report: Dict[str, Any]) -> List[str]:
+    out = ["## 3. Tool-shaped CLI roster", ""]
+    rows = [
+        r for r in report["operation_tracker"]["rows"]
+        if r["status"] == "tool_cli"
+    ]
+    out.append(
+        "First-class local `yoke` adapters that run subprocess tools without "
+        "a dispatcher function id."
+    )
+    out.append("")
     if not rows:
-        out.append("_No retained command-shaped boundaries._")
+        out.append("_No tool-shaped CLI adapters registered._")
         out.append("")
         return out
     out.extend(_md_table(
-        ("family", "shell_form", "reason", "source owner"),
+        ("family", "yoke form", "reason"),
         sorted(
             (
-                (
-                    r["family"],
-                    f"`{r['shell_form']}`",
-                    r["reason"],
-                    r.get("source_owner") or "—",
-                )
+                (r["family"], f"`{r['shell_form']}`", r["reason"])
                 for r in rows
             ),
             key=lambda r: (r[0], r[1]),
@@ -158,8 +162,50 @@ def _render_permanent_roster(report: Dict[str, Any]) -> List[str]:
     return out
 
 
+def _render_permanent_roster(report: Dict[str, Any]) -> List[str]:
+    out = ["## 4. Permanent command-shaped boundary roster", ""]
+    rows = [r for r in report["operation_tracker"]["rows"] if r["status"] == "permanent"]
+    if not rows:
+        out.append("_No retained command-shaped boundaries._")
+    else:
+        out.extend(_md_table(
+            ("family", "shell_form", "reason", "source owner"),
+            sorted(
+                (
+                    (
+                        r["family"],
+                        f"`{r['shell_form']}`",
+                        r["reason"],
+                        r.get("source_owner") or "—",
+                    )
+                    for r in rows
+                ),
+                key=lambda r: (r[0], r[1]),
+            ),
+        ))
+    out.extend([
+        "",
+        "### Human-only stranded work-claim release",
+        "",
+        "When another session has ended but still owns a work claim, a human "
+        "operator may release that exact claim through the retained "
+        "operator-debug boundary:",
+        "",
+        "```sh",
+        "python3 -m yoke_core.api.service_client claim-release \\",
+        " --item PREFIX-N --claim-id CLAIM_ID --reason \"stranded session\"",
+        "```",
+        "",
+        "This is not an agent self-release recipe. It refuses hook contexts, "
+        "records the reason on `OperatorClaimOverride`, and must only target a "
+        "claim the operator has verified is stranded.",
+    ])
+    out.append("")
+    return out
+
+
 def _render_pending_roster(report: Dict[str, Any]) -> List[str]:
-    out = ["## 4. Pending handler-registration roster", ""]
+    out = ["## 5. Pending handler-registration roster", ""]
     rows = [r for r in report["operation_tracker"]["rows"] if r["status"] == "pending"]
     if not rows:
         out.append("_No pending handler-registration rows._")
@@ -199,6 +245,7 @@ def render(report: Dict[str, Any]) -> str:
     lines.extend(_header(report))
     lines.extend(_render_summary(report))
     lines.extend(_render_wrapped_roster(report))
+    lines.extend(_render_tool_cli_roster(report))
     lines.extend(_render_permanent_roster(report))
     lines.extend(_render_pending_roster(report))
     lines.extend(_render_teaching(report))

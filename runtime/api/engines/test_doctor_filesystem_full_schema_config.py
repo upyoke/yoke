@@ -17,11 +17,11 @@ from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_project_checks.check_arch_consistency import hc_arch_consistency
+from yoke_project_checks.check_schema_script_sync import hc_schema_script_sync
 from yoke_core.engines.doctor import (
-    hc_arch_consistency,
     hc_backlog_quality,
     hc_config_validation,
-    hc_schema_script_sync,
     hc_stale_body,
 )
 
@@ -81,15 +81,41 @@ class TestSchemaAndConfigChecks:
         assert rec.results[0].result == "WARN"
         assert "settings must be an object" in rec.results[0].detail
 
-    def test_config_validation_passes_with_machine_config(self, tmp_path):
+    def _config_with_settings(self, tmp_path, settings):
         config_path = tmp_path / ".yoke" / "config.json"
         config_path.parent.mkdir()
         config_path.write_text(
-            '{"settings": {"lane_paths_custom": "refine"}, "projects": {}}\n'
+            json.dumps({"settings": settings, "projects": {}}) + "\n"
+        )
+        return config_path
+
+    def test_config_validation_passes_with_machine_config(self, tmp_path):
+        config_path = self._config_with_settings(
+            tmp_path, {"max_chain_steps": 3, "hc_premature_done_min_item_id": 1},
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation)
         assert rec.results[0].result == "PASS"
+
+    def test_config_validation_warns_on_db_owned_settings_twin(self, tmp_path):
+        config_path = self._config_with_settings(
+            tmp_path, {"lane_paths_custom": "refine", "wip_cap": 5},
+        )
+        with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
+            rec = _run_hc(hc_config_validation)
+        assert rec.results[0].result == "WARN"
+        detail = rec.results[0].detail
+        assert "settings.lane_paths_custom duplicates DB authority" in detail
+        assert "session-routing" in detail
+        assert "settings.wip_cap duplicates DB authority" in detail
+        assert "project-policy" in detail
+
+    def test_config_validation_warns_on_settings_key_with_no_reader(self, tmp_path):
+        config_path = self._config_with_settings(tmp_path, {"invented_key": 1})
+        with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
+            rec = _run_hc(hc_config_validation)
+        assert rec.results[0].result == "WARN"
+        assert "settings.invented_key has no reader" in rec.results[0].detail
 
     def test_config_validation_warns_on_dead_checkout_mapping(self, tmp_path):
         gone = tmp_path / "removed-worktree"
@@ -161,7 +187,6 @@ class TestSchemaAndConfigChecks:
             conn,
             """
             CREATE TABLE ouroboros_entries (id INTEGER PRIMARY KEY);
-            CREATE TABLE wrapup_reports (id INTEGER PRIMARY KEY);
             CREATE TABLE epic_tasks (id INTEGER PRIMARY KEY);
             """,
         )

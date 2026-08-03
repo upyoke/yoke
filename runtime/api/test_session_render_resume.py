@@ -38,7 +38,7 @@ class TestResumeCompatibilityValidation:
     """FR-6: Resume compatibility mirrors charge policy."""
 
     def test_resume_unsupported_path_escalates(self):
-        """AC-7: Claimed work requiring 'polish' with offer supporting only 'advance'."""
+        """Claimed work requiring 'polish' with offer supporting only 'advance'."""
         offer = _make_offer(supported_paths=["advance", "conduct"])
         frontier = FrontierState(runnable_items=[TEST_ITEM_REF])
         claims = [ClaimedWork(
@@ -54,7 +54,7 @@ class TestResumeCompatibilityValidation:
         assert result.context["required_path"] == "polish"
 
     def test_resume_lane_policy_blocks(self):
-        """AC-8: Lane policy excludes the required path for claimed work."""
+        """Lane policy excludes the required path for claimed work."""
         offer = _make_offer(execution_lane="DARIUS")
         frontier = FrontierState(runnable_items=[TEST_ITEM_REF])
         claims = [ClaimedWork(
@@ -78,7 +78,7 @@ class TestResumeCompatibilityValidation:
         assert result.context["required_path"] == "polish"
 
     def test_resume_darius_weirdness_regression(self):
-        """AC-9: DARIUS cannot resume into polish after advance charge."""
+        """DARIUS cannot resume into polish after advance charge."""
         offer = _make_offer(execution_lane="DARIUS")
         frontier = FrontierState(runnable_items=[TEST_ITEM_REF])
         claims = [ClaimedWork(
@@ -134,7 +134,7 @@ class TestResumeNoProgressDetection:
     """FR-7: Repeated no-progress resume stops the chain."""
 
     def test_no_progress_resume_escalates(self):
-        """AC-10: Same item, same status in last_completed_step -> escalate."""
+        """Same item, same status in last_completed_step -> escalate."""
         offer = _make_offer(step=2)
         frontier = FrontierState(
             runnable_items=[TEST_ITEM_REF],
@@ -244,7 +244,7 @@ class TestResumeNoProgressDetection:
 
 
 class TestStaticCwdSubstrateNoChainBurnRegression:
-    """AC-24: do not burn another /yoke do chain step on a same-session
+    """Do not burn another /yoke do chain step on a same-session
     worktree-scope-but-cwd-at-main resume that already completed once.
 
     The originating evidence was a /yoke do run where worktree creation

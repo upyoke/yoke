@@ -13,6 +13,14 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 
+CANONICAL_REFLECTION_CATEGORIES = (
+    "problem",
+    "process-improvement",
+    "game-changing-idea",
+    "cross-agent-critique",
+)
+
+
 @dataclass
 class ReflectionEntry:
     """One parsed reflection entry; defined here so orchestrator + CLI import without cycles."""

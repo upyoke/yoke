@@ -104,19 +104,18 @@ class TestInferAndCreatePreventions:
         assert "Glob tool" in text or "Glob" in text
 
     def test_prevention_1_canonical_migration_root_named(self):
-        """The live one-shot migration package root is named
-        explicitly so future ideas don't propose the non-existent
-        ``runtime/api/migrations/`` directory."""
+        """Migration ideas discover the active project's one-shot package root."""
         text = _read(_INFER_AND_CREATE)
-        assert "runtime/api/domain/migrations/" in text
+        assert "project's verified one-shot migration package root" in text
+        assert "runtime/api/domain/migrations/" not in text
 
     def test_prevention_2_canonical_grep_template_pinned(self):
         """The canonical grep template is pinned literally so
         agents copy it directly rather than improvising."""
         text = _read(_INFER_AND_CREATE)
         assert (
-            'rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" '
-            "packages/ runtime/"
+            "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' "
+            "<source-roots>"
         ) in text
 
     def test_prevention_2_names_current_lifecycle_owners(self):

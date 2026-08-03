@@ -41,7 +41,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     epic-task identity, plus session-scoped handoff cleanup.
     """
     body = sac.render_topic_packet("claims")
-    assert "yoke claims work release --item YOK-N --reason TEXT" in body
+    assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
     assert (
         "yoke claims work release --epic-id E --task-num K --reason TEXT"
@@ -57,8 +57,13 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     Tier-1 grammar (current).
     """
     body = sac.render_topic_packet("claims")
-    assert "yoke claims work acquire --item YOK-N --reason rewrite-in-progress" in body
-    assert "yoke claims work release --item YOK-N --reason rewrite-complete" in body
+    assert (
+        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress"
+        in body
+    )
+    assert (
+        "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
+    )
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
 
@@ -77,7 +82,8 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
     conn.executescript(
         """
         CREATE TABLE path_claims (
-          id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, state TEXT NOT NULL
+          id INTEGER PRIMARY KEY, owner_kind TEXT NOT NULL,
+          owner_item_id INTEGER NOT NULL, state TEXT NOT NULL
         );
         CREATE TABLE path_targets (
           id INTEGER PRIMARY KEY, path_string TEXT NOT NULL
@@ -87,15 +93,15 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
           claim_id INTEGER NOT NULL REFERENCES path_claims(id),
           target_id INTEGER NOT NULL REFERENCES path_targets(id)
         );
-        INSERT INTO path_claims (id, item_id, state)
-          VALUES (7, 42, 'active');
+        INSERT INTO path_claims (id, owner_kind, owner_item_id, state)
+          VALUES (7, 'item', 42, 'active');
         INSERT INTO path_targets (id, path_string)
-          VALUES (9, 'runtime/api/domain/foo.py');
+          VALUES (9, '<project-source-path>/foo.py');
         INSERT INTO path_claim_targets (id, claim_id, target_id)
           VALUES (11, 7, 9);
         """
     )
 
     assert conn.execute(sql).fetchall() == [
-        (7, 42, "active", "runtime/api/domain/foo.py")
+        (7, "item", 42, "active", "<project-source-path>/foo.py")
     ]

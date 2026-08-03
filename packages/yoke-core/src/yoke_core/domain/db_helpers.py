@@ -60,7 +60,6 @@ def connect(
     busy_timeout_ms:
         Retired timeout slot accepted for legacy callers.
     """
-    from yoke_core.domain import db_backend
 
     return db_backend.connect(path, busy_timeout_ms=busy_timeout_ms)
 

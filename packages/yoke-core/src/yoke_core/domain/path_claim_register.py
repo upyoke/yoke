@@ -26,17 +26,37 @@ from typing import Any, Iterable, List, Optional, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import IncompatibleOverlap, PathClaimError
 from yoke_core.domain.path_claims_read import _blocking_conflicts_for
+from yoke_core.domain.project_identity import (
+    DEFAULT_PUBLIC_ITEM_PREFIX,
+    render_item_ref,
+)
 
 
 _RESOLUTION_CMD = (
     "yoke claims path coordination-decision-build "
-    "--item YOK-{item_id} --conflicting-claim {claim_id} "
+    "--item {item_ref} --conflicting-claim {claim_id} "
     "--paths {paths}"
 )
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
+    """Public item ref for the denial body / paste-ready command.
+
+    ``conn`` is optional (the dispatch handler passes ``None`` under
+    unit tests, and the overlap fixtures omit the ``items``/``projects``
+    join), so a missing connection or failed lookup degrades to the
+    default-prefix ref rather than raising inside the denial path.
+    """
+    if conn is not None:
+        try:
+            return render_item_ref(conn, int(item_id))
+        except Exception:  # noqa: BLE001 - denial composition must not raise.
+            pass
+    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
 
 
 def compose_overlap_denial(
@@ -63,8 +83,9 @@ def compose_overlap_denial(
     """
     target_ids = [int(t) for t in candidate_target_ids]
     conflicts = _resolve_conflicts(conn, integration_target, target_ids)
+    item_ref = _display_item_ref(conn, item_id)
     lines = [
-        f"BLOCKED: path-claim register overlap on item YOK-{int(item_id)} "
+        f"BLOCKED: path-claim register overlap on item {item_ref} "
         f"(integration_target={integration_target!r}).",
         f"  reason: {base_message}",
     ]
@@ -78,7 +99,7 @@ def compose_overlap_denial(
         lines.append("")
         lines.append("Build the coordination evidence packet:")
         lines.append("  " + _RESOLUTION_CMD.format(
-            item_id=int(item_id),
+            item_ref=item_ref,
             claim_id=first_claim_id,
             paths=paths_arg,
         ))
@@ -89,7 +110,7 @@ def compose_overlap_denial(
             "conflicting-claim id and overlapping paths):"
         )
         lines.append("  " + _RESOLUTION_CMD.format(
-            item_id=int(item_id),
+            item_ref=item_ref,
             claim_id="<claim-id>",
             paths="<paths>",
         ))

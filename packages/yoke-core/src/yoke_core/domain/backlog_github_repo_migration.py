@@ -20,6 +20,25 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_identity import (
+    DEFAULT_PUBLIC_ITEM_PREFIX,
+    render_item_ref,
+)
+
+
+def _display_item_ref(conn: Optional[Any], item_id: str) -> str:
+    """Public item ref for operator log lines.
+
+    ``conn`` may be ``None`` (the CLI migrate path passes no connection),
+    so a missing connection or failed lookup degrades to the
+    default-prefix ref rather than raising inside a log line.
+    """
+    if conn is not None:
+        try:
+            return render_item_ref(conn, int(item_id))
+        except Exception:  # noqa: BLE001 - log rendering must not raise.
+            pass
+    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
 
 
 def _list_issue_comments(*, project: str, number: int) -> list[dict]:
@@ -62,19 +81,23 @@ def migrate_issue_to_repo(
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
+    item_ref = _display_item_ref(conn, item_id)
 
     if _bgs()._dry_run():
         print(
-            f"[DRY-RUN] Skipping GitHub: migrate-issue YOK-{item_id} "
+            f"[DRY-RUN] Skipping GitHub: migrate-issue {item_ref} "
             f"#{old_issue_num} {source_repo} → {target_repo}",
             file=stdout,
         )
         return 0
     # Migration is an explicit operator request that would CREATE an issue
     # in the target repo — refuse (not skip) when the target project is
-    # backlog-only.
+    # disabled.
     if _bgs()._github_sync_skip(
-        target_project, "migrate-issue", conn=conn, out=stderr,
+        target_project,
+        "migrate-issue",
+        conn=conn,
+        out=stderr,
     ):
         return 1
     try:
@@ -109,7 +132,7 @@ def migrate_issue_to_repo(
         return 1
 
     print(
-        f"[migrate] YOK-{item_id}: migrating issue #{old_issue_num} "
+        f"[migrate] {item_ref}: migrating issue #{old_issue_num} "
         f"from {source_repo} to {target_repo}",
         file=stdout,
     )
@@ -119,7 +142,8 @@ def migrate_issue_to_repo(
     # 1. Fetch the full source issue (title + body + labels + state).
     try:
         source_issue = github_rest.get_issue(
-            project=source_project, number=old_number,
+            project=source_project,
+            number=old_number,
         )
     except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
@@ -143,7 +167,10 @@ def migrate_issue_to_repo(
     # 2. Create new issue in target repo.
     try:
         created = github_rest.create_issue(
-            project=target_project, title=title, body=body, labels=labels,
+            project=target_project,
+            title=title,
+            body=body,
+            labels=labels,
         )
     except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
@@ -167,12 +194,12 @@ def migrate_issue_to_repo(
         body_text = comment.get("body", "")
         if not body_text:
             continue
-        comment_text = (
-            f"> *Migrated comment from @{author}:*\n\n{body_text}"
-        )
+        comment_text = f"> *Migrated comment from @{author}:*\n\n{body_text}"
         try:
             github_rest.post_comment(
-                project=target_project, number=new_issue_num, body=comment_text,
+                project=target_project,
+                number=new_issue_num,
+                body=comment_text,
             )
         except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
             print(
@@ -187,7 +214,9 @@ def migrate_issue_to_repo(
     if state == "CLOSED":
         try:
             github_rest.set_issue_state(
-                project=target_project, number=new_issue_num, state="closed",
+                project=target_project,
+                number=new_issue_num,
+                state="closed",
             )
             print(
                 f"[migrate] Closed #{new_issue_num} (matching source state)",
@@ -216,18 +245,20 @@ def migrate_issue_to_repo(
         _close_if_owned(db_conn if owns_conn else None, owns_conn)
 
     print(
-        f"[migrate] Updated DB: YOK-{item_id} github_issue = #{new_issue_num}",
+        f"[migrate] Updated DB: {item_ref} github_issue = #{new_issue_num}",
         file=stdout,
     )
 
     # 6. Close old issue with forwarding comment, then delete.
     forward_msg = (
         f"Migrated to {target_repo}#{new_issue_num} "
-        f"(YOK-{item_id} project changed to {target_project})."
+        f"({item_ref} project changed to {target_project})."
     )
     try:
         github_rest.post_comment(
-            project=source_project, number=old_number, body=forward_msg,
+            project=source_project,
+            number=old_number,
+            body=forward_msg,
         )
     except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(
@@ -237,7 +268,9 @@ def migrate_issue_to_repo(
 
     try:
         github_rest.set_issue_state(
-            project=source_project, number=old_number, state="closed",
+            project=source_project,
+            number=old_number,
+            state="closed",
         )
     except (github_rest.RestTransportError, ProjectGithubAuthError) as exc:
         print(f"[migrate] WARNING: failed to close source: {exc}", file=stderr)
@@ -257,6 +290,7 @@ def migrate_issue_to_repo(
     # 7. Emit structured event.
     try:
         from yoke_core.domain.events import emit_event
+
         emit_event(
             "IssueMigrated",
             event_kind="system",
@@ -278,7 +312,7 @@ def migrate_issue_to_repo(
         pass  # event emission is best-effort
 
     print(
-        f"[migrate] YOK-{item_id}: migration complete "
+        f"[migrate] {item_ref}: migration complete "
         f"(#{old_issue_num} → #{new_issue_num})",
         file=stdout,
     )

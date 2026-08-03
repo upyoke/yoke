@@ -2,14 +2,14 @@
 
 Covers the core merge-base boundary scenarios:
 
-* AC-2: branch built from local main while local was ahead of origin —
+* Branch built from local main while local was ahead of origin —
   no false positive on the unpushed origin-vs-local commits.
-* AC-3: origin moves forward after activation — branch unchanged, the
+* Origin moves forward after activation — branch unchanged, the
   boundary still passes (the LCA is invariant under origin moving).
-* AC-4: branch genuinely commits a file outside its declared coverage —
+* Branch genuinely commits a file outside its declared coverage —
   the gate still blocks with the canonical "K committed file(s)
   outside declared coverage; offending paths: ..." diagnostic.
-* AC-5: origin and local main have actually diverged — the divergence
+* Origin and local main have actually diverged — the divergence
   detector fires before the boundary check tries anything.
 
 Each scenario boots a real tmp git repo so the merge-base + diff path
@@ -95,7 +95,7 @@ class TestMergeBaseBoundaryRegression:
     def test_local_ahead_of_origin_at_fork_no_false_positive(
         self, conn, tmp_path,
     ):
-        """AC-2: local main is one commit ahead of origin/main when the
+        """Local main is one commit ahead of origin/main when the
         branch is created. The branch only touches its declared file.
         Boundary gate must accept — the commits between origin and
         local were already on main at fork time and are not branch
@@ -130,7 +130,7 @@ class TestMergeBaseBoundaryRegression:
     def test_origin_advances_after_activation_no_false_positive(
         self, conn, tmp_path,
     ):
-        """AC-3: a branch is created from main, then origin/main moves
+        """A branch is created from main, then origin/main moves
         forward (an unrelated PR landed). The branch keeps only its
         declared file. Boundary gate must still accept — the merge-base
         is invariant under the integration target moving forward."""
@@ -164,7 +164,7 @@ class TestMergeBaseBoundaryRegression:
     def test_genuine_out_of_coverage_commit_still_blocks(
         self, conn, tmp_path,
     ):
-        """AC-4: branch commits both the declared file AND an
+        """Branch commits both the declared file AND an
         undeclared file. The gate must still flag the undeclared path
         with the canonical diagnostic."""
         _origin, clone = _seed_origin_clone(tmp_path)
@@ -191,7 +191,7 @@ class TestMergeBaseBoundaryRegression:
         assert "outside declared coverage" in result.diagnostics
 
     def test_diverged_refs_still_raise(self, conn, tmp_path):
-        """AC-5: origin and local main have actually diverged (each has
+        """Origin and local main have actually diverged (each has
         a unique commit the other lacks). The divergence detector must
         fire before any boundary work."""
         origin, clone = _seed_origin_clone(tmp_path)

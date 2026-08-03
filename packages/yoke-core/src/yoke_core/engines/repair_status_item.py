@@ -35,20 +35,25 @@ def _validate_item_target_status(
 
 def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason: str) -> int:
     """Repair a backlog item's status through the canonical owner."""
-    # Lazy import: the front door owns ``_connect`` / ``_normalize_item_id`` and
-    # also imports this module at top level. Importing them at function-call
-    # time avoids the bidirectional partial-load failure when a sibling is
-    # imported before the front door (e.g. via a direct ``from
-    # yoke_core.engines.repair_status_item import ...``).
-    from yoke_core.engines.repair_status import _connect, _normalize_item_id
-
-    try:
-        item_id = _normalize_item_id(item_ref)
-    except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    # Lazy import: the front door owns ``_connect`` and also imports this module
+    # at top level. Importing at function-call time avoids the bidirectional
+    # partial-load failure when a sibling is imported before the front door
+    # (e.g. via a direct ``from yoke_core.engines.repair_status_item import ...``).
+    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.yok_n_parser import parse_item_id
+    from yoke_core.engines.repair_status import _connect
 
     with _connect() as conn:
+        # Resolve the operator ref to the internal id through the canonical
+        # parser: ``PREFIX-N`` maps to its project ``public_item_prefix`` +
+        # ``project_sequence`` (not a stripped global id), while a bare number
+        # stays an internal ``items.id`` for operator break-glass use.
+        try:
+            item_id = parse_item_id(item_ref, conn=conn, allow_bare_internal=True)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
         p = _p(conn)
         row = conn.execute(
             f"SELECT id, status FROM items WHERE id = {p}",
@@ -60,9 +65,10 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
             )
 
             workflow = load_item_workflow_runtime(conn, item_id)
+        item_display = render_item_ref(conn, item_id)
 
     if row is None or not row["status"]:
-        print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
+        print(f"Error: Item {item_display} not found.", file=sys.stderr)
         return 3
 
     old_status = str(row["status"])
@@ -72,17 +78,17 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
         return 2
 
     if old_status == new_status:
-        print(f"No change: YOK-{item_id} is already at '{new_status}'.")
+        print(f"No change: {item_display} is already at '{new_status}'.")
         return 0
 
     if dry_run:
         print(
-            f"[DRY-RUN] Would repair YOK-{item_id}: {old_status} -> {new_status} "
+            f"[DRY-RUN] Would repair {item_display}: {old_status} -> {new_status} "
             f"(reason: {reason})"
         )
         return 0
 
-    print(f"Repairing YOK-{item_id}: {old_status} -> {new_status} (reason: {reason})")
+    print(f"Repairing {item_display}: {old_status} -> {new_status} (reason: {reason})")
 
     # Repair is a sanctioned status write; assert done_nonce_verified when
     # targeting 'done'.
@@ -127,10 +133,10 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
         )
     except Exception as exc:  # pragma: no cover - defensive
         print(
-            f"Warning: sync_body failed for YOK-{item_id}: {exc}",
+            f"Warning: sync_body failed for {item_display}: {exc}",
             file=sys.stderr,
         )
 
-    print(f"Repaired: YOK-{item_id} {old_status} -> {new_status}")
+    print(f"Repaired: {item_display} {old_status} -> {new_status}")
     print(f"Event emitted: ItemStatusChanged (source: repair-status:{reason})")
     return 0

@@ -31,58 +31,10 @@ from yoke_core.domain.workflow_item_binding_lock import (
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
-
-
-def set_project_default(
-    conn: Any,
-    *,
-    plan_id: int,
-    workflow_id: str,
-    transition_id: str,
-    qa_phase: str = "verification",
-    actor_id: Optional[int] = None,
-) -> dict:
-    """Attach one of a transition's project-default plans."""
-    plan = _plan_row(conn, plan_id)
-    require_plan_cases(conn, plan_id)
-    marker = _placeholder(conn)
-    if (
-        query_one(
-            conn,
-            f"SELECT 1 FROM workflows WHERE id={marker}",
-            (workflow_id,),
-        )
-        is None
-    ):
-        raise QaPlanError(f"workflow {workflow_id!r} not found")
-    now = iso8601_now()
-    conn.execute(
-        "INSERT INTO qa_plan_project_defaults("
-        "project_id, workflow_id, transition_id, qa_phase, plan_id, "
-        "attached_at, attached_by_actor_id"
-        f") VALUES ({', '.join([marker] * 7)}) "
-        "ON CONFLICT(project_id, workflow_id, transition_id, plan_id) "
-        "DO UPDATE SET qa_phase=EXCLUDED.qa_phase, "
-        "attached_at=EXCLUDED.attached_at, "
-        "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
-        (
-            int(plan["project_id"]),
-            workflow_id,
-            transition_id,
-            qa_phase,
-            plan_id,
-            now,
-            actor_id,
-        ),
-    )
-    conn.commit()
-    return {
-        "plan_id": int(plan_id),
-        "project_id": int(plan["project_id"]),
-        "workflow_id": workflow_id,
-        "transition_id": transition_id,
-        "qa_phase": qa_phase,
-    }
+from yoke_core.domain.qa_plan_project_defaults import (
+    set_project_default,
+    unset_project_default,
+)
 
 
 def attach_plan_to_item(
@@ -329,4 +281,5 @@ __all__ = [
     "materialize_for_deployment_run",
     "materialize_for_item",
     "set_project_default",
+    "unset_project_default",
 ]

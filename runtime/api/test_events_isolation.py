@@ -1,6 +1,6 @@
 """Tests for the events write-time isolation contract.
 
-Covers AC-2, AC-5, AC-6, AC-7: the isolation gate in
+The isolation gate in
 ``yoke_core.domain.events`` must refuse live-ledger writes when the
 process declares ``YOKE_EVENTS_ISOLATION=1`` or ``YOKE_EVENTS_CAPTURE=1``
 without ``YOKE_EVENTS_FILE``, and must honor the documented escape hatches
@@ -136,7 +136,7 @@ class TestIsolationGateBlocks:
     def test_gate_blocks_capture_without_sink_even_without_isolation(
         self, monkeypatch
     ):
-        """AC-2: capture-intent-without-sink is always refused."""
+        """Capture-intent-without-sink is always refused."""
         monkeypatch.delenv("YOKE_EVENTS_ISOLATION", raising=False)
         monkeypatch.setenv("YOKE_EVENTS_CAPTURE", "1")
         monkeypatch.delenv("YOKE_EVENTS_FILE", raising=False)
@@ -261,7 +261,7 @@ class TestEmitEventIsolation:
             conn.close()
 
     def test_capture_mode_without_sink_drops_native_emit(self, monkeypatch):
-        """AC-2: YOKE_EVENTS_CAPTURE=1 with no file refuses emission."""
+        """YOKE_EVENTS_CAPTURE=1 with no file refuses emission."""
         monkeypatch.setenv("YOKE_EVENTS_CAPTURE", "1")
         monkeypatch.delenv("YOKE_EVENTS_FILE", raising=False)
         monkeypatch.delenv("YOKE_EVENTS_ISOLATION", raising=False)

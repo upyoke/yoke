@@ -1,69 +1,74 @@
-"""Tests for done-transition path-snapshot prewarming."""
+"""Tests for done-transition path-snapshot prewarming.
+
+The prewarm resolves the item's project slug and the machine-local
+checkout through the connected transport, resolves the new HEAD locally
+with git, and relays the snapshot write through ``project.snapshot.ensure_at``
+so it works over an https control plane as well as a local Postgres
+connection. These tests assert the checkout -> git -> relay wiring and the
+advisory (never-raising) disposition; the routing regressions live in
+``test_done_transition_writes_transport``.
+"""
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition_snapshot
 
 
-class _Rows:
-    def __init__(self, row):
-        self._row = row
-
-    def fetchone(self):
-        return self._row
+def _resp(function_id, result=None, *, success=True):
+    return FunctionCallResponse(
+        success=success, function=function_id, version="v1", result=result or {}
+    )
 
 
-class _Conn:
-    def __init__(self):
-        self.closed = False
-        self.queries = []
+def test_ensure_snapshot_resolves_checkout_and_relays_write(monkeypatch):
+    calls = []
 
-    def execute(self, sql, params=()):
-        self.queries.append((sql, params))
-        return _Rows((1,))
+    def fake(**kwargs):
+        calls.append(kwargs)
+        fid = kwargs["function_id"]
+        if fid == "done_transition.item_field":
+            return _resp(fid, {"value": "yoke"})
+        return _resp(fid, {"project": "1", "commit_sha": "abc123", "snapshot_id": 7})
 
-    def close(self):
-        self.closed = True
-
-
-def test_ensure_snapshot_uses_backend_connection(monkeypatch):
-    conn = _Conn()
-    calls = {}
-
-    from yoke_core.domain import db_helpers, path_snapshots, project_checkout_locations
-
-    monkeypatch.setattr(db_helpers, "connect", lambda: conn)
     monkeypatch.setattr(
-        project_checkout_locations,
-        "checkout_for_project_id",
-        lambda project_id: "/repo/root",
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher", fake
     )
     monkeypatch.setattr(
-        done_transition_snapshot.subprocess,
-        "run",
-        lambda cmd, **_kwargs: calls.setdefault(
-            "git", (cmd, SimpleNamespace(returncode=0, stdout="abc123\n"))
-        )[1],
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+        lambda project, **_kwargs: Path("/repo/root"),
     )
-    monkeypatch.setattr(
-        path_snapshots,
-        "ensure_snapshot_at",
-        lambda c, project, head: calls.setdefault(
-            "snapshot", (c, project, head)
-        ),
-    )
+    git_cmd = {}
+
+    def fake_git(cmd, **_kwargs):
+        git_cmd["cmd"] = cmd
+        return SimpleNamespace(returncode=0, stdout="abc123\n")
+
+    monkeypatch.setattr(done_transition_snapshot.subprocess, "run", fake_git)
 
     done_transition_snapshot.ensure_snapshot_for_item(42)
 
-    assert conn.queries == [
-        (
-            "SELECT project_id FROM items "
-            "WHERE id = %s",
-            (42,),
-        )
-    ]
-    assert calls["git"][0] == ["git", "-C", "/repo/root", "rev-parse", "HEAD"]
-    assert calls["snapshot"] == (conn, 1, "abc123")
-    assert conn.closed is True
+    # The project slug read + snapshot write both relay through the transport.
+    fids = [c["function_id"] for c in calls]
+    assert fids[0] == "done_transition.item_field"
+    assert "project.snapshot.ensure_at" in fids
+    # HEAD is resolved from the transport-resolved machine-local checkout.
+    assert git_cmd["cmd"] == ["git", "-C", "/repo/root", "rev-parse", "HEAD"]
+    ensure = next(c for c in calls if c["function_id"] == "project.snapshot.ensure_at")
+    assert ensure["payload"] == {"project": "yoke", "commit_sha": "abc123"}
+
+
+def test_ensure_snapshot_advisory_on_missing_checkout(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **kwargs: _resp(kwargs["function_id"], {"value": "yoke"}),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+        lambda project, **_kwargs: None,
+    )
+    # No checkout -> no git, no write; the prewarm stays advisory (no raise).
+    done_transition_snapshot.ensure_snapshot_for_item(42)

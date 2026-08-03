@@ -118,6 +118,30 @@ def resolve_mode_for_payload(
     return resolve_mode(guard_or_module, root=root)
 
 
+def describe_config_source(
+    guard_or_module: str,
+    mode: str,
+    *,
+    root: Optional[str] = None,
+) -> str:
+    """Return a one-line note naming the config file that decided *mode*.
+
+    ``.yoke/lint-config`` is tracked, so a checkout and each of its linked
+    worktrees hold independent copies, and the copy consulted is the one
+    under the resolved workspace root — not necessarily the one an operator
+    just edited. Guards embed this line in their narrative so that mismatch
+    is visible instead of presenting as a config edit that did nothing.
+
+    *mode* is the already-resolved effective mode rather than a second
+    lookup, so the note stays truthful when the caller resolved it from a
+    payload snapshot instead of from disk.
+    """
+    path = config_path(root)
+    if path is None:
+        return f"Config: no .yoke/lint-config found; {guard_or_module}={mode} (built-in default)."
+    return f"Config: {path} ({guard_or_module}={mode})"
+
+
 def render_lint_config() -> str:
     return lint_policy.render_lint_config()
 
@@ -125,7 +149,8 @@ def render_lint_config() -> str:
 __all__ = [
     "ALLOW_WARN_TOKEN", "CONFIG_RELPATH", "DENY", "GUARD_CATALOG",
     "GuardSpec", "REMOTE_CLAUDE_CLI_GUARD", "SNAPSHOT_PAYLOAD_KEY", "WARN",
-    "config_path", "is_registered", "render_lint_config", "reset_cache",
+    "config_path", "describe_config_source", "is_registered",
+    "render_lint_config", "reset_cache",
     "resolve_mode", "resolve_mode_for_payload", "resolve_mode_from_snapshot",
     "snapshot",
 ]

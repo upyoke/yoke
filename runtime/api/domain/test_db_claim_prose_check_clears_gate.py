@@ -68,7 +68,7 @@ class TestReviewedNegativeClaimClearsGate:
         assert outcome.blocks is True
 
     def test_check_item_raw_prose_with_stamped_profile_passes(self, db_conn):
-        """AC-1 / AC-8: meta work item with explicit amendment-workflow
+        """Meta work item with explicit amendment-workflow
         reviewed-none decision advances even with raw DDL-shape prose."""
         item_id = 610
         insert_item(
@@ -94,7 +94,7 @@ class TestReviewedNegativeClaimClearsGate:
     def test_check_item_raw_prose_without_amendment_still_blocks(
         self, db_conn
     ):
-        """AC-2 / AC-9: implicit default ``state="none"`` (no amendment
+        """Implicit default ``state="none"`` (no amendment
         recorded) does not get silently treated as reviewed."""
         item_id = 611
         insert_item(

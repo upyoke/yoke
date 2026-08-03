@@ -8,7 +8,8 @@ sides of the ambient-identity contract walk the same body:
   returns the first ancestor whose executable basename is in
   :data:`HARNESS_PROCESS_BASENAMES`.
 - **Anchor read (shell side):** any Bash subshell the harness spawns shares
-  that ancestor, so :func:`ancestor_pids` enumerates the candidate pids.
+  that ancestor, so :func:`anchor_candidate_pids` enumerates the pids whose
+  registry records may name this process's session.
 
 Lives in ``yoke-contracts`` so the product CLI client (which depends only
 on this package) and the engine core resolve identity through one
@@ -20,6 +21,22 @@ binary is ``.../claude-code/<version>/claude.app/Contents/MacOS/claude``
 helpers are intentionally NOT matched, so the nearest-first walk stops at
 the per-session agent process and parallel sessions anchor to distinct pids.
 
+A pid is only a usable anchor when it belongs to exactly one session. Some
+harnesses host every concurrent conversation inside a single long-lived
+process (:data:`MULTIPLEXED_PROCESS_BASENAMES`); such a pid is shared by
+every sibling conversation, so anchoring to it would hand each one whichever
+session id wrote the registry record last. Those processes are therefore
+never valid anchors, and :func:`anchor_candidate_pids` — walked by the
+write side and the read side alike — stops there rather than continuing to
+an even more widely shared ancestor. Stopping matters most on the read
+side: a multiplexed harness launched from an anchored one has a perfectly
+good anchor two hops up naming a *different* session, and walking past the
+shared host would resolve to it. Sessions under a multiplexing harness
+identify themselves through the env chain, which that harness stamps per
+conversation, or through a mapping its own hooks record
+(:mod:`yoke_contracts.cursor_session_map`); ambient resolution failing
+outright is the correct outcome when neither reached the process.
+
 Start times are opaque ``ps -o lstart=`` strings compared for equality
 only — a recorded anchor whose pid was reused fails the comparison.
 """
@@ -29,10 +46,21 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
+
+MULTIPLEXED_PROCESS_BASENAMES = frozenset(
+    {"codex", "codex-code-mode-host", "cursor", "cursor-agent"}
+)
+"""Harness processes that host many concurrent sessions under one pid.
+
+Never a valid anchor: every sibling conversation shares the pid, so a
+record keyed on it resolves to whichever session wrote last. One
+``cursor-agent`` process hosts the main conversation plus every subagent
+session it spawns, and the Cursor IDE host process is shared the same way.
+"""
 
 _MAX_ANCESTOR_DEPTH = 64
 _PS_TIMEOUT_SECONDS = 5
@@ -63,18 +91,33 @@ def _ps_lines(args: List[str]) -> List[str]:
     return result.stdout.splitlines()
 
 
-def parent_map() -> Dict[int, int]:
-    """Return a ``pid -> ppid`` map for every live process (one ``ps`` call)."""
-    parents: Dict[int, int] = {}
-    for line in _ps_lines(["-axo", "pid=,ppid="]):
-        fields = line.split()
-        if len(fields) != 2:
+def process_table() -> Dict[int, Tuple[int, str]]:
+    """Return ``pid -> (ppid, executable basename)`` for every live process.
+
+    One ``ps`` call for both facts, so a walk that needs parents *and*
+    names — every walk that must stop at a multiplexed host — costs no
+    more process-table access than one that needs parents alone. ``comm``
+    is requested last because it is the only column that can contain
+    spaces (macOS reports a full path), which the bounded split keeps
+    whole. A process reporting no command name maps to ``""`` rather than
+    dropping out, so a missing name never breaks the parent chain.
+    """
+    table: Dict[int, Tuple[int, str]] = {}
+    for line in _ps_lines(["-axo", "pid=,ppid=,comm="]):
+        fields = line.split(None, 2)
+        if len(fields) < 2:
             continue
         try:
-            parents[int(fields[0])] = int(fields[1])
+            pid, ppid = int(fields[0]), int(fields[1])
         except ValueError:
             continue
-    return parents
+        table[pid] = (ppid, os.path.basename(fields[2]) if len(fields) > 2 else "")
+    return table
+
+
+def parent_map() -> Dict[int, int]:
+    """Return a ``pid -> ppid`` map for every live process (one ``ps`` call)."""
+    return {pid: entry[0] for pid, entry in process_table().items()}
 
 
 def process_start_time(pid: int) -> Optional[str]:
@@ -135,6 +178,59 @@ def is_harness_process_name(name: Optional[str]) -> bool:
     return name.lower() in HARNESS_PROCESS_BASENAMES
 
 
+def is_multiplexed_process_name(name: Optional[str]) -> bool:
+    """True when ``name`` hosts many sessions under one pid (never an anchor)."""
+    if not name:
+        return False
+    return name.lower() in MULTIPLEXED_PROCESS_BASENAMES
+
+
+def _unknown_name(_pid: int) -> Optional[str]:
+    return None
+
+
+def anchor_candidate_pids(
+    pid: Optional[int] = None,
+    *,
+    parents: Optional[Dict[int, int]] = None,
+    name_of: Optional[Callable[[int], Optional[str]]] = None,
+) -> List[int]:
+    """Ancestors of ``pid``, nearest first, up to the first multiplexed host.
+
+    The single expression of "which ancestors may carry this process's
+    session identity". Both halves of the anchor contract walk it — the
+    write side so it never records an anchor on a shared pid, and the read
+    side so it never resolves *through* one to whatever harness session
+    owns an ancestor above. Writing that rule once is the point: when only
+    the write side enforced it, a session hosted by a multiplexed harness
+    but launched from an anchored one resolved silently to the *launching*
+    session, and acted with its authority.
+
+    Both process-table facts come from one lookup when the caller injects
+    neither. ``parents`` and ``name_of`` describe the same table, so
+    injecting only ``parents`` describes a tree whose names are unknown and
+    no ancestor is classified — reading live names against a synthetic tree
+    would mix two process worlds and decide by coincidence.
+    """
+    resolve_name = name_of
+    if resolve_name is None:
+        if parents is None:
+            table = process_table()
+            parents = {ancestor: entry[0] for ancestor, entry in table.items()}
+            resolve_name = {
+                ancestor: entry[1] for ancestor, entry in table.items()
+            }.get
+        else:
+            resolve_name = _unknown_name
+    chain: List[int] = []
+    for ancestor in ancestor_pids(pid, parents=parents):
+        name = resolve_name(ancestor)
+        if is_multiplexed_process_name(os.path.basename(name) if name else ""):
+            break
+        chain.append(ancestor)
+    return chain
+
+
 def find_nearest_harness_anchor(
     pid: Optional[int] = None,
     *,
@@ -144,15 +240,18 @@ def find_nearest_harness_anchor(
 ) -> Optional[ProcessAnchor]:
     """Return the nearest harness ancestor of ``pid`` (default: this process).
 
-    Walks the parent chain nearest-first and returns the first ancestor
-    whose executable basename matches :data:`HARNESS_PROCESS_BASENAMES`,
-    with its live start time captured for pid-reuse defense. Returns
-    ``None`` when no ancestor matches (e.g. an operator terminal not
-    spawned by a harness).
+    Walks the anchor-candidate chain nearest-first and returns the first
+    ancestor whose executable basename matches
+    :data:`HARNESS_PROCESS_BASENAMES`, with its live start time captured
+    for pid-reuse defense. Returns ``None`` when no candidate matches —
+    an operator terminal not spawned by a harness, or a chain that ends at
+    a multiplexed host before any per-session binary.
     """
     resolve_name = process_command_name if name_of is None else name_of
     resolve_start = process_start_time if start_time_of is None else start_time_of
-    for ancestor in ancestor_pids(pid, parents=parents):
+    for ancestor in anchor_candidate_pids(
+        pid, parents=parents, name_of=resolve_name,
+    ):
         name = resolve_name(ancestor)
         basename = os.path.basename(name) if name else ""
         if not is_harness_process_name(basename):
@@ -168,11 +267,15 @@ def find_nearest_harness_anchor(
 
 __all__ = [
     "HARNESS_PROCESS_BASENAMES",
+    "MULTIPLEXED_PROCESS_BASENAMES",
     "ProcessAnchor",
+    "anchor_candidate_pids",
     "ancestor_pids",
     "find_nearest_harness_anchor",
     "is_harness_process_name",
+    "is_multiplexed_process_name",
     "parent_map",
     "process_command_name",
     "process_start_time",
+    "process_table",
 ]

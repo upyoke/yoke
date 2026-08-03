@@ -24,7 +24,7 @@ from yoke_core.domain.builtin_direct_workflow_version_history import (
 from yoke_core.domain.workflow_definition_builders import (
     BUILTIN_WORKFLOW_PREFERRED_VERSION,
     ENTRY_SURFACE_IDS,
-    REGISTERED_WORKFLOW_EXECUTOR_IDS,
+    REGISTERED_WORKFLOW_SKILL_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
 )
 
@@ -44,13 +44,29 @@ def _version_two_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
     fixture["version"] = 2
     definition = fixture["definition"]
     definition["schema_version"] = 1
+    for stage in definition["stages"]:
+        stage.pop("glyph", None)
+        stage.pop("board_bucket", None)
     policies = definition["policies"]
     policies.pop("file_budget")
+    policies.pop("path_survey", None)
     policies["item_posture_allowlist"] = [
         value
         for value in policies["item_posture_allowlist"]
-        if value != "file_budget"
+        if value not in {"file_budget", "path_survey"}
     ]
+    return fixture
+
+
+def _version_three_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
+    """Reconstruct the exact schema-v3 definition published as version 3."""
+    fixture = deepcopy(current)
+    fixture["version"] = 3
+    definition = fixture["definition"]
+    definition["schema_version"] = 3
+    for stage in definition["stages"]:
+        stage.pop("glyph", None)
+        stage.pop("board_bucket", None)
     return fixture
 
 
@@ -59,9 +75,9 @@ _BUILTIN_WORKFLOW_VERSION_HISTORY = (
     EPIC_WORKFLOW_VERSION_ONE,
     BLITZ_WORKFLOW_VERSION_ONE,
     DASH_WORKFLOW_VERSION_ONE,
+    *tuple(_version_two_fixture(fixture) for fixture in _BUILTIN_WORKFLOW_DEFINITIONS),
     *tuple(
-        _version_two_fixture(fixture)
-        for fixture in _BUILTIN_WORKFLOW_DEFINITIONS
+        _version_three_fixture(fixture) for fixture in _BUILTIN_WORKFLOW_DEFINITIONS
     ),
 )
 
@@ -88,7 +104,7 @@ __all__ = [
     "BUILTIN_WORKFLOW_IDS",
     "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
-    "REGISTERED_WORKFLOW_EXECUTOR_IDS",
+    "REGISTERED_WORKFLOW_SKILL_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "builtin_workflow_definition",
     "builtin_workflow_definitions",

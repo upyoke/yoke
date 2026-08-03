@@ -38,17 +38,14 @@ def _row_dict(cursor: Any, row: Any) -> Optional[dict[str, Any]]:
     if hasattr(row, "keys"):
         return {str(key): row[key] for key in row.keys()}
     columns = [
-        str(getattr(column, "name", None) or column[0])
-        for column in cursor.description
+        str(getattr(column, "name", None) or column[0]) for column in cursor.description
     ]
     return dict(zip(columns, row))
 
 
 def _rows_dict(cursor: Any) -> list[dict[str, Any]]:
     return [
-        row
-        for raw in cursor.fetchall()
-        if (row := _row_dict(cursor, raw)) is not None
+        row for raw in cursor.fetchall() if (row := _row_dict(cursor, raw)) is not None
     ]
 
 
@@ -86,9 +83,7 @@ def create_plan(
 ) -> dict:
     """Create one project-scoped plan."""
     if not _SLUG_RE.fullmatch(slug):
-        raise QaPlanError(
-            "plan slug must contain lowercase words separated by hyphens"
-        )
+        raise QaPlanError("plan slug must contain lowercase words separated by hyphens")
     if success_policy_id != "all-pass":
         raise QaPlanError("v1 supports only the all-pass success policy")
     project_id = _project_id(conn, project)
@@ -163,11 +158,6 @@ def _validate_target_environment(
 
 
 def _validated_cases(cases: list[dict]) -> list[dict]:
-    from yoke_core.domain.qa_method_config_validation import (
-        QaMethodConfigError,
-        validate_method_config,
-    )
-
     if not cases:
         raise QaPlanError("a plan must contain at least one case")
     keys: set[str] = set()
@@ -194,13 +184,10 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
                 f"case {key!r} requires instructions and expected_outcome"
             )
         baselines = raw.get("host_baselines") or []
-        if (
-            not isinstance(baselines, list)
-            or any(not isinstance(value, str) or not value for value in baselines)
+        if not isinstance(baselines, list) or any(
+            not isinstance(value, str) or not value for value in baselines
         ):
-            raise QaPlanError(
-                f"case {key!r} host_baselines must be non-empty strings"
-            )
+            raise QaPlanError(f"case {key!r} host_baselines must be non-empty strings")
         policy_id = raw.get("success_policy_id")
         if policy_id not in (None, "all-pass"):
             raise QaPlanError(
@@ -213,26 +200,22 @@ def _validated_cases(cases: list[dict]) -> list[dict]:
             )
         keys.add(key)
         positions.add(position)
-        try:
-            method_config = validate_method_config(
-                method_id, raw.get("method_config"),
-            )
-        except QaMethodConfigError as exc:
-            raise QaPlanError(f"case {key!r}: {exc}") from exc
-        result.append({
-            **raw,
-            "case_key": key,
-            "position": position,
-            "method_id": method_id,
-            "instructions": instructions,
-            "expected_outcome": expected,
-            "method_config": method_config,
-            "success_policy_id": policy_id,
-            "success_policy_params": policy_params,
-            "host_baselines": list(dict.fromkeys(baselines)),
-            "entry_surface": raw.get("entry_surface"),
-            "required_completion": raw.get("required_completion"),
-        })
+        result.append(
+            {
+                **raw,
+                "case_key": key,
+                "position": position,
+                "method_id": method_id,
+                "instructions": instructions,
+                "expected_outcome": expected,
+                "method_config": raw.get("method_config"),
+                "success_policy_id": policy_id,
+                "success_policy_params": policy_params,
+                "host_baselines": list(dict.fromkeys(baselines)),
+                "entry_surface": raw.get("entry_surface"),
+                "required_completion": raw.get("required_completion"),
+            }
+        )
     return sorted(result, key=lambda case: case["position"])
 
 
@@ -247,10 +230,8 @@ def _validated_plan_cases(
     marker = _placeholder(conn)
     method_ids = list(dict.fromkeys(case["method_id"] for case in cases))
     cursor = conn.execute(
-        "SELECT id, executor_id, verdict_path, project_id "
-        "FROM qa_methods WHERE id IN ("
-        + ", ".join([marker] * len(method_ids))
-        + ")",
+        "SELECT id, executor_id, verdict_path, project_id, config_contract_id "
+        "FROM qa_methods WHERE id IN (" + ", ".join([marker] * len(method_ids)) + ")",
         tuple(method_ids),
     )
     method_rows = _rows_dict(cursor)
@@ -260,9 +241,7 @@ def _validated_plan_cases(
         if row["project_id"] is None
         or int(row["project_id"]) == int(plan["project_id"])
     }
-    missing = [
-        method_id for method_id in method_ids if method_id not in contracts
-    ]
+    missing = [method_id for method_id in method_ids if method_id not in contracts]
     if missing:
         raise QaPlanError(
             "QA methods are unknown or unavailable to this project: "
@@ -275,31 +254,21 @@ def _validated_plan_cases(
 
     for case in cases:
         contract = contracts[case["method_id"]]
-        config_method = case["method_id"]
-        if config_method not in {
-            "command", "browser-check", "browser-inspection",
-        }:
-            if contract["executor_id"] == "worktree_run":
-                config_method = "command"
-            elif contract["executor_id"] == "browser_substrate":
-                config_method = (
-                    "browser-inspection"
-                    if contract["verdict_path"] == "agent"
-                    else "browser-check"
-                )
         try:
             case["method_config"] = validate_method_config(
-                config_method, case["method_config"],
+                str(contract["config_contract_id"]),
+                case["method_config"],
             )
         except QaMethodConfigError as exc:
-            raise QaPlanError(
-                f"case {case['case_key']!r}: {exc}"
-            ) from exc
+            raise QaPlanError(f"case {case['case_key']!r}: {exc}") from exc
     return cases
 
 
 def replace_plan_cases(
-    conn: Any, *, plan_id: int, cases: list[dict],
+    conn: Any,
+    *,
+    plan_id: int,
+    cases: list[dict],
 ) -> dict:
     """Replace the future case specification; materialized rows stay intact."""
     plan = _plan_row(conn, plan_id)
@@ -329,7 +298,8 @@ def replace_plan_cases(
                 _json(case.get("method_config") or {}),
                 case.get("success_policy_id"),
                 _json(case.get("success_policy_params"))
-                if case.get("success_policy_params") is not None else None,
+                if case.get("success_policy_params") is not None
+                else None,
                 _json(case["host_baselines"]),
                 case.get("entry_surface"),
                 case.get("required_completion"),

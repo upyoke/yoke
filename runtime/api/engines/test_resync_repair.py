@@ -70,7 +70,7 @@ class TestRepairHelpers:
             side_effect=fake_sync_item,
         ) as sync_item:
             ok, reused, issue_num = resync_mod._repair_local_orphan_backlog(
-                "YOK-9999", "yoke",
+                9999, "yoke",
             )
         sync_item.assert_called_once()
         assert ok is True
@@ -90,7 +90,7 @@ class TestRepairHelpers:
             side_effect=fake_sync_item,
         ):
             ok, reused, issue_num = resync_mod._repair_local_orphan_backlog(
-                "YOK-9999", "yoke",
+                9999, "yoke",
             )
         assert ok is True
         assert reused is True
@@ -102,19 +102,17 @@ class TestRepairHelpers:
             side_effect=RuntimeError("boom"),
         ):
             ok, reused, issue_num = resync_mod._repair_local_orphan_backlog(
-                "YOK-9999", "yoke",
+                9999, "yoke",
             )
         assert ok is False
         assert reused is False
         assert issue_num is None
 
-    def test_repair_local_orphan_epic_task_rejects_bad_id(self, populated_db):
-        assert resync_mod._repair_local_orphan_epic_task("bad-id", "yoke", populated_db) is False
-
     def test_repair_local_orphan_epic_task_returns_false_when_task_missing(self, test_db):
         assert (
             resync_mod._repair_local_orphan_epic_task(
-                "1246/task-999",
+                "1246",
+                999,
                 "yoke",
                 test_db,
             )
@@ -125,14 +123,15 @@ class TestRepairHelpers:
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=True):
             assert (
                 resync_mod._repair_local_orphan_epic_task(
-                    "1246/task-001",
+                    "1246",
+                    1,
                     "yoke",
                     populated_db,
                 )
                 is True
             )
 
-    def test_repair_local_orphan_epic_task_success_updates_db_and_closes_terminal_issue(self, populated_db):
+    def test_repair_local_orphan_epic_task_success_creates_and_closes_terminal_issue(self, populated_db):
         from yoke_core.domain.github_rest import Issue
         from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -141,6 +140,9 @@ class TestRepairHelpers:
         conn.commit()
         conn.close()
 
+        # The github_issue write-back relays through the connected transport
+        # (advisory) — its routing is covered by test_resync_transport; here we
+        # assert the GitHub create + terminal-close calls.
         created = Issue(number=321, title="t", state="OPEN")
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair_epic_task_issue.github_rest.create_issue",
@@ -148,18 +150,15 @@ class TestRepairHelpers:
         ) as create_issue_mock, mock.patch(
             "yoke_core.engines.resync_repair_epic_task_issue.github_rest.set_issue_state",
             return_value=Issue(number=321, title="t", state="CLOSED"),
-        ) as close_mock, mock.patch(
-            "yoke_core.engines.resync.task_update_field"
-        ) as update_field:
+        ) as close_mock:
             ok = resync_mod._repair_local_orphan_epic_task(
-                "1246/task-001",
+                "1246",
+                1,
                 "externalwebapp",
                 populated_db,
             )
 
         assert ok is True
-        update_field.assert_called_once()
-        assert update_field.call_args.args[1:] == ("1246", 1, "github_issue", "#321")
         assert create_issue_mock.call_args.kwargs["project"] == "externalwebapp"
         assert close_mock.call_args.kwargs == {"project": "externalwebapp", "number": 321, "state": "closed"}
 
@@ -170,7 +169,8 @@ class TestRepairHelpers:
             side_effect=RestServerError("HTTP 502: bad gateway", status=502),
         ):
             ok = resync_mod._repair_local_orphan_epic_task(
-                "1246/task-001",
+                "1246",
+                1,
                 "yoke",
                 populated_db,
             )
@@ -183,7 +183,8 @@ class TestRepairHelpers:
             return_value=Issue(number=0, title="t", state="OPEN"),
         ):
             ok = resync_mod._repair_local_orphan_epic_task(
-                "1246/task-001",
+                "1246",
+                1,
                 "yoke",
                 populated_db,
             )
@@ -194,8 +195,8 @@ class TestRepairDrift:
     def test_title_drift_backlog_edits_issue(self, populated_db):
         from yoke_core.domain.github_rest import Issue
 
-        drift = DriftRecord("YOK-42", "title", "Correct title", "Wrong title")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "title", "Correct title", "Wrong title", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair.github_rest.update_issue",
             return_value=Issue(number=100, title="[YOK-42] Correct title", state="OPEN"),
@@ -209,8 +210,8 @@ class TestRepairDrift:
     def test_title_drift_epic_task_uses_parent_prefix(self, populated_db):
         from yoke_core.domain.github_rest import Issue
 
-        drift = DriftRecord("1246/task-001", "title", "Task one fixed", "Wrong")
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        drift = DriftRecord("1246/task-001", "title", "Task one fixed", "Wrong", epic_id="1246", task_num=1)
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair.github_rest.update_issue",
             return_value=Issue(number=200, title="x", state="OPEN"),
@@ -221,8 +222,8 @@ class TestRepairDrift:
         assert update_issue.call_args.kwargs["number"] == 200
 
     def test_body_drift_backlog_uses_domain_sync(self, populated_db):
-        drift = DriftRecord("YOK-42", "body", "<local>", "<github>")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "externalwebapp", "")]
+        drift = DriftRecord("YOK-42", "body", "<local>", "<github>", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "externalwebapp", "", item_id=42)]
         with mock.patch(
             "yoke_core.engines.resync.backlog_github_sync.sync_body",
             return_value=0,
@@ -232,16 +233,16 @@ class TestRepairDrift:
         assert sync_body.call_args.args == ("42",)
 
     def test_body_drift_epic_task_uses_python_sync(self, populated_db):
-        drift = DriftRecord("1246/task-001", "body", "<local>", "<github>")
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        drift = DriftRecord("1246/task-001", "body", "<local>", "<github>", epic_id="1246", task_num=1)
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         with mock.patch("yoke_core.engines.resync.epic_task_sync.sync_task_body", return_value=0) as sync:
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
         sync.assert_called_once()
         assert sync.call_args.args == ("1246", 1)
 
     def test_label_drift_backlog_uses_domain_sync(self, populated_db):
-        drift = DriftRecord("YOK-42", "label-status", "status:done", "status:implementing")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "label-status", "status:done", "status:implementing", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch(
             "yoke_core.engines.resync.backlog_github_sync.sync_labels",
             return_value=0,
@@ -255,8 +256,8 @@ class TestRepairDrift:
         sibling that owns ``label-source``. The repair branch must
         recognise the new field name or owner drift would silently
         fall through to the no-op default."""
-        drift = DriftRecord("YOK-42", "label-owner", "owner:ben", "owner:yoke-core")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "label-owner", "owner:ben", "owner:yoke-core", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch(
             "yoke_core.engines.resync.backlog_github_sync.sync_labels",
             return_value=0,
@@ -266,14 +267,14 @@ class TestRepairDrift:
         assert sync_labels.call_args.args == ("42",)
 
     def test_label_frozen_dry_run_returns_true(self, populated_db):
-        drift = DriftRecord("YOK-42", "label-frozen", "frozen:true", "frozen:absent")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "label-frozen", "frozen:true", "frozen:absent", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=True):
             assert resync_mod._repair_drift(drift, paired, populated_db) is True
 
     def test_state_drift_backlog_uses_domain_close(self, populated_db):
-        drift = DriftRecord("YOK-42", "state", "CLOSED", "OPEN")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "state", "CLOSED", "OPEN", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch(
             "yoke_core.engines.resync.backlog_github_sync.close_issue",
             return_value=0,
@@ -285,8 +286,8 @@ class TestRepairDrift:
     def test_state_drift_epic_task_uses_issue_close(self, populated_db):
         from yoke_core.domain.github_rest import Issue
 
-        drift = DriftRecord("1246/task-001", "state", "CLOSED", "OPEN")
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "externalwebapp", "org/externalwebapp")]
+        drift = DriftRecord("1246/task-001", "state", "CLOSED", "OPEN", epic_id="1246", task_num=1)
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "externalwebapp", "org/externalwebapp", epic_id="1246", task_num=1)]
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair.github_rest.set_issue_state",
             return_value=Issue(number=200, title="x", state="CLOSED"),
@@ -297,8 +298,8 @@ class TestRepairDrift:
         }
 
     def test_comment_drift_backlog_posts_via_domain_sync(self, populated_db):
-        drift = DriftRecord("YOK-42", "comment", "has-status-comment", "missing")
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        drift = DriftRecord("YOK-42", "comment", "has-status-comment", "missing", item_id=42)
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         with mock.patch(
             "yoke_core.engines.resync._query_item_status", return_value="done"
         ), mock.patch(
@@ -310,5 +311,5 @@ class TestRepairDrift:
         assert post_comment.call_args.args == ("42", "unknown", "done")
 
     def test_unknown_drift_returns_false(self, populated_db):
-        drift = DriftRecord("YOK-42", "mystery", "a", "b")
+        drift = DriftRecord("YOK-42", "mystery", "a", "b", item_id=42)
         assert resync_mod._repair_drift(drift, [], populated_db) is False

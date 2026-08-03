@@ -46,15 +46,25 @@ escalation require the item claim. Lifecycle transitions and path-claim
 registration also require the current item claim; work-claim release is
 self-only.
 
-Worktree preparation is intentionally a retained tool-shaped operation:
+Worktree preparation and merging are each a retained tool-shaped operation,
+because both act on the local checkout rather than on control-plane state
+alone:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash
+yoke merge item ITEM --result "<what changed>" --verification "<checks run>"
 ```
 
-It delegates to the local engine worktree preflight and has no registered
-`direct_workflow.*` function id. Use the command verbatim; do not invent a
-function id for it.
+The first delegates to the local engine worktree preflight. The second is the
+standalone-item merge boundary: it takes the merge lock, lands the branch on
+the project base branch, stamps `merged_at`, publishes, records execution
+evidence with the merge identity it just resolved, and then transitions the
+item — through the `dash_evidence` gate, not around it. Each command
+has no registered `direct_workflow.*` function id — use them verbatim; do
+not invent function ids for them. Run
+`yoke merge item --help` for the flag matrix, and see
+[`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md)
+for the contract.
 
 ## Inputs
 
@@ -75,9 +85,12 @@ files and prints the item; it does not execute it.
 - Perform all writes in the registered item worktree, never in main.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
-  multi-slice work, use the escalation operation, which records the
-  findings, files one Issue through normal intake, links it, and cancels
-  the Dash.
+  multi-slice work, halt and discuss escalation with the operator. Escalation
+  files one Issue through normal intake and cancels the Dash, so the decision
+  to escalate belongs to the operator, not to this session. This halt is a
+  deliberate exception to the kick-off-and-walk-away default: escalation
+  creates a new work item and is a scope judgment, not routine execution.
+  Only run the escalation operation after the operator explicitly agrees.
 - Consume the central `workflows.item.get` effective-policy projection before
   authoring or gating File Budget and path claims. Each axis remains
   independent; do not reconstruct it from raw policies or posture.
@@ -167,7 +180,8 @@ For every reported contact:
 - when effective path claims are enabled, keep the inferred set complete;
   worktree preparation registers or widens the real claim from this survey;
 - if contact repeats or the required work is no longer instruction-sized,
-  follow **Escalate** below.
+  stop and follow **Escalate** below, which halts for operator agreement
+  before anything is filed.
 
 Never remove a required file merely to make the survey clear.
 
@@ -210,8 +224,37 @@ produce a diff.
 
 ### 5. Verify and close review
 
-Run the relevant project verification and an agent self-check. Then execute
-each selected posture knob through its shared authority:
+Iterate with the change-scoped check — impacted-test selection over the
+branch diff (`yoke watch pytest --impacted main --bounded` for this
+project) plus the individual failing tests — as often as the work needs.
+`--bounded` keeps an unbounded selection from widening to the full sweep:
+it reports `selection unbounded (<rule>) — deferring full coverage to the
+final QA gate` and runs the subset it could still compute. Read that as
+*keep testing what you judge relevant*, not as a signal to run everything
+now. The full-suite authority is CI on the protected merge path, which
+runs on the pull request and again on the merged commit. Fall back to a
+local full sweep only when CI is unavailable, and record that
+substitution in the verification evidence. If CI fails a test the
+impacted run skipped, that is a selector defect: fix the selection model
+in the same response, not just the code.
+
+**The QA case run is the one full execution.** Do not run the project's
+full sweep by hand and then hand the same tree to QA — the case executor
+re-runs the identical registered command, so the verdict-producing run is
+the only one that needs to happen. It streams live to stderr and prints
+its raw capture path before starting, so you can follow it without a
+second copy. Re-running after the tree changes is a different execution
+and stays required.
+
+**When the case runs on CI, the branch must be published first.** A
+project that declares its CI workflow binds its registered verification
+scopes to the `command-ci` method, and that executor gates the *pushed*
+lane branch — commit before running the case, and let the executor push.
+Dash branches otherwise stay local until merge, so an unpublished commit
+is a gate that verifies the wrong tree or none at all. The recorded
+verdict names the CI run URL and the exact head sha it covered.
+
+Then execute each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for
   `reviewing-implementation`, execute each requirement with
@@ -256,25 +299,40 @@ yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file>
 ```
 
 If the result is blocked, do not merge. Coordinate, wait, tighten with
-claims, or escalate. When clear, commit the coherent change and merge the
-registered branch through the project's normal protected merge path. Do
-not force-push, bypass CI, or merge around a registered claim. Record both
-the implementation commit SHA and resulting merge SHA.
+claims, or escalate. When clear, commit the coherent change in the worktree.
+Do not merge by hand, force-push, bypass CI, or merge around a registered
+claim.
 
-For a verified no-change result, use the inspected base SHA for both
-identities and set `--no-changes`; no empty commit is needed.
+### 7. Merge, record evidence, and finish
 
-### 7. Record evidence and finish
+When deployment posture is selected, merge first without closing out, so the
+item-bound deployment can run against the recorded merge identity:
 
-When deployment posture is selected, start item-bound delivery for the merge
-identity and run the returned deployment through the project executor:
+```text
+yoke merge item ITEM --skip-status --json
+```
+
+Start item-bound delivery for the returned `merge_sha`, run it through the
+project executor, and wait for `succeeded`:
 
 ```text
 yoke deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 
-Wait for that item-bound run to reach `succeeded`. Then record the close:
+Otherwise merge and close out in one call. The operation resolves the touched
+files from the branch itself, so no path list is needed:
+
+```text
+yoke merge item ITEM \
+  --result "<what changed or was learned>" \
+  --verification "<checks and evidence>" \
+  --json
+```
+
+Add `--no-changes` for a genuine no-change result. When the merge is already
+recorded and only the close-out remains — after a deployment run, or after
+approval — record evidence and transition directly:
 
 ```text
 yoke direct-workflow dash evidence ITEM \
@@ -282,18 +340,12 @@ yoke direct-workflow dash evidence ITEM \
   --verification "<checks and evidence>" \
   --commit-sha <sha> --merge-sha <sha> \
   --path <actual-file> [--path <actual-file> ...]
-```
-
-Use `--no-changes` instead of `--path` only for a genuine no-change result.
-Then transition through the `dash_evidence` gate:
-
-```text
 yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Merged and evidence recorded"
 ```
 
-When approval-on-done is selected, the first attempt creates the owner
+When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
-then retry the same transition. The successful terminal transition releases
+then retry the transition. The successful terminal transition releases
 the registered Dash worktree lane. Finally release the item work claim:
 
 ```text
@@ -302,9 +354,22 @@ yoke claims work release --item ITEM --reason "Dash completed"
 
 ## Escalate
 
-Escalate as soon as the required outcome needs crafted acceptance criteria,
+Halt as soon as the required outcome needs crafted acceptance criteria,
 substantial design, durable multi-file coordination, or multiple delivery
-slices. Summarize what was discovered and the remaining work:
+slices. Escalation files a new Issue and cancels the Dash, so it is a scope
+judgment the operator owns — a deliberate exception to the
+kick-off-and-walk-away default. Stop Dash execution at the trigger and
+present to the operator:
+
+- the grounded findings and what the instruction turned out to require;
+- the remaining outcome that is no longer instruction-sized;
+- the proposed Issue title and framing;
+- that escalating cancels this Dash.
+
+Then ask whether to escalate, and wait. Do not file the Issue, cancel the
+Dash, or continue implementing past the trigger while the answer is pending.
+
+Only after the operator explicitly agrees, run:
 
 ```text
 yoke direct-workflow dash escalate ITEM \
@@ -315,3 +380,6 @@ yoke direct-workflow dash escalate ITEM \
 The operation is idempotent: it preserves one link to the absorbing Issue
 and cancels the Dash. Stop Dash execution after it succeeds and release the
 work claim if the operation did not already do so.
+
+If the operator declines escalation, follow their direction — continue,
+narrow, or park the Dash — without filing an Issue.

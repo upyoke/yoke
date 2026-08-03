@@ -43,7 +43,7 @@ def test_render_umbrella_help_includes_usage_worked_example_and_groups():
     )
     # Usage line + canonical entrypoint.
     assert "Usage: python3 -m yoke_core.api.service_client <command>" in rendered
-    # Worked example with a concrete YOK-N (matches AC-2 canonical shape).
+    # Worked example with a concrete YOK-N in the canonical shape.
     assert "YOK-N" in rendered
     assert "claim-work" in rendered
     # Per-command help hint.

@@ -30,7 +30,9 @@ from runtime.api.fixtures.file_test_db import init_test_db
 
 def _fake_auth(project: str = "yoke", repo: str = "org/yoke") -> ProjectGithubAuth:
     return ProjectGithubAuth(
-        project=project, repo=repo, token="t",
+        project=project,
+        repo=repo,
+        token="t",
     )
 
 
@@ -47,7 +49,14 @@ def _apply_empty_resync_schema() -> None:
             "CREATE TABLE epic_tasks (epic_id TEXT, task_num INTEGER, "
             "github_issue TEXT, PRIMARY KEY(epic_id, task_num))"
         )
-        conn.execute("CREATE TABLE projects (id TEXT PRIMARY KEY, github_repo TEXT)")
+        conn.execute(
+            "CREATE TABLE projects (id TEXT PRIMARY KEY, slug TEXT, github_repo TEXT, "
+            "github_sync_mode TEXT NOT NULL DEFAULT 'disabled')"
+        )
+        conn.execute(
+            "INSERT INTO projects (id, slug, github_repo, github_sync_mode) "
+            "VALUES ('1', 'yoke', 'org/yoke', 'enabled')"
+        )
         conn.commit()
     finally:
         conn.close()
@@ -60,14 +69,24 @@ class TestFetchUsesRestDirectly:
 
     def test_yoke_fetch_succeeds_without_host_gh(self, monkeypatch):
         _mask_path(monkeypatch)
-        body = [{"number": 1, "title": "[YOK-1] ok", "labels": [],
-                 "state": "OPEN", "body": ""}]
-        with mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            return_value=_fake_auth(),
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            return_value=RestResponse(status=200, headers={}, body=body),
+        body = [
+            {
+                "number": 1,
+                "title": "[YOK-1] ok",
+                "labels": [],
+                "state": "OPEN",
+                "body": "",
+            }
+        ]
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                return_value=_fake_auth(),
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                return_value=RestResponse(status=200, headers={}, body=body),
+            ),
         ):
             result = resync_mod._fetch_gh_issues_per_project({"yoke"})
         assert result["yoke"][1]["title"] == "[YOK-1] ok"
@@ -80,14 +99,24 @@ class TestFetchUsesRestDirectly:
                 return _fake_auth()
             raise MissingRepoBinding(project, "repository is not bound")
 
-        yoke_body = [{"number": 1, "title": "[YOK-1] ok", "labels": [],
-                        "state": "OPEN", "body": ""}]
-        with mock.patch(
-            "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-            side_effect=fake_resolve,
-        ), mock.patch(
-            "yoke_core.engines.resync_detect_fetch.request_with_retry",
-            return_value=RestResponse(status=200, headers={}, body=yoke_body),
+        yoke_body = [
+            {
+                "number": 1,
+                "title": "[YOK-1] ok",
+                "labels": [],
+                "state": "OPEN",
+                "body": "",
+            }
+        ]
+        with (
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                side_effect=fake_resolve,
+            ),
+            mock.patch(
+                "yoke_core.engines.resync_detect_fetch.request_with_retry",
+                return_value=RestResponse(status=200, headers={}, body=yoke_body),
+            ),
         ):
             result = resync_mod._fetch_gh_issues_per_project(
                 {"yoke", "externalwebapp"},
@@ -106,27 +135,37 @@ class TestMainFailsClosedWithoutGh:
         _mask_path(monkeypatch)
         with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema):
             yoke_root = str(tmp_path)
-            with mock.patch(
-                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-                side_effect=MissingCapability("yoke", "no capability"),
-            ), mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root",
-                return_value=yoke_root,
-            ), mock.patch("sys.stdout", StringIO()), mock.patch("sys.stderr", StringIO()):
+            with (
+                mock.patch(
+                    "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                    side_effect=MissingCapability("yoke", "no capability"),
+                ),
+                mock.patch(
+                    "yoke_core.engines.resync._resolve_yoke_root",
+                    return_value=yoke_root,
+                ),
+                mock.patch("sys.stdout", StringIO()),
+                mock.patch("sys.stderr", StringIO()),
+            ):
                 rc = resync_mod.main(["--detect-only"])
         assert rc == 2
 
-    def test_no_legacy_skip_print_on_no_github_auth(self, monkeypatch, tmp_path, capsys):
+    def test_no_legacy_skip_print_on_no_github_auth(
+        self, monkeypatch, tmp_path, capsys
+    ):
         """The legacy ``gh CLI not available. Skipping`` print is gone."""
         _mask_path(monkeypatch)
         with init_test_db(tmp_path, apply_schema=_apply_empty_resync_schema):
             yoke_root = str(tmp_path)
-            with mock.patch(
-                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
-                side_effect=MissingCapability("yoke", "no capability"),
-            ), mock.patch(
-                "yoke_core.engines.resync._resolve_yoke_root",
-                return_value=yoke_root,
+            with (
+                mock.patch(
+                    "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
+                    side_effect=MissingCapability("yoke", "no capability"),
+                ),
+                mock.patch(
+                    "yoke_core.engines.resync._resolve_yoke_root",
+                    return_value=yoke_root,
+                ),
             ):
                 resync_mod.main(["--detect-only"])
         out = capsys.readouterr()

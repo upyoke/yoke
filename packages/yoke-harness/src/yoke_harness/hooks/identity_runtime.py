@@ -1,4 +1,10 @@
-"""Product-safe hook executor, model, and cache probes."""
+"""Product-safe hook executor, model, and cache probes.
+
+Harness-family predicates, executor/provider/entrypoint detection, and
+model resolution shared by every harness. Codex's transcript/cache
+resolvers live in :mod:`yoke_harness.hooks.identity_codex_runtime` and are
+re-exported here for compatibility.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +15,22 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_cli.config import machine_config
+from yoke_harness.hooks.identity_codex_runtime import (
+    _codex_resolve_entrypoint,
+    _codex_resolve_model,
+    write_runtime_cache,
+)
 
 
 _CLAUDE_LEGACY = "claude"
 _CLAUDE_COARSE = "claude-code"
 _CODEX_COARSE = "codex"
+_CURSOR_COARSE = "cursor"
+_CURSOR_AGENT_ENV = "CURSOR_INVOKED_AS"
+_CURSOR_AGENT_VALUE = "cursor-agent"
+_CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
+_CURSOR_SURFACE_CLI = "cli"
+_CURSOR_SURFACE_DESKTOP = "desktop"
 _PLACEHOLDER_MODEL_VALUES = frozenset({"", "default", "auto", "unknown"})
 
 
@@ -51,6 +67,13 @@ def is_codex(executor: Optional[str]) -> bool:
     return e == _CODEX_COARSE or e.startswith("codex-")
 
 
+def is_cursor(executor: Optional[str]) -> bool:
+    if not executor:
+        return False
+    e = executor.strip().lower()
+    return e == _CURSOR_COARSE or e.startswith("cursor-")
+
+
 def is_claude(executor: Optional[str]) -> bool:
     if not executor:
         return False
@@ -64,6 +87,8 @@ def canonical_harness_id(executor: Optional[str]) -> str:
     e = executor.strip().lower()
     if is_codex(e):
         return _CODEX_COARSE
+    if is_cursor(e):
+        return _CURSOR_COARSE
     if is_claude(e):
         return _CLAUDE_COARSE
     raise ValueError(f"unknown harness executor: {executor!r}")
@@ -91,84 +116,37 @@ def compose_executor_from_entrypoint(
     value = (executor or "").strip()
     if is_codex(value):
         return _compose_executor("codex", _CODEX_COARSE, entrypoint)
+    if is_cursor(value):
+        return _compose_executor("cursor", _CURSOR_COARSE, entrypoint)
     if is_claude(value):
         return _compose_executor("claude", _CLAUDE_COARSE, entrypoint)
     return value
 
 
-def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
-    originator = originator.strip().lower()
-    if originator:
-        normalized = re.sub(r"[^a-z0-9]+", "-", originator).strip("-")
-        if normalized:
-            return normalized
-    source = source.strip().lower()
-    return source or None
+def cursor_surface_entrypoint() -> str:
+    """Return the Cursor surface alias for the current hook process.
+
+    ``CURSOR_INVOKED_AS=cursor-agent`` marks the standalone terminal agent;
+    every other Cursor hook process is the IDE surface. This deliberately
+    does NOT consult ``CURSOR_TRANSCRIPT_PATH``: that variable is absent for
+    a session's first hook events, which is exactly when session
+    registration runs, so keying the surface on it loses the alias on the
+    IDE surface and leaves ``executor_display_name`` NULL.
+
+    Callers that must first decide whether this is a Cursor process at all
+    still gate on the env vars; this resolver only answers *which surface*.
+    """
+    surface = (
+        _CURSOR_SURFACE_CLI
+        if os.environ.get(_CURSOR_AGENT_ENV) == _CURSOR_AGENT_VALUE
+        else _CURSOR_SURFACE_DESKTOP
+    )
+    return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
 
 
-def _codex_transcript_candidates(thread_id: str) -> list[Path]:
-    roots = [
-        Path.home() / ".codex" / "sessions",
-        Path.home() / ".codex" / "archived_sessions",
-    ]
-    candidates: list[Path] = []
-    for root in roots:
-        if root.exists():
-            candidates.extend(root.rglob(f"*{thread_id}.jsonl"))
-    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-    return candidates
-
-
-def _codex_model_from_transcript(thread_id: str) -> Optional[str]:
-    for path in _codex_transcript_candidates(thread_id):
-        model = ""
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "turn_context":
-                        continue
-                    payload = row.get("payload") or {}
-                    model = payload.get("model") or model
-        except Exception:
-            continue
-        if model:
-            return model
-    return None
-
-
-def _codex_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
-    for path in _codex_transcript_candidates(thread_id):
-        entrypoint = None
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "session_meta":
-                        continue
-                    payload = row.get("payload") or {}
-                    entrypoint = _normalize_entrypoint(
-                        str(payload.get("originator") or ""),
-                        str(payload.get("source") or ""),
-                    ) or entrypoint
-        except Exception:
-            continue
-        if entrypoint:
-            return entrypoint
-    return None
-
-
-def _runtime_cache_path(session_id: str) -> Path:
-    return (
-        machine_config.cache_dir()
-        / "codex-model-cache"
-        / f"codex-runtime-{session_id}.json"
+def _in_cursor_process() -> bool:
+    return bool(
+        os.environ.get(_CURSOR_TRANSCRIPT_ENV) or os.environ.get(_CURSOR_AGENT_ENV)
     )
 
 
@@ -180,66 +158,6 @@ def resolve_session_id(stdin_data: str) -> str:
     )
 
 
-def write_runtime_cache(session_id: str, stdin_data: str) -> None:
-    if not session_id or not stdin_data:
-        return
-    try:
-        path = _runtime_cache_path(session_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            stdin_data if stdin_data.endswith("\n") else f"{stdin_data}\n",
-            encoding="utf-8",
-        )
-    except OSError:
-        return
-
-
-def _cache_field(session_id: str, field: str) -> str:
-    try:
-        payload = json.loads(_runtime_cache_path(session_id).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return ""
-    if not isinstance(payload, dict):
-        return ""
-    value = payload.get(field, "")
-    return "" if value is None else str(value)
-
-
-def _codex_resolve_model(thread_id: Optional[str] = None) -> Optional[str]:
-    if os.environ.get("YOKE_MODEL"):
-        return os.environ["YOKE_MODEL"]
-    if os.environ.get("CODEX_MODEL"):
-        return os.environ["CODEX_MODEL"]
-    thread_id = thread_id or os.environ.get("CODEX_THREAD_ID", "")
-    if not thread_id:
-        return None
-    return (
-        _codex_model_from_transcript(thread_id)
-        or _cache_field(thread_id, "model")
-        or None
-    )
-
-
-def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
-    env_entrypoint = _normalize_entrypoint(
-        str(
-            os.environ.get("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "")
-            or os.environ.get("CODEX_ORIGINATOR", "")
-        ),
-        "",
-    )
-    if env_entrypoint:
-        return env_entrypoint
-    thread_id = thread_id or os.environ.get("CODEX_THREAD_ID", "")
-    if not thread_id:
-        return None
-    return (
-        _codex_entrypoint_from_transcript(thread_id)
-        or _cache_field(thread_id, "entrypoint")
-        or _normalize_entrypoint(_cache_field(thread_id, "originator"), "")
-    )
-
-
 def detect_executor() -> str:
     if os.environ.get("YOKE_EXECUTOR"):
         return os.environ["YOKE_EXECUTOR"]
@@ -247,16 +165,28 @@ def detect_executor() -> str:
         return _compose_executor(
             _CODEX_COARSE, _CODEX_COARSE, _codex_resolve_entrypoint(),
         )
+    # Cursor exports no session env var; hook processes carry
+    # CURSOR_TRANSCRIPT_PATH and the standalone terminal agent sets
+    # CURSOR_INVOKED_AS=cursor-agent. The rendered Cursor hook command pins
+    # YOKE_EXECUTOR=cursor, so this branch covers unpinned subprocesses.
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return _compose_executor(
         "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
     )
 
 
 def detect_provider(executor: Optional[str] = None) -> str:
+    # Cursor multiplexes providers (Anthropic, OpenAI, or Cursor-hosted
+    # models within one session, named per hook payload), so its family
+    # maps to "cursor" rather than a model vendor.
     if os.environ.get("YOKE_PROVIDER"):
         return os.environ["YOKE_PROVIDER"]
-    if is_codex(executor or detect_executor()):
+    resolved = executor or detect_executor()
+    if is_codex(resolved):
         return "openai"
+    if is_cursor(resolved):
+        return "cursor"
     return "anthropic"
 
 
@@ -266,6 +196,8 @@ def detect_entrypoint() -> Optional[str]:
         return val
     if os.environ.get("CODEX_THREAD_ID"):
         return _codex_resolve_entrypoint()
+    if _in_cursor_process():
+        return cursor_surface_entrypoint()
     return None
 
 
@@ -331,8 +263,15 @@ def detect_model(
 ) -> str:
     if os.environ.get("YOKE_MODEL"):
         return os.environ["YOKE_MODEL"]
-    if is_codex(executor or detect_executor()):
+    resolved_executor = executor or detect_executor()
+    if is_codex(resolved_executor):
         return _codex_resolve_model() or "unknown"
+    if is_cursor(resolved_executor):
+        # Cursor names the active model only inside each hook payload
+        # (model/model_id fields); session registration passes it from the
+        # payload explicitly. Without a payload in scope there is no
+        # truthful ambient source.
+        return "unknown"
     claude_env = os.environ.get("CLAUDE_MODEL", "")
     if claude_env and not _is_placeholder_model(claude_env):
         return claude_env
@@ -362,6 +301,7 @@ __all__ = [
     "detect_provider",
     "is_claude",
     "is_codex",
+    "is_cursor",
     "resolve_session_id",
     "write_runtime_cache",
 ]

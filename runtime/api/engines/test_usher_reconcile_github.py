@@ -31,7 +31,7 @@ def wired(monkeypatch):
     def fake_flow_db(*args, sd=None):
         del sd
         if args[0] == "stages":
-            return '[{"name":"prod-deploy","executor":"github-actions-workflow","workflow":"deploy.yml"}]'
+            return '[{"name":"prod-deploy","step_runner":"github-actions-workflow","workflow":"deploy.yml"}]'
         return ""
 
     def fake_find_by_item(item_id, status=None, db_path=None):
@@ -74,6 +74,11 @@ def wired(monkeypatch):
     monkeypatch.setattr(mod, "_run_cmd", fake_run_cmd)
     monkeypatch.setattr(mod, "_github_actions", fake_github_actions)
     monkeypatch.setattr(mod, "_emit_run_event", fake_emit_run_event)
+    monkeypatch.setattr(
+        mod,
+        "_display_item_ref",
+        lambda item_id: f"YOK-{item_id}",
+    )
     monkeypatch.setattr(
         "yoke_core.domain.deployment_runs_crud_query.cmd_find_by_item",
         fake_find_by_item,
@@ -258,9 +263,9 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
     assert "<stage>-failed" in result.message
     assert wired.dispatched == []
 
-def test_parse_item_id_accepts_yok_prefix_and_bare_int():
-    assert mod._parse_item_id("YOK-42") == 42
-    assert mod._parse_item_id("yok-042") == 42
+def test_parse_item_id_accepts_bare_int():
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
     assert mod._parse_item_id("42") == 42
     assert mod._parse_item_id("0042") == 42
 
@@ -279,7 +284,7 @@ def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
 
 
 def test_main_returns_zero_on_alignment(wired, capsys):
-    rc = mod.main(["YOK-42"])
+    rc = mod.main(["42"])
     assert rc == mod.EXIT_OK
     assert "Resume usher with: /yoke usher YOK-42 --resume" in capsys.readouterr().out
 
@@ -295,6 +300,6 @@ def test_main_returns_running_code_when_gh_in_progress(wired, monkeypatch, capsy
         return _proc(1, "")
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    rc = mod.main(["YOK-42"])
+    rc = mod.main(["42"])
     assert rc == mod.EXIT_RUNNING
     assert "still in_progress" in capsys.readouterr().out

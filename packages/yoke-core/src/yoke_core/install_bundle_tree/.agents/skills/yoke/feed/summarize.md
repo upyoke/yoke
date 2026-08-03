@@ -57,7 +57,7 @@ Scan the frontier for items that remain non-runnable after this feed run. An ite
 For each ambiguous item, record:
 ```
 _ambiguous_items.append({
- yok_id: "YOK-N",
+ yok_id: "PREFIX-N",
  title: "<title>",
  reason: "<specific explanation of why this item is non-runnable>"
 })

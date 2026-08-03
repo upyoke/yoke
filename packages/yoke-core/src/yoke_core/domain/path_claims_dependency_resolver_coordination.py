@@ -32,7 +32,6 @@ from yoke_core.domain.dependency_types import is_coordination_only
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
 from yoke_core.domain.path_claims_dependency_resolver import (
     _claim_owning_item,
-    _strip_sun_prefix,
 )
 
 
@@ -49,8 +48,14 @@ def _inter_item_gate_points(
 ) -> list[str]:
     """Return every ``item_dependencies.gate_point`` whose row links the
     two items in either direction. Missing table → ``[]``.
+
+    Row refs are public ``PREFIX-N`` text; each resolves to its internal
+    ``items.id`` before comparison (a stripped ref number is a project
+    sequence, not the internal id).
     """
-    pair = {str(item_a_id), str(item_b_id)}
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    pair = {item_a_id, item_b_id}
     rows = fetch_optional_rows(
         conn,
         "SELECT dependent_item, blocking_item, gate_point FROM item_dependencies",
@@ -59,7 +64,11 @@ def _inter_item_gate_points(
     return [
         str(gp or "")
         for d, b, gp in rows
-        if pair == {_strip_sun_prefix(d), _strip_sun_prefix(b)}
+        if pair
+        == {
+            parse_item_id_or_none(d, conn=conn, allow_bare_internal=True),
+            parse_item_id_or_none(b, conn=conn, allow_bare_internal=True),
+        }
     ]
 
 
@@ -67,8 +76,8 @@ def _direct_gate_points(
     conn: Any, *, dependent_item_id: int, blocking_item_id: int,
 ) -> list[str]:
     """Return gate points for candidate -> blocker rows only."""
-    dep = str(dependent_item_id)
-    blk = str(blocking_item_id)
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
     rows = fetch_optional_rows(
         conn,
         "SELECT dependent_item, blocking_item, gate_point FROM item_dependencies",
@@ -77,7 +86,10 @@ def _direct_gate_points(
     return [
         str(gp or "")
         for d, b, gp in rows
-        if _strip_sun_prefix(d) == dep and _strip_sun_prefix(b) == blk
+        if parse_item_id_or_none(d, conn=conn, allow_bare_internal=True)
+        == dependent_item_id
+        and parse_item_id_or_none(b, conn=conn, allow_bare_internal=True)
+        == blocking_item_id
     ]
 
 

@@ -1,6 +1,6 @@
 """Tests for ``yoke_core.tools.search_code``.
 
-Covers AC-1 through AC-9: scope routing, default excludes, engine selection
+Covers scope routing, default excludes, engine selection
 (rg + Python fallback), multi-worktree handling, and failure cases.
 """
 

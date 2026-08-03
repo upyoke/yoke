@@ -1,6 +1,6 @@
 """Auth-error translation regressions for ``backlog_github_state_sync``.
 
-Verifies the AC-7 contract: when the typed REST surface raises
+Verifies the contract: when the typed REST surface raises
 :class:`ProjectGithubAuthError` (the canonical resolver's typed
 diagnostic), every public entrypoint in ``backlog_github_state_sync``
 translates the exception into a non-zero return + typed-stderr

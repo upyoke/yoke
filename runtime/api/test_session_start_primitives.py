@@ -107,7 +107,7 @@ class TestSessionOffer:
             )
 
     def test_identity_fields_present_for_correlation(self):
-        """AC-6: session_id unique+stable, execution_lane present."""
+        """Session_id unique+stable, execution_lane present."""
         offer = self._make_offer()
         # These fields must exist and be non-empty for claim/lease correlation
         assert offer.session_id
@@ -115,7 +115,7 @@ class TestSessionOffer:
         assert offer.execution_lane
 
     def test_executor_stays_harness_identity_while_lane_carries_routing(self):
-        """T7 AC-4: executor carries harness identity (claude-code),
+        """The executor carries harness identity (claude-code),
         execution_lane carries delivery-family lane (DARIUS/ALTMAN)."""
         offer = SessionOffer(
             session_id="sess-ac4",
@@ -126,14 +126,14 @@ class TestSessionOffer:
             execution_lane="DARIUS",
         )
         # executor is the harness identity, NOT the lane.
-        # AC-11 exception: this test pins the coarse `claude-code`
+        # Hardcoded-literal exception: this test pins the coarse `claude-code`
         # family value to verify SessionOffer round-trips it verbatim.
         assert offer.executor == "claude-code"
         # execution_lane carries the delivery-family lane
         assert offer.execution_lane == "DARIUS"
 
     def test_executor_and_lane_are_independent_fields(self):
-        """T7 AC-4: changing lane does not affect executor."""
+        """Changing lane does not affect executor."""
         for lane in ("DARIUS", "ALTMAN", "primary"):
             offer = SessionOffer(
                 session_id=f"sess-{lane}",
@@ -143,7 +143,7 @@ class TestSessionOffer:
                 workspace="/tmp/work",
                 execution_lane=lane,
             )
-            # AC-11 exception: this test pins the coarse `codex`
+            # Hardcoded-literal exception: this test pins the coarse `codex`
             # family value to verify SessionOffer round-trips it verbatim.
             assert offer.executor == "codex"
             assert offer.execution_lane == lane
@@ -169,7 +169,7 @@ class TestSessionOffer:
 
 
 class TestFrontierState:
-    """AC-3: FrontierState captures runnable_items, blocked_items, sml_coherent, drift_review."""
+    """FrontierState captures runnable_items, blocked_items, sml_coherent, drift_review."""
 
     def test_default_construction(self):
         fs = FrontierState()

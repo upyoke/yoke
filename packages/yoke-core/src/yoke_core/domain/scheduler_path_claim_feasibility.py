@@ -23,6 +23,7 @@ from yoke_core.domain.path_claims_overlap import (
 from yoke_core.domain.path_claims_boundary_targets import (
     path_string_map_for_target_ids,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class FeasibilityOutcome(str, Enum):
@@ -62,7 +63,8 @@ def _fetch_candidate_claim(
         p = _p(conn)
         row = conn.execute(
             "SELECT id, integration_target FROM path_claims "
-            f"WHERE item_id = {p} AND mode = 'exclusive' "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND mode = 'exclusive' "
             "AND state IN ('planned','active') "
             "ORDER BY CASE state WHEN 'active' THEN 0 ELSE 1 END, "
             "registered_at DESC LIMIT 1",
@@ -112,8 +114,9 @@ def _enumerate_conflicts(
     p = _p(conn)
     placeholders = ",".join(p for _ in _PROBE_NON_TERMINAL_STATES)
     rows = conn.execute(
-        f"SELECT id, item_id FROM path_claims "
-        f"WHERE integration_target = {p} AND mode = 'exclusive' "
+        f"SELECT id, owner_item_id FROM path_claims "
+        "WHERE owner_kind = 'item' "
+        f"AND integration_target = {p} AND mode = 'exclusive' "
         f"AND state IN ({placeholders}) AND id <> {p}",
         (integration_target, *_PROBE_NON_TERMINAL_STATES, candidate_claim_id),
     ).fetchall()
@@ -133,7 +136,9 @@ def _enumerate_conflicts(
         conflicting_claim_ids.append(other_id)
         if other_item_id is not None and int(other_item_id) not in seen_items:
             seen_items.add(int(other_item_id))
-            conflicting_item_ids.append(f"YOK-{int(other_item_id)}")
+            # Operator-facing coordination target: render the true
+            # public ref, not the internal id.
+            conflicting_item_ids.append(render_item_ref(conn, int(other_item_id)))
         shared_target_ids.update(int(tid) for tid in shared)
     shared_path_map = path_string_map_for_target_ids(
         conn, sorted(shared_target_ids)

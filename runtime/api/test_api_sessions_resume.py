@@ -117,7 +117,7 @@ class TestSessionOfferResume:
         assert data["context"]["item_id"] == "YOK-10"
 
     def test_offer_resume_with_epic_task_claim(self):
-        """AC-9: historical epic task claim rows still surface in resume context."""
+        """Historical epic task claim rows still surface in resume context."""
         conn = connect_test_db(self.db_info["db_path"])
         now = fresh_now()
         p = _p(conn)

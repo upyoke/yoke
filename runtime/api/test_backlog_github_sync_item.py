@@ -1,8 +1,8 @@
 """Coverage for ``sync_item`` — single-issue and epic dispatch paths.
 
-Covers AC-6 (create + reuse paths both use ``select_body_for_github``),
-AC-7 (transitive ``ProjectGithubAuthError`` catch), AC-12 (create + reuse
-regressions exercising the shared compact-mirror contract).
+Covers create + reuse paths both using ``select_body_for_github``,
+the transitive ``ProjectGithubAuthError`` catch, and create + reuse
+regressions exercising the shared compact-mirror contract.
 
 Tests mock the typed ``github_rest.create_issue`` / ``list_issues`` surfaces
 directly (no argv shapes).
@@ -263,13 +263,13 @@ class TestSyncItem:
 
 
 # ---------------------------------------------------------------------------
-# AC-12 regressions: create + reuse paths share compact-mirror contract
+# Regressions: create + reuse paths share compact-mirror contract
 # ---------------------------------------------------------------------------
 
 
 class TestSyncItemCompactMirror:
     def test_create_uses_compact_mirror_for_oversized(self):
-        """AC-6 + AC-12: create path picks compact mirror when full body is
+        """Create path picks compact mirror when full body is
         oversized; the body string passed to ``create_issue`` fits under the
         budget."""
         db = _make_db()
@@ -300,7 +300,7 @@ class TestSyncItemCompactMirror:
         db.close()
 
     def test_reuse_inherits_compact_mirror(self):
-        """AC-12: reuse path delegates body sync to ``sync_body`` which
+        """Reuse path delegates body sync to ``sync_body`` which
         owns the same body-budget contract."""
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
@@ -324,7 +324,7 @@ class TestSyncItemCompactMirror:
         db.close()
 
     def test_auth_failure_short_circuits_create(self):
-        """AC-9 mirror: ``sync_item`` short-circuits on resolver error
+        """``sync_item`` short-circuits on resolver error
         before any dedup search, label seeding, or REST call."""
         db = _make_db()
         insert_item(

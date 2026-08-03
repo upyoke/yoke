@@ -14,11 +14,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 class TestNormalizeId(unittest.TestCase):
-    def test_sun_prefix(self) -> None:
-        self.assertEqual(mod._normalize_item_id(TEST_ITEM_REF), TEST_ITEM_ID)
-
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
     def test_zero_padded(self) -> None:
-        self.assertEqual(mod._normalize_item_id("YOK-007"), 7)
         self.assertEqual(mod._normalize_item_id("0042"), 42)
 
     def test_plain_number(self) -> None:
@@ -166,7 +164,7 @@ class TestMain(unittest.TestCase):
 
     def test_missing_item_exits_2(self) -> None:
         with mock.patch.object(mod, "_fetch_item_row", return_value=None):
-            rc, _, err = self._run([TEST_ITEM_REF])
+            rc, _, err = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 2)
         self.assertIn("not found", err)
 
@@ -177,7 +175,7 @@ class TestMain(unittest.TestCase):
             "_fetch_item_row",
             return_value=("My Item", spec, ""),
         ):
-            rc, out, err = self._run(["YOK-5"])
+            rc, out, err = self._run(["5"])
         self.assertEqual(rc, 0)
         self.assertEqual(out.strip(), "2")
         self.assertEqual(err, "")
@@ -189,7 +187,7 @@ class TestMain(unittest.TestCase):
             "_fetch_item_row",
             return_value=("My Item", spec, ""),
         ):
-            rc, out, err = self._run(["YOK-5"])
+            rc, out, err = self._run(["5"])
         self.assertEqual(rc, 0)
         self.assertEqual(out.strip(), "2")
         self.assertIn("unlabeled", err)
@@ -200,7 +198,7 @@ class TestMain(unittest.TestCase):
             "_fetch_item_row",
             return_value=("My Item", "No checkboxes here", ""),
         ):
-            rc, out, err = self._run(["YOK-5"])
+            rc, out, err = self._run(["5"])
         self.assertEqual(rc, 1)
         self.assertEqual(out, "")
 
@@ -211,7 +209,7 @@ class TestMain(unittest.TestCase):
             "_fetch_item_row",
             return_value=("My Item", "", body),
         ):
-            rc, out, _ = self._run(["YOK-5"])
+            rc, out, _ = self._run(["5"])
         self.assertEqual(rc, 0)
         self.assertEqual(out.strip(), "1")
 

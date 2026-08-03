@@ -18,8 +18,8 @@ is true on a Bash call):
    waiter (any peek verb in :data:`_PEEK_VERB_RE`).
 3. ``while [ ! -f <tempdir-prefix>/<path> ]; do sleep N; done`` —
    sentinel polling.
-4. ``python3 -m yoke_core.tools.watch_tail <tempdir-prefix>/<path>``
-   — duplicate watch_tail.
+4. ``yoke watch tail <tempdir-prefix>/<path>`` (or the module
+   fallback) — duplicate follower.
 
 Mode-pinned by ``lint_polling_mode`` (``warn`` records audit only;
 ``deny`` blocks). The ``# lint:no-bg-waiter-check`` token is honoured
@@ -47,7 +47,6 @@ from yoke_core.domain.lint_long_command_polling_decide import _build_context
 from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_background_capture_files,
     _extract_command,
-    _extract_monitor_capture_file,
     _extract_tool_input,
     _extract_tool_name,
     _temp_dir_prefixes,
@@ -73,8 +72,12 @@ _TAIL_F_RE = re.compile(
 _SLEEP_THEN_PEEK_PATH_RE = re.compile(
     rf"\bsleep\s+\d+\s*(?:&&|;)\s*(?:{_PEEK_VERB_ALT})\b[^|;&]*?({_TEMP_PREFIX_GROUP}/[\w./-]+)",
 )
+# Both follower spellings: the `yoke watch tail` command and the module
+# fallback. Either one re-armed on a live capture is the duplicate waiter.
 _WATCH_TAIL_RE = re.compile(
-    rf"\bpython3?\s+-m\s+(?:yoke_core|runtime\.api)\.tools\.watch_tail\b[^|;&]*?({_TEMP_PREFIX_GROUP}/[\w./-]+)",
+    rf"\b(?:yoke\s+watch\s+tail"
+    rf"|python3?\s+-m\s+(?:yoke_core|runtime\.api)\.tools\.watch_tail)\b"
+    rf"[^|;&]*?({_TEMP_PREFIX_GROUP}/[\w./-]+)",
 )
 _WHILE_SENTINEL_RE = re.compile(
     rf"\bwhile\s+\[\s+!\s+-f\s+({_TEMP_PREFIX_GROUP}/[\w./-]+)\s+\]\s*;\s*do\s+sleep\b",

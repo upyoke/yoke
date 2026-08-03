@@ -20,7 +20,7 @@ handle (durability is opt-in; local capture stays the default).
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 

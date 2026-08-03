@@ -30,21 +30,18 @@ from yoke_core.domain.dependency_workflow_context import (
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
-from yoke_core.domain.path_claims_dependency_resolver import _strip_sun_prefix
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
 
 def _normalize_item_id(raw: str) -> Optional[int]:
-    stripped = raw.strip()
-    if stripped.upper().startswith("YOK-"):
-        stripped = stripped[4:]
-    stripped = stripped.lstrip("0")
-    if stripped == "":
-        return None
-    try:
-        return int(stripped)
-    except ValueError:
-        return None
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    return parse_item_id_or_none(raw, allow_bare_internal=True)
 
 
 def _query_blockers(
@@ -55,11 +52,13 @@ def _query_blockers(
     """Return ``[(blocking_item, gate_point, satisfaction), ...]``.
 
     ``dependent_item`` stores public text refs whose shape may vary
-    (``YOK-N``, bare numeric, zero-padded); rows are matched through the
-    same ``_strip_sun_prefix`` normalizer the overlap classifier uses so
-    every shape gates lifecycle exactly like it serializes claims.
+    (``PREFIX-N``, bare numeric, zero-padded); each row's ref resolves to
+    its internal ``items.id`` through the canonical parser before being
+    compared to ``item_id`` — a stripped ``PREFIX-N`` number is a project
+    sequence, not the internal id, so string comparison would both miss
+    real blocks and gate the wrong item once the two diverge.
     """
-    dependent = str(item_id)
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     if gate_filter:
         rows = db_helpers.query_rows(
@@ -79,7 +78,10 @@ def _query_blockers(
     return [
         (row["blocking_item"], row["gate_point"], row["satisfaction"])
         for row in rows
-        if _strip_sun_prefix(row["dependent_item"]) == dependent
+        if parse_item_id_or_none(
+            row["dependent_item"], conn=conn, allow_bare_internal=True
+        )
+        == item_id
     ]
 
 
@@ -185,11 +187,16 @@ def evaluate_blockers(
         if not blockers:
             return output
 
+        from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
         for blocking_item, gate_point, satisfaction in blockers:
-            dep_num = _normalize_item_id(blocking_item)
-            if dep_num is None:
-                continue
-            dep_item = _query_item(conn, dep_num)
+            dep_num = parse_item_id_or_none(
+                blocking_item, conn=conn, allow_bare_internal=True
+            )
+            # Fail safe: a blocker ref that does not resolve to a live
+            # item still reports as missing rather than silently
+            # unblocking the dependent.
+            dep_item = None if dep_num is None else _query_item(conn, dep_num)
             if dep_item is None:
                 output.append(
                     "BLOCKED|%s|missing|<unknown>|%s|%s"

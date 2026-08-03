@@ -16,6 +16,7 @@ from yoke_core.domain.installer_campaign_plan_common import (
     HOSTED_CONNECTED_TEXT,
     HOSTED_STAGE_ONBOARD,
     PARENT_HANDOFF_TEXT,
+    PATH_READY_TEXT,
     PATH_REPAIR_COMMAND,
     PUBLIC_STAGE_INSTALL,
     PUBLIC_STAGE_INSTALL_LOCAL,
@@ -28,6 +29,9 @@ from yoke_core.domain.installer_campaign_plan_common import (
     terminal_recipe,
     transition,
 )
+
+
+_DESTINATION_PICKER_TEXT = ("Where should this Yoke live?",)
 
 
 def _hosted_completion_actions(
@@ -59,7 +63,11 @@ def _hosted_completion_actions(
         actions.append(transition("continue-path", "Enter"))
     actions.extend(
         [
-            action("destination-picker-frame"),
+            action(
+                "destination-picker-frame",
+                ready_text=_DESTINATION_PICKER_TEXT,
+                ready_timeout_seconds=180,
+            ),
             transition(
                 "destination-picker",
                 *CHOOSE_STAGE_KEYS,
@@ -84,7 +92,7 @@ def _hosted_completion_actions(
                 wait_seconds=10,
             ),
             action("review"),
-            transition("apply", "Enter", wait_seconds=120),
+            transition("apply", "Enter"),
             action("apply-complete"),
             transition("exit-apply-success", "Enter", wait_seconds=5),
             action("complete-onboarding"),
@@ -102,7 +110,7 @@ def _cold_start_config(
     path_text = (
         ("Add Yoke to your PATH.", "Added Yoke to your PATH.")
         if path_needs_repair
-        else ("Yoke is already on your PATH.",)
+        else PATH_READY_TEXT
     )
     return terminal_recipe(
         actions=_hosted_completion_actions(
@@ -112,7 +120,7 @@ def _cold_start_config(
         expected_text=(
             "Starting Yoke onboard",
             *path_text,
-            "Where should this Yoke live?",
+            *_DESTINATION_PICKER_TEXT,
             *BROWSER_APPROVAL_TEXT,
             "Yoke token connected.",
             *REVIEW_TEXT,
@@ -189,7 +197,7 @@ HOSTED_CONNECT = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("browser-approval"),
             transition(
@@ -263,7 +271,7 @@ APPLY_HANDOFF = terminal_case(
     "terminal-check",
     instructions=(
         "Run the public Stage installer with the local-machine destination, "
-        "create or verify the local universe, stay backlog-only for GitHub, "
+        "create or verify the local universe, stay disabled for GitHub, "
         "choose machine-only setup, Apply, exit successfully, and capture the "
         "installer parent's execution-ready handoff."
     ),
@@ -288,7 +296,7 @@ APPLY_HANDOFF = terminal_case(
                 wait_seconds=10,
             ),
             action("review"),
-            transition("apply", "Enter", wait_seconds=120),
+            transition("apply", "Enter"),
             action("apply-complete"),
             transition("exit-apply-success", "Enter", wait_seconds=5),
             action("complete-onboarding"),

@@ -1,38 +1,29 @@
-"""HC-reflection-capture-hook-coverage and HC-reflection-capture-unhandled.
+"""HC-reflection-capture-unhandled — unrecognized reflection block shapes.
 
-Two related doctor health checks for the PostToolUse Agent-tool
-reflection-capture hook:
+Queries the events table for ``ReflectionCaptureHookUnhandled`` events in the
+last 24h and surfaces them as WARN, giving operators a one-stop view of
+reflection shapes the parser can be extended to cover.
 
-* ``HC-reflection-capture-hook-coverage`` — for every
-  ``HarnessToolCallCompleted`` event with ``tool_name='Agent'`` in the
-  last 24h, assert a matching ``ReflectionCaptureHookFired`` event with
-  the same ``tool_use_id``. Catches future hook-deletion regressions and
-  any wiring break that silently drops the capture path.
-* ``HC-reflection-capture-unhandled`` — query the events table for
-  ``ReflectionCaptureHookUnhandled`` events in the last 24h and surface
-  them as WARN. Gives operators a one-stop view of unrecognized
-  reflection shapes the parser can be extended to cover.
+The event-shape helpers below (``_p``, ``_events_table_present``,
+``_extract_tool_use_id``, ``_cutoff_24h``) are also consumed by the
+project-local ``HC-reflection-capture-hook-coverage`` check so both read the
+ledger the same way.
 
-Both checks self-skip cleanly on minimal-schema fixtures (missing
-``events`` table, missing columns) so they degrade to PASS in
-test/empty-history contexts instead of FAIL.
+The check self-skips cleanly on minimal-schema fixtures (missing ``events``
+table, missing columns) so it degrades to PASS in test/empty-history contexts
+instead of FAIL.
 """
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable
+from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-_HC_COVERAGE_NAME = "HC-reflection-capture-hook-coverage"
-_HC_COVERAGE_DESC = (
-    "Every Agent-tool call in the last 24h emits a matching "
-    "ReflectionCaptureHookFired event"
-)
 _HC_UNHANDLED_NAME = "HC-reflection-capture-unhandled"
 _HC_UNHANDLED_DESC = (
     "ReflectionCaptureHookUnhandled events in the last 24h "
@@ -78,91 +69,6 @@ def _cutoff_24h() -> str:
     return (datetime.now(timezone.utc) - timedelta(hours=24)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-
-
-def _agent_tool_use_ids_24h(conn: Any) -> set[str]:
-    try:
-        p = _p(conn)
-        rows = conn.execute(
-            "SELECT payload FROM events "
-            "WHERE event_name='HarnessToolCallCompleted' "
-            "AND tool_name='Agent' "
-            f"AND created_at >= {p}",
-            (_cutoff_24h(),),
-        ).fetchall()
-    except db_backend.database_error_types(conn):
-        return set()
-    out: set[str] = set()
-    for row in rows:
-        ttid = _extract_tool_use_id(row[0])
-        if ttid:
-            out.add(ttid)
-    return out
-
-
-def _fired_tool_use_ids_24h(conn: Any) -> set[str]:
-    try:
-        p = _p(conn)
-        rows = conn.execute(
-            "SELECT payload FROM events "
-            "WHERE event_name='ReflectionCaptureHookFired' "
-            f"AND created_at >= {p}",
-            (_cutoff_24h(),),
-        ).fetchall()
-    except db_backend.database_error_types(conn):
-        return set()
-    out: set[str] = set()
-    for row in rows:
-        ttid = _extract_tool_use_id(row[0])
-        if ttid:
-            out.add(ttid)
-    return out
-
-
-def hc_reflection_capture_hook_coverage(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
-) -> None:
-    if not _events_table_present(conn):
-        rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
-            "events table not present (fixture/minimal-schema context); skipping",
-        )
-        return
-
-    agent_calls = _agent_tool_use_ids_24h(conn)
-    if not agent_calls:
-        rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
-            "no Agent-tool calls observed in the last 24h",
-        )
-        return
-
-    fired = _fired_tool_use_ids_24h(conn)
-    missing = sorted(agent_calls - fired)
-    if not missing:
-        rec.record(
-            _HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "PASS",
-            f"all {len(agent_calls)} Agent-tool calls in the last 24h "
-            "have matching ReflectionCaptureHookFired events",
-        )
-        return
-
-    detail_lines = [
-        f"{len(missing)}/{len(agent_calls)} Agent-tool calls in the last 24h "
-        "lack a matching ReflectionCaptureHookFired event:",
-    ]
-    for tid in missing[:20]:
-        detail_lines.append(f"- tool_use_id={tid}")
-    if len(missing) > 20:
-        detail_lines.append(f"... ({len(missing) - 20} more)")
-    detail_lines.append(
-        "Probable cause: PostToolUse Agent matcher not firing the "
-        "reflection_capture_hook chain. Verify "
-        "yoke_contracts.hook_runner.hook_ordering registers "
-        "'Agent': _POST_AGENT under PostToolUse, then re-render "
-        "settings.json via agents.render.run.",
-    )
-    rec.record(_HC_COVERAGE_NAME, _HC_COVERAGE_DESC, "FAIL", "\n".join(detail_lines))
 
 
 def _unhandled_excerpts_24h(conn: Any) -> list[dict]:
@@ -245,7 +151,4 @@ def hc_reflection_capture_unhandled(
     rec.record(_HC_UNHANDLED_NAME, _HC_UNHANDLED_DESC, "WARN", "\n".join(detail_lines))
 
 
-__all__ = [
-    "hc_reflection_capture_hook_coverage",
-    "hc_reflection_capture_unhandled",
-]
+__all__ = ["hc_reflection_capture_unhandled"]

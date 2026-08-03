@@ -28,9 +28,11 @@ export function detailItem(workflowId) {
   const pathClaimsPolicy = directWorkflow
     ? "optional"
     : workflowId === "epic" ? "required_per_task" : "required";
+  const pathSurveyPolicy = directWorkflow ? "required" : undefined;
   const policies = {
     file_budget: fileBudgetPolicy,
     path_claims: pathClaimsPolicy,
+    ...(pathSurveyPolicy ? { path_survey: pathSurveyPolicy } : {}),
     worktrees: workflowId === "epic"
       ? "worker_and_integration_lanes"
       : workflowId === "blitz"
@@ -65,8 +67,8 @@ export function detailItem(workflowId) {
       }[workflowId] || workflowId,
       version: 4,
       stage_label: "Reviewing implementation",
-      executor_id: workflowId,
-      next_executor_id: workflowId === "issue"
+      skill_id: workflowId,
+      next_skill_id: workflowId === "issue"
         ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
       item_posture: {
         verification: true,

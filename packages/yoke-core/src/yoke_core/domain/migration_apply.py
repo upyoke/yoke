@@ -77,78 +77,25 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleContractError, ModuleOverrideError, ModuleAttemptResult,
     RehearseResult, LiveApplyResult,
 )
+from yoke_core.domain.migration_apply_format import (
+    format_live_apply,
+    format_rehearse,
+)
 from yoke_core.domain.migration_apply_help import SELF_MIGRATION_TEMP_RECIPE
 from yoke_core.domain.migration_apply_live import live_apply
 from yoke_core.domain.migration_apply_manifest_units import live_apply_manifest, rehearse_manifest
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_core.domain.migration_apply_resolve import (
     ModuleOverrideResolution, _load_item, _resolve_item_worktree_path,
-    _resolve_profile_or_raise, control_conn_db_path, resolve_module_override,
+    _resolve_profile_or_raise, resolve_module_override,
 )
 
 
 def _parse_item_id(raw: str) -> int:
-    text = raw.strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    return int(text.lstrip("0") or "0")
+    # PREFIX-N resolves via the project sequence; bare N = internal id.
+    from yoke_core.domain.yok_n_parser import parse_item_id
 
-
-def _format_override(
-    override: Optional[ModuleOverrideResolution],
-) -> Optional[str]:
-    if override is None:
-        return None
-    return (
-        f"  override_source={override.source_path} "
-        f"override_worktree={override.worktree_path}"
-    )
-
-
-def _format_rehearse(
-    result: RehearseResult,
-    override: Optional[ModuleOverrideResolution] = None,
-) -> str:
-    subject = f"YOK-{result.item_id}" if result.item_id is not None else "manifest"
-    lines = [
-        f"rehearse {subject} model={result.model_name} "
-        f"validation_db={result.validation_db_path}",
-    ]
-    extra = _format_override(override)
-    if extra is not None:
-        lines.append(extra)
-    for mod in result.modules:
-        lines.append(
-            f"  {mod.identifier}: state={mod.state}"
-            + (f" ERROR={mod.error}" if mod.error else "")
-        )
-    if result.source_fingerprint:
-        lines.append(
-            f"  source_fingerprint={result.source_fingerprint[:16]}... "
-            f"rehearsed_at={result.rehearsed_at}"
-        )
-    return "\n".join(lines)
-
-
-def _format_live_apply(
-    result: LiveApplyResult,
-    override: Optional[ModuleOverrideResolution] = None,
-) -> str:
-    subject = f"YOK-{result.item_id}" if result.item_id is not None else "manifest"
-    lines = [
-        f"live-apply {subject} model={result.model_name} "
-        f"authoritative_db={result.authoritative_db_path} "
-        f"lease_id={result.lease_id}",
-    ]
-    extra = _format_override(override)
-    if extra is not None:
-        lines.append(extra)
-    for mod in result.modules:
-        lines.append(
-            f"  {mod.identifier}: state={mod.state}"
-            + (f" ERROR={mod.error}" if mod.error else "")
-        )
-    return "\n".join(lines)
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _resolve_override_from_cli(
@@ -264,14 +211,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 module_override=override,
                 worktree_path=override_worktree,
             )
-            print(_format_rehearse(result, override=override))
+            print(format_rehearse(result, override=override))
             return 0 if result.all_succeeded else 1
         if args.command == "rehearse-manifest":
             result = rehearse_manifest(
                 Path(args.manifest),
                 worktree_path=Path(args.worktree_path),
             )
-            print(_format_rehearse(result))
+            print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
         if args.command in ("live-apply", "live-apply-manifest"):
             try:
@@ -302,7 +249,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             except LeaseHeldError as exc:
                 print(f"REFUSED: {exc}", file=sys.stderr)
                 return 3
-            print(_format_live_apply(result, override=override))
+            print(format_live_apply(result, override=override))
             return 0 if result.all_succeeded else 1
     except MigrationApplyError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

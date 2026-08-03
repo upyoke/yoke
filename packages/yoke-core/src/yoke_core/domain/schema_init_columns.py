@@ -28,40 +28,20 @@ from yoke_core.domain.schema_checks import (
     _validate_epic_task_statuses,
     _validate_item_workflow_stages,
 )
-from yoke_core.domain.schema_common import _add_column_if_not_exists, _column_exists, _table_exists
+from yoke_core.domain.schema_common import (
+    _add_column_if_not_exists,
+    _column_exists,
+    _table_exists,
+)
+from yoke_core.domain.schema_harness_session_columns import (
+    apply_harness_session_columns,  # noqa: F401
+)
 from yoke_core.domain.schema_migrations import _migrate_qa_execution_status
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
-
-
-def apply_harness_session_columns(conn: Any) -> None:
-    # Idempotent ADD COLUMN migrations for harness_sessions attribution
-    _add_column_if_not_exists(conn, "harness_sessions", "current_item_id", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "current_item_set_at", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "recent_item_id", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "recent_item_status", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "recent_item_recorded_at", "TEXT DEFAULT NULL")
-    # actor_id binds a live session to its accountable subject. Nullable
-    # at the column level so migration apply can land before backfill;
-    # session-creation paths in :mod:`sessions_offer` require non-null
-    # on new writes.
-    _add_column_if_not_exists(conn, "harness_sessions", "actor_id", "INTEGER DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "last_seen_main_sha", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "last_drift_check_at", "TEXT DEFAULT NULL")
-    # executor_display_name carries the surface-specific alias
-    # (claude-desktop / codex-vscode / etc.) when the canonical executor
-    # value loses that information. Nullable so historical rows that came
-    # in canonical-only stay clean.
-    _add_column_if_not_exists(conn, "harness_sessions", "executor_display_name", "TEXT DEFAULT NULL")
-    # session-activity state: tool-call liveness and episode boundary
-    # are first-class columns (the events ledger is telemetry-only).
-    _add_column_if_not_exists(conn, "harness_sessions", "last_tool_call_at", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "tool_call_count", "INTEGER NOT NULL DEFAULT 0")
-    _add_column_if_not_exists(conn, "harness_sessions", "episode_started_at", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "pending_resume_notice", "TEXT DEFAULT NULL")
-    # chain-checkpoint state: progress survives offer-envelope rewrites.
-    _add_column_if_not_exists(conn, "harness_sessions", "last_chain_step", "INTEGER DEFAULT NULL")
-    _add_column_if_not_exists(conn, "harness_sessions", "last_checkpoint_at", "TEXT DEFAULT NULL")
-    conn.commit()
+from yoke_core.domain.projects_github_sync_mode_schema import (
+    github_sync_mode_column_sql,
+    normalize_github_sync_modes,
+)
 
 
 def apply_additive_schema(conn: Any) -> None:
@@ -86,26 +66,45 @@ def apply_additive_schema(conn: Any) -> None:
     # newly-authenticated actor or authorization scope.
     for column in ("actor_id", "authorization_scope", "payload_checksum"):
         _add_column_if_not_exists(
-            conn, "function_call_ledger", column, "TEXT NOT NULL DEFAULT ''",
+            conn,
+            "function_call_ledger",
+            column,
+            "TEXT NOT NULL DEFAULT ''",
         )
     conn.commit()
 
     # Idempotent ADD COLUMN migrations for epic_tasks
     _add_column_if_not_exists(conn, "epic_tasks", "body", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "github_issue", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL")
-    _add_column_if_not_exists(conn, "epic_tasks", "blocked_by", "TEXT")
+    _add_column_if_not_exists(
+        conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL"
+    )
     _add_column_if_not_exists(conn, "epic_tasks", "max_attempts", "INTEGER DEFAULT 5")
     _add_column_if_not_exists(conn, "epic_tasks", "agent_id", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TEXT")
     # task-freshness state: stamped by every epic-task mutation surface.
     _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TEXT")
-    _add_column_if_not_exists(conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL"
+    )
     conn.commit()
 
-    # Per-project GitHub sync switch. Authoritative creators write
-    # 'backlog_only'; legacy NULL resolves to 'enabled' until explicit repair.
-    _add_column_if_not_exists(conn, "projects", "github_sync_mode", "TEXT DEFAULT NULL")
+    # Merge-lock scope. A merge serializes against other merges landing on the
+    # same branch of the same project; a merge into another project, or into a
+    # different target branch, contends for nothing. NULL on a legacy row means
+    # "scope unknown", which blocks conservatively.
+    _add_column_if_not_exists(conn, "merge_locks", "project_slug", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(conn, "merge_locks", "target_branch", "TEXT DEFAULT NULL")
+    conn.commit()
+
+    # Per-project GitHub sync switch defaults safely when added to a
+    # previously born universe.
+    _add_column_if_not_exists(
+        conn,
+        "projects",
+        "github_sync_mode",
+        github_sync_mode_column_sql(),
+    )
     # Project-wide governed-migration compatibility posture. Nullable keeps
     # the founder-cutover fallback for projects created before the policy was
     # explicit while preserving stored policy during universe portability.
@@ -116,7 +115,9 @@ def apply_additive_schema(conn: Any) -> None:
     # telemetry-only; acquire/release paths stamp these columns).
     _add_column_if_not_exists(conn, "work_claims", "reason", "TEXT DEFAULT NULL")
     _add_column_if_not_exists(conn, "work_claims", "reason_intent", "TEXT DEFAULT NULL")
-    _add_column_if_not_exists(conn, "work_claims", "release_reason_intent", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "work_claims", "release_reason_intent", "TEXT DEFAULT NULL"
+    )
     conn.commit()
 
     # items.source stores the stringified actors.id for the item originator.
@@ -145,11 +146,15 @@ def apply_additive_schema(conn: Any) -> None:
     conn.commit()
 
     # Add numeric project authority to ouroboros_entries.
-    _add_column_if_not_exists(conn, "ouroboros_entries", "project_id", "INTEGER DEFAULT NULL")
+    _add_column_if_not_exists(
+        conn, "ouroboros_entries", "project_id", "INTEGER DEFAULT NULL"
+    )
     conn.commit()
 
     # Add project column to release_entries
-    _add_column_if_not_exists(conn, "release_entries", "project_id", "INTEGER NOT NULL DEFAULT 1")
+    _add_column_if_not_exists(
+        conn, "release_entries", "project_id", "INTEGER NOT NULL DEFAULT 1"
+    )
     conn.commit()
 
     # owner — actor FK companion to items.source. Nullable here because
@@ -184,11 +189,15 @@ def apply_additive_schema(conn: Any) -> None:
     # default and existing rows populate at ADD time.  Annotated for Postgres
     # cutover; see :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
     _add_column_if_not_exists(
-        conn, "items", "db_mutation_profile",
-        "TEXT NOT NULL DEFAULT '{\"state\":\"none\"}'",  # → JSONB on Postgres
+        conn,
+        "items",
+        "db_mutation_profile",
+        'TEXT NOT NULL DEFAULT \'{"state":"none"}\'',  # → JSONB on Postgres
     )
     _add_column_if_not_exists(
-        conn, "items", "db_compatibility_attestation",
+        conn,
+        "items",
+        "db_compatibility_attestation",
         "TEXT NOT NULL DEFAULT '{}'",  # → JSONB on Postgres
     )
     conn.commit()
@@ -199,10 +208,16 @@ def apply_additive_schema(conn: Any) -> None:
     # pass (backfill-oversized-bodies) reads it as its candidate queue;
     # owner: yoke_core.domain.backlog_github_body_budget.
     _add_column_if_not_exists(
-        conn, "items", "github_body_compact_pending", "TEXT",
+        conn,
+        "items",
+        "github_body_compact_pending",
+        "TEXT",
     )
     _add_column_if_not_exists(
-        conn, "items", MEMBERSHIP_FINALIZED_COLUMN, "TEXT",
+        conn,
+        "items",
+        MEMBERSHIP_FINALIZED_COLUMN,
+        "TEXT",
     )
     conn.commit()
 
@@ -211,13 +226,17 @@ def apply_additive_schema(conn: Any) -> None:
     # populates existing rows at ADD time; refine / idea_readiness_check
     # escalates 'uncertain' rows.
     _add_column_if_not_exists(
-        conn, "items", "architecture_impact",
+        conn,
+        "items",
+        "architecture_impact",
         "TEXT NOT NULL DEFAULT 'none'",
     )
     conn.commit()
 
     # Add source column to item_sections
-    _add_column_if_not_exists(conn, "item_sections", "source", "TEXT NOT NULL DEFAULT 'operator'")
+    _add_column_if_not_exists(
+        conn, "item_sections", "source", "TEXT NOT NULL DEFAULT 'operator'"
+    )
     conn.commit()
 
     # strategy_docs.archived_at — nullable ISO timestamp marking an archived
@@ -239,6 +258,8 @@ def apply_legacy_data_migrations(conn: Any) -> None:
     column these statements touch.
     """
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+    normalize_github_sync_modes(conn)
 
     # items.source — normalize any legacy NULL row to the default actor.
     conn.execute(
@@ -275,6 +296,7 @@ def apply_legacy_data_migrations(conn: Any) -> None:
     from yoke_core.domain.db_compatibility_attestation import (
         NEGATIVE_DEFAULT_JSON as _DCA_NEG,
     )
+
     conn.execute(
         f"UPDATE items SET db_mutation_profile = {placeholder} "
         "WHERE db_mutation_profile IS NULL "
@@ -317,13 +339,6 @@ def apply_legacy_data_migrations(conn: Any) -> None:
 
 
 def apply_idempotent_migrations(conn: Any) -> None:
-    """Full idempotent migration pass: additive schema then legacy data-shape
-    migrations.
-
-    Retained as the birth/full-init and test-fixture entry point. The boot
-    converge path calls :func:`apply_additive_schema` alone — never this — so it
-    never runs the destructive drops or data backfills in
-    :func:`apply_legacy_data_migrations`.
-    """
+    """Run additive schema then birth-only legacy data migrations."""
     apply_additive_schema(conn)
     apply_legacy_data_migrations(conn)

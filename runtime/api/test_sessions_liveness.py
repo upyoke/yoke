@@ -11,12 +11,12 @@ This file groups two test layers:
 
 1. Unit tests for ``latest_activity`` across registration-only,
    tool-call-only, both-fresh, and both-stale cases plus a missing-
-   session case (covers AC-1 + AC-12 / no new event names).
+   session case (no new event names).
 2. A structural-grep assertion that no production source under
    ``runtime/api/domain/`` opens an SQL string reading
    ``harness_sessions.last_heartbeat`` for READ outside the helper,
    the registration / heartbeat writer, and the ``epic_tasks`` table
-   readers (FR-1(g) out-of-scope). Mirrors the refined AC-1 structured
+   readers (different table, out of scope). Mirrors the structured
    check.
 """
 
@@ -163,7 +163,7 @@ def test_latest_activity_ignores_non_tool_events(conn: Any):
 
 
 # ---------------------------------------------------------------------------
-# Structured AC-1 / FR-1(g) check: no SQL string in domain/ opens a READ
+# Structured check: no SQL string in domain/ opens a READ
 # on harness_sessions.last_heartbeat or work_claims.last_heartbeat outside
 # the canonical helper, the registration/heartbeat writer, and the
 # epic_tasks.last_heartbeat readers (different table, out of scope).
@@ -247,7 +247,7 @@ def test_no_direct_heartbeat_read_outside_canonical_helper():
 
 
 def test_no_new_event_name_introduced():
-    """AC-12: this work item does not introduce a new event name.
+    """This work item does not introduce a new event name.
 
     Liveness reuses the existing ``HarnessToolCallCompleted`` /
     ``HarnessToolCallFailed`` events; no ``SessionLiveness*`` /

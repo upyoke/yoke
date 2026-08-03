@@ -48,6 +48,9 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     has_methods = _table_exists(conn, "qa_methods") and _column_exists(
         conn, "qa_requirements", "method_id"
     )
+    has_method_proof_kind = has_methods and _column_exists(
+        conn, "qa_methods", "proof_kind"
+    )
     has_artifacts = _table_exists(conn, "qa_artifacts")
     select = [
         "q.id",
@@ -68,6 +71,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "p.slug AS plan_slug" if has_plans else "NULL AS plan_slug",
         "p.name AS plan_name" if has_plans else "NULL AS plan_name",
         "m.name AS method_name" if has_methods else "NULL AS method_name",
+        "m.proof_kind" if has_method_proof_kind else "NULL AS proof_kind",
         "r.id AS run_id",
         "r.verdict",
         "r.execution_status",
@@ -126,6 +130,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             capture_degraded_reason=row.get("capture_degraded_reason"),
             host_baseline=row.get("host_baseline"),
             precondition_reason=precondition_reason,
+            proof_kind=row.get("proof_kind"),
         )
     return rows
 

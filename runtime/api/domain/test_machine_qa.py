@@ -20,6 +20,7 @@ from yoke_core.domain.machine_qa_execution import (
     verify_test_machine as verify_machine,
 )
 from yoke_core.domain.machine_qa_method_contracts import (
+    MACHINE_METHODS,
     MachineQaExecutionError,
     validate_machine_method_config,
 )
@@ -39,15 +40,25 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.1"
+    assert version == "1.0.2"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
         "machine-state-check",
     }
+    assert MACHINE_METHODS == frozenset(row["id"] for row in methods)
+    assert {row["config_contract_id"] for row in methods} == MACHINE_METHODS
     assert {row["executor_id"] for row in methods} == {"host_control"}
     assert {row["required_capability_kind"] for row in methods} == {"test-machine"}
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
+    assert all(
+        row["display_icon"]
+        and row["display_group"]
+        and row["config_contract_id"]
+        and row["proof_kind"]
+        and row["executor_gloss"]
+        for row in methods
+    )
     assert {row["id"]: row["description"] for row in methods} == {
         "terminal-check": (
             "Scripted PTY interaction with any terminal program; "
@@ -66,13 +77,15 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     conn = make_conn()
     sync_machine_qa_pack_methods(conn)
     rows = conn.execute(
-        "SELECT id,source_kind,source_ref FROM qa_methods ORDER BY id"
+        "SELECT id,source_kind,source_ref,display_icon,proof_kind "
+        "FROM qa_methods ORDER BY id"
     ).fetchall()
     assert [(row[0], row[1], row[2]) for row in rows] == [
         ("machine-state-check", "pack", "machine-qa"),
         ("terminal-check", "pack", "machine-qa"),
         ("terminal-inspection", "pack", "machine-qa"),
     ]
+    assert all(row[3] and row[4] for row in rows)
 
 
 def test_test_machine_is_typed_and_secret_presence_only(

@@ -8,7 +8,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 
 ### Step 8 — After Tester Returns
 
-**AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Tester returned for YOK-{N}. Next: verdict processing (S6g.9)` then execute immediately.
+**AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Tester returned for PREFIX-{N}. Next: verdict processing (S6g.9)` then execute immediately.
 
 - Capture reflections (see `dispatch-context.md` step 5m; use `offset`/`limit`).
 - Commit Tester artifacts (see `dispatch-context.md` step 5n; use `offset`/`limit`).
@@ -28,7 +28,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
  ```bash
  if ! yoke claims work release \
    --epic-id "${_epic_id}" --task-num "${_task_id}" \
-   --reason "tester return YOK-${N} task ${_task_id}"; then
+   --reason "tester return PREFIX-${N} task ${_task_id}"; then
   echo "WARN: failed to release epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id})."
   echo "Inspect with 'yoke claims work holder-list --session-id-filter \"${YOKE_SESSION_ID}\" --json'."
   echo "Match target_kind=epic_task, epic_id=${_epic_id}, task_num=${_task_id}; do not substitute a parent item claim."
@@ -50,15 +50,15 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
  a. **Increment `_tester_output_failures`.**
 
  b. **Retry 1 (`_tester_output_failures` == 1): Minimal prompt, default model.**
- Log: `Tester output gate: retrying YOK-{N} with minimal prompt (no inline diff)`
+ Log: `Tester output gate: retrying PREFIX-{N} with minimal prompt (no inline diff)`
  Re-invoke Tester using the minimal prompt variant from `dispatch-context.md` step 5i-minimal. No `model: "opus"`. Run reflection capture and artifact commit, re-parse verdict.
 
  c. **Retry 2 (`_tester_output_failures` == 2): Minimal prompt + opus model.**
- Log: `Tester output gate: retrying YOK-{N} with minimal prompt + opus model`
+ Log: `Tester output gate: retrying PREFIX-{N} with minimal prompt + opus model`
  Re-invoke Tester using the minimal prompt variant from `dispatch-context.md` step 5i-minimal AND `model: "opus"`. Run reflection capture and artifact commit, re-parse verdict.
 
  d. **Exhaustion (`_tester_output_failures` > `MAX_TESTER_REPROMPTS`): Conduct direct verification.**
- Log: `Tester output gate exhausted: conduct verifying YOK-{N} directly`
+ Log: `Tester output gate exhausted: conduct verifying PREFIX-{N} directly`
  Follow the conduct skill direct verification procedure from `dispatch-context.md` step 5i-conduct-verify. Produce a synthetic PASS or FAIL verdict.
 
 ### Step 10 — Process Verdict
@@ -67,7 +67,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 - The `review_insert` call auto-advanced the task to `reviewed-implementation`. No manual status update needed.
 - Print structured summary:
  ```
- YOK-{N} task {_task_id} complete -- {task title}
+ PREFIX-{N} task {_task_id} complete -- {task title}
  Status: reviewed-implementation (attempt {_attempt}/{_max_attempts})
  Epic: {_epic_id}
  Branch: {branch}
@@ -105,7 +105,7 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
 - Update task status through the conduct pipeline wrapper: `yoke conduct epic-task update-status --epic "$_epic_id" --task-num "$_task_id" --status failed --note "Exhausted attempts"`
 - Print structured summary:
  ```
- YOK-{N} task {_task_id} failed -- {task title} (exhausted {_max_attempts} attempts)
+ PREFIX-{N} task {_task_id} failed -- {task title} (exhausted {_max_attempts} attempts)
  Status: failed
  Epic: {_epic_id}
  Branch: {branch}

@@ -14,9 +14,11 @@ import os
 import sqlite3
 from typing import Optional
 
+from yoke_contracts import control_plane_locality
+from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
+from yoke_core.domain.db_row import PostgresRow, postgres_row_factory
+
 POSTGRES = "postgres"
-PG_DSN_ENV = "YOKE_PG_DSN"
-PG_DSN_FILE_ENV = "YOKE_PG_DSN_FILE"
 POSTGRES_TEST_DB_PREFIX = "yoke_test_"
 TEST_TRACK_CONNECTIONS_ENV = "YOKE_TEST_TRACK_PG_CONNECTIONS"
 
@@ -115,74 +117,12 @@ def resolve_pg_dsn(dbname: Optional[str] = None) -> str:
     return dsn
 
 
-class PostgresRow:
-    """Psycopg row object with name and positional access.
-
-    This is a row-shape adapter, not a connection or SQL dialect facade. It lets
-    callers migrate off the sqlite-shaped connection bridge without forcing a
-    same-commit rewrite of every historical ``row[0]`` assertion/helper.
-    """
-
-    __slots__ = ("_columns", "_index", "_values")
-
-    def __init__(self, columns: tuple[str, ...], values: tuple) -> None:
-        self._columns = columns
-        self._index = {name: i for i, name in enumerate(columns)}
-        self._values = tuple(values)
-
-    def __getitem__(self, key):
-        if isinstance(key, str):
-            return self._values[self._index[key]]
-        return self._values[key]
-
-    def __iter__(self):
-        return iter(self._values)
-
-    def __len__(self) -> int:
-        return len(self._values)
-
-    def __contains__(self, key) -> bool:
-        return key in self._index
-
-    def __eq__(self, other) -> bool:
-        if isinstance(other, dict):
-            return dict(self.items()) == other
-        if isinstance(other, (list, tuple)):
-            return self._values == tuple(other)
-        return NotImplemented
-
-    def __repr__(self) -> str:
-        return repr(dict(self.items()))
-
-    def get(self, key: str, default=None):
-        idx = self._index.get(key)
-        return default if idx is None else self._values[idx]
-
-    def keys(self) -> tuple[str, ...]:
-        return self._columns
-
-    def values(self) -> tuple:
-        return self._values
-
-    def items(self):
-        return zip(self._columns, self._values)
-
-
-def _postgres_row_factory(cursor):
-    columns = tuple(desc.name for desc in (cursor.description or ()))
-
-    def make_row(values):
-        return PostgresRow(columns, values)
-
-    return make_row
-
-
 def _open_native_postgres(dsn: str, *, autocommit: bool = False):
     """Open a native psycopg authority connection with name-aware rows."""
     import psycopg
 
     return _track_test_connection(
-        psycopg.connect(dsn, autocommit=autocommit, row_factory=_postgres_row_factory)
+        psycopg.connect(dsn, autocommit=autocommit, row_factory=postgres_row_factory)
     )
 
 
@@ -286,7 +226,13 @@ def connect(path: Optional[str] = None, *, busy_timeout_ms: Optional[int] = None
     redacted :class:`connected_env_readiness.ConnectedEnvUnavailable`. The
     readiness check is at connection acquisition (cache-gated), not per
     statement, and is a noop when an explicit ``YOKE_PG_DSN`` is pinned.
+
+    Refused outright where the active control plane is reached over https:
+    that machine has no local database to open, so the call has to relay
+    instead. See :mod:`yoke_contracts.control_plane_locality`.
     """
+    control_plane_locality.refuse_direct_connection("db_backend.connect()")
+
     from yoke_core.domain import connected_env_readiness as _readiness
 
     def _open_resolved():
@@ -308,7 +254,17 @@ def connect_psycopg(dsn: Optional[str] = None, *, autocommit: bool = False):
     ``BoardDB``, which branches on ``psycopg.errors.*`` and returns positional
     tuples). Shares the same acquisition-time readiness + single-retry
     self-heal contract as :func:`connect`.
+
+    The no-*dsn* form acquires the ambient authority and carries the same
+    remote-control-plane refusal as :func:`connect`. Passing an explicit *dsn*
+    names a specific database — a migration validation surface, a maintenance
+    connection — so it is the caller's authority to open, not the ambient one.
     """
+    if dsn is None:
+        control_plane_locality.refuse_direct_connection(
+            "db_backend.connect_psycopg()"
+        )
+
     import psycopg
 
     from yoke_core.domain import connected_env_readiness as _readiness
@@ -393,6 +349,7 @@ def operational_error_types(conn=None) -> tuple:
 
 __all__ = [
     "POSTGRES",
+    "PostgresRow",
     "PG_DSN_ENV",
     "PG_DSN_FILE_ENV",
     "POSTGRES_TEST_DB_PREFIX",

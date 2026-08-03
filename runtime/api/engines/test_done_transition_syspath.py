@@ -19,14 +19,12 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 from unittest import mock
 
 from yoke_core.engines import done_transition
 
 from yoke_core.engines._done_transition_test_helpers import (
     _insert_item,
-    dt_db,
 )
 
 
@@ -51,7 +49,6 @@ def _patch_run_internals(repo_root, **overrides):
         ("_verify_cwd_after_merge", repo_root),
         ("_schema_gate", None),
         ("_check_deployment_flow_guard", None),
-        ("_cross_project_commit_guard", None),
         ("_populate_merged_at", None),
         ("_update_status_to_done", True),
         ("_finalize_done_local_side_effects", None),
@@ -84,7 +81,7 @@ class TestSysPathReanchor:
     """
 
     def test_syspath0_set_to_repo_root_after_step1(self, dt_db):
-        """AC-1 / AC-3: sys.path[0] is corrected even when startup path
+        """Sys.path[0] is corrected even when startup path
         is a non-existent directory (simulating deleted worktree)."""
         db_path, repo_root = dt_db
         _insert_item(db_path, 99, status="implemented")
@@ -103,7 +100,7 @@ class TestSysPathReanchor:
             sys.path[0] = original_syspath0
 
     def test_status_update_step_sees_reanchored_syspath0(self, dt_db):
-        """AC-5: the late status-update step runs after sys.path[0] has
+        """The late status-update step runs after sys.path[0] has
         already been re-anchored to repo_root."""
         db_path, repo_root = dt_db
         _insert_item(db_path, 100, status="implemented")
@@ -140,8 +137,6 @@ class TestPackagePathReseat:
     """
 
     def _build_parallel_trees(self, tmp_path, *, pkg_name):
-        import os
-
         launched_from = tmp_path / "launched"
         repo_root = tmp_path / "main"
         for base, marker in (
@@ -157,7 +152,7 @@ class TestPackagePathReseat:
         return launched_from, repo_root
 
     def test_reseat_repoints_loaded_package_to_repo_root(self, tmp_path):
-        """AC-6 / AC-7: a package loaded from launched_from has its
+        """A package loaded from launched_from has its
         cached __path__ reseated to point under repo_root after the
         helper runs, and the deleted launched_from no longer matters."""
         import shutil
@@ -167,7 +162,8 @@ class TestPackagePathReseat:
 
         pkg_name = "_synthpkg_reseat_a"
         launched_from, repo_root = self._build_parallel_trees(
-            tmp_path, pkg_name=pkg_name,
+            tmp_path,
+            pkg_name=pkg_name,
         )
 
         sys.path.insert(0, str(launched_from))
@@ -179,14 +175,14 @@ class TestPackagePathReseat:
             shutil.rmtree(str(launched_from))
 
             reseated = _reseat_package_paths(
-                launched_from, repo_root, package_prefix=pkg_name,
+                launched_from,
+                repo_root,
+                package_prefix=pkg_name,
             )
             assert pkg_name in reseated
 
             cached_path_after = list(sys.modules[pkg_name].__path__)
-            assert cached_path_after[0] == str(
-                (repo_root / pkg_name).resolve()
-            )
+            assert cached_path_after[0] == str((repo_root / pkg_name).resolve())
         finally:
             sys.path.remove(str(launched_from))
             for name in list(sys.modules):
@@ -194,9 +190,10 @@ class TestPackagePathReseat:
                     sys.modules.pop(name, None)
 
     def test_lazy_submodule_import_succeeds_after_worktree_delete(
-        self, tmp_path,
+        self,
+        tmp_path,
     ):
-        """AC-7: the regression scenario — package loaded from worktree,
+        """The regression scenario — package loaded from worktree,
         worktree deleted, lazy submodule import resolves from main
         checkout because __path__ was reseated. The submodule import
         consults the package's cached __path__, not sys.path, so once
@@ -209,7 +206,8 @@ class TestPackagePathReseat:
 
         pkg_name = "_synthpkg_reseat_b"
         launched_from, repo_root = self._build_parallel_trees(
-            tmp_path, pkg_name=pkg_name,
+            tmp_path,
+            pkg_name=pkg_name,
         )
 
         sys.path.insert(0, str(launched_from))
@@ -219,13 +217,13 @@ class TestPackagePathReseat:
             mod = sys.modules[pkg_name]
             # Verify the cached __path__ actually came from launched_from
             # (otherwise the test is meaningless).
-            assert any(
-                str(launched_from) in p for p in list(mod.__path__)
-            )
+            assert any(str(launched_from) in p for p in list(mod.__path__))
 
             shutil.rmtree(str(launched_from))
             _reseat_package_paths(
-                launched_from, repo_root, package_prefix=pkg_name,
+                launched_from,
+                repo_root,
+                package_prefix=pkg_name,
             )
 
             # Lazy import the submodule — this would raise ImportError
@@ -257,7 +255,9 @@ class TestPackagePathReseat:
         try:
             __import__(pkg_name)
             reseated = _reseat_package_paths(
-                tmp_path, tmp_path, package_prefix=pkg_name,
+                tmp_path,
+                tmp_path,
+                package_prefix=pkg_name,
             )
             assert reseated == []
         finally:

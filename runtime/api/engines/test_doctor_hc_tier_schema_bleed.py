@@ -13,8 +13,8 @@ from typing import Iterable, Iterator, List, Tuple
 import pytest
 
 from yoke_core.domain.schema_api_context_json_schemas import JSON_NESTED_SCHEMAS
-from yoke_core.engines import doctor_hc_tier_schema_bleed as mod
-from yoke_core.engines.doctor_hc_tier_schema_bleed import (
+from yoke_project_checks import check_tier_schema_bleed as mod
+from yoke_project_checks.check_tier_schema_bleed import (
     HC_SLUG,
     hc_tier_schema_bleed,
 )
@@ -80,7 +80,7 @@ def _detail(rec: RecordCollector) -> str:
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Positives.
+# Positives.
 # ---------------------------------------------------------------------------
 
 
@@ -179,7 +179,7 @@ def test_item_public_field_reference_is_not_raw_schema_bleed(
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Per-key parametrized reachability test for JSON_NESTED_SCHEMAS.
+# Per-key parametrized reachability test for JSON_NESTED_SCHEMAS.
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +212,7 @@ def test_json_nested_schema_key_reachable(table_col):
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Negatives — cross-reference allow-list.
+# Negatives — cross-reference allow-list.
 # ---------------------------------------------------------------------------
 
 
@@ -266,7 +266,7 @@ def test_non_schema_dotted_syntax_passes(
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Edges — archive exemption, empty file, fenced code block.
+# Edges — archive exemption, empty file, fenced code block.
 # ---------------------------------------------------------------------------
 
 
@@ -313,7 +313,7 @@ def test_fenced_sql_block_does_not_fire(tmp_path, monkeypatch, conn):
 
 
 # ---------------------------------------------------------------------------
-# AC-8 self-skip — unresolvable repo root.
+# Self-skip — unresolvable repo root.
 # ---------------------------------------------------------------------------
 
 

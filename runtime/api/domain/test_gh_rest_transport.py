@@ -233,7 +233,7 @@ def test_422_without_retryable_body_terminal(monkeypatch):
 
 
 def test_retries_on_200_with_base_branch_modified_envelope(monkeypatch):
-    """AC-7: PUT /pulls/{n}/merge returns 200 with a retryable error envelope."""
+    """PUT /pulls/{n}/merge returns 200 with a retryable error envelope."""
     calls = {"n": 0}
 
     def fake_urlopen(request, timeout):

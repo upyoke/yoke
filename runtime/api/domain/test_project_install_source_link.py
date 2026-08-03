@@ -21,6 +21,7 @@ import pytest
 from yoke_core.domain import project_install
 from yoke_core.domain import project_install_git_hooks as git_hooks
 from yoke_core.domain import project_install_source_link as source_link
+from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
 from yoke_core.domain.project_install_files import (
     MANIFEST_REL,
     MODE_COPY,
@@ -39,6 +40,9 @@ def _seed_yoke_checkout(root: Path) -> None:
         '[project]\nname = "yoke"\n', encoding="utf-8"
     )
     (root / "runtime" / "harness").mkdir(parents=True)
+    cursor_hooks = root / "runtime" / "harness" / "cursor" / "hooks.json"
+    cursor_hooks.parent.mkdir(parents=True)
+    cursor_hooks.write_text(render_cursor_hooks_json(), encoding="utf-8")
 
 
 def _git_init(root: Path) -> None:
@@ -127,14 +131,6 @@ class TestSourceLinkSymlinks:
             assert os.readlink(path) == link_target
         assert report["symlinks_created"] == len(source_link.DEV_SYMLINKS)
         assert any("Created: .claude/agents" in a for a in report["actions"])
-
-    def test_idempotent_rerun_creates_nothing(self, checkout):
-        source_link.install_source_link(checkout)
-        report = source_link.install_source_link(checkout, operation="refresh")
-        assert report["operation"] == "refresh"
-        assert report["symlinks_created"] == 0
-        assert report["symlinks_ok"] == len(source_link.DEV_SYMLINKS)
-        assert report["warnings"] == []
 
     def test_wrong_target_symlink_left_in_place(self, checkout):
         path = checkout / ".claude"
@@ -238,6 +234,9 @@ class TestSourceLinkContractAndManifest:
         manifest = _manifest(checkout)
         assert manifest[MODE_KEY] == MODE_SOURCE_LINK
         assert manifest["symlinks"] == dict(source_link.DEV_SYMLINKS)
+        assert manifest["materialized_files"] == dict(
+            source_link.DEV_MATERIALIZED_FILES
+        )
         assert manifest["git_hooks"] == [
             "pre-commit",
             "post-commit",

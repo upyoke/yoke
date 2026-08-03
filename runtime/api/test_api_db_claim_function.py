@@ -84,7 +84,7 @@ class TestDbClaimAmendRegistration(_DbClaimSuite):
 
 class TestDbClaimAmendHandler(_DbClaimSuite):
     def test_amend_writes_both_fields_atomically(self):
-        """AC-6.5: amend accepts unified payload and writes profile + attestation."""
+        """Amend accepts unified payload and writes profile + attestation."""
         unified = {
             "state": "declared",
             "model_name": "events",

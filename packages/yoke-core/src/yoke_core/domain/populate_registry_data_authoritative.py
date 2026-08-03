@@ -6,9 +6,8 @@ authoritative-metadata layers of the populator pipeline:
 
 - :data:`DEPRECATE_LIST`: events to mark ``deprecated`` because they have
   zero active call sites (and, where verified, zero historical rows).
-- :data:`RETIRE_LIST`: events to mark ``retired`` because they were
-  renamed to a newer name; historical rows remain in the events ledger
-  under the old name but no new ones are written.
+- :data:`PURGED_EVENT_NAMES`: event names removed from both the registry
+  and the ledger because no live producer remains.
 - :data:`EXPECTED_LOW_CADENCE_ACTIVE`: active events that are intentionally
   absent for more than 30 days because they represent rare failures,
   operator overrides, or recovery paths.
@@ -37,11 +36,6 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     "DeploymentRunCreated",
     "DeploymentRunItemAdded",
     "DeploymentRunItemRemoved",
-    # Browser baseline events declared in curated metadata but never wired
-    # to an emitter — no live call sites and no successor name. Mark
-    # deprecated so the stale-active doctor check stops flagging them.
-    "BaselinePromoted",
-    "BaselineRecorded",
     # /yoke charge dispatch-decision event declared in authoritative
     # metadata but never wired to an emitter; the charge skill records
     # decisions through ChargeFrontierObserved / FrontierStepSelected
@@ -55,13 +49,10 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     # an emitter; artifact tracking happens inline on the qa_runs row.
     # No successor name, no live call sites.
     "QAArtifactAttached",
-    # Discovery contamination: auto-discovery misread the literal
-    # severity string "INFO" as an event name.
-    "INFO",
 )
 
-# Events to mark ``retired`` (not ``deprecated``) — replaced by a newer name.
-RETIRE_LIST: Tuple[str, ...] = (
+# Events removed from the registry and ledger; audit references are preserved.
+PURGED_EVENT_NAMES: Tuple[str, ...] = (
     "ModeChosen",
     # AgentSessionStarted was renamed first to SessionSentFirstUserPromptSubmit,
     # then to HarnessSessionSentFirstUserPromptSubmit, because the old name
@@ -145,6 +136,14 @@ RETIRE_LIST: Tuple[str, ...] = (
     # session-end deferral path; historical rows remain in the ledger,
     # no new ones fire.
     "HarnessSessionEndDeferred",
+    "BaselinePromoted",
+    "BaselineRecorded",
+    "Gen3I6CleanRoomSmoke",
+    "HarnessSessionEndCleanupCompleted",
+    "OuroborosRecipeEventAppended",
+    "PassedToUsherHandoff",
+    "INFO",
+    "TestEvent",
 )
 
 
@@ -282,7 +281,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("QARequirementUpdated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement field updated via qa requirement-update"),
     ("QARequirementWaived", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement waived with rationale"),
     ("QARunCompleted", "lifecycle", "qa_execution", "qa-db", "INFO", "QA run completed with verdict"),
-    ("RetiredSchemaResurrectionAttempt", "system", "schema_guard", "yoke_core.domain.retired_schema_registry", "WARN", "Ambient init/bootstrap attempted to re-add a column registered in runtime/api/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module."),
+    ("RetiredSchemaResurrectionAttempt", "system", "schema_guard", "yoke_core.domain.retired_schema_registry", "WARN", "Ambient init/bootstrap attempted to re-add a column registered in yoke_core/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module."),
     ("SchedulerOfferSkipped", "audit", "scheduler_selection", "backend", "INFO", "A scheduler offer was skipped before claim acquisition. Carries session_id, item_id (or process_key), recommended_action, skip_reason (stale_lifecycle, live_claim_conflict, recoverable_substrate, process_disabled_by_config, ...), current_status, claim_holder_session_id, claim_id, claimed_at, chain_step. Drives within-chain skip/cooldown memory."),
     ("SMLChangeApproved", "lifecycle", "strategize", "strategize-skill", "STATUS", "SML change approved by operator"),
     ("SMLChangeProposed", "lifecycle", "strategize", "strategize-skill", "INFO", "SML change proposed to operator"),

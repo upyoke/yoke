@@ -89,6 +89,8 @@ def parse_args(argv: list[str]) -> MergeArgs:
             args.keep_remote = True
         elif arg == "--skip-simulation":
             args.skip_simulation = True
+        elif arg == "--standalone":
+            args.standalone = True
         else:
             positional.append(arg)
 

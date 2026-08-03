@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from . import db_backend
+from . import db_backend, project_identity
 from . import sessions_analytics as _sa  # noqa: F401 - patch-compatible event seam
 from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_release_failure import (
@@ -90,7 +90,7 @@ def _validate_completed_release_status(
         return
 
     raise ValueError(
-        f"Cannot release YOK-{item_id_int} with reason 'completed' while "
+        f"Cannot release {project_identity.render_item_ref(conn, item_id_int)} with reason 'completed' while "
         f"status is '{status}'. Advance the item to its successful handoff "
         f"status first."
     )
@@ -329,8 +329,8 @@ def _release_linked_path_claims(
     """
     try:
         rows = conn.execute(
-            f"SELECT id FROM path_claims WHERE work_claim_id = {_p(conn)} "
-            "AND released_at IS NULL AND cancelled_at IS NULL",
+            f"SELECT id FROM path_claims WHERE owner_kind = 'process' "
+            f"AND owner_work_claim_id = {_p(conn)} AND state IN ('planned', 'blocked', 'active')",
             (work_claim_id,),
         ).fetchall()
     except db_backend.operational_error_types(conn):

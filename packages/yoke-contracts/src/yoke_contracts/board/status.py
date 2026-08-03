@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.item_flags import is_blocked, is_frozen
+from yoke_contracts.lifecycle_status import LEGACY_STATUS_BUCKETS
 
 # The special "frozen" bucket — excluded from normal board display.
 FROZEN_BUCKET = "frozen"
@@ -32,28 +33,7 @@ BOARD_BUCKET_ORDER = (
 
 # Compatibility mapping for context-free clients. Authoritative item reads pass
 # the pinned definition and use ``_definition_bucket`` below.
-_CONTEXT_FREE_STAGE_BUCKETS: dict[str, str] = {
-    # Terminal / exceptional statuses
-    "done": "done",
-    "cancelled": "done",
-    "blocked": "blocked",
-    "stopped": "blocked",
-    "failed": "blocked",
-    # Current lifecycle statuses → board buckets
-    "release": "release",
-    "implemented": "implemented",
-    "implementing": "implementing",
-    "reviewing-implementation": "reviewing",
-    "reviewed-implementation": "reviewing",
-    "polishing-implementation": "reviewing",
-    "refined-idea": "refined",
-    "planned": "refined",
-    "refining-idea": "planning",
-    "planning": "planning",
-    "plan-drafted": "planning",
-    "refining-plan": "planning",
-    "idea": "idea",
-}
+_CONTEXT_FREE_STAGE_BUCKETS = dict(LEGACY_STATUS_BUCKETS)
 
 # Private compatibility exports retained for the legacy domain re-export.
 _STATUS_TO_BUCKET = _CONTEXT_FREE_STAGE_BUCKETS
@@ -64,7 +44,7 @@ def _definition_bucket(
     status: str,
     definition: Mapping[str, Any],
 ) -> str:
-    """Project a declared stage from executor segments and workflow policy."""
+    """Project a declared stage from skill segments and workflow policy."""
     stages = tuple(definition.get("stages") or ())
     stage_ids = tuple(str(stage.get("id")) for stage in stages)
     terminal_ids = {
@@ -79,7 +59,7 @@ def _definition_bucket(
     if position == 0:
         return "idea"
 
-    for binding in definition.get("executor_bindings") or ():
+    for binding in definition.get("skill_bindings") or ():
         try:
             start = stage_ids.index(str(binding["from_stage_id"]))
             stop = stage_ids.index(str(binding["through_stage_id"]))
@@ -88,18 +68,18 @@ def _definition_bucket(
         if not start <= position < stop:
             continue
 
-        executor_id = str(binding.get("executor_id") or "")
-        if executor_id in {"refine", "shepherd"}:
+        skill_id = str(binding.get("skill_id") or "")
+        if skill_id in {"refine", "shepherd"}:
             return "planning"
-        if executor_id == "polish":
+        if skill_id == "polish":
             return "reviewing"
-        if executor_id == "usher":
+        if skill_id == "usher":
             return "implemented" if position == start else "release"
 
-        # Every other registered executor owns implementation. Its entry is
+        # Every other registered skill owns implementation. Its entry is
         # ready work, its interior is active work, and its final interior stage
         # is review. Task-graph workflows keep that integration close active
-        # until their implementation executor reaches its handoff.
+        # until their implementation skill reaches its handoff.
         if position == start:
             return "refined"
         policies = definition.get("policies") or {}
@@ -120,6 +100,7 @@ def status_to_board_bucket(
     blocked_value: Any = None,
     *,
     workflow_definition: Optional[Mapping[str, Any]] = None,
+    workflow_stage_bucket: Optional[str] = None,
 ) -> str:
     """Map an item's status to its board display bucket.
 
@@ -146,11 +127,12 @@ def status_to_board_bucket(
         return FROZEN_BUCKET
     if is_blocked(blocked_value):
         return BLOCKED_BUCKET
-    bucket = (
-        _definition_bucket(status, workflow_definition)
-        if workflow_definition is not None
-        else _CONTEXT_FREE_STAGE_BUCKETS.get(status, UNKNOWN_BUCKET)
-    )
+    if workflow_stage_bucket:
+        bucket = workflow_stage_bucket
+    elif workflow_definition is not None:
+        bucket = _definition_bucket(status, workflow_definition)
+    else:
+        bucket = _CONTEXT_FREE_STAGE_BUCKETS.get(status, UNKNOWN_BUCKET)
     if bucket == "implemented" and has_active_run:
         return "release"
     return bucket

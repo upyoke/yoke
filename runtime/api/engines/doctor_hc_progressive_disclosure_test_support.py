@@ -5,8 +5,8 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_core.engines import doctor_hc_progressive_disclosure_direction as mod
-from yoke_core.engines.doctor_hc_progressive_disclosure_direction import (
+from yoke_project_checks import check_progressive_disclosure_direction as mod
+from yoke_project_checks.check_progressive_disclosure_direction import (
     hc_progressive_disclosure_direction,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

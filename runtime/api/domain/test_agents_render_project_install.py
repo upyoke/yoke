@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from yoke_core.domain.agents_render import detect_substrate_drift, write_all
 from yoke_core.domain.agents_render_claude import render_claude_settings_json
+from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
 from yoke_core.domain.agents_render_project_install import (
     detect_project_install_drift,
     write_project_install,
@@ -44,6 +46,19 @@ def test_project_install_dereferences_claude_reference_symlink(
     assert "Tester Browser Scenario Execution" in reference.read_text()
 
 
+def test_external_install_materializes_cursor_hooks_file(tmp_path: Path) -> None:
+    target = tmp_path / "external"
+    target.mkdir()
+
+    write_project_install(target_root=target)
+
+    hooks = target / ".cursor" / "hooks.json"
+    assert hooks.is_file()
+    assert not hooks.is_symlink()
+    assert hooks.read_text(encoding="utf-8") == render_cursor_hooks_json()
+    assert detect_project_install_drift(target_root=target) == []
+
+
 def test_write_all_routes_project_install_targets(tmp_path: Path) -> None:
     target = tmp_path / "project"
     (target / ".agents").mkdir(parents=True)
@@ -53,3 +68,22 @@ def test_write_all_routes_project_install_targets(tmp_path: Path) -> None:
     assert ".claude/settings.json" in results
     assert ".codex/hooks.json" in results
     assert detect_substrate_drift(target_root=target) == []
+
+
+def test_copy_install_manifest_keeps_skill_directories_as_copies(tmp_path: Path) -> None:
+    target = tmp_path / "project"
+    (target / ".agents").mkdir(parents=True)
+    manifest = target / ".yoke" / "install-manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"mode": "copy"}), encoding="utf-8")
+
+    write_project_install(target_root=target)
+
+    claude_skill = target / ".claude" / "skills" / "yoke" / "SKILL.md"
+    codex_skill = target / ".codex" / "skills" / "yoke" / "SKILL.md"
+    canonical_skill = target / ".agents" / "skills" / "yoke" / "SKILL.md"
+    assert claude_skill.is_file() and not claude_skill.is_symlink()
+    assert codex_skill.is_file() and not codex_skill.is_symlink()
+    assert claude_skill.read_text() == canonical_skill.read_text()
+    assert codex_skill.read_text() == canonical_skill.read_text()
+    assert detect_project_install_drift(target_root=target) == []

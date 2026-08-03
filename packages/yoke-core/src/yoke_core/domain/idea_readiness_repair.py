@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
 from yoke_core.domain.idea_readiness_check import (
-    SIBLING_REQUIRED_THRESHOLD, _strip_sun_prefix,
+    SIBLING_REQUIRED_THRESHOLD,
 )
 from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root
 
@@ -294,7 +294,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--item", required=True, help="YOK-N or N")
     args = parser.parse_args(argv)
     try:
-        item_id = int(_strip_sun_prefix(args.item))
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
+        item_id = parse_item_id(args.item, allow_bare_internal=True)
     except ValueError:
         print(json.dumps({"success": False, "error": f"invalid item: {args.item!r}"}))
         return 1

@@ -23,7 +23,7 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import (
 # Two retired-surface patterns are enough to exercise the scanner without
 # tying the suite to the full live registry — the regression value is the
 # terminal/non-terminal owner-status filtering, not pattern coverage. The
-# pattern set in ``doctor_hc_obsoleted_terms.OBSOLETED_TERM_PATTERNS`` is
+# pattern set in ``check_obsoleted_terms.OBSOLETED_TERM_PATTERNS`` is
 # tested separately under ``test_doctor_hc_obsoleted_terms*``.
 # Retired-surface tokens are assembled via string concatenation so the
 # scan_repo file scanner (which reads this test file's source text) does
@@ -242,7 +242,7 @@ def test_non_terminal_epic_flags_progress_note() -> None:
 
 
 def test_source_labels_identify_table_owner_field() -> None:
-    """AC-8: source labels deterministically encode table, owner id(s), and field."""
+    """Source labels deterministically encode table, owner id(s), and field."""
     conn = _build_db()
     _insert_item(
         conn,
@@ -270,7 +270,7 @@ def test_source_labels_identify_table_owner_field() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Negative paths (AC-9: read-only, robust to partial fixtures)
+# Negative paths (read-only, robust to partial fixtures)
 # ---------------------------------------------------------------------------
 
 
@@ -320,7 +320,7 @@ def test_missing_epic_tables_do_not_error() -> None:
 
 
 def test_scanner_does_not_mutate_db() -> None:
-    """AC-9: the scanner is read-only — no row count changes after a scan."""
+    """The scanner is read-only — no row count changes after a scan."""
     conn = _build_db()
     _insert_item(
         conn,

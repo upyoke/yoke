@@ -1,6 +1,6 @@
 """Activation-phase repair of coordination_only mutex residue.
 
-Sibling of :mod:`test_advance_path_claim_activation`. Pins the AC-12 / AC-14
+Sibling of :mod:`test_advance_path_claim_activation`. Pins the repair
 behavior: the repair pass that fires before the per-claim activation loop
 unblocks ``state='blocked'`` rows whose only inter-item edge is
 ``coordination_only``, while leaving rows with a real ``activation`` /
@@ -137,12 +137,13 @@ def _add_edge(conn, *, dependent: int, blocking: int, gate_point: str):
 def _seed_active_claim(conn, *, item_id, actor_id, target_id) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', 'snap-base') "
         "RETURNING id",
-        (actor_id, item_id),
+        (item_id, actor_id),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -159,11 +160,12 @@ def _seed_blocked_claim(
 ) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, blocked_reason) "
-        "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+        "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (actor_id, item_id, blocked_reason),
+        (item_id, actor_id, blocked_reason),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -178,7 +180,7 @@ def _seed_blocked_claim(
 class TestCoordinationOnlyRepair:
     """Activation-phase repair of legacy coord-only mutex residue.
 
-    Pins AC-12: ``state='blocked'`` rows whose only inter-item edge is
+    ``state='blocked'`` rows whose only inter-item edge is
     ``coordination_only`` are repaired to ``state='planned'`` before
     the activation loop, then activated through the normal happy-path.
     Real ``activation``/``integration``/``closure`` blocks survive the
@@ -246,7 +248,7 @@ class TestCoordinationOnlyRepair:
         assert state == "blocked"
 
     def test_repair_helper_handles_six_coord_only_blocked_cluster(self, conn):
-        # AC-14 shape: six downstream items each blocked behind one upstream
+        # Cluster shape: six downstream items each blocked behind one upstream
         # via coordination_only edges. Each downstream owns its own path
         # target (matching the live cluster, where each downstream touches
         # a different declared file). A single sweep repairs all six; an

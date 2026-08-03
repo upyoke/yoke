@@ -10,8 +10,11 @@ from runtime.api.domain.test_worktree_create_multiworktree import (
     seed_multiworktree_epic,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
+from yoke_contracts.api.function_call import (
+    FunctionCallResponse,
+    FunctionError,
+)
 from yoke_core.domain import direct_workflow_worktree_preflight
-from yoke_core.domain import dash_path_claim_posture
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain import worktree_create
@@ -111,6 +114,47 @@ def test_blitz_creates_and_registers_a_real_default_worker_lane(
     ]
 
 
+def test_dash_creates_and_registers_a_real_default_implementation_lane(
+    git_repo,
+    yoke_db,
+    monkeypatch,
+):
+    conn = connect_test_db(yoke_db)
+    try:
+        ensure_item_worktree_schema(conn)
+        conn.execute(
+            "INSERT INTO items "
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99224, 'Short implementation instruction', "
+            "'idea', 1, 99224)",
+        )
+        pin_test_item_workflow(conn, 99224, "dash")
+        conn.commit()
+    finally:
+        conn.close()
+    monkeypatch.setenv("YOKE_SESSION_ID", "dash-lane-owner")
+
+    result = create_worktree(
+        99224,
+        repo_root=str(git_repo),
+        config_path=_config_path(git_repo),
+        db_path=yoke_db,
+    )
+
+    assert result.error is None, result.error
+    assert len(result.worktrees) == 1
+    assert result.worktrees[0].lane_role == "implementation"
+    assert os.path.isdir(result.worktrees[0].path)
+    conn = connect_test_db(yoke_db)
+    try:
+        rows = list_item_worktrees(conn, 99224, active_only=True)
+    finally:
+        conn.close()
+    assert [(row["branch"], row["lane_role"]) for row in rows] == [
+        ("YOK-99224", "implementation")
+    ]
+
+
 def test_worktree_creation_reports_lane_persistence_failure(
     git_repo,
     yoke_db,
@@ -151,35 +195,56 @@ def test_worktree_creation_reports_lane_persistence_failure(
     assert os.path.isdir(result.path)
 
 
-def test_dash_path_claim_uses_the_live_work_claim_session(monkeypatch):
-    captured = {}
+class _DashRelay:
+    """Canned ``call_dispatcher`` for the Dash path-claim preparation.
 
-    class _Cursor:
-        def fetchone(self):
-            return {"session_id": "claim-session"}
+    Routes ``claims.work.holder_get`` and ``claims.path.survey_ensure``
+    and records the routed function ids + payloads so the test can prove
+    the preparation relays both reads/writes instead of opening a local
+    Postgres connection.
+    """
 
-    class _Connection:
-        def __enter__(self):
-            return self
+    def __init__(self, *, holder: dict | None, ensure_success: bool = True):
+        self._holder = holder
+        self._ensure_success = ensure_success
+        self.calls: list[dict] = []
 
-        def __exit__(self, *_args):
-            return None
+    def __call__(self, *, function_id, target, payload=None, **_kwargs):
+        self.calls.append(
+            {"function_id": function_id, "target": target, "payload": payload}
+        )
+        if function_id == "claims.work.holder_get":
+            return FunctionCallResponse(
+                success=True, function=function_id, version="v1",
+                result={"holder": self._holder},
+            )
+        if function_id == "claims.path.survey_ensure":
+            if self._ensure_success:
+                return FunctionCallResponse(
+                    success=True, function=function_id, version="v1",
+                    result={"claim_id": 7},
+                )
+            return FunctionCallResponse(
+                success=False, function=function_id, version="v1",
+                error=FunctionError(code="survey_ensure_failed", message="boom"),
+            )
+        raise AssertionError(f"unexpected function id {function_id!r}")
 
-        def execute(self, query, params):
-            assert "FROM work_claims" in query
-            assert params == (99230,)
-            return _Cursor()
+    @property
+    def routed_ids(self) -> list[str]:
+        return [c["function_id"] for c in self.calls]
 
+
+def _patch_dash_relay(monkeypatch, relay: _DashRelay) -> None:
     monkeypatch.setattr(
-        direct_workflow_worktree_preflight,
-        "connect",
-        lambda: _Connection(),
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        relay,
     )
-    monkeypatch.setattr(
-        dash_path_claim_posture,
-        "ensure_survey_path_claim",
-        lambda _conn, **kwargs: captured.update(kwargs),
-    )
+
+
+def test_dash_path_claim_relays_holder_get_then_survey_ensure(monkeypatch):
+    relay = _DashRelay(holder={"session_id": "claim-session"})
+    _patch_dash_relay(monkeypatch, relay)
 
     error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
         item_id=99230,
@@ -188,4 +253,41 @@ def test_dash_path_claim_uses_the_live_work_claim_session(monkeypatch):
     )
 
     assert error is None
-    assert captured["session_id"] == "claim-session"
+    assert relay.routed_ids == [
+        "claims.work.holder_get",
+        "claims.path.survey_ensure",
+    ]
+    holder_call, ensure_call = relay.calls
+    assert holder_call["target"].item_id == 99230
+    assert ensure_call["payload"]["touch_paths"] == ["src/dash.py"]
+    assert ensure_call["payload"]["integration_target"] == "main"
+
+
+def test_dash_path_claim_without_live_work_claim_refuses(monkeypatch):
+    relay = _DashRelay(holder=None)
+    _patch_dash_relay(monkeypatch, relay)
+
+    error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
+        item_id=99230,
+        touch_paths=("src/dash.py",),
+        integration_target="main",
+    )
+
+    assert error == "Dash path-claim preparation has no live item work claim"
+    # survey_ensure must not run when there is no live work-claim holder.
+    assert relay.routed_ids == ["claims.work.holder_get"]
+
+
+def test_dash_path_claim_surfaces_survey_ensure_failure(monkeypatch):
+    relay = _DashRelay(
+        holder={"session_id": "claim-session"}, ensure_success=False
+    )
+    _patch_dash_relay(monkeypatch, relay)
+
+    error = direct_workflow_worktree_preflight._prepare_dash_path_claim(
+        item_id=99230,
+        touch_paths=("src/dash.py",),
+        integration_target="main",
+    )
+
+    assert error == "boom"

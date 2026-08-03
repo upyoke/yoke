@@ -28,7 +28,8 @@ def validate_method_requirement(
     p = _p(conn)
     method = query_one(
         conn,
-        "SELECT name, executor_id, verdict_path, required_capability_kind "
+        "SELECT name, executor_id, verdict_path, required_capability_kind, "
+        "config_contract_id "
         f"FROM qa_methods WHERE id={p}",
         (str(method_id),),
     )
@@ -52,23 +53,9 @@ def validate_method_requirement(
             "method-backed cases require expected_outcome",
             jsonpath=f"{jsonpath}.expected_outcome",
         )
-    config_method = str(method_id)
-    if config_method not in {
-        "command",
-        "browser-check",
-        "browser-inspection",
-    }:
-        if method["executor_id"] == "worktree_run":
-            config_method = "command"
-        elif method["executor_id"] == "browser_substrate":
-            config_method = (
-                "browser-inspection"
-                if method["verdict_path"] == "agent"
-                else "browser-check"
-            )
     try:
         row["method_config"] = validate_method_config(
-            config_method,
+            str(method["config_contract_id"]),
             row.get("method_config"),
         )
     except QaMethodConfigError as exc:

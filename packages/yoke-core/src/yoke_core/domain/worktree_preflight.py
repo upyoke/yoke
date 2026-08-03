@@ -48,6 +48,7 @@ from yoke_core.domain.worktree_preflight_steps import (
     classify_activation_failure,
     extract_retry_attempts,
     physical_cwd_mode,
+    resolve_item_branch_and_lane,
 )
 
 
@@ -98,7 +99,13 @@ def run_preflight(
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
-    branch = f"YOK-{item_id}"
+    from yoke_core.domain.claim_recovery import canonical_item_ref
+
+    item_ref = canonical_item_ref(item_id) or str(item_id)
+    # The worktree/branch name is the item's public ref; a recorded active
+    # lane (if any) locates an existing worktree created under either the
+    # public-ref or legacy naming scheme so re-entry never mis-detects it.
+    branch, recorded_lane_path = resolve_item_branch_and_lane(item_id)
     out = WorktreePreflightOutcome(item_id=item_id, branch=branch)
 
     if repo_root is None:
@@ -107,11 +114,11 @@ def run_preflight(
         )
 
         if project:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect() as conn:
-                checkout = checkout_for_project(conn, project)
+            checkout = checkout_for_project_slug(project)
             repo_root = str(checkout) if checkout is not None else ""
         else:
             repo_root = _resolve_repo_root_from_cwd()
@@ -127,22 +134,32 @@ def run_preflight(
     # claim only to be refused later. The pre-commit worktree-status guard
     # is unchanged because blocked is a routing hold, not a filesystem hold.
     try:
-        from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
-        from yoke_core.domain.db_helpers import connect as _connect_db
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+        from yoke_core.domain.advance_blocked_gate import (
+            render_blocked_narrative,
+        )
 
-        _conn = _connect_db()
-        try:
-            decision = _eval_blocked(_conn, item_id)
-        finally:
-            _conn.close()
-        if decision.blocked:
+        detail = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+        item = (detail.result or {}).get("item") or {} if detail.success else {}
+        if item.get("public_ref"):
+            item_ref = str(item["public_ref"])
+        if item.get("blocked"):
             out.ok = False
             out.block_kind = "blocked-flag"
-            out.narrative = decision.rendered_blocker or (
-                f"YOK-{item_id} has items.blocked=1; run /yoke unblock YOK-{item_id} first."
+            out.narrative = render_blocked_narrative(
+                item_id,
+                str(item.get("blocked_reason") or "") or None,
+                item_ref=item_ref,
             )
             return out
-    except Exception:  # noqa: BLE001 - degrade if DB unavailable
+    except Exception:  # noqa: BLE001 - degrade if the blocked read is unavailable
         pass
 
     # Step 1 — work claim.
@@ -151,7 +168,7 @@ def run_preflight(
         out.ok = False
         out.block_kind = BLOCK_WORK_CLAIM
         out.narrative = (
-            f"Could not acquire work claim for YOK-{item_id}: {claim_msg}\n"
+            f"Could not acquire work claim for {item_ref}: {claim_msg}\n"
             "If another live session holds the claim, coordinate or wait. "
             "The remediation is NOT to widen a path claim — work-claim "
             "ownership and path-claim coverage are different invariants."
@@ -188,7 +205,7 @@ def run_preflight(
             )
         else:
             out.narrative = (
-                f"Path-claim activation blocked for YOK-{item_id}:\n{pc_err}\n"
+                f"Path-claim activation blocked for {item_ref}:\n{pc_err}\n"
                 "Wait for the upstream coordination to clear, or reconcile "
                 "diverged refs (`git push` / `git pull` / `git rebase`)."
             )
@@ -202,7 +219,7 @@ def run_preflight(
         out.actions_taken.append("worktree:skipped")
     else:
         worktrees_dir = os.path.join(repo_root, ".worktrees")
-        canonical_path = os.path.join(worktrees_dir, branch)
+        canonical_path = recorded_lane_path or os.path.join(worktrees_dir, branch)
         canonical_exists = os.path.isdir(canonical_path)
         will_create = not canonical_exists
         if will_create:
@@ -219,7 +236,7 @@ def run_preflight(
                     else "untracked, non-gitignored"
                 )
                 out.narrative = (
-                    f"Cannot create worktree for YOK-{item_id}: main has "
+                    f"Cannot create worktree for {item_ref}: main has "
                     f"{kind_label} files. Commit, stash, remove, or "
                     f"gitignore them and retry.\n  - {listing}"
                 )

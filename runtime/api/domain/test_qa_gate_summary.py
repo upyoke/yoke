@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Tests for qa_gate_summary — typed read-only QA summary.
 
-Covers AC-1 / AC-2 / AC-3 / AC-13 / AC-14
+Covers:
 - Target-aware unsatisfied counts.
 - Browser-method substrate evidence rule
   matches the verification gate.
@@ -43,7 +43,7 @@ from yoke_core.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
 
 
 def test_invalid_target_raises_value_error(qa_db):
-    """AC-14: only the two named targets are accepted."""
+    """Only the two named targets are accepted."""
     with pytest.raises(ValueError):
         render_gate_summary(GateTarget(item_id=42), qa_db, transition_name="done")
 
@@ -63,7 +63,7 @@ def test_no_qa_tables_present_returns_satisfied(qa_db_no_tables):
 
 
 def test_no_requirements_for_scope(qa_db):
-    """AC-1: empty scope is satisfied, with no_requirements flag set."""
+    """Empty scope is satisfied, with no_requirements flag set."""
     summary = render_gate_summary(
         GateTarget(item_id=999), qa_db, transition_name="reviewed-implementation"
     )
@@ -79,7 +79,7 @@ def test_no_requirements_for_scope(qa_db):
 
 
 def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
-    """AC-2: Browser check requires substrate-executed pass + artifacts."""
+    """Browser check requires substrate-executed pass + artifacts."""
     add_requirement(qa_db, qa_kind="plan_case", method_id="browser-check")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
@@ -93,7 +93,7 @@ def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
 
 
 def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
-    """AC-2: pass + non-agent executor + artifact satisfies the gate."""
+    """Pass + non-agent executor + artifact satisfies the gate."""
     rid = add_requirement(
         qa_db, qa_kind="plan_case", method_id="browser-inspection",
     )
@@ -116,7 +116,7 @@ def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
 
 
 def test_browser_with_agent_only_run_unsatisfied(qa_db):
-    """AC-2: agent-executed pass alone does not satisfy a Browser case."""
+    """Agent-executed pass alone does not satisfy a Browser case."""
     rid = add_requirement(
         qa_db, qa_kind="plan_case", method_id="browser-check",
     )
@@ -130,7 +130,7 @@ def test_browser_with_agent_only_run_unsatisfied(qa_db):
 
 
 def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
-    """AC-2: browser pass without an artifact does not satisfy."""
+    """Browser pass without an artifact does not satisfy."""
     rid = add_requirement(
         qa_db, qa_kind="plan_case", method_id="browser-check",
     )
@@ -146,7 +146,7 @@ def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
 
 
 def test_e2e_with_passing_run_satisfied(qa_db):
-    """AC-2: e2e satisfies on any passing run (no substrate-only rule)."""
+    """E2e satisfies on any passing run (no substrate-only rule)."""
     rid = add_requirement(qa_db, qa_kind="e2e")
     add_run(qa_db, rid, executor_type="ci", qa_kind="e2e")
     summary = render_gate_summary(
@@ -157,7 +157,7 @@ def test_e2e_with_passing_run_satisfied(qa_db):
 
 
 def test_e2e_without_passing_run_unsatisfied(qa_db):
-    """AC-2 / AC-3: unsatisfied e2e shows up in counts and per-row flag."""
+    """Unsatisfied e2e shows up in counts and per-row flag."""
     rid = add_requirement(qa_db, qa_kind="e2e")
     add_run(qa_db, rid, executor_type="ci", qa_kind="e2e", verdict="fail")
     summary = render_gate_summary(
@@ -315,7 +315,7 @@ def test_cli_text_output_includes_status_and_counts(qa_db, capsys):
 
 
 def test_cli_returns_zero_when_satisfied(qa_db, capsys):
-    """AC-13: a satisfied summary still exits 0; verdict belongs to the gate."""
+    """A satisfied summary still exits 0; verdict belongs to the gate."""
     rc = cmd_gate_summary(
         db_path=qa_db, item_id=999, epic_id=None, task_num=None,
         target="reviewed-implementation", as_json=False,

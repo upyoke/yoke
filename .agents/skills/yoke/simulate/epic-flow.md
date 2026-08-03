@@ -102,21 +102,10 @@ Select the prompt that matches the detected phase and `_use_compressed` mode.
 
 ## 5. Capture Ouroboros Reflections
 
-Search the Simulator response for text between `---REFLECTION-START---` and `---REFLECTION-END---`.
-
-For each reflection entry found, write it to the DB:
-
-```bash
-cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
- --timestamp "{timestamp}" \
- --agent "{agent}" \
- --context "{context}" \
- --category "{category}"
-{body text}
-ENTRY_EOF
-```
-
-If no reflection delimiters are found, continue silently.
+The PostToolUse Agent hook parses and persists the Simulator's delimited
+reflection envelope automatically. Do not insert those entries again here.
+Manual insertion is reserved for an explicitly documented recovery or backfill
+after confirming the hook did not capture the response.
 
 ## 6. Save The Gap Report To DB
 

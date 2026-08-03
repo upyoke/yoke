@@ -1,0 +1,105 @@
+"""Cursor identity detection across both identity module copies.
+
+The executor/provider/entrypoint detection logic exists in two deliberate
+copies — the in-tree hook helpers and the product-wheel runtime module —
+and both must classify Cursor identically.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+import runtime.harness.hook_helpers_identity as tree_identity
+import yoke_harness.hooks.identity_runtime as wheel_identity
+
+BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])
+
+
+@BOTH
+def test_is_cursor_matches_coarse_and_surfaces(identity) -> None:
+    assert identity.is_cursor("cursor")
+    assert identity.is_cursor("cursor-cli")
+    assert identity.is_cursor("cursor-desktop")
+    assert not identity.is_cursor("codex")
+    assert not identity.is_cursor("claude-code")
+    assert not identity.is_cursor(None)
+
+
+@BOTH
+def test_canonical_harness_id_maps_cursor(identity) -> None:
+    assert identity.canonical_harness_id("cursor") == "cursor"
+    assert identity.canonical_harness_id("cursor-cli") == "cursor"
+    assert identity.canonical_harness_id("codex-desktop") == "codex"
+    with pytest.raises(ValueError):
+        identity.canonical_harness_id("aider")
+
+
+@BOTH
+def test_compose_executor_from_entrypoint(identity) -> None:
+    assert identity.compose_executor_from_entrypoint("cursor", "cursor-cli") == "cursor-cli"
+    assert identity.compose_executor_from_entrypoint("cursor", "desktop") == "cursor-desktop"
+    assert identity.compose_executor_from_entrypoint("cursor", None) == "cursor"
+
+
+@BOTH
+def test_detect_executor_cursor_env(identity, monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in ("YOKE_EXECUTOR", "CODEX_THREAD_ID", "CLAUDE_CODE_ENTRYPOINT"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    assert identity.detect_executor() == "cursor-cli"
+    monkeypatch.delenv("CURSOR_INVOKED_AS")
+    monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", "/x/abc/abc.jsonl")
+    assert identity.detect_executor() == "cursor-desktop"
+    # Pin still wins over ambient Cursor markers.
+    monkeypatch.setenv("YOKE_EXECUTOR", "cursor")
+    assert identity.detect_executor() == "cursor"
+
+
+@BOTH
+def test_detect_provider_cursor_is_provider_multiplexing(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("YOKE_PROVIDER", raising=False)
+    assert identity.detect_provider("cursor-cli") == "cursor"
+    assert identity.detect_provider("codex") == "openai"
+    assert identity.detect_provider("claude-code") == "anthropic"
+
+
+@BOTH
+def test_detect_entrypoint_cursor_surfaces(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for var in ("CLAUDE_CODE_ENTRYPOINT", "CODEX_THREAD_ID"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    assert identity.detect_entrypoint() == "cursor-cli"
+    monkeypatch.delenv("CURSOR_INVOKED_AS")
+    monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", "/x/abc/abc.jsonl")
+    assert identity.detect_entrypoint() == "cursor-desktop"
+
+
+@BOTH
+def test_cursor_surface_entrypoint_defaults_to_desktop_without_transcript(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The IDE surface resolves even before the transcript path exists.
+
+    Cursor does not export ``CURSOR_TRANSCRIPT_PATH`` for a session's first
+    hook events, which is exactly when session registration runs. The
+    surface resolver must therefore key on the CLI discriminator alone and
+    treat its absence as the IDE surface.
+    """
+    monkeypatch.delenv("CURSOR_INVOKED_AS", raising=False)
+    monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
+    assert identity.cursor_surface_entrypoint() == "cursor-desktop"
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    assert identity.cursor_surface_entrypoint() == "cursor-cli"
+
+
+@BOTH
+def test_cursor_surface_entrypoint_ignores_unrecognized_invoked_as(
+    identity, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CURSOR_TRANSCRIPT_PATH", raising=False)
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "something-else")
+    assert identity.cursor_surface_entrypoint() == "cursor-desktop"

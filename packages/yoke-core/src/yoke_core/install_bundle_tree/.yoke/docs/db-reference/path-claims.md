@@ -7,7 +7,7 @@ grounding a claim-overlap question have a single landing page.
 
 ## Behaviour
 
-Deterministic rendered files (`runtime/harness/{claude,codex}/agents/yoke-*.{md,toml}`)
+Deterministic rendered agent adapters (the installed Claude and Codex agent files)
 are registered as `FAMILY_RENDER_TARGET` with their seed sources. When
 two claims overlap solely on render-target paths AND their non-render
 coverage is disjoint at the seed-source layer, the classifier consults
@@ -28,13 +28,13 @@ the renderer's seed-source registry and auto-returns
   per rendered consumer).
 
 Constants live in
-[`packages/yoke-core/src/yoke_core/domain/path_context.py`](../../packages/yoke-core/src/yoke_core/domain/path_context.py);
+`yoke_core.domain.path_context`;
 helpers and the renderer-bridge live in
-[`packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py`](../../packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py).
+`yoke_core.domain.agents_render_path_context`.
 
 ## Classifier behaviour
 
-`packages/yoke-core/src/yoke_core/domain/path_claims_overlap.py` `classify_overlap`
+`yoke_core.domain.path_claims_overlap.classify_overlap`
 applies one structural pre-check before the normal dep-graph
 classification:
 
@@ -60,7 +60,7 @@ Three outcomes:
 
 The renderer self-registers every Yoke agent packet's
 target/source relationship via
-[`record_render_relationships`](../../packages/yoke-core/src/yoke_core/domain/agents_render_path_context.py).
+`yoke_core.domain.agents_render_path_context.record_render_relationships`.
 Idempotent across re-runs (the unique key on `path_context_values`
 overwrites in place). Triggered by `python3 -m
 yoke_core.domain.agents_render render` and the `agents.render.run`
@@ -75,7 +75,7 @@ in scope for this slice.
 
 The `HC-path-integrity` doctor check now runs the
 `render_relationship` invariant from
-[`path_integrity_invariants_render_relationship`](../../packages/yoke-core/src/yoke_core/domain/path_integrity_invariants_render_relationship.py).
+`yoke_core.domain.path_integrity_invariants_render_relationship`.
 Three failure shapes surface stale registrations:
 
 - `stale_target` — `FAMILY_RENDER_TARGET` row references a deleted

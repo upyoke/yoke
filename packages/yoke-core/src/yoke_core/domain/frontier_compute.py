@@ -1,4 +1,4 @@
-"""Frontier computation orchestration and telemetry."""
+"""Frontier computation orchestration."""
 
 from __future__ import annotations
 
@@ -22,12 +22,14 @@ from .idea_body_completeness import (
     INCOMPLETE_REASON as _IDEA_INCOMPLETE_REASON,
     is_idea_body_incomplete,
 )
+from .frontier_compute_telemetry import _emit_frontier_computed
+from .item_ref_resolution import remap_ref_keys_to_internal
 from .project_identity import resolve_project_slug
 from .project_scope import normalize_project_scope
 from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
 from .workflow_definition_builders import (
-    IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+    IMPLEMENTATION_WORKFLOW_SKILL_IDS,
 )
 from .workflow_runtime import workflow_runtime_from_row
 from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
@@ -76,22 +78,40 @@ def compute_frontier(
         emit_events=emit_events,
     )
 
-    hard_blocks: Dict[str, List[Tuple[str, str]]] = {}
-    blocker_details_map: Dict[str, List[Dict[str, Any]]] = {}
-    for dep_item, details in activation_blocks.items():
-        hard_blocks[dep_item] = [
-            (d.blocking_item, d.blocking_status or "unknown") for d in details
-        ]
-        blocker_details_map[dep_item] = [d.to_dict() for d in details]
+    # Dependency edges store public text refs whose sequence may diverge
+    # from the internal id; rekey every edge-derived map by internal id
+    # so lookups share the scheduler's internal currency.
+    hard_blocks: Dict[int, List[Tuple[str, str]]] = remap_ref_keys_to_internal(
+        conn,
+        {
+            dep_item: [
+                (d.blocking_item, d.blocking_status or "unknown")
+                for d in details
+            ]
+            for dep_item, details in activation_blocks.items()
+        },
+    )
+    blocker_details_map: Dict[int, List[Dict[str, Any]]] = (
+        remap_ref_keys_to_internal(
+            conn,
+            {
+                dep_item: [d.to_dict() for d in details]
+                for dep_item, details in activation_blocks.items()
+            },
+        )
+    )
 
     cursor.execute(UNBLOCKS_COUNT_SQL)
-    unblocks_map: Dict[str, int] = {}
-    for blk_item, count in cursor.fetchall():
-        unblocks_map[blk_item] = count
+    unblocks_map: Dict[int, int] = remap_ref_keys_to_internal(
+        conn, dict(cursor.fetchall()),
+    )
 
-    depth_map = _compute_downstream_depths(conn)
+    depth_map: Dict[int, int] = remap_ref_keys_to_internal(
+        conn, _compute_downstream_depths(conn),
+    )
 
     wip_active = 0
+    wip_active_items: List[int] = []
 
     recent_owner_window_s = get_seconds(
         "session_reactivation_reacquire_window_s", 300,
@@ -116,7 +136,7 @@ def compute_frontier(
 
     for row in rows:
         item = dict(zip(col_names, row))
-        item_id_str = f"YOK-{item['id']}"
+        internal_item_id = int(item["id"])
         status = item["status"]
         workflow = workflow_runtime_from_row(item)
         adapter = classify_next_action(workflow, status)
@@ -130,15 +150,16 @@ def compute_frontier(
         stage_index = workflow.stage_index(status)
         if (
             not is_frozen(item["frozen"])
-            and workflow.executor_has_started(
+            and workflow.skill_has_started(
                 status,
-                IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+                IMPLEMENTATION_WORKFLOW_SKILL_IDS,
             )
         ):
             wip_active += 1
+            wip_active_items.append(internal_item_id)
 
         fi = FrontierItem(
-            item_id=item_id_str,
+            item_id=internal_item_id,
             title=item["title"],
             status=status,
             priority=item["priority"],
@@ -155,8 +176,8 @@ def compute_frontier(
             probe_path_claim_activation=(
                 workflow.requires_item_path_claim_probe(status)
             ),
-            unblocks_count=unblocks_map.get(item_id_str, 0),
-            downstream_depth=depth_map.get(item_id_str, 0),
+            unblocks_count=unblocks_map.get(internal_item_id, 0),
+            downstream_depth=depth_map.get(internal_item_id, 0),
             created_at=item["created_at"],
         )
 
@@ -164,7 +185,7 @@ def compute_frontier(
             frozen_items.append(fi)
             continue
 
-        blockers = hard_blocks.get(item_id_str, [])
+        blockers = hard_blocks.get(internal_item_id, [])
         flag_blocked = is_blocked(item.get("blocked"))
         if flag_blocked:
             # Render operator-set blocks verbatim so dispatch names the real reason.
@@ -184,7 +205,7 @@ def compute_frontier(
             fi.blocked_reasons.extend(
                 f"Blocked by {b[0]} (status: {b[1]})" for b in blockers
             )
-            fi.blocker_details = blocker_details_map.get(item_id_str, [])
+            fi.blocker_details = blocker_details_map.get(internal_item_id, [])
 
         idea_incomplete = (
             status == workflow.stage_ids[0]
@@ -201,9 +222,9 @@ def compute_frontier(
         if flag_blocked or status == "blocked" or blockers or idea_incomplete:
             fi.adapter = AdapterCategory.WAIT
             blocked.append(fi)
-        elif item_id_str in defended_items:
+        elif internal_item_id in defended_items:
             fi.adapter = AdapterCategory.WAIT
-            detail = defended_items[item_id_str]
+            detail = defended_items[internal_item_id]
             fi.blocked_reasons.append(_format_routed_ownership_reason(detail))
             excluded_routed_ownership.append(detail)
             blocked.append(fi)
@@ -220,6 +241,7 @@ def compute_frontier(
             conduct_eligible.append(item)
             conduct_count += 1
 
+    wip_active_items.extend(sorted(excluded_routed_ownership))
     effective_wip_active = wip_active + len(excluded_routed_ownership)
     result = FrontierResult(
         runnable=runnable,
@@ -227,6 +249,7 @@ def compute_frontier(
         frozen=frozen_items,
         wip_cap=wip_cap,
         wip_active=effective_wip_active,
+        wip_active_items=wip_active_items,
         conduct_eligible=conduct_eligible,
     )
 
@@ -280,57 +303,3 @@ def _format_routed_ownership_reason(detail: Dict[str, Any]) -> str:
 
 
 _logger = logging.getLogger(__name__)
-
-
-def _emit_frontier_computed(
-    conn: Any,
-    result: FrontierResult,
-    project_scope: List[int],
-    wip_cap: int,
-    wip_active: int,
-    t0: float,
-    *,
-    session_id: Optional[str] = None,
-    excluded_routed_ownership: Optional[List[Dict[str, Any]]] = None,
-) -> None:
-    """Emit a FrontierComputed event with core-owned frontier context."""
-    try:
-        from .events import emit_event
-
-        duration_ms = int((time.monotonic() - t0) * 1000)
-        ranking_summary = [
-            {
-                "item_id": fi.item_id,
-                "priority": fi.priority,
-                "adapter": fi.adapter.value
-                if isinstance(fi.adapter, AdapterCategory)
-                else str(fi.adapter),
-            }
-            for fi in result.runnable[:5]
-        ]
-
-        excluded_details = list(excluded_routed_ownership or [])
-        emit_event(
-            "FrontierComputed",
-            event_kind="workflow",
-            event_type="frontier_computation",
-            source_type="backend",
-            session_id=session_id or "",
-            duration_ms=duration_ms,
-            project=_canonical_project_label(conn, project_scope),
-            context={
-                "project_scope": _project_scope_labels(conn, project_scope),
-                "wip_cap": wip_cap,
-                "wip_active": wip_active,
-                "runnable_count": len(result.runnable),
-                "blocked_count": len(result.blocked),
-                "frozen_count": len(result.frozen),
-                "conduct_eligible_count": len(result.conduct_eligible),
-                "ranking_summary": ranking_summary,
-                "duration_ms": duration_ms,
-                "excluded_routed_ownership_count": len(excluded_details),
-                "excluded_routed_ownership": excluded_details,
-            },
-        )
-    except Exception as exc:
-        _logger.debug("FrontierComputed emission failed: %s", exc)

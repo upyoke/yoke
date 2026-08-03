@@ -67,8 +67,6 @@ from yoke_core.engines.doctor_hc_meta_epic_tasks import (  # noqa: F401
     hc_orphan_epic_tasks,
 )
 from yoke_core.engines.doctor_hc_meta_epic_drift import (  # noqa: F401
-    hc_api_vocabulary_drift,
-    hc_approval_contract_drift,
     hc_cancelled_blocker_dependencies,
     hc_dependency_drift,
     hc_null_project_items,
@@ -103,7 +101,6 @@ from yoke_core.engines.doctor_hc_db_project import (  # noqa: F401
     hc_project_checkout_mapping,
     hc_projects_without_flows,
     hc_schema_drift,
-    hc_schema_script_sync,
 )
 from yoke_core.engines.doctor_hc_db_events import (  # noqa: F401
     hc_event_emission_rate,
@@ -116,7 +113,6 @@ from yoke_core.engines.doctor_hc_db_events import (  # noqa: F401
 from yoke_core.engines.doctor_hc_skip_bypass import (  # noqa: F401
     hc_skip_polish_manual_hop,
 )
-from yoke_core.engines.doctor_hc_atlas import hc_atlas_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_strategy_render_staleness import hc_strategy_render_staleness  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_path_claim_rejections import hc_path_claim_register_rejected_with_deps  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_path_claim_coordination import hc_path_claim_coordination_rationale  # noqa: F401,E501
@@ -126,16 +122,12 @@ from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
-from yoke_core.engines.doctor_hc_terminal_recipe_residue import hc_terminal_recipe_residue  # noqa: F401,E501
-from yoke_core.engines.doctor_hc_substrate_project_leak import hc_substrate_project_leak  # noqa: F401,E501
 from yoke_core.engines.doctor_hc_stranded_migrations import hc_stranded_migration_module  # noqa: F401
 from yoke_core.engines.doctor_hc_stop_hook_chain import hc_stop_hook_chain_end_deferred  # noqa: F401
 from yoke_core.engines.doctor_hc_retired_schema import (  # noqa: F401
     hc_retired_schema_resurrection,
 )
 from yoke_core.engines.doctor_hc_db_catalog import (  # noqa: F401
-    hc_event_callsite_registry_sync,
-    hc_event_catalog_drift,
     hc_synthetic_event_contamination,
 )
 
@@ -144,33 +136,10 @@ from yoke_core.engines.doctor_hc_filesystem import (  # noqa: F401
     hc_size_bloat, hc_test_command_validity,
 )
 from yoke_core.engines.doctor_hc_filesystem_drift import (  # noqa: F401
-    hc_arch_consistency, hc_stray_project_files,
+    hc_stray_project_files,
 )
 from yoke_core.engines.doctor_hc_file_size import hc_file_line_limit  # noqa: F401
-from yoke_core.engines.doctor_hc_agents import (  # noqa: F401
-    hc_agent_consistency,
-    hc_agent_canonical_drift,
-    hc_browser_substrate,
-    hc_hook_executability,
-    hc_prompt_command_consistency,
-    hc_prompt_doctrine_consistency,
-    hc_self_test,
-    hc_session_startup_hook,
-    hc_stale_session_reclaimer_alive,
-    hc_stale_sessions,
-)
 
-from yoke_core.engines.doctor_hc_docs import (  # noqa: F401
-    hc_claudemd_drift,
-    hc_doc_drift,
-    hc_doc_health,
-)
-from yoke_core.engines.doctor_hc_obsoleted_terms import (  # noqa: F401
-    hc_obsoleted_terms,
-)
-from yoke_core.engines.doctor_hc_historical_yok_n import (  # noqa: F401
-    hc_historical_yok_n_cruft,
-)
 from yoke_core.engines.doctor_hc_worktrees import (  # noqa: F401
     _DELEGATED_SYNC_HCS,
     _github_auth_configured,
@@ -265,14 +234,11 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("epic-task-scope-state", "Generated task scope state", hc_epic_task_scope_state),
     # DB-only: schema / integrity
     HealthCheck("schema-drift", "Schema drift detection", hc_schema_drift),
-    HealthCheck("schema-script-sync", "Script-schema column contract", hc_schema_script_sync),
     HealthCheck("migration-audit", "Migration audit evidence", hc_migration_audit),
     # DB-only: events
     HealthCheck("event-registry-coverage", "Event registry coverage", hc_event_registry_coverage),
     HealthCheck("event-emission-rate", "Event emission rate", hc_event_emission_rate),
     HealthCheck("synthetic-event-contamination", "Synthetic event contamination", hc_synthetic_event_contamination),
-    HealthCheck("event-callsite-registry-sync", "Event call site registry sync", hc_event_callsite_registry_sync),
-    HealthCheck("event-catalog-drift", "Event catalog drift", hc_event_catalog_drift),
     # events ledger trust signals
     HealthCheck("events-synthetic-contamination", "Synthetic or test rows in canonical events ledger", hc_events_synthetic_contamination),
     HealthCheck("events-historical-coverage-collapse", "Historical delivery/status telemetry coverage", hc_events_historical_coverage_collapse),
@@ -280,7 +246,6 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("event-outcome-drift", "Historical event-outcome drift", hc_event_outcome_drift),
     HealthCheck("event-severity-drift", "Historical event-severity drift", hc_event_severity_drift),
     HealthCheck("skip-polish-manual-hop", "Manual polish-skip bookkeeping hops that should use --skip-polish", hc_skip_polish_manual_hop),
-    HealthCheck("atlas-integrity", "Atlas integrity", hc_atlas_integrity),
     HealthCheck("strategy-render-staleness", "Rendered .yoke/strategy/ views stale vs strategy_docs DB rows", hc_strategy_render_staleness),
     HealthCheck("path-claim-register-rejected-with-deps", "PathClaimRegistrationBlocked rejections where dep-graph names the upstream", hc_path_claim_register_rejected_with_deps),
     HealthCheck("path-claim-coordination-rationale", "Coordination_only attestation rationale stale or empty", hc_path_claim_coordination_rationale),
@@ -301,26 +266,10 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("orphaned-temp-files", "Orphaned temp files", hc_orphaned_temp_files),
     HealthCheck("stray-db", "Stray yoke.db at repo root", hc_stray_db),
     # Doc / quality / meta-consistency
-    HealthCheck("doc-drift", "Documentation drift", hc_doc_drift),
-    HealthCheck("doc-health", "Documentation health audit", hc_doc_health),
-    HealthCheck("obsoleted-terms", "Obsoleted terms in live files", hc_obsoleted_terms),
-    HealthCheck("historical-yok-n-cruft", "Historical YOK-N references in live prose", hc_historical_yok_n_cruft),
-    HealthCheck("terminal-recipe-residue", "Retired terminal-soup recipes in live guidance", hc_terminal_recipe_residue),
-    HealthCheck("substrate-project-leak", "Substrate project filename leak", hc_substrate_project_leak),
-    HealthCheck("agent-consistency", "Agent prompt consistency", hc_agent_consistency),
-    HealthCheck("hook-executability", "Hook script executability", hc_hook_executability),
-    HealthCheck("self-test", "Self-test", hc_self_test),
-    HealthCheck("claudemd-drift", "AGENTS.md semantic drift", hc_claudemd_drift),
     HealthCheck("config-validation", "Config file validation", hc_config_validation),
-    HealthCheck("arch-consistency", "Architectural consistency audit", hc_arch_consistency),
-    HealthCheck("agent-canonical-drift", "Claude adapter canonical drift", hc_agent_canonical_drift),
     HealthCheck("size-bloat", "Size/bloat monitor", hc_size_bloat),
     HealthCheck("file-line-limit", "Authored file 350-line limit", hc_file_line_limit),
-    HealthCheck("prompt-command-consistency", "Prompt/docs advertise supported CLI syntax", hc_prompt_command_consistency),
-    HealthCheck("prompt-doctrine-consistency", "Canonical giant doctrine + short-form consistency", hc_prompt_doctrine_consistency),
     HealthCheck("stray-project-files", "Stray project output directories", hc_stray_project_files),
-    HealthCheck("api-vocabulary-drift", "API vocabulary drift", hc_api_vocabulary_drift),
-    HealthCheck("approval-contract-drift", "Approval contract drift", hc_approval_contract_drift),
     HealthCheck("test-command-validity", "Test command validity", hc_test_command_validity),
     HealthCheck("path-integrity", "Path-integrity verifier surface (shadow-mode)", hc_path_integrity),
     # Project-specific HCs (non-yoke)

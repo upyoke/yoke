@@ -7,7 +7,7 @@ still see the lifecycle behaviour without requiring the full event
 infrastructure.
 
 These tests verify (a) the events module is importable, (b) every
-required AC-15 event name is registered in the authoritative metadata,
+required event name is registered in the authoritative metadata,
 and (c) the on-ramp surfaces emit on success and on failure.
 """
 

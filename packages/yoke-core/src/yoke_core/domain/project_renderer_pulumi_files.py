@@ -22,6 +22,7 @@ REGISTRY_PROGRAM_FILES = (
 )
 RUNNER_FLEET_PROGRAM_FILES = (
     "webapp_runner_authority_intent.py",
+    "webapp_runner_fleet_capacity.py",
     "webapp_runner_fleet_config.py",
     "webapp_runner_host_cycle.py",
     "webapp_runner_fleet_internals.py",

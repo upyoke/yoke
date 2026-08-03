@@ -47,7 +47,7 @@ def _assert_no_hits(label: str, hits: List[Tuple[Path, int, str]]) -> None:
 
 
 def test_no_items_worktree_path_in_skills_or_docs() -> None:
-    """AC-1: items.worktree_path is not a real column; absolute path is composed."""
+    """Items.worktree_path is not a real column; absolute path is composed."""
     paths = _iter_md([REPO_ROOT / ".agents/skills", REPO_ROOT / "docs"])
     _assert_no_hits(
         "items.worktree_path leaked into skill/docs prose",
@@ -56,7 +56,7 @@ def test_no_items_worktree_path_in_skills_or_docs() -> None:
 
 
 def test_no_epic_tasks_depends_on_in_conduct() -> None:
-    """AC-2 / AC-13: real column is `dependencies`, not `depends_on`."""
+    """Real column is `dependencies`, not `depends_on`."""
     paths = _iter_md([REPO_ROOT / ".agents/skills/yoke/conduct"])
     qualified = re.compile(r"epic_tasks\.depends_on|FROM epic_tasks.*depends_on")
     bare = re.compile(r"\bdepends_on\b")
@@ -67,7 +67,7 @@ def test_no_epic_tasks_depends_on_in_conduct() -> None:
 
 
 def test_no_epic_progress_notes_nonexistent_columns() -> None:
-    """AC-3: epic_progress_notes has no note_seq / .source / .headline."""
+    """Epic_progress_notes has no note_seq / .source / .headline."""
     paths = _iter_md([REPO_ROOT / ".agents/skills/yoke"])
     pattern = re.compile(
         r"epic_progress_notes\.note_seq"
@@ -78,14 +78,14 @@ def test_no_epic_progress_notes_nonexistent_columns() -> None:
 
 
 def test_no_qa_requirements_nonexistent_columns() -> None:
-    """AC-4: qa_requirements has no `required` / `satisfied_at` columns."""
+    """Qa_requirements has no `required` / `satisfied_at` columns."""
     paths = _iter_md([REPO_ROOT / ".agents/skills/yoke"])
     pattern = re.compile(r"qa_requirements\.required\b|qa_requirements\.satisfied_at")
     _assert_no_hits("qa_requirements non-existent column references", _hits(pattern, paths))
 
 
 def test_no_github_authh_targets_or_path_claim_targets_nonexistent_columns() -> None:
-    """AC-11: real columns are path_targets.path_string and path_claim_targets.{claim_id,target_id}."""
+    """Real columns are path_targets.path_string and path_claim_targets.{claim_id,target_id}."""
     paths = _iter_md(
         [
             REPO_ROOT / ".agents/skills/yoke/idea",
@@ -103,7 +103,7 @@ def test_no_github_authh_targets_or_path_claim_targets_nonexistent_columns() -> 
 
 
 def test_no_claim_state_flag_references() -> None:
-    """AC-12: `--claim-state` is not a real flag; canonical flag is `--state`."""
+    """`--claim-state` is not a real flag; canonical flag is `--state`."""
     paths = _iter_md(
         [
             REPO_ROOT / ".agents/skills/yoke",

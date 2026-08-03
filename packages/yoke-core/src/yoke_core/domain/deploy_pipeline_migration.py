@@ -20,7 +20,7 @@ destructive post-state).  That gate is also the single source of the
 (environment-level deploy — the normal prod-release case) has zero
 declared profiles and passes for the same reason; both pass shapes
 pre-emit ``DeploymentRunStageCompleted`` with an explicit stage-result
-note (the ``-3`` executor sentinel).
+note (the ``-3`` step_runner sentinel).
 
 A failing gate fails the stage (the run halts at
 ``<stage>-failed``); the only path to green is the real governed runner —
@@ -53,7 +53,7 @@ def _dispatch_migration_apply(
 ) -> Tuple[int, str]:
     """Execute a ``kind=migration_apply`` stage.
 
-    Returns ``(exit_code, diagnostic)`` per the ``_dispatch_executor``
+    Returns ``(exit_code, diagnostic)`` per the ``_dispatch_step_runner``
     contract: ``-3`` = success with the stage-completion event already
     emitted (carrying the explicit stage-result note); ``1`` = the
     governed-migration evidence gate failed for at least one member item
@@ -83,15 +83,21 @@ def _dispatch_migration_apply(
         return 1, diag
 
     if member_items:
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
         errors: List[str] = []
         for raw_item in member_items:
-            item_id = int(str(raw_item).strip().upper().removeprefix("YOK-"))
+            # Member entries are bare internal ids; a PREFIX-N string
+            # resolves via the project sequence rather than being stripped.
+            item_id = parse_item_id(
+                str(raw_item).strip(), allow_bare_internal=True
+            )
             outcome = check_implementing_to_reviewing_implementation_gate(
                 item_id
             )
             if not outcome.passed:
                 errors.extend(
-                    f"YOK-{item_id}: {err}" for err in outcome.errors
+                    f"{raw_item}: {err}" for err in outcome.errors
                 )
         if errors:
             for line in errors:

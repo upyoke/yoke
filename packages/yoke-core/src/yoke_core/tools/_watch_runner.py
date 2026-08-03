@@ -27,10 +27,16 @@ import selectors
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
+from yoke_core.domain import process_group_reaping
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
+from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+
+# Re-exported so wrappers keep importing one watcher entrypoint.
+from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
 from yoke_core.tools._watch_throttle import (
     Classification,
     LineClass,
@@ -44,6 +50,12 @@ from yoke_core.tools._watch_throttle import (
 # underlying command (e.g., binary missing). Distinct from a successful
 # launch where the command exits non-zero.
 WRAPPER_LAUNCH_ERROR = 127
+#: Shell convention for "died on signal N": callers reading the exit code see
+#: 130 for Ctrl-C and 143 for SIGTERM rather than an ambiguous generic failure.
+_EXIT_STATUS_SIGNAL_BASE = 128
+#: ``timeout(1)``'s convention for "the deadline expired". Named so callers
+#: that must recognise a timed-out run do not restate the number.
+TIMEOUT_EXIT = 124
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
@@ -134,6 +146,8 @@ def run_watcher(
     stdout_stream: Optional[TextIO] = None,
     policy: Optional[ThrottlePolicy] = None,
     time_source: Optional[Callable[[], float]] = None,
+    timeout_seconds: float | None = None,
+    liveness: Optional[SessionLivenessPump] = None,
 ) -> int:
     """Run *argv* under the shared raw + throttled-progress contract.
 
@@ -142,12 +156,18 @@ def run_watcher(
     lines are routed through :class:`ProgressGate` for percent-step or
     time-window throttling. ``NOISE`` lines are written to raw only.
 
-    ``stdout_stream`` is primarily a test seam — production callers
-    leave it unset so the wrapper writes filtered progress to its own
-    ``sys.stdout``. ``policy`` and ``time_source`` are optional test
-    seams; production callers use the config-driven defaults.
+    ``stdout_stream`` is primarily a test seam — production callers leave it
+    unset so the wrapper writes filtered progress to its own ``sys.stdout``.
+    ``policy`` and ``time_source`` are optional test seams; production callers
+    use the config-driven defaults. ``timeout_seconds`` starts when the watched
+    child starts, not while a caller waits for an external admission gate.
+
+    ``liveness`` keeps the session that started this command from going
+    stale while it waits: a long gate run is activity, and without the
+    refresh the stale-session sweep reclaims the item claim mid-run.
     """
     out: TextIO = stdout_stream or sys.stdout
+    pump = liveness if liveness is not None else SessionLivenessPump()
 
     raw_capture.parent.mkdir(parents=True, exist_ok=True)
     progress_capture.parent.mkdir(parents=True, exist_ok=True)
@@ -159,6 +179,8 @@ def run_watcher(
         if time_source is not None
         else ProgressGate(policy)
     )
+    clock = time_source or time.monotonic
+    deadline = clock() + timeout_seconds if timeout_seconds is not None else None
 
     header = (
         f"# watch_{kind} raw={raw_capture} "
@@ -174,7 +196,10 @@ def run_watcher(
         _emit_immediate(header, progress_f=progress_f, out=out)
 
         try:
-            proc = subprocess.Popen(
+            # A watched run is the one most likely to be interrupted, and its
+            # children (xdist workers) hold the databases. Own the whole group
+            # so an interruption can reap every descendant, not just pytest.
+            proc = process_group_reaping.popen_in_process_group(
                 list(argv),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -190,59 +215,92 @@ def run_watcher(
             _emit_immediate(err_line, progress_f=progress_f, out=out)
             # Armed followers (watch_tail) exit only on the sentinel, so
             # the launch-error path must still write the exit footer.
-            footer = (
-                f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
-                f"raw={raw_capture}\n"
-            )
+            footer = f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} raw={raw_capture}\n"
             _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
         last_summary: Optional[str] = None
+        timed_out = False
         quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
-        with selectors.DefaultSelector() as selector:
-            selector.register(proc.stdout, selectors.EVENT_READ)
-            while True:
-                events = selector.select(timeout=quiet_seconds)
-                if not events:
-                    if proc.poll() is not None:
-                        break
-                    heartbeat = (
-                        f"# watch_{kind} still running; "
-                        f"no child output for {quiet_seconds:g}s\n"
-                    )
-                    _emit_immediate(heartbeat, progress_f=progress_f, out=out)
-                    continue
-                line = proc.stdout.readline()
-                if line == "":
-                    if proc.poll() is not None:
-                        break
-                    continue
-                raw_f.write(line)
-                classification = classifier(line)
-                cls = classification.cls
-                if cls is LineClass.NOISE:
-                    continue
-                if cls in (
-                    LineClass.URGENT,
-                    LineClass.SUMMARY,
-                    LineClass.METADATA,
-                ):
-                    _emit_immediate(line, progress_f=progress_f, out=out)
-                    if cls is LineClass.SUMMARY:
-                        last_summary = line
-                    continue
-                # PROGRESS — route through the throttle gate.
-                decision = gate.consider(classification)
-                if decision.emit:
-                    _emit_progress(
-                        line,
-                        suppressed=decision.suppressed_count,
-                        progress_f=progress_f,
-                        out=out,
-                    )
-
-        rc = proc.wait()
+        try:
+            with process_group_reaping.interruption_reaps_process_group(proc):
+                with selectors.DefaultSelector() as selector:
+                    selector.register(proc.stdout, selectors.EVENT_READ)
+                    while True:
+                        wait_seconds = quiet_seconds
+                        if deadline is not None:
+                            wait_seconds = min(wait_seconds, max(0, deadline - clock()))
+                        events = selector.select(timeout=wait_seconds)
+                        # Whether the child is chatty or silent, the run
+                        # itself is the session's liveness evidence.
+                        pump.tick()
+                        if not events:
+                            if proc.poll() is not None:
+                                break
+                            if deadline is not None and clock() >= deadline:
+                                process_group_reaping.terminate_process_group(proc)
+                                timed_out = True
+                                timeout_line = (
+                                    f"# watch_{kind} timed out after "
+                                    f"{timeout_seconds:g} seconds; "
+                                    "child process group reaped\n"
+                                )
+                                raw_f.write(timeout_line)
+                                _emit_immediate(
+                                    timeout_line, progress_f=progress_f, out=out
+                                )
+                                break
+                            heartbeat = (
+                                f"# watch_{kind} still running; "
+                                f"no child output for {quiet_seconds:g}s\n"
+                            )
+                            _emit_immediate(heartbeat, progress_f=progress_f, out=out)
+                            continue
+                        line = proc.stdout.readline()
+                        if line == "":
+                            if proc.poll() is not None:
+                                break
+                            continue
+                        raw_f.write(line)
+                        classification = classifier(line)
+                        cls = classification.cls
+                        if cls is LineClass.NOISE:
+                            continue
+                        if cls in (
+                            LineClass.URGENT,
+                            LineClass.SUMMARY,
+                            LineClass.METADATA,
+                        ):
+                            _emit_immediate(line, progress_f=progress_f, out=out)
+                            if cls is LineClass.SUMMARY:
+                                last_summary = line
+                            continue
+                        # PROGRESS — route through the throttle gate.
+                        decision = gate.consider(classification)
+                        if decision.emit:
+                            _emit_progress(
+                                line,
+                                suppressed=decision.suppressed_count,
+                                progress_f=progress_f,
+                                out=out,
+                            )
+                rc = TIMEOUT_EXIT if timed_out else proc.wait()
+        except process_group_reaping.ProcessGroupInterrupted as interruption:
+            # The guard has already reaped the child's whole group, so the
+            # databases that group held are released before this returns. Say
+            # so on every surface: an armed follower exits on the sentinel, and
+            # a run that died silently is indistinguishable from one still going.
+            rc = _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
+            reaped = (
+                f"# watch_{kind} interrupted by signal "
+                f"{interruption.signal_number}; child process group reaped\n"
+            )
+            raw_f.write(reaped)
+            _emit_immediate(reaped, progress_f=progress_f, out=out)
+            footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
+            _emit_immediate(footer, progress_f=progress_f, out=out)
+            return rc
         # Re-emit the last SUMMARY line as an explicit terminal footer
         # before the exit sentinel. Mid-stream SUMMARY emits go through
         # `_emit_immediate` above, but agents reading the tail of the
@@ -255,9 +313,7 @@ def run_watcher(
         # location: the second-to-last line of the progress capture,
         # immediately before the `# watch_<kind> exit=<rc>` sentinel.
         if last_summary is not None:
-            summary_footer = (
-                f"# watch_{kind} summary: {last_summary.rstrip()}\n"
-            )
+            summary_footer = f"# watch_{kind} summary: {last_summary.rstrip()}\n"
             _emit_immediate(summary_footer, progress_f=progress_f, out=out)
         footer_extras = ""
         if gate.total_suppressed > 0:
@@ -265,86 +321,9 @@ def run_watcher(
                 f" suppressed_total={gate.total_suppressed}"
                 f" suppressed_pending={gate.pending_suppressed}"
             )
-        footer = (
-            f"# watch_{kind} exit={rc} raw={raw_capture}{footer_extras}\n"
-        )
+        footer = f"# watch_{kind} exit={rc} raw={raw_capture}{footer_extras}\n"
         _emit_immediate(footer, progress_f=progress_f, out=out)
         return rc
     finally:
         raw_f.close()
         progress_f.close()
-
-
-def print_streaming_pair(
-    *,
-    kind: str,
-    wrapper_module: str,
-    wrapper_args: Sequence[str],
-    raw_capture: Path,
-    progress_capture: Path,
-    wrapper_options: Sequence[str] = (),
-    out: Optional[TextIO] = None,
-) -> None:
-    """Emit a ready-to-paste background command + progress-tail pair.
-
-    The wrapper has already filtered, so the progress command uses
-    ``watch_tail`` against the progress capture. Harnesses can map the
-    first line to their background-command surface and the second line
-    to their streaming/progress surface. Both command lines anchor to
-    the invocation cwd and run through ``uv run --frozen`` so the pasted
-    command binds this checkout's locked dev dependencies and source
-    packages — ambient ``python3`` may resolve an interpreter that has
-    neither.
-    """
-    stream = out or sys.stdout
-    cmd_args = shlex.join(wrapper_args)
-    option_args = shlex.join(wrapper_options)
-    option_prefix = f"{option_args} " if option_args else ""
-    # Helper-resolved capture paths normally land under the temp scratch
-    # root and contain no spaces, but ``YOKE_SCRATCH_ROOT`` and operator-
-    # supplied paths can. ``shlex.quote`` keeps the printed shell shape
-    # safe to copy-paste even when a segment contains whitespace.
-    raw_q = shlex.quote(str(raw_capture))
-    progress_q = shlex.quote(str(progress_capture))
-    # Anchor both emitted commands so execution cannot drift checkouts,
-    # and let ``uv run --frozen`` resolve the anchored checkout's locked
-    # environment (creating its venv if missing).
-    cwd_q = shlex.quote(os.getcwd())
-    locked_invocation = f"cd {cwd_q} && uv run --frozen python3 -m"
-    bash_invocation = (
-        f"{locked_invocation} {wrapper_module} {option_prefix}"
-        f"--raw-capture {raw_q} "
-        f"--progress-capture {progress_q} "
-        f"-- {cmd_args}"
-    )
-    stream.write(f"# watch_{kind}: ready-to-paste streaming pair\n")
-    stream.write("\n")
-    stream.write(
-        "# Background command — wrapper writes raw + progress captures\n"
-    )
-    stream.write(f"{bash_invocation}\n")
-    stream.write("\n")
-    stream.write(
-        "# Progress tail — arm Monitor ONCE against this capture file.\n"
-    )
-    stream.write(
-        "# Monitor is a subscription: matched lines arrive as wake events\n"
-    )
-    stream.write(
-        "# for the lifetime of the bg command. Do NOT re-arm to 'continue\n"
-    )
-    stream.write(
-        "# tail' — that is the wake-loop bug and is denied at PreToolUse.\n"
-    )
-    stream.write(
-        "# Auto-exits when the wrapper writes its exit sentinel.\n"
-    )
-    stream.write(
-        f"{locked_invocation} yoke_core.tools.watch_tail {progress_q}\n"
-    )
-    stream.write("\n")
-    stream.write(
-        "# After completion, inspect the raw capture once for full output\n"
-    )
-    stream.write(f"tail -80 {raw_q}\n")
-    stream.flush()

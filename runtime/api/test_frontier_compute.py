@@ -1,4 +1,4 @@
-"""AC-2, AC-5, AC-7, AC-9: ``compute_frontier`` end-to-end + edge cases.
+"""``compute_frontier`` end-to-end + edge cases.
 
 Covers TestComputeFrontier (basic partition, hard/integration gates,
 project scoping, frozen exclusion) and TestEdgeCases (empty backlog,
@@ -31,10 +31,10 @@ from runtime.api.frontier_test_helpers import (
 
 
 class TestComputeFrontier:
-    """AC-2, AC-5, AC-7, AC-9: compute_frontier with SQL-based resolution."""
+    """Compute_frontier with SQL-based resolution."""
 
     def test_basic_partition(self):
-        """AC-2: Returns FrontierResult with runnable/blocked partitions."""
+        """Returns FrontierResult with runnable/blocked partitions."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="idea")
@@ -46,7 +46,7 @@ class TestComputeFrontier:
         assert len(result.blocked) == 0
 
     def test_hard_block_creates_blocked_partition(self):
-        """AC-5: Hard-block deps resolved via SQL join."""
+        """Hard-block deps resolved via SQL join."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
@@ -56,9 +56,9 @@ class TestComputeFrontier:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         assert len(result.blocked) == 1
-        assert result.blocked[0].item_id == "YOK-10"
+        assert result.blocked[0].item_id == 10
         assert len(result.runnable) == 1
-        assert result.runnable[0].item_id == "YOK-20"
+        assert result.runnable[0].item_id == 20
 
     def test_integration_gate_does_not_block_activation(self):
         """Integration-gate deps do NOT block the activation frontier."""
@@ -83,11 +83,11 @@ class TestComputeFrontier:
         result = compute_frontier(conn, project_scope=["yoke"])
         # is done so not in frontier; the dependent item is unblocked
         assert len(result.runnable) == 1
-        assert result.runnable[0].item_id == "YOK-10"
+        assert result.runnable[0].item_id == 10
         assert len(result.blocked) == 0
 
     def test_blocked_reasons_human_readable(self):
-        """AC-7: Blocked items include human-readable reasons."""
+        """Blocked items include human-readable reasons."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
@@ -101,7 +101,7 @@ class TestComputeFrontier:
         assert "implementing" in blocked.blocked_reasons[0]
 
     def test_frozen_items_excluded(self):
-        """AC-9: Frozen items excluded from runnable frontier."""
+        """Frozen items excluded from runnable frontier."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", frozen=0, workflow="epic")
         _insert_item(conn, 20, status="planned", frozen=1, workflow="epic")
@@ -109,9 +109,9 @@ class TestComputeFrontier:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         assert len(result.runnable) == 1
-        assert result.runnable[0].item_id == "YOK-10"
+        assert result.runnable[0].item_id == 10
         assert len(result.frozen) == 1
-        assert result.frozen[0].item_id == "YOK-20"
+        assert result.frozen[0].item_id == 20
 
     def test_done_and_stopped_items_excluded_but_implemented_is_runnable(self):
         """Done/stopped are excluded, while implemented stays on the usher frontier."""
@@ -124,8 +124,8 @@ class TestComputeFrontier:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         runnable_ids = {item.item_id for item in result.runnable}
-        assert runnable_ids == {"YOK-10", "YOK-40"}
-        implemented = [item for item in result.runnable if item.item_id == "YOK-40"][0]
+        assert runnable_ids == {10, 40}
+        implemented = [item for item in result.runnable if item.item_id == 40][0]
         assert implemented.adapter == AdapterCategory.USHER
 
     def test_project_scoping(self):
@@ -137,7 +137,7 @@ class TestComputeFrontier:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         assert len(result.runnable) == 1
-        assert result.runnable[0].item_id == "YOK-10"
+        assert result.runnable[0].item_id == 10
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@ class TestEdgeCases:
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])
-        blocked = [i for i in result.blocked if i.item_id == "YOK-10"]
+        blocked = [i for i in result.blocked if i.item_id == 10]
         assert len(blocked) == 1
         assert len(blocked[0].blocked_by) == 2
         assert len(blocked[0].blocked_reasons) == 2
@@ -194,7 +194,7 @@ class TestEdgeCases:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         assert len(result.runnable) == 1
-        assert result.runnable[0].item_id == "YOK-20"
+        assert result.runnable[0].item_id == 20
 
     def test_blocked_status_items_go_to_blocked_bucket(self):
         """Explicitly blocked items should never be offered as runnable work."""
@@ -205,7 +205,7 @@ class TestEdgeCases:
         result = compute_frontier(conn, project_scope=["yoke"])
         assert result.runnable == []
         assert len(result.blocked) == 1
-        assert result.blocked[0].item_id == "YOK-10"
+        assert result.blocked[0].item_id == 10
         assert result.blocked[0].adapter == AdapterCategory.WAIT
         assert result.blocked[0].blocked_by == []
         assert "blocked status" in result.blocked[0].blocked_reasons[0]

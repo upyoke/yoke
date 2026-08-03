@@ -1,6 +1,6 @@
-"""Resync engine behavior for backlog-only projects.
+"""Resync engine behavior for disabled projects.
 
-``projects.github_sync_mode='backlog_only'`` removes a project from the
+``projects.github_sync_mode='disabled'`` removes a project from the
 sync universe: no GitHub fetch, no orphan classification, no repair —
 and the engine names the exclusion in mode language instead of surfacing
 an auth error. The skip is not a failure: exit codes reflect the enabled
@@ -18,7 +18,7 @@ from __future__ import annotations
 from unittest import mock
 
 import yoke_core.engines.resync as resync_mod
-from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_BACKLOG_ONLY
+from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
 from yoke_core.engines.resync_detect_fetch import (
     SYNC_DISABLED_KEY,
     _fetch_gh_issues_per_project,
@@ -73,9 +73,7 @@ class TestFetchSkipsExcludedYoke:
         """No yoke auth resolution when the caller excluded yoke."""
 
         def _explode(project, *args, **kwargs):
-            raise AssertionError(
-                f"resolver called for excluded project {project!r}"
-            )
+            raise AssertionError(f"resolver called for excluded project {project!r}")
 
         with mock.patch(
             "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
@@ -86,23 +84,27 @@ class TestFetchSkipsExcludedYoke:
         assert result == {}
 
     def test_sentinel_predicate_matches_only_sentinel(self):
-        assert _project_sync_disabled({SYNC_DISABLED_KEY: "backlog_only"})
+        assert _project_sync_disabled({SYNC_DISABLED_KEY: "disabled"})
         assert not _project_sync_disabled({})
         assert not _project_sync_disabled({100: {"number": 100}})
-        assert not _project_sync_disabled({
-            "_github_unavailable": "true",
-            "_unavailable_code": "missing_repo_binding",
-        })
+        assert not _project_sync_disabled(
+            {
+                "_github_unavailable": "true",
+                "_unavailable_code": "missing_repo_binding",
+            }
+        )
 
 
 class TestStage1LinkageBacklogOnly:
-    def test_backlog_only_project_items_never_become_orphans(
-        self, populated_db, tmp_path,
+    def test_disabled_project_items_never_become_orphans(
+        self,
+        populated_db,
+        tmp_path,
     ):
-        """The disaster case: unlinked items in a backlog-only project
+        """The disaster case: unlinked items in a disabled project
         must NOT classify as local orphans (a --fix run would create
         them as GitHub issues)."""
-        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_BACKLOG_ONLY)
+        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_DISABLED)
         _insert_unlinked_item(populated_db, 4777)
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
@@ -129,17 +131,23 @@ class TestStage1LinkageBacklogOnly:
         assert gh_orphans == []
         # The per-project value carries the sync-disabled sentinel.
         assert gh_by_project["yoke"] == {
-            SYNC_DISABLED_KEY: GITHUB_SYNC_BACKLOG_ONLY,
+            SYNC_DISABLED_KEY: GITHUB_SYNC_DISABLED,
         }
 
     def test_enabled_projects_still_classify(self, populated_db, tmp_path):
-        """Sync mode defaults to enabled — behavior unchanged."""
+        """An explicitly enabled project remains eligible for classification."""
+        _set_sync_mode(populated_db, "yoke", "enabled")
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
         gh_map = {
             "yoke": {
-                100: {"number": 100, "title": f"[{TEST_ITEM_REF}] Test item",
-                      "labels": [], "state": "OPEN", "body": ""},
+                100: {
+                    "number": 100,
+                    "title": f"[{TEST_ITEM_REF}] Test item",
+                    "labels": [],
+                    "state": "OPEN",
+                    "body": "",
+                },
             }
         }
 
@@ -148,32 +156,34 @@ class TestStage1LinkageBacklogOnly:
             return_value=gh_map,
         ):
             paired, local_orphans, _, _ = resync_mod.stage1_linkage(
-                populated_db, str(yoke_root),
+                populated_db,
+                str(yoke_root),
             )
 
-        assert {item.id for item in paired} == {TEST_ITEM_REF}
-        assert any(oid == TEST_DONE_ITEM_REF for oid, *_ in local_orphans)
+        assert {item.ref for item in paired} == {TEST_ITEM_REF}
+        assert {item.item_id for item in paired} == {TEST_ITEM_ID}
+        assert any(orphan.ref == TEST_DONE_ITEM_REF for orphan in local_orphans)
 
 
 class TestEngineMainBacklogOnly:
     def test_detect_names_the_mode_and_exits_zero(
-        self, populated_db, tmp_path, capsys,
+        self,
+        populated_db,
+        tmp_path,
+        capsys,
     ):
-        """`yoke resync` on a backlog-only universe: clear mode-language
+        """`yoke resync` on a disabled universe: clear mode-language
         message, zero drift, exit 0 — never an auth error."""
-        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_BACKLOG_ONLY)
+        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_DISABLED)
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
 
         def _explode(project, *args, **kwargs):
-            raise AssertionError(
-                f"resolver called for excluded project {project!r}"
-            )
+            raise AssertionError(f"resolver called for excluded project {project!r}")
 
         with (
             mock.patch(
-                "yoke_core.engines.resync_detect_fetch."
-                "resolve_project_github_auth",
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
                 side_effect=_explode,
             ),
             mock.patch(
@@ -186,30 +196,28 @@ class TestEngineMainBacklogOnly:
         out = capsys.readouterr().out
         assert rc == 0, out
         assert "GitHub Sync Disabled (per-project)" in out
-        assert (
-            "project 'yoke' github_sync_mode=backlog_only" in out
-        )
+        assert "project 'yoke' github_sync_mode=disabled" in out
         assert "Local orphans: 0" in out
         assert "GitHub Reads Unavailable" not in out
 
-    def test_fix_repairs_nothing_for_backlog_only_project(
-        self, populated_db, tmp_path, capsys,
+    def test_fix_repairs_nothing_for_disabled_project(
+        self,
+        populated_db,
+        tmp_path,
+        capsys,
     ):
-        """--fix must not create GitHub issues for a backlog-only project."""
-        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_BACKLOG_ONLY)
+        """--fix must not create GitHub issues for a disabled project."""
+        _set_sync_mode(populated_db, "yoke", GITHUB_SYNC_DISABLED)
         _insert_unlinked_item(populated_db, 4778)
         yoke_root = tmp_path / "state"
         (yoke_root / "backlog").mkdir(parents=True)
 
         def _no_repair(*args, **kwargs):
-            raise AssertionError(
-                "repair invoked for a backlog-only project's item"
-            )
+            raise AssertionError("repair invoked for a disabled project's item")
 
         with (
             mock.patch(
-                "yoke_core.engines.resync_detect_fetch."
-                "resolve_project_github_auth",
+                "yoke_core.engines.resync_detect_fetch.resolve_project_github_auth",
                 side_effect=AssertionError("resolver called"),
             ),
             mock.patch(

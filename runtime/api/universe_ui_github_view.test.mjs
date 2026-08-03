@@ -166,7 +166,7 @@ test("an unbound project explains what a binding is, with no dead controls", asy
     project: "yoke",
     github_repo: "example-org/orphaned-repo",
     default_branch: "",
-    github_sync_mode: "backlog_only",
+    github_sync_mode: "disabled",
     bound: false,
     binding: null,
     installation: null,

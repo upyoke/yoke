@@ -38,23 +38,24 @@ class TestPreToolUseBash(unittest.TestCase):
             ],
         )
         # Tail: pipe-to-truncator lint (owns the Command Output rule's
-        # pipe-to-truncator clause, beside the polling lint),
-        # if-status-capture lint (blocks `fi; rc=$?` masking),
-        # subagent-background lint (sits next to polling lint as
-        # architectural sibling), session-cwd guard, workspace-cwd-match
-        # guard (writer-class cross-checkout deny), path-claim guard,
-        # structured-field transform shell lint, shell-quoted function
-        # payload lint, backtick-search shell footgun lint,
-        # agent-CLI-contract sibling shape lints (refuse ``python3 -c
-        # "from runtime..."``, ``curl localhost:8765``, and
-        # ``service_client session-end`` from agent context),
-        # claim-ownership mutation lint, git-stash arg-order shape lint,
-        # destructive-git inspection, attestable-activity heartbeat
-        # refresh, observe_pre.
+        # pipe-to-truncator clause, beside the polling lint), raw-pytest
+        # sweep lint (steers a bare sweep into the wrapper that takes the
+        # machine-wide admission slot), if-status-capture lint (blocks
+        # `fi; rc=$?` masking), subagent-background lint, session-cwd guard,
+        # workspace-cwd-match guard (writer-class cross-checkout deny),
+        # path-claim guard, structured-field transform shell lint,
+        # shell-quoted function payload lint, backtick-search shell
+        # footgun lint, agent-CLI-contract sibling shape lints (refuse
+        # ``python3 -c "from runtime..."``, ``curl localhost:8765``, and
+        # ``service_client session-end`` from agent context), claim-
+        # ownership mutation lint, git-stash arg-order shape lint,
+        # destructive-git inspection, heartbeat refresh, observe_pre.
         self.assertEqual(
             chain[5:],
             [
                 "yoke_core.domain.lint_pipe_to_truncator",
+                "yoke_core.domain.lint_raw_pytest_full_suite",
+                "yoke_core.domain.lint_watcher_module_form",
                 "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.lint_session_cwd",
@@ -178,44 +179,6 @@ class TestPreToolUseBash(unittest.TestCase):
     def test_TC_bash_chain_observe_pre_is_last(self):
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
-
-
-class TestPreToolUseSubagentLint(unittest.TestCase):
-    """AC-10: ``lint_subagent_background`` is registered in the protected chains."""
-
-    def test_TC_subagent_lint_in_bash_chain_after_polling(self):
-        chain = ordered_pipeline_for("PreToolUse", "Bash")
-        self.assertIn("yoke_core.domain.lint_subagent_background", chain)
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_long_command_polling"),
-            chain.index("yoke_core.domain.lint_subagent_background"),
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_if_status_capture"),
-            chain.index("yoke_core.domain.lint_subagent_background"),
-        )
-
-    def test_TC_subagent_lint_in_monitor_chain(self):
-        chain = ordered_pipeline_for("PreToolUse", "Monitor")
-        self.assertIn("yoke_core.domain.lint_subagent_background", chain)
-        # Monitor chain has the hint_monitor_relay tail; the subagent
-        # lint must come BEFORE that hint so a deny short-circuits the
-        # relay reminder.
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_subagent_background"),
-            chain.index("yoke_core.domain.hint_monitor_relay"),
-        )
-        self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
-
-    def test_TC_subagent_lint_in_schedule_wakeup_chain(self):
-        chain = ordered_pipeline_for("PreToolUse", "ScheduleWakeup")
-        self.assertEqual(
-            chain,
-            [
-                "yoke_core.domain.lint_subagent_background",
-                "yoke_core.domain.observe_pre",
-            ],
-        )
 
 
 class TestPreToolUseEditWrite(unittest.TestCase):

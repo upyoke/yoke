@@ -23,6 +23,11 @@ Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the
 caller passes ``--no-parallel`` or supplies its own ``-n``/
 ``--numprocesses`` after ``--``.
 
+The runner refuses to execute outside the calling session's claim-bound
+worktree (see :mod:`yoke_core.domain.verification_tree_binding`), because
+a run rooted in the wrong tree reports a green for code nobody changed.
+Pass ``--allow-tree-mismatch`` for a deliberate cross-tree run.
+
 Return codes match pytest (0 = all pass, nonzero = failures/errors).
 """
 
@@ -30,11 +35,13 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import List, Sequence, TextIO
 
+from yoke_core.domain import process_group_reaping
+from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -43,6 +50,18 @@ from yoke_core.tools import _source_pythonpath
 
 
 DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
+
+#: Surface name carried by this runner's tree-binding refusal.
+_TREE_BINDING_SURFACE = "run_tests"
+
+#: Shell convention for "died on signal N" (130 = Ctrl-C, 143 = SIGTERM).
+_EXIT_STATUS_SIGNAL_BASE = 128
+
+#: Exit code for a run refused before pytest started, matching the
+#: watcher wrapper so callers branch on one value for either entry point.
+_EXIT_STATUS_TREE_BINDING_REFUSED = (
+    _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
+)
 
 
 def _repo_root(start: Path | None = None) -> Path:
@@ -145,13 +164,27 @@ def run(
     no_parallel: bool = False,
     extra: Sequence[str] = (),
     repo_root: Path | None = None,
+    allow_tree_mismatch: bool = False,
 ) -> int:
     """Invoke pytest with the computed argv.
 
-    Returns the pytest exit code. The runner never raises on test failure;
-    callers should check the return code.
+    Returns the pytest exit code, or
+    ``_EXIT_STATUS_TREE_BINDING_REFUSED`` when the resolved root is
+    outside the calling session's claimed worktree. The runner never
+    raises on test failure; callers should check the return code.
     """
     root = (repo_root or _repo_root()).resolve()
+
+    binding = verification_tree_binding.evaluate_run(
+        surface=_TREE_BINDING_SURFACE,
+        tree=str(root),
+        allow_mismatch=allow_tree_mismatch,
+    )
+    if binding.notice is not None:
+        print(binding.notice, file=sys.stderr)
+    if binding.refusal is not None:
+        print(binding.refusal, file=sys.stderr)
+        return _EXIT_STATUS_TREE_BINDING_REFUSED
 
     if _is_yoke_backend_verification(root, paths or ()):
         if not _prepare_yoke_backend_env(root):
@@ -176,14 +209,37 @@ def run(
     # editable install still points at the main tree.
     env = _source_pythonpath.with_source_pythonpath(env, root)
     env = apply_postgres_xdist_auto_env(argv, env)
+    # Already judged above; the child's startup check inherits that answer.
+    env = _tree_binding_startup.with_binding_evaluated(env)
     if (root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
         refusal = _source_pythonpath.import_origin_refusal(root, env=env)
         if refusal is not None:
             print(f"Error: {refusal}", file=sys.stderr)
             return 1
 
-    completed = subprocess.run(cmd, cwd=str(root), env=env)
-    return completed.returncode
+    import contextlib
+
+    from yoke_core.tools import gate_admission
+
+    # Collection-only runs are cheap on every axis and never take a slot.
+    admission = (
+        contextlib.nullcontext()
+        if list_only
+        else gate_admission.admitted_gate(list(paths or ()))
+    )
+    with admission:
+        # Own the process group so an interrupted run takes its xdist workers
+        # down with it. Workers that outlive the runner keep their test
+        # databases open, and the next run then blocks on databases nobody is
+        # using.
+        proc = process_group_reaping.popen_in_process_group(
+            cmd, cwd=str(root), env=gate_admission.admitted_environment(env)
+        )
+        try:
+            with process_group_reaping.interruption_reaps_process_group(proc):
+                return proc.wait()
+        except process_group_reaping.ProcessGroupInterrupted as interruption:
+            return _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -233,6 +289,16 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        dest="allow_tree_mismatch",
+        action="store_true",
+        help=(
+            "Run even when the resolved repo root is outside the session's "
+            "claimed worktree. For a deliberate cross-tree run; the runner "
+            "names both trees so the result is attributable."
+        ),
+    )
+    parser.add_argument(
         "--",
         dest="passthrough_separator",
         nargs=argparse.REMAINDER,
@@ -262,6 +328,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         list_only=ns.list_only,
         no_parallel=ns.no_parallel,
         extra=passthrough,
+        allow_tree_mismatch=ns.allow_tree_mismatch,
     )
 
 

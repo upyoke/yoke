@@ -5,6 +5,11 @@ from __future__ import annotations
 from yoke_core.domain.handlers import (
     project_github_binding as _project_github_binding,
 )
+from yoke_core.domain.handlers import (
+    project_github_state_ops as _project_github_state,
+)
+
+_STATE_MODULE = "yoke_core.domain.handlers.project_github_state_ops"
 
 
 def register(registry) -> None:
@@ -79,6 +84,36 @@ def register(registry) -> None:
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
+    )
+    registry.register(
+        "projects.github_state.read",
+        _project_github_state.handle_github_state_read,
+        _project_github_state.GithubStateReadRequest,
+        _project_github_state.GithubStateReadResponse,
+        stability="stable",
+        owner_module=_STATE_MODULE,
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "projects.github_sync_receipt.record",
+        _project_github_state.handle_github_sync_receipt,
+        _project_github_state.GithubSyncReceiptRequest,
+        _project_github_state.GithubSyncReceiptResponse,
+        stability="stable",
+        owner_module=_STATE_MODULE,
+        target_kinds=["global"],
+        side_effects=["project_github_repo_bindings_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
     )
 
 

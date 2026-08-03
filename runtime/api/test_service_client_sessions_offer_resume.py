@@ -24,7 +24,7 @@ class TestSessionOfferResume:
     """CLI session-offer resume and stale-claim recovery flows."""
 
     def test_session_offer_recovers_stale_claimed_work(self, session_offer_db):
-        """AC-3/AC-7: CLI session-offer recovers stale-claimed work."""
+        """CLI session-offer recovers stale-claimed work."""
         conn = connect_test_db(session_offer_db["db_path"])
         stale_iso = "2000-01-01T00:00:00Z"
         conn.execute(
@@ -77,7 +77,7 @@ class TestSessionOfferResume:
         assert new_claim["item_id"] == 10
 
     def test_session_offer_resume_with_epic_task_claim(self, session_offer_db):
-        """AC-9: historical epic task claim rows still surface in resume context."""
+        """Historical epic task claim rows still surface in resume context."""
         conn = connect_test_db(session_offer_db["db_path"])
         fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         conn.execute(
@@ -212,7 +212,7 @@ class TestSessionOfferResume:
         assert data["context"]["required_path"] == "polish"
 
     def test_session_offer_resume_progress_does_not_escalate(self, session_offer_db):
-        """AC-12 end-to-end: prior checkpoint carrying pre_status != status proves
+        """End-to-end: prior checkpoint carrying pre_status != status proves
         the handler advanced the item, so the offer returns resume rather than
         the legacy escalate.
 
@@ -228,7 +228,7 @@ class TestSessionOfferResume:
 
         The HTTP route bridge is structurally identical
         (``checkpoint.get('pre_status')``) and is verified in the diff;
-        AC-12's "both paths must agree" property holds because both bridges
+        the "both paths must agree" property holds because both bridges
         drive the same detector through the same dict shape.
         """
         checkpoint = {

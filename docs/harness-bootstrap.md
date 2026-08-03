@@ -80,6 +80,7 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke charge` | Pick up next runnable item from frontier | Safe: confirms with operator before dispatch |
 | `/yoke feed` | Refresh stale frontier items, reconcile frontier facts, and materialize strategy-backed work | Safe: updates structured item fields, creates idea records, refreshes dependency graph |
 | `/yoke strategize` | Guided Strategic Markdown Layer review | Safe: multi-checkpoint interactive loop with operator approval at each stage |
+| `/yoke simulate YOK-N` or `/yoke simulate --system` | Trace integration paths or audit system-wide consistency | Safe: read-only harness slash skill; there is no terminal `yoke simulate` adapter |
 
 ## 3. Command Classification
 
@@ -111,6 +112,7 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 - `/yoke charge` -- frontier execution
 - `/yoke feed` -- strategy materialization and frontier-fact maintenance
 - `/yoke strategize` -- SML review
+- `/yoke simulate YOK-N` or `/yoke simulate --system` -- integration or system-wide consistency simulation (harness slash skill only)
 
 ### Tier 2: Internal sub-skills
 
@@ -125,7 +127,6 @@ These are called by operator commands or other sub-skills. They have SKILL.md fi
 | `/yoke approve YOK-N` | usher | Approve a deployment stage |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks |
 | `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition |
-| `/yoke simulate {epic-id}` | conduct | Cross-task integration gap detection |
 
 ### Tier 3: Raw internal Python entrypoints
 

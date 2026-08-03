@@ -42,15 +42,21 @@ remain their own registered operation families; they are not hidden
 Blitz-survey payloads. Execution-document linking belongs to `/yoke refine`
 through `strategy.execution.link`, before this skill begins.
 
-Worktree preparation is intentionally a retained tool-shaped operation:
+Worktree preparation and slice merging are each a
+retained tool-shaped operation, because both act on the local checkout
+rather than on control-plane state alone:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow blitz
+yoke merge item ITEM --skip-status
 ```
 
-It delegates to the local engine worktree preflight and has no registered
-`direct_workflow.*` function id. Use the command verbatim; do not invent a
-function id for it.
+The first delegates to the local engine worktree preflight. The second is
+the standalone-item merge boundary shared with Dash: it takes the merge
+lock, lands the branch on the project base branch, stamps `merged_at`, and
+publishes. Each command has no registered `direct_workflow.*` function id —
+use them verbatim; do not invent function ids for them. Contract:
+[`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
 ## Input and invariants
 
@@ -192,7 +198,14 @@ For each slice:
 1. Re-read the relevant current document section and live coordination
    entries.
 2. Make the smallest coherent change in its registered worktree.
-3. Run focused verification with capture-first output.
+3. Run focused verification with capture-first output — the individual
+   failing tests, the changed module's paths, or the project's impacted
+   selection (`yoke watch pytest --impacted main --bounded` here, which
+   reports an unbounded selection instead of widening). When a slice has an
+   attached Command case, that case run is the slice's one full execution:
+   do not run the project's full sweep by hand and then hand the same tree to
+   `yoke qa case run`, which re-runs the identical registered command. It
+   streams live to stderr and names its raw capture file before starting.
 4. Commit the slice with a descriptive current-function message.
 5. Resolve the exact changed files and re-survey immediately before merge:
 
@@ -203,8 +216,18 @@ For each slice:
 6. Yield on contact with registered claims. Coordinate through `Slice Log`,
    reorder work, or tighten the Blitz with complete path claims. Do not
    silently resolve another owner's semantic changes.
-7. Merge the slice through the project's protected merge path and run any
-   delivery/migration action that the slice itself requires.
+7. Merge the slice through the standalone-item merge boundary, then run any
+   delivery/migration action that the slice itself requires. `--skip-status`
+   keeps the item non-terminal — a Blitz closes out only when its execution
+   document completes:
+
+   ```text
+   yoke merge item ITEM --skip-status --json
+   ```
+
+   The response carries the `merge_sha` for the checkpoint below. If the
+   merge released the lane, re-prepare it before the next slice with
+   `yoke direct-workflow worktree prepare ITEM --workflow blitz`.
 8. Append a cold-start-readable checkpoint:
 
    ```text

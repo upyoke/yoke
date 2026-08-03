@@ -34,7 +34,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial verdict
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N body
+yoke items get PREFIX-N body
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -42,22 +42,22 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 **Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
-- Pytest invocation: `python3 -m yoke_core.tools.watch_pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
+- Pytest invocation: `yoke watch pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
 - Shared-state reads (backlog, events, QA, claims): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
 Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for ~32% of tester Bash calls. Each one is structurally unnecessary — the anchored shape above eliminates the class.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `items` table | Backlog items (read body via `items get YOK-N body`) |
+| `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `qa_requirements` + `qa_runs` tables | QA requirements, test runs, and review verdicts |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Common confabulations to avoid:**
 - `ouraboros` — wrong. The word is **ouroboros**.
@@ -172,7 +172,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    Guidelines for test selection:
    - **Always run** tests whose names match changed files or changed command surfaces (e.g., changing a project-provided command means running that command's matching test) and any tests listed in the task's acceptance criteria.
    - **Consider running** tests for scripts that source or depend on the changed code. `grep -rl` on changed filenames in the test directory can help identify these.
-   - **Run the full suite** when your judgement says the blast radius warrants it — e.g., changes to core infrastructure, shared helpers, DB schema, or wide-reaching refactors. A single leaf script getting a new feature almost certainly doesn't need 90+ test files.
+   - **Escalate to broader runs** when your judgement says the blast radius warrants it — e.g., changes to core infrastructure, shared helpers, DB schema, or wide-reaching refactors. For Yoke code, prefer `yoke watch pytest --impacted main --bounded` (`--bounded` reports an unbounded selection instead of widening to the full sweep, because the item's QA case run is the one full execution for that tree); the full three-anchor sweep is CI's job on the protected merge path and returns locally only as the CI-outage fallback. A single leaf script getting a new feature almost certainly doesn't need 90+ test files.
 
    Log your test selection reasoning in the validation report: what you chose to run, why, and what you considered but excluded.
 
@@ -187,7 +187,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    ```
    Post-capture `tail`/`head` usage on the temp file is fine.
 
-   **For long runs, stream progress via the foreground watcher wrapper.** When the expected runtime exceeds ~60s, run `python3 -m yoke_core.tools.watch_pytest -- <pytest args>` (or the subcommand-shaped `python3 -m yoke_core.tools.watch_merge done-transition <args>` / `python3 -m yoke_core.tools.watch_merge merge-worktree <args>` for merges) as a single foreground `Bash` invocation. The wrapper blocks within the same tool call, owns the progress regex, and writes a raw capture for post-completion inspection. This gives early-failure signal — stop the run on FAIL/ERROR instead of waiting for the full suite.
+   **For long runs, stream progress via the foreground watcher wrapper.** When the expected runtime exceeds ~60s, run `yoke watch pytest -- <pytest args>` (or the subcommand-shaped `yoke watch merge done-transition <args>` / `yoke watch merge merge-worktree <args>` for merges) as a single foreground `Bash` invocation. The wrapper blocks within the same tool call, owns the progress regex, and writes a raw capture for post-completion inspection. This gives early-failure signal — stop the run on FAIL/ERROR instead of waiting for the full suite.
 <!-- YOKE:HARNESS claude start -->
 
    **Subagent dispatched turns are foreground-only — never arm a background `Bash` task paired with `Monitor` and end the turn.** Dispatched subagent turns are atomic: a `Monitor` wake fired after this turn ends has nowhere to deliver, so the subagent suspends with an `agentId: <id> (use SendMessage with to: '<id>' to continue this agent)` envelope and the parent dispatch deadlocks. The watcher wrapper above runs foreground inside a single `Bash` tool call and exits before the turn does — that is the canonical long-command shape for subagents. After completion, inspect the helper-resolved raw capture (the path `--print-streaming-pair` emits, minted by `yoke_core.domain.project_scratch_dir.watcher_capture_path(...)` under the machine temp root's watcher-captures directory) with `tail -80`. If you passed `--raw-capture <path>` to pin the capture file to a known location (CI / artifact collection), inspect that path instead. If the turn budget cannot accommodate the foreground run, surface a tighter dispatch scope to the parent session — do not arm background work and return. See `session.md` `## Tool Constraints` for the full rule.
@@ -197,7 +197,10 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    # No --raw-capture: the wrapper mints both raw + progress captures via
    # project_scratch_dir.mint_watcher_capture_pair("pytest") and prints
    # the resolved paths. Inspect those after exit.
-   python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+   yoke watch pytest --impacted main --bounded
+   # --impacted needs no project paths. Full-sweep anchor paths are per-project:
+   # read them from the project's registered verification command (or project
+   # rules file) rather than hardcoding another project's layout.
    # Operator carve-out: pass --raw-capture <PATH> to pin to a known path
    # (CI / artifact collection). The helper-resolved default is preferred.
    ```
@@ -205,7 +208,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
 
 5a. **Baseline-validated regression detection.** When the task acceptance criteria include "no regressions" or "existing tests still pass," do NOT simply compare failure counts between main and the branch — they can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
 
-   **Read and follow `runtime/agents/tester/regression-detection.md`** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that file feed back into your validation report's Regression Analysis section.
+   **Read and follow the embedded Baseline-Validated Regression Detection reference** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that reference feed back into your validation report's Regression Analysis section.
 
 5b. **Check worktree cleanliness.** After tests complete, verify the worktree has no unexpected artifacts left behind by the Engineer's test scripts. Run `git status --porcelain` in the worktree and compare against the task's "Files touched" list. Any unexpected untracked files or directories (especially nested directory trees from captured command output) should be flagged as a test artifact leak — this is a **FAIL** condition.
 
@@ -245,7 +248,7 @@ report runner JSON plus artifact paths.
 
 You read the active claim's coverage to scope your verification — you do **not** widen the claim, override it, or edit files. The proactive widen workflow belongs to the Engineer; your role is to surface uncovered fix paths so the parent session (or a follow-up Engineer dispatch) can action them.
 
-When validation discovers a required fix path that is **outside the active claim coverage** (the dispatch prompt's claim block lists the covered paths; confirm with `yoke claims path list --item YOK-N` if needed):
+When validation discovers a required fix path that is **outside the active claim coverage** (the dispatch prompt's claim block lists the covered paths; confirm with `yoke claims path list --item PREFIX-N` if needed):
 
 1. Record the exact file path(s), the evidence (failing test name, assertion, missing reference), and the reason the fix path is required.
 2. Include the finding in the `## Issues Found` section of your validation report so the parent session can either widen the claim and re-dispatch the Engineer, or open a follow-up work item.

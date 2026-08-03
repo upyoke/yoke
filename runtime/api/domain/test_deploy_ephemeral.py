@@ -1,4 +1,4 @@
-"""Tests for the ephemeral-deploy executor (fake-runner command plans)."""
+"""Tests for the ephemeral-deploy step_runner (fake-runner command plans)."""
 
 from __future__ import annotations
 
@@ -119,7 +119,7 @@ def deploy_seams(monkeypatch):
 
 
 def _scripted_runner():
-    """Results in executor call order (branch sha + remote convergence)."""
+    """Results in step_runner call order (branch sha + remote convergence)."""
     return FakeRunner(
         [
             CommandResult(0, _SHA + "\n", ""),  # git rev-parse branch
@@ -152,7 +152,7 @@ class TestExecEphemeralDeploy:
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         health_calls = []
         monkeypatch.setattr(
-            "yoke_core.tools.executors.exec_health_check",
+            "yoke_core.tools.step_runners.exec_health_check",
             lambda url, request_id="": health_calls.append(url) or 0,
         )
         rc = deploy_ephemeral.exec_ephemeral_deploy(
@@ -190,7 +190,7 @@ class TestExecEphemeralDeploy:
         runner = _scripted_runner()
         monkeypatch.setattr(deploy_ephemeral, "uuid", mock.Mock(uuid4=lambda: "RID"))
         monkeypatch.setattr(
-            "yoke_core.tools.executors.exec_health_check",
+            "yoke_core.tools.step_runners.exec_health_check",
             lambda url, request_id="": 0,
         )
         deploy_ephemeral.exec_ephemeral_deploy(

@@ -133,30 +133,8 @@ from yoke_cli.commands.adapters.epic_state import (
     epic_task_submission_receipt_get,
     epic_task_update_status,
 )
-from yoke_cli.commands.adapters.qa import (
-    qa_requirement_waive,
-    qa_requirement_update,
-    qa_run_record_verdict,
-)
-from yoke_cli.commands.adapters.qa_browser import (
-    qa_artifact_add,
-    qa_artifact_presign,
-    qa_browser_context_get,
-    qa_run_add,
-    qa_run_complete,
-)
-from yoke_cli.commands.adapters.qa_crud import (
-    qa_requirement_add,
-    qa_requirement_add_batch,
-)
-from yoke_cli.commands.adapters.qa_read import (
-    qa_gate_summary,
-    qa_requirement_get,
-    qa_requirement_list,
-    qa_run_get,
-    qa_run_list,
-)
 from yoke_cli.commands.flag_adapter_product_exports import PRODUCT_ADAPTER_EXPORTS
+from yoke_cli.commands.adapters.deployment_run_create import deployment_runs_create
 from yoke_cli.commands.adapters.doctor import (
     doctor_last_run_get,
     doctor_run,
@@ -165,7 +143,6 @@ from yoke_cli.commands.adapters.deployment import (
     deployment_flows_get,
     deployment_flows_set_status,
     deployment_flows_stages,
-    deployment_runs_create,
     deployment_runs_approve,
     deployment_runs_get,
     deployment_runs_list,
@@ -269,18 +246,16 @@ from yoke_cli.commands.adapters.shepherd_writes import (
     shepherd_verdict,
 )
 from yoke_cli.commands.adapters.misc import (
-    ouroboros_entry_get,
-    ouroboros_entry_list,
-    ouroboros_field_note_append,
-    ouroboros_field_note_get,
+    ouroboros_entry_get, ouroboros_entry_list, scratch_dispatch_inputs,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    ouroboros_field_note_append, ouroboros_field_note_get,
     ouroboros_field_note_list,
-    scratch_dispatch_inputs,
 )
 from yoke_cli.commands.adapters.ouroboros_writes import (
     ouroboros_entry_insert,
     ouroboros_entry_mark_archived,
     ouroboros_entry_mark_reviewed,
-    ouroboros_wrapup_list,
 )
 from yoke_cli.commands.adapters.config import (
     config_example,
@@ -338,6 +313,7 @@ from yoke_cli.commands.adapters.sessions_read import sessions_list
 from yoke_cli.commands.adapters.projects_capabilities_read import (
     projects_capabilities_list,
 )
+from yoke_cli.commands.adapters.lint_config import lint_config_show
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 
 __all__ = [
@@ -397,21 +373,6 @@ __all__ = [
     "epic_progress_note_append",
     "epic_progress_note_list",
     "epic_tasks_list",
-    "qa_requirement_update",
-    "qa_requirement_waive",
-    "qa_run_record_verdict",
-    "qa_browser_context_get",
-    "qa_run_add",
-    "qa_run_complete",
-    "qa_artifact_add",
-    "qa_artifact_presign",
-    "qa_requirement_list",
-    "qa_requirement_get",
-    "qa_requirement_add",
-    "qa_requirement_add_batch",
-    "qa_run_list",
-    "qa_run_get",
-    "qa_gate_summary",
     "deployment_flows_get",
     "deployment_flows_set_status",
     "deployment_flows_stages",
@@ -434,6 +395,7 @@ __all__ = [
     "projects_update",
     "projects_capability_has",
     "projects_capabilities_list",
+    "lint_config_show",
     "projects_capability_secret_set",
     "projects_capability_settings_get",
     "projects_capability_settings_set",
@@ -478,7 +440,6 @@ __all__ = [
     "ouroboros_entry_insert",
     "ouroboros_entry_mark_reviewed",
     "ouroboros_entry_mark_archived",
-    "ouroboros_wrapup_list",
     "github_actions_check_ci",
     "github_actions_secret_set",
     "github_actions_wait_run",

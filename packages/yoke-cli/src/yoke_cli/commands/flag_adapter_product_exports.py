@@ -1,6 +1,11 @@
 """Facade exports for workflow-aware product adapters."""
 
-from yoke_cli.commands.adapters import qa_catalog, test_machine, workflow_mechanics
+from yoke_cli.commands.adapters import (
+    qa_catalog,
+    qa_catalog_defaults,
+    test_machine,
+    workflow_mechanics,
+)
 
 
 PRODUCT_ADAPTER_EXPORTS = {
@@ -19,7 +24,14 @@ PRODUCT_ADAPTER_EXPORTS = {
                 "qa_plan_item_attach",
                 "qa_plan_list",
                 "qa_plan_materialize_for_item",
+                "qa_plan_rematerialize",
+            ),
+        ),
+        (
+            qa_catalog_defaults,
+            (
                 "qa_plan_project_default_set",
+                "qa_plan_project_default_unset",
             ),
         ),
         (

@@ -1,10 +1,5 @@
-import {
-  el,
-  loadScopedSection,
-  mergedRows,
-  scopeBuckets,
-  statePill,
-} from "./universe_view_support.js";
+import { el, mergedRows, statePill } from "./universe_view_support.js";
+import { holdScopedSection, rowsInScope } from "./universe_held_reads.js";
 import { ghostWhenInactive } from "./universe_views_overview_activation.js";
 import { stageProgress } from "./universe_secondary_primitives.js";
 import {
@@ -20,18 +15,20 @@ import {
 
 // What can run now and why, plus how much is blocked. One read serves the two
 // table regions and the age/workflow footer.
-export function loadFrontier(context, panel, scope, activationFacts) {
-  const buckets = scopeBuckets(scope, context.projects(), false);
-  loadScopedSection(
-    context, panel,
-    buckets.map((bucket) => ({
-      functionId: "frontier.list",
-      payload: bucket === null ? {} : { project: bucket },
-    })),
-    (body, callResults) => {
+export function loadFrontier(context, panel, getScope, activationFacts) {
+  return holdScopedSection(
+    context, panel, [null],
+    [{ functionId: "frontier.list", payload: {} }],
+    getScope,
+    (body, callResults, scope) => {
       const documentNode = body.ownerDocument;
-      const ready = mergedRows(callResults, (result) => result.ready_rows);
-      const blocked = mergedRows(callResults, (result) => result.blocked_rows);
+      const projects = context.projects();
+      const ready = rowsInScope(
+        mergedRows(callResults, (result) => result.ready_rows), scope, projects,
+      );
+      const blocked = rowsInScope(
+        mergedRows(callResults, (result) => result.blocked_rows), scope, projects,
+      );
       if (!ready.length && !blocked.length) {
         ghostWhenInactive(context, activationFacts, "frontier", panel);
       }

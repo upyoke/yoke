@@ -231,8 +231,8 @@ def test_no_helper_wrapped_shell_dispatch_in_production_python() -> None:
 # Yoke-functions epic: recipe-residue keyed on the
 # canonical RECIPE_RESIDUE_PATTERNS constant — single source of truth for
 # what counts as banned terminal-soup residue in live guidance surfaces.
-# AC-15.4: this test and the Doctor HC consume the same constant.
-# AC-15.1: this assertion is part of the zero-shell-proof suite.
+# This test and the Doctor HC consume the same constant.
+# This assertion is part of the zero-shell-proof suite.
 # ---------------------------------------------------------------------------
 
 
@@ -248,7 +248,7 @@ _RESIDUE_TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
 # them out so the constant cannot fail its own residue check.
 _RESIDUE_CANONICAL_SOURCES: Tuple[str, ...] = (
     "runtime/api/domain/lint_structured_field_transform_shell_messages.py",
-    "runtime/api/engines/doctor_hc_terminal_recipe_residue.py",
+    "runtime/api/engines/check_terminal_recipe_residue.py",
     "runtime/api/engines/doctor_hc_terminal_recipe_residue_scan.py",
     "runtime/api/domain/lint_shell_quoted_function_payload.py",
     "runtime/api/domain/lint_shell_quoted_function_payload_messages.py",
@@ -290,7 +290,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
     """The zero-shell proof asserts no live skill/doc surface contains a
     banned terminal-soup recipe from :data:`RECIPE_RESIDUE_PATTERNS`.
 
-    AC-15.1 / AC-15.4: keyed on the same canonical constant as the
+    Keyed on the same canonical constant as the
     Doctor HC and the recipe-residue manifest test so the three surfaces
     cannot drift. ``test_no_recipe_residue_in_live_guidance`` (in
     ``test_recipe_residue_manifest``) is the dedicated manifest test;

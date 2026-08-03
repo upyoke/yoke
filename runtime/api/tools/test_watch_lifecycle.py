@@ -128,12 +128,12 @@ class TestSubcommandResolution:
         assert prefix == ("items", "update")
         assert passthrough == ["YOK-1755", "status", "implementing"]
 
-    def test_repair_status_maps_to_engine(self) -> None:
+    def test_repair_status_maps_to_registered_cli(self) -> None:
         module, prefix, passthrough = watch_lifecycle._resolve_subcommand(
             ["repair-status", "YOK-1755"]
         )
-        assert module == "yoke_core.engines.repair_status"
-        assert prefix == ()
+        assert module == "yoke_cli.main"
+        assert prefix == ("lifecycle", "repair-status")
         assert passthrough == ["YOK-1755"]
 
     def test_unknown_subcommand_exits_with_two(
@@ -169,12 +169,16 @@ class TestEngineArgv:
             "items", "update", "YOK-1", "status", "implementing",
         ]
 
-    def test_repair_status_argv_omits_prefix(self) -> None:
+    def test_repair_status_argv_uses_registered_cli(self) -> None:
         argv = watch_lifecycle._engine_argv(
-            "yoke_core.engines.repair_status", (), ["YOK-1"],
+            "yoke_cli.main",
+            ("lifecycle", "repair-status"),
+            ["YOK-1", "--to", "done", "--reason", "reconcile"],
         )
         assert argv == [
-            sys.executable, "-m", "yoke_core.engines.repair_status", "YOK-1",
+            sys.executable, "-m", "yoke_cli.main",
+            "lifecycle", "repair-status", "YOK-1",
+            "--to", "done", "--reason", "reconcile",
         ]
 
 
@@ -188,14 +192,15 @@ class TestPrintStreamingPair:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_lifecycle" in out
+        module_anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{module_anchor} yoke_core.tools.watch_lifecycle" in out
         assert "PYTHONPATH" not in out
         assert "--raw-capture" in out
         assert "--progress-capture" in out
         assert "items-update-status" in out
         assert "YOK-1" in out
-        assert f"{anchor} yoke_core.tools.watch_tail" in out
+        assert f"{command_anchor} tail" in out
         assert "tail -80" in out
 
     def test_print_streaming_pair_flag_position_tolerant(

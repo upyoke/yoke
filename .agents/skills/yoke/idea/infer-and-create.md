@@ -16,7 +16,7 @@ When the spec proposes a concrete implementation path (a file, directory, or pac
 
 If the path does not resolve, re-derive from the live tree before writing. Canonical re-derivation sources, in order:
 
-1. `runtime/api/domain/migrations/__init__.py` for the live one-shot migration package root. New migration ideas reference this directory, never `runtime/api/migrations/` (which does not exist).
+1. The project's verified one-shot migration package root. New migration ideas reference the live package that discovery resolves, never a guessed directory.
 2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
 3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
 
@@ -26,10 +26,10 @@ No path is written into the spec from naming intuition. If verification still fa
 
 When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `yoke_core.domain.backlog_updates_helpers`) and `check_verification_gate` (in `yoke_core.domain.qa_gates`), not in vocabulary-only files like `yoke_core.domain.task_lifecycle`.
 
-Run this exact template:
+Run this exact template (`<source-roots>` = this project's own source and test roots — see **Discovery-grep scoping** below for how to derive them):
 
 ```bash
-rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" packages/ runtime/
+rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' <source-roots>
 ```
 
 Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename. Item stage, progression, and gate placement belong to immutable workflow definitions interpreted by `workflow_runtime.py`; independent epic-task vocabulary lives in `task_lifecycle.py`. If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
@@ -41,14 +41,14 @@ This rule applies to gates, error codes (`GATE_*` constants), and any compositio
 The gate-specific template above is the narrow case. The general rule is broader: when the spec body proposes modifying, extending, editing, or adding behavior to any concrete `module.function_name` — not only gates — the agent runs:
 
 ```bash
-rg -n "^def <funcname>" runtime/ docs/ .agents/
+rg -n '^def <funcname>' <source-roots> <docs-and-agent-instruction-roots>
 ```
 
 and cites the verified `file:line` of the **definition** (not a caller). If the grep finds zero `def function_name` in the named module file, the spec records the unresolved reference as a clarification question rather than guessing.
 
 This is the broader version of the gate template that catches the "spec named `yoke_core.domain.foo.bar` but the function actually lives in `module_other.py`" defect class. The pre-handoff readiness check at idea exit and refine entry runs this verification automatically through `yoke readiness check`.
 
-**Discovery-grep scoping.** Scope discovery greps to `packages/` and `runtime/` (plus `docs/` and `.agents/` where relevant) — Yoke source lives under `packages/*/src/`, tests under `runtime/api/`, `runtime/harness/`, and top-level `tests/`, and there is **no `data/items/` directory** (item bodies are virtual: read them via `yoke items get YOK-N body` or the DB, never by grepping the filesystem). Use **single-quoted** `rg` patterns; an unescaped backtick inside a double-quoted zsh pattern triggers command substitution before `rg` runs.
+**Discovery-grep scoping.** Scope discovery greps to *this* project's own roots — its source and test roots (`<source-roots>`), plus its docs and agent-instruction roots (`<docs-and-agent-instruction-roots>`) where relevant. Read those roots from the project rules file, or derive the tracked top-level ones with `git ls-files | cut -d/ -f1 | sort -u`; never assume another project's directory layout. No project stores item bodies on the filesystem (they are virtual: read them via `yoke items get PREFIX-N body` or the DB, never by grepping the filesystem). Use **single-quoted** `rg` patterns; an unescaped backtick inside a double-quoted zsh pattern triggers command substitution before `rg` runs.
 
 ## 1b. Active Path Claim Conflicts Are Coordination, Not Scope
 
@@ -134,9 +134,9 @@ If the operator supplied `--workflow`:
 
 - Match that exact registry id. Do not replace it with an inferred workflow.
 - Reject an unknown, disabled, or entry-surface-incompatible row.
-- Read its ordered `stages`, `executor_bindings`, and `policies`; do not branch
+- Read its ordered `stages`, `skill_bindings`, and `policies`; do not branch
   on the workflow id.
-- If its initial stage is owned directly by the `dash` executor, route to
+- If its initial stage is owned directly by the `dash` skill, route to
   `/yoke dash "instruction"` so filing and the direct-execution contract are
   created atomically.
 - If its bindings hand from `refine` to `blitz`, preserve that registered
@@ -148,7 +148,7 @@ Without `--workflow`, classify the eligible definitions by policy:
 
 - Prefer the unique smallest implementation workflow with
   `generated_children=none`, `worktrees=single_implementation_lane`, and an
-  `advance` executor binding.
+  `advance` skill binding.
 - Recommend the unique task-graph workflow with
   `generated_children=epic_tasks` and `parallelism=task_graph` only when the
   work clearly needs:
@@ -168,7 +168,7 @@ branches.
 **Pre-decomposition guard:** Never file separate backlog items as a parent's
 imagined child decomposition. Backlog items are flat rows in `items`. When the
 selected definition declares `generated_children=epic_tasks`, the Architect
-populates those rows inside the registered planning executor; do not gate this
+populates those rows inside the registered planning skill; do not gate this
 rule on a remembered item status.
 
 ### d. Infer priority from language
@@ -180,15 +180,15 @@ Scan title and body for signal words. Never ask about priority.
 
 ### e. Auto-detect dependencies
 
-Scan title and body for explicit `YOK-N` references. If found:
+Scan title and body for explicit `PREFIX-N` references. If found:
 - Validate each referenced item exists:
  ```bash
- yoke items get YOK-{N} status
+ yoke items get PREFIX-{N} status
  ```
 - Auto-record as activation blocker
-- Print: `Auto-detected dependency: YOK-{N} (gate: activation, satisfaction: status:done)`
+- Print: `Auto-detected dependency: PREFIX-{N} (gate: activation, satisfaction: status:done)`
 
-If no `YOK-N` references are found, skip silently.
+If no `PREFIX-N` references are found, skip silently.
 
 ### f. Infer Pack-reuse stance
 
@@ -258,7 +258,7 @@ creating anything. If a likely match appears, inspect the existing item's
 body before proceeding:
 
 ```bash
-yoke items get YOK-{N} body
+yoke items get PREFIX-{N} body
 ```
 
 Classify any board-derived candidate as a title match, scope overlap, or
@@ -291,7 +291,7 @@ If matches found, present:
 ```text
 GATE [advisory]: Near-duplicate detected.
 Potential duplicates found:
-- YOK-{N}: {title} (status: {status}) [match workflow]
+- PREFIX-{N}: {title} (status: {status}) [match workflow]
 
 Remediation: Review the existing item(s) above. If this is truly new work, confirm below.
 Create anyway? (yes / no)
@@ -342,7 +342,7 @@ yoke items create "{title}" {workflow} --entry-surface harness_skill --dry-run -
 
 ## 5b. Hold A Draft Claim Across The Body-Write Window (Layer 1)
 
-The window between phase 5 (`items add` returns a YOK-N row with empty
+The window between phase 5 (`items add` returns a PREFIX-N row with empty
 spec) and the body-write in `body-and-sync.md` is unprotected against
 concurrent `/yoke do` sessions. Hold a draft work claim across that
 window so a second harness's `yoke sessions offer` cannot route `/yoke refine`
@@ -350,7 +350,7 @@ against an empty spec.
 
 ```bash
 yoke claims work acquire \
-    --item "YOK-{id-number}" \
+    --item "PREFIX-{id-number}" \
     --reason draft-in-progress
 ```
 
@@ -359,7 +359,7 @@ The claim is the live-race fix; `body-and-sync.md` releases it with
 Budget have all landed. Skip in `--dry-run` mode (no row to claim).
 
 The configured stale-heartbeat reclaim window (`session_stale_ttl_minutes`
-in machine config) in `runtime.harness.harness_sessions` is the safety net
+in machine config) in the harness session store is the safety net
 for a crashed `/yoke idea` — during that window the half-finished work item
 is intentionally unworkable, and `yoke_core.domain.frontier_compute`
 flags the title-only body explicitly via `idea-incomplete` so doctor and
@@ -367,11 +367,11 @@ operators can rescue or freeze it.
 
 ## 6. Persist Dependencies
 
-If dependencies were auto-detected, persist them now that the item has a YOK-N ID. This uses the registered dependency-edge wrapper.
+If dependencies were auto-detected, persist them now that the item has a PREFIX-N ID. This uses the registered dependency-edge wrapper.
 
 ```bash
 yoke shepherd dependency-add {new-item-id} {blocking-item-id} operator --gate-point activation \
- --satisfaction status:done --rationale "Auto-detected from YOK-{blocking} reference in idea title/body"
+ --satisfaction status:done --rationale "Auto-detected from PREFIX-{blocking} reference in idea title/body"
 ```
 
 Dry-run mode: print what would be persisted instead of mutating state.
@@ -382,23 +382,23 @@ Read the created item from the DB and display a confirmation. If GitHub issue cr
 
 Read the created item's immutable pin with `yoke workflows item get`, read that
 exact version with `yoke workflows version get`, and resolve the active
-half-open executor binding. Print the definition-owned handoff:
+half-open skill binding. Print the definition-owned handoff:
 
 ```text
-Next step: /yoke {executor_id} YOK-{N}
+Next step: /yoke {skill_id} PREFIX-{N}
 ```
 
 If the definition's later binding is `blitz`, also print the refinement and
 execution handoff:
 
 ```text
-Next step: /yoke refine YOK-{N}
+Next step: /yoke refine PREFIX-{N}
 After refinement links exactly one execution strategy document and the item
-reaches refined-idea: /yoke blitz YOK-{N}
+reaches refined-idea: /yoke blitz PREFIX-{N}
 ```
 
 The link is the registered `strategy.execution.link` operation. Do not start
 `/yoke blitz`, generate child items, or treat the intake body as the live
 execution plan before that link exists. For every other workflow, recompute the
-next executor at each binding boundary instead of printing a workflow-name
+next skill at each binding boundary instead of printing a workflow-name
 progression from memory.

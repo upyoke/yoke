@@ -21,10 +21,7 @@ from typing import Optional, TextIO
 
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import backlog_github_body_writer as _writer
-from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.epic import task_get_body
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
@@ -47,8 +44,75 @@ def _task_id_for_mirror(parent_item_id: Optional[str], task_num: int) -> int:
     return epic_int * 1000 + int(task_num)
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _read_repair_context_over_transport(epic_ref: str, task_num: int) -> dict:
+    """Relay the parent id + epic-task title/status read for a repair.
+
+    Relays ``resync.epic_task_repair_read`` so the two inline reads run over
+    an https control plane as well as a local Postgres connection. A read
+    failure raises, matching the inline ``connect()`` the helper never
+    guarded.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    resp = call_dispatcher(
+        function_id="resync.epic_task_repair_read",
+        target=TargetRef(kind="global"),
+        payload={"epic_ref": str(epic_ref), "task_num": int(task_num)},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"resync epic-task repair read failed: {message}")
+    return resp.result or {}
+
+
+def _read_task_body_over_transport(epic_ref: str, task_num: int) -> str:
+    """Relay the epic-task body read, degrading to ``""`` on failure.
+
+    Relays ``resync.epic_task_body``; matching the inline ``try/except`` the
+    helper wrapped the body read in, any failure degrades to an empty body.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    try:
+        resp = call_dispatcher(
+            function_id="resync.epic_task_body",
+            target=TargetRef(kind="global"),
+            payload={"epic_ref": str(epic_ref), "task_num": int(task_num)},
+        )
+    except Exception:  # noqa: BLE001 - inline read degraded to "" on any failure
+        return ""
+    if not resp.success:
+        return ""
+    return str((resp.result or {}).get("body") or "")
+
+
+def _set_epic_task_github_issue_over_transport(
+    epic_ref: str, task_num: int, issue_ref: str,
+) -> None:
+    """Relay the ``github_issue`` write-back, advisory as the inline write was.
+
+    Relays ``resync.epic_task_github_issue_set`` after the GitHub issue is
+    created (the create between the relayed reads and this relayed write
+    touches no Yoke DB). Matching the inline ``try/except: pass``, any
+    failure is swallowed — the issue exists; the field write is advisory.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    try:
+        call_dispatcher(
+            function_id="resync.epic_task_github_issue_set",
+            target=TargetRef(kind="item", item_id=int(epic_ref)),
+            payload={
+                "epic_ref": str(epic_ref),
+                "task_num": int(task_num),
+                "issue_ref": issue_ref,
+            },
+        )
+    except Exception:  # noqa: BLE001 - advisory write; inline swallowed failures
+        pass
 
 
 def _select_body_for_create(
@@ -73,12 +137,12 @@ def _select_body_for_create(
 
 
 def repair_local_orphan_epic_task(
-    item_id: str,
+    epic_id: str,
+    task_num: int,
     project: str,
     db_path: str,
     *,
     is_dry_run_fn,
-    task_update_field_fn=None,
 ) -> bool:
     """Create a GitHub issue for a local-orphan epic task via typed REST.
 
@@ -88,9 +152,8 @@ def repair_local_orphan_epic_task(
     "could not create GitHub issue."
     """
     outcome = repair_local_orphan_epic_task_typed(
-        item_id, project, db_path,
+        epic_id, task_num, project, db_path,
         is_dry_run_fn=is_dry_run_fn,
-        task_update_field_fn=task_update_field_fn,
         stderr=sys.stderr,
     )
     if not outcome.success and outcome.error:
@@ -102,65 +165,51 @@ def repair_local_orphan_epic_task(
 
 
 def repair_local_orphan_epic_task_typed(
-    item_id: str,
+    epic_id: str,
+    task_num: int,
     project: str,
-    db_path: str,
+    db_path: str,  # noqa: ARG001 - retained compat token; reads/write relay
     *,
     is_dry_run_fn,
-    task_update_field_fn=None,
     stderr: TextIO = sys.stderr,
 ) -> RepairOutcome:
     """Typed variant returning RepairOutcome — direct caller path for
-    future-shape diagnostic-aware loops."""
-    parts = item_id.split("/task-")
-    if len(parts) != 2:
-        return RepairOutcome(False, error=f"malformed task id: {item_id!r}")
-    et_slug, et_tnum_padded = parts
-    et_tnum = et_tnum_padded.lstrip("0") or "0"
+    future-shape diagnostic-aware loops.
 
-    conn = connect(path=db_path)
-    try:
-        p = _p(conn)
-        parent_row = conn.execute(
-            f"SELECT id FROM items WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-            (et_slug,),
-        ).fetchone()
-        task_row = conn.execute(
-            f"SELECT title, status FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
-            (et_slug, int(et_tnum)),
-        ).fetchone()
-    finally:
-        conn.close()
+    Identity is ``(epic_id, task_num)``; the GitHub issue title leads
+    with the parent epic's public ref rendered from prefix+sequence.
+    """
+    et_slug = str(epic_id)
+    et_tnum = str(int(task_num))
+    et_tnum_padded = f"{int(task_num):03d}"
 
-    if not task_row:
+    context = _read_repair_context_over_transport(et_slug, int(et_tnum))
+    if not context.get("task_found"):
         return RepairOutcome(False, error=f"epic_tasks row {et_slug}/{et_tnum} not found")
 
-    et_title, et_status = task_row
-    et_status = et_status or "planned"
+    parent_id = context.get("parent_id")
+    # The parent's public ref is rendered server-side from the project's
+    # prefix and the item's project sequence — never reconstructed from
+    # the internal id, which can diverge from the public sequence.
+    parent_ref = str(context.get("parent_ref") or "")
+    et_title = context.get("title") or ""
+    et_status = context.get("status") or "planned"
 
     if is_dry_run_fn():
         return RepairOutcome(True)
 
     issue_title = (
-        f"[YOK-{parent_row[0]}] {et_tnum_padded} {et_title}"
-        if parent_row else f"{et_tnum_padded} {et_title}"
+        f"[{parent_ref}] {et_tnum_padded} {et_title}"
+        if parent_ref else f"{et_tnum_padded} {et_title}"
     )
     label_list = ["type:task", f"status:{et_status}"]
 
-    raw_body = ""
-    try:
-        conn_db = connect(path=db_path)
-        try:
-            raw_body = task_get_body(conn_db, str(et_slug), int(et_tnum)) or ""
-        finally:
-            conn_db.close()
-    except Exception:
-        raw_body = ""
+    raw_body = _read_task_body_over_transport(et_slug, int(et_tnum))
 
     selected_body = _select_body_for_create(
         raw_body, project=project, title=issue_title, status=et_status,
         et_slug=et_slug, et_tnum=et_tnum,
-        parent_id=str(parent_row[0]) if parent_row else "",
+        parent_id=str(parent_id) if parent_id is not None else "",
         stderr=stderr,
     )
 
@@ -184,18 +233,9 @@ def repair_local_orphan_epic_task_typed(
     if not issue_num:
         return RepairOutcome(False, error="create returned issue with no number")
 
-    if task_update_field_fn is not None:
-        try:
-            conn_db = connect(path=db_path)
-            try:
-                task_update_field_fn(
-                    conn_db, str(et_slug), int(et_tnum),
-                    "github_issue", f"#{issue_num}",
-                )
-            finally:
-                conn_db.close()
-        except Exception:
-            pass
+    _set_epic_task_github_issue_over_transport(
+        et_slug, int(et_tnum), f"#{issue_num}",
+    )
 
     if et_status in TASK_TERMINAL_SUCCESS or et_status == "cancelled":
         try:

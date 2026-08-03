@@ -61,7 +61,7 @@ class TestHandoffClaimBoundary:
         assert active is None
 
     def test_standard_handoff_still_releases_correctly(self, conn):
-        """AC-04: standard flow releases the claim, no auto-reacquire by
+        """Standard flow releases the claim, no auto-reacquire by
         a different session picking up polish."""
         from yoke_core.domain.sessions import release_item_claim_for_execution
 

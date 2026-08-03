@@ -28,7 +28,10 @@ if not (
 ):
     from yoke_core.tools import pg_testcluster as _pg_testcluster
 
-    _pg_rc = _pg_testcluster.ensure_started()
+    # prepare_for_pytest, not ensure_started: a directly launched run never
+    # passes through a wrapper, so this is where it inherits the
+    # ownership-gated orphan sweep too.
+    _pg_rc = _pg_testcluster.prepare_for_pytest()
     if _pg_rc != 0:
         raise RuntimeError(
             "failed to start local Postgres test cluster; run "
@@ -54,6 +57,27 @@ def clean_markers(tmp_path, monkeypatch):
     monkeypatch.setattr(hook_helpers_markers, "DONE_ITEM_MARKER", done_path)
     monkeypatch.setattr(hook_helpers, "CURRENT_ITEM_MARKER", current_path)
     monkeypatch.setattr(hook_helpers, "DONE_ITEM_MARKER", done_path)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _harness_hook_written_identity_isolation(tmp_path, monkeypatch):
+    """Keep harness tests out of the real hook-written identity registries.
+
+    Parity with
+    ``runtime.api.fixtures.runtime._yoke_hook_written_identity_isolation``
+    (this subtree has its own conftest, so the API-side autouse does not
+    apply). Registration tests here drive ``_register_from_hook`` whose
+    unmocked anchor write resolves real process ancestry — observed live
+    poisoning the developer's own conversation anchor with a synthetic
+    session id — and Cursor payload tests drive the parser, which records a
+    conversation-to-session mapping the same way.
+    """
+    from runtime.api.fixtures.runtime import (
+        isolate_hook_written_identity_registries,
+    )
+
+    isolate_hook_written_identity_registries(tmp_path, monkeypatch)
     yield
 
 

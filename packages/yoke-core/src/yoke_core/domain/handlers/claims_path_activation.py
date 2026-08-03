@@ -5,17 +5,20 @@ Separated from :mod:`claims_path` so each handler module stays under the
 
 - ``claims.path.required_gate`` — evaluate the idea/refine coverage gate.
 - ``claims.path.activation_run`` — run the activation phase for an item.
+- ``claims.path.survey_ensure`` — register/widen a selected-Dash path
+  claim from its live conflict survey.
 - ``claims.path.coordination_decision.build`` — build the LLM evidence
   packet for an authored coordination decision (read-only).
 
 Reuse: thin wrappers over
-:mod:`yoke_core.domain.advance_path_claim_activation` and
+:mod:`yoke_core.domain.advance_path_claim_activation`,
+:mod:`yoke_core.domain.dash_path_claim_posture`, and
 :mod:`yoke_core.domain.path_claim_coordination_decision`.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -39,6 +42,17 @@ class RequiredGateResponse(BaseModel):
 class ActivationRunRequest(BaseModel):
     item_id: Optional[int] = None
     actor_id: Optional[int] = None
+    resolved_heads: Optional[Dict[int, str]] = None
+
+
+class SurveyEnsureRequest(BaseModel):
+    item_id: Optional[int] = None
+    touch_paths: List[str] = Field(default_factory=list)
+    integration_target: str = "main"
+
+
+class SurveyEnsureResponse(BaseModel):
+    claim_id: Optional[int] = None
 
 
 class ActivationOutcomeRow(BaseModel):
@@ -86,13 +100,6 @@ def _resolved_item_id(request: FunctionCallRequest, payload_item_id: object) -> 
     raise ValueError("resolved item target required")
 
 
-def _resolved_actor_id(request: FunctionCallRequest, payload_actor_id: object) -> int:
-    raw = payload_actor_id if payload_actor_id is not None else request.actor.actor_id
-    if raw is None or str(raw).strip() == "":
-        raise ValueError("resolved actor_id required for activation")
-    return int(raw)
-
-
 def handle_required_gate(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = RequiredGateRequest.model_validate(request.payload)
@@ -111,20 +118,46 @@ def handle_activation_run(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ActivationRunRequest.model_validate(request.payload)
         item_id = _resolved_item_id(request, body.item_id)
-        actor_id = _resolved_actor_id(request, body.actor_id)
     except Exception as exc:
         return _err("payload_invalid", f"activation.run payload invalid: {exc}")
 
     from yoke_core.domain.advance_path_claim_activation import (
+        check_work_claim_ownership,
+        resolve_item_actor,
         run_activation_phase,
     )
 
     with _connect_rw() as conn:
+        # Resolve the item's owning actor (the actor its path claims are
+        # attributed to). An explicit payload actor_id is honored as an
+        # operator/debug override; the transport-aware preflight does not
+        # supply one, so the COALESCE(owner, source) resolution is the
+        # normal path. Fold in the standalone-activation ownership guard:
+        # refuse when another live session holds the item work claim.
+        if body.actor_id is not None:
+            actor_id = int(body.actor_id)
+        else:
+            actor_id, actor_error = resolve_item_actor(conn, item_id)
+            if actor_error is not None:
+                return _err("actor_unavailable", actor_error)
+        other_session = check_work_claim_ownership(
+            conn,
+            item_id=item_id,
+            session_id=request.actor.session_id or "",
+        )
+        if other_session:
+            return _err(
+                "work_claim_conflict",
+                f"work claim for item {item_id} held by session "
+                f"'{other_session}'; activation refused to avoid stranded "
+                "path claims",
+            )
         result = run_activation_phase(
             conn,
             item_id=item_id,
-            actor_id=actor_id,
+            actor_id=int(actor_id),
             session_id=request.actor.session_id,
+            resolved_heads=body.resolved_heads,
         )
 
     return HandlerOutcome(
@@ -143,6 +176,57 @@ def handle_activation_run(request: FunctionCallRequest) -> HandlerOutcome:
             "blocked_errors": list(result.blocked_errors),
             "diverged_error": result.diverged_error,
         },
+    )
+
+
+def handle_survey_ensure(request: FunctionCallRequest) -> HandlerOutcome:
+    """Register or widen a selected-Dash path claim from its live survey.
+
+    Server side of the transport-aware Dash worktree preparation: wraps
+    :func:`yoke_core.domain.dash_path_claim_posture.ensure_survey_path_claim`
+    unchanged so the register-vs-widen decision (which the ``register``
+    function alone cannot express) stays in one place. The caller
+    verifies the item work-claim holder via ``claims.work.holder_get``
+    first; here the claim is attributed to the calling session, which
+    the dispatcher's item-claim gate has already confirmed is the
+    holder. Non-Dash items and Dash items without the path_claims
+    posture no-op (``claim_id=None``).
+    """
+    try:
+        body = SurveyEnsureRequest.model_validate(request.payload)
+        item_id = _resolved_item_id(request, body.item_id)
+    except Exception as exc:
+        return _err("payload_invalid", f"survey_ensure payload invalid: {exc}")
+
+    from yoke_core.domain.dash_path_claim_posture import (
+        ensure_survey_path_claim,
+    )
+    from yoke_core.domain.path_claims import PathClaimError
+    from yoke_core.domain.path_claims_register import (
+        PathClaimRegistrationError,
+    )
+    from yoke_core.domain.path_claims_resolve import PathResolveError
+
+    with _connect_rw() as conn:
+        try:
+            claim_id = ensure_survey_path_claim(
+                conn,
+                item_id=item_id,
+                session_id=request.actor.session_id or "",
+                touch_paths=list(body.touch_paths),
+                integration_target=str(body.integration_target),
+            )
+        except (
+            PathClaimError,
+            PathClaimRegistrationError,
+            PathResolveError,
+            ValueError,
+        ) as exc:
+            return _err("survey_ensure_failed", str(exc))
+
+    return HandlerOutcome(
+        result_payload={"claim_id": claim_id},
+        primary_success=True,
     )
 
 
@@ -182,9 +266,12 @@ __all__ = [
     "ActivationRunRequest",
     "ActivationRunResponse",
     "ActivationOutcomeRow",
+    "SurveyEnsureRequest",
+    "SurveyEnsureResponse",
     "CoordinationDecisionBuildRequest",
     "CoordinationDecisionBuildResponse",
     "handle_required_gate",
     "handle_activation_run",
+    "handle_survey_ensure",
     "handle_coordination_decision_build",
 ]

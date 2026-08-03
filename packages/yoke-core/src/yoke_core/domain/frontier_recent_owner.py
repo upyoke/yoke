@@ -112,8 +112,8 @@ def routed_ownership_exclusions(
     *,
     window_s: int,
     requesting_session_id: Optional[str],
-) -> Dict[str, Dict[str, Any]]:
-    """Map ``YOK-N`` -> defended-item detail dict (keyed by item id).
+) -> Dict[int, Dict[str, Any]]:
+    """Map internal ``items.id`` -> defended-item detail dict.
 
     Defended items have a most-recent release inside ``window_s`` whose
     owner session is still alive (no ``ended_at``, fresh activity also
@@ -124,7 +124,7 @@ def routed_ownership_exclusions(
     treat empty as "no defense".
     """
     now = datetime.now(timezone.utc)
-    excluded: Dict[str, Dict[str, Any]] = {}
+    excluded: Dict[int, Dict[str, Any]] = {}
     try:
         claim_columns = set(_schema_get_columns(conn, "work_claims"))
         intent_expr = (
@@ -165,8 +165,8 @@ def routed_ownership_exclusions(
         if hb_dt is None or (now - hb_dt).total_seconds() > window_s:
             continue
         seen_items.add(item_num)
-        excluded[f"YOK-{item_num}"] = {
-            "item_id": f"YOK-{item_num}",
+        excluded[item_num] = {
+            "item_id": item_num,
             "prior_owner_session_id": owner_session,
             "released_at": str(row["released_at"]),
             "last_heartbeat": str(activity_at) if activity_at else "",

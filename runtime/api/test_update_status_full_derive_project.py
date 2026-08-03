@@ -183,7 +183,7 @@ class TestReleaseFinalize:
         return calls
 
     def test_all_children_done_invokes_engine(self, env, monkeypatch):
-        """AC-1/AC-4/AC-8: all children exactly done + parent release routes
+        """All children exactly done + parent release routes
         through the engine; auto-derive performs no direct status='done' write."""
         monkeypatch.delenv("YOKE_CLAIM_BYPASS", raising=False)
         self._epic_at_release_with_tasks(env, ["done", "done", "done"])
@@ -203,7 +203,7 @@ class TestReleaseFinalize:
         assert "release -> done" in out.getvalue()
 
     def test_non_done_child_does_not_finalize(self, env, monkeypatch):
-        """AC-2: a non-done child blocks finalization and is named in output."""
+        """A non-done child blocks finalization and is named in output."""
         monkeypatch.delenv("YOKE_CLAIM_BYPASS", raising=False)
         self._epic_at_release_with_tasks(env, ["done", "done", "blocked"])
         calls = self._spy_engine(monkeypatch)
@@ -222,7 +222,7 @@ class TestReleaseFinalize:
         assert "task 3=blocked" in text
 
     def test_done_cascade_bypass_does_not_finalize(self, env, monkeypatch):
-        """AC-3: task writes under a ``done-cascade:`` bypass never ping-pong
+        """Task writes under a ``done-cascade:`` bypass never ping-pong
         into an upward finalize attempt, even with all children done."""
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "done-cascade:YOK-42")
         self._epic_at_release_with_tasks(env, ["done", "done", "done"])

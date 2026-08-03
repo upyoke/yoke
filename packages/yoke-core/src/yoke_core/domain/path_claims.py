@@ -61,8 +61,8 @@ def _validate_targets(conn: Any, target_ids: Sequence[int]) -> None:
 
 
 _CLAIM_COLS = (
-    "id, state, mode, actor_id, session_id, item_id, work_claim_id, "
-    "owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, "
+    "id, state, mode, owner_kind, owner_item_id, owner_session_id, "
+    "owner_work_claim_id, "
     "registered_by_actor_id, registered_by_session_id, integration_target, "
     "base_commit_sha, registered_at, activated_at, released_at, cancelled_at, "
     "release_reason, cancel_reason, blocked_reason, exception_reason"
@@ -175,21 +175,16 @@ def register(
     )
     now = _now()
     cur = conn.execute(
-        "INSERT INTO path_claims (state, mode, actor_id, session_id, item_id, "
-        "work_claim_id, owner_kind, owner_item_id, owner_session_id, "
-        "owner_work_claim_id, registered_by_actor_id, "
+        "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+        "owner_session_id, owner_work_claim_id, registered_by_actor_id, "
         "registered_by_session_id, integration_target, registered_at, "
         "blocked_reason) "
         f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
         f"{_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
-        f"{_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}) RETURNING id",
+        f"{_p(conn)}) RETURNING id",
         (
             initial_state,
             mode,
-            actor_id,
-            session_id,
-            item_id,
-            work_claim_id,
             oc["owner_kind"],
             oc["owner_item_id"],
             oc["owner_session_id"],
@@ -232,13 +227,7 @@ def activate(
     )
     row = _fetch_claim(conn, claim_id)
     owner_kind = row["owner_kind"]
-    owner_item_id = (
-        row["owner_item_id"]
-        if owner_kind == "item"
-        else row["item_id"]
-        if owner_kind is None
-        else None
-    )
+    owner_item_id = row["owner_item_id"] if owner_kind == "item" else None
     if owner_item_id is not None:
         from yoke_core.domain.workflow_item_binding_validation import (
             WorkflowItemBindingError,
@@ -324,7 +313,8 @@ def get_claim(conn: Any, claim_id: int) -> dict:
     ]
     out = {k: row[k] for k in _CLAIM_COLS.replace(", ", ",").split(",")}
     out["id"] = int(out["id"])
-    out["actor_id"] = int(out["actor_id"])
+    if out["registered_by_actor_id"] is not None:
+        out["registered_by_actor_id"] = int(out["registered_by_actor_id"])
     out["target_ids"] = targets
     return out
 

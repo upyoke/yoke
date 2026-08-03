@@ -38,7 +38,7 @@ def test_claim_work_description_includes_target_shapes_and_worked_example():
     assert "--epic-task" in CLAIM_WORK_DESCRIPTION
     assert "--task-num" in CLAIM_WORK_DESCRIPTION
     assert "--process" in CLAIM_WORK_DESCRIPTION
-    # Worked example carries a concrete YOK-N per AC-2 canonical shape.
+    # Worked example carries a concrete YOK-N placeholder.
     assert "YOK-N" in CLAIM_WORK_DESCRIPTION
     assert "claim-work" in CLAIM_WORK_DESCRIPTION
 

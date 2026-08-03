@@ -40,6 +40,7 @@ def insert_item(
     created_at: str = "2026-01-01T00:00:00Z",
     workflow: str = "issue",
     spec: str | None = None,
+    project_sequence: int | None = None,
 ) -> None:
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
@@ -63,7 +64,9 @@ def insert_item(
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id, title, status, priority,
-            project_id, item_id, frozen,
+            project_id,
+            project_sequence if project_sequence is not None else item_id,
+            frozen,
             created_at, created_at, spec, workflow_id, workflow_version_id,
         ),
     )

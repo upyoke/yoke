@@ -4,6 +4,7 @@ Pure data only — no I/O or DB connections."""
 from __future__ import annotations
 
 from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
+from yoke_core.domain.schema_api_context_tables_ouroboros import OUROBOROS_TABLES
 from yoke_core.domain.schema_api_context_tables_worktrees import ITEM_WORKTREE_TABLES
 
 CORE_TABLES: dict[str, dict] = {
@@ -24,7 +25,6 @@ CORE_TABLES: dict[str, dict] = {
             ("blocked", "INTEGER"),
             ("blocked_reason", "TEXT"),
             ("deployment_flow", "TEXT"),
-            ("flow", "TEXT"),
             ("deploy_stage", "TEXT"),
             ("source", "TEXT"),
             ("owner", "TEXT"),
@@ -55,7 +55,7 @@ CORE_TABLES: dict[str, dict] = {
             "`project_sequence` is the per-project public item number. "
             "There is no item-level project slug column. "
             "items.body is a virtual rendered field (use "
-            "`items get YOK-N body` or read the structured-field columns "
+            "`items get PREFIX-N body` or read the structured-field columns "
             "directly): spec, design_spec, technical_plan, worktree_plan, "
             "shepherd_log, shepherd_caveats, test_results, deploy_log, "
             "db_mutation_profile, "
@@ -68,6 +68,7 @@ CORE_TABLES: dict[str, dict] = {
         ),
     },
     **ITEM_WORKTREE_TABLES,
+    **OUROBOROS_TABLES,
     "epic_tasks": {
         "columns": [
             ("id", "INTEGER"),
@@ -148,14 +149,14 @@ CORE_TABLES: dict[str, dict] = {
             "blocking_item per gate_point ('activation', 'integration', "
             "'closure', or 'coordination_only' — the last attests "
             "compatible same-file edits with no lifecycle gate). "
-            "dependent_item/blocking_item store public YOK-N text refs, "
+            "dependent_item/blocking_item store public PREFIX-N text refs, "
             "not numeric items.id values. The gate categorization is "
             "`gate_point`; there is NO "
             "`classification` column on this table. satisfaction is "
             "one of 'status:done', 'status:implemented', 'fact:merged'. "
             "source enum: conduct, feed, idea, migration, operator, "
             "refine, shepherd. Reader: `yoke shepherd "
-            "dependency-list YOK-N` (returns both directions); "
+            "dependency-list PREFIX-N` (returns both directions); "
             "registered shepherd dependency mutation wrappers for writes."
         ),
     },
@@ -182,7 +183,6 @@ CORE_TABLES: dict[str, dict] = {
             ("duration_ms", "INTEGER"),
             ("exit_code", "INTEGER"),
             ("trace_id", "TEXT"),
-            ("parent_id", "TEXT"),
             ("anomaly_flags", "TEXT"),
             ("tool_use_id", "TEXT"),
             ("turn_id", "TEXT"),
@@ -238,7 +238,7 @@ CORE_TABLES: dict[str, dict] = {
             "written at mutation time by every status writer. "
             "`task_num IS NULL` = item-level transition; non-null = "
             "epic-task transition with item_id = the parent epic's item "
-            "id. THE surface for 'when did YOK-N reach status X' "
+            "id. THE surface for 'when did PREFIX-N reach status X' "
             "questions (the retired pattern was scanning "
             "ItemStatusChanged/TaskStatusChanged envelopes in events): "
             "`SELECT from_status, to_status, source, created_at FROM "
@@ -300,29 +300,6 @@ CORE_TABLES: dict[str, dict] = {
         "notes": (
             "Event catalog keyed by `event_name`. There is NO `name` "
             "column on this table; use event_name for joins and lookups."
-        ),
-    },
-    "ouroboros_entries": {
-        "columns": [
-            ("id", "INTEGER"),
-            ("timestamp", "TEXT"),
-            ("agent", "TEXT"),
-            ("context", "TEXT"),
-            ("category", "TEXT"),
-            ("body", "TEXT"),
-            ("reviewed_at", "TEXT"),
-            ("archived_at", "TEXT"),
-            ("created_at", "TEXT"),
-            ("project_id", "INTEGER"),
-        ],
-        "notes": (
-            "Learning-log / field-note rows. The kind-like discriminator "
-            "is `category` and the evidence/content text is `body`; "
-            "there are NO `kind` or `evidence` columns on this table. "
-            "Project authority is numeric `project_id`; join projects for "
-            "the human slug. "
-            "Use `created_at` for canonical ordering; `timestamp` is "
-            "legacy compatibility."
         ),
     },
     "item_sections": {

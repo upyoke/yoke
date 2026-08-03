@@ -71,6 +71,10 @@ def test_dash_evidence_adapter_records_actual_files_and_posture(monkeypatch):
         "ui/footer.js",
         "--posture-check",
         "deployment=completed",
+        "--tree-root",
+        "/repo/.worktrees/lane",
+        "--tree-head-sha",
+        "abc1234",
     ]) == 0
 
     assert captured["function_id"] == "direct_workflow.dash.evidence"
@@ -78,6 +82,63 @@ def test_dash_evidence_adapter_records_actual_files_and_posture(monkeypatch):
     assert captured["payload"]["posture_checks"] == {
         "deployment": "completed",
     }
+    assert captured["payload"]["tree_root"] == "/repo/.worktrees/lane"
+    assert captured["payload"]["tree_head_sha"] == "abc1234"
+
+
+def test_dash_evidence_adapter_resolves_the_verification_tree(monkeypatch):
+    # Without overrides the adapter names the tree it is standing in, so
+    # the recorded evidence always identifies what was verified.
+    captured = _capture(monkeypatch, dash)
+    from yoke_core.domain import verification_tree_binding
+
+    monkeypatch.setattr(
+        verification_tree_binding,
+        "resolve_tree_identity",
+        lambda start=None: verification_tree_binding.TreeIdentity(
+            root="/resolved/lane", head_sha="feed1234",
+        ),
+    )
+
+    assert dash.dash_evidence([
+        "YOK-9",
+        "--result",
+        "Updated footer",
+        "--verification",
+        "UI test passed",
+        "--commit-sha",
+        "abc1234",
+        "--merge-sha",
+        "def5678",
+        "--no-changes",
+    ]) == 0
+
+    assert captured["payload"]["tree_root"] == "/resolved/lane"
+    assert captured["payload"]["tree_head_sha"] == "feed1234"
+
+
+def test_dash_evidence_adapter_refuses_an_unidentifiable_tree(monkeypatch):
+    _capture(monkeypatch, dash)
+    from yoke_core.domain import verification_tree_binding
+
+    monkeypatch.setattr(
+        verification_tree_binding,
+        "resolve_tree_identity",
+        lambda start=None: None,
+    )
+
+    assert dash.dash_evidence([
+        "YOK-9",
+        "--result",
+        "Updated footer",
+        "--verification",
+        "UI test passed",
+        "--commit-sha",
+        "abc1234",
+        "--merge-sha",
+        "def5678",
+        "--no-changes",
+    ]) == 2
 
 
 def test_blitz_survey_adapter_keeps_all_declared_paths(monkeypatch):
@@ -123,10 +184,11 @@ def test_direct_workflow_registry_and_inventory_are_complete():
         ("direct-workflow", "blitz", "survey"),
         ("direct-workflow", "dash", "evidence"),
         ("direct-workflow", "dash", "escalate"),
+        ("direct-workflow", "conflict-survey", "status"),
         ("ouroboros", "field-note", "promote"),
     }
     assert set(DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY) == {("dash",)}
-    assert len(WRAPPED_ROWS) == 6
+    assert len(WRAPPED_ROWS) == 7
     assert len(PERMANENT_ROWS) == 1
 
 

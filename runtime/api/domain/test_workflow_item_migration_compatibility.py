@@ -48,8 +48,8 @@ def _mutate_target(definition: dict, case: str) -> None:
         ]
     elif case == "delivery":
         policies["delivery"] = "after_merge_action"
-    elif case == "delivery_executor":
-        definition["executor_bindings"][-1]["executor_id"] = "polish"
+    elif case == "delivery_skill":
+        definition["skill_bindings"][-1]["skill_id"] = "polish"
     elif case == "posture":
         policies["item_posture_allowlist"].remove("deployment")
     elif case == "reached_approval":
@@ -148,13 +148,12 @@ def _seed_path_claim(test_db) -> None:
     )
     test_db.execute(
         "INSERT INTO path_claims ("
-        "state, mode, actor_id, item_id, owner_kind, owner_item_id, "
+        "state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
         "integration_target, registered_at, exception_reason"
-        ") VALUES ('active', 'exception', %s, %s, 'item', %s, 'main', %s, %s)",
+        ") VALUES ('active', 'exception', 'item', %s, %s, 'main', %s, %s)",
         (
+            ITEM_ID,
             actor_id,
-            ITEM_ID,
-            ITEM_ID,
             iso8601_now(),
             "migration compatibility fixture",
         ),
@@ -251,7 +250,7 @@ def _seed_case(test_db, case: str) -> None:
         _seed_approval(test_db)
     elif case == "qa":
         _seed_qa(test_db)
-    elif case in {"delivery", "delivery_executor"}:
+    elif case in {"delivery", "delivery_skill"}:
         _seed_delivery(test_db)
     elif case == "posture":
         test_db.execute(
@@ -327,7 +326,7 @@ def test_label_only_migration_preserves_all_live_bindings(test_db):
         ("approval", "approval authority"),
         ("qa", "QA gate semantics changed"),
         ("delivery", "live delivery bindings"),
-        ("delivery_executor", "delivery executor stages"),
+        ("delivery_skill", "delivery skill stages"),
         ("posture", "disallows item posture keys"),
     ),
 )

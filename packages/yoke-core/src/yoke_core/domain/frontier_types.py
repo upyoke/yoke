@@ -24,9 +24,15 @@ class AdapterCategory(str, Enum):
 
 @dataclass
 class FrontierItem:
-    """A single item on the computed frontier."""
+    """A single item on the computed frontier.
 
-    item_id: str
+    ``item_id`` is the internal ``items.id`` integer — the scheduler's
+    internal currency. Public refs are rendered only at presentation
+    boundaries via ``project_identity.render_item_ref``. ``blocked_by``
+    carries the public text refs stored on ``item_dependencies`` rows.
+    """
+
+    item_id: int
     title: str
     status: str
     priority: str
@@ -56,4 +62,5 @@ class FrontierResult:
     frozen: List[FrontierItem] = field(default_factory=list)
     wip_cap: int = 5
     wip_active: int = 0
+    wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[FrontierItem] = field(default_factory=list)

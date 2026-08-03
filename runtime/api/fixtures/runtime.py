@@ -166,6 +166,63 @@ def _yoke_filesystem_pollution_check():
 
 
 # ---------------------------------------------------------------------------
+# Hook-written identity registry write isolation
+# ---------------------------------------------------------------------------
+
+
+def _guarded_registry_dir(guard_dir: Path, dir_name: str):
+    """A resolver honoring a test's own ``YOKE_MACHINE_HOME``, else the guard."""
+
+    def _resolve() -> Path:
+        home = os.environ.get("YOKE_MACHINE_HOME")
+        return (Path(home) / dir_name) if home else guard_dir
+
+    return _resolve
+
+
+def isolate_hook_written_identity_registries(tmp_path: Path, monkeypatch) -> None:
+    """Point every hook-written identity writer away from the real machine home.
+
+    Both registries — the session-anchor records and the Cursor
+    conversation mapping — are written from hook processes against live
+    ambient state, so a test that reaches an unmocked write lands in the
+    developer's own ``~/.yoke``. For anchors that was observed poisoning
+    the machine's live conversation anchor with a synthetic session id,
+    costing the developer's session its ambient identity to the contention
+    guard; a stray conversation mapping would mis-attribute a later shell
+    the same way. Every writer shim re-resolves its directory per call, so
+    patching the resolvers covers every write path. A test that pins
+    ``YOKE_MACHINE_HOME`` keeps its own isolation; everything else lands in
+    a per-test guard directory.
+    """
+    from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
+    from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+
+    anchors = _guarded_registry_dir(
+        tmp_path / "session-anchors-guard", ANCHORS_DIR_NAME,
+    )
+    cursor_map = _guarded_registry_dir(
+        tmp_path / "cursor-session-map-guard", CURSOR_SESSION_MAP_DIR_NAME,
+    )
+
+    from yoke_core.domain import session_process_anchors
+
+    monkeypatch.setattr(session_process_anchors, "anchors_dir", anchors)
+    try:
+        from yoke_harness.hooks import cursor_session_map, identity_anchor
+    except Exception:  # noqa: BLE001 — harness package optional in some runs
+        return
+    monkeypatch.setattr(identity_anchor, "_anchors_dir", anchors)
+    monkeypatch.setattr(cursor_session_map, "_map_dir", cursor_map)
+
+
+@pytest.fixture(autouse=True)
+def _yoke_hook_written_identity_isolation(tmp_path, monkeypatch):
+    isolate_hook_written_identity_registries(tmp_path, monkeypatch)
+    yield
+
+
+# ---------------------------------------------------------------------------
 # Canonical-ledger write isolation
 # ---------------------------------------------------------------------------
 

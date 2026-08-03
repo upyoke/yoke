@@ -223,7 +223,7 @@ def _seed_project(
     project_id = SEED_PROJECT_IDS.get(project)
     if project_id is None:
         row = conn.execute(
-            f"SELECT COALESCE(MAX(id), 0) + 1 FROM projects"
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM projects"
         ).fetchone()
         project_id = int(row[0])
     register_machine_checkout(repo_path.parent, repo_path, project_id)
@@ -248,7 +248,7 @@ def _seed_flow_with_migration_apply(
     stages = json.dumps([
         {"kind": "migration_apply", "model_name": model_name,
          "lifecycle_phase": lifecycle_phase},
-        {"name": "merged", "executor": "auto"},
+        {"name": "merged", "step_runner": "auto"},
     ])
     conn.execute(
         "INSERT INTO deployment_flows "

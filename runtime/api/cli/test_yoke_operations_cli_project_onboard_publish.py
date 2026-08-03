@@ -32,16 +32,23 @@ def _stub_backend(monkeypatch):
             raise project_onboard.ProjectDispatchError(
                 function_id, "not_found", "missing"
             )
-        return {"project": {"id": 42, "slug": payload.get("slug"),
-                            "github_repo": payload.get("github_repo")}}
+        return {
+            "project": {
+                "id": 42,
+                "slug": payload.get("slug"),
+                "github_repo": payload.get("github_repo"),
+            }
+        }
 
     monkeypatch.setattr(project_onboard, "dispatch", _fake_dispatch)
     monkeypatch.setattr(
-        project_onboard_apply.install_runner, "install",
+        project_onboard_apply.install_runner,
+        "install",
         lambda *a, **k: {"installed": True},
     )
     monkeypatch.setattr(
-        project_onboard_apply.machine_writer, "register_project",
+        project_onboard_apply.machine_writer,
+        "register_project",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(project_onboard_apply, "ensure_git_available", lambda: None)
@@ -50,7 +57,8 @@ def _stub_backend(monkeypatch):
     # report shape. Stub it to a trivial dict so the install/handoff plumbing
     # does not need a fully-shaped install result.
     monkeypatch.setattr(
-        project_onboard_apply, "applied_report",
+        project_onboard_apply,
+        "applied_report",
         lambda *a, **k: {"applied": True},
     )
     return dispatched
@@ -58,7 +66,10 @@ def _stub_backend(monkeypatch):
 
 def _publish() -> PublishRequest:
     return PublishRequest(
-        owner="octocat", name="widget", user_login="octocat", token="ghs_x",
+        owner="octocat",
+        name="widget",
+        user_login="octocat",
+        token="ghs_x",
     )
 
 
@@ -71,21 +82,28 @@ def _base_kwargs(checkout: Path) -> dict:
         "github_repo": None,
         "default_branch": "main",
         "public_item_prefix": "WIDG",
-        "github_adoption_choice": "backlog-only",
+        "github_adoption_choice": "disabled",
         "config_path": None,
         "apply": True,
     }
 
 
-def test_create_project_publishes_and_records_repo(tmp_path, monkeypatch, _stub_backend):
+def test_create_project_publishes_and_records_repo(
+    tmp_path, monkeypatch, _stub_backend
+):
     calls: list = []
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
-        lambda root, publish, **k: calls.append((root, publish))
-        or {"full_name": "octocat/widget", "private": True},
+        project_onboard,
+        "create_and_publish",
+        lambda root, publish, **k: (
+            calls.append((root, publish))
+            or {"full_name": "octocat/widget", "private": True}
+        ),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: True,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: True,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: True)
 
@@ -97,7 +115,9 @@ def test_create_project_publishes_and_records_repo(tmp_path, monkeypatch, _stub_
 
 
 def test_fresh_create_refreshes_app_access_before_binding(
-    tmp_path, monkeypatch, _stub_backend,
+    tmp_path,
+    monkeypatch,
+    _stub_backend,
 ) -> None:
     events: list[str] = []
     github_config = {
@@ -111,11 +131,13 @@ def test_fresh_create_refreshes_app_access_before_binding(
 
     def _status(**_kwargs):
         events.append("refresh")
-        github_config["repositories"] = [{
-            "full_name": "octocat/widget",
-            "repository_id": 88,
-            "installation_id": 7,
-        }]
+        github_config["repositories"] = [
+            {
+                "full_name": "octocat/widget",
+                "repository_id": 88,
+                "installation_id": 7,
+            }
+        ]
         return {"ok": True}
 
     def _binding_dispatch(function_id, payload, _config_path, **_kwargs):
@@ -134,7 +156,9 @@ def test_fresh_create_refreshes_app_access_before_binding(
 
     monkeypatch.setattr(project_onboard, "create_and_publish", _create)
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda *_args: True,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda *_args: True,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda *_args: True)
     monkeypatch.setattr(project_onboard_progress.github_machine, "status", _status)
@@ -146,33 +170,42 @@ def test_fresh_create_refreshes_app_access_before_binding(
     monkeypatch.setattr(
         project_onboard_progress.github_binding_auth,
         "locked_profile_bound_access_for_binding",
-        lambda **_kwargs: nullcontext(SimpleNamespace(
-            token=SimpleNamespace(access_token="ghu_short_lived"),
-            api_url="https://api.github.com",
-        )),
+        lambda **_kwargs: nullcontext(
+            SimpleNamespace(
+                token=SimpleNamespace(access_token="ghu_short_lived"),
+                api_url="https://api.github.com",
+            )
+        ),
     )
     monkeypatch.setattr(project_onboard_progress, "dispatch", _binding_dispatch)
     kwargs = _base_kwargs(tmp_path / "new")
-    kwargs.update({
-        "github_repo": "octocat/widget",
-        "github_adoption_choice": "app-binding",
-        "github_repository_id": 999,
-        "github_installation_id": 999,
-    })
+    kwargs.update(
+        {
+            "github_repo": "octocat/widget",
+            "github_adoption_choice": "app-binding",
+            "github_repository_id": 999,
+            "github_installation_id": 999,
+        }
+    )
 
     project_onboard.create_project(publish=_publish(), **kwargs)
 
     assert events == ["publish", "refresh", "bind", "sync-policy"]
 
 
-def test_create_project_no_publish_does_not_create_repo(tmp_path, monkeypatch, _stub_backend):
+def test_create_project_no_publish_does_not_create_repo(
+    tmp_path, monkeypatch, _stub_backend
+):
     called = {"n": 0}
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
+        project_onboard,
+        "create_and_publish",
         lambda *a, **k: called.__setitem__("n", called["n"] + 1),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: True,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: True,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: True)
 
@@ -182,15 +215,20 @@ def test_create_project_no_publish_does_not_create_repo(tmp_path, monkeypatch, _
 
 
 def test_create_project_auto_skips_publish_when_remote_exists(
-    tmp_path, monkeypatch, _stub_backend,
+    tmp_path,
+    monkeypatch,
+    _stub_backend,
 ):
     called = {"n": 0}
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
+        project_onboard,
+        "create_and_publish",
         lambda *a, **k: called.__setitem__("n", called["n"] + 1),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: False,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: False,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: False)
 
@@ -200,16 +238,23 @@ def test_create_project_auto_skips_publish_when_remote_exists(
 
 
 def test_create_project_retries_publish_when_origin_matches(
-    tmp_path, monkeypatch, _stub_backend,
+    tmp_path,
+    monkeypatch,
+    _stub_backend,
 ):
     calls: list = []
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
-        lambda root, publish, **k: calls.append((root, publish))
-        or {"full_name": "octocat/widget", "private": True},
+        project_onboard,
+        "create_and_publish",
+        lambda root, publish, **k: (
+            calls.append((root, publish))
+            or {"full_name": "octocat/widget", "private": True}
+        ),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: True,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: True,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: False)
 
@@ -220,17 +265,24 @@ def test_create_project_retries_publish_when_origin_matches(
     assert created["github_repo"] == "octocat/widget"
 
 
-def test_onboard_existing_publishes_for_plain_folder(tmp_path, monkeypatch, _stub_backend):
+def test_onboard_existing_publishes_for_plain_folder(
+    tmp_path, monkeypatch, _stub_backend
+):
     folder = tmp_path / "code"
     folder.mkdir()
     calls: list = []
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
-        lambda root, publish, **k: calls.append((root, publish))
-        or {"full_name": "octocat/widget", "private": True},
+        project_onboard,
+        "create_and_publish",
+        lambda root, publish, **k: (
+            calls.append((root, publish))
+            or {"full_name": "octocat/widget", "private": True}
+        ),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: True,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: True,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: True)
 
@@ -242,17 +294,22 @@ def test_onboard_existing_publishes_for_plain_folder(tmp_path, monkeypatch, _stu
 
 
 def test_onboard_existing_auto_skips_when_remote_exists(
-    tmp_path, monkeypatch, _stub_backend,
+    tmp_path,
+    monkeypatch,
+    _stub_backend,
 ):
     folder = tmp_path / "code"
     folder.mkdir()
     called = {"n": 0}
     monkeypatch.setattr(
-        project_onboard, "create_and_publish",
+        project_onboard,
+        "create_and_publish",
         lambda *a, **k: called.__setitem__("n", called["n"] + 1),
     )
     monkeypatch.setattr(
-        project_onboard, "publish_checkout_needed", lambda root, publish: False,
+        project_onboard,
+        "publish_checkout_needed",
+        lambda root, publish: False,
     )
     monkeypatch.setattr(project_onboard, "init_repo_if_needed", lambda r, b: False)
 

@@ -36,7 +36,7 @@ def _patch_core(
     current_status: str,
     workflow_id: str = "issue",
     *,
-    executor=None,
+    update_recorder=None,
     emit_recorder=None,
     release_recorder=None,
 ):
@@ -54,7 +54,9 @@ def _patch_core(
     )
     patches.append(
         mock.patch.object(
-            advance_skip_core, "_do_execute_update", executor or _CallRecorder()
+            advance_skip_core,
+            "_do_execute_update",
+            update_recorder or _CallRecorder(),
         )
     )
     if emit_recorder is not None:

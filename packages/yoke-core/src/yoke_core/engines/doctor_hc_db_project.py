@@ -7,8 +7,8 @@ sibling modules:
 
 - ``doctor_hc_db_project_orphans`` — orphaned project references in items
   and deployment events, plus orphaned deploy events.
-- ``doctor_hc_db_project_schema`` — schema drift detection, schema script
-  sync, SQLite integrity, and migration audit evidence.
+- ``doctor_hc_db_project_schema`` — schema drift detection and migration
+  audit evidence.
 
 This module remains the canonical entry point that ``doctor.py`` imports.
 It defines the five core project-integrity HCs and re-exports the public
@@ -33,7 +33,6 @@ from yoke_core.engines.doctor_hc_db_project_orphans import (  # noqa: F401
 from yoke_core.engines.doctor_hc_db_project_schema import (  # noqa: F401
     hc_migration_audit,
     hc_schema_drift,
-    hc_schema_script_sync,
 )
 
 
@@ -49,6 +48,8 @@ def hc_project_fk_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         )
         return
 
+    from yoke_core.domain.project_identity import render_item_ref
+
     rows = query_rows(
         conn,
         "SELECT i.id, i.project_id FROM items i "
@@ -57,7 +58,11 @@ def hc_project_fk_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         "ORDER BY i.id",
     )
 
-    issues = [f"- YOK-{r['id']}: project_id '{r['project_id']}' does not exist in projects table" for r in rows]
+    issues = [
+        f"- {render_item_ref(conn, r['id'])}: project_id '{r['project_id']}' "
+        "does not exist in projects table"
+        for r in rows
+    ]
 
     if issues:
         rec.record("HC-project-fk-integrity", "Project FK integrity", "FAIL", "\n".join(issues))

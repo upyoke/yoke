@@ -106,8 +106,7 @@ class TestUnsupportedFieldRegression:
         )
 
         unsupported_fields = ["body", "source", "epic", "type", "github_issue",
-                              "created_at", "updated_at", "flow",
-                              "merged_at", "rework_count", "worktree"]
+                              "created_at", "updated_at", "merged_at", "rework_count"]
 
         for field_name in unsupported_fields:
             result = prepare_update(item=item, field_name=field_name, value="test")

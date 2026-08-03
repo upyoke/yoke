@@ -6,7 +6,7 @@ Entry and activation stage of the conduct epic flow. Covers argument parsing, en
 
 ### S1. Argument Parsing
 
-Detect `YOK-N` pattern (case-insensitive regex, e.g., `YOK-N`, `yok-7`). Extract the numeric part `{N}`.
+Detect `PREFIX-N` pattern (case-insensitive regex, e.g., `PREFIX-N`, `yok-7`). Extract the numeric part `{N}`.
 
 Set defaults: `_max_attempts={--max-attempts value, default 5}`, `_no_chain={true if --no-chain flag present, false otherwise}`.
 
@@ -22,7 +22,7 @@ MAIN_ROOT=$(python3 -m yoke_core.domain.worktree paths main)
 
 **Resolve project from the item** — read the public project slug via the item getter:
 ```bash
-PROJECT=$(yoke items get YOK-${N} project)
+PROJECT=$(yoke items get PREFIX-${N} project)
 PROJECT=${PROJECT:-yoke}
 ```
 
@@ -34,35 +34,35 @@ _workflow_id=$(yoke items get ${N} workflow_id)
 ```
 
 If `_workflow_id` is not `epic`, halt immediately:
-> Error: /yoke conduct is not the registered executor for workflow
-> '{_workflow_id}' on YOK-{N}.
+> Error: /yoke conduct is not the registered skill for workflow
+> '{_workflow_id}' on PREFIX-{N}.
 >
 > Issue implementation routes through /yoke advance (main-session inline implementation).
-> Run '/yoke advance YOK-{N} implementation' to begin issue implementation.
+> Run '/yoke advance PREFIX-{N} implementation' to begin issue implementation.
 
 **Status gate:**
 ```bash
 _item_status=$(yoke items get ${N} status)
 ```
 
-If the query returns empty, stop: `Item YOK-{N} not found.`
+If the query returns empty, stop: `Item PREFIX-{N} not found.`
 
 - `planned`: proceed (epic entry point).
 - `implementing`: proceed (re-entry, resuming in-progress work).
 - `reviewing-implementation`: proceed (re-entry, resuming review cycle).
-- `reviewed-implementation`: stop — `YOK-{N} has completed implementation review. Run '/yoke polish YOK-{N}'.`
-- `done`: stop — `YOK-{N} is already done.`
-- `implemented`: stop — `YOK-{N} is already implemented. Run '/yoke usher YOK-{N}'.`
-- `polishing-implementation`: stop — `YOK-{N} is already in polish. Run '/yoke polish YOK-{N}'.`
-- `idea`: hard-block — `YOK-{N} is at status 'idea'. Run '/yoke shepherd YOK-{N}'.`
-- Otherwise: hard-block — `YOK-{N} is at status '{_item_status}', not 'planned', 'implementing', or 'reviewing-implementation'.`
+- `reviewed-implementation`: stop — `PREFIX-{N} has completed implementation review. Run '/yoke polish PREFIX-{N}'.`
+- `done`: stop — `PREFIX-{N} is already done.`
+- `implemented`: stop — `PREFIX-{N} is already implemented. Run '/yoke usher PREFIX-{N}'.`
+- `polishing-implementation`: stop — `PREFIX-{N} is already in polish. Run '/yoke polish PREFIX-{N}'.`
+- `idea`: hard-block — `PREFIX-{N} is at status 'idea'. Run '/yoke shepherd PREFIX-{N}'.`
+- Otherwise: hard-block — `PREFIX-{N} is at status '{_item_status}', not 'planned', 'implementing', or 'reviewing-implementation'.`
 
 **Acceptance criteria gate:**
 ```bash
 _item_body=$(yoke items get ${N} body)
 ```
 
-Search for `- [ ] AC-` lines or unlabeled `- [ ] ` checkboxes under `## Acceptance Criteria`. If none found: hard-block with `YOK-{N} has no acceptance criteria. Run '/yoke shepherd YOK-{N}'.`
+Search for `- [ ] AC-` lines or unlabeled `- [ ] ` checkboxes under `## Acceptance Criteria`. If none found: hard-block with `PREFIX-{N} has no acceptance criteria. Run '/yoke shepherd PREFIX-{N}'.`
 
 ### S3. Item Validation
 
@@ -74,7 +74,7 @@ _title=$(yoke items get ${N} title)
 
 ```bash
 _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/conduct-hard-blocks.XXXXXX")
-if python3 -m yoke_core.domain.check_hard_blocks "YOK-${N}" --gate-point activation >"$_dep_output_file" 2>/dev/null; then
+if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-${N}" --gate-point activation >"$_dep_output_file" 2>/dev/null; then
  _dep_exit=0
 else
  _dep_exit=$?
@@ -89,10 +89,10 @@ If `_dep_exit` is non-zero, print dependency list and **HALT**.
 
 ```bash
 yoke claims work acquire \
- --item "YOK-${N}"
+ --item "PREFIX-${N}"
 ```
 
-After `claim-work`, verify the session holds an active claim on `YOK-${N}` before
+After `claim-work`, verify the session holds an active claim on `PREFIX-${N}` before
 proceeding to S4/S6. This assertion uses the retained operator-debug raw SQL router
 because the registered claim acquire surface does not expose a same-row verification
 projection. **Never** construct a DB path manually or use worktree-local paths:
@@ -101,9 +101,9 @@ projection. **Never** construct a DB path manually or use worktree-local paths:
 _claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
  "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${N} AND released_at IS NULL")
 if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
- echo "HALT: conduct S3b — no active work_claims row found for YOK-${N} under session ${YOKE_SESSION_ID}."
+ echo "HALT: conduct S3b — no active work_claims row found for PREFIX-${N} under session ${YOKE_SESSION_ID}."
  echo "This session may have been reactivated after a SessionEnd without re-acquiring the claim."
- echo "Recovery: run 'yoke claims work acquire --item YOK-${N}' then retry."
+ echo "Recovery: run 'yoke claims work acquire --item PREFIX-${N}' then retry."
  exit 1
 fi
 ```

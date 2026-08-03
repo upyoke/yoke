@@ -1,17 +1,17 @@
 """Tests for yoke_core.domain.idea_readiness_repair_cross_item_overlap.
 
 AC traceability:
-- AC-1 / AC-3 / AC-5: ``probe_cross_item_overlap`` surfaces one issue
+- ``probe_cross_item_overlap`` surfaces one issue
   per INCOMPATIBLE cluster; same-item, no-overlap, terminal-other-state,
   coordination_only, and directional activation cases all silence the
   cluster.
-- AC-9: register-style semantics — planned sibling surfaces even
+- Register-style semantics — planned sibling surfaces even
   though ``classify_overlap(phase='activate')`` would ignore it.
-- AC-10: issue context carries every field needed to author the edge
+- Issue context carries every field needed to author the edge
   without a second schema hunt.
-- AC-11: default repair path is evidence-returning and non-mutating.
-- AC-12: ``auto_attest=True`` is rejected in v0.
-- AC-13: no retired-snapshot surface references in implementation or
+- Default repair path is evidence-returning and non-mutating.
+- ``auto_attest=True`` is rejected in v0.
+- No retired-snapshot surface references in implementation or
   test files.
 """
 
@@ -91,11 +91,12 @@ def _seed_claim(
     activated_at = "2026-05-01T01:00:00Z" if state == "active" else None
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, "
         "activated_at, base_commit_sha) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s, %s) RETURNING id",
-        (state, actor, item_id, activated_at, activated),
+        (state, item_id, actor, activated_at, activated),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -192,11 +193,11 @@ class TestProbe:
         # Other claim is released → terminal → must not surface.
         conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, "
-            "registered_at, released_at) "
-            "VALUES ('released', 'exclusive', %s, %s, 'main', "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at, released_at) "
+            "VALUES ('released', 'exclusive', 'item', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', '2026-05-01T02:00:00Z')",
-            (local_human(conn), other),
+            (other, local_human(conn)),
         )
         terminal_id = conn.execute(
             "SELECT id FROM path_claims WHERE state='released'"
@@ -211,7 +212,7 @@ class TestProbe:
         assert issues == []
 
     def test_register_style_semantics_planned_siblings_surface(self, conn):
-        """AC-9: planned sibling counts even though activate would ignore."""
+        """Planned sibling counts even though activate would ignore."""
         # Both planned — never activated. classify_overlap(phase='activate')
         # would return NONE; the probe MUST still surface this.
         target, cand_claim, other_claim = _seed_two_items_sharing(
@@ -238,7 +239,7 @@ class TestProbe:
 
 
 class TestIssueContext:
-    """AC-10: each issue carries every field needed to author the edge."""
+    """Each issue carries every field needed to author the edge."""
 
     def test_context_completeness(self, conn):
         path = "runtime/api/domain/idea_readiness_check.py"
@@ -265,7 +266,7 @@ class TestIssueContext:
 
 
 class TestRepair:
-    """AC-11 / AC-12: default repair is non-mutating; auto_attest rejected."""
+    """Default repair is non-mutating; auto_attest rejected."""
 
     def test_repair_returns_evidence_packet(self, conn):
         _seed_two_items_sharing(conn, path_string="runtime/api/domain")
@@ -327,7 +328,7 @@ class TestRepair:
 
 
 class TestRetiredSurfaceResidueAC13:
-    """AC-13: implementation does not reference retired snapshot surfaces."""
+    """Implementation does not reference retired snapshot surfaces."""
 
     def test_no_retired_snapshot_references(self):
         # Scope per spec wording: "implementation-owned hits." This test

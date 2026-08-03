@@ -11,7 +11,7 @@ for that resolution; `body-and-sync.md` step 9b dispatches here.
 plus the path-claim CLI cheat-sheet entries are the schema-side surface
 the agent reads at session start; this file is the workflow-side
 surface they point at when overlap registration denies. The Claude
-session-rules cross-reference in `runtime/harness/claude/rules/session.md`
+session-rules cross-reference in the installed Claude session rule
 also routes mid-flow overlap denials here. The two surfaces are
 deliberately layered — the packet teaches the shape, this file teaches
 the resolution order.
@@ -68,14 +68,14 @@ Run these inputs in order:
 
 1. **Read both items' specs.** The candidate item's spec is open; read
    the conflicting item's spec via
-   `yoke items get YOK-{conflicting-id} body`.
+   `yoke items get PREFIX-{conflicting-id} body`.
 2. **Read the relevant sections of the shared paths.** Identify which
    blocks, functions, or subsections each work item actually edits.
 3. **Run the decision helper to gather evidence:**
 
    ```bash
    yoke claims path coordination-decision-build \
-       --item YOK-{id-number} \
+       --item PREFIX-{id-number} \
        --conflicting-claim {existing_claim_id} \
        --paths {shared-paths-comma-separated}
    ```
@@ -124,7 +124,7 @@ by `yoke_core.engines.merge_worktree`.
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{id-number} YOK-{conflicting-item-id} idea \
+    PREFIX-{id-number} PREFIX-{conflicting-item-id} idea \
     --gate-point coordination_only \
     --rationale "<non-empty: name shared paths, the disjoint sections each work item edits, why the edits are independent>"
 ```
@@ -154,7 +154,7 @@ distinguishable from over-hard mistakes.
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{id-number} YOK-{upstream-id} idea \
+    PREFIX-{id-number} PREFIX-{upstream-id} idea \
     --gate-point activation \
     --satisfaction fact:merged \
     --rationale "decision=directional. <why order matters: name what upstream lands that this candidate inherits or depends on>"
@@ -180,7 +180,7 @@ explicit pin:
 
 ```bash
 yoke claims path register \
-    --item YOK-{id-number} \
+    --item PREFIX-{id-number} \
     --paths file1.py --upstream-claim-id {claim_id}
 ```
 
@@ -203,9 +203,9 @@ they declare an exception:
 
 ```bash
 yoke claims path register \
-    --item YOK-{id-number} \
+    --item PREFIX-{id-number} \
     --mode exception \
-    --reason "validation-only work item: verifies YOK-{other-id} end-to-end"
+    --reason "validation-only work item: verifies PREFIX-{other-id} end-to-end"
 ```
 
 ## 6. Item-level block (LAST RESORT)
@@ -214,15 +214,15 @@ Use **only** when none of (2)–(5) can represent the conflict. The
 flag-driven model gives the operator a sanctioned shape:
 
 ```bash
-yoke items scalar update YOK-{id-number} --field blocked --value true
-yoke items scalar update YOK-{id-number} --field blocked_reason \
+yoke items scalar update PREFIX-{id-number} --field blocked --value true
+yoke items scalar update PREFIX-{id-number} --field blocked_reason \
     --value "<copy the path-claims register CLI error verbatim, plus the upstream coordination required to unblock>"
 ```
 
 This preserves the lifecycle status (the item stays at `idea`/`refined-idea`)
 and routes the row into the BOARD's Blocked section instead of leaving
 it hidden in Active. Once the upstream coordination is resolved, the
-operator runs `/yoke unblock YOK-{id-number}` to clear the flag and
+operator runs `/yoke unblock PREFIX-{id-number}` to clear the flag and
 re-run path-claim registration.
 
 The forbidden state is "normal synced issue at `status='idea'` /
@@ -265,7 +265,7 @@ yoke claims path widen \
     --claim-id {claim_id} \
     --add-paths file1.py,file2.py \
     --reason "<authored rationale>" \
-    --item YOK-N
+    --item PREFIX-N
 ```
 
 The function id is `claims.path.widen`. The legacy service-client
@@ -279,7 +279,7 @@ After registering (or after setting the flag in case (6)), confirm
 coverage by running the gate:
 
 ```bash
-yoke claims path required-gate YOK-{id-number}
+yoke claims path required-gate PREFIX-{id-number}
 ```
 
 `verdict=pass` means the candidate is gate-clean and the item can leave

@@ -105,9 +105,9 @@ classes of statement appear in those summaries:
   on the epic-task row (see your ``epic_tasks`` packet stanza) also count.
 
 **Contract: before composing any state claim about a touched item, re-read the
-canonical value with ``yoke items get <YOK-N>
+canonical value with ``yoke items get <PREFIX-N>
 <field>`` in the same turn and quote only what the read returned. Read an active
-lane branch with ``yoke item-worktrees get <YOK-N> --lane-role implementation
+lane branch with ``yoke item-worktrees get <PREFIX-N> --lane-role implementation
 --field branch``.** For
 epic-task state claims, use the matching canonical router read for the
 ``(epic_id, task_num)`` row before quoting the value. Free-form narrative about
@@ -162,8 +162,8 @@ To confirm the contract is doing its job, simulate the failure shape:
 3. Force the chain to exit with ``chainable=false`` (a real blocker, an
    ``escalate``, or chain-budget exhaustion).
 4. Immediately before composing the summary prose, run
-   ``yoke items get <YOK-N> status`` and
-   ``yoke item-worktrees get <YOK-N> --lane-role implementation --field branch``.
+   ``yoke items get <PREFIX-N> status`` and
+   ``yoke item-worktrees get <PREFIX-N> --lane-role implementation --field branch``.
 5. Quote those values verbatim in the state claim. The summary must report
    ``implementing`` and the worktree branch — not the pre-preflight
    ``refined-idea`` that lives in the agent's intent memory.
@@ -180,14 +180,14 @@ When ``/yoke do`` skips, stops, or summarizes an item because another
 live session holds its work claim, the canonical claim facts (``claim_id``,
 holder ``session_id``, ``item_id``, ``claim_type``, ``claimed_at``) are
 already in the ``SchedulerOfferSkipped`` event payload — the offer
-revalidation helper queries the same typed ``work_claims`` schema that
-``runtime.harness.harness_sessions_claims.cmd_who_claims`` uses.
+revalidation helper queries the same typed ``work_claims`` schema as the
+canonical holder lookup.
 
 **Manual verification command** for an operator confirming the holder
 during recovery:
 
 ```bash
-yoke claims work holder-get YOK-N
+yoke claims work holder-get PREFIX-N
 # Returns one canonical row: claim_id|session_id|item_id|claim_type|claimed_at
 ```
 

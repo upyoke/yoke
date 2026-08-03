@@ -52,3 +52,25 @@ def test_project_prefix_resolves(seeded):
 
 def test_bare_internal_id_passthrough(seeded):
     assert _parse_item_id_arg(str(EXT_ITEM_ID)) == EXT_ITEM_ID
+
+
+def test_parse_item_id_or_none_resolves_and_swallows(seeded):
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    conn = seeded
+    assert (
+        parse_item_id_or_none("YOK-5", conn=conn, allow_bare_internal=True)
+        == YOKE_ITEM_ID
+    )
+    assert (
+        parse_item_id_or_none("EXT-5", conn=conn, allow_bare_internal=True)
+        == EXT_ITEM_ID
+    )
+    assert (
+        parse_item_id_or_none("garbage", conn=conn, allow_bare_internal=True)
+        is None
+    )
+    assert (
+        parse_item_id_or_none("YOK-99999", conn=conn, allow_bare_internal=True)
+        is None
+    )

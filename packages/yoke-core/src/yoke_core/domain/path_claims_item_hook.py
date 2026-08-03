@@ -35,18 +35,24 @@ def _p(conn: Any) -> str:
 
 
 def _non_terminal_claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
+    savepoint = "path_claims_terminal_lookup"
     try:
+        conn.execute(f"SAVEPOINT {savepoint}")
         p = _p(conn)
         rows = conn.execute(
             "SELECT id FROM path_claims "
-            "WHERE ("
-            f"(owner_kind = 'item' AND owner_item_id = {p}) OR "
-            f"(owner_kind IS NULL AND item_id = {p})"
-            ") AND state IN "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND state IN "
             "('planned', 'blocked', 'active')",
-            (item_id, item_id),
+            (item_id,),
         ).fetchall()
+        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
     except db_backend.operational_error_types(conn):
+        try:
+            conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+            conn.execute(f"RELEASE SAVEPOINT {savepoint}")
+        except db_backend.database_error_types(conn):
+            conn.rollback()
         return []
     return [int(r[0]) for r in rows]
 

@@ -1,7 +1,7 @@
 """Tests for the evidence-building coordination-decision helper.
 
 These tests pin the **packet shape**, not a decision oracle. Per
-AC-15 / FR-6, the LLM agent owns the final coordination call; the
+design, the LLM agent owns the final coordination call; the
 helper only assembles evidence. Tests that map (candidate, conflicting,
 paths) input to a specific decision output are explicitly forbidden by
 the task spec.
@@ -17,6 +17,7 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain import path_claim_coordination_decision as pccd
 from yoke_core.domain.items_writes import insert_item, update_structured_field
+from yoke_core.domain.project_identity import render_item_ref
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -73,8 +74,10 @@ def _seed_claim(
     p = _p(conn)
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        f"VALUES ({p}, 'exclusive', 1, {p}, {p}, '2026-05-01T00:00:00Z') "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        f"VALUES ({p}, 'exclusive', 'item', {p}, 1, {p}, "
+        "'2026-05-01T00:00:00Z') "
         "RETURNING id",
         (state, item_id, integration_target),
     )
@@ -193,8 +196,10 @@ def test_build_coordination_context_suggested_commands_include_all_decision_opti
 
     cmds = ctx["suggested_commands"]
     assert len(cmds) >= 3
-    cand_token = "YOK-130"
-    other_token = "YOK-230"
+    # The pasted command must name each item by its public ref, which
+    # tracks project_sequence rather than the internal items.id.
+    cand_token = render_item_ref(conn, 130)
+    other_token = render_item_ref(conn, 230)
     has_coordination = any(
         "--gate-point coordination_only" in c for c in cmds)
     has_activation = any(
@@ -213,7 +218,7 @@ def test_build_coordination_context_suggested_commands_include_all_decision_opti
 
 
 def test_suggested_commands_rationale_distinguishes_independence_from_directional(env):
-    """AC-2 / AC-4: rationale templates per option name the required evidence
+    """Rationale templates per option name the required evidence
     and the rationale_checklist names the same required fields."""
     conn = env["conn"]
     _seed_item_with_spec(env["db_path"], 131, "Cand", "c")

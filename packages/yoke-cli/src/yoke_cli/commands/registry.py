@@ -10,6 +10,10 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.items_merge_provenance import (
+    items_merge_provenance_operator_correct,
+)
+from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_epic_ops import EPIC_OPS_SUBCOMMAND_REGISTRY
@@ -19,6 +23,7 @@ from yoke_cli.commands.registry_github_actions import (
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import (
@@ -46,6 +51,10 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("items", "scalar", "update"): (
         "items.scalar.update",
         _adapters.items_scalar_update,
+    ),
+    ("items", "merge-provenance", "operator-correct"): (
+        "items.merge_provenance.operator_correct",
+        items_merge_provenance_operator_correct,
     ),
     ("items", "section", "upsert"): (
         "items.section.upsert",
@@ -126,43 +135,9 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packets", "check"): ("packets.check.run", _adapters.packets_check),
     ("board", "rebuild"): ("board.rebuild.run", _adapters.board_rebuild),
     ("board", "data", "get"): ("board.data.get", _adapters.board_data_get),
+    ("lint", "config", "show"): ("lint.config.show", _adapters.lint_config_show),
     ("hook", "evaluate"): ("hook.evaluate.run", _adapters.hook_evaluate),
-    ("qa", "requirement", "update"): (
-        "qa.requirement.update",
-        _adapters.qa_requirement_update,
-    ),
-    ("qa", "requirement", "waive"): (
-        "qa.requirement.waive",
-        _adapters.qa_requirement_waive,
-    ),
-    ("qa", "run", "record-verdict"): (
-        "qa.run.record_verdict",
-        _adapters.qa_run_record_verdict,
-    ),
-    ("qa", "browser-context", "get"): (
-        "qa.browser_context.get",
-        _adapters.qa_browser_context_get,
-    ),
-    ("qa", "run", "add"): ("qa.run.add", _adapters.qa_run_add),
-    ("qa", "run", "complete"): ("qa.run.complete", _adapters.qa_run_complete),
-    ("qa", "artifact", "add"): ("qa.artifact.add", _adapters.qa_artifact_add),
-    ("qa", "artifact", "presign"): (
-        "qa.artifact.presign",
-        _adapters.qa_artifact_presign,
-    ),
-    ("qa", "requirement", "list"): (
-        "qa.requirement.list",
-        _adapters.qa_requirement_list,
-    ),
-    ("qa", "requirement", "get"): ("qa.requirement.get", _adapters.qa_requirement_get),
-    ("qa", "requirement", "add"): ("qa.requirement.add", _adapters.qa_requirement_add),
-    ("qa", "requirement", "add-batch"): (
-        "qa.requirement.add_batch",
-        _adapters.qa_requirement_add_batch,
-    ),
-    ("qa", "run", "list"): ("qa.run.list", _adapters.qa_run_list),
-    ("qa", "run", "get"): ("qa.run.get", _adapters.qa_run_get),
-    ("qa", "gate-summary"): ("qa.gate_summary.run", _adapters.qa_gate_summary),
+    **QA_SUBCOMMAND_REGISTRY,
     ("doctor", "run"): ("doctor.run.run", _adapters.doctor_run),
     ("doctor", "last-run", "get"): (
         "doctor.last_run.get",
@@ -173,10 +148,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),
     ("events", "count"): ("events.count.run", _adapters.events_count),
     ("events", "anomalies"): ("events.anomalies.run", _adapters.events_anomalies),
-    ("lifecycle", "transition"): (
-        "lifecycle.transition.execute",
-        _adapters.lifecycle_transition,
-    ),
+    ("lifecycle", "transition"): ("lifecycle.transition.execute", _adapters.lifecycle_transition),
+    ("lifecycle", "repair-status"): ("lifecycle.repair_status.execute", lifecycle_repair_status),
     ("lifecycle", "skip", "record-recoverable-substrate"): (
         "lifecycle.skip.record_recoverable_substrate",
         _adapters.lifecycle_skip_record_recoverable_substrate,
@@ -291,7 +264,7 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.work.holder_get",
         _adapters.claims_work_current,
     ),
-    # "claims work status --item YOK-N" is the intuitive post-release
+    # "claims work status --item PREFIX-N" is the intuitive post-release
     # claim-verification surface — routes to the same claims.work.holder_get
     # function id (reusing the holder-get adapter that already accepts
     # --item plus positional).

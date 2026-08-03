@@ -42,9 +42,21 @@ def _build_frontier_state(
     schedule,
     drift_review_dict: Optional[Dict[str, Any]] = None,
     last_completed_step: Optional[Dict[str, Any]] = None,
+    conn: Any = None,
 ) -> FrontierState:
-    """Build a FrontierState from a SchedulerResult for the decision engine."""
-    selected_item = schedule.selected_step.item_id if schedule.selected_step else None
+    """Build a FrontierState from a SchedulerResult for the decision engine.
+
+    Item-identity fields are presentation-facing: internal scheduler ids
+    render as true public refs when ``conn`` is available.
+    """
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
+    def _ref(item_id) -> str:
+        return display_claim_item_id(str(item_id), conn) or str(item_id)
+
+    selected_item = (
+        _ref(schedule.selected_step.item_id) if schedule.selected_step else None
+    )
     scheduler_ctx: Dict[str, Any] = {}
     if schedule.selected_step:
         ss = schedule.selected_step
@@ -64,7 +76,7 @@ def _build_frontier_state(
         for ge in bs.gate_evaluations:
             if not ge.satisfied:
                 blocked_details_list.append({
-                    "item_id": bs.item_id,
+                    "item_id": _ref(bs.item_id),
                     "blocking_item": ge.blocking_item,
                     "gate_point": ge.gate_point,
                     "satisfaction": ge.satisfaction,
@@ -74,17 +86,18 @@ def _build_frontier_state(
     lane_filtered_items = getattr(schedule, "lane_filtered_items", None)
     return FrontierState(
         runnable_items=[
-            s.item_id
+            _ref(s.item_id)
             for s in schedule.ranked_steps
             if is_assignable_claim_state(s.claim_state)
         ],
-        blocked_items=[s.item_id for s in schedule.blocked_steps],
-        exceptional_items=[s.item_id for s in schedule.exceptional_steps],
+        blocked_items=[_ref(s.item_id) for s in schedule.blocked_steps],
+        exceptional_items=[_ref(s.item_id) for s in schedule.exceptional_steps],
         blocked_details=blocked_details_list if blocked_details_list else None,
         sml_coherent=schedule.sml_state.coherent,
         drift_review=drift_review_dict,
         selected_item=selected_item,
         scheduler_context=scheduler_ctx,
+        offer_diagnostics=getattr(schedule, "offer_diagnostics", None),
         lane_filtered_count=getattr(schedule, "lane_filtered_count", 0),
         lane_filtered_items=list(lane_filtered_items) if lane_filtered_items else None,
         last_completed_step=last_completed_step,
