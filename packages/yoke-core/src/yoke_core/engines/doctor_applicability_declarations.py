@@ -88,6 +88,7 @@ _SHAPES = (
         "reviewed-implementation-epics-no-sim",
         "routed-ownership-live-frame-no-defense",
         "routed-ownership-non-terminal-release-still-schedulable",
+        "pending-migrations",
         "run-item-status-consistency", "run-qa-unsatisfied", "schema-drift",
         "session-cwd-binding", "session-lane-mismatch",
         "session-pre-implementing-activity", "shepherd-lifecycle",
@@ -116,7 +117,7 @@ _SHAPES = (
         "project-lookup", "project-repo-exists",
     )),
     (_EXT_SRC, ("project-worktrees",)),
-    (_MIGRATION, ("oneshot-migration-coverage", "stranded-migration-module")),
+    (_MIGRATION, ("oneshot-migration-coverage",)),
     (_EXT_HEALTH, ("project-health",)),
     (_EXT_VPS, ("project-vps-reachable",)),
 )
