@@ -15,13 +15,16 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 )
 
 
-class TestSystemSimulationCanonicalAgents:
-    """System-wide simulation must read canonical agent bodies, not Claude as truth."""
+class TestSystemSimulationAgentPrompts:
+    """System-wide simulation reads installed agent prompts without source-layout assumptions."""
 
-    def test_system_simulation_reads_canonical_agent_bodies(self):
+    def test_system_simulation_reads_installed_agent_prompts(self):
         text = _read(SKILLS / "simulate" / "system.md")
-        assert "Canonical agent bodies: all `runtime/agents/*.md`" in text
-        assert "{contents of each runtime/agents/*.md file, labeled with filename}" in text
+        assert (
+            "Rendered agent prompts: all `.claude/agents/yoke-*.md`, "
+            "`.codex/agents/yoke-*.toml`, and `.cursor/agents/yoke-*.md`"
+        ) in text
+        assert "{contents of each rendered agent prompt, labeled with its installed filename}" in text
 
     def test_system_simulation_does_not_treat_claude_agents_as_canonical(self):
         text = _read(SKILLS / "simulate" / "system.md")
@@ -270,8 +273,8 @@ class TestWorktreeHandoffEmittedRetired:
         assert "RETIRED" in line or "retired" in line, line
 
 
-class TestCanonicalOwnerPaths:
-    """Agent sources and active docs name current Python owners."""
+class TestPortableOwnerReferences:
+    """Agent sources and active docs use portable Python owner references."""
 
     def test_canonical_agent_sources_do_not_name_runtime_api_owners(self):
         canonical = REPO / "runtime" / "agents"
@@ -295,7 +298,7 @@ class TestCanonicalOwnerPaths:
         for owner in stale:
             assert owner not in text, owner
 
-    def test_canonical_agent_sources_name_package_owners(self):
+    def test_agent_references_use_portable_module_or_symbol_names(self):
         engineer = _read(
             REPO / "runtime" / "agents" / "engineer" / "migration-protocol.md"
         )
@@ -303,21 +306,12 @@ class TestCanonicalOwnerPaths:
         field_note = _read(
             REPO / "runtime" / "agents" / "_shared" / "ouroboros-field-note.md"
         )
-        assert (
-            "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py" in engineer
-        )
-        assert (
-            "packages/yoke-core/src/yoke_core/engines/doctor_hc_db_project_schema_expected.py"
-            in engineer
-        )
-        assert (
-            "packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py"
-            in reflection
-        )
-        assert (
-            "packages/yoke-contracts/src/yoke_contracts/field_note_text.py"
-            in field_note
-        )
+        assert "create_core_tables" in engineer
+        assert "apply_additive_schema" in engineer
+        assert "_add_column_if_not_exists" in engineer
+        assert "_EXPECTED_SCHEMA_STR" in engineer
+        assert "yoke_core.domain.reflection_capture_hook" in reflection
+        assert "yoke_contracts.field_note_text" in field_note
 
     def test_active_docs_do_not_name_retired_shell_owners(self):
         docs = (

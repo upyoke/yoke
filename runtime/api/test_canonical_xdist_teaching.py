@@ -51,9 +51,9 @@ def test_db_reference_rehearsal_commands_use_watcher() -> None:
     text = _read(REPO / ".yoke" / "docs" / "db-reference" / "items-and-epics.md")
     assert (
         '"rehearsal_commands": '
-        '["yoke watch pytest -- runtime/api/"]'
+        '["yoke watch pytest -- <project-test-path>"]'
     ) in text
-    assert '"rehearsal_commands": ["python3 -m pytest runtime/api/"]' not in text
+    assert '"rehearsal_commands": ["python3 -m pytest <project-test-path>"]' not in text
 
 
 def test_api_readmes_use_watcher_for_test_recipes() -> None:

@@ -778,7 +778,7 @@ Reference material embedded in the Architect prompt. Read and apply it before pr
     - Project-specific config values go in DB settings/capabilities; project-visible policy/docs live in the managed project's `.yoke/` contract.
     - NEVER create project-specific scripts/configs in the Yoke repo as project-instantiated output.
 
-15. **File size.** Every new tracked text file must land under 350 lines. The shared file-size check and lifecycle gates enforce this. Plan tasks with split files when designing modules near the limit.
+15. **File size.** Every new tracked text file must land under 350 lines. The shared `file_line_check` gate and lifecycle gates enforce this. Plan tasks with split files when designing modules near the limit.
 
 16. **File Budget — independent policy upstream of the 350-line cap.**
     Consume both central `workflows.item.get` effective policies before
