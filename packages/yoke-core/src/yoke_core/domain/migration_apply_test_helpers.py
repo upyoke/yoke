@@ -199,7 +199,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
         )
         seed = governed_postgres_test_seed()
         seed["models"]["primary"]["runner"]["config"]["modules_dir"] = (
-            "runtime/api/domain/migrations"
+            "packages/yoke-core/src/yoke_core/domain/migrations"
         )
         seed_json = json.dumps(seed, sort_keys=True)
         conn.execute(

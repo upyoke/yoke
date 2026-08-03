@@ -8,6 +8,9 @@ from yoke_core.domain.migration_model_capability_validation import (
     DEFAULT_CONNECTION_ENV_VAR,
 )
 
+#: Repo-relative home of the governed migration modules package.
+DEFAULT_MODULES_DIR = "packages/yoke-core/src/yoke_core/domain/migrations"
+
 
 def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
     """Return a governed Postgres migration model for ``location``.
@@ -33,7 +36,7 @@ def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
                 "runner": {
                     "kind": "governed_migration_module",
                     "config": {
-                        "modules_dir": "runtime/api/domain/migrations",
+                        "modules_dir": DEFAULT_MODULES_DIR,
                         "connection_env_var": DEFAULT_CONNECTION_ENV_VAR,
                     },
                 },

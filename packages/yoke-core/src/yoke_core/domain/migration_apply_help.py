@@ -20,7 +20,7 @@ and migration_modules=[SLUG].
   ITEM=1898
   SLUG=<migration_module_slug>
   WT="$(git rev-parse --show-toplevel)"
-  MODULE="$WT/runtime/api/domain/migrations/$SLUG.py"
+  MODULE="$WT/packages/yoke-core/src/yoke_core/domain/migrations/$SLUG.py"
   VALDB="yoke_test_sun${ITEM}_validation"
 
   # 1. Back up prod Aurora with a manual RDS cluster snapshot. The cluster

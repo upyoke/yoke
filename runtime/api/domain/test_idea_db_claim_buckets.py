@@ -108,7 +108,7 @@ class TestInferAndCreatePreventions:
         explicitly so future ideas don't propose the non-existent
         ``runtime/api/migrations/`` directory."""
         text = _read(_INFER_AND_CREATE)
-        assert "runtime/api/domain/migrations/" in text
+        assert "packages/yoke-core/src/yoke_core/domain/migrations/" in text
 
     def test_prevention_2_canonical_grep_template_pinned(self):
         """The canonical grep template is pinned literally so

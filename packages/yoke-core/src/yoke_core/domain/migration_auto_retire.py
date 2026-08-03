@@ -144,8 +144,8 @@ def _candidate_targets(
 
     * ``<modules_dir>/test_<identifier>.py`` — tests-alongside-module.
     * ``<modules_dir>.parent/test_<identifier>.py`` — tests-one-level-up
-      (matches Yoke's ``runtime/api/domain/test_<id>.py`` shape because
-      ``runtime/api/domain/migrations``.parent is ``runtime/api/domain``).
+      (a common layout for projects whose module tests sit beside the
+      migrations package rather than inside it).
     * ``<test_root>/test_<identifier>.py`` for each entry the caller
       sourced from ``project_structure.test_roots`` (matches a common
       ``app/tests/test_<id>.py`` shape and any project that

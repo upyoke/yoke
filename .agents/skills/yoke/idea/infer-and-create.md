@@ -16,7 +16,7 @@ When the spec proposes a concrete implementation path (a file, directory, or pac
 
 If the path does not resolve, re-derive from the live tree before writing. Canonical re-derivation sources, in order:
 
-1. `runtime/api/domain/migrations/__init__.py` for the live one-shot migration package root. New migration ideas reference this directory, never `runtime/api/migrations/` (which does not exist).
+1. `packages/yoke-core/src/yoke_core/domain/migrations/__init__.py` for the live one-shot migration package root. New migration ideas reference this directory, never the retired `runtime/api/domain/migrations/` or `runtime/api/migrations/` (neither exists).
 2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
 3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
 
