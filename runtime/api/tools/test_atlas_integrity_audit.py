@@ -110,7 +110,7 @@ class TestTopLevelShape:
     def test_operation_tracker_status_buckets(self, report: dict) -> None:
         ot = report["operation_tracker"]
         for row in ot["rows"]:
-            assert row["status"] in {"wrapped", "permanent", "pending"}
+            assert row["status"] in {"wrapped", "tool_cli", "permanent", "pending"}
 
     def test_help_pages_covers_every_subcommand(self, report: dict) -> None:
         cov = report["help_pages"]["coverage"]

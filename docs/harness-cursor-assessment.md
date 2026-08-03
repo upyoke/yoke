@@ -174,7 +174,9 @@ Also observed: `Grep` as a distinct tool name. MCP tools surface as
 
 - Repo/root artifacts a Cursor adapter adds: `runtime/harness/cursor/`
   (manifest, hooks.json, adapter, agents, smoke-test runbook), a
-  `.cursor/hooks.json` symlink, a root `CURSOR.md` shell doc, entries in the
+  materialized `.cursor/hooks.json` copy kept byte-identical to the canonical
+  runtime file (Cursor rejects symlinked project hook configs), a root
+  `CURSOR.md` shell doc, entries in the
   project-install hook-key/merge-target/bundle-validation constants and
   `INSTALL_BUNDLE_SOURCE_DIRS`, and managed-install links for
   `.cursor/skills` parity decisions.

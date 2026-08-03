@@ -59,6 +59,7 @@ from typing import Sequence
 
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding_startup
 from yoke_core.tools import (
     _source_pythonpath,
     _watch_pytest_args,
@@ -261,7 +262,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         print(binding.notice, file=sys.stderr)
     if binding.refusal is not None:
         print(binding.refusal, file=sys.stderr)
-        return 3
+        return _tree_binding_startup.TREE_BINDING_REFUSED_EXIT_STATUS
 
     # Parallel-by-default: inject ``-n auto`` unless caller passed
     # ``--no-parallel`` or already supplied ``-n``/``--numprocesses``.
@@ -271,6 +272,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     source_root = _source_pythonpath.repo_root(Path.cwd())
     pytest_env = apply_postgres_xdist_auto_env(pytest_args)
     pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
+    # Already judged above; the child's startup check inherits that answer.
+    pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)
     if (source_root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
         import_refusal = _source_pythonpath.import_origin_refusal(
             source_root,

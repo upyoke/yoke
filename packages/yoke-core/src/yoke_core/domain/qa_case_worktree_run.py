@@ -26,6 +26,7 @@ from yoke_core.domain import qa_case_command_stream
 from yoke_core.domain import qa_constants
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
+from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -75,7 +76,11 @@ def execute_worktree_case(
         print(binding.notice, file=sys.stderr, flush=True)
     if binding.refusal:
         raise QaCaseExecutionError(binding.refusal)
-    command_env = dict(os.environ)
+    # Already judged above; a pytest-shaped command's startup check
+    # inherits that answer instead of repeating the lookup.
+    command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
+        os.environ
+    )
     if config.get("requires_base_url"):
         if not base_url:
             raise QaCaseExecutionError("this Command case requires --base-url")

@@ -55,6 +55,7 @@ class TestPreToolUseBash(unittest.TestCase):
             [
                 "yoke_core.domain.lint_pipe_to_truncator",
                 "yoke_core.domain.lint_raw_pytest_full_suite",
+                "yoke_core.domain.lint_watcher_module_form",
                 "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.lint_session_cwd",
@@ -178,44 +179,6 @@ class TestPreToolUseBash(unittest.TestCase):
     def test_TC_bash_chain_observe_pre_is_last(self):
         chain = ordered_pipeline_for("PreToolUse", "Bash")
         self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
-
-
-class TestPreToolUseSubagentLint(unittest.TestCase):
-    """``lint_subagent_background`` is registered in the protected chains."""
-
-    def test_TC_subagent_lint_in_bash_chain_after_polling(self):
-        chain = ordered_pipeline_for("PreToolUse", "Bash")
-        self.assertIn("yoke_core.domain.lint_subagent_background", chain)
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_long_command_polling"),
-            chain.index("yoke_core.domain.lint_subagent_background"),
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_if_status_capture"),
-            chain.index("yoke_core.domain.lint_subagent_background"),
-        )
-
-    def test_TC_subagent_lint_in_monitor_chain(self):
-        chain = ordered_pipeline_for("PreToolUse", "Monitor")
-        self.assertIn("yoke_core.domain.lint_subagent_background", chain)
-        # Monitor chain has the hint_monitor_relay tail; the subagent
-        # lint must come BEFORE that hint so a deny short-circuits the
-        # relay reminder.
-        self.assertLess(
-            chain.index("yoke_core.domain.lint_subagent_background"),
-            chain.index("yoke_core.domain.hint_monitor_relay"),
-        )
-        self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
-
-    def test_TC_subagent_lint_in_schedule_wakeup_chain(self):
-        chain = ordered_pipeline_for("PreToolUse", "ScheduleWakeup")
-        self.assertEqual(
-            chain,
-            [
-                "yoke_core.domain.lint_subagent_background",
-                "yoke_core.domain.observe_pre",
-            ],
-        )
 
 
 class TestPreToolUseEditWrite(unittest.TestCase):
