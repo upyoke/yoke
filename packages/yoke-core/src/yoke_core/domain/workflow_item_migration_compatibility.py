@@ -196,7 +196,7 @@ def _terminal_executor_bindings(
                 str(binding["through_stage_id"]),
             ),
         )
-        for binding in source.definition["executor_bindings"]
+        for binding in source.executor_bindings
         if str(binding["through_stage_id"]) in terminal
     )
 

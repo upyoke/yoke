@@ -43,7 +43,7 @@ def _executor_skip_route(
 
     entry_stages: list[str] = []
     selected: tuple[int, int] | None = None
-    for binding in workflow.definition["executor_bindings"]:
+    for binding in workflow.executor_bindings:
         if str(binding["executor_id"]) != executor_id:
             continue
         start = workflow.stage_index(str(binding["from_stage_id"]))

@@ -164,7 +164,7 @@ def _implementation_entry_reached(
         return True
     starts = [
         runtime.stage_index(str(binding["from_stage_id"]))
-        for binding in runtime.definition["executor_bindings"]
+        for binding in runtime.executor_bindings
         if str(binding["executor_id"]) in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS
     ]
     positions = [position for position in starts if position is not None]

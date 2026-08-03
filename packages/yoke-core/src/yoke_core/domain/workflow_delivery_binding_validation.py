@@ -20,7 +20,7 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
     if policy == "release_stage":
         starts = [
             runtime.stage_index(str(binding["from_stage_id"]))
-            for binding in runtime.definition["executor_bindings"]
+            for binding in runtime.executor_bindings
             if str(binding["through_stage_id"]) in runtime.terminal_stage_ids
         ]
         valid = [value for value in starts if value is not None]

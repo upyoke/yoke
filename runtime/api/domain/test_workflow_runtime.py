@@ -62,6 +62,32 @@ def test_runtime_interprets_epic_executor_segments(test_db):
     assert runtime.executor_for_stage("planned") == "conduct"
 
 
+def test_runtime_normalizes_legacy_skill_bindings(test_db):
+    runtime = load_item_workflow_runtime(test_db, _create(test_db, "dash"))
+    definition = deepcopy(runtime.definition)
+    definition["skill_bindings"] = [
+        {
+            "skill_id": binding["executor_id"],
+            "from_stage_id": binding["from_stage_id"],
+            "through_stage_id": binding["through_stage_id"],
+        }
+        for binding in definition.pop("executor_bindings")
+    ]
+    legacy_runtime = replace(runtime, definition=definition)
+
+    assert legacy_runtime.executor_bindings == (
+        {
+            "executor_id": "dash",
+            "from_stage_id": "idea",
+            "through_stage_id": "done",
+        },
+    )
+    assert legacy_runtime.executor_for_stage("implementing") == "dash"
+    assert legacy_runtime.executor_has_started(
+        "implementing", frozenset({"dash"})
+    ) is True
+
+
 def test_delivery_redirect_stage_comes_from_pinned_transition_graph(test_db):
     runtime = load_item_workflow_runtime(test_db, _create(test_db))
     definition = deepcopy(runtime.definition)
