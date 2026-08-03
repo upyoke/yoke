@@ -35,9 +35,9 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
         "command-ci",
         "browser-check",
         "browser-inspection",
-        "machine-state-check",
         "terminal-check",
         "terminal-inspection",
+        "machine-state-check",
     ]
     assert command["executor_id"] == "worktree_run"
     assert command["required_capability_kind"] is None

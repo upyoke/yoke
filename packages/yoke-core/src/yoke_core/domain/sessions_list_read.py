@@ -31,8 +31,10 @@ from yoke_core.domain.actors import (
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
+from yoke_core.domain.session_presentation_read import session_presentation
 
 
 LIVENESS_ACTIVE = "active"
@@ -49,35 +51,6 @@ MAX_SESSIONS_LIST_LIMIT = 500
 #: out of the fetch window. Opt-in so the flat unscoped read (search, the full
 #: roster view) keeps its universe-wide newest-N behavior.
 PER_PROJECT_SESSIONS_LIST_CAP = 20
-
-#: Row keys every ``sessions.list`` row carries, in presentation order.
-#: ``claims`` is a list of ``{target_kind, target, claimed_at, reason}``
-#: dicts; every other field is a scalar.
-SESSION_LIST_FIELDS = (
-    "session_id",
-    "liveness",
-    "activity_at",
-    "execution_lane",
-    "mode",
-    "actor_id",
-    "actor_kind",
-    "actor_label",
-    "project_id",
-    "project",
-    "executor",
-    "model",
-    "workspace",
-    "offered_at",
-    "ended_at",
-    "current_item",
-    "current_item_title",
-    "current_item_workflow_id",
-    "current_item_workflow_version_id",
-    "work_role",
-    "owns_current_item",
-    "claim_started_at",
-    "claims",
-)
 
 
 def _parse_timestamp(value: Any) -> Optional[datetime]:
@@ -295,12 +268,16 @@ def list_sessions(
             work_role = next(iter(task_roles or item_roles), None)
             if not work_role and current_item_display:
                 work_role = "item" if owns_current_item else "attached"
+            executor_display_name = row.get("executor_display_name")
+            presentation = session_presentation(conn, row)
             result.append(
                 {
                     "session_id": session_id,
                     "liveness": state,
                     "activity_at": activity_at,
                     "execution_lane": row.get("execution_lane"),
+                    "lane_label": presentation["lane_label"],
+                    "lane_glyph": presentation["lane_glyph"],
                     "mode": row.get("mode"),
                     "actor_id": row.get("actor_id"),
                     "actor_kind": row.get("actor_kind"),
@@ -312,6 +289,9 @@ def list_sessions(
                     "project_id": row.get("project_id"),
                     "project": row.get("project"),
                     "executor": row.get("executor"),
+                    "executor_display_name": executor_display_name,
+                    "executor_mark": presentation["executor_mark"],
+                    "executor_class_name": presentation["executor_class_name"],
                     "model": row.get("model"),
                     "workspace": row.get("workspace"),
                     "offered_at": row.get("offered_at"),

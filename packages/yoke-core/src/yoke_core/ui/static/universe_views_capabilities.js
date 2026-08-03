@@ -21,7 +21,7 @@ function capabilityLabel(value) {
 }
 
 function capabilityOrder(row) {
-  return row.type === "test-machine" ? 0 : 1;
+  return Number(row.display_order ?? 1000);
 }
 
 function wireCapabilityRouteRow(documentNode, record, href) {
@@ -31,7 +31,10 @@ function wireCapabilityRouteRow(documentNode, record, href) {
   record.classList.add("capability-route-row");
   record.setAttribute("role", "link");
   record.setAttribute("tabindex", "0");
-  record.setAttribute("aria-label", "Open Test Mac capability");
+  record.setAttribute(
+    "aria-label",
+    `Open ${record.getAttribute("data-capability-label")} capability`,
+  );
   record.addEventListener("click", (event) => {
     if (event.defaultPrevented) return;
     if (event.button !== undefined && event.button !== 0) return;
@@ -69,12 +72,15 @@ function renderCapabilityTable(body, rows, columns) {
   }
   for (const row of rows) {
     const record = el(documentNode, "tr");
-    const detailHref = row.type === "test-machine"
+    const detailHref = row.detail_view
       ? buildUniverseRoute(
-        "capabilities", String(row.project_id), "test-machine",
+        "capabilities", String(row.project_id), row.detail_view,
       )
       : null;
     if (detailHref) {
+      record.setAttribute(
+        "data-capability-label", row.display_label || row.type,
+      );
       wireCapabilityRouteRow(documentNode, record, detailHref);
     }
     for (const [index, column] of columns.entries()) {
@@ -111,10 +117,10 @@ function renderCapabilityTable(body, rows, columns) {
 }
 
 // What Yoke can reach on a project's behalf, and how honestly it can claim
-// so. The engine owns the vocabulary end to end: the capability column shows
-// the STORED type string (never an invented label), kind/state arrive
-// derived, and the verified stamp is whichever source the engine trusts for
-// that type (the GitHub row wears its repo-binding freshness). A NULL stamp
+// so. The engine owns the vocabulary end to end: the capability definition
+// projects its display label, kind, ordering, detail route, and state model.
+// The verified stamp is whichever source the engine trusts for that type
+// (the GitHub row wears its repo-binding freshness). A NULL stamp
 // renders as the word "never" — configured-but-never-verified is a warning,
 // not a resting state.
 export function renderCapabilitiesView(context, main, scope) {
@@ -175,7 +181,7 @@ export function renderCapabilitiesView(context, main, scope) {
       const columns = [
         {
           label: "capability",
-          value: (row) => row.display_type || row.type,
+          value: (row) => row.display_label || row.display_type || row.type,
           mono: true,
         },
         { label: "project", value: projectLabel },
@@ -208,12 +214,8 @@ export function renderCapabilitiesView(context, main, scope) {
 export function renderCapabilityDetail(
   context, main, project, capabilityType, navigation = {},
 ) {
-  if (capabilityType === "test-machine") {
-    if (typeof navigation.setDetailLabel === "function") {
-      navigation.setDetailLabel("Test Mac");
-    }
-    return renderTestMachineDetail(context, main, project);
-  }
+  const renderer = { "test-machine": renderTestMachineDetail }[capabilityType];
+  if (renderer) return renderer(context, main, project, navigation);
   main.replaceChildren(el(
     context.document,
     "p",

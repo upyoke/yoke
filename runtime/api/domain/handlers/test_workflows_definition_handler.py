@@ -83,15 +83,15 @@ class TestWorkflowRegistry:
         assert all(row["definition_digest"] for row in by_id.values())
         assert all(
             [version["version"] for version in row["versions"]]
-            == [1, 2, BUILTIN_WORKFLOW_PREFERRED_VERSION]
+            == list(range(1, BUILTIN_WORKFLOW_PREFERRED_VERSION + 1))
             for row in by_id.values()
         )
         issue_stages = by_id["issue"]["definition"]["stages"]
-        assert issue_stages[0] == {
-            "id": "idea",
-            "label": "idea",
-            "gates": [],
-        }
+        assert issue_stages[0]["id"] == "idea"
+        assert issue_stages[0]["label"] == "idea"
+        assert issue_stages[0]["glyph"] == "💡"
+        assert issue_stages[0]["board_bucket"] == "idea"
+        assert issue_stages[0]["gates"] == []
 
     def test_definition_owns_gate_placement_and_catalog_owns_strings(
         self, test_db,

@@ -9,6 +9,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
 
 QA_CATALOG_TABLES_SQL = """
@@ -29,6 +30,12 @@ CREATE TABLE IF NOT EXISTS qa_methods (
     success_policy_params TEXT NOT NULL DEFAULT '{}',
     concurrency_mode TEXT NOT NULL DEFAULT 'parallel'
         CHECK(concurrency_mode IN ('parallel','serial')),
+    display_icon TEXT NOT NULL DEFAULT '',
+    display_order INTEGER NOT NULL DEFAULT 1000,
+    display_group TEXT NOT NULL DEFAULT '',
+    config_contract_id TEXT NOT NULL DEFAULT 'passthrough',
+    proof_kind TEXT NOT NULL DEFAULT 'artifact',
+    executor_gloss TEXT NOT NULL DEFAULT 'registered executor',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     CHECK(
@@ -105,64 +112,6 @@ CREATE INDEX IF NOT EXISTS idx_qa_item_attachments_plan
     ON qa_plan_item_attachments(plan_id);
 """
 
-BUILTIN_QA_METHODS = (
-    {
-        "id": "command",
-        "name": "Command",
-        "description": (
-            "Run the project's deterministic commands in a worktree — "
-            "exit 0 is the verdict, captured output is the evidence."
-        ),
-        "executor_id": "worktree_run",
-        "required_capability_kind": None,
-        "verdict_path": "automatic",
-        "verdict_contract": "exit 0 = pass",
-        "evidence_contract": "exit code · captured output tail",
-    },
-    {
-        "id": "command-ci",
-        "name": "Command (CI)",
-        "description": (
-            "Run the project's deterministic commands on its CI workflow — "
-            "the run's conclusion is the verdict, its URL and head sha are "
-            "the evidence."
-        ),
-        "executor_id": "ci_run",
-        "required_capability_kind": None,
-        "verdict_path": "automatic",
-        "verdict_contract": "workflow run concluded success = pass",
-        "evidence_contract": "run url · head sha · run conclusion",
-    },
-    {
-        "id": "browser-check",
-        "name": "Browser check",
-        "description": (
-            "Playwright-style assertions against declared routes; automatic verdict."
-        ),
-        "executor_id": "browser_substrate",
-        "required_capability_kind": "browser-control",
-        "verdict_path": "automatic",
-        "verdict_contract": "assertions",
-        "evidence_contract": "assertions · trace · logs",
-    },
-    {
-        "id": "browser-inspection",
-        "name": "Browser inspection",
-        "description": (
-            "Captures screenshots; an agent judges whether they show the "
-            "case's expected outcome."
-        ),
-        "executor_id": "browser_substrate",
-        "required_capability_kind": "browser-control",
-        "verdict_path": "agent",
-        "verdict_contract": (
-            "inspects the screenshot and judges whether it shows the case's "
-            "expected outcome"
-        ),
-        "evidence_contract": "screenshots · inspection verdict",
-    },
-)
-
 _REQUIREMENT_COLUMNS = (
     ("plan_id", "INTEGER REFERENCES qa_plans(id)"),
     ("plan_case_key", "TEXT"),
@@ -194,6 +143,15 @@ _RUN_COLUMNS = (
     ("capture_degraded_reason", "TEXT"),
 )
 
+QA_METHOD_METADATA_COLUMNS = (
+    ("display_icon", "TEXT NOT NULL DEFAULT ''"),
+    ("display_order", "INTEGER NOT NULL DEFAULT 1000"),
+    ("display_group", "TEXT NOT NULL DEFAULT ''"),
+    ("config_contract_id", "TEXT NOT NULL DEFAULT 'passthrough'"),
+    ("proof_kind", "TEXT NOT NULL DEFAULT 'artifact'"),
+    ("executor_gloss", "TEXT NOT NULL DEFAULT 'registered executor'"),
+)
+
 
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -217,6 +175,12 @@ def _seed_builtin_methods(conn: Any) -> None:
         "success_policy_id",
         "success_policy_params",
         "concurrency_mode",
+        "display_icon",
+        "display_order",
+        "display_group",
+        "config_contract_id",
+        "proof_kind",
+        "executor_gloss",
         "created_at",
         "updated_at",
     )
@@ -248,10 +212,22 @@ def _seed_builtin_methods(conn: Any) -> None:
                 "all-pass",
                 json.dumps({}, sort_keys=True),
                 "parallel",
+                method["display_icon"],
+                method["display_order"],
+                method["display_group"],
+                method["config_contract_id"],
+                method["proof_kind"],
+                method["executor_gloss"],
                 now,
                 now,
             ),
         )
+
+
+def ensure_qa_method_metadata_columns(conn: Any) -> None:
+    """Converge definition-owned metadata on an existing QA catalog."""
+    for column, definition in QA_METHOD_METADATA_COLUMNS:
+        _add_column_if_not_exists(conn, "qa_methods", column, definition)
 
 
 def create_qa_catalog_tables(
@@ -261,6 +237,7 @@ def create_qa_catalog_tables(
 ) -> None:
     """Converge the QA catalog, committing unless the caller owns the transaction."""
     execute_schema_script(conn, QA_CATALOG_TABLES_SQL)
+    ensure_qa_method_metadata_columns(conn)
     _add_column_if_not_exists(
         conn,
         "qa_plans",
@@ -307,5 +284,7 @@ def create_qa_catalog_tables(
 __all__ = [
     "BUILTIN_QA_METHODS",
     "QA_CATALOG_TABLES_SQL",
+    "QA_METHOD_METADATA_COLUMNS",
     "create_qa_catalog_tables",
+    "ensure_qa_method_metadata_columns",
 ]

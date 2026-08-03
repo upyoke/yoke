@@ -19,16 +19,19 @@ from yoke_contracts.project_contract.project_keys import (
     RECOGNIZED_PROJECT_KEYS,
     SESSION_ROUTING_CAPABILITY,
 )
+from yoke_contracts.session_lane import DEFAULT_LANE_METADATA
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import row_value
 
-_INT_POLICY_KEYS = frozenset({
-    "wip_cap",
-    "merge_conflict_threshold",
-    "max_attempts",
-})
+_INT_POLICY_KEYS = frozenset(
+    {
+        "wip_cap",
+        "merge_conflict_threshold",
+        "max_attempts",
+    }
+)
 
 _PROJECT_POLICY_KEYS = tuple(
     key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
@@ -62,6 +65,7 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
             "dash",
         ],
     },
+    "lane_metadata": DEFAULT_LANE_METADATA,
     "process_offers": {
         "default": False,
         "strategize": False,
@@ -136,7 +140,9 @@ def default_project_capability_settings(
 
     return {
         PROJECT_POLICY_CAPABILITY: project_policy_defaults(
-            conn, project_id, base_branch=base_branch,
+            conn,
+            project_id,
+            base_branch=base_branch,
         ),
         SESSION_ROUTING_CAPABILITY: session_routing_defaults(),
     }
@@ -151,7 +157,9 @@ def load_project_policy_settings(
     if project_id is None:
         return {}
     return _read_capability_settings(
-        conn, int(project_id), PROJECT_POLICY_CAPABILITY,
+        conn,
+        int(project_id),
+        PROJECT_POLICY_CAPABILITY,
     )
 
 
@@ -178,7 +186,9 @@ def set_project_policy_value(
 
     ensure_default_policy_capabilities(conn, int(project_id))
     current = _read_capability_settings(
-        conn, int(project_id), PROJECT_POLICY_CAPABILITY,
+        conn,
+        int(project_id),
+        PROJECT_POLICY_CAPABILITY,
     )
     current[str(key)] = value
     conn.execute(
@@ -205,7 +215,9 @@ def ensure_default_policy_capabilities(
     for project_id in project_id_list:
         per_project: list[CapabilityRepairResult] = []
         defaults_by_capability = default_project_capability_settings(
-            conn, project_id, base_branch=base_branch,
+            conn,
+            project_id,
+            base_branch=base_branch,
         )
         for cap_type, defaults in defaults_by_capability.items():
             per_project.append(

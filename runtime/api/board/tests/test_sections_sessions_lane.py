@@ -9,7 +9,10 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts.board.sections_sessions import _render_lane
-from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_contracts.session_lane import (
+    UNRESOLVED_EXECUTION_LANE,
+    lane_presentation,
+)
 
 _MARKER = "⚠️"
 
@@ -30,3 +33,17 @@ def test_configured_lane_renders_without_the_marker(lane) -> None:
 
 def test_lane_without_an_emoji_still_renders_its_name() -> None:
     assert _render_lane("RESEARCH") == "RESEARCH"
+
+
+def test_operator_defined_lane_presentation_travels_with_routing_settings() -> None:
+    presentation = lane_presentation(
+        "RESEARCH",
+        {"lane_metadata": {"RESEARCH": {"label": "Research", "glyph": "🔬"}}},
+    )
+    assert presentation == {"label": "Research", "glyph": "🔬"}
+    assert _render_lane("RESEARCH", presentation) == "🔬 Research"
+
+
+def test_original_lane_presentation_is_an_exact_legacy_fallback() -> None:
+    assert lane_presentation("DARIUS", {}) == {"label": "DARIUS", "glyph": "🐎"}
+    assert lane_presentation("RESEARCH", {}) == {"label": "RESEARCH", "glyph": ""}

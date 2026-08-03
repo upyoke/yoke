@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from typing import Dict, List, NamedTuple, Optional
 
-from yoke_contracts.project_contract.board_art.emoji import STATUS_EMOJI as _STATUS_EMOJI_PREFIX
+from yoke_contracts.project_contract.board_art.emoji import (
+    STATUS_EMOJI as _STATUS_EMOJI_PREFIX,
+)
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter, scope_project_id
 from yoke_contracts.board.status import status_to_board_bucket
@@ -54,6 +56,7 @@ def _resolve_scope_project_id(scope: str, *, db: Optional[BoardDBLike]) -> int:
 # Named tuple for classified item rows
 # ---------------------------------------------------------------------------
 
+
 class ItemRow(NamedTuple):
     """A single classified backlog item row."""
 
@@ -67,6 +70,7 @@ class ItemRow(NamedTuple):
     epic_id: Optional[int]  # numeric epic_id (or None)
     project: str
     updated_at: str
+    status_glyph: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +81,11 @@ class ItemRow(NamedTuple):
 # (imported above as _STATUS_EMOJI_PREFIX) — the canonical dedup registry.
 
 
-def status_emoji(status: str, celebration: Optional[str] = None) -> str:
+def status_emoji(
+    status: str,
+    celebration: Optional[str] = None,
+    glyph: Optional[str] = None,
+) -> str:
     """Map a status string to its emoji-prefixed display form.
 
     Returns ``"<emoji> <status>"`` for known statuses, or the raw status
@@ -87,7 +95,7 @@ def status_emoji(status: str, celebration: Optional[str] = None) -> str:
     """
     if celebration and status == "done":
         return f"{celebration} {status}"
-    prefix = _STATUS_EMOJI_PREFIX.get(status)
+    prefix = glyph if glyph is not None else _STATUS_EMOJI_PREFIX.get(status)
     if prefix is None:
         return status
     return f"{prefix} {status}"
@@ -239,6 +247,12 @@ def classify_items(
         p.slug,
         p.public_item_prefix,
         i.project_sequence,
+        (SELECT stage->>'glyph'
+         FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
+         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),
+        (SELECT stage->>'board_bucket'
+         FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
+         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),
         wv.definition_json::jsonb #>> '{{policies,generated_children}}'
     FROM items i
     LEFT JOIN projects p ON p.id = i.project_id
@@ -263,6 +277,8 @@ def classify_items(
             project_slug,
             public_item_prefix,
             project_sequence,
+            status_glyph,
+            status_bucket,
             generated_children,
         ) = row
         yok_id = format_item_ref(
@@ -273,9 +289,7 @@ def classify_items(
         )
 
         eff_epic: Optional[int] = (
-            int(numid)
-            if generated_children == "epic_tasks"
-            else None
+            int(numid) if generated_children == "epic_tasks" else None
         )
 
         # Compute progress — use precomputed stats when available
@@ -300,6 +314,7 @@ def classify_items(
             epic_id=eff_epic,
             project=project_display,
             updated_at=updated_at,
+            status_glyph=str(status_glyph) if status_glyph else None,
         )
 
         # Classify using the domain bucket function
@@ -308,12 +323,20 @@ def classify_items(
             frozen_value=frozen_int,
             blocked_value=blocked_int,
             workflow_id=workflow_id,
+            workflow_stage_bucket=(str(status_bucket) if status_bucket else None),
         )
         section = _BUCKET_TO_SECTION.get(bucket, "unknown")
         sections[section].append(item_row)
 
     # Sort active/pipeline/backlog/blocked/freezer by priority rank, then item id.
-    for section_name in ("active", "pipeline", "backlog", "blocked", "freezer", "unknown"):
+    for section_name in (
+        "active",
+        "pipeline",
+        "backlog",
+        "blocked",
+        "freezer",
+        "unknown",
+    ):
         sections[section_name].sort(key=lambda r: (r.rank, r.id))
 
     sections["done"].sort(key=lambda r: (r.updated_at, r.id), reverse=True)

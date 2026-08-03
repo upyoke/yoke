@@ -27,6 +27,7 @@ from yoke_core.domain.host_control_executor import (
 from yoke_core.domain.machine_qa_method_contracts import (
     MACHINE_METHODS,
     MachineQaExecutionError,
+    machine_method_definition,
     validate_machine_method_config,
 )
 from yoke_core.domain.machine_qa_result_safety import (
@@ -129,6 +130,7 @@ class MachineQaLease:
                     "case_started": False,
                 },
             )
+        definition = machine_method_definition(method_id)
         config = validate_machine_method_config(
             method_id,
             method_config,
@@ -152,7 +154,10 @@ class MachineQaLease:
                     },
                 },
             )
-        if method_id in {"terminal-check", "terminal-inspection"}:
+        if definition["config_contract_id"] in {
+            "terminal-check",
+            "terminal-inspection",
+        }:
             if "actions" in config:
                 raw = self.control.run_terminal_recipe(
                     entry_surface=str(entry_surface),
@@ -196,7 +201,7 @@ class MachineQaLease:
                 evidence=evidence,
                 error_code=raw.error_code or "machine_method_failed",
             )
-        if method_id == "terminal-inspection":
+        if definition["proof_kind"] == "terminal-inspection":
             degraded = str(safe.get("capture_degraded_reason") or "").strip() or None
             return MachineCaseResult(
                 case_outcome="needs_review",

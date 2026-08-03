@@ -28,7 +28,7 @@ enforces over the board render sources.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Mapping, Tuple
 
 
 CANONICAL_HARNESS_IDS: Tuple[str, ...] = ("claude-code", "codex", "cursor")
@@ -41,19 +41,47 @@ or ``cursor-*`` value in that column indicates a writer that bypassed
 
 
 EXECUTOR_EMOJI: Dict[str, str] = {
-    "claude-code": "\U0001f916",     # robot (coarse Claude family)
+    "claude-code": "\U0001f916",  # robot (coarse Claude family)
     "claude-desktop": "\U0001f34e",  # apple (desktop)
-    "claude-vscode": "\U0001fa9f",   # window
-    "claude-cli": "\U0001f4df",      # pager
-    "codex": "\U0001f4d5",           # closed book (coarse Codex family)
-    "codex-desktop": "\U0001f4bb",   # laptop
-    "codex-vscode": "\U0001fa84",    # magic wand
-    "codex-cli": "\U0001f4e0",       # fax
-    "cursor": "\U0001f3af",          # direct hit (coarse Cursor family)
+    "claude-vscode": "\U0001fa9f",  # window
+    "claude-cli": "\U0001f4df",  # pager
+    "codex": "\U0001f4d5",  # closed book (coarse Codex family)
+    "codex-desktop": "\U0001f4bb",  # laptop
+    "codex-vscode": "\U0001fa84",  # magic wand
+    "codex-cli": "\U0001f4e0",  # fax
+    "cursor": "\U0001f3af",  # direct hit (coarse Cursor family)
     "cursor-desktop": "\U0001f4d0",  # triangular ruler (desktop IDE surface)
-    "cursor-cli": "\U0001f9ed",      # compass (terminal agent surface)
+    "cursor-cli": "\U0001f9ed",  # compass (terminal agent surface)
 }
 """Board glyph per known executor label — the vocabulary's one listing."""
+
+
+EXECUTOR_PRESENTATION: Dict[str, Mapping[str, str]] = {
+    "claude": {"mark": "C", "class_name": "h-claude"},
+    "codex": {"mark": "X", "class_name": "h-codex"},
+    "cursor": {"mark": "C", "class_name": "h-other"},
+}
+"""Hosted-roster presentation stored beside the executor vocabulary."""
+
+
+def executor_presentation(executor: str) -> Dict[str, str]:
+    """Return definition-owned presentation with legacy family fallback."""
+    normalized = str(executor or "")
+    family = next(
+        (
+            candidate
+            for candidate in EXECUTOR_PRESENTATION
+            if normalized == candidate or normalized.startswith(f"{candidate}-")
+        ),
+        None,
+    )
+    presentation = EXECUTOR_PRESENTATION.get(family or "")
+    if presentation is None:
+        return {
+            "mark": normalized[:1].upper() or "?",
+            "class_name": "h-other",
+        }
+    return dict(presentation)
 
 
 KNOWN_EXECUTOR_LABELS: Tuple[str, ...] = tuple(EXECUTOR_EMOJI)
@@ -74,6 +102,8 @@ KNOWN_SURFACE_LABELS: Tuple[str, ...] = tuple(
 __all__ = [
     "CANONICAL_HARNESS_IDS",
     "EXECUTOR_EMOJI",
+    "EXECUTOR_PRESENTATION",
     "KNOWN_EXECUTOR_LABELS",
     "KNOWN_SURFACE_LABELS",
+    "executor_presentation",
 ]

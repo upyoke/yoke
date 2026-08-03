@@ -9,7 +9,7 @@ import {
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeAge } from "./universe_time.js";
 
-const METHOD_ICONS = {
+const LEGACY_METHOD_ICONS = {
   command: "⌥",
   "browser-check": "◎",
   "browser-inspection": "◉",
@@ -18,16 +18,9 @@ const METHOD_ICONS = {
   "machine-state-check": "≡",
 };
 
-const CAPABILITY_LABELS = {
+const LEGACY_CAPABILITY_LABELS = {
   "browser-control": "Browser control",
   "test-machine": "Test Mac",
-};
-
-const EXECUTOR_GLOSSES = {
-  worktree_run: "runs the case's command in the item worktree",
-  browser_substrate:
-    "the machine-local browser daemon — recorded on every run today",
-  host_control: "SSH + PTY on the capability-named machine",
 };
 
 const OUTCOME_EXPLANATIONS = {
@@ -42,12 +35,18 @@ const OUTCOME_EXPLANATIONS = {
     "so the case never ran.",
 };
 
-export function methodIcon(methodId) {
-  return METHOD_ICONS[methodId] || "◉";
+export function methodIcon(method) {
+  if (method && typeof method === "object" && method.display_icon) {
+    return method.display_icon;
+  }
+  const methodId = typeof method === "string" ? method : method?.id;
+  return LEGACY_METHOD_ICONS[methodId] || "◉";
 }
 
-export function capabilityLabel(kind) {
-  return kind ? (CAPABILITY_LABELS[kind] || kind) : "none";
+export function capabilityLabel(kind, definitionLabel = null) {
+  return definitionLabel || (
+    kind ? (LEGACY_CAPABILITY_LABELS[kind] || kind) : "none"
+  );
 }
 
 export function sourceLabel(method) {
@@ -95,11 +94,11 @@ export function sourceNode(
   return host;
 }
 
-export function executorContractNode(documentNode, executorId, methodId = null) {
-  const gloss = executorId === "host_control"
-    && methodId === "machine-state-check"
-    ? "shell assertions on the controlled host"
-    : EXECUTOR_GLOSSES[executorId] || "registered executor";
+export function executorContractNode(
+  documentNode,
+  executorId,
+  executorGloss = "registered executor",
+) {
   const node = el(documentNode, "span", "qa-executor-contract");
   node.appendChild(el(
     documentNode, "strong", "mono", executorId || "—",
@@ -108,7 +107,7 @@ export function executorContractNode(documentNode, executorId, methodId = null) 
     documentNode,
     "small",
     null,
-    `· ${gloss}`,
+    `· ${executorGloss}`,
   ));
   return node;
 }

@@ -8,13 +8,19 @@ from typing import Any, Optional
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
-from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.capabilities_list_read import (
     STATE_CONFIGURED_UNVERIFIED,
     STATE_ERROR,
     STATE_IN_USE,
     STATE_READY,
+)
+from yoke_core.domain.capability_type_definitions import (
+    capability_type_definition,
+)
+from yoke_core.domain.qa_method_definitions import (
+    method_presentations,
+    method_read_metadata,
 )
 from yoke_core.domain.capabilities_test_machine_read import (
     read_test_machine_facts,
@@ -24,12 +30,13 @@ from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_activity_reads import list_activity, read_activity
 from yoke_core.domain.qa_execution_proof import qa_run_outcome
 from yoke_core.domain.qa_method_related_plans import read_method_related_plans
+from yoke_core.domain.qa_plan_attachment_reads import plan_attachment_rows
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
-from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 _outcome = qa_run_outcome
+_attachment_rows = plan_attachment_rows
 
 
 def _placeholder(conn: Any) -> str:
@@ -135,10 +142,7 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         "SELECT * FROM qa_methods "
         "WHERE project_id IS NULL"
         + (f" OR project_id={marker}" if project_id is not None else "")
-        + " ORDER BY "
-        "CASE WHEN required_capability_kind IS NULL THEN 0 "
-        "WHEN required_capability_kind='browser-control' THEN 1 ELSE 2 END, "
-        "name",
+        + " ORDER BY display_order, name",
         (project_id,) if project_id is not None else (),
     )
     capability_contexts = _capability_contexts(
@@ -178,6 +182,12 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                     {},
                 ),
                 "concurrency_mode": str(row["concurrency_mode"]),
+                **method_read_metadata(row),
+                "required_capability_label": (
+                    capability_type_definition(str(capability_kind))["display_label"]
+                    if capability_kind
+                    else "none"
+                ),
                 "used_by_plan_count": used_by,
                 "capability_state": capability_context["state"],
                 "capability_context": capability_context,
@@ -226,64 +236,6 @@ def _latest_requirement_outcome(conn: Any, plan_id: int) -> tuple:
     return (qa_run_outcome(row), row["happened_at"])
 
 
-def _attachment_rows(conn: Any, plan_id: int) -> list[dict]:
-    marker = _placeholder(conn)
-    project_defaults = query_rows(
-        conn,
-        "SELECT 'project_default' AS kind, p.slug AS project, "
-        "d.workflow_id, d.transition_id, NULL AS item_id, "
-        "v.id AS workflow_version_id, v.version, "
-        "v.definition_json, v.definition_digest "
-        "FROM qa_plan_project_defaults d "
-        "JOIN projects p ON p.id=d.project_id "
-        "JOIN workflows w ON w.id=d.workflow_id "
-        "JOIN workflow_versions v ON v.id=w.current_version_id "
-        f"WHERE d.plan_id={marker} "
-        "ORDER BY p.slug, d.workflow_id, d.transition_id",
-        (plan_id,),
-    )
-    item_attachments = query_rows(
-        conn,
-        "SELECT 'item' AS kind, p.slug AS project, "
-        "i.workflow_id, a.transition_id, i.id AS item_id, "
-        "p.public_item_prefix, i.project_sequence, "
-        "v.id AS workflow_version_id, v.version, "
-        "v.definition_json, v.definition_digest "
-        "FROM qa_plan_item_attachments a "
-        "JOIN items i ON i.id=a.item_id "
-        "JOIN projects p ON p.id=i.project_id "
-        "JOIN workflow_versions v ON v.id=i.workflow_version_id "
-        f"WHERE a.plan_id={marker} "
-        "ORDER BY p.slug, i.id, a.transition_id",
-        (plan_id,),
-    )
-    result = []
-    for raw in [*project_defaults, *item_attachments]:
-        row = dict(raw)
-        runtime = workflow_runtime_from_row(row)
-        row["transition_label"] = runtime.stage_label(
-            str(row["transition_id"]),
-        )
-        for key in (
-            "workflow_version_id",
-            "version",
-            "definition_json",
-            "definition_digest",
-        ):
-            row.pop(key)
-        if row["kind"] == "item":
-            prefix = row.pop("public_item_prefix")
-            sequence = row.pop("project_sequence")
-            row["item_ref"] = format_item_ref(
-                row["project"],
-                prefix,
-                sequence,
-                item_id=int(row["item_id"]),
-            )
-        result.append(row)
-    return result
-
-
 def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
     identity = _project_row(conn, project)
     marker = _placeholder(conn)
@@ -304,8 +256,10 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         plan_id = int(row["id"])
         cases = query_rows(
             conn,
-            "SELECT method_id, host_baselines FROM qa_plan_cases "
-            f"WHERE plan_id={marker} ORDER BY position",
+            "SELECT c.method_id, c.host_baselines, m.display_icon, "
+            "m.display_order, m.display_group "
+            "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
+            f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),
         )
         materialized_count = sum(
@@ -333,7 +287,8 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "method_ids": list(
                     dict.fromkeys(str(case["method_id"]) for case in cases)
                 ),
-                "attachments": _attachment_rows(conn, plan_id),
+                "method_presentations": method_presentations(cases),
+                "attachments": plan_attachment_rows(conn, plan_id),
                 "last_outcome": last_outcome,
                 "last_at": last_at,
             }

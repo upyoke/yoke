@@ -20,6 +20,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.capability_machine_secrets import (
     list_machine_capability_secret_keys,
 )
+from yoke_core.domain.capability_type_definitions import (
+    capability_type_definition,
+)
 from yoke_core.domain.coordination_leases import active_lease
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import (
@@ -237,7 +240,9 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
         "project_id": int(identity.id),
         "project": identity.slug,
         "kind": TEST_MACHINE_CAPABILITY,
-        "display_name": "Test Mac",
+        "display_name": capability_type_definition(TEST_MACHINE_CAPABILITY)[
+            "display_label"
+        ],
         "executor_id": HOST_CONTROL_EXECUTOR_ID,
         "settings": settings,
         "settings_token": settings_token,

@@ -9,6 +9,7 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import builtin_workflow_version_convergence, db_helpers
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definition,
     builtin_workflow_version_history,
@@ -37,6 +38,7 @@ from yoke_core.domain.workflow_item_versioning import (
 )
 
 _TS = "2026-07-25T00:00:00Z"
+_CURRENT = BUILTIN_WORKFLOW_PREFERRED_VERSION
 
 
 def _definition(workflow_id: str = "issue") -> dict:
@@ -122,15 +124,16 @@ def test_known_version_one_definitions_converge_without_rewriting(
     workflows = list_current_workflows(test_db)
     assert {row["current_version"] for row in workflows} == {1}
     assert all(
-        [version["version"] for version in row["versions"]] == [1, 2, 3]
+        [version["version"] for version in row["versions"]]
+        == list(range(1, _CURRENT + 1))
         for row in workflows
     )
 
     selected = select_current_builtin_workflow_versions(test_db)
-    assert set(selected.values()) == {3}
+    assert set(selected.values()) == {_CURRENT}
     assert {
         row["current_version"] for row in list_current_workflows(test_db)
-    } == {3}
+    } == {_CURRENT}
 
 
 def test_unknown_version_one_definition_is_rejected(test_db):
@@ -152,7 +155,10 @@ def test_builtin_convergence_keeps_sqlite_locking_portable():
         assert {
             (row["id"], row["current_version"], len(row["versions"]))
             for row in list_current_workflows(conn)
-        } == {(workflow_id, 3, 3) for workflow_id in BUILTIN_WORKFLOW_IDS}
+        } == {
+            (workflow_id, _CURRENT, _CURRENT)
+            for workflow_id in BUILTIN_WORKFLOW_IDS
+        }
 
 
 def test_selection_locks_before_digest_lookup(test_db, monkeypatch):
@@ -216,7 +222,7 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
     published = publish_workflow_version(
         test_db, workflow_id="issue", definition=next_definition,
     )
-    assert published["version"] == 4
+    assert published["version"] == _CURRENT + 1
     assert resolve_current_workflow_pin(test_db, "issue") == (
         "issue", published["version_id"])
     pinned = test_db.execute(
@@ -224,7 +230,7 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
     ).fetchone()
     assert int(pinned[0]) == builtin_version_id
     rolled_back = set_current_workflow_version(
-        test_db, workflow_id="issue", version=3,
+        test_db, workflow_id="issue", version=_CURRENT,
     )
     assert rolled_back["version_id"] == builtin_version_id
     assert resolve_current_workflow_pin(test_db, "issue") == (
@@ -236,48 +242,60 @@ def test_version_read_and_current_selection_use_optimistic_version(test_db):
     changed = _definition()
     changed["stages"][0]["label"] = "Filed"
     publish_workflow_version(test_db, workflow_id="issue", definition=changed)
-    current_builtin = get_workflow_version(test_db, workflow_id="issue", version=3)
+    current_builtin = get_workflow_version(
+        test_db, workflow_id="issue", version=_CURRENT
+    )
     assert current_builtin["current"] is False
     assert current_builtin["definition"]["stages"][0]["label"] == "idea"
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):
         set_current_workflow_version(
-            test_db, workflow_id="issue", version=3, expected_current_version=3,
+            test_db,
+            workflow_id="issue",
+            version=_CURRENT,
+            expected_current_version=_CURRENT,
         )
     selected = set_current_workflow_version(
-        test_db, workflow_id="issue", version=3, expected_current_version=4,
+        test_db,
+        workflow_id="issue",
+        version=_CURRENT,
+        expected_current_version=_CURRENT + 1,
     )
-    assert selected["version"] == 3
+    assert selected["version"] == _CURRENT
 
 
 def test_editable_path_claim_default_publishes_an_immutable_version(test_db):
     result = publish_workflow_policy_defaults(
         test_db,
         workflow_id="dash",
-        expected_current_version=3,
+        expected_current_version=_CURRENT,
         path_claims_default=True,
         published_by_actor_id=1,
     )
-    assert result["version"] == 4
+    assert result["version"] == _CURRENT + 1
     assert result["path_claims_default"] is True
-    third = get_workflow_version(test_db, workflow_id="dash", version=3)
-    fourth = get_workflow_version(test_db, workflow_id="dash", version=4)
-    assert third["definition"]["policies"]["path_claims"] == "optional"
-    assert fourth["definition"]["policies"]["path_claims"] == "required"
-    assert fourth["current"] is True
+    previous = get_workflow_version(
+        test_db, workflow_id="dash", version=_CURRENT
+    )
+    published = get_workflow_version(
+        test_db, workflow_id="dash", version=_CURRENT + 1
+    )
+    assert previous["definition"]["policies"]["path_claims"] == "optional"
+    assert published["definition"]["policies"]["path_claims"] == "required"
+    assert published["current"] is True
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="dash",
-            expected_current_version=3,
+            expected_current_version=_CURRENT,
             path_claims_default=False,
         )
     with pytest.raises(WorkflowRegistryError, match="does not expose"):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="issue",
-            expected_current_version=3,
+            expected_current_version=_CURRENT,
             path_claims_default=False,
         )
 
@@ -291,13 +309,13 @@ def test_current_definition_change_does_not_repin_existing_item(test_db):
         test_db, workflow_id="issue", definition=next_definition,
     )
     pinned = inspect_item_workflow_pin(test_db, 902)
-    assert pinned["workflow_version"] == 3
+    assert pinned["workflow_version"] == _CURRENT
     assert pinned["workflow_version_id"] == builtin_version_id
     assert pinned["status"] == "idea"
 
     migrated = migrate_item_workflow_pin(test_db, item_id=902)
     assert migrated["changed"] is True
-    assert migrated["after"]["workflow_version"] == 4
+    assert migrated["after"]["workflow_version"] == _CURRENT + 1
     assert migrated["after"]["workflow_version_id"] == published["version_id"]
 
 
@@ -312,7 +330,7 @@ def test_compatible_item_migration_applies_adjacent_stage_mapping(test_db):
     publish_workflow_version(test_db, workflow_id="issue", definition=changed)
     migrated = migrate_item_workflow_pin(test_db, item_id=903)
     assert migrated["after"]["status"] == "delivering"
-    assert migrated["after"]["workflow_version"] == 4
+    assert migrated["after"]["workflow_version"] == _CURRENT + 1
 
 
 def test_publication_refuses_noop_definition(test_db):

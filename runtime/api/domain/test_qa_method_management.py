@@ -25,15 +25,31 @@ def test_project_method_uses_registered_executor_contract() -> None:
             evidence_contract="captured command output",
         )
         row = conn.execute(
-            "SELECT source_kind, project_id, executor_id "
+            "SELECT source_kind, project_id, executor_id, display_icon, "
+            "display_group, config_contract_id, proof_kind, executor_gloss "
             "FROM qa_methods WHERE id=%s",
             (result["id"],),
         ).fetchone()
 
     assert result["id"] == "project-yoke-checkout-lint"
     assert (row["source_kind"], row["project_id"], row["executor_id"]) == (
-        "project", 1, "worktree_run",
+        "project",
+        1,
+        "worktree_run",
     )
+    assert {
+        "display_icon": row["display_icon"],
+        "display_group": row["display_group"],
+        "config_contract_id": row["config_contract_id"],
+        "proof_kind": row["proof_kind"],
+        "executor_gloss": row["executor_gloss"],
+    } == {
+        "display_icon": "⌥",
+        "display_group": "Command",
+        "config_contract_id": "command",
+        "proof_kind": "command",
+        "executor_gloss": "runs the case's command in the item worktree",
+    }
 
 
 def test_project_method_rejects_unregistered_executor() -> None:

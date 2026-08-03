@@ -20,12 +20,6 @@ const PLAN_OUTCOME_ORDER = new Map([
   ["queued", 4],
   ["failed", 5],
 ]);
-const MACHINE_METHODS = new Set([
-  "terminal-check",
-  "terminal-inspection",
-  "machine-state-check",
-]);
-
 function attachmentTransition(row) {
   const transitionId = String(row.transition_id || "");
   if (transitionId === "reviewed-implementation") return "review";
@@ -51,22 +45,20 @@ function methodSummary(documentNode, row) {
   wrap.appendChild(el(
     documentNode, "strong", null, String(row.case_count),
   ));
-  const methodIds = row.method_ids || [];
-  if (methodIds.length) wrap.appendChild(summarySeparator(documentNode));
-  for (const methodId of methodIds) {
+  const methods = row.method_presentations || (row.method_ids || []).map(
+    (id) => ({ id }),
+  );
+  if (methods.length) wrap.appendChild(summarySeparator(documentNode));
+  for (const method of methods) {
     const icon = el(
-      documentNode, "span", "qa-method-glyph", methodIcon(methodId),
+      documentNode, "span", "qa-method-glyph", methodIcon(method),
     );
-    icon.title = methodId;
+    icon.title = method.id;
     wrap.appendChild(icon);
   }
-  if (methodIds.length === 1 && methodIds[0] === "command") {
-    wrap.appendChild(el(documentNode, "span", null, "Command"));
-  } else if (
-    methodIds.length > 1
-    && methodIds.every((methodId) => MACHINE_METHODS.has(methodId))
-  ) {
-    wrap.appendChild(el(documentNode, "span", null, "Machine"));
+  const groups = [...new Set(methods.map((method) => method.group).filter(Boolean))];
+  if (groups.length === 1) {
+    wrap.appendChild(el(documentNode, "span", null, groups[0]));
   }
   if (Number(row.materialized_requirement_count) > Number(row.case_count)) {
     wrap.appendChild(summarySeparator(documentNode));

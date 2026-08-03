@@ -13,6 +13,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     REGISTERED_WORKFLOW_SKILL_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
+    builtin_workflow_version_history,
 )
 from yoke_core.domain.workflow_definition_validation import (
     WorkflowDefinitionError,
@@ -67,8 +68,7 @@ EXPECTED_WORKFLOW_COPY = {
     },
     "issue": {
         "description": (
-            "One scoped implementation lane with planning, review, QA and "
-            "delivery."
+            "One scoped implementation lane with planning, review, QA and delivery."
         ),
         "stages": {
             "implementing": (
@@ -80,8 +80,7 @@ EXPECTED_WORKFLOW_COPY = {
                 "the acceptance criteria before it can leave the lane."
             ),
             "done": (
-                "Merged and delivered through the selected flow; the item "
-                "closes."
+                "Merged and delivered through the selected flow; the item closes."
             ),
         },
     },
@@ -115,10 +114,7 @@ EXPECTED_WORKFLOW_COPY = {
                 "Integrated task work is reviewed across the whole epic "
                 "before the set can advance."
             ),
-            "done": (
-                "Every task merged, integrated, and delivered; the epic "
-                "closes."
-            ),
+            "done": ("Every task merged, integrated, and delivered; the epic closes."),
         },
     },
 }
@@ -151,8 +147,7 @@ EXPECTED_GATE_DESCRIPTIONS = {
         "satisfied — passed or explicitly waived."
     ),
     "check_hard_blocks": (
-        "Every upstream item this one depends on must be finished before "
-        "activation."
+        "Every upstream item this one depends on must be finished before activation."
     ),
     "claim_activation": (
         "Registered path claims activate together with the worktree; a "
@@ -179,6 +174,8 @@ EXPECTED_GATE_DESCRIPTIONS = {
         "passed, an approval resolved."
     ),
 }
+
+
 def _stage_ids(workflow_id: str) -> tuple[str, ...]:
     fixture = builtin_workflow_definition(workflow_id)
     return tuple(stage["id"] for stage in fixture["definition"]["stages"])
@@ -211,16 +208,38 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
 def test_builtin_roster_and_immutable_history_are_fixed():
     fixtures = builtin_workflow_definitions()
     assert tuple(row["workflow"]["id"] for row in fixtures) == BUILTIN_WORKFLOW_IDS
-    assert {row["version"] for row in fixtures} == {
-        BUILTIN_WORKFLOW_PREFERRED_VERSION
-    }
+    assert {row["version"] for row in fixtures} == {BUILTIN_WORKFLOW_PREFERRED_VERSION}
     assert {row["workflow"]["source"] for row in fixtures} == {"built_in"}
     assert all(
-        row["definition"]["policies"]["approval_defaults"] == {}
-        for row in fixtures
+        row["definition"]["policies"]["approval_defaults"] == {} for row in fixtures
     )
     for row in fixtures:
         validate_workflow_definition(row["definition"])
+
+
+def test_current_stages_own_glyphs_and_history_stays_immutable():
+    current = builtin_workflow_definition("dash")
+    assert current["version"] == 4
+    assert current["definition"]["schema_version"] == 4
+    assert all(stage["glyph"] for stage in current["definition"]["stages"])
+    assert all(stage["board_bucket"] for stage in current["definition"]["stages"])
+
+    dash_history = [
+        row
+        for row in builtin_workflow_version_history()
+        if row["workflow"]["id"] == "dash"
+    ]
+    assert {row["version"] for row in dash_history} == {1, 2, 3}
+    assert all(
+        "glyph" not in stage
+        for row in dash_history
+        for stage in row["definition"]["stages"]
+    )
+    assert all(
+        "board_bucket" not in stage
+        for row in dash_history
+        for stage in row["definition"]["stages"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -231,15 +250,11 @@ def test_builtin_roster_and_immutable_history_are_fixed():
             "unknown gate",
         ),
         (
-            lambda value: value["skill_bindings"][0].update(
-                skill_id="unknown"
-            ),
+            lambda value: value["skill_bindings"][0].update(skill_id="unknown"),
             "unknown skill",
         ),
         (
-            lambda value: value["stages"][1].update(
-                label=value["stages"][0]["label"]
-            ),
+            lambda value: value["stages"][1].update(label=value["stages"][0]["label"]),
             "labels must be unique",
         ),
         (
@@ -262,9 +277,7 @@ def test_structural_stage_change_requires_complete_mapping():
     with pytest.raises(WorkflowDefinitionError, match="stage_mapping"):
         validate_workflow_definition(changed, previous=previous)
     changed["stage_mapping"] = {
-        stage["id"]: (
-            "delivering" if stage["id"] == "release" else stage["id"]
-        )
+        stage["id"]: ("delivering" if stage["id"] == "release" else stage["id"])
         for stage in previous["stages"]
     }
     validate_workflow_definition(changed, previous=previous)
@@ -277,8 +290,7 @@ def test_short_workflows_make_coverage_holes_and_closures_explicit():
     assert not any(gate == "path_claim_boundary" for _, gate in blitz)
     assert not any(gate == "path_claim_boundary" for _, gate in dash)
     assert not any(
-        stage == "refining-idea" and gate == "db_mutation"
-        for stage, gate in dash
+        stage == "refining-idea" and gate == "db_mutation" for stage, gate in dash
     )
     assert ("implementing", "conflict_survey") in blitz
     assert ("implementing", "conflict_survey") in dash
@@ -295,9 +307,7 @@ def test_definition_references_only_closed_catalog_and_registered_vocabulary():
             row["skill_id"] for row in definition["skill_bindings"]
         } <= REGISTERED_WORKFLOW_SKILL_IDS
         assert {
-            gate["id"]
-            for stage in definition["stages"]
-            for gate in stage["gates"]
+            gate["id"] for stage in definition["stages"] for gate in stage["gates"]
         } <= catalog_ids
 
 
@@ -321,11 +331,7 @@ def test_built_in_workflow_copy_matches_the_visual_specification():
 
 
 def test_gate_catalog_copy_matches_the_visual_specification():
-    catalog = {
-        gate["id"]: gate["description"]
-        for gate in workflow_gate_catalog()
-    }
+    catalog = {gate["id"]: gate["description"] for gate in workflow_gate_catalog()}
     assert {
-        gate_id: catalog[gate_id]
-        for gate_id in EXPECTED_GATE_DESCRIPTIONS
+        gate_id: catalog[gate_id] for gate_id in EXPECTED_GATE_DESCRIPTIONS
     } == EXPECTED_GATE_DESCRIPTIONS

@@ -45,7 +45,9 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
               rows: [
                 {
                   type: "test-machine", kind: "test_resource", state: "in_use",
-                  display_type: "test-mac", active_item_ref: "YOK-2001",
+                  display_type: "test-mac", display_label: "Test Lab",
+                  display_order: 0, detail_view: "test-machine",
+                  active_item_ref: "YOK-2001",
                   project: "yoke", project_id: 1,
                   settings_summary: "mac-mini-lab · Terminal + PTY · baselines ×2",
                   used_by_summary: "Machine methods ×3",
@@ -54,6 +56,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
                 },
                 {
                   type: "github", kind: "provider_access", state: "ready",
+                  display_label: "GitHub", display_order: 40, detail_view: "",
                   project: "yoke",
                   settings_summary: "example-org/example-repo",
                   used_by_summary: "GitHub · delivery",
@@ -62,6 +65,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
                 },
                 {
                   type: "migration_model", kind: "declared_model",
+                  display_label: "Migration model", display_order: 30,
                   state: "ready", project: "yoke",
                   settings_summary: "primary (governed_module)",
                   used_by_summary: "all workflows",
@@ -69,6 +73,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
                 },
                 {
                   type: "aws-admin", kind: "provider_access",
+                  display_label: "AWS admin", display_order: 50,
                   state: "configured_unverified", project: "yoke",
                   settings_summary: "",
                   used_by_summary: "Delivery · Infrastructure",
@@ -100,15 +105,15 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "test-mac", "yoke", "test resource",
+    "Test Lab", "yoke", "test resource",
     "mac-mini-lab · Terminal + PTY · baselines ×2",
     "Machine methods ×3", relativeAge("2026-07-15T12:10:00Z"),
     "in use · YOK-2001",
-    "github", "yoke", "provider access", "example-org/example-repo",
-    "GitHub · delivery", relativeAge("2026-07-15T12:00:00Z"), "ready",
-    "migration_model", "yoke", "declared model", "primary (governed_module)",
+    "Migration model", "yoke", "declared model", "primary (governed_module)",
     "all workflows", "never", "ready",
-    "aws-admin", "yoke", "provider access", "—", "Delivery · Infrastructure",
+    "GitHub", "yoke", "provider access", "example-org/example-repo",
+    "GitHub · delivery", relativeAge("2026-07-15T12:00:00Z"), "ready",
+    "AWS admin", "yoke", "provider access", "—", "Delivery · Infrastructure",
     "never", "configured (unverified)",
   ]);
   // Kind and state color through the semantic pill families. The engine
@@ -120,8 +125,8 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     pills.map((pill) => pill.className),
     [
       "pill good", "pill run",
-      "pill run", "pill good",
       "pill idle", "pill good",
+      "pill run", "pill good",
       "pill run", "pill warn",
     ],
   );
@@ -133,7 +138,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     .map(cellText);
   assert.deepEqual(
     monoCells,
-    ["test-mac", "github", "migration_model", "aws-admin"],
+    ["Test Lab", "Migration model", "GitHub", "AWS admin"],
   );
   const machineLink = allNodes(root).find(
     (node) => node.classList?.contains("row-link"),
@@ -145,7 +150,7 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   assert.equal(machineRow.attributes.get("tabindex"), "0");
   assert.equal(
     machineRow.attributes.get("aria-label"),
-    "Open Test Mac capability",
+    "Open Test Lab capability",
   );
   machineRow.dispatchEvent(new Event("click"));
   assert.equal(

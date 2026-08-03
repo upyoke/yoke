@@ -19,11 +19,19 @@ neither may import the other: the engine's routing and registration paths
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 
 # Stored when no configured executor -> lane mapping matched.
 UNRESOLVED_EXECUTION_LANE = "primary"
+
+# Compatibility only: projects created before lane presentation became part of
+# the session-routing capability still render exactly as they did before.
+DEFAULT_LANE_METADATA: Mapping[str, Mapping[str, str]] = {
+    "DARIUS": {"label": "DARIUS", "glyph": "\U0001f40e"},
+    "ALTMAN": {"label": "ALTMAN", "glyph": "\U0001f453"},
+}
+LEGACY_LANE_PRESENTATION = DEFAULT_LANE_METADATA
 
 
 def lane_is_unresolved(lane: Optional[str]) -> bool:
@@ -39,4 +47,30 @@ def lane_is_unresolved(lane: Optional[str]) -> bool:
     return (lane or "").strip().lower() in ("", UNRESOLVED_EXECUTION_LANE)
 
 
-__all__ = ["UNRESOLVED_EXECUTION_LANE", "lane_is_unresolved"]
+def lane_presentation(
+    lane: Optional[str],
+    settings: Optional[Mapping[str, Any]] = None,
+) -> dict[str, str]:
+    """Resolve lane-owned label/glyph metadata with a legacy fallback."""
+    lane_name = str(lane or "")
+    configured: Mapping[str, Any] = {}
+    if isinstance(settings, Mapping):
+        all_metadata = settings.get("lane_metadata")
+        if isinstance(all_metadata, Mapping):
+            candidate = all_metadata.get(lane_name)
+            if isinstance(candidate, Mapping):
+                configured = candidate
+    fallback = LEGACY_LANE_PRESENTATION.get(lane_name, {})
+    return {
+        "label": str(configured.get("label") or lane_name),
+        "glyph": str(configured.get("glyph") or fallback.get("glyph") or ""),
+    }
+
+
+__all__ = [
+    "DEFAULT_LANE_METADATA",
+    "LEGACY_LANE_PRESENTATION",
+    "UNRESOLVED_EXECUTION_LANE",
+    "lane_is_unresolved",
+    "lane_presentation",
+]

@@ -9,7 +9,10 @@ header, and per-row done statuses.
 from __future__ import annotations
 
 from yoke_contracts.project_contract.board_art import emoji as E
-from yoke_contracts.project_contract.board_art.emoji import STATUS_EMOJI, resolve_celebration
+from yoke_contracts.project_contract.board_art.emoji import (
+    STATUS_EMOJI,
+    resolve_celebration,
+)
 from yoke_contracts.board.renderer_sections import render_board_sections
 from yoke_contracts.board.sections_classify import ItemRow, status_emoji
 from yoke_contracts.board.config import BoardConfig
@@ -89,10 +92,7 @@ class TestSessionModeGlyphs:
         offenders = {
             mode: glyph
             for mode, glyph in _MODE_EMOJI.items()
-            if any(
-                ord(ch) == 0xFE0F or 0x1F3FB <= ord(ch) <= 0x1F3FF
-                for ch in glyph
-            )
+            if any(ord(ch) == 0xFE0F or 0x1F3FB <= ord(ch) <= 0x1F3FF for ch in glyph)
         }
         assert offenders == {}
 
@@ -104,18 +104,28 @@ class TestCentralizedConstants:
         import yoke_contracts.board.widgets_badges as B
 
         assert (B._TAG, B._SHIELD, B._MAILBOX, B._MEDAL, B._TARGET, B._CLOCK) == (
-            E.BADGE_WORKFLOW, E.BADGE_ZERO_BUGS, E.BADGE_INBOX_ZERO,
-            E.BADGE_MILESTONE, E.BADGE_STREAK, E.BADGE_CLOCK,
+            E.BADGE_WORKFLOW,
+            E.BADGE_ZERO_BUGS,
+            E.BADGE_INBOX_ZERO,
+            E.BADGE_MILESTONE,
+            E.BADGE_STREAK,
+            E.BADGE_CLOCK,
         )
         assert (
-            B._AGE_FRESH, B._AGE_WEEK, B._AGE_BIWEEK, B._AGE_MONTH, B._AGE_ANCIENT
+            B._AGE_FRESH,
+            B._AGE_WEEK,
+            B._AGE_BIWEEK,
+            B._AGE_MONTH,
+            B._AGE_ANCIENT,
         ) == (E.AGE_FRESH, E.AGE_WEEK, E.AGE_BIWEEK, E.AGE_MONTH, E.AGE_ANCIENT)
 
     def test_velocity_constants_from_registry(self):
         import yoke_contracts.board.widgets_velocity_meter as V
 
         assert (V._FLOPPY, V._PACKAGE, V._COMPASS) == (
-            E.VELOCITY_CODE, E.VELOCITY_DELIVERY, E.VELOCITY_STRATEGY,
+            E.VELOCITY_CODE,
+            E.VELOCITY_DELIVERY,
+            E.VELOCITY_STRATEGY,
         )
 
 
@@ -147,30 +157,61 @@ class TestStatusEmojiCelebration:
     def test_non_done_unaffected(self):
         assert status_emoji("implementing", "🎉") == status_emoji("implementing")
 
+    def test_definition_glyph_supports_operator_defined_status(self):
+        assert status_emoji("observing", glyph="🔭") == "🔭 observing"
+
 
 class TestCelebrationPropagatesToSections:
     def test_done_header_and_row_use_celebration(self, test_db):
         done_item = ItemRow(
-            1, "YOK-1", "Shipped it", "issue", "medium", "done", "—",
-            None, "yoke", "",
+            1,
+            "YOK-1",
+            "Shipped it",
+            "issue",
+            "medium",
+            "done",
+            "—",
+            None,
+            "yoke",
+            "",
         )
         buckets = {"done": [done_item]}
         lines, _ = render_board_sections(
-            test_db, BoardConfig(), "yoke", buckets, {}, {}, None,
+            test_db,
+            BoardConfig(),
+            "yoke",
+            buckets,
+            {},
+            {},
+            None,
             celebration="🎉",
         )
         out = "\n".join(lines)
-        assert "### 🎉 Done" in out          # header swapped
-        assert "🎉 done" in out               # per-row status swapped
-        assert "### ✅ Done" not in out        # normal check not used in celeb
+        assert "### 🎉 Done" in out  # header swapped
+        assert "🎉 done" in out  # per-row status swapped
+        assert "### ✅ Done" not in out  # normal check not used in celeb
 
     def test_no_celebration_uses_check(self, test_db):
         done_item = ItemRow(
-            1, "YOK-1", "Shipped it", "issue", "medium", "done", "—",
-            None, "yoke", "",
+            1,
+            "YOK-1",
+            "Shipped it",
+            "issue",
+            "medium",
+            "done",
+            "—",
+            None,
+            "yoke",
+            "",
         )
         lines, _ = render_board_sections(
-            test_db, BoardConfig(), "yoke", {"done": [done_item]}, {}, {}, None,
+            test_db,
+            BoardConfig(),
+            "yoke",
+            {"done": [done_item]},
+            {},
+            {},
+            None,
         )
         out = "\n".join(lines)
         assert "### ✅ Done" in out

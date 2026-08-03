@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-WORKFLOW_DEFINITION_SCHEMA_VERSION = 3
-BUILTIN_WORKFLOW_PREFERRED_VERSION = 3
+from yoke_contracts.lifecycle_status import (
+    LEGACY_STATUS_BUCKETS,
+    LEGACY_STATUS_GLYPHS,
+)
+
+WORKFLOW_DEFINITION_SCHEMA_VERSION = 4
+BUILTIN_WORKFLOW_PREFERRED_VERSION = 4
 WORKFLOW_FILE_BUDGET_OPTIONAL = "optional"
 WORKFLOW_FILE_BUDGET_REQUIRED = "required"
 WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK = "required_per_task"
@@ -14,28 +19,34 @@ WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_SURVEY_OPTIONAL = WORKFLOW_PATH_CLAIMS_OPTIONAL
 WORKFLOW_PATH_SURVEY_REQUIRED = WORKFLOW_PATH_CLAIMS_REQUIRED
-REGISTERED_WORKFLOW_SKILL_IDS = frozenset({
-    "advance",
-    "blitz",
-    "conduct",
-    "dash",
-    "polish",
-    "refine",
-    "shepherd",
-    "usher",
-})
-IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset({
-    "advance",
-    "blitz",
-    "conduct",
-    "dash",
-})
-ENTRY_SURFACE_IDS = frozenset({
-    "cli",
-    "harness_skill",
-    "promotion",
-    "web_form",
-})
+REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
+    {
+        "advance",
+        "blitz",
+        "conduct",
+        "dash",
+        "polish",
+        "refine",
+        "shepherd",
+        "usher",
+    }
+)
+IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset(
+    {
+        "advance",
+        "blitz",
+        "conduct",
+        "dash",
+    }
+)
+ENTRY_SURFACE_IDS = frozenset(
+    {
+        "cli",
+        "harness_skill",
+        "promotion",
+        "web_form",
+    }
+)
 
 
 def gate_ref(gate_id: str, mode: Optional[str] = None) -> Dict[str, str]:
@@ -90,7 +101,13 @@ def definition_fixture(
     schema_version: int = WORKFLOW_DEFINITION_SCHEMA_VERSION,
 ) -> Dict[str, Any]:
     """Build one immutable built-in workflow-version fixture."""
-    stage_ids = [stage["id"] for stage in stages]
+    normalized_stages = [dict(stage) for stage in stages]
+    if schema_version >= 4:
+        for stage in normalized_stages:
+            stage_id = str(stage["id"])
+            stage["glyph"] = LEGACY_STATUS_GLYPHS.get(stage_id, "▫")
+            stage["board_bucket"] = LEGACY_STATUS_BUCKETS.get(stage_id, "unknown")
+    stage_ids = [stage["id"] for stage in normalized_stages]
     normalized_policies = dict(policies)
     if approval_defaults is not None:
         normalized_policies["approval_defaults"] = dict(approval_defaults)
@@ -104,7 +121,7 @@ def definition_fixture(
         "version": version,
         "definition": {
             "schema_version": schema_version,
-            "stages": list(stages),
+            "stages": normalized_stages,
             "terminal_stage_ids": [stage_ids[-1]],
             "transitions": [
                 {"from_stage_id": before, "to_stage_id": after}

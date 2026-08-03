@@ -44,6 +44,9 @@ def _version_two_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
     fixture["version"] = 2
     definition = fixture["definition"]
     definition["schema_version"] = 1
+    for stage in definition["stages"]:
+        stage.pop("glyph", None)
+        stage.pop("board_bucket", None)
     policies = definition["policies"]
     policies.pop("file_budget")
     policies.pop("path_survey", None)
@@ -55,14 +58,26 @@ def _version_two_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
     return fixture
 
 
+def _version_three_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
+    """Reconstruct the exact schema-v3 definition published as version 3."""
+    fixture = deepcopy(current)
+    fixture["version"] = 3
+    definition = fixture["definition"]
+    definition["schema_version"] = 3
+    for stage in definition["stages"]:
+        stage.pop("glyph", None)
+        stage.pop("board_bucket", None)
+    return fixture
+
+
 _BUILTIN_WORKFLOW_VERSION_HISTORY = (
     ISSUE_WORKFLOW_VERSION_ONE,
     EPIC_WORKFLOW_VERSION_ONE,
     BLITZ_WORKFLOW_VERSION_ONE,
     DASH_WORKFLOW_VERSION_ONE,
+    *tuple(_version_two_fixture(fixture) for fixture in _BUILTIN_WORKFLOW_DEFINITIONS),
     *tuple(
-        _version_two_fixture(fixture)
-        for fixture in _BUILTIN_WORKFLOW_DEFINITIONS
+        _version_three_fixture(fixture) for fixture in _BUILTIN_WORKFLOW_DEFINITIONS
     ),
 )
 

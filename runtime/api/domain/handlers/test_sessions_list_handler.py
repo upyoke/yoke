@@ -231,7 +231,10 @@ class TestClaimsAndAttribution:
 
         insert_item(test_db, id=5001, project_sequence=4200, title="divergent")
         _insert_session(
-            test_db, "s-div", last_heartbeat=_iso(), current_item_id="5001",
+            test_db,
+            "s-div",
+            last_heartbeat=_iso(),
+            current_item_id="5001",
         )
         _insert_item_claim(test_db, "s-div", 5001)
         row = list_sessions()[0]
@@ -327,8 +330,6 @@ class TestHandler:
         )
         assert not outcome.primary_success
         assert outcome.error.code == "target_invalid"
-
-
 class TestRegistration:
     def test_sessions_list_is_a_registered_claimless_read(self):
         from yoke_core.domain.handlers.__init_register__ import (

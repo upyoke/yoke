@@ -64,8 +64,7 @@ def policy_conn() -> Iterator[Any]:
 
 def _settings(conn: Any, project_id: int, cap_type: str) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT settings FROM project_capabilities "
-        "WHERE project_id=%s AND type=%s",
+        "SELECT settings FROM project_capabilities WHERE project_id=%s AND type=%s",
         (project_id, cap_type),
     ).fetchone()
     assert row is not None
@@ -86,6 +85,10 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     assert "conduct" in routing["lane_paths"]["DARIUS"]
     assert "feed" in routing["lane_paths"]["DARIUS"]
     assert routing["process_offers"]["default"] is False
+    assert routing["lane_metadata"] == {
+        "DARIUS": {"label": "DARIUS", "glyph": "🐎"},
+        "ALTMAN": {"label": "ALTMAN", "glyph": "👓"},
+    }
 
 
 def test_default_lane_paths_allow_dash_on_every_lane(policy_conn: Any) -> None:

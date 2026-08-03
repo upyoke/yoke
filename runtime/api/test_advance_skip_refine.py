@@ -226,7 +226,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("refining-plan", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@3"):
+            with pytest.raises(ValueError, match="not declared by issue@4"):
                 advance_skip.skip_refine(301, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -236,7 +236,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("plan-drafted", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@3"):
+            with pytest.raises(ValueError, match="not declared by issue@4"):
                 advance_skip.skip_refine(302, out=io.StringIO())
         finally:
             _exit_all(patches)

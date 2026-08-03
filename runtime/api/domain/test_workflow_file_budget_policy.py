@@ -187,7 +187,7 @@ def test_pinned_schema_one_policy_keeps_legacy_axis_coupling(test_db):
     assert legacy.runtime.version == 2
     assert "file_budget" not in legacy.runtime.policies
     assert legacy.path_claims == legacy.file_budget == "required"
-    assert current.runtime.version == 3
+    assert current.runtime.version == 4
     assert current.path_claims == "required"
     assert current.file_budget == "optional"
     assert "file_budget" not in legacy_projection["policies"]

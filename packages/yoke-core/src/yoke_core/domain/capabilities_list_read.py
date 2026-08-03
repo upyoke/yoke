@@ -11,12 +11,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
-from yoke_contracts.machine_config.capability_secrets import (
-    TEST_MACHINE_CAPABILITY,
-)
-
 from yoke_core.domain import db_helpers, json_helper
+from yoke_core.domain.capability_type_definitions import (
+    KIND_DECLARED_MODEL,
+    KIND_PROVIDER_ACCESS,
+    KIND_TEST_RESOURCE,
+    capability_type_definition,
+)
 from yoke_core.domain.capabilities_test_machine_read import (
     read_test_machine_facts,
 )
@@ -30,10 +31,6 @@ from yoke_core.domain.test_machine_capability import (
     TEST_MACHINE_FEATURES,
 )
 
-
-KIND_DECLARED_MODEL = "declared_model"
-KIND_PROVIDER_ACCESS = "provider_access"
-KIND_TEST_RESOURCE = "test_resource"
 
 #: Capability types that declare a model of the project's world rather
 #: than granting access to an external provider. The architecture model
@@ -55,6 +52,9 @@ VERIFIED_SOURCE_REPO_BINDING = "repo-binding"
 CAPABILITY_LIST_FIELDS = (
     "type",
     "display_type",
+    "display_label",
+    "display_order",
+    "detail_view",
     "kind",
     "state",
     "active_item_ref",
@@ -151,11 +151,12 @@ def summarize_settings(cap_type: str, settings_json: Any) -> str:
         return ""
     if not isinstance(parsed, dict):
         return ""
-    if cap_type == GITHUB_CAPABILITY_TYPE:
+    summary_model = capability_type_definition(cap_type)["settings_summary"]
+    if summary_model == "github":
         return _github_summary(parsed)
-    if cap_type == MIGRATION_MODEL_CAPABILITY_TYPE:
+    if summary_model == "migration_model":
         return _migration_model_summary(parsed)
-    if cap_type == TEST_MACHINE_CAPABILITY:
+    if summary_model == "test_machine":
         return _test_machine_summary(parsed)
     parts: List[str] = []
     repo_slug = _repo_slug_safe(parsed.get("repo"))
@@ -228,44 +229,42 @@ def list_capabilities(
 
         github_freshness: Dict[int, str] = {}
         if any(
-            str(dict(raw)["type"]) == GITHUB_CAPABILITY_TYPE for raw in rows
+            capability_type_definition(str(dict(raw)["type"]))["verification_model"]
+            == "repo_binding"
+            for raw in rows
         ):
             github_freshness = _github_freshness_by_project(conn)
         machine_projects = [
             int(dict(raw)["project_id"])
             for raw in rows
-            if str(dict(raw)["type"]) == TEST_MACHINE_CAPABILITY
+            if capability_type_definition(str(dict(raw)["type"]))["state_model"]
+            == "test_machine"
         ]
-        machine_status, active_machines, machine_method_count = (
-            read_test_machine_facts(conn, machine_projects)
+        machine_status, active_machines, machine_method_count = read_test_machine_facts(
+            conn, machine_projects
         )
 
         result: List[Dict[str, Any]] = []
         for raw in rows:
             row = dict(raw)
             cap_type = str(row["type"])
-            kind = (
-                KIND_TEST_RESOURCE
-                if cap_type == TEST_MACHINE_CAPABILITY
-                else KIND_DECLARED_MODEL
-                if cap_type in DECLARED_MODEL_TYPES
-                else KIND_PROVIDER_ACCESS
-            )
+            definition = capability_type_definition(cap_type)
+            kind = str(definition["kind"])
             verified_at = row.get("verified_at") or None
-            verified_source = (
-                VERIFIED_SOURCE_CAPABILITY if verified_at else None
-            )
-            if cap_type == GITHUB_CAPABILITY_TYPE:
+            verified_source = VERIFIED_SOURCE_CAPABILITY if verified_at else None
+            if definition["verification_model"] == "repo_binding":
                 overlay = github_freshness.get(int(row["project_id"]))
-                if overlay and (
-                    verified_at is None or overlay > str(verified_at)
-                ):
+                if overlay and (verified_at is None or overlay > str(verified_at)):
                     verified_at = overlay
                     verified_source = VERIFIED_SOURCE_REPO_BINDING
             project_id = int(row["project_id"])
-            if project_id in active_machines:
+            if definition["state_model"] == "test_machine" and (
+                project_id in active_machines
+            ):
                 state = STATE_IN_USE
-            elif machine_status.get(project_id) == STATE_ERROR:
+            elif definition["state_model"] == "test_machine" and (
+                machine_status.get(project_id) == STATE_ERROR
+            ):
                 state = STATE_ERROR
             elif kind == KIND_DECLARED_MODEL or verified_at:
                 state = STATE_READY
@@ -273,33 +272,31 @@ def list_capabilities(
                 state = STATE_CONFIGURED_UNVERIFIED
             else:
                 state = STATE_CONFIGURED_UNVERIFIED
-            used_by = {
-                GITHUB_CAPABILITY_TYPE: "GitHub · delivery",
-                MIGRATION_MODEL_CAPABILITY_TYPE: "all workflows",
-                "aws-admin": "Delivery · Infrastructure",
-            }.get(cap_type, "")
-            if kind == KIND_TEST_RESOURCE:
+            used_by = str(definition["used_by"])
+            if used_by == "machine_methods":
                 used_by = f"Machine methods ×{machine_method_count}"
-            result.append({
-                "type": cap_type,
-                "display_type": (
-                    "test-mac"
-                    if cap_type == TEST_MACHINE_CAPABILITY
-                    else cap_type
-                ),
-                "kind": kind,
-                "state": state,
-                "active_item_ref": active_machines.get(project_id),
-                "project_id": row.get("project_id"),
-                "project": row.get("project"),
-                "settings_summary": summarize_settings(
-                    cap_type, row.get("settings"),
-                ),
-                "used_by_summary": used_by,
-                "verified_at": verified_at,
-                "verified_source": verified_source,
-                "created_at": row.get("created_at"),
-            })
+            result.append(
+                {
+                    "type": cap_type,
+                    "display_type": definition["display_type"],
+                    "display_label": definition["display_label"],
+                    "display_order": definition["display_order"],
+                    "detail_view": definition["detail_view"],
+                    "kind": kind,
+                    "state": state,
+                    "active_item_ref": active_machines.get(project_id),
+                    "project_id": row.get("project_id"),
+                    "project": row.get("project"),
+                    "settings_summary": summarize_settings(
+                        cap_type,
+                        row.get("settings"),
+                    ),
+                    "used_by_summary": used_by,
+                    "verified_at": verified_at,
+                    "verified_source": verified_source,
+                    "created_at": row.get("created_at"),
+                }
+            )
         return result
     finally:
         conn.close()
