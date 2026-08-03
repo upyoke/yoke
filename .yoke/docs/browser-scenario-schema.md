@@ -41,7 +41,7 @@ override it.
 ```
 
 The step vocabulary matches
-`packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-executor.js`.
+the browser step executor implementation.
 There is no translation layer.
 
 ## Action reference

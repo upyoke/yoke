@@ -52,12 +52,8 @@ import yaml
 
 from yoke_core.domain.agents_render_conditional import (
     CLAUDE_HARNESS_ID,
-    apply_conditional_blocks,
 )
-from yoke_core.domain.agents_render_context import expand_markers
-from yoke_core.domain.agents_render_field_note import (
-    expand_field_note_markers,
-)
+from yoke_core.domain.agents_render_references import render_agent_prompt_body
 from yoke_core.domain.agents_render_workspace import require_reader_root
 from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
@@ -267,10 +263,9 @@ def render_claude_agent(
 ) -> str:
     """Render the full Claude adapter (.md) for ``agent``."""
     spec = load_claude_spec(agent, target_root=target_root)
-    canonical = load_canonical(agent, target_root=target_root)
-    body = apply_conditional_blocks(
-        expand_field_note_markers(expand_markers(canonical)),
-        CLAUDE_HARNESS_ID,
+    root = require_reader_root(target_root)
+    body = render_agent_prompt_body(
+        root / CANONICAL_DIR, agent, harness_id=CLAUDE_HARNESS_ID
     ).lstrip("\n")
     frontmatter = yaml.safe_dump(
         spec,

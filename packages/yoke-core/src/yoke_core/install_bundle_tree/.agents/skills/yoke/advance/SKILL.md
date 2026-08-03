@@ -49,7 +49,7 @@ Example invocations:
 
 ### Evidence-Only Items
 
-Items that require no code changes (validation, proof, guidance updates) should use `--no-worktree` when advancing to `implementing`. This leaves the item without an active implementation lane in `item_worktrees`, so the done-transition engine (`packages/yoke-core/src/yoke_core/engines/done_transition.py`) skips the empty-branch guard (exit 8).
+Items that require no code changes (validation, proof, guidance updates) should use `--no-worktree` when advancing to `implementing`. This leaves the item without an active implementation lane in `item_worktrees`, so the done-transition engine (`yoke_core.engines.done_transition`) skips the empty-branch guard (exit 8).
 
 **If an evidence-only item was advanced WITHOUT `--no-worktree`** and later hits exit 8 during done-transition or usher, the recovery path is:
 1. Complete the caller's rollback to `implemented`; lane release is refused at every other status.
@@ -181,7 +181,7 @@ For non-claim-holding targets (`reviewed-implementation`, `implemented`, `releas
 
 **Claim semantics:**
 - `claims.work.acquire` is idempotent for same-session re-claim — if the operator re-runs after a preflight failure, the response carries `result.already_owned=true` with `success=true`. No explicit release-on-failure is needed.
-- Stale claims held by other sessions auto-reclaim after the configured stale-heartbeat window (`session_stale_ttl_minutes` in machine config; per-executor overrides via `session_stale_ttl_minutes_<executor>_override`, e.g. `session_stale_ttl_minutes_codex_override`) of heartbeat silence with no events emitted from the owning session in that window, or when the owning session has ended. `WorkReclaimed` is emitted in that case. Threshold owner: `runtime/harness/harness_sessions.py` (`cmd_claim` stale-window query); resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` / `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES`.
+- Stale claims held by other sessions auto-reclaim after the configured stale-heartbeat window (`session_stale_ttl_minutes` in machine config; per-executor overrides via `session_stale_ttl_minutes_<executor>_override`, e.g. `session_stale_ttl_minutes_codex_override`) of heartbeat silence with no events emitted from the owning session in that window, or when the owning session has ended. `WorkReclaimed` is emitted in that case. Threshold owner: the harness session-claim implementation; resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` / `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES`.
 - If the item is actively held by another live session, the response carries `error.code="claim_conflict"` with the holder session id — stop advance and surface the error.
 - Stop and SessionEnd hooks never release active claims. At an explicit handoff, run `yoke claims work release --all-mine`; the hooks close only an already claim-free session whose checkpoint has no remaining chain budget.
 

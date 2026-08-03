@@ -1,6 +1,6 @@
 # Tester — Baseline-Validated Regression Detection
 
-Reference content for the canonical tester prompt at `runtime/agents/tester.md`. Read and follow this file when the task acceptance criteria include "no regressions" or "existing tests still pass." Do NOT simply compare failure counts between main and the branch — failure counts can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
+Reference material embedded in the Tester prompt. Read and follow it when the task acceptance criteria include "no regressions" or "existing tests still pass." Do NOT simply compare failure counts between main and the branch — failure counts can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
 
 This procedure is `Step 5a` in the canonical tester process; the canonical prompt branches to it after running the project's tests in step 5 (or skipping ahead from the change-scope triage when classification is `LOGIC_AFFECTING`).
 

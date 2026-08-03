@@ -91,7 +91,7 @@ selected authority before rehearsal:
 ```bash
 # Yoke source repo only — an in-tree helper, not importable from an installed
 # Yoke. Other projects hydrate the validation database their own way.
-python3 -m runtime.api.tools.authority_validation_copy
+python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
 ```
 
 The helper refuses an authority/validation identity match, does not print
@@ -125,7 +125,7 @@ An installed engine fleet has one platform control plane and many physical
 tenant targets. It must not pretend that each target is a standalone Yoke
 install or put fleet receipts on a tenant database. The public wheel therefore
 provides
-[`yoke_core.domain.portable_migration`](../../packages/yoke-core/src/yoke_core/domain/portable_migration.py),
+`yoke_core.domain.portable_migration`,
 which validates the same manifest theorem and loads migration implementations
 from `yoke_core.domain.migrations`. The source-checkout wrapper and installed
 fleet executor import that one packaged implementation.
@@ -160,16 +160,16 @@ alone is never retirement evidence.
 
 Audit rows live on the **model's authoritative DB**, not the
 Yoke control plane. For Yoke-as-project the authoritative DB and the
-control plane DB coincide, so [`create_governed_tables`](../../packages/yoke-core/src/yoke_core/domain/schema_init_tables.py)
+control plane DB coincide, so `yoke_core.domain.schema_init_tables.create_governed_tables`
 covers `migration_audit` at control-plane init. For non-Yoke projects
 (e.g. a webapp with `authoritative_db.location.path = "app/data/app.db"`)
 the two diverge.
 
-[`yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`](../../packages/yoke-core/src/yoke_core/domain/migration_audit_schema.py)
+`yoke_core.domain.migration_audit_schema.ensure_migration_audit_table(conn)`
 is the canonical idempotent helper. Both
-[`migration_apply_rehearse._rehearse_inner`](../../packages/yoke-core/src/yoke_core/domain/migration_apply_rehearse.py)
+`yoke_core.domain.migration_apply_rehearse._rehearse_inner`
 and
-[`migration_apply_live._live_apply_inner`](../../packages/yoke-core/src/yoke_core/domain/migration_apply_live.py)
+`yoke_core.domain.migration_apply_live._live_apply_inner`
 call it on `audit_conn` immediately after opening, so a webapp project's
 first governed apply bootstraps the table automatically. Operators and
 agents do not declare or provision `migration_audit` themselves; the

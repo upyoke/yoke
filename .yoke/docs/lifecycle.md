@@ -102,7 +102,7 @@ unprotected unless both layers below hold:
   conflict gate. Held duration is recorded on the `IdeaClaimHeld`
   event for doctor and Ouroboros observability.
 - **Layer 2 — body-completeness skip on the frontier (structural
-  defense).** `packages/yoke-core/src/yoke_core/domain/frontier_compute.py` calls
+  defense).** `yoke_core.domain.frontier_compute` calls
   `yoke_core.domain.idea_body_completeness.is_idea_body_incomplete`
   for every `status='idea'` row and pushes the title-only ones into
   `blocked` with reason `idea-incomplete`. This catches every tail case

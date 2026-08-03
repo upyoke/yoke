@@ -16,7 +16,7 @@ When the spec proposes a concrete implementation path (a file, directory, or pac
 
 If the path does not resolve, re-derive from the live tree before writing. Canonical re-derivation sources, in order:
 
-1. `runtime/api/domain/migrations/__init__.py` for the live one-shot migration package root. New migration ideas reference this directory, never `runtime/api/migrations/` (which does not exist).
+1. The project's verified one-shot migration package root. New migration ideas reference the live package that discovery resolves, never a guessed directory.
 2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
 3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
 
@@ -359,7 +359,7 @@ The claim is the live-race fix; `body-and-sync.md` releases it with
 Budget have all landed. Skip in `--dry-run` mode (no row to claim).
 
 The configured stale-heartbeat reclaim window (`session_stale_ttl_minutes`
-in machine config) in `runtime.harness.harness_sessions` is the safety net
+in machine config) in the harness session store is the safety net
 for a crashed `/yoke idea` — during that window the half-finished work item
 is intentionally unworkable, and `yoke_core.domain.frontier_compute`
 flags the title-only body explicitly via `idea-incomplete` so doctor and

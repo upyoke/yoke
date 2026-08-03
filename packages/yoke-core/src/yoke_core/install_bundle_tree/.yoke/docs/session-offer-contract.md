@@ -27,11 +27,11 @@ constructing a `SessionOffer` and sending it to the core. The core evaluates
 the offer against the current backlog state, active sessions, and routing
 policy, then returns a `NextAction` directive telling the session what to do.
 
-The contract is defined as Pydantic models in `packages/yoke-core/src/yoke_core/domain/session.py`.
+The contract is defined by the `yoke_core.domain.session` Pydantic models.
 This document describes the same shapes in prose for adapter authors who do not
 want to read the Python source directly.
 
-**Source of truth:** `packages/yoke-core/src/yoke_core/domain/session.py`
+**Source of truth:** `yoke_core.domain.session`
 
 ---
 
@@ -43,14 +43,14 @@ can do.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `session_id` | string | Yes | -- | Globally unique session identifier. Stable for the session lifetime. Used as the correlation key for heartbeat, claim/lease, and ledger events. |
-| `executor` | string | Yes | -- | Harness identity (input). Surface-specific values are accepted as input — `claude-desktop`, `claude-vscode`, `claude-cli`, `codex-desktop`, `codex-vscode`, `codex-cli`, composed as `{family}-{surface}` from the runtime entrypoint signal (`CLAUDE_CODE_ENTRYPOINT` for Claude, the Codex env-probe chain for Codex). The coarse family values `claude-code` and `codex` are accepted as fallbacks when no surface signal is available. Yoke canonicalizes the value at write time via `runtime.harness.hook_helpers_identity.canonical_harness_id` so `harness_sessions.executor` stores only `claude-code` or `codex`; the surface-specific input is preserved in `harness_sessions.executor_display_name` and surfaced as the operator-facing executor in board / session rendering. `HarnessSessionOffered` / `HarnessSessionStarted` event envelopes and the offer envelope's `context.executor` field carry the canonical value; the surface-specific alias rides along as `context.executor_display_name` when known. Code that branches on family must use the `is_codex()` / `is_claude()` predicates from `runtime.harness.hook_helpers`, never raw equality against the coarse strings. |
+| `executor` | string | Yes | -- | Harness identity (input). Surface-specific values are accepted as input — `claude-desktop`, `claude-vscode`, `claude-cli`, `codex-desktop`, `codex-vscode`, `codex-cli`, composed as `{family}-{surface}` from the runtime entrypoint signal (`CLAUDE_CODE_ENTRYPOINT` for Claude, the Codex env-probe chain for Codex). The coarse family values `claude-code` and `codex` are accepted as fallbacks when no surface signal is available. Yoke canonicalizes the value at write time through its harness-identity canonicalizer so `harness_sessions.executor` stores only `claude-code` or `codex`; the surface-specific input is preserved in `harness_sessions.executor_display_name` and surfaced as the operator-facing executor in board / session rendering. `HarnessSessionOffered` / `HarnessSessionStarted` event envelopes and the offer envelope's `context.executor` field carry the canonical value; the surface-specific alias rides along as `context.executor_display_name` when known. Code that branches on family must use the harness `is_codex()` / `is_claude()` predicates, never raw equality against the coarse strings. |
 | `provider` | string | Yes | -- | Model provider (e.g., `anthropic`, `openai`). |
 | `model` | string | Yes | -- | Model identifier string (e.g., `claude-opus-4-7`). |
 | `capabilities` | list[string] | No | `[]` | Capability tags the session supports. Free-form strings; known values include `browser`, `shell`, `file_write`, `github`. |
 | `workspace` | string | Yes | -- | Absolute path or identifier for the working directory/repo the session operates in. |
 | `execution_lane` | string | No | `"primary"` | Execution lane identity. The canonical lane tokens are `DARIUS` and `ALTMAN`; path eligibility is defined only by `lane_paths_<lane>` policy, not by scheduler output. For project sessions, Yoke core resolves the default lane from the project's DB-backed `session-routing` capability via `yoke_core.api.routing_config.RoutingConfig.default_lane_for_executor()`, which walks the chain: exact key (`executor_default_lane_claude_vscode`) -> wildcard key with the longest non-wildcard prefix (`executor_default_lane_claude*`) -> global `executor_default_lane_unknown` -> hardcoded `primary` sentinel. Machine config is only the no-project/operator fallback. Skill wrappers MUST call the routing-config helper instead of hand-passing free-form strings into `offer_session()`. |
 | `offered_at` | string (ISO 8601) | No | Current UTC time | Timestamp of when the offer was created. |
-| `supported_paths` | list[string] | No | `[]` | Canonical downstream path names this session can execute (e.g., `["advance", "shepherd"]`). The two Yoke-owned harness families today — Claude and Codex — no longer declare this field; Yoke core derives the effective list server-side from the shared Yoke registry plus any limitations in the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`), and registry-derived truth overrides any caller-supplied list. Manifest presence is the single axis of explicit limitation: both Yoke-owned families ship manifests, and their declared limitations are applied after registry-derived capabilities. See **Path Derivation Mapping** for details. |
+| `supported_paths` | list[string] | No | `[]` | Canonical downstream path names this session can execute (e.g., `["advance", "shepherd"]`). The two Yoke-owned harness families today — Claude and Codex — no longer declare this field; Yoke core derives the effective list server-side from the shared Yoke registry plus any limitations in the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> Codex manifest, `claude-vscode` -> Claude manifest), and registry-derived truth overrides any caller-supplied list. Manifest presence is the single axis of explicit limitation: both Yoke-owned families ship manifests, and their declared limitations are applied after registry-derived capabilities. See **Path Derivation Mapping** for details. |
 
 ### Path Derivation Mapping
 
@@ -114,7 +114,7 @@ When the effective `supported_paths` list is non-empty (either caller-declared o
 - `context.required_path`: the path the item needs
 - `context.supported_paths`: the effective paths (Yoke-core-derived for supported harnesses)
 
-When the effective `supported_paths` list is empty because no manifest exists for an external executor and the caller did not provide explicit paths, all downstream paths are considered supported and no validation occurs. This preserves backward compatibility. The Yoke-owned `codex` and `claude-code` families ship manifests under `runtime/harness/codex/manifest.json` and `runtime/harness/claude/manifest.json`. A manifest does not copy command/path truth; it only confirms the shared registry source and declares explicit disabled paths when the substrate cannot support them.
+When the effective `supported_paths` list is empty because no manifest exists for an external executor and the caller did not provide explicit paths, all downstream paths are considered supported and no validation occurs. This preserves backward compatibility. The Yoke-owned `codex` and `claude-code` families ship manifests in their installed harness directories. A manifest does not copy command/path truth; it only confirms the shared registry source and declares explicit disabled paths when the substrate cannot support them.
 
 When lane policy (not manifest capability) filters every runnable frontier item and no blockers remain, the engine returns `wait` with:
 - `context.wait_reason`: `"no_lane_compatible_work"`
@@ -183,7 +183,7 @@ The decision engine evaluates in this fixed priority order:
 ### Shared Scheduler
 
 Both `/yoke do` and `/yoke charge` consume the same shared scheduler
-(`packages/yoke-core/src/yoke_core/domain/scheduler.py`). The scheduler computes a single
+(`yoke_core.domain.scheduler`). The scheduler computes a single
 project-scoped frontier with:
 
 - Type-aware next-step routing (issue vs epic)

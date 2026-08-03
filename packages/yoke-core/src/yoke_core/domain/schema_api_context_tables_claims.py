@@ -294,7 +294,7 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Path-snapshot rows. path_string is the canonical relative "
-            "path (e.g. 'runtime/api/domain/foo.py'). kind is 'file' or "
+            "path (e.g. '<project-source-path>/foo.py'). kind is 'file' or "
             "'directory'. materialization_state is 'observed' (exists on "
             "integration target) or 'planned' (claim-minted future file "
             "via --allow-planned). There is NO `path` column; use "

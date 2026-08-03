@@ -78,7 +78,7 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 ### Corollaries (reinforcing the cardinal rule)
 
-**Concrete decisions are sacred.** If the spec already contains concrete structural decisions — directory trees, file layouts, explicit "X stays at Y" / "X moves to Y" statements, specific naming choices, architectural diagrams, or interface shapes — those represent decisions the operator already approved. You may add discovery commands around them, add blast-radius analysis, or add supporting ACs — but you may NEVER abstract a concrete decision into vague prose. "`runtime/harness/` subpackage unifies all harness code with claude/ and codex/ subdirs" is a concrete decision. "A single truthful ownership model for harness code" is an abstraction that loses the decision.
+**Concrete decisions are sacred.** If the spec already contains concrete structural decisions — directory trees, file layouts, explicit "X stays at Y" / "X moves to Y" statements, specific naming choices, architectural diagrams, or interface shapes — those represent decisions the operator already approved. You may add discovery commands around them, add blast-radius analysis, or add supporting ACs — but you may NEVER abstract a concrete decision into vague prose. "The harness package unifies all harness code with Claude and Codex subdirectories" is a concrete decision. "A single truthful ownership model for harness code" is an abstraction that loses the decision.
 
 **ACs are additive, not replacive.** You may add new ACs, renumber, improve wording, and add verification commands. You may NOT delete or replace the substance of an existing AC. Every concrete AC in the original must have a corresponding concrete AC in the enhanced version.
 

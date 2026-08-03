@@ -99,16 +99,16 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for ~32% of tester Bash calls. Each one is structurally unnecessary — the anchored shape above eliminates the class.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `qa_requirements` + `qa_runs` tables | QA requirements, test runs, and review verdicts |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Common confabulations to avoid:**
 - `ouraboros` — wrong. The word is **ouroboros**.
@@ -246,20 +246,16 @@ yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim wi
 - _Current session_id / actor_id from a script_
   - `echo "$YOKE_SESSION_ID" ; yoke db read "SELECT actor_id FROM harness_sessions WHERE session_id='$YOKE_SESSION_ID'"`
   - `$YOKE_SESSION_ID` is the fast path; when it is unset, ambient identity still resolves automatically (hook-written process-anchor registry, walked by every `yoke` CLI / dispatch call) — do NOT export session env vars to self-bootstrap, and treat `actor_session_missing` as an infrastructure bug to report. No `get_active_session_id` helper exists. The function-call surface resolves actor_id server-side from session_id — agents do not need to look it up themselves before dispatch. The actor_id SQL above is a diagnostic read, not a dispatch prerequisite; `db_router query` is only the source-dev/operator-debug fallback. `--session-id` flags are operator-debug overrides, recorded as `session_override`.
-- _Where to put a Python script that imports runtime.*_
-  - `# put it under runtime/api/tools/<name>.py — never /tmp/*.py`
-  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so `from runtime.*` fails. Use in-tree path or `pip install -e .`. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
+- _Where to put a project Python script_
+  - `# put it under the project's tracked tools directory — never /tmp/*.py`
+  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so project imports may fail. Use a tracked project path or the project's environment runner. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
 - _Verify Python imports/tests against linked worktree source_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.module_source_path yoke_core
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q`
-  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout — reach for the explicit prefix only when uv is unavailable, or to check import origin for a non-watcher invocation. Use it from linked worktrees when the interpreter's editable install still points at the main checkout, or when an externally-managed Python blocks `python3 -m pip install -e .`. Prefix all four package `src` dirs plus the repo root so subprocess `python3 -m ...` invocations exercise this branch. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
+  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core
+uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout. Use the command from the linked worktree when the interpreter's editable install could still point at main, or when an externally-managed Python blocks `python3 -m pip install -e .`. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
 - _Re-render agent files after editing packet seeds_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main agents render --target-root "${_repo}"`
-  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes `runtime/harness/claude/agents/yoke-*.md` + Codex `.toml` siblings from the seeds. Drift check: run the same worktree-source prefix with `python3 -m yoke_cli.main agents render check --target-root "${_repo}"`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there. The installed `yoke` entry point can still target the main checkout, so source-dev verification uses the package `src` dirs above.
+  - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
+  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes the installed Claude, Codex, and Cursor agent adapters from the seeds. Drift check: run `uv run --frozen python3 -m yoke_core.domain.agents_render check --target-root <checkout>`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there.
 - _authored-file line limit (file_line_check)_
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
@@ -271,7 +267,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
   - The impacted selection is the local default and needs no project-specific paths. The full sweep is CI's job on every pull request and push to main, and locally it is the CI-outage fallback; its anchor paths are per-project — read them from your project's registered verification command (its QA plan) or your project rules file, and never carry another project's anchors over. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
-  - `yoke watch pytest -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
   - Subagent tool-call turns are atomic — backgrounded watcher patterns strand processes. Enforced by lint-subagent-background.
 - _Run doctor with background watcher (main session)_
@@ -283,7 +279,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
-  - `yoke watch pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
 tail -80 <PATH>`
   - --print-streaming-pair mints the capture path automatically via project_scratch_dir.mint_watcher_capture_pair (machine temp root watcher-captures/...); the explicit --raw-capture <PATH> form is the operator carve-out for callers that want a known path (CI scripts collecting artifacts). Prefer the helper-resolved default.
 - _Run doctor focused on specific HC rules_
@@ -371,12 +367,12 @@ yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 - _Register a path claim (canonical agent shape)_
   - `yoke claims path register \
   --item PREFIX-N \
-  --paths runtime/api/domain/path_claim_targets.py,runtime/api/test_path_claim_targets.py,docs/event-catalog.md \
+  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \
   --integration-target main --mode exclusive --allow-planned`
   - --allow-planned for files not yet committed. --mode exception for no-repo-touch work items.
 - _Widen a path claim (canonical agent shape)_
   - `yoke claims path widen --claim-id 138 --item PREFIX-N \
-  --add-paths runtime/api/service_client_backlog_router.py,runtime/api/test_backlog_github_backfill_oversized.py \
+  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \
   --reason 'backfill subcommand wiring touches router + new test file'`
   - <claim-id> is the path_claims.id from path-claim-register response or `yoke claims path list`.
 - _Narrow a path claim (drop or keep paths)_
@@ -395,7 +391,7 @@ SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
 FROM path_claims pc
 JOIN path_claim_targets pct ON pct.claim_id = pc.id
 JOIN path_targets tgt ON tgt.id = pct.target_id
-WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.py')
+WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')
   AND pc.state NOT IN ('cancelled','released')"`
   - Raw diagnostic read. Use when path-claim-conflicts is too coarse; `db_router query` is only the source-dev/operator-debug break-glass fallback.
 - _Classify a path-claim overlap before authoring a coordination edge_
@@ -417,7 +413,7 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
   - Durable task scope for item-owned path claims. A row binds path_claims.claim_id to the generated Epic task identified by (epic_id, task_num). The binding carries no session or work-claim column: registering-session provenance is not path authority, and task coverage survives a session handoff. Worker enforcement intersects bound claim targets with epic_task_files; a persisted item_worktrees.lane_role='integration' lane receives their union.
 - **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
-  - Path-snapshot rows. path_string is the canonical relative path (e.g. 'runtime/api/domain/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
+  - Path-snapshot rows. path_string is the canonical relative path (e.g. '<project-source-path>/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
   - Append-only history of widen / narrow / cancel-amendment operations on a path_claims row. amendment_kind names the operation; payload is JSON (e.g. {'added': [target_id, ...]}); reason is the operator-authored rationale.
 - **`actors`** — `id, kind, system_component, created_at`
@@ -517,7 +513,7 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
   - Migration is dry-run-default and exact-set, persists a durable retry marker, and returns redacted metadata. Stack-config registration is render-authorized and metadata-only; fetch its body through the no-store boundary with `yoke projects pulumi-stack-config get --project <project> --stack <stack> --output <file>`; execute it with `yoke pulumi exec --project <project> --stack <stack> -- preview` (also allows refresh and safe file-form import). Actions keeps AWS OIDC; runner-fleet obtains a narrow repository token from its hosted broker, while other stacks use repository-bound App authority. Local runner-fleet recovery may add `--bootstrap-local-authority`; other stacks and Actions refuse it. Local AWS authority comes from the machine capability store. Generic capability and operator-state surfaces are closed.
 - _Execute a capability-owned Pulumi stack command_
   - `yoke pulumi exec --project <project> --stack <stack> -- <init|preview|refresh|import|up|stack output NAME ...>`
-  - This is a client-local tool-shaped boundary, not a dispatcher function. Its canonical CLI adapter is `packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py`; the execution workhorse is `packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never guess a sibling `commands/pulumi_exec.py` module. The selected stack must be declared in the project pulumi-state capability. Output reads require one exact output name and never expose secret values.
+  - This is a client-local tool-shaped boundary, not a dispatcher function. Its canonical CLI adapter is `yoke_cli.commands.adapters.pulumi`; the execution workhorse is `yoke_core.tools.pulumi_exec`. Never guess a sibling `commands/pulumi_exec.py` module. The selected stack must be declared in the project pulumi-state capability. Output reads require one exact output name and never expose secret values.
 - _Register a live Pulumi checkpoint's operator state_
   - `yoke projects pulumi-state checkpoint-import --project <project> --stack <stack> --checkpoint-file <owner-only-export> [--apply]`
   - Use this typed dry-run-default boundary when an already-live stack has no legacy site settings to migrate. The CLI reads the 0600 checkpoint locally, extracts only the awskms provider and encrypted data key, and returns a redacted receipt. Never copy another stack's operator state or write stack_state through raw SQL or generic capability-settings surfaces.
@@ -679,7 +675,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
 
 5a. **Baseline-validated regression detection.** When the task acceptance criteria include "no regressions" or "existing tests still pass," do NOT simply compare failure counts between main and the branch — they can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
 
-   **Read and follow `runtime/agents/tester/regression-detection.md`** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that file feed back into your validation report's Regression Analysis section.
+   **Read and follow the embedded Baseline-Validated Regression Detection reference** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that reference feed back into your validation report's Regression Analysis section.
 
 5b. **Check worktree cleanliness.** After tests complete, verify the worktree has no unexpected artifacts left behind by the Engineer's test scripts. Run `git status --porcelain` in the worktree and compare against the task's "Files touched" list. Any unexpected untracked files or directories (especially nested directory trees from captured command output) should be flagged as a test artifact leak — this is a **FAIL** condition.
 
@@ -743,8 +739,179 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Ouroboros — End-of-Session Reflection
 
-**Before producing your final verdict, read `runtime/agents/tester/reflection.md`** for the full reflection-block contract. Include zero or more entries (problems, frictions, ideas, cross-critique) using the canonical `---REFLECTION-START---` / `---END ENTRY---` / `---REFLECTION-END---` format. The PostToolUse Agent-tool hook captures the block and persists each entry to `ouroboros_entries`.
+**Before producing your final verdict, read `.claude/agents/references/tester/reflection.md`** for the full reflection-block contract. Include zero or more entries (problems, frictions, ideas, cross-critique) using the canonical `---REFLECTION-START---` / `---END ENTRY---` / `---REFLECTION-END---` format. The PostToolUse Agent-tool hook captures the block and persists each entry to `ouroboros_entries`.
 
 ## CRITICAL: Structured Verdict Requirement
 
 Your final message must end with exactly one machine-readable verdict line: `**VERDICT: PASS**` or `**VERDICT: FAIL**`. Even a complete report is treated as a FAIL if that final line is missing.
+
+# Tester — Baseline-Validated Regression Detection
+
+Reference material embedded in the Tester prompt. Read and follow it when the task acceptance criteria include "no regressions" or "existing tests still pass." Do NOT simply compare failure counts between main and the branch — failure counts can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
+
+This procedure is `Step 5a` in the canonical tester process; the canonical prompt branches to it after running the project's tests in step 5 (or skipping ahead from the change-scope triage when classification is `LOGIC_AFFECTING`).
+
+## Step 0: Change-scope triage
+
+Inspect the changed files to determine whether baseline capture is warranted. This prevents heavyweight builds for changes that cannot cause logic regressions.
+
+**a. Collect changed files:**
+```bash
+cd {worktree_path}
+_changed_files=$(git diff --name-only main...HEAD 2>/dev/null)
+```
+
+**b. Classify each changed file.** A file is **cosmetic-only** if its extension matches one of these patterns:
+- Style files: `.css`, `.scss`, `.sass`, `.less`, `.module.css`, `.module.scss`
+- Asset files: `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.ico`, `.webp`, `.woff`, `.woff2`, `.ttf`, `.eot`
+- Theme/design config: files whose path contains `theme` and end in `.json` or `.ts`/`.js` (e.g., `theme.ts`, `themeConfig.json`)
+
+A file is **logic-affecting** if it does NOT match the cosmetic-only patterns. This includes: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.sh`, `.sql`, `.json` (non-theme), `.yaml`, `.yml`, `.toml`, `.md` (docs), config files, schema files, and anything else.
+
+**c. Determine scope classification:**
+- **Cosmetic-only:** ALL changed files match cosmetic-only patterns. No logic-affecting files exist.
+- **Logic-affecting:** At least one changed file is logic-affecting.
+
+**d. Log the classification** (REQUIRED — this feeds the validation report):
+```
+## Change-Scope Triage
+- Changed files: {count} total
+- Cosmetic files: {list of cosmetic files}
+- Logic-affecting files: {list of logic files, or "none"}
+- Classification: {COSMETIC_ONLY | LOGIC_AFFECTING}
+- Decision: {SKIP baseline capture | PROCEED with full baseline capture}
+```
+Include this section in the **Regression Analysis** part of your validation report.
+
+**e. If classification is COSMETIC_ONLY:** Skip the full baseline capture procedure (Steps 1-4 below). Instead:
+1. Verify the branch builds successfully (run the project's build command once on the branch).
+2. Run any AC-specific functional tests (e.g., if an AC says "auth flow still works," run the targeted auth test, not the full suite comparison).
+3. Record the regression AC verdict as **PASS** with the note: "Cosmetic-only changes — baseline capture skipped per change-scope triage. Build succeeds and targeted functional checks pass."
+4. Continue to step 5b (worktree cleanliness).
+
+**f. If classification is LOGIC_AFFECTING:** Proceed with the full baseline capture procedure below (Steps 1-4).
+
+---
+
+**Portability constraint:** Baseline capture commands MUST work on stock macOS. Do NOT use `timeout`, `gtimeout`, `readlink -f`, `seq`, `tac`, or other GNU coreutils-only commands. For time-limited command execution, use the portable timeout surface named in your dispatch packet; if no sanctioned timeout surface is named, report the recipe gap instead of inventing an internal module command. The portable helper exits with code 124 on timeout, matching the GNU `timeout` convention.
+
+**Baseline capture failure detection:** If the baseline capture step fails for any reason (command not found, nonzero exit from the wrapper, empty output when tests exist), you MUST report this as a **baseline capture failure** in the Regression Analysis section of your validation report. The verdict for any regression-related AC should be **INCONCLUSIVE** with an explanation, never PASS. An empty baseline set does NOT mean "no pre-existing failures" — it means the capture failed and you cannot reliably distinguish regressions from pre-existing issues.
+
+## Step 1: Capture baseline failures on main and validate baseline trust
+
+If a baseline failure list was provided in your dispatch prompt (as a file path), read it. Otherwise, capture it yourself using a **worktree-safe** approach — never `git checkout main` inside a worktree.
+
+**Capture-path discipline:** the inline recipe below uses `mktemp /tmp/yoke-test.XXXXXX` because baseline capture wraps the project's `{test_command}` (any shell suite, not just pytest) and feeds it through the portable timeout helper. When the test_command IS a pytest run that may exceed ~60s, prefer the watcher wrapper instead — `yoke watch pytest -- <pytest args>` mints raw + filtered captures via `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair("pytest")` under the machine temp root's watcher-captures directory and prints the resolved paths; inspect what the wrapper printed with `tail -80 <raw-capture>`. Operator carve-out: `--raw-capture <path>` pins the capture file to a known location (CI / artifact collection); the helper-resolved default is preferred. Do NOT hand-construct an OS-temp literal for the watcher capture — read the path the wrapper printed.
+
+```bash
+# Find the main worktree path (worktree-safe — no branch switching)
+_main_wt=$(git worktree list --porcelain | awk '/^worktree /{p=$2} /^branch refs\/heads\/main$/{print p}')
+_main_wt_exit=0
+if [ -z "$_main_wt" ]; then
+  # Fallback: if no dedicated main worktree is listed, derive the repo toplevel
+  _main_wt=$(git -C {worktree_path} rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')
+  _main_wt_exit=$?
+fi
+_main_wt_branch=""
+if [ -n "$_main_wt" ]; then
+  _main_wt_branch=$(git -C "$_main_wt" branch --show-current 2>/dev/null || true)
+fi
+if [ "$_main_wt_branch" != "main" ]; then
+  _main_wt=""
+fi
+# Run tests on main from the main worktree directory.
+# IMPORTANT: use the sanctioned portable timeout surface, NOT GNU timeout.
+_baseline_tmp=$(mktemp /tmp/yoke-test.XXXXXX)
+{portable_timeout} 120 sh -c "cd '$_main_wt' && sh {test_command}" >"$_baseline_tmp" 2>&1
+_baseline_exit=$?
+tail -50 "$_baseline_tmp"
+# Parse failures, error messages, and locations from "$_baseline_tmp"
+# If `_baseline_exit` is 124, the test timed out — note in report but proceed
+# If `_baseline_exit` is 127 or "$_baseline_tmp" shows "command not found", baseline capture FAILED
+rm -f "$_baseline_tmp"
+```
+
+Record the set of **failing test names** on main as `BASELINE_FAILURES`. If the baseline capture command itself failed (exit 127, "command not found", or produced no parseable test output), set `BASELINE_CAPTURE_FAILED=true` and proceed to Step 4 with an INCONCLUSIVE verdict for regression ACs. For each failure, also record:
+- The **error/assertion message** (first line of the assertion or error output)
+- The **failure location** (file:line or stack frame if available)
+
+**Baseline trust validation.** After baseline capture, assess whether the baseline is **trusted** or **untrusted**. The baseline is **UNTRUSTED** if ANY of these conditions hold:
+- (a) The baseline capture command itself exited non-zero due to a harness/tooling error (not a test failure — distinguish "tests ran and some failed" from "the test runner could not execute")
+- (b) A required tool was missing or errored during capture (e.g., `timeout` not installed on macOS, `node` not found, test runner binary missing)
+- (c) The baseline output is empty or unparseable (zero test results when tests were expected)
+- (d) The main worktree could not be located via `git worktree list`, the fallback repo toplevel lookup failed, the resolved checkout was not actually on branch `main`, or the test execution in the main worktree failed due to a path or environment error
+
+Record the baseline trust level as `BASELINE_TRUST`: `TRUSTED` or `UNTRUSTED`. If untrusted, record the reason as `BASELINE_UNTRUST_REASON`.
+
+**When the baseline is UNTRUSTED:** No branch failures may be classified as "pre-existing." Skip Steps 3-4 below. Instead, report all branch failures as **indeterminate** (cannot confirm whether they are new or pre-existing). The verdict policy in Step 4 applies.
+
+## Step 2: Capture branch failures
+
+Run the same test suite on the branch (the worktree's current state) using the same capture-first temp-file pattern as Step 1 — generic `mktemp /tmp/yoke-test.XXXXXX` for shell-suite test commands, and `yoke watch pytest -- <pytest args>` (with helper-minted captures under the machine temp root's watcher-captures directory) for pytest runs that may exceed ~60s. Record the set of **failing test names** as `BRANCH_FAILURES`. For each failure, also record the error/assertion message and failure location (same signals as Step 1).
+
+## Step 2a: Classify harness vs. product failures
+
+Before comparing baseline and branch, separate **harness/tooling failures** from **product/test failures**. Harness failures include:
+- Missing tools (command not found errors)
+- Test runner crashes (segfault, OOM, uncaught runner exceptions)
+- Environment setup failures (missing env vars, broken fixtures, permission errors)
+- Comparison command errors (diff/sort/comm failures during the analysis itself)
+- Broken baseline capture (the baseline step itself failed)
+
+Record harness failures in a separate list: `HARNESS_FAILURES`. These block a PASS verdict regardless of product test results.
+
+## Step 3: Compare sets with signature matching
+
+For each test name that appears in BOTH `BASELINE_FAILURES` and `BRANCH_FAILURES`, perform **signature matching** — compare at least two of:
+1. Test name (already matched by being in both sets)
+2. Error/assertion message (first assertion failure line or error text)
+3. Failure location (file:line or stack frame)
+
+Classify each shared-name failure:
+- **Pre-existing (signature match):** Test name matches AND at least one additional signal (error message or location) also matches. This failure is genuinely the same on both branches.
+- **Indeterminate (name-only match):** Test name matches but NEITHER the error message NOR the failure location matches. The same test fails on both branches but for potentially different reasons. This CANNOT be classified as pre-existing.
+
+Compute:
+- **New regressions** = tests in `BRANCH_FAILURES` that are NOT in `BASELINE_FAILURES` (pass on main, fail on branch)
+- **Fixes** = tests in `BASELINE_FAILURES` that are NOT in `BRANCH_FAILURES` (fail on main, pass on branch)
+- **Pre-existing failures (signature match)** = tests in BOTH sets where signature matching confirms the same failure
+- **Indeterminate failures** = tests in BOTH sets where only the name matches (different error signature)
+
+## Step 4: Verdict with trust-level assessment
+
+Determine verdict confidence:
+- **HIGH:** Baseline is trusted AND green (zero baseline failures). All branch failures are definitively new.
+- **MEDIUM:** Baseline is trusted AND red, but all shared failures have signature matches. Pre-existing failures are reliably classified.
+- **LOW:** Baseline is trusted AND red, but some shared failures are indeterminate (name-only match). Pre-existing classification is uncertain.
+- **UNTRUSTED:** Baseline capture failed or was incomplete. No pre-existing classification is possible.
+
+Verdict rules:
+- If **new regressions** is non-empty: **FAIL**. Report each regression explicitly:
+  ```
+  REGRESSION: {test_name} (passes on main, fails on branch)
+  ```
+- If **indeterminate failures** is non-empty: **FAIL**. Report each:
+  ```
+  INDETERMINATE: {test_name} (fails on both branches but error signatures differ — cannot confirm pre-existing)
+  ```
+- If **harness failures** is non-empty: **FAIL**. Report each:
+  ```
+  HARNESS FAILURE: {description} (tooling/infrastructure failure — blocks PASS)
+  ```
+- If **baseline is UNTRUSTED** and **branch has any failures**: **FAIL**. State in the report:
+  ```
+  Baseline untrusted — cannot classify failures as pre-existing. Reason: {BASELINE_UNTRUST_REASON}
+  ```
+- If **regressions** is empty AND **indeterminate** is empty AND **harness failures** is empty AND (baseline is trusted OR branch has zero failures): pre-existing failures (with signature match) do NOT count against the regression AC. Note them as informational:
+  ```
+  Pre-existing failures (signature-matched, not regressions): {count} tests
+  ```
+- If **fixes** is non-empty, note them positively: `Fixed on branch: {test_names}`
+
+## Step 4a: Targeted validation fallback
+
+When the generic test suite has a red baseline (trusted or untrusted), every task must still have at least one targeted validation path for the changed behavior. If acceptance criteria can be verified via targeted tests that pass:
+- If the baseline is **trusted** and the red tests are genuinely pre-existing (signature match from Step 3), PASS is allowed with a note about the red baseline.
+- If the baseline is **untrusted**, PASS is prohibited even if targeted tests pass — the untrusted baseline means the full regression picture is unknown.
+
+**Important:** This comparison is mandatory whenever the task has a "no regressions" or "all existing tests pass" acceptance criterion. A matching failure count (e.g., 61 failures on main and 61 on the branch) does NOT mean "no regressions" — the sets of failing tests may differ. Always compare by name AND signature.

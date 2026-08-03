@@ -1,10 +1,10 @@
 # Tester — Ouroboros End-of-Session Reflection
 
-Reference content for the canonical tester prompt at `runtime/agents/tester.md`. Read this file before producing your final verdict — every Tester dispatch closes with the structured reflection block defined by the shared contract.
+Reference content for the Tester prompt. Read this file before producing your final verdict — every Tester dispatch closes with the structured reflection block defined by the shared contract.
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
-Reflections are captured by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) and persisted to the `ouroboros_entries` table. You do not write to the DB directly — just produce the structured text output described below.
+Reflections are captured by the PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) and persisted to the `ouroboros_entries` table. You do not write to the DB directly — just produce the structured text output described below.
 
 ## End-of-Session Sweep
 

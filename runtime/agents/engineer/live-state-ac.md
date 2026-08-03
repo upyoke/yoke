@@ -1,6 +1,6 @@
 # Engineer — Live-State AC Execution Semantics
 
-Reference content for the canonical engineer prompt at `runtime/agents/engineer.md`. Read this file whenever a task's acceptance criteria reference live DB state, deployments, external services, or other shared mutable state. ACs of that kind are tagged with intent labels by the Architect; you MUST interpret and execute the labels per the rules below.
+Reference content for the Engineer prompt. Read this file whenever a task's acceptance criteria reference live DB state, deployments, external services, or other shared mutable state. ACs of that kind are tagged with intent labels by the Architect; you MUST interpret and execute the labels per the rules below.
 
 ## `[READ-ONLY]`
 

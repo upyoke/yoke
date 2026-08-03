@@ -48,16 +48,16 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for ~32% of tester Bash calls. Each one is structurally unnecessary — the anchored shape above eliminates the class.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `qa_requirements` + `qa_runs` tables | QA requirements, test runs, and review verdicts |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Common confabulations to avoid:**
 - `ouraboros` — wrong. The word is **ouroboros**.
@@ -208,7 +208,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
 
 5a. **Baseline-validated regression detection.** When the task acceptance criteria include "no regressions" or "existing tests still pass," do NOT simply compare failure counts between main and the branch — they can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
 
-   **Read and follow `runtime/agents/tester/regression-detection.md`** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that file feed back into your validation report's Regression Analysis section.
+   **Read and follow the embedded Baseline-Validated Regression Detection reference** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that reference feed back into your validation report's Regression Analysis section.
 
 5b. **Check worktree cleanliness.** After tests complete, verify the worktree has no unexpected artifacts left behind by the Engineer's test scripts. Run `git status --porcelain` in the worktree and compare against the task's "Files touched" list. Any unexpected untracked files or directories (especially nested directory trees from captured command output) should be flagged as a test artifact leak — this is a **FAIL** condition.
 

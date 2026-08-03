@@ -30,7 +30,7 @@ Function ids remain the underlying contract: adapters dispatch typed
 envelopes, validate claims, and emit ``YokeFunctionCalled`` evidence.
 The packet therefore names important function ids in notes, but it does
 not teach agents to start ``api_server``, call ``curl`` against the local
-HTTP boundary, or build direct ``runtime.api`` Python import one-liners.
+HTTP boundary, or build direct in-tree Python import one-liners.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 """

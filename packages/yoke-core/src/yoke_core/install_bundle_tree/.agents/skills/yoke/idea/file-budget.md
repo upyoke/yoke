@@ -45,13 +45,13 @@ It returns structured JSON with `verdict=pass|block|skipped`,
 ### Current file-size pressure (verified `wc -l` on YYYY-MM-DD)
 
 At-cap files (zero net headroom — sibling required for any net-positive edit):
-- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 350
+- `src/<package>/<file>.py` = 350
 
 Near-design-target (small additions OK, but no logic growth):
-- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 305
+- `src/<package>/<file>.py` = 305
 
 Plenty of headroom (<200 lines):
-- `packages/yoke-core/src/yoke_core/domain/<file>.py` = 180
+- `src/<package>/<file>.py` = 180
 ```
 
 The `wc -l` numbers MUST be current on the day the spec is authored.
@@ -66,9 +66,9 @@ sibling file and which behavior moves into it:
 ```markdown
 **Layer N — <description>:**
 
-- `packages/yoke-core/src/yoke_core/domain/<existing>.py` (350 lines, AT CAP) — no net add.
+- `src/<package>/<existing>.py` (350 lines, AT CAP) — no net add.
   Extract `<helper_name>` to a new sibling `<existing>_helper.py`.
-- `packages/yoke-core/src/yoke_core/domain/<existing>_helper.py` (new, ≤180 lines) — owns
+- `src/<package>/<existing>_helper.py` (new, ≤180 lines) — owns
   `<helper_name>` plus its private callees.
 ```
 

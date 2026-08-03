@@ -203,8 +203,8 @@ CLAIMS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke claims path register \\\n"
             "  --item PREFIX-N \\\n"
-            "  --paths runtime/api/domain/path_claim_targets.py,"
-            "runtime/api/test_path_claim_targets.py,docs/event-catalog.md \\\n"
+            "  --paths <project-source-path>/path_claim_targets.py,"
+            "<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \\\n"
             "  --integration-target main --mode exclusive --allow-planned"
         ),
         "notes": (
@@ -218,8 +218,8 @@ CLAIMS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke claims path widen --claim-id 138 "
             "--item PREFIX-N \\\n"
-            "  --add-paths runtime/api/service_client_backlog_router.py,"
-            "runtime/api/test_backlog_github_backfill_oversized.py \\\n"
+            "  --add-paths <project-source-path>/service_client_backlog_router.py,"
+            "<project-test-path>/test_backlog_github_backfill_oversized.py \\\n"
             "  --reason 'backfill subcommand wiring touches "
             "router + new test file'"
         ),
@@ -275,8 +275,8 @@ CLAIMS_COMMANDS: list[dict] = [
             "FROM path_claims pc\n"
             "JOIN path_claim_targets pct ON pct.claim_id = pc.id\n"
             "JOIN path_targets tgt ON tgt.id = pct.target_id\n"
-            "WHERE tgt.path_string IN ('runtime/api/domain/foo.py', "
-            "'runtime/api/domain/bar.py')\n"
+            "WHERE tgt.path_string IN ('<project-source-path>/foo.py', "
+            "'<project-source-path>/bar.py')\n"
             "  AND pc.state NOT IN ('cancelled','released')\""
         ),
         "notes": (

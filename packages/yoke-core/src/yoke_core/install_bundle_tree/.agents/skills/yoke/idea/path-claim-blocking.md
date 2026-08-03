@@ -11,7 +11,7 @@ for that resolution; `body-and-sync.md` step 9b dispatches here.
 plus the path-claim CLI cheat-sheet entries are the schema-side surface
 the agent reads at session start; this file is the workflow-side
 surface they point at when overlap registration denies. The Claude
-session-rules cross-reference in `runtime/harness/claude/rules/session.md`
+session-rules cross-reference in the installed Claude session rule
 also routes mid-flow overlap denials here. The two surfaces are
 deliberately layered — the packet teaches the shape, this file teaches
 the resolution order.

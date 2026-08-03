@@ -292,4 +292,4 @@ The `service_client.py session-offer` command calls `compute_schedule()` directl
 
 API: `POST /v1/sessions/offer`. Service client: `python3 service_client.py session-offer --executor E --provider P --workspace W [--lane L] [--session-id S] [--model M]`.
 
-Yoke-owned `/yoke do` callers omit `--model`; the service client resolves the model from `harness_sessions.model` by `session_id` and falls back to `runtime.harness.hook_helpers_model.detect_model()` only when the stored row is absent or placeholder-valued. The optional `--model` flag remains for low-level adapter diagnostics that intentionally need an explicit override.
+Yoke-owned `/yoke do` callers omit `--model`; the service client resolves the model from `harness_sessions.model` by `session_id` and falls back to the harness model detector only when the stored row is absent or placeholder-valued. The optional `--model` flag remains for low-level adapter diagnostics that intentionally need an explicit override.

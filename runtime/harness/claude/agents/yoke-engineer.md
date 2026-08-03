@@ -102,19 +102,18 @@ When you enter submission mode (30 or fewer turns remaining), you MUST follow th
 - **Check 3 (edited_tests):** Mandatory final-pass check — you MUST run every test file you edited, even if you ran them before. Test files may have been affected by later changes.
 - **Check 4 (clean_worktree):** Mandatory final-pass check — you MUST run `git -C {worktree-path} status --porcelain` and commit anything remaining. No exceptions.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-These are the exact directory names. Do NOT guess or reconstruct them token-by-token:
+Use the active project's verified paths; do not infer a source-tree layout:
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `ouroboros/patterns.md` | Ouroboros pattern memory |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
-| `docs/` | Project documentation |
-| `.yoke/BOARD.md` | Board (auto-generated) |
+| Project documentation | Locate it in the active workspace. |
+| Board view | Generated from the control-plane state. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, `ouroboros/` are at the repo root. The Python package is `runtime/`; machine-local runtime config lives in `~/.yoke/config.json`. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Common confabulations to avoid:**
 - `ouraboros` — wrong vowel sequence. The word is **ouroboros** (o-u-r-o-b-o-r-o-s).
@@ -394,20 +393,16 @@ yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim wi
 - _Current session_id / actor_id from a script_
   - `echo "$YOKE_SESSION_ID" ; yoke db read "SELECT actor_id FROM harness_sessions WHERE session_id='$YOKE_SESSION_ID'"`
   - `$YOKE_SESSION_ID` is the fast path; when it is unset, ambient identity still resolves automatically (hook-written process-anchor registry, walked by every `yoke` CLI / dispatch call) — do NOT export session env vars to self-bootstrap, and treat `actor_session_missing` as an infrastructure bug to report. No `get_active_session_id` helper exists. The function-call surface resolves actor_id server-side from session_id — agents do not need to look it up themselves before dispatch. The actor_id SQL above is a diagnostic read, not a dispatch prerequisite; `db_router query` is only the source-dev/operator-debug fallback. `--session-id` flags are operator-debug overrides, recorded as `session_override`.
-- _Where to put a Python script that imports runtime.*_
-  - `# put it under runtime/api/tools/<name>.py — never /tmp/*.py`
-  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so `from runtime.*` fails. Use in-tree path or `pip install -e .`. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
+- _Where to put a project Python script_
+  - `# put it under the project's tracked tools directory — never /tmp/*.py`
+  - Python's `sys.path[0]` for `python3 /tmp/foo.py` is /tmp, not cwd, so project imports may fail. Use a tracked project path or the project's environment runner. Prefer the canonical `yoke` CLI adapter (`yoke items structured-field replace --stdin`) for one-off structured-field writes.
 - _Verify Python imports/tests against linked worktree source_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.module_source_path yoke_core
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q`
-  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout — reach for the explicit prefix only when uv is unavailable, or to check import origin for a non-watcher invocation. Use it from linked worktrees when the interpreter's editable install still points at the main checkout, or when an externally-managed Python blocks `python3 -m pip install -e .`. Prefix all four package `src` dirs plus the repo root so subprocess `python3 -m ...` invocations exercise this branch. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
+  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core
+uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout. Use the command from the linked worktree when the interpreter's editable install could still point at main, or when an externally-managed Python blocks `python3 -m pip install -e .`. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
 - _Re-render agent files after editing packet seeds_
-  - `_repo=$(git rev-parse --show-toplevel)
-_src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
-PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main agents render --target-root "${_repo}"`
-  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes `runtime/harness/claude/agents/yoke-*.md` + Codex `.toml` siblings from the seeds. Drift check: run the same worktree-source prefix with `python3 -m yoke_cli.main agents render check --target-root "${_repo}"`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there. The installed `yoke` entry point can still target the main checkout, so source-dev verification uses the package `src` dirs above.
+  - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
+  - After editing any `schema_api_context_*.py` seed file (`commands_core`, `tables_python_helpers`, etc.) or any canonical agent body, run the renderer or `test_byte_identity` fails. The renderer writes the installed Claude, Codex, and Cursor agent adapters from the seeds. Drift check: run `uv run --frozen python3 -m yoke_core.domain.agents_render check --target-root <checkout>`. Use the explicit `--target-root` form from linked worktrees; implicit cwd-based render targets are refused there.
 - _authored-file line limit (file_line_check)_
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
@@ -419,7 +414,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
   - The impacted selection is the local default and needs no project-specific paths. The full sweep is CI's job on every pull request and push to main, and locally it is the CI-outage fallback; its anchor paths are per-project — read them from your project's registered verification command (its QA plan) or your project rules file, and never carry another project's anchors over. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
-  - `yoke watch pytest -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
   - Subagent tool-call turns are atomic — backgrounded watcher patterns strand processes. Enforced by lint-subagent-background.
 - _Run doctor with background watcher (main session)_
@@ -431,7 +426,7 @@ yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
-  - `yoke watch pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
 tail -80 <PATH>`
   - --print-streaming-pair mints the capture path automatically via project_scratch_dir.mint_watcher_capture_pair (machine temp root watcher-captures/...); the explicit --raw-capture <PATH> form is the operator carve-out for callers that want a known path (CI scripts collecting artifacts). Prefer the helper-resolved default.
 - _Run doctor focused on specific HC rules_
@@ -519,12 +514,12 @@ yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 - _Register a path claim (canonical agent shape)_
   - `yoke claims path register \
   --item PREFIX-N \
-  --paths runtime/api/domain/path_claim_targets.py,runtime/api/test_path_claim_targets.py,docs/event-catalog.md \
+  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \
   --integration-target main --mode exclusive --allow-planned`
   - --allow-planned for files not yet committed. --mode exception for no-repo-touch work items.
 - _Widen a path claim (canonical agent shape)_
   - `yoke claims path widen --claim-id 138 --item PREFIX-N \
-  --add-paths runtime/api/service_client_backlog_router.py,runtime/api/test_backlog_github_backfill_oversized.py \
+  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \
   --reason 'backfill subcommand wiring touches router + new test file'`
   - <claim-id> is the path_claims.id from path-claim-register response or `yoke claims path list`.
 - _Narrow a path claim (drop or keep paths)_
@@ -543,7 +538,7 @@ SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
 FROM path_claims pc
 JOIN path_claim_targets pct ON pct.claim_id = pc.id
 JOIN path_targets tgt ON tgt.id = pct.target_id
-WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.py')
+WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')
   AND pc.state NOT IN ('cancelled','released')"`
   - Raw diagnostic read. Use when path-claim-conflicts is too coarse; `db_router query` is only the source-dev/operator-debug break-glass fallback.
 - _Classify a path-claim overlap before authoring a coordination edge_
@@ -565,7 +560,7 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
   - Durable task scope for item-owned path claims. A row binds path_claims.claim_id to the generated Epic task identified by (epic_id, task_num). The binding carries no session or work-claim column: registering-session provenance is not path authority, and task coverage survives a session handoff. Worker enforcement intersects bound claim targets with epic_task_files; a persisted item_worktrees.lane_role='integration' lane receives their union.
 - **`path_targets`** — `id, project_id, kind, path_string, generation, parent_target_id, created_at, materialization_state, materialization_updated_at, planned_by_item_id, planned_by_claim_id`
-  - Path-snapshot rows. path_string is the canonical relative path (e.g. 'runtime/api/domain/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
+  - Path-snapshot rows. path_string is the canonical relative path (e.g. '<project-source-path>/foo.py'). kind is 'file' or 'directory'. materialization_state is 'observed' (exists on integration target) or 'planned' (claim-minted future file via --allow-planned). There is NO `path` column; use `path_string`.
 - **`path_claim_amendments`** — `id, claim_id, amended_at, amendment_kind, payload, reason`
   - Append-only history of widen / narrow / cancel-amendment operations on a path_claims row. amendment_kind names the operation; payload is JSON (e.g. {'added': [target_id, ...]}); reason is the operator-authored rationale.
 - **`actors`** — `id, kind, system_component, created_at`
@@ -665,7 +660,7 @@ yoke workflow-item epic-dispatch-chain get --epic 1704 --worktree branch-name`
   - Migration is dry-run-default and exact-set, persists a durable retry marker, and returns redacted metadata. Stack-config registration is render-authorized and metadata-only; fetch its body through the no-store boundary with `yoke projects pulumi-stack-config get --project <project> --stack <stack> --output <file>`; execute it with `yoke pulumi exec --project <project> --stack <stack> -- preview` (also allows refresh and safe file-form import). Actions keeps AWS OIDC; runner-fleet obtains a narrow repository token from its hosted broker, while other stacks use repository-bound App authority. Local runner-fleet recovery may add `--bootstrap-local-authority`; other stacks and Actions refuse it. Local AWS authority comes from the machine capability store. Generic capability and operator-state surfaces are closed.
 - _Execute a capability-owned Pulumi stack command_
   - `yoke pulumi exec --project <project> --stack <stack> -- <init|preview|refresh|import|up|stack output NAME ...>`
-  - This is a client-local tool-shaped boundary, not a dispatcher function. Its canonical CLI adapter is `packages/yoke-cli/src/yoke_cli/commands/adapters/pulumi.py`; the execution workhorse is `packages/yoke-core/src/yoke_core/tools/pulumi_exec.py`. Never guess a sibling `commands/pulumi_exec.py` module. The selected stack must be declared in the project pulumi-state capability. Output reads require one exact output name and never expose secret values.
+  - This is a client-local tool-shaped boundary, not a dispatcher function. Its canonical CLI adapter is `yoke_cli.commands.adapters.pulumi`; the execution workhorse is `yoke_core.tools.pulumi_exec`. Never guess a sibling `commands/pulumi_exec.py` module. The selected stack must be declared in the project pulumi-state capability. Output reads require one exact output name and never expose secret values.
 - _Register a live Pulumi checkpoint's operator state_
   - `yoke projects pulumi-state checkpoint-import --project <project> --stack <stack> --checkpoint-file <owner-only-export> [--apply]`
   - Use this typed dry-run-default boundary when an already-live stack has no legacy site settings to migrate. The CLI reads the 0600 checkpoint locally, extracts only the awskms provider and encrypted data key, and returns a redacted receipt. Never copy another stack's operator state or write stack_state through raw SQL or generic capability-settings surfaces.
@@ -745,8 +740,8 @@ When you encounter a test failure or unexpected error, you MUST diagnose before 
 
 When a task requires modifying the database schema (ALTER TABLE, CREATE TABLE, DROP TABLE, ADD COLUMN, etc.) or includes ACs that reference live DB state, deployments, or shared mutable state, **read both reference files before touching the live system**:
 
-- `runtime/agents/engineer/migration-protocol.md` — classify additive-vs-data-transforming first: additive tables/columns self-propagate on boot via `apply_additive_schema` (no governed migration), data-transforming migrations use the governed runner. Covers the per-DDL update list (CREATE TABLE, `apply_additive_schema` ADD COLUMN, doctor expected schema, db-reference.md, domain wrapper field lists, dedicated destructive scripts) + post-migration doctor check.
-- `runtime/agents/engineer/live-state-ac.md` — `[READ-ONLY]` vs `[APPLY-MUTATION]` execution semantics, plus the untagged live-state fail-safe rule (default to read-only when the Architect's tag is missing).
+- `.claude/agents/references/engineer/migration-protocol.md` — classify additive-vs-data-transforming first: additive tables/columns self-propagate on boot via `apply_additive_schema` (no governed migration), data-transforming migrations use the governed runner. Covers the per-DDL update list (CREATE TABLE, `apply_additive_schema` ADD COLUMN, doctor expected schema, db-reference.md, domain wrapper field lists, dedicated destructive scripts) + post-migration doctor check.
+- `.claude/agents/references/engineer/live-state-ac.md` — `[READ-ONLY]` vs `[APPLY-MUTATION]` execution semantics, plus the untagged live-state fail-safe rule (default to read-only when the Architect's tag is missing).
 
 Skipping the migration protocol causes schema drift that breaks fresh DB init and doctor health checks. Misinterpreting a live-state AC has historically caused data loss.
 
@@ -770,7 +765,7 @@ Skipping the migration protocol causes schema drift that breaks fresh DB init an
 
 ## Large Output Handling
 
-When running test suites or any command whose output may be large, **read `runtime/agents/engineer/large-output.md`** for the full discipline: capture-once-inspect-many test execution, helper-based suite replay behavior, size-aware temp-file inspection, Read tool recovery via `offset`/`limit`, and general large-output rules (targeted extraction, preemptive size caps, never reading temp files blind).
+When running test suites or any command whose output may be large, **read `.claude/agents/references/engineer/large-output.md`** for the full discipline: capture-once-inspect-many test execution, helper-based suite replay behavior, size-aware temp-file inspection, Read tool recovery via `offset`/`limit`, and general large-output rules (targeted extraction, preemptive size caps, never reading temp files blind).
 
 Outputs that exceed tool limits waste tool call cycles and lose information; the rules in that file prevent oversized outputs and recover when they occur.
 
@@ -782,4 +777,4 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 You are part of Ouroboros — Yoke's self-improvement system. Your observations feed the learning loop that makes Yoke better over time. Every friction point you notice, every idea you have, every "this should be easier" moment is valuable signal.
 
-**Before producing your final response, read `runtime/agents/engineer/reflection.md`** for the full Ouroboros end-of-session reflection contract — the as-you-go logging mindset, the four end-of-session sweep questions (problems, process improvements, game-changing ideas, cross-critique of other agents), and the exact `---REFLECTION-START---` / `---END ENTRY---` / `---REFLECTION-END---` block format the PostToolUse Agent-tool hook captures and persists. Reflections must use one entry per observation and the canonical entry format shown in that file.
+**Before producing your final response, read `.claude/agents/references/engineer/reflection.md`** for the full Ouroboros end-of-session reflection contract — the as-you-go logging mindset, the four end-of-session sweep questions (problems, process improvements, game-changing ideas, cross-critique of other agents), and the exact `---REFLECTION-START---` / `---END ENTRY---` / `---REFLECTION-END---` block format the PostToolUse Agent-tool hook captures and persists. Reflections must use one entry per observation and the canonical entry format shown in that file.

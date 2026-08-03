@@ -70,10 +70,10 @@ def temp_agent_env(tmp_path: Path) -> Path:
 
 def test_render_format(repo_root: Path) -> None:
     """Output starts with ---\\n, contains frontmatter block, body follows."""
-    from yoke_core.domain.agents_render_context import expand_markers
-    from yoke_core.domain.agents_render_field_note import (
-        expand_field_note_markers,
+    from yoke_core.domain.agents_render_references import (
+        render_agent_prompt_body,
     )
+    from yoke_core.domain.agents_render_conditional import CLAUDE_HARNESS_ID
 
     rendered = render_claude_agent("architect", target_root=repo_root)
     assert rendered.startswith("---\n"), "Must start with YAML frontmatter delimiter"
@@ -81,10 +81,12 @@ def test_render_format(repo_root: Path) -> None:
     assert second_delim > 4, "Must have a closing --- delimiter"
     after = rendered[second_delim + 4 :]
     assert after.startswith("\n"), "Body must be separated from frontmatter by a blank line"
-    expanded = expand_field_note_markers(
-        expand_markers(load_canonical("architect", target_root=repo_root))
+    expected_body = render_agent_prompt_body(
+        repo_root / CANONICAL_DIR,
+        "architect",
+        harness_id=CLAUDE_HARNESS_ID,
     ).lstrip("\n")
-    assert expanded in rendered
+    assert expected_body in rendered
 
 
 def test_render_deterministic(repo_root: Path) -> None:

@@ -39,15 +39,15 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 
 **Self-check:** After each tool call, mentally count how many turns you have used. If you are past 60% and have not started writing, stop exploring NOW.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Avoid:** `ouraboros` (wrong vowel).
 
@@ -124,7 +124,7 @@ Call registered `workflows.item.get` through `yoke workflows item get ITEM --jso
 Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
 a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
-b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
+b. **Doctor HC files that scan the module surface** — health-check modules that reference the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
 e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style rewires whose scope screams "every caller of X", land the full importer set up front rather than discovering it commit-by-commit.
@@ -143,7 +143,7 @@ The same checklist is available programmatically via the read-only helper `yoke_
 
 #### Worked example — `*-callers-a`-style rewire
 
-With both axes enabled, a task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+With both axes enabled, a task that rewires a source module has an explicit File Budget for that module and its co-located test. Running the Anticipation Checklist discovers a health check scanning the module surface, transitive callers across orchestration and adapter layers, and deeper test importers. The resulting path claim is complete before implementation, so the Engineer does not hit a commit-time widening trap.
 
 ## Technical Plan Template
 
@@ -264,7 +264,7 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 
 5. **Path-claim split.** Each worktree registers its own path claim with its own disjoint file list. The Shepherd's path-claim register step iterates over worktrees; no single claim covers the entire epic when multiple worktrees exist. Pre-activation widen steps (if needed) are per-worktree.
 
-**Worked example — a four-worktree substrate/docs/skills/agents epic.** Foundation worktree `PREFIX-{N}-substrate` runs the two structural tasks (parser + packets — every downstream task references this); three consumer worktrees `PREFIX-{N}-docs` (AGENTS.md / docs/), `PREFIX-{N}-skills` (.agents/skills/yoke/{advance,polish,usher,do}/), and `PREFIX-{N}-agents` (runtime/agents/*) run in parallel after substrate merges; a late "idea swap" task lands on whichever consumer worktree finishes last; a final regression task lands on main after all worktrees merge. Three parallel consumer worktrees finish in ~1/3 the wall-clock of the eight-task serial line.
+**Worked example — a four-worktree epic.** A foundation worktree runs the structural parser and packet tasks; three consumer worktrees cover documentation, skills, and agent prompts in parallel after the foundation merges. A late integration task lands after the consumer worktrees merge. Parallel consumer worktrees finish in roughly one-third of the wall-clock time of the equivalent serial work.
 
 **When fan-out is wrong:**
 
@@ -292,9 +292,9 @@ Any task pair surfaced by `## File overlap check` (i.e., sharing at least one Fi
 
 ## Hard Constraints + Documentation File Checklist
 
-The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist live in `runtime/agents/architect/hard-constraints.md`.
+The full Hard Constraints list (session-fit sizing, worktree independence, dependency groups, FR traceability, single-responsibility tasks, semantic anchors, same-file sequencing, live-state AC tagging, Pack-first capabilities, file-size limit, etc.) and the Documentation File Checklist are embedded with this prompt.
 
-**Read `runtime/agents/architect/hard-constraints.md` before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that file. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
+**Read and apply the embedded Hard Constraints before producing your technical plan, task specs, or worktree plan.** Every plan you write must satisfy every constraint in that reference. The most load-bearing constraints — and the ones most often forgotten — are the FR traceability matrix (#7), single-responsibility tasks (#10), semantic anchors instead of line numbers (#11), live-state AC tagging (#13), the 350-line file-size cap (#15), and the upstream File Budget contract (#16) that names planned files and single responsibilities before implementation begins.
 
 ## Rules
 

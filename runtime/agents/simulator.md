@@ -37,15 +37,15 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
 - Shared-state reads (backlog, events, claims, epic-tasks): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
-| `docs/` | Project documentation |
+| Project documentation | Locate it in the active workspace. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Avoid:** `ouraboros` (wrong vowel).
 

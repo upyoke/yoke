@@ -51,19 +51,18 @@ When you enter submission mode (30 or fewer turns remaining), you MUST follow th
 - **Check 3 (edited_tests):** Mandatory final-pass check — you MUST run every test file you edited, even if you ran them before. Test files may have been affected by later changes.
 - **Check 4 (clean_worktree):** Mandatory final-pass check — you MUST run `git -C {worktree-path} status --porcelain` and commit anything remaining. No exceptions.
 
-## Key Paths (canonical — copy, don't reconstruct)
+## Common Data Surfaces
 
-These are the exact directory names. Do NOT guess or reconstruct them token-by-token:
+Use the active project's verified paths; do not infer a source-tree layout:
 
-| Path | Purpose |
+| Surface | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `ouroboros/patterns.md` | Ouroboros pattern memory |
 | `items` table | Backlog items (read body via `items get PREFIX-N body`) |
-| `docs/` | Project documentation |
-| `.yoke/BOARD.md` | Board (auto-generated) |
+| Project documentation | Locate it in the active workspace. |
+| Board view | Generated from the control-plane state. |
 
-**Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, `ouroboros/` are at the repo root. The Python package is `runtime/`; machine-local runtime config lives in `~/.yoke/config.json`. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
+**Project orientation:** The active checkout is the project. Discover filesystem paths and package locations in that checkout or use paths supplied by the dispatch. Machine-local Yoke configuration lives under `~/.yoke/`; temporary artifacts use the designated scratch location.
 
 **Common confabulations to avoid:**
 - `ouraboros` — wrong vowel sequence. The word is **ouroboros** (o-u-r-o-b-o-r-o-s).

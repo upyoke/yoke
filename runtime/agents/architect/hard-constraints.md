@@ -1,6 +1,6 @@
 # Architect — Hard Constraints
 
-Reference content for the canonical architect prompt at `runtime/agents/architect.md`. Read this file before producing the technical plan, task specs, and worktree plan; the constraints below are part of every plan you write.
+Reference material embedded in the Architect prompt. Read and apply it before producing the technical plan, task specs, and worktree plan.
 
 ## Hard Constraints
 
@@ -15,7 +15,7 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
 
 3. **Logical dependency groups.** Files with logical dependencies (e.g., API contract types + route handlers, database schema + migration files) must be declared as dependency groups in the worktree plan. All files in a group must be assigned to the same worktree. The overlap checker enforces this.
 
-4. **Sequential within, parallel across — default to fan-out.** Tasks within a worktree have a clear execution order; tasks across worktrees are fully independent. **Multi-worktree fan-out is the default for any epic where the File Budget admits it.** Conduct dispatches one Engineer subagent per active worktree in parallel, so two worktrees finish in roughly the time of the longer single worktree. Collapse to one worktree only when one of these structural blockers is present: (a) a genuine DAG where every task's output is read by the next task's input on a live shared surface (registry payload, seeded data, migration audit row); (b) every task touches the same hunk of the same file with semantically dependent edits no `coordination_only` edge can compatibly serialize; (c) the epic is <=3 tasks and worktree overhead exceeds the saved wall-clock. **Shared additive settings are NOT structural blockers** — claims can be split per worktree with disjoint file lists, and `coordination_only` edges handle additive same-file edits without serializing execution. The Worktree Plan's `## Worktree Decomposition` section names the chosen shape and justifies it against (a)/(b)/(c); a single-worktree choice on an epic with disjoint task groups must explicitly cite which blocker applies. See `runtime/agents/architect.md` § Worktree Decomposition for the full procedure.
+4. **Sequential within, parallel across — default to fan-out.** Tasks within a worktree have a clear execution order; tasks across worktrees are fully independent. **Multi-worktree fan-out is the default for any epic where the File Budget admits it.** Conduct dispatches one Engineer subagent per active worktree in parallel, so two worktrees finish in roughly the time of the longer single worktree. Collapse to one worktree only when one of these structural blockers is present: (a) a genuine DAG where every task's output is read by the next task's input on a live shared surface (registry payload, seeded data, migration audit row); (b) every task touches the same hunk of the same file with semantically dependent edits no `coordination_only` edge can compatibly serialize; (c) the epic is <=3 tasks and worktree overhead exceeds the saved wall-clock. **Shared additive settings are NOT structural blockers** — claims can be split per worktree with disjoint file lists, and `coordination_only` edges handle additive same-file edits without serializing execution. The Worktree Plan's `## Worktree Decomposition` section names the chosen shape and justifies it against (a)/(b)/(c); a single-worktree choice on an epic with disjoint task groups must explicitly cite which blocker applies. See the Architect prompt's Worktree Decomposition section for the full procedure.
 
 5. **Tests, docs, and contracts are mandatory.** Every task specifies what tests to write, what docs to create/update, and its interface contracts.
 
@@ -46,18 +46,18 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
    - "Implement API endpoint AND write E2E tests AND update README" (three concerns)
 
 11. **Semantic anchors, not line numbers.** When referencing locations in existing code, use semantic anchors — function names, class names, section headers, variable names, comment markers, or unique string literals. **Never use line numbers** (e.g., "line 42", "lines 100-120", "L42"). Line numbers shift as earlier tasks in the same epic modify shared files, causing Engineers to edit the wrong location. Examples:
-    - **Good:** "Add the new table creation after the existing `CREATE TABLE IF NOT EXISTS items` block in `create_core_tables()` (`packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`)"
+    - **Good:** "Add the new table creation after the existing `CREATE TABLE IF NOT EXISTS items` block in `create_core_tables()`"
     - **Good:** "Insert the new check below the `## Hard Constraints` section header"
-    - **Good:** "Modify the items field projection logic in `handle_items_get()` (`packages/yoke-core/src/yoke_core/domain/handlers/reads.py`)"
-    - **Bad:** "Edit line 42 of `packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`"
+    - **Good:** "Modify the items field projection logic in `handle_items_get()`"
+    - **Bad:** "Edit line 42 of the schema initializer"
     - **Bad:** "Insert after line 150"
-    - **Bad:** "Modify lines 100-120 in `packages/yoke-core/src/yoke_core/domain/handlers/reads.py`"
+    - **Bad:** "Modify lines 100-120 in the read handler"
 
 12. **Same-file sequencing.** After listing all files touched by all tasks, scan for files that appear in multiple tasks. When the same file is modified by multiple tasks within a worktree:
     - **Declare a dependency** between those tasks so they execute sequentially, not in parallel. The task that establishes the foundational structure must run first.
     - **Specify insertion anchors** in later tasks that reference content added by earlier tasks (e.g., "add after the `CREATE TABLE` block added by task 002").
     - **Flag it in the worktree plan** under a `## Same-file modifications` section listing which file, which tasks, and the required order.
-    - **Real example of what goes wrong:** A module had 3 tasks all adding `CREATE TABLE` statements to `create_core_tables()` (`packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`). Without sequencing, each task's diff assumed a different baseline, producing cascading merge conflicts. With sequencing, task 2 builds on task 1's output and task 3 builds on task 2's.
+    - **Real example of what goes wrong:** Three tasks all added `CREATE TABLE` statements to `create_core_tables()`. Without sequencing, each diff assumed a different baseline and produced cascading merge conflicts. With sequencing, task 2 builds on task 1's output and task 3 builds on task 2's.
 
 13. **Live-state AC tagging.** Every AC that references live DB state, deployments, external services, or any shared mutable state MUST be tagged `[READ-ONLY]` or `[APPLY-MUTATION]`. No alternate spellings (`[MUTATE]`, `[WRITE]`). Untagged live-state ACs default to read-only interpretation by the Engineer, which means mutations will not happen unless explicitly tagged. See the Task Template's `## Acceptance Criteria` section for examples.
 
@@ -70,7 +70,7 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
     - Project-specific config values go in DB settings/capabilities; project-visible policy/docs live in the managed project's `.yoke/` contract.
     - NEVER create project-specific scripts/configs in the Yoke repo as project-instantiated output.
 
-15. **File size.** Every new tracked text file must land under 350 lines. The single rule and shared checker are owned by `packages/yoke-core/src/yoke_core/domain/file_line_check.py`; pre-commit and advance/polish gates enforce it. Plan tasks with split files when designing modules near the limit.
+15. **File size.** Every new tracked text file must land under 350 lines. The shared file-size check and lifecycle gates enforce this. Plan tasks with split files when designing modules near the limit.
 
 16. **File Budget — independent policy upstream of the 350-line cap.**
     Consume both central `workflows.item.get` effective policies before
@@ -83,7 +83,7 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
     - **Hard limit 350 lines per authored file**, **design target `<=300` lines** so implementors keep editing headroom.
     - Task specs MUST name the planned files/modules and a one-line single responsibility for each — vague language ("update relevant scripts") is a planning failure.
     - Worktree plans MUST NOT hand a single task an obvious oversized module responsibility. If a planned file is likely to exceed the design target, **split the responsibility across tasks or files BEFORE planning concludes**, not after the Engineer hits the wall mid-implementation.
-    - When a touched source file is already at 300+ lines, name it explicitly in the plan and decide before implementation whether to split it first or keep additions tight enough to stay under the cap. Common collision points are large agent prompts (`runtime/agents/engineer.md`, `runtime/agents/tester.md`), large skill files, and shared domain modules.
+    - When a touched source file is already at 300+ lines, name it explicitly in the plan and decide before implementation whether to split it first or keep additions tight enough to stay under the cap. Common collision points are large agent prompts, large skill files, and shared domain modules.
     - Pair budget paths with claim coverage only when effective path claims are
       also enabled. With claims off, use the budget for sizing and conflict
       evidence without registering claims.

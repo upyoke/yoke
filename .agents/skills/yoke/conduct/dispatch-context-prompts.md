@@ -51,7 +51,7 @@ Extracted from `dispatch-context.md`. Engineer and Tester prompt templates and d
 
 ### Anticipated Path Coverage block sourcing
 
-The `_anticipated_paths_block_{_task_id}` slot above is **derived from existing persisted task data**, not from a new storage surface. Conduct reads the task body (`yoke workflow-item epic-task body-get --epic {_epic_id} --task-num {_task_id}`) and looks for a per-task `## Anticipated Paths` block authored by the Architect during plan (see `runtime/agents/architect.md` § *Anticipation Checklist*). When present, conduct inlines that block under the `Anticipated path coverage (pre-authorized)` heading in the Engineer prompt; when absent, the slot is empty and the heading is elided. The Architect's read-only anticipation helper `yoke_core.domain.architect_plan_anticipation` makes the underlying grep discipline cheap — conduct still consumes the persisted result, never recomputes it at dispatch time.
+The `_anticipated_paths_block_{_task_id}` slot above is **derived from existing persisted task data**, not from a new storage surface. Conduct reads the task body (`yoke workflow-item epic-task body-get --epic {_epic_id} --task-num {_task_id}`) and looks for a per-task `## Anticipated Paths` block authored by the Architect during plan (see the Architect prompt's *Anticipation Checklist*). When present, conduct inlines that block under the `Anticipated path coverage (pre-authorized)` heading in the Engineer prompt; when absent, the slot is empty and the heading is elided. The Architect's read-only anticipation helper `yoke_core.domain.architect_plan_anticipation` makes the underlying grep discipline cheap — conduct still consumes the persisted result, never recomputes it at dispatch time.
 
 ---
 

@@ -9,7 +9,7 @@ Extracted from `dispatch-context.md`. Contains artifact formats, output capture,
 ## Anticipated path coverage (pre-authorized)
 
 When effective path claims are enabled, the Architect runs the plan-time
-**Anticipation Checklist** (`runtime/agents/architect.md` § *Anticipation
+**Anticipation Checklist** (the Architect prompt's *Anticipation
 Checklist*) and widens claim coverage to include cross-cutting surfaces.
 When File Budget is also enabled, its explicit paths seed that checklist;
 otherwise the task execution spec does. The Architect persists the resulting

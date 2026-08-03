@@ -180,8 +180,8 @@ When ``/yoke do`` skips, stops, or summarizes an item because another
 live session holds its work claim, the canonical claim facts (``claim_id``,
 holder ``session_id``, ``item_id``, ``claim_type``, ``claimed_at``) are
 already in the ``SchedulerOfferSkipped`` event payload — the offer
-revalidation helper queries the same typed ``work_claims`` schema that
-``runtime.harness.harness_sessions_claims.cmd_who_claims`` uses.
+revalidation helper queries the same typed ``work_claims`` schema as the
+canonical holder lookup.
 
 **Manual verification command** for an operator confirming the holder
 during recovery:
