@@ -6,7 +6,7 @@
       "Shell(gh *)",
       "Read(**)",
       "Write(**)"
-    ]
-  },
-  "version": 1
+    ],
+    "deny": []
+  }
 }

@@ -5,8 +5,10 @@ of the hook chain, so a project whose hooks load correctly can still
 prompt on (or outright fail) every Yoke command:
 
 * ``.cursor/cli.json`` — ``permissions.allow`` decides which commands run
-  without an approval prompt. The schema is strict: an allow-less
-  deny-only file aborts every run before the agent starts.
+  without an approval prompt. The schema is strict and validates the whole
+  file: it requires ``permissions.deny`` to be present even when empty, and
+  rejects unrecognized top-level keys. Either violation invalidates the
+  file, which drops the allow list with it and prompts on every command.
 * ``.cursor/sandbox.json`` — ``networkPolicy`` decides which hosts a
   sandboxed command may reach. Without the control-plane origins on the
   allow list, a network-touching ``yoke`` call fails inside the sandbox
@@ -54,9 +56,15 @@ CURSOR_CLI_ALLOW: Tuple[str, ...] = (
 # Cursor's own settings and is documented in CURSOR.md.
 NETWORK_POLICY_DEFAULT = "deny"
 
-# Cursor validates both files against a versioned schema, so a file this
-# pass creates from nothing carries the marker alongside its region.
-CURSOR_CLI_SCHEMA_VERSION = 1
+# Cursor's cli.json schema requires ``permissions.deny`` to be present as an
+# array even when nothing is denied, and rejects the file outright when it is
+# missing — taking the allow list down with it, so every command prompts.
+CURSOR_CLI_REQUIRED_LIST = "deny"
+
+# Cursor's cli.json schema also rejects unrecognized top-level keys outright.
+# A ``version`` marker written by an earlier install pass is not part of that
+# schema, so its presence invalidated the whole file; a refresh purges it.
+CURSOR_CLI_STALE_TOP_LEVEL_KEYS: Tuple[str, ...] = ("version",)
 
 _HTTPS_TRANSPORT = "https"
 
@@ -69,13 +77,18 @@ class CursorConfigRegion:
     top-level object holding the region, ``list_key`` the list Yoke unions
     its entries into, and ``default_key`` an optional sibling scalar that
     is seeded only when absent so an operator's own choice always wins.
+    ``required_list_key`` names a sibling list the vendor schema demands
+    even when empty, seeded only when absent for the same reason.
+    ``stale_top_level_keys`` names keys a prior Yoke pass wrote that the
+    vendor schema rejects, purged on refresh so an existing file heals.
     """
 
     rel: str
     container: str
     list_key: str
     default_key: Optional[str] = None
-    schema_version: Optional[int] = None
+    required_list_key: Optional[str] = None
+    stale_top_level_keys: Tuple[str, ...] = ()
 
 
 CURSOR_CONFIG_REGIONS: Tuple[CursorConfigRegion, ...] = (
@@ -83,7 +96,8 @@ CURSOR_CONFIG_REGIONS: Tuple[CursorConfigRegion, ...] = (
         rel=CURSOR_CLI_REL,
         container="permissions",
         list_key="allow",
-        schema_version=CURSOR_CLI_SCHEMA_VERSION,
+        required_list_key=CURSOR_CLI_REQUIRED_LIST,
+        stale_top_level_keys=CURSOR_CLI_STALE_TOP_LEVEL_KEYS,
     ),
     CursorConfigRegion(
         rel=CURSOR_SANDBOX_REL,
@@ -180,7 +194,8 @@ def managed_cursor_regions(
 __all__ = [
     "CURSOR_CLI_ALLOW",
     "CURSOR_CLI_REL",
-    "CURSOR_CLI_SCHEMA_VERSION",
+    "CURSOR_CLI_REQUIRED_LIST",
+    "CURSOR_CLI_STALE_TOP_LEVEL_KEYS",
     "CURSOR_CONFIG_REGIONS",
     "CURSOR_CONFIG_REGION_BY_REL",
     "CURSOR_CONFIG_RELS",

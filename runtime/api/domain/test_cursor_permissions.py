@@ -96,10 +96,30 @@ def test_apply_creates_both_regions(repo) -> None:
     assert set(records) == set(CURSOR_CONFIG_RELS)
 
 
-def test_a_created_cli_file_carries_the_schema_version(repo) -> None:
+def test_a_created_cli_file_validates_against_the_vendor_schema(repo) -> None:
+    """Cursor rejects the whole file on either violation, allow list included."""
     apply_cursor_permissions(repo, config=CONFIG)
 
-    assert _read(repo, CURSOR_CLI_REL)["version"] == 1
+    cli = _read(repo, CURSOR_CLI_REL)
+    assert cli["permissions"]["deny"] == []
+    assert set(cli) == {"permissions"}
+
+
+def test_refresh_repairs_a_file_a_prior_pass_left_invalid(repo) -> None:
+    """An already-installed file heals without waiting for a reinstall."""
+    (repo / ".cursor").mkdir()
+    (repo / CURSOR_CLI_REL).write_text(
+        json.dumps({"permissions": {"allow": list(CURSOR_CLI_ALLOW)}, "version": 1}),
+        encoding="utf-8",
+    )
+
+    _records, report = apply_cursor_permissions(repo, config=CONFIG)
+
+    assert report["changed"] is True
+    cli = _read(repo, CURSOR_CLI_REL)
+    assert "version" not in cli
+    assert cli["permissions"]["deny"] == []
+    assert cli["permissions"]["allow"] == list(CURSOR_CLI_ALLOW)
 
 
 def test_reapply_is_idempotent(repo) -> None:

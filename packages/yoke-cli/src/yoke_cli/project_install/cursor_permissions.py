@@ -10,7 +10,10 @@ loads perfectly.
 Region content comes from :mod:`yoke_contracts.cursor_permissions` rather
 than from the bundle, because the network origins name whichever control
 plane and GitHub endpoint the *installing machine* is configured against
-— a server-built bundle cannot know them.
+— a server-built bundle cannot know them. What a pass would write, and
+what it owns afterwards, is computed in
+:mod:`yoke_cli.project_install.cursor_permissions_plan`; this module
+reads, writes, and reports around those decisions.
 
 The contract matches the Claude permissions region: manage exactly our
 region, never the operator's keys.
@@ -30,6 +33,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_cli.project_install.cursor_permissions_plan import (
+    carry_forward as _carry_forward,
+    changed as _changed,
+    plan as _plan,
+)
 from yoke_cli.project_install.files import (
     ProjectInstallError,
     assert_resolved_targets_within,
@@ -67,81 +75,6 @@ def _write(target: Path, payload: Dict[str, Any]) -> None:
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def _validate(region: CursorConfigRegion, managed: Any) -> Tuple[List[str], Optional[str]]:
-    if not isinstance(managed, dict):
-        raise ProjectInstallError(
-            f"managed Cursor region for {region.rel} must be an object"
-        )
-    entries = managed.get("entries", [])
-    if not isinstance(entries, list) or not all(
-        isinstance(entry, str) and entry for entry in entries
-    ):
-        raise ProjectInstallError(
-            f"managed Cursor region for {region.rel} must carry 'entries' as a "
-            "list of non-empty strings"
-        )
-    default = managed.get("default")
-    if default is not None and (not isinstance(default, str) or not default):
-        raise ProjectInstallError(
-            f"managed Cursor region for {region.rel} must carry 'default' as a "
-            "non-empty string when present"
-        )
-    return list(entries), default
-
-
-def _empty_record(**overrides: Any) -> Dict[str, Any]:
-    record = {
-        "added_entries": [],
-        "set_default": False,
-        "set_schema_version": False,
-        "created_container": False,
-        "created_file": False,
-        "gated": False,
-    }
-    record.update(overrides)
-    return record
-
-
-def _plan(
-    region: CursorConfigRegion,
-    payload: Optional[Dict[str, Any]],
-    managed: Dict[str, Any],
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Return (new_payload, record) — pure, no IO. ``record`` names what we add."""
-    wanted, default_wanted = _validate(region, managed)
-    created_file = payload is None
-    container_absent = created_file or region.container not in payload
-    new_payload = dict(payload) if payload else {}
-    container = dict(new_payload.get(region.container) or {})
-    existing = list(container.get(region.list_key) or [])
-    added = [entry for entry in wanted if entry not in existing]
-    resulting = existing + added
-    # A region carrying a default is a policy switch: writing
-    # ``default: deny`` beside an empty allow list would block every host.
-    # It stays unwritten until there is at least one entry to allow.
-    if region.default_key and not resulting:
-        return new_payload, _empty_record(gated=True)
-    container[region.list_key] = resulting
-    set_default = bool(
-        region.default_key
-        and default_wanted is not None
-        and region.default_key not in container
-    )
-    if set_default:
-        container[region.default_key] = default_wanted
-    new_payload[region.container] = container
-    set_schema_version = created_file and region.schema_version is not None
-    if set_schema_version:
-        new_payload.setdefault("version", region.schema_version)
-    return new_payload, _empty_record(
-        added_entries=added,
-        set_default=set_default,
-        set_schema_version=set_schema_version,
-        created_container=container_absent and (bool(added) or set_default),
-        created_file=created_file,
-    )
-
-
 def _region_plans(
     repo_root: Path, config: Optional[Dict[str, Any]] = None,
 ) -> List[Tuple[CursorConfigRegion, Path, Dict[str, Any], Dict[str, Any]]]:
@@ -165,40 +98,16 @@ def _region_plans(
     return plans
 
 
-def _carry_forward(record: Dict[str, Any], prior: Any) -> Dict[str, Any]:
-    """Fold a prior run's record into this one.
-
-    The manifest records what Yoke *owns* in the file, not what one run
-    happened to add. Without this, a refresh — which adds nothing because
-    the entries are already there — would overwrite the record with an
-    empty one and uninstall would stop cleaning up what install wrote.
-    """
-    if not isinstance(prior, dict):
-        return record
-    merged = [
-        entry for entry in (prior.get("added_entries") or []) if isinstance(entry, str)
-    ]
-    merged += [entry for entry in record["added_entries"] if entry not in merged]
-    record["added_entries"] = merged
-    for flag in ("set_default", "set_schema_version", "created_container", "created_file"):
-        record[flag] = bool(record[flag] or prior.get(flag))
-    return record
-
-
-def _changed(record: Dict[str, Any]) -> bool:
-    return bool(
-        record["added_entries"]
-        or record["set_default"]
-        or record["created_file"]
-    )
-
-
 def _summary(region: CursorConfigRegion, record: Dict[str, Any]) -> str:
     bits: List[str] = []
     if record["added_entries"]:
         bits.append(f"allowed {len(record['added_entries'])} entry(s)")
     if record["set_default"]:
         bits.append(f"set {region.container}.{region.default_key}")
+    if record["seeded_required_list"]:
+        bits.append(f"seeded {region.container}.{region.required_list_key}")
+    if record["purged_stale_keys"]:
+        bits.append(f"purged {', '.join(record['purged_stale_keys'])}")
     return ", ".join(bits) or "managed region"
 
 
@@ -322,13 +231,20 @@ def _strip_region(
             container.pop(region.list_key, None)
     if isinstance(container, dict) and record.get("set_default") and region.default_key:
         container.pop(region.default_key, None)
+    # Only reclaim the seeded list while it is still the empty one we wrote;
+    # an operator who has since denied something owns it now.
+    if (
+        isinstance(container, dict)
+        and record.get("seeded_required_list")
+        and region.required_list_key
+        and container.get(region.required_list_key) == []
+    ):
+        container.pop(region.required_list_key, None)
     if isinstance(container, dict):
         if record.get("created_container") and not container:
             payload.pop(region.container, None)
         else:
             payload[region.container] = container
-    if record.get("set_schema_version"):
-        payload.pop("version", None)
     return removed
 
 
