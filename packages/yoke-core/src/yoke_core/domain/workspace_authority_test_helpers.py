@@ -75,8 +75,24 @@ def patch_conn(conn, monkeypatch):
 
     def _lookup(session_id: str):
         rows = claimed_worktrees(conn, session_id=session_id)
+        current = conn.execute(
+            "SELECT i.id, i.status FROM harness_sessions hs "
+            "JOIN items i ON i.id = hs.current_item_id "
+            "WHERE hs.session_id = %s LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        before_implementation = None
+        if current is not None:
+            from yoke_core.domain.workflow_runtime import (
+                load_item_workflow_runtime,
+            )
+
+            before_implementation = load_item_workflow_runtime(
+                conn, int(current["id"]),
+            ).is_before_implementation(str(current["status"]))
         return verification_tree_binding.ClaimLookup(
             worktrees=tuple(row.worktree_path for row in rows),
+            current_item_before_implementation=before_implementation,
         )
 
     monkeypatch.setattr(

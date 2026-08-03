@@ -160,19 +160,14 @@ def evaluate_tree_binding(
 class ClaimLookup:
     """What the claim lookup found, and whether it could look at all.
 
-    ``reachable=False`` means the control plane could not be consulted,
-    which is emphatically not the same answer as "this session holds no
-    claims" even though both yield an empty ``worktrees``. Collapsing
-    the two is what let this guard sit inert: an unreachable lookup
-    passed every run through while looking exactly like a clean one.
+    ``reachable=False`` distinguishes unconsulted from no claims.
     """
 
     worktrees: tuple[str, ...] = ()
     reachable: bool = True
     detail: str = ""
-    #: Item owning the first reported lane, so a refusal can name the item
-    #: its recovery command needs instead of a placeholder.
     lane_item_id: Optional[int] = None
+    current_item_before_implementation: Optional[bool] = None
 
 
 def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
@@ -203,7 +198,8 @@ def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
     if not response.success:
         message = response.error.message if response.error else "lookup refused"
         return ClaimLookup(reachable=False, detail=message)
-    holders = (response.result or {}).get("holders") or []
+    result = response.result or {}
+    holders = result.get("holders") or []
     lanes: list[str] = []
     lane_item_id: Optional[int] = None
     for holder in holders:
@@ -213,7 +209,11 @@ def resolve_claim_worktrees(session_id: str) -> ClaimLookup:
                 lanes.append(candidate)
                 if lane_item_id is None and holder.get("item_id") is not None:
                     lane_item_id = int(holder["item_id"])
-    return ClaimLookup(worktrees=tuple(lanes), lane_item_id=lane_item_id)
+    planning = result.get("current_item_before_implementation")
+    return ClaimLookup(
+        worktrees=tuple(lanes), lane_item_id=lane_item_id,
+        current_item_before_implementation=planning,
+    )
 
 
 def ambient_session_id() -> str:

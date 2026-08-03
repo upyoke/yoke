@@ -66,12 +66,18 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
         "connect",
         lambda: _KeepOpenConn(conn),
     )
+    monkeypatch.setattr(
+        claims_work_holders,
+        "_current_item_before_implementation",
+        lambda _conn, _session_id: True,
+    )
 
     outcome = claims_work_holders.handle_holder_list(
         _request({"session_id": "held-a"})
     )
 
     assert outcome.primary_success
+    assert outcome.result_payload["current_item_before_implementation"] is True
     # This fixture carries claims but no lane table, so the lanes come
     # back empty rather than failing the lookup — the shape a caller
     # asking "which trees may this session verify in?" relies on.

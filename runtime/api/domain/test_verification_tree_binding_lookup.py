@@ -74,6 +74,7 @@ def test_lookup_goes_through_the_registered_read(
         monkeypatch,
         _Response(
             result={
+                "current_item_before_implementation": True,
                 "holders": [
                     {"claim_id": 1, "lane_worktrees": [LANE]},
                 ]
@@ -82,6 +83,7 @@ def test_lookup_goes_through_the_registered_read(
     )
     lookup = resolve_claim_worktrees("sess-1")
     assert lookup.worktrees == (LANE,)
+    assert lookup.current_item_before_implementation is True
     assert lookup.reachable is True
     assert len(calls) == 1
     assert calls[0]["function_id"] == "claims.work.holder_list"

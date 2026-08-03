@@ -113,7 +113,9 @@ def _is_free_path(target: Path) -> bool:
     return False
 
 
-def _is_planning_scratch_allowed(target: Path, *, session_id: str) -> bool:
+def _is_planning_scratch_allowed(
+    target: Path, *, current_item_before_implementation: Optional[bool],
+) -> bool:
     """Planning-phase carve-out for helper-resolved dispatch-inputs scratch.
 
     Mirrors the Bash-parser widener: when the session's item is in a
@@ -124,12 +126,11 @@ def _is_planning_scratch_allowed(target: Path, *, session_id: str) -> bool:
     """
     from yoke_core.domain.path_claim_bash_parser_planning_phase import (
         is_planning_scratch_path,
-        session_is_planning_phase,
     )
     candidates = {_resolve_for_display(target), str(target)}
     if not any(is_planning_scratch_path(cand) for cand in candidates):
         return False
-    return session_is_planning_phase(session_id=session_id)
+    return current_item_before_implementation is True
 
 
 def _format_authority(claim_paths: Sequence[str]) -> str:
@@ -191,7 +192,12 @@ def assert_target_under_session_work_authority(
         if _is_inside(target_path, claim_path):
             return
 
-    if _is_planning_scratch_allowed(target_path, session_id=sid):
+    if _is_planning_scratch_allowed(
+        target_path,
+        current_item_before_implementation=(
+            lookup.current_item_before_implementation
+        ),
+    ):
         return
 
     raise RuntimeError(

@@ -49,6 +49,7 @@ class HolderListRequest(BaseModel):
 
 class HolderListResponse(BaseModel):
     holders: List[HolderRow] = Field(default_factory=list)
+    current_item_before_implementation: Optional[bool] = None
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -56,6 +57,35 @@ def _err(code: str, message: str) -> HandlerOutcome:
         primary_success=False,
         error=FunctionError(code=code, message=message),
     )
+
+
+def _current_item_before_implementation(
+    conn: Any, session_id: str,
+) -> Optional[bool]:
+    """Server-computed lifecycle posture for the session's current item."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    try:
+        row = conn.execute(
+            "SELECT i.id, i.status FROM harness_sessions hs "
+            "JOIN items i ON i.id = hs.current_item_id "
+            f"WHERE hs.session_id = {p} LIMIT 1",
+            (session_id,),
+        ).fetchone()
+    except db_backend.database_error_types(conn):
+        return None
+    if row is None:
+        return None
+    item_id = int(row["id"] if hasattr(row, "keys") else row[0])
+    stage_id = str(row["status"] if hasattr(row, "keys") else row[1])
+    try:
+        return load_item_workflow_runtime(
+            conn, item_id,
+        ).is_before_implementation(stage_id)
+    except Exception:
+        return None
 
 
 def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -122,10 +152,17 @@ def handle_holder_list(request: FunctionCallRequest) -> HandlerOutcome:
         rows = conn.execute(sql, tuple(params)).fetchall()
         holders = [_holder_row_to_dict(_row_dict(r)) for r in rows]
         lanes = _lane_worktrees(conn, holders)
+        before_implementation = (
+            _current_item_before_implementation(conn, body.session_id)
+            if body.session_id else None
+        )
 
     for holder in holders:
         holder["lane_worktrees"] = lanes.get(holder["claim_id"], [])
-    return HandlerOutcome(result_payload={"holders": holders})
+    return HandlerOutcome(result_payload={
+        "holders": holders,
+        "current_item_before_implementation": before_implementation,
+    })
 
 
 def _lane_worktrees(conn: Any, rows: List[Dict[str, Any]]) -> Dict[int, List[str]]:
