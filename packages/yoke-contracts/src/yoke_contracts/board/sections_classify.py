@@ -16,6 +16,7 @@ from yoke_contracts.project_contract.board_art.emoji import (
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_filter, scope_project_id
 from yoke_contracts.board.status import status_to_board_bucket
+from yoke_contracts.board.sections_items_query import query_item_rows
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_contracts.item_ref import format_item_ref
 
@@ -230,37 +231,7 @@ def classify_items(
     }
 
     pf = _project_filter_sql(scope, db=db)
-    sql = f"""
-    SELECT
-        i.id,
-        REPLACE(i.title, '|', '∣'),
-        i.workflow_id,
-        COALESCE(i.status, 'idea'),
-        COALESCE(i.priority, 'medium'),
-        CASE WHEN i.frozen = 1 THEN 1 ELSE 0 END,
-        CASE WHEN i.blocked = 1 THEN 1 ELSE 0 END,
-        i.id,
-        CASE WHEN p.emoji IS NOT NULL AND p.emoji <> ''
-             THEN p.emoji || ' ' || p.slug
-             ELSE p.slug END,
-        COALESCE(i.updated_at, ''),
-        p.slug,
-        p.public_item_prefix,
-        i.project_sequence,
-        (SELECT stage->>'glyph'
-         FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
-         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),
-        (SELECT stage->>'board_bucket'
-         FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
-         WHERE stage->>'id'=COALESCE(i.status, 'idea') LIMIT 1),
-        wv.definition_json::jsonb #>> '{{policies,generated_children}}'
-    FROM items i
-    LEFT JOIN projects p ON p.id = i.project_id
-    LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
-    WHERE 1=1{pf}
-    ORDER BY i.id
-    """
-    rows = db.query(sql)
+    rows = query_item_rows(db, pf)
 
     for row in rows:
         (

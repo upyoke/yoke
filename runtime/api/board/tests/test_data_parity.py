@@ -17,6 +17,7 @@ import pytest
 from yoke_contracts.board.config import parse_config
 from yoke_contracts.board.art import ArtConfig, parse_art_config
 from yoke_contracts.board.renderer import render_board_from_payload
+from yoke_contracts.board.sections_items_query import _items_sql, query_item_rows
 from yoke_core.board.data import (
     BoardDataMissError,
     ReplayBoardDB,
@@ -237,6 +238,28 @@ def test_replay_miss_raises_loudly(populated_db, config_file):
     replay = ReplayBoardDB.from_payload(json.loads(json.dumps(payload)))
     with pytest.raises(BoardDataMissError, match="parity bug"):
         replay.query("SELECT 1 FROM items WHERE id = %s", (424242,))
+
+
+def test_item_rows_fall_back_to_legacy_recorded_query():
+    legacy_row = [
+        7, "Legacy", "dash", "idea", "medium", 0, 0, 7,
+        "Yoke", "2026-08-03T00:00:00Z", "yoke", "YOK", 7, "none",
+    ]
+    legacy_sql = _items_sql("", definition_metadata=False)
+    replay = ReplayBoardDB.from_payload({
+        "version": 1,
+        "entries": [{
+            "kind": "query",
+            "sql": legacy_sql,
+            "params": None,
+            "rows": [legacy_row],
+        }],
+    })
+
+    assert not replay.has_query(_items_sql("", definition_metadata=True))
+    assert query_item_rows(replay, "") == [(
+        *legacy_row[:-1], None, None, legacy_row[-1],
+    )]
 
 
 def test_payload_versions_must_match(populated_db, config_file):
