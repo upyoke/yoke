@@ -25,6 +25,7 @@ from yoke_core.engines.merge_worktree_prepare import (
 from yoke_core.engines.merge_worktree_local_sync import (
     _sync_local_target,  # noqa: F401  -- re-exported for legacy import path
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 # ---------------------------------------------------------------------------
@@ -220,9 +221,12 @@ def _regenerate_views_or_exit5(ctx: MergeContext) -> int:
             err=True,
         )
         _print(f"Failure: {type(exc).__name__}: {exc}", err=True)
+        usher_ref = (
+            item_ref_for_id(int(ctx.item_id)) if ctx.item_id else ctx.args.branch
+        )
         _print(
             "Recovery: fix the view-regen / board-rebuild issue, then "
-            f"resume with `/yoke usher {(('YOK-' + ctx.item_id) if ctx.item_id else ctx.args.branch)}`.",
+            f"resume with `/yoke usher {usher_ref}`.",
             err=True,
         )
         return 5

@@ -109,8 +109,10 @@ def strategy_carry_register_new(args: List[str]) -> int:
         if parsed.result_json:
             print(json.dumps(result, sort_keys=True), file=stdout)
             return
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         for item_id in result.get("new_ids", []):
-            print(f"YOK-{item_id}", file=stdout)
+            print(item_ref_for_id(int(item_id)), file=stdout)
 
     return dispatch_and_emit(
         function_id="strategy.carry.register_new",

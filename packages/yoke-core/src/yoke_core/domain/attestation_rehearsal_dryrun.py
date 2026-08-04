@@ -251,7 +251,10 @@ def issue_payloads_for_item(
     item_id: int,
 ) -> List[Dict[str, Any]]:
     """Return one ``Issue``-shaped dict per failing rehearsal command."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     payloads: List[Dict[str, Any]] = []
+    item_ref = render_item_ref(conn, item_id)
     for outcome in validate_attestation_rehearsal_commands(conn, item_id):
         if outcome.passed:
             continue
@@ -266,7 +269,7 @@ def issue_payloads_for_item(
                 "remediation": (
                     "amend the attestation's rehearsal_commands via the "
                     "db_claim.amend function id (CLI adapter: "
-                    f'`yoke db-claim amend YOK-{item_id} --reason "<why>" '
+                    f'`yoke db-claim amend {item_ref} --reason "<why>" '
                     "--payload '<unified-claim-json>'`) "
                     "so each command shell-parses and every referenced "
                     "in-repo path exists on the worktree"

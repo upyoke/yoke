@@ -11,6 +11,7 @@ from yoke_core.engines.merge_worktree_post_helpers import (
 from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _parent():
@@ -256,13 +257,16 @@ def _post_merge_cleanup(
             "roll the item back to 'implemented').",
             err=True,
         )
+        usher_ref = (
+            item_ref_for_id(int(ctx.item_id)) if ctx.item_id else ctx.args.branch
+        )
         _print(
             "Recovery: from the main repo, run "
             f"`git fetch origin {ctx.args.target}` then "
             f"`git merge --ff-only origin/{ctx.args.target}` if {ctx.args.target} is "
             f"checked out, or `git fetch origin {ctx.args.target}:{ctx.args.target}` "
             f"if it is not; then resume with "
-            f"`/yoke usher {(('YOK-' + ctx.item_id) if ctx.item_id else ctx.args.branch)}`.",
+            f"`/yoke usher {usher_ref}`.",
             err=True,
         )
         # Continue with remaining cleanup (stash, ensure-target, print

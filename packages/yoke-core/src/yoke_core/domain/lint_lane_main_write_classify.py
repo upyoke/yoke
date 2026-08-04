@@ -18,6 +18,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_payload_command,
     extract_payload_targets,
@@ -139,9 +140,10 @@ def lane_equivalent_path(main_target: str, claim: ClaimedWorktree) -> str:
 
 
 def item_label(claim: ClaimedWorktree) -> str:
+    ref = item_ref_for_id(int(claim.item_id))
     if claim.task_num is not None:
-        return f"YOK-{claim.item_id} (T{claim.task_num})"
-    return f"YOK-{claim.item_id}"
+        return f"{ref} (T{claim.task_num})"
+    return ref
 
 
 def is_write_operation(tool_name: str, payload: dict) -> bool:

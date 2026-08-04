@@ -8,6 +8,8 @@ two units cannot disagree about what an override means.
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
@@ -266,7 +268,7 @@ def resolve_module_override(
     if not worktree_path:
         raise ModuleOverrideError(
             f"--module-path-override requires an active item worktree; "
-            f"YOK-{item_id} has no active lane path "
+            f"{item_ref_for_id(int(item_id))} has no active lane path "
             "(or this machine has no checkout mapping for the project)."
         )
     worktree_real = Path(worktree_path).expanduser().resolve()

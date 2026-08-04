@@ -9,6 +9,8 @@ can never carry stray whitespace/case).
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity import render_item_ref
+
 from typing import Any, TextIO
 
 from yoke_core.domain import backlog_rendering as _rendering
@@ -53,7 +55,10 @@ def _apply_shell_fallback(
         }
 
     _update_item_field(conn, item_id, field, value)
-    print(f"Updated: YOK-{item_id} {field} -> {value}", file=out)
+    print(
+        f"Updated: {render_item_ref(conn, int(item_id))} {field} -> {value}",
+        file=out,
+    )
 
     if field in LABEL_SYNC_FIELDS:
         if not _rendering._sync_labels(item_id, out):

@@ -63,10 +63,12 @@ class WorkClaimTarget:
         }
 
     def render(self) -> str:
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         if self.kind == TARGET_KIND_ITEM:
-            return f"YOK-{self.item_id}"
+            return item_ref_for_id(int(self.item_id))
         if self.kind == TARGET_KIND_EPIC_TASK:
-            return f"YOK-{self.epic_id} task {self.task_num}"
+            return f"{item_ref_for_id(int(self.epic_id))} task {self.task_num}"
         return f"process:{self.process_key}"
 
 

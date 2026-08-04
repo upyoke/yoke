@@ -31,7 +31,7 @@ class TestReviewedNegativeClaimClearsGate:
         outcome = check(
             "The gate must block specs that cite ALTER TABLE and ADD COLUMN.",
             profile_raw=_reviewed_none_profile_json(),
-            item_id=600,
+            item_ref="YOK-600",
         )
         assert outcome.triggers
         assert outcome.reviewed_negative_claim_detected is True
@@ -42,7 +42,7 @@ class TestReviewedNegativeClaimClearsGate:
         outcome = check(
             "The gate must block specs that cite ALTER TABLE and ADD COLUMN.",
             profile_raw='{"state":"none"}',
-            item_id=601,
+            item_ref="YOK-601",
         )
         assert outcome.triggers
         assert outcome.reviewed_negative_claim_detected is False
@@ -52,7 +52,7 @@ class TestReviewedNegativeClaimClearsGate:
         outcome = check(
             "The gate must block specs that cite ALTER TABLE and ADD COLUMN.",
             profile_raw='{"state":"unexpected","reviewed_negative":true}',
-            item_id=602,
+            item_ref="YOK-602",
         )
         assert outcome.triggers
         assert outcome.reviewed_negative_claim_detected is False
@@ -62,7 +62,7 @@ class TestReviewedNegativeClaimClearsGate:
         outcome = check(
             "The gate must block specs that cite ALTER TABLE and ADD COLUMN.",
             profile_raw='{"state":"none","reviewed_negative":false}',
-            item_id=603,
+            item_ref="YOK-603",
         )
         assert outcome.reviewed_negative_claim_detected is False
         assert outcome.blocks is True

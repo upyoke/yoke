@@ -30,6 +30,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _ARCHITECTURE_GATE_TARGETS = frozenset({
@@ -106,6 +107,7 @@ def _run_architecture_impact_gate(
         return None
     conn = connect(db_path)
     try:
+        item_ref = render_item_ref(conn, int(item_id))
         impact = _read_item_impact(conn, item_id)
         if impact is None or impact in {"none", "path_context_only"}:
             return None
@@ -114,12 +116,12 @@ def _run_architecture_impact_gate(
                 "success": False,
                 "error_code": "GATE_ARCHITECTURE_IMPACT_UNCERTAIN",
                 "error": (
-                    f"Cannot advance YOK-{item_id} to '{target_status}' — "
+                    f"Cannot advance {item_ref} to '{target_status}' — "
                     "architecture_impact='uncertain'. Refine must resolve "
                     "to none, path_context_only, or "
                     "architecture_model_change. Repair: `printf '%s' "
                     "<value> | python3 -m yoke_core.cli.db_router "
-                    f"items update YOK-{item_id} architecture_impact "
+                    f"items update {item_ref} architecture_impact "
                     "--stdin`."
                 ),
             }
@@ -130,7 +132,7 @@ def _run_architecture_impact_gate(
                 "success": False,
                 "error_code": "GATE_ARCHITECTURE_MODEL_CHANGE_NO_SURFACE",
                 "error": (
-                    f"Cannot advance YOK-{item_id} to '{target_status}' — "
+                    f"Cannot advance {item_ref} to '{target_status}' — "
                     "architecture_impact='architecture_model_change' but "
                     "the path-claim does not cover any architecture-model "
                     "authoring surface (architecture_model.py, "

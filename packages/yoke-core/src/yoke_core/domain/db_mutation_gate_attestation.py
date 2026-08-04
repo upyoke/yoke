@@ -45,7 +45,9 @@ def stamp_attestation_frozen_at(
             (item_id,),
         ).fetchone()
         if row is None:
-            raise LookupError(f"Item YOK-{item_id} not found")
+            from yoke_core.domain.project_identity import render_item_ref
+
+            raise LookupError(f"Item {render_item_ref(c, item_id)} not found")
         raw = row["db_compatibility_attestation"] if hasattr(row, "keys") else row[0]
         attestation = _safe_parse_dict(raw)
         if attestation.get(FREEZE_FIELD):
@@ -90,7 +92,9 @@ def clear_attestation_frozen_at(
             (item_id,),
         ).fetchone()
         if row is None:
-            raise LookupError(f"Item YOK-{item_id} not found")
+            from yoke_core.domain.project_identity import render_item_ref
+
+            raise LookupError(f"Item {render_item_ref(c, item_id)} not found")
         raw = row["db_compatibility_attestation"] if hasattr(row, "keys") else row[0]
         attestation = _safe_parse_dict(raw)
         if not attestation.get(FREEZE_FIELD):

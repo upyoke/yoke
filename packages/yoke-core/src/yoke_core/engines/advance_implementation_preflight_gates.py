@@ -20,6 +20,7 @@ from typing import Any, Dict, Tuple
 from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _relay_gate(
@@ -59,11 +60,12 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     ac = _relay_gate("advance.preflight.ac_presence", item_id)
     title = ac.get("title")
     canonical = int(ac.get("canonical") or 0)
+    item_ref = item_ref_for_id(int(item_id))
     if title is None:
-        return False, f"YOK-{item_id} not found in DB."
+        return False, f"{item_ref} not found in DB."
     if canonical <= 0:
         return False, (
-            f"YOK-{item_id} has no acceptance criteria. Add "
+            f"{item_ref} has no acceptance criteria. Add "
             f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
         )
 
@@ -75,7 +77,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
         return False, (
-            f"BLOCKED: YOK-{item_id} File Budget lists "
+            f"BLOCKED: {item_ref} File Budget lists "
             f"{len(missing)} path(s) not covered by any active "
             f"path_claim.\nMissing: " + ", ".join(missing)
         )

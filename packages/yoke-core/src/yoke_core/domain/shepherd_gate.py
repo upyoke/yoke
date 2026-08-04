@@ -25,6 +25,8 @@ outcome — callers can capture it or rely solely on the exit code.
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity import render_item_ref
+
 import argparse
 import sys
 from dataclasses import dataclass
@@ -95,10 +97,14 @@ def check_gate(
     ``db_helpers.connect``. Ownership of a caller-supplied connection is
     preserved — this function neither commits nor closes it.
     """
-    item_ref = f"YOK-{item_id}"
+    # ``shepherd_verdicts.item`` is keyed by the writer as the legacy
+    # ``YOK-{items.id}`` token, so the lookup key and the operator-facing
+    # display ref are two different strings.
+    verdict_key = f"YOK-{item_id}"
 
     def _evaluate(c: Any) -> GateResult:
-        current = _lookup_latest_verdict(c, item_ref, CURRENT_TRANSITION)
+        item_ref = render_item_ref(c, int(item_id))
+        current = _lookup_latest_verdict(c, verdict_key, CURRENT_TRANSITION)
         if current is not None:
             return GateResult(
                 passed=True,
@@ -109,7 +115,7 @@ def check_gate(
                     f"on {item_ref}."
                 ),
             )
-        legacy = _lookup_latest_verdict(c, item_ref, LEGACY_TRANSITION)
+        legacy = _lookup_latest_verdict(c, verdict_key, LEGACY_TRANSITION)
         if legacy is not None:
             return GateResult(
                 passed=True,

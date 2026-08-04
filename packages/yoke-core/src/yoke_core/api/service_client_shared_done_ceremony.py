@@ -14,6 +14,7 @@ import io
 import os
 import sys
 from pathlib import Path
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _update_requests_done(update_args: list[str]) -> bool:
@@ -41,9 +42,9 @@ def _consume_done_nonce(item_id: int) -> tuple[bool, str]:
     return (
         False,
         (
-            f"Cannot set YOK-{item_id} to 'done' — missing done-transition ceremony nonce.\n"
+            f"Cannot set {item_ref_for_id(item_id)} to 'done' — missing done-transition ceremony nonce.\n"
             "  Setting status=done requires the full done-transition ceremony.\n"
-            f"  Use: /yoke usher YOK-{item_id}"
+            f"  Use: /yoke usher {item_ref_for_id(item_id)}"
         ),
     )
 
@@ -60,7 +61,7 @@ def _confirm_done_recovery(item_id: int) -> tuple[bool, str]:
         )
 
     with tty:
-        tty.write(f"Warning: YOKE_DONE_RECOVERY requested for YOK-{item_id}.\n")
+        tty.write(f"Warning: YOKE_DONE_RECOVERY requested for {item_ref_for_id(item_id)}.\n")
         tty.write("  Recovery re-runs the full done-transition ceremony.\n")
         tty.write("  It may merge, populate merged_at, clean up worktrees/branches, sync bookkeeping, and push commits.\n")
         tty.write("Type RECOVER to continue: ")
@@ -99,14 +100,14 @@ def _run_done_recovery(item_id: int) -> dict[str, object]:
         else:
             os.environ["YOKE_DONE_RECOVERY"] = previous_recovery
 
-    log = f"Recovery confirmed. Re-running done-transition ceremony for YOK-{item_id}...\n"
+    log = f"Recovery confirmed. Re-running done-transition ceremony for {item_ref_for_id(item_id)}...\n"
     log += stdout.getvalue()
     log += stderr.getvalue()
     if result_code == 0:
         return {"success": True, "recovered": True, "item_id": item_id, "log": log}
     return {
         "success": False,
-        "error": f"done-transition recovery failed for YOK-{item_id}",
+        "error": f"done-transition recovery failed for {item_ref_for_id(item_id)}",
         "item_id": item_id,
         "log": log,
     }

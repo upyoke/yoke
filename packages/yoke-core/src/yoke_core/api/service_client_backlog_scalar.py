@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import sys
 from typing import Any, List, Optional
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _parse_item_id(raw: str) -> Optional[int]:
@@ -95,7 +96,7 @@ def cmd_freeze(args: List[str]) -> int:
     if item_id is None:
         return 2
     response = _dispatch_scalar(item_id, "frozen", True, "freeze")
-    return _emit_outcome(response, f"YOK-{item_id}: frozen")
+    return _emit_outcome(response, f"{item_ref_for_id(item_id)}: frozen")
 
 
 def cmd_thaw(args: List[str]) -> int:
@@ -104,7 +105,7 @@ def cmd_thaw(args: List[str]) -> int:
     if item_id is None:
         return 2
     response = _dispatch_scalar(item_id, "frozen", False, "thaw")
-    return _emit_outcome(response, f"YOK-{item_id}: thawed")
+    return _emit_outcome(response, f"{item_ref_for_id(item_id)}: thawed")
 
 
 def cmd_block(args: List[str]) -> int:
@@ -131,14 +132,14 @@ def cmd_block(args: List[str]) -> int:
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: YOK-{item_id} blocked=true set but reason write failed "
+            f"PARTIAL: {item_ref_for_id(item_id)} blocked=true set but reason write failed "
             f"({code}: {msg}). Recover with: "
             f"python3 -m yoke_core.cli.db_router items update {item_id} "
             f"blocked_reason '<reason>'",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f'YOK-{item_id}: blocked (reason: {reason})')
+    return _emit_outcome(reason_response, f'{item_ref_for_id(item_id)}: blocked (reason: {reason})')
 
 
 def cmd_unblock(args: List[str]) -> int:
@@ -156,14 +157,14 @@ def cmd_unblock(args: List[str]) -> int:
         code = getattr(err, "code", None) or (err.get("code") if isinstance(err, dict) else "")
         msg = getattr(err, "message", None) or (err.get("message") if isinstance(err, dict) else str(err))
         print(
-            f"PARTIAL: YOK-{item_id} blocked=false set but reason clear failed "
+            f"PARTIAL: {item_ref_for_id(item_id)} blocked=false set but reason clear failed "
             f"({code}: {msg}). Recover with: "
             f"python3 -m yoke_core.cli.db_router items update {item_id} "
             f"blocked_reason ''",
             file=sys.stderr,
         )
         return 1
-    return _emit_outcome(reason_response, f"YOK-{item_id}: unblocked")
+    return _emit_outcome(reason_response, f"{item_ref_for_id(item_id)}: unblocked")
 
 
 __all__ = [
