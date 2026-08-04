@@ -1,6 +1,7 @@
 import { el } from "./universe_view_support.js";
 import { callFunction } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
+import { renderCanonDiff } from "./workflow_view_canon_diff.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function inspectionNode(row) {
@@ -247,6 +248,12 @@ export function renderVersionHistory(documentNode, workflow, actions) {
   const status = canonStatusLine(documentNode, workflow);
   if (status) {
     body.appendChild(status);
+  }
+  // The diff sits under the status line rather than behind a separate screen:
+  // "you are behind" and "here is what that means" are one question.
+  const diff = renderCanonDiff(documentNode, workflow, actions);
+  if (diff) {
+    body.appendChild(diff);
   }
   const timeline = el(documentNode, "div", "workflow-version-timeline");
   for (const version of versions) {

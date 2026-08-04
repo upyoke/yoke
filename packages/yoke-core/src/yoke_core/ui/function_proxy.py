@@ -59,6 +59,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "workflows.definition.get",
     "workflows.mechanics.get",
     "workflows.version.get",
+    "workflows.canon.get",
     "test_machine.get",
     # Documented exception to "no side effects": the Overview activation
     # read latches newly satisfied module activations into

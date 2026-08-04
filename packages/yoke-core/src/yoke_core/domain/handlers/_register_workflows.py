@@ -50,6 +50,20 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
+        "workflows.canon.get",
+        _wv.handle_workflows_canon_get,
+        _wv.WorkflowCanonGetRequest,
+        _wv.WorkflowCanonGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "workflows.current.set",
         _wv.handle_workflows_current_set,
         _wv.WorkflowCurrentSetRequest,
