@@ -32,7 +32,24 @@ _GIT_BRANCH_BLOB_RE = re.compile(r"^[0-9a-f]{4,}$", re.IGNORECASE)
 def _resolve_module_path(
     repo_path: Path, modules_dir: str, identifier: str
 ) -> Path:
-    return repo_path / modules_dir / f"{identifier}.py"
+    """Locate a declared module the way the applier discovers it.
+
+    History entries are ``NNNN_slug.py``, so an item that names the slug does
+    not name the filename. Resolving by slug as well as by full stem keeps a
+    declaration valid across a renumbering — a squash renumbers entries, it
+    does not rename them — and stops the scanner silently reading nothing when
+    the two differ.
+    """
+    directory = repo_path / modules_dir
+    exact = directory / f"{identifier}.py"
+    if exact.is_file():
+        return exact
+    suffix = f"_{identifier}.py"
+    match = next(
+        (p for p in sorted(directory.glob("*.py")) if p.name.endswith(suffix)),
+        None,
+    )
+    return match if match is not None else exact
 
 
 def _read_module_text(path: Path) -> Optional[str]:
@@ -101,13 +118,23 @@ def _parse_yaml_frontmatter(text: str) -> dict:
     return out
 
 
-def _audit_row_completed_for_module(
+def _audit_row_rehearsed_for_module(
     audit_conn: Any,
     project_id: int,
     model_name: str,
     identifier: str,
 ) -> bool:
-    """True if the model's authoritative DB has a completed audit row."""
+    """True if the model's authoritative DB records a rehearsal for *identifier*.
+
+    Rehearsal is the evidence a work item can actually produce before it
+    merges. Applying is no longer something the item does: the boot converge
+    that starts a server brings its database up to the code that server runs,
+    which happens after this item lands. Demanding a completed apply here
+    would demand proof of something that has not been allowed to happen yet.
+
+    States at or past ``rehearsed`` all count -- a database that went further
+    has plainly rehearsed.
+    """
     p = "%s" if db_backend.connection_is_postgres(audit_conn) else "?"
     cursor = audit_conn.execute(
         "SELECT state FROM migration_audit "
@@ -115,15 +142,19 @@ def _audit_row_completed_for_module(
         f"AND COALESCE(model_name, {p}) = {p}",
         (identifier, project_id, model_name, model_name),
     )
+    settled = {
+        "rehearsed", "backup_created", "live_applied", "live_verified",
+        "completed",
+    }
     for row in cursor.fetchall():
         state_val = row["state"] if hasattr(row, "keys") else row[0]
-        if state_val and str(state_val) == "completed":
+        if state_val and str(state_val) in settled:
             return True
     return False
 
 
 __all__ = [
-    "_audit_row_completed_for_module",
+    "_audit_row_rehearsed_for_module",
     "_extract_candidate_ddl",
     "_parse_yaml_frontmatter",
     "_read_module_text",

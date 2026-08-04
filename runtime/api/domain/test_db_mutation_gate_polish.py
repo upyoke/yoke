@@ -16,7 +16,6 @@ from yoke_core.domain.db_mutation_gate import (
 )
 from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
-    _seed_flow_with_migration_apply,
     _seed_project,
     _write_module,
     gate_audit_path,
@@ -42,7 +41,6 @@ class TestPolishGate:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
         modules_dir = "runtime/api/domain/migrations"
         _write_module(repo_path, modules_dir, "demo_module")
         profile = {
@@ -74,50 +72,7 @@ class TestPolishGate:
         )
         return 4242, audit_path
 
-    def test_apply_with_extant_backup_passes(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        backup = repo_path / "rollbacks" / "demo.sqlite"
-        backup.parent.mkdir(parents=True, exist_ok=True)
-        backup.write_bytes(b"backup-contents")
-        item_id, audit = self._stage_with_completed_audit(
-            gate_db, backup_path=str(backup),
-        )
-        outcome = check_polishing_implementation_to_implemented_gate(
-            item_id, conn=conn, audit_db_path=audit,
-        )
-        assert outcome.passed, outcome.errors
 
-    def test_apply_with_missing_backup_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        ghost = repo_path / "rollbacks" / "ghost.sqlite"
-        item_id, audit = self._stage_with_completed_audit(
-            gate_db, backup_path=str(ghost),
-        )
-        outcome = check_polishing_implementation_to_implemented_gate(
-            item_id, conn=conn, audit_db_path=audit,
-        )
-        assert not outcome.passed
-        assert any("rollback backup missing" in e for e in outcome.errors)
-
-    def test_apply_with_stale_in_progress_audit_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        backup = repo_path / "rollbacks" / "demo.sqlite"
-        backup.parent.mkdir(parents=True, exist_ok=True)
-        backup.write_bytes(b"backup")
-        item_id, audit = self._stage_with_completed_audit(
-            gate_db, backup_path=str(backup),
-        )
-        seed_audit_row(
-            repo_path,
-            columns="migration_name, state, project_id, model_name, started_at",
-            placeholders="?, 'live_applied', ?, 'primary', ?",
-            values=("demo_module", 1, "2026-04-23T00:01:00Z"),
-        )
-        outcome = check_polishing_implementation_to_implemented_gate(
-            item_id, conn=conn, audit_db_path=audit,
-        )
-        assert not outcome.passed
-        assert any("stale in-progress" in e for e in outcome.errors)
 
 
 class TestPolishGateTestResults:

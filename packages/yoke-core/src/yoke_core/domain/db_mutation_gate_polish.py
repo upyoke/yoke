@@ -12,18 +12,14 @@ never applies anything.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, List, Optional
 
-from yoke_core.domain import db_backend, db_helpers, qa_command_plans
+from yoke_core.domain import db_helpers, qa_command_plans
 from yoke_core.domain.db_mutation_gate_implementing import (
-    _resolve_audit_db_path,
     check_implementing_to_reviewing_implementation_gate,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
-    _load_capability_settings,
     _load_item_row,
-    _resolve_repo_path,
 )
 from yoke_core.domain.db_mutation_gate_shared import (
     GateOutcome,
@@ -35,7 +31,6 @@ from yoke_core.domain.db_mutation_profile import (
     validate as validate_profile,
 )
 from yoke_core.domain.item_test_results_classify import classify_test_results
-from yoke_core.domain.migration_model_capability import resolve_model
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -79,62 +74,12 @@ def check_polishing_implementation_to_implemented_gate(
                 return GateOutcome(passed=False, errors=[test_results_error])
             return GateOutcome(passed=True)
 
-        project = item.get("project") or ""
-        project_id = int(item["project_id"])
-        capability_settings = _load_capability_settings(c, project)
-        if capability_settings is None:
-            return GateOutcome(passed=True)  # base gate already failed if missing
-        model = resolve_model(capability_settings, profile["model_name"])
-        repo_path = _resolve_repo_path(c, project)
-        audit_path = audit_db_path or _resolve_audit_db_path(repo_path, model)
-        if audit_path is None:
-            return GateOutcome(passed=True)
-
+        # The apply now happens on the boot converge after this item deploys,
+        # so at polish time nothing has been applied to the authoritative
+        # database yet and there is no rollback backup to insist on. Any audit
+        # row present here describes a rehearsal against a validation surface,
+        # which is not a live mutation and needs no backup to hold.
         errors: List[str] = []
-        audit_conn = db_helpers.connect(audit_path)
-        try:
-            p = "%s" if db_backend.connection_is_postgres(audit_conn) else "?"
-            for identifier in profile["migration_modules"]:
-                rows = audit_conn.execute(
-                    "SELECT state, backup_path FROM migration_audit "
-                    f"WHERE migration_name = {p} "
-                    f"AND project_id = {p} "
-                    f"AND COALESCE(model_name, {p}) = {p} "
-                    "AND state IN "
-                    "('backup_created', 'live_applied') "
-                    "ORDER BY id DESC LIMIT 1",
-                    (identifier, project_id, profile["model_name"], profile["model_name"]),
-                ).fetchall()
-                if rows:
-                    errors.append(
-                        f"module '{identifier}' has stale in-progress audit row "
-                        f"({rows[0]['state'] if hasattr(rows[0], 'keys') else rows[0][0]}) "
-                        "— resolve before advancing past polishing"
-                    )
-                    continue
-                backup_row = audit_conn.execute(
-                    "SELECT backup_path FROM migration_audit "
-                    f"WHERE migration_name = {p} "
-                    f"AND project_id = {p} "
-                    f"AND COALESCE(model_name, {p}) = {p} "
-                    "AND state = 'completed' "
-                    "ORDER BY id DESC LIMIT 1",
-                    (identifier, project_id, profile["model_name"], profile["model_name"]),
-                ).fetchone()
-                if backup_row is None:
-                    continue
-                backup_path = backup_row["backup_path"] if hasattr(backup_row, "keys") else backup_row[0]
-                if backup_path:
-                    candidate = Path(backup_path)
-                    if not candidate.is_absolute():
-                        candidate = repo_path / candidate
-                    if not candidate.is_file():
-                        errors.append(
-                            f"module '{identifier}' rollback backup missing at "
-                            f"{candidate}"
-                        )
-        finally:
-            audit_conn.close()
 
         if test_results_error:
             errors.append(test_results_error)
