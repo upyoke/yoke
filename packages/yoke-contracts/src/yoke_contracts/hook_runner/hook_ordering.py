@@ -216,6 +216,7 @@ _PRE_TASK_OUTPUT: tuple[str, ...] = (
 )
 
 _PRE_MONITOR: tuple[str, ...] = (
+    "yoke_core.domain.lint_monitor_watcher_tail",
     "yoke_core.domain.lint_long_command_polling",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.hint_monitor_relay",

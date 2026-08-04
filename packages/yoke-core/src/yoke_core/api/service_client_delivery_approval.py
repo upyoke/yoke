@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import sys
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
     _load_item_state,
@@ -102,7 +103,7 @@ def cmd_apply_approval(args: list[str]) -> int:
         if item_state is None:
             print(json.dumps({
                 "success": False,
-                "error": f"Item YOK-{item_id} not found",
+                "error": f"Item {item_ref_for_id(item_id)} not found",
                 "error_code": "NOT_FOUND",
             }))
             return 1

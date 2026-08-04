@@ -31,24 +31,31 @@ class TestCheckComposition:
         assert outcome.recovery == ""
 
     def test_prose_triggers_with_state_none_blocks(self):
-        item_id = 999
         outcome = check(
             "We will ALTER TABLE items to add due_date.",
             profile_raw='{"state":"none"}',
-            item_id=item_id,
+            item_ref="BUZ-999",
         )
         assert outcome.blocks is True
         assert "ALTER TABLE" in outcome.triggers
-        assert f"YOK-{item_id}" in outcome.recovery
+        assert "BUZ-999" in outcome.recovery
         assert "yoke db-claim amend" in outcome.recovery
 
+    def test_recovery_without_a_ref_uses_a_prefix_neutral_placeholder(self):
+        outcome = check(
+            "We will ALTER TABLE items to add due_date.",
+            profile_raw='{"state":"none"}',
+        )
+        assert outcome.blocks is True
+        assert "PREFIX-N" in outcome.recovery
+        assert "YOK-" not in outcome.recovery
+
     def test_explicit_negative_claim_suppresses_vocabulary_only_hits(self):
-        item_id = 88
         outcome = check(
             "This work item is expected to be control-plane code only. "
             "It should not mutate live Yoke DB schema or bulk data.",
             profile_raw='{"state":"none"}',
-            item_id=item_id,
+            item_ref="YOK-88",
         )
         assert outcome.triggers
         assert outcome.negative_claim_detected is True
@@ -56,12 +63,11 @@ class TestCheckComposition:
         assert outcome.recovery == ""
 
     def test_negative_claim_does_not_suppress_structural_sql_hits(self):
-        item_id = 89
         outcome = check(
             "This work item does not run live DB apply during refine, but "
             "the implementation will ALTER TABLE items ADD COLUMN due_date TEXT.",
             profile_raw='{"state":"none"}',
-            item_id=item_id,
+            item_ref="YOK-89",
         )
         assert outcome.negative_claim_detected is False
         assert outcome.blocks is True
@@ -82,13 +88,12 @@ class TestCheckComposition:
         assert outcome.blocks is False
 
     def test_recovery_includes_amend_command(self):
-        item_id = 42
         outcome = check(
             "Updates migration_audit during apply.",
             profile_raw='{"state":"none"}',
-            item_id=item_id,
+            item_ref="BUZ-42",
         )
-        assert f"yoke db-claim amend YOK-{item_id}" in outcome.recovery
+        assert "yoke db-claim amend BUZ-42" in outcome.recovery
         assert "--reason \"<why>\" --payload '<unified-claim-json>'" in outcome.recovery
         assert "service_client" not in outcome.recovery
 
@@ -96,7 +101,7 @@ class TestCheckComposition:
         outcome = check(
             "ALTER TABLE x",
             profile_raw=None,
-            item_id=1,
+            item_ref="YOK-1",
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True
@@ -105,7 +110,7 @@ class TestCheckComposition:
         outcome = check(
             "ALTER TABLE x",
             profile_raw="{not-json",
-            item_id=1,
+            item_ref="YOK-1",
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True
@@ -130,6 +135,28 @@ class TestCheckItem:
         assert outcome.blocks is True
         assert "ALTER TABLE" in outcome.triggers
         assert f"YOK-{item_id}" in outcome.recovery
+
+    def test_recovery_quotes_the_projects_own_prefix_and_sequence(self, db_conn):
+        """The amend command names the item's public ref, not ``YOK``+``items.id``.
+
+        ``externalwebapp`` carries the ``EXT`` prefix and this row's
+        ``project_sequence`` differs from its ``items.id``, so a hardcoded
+        prefix or an internal id would both be visible in the recovery line.
+        """
+        insert_item(
+            db_conn,
+            id=205,
+            project="externalwebapp",
+            project_sequence=17,
+            status="refining-idea",
+            spec="The work item will ALTER TABLE items to add due_date.",
+            db_mutation_profile='{"state":"none"}',
+        )
+        outcome = check_item(205, conn=db_conn)
+        assert outcome.blocks is True
+        assert "yoke db-claim amend EXT-17" in outcome.recovery
+        assert "YOK-" not in outcome.recovery
+        assert "205" not in outcome.recovery
 
     def test_passes_when_prose_clean_and_profile_negative(self, db_conn):
         insert_item(

@@ -11,6 +11,8 @@ dispatch REST calls directly via the helpers in
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import json
 import os
 import sys
@@ -192,11 +194,13 @@ def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
             file=stderr,
         )
         print(
-            f'  Claim first: yoke claims work acquire --item YOK-{epic_id} --reason "<intent>"',
+            f"  Claim first: yoke claims work acquire --item "
+            f'{item_ref_for_id(epic_id_int)} --reason "<intent>"',
             file=stderr,
         )
         print(
-            f"  Incident recovery: yoke lifecycle repair-status YOK-{epic_id} "
+            f"  Incident recovery: yoke lifecycle repair-status "
+            f"{item_ref_for_id(epic_id_int)} "
             '--to TARGET_STATUS --reason "reconcile lifecycle state"',
             file=stderr,
         )

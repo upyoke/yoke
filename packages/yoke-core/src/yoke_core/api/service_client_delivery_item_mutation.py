@@ -16,6 +16,7 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.api.service_client_shared import (
     _get_db_path,
     _get_db_readonly,
@@ -233,7 +234,7 @@ def cmd_update_item(args: list[str]) -> int:
         if row is None:
             print(json.dumps({
                 "success": False,
-                "error": f"Item YOK-{item_id} not found",
+                "error": f"Item {item_ref_for_id(item_id)} not found",
                 "error_code": "NOT_FOUND",
             }))
             return 1
@@ -243,7 +244,7 @@ def cmd_update_item(args: list[str]) -> int:
         if item_state is None:
             print(json.dumps({
                 "success": False,
-                "error": f"Item YOK-{item_id} not found",
+                "error": f"Item {item_ref_for_id(item_id)} not found",
                 "error_code": "NOT_FOUND",
             }))
             return 1

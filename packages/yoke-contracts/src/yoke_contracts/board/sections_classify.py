@@ -14,44 +14,11 @@ from yoke_contracts.project_contract.board_art.emoji import (
     STATUS_EMOJI as _STATUS_EMOJI_PREFIX,
 )
 from yoke_contracts.board.board_db import BoardDBLike
-from yoke_contracts.board.project_scope import project_filter, scope_project_id
+from yoke_contracts.board.project_scope import project_filter
 from yoke_contracts.board.status import status_to_board_bucket
 from yoke_contracts.board.sections_definition_queries import query_item_rows
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_contracts.item_ref import format_item_ref
-
-# ---------------------------------------------------------------------------
-# Scope helper
-# ---------------------------------------------------------------------------
-
-
-def _project_filter_sql(
-    scope: str,
-    alias: str = "i",
-    *,
-    db: Optional[BoardDBLike] = None,
-) -> str:
-    """Return SQL AND clause fragment for project scoping.
-
-    When *scope* is ``"all"``, returns the active authenticated visibility
-    filter, or an empty string in local/admin context.
-    Otherwise resolves the public slug/id through ``project_identity``
-    and returns ``" AND <alias>.project_id = N"`` using the provided
-    table alias prefix.
-    """
-    if scope == "all":
-        return project_filter(scope, alias)
-    project_id = _resolve_scope_project_id(scope, db=db)
-    return f" AND {alias}.project_id = {project_id}"
-
-
-def _resolve_scope_project_id(scope: str, *, db: Optional[BoardDBLike]) -> int:
-    if str(scope).isdigit():
-        return int(scope)
-    if db is None:
-        raise ValueError("board project scope resolution requires a database")
-    return scope_project_id(db, scope)
-
 
 # ---------------------------------------------------------------------------
 # Named tuple for classified item rows
@@ -171,7 +138,7 @@ def precompute_epic_stats(
     Returns:
         Dict mapping epic_id to :class:`EpicStats`.
     """
-    pf = _project_filter_sql(scope, db=db)
+    pf, params = project_filter(scope, "i")
     _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
     rows = db.query_quiet(
         f"""
@@ -183,6 +150,7 @@ def precompute_epic_stats(
         WHERE 1=1{pf}
         GROUP BY et.epic_id
         """,
+        params,
     )
     result: Dict[int, EpicStats] = {}
     for r in rows:
@@ -230,8 +198,8 @@ def classify_items(
         "unknown": [],
     }
 
-    pf = _project_filter_sql(scope, db=db)
-    rows = query_item_rows(db, pf)
+    pf, params = project_filter(scope, "i")
+    rows = query_item_rows(db, pf, params)
 
     for row in rows:
         (

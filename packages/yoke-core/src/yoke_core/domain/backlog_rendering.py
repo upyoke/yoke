@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Optional, TextIO
 if TYPE_CHECKING:
     from yoke_core.domain.backlog_github_body_budget import SyncMode
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.backlog_queries import (
     _is_dry_run,
     _yoke_root,
@@ -99,7 +100,7 @@ def _emit_event(
         # When invoked from a deleted worktree CWD, the events
         # module may be unreachable.  Honor the non-fatal contract.
         print(
-            f"Warning: {name} event emission skipped for YOK-{item_id}"
+            f"Warning: {name} event emission skipped for {item_ref_for_id(item_id)}"
             " (events module unavailable)",
             file=out,
         )
@@ -117,7 +118,7 @@ def _emit_event(
     )
     if envelope is None:
         print(
-            f"Warning: {name} event emission failed for YOK-{item_id}",
+            f"Warning: {name} event emission failed for {item_ref_for_id(item_id)}",
             file=out,
         )
 
@@ -133,7 +134,7 @@ STATUS_COMMENT_GITHUB_MAX_ATTEMPTS = 1
 def _sync_item(item_id: int, out: TextIO = sys.stderr) -> None:
     """Sync item to GitHub (create/update issue)."""
     if _is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: sync-item for YOK-{item_id}", file=out)
+        print(f"[DRY-RUN] Skipping GitHub: sync-item for {item_ref_for_id(item_id)}", file=out)
         return
     try:
         from yoke_core.domain import backlog_github_sync
@@ -146,14 +147,14 @@ def _sync_item(item_id: int, out: TextIO = sys.stderr) -> None:
 def _sync_labels(item_id: int, out: TextIO = sys.stderr) -> bool:
     """Sync labels to GitHub."""
     if _is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: sync-labels for YOK-{item_id}", file=out)
+        print(f"[DRY-RUN] Skipping GitHub: sync-labels for {item_ref_for_id(item_id)}", file=out)
         return True
     try:
         from yoke_core.domain import backlog_github_sync
         rc = backlog_github_sync.sync_labels(str(item_id), stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
-        print(f"Warning: sync_labels failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: sync_labels failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False
 
 
@@ -167,13 +168,13 @@ def _close_issue(item_id: int, out: TextIO = sys.stderr) -> bool:
     canonical convergence mechanism after the local mutation lands.
     """
     if _is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: close-issue for YOK-{item_id}", file=out)
+        print(f"[DRY-RUN] Skipping GitHub: close-issue for {item_ref_for_id(item_id)}", file=out)
         return True
     try:
         from yoke_core.domain import backlog_github_sync
         rc = backlog_github_sync.close_issue(str(item_id), stdout=out, stderr=out)
     except Exception as exc:
-        print(f"Warning: close_issue failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: close_issue failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         _record_sync_failure(item_id, "state", f"close_issue raised: {exc}")
         return False
     if rc != 0:
@@ -185,14 +186,14 @@ def _close_issue(item_id: int, out: TextIO = sys.stderr) -> bool:
 def _sync_title(item_id: int, out: TextIO = sys.stderr) -> bool:
     """Sync title to GitHub."""
     if _is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: sync-title for YOK-{item_id}", file=out)
+        print(f"[DRY-RUN] Skipping GitHub: sync-title for {item_ref_for_id(item_id)}", file=out)
         return True
     try:
         from yoke_core.domain import backlog_github_sync
         rc = backlog_github_sync.sync_title(str(item_id), stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
-        print(f"Warning: sync_title failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: sync_title failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False
 
 
@@ -203,7 +204,7 @@ def _sync_frozen_label(item_id: int, value: str, out: TextIO = sys.stderr) -> bo
         rc = backlog_github_sync.sync_frozen_label(str(item_id), value, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
-        print(f"Warning: sync_frozen_label failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: sync_frozen_label failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False
 
 
@@ -214,7 +215,7 @@ def _sync_blocked_label(item_id: int, value: str, out: TextIO = sys.stderr) -> b
         rc = backlog_github_sync.sync_blocked_label(str(item_id), value, stdout=out, stderr=out)
         return rc == 0
     except Exception as exc:
-        print(f"Warning: sync_blocked_label failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: sync_blocked_label failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False
 
 
@@ -238,7 +239,7 @@ def _post_comment(
         )
         return rc == 0
     except Exception as exc:
-        print(f"Warning: post_comment failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: post_comment failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False
 
 
@@ -269,7 +270,7 @@ def _sync_body(
     )
 
     if _is_dry_run():
-        print(f"[DRY-RUN] Skipping GitHub: sync-body for YOK-{item_id}", file=out)
+        print(f"[DRY-RUN] Skipping GitHub: sync-body for {item_ref_for_id(item_id)}", file=out)
         return True, None
     try:
         from yoke_core.domain import backlog_github_sync
@@ -299,7 +300,7 @@ def _sync_body(
             mode = "full"
         return True, mode
     except Exception as exc:
-        print(f"Warning: sync_body failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Warning: sync_body failed for {item_ref_for_id(item_id)}: {exc}", file=out)
         return False, None
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -59,11 +60,18 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     ac = _relay_gate("advance.preflight.ac_presence", item_id)
     title = ac.get("title")
     canonical = int(ac.get("canonical") or 0)
+    # No-conn fallback: this gate path must not open a bare local connect
+    # (https control planes relay gate reads server-side). Prefer an
+    # item_ref the relay already returned; otherwise format from the id.
+    item_ref = (
+        ac.get("item_ref")
+        or format_item_ref(None, None, None, item_id=int(item_id))
+    )
     if title is None:
-        return False, f"YOK-{item_id} not found in DB."
+        return False, f"{item_ref} not found in DB."
     if canonical <= 0:
         return False, (
-            f"YOK-{item_id} has no acceptance criteria. Add "
+            f"{item_ref} has no acceptance criteria. Add "
             f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
         )
 
@@ -74,8 +82,12 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     cov = _relay_gate("advance.preflight.spec_coverage", item_id)
     if cov.get("is_blocked"):
         missing = cov.get("missing_paths") or []
+        cov_ref = (
+            cov.get("item_ref")
+            or item_ref
+        )
         return False, (
-            f"BLOCKED: YOK-{item_id} File Budget lists "
+            f"BLOCKED: {cov_ref} File Budget lists "
             f"{len(missing)} path(s) not covered by any active "
             f"path_claim.\nMissing: " + ", ".join(missing)
         )

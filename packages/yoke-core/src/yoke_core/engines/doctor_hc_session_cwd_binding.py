@@ -29,6 +29,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.lint_session_cwd_emit import emit_health_check_failed
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 import yoke_core.engines.doctor_report as _base
@@ -131,7 +132,8 @@ def hc_session_cwd_binding(
             matched_count += 1
             continue
         claim_summary = ", ".join(
-            f"YOK-{c.item_id}" + (f"/T{c.task_num}" if c.task_num else "")
+            render_item_ref(conn, int(c.item_id))
+            + (f"/T{c.task_num}" if c.task_num else "")
             for c in outcome.claims
         ) or "(none)"
         mismatches.append(
@@ -272,7 +274,7 @@ def hc_session_pre_implementing_activity(
             continue
         flagged.append(
             f"  - session {session_id}\n"
-            f"    item:        YOK-{item_id}\n"
+            f"    item:        {render_item_ref(conn, int(item_id))}\n"
             f"    status:      {status}\n"
             f"    claimed_at:  {claimed_at}\n"
             f"    tool_calls:  {count_val}"

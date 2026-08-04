@@ -157,12 +157,14 @@ def _build_response(
     request: FunctionCallRequest,
     outcome: HandlerOutcome,
 ) -> FunctionCallResponse:
+    from yoke_core.domain.result_item_ref_enrichment import enrich_result_item_refs
+
     return FunctionCallResponse(
         success=outcome.primary_success and outcome.error is None,
         function=entry.function_id,
         version=entry.version,
         request_id=request.request_id,
-        result=dict(outcome.result_payload),
+        result=enrich_result_item_refs(dict(outcome.result_payload)),
         warnings=list(outcome.warnings),
         error=outcome.error,
         event_ids=list(outcome.handler_event_ids),

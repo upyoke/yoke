@@ -3,16 +3,14 @@
 Shared fixtures and helpers live in test_merge_worktree_full.py.
 """
 
-import subprocess
-
-import pytest
+# ruff: noqa: F811
 
 from runtime.api.test_merge_worktree_full import (
     TEST_BRANCH,
     MergeEnv,
     _git,
     _write_file,
-    merge_env,  # re-export so pytest recognises this fixture in the child module  # noqa: F401
+    merge_env,  # re-export fixture for this test module  # noqa: F401
     run_merge,
 )
 
@@ -122,12 +120,8 @@ class TestPostMergeCheckout:
 # ===========================================================================
 # Tests: post-merge cleanup exit-code class (exit 5)
 # ===========================================================================
-class TestYok1380PostMergeCleanup:
-    """When the git/PR merge has already
-    committed on the target branch but post-merge view regeneration
-    fails, the engine must return exit code 5 (not 1) and emit a
-    precise ``MergeEngineFailed`` event with ``phase=post_merge_cleanup``
-    and ``merge_committed=true`` so usher can skip the rollback path."""
+class TestPostMergeViewRegeneration:
+    """A generated-view failure cannot overturn a committed merge."""
 
     def test_exit_0_clean_path_still_works(self, merge_env: MergeEnv) -> None:
         """The happy path — merge + schema refresh + view
@@ -140,21 +134,17 @@ class TestYok1380PostMergeCleanup:
         assert not (merge_env.repo / "data" / "config").exists()
         assert (merge_env.repo / ".yoke" / "BOARD.md").is_file()
 
-    def test_exit_5_on_post_merge_cleanup_failure(
+    def test_regeneration_failure_is_deferred_after_committed_merge(
         self, merge_env: MergeEnv
     ) -> None:
-        """A forced post-merge cleanup failure returns
-        exit 5 after the merge commit already exists on the target
-        branch, and the precise MergeEngineFailed event carries
-        ``phase=post_merge_cleanup`` + ``merge_committed=true``."""
+        """A forced refresh failure is retried, reported, and non-fatal."""
         result = run_merge(
             merge_env,
             extra_env={"YOKE_MERGE_TEST_FORCE_REGEN_FAILURE": "1"},
         )
 
-        # Exit 5, not 1 — this is the whole point of.
-        assert result.exit_code == 5, (
-            f"expected exit 5, got {result.exit_code}\n"
+        assert result.exit_code == 0, (
+            f"expected success, got {result.exit_code}\n"
             f"stdout={result.stdout}\nstderr={result.stderr}"
         )
 
@@ -165,33 +155,33 @@ class TestYok1380PostMergeCleanup:
         branch_log = _git(merge_env.repo, "log", "main", "--oneline", check=False)
         assert "feature work" in branch_log.stdout
 
-        # Operator-facing guidance is present on stderr.
-        assert "post-merge view regeneration failed" in result.stderr
-        assert "do NOT roll the item back" in result.stderr
-        assert "Recovery:" in result.stderr
-        assert "/yoke usher" in result.stderr
+        assert result.stderr.count("retrying once") == 1
+        assert "refresh deferred" in result.stderr
+        assert "item close-out will continue" in result.stderr
 
         # The YOKE_REPO_ROOT output contract still appears so
         # done_transition can re-locate the Yoke repo (exit-5 path
         # must not break the stdout contract).
         assert f"YOKE_REPO_ROOT={merge_env.repo}" in result.stdout
 
-        # The precise MergeEngineFailed event landed in the events
-        # ledger with structured phase info.
+        # The deferred-refresh event records the advisory failure without
+        # classifying the successful merge boundary as failed.
         from runtime.api.fixtures.file_test_db import connect_test_db
 
         conn = connect_test_db(str(merge_env.db_path))
         try:
             rows = conn.execute(
-                "SELECT envelope FROM events WHERE event_name='MergeEngineFailed' "
+                "SELECT envelope FROM events "
+                "WHERE event_name='PostMergeViewRegenerationDeferred' "
                 "ORDER BY id DESC"
             ).fetchall()
         finally:
             conn.close()
 
-        assert rows, "no MergeEngineFailed event found in events ledger"
+        assert rows, "no deferred view-regeneration event found"
 
         import json as _json
+
         # Envelopes wrap the caller-supplied context dict under
         # ``context.detail``; top-level ``context`` carries framing
         # metadata added by the event emitter.
@@ -206,31 +196,13 @@ class TestYok1380PostMergeCleanup:
                 post_merge_cleanup_details.append(detail)
 
         assert len(post_merge_cleanup_details) >= 1, (
-            "expected at least one MergeEngineFailed event with "
+            "expected at least one deferred view-regeneration event with "
             f"phase=post_merge_cleanup; found envelopes: {[r[0] for r in rows]}"
         )
         cleanup_detail = post_merge_cleanup_details[0]
         assert cleanup_detail.get("merge_committed") is True
-        assert cleanup_detail.get("exit_code") == 5
+        assert cleanup_detail.get("attempts") == 2
         assert cleanup_detail.get("error_type") == "RuntimeError"
         assert "YOKE_MERGE_TEST_FORCE_REGEN_FAILURE" in cleanup_detail.get("error", "")
         assert cleanup_detail.get("branch") == TEST_BRANCH
         assert cleanup_detail.get("target") == "main"
-
-        # The generic MergeEngineFailed emission from run()'s
-        # finally block must be suppressed for exit 5 — only the
-        # precise post-merge-cleanup event should appear, not a
-        # generic ``exit_code=<n>`` event without a ``phase`` key.
-        generic_failures = []
-        for (envelope_json,) in rows:
-            try:
-                envelope = _json.loads(envelope_json)
-            except (TypeError, _json.JSONDecodeError):
-                continue
-            detail = (envelope.get("context") or {}).get("detail") or {}
-            if "phase" not in detail:
-                generic_failures.append(detail)
-        assert not generic_failures, (
-            "generic MergeEngineFailed emission should be suppressed for "
-            f"exit 5; found: {generic_failures}"
-        )

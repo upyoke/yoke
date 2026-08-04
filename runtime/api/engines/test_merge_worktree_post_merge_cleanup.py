@@ -34,7 +34,7 @@ class TestPostMergeCleanupLocalSyncFailure:
         monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: False)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
         monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_or_exit5", lambda _ctx: 0
+            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
         )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
@@ -109,7 +109,7 @@ class TestPostMergeRemoteCleanupSafety:
         monkeypatch.setattr(merge_worktree, "_sync_local_target", lambda _ctx: True)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
         monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_or_exit5", lambda _ctx: 0
+            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
         )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(
@@ -161,7 +161,7 @@ class TestPostMergeRemoteCleanupSafety:
         monkeypatch.setattr(merge_worktree, "_sync_local_target", sync_target)
         monkeypatch.setattr(merge_worktree, "_schema_refresh", lambda _ctx: None)
         monkeypatch.setattr(
-            merge_worktree, "_regenerate_views_or_exit5", lambda _ctx: 0
+            merge_worktree, "_regenerate_views_advisory", lambda _ctx: None
         )
         monkeypatch.setattr(merge_worktree, "_ensure_target_branch", lambda _ctx: None)
         monkeypatch.setattr(

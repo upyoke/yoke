@@ -16,7 +16,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import mutations
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_identity import render_item_ref, resolve_project
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
@@ -34,6 +34,7 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
     d = dict(row)
     return mutations.ItemState(
         id=d["id"],
+        item_ref=render_item_ref(conn, int(d["id"])),
         title=d["title"],
         status=d["status"],
         priority=d["priority"],

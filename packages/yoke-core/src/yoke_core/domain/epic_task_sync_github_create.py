@@ -26,6 +26,7 @@ from yoke_core.domain import github_rest
 from yoke_core.domain.epic_task_sync import _placeholder
 from yoke_core.domain.github_dedup import search_existing_issue
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _task_id_from_epic(epic_id: str, task_num: int) -> int:
@@ -220,6 +221,9 @@ def _dedup_or_create_task_issue(
     task_num: int = 0,
 ) -> str:
     """Search for existing task issue or create a new one. Returns issue number."""
+    epic_ref = backlog_id
+    if not epic_ref and epic_id:
+        epic_ref = render_item_ref(conn, int(epic_id))
     if backlog_id:
         # Two-pass dedup: new format, then old format. Exact bracketed-prefix
         # match required at each pass.
@@ -252,9 +256,9 @@ def _dedup_or_create_task_issue(
             "status": "planned",
             "subject_kind": "task",
             "project": gh_project,
-            "identity": _writer.epic_task_identity(epic_id, task_num),
+            "identity": _writer.epic_task_identity(epic_ref, task_num),
             "body_command": _writer.epic_task_body_command(epic_id, task_num),
-            "next_actions": _writer.epic_task_next_actions(epic_id),
+            "next_actions": _writer.epic_task_next_actions(epic_ref),
         },
         conn=conn,
         stderr=stderr,

@@ -4,7 +4,7 @@ Contains:
   - Post-merge verification and cleanup  (_post_merge_cleanup)
   - Schema refresh                       (_schema_refresh)
   - Yoke state dir resolution          (_yoke_state_dir)
-  - View regeneration                    (_regenerate_views, _regenerate_views_or_exit5)
+  - View regeneration                    (_regenerate_views, _regenerate_views_advisory)
   - Target branch enforcement            (_ensure_target_branch)
 
 Local target sync lives in ``merge_worktree_local_sync`` and is
@@ -31,9 +31,11 @@ from yoke_core.engines.merge_worktree_local_sync import (
 # Lazy parent import helper (mirrors the one in merge_worktree_post)
 # ---------------------------------------------------------------------------
 
+
 def _parent():
     """Return the parent module (merge_worktree) for shared utility access."""
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
 
 
@@ -63,7 +65,6 @@ def _chdir_out_of_doomed_worktree(ctx: MergeContext) -> None:
 # ---------------------------------------------------------------------------
 # Post-merge cleanup
 # ---------------------------------------------------------------------------
-
 
 
 def _schema_refresh(ctx: MergeContext) -> None:
@@ -166,66 +167,58 @@ def _regenerate_views(ctx: MergeContext) -> None:
         )
 
 
-def _regenerate_views_or_exit5(ctx: MergeContext) -> int:
-    """Run ``_regenerate_views`` with post-merge-cleanup error class handling.
-
-    exit code 5 means "the merge is already committed on the
-    target branch, but post-merge view regeneration or board rebuild
-    failed".  This is a cleanup failure class -- item status MUST NOT be
-    rolled back because the git/PR merge itself landed.  Returns:
-
-    - ``0`` if regeneration succeeded.
-    - ``5`` if regeneration raised.  A precise ``MergeEngineFailed``
-      event with ``phase=post_merge_cleanup`` and ``merge_committed=true``
-      is emitted here so the events ledger distinguishes this class from
-      an ordinary pre-merge failure.  The generic
-      ``MergeEngineFailed`` emission in ``run()``'s ``finally`` block is
-      suppressed for exit 5 to avoid double-logging.
-    """
+def _regenerate_views_advisory(ctx: MergeContext) -> None:
+    """Retry view regeneration once, then defer it without aborting a merge."""
     mw = _parent()
     _print = mw._print
     _emit_merge_event = mw._emit_merge_event
 
-    try:
-        # Route through parent so monkeypatch on merge_worktree._regenerate_views
-        # is honored by test harness.
-        mw._regenerate_views(ctx)
-        return 0
-    except Exception as exc:
-        _emit_merge_event(
-            "MergeEngineFailed",
-            severity="ERROR",
-            outcome="failure",
-            item_id=ctx.item_id,
-            context={
-                "branch": ctx.args.branch,
-                "target": ctx.args.target,
-                "epic_id": ctx.epic_id,
-                "phase": "post_merge_cleanup",
-                "merge_committed": True,
-                "exit_code": 5,
-                "error_type": type(exc).__name__,
-                "error": str(exc),
-            },
-        )
-        _print("", err=True)
-        _print(
-            "Error: post-merge view regeneration failed after "
-            f"{ctx.args.branch} \u2192 {ctx.args.target} was already committed.",
-            err=True,
-        )
-        _print(
-            "Phase: post_merge_cleanup (merge already committed \u2014 do NOT "
-            "roll the item back to 'implemented').",
-            err=True,
-        )
-        _print(f"Failure: {type(exc).__name__}: {exc}", err=True)
-        _print(
-            "Recovery: fix the view-regen / board-rebuild issue, then "
-            f"resume with `/yoke usher {(('YOK-' + ctx.item_id) if ctx.item_id else ctx.args.branch)}`.",
-            err=True,
-        )
-        return 5
+    failure: Exception | None = None
+    for attempt in range(1, 3):
+        try:
+            # Route through the parent so test harness monkeypatches remain
+            # effective across the facade boundary.
+            mw._regenerate_views(ctx)
+            if attempt > 1:
+                _print("Post-merge view regeneration succeeded on retry.")
+            return
+        except Exception as exc:  # noqa: BLE001 - advisory after landed merge
+            failure = exc
+            if attempt == 1:
+                _print(
+                    "WARNING: post-merge view regeneration failed; retrying once: "
+                    f"{type(exc).__name__}: {exc}",
+                    err=True,
+                )
+
+    assert failure is not None
+    _emit_merge_event(
+        "PostMergeViewRegenerationDeferred",
+        severity="WARNING",
+        outcome="deferred",
+        item_id=ctx.item_id,
+        context={
+            "branch": ctx.args.branch,
+            "target": ctx.args.target,
+            "epic_id": ctx.epic_id,
+            "phase": "post_merge_cleanup",
+            "merge_committed": True,
+            "attempts": 2,
+            "error_type": type(failure).__name__,
+            "error": str(failure),
+        },
+    )
+    _print("", err=True)
+    _print(
+        "WARNING: post-merge view regeneration remains unavailable after "
+        f"{ctx.args.branch} \u2192 {ctx.args.target} was committed; refresh deferred.",
+        err=True,
+    )
+    _print(
+        "The merge remains successful and item close-out will continue. "
+        "Retry later with `yoke board rebuild --force`.",
+        err=True,
+    )
 
 
 def _ensure_target_branch(ctx: MergeContext) -> None:
@@ -234,11 +227,17 @@ def _ensure_target_branch(ctx: MergeContext) -> None:
     _print = mw._print
     _run_git = mw._run_git
 
-    current = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=ctx.repo_root, capture=True)
+    current = _run_git(
+        ["rev-parse", "--abbrev-ref", "HEAD"], cwd=ctx.repo_root, capture=True
+    )
     if current.returncode == 0:
         branch = current.stdout.strip()
         if branch and branch != ctx.args.target and branch != "HEAD":
-            _print(f"Warning: Main repo is on '{branch}', not '{ctx.args.target}'. Switching.", err=True)
+            _print(
+                f"Warning: Main repo is on '{branch}', not '{ctx.args.target}'. Switching.",
+                err=True,
+            )
             _run_git(["checkout", ctx.args.target], cwd=ctx.repo_root, capture=True)
+
 
 from yoke_core.engines.merge_worktree_cleanup import _post_merge_cleanup  # noqa: E402,F401

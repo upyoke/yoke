@@ -25,6 +25,9 @@ from runtime.harness.cursor.cursor_hooks_payload import (
 MAIN = "11111111-2222-3333-4444-555555555555"
 SUB = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 TRANSCRIPT = f"/home/u/.cursor/projects/p/agent-transcripts/{MAIN}/{MAIN}.jsonl"
+SUB_TRANSCRIPT = (
+    f"/home/u/.cursor/projects/p/agent-transcripts/{MAIN}/subagents/{SUB}.jsonl"
+)
 
 
 @pytest.fixture
@@ -110,6 +113,42 @@ def test_subagent_event_folds_into_container(container_env: None) -> None:
     assert data["is_subagent_session"] is True
     # session_id rewrites to the container so downstream consumers
     # attribute to the top-level session; the subagent's own id survives.
+    assert data["session_id"] == MAIN
+    assert data["subagent_session_id"] == SUB
+
+
+def test_nested_subagent_transcript_env_folds(
+    bare_env: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", SUB_TRANSCRIPT)
+    payload = json.dumps(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Read",
+            "session_id": SUB,
+            "conversation_id": SUB,
+        }
+    )
+    data = parse_payload(payload)
+    assert data["container_session_id"] == MAIN
+    assert data["is_subagent_session"] is True
+    assert data["session_id"] == MAIN
+    assert data["subagent_session_id"] == SUB
+
+
+def test_nested_subagent_transcript_payload_folds(bare_env: None) -> None:
+    payload = json.dumps(
+        {
+            "hook_event_name": "preToolUse",
+            "tool_name": "Read",
+            "session_id": SUB,
+            "conversation_id": SUB,
+            "transcript_path": SUB_TRANSCRIPT,
+        }
+    )
+    data = parse_payload(payload)
+    assert data["container_session_id"] == MAIN
+    assert data["is_subagent_session"] is True
     assert data["session_id"] == MAIN
     assert data["subagent_session_id"] == SUB
 

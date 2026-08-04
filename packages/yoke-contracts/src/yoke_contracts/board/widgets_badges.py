@@ -39,12 +39,14 @@ _AGE_ANCIENT = E.AGE_ANCIENT
 # ---------------------------------------------------------------------------
 
 
-def render_age_heatmap(db: BoardDBLike, config: BoardConfig, scope: str) -> Optional[str]:
+def render_age_heatmap(
+    db: BoardDBLike, config: BoardConfig, scope: str
+) -> Optional[str]:
     """Render the age heatmap bar with legend.
 
     Returns ``None`` if there are no active (non-done, non-frozen) items.
     """
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
     sql = (
         "WITH aged AS ("
         f"  SELECT {age_days_expr('created_at')} AS age_days"
@@ -62,7 +64,7 @@ def render_age_heatmap(db: BoardDBLike, config: BoardConfig, scope: str) -> Opti
         "  COUNT(*) AS total"
         " FROM aged"
     )
-    row = db.query_quiet(sql)
+    row = db.query_quiet(sql, params)
     if not row or not row[0]:
         return None
 
@@ -87,9 +89,7 @@ def render_age_heatmap(db: BoardDBLike, config: BoardConfig, scope: str) -> Opti
         ("ancient", ancient, _AGE_ANCIENT),
     ]
 
-    cells = _allocate_proportional(
-        [count for _, count, _ in buckets], total, max_cells
-    )
+    cells = _allocate_proportional([count for _, count, _ in buckets], total, max_cells)
 
     bar = ""
     for i, (_, _, emoji) in enumerate(buckets):
@@ -102,9 +102,7 @@ def render_age_heatmap(db: BoardDBLike, config: BoardConfig, scope: str) -> Opti
     )
 
 
-def _allocate_proportional(
-    counts: List[int], total: int, max_cells: int
-) -> List[int]:
+def _allocate_proportional(counts: List[int], total: int, max_cells: int) -> List[int]:
     """Allocate cells proportionally with rounding.
 
     Non-zero counts get at least 1 cell. Excess is trimmed from the largest.
@@ -147,7 +145,7 @@ def render_workflow_badges(
 
     Returns ``None`` if there are no active (non-done, non-frozen) items.
     """
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
     sql = (
         "SELECT workflow_id, COUNT(*) AS cnt FROM items"
         " WHERE status NOT IN ('done','cancelled')"
@@ -155,7 +153,7 @@ def render_workflow_badges(
         f"  {pf}"
         " GROUP BY workflow_id ORDER BY COUNT(*) DESC"
     )
-    rows = db.query_quiet(sql)
+    rows = db.query_quiet(sql, params)
     if not rows:
         return None
 
@@ -190,7 +188,7 @@ def render_achievement_badges(
     Returns ``None`` if no badges earned.
     """
     badges: List[str] = []
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
 
     done = max(0, int(tex_done))
 
@@ -224,7 +222,8 @@ def render_achievement_badges(
         "SELECT COUNT(*) FROM items"
         " WHERE status NOT IN ('done','cancelled')"
         "  AND (frozen IS NULL OR frozen <> 1)"
-        f"  AND LOWER(title) LIKE '%bug%' {pf}"
+        f"  AND POSITION('bug' IN LOWER(title)) > 0 {pf}",
+        params,
     )
     bug_count = int(bug_count or 0)
     if bug_count == 0:
@@ -235,7 +234,8 @@ def render_achievement_badges(
         "SELECT COUNT(*) FROM items"
         " WHERE status = 'idea'"
         "  AND (frozen IS NULL OR frozen <> 1)"
-        f"  {pf}"
+        f"  {pf}",
+        params,
     )
     idea_count = int(idea_count or 0)
     if idea_count == 0:
