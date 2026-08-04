@@ -1,9 +1,10 @@
 """Tests for the Claims-column layout helpers.
 
 Covers :func:`_dedup_work_targets` (collapse repeat claims on the same
-target to the most recent) and :func:`_chunk_claims` (width-budgeted row
-wrapping) — the shared layout step behind both the Active and Recent
-Harness Sessions tables.
+target to the most recent), :func:`_dedup_lease_rows` (same for lease
+keys), and :func:`_chunk_claims` (width-budgeted row wrapping) — the
+shared layout step behind both the Active and Recent Harness Sessions
+tables.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 from yoke_contracts.board.sections_sessions_layout import (
     _CLAIMS_WRAP_WIDTH,
     _chunk_claims,
+    _dedup_lease_rows,
     _dedup_work_targets,
 )
 from yoke_contracts.board.utils import display_width
@@ -52,6 +54,19 @@ def test_dedup_keeps_distinct_none_item_targets_separate():
     assert _dedup_work_targets(targets) == [
         ("🔩 deploy-lock", None, None),
         ("YOK-1902 T004", None, None),
+    ]
+
+
+def test_dedup_lease_rows_keeps_most_recent_per_key():
+    # leases_for_session orders newest-first; first row per lease_key wins.
+    rows = [
+        (6, "QA_HOST:test-mac", "t2", "newer"),
+        (5, "QA_HOST:test-mac", "t1", "older"),
+        (7, "LIVE_DB_MIGRATION:primary", "t2", "other"),
+    ]
+    assert _dedup_lease_rows(rows) == [
+        (6, "QA_HOST:test-mac", "t2", "newer"),
+        (7, "LIVE_DB_MIGRATION:primary", "t2", "other"),
     ]
 
 

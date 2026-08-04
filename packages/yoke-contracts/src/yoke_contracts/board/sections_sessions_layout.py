@@ -49,6 +49,26 @@ def _dedup_work_targets(
     return deduped
 
 
+def _dedup_lease_rows(rows: List[Tuple]) -> List[Tuple]:
+    """Collapse repeat leases on the same lease_key to the most recent one.
+
+    ``leases_for_session`` returns rows newest-first (``ORDER BY id DESC``),
+    so the first occurrence of each ``lease_key`` is the most recent — keep
+    it and drop the rest. Mirrors :func:`_dedup_work_targets` for the Claims
+    column so a closed session that retook ``QA_HOST:…`` many times still
+    renders one ``🔒`` keycap per key.
+    """
+    seen: set[str] = set()
+    deduped: List[Tuple] = []
+    for row in rows:
+        key = str(row[1] or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(row)
+    return deduped
+
+
 def _chunk_claims(targets: list[str], max_width: int = _CLAIMS_WRAP_WIDTH) -> list[str]:
     """Group numbered claims into rows, wrapping past a display-width budget.
 
@@ -82,6 +102,7 @@ def _chunk_claims(targets: list[str], max_width: int = _CLAIMS_WRAP_WIDTH) -> li
 __all__ = [
     "_CLAIMS_WRAP_WIDTH",
     "_chunk_claims",
+    "_dedup_lease_rows",
     "_dedup_work_targets",
     "_index_prefix",
 ]

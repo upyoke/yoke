@@ -227,4 +227,4 @@ class TestItemLinkedPathClaimRollup:
             board_db, "sess-A", [("YOK-1665", 1665, "completed")],
             active_only=False,
         )
-        assert keycaps == ["YOK-1665 (completed)"]
+        assert keycaps == ["YOK-1665"]

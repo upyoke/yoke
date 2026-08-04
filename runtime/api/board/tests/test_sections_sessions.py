@@ -7,7 +7,7 @@ Covers:
   this work item (work-claim only, work+path-claim decoration, orphan path-
   claim parens shape, lease keycap, same-item path-claim roll-up,
   multi-item path-claim separation, ``item_id IS NULL`` process anchor
-  fallback, and closed-session ``(release_reason)`` decoration).
+  fallback, lease_key dedupe, and no release-reason decoration).
 """
 
 from __future__ import annotations
@@ -285,19 +285,17 @@ class TestActiveSessionKeycaps:
 
 
 class TestClosedSessionKeycaps:
-    def test_terminal_work_claim_decoration(self, board_db: BoardDB) -> None:
+    def test_terminal_work_claim_omits_release_reason(self, board_db: BoardDB) -> None:
         keycaps = build_session_keycaps(
             board_db, "sess-A",
             [("YOK-1663", 1663, "completed")],
             active_only=False,
         )
-        assert keycaps == ["YOK-1663 (completed)"]
+        assert keycaps == ["YOK-1663"]
 
-    def test_terminal_session_owned_orphan_decoration(self, board_db: BoardDB) -> None:
-        # Closed-session view of a true session-owned terminal claim:
-        # bare "📁N (release_reason)". Item-owned terminal claims do
-        # not appear here for the same reason they don't appear when
-        # active — provenance is not authority.
+    def test_terminal_session_owned_orphan_omits_reason(self, board_db: BoardDB) -> None:
+        # Closed session-owned orphan: bare "📁N". Item-owned terminal
+        # claims stay out — provenance is not authority.
         _insert_path_claim(
             board_db, claim_id=19, session_id="sess-A", item_id=None,
             owner_kind="session", owner_session_id="sess-A",
@@ -307,9 +305,9 @@ class TestClosedSessionKeycaps:
         keycaps = build_session_keycaps(
             board_db, "sess-A", [], active_only=False,
         )
-        assert keycaps == ["\U0001f4c15 (merged)"]
+        assert keycaps == ["\U0001f4c15"]
 
-    def test_terminal_lease_decoration(self, board_db: BoardDB) -> None:
+    def test_terminal_lease_omits_release_reason(self, board_db: BoardDB) -> None:
         _insert_lease(
             board_db, lease_id=3, session_id="sess-A",
             lease_key="LIVE_DB_MIGRATION:primary",
@@ -319,7 +317,7 @@ class TestClosedSessionKeycaps:
         keycaps = build_session_keycaps(
             board_db, "sess-A", [], active_only=False,
         )
-        assert keycaps == ["\U0001f512 LIVE_DB_MIGRATION:primary (completed)"]
+        assert keycaps == ["\U0001f512 LIVE_DB_MIGRATION:primary"]
 
     def test_active_filter_hides_released_path_and_lease(
         self, board_db: BoardDB,

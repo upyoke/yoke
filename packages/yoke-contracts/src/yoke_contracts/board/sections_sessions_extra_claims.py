@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.board.sections_sessions_layout import _dedup_lease_rows
 from yoke_contracts.item_ref import format_item_ref
 
 
@@ -150,7 +151,7 @@ def leases_for_session(
         FROM coordination_leases
         WHERE session_id = %s
         {terminal_filter}
-        ORDER BY id ASC
+        ORDER BY id DESC
         """,
         (session_id,),
     )
@@ -218,19 +219,21 @@ def build_session_keycaps(
 
     ``work_claim_targets`` is a list of ``(target_str, item_id, release_reason)``
     where ``target_str`` is the parent module's :func:`_render_claim_target`
-    output and ``release_reason`` is the work_claim's release reason (None for
-    active session rows). ``item_id`` is the int item id of the work_claim,
+    output and ``release_reason`` is retained for call-site compatibility
+    (ignored for rendering). ``item_id`` is the int item id of the work_claim,
     used to detect co-held path_claims and apply the ``📁N`` decoration.
 
     Active-session rows decorate the same-item work_claim with ``📁<count>``;
-    orphan path_claims and leases append after work_claim keycaps. Recently-
-    closed rows append ``(release_reason)`` to each terminal entry.
+    orphan path_claims and leases append after work_claim keycaps. Repeated
+    leases on the same ``lease_key`` collapse to the most recent row (same
+    pattern as work-claim target dedup). Release reasons are not rendered —
+    Claims stays occupancy-shaped, not an audit log.
     """
     path_rows = path_claims_for_session(
         db, session_id, active_only=active_only,
     )
-    lease_rows = leases_for_session(
-        db, session_id, active_only=active_only,
+    lease_rows = _dedup_lease_rows(
+        leases_for_session(db, session_id, active_only=active_only),
     )
 
     # Normal work-item file ownership lives on path_claims.owner_item_id and is
@@ -258,13 +261,11 @@ def build_session_keycaps(
 
     work_item_ids = {item_id for _, item_id, _ in work_claim_targets}
     decorated_targets: List[str] = []
-    for target_str, item_id, release_reason in work_claim_targets:
+    for target_str, item_id, _release_reason in work_claim_targets:
         bucket = rolled.get(item_id)
         cell = target_str
         if bucket and int(bucket["count"]) > 0:
             cell = f"{cell} {PATH_GLYPH}{int(bucket['count'])}"
-        if release_reason:
-            cell = f"{cell} ({release_reason})"
         decorated_targets.append(cell)
 
     # Orphan path_claims (no matching work_claim on the same item).
@@ -289,20 +290,11 @@ def build_session_keycaps(
                 cell = f"{PATH_GLYPH}{count} ({PROCESS_GLYPH} {process_key})"
             else:
                 cell = f"{PATH_GLYPH}{count}"
-        reason = bucket["release_reason"]
-        if reason and not bucket["any_active"]:
-            cell = f"{cell} ({reason})"
         decorated_targets.append(cell)
 
     # Coordination leases — always separate keycaps, never decorate work_claims.
     for lease_row in lease_rows:
-        lease_key = lease_row[1] or "?"
-        released_at = lease_row[2]
-        release_reason = lease_row[3]
-        cell = f"{LEASE_GLYPH} {lease_key}"
-        if released_at is not None and release_reason:
-            cell = f"{cell} ({release_reason})"
-        decorated_targets.append(cell)
+        decorated_targets.append(f"{LEASE_GLYPH} {lease_row[1] or '?'}")
 
     return decorated_targets
 
