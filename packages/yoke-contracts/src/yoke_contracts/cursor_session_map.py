@@ -99,6 +99,33 @@ def transcript_session_id(transcript_path: str) -> str:
     return path.stem
 
 
+def linked_worktree_lane_name(workspace_path: str) -> str:
+    """Return the Yoke worktree lane name when ``workspace_path`` is under one.
+
+    Recognizes ``.../.worktrees/<lane>`` and ``.../.claude/worktrees/<lane>``
+    (and deeper paths under those roots). Empty when the path is not a
+    linked worktree lane — including the main checkout itself.
+    """
+    if not workspace_path:
+        return ""
+    parts = PurePosixPath(workspace_path.replace("\\", "/")).parts
+    for marker in (".worktrees", "worktrees"):
+        try:
+            idx = parts.index(marker)
+        except ValueError:
+            continue
+        # Require the Yoke layout ``<repo>/.worktrees/<lane>`` (or Claude's
+        # ``.claude/worktrees/<lane>``) rather than an arbitrary directory
+        # named worktrees.
+        if marker == "worktrees" and (
+            idx == 0 or parts[idx - 1] != ".claude"
+        ):
+            continue
+        if idx + 1 < len(parts) and parts[idx + 1]:
+            return parts[idx + 1]
+    return ""
+
+
 def container_session_id_from_evidence(
     payload: Mapping[str, Any],
     env: Optional[Mapping[str, str]] = None,
@@ -221,6 +248,7 @@ __all__ = [
     "CURSOR_SESSION_MAP_DIR_NAME",
     "CURSOR_TRANSCRIPT_ENV_VAR",
     "container_session_id_from_evidence",
+    "linked_worktree_lane_name",
     "prune_stale_conversation_sessions",
     "record_conversation_session",
     "resolve_mapped_session_id",

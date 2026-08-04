@@ -55,3 +55,34 @@ def test_subagent_payload_does_not_arm_ensure_session(monkeypatch) -> None:
         "PreToolUse", capability=capability, stdin_data="{}",
     )
     assert captured == [None]
+
+
+def test_worktree_remap_payload_does_not_arm_ensure_session(monkeypatch) -> None:
+    real_import = importlib.import_module
+
+    def fake_import(name: str) -> Any:
+        return _Mod if name == "mod.allow" else real_import(name)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
+    captured: list[Any] = []
+
+    def fake_flush(records, *, deadline=None, ensure_session=None):
+        captured.append(ensure_session)
+
+    monkeypatch.setattr(telemetry, "flush_hook_telemetry", fake_flush)
+    capability = AdapterCapability(
+        family="claude",
+        payload_parser=lambda raw: {
+            "session_id": "s-container",
+            "is_worktree_remap_session": True,
+            "remapped_conversation_id": "s-remapped",
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+        },
+        decision_renderer=render_claude_decision,
+    )
+    runner_module.run_event(
+        "PreToolUse", capability=capability, stdin_data="{}",
+    )
+    assert captured == [None]

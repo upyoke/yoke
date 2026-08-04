@@ -60,6 +60,15 @@ def record_from_hook_payload(
         if not isinstance(conversation_id, str) or not conversation_id:
             return
         container = container_session_id_from_evidence(payload)
+        if not container:
+            try:
+                from yoke_core.domain.cursor_worktree_session_fold import (
+                    resolve_worktree_remap_container,
+                )
+
+                container = resolve_worktree_remap_container(payload)
+            except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
+                container = ""
         if not container and event_name == SESSION_START_EVENT:
             container = conversation_id
         if container:
