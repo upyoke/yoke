@@ -90,9 +90,16 @@ visible before acceptance criteria. Three valid examples:
 - Hard limit: 350 lines per authored file.
 - Design target: <=300 lines per authored file.
 - Expected implementation shape:
-  - `path/to/file_a.py` — single responsibility A
-  - `path/to/file_b.py` — single responsibility B
+  - `path/to/file_a.py` — current 120 lines; remaining headroom 230;
+    at-or-over-limit: false; responsibility: single responsibility A.
+  - `path/to/file_b.py` — current 0 lines; remaining headroom 350;
+    at-or-over-limit: false; responsibility: single responsibility B.
 ```
+
+Every known-shape entry carries those same three sizing fields. Use the
+survey result when the surface follows a direct-workflow survey; otherwise
+read the target checkout. A negative remaining-headroom value is preserved,
+not clamped, and `at-or-over-limit` is true when current lines are >=350.
 
 ```markdown
 ## File Budget

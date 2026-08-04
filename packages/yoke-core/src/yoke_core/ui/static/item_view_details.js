@@ -10,9 +10,11 @@ import {
   commandPanel,
   detailColumns,
   factsPanel,
+  filledNarrativePanels,
   itemHeading,
   markdownSection,
   posturePanel,
+  progressIfPresent,
   progressPanel,
   textPanel,
   verificationPanel,
@@ -40,6 +42,7 @@ function issuePanels(documentNode, item) {
         acceptance,
         "No acceptance criteria recorded.",
       ),
+      ...filledNarrativePanels(documentNode, item),
     ],
     [
       factsPanel(documentNode, item),
@@ -88,6 +91,7 @@ function epicPanels(context, documentNode, item) {
   );
   tasks.children[0].appendChild(progress);
   renderEpicTasks(context, item, tasks, progress);
+  const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(
     documentNode,
     [
@@ -105,12 +109,18 @@ function epicPanels(context, documentNode, item) {
         "No worktree plan recorded.",
         { detail: "intent · lanes activate per task at conduct" },
       ),
+      ...filledNarrativePanels(
+        documentNode,
+        item,
+        ["shepherd_log", "worktree_plan"],
+      ),
     ],
     [
       factsPanel(documentNode, item),
       verificationPanel(documentNode, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
+      ...(progressLog ? [progressLog] : []),
     ],
   );
 }
@@ -143,6 +153,7 @@ function sourceFieldNotePanel(documentNode, item) {
 
 function dashPanels(documentNode, item) {
   const origin = sourceFieldNotePanel(documentNode, item);
+  const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(
     documentNode,
     [
@@ -152,6 +163,7 @@ function dashPanels(documentNode, item) {
         item.narrative.spec || item.narrative.body,
         "No instruction recorded.",
       ),
+      ...filledNarrativePanels(documentNode, item),
       verificationPanel(documentNode, item),
     ],
     [
@@ -159,19 +171,32 @@ function dashPanels(documentNode, item) {
       ...(origin ? [origin] : []),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
+      ...(progressLog ? [progressLog] : []),
     ],
   );
 }
 
 function fallbackPanels(documentNode, item) {
+  const body = String(item.narrative?.body || "").trim();
+  const spec = String(item.narrative?.spec || "").trim();
+  const primary = body
+    ? [textPanel(documentNode, "Item", item.narrative.body)]
+    : spec
+      ? [textPanel(documentNode, "Spec", item.narrative.spec)]
+      : [];
+  const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(
     documentNode,
-    [textPanel(documentNode, "Item", item.narrative.body)],
+    [
+      ...primary,
+      ...filledNarrativePanels(documentNode, item),
+    ],
     [
       factsPanel(documentNode, item),
       verificationPanel(documentNode, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
+      ...(progressLog ? [progressLog] : []),
     ],
   );
 }

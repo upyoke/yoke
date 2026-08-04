@@ -14,6 +14,15 @@ from yoke_core.domain.idea_readiness_symlink_advisory import (
     ADVISORY_CODE,
     collect_symlink_advisories,
 )
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
+
+
+def _budget_spec() -> str:
+    return (
+        "## File Budget\n\n- `CLAUDE.md` — current 1 lines; remaining "
+        f"headroom {DEFAULT_LIMIT - 1}; at-or-over-limit: false; "
+        "responsibility: edit rules.\n"
+    )
 
 
 @pytest.fixture
@@ -24,7 +33,7 @@ def symlink_repo(tmp_path: Path) -> Path:
 
 
 def test_collects_file_budget_symlink_advisory(symlink_repo: Path):
-    spec = "## File Budget\n\n- `CLAUDE.md` — edit rules.\n"
+    spec = _budget_spec()
     advisories = collect_symlink_advisories(spec, repo_root=symlink_repo)
     assert len(advisories) == 1
     advisory = advisories[0]
@@ -63,7 +72,7 @@ def test_readiness_check_reports_advisory_without_blocking(
     )
     conn.execute(
         "INSERT INTO items (id, spec) VALUES (1, %s)",
-        ("## File Budget\n\n- `CLAUDE.md` — edit rules.\n",),
+        (_budget_spec(),),
     )
     conn.execute(
         "INSERT INTO path_claims "

@@ -2,7 +2,9 @@ import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   commandPanel,
   detailColumns,
+  filledNarrativePanels,
   itemHeading,
+  progressIfPresent,
   verificationPanel,
 } from "./item_view_primitives.js";
 import {
@@ -257,6 +259,7 @@ function blitzPosturePanel(documentNode, item) {
 
 function renderLoadedBlitz(context, main, item, execution) {
   const documentNode = context.document;
+  const progressLog = progressIfPresent(documentNode, item);
   const host = el(documentNode, "div", "item-detail blitz-detail");
   host.appendChild(itemHeading(documentNode, item));
   host.appendChild(detailColumns(
@@ -265,6 +268,7 @@ function renderLoadedBlitz(context, main, item, execution) {
       executionDocumentPanel(
         documentNode, item, execution.execution_document,
       ),
+      ...filledNarrativePanels(documentNode, item),
       worktreeLanesPanel(documentNode, item),
       verificationPanel(documentNode, item),
     ],
@@ -272,6 +276,7 @@ function renderLoadedBlitz(context, main, item, execution) {
       blitzFactsPanel(documentNode, item),
       blitzPosturePanel(documentNode, item),
       commandPanel(documentNode, item),
+      ...(progressLog ? [progressLog] : []),
     ],
   ));
   main.replaceChildren(host);

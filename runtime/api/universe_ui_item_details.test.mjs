@@ -55,6 +55,12 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   assert.match(rendered, /Ready to execute/);
   assert.match(rendered, /Worktree plan/);
   assert.match(rendered, /intent · lanes activate per task at conduct/);
+  assert.match(rendered, /Technical plan/);
+  assert.match(rendered, /Touch the footer renderer first/);
+  assert.match(rendered, /Shepherd caveats/);
+  assert.match(rendered, /Watch the integration lane claim/);
+  assert.match(rendered, /Progress Log/);
+  assert.match(rendered, /Real values landed/);
   assert.match(
     rendered,
     /project default · plus per-task attachments · materializes per case/,
@@ -116,6 +122,12 @@ for (const workflowId of ["issue", "dash"]) {
     });
     const rendered = itemText(root);
     assert.match(rendered, workflowId === "dash" ? /Instruction/ : /Spec/);
+    assert.match(rendered, /Technical plan/);
+    assert.match(rendered, /Touch the footer renderer first/);
+    if (workflowId === "issue") {
+      assert.match(rendered, /Design spec/);
+      assert.match(rendered, /Keep focus ownership in the shell/);
+    }
     assert.match(rendered, /Item details/);
     assert.match(rendered, /Verification/);
     assert.match(rendered, /Execution posture/);
