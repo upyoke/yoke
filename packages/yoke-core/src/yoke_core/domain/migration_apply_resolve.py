@@ -1,18 +1,13 @@
 """Project, capability, item, and module resolution for migration apply.
 
-Also owns the cross-worktree ``--module-path-override`` contract: a single
-shared validator (:func:`resolve_module_override`) that both rehearse and
-live-apply route through so the denied shapes are authored once and the
-two units cannot disagree about what an override means.
 """
 
 from __future__ import annotations
 
-import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Iterable, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.db_mutation_profile import (
@@ -27,12 +22,10 @@ from yoke_core.domain.migration_model_capability_validation import (
 )
 from yoke_core.domain.migration_apply_contract import (
     MigrationApplyError,
-    ModuleContractError,
-    ModuleOverrideError,
-    ModuleResolutionError,
     ProfileNotApplyError,
     _safe_parse_json_dict,
 )
+from yoke_core.domain.migration_history import load_migration_module
 from yoke_core.domain.project_identity import (
     format_item_ref,
     render_item_ref,
@@ -142,43 +135,8 @@ def default_worktree_path(
     return Path(resolved) if resolved else Path.cwd()
 
 
-def _load_migration_module_at_path(
-    path: Path, identifier: str
-) -> ModuleType:
-    """Import a migration module from an explicit file path.
-
-    Used by the default ``modules_dir / <identifier>.py`` loader and by
-    the cross-worktree override path. Both must enforce the same
-    ``apply(conn)`` contract.
-    """
-    if not path.is_file():
-        raise ModuleResolutionError(
-            f"migration module '{identifier}' not found at {path}"
-        )
-    spec_name = f"_governed_migration_{identifier}"
-    spec = importlib.util.spec_from_file_location(spec_name, str(path))
-    if spec is None or spec.loader is None:
-        raise ModuleResolutionError(
-            f"cannot construct import spec for {path}"
-        )
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    except Exception as exc:  # noqa: BLE001 — surface as structured error
-        raise ModuleResolutionError(
-            f"failed to import migration module '{identifier}' from {path}: {exc}"
-        ) from exc
-    if not callable(getattr(module, "apply", None)):
-        raise ModuleContractError(
-            f"migration module '{identifier}' has no callable 'apply(conn)' surface"
-        )
-    return module
-
-
 def _load_migration_module(modules_dir: Path, identifier: str) -> ModuleType:
-    return _load_migration_module_at_path(
-        modules_dir / f"{identifier}.py", identifier
-    )
+    return load_migration_module(modules_dir / f"{identifier}.py", identifier)
 
 
 def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
@@ -223,107 +181,43 @@ def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
     if profile["mutation_intent"] != MUTATION_INTENT_APPLY:
         raise ProfileNotApplyError(
             f"Item {item_ref} mutation_intent is "
-            f"{profile['mutation_intent']!r}, expected 'apply'. Retire flow "
-            "is owned by yoke_core.domain.migration_retire_record."
+            f"{profile['mutation_intent']!r}, expected 'apply'"
         )
     return profile
 
 
-# Cross-worktree module override contract — shared resolver + audit-description
-# marker so rehearse/live-apply cannot disagree.
-
-
 @dataclass(frozen=True)
-class ModuleOverrideResolution:
-    module_path: Path
-    slug: str
-    source_path: Path
-    worktree_path: Path
+class ResolvedMigrationInput:
+    """The item values the shared runner core consumes."""
+
     item_id: int
+    project: str
+    project_id: int
+    profile: Mapping[str, Any]
+    attestation_raw: Any
 
 
-def resolve_module_override(
-    *,
-    requested_path: str,
-    item_id: int,
-    declared_modules: Iterable[str],
-    worktree_path: Optional[str] = None,
-) -> ModuleOverrideResolution:
-    """Validate ``--module-path-override`` against the item's worktree.
+def resolve_runner_input(
+    control_conn: Any, *, item_id: Optional[int]
+) -> ResolvedMigrationInput:
+    """Load the item a governed apply runs against.
 
-    The caller passes ``worktree_path`` explicitly — typically computed
-    from the active universal lane joined with this machine's checkout mapping.
-    Every denied shape — empty path, missing worktree_path, missing-on-
-    disk path, non-file path, symlink escape, ``<slug>.py`` mismatch,
-    undeclared slug — raises :class:`ModuleOverrideError`. There is no
-    fall-back to main: refusal is structural so the rehearse / live-apply
-    units cannot disagree about what an override means.
+    Every governed apply is item-backed: its safety theorem comes from the
+    item's declared profile and attestation. The itemless shape this once
+    also accepted -- an operator-supplied manifest naming a subject -- existed
+    to push migrations at installs from outside, which is no longer how a
+    database reaches its code.
     """
-    if not requested_path:
-        raise ModuleOverrideError(
-            "--module-path-override requires a non-empty path argument"
-        )
-    if not worktree_path:
-        raise ModuleOverrideError(
-            f"--module-path-override requires an active item worktree; "
-            f"YOK-{item_id} has no active lane path "
-            "(or this machine has no checkout mapping for the project)."
-        )
-    worktree_real = Path(worktree_path).expanduser().resolve()
-    if not worktree_real.is_dir():
-        raise ModuleOverrideError(
-            f"--module-path-override active worktree path does not exist on "
-            f"disk: {worktree_real}"
-        )
-    requested = Path(requested_path).expanduser()
-    try:
-        candidate_real = requested.resolve(strict=True)
-    except FileNotFoundError as exc:
-        raise ModuleOverrideError(
-            f"--module-path-override path does not exist: {requested}"
-        ) from exc
-    if not candidate_real.is_file():
-        raise ModuleOverrideError(
-            f"--module-path-override path is not a regular file: {candidate_real}"
-        )
-    try:
-        candidate_real.relative_to(worktree_real)
-    except ValueError as exc:
-        raise ModuleOverrideError(
-            f"--module-path-override path {candidate_real} is not under the "
-            f"active item worktree {worktree_real} (symlink escape or "
-            "out-of-worktree path)"
-        ) from exc
-    name = candidate_real.name
-    if not name.endswith(".py"):
-        raise ModuleOverrideError(
-            f"--module-path-override file {candidate_real} must be named "
-            f"<declared_slug>.py (got {name!r})"
-        )
-    slug = name[:-3]
-    declared_set = {str(s) for s in declared_modules}
-    if slug not in declared_set:
-        raise ModuleOverrideError(
-            f"--module-path-override slug {slug!r} (from filename {name!r}) "
-            f"is not declared in db_mutation_profile.migration_modules; "
-            f"declared modules: {sorted(declared_set)}"
-        )
-    return ModuleOverrideResolution(
-        module_path=candidate_real, slug=slug, source_path=candidate_real,
-        worktree_path=worktree_real, item_id=int(item_id),
+    if item_id is None:
+        raise MigrationApplyError("governed migration apply requires item_id")
+    item = _load_item(control_conn, item_id)
+    return ResolvedMigrationInput(
+        item_id=item_id,
+        project=str(item.get("project") or ""),
+        project_id=int(item["project_id"]),
+        profile=_resolve_profile_or_raise(item),
+        attestation_raw=item.get("db_compatibility_attestation"),
     )
-
-
-def load_module_with_override(
-    *,
-    modules_dir: Path,
-    identifier: str,
-    override: Optional[ModuleOverrideResolution],
-) -> ModuleType:
-    """Pick override path when its slug matches; otherwise default modules_dir."""
-    if override is not None and override.slug == identifier:
-        return _load_migration_module_at_path(override.module_path, identifier)
-    return _load_migration_module(modules_dir, identifier)
 
 
 def control_conn_db_path(conn: Any) -> Optional[str]:

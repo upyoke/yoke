@@ -61,18 +61,6 @@ class ModuleContractError(MigrationApplyError):
     """Imported module does not expose the expected ``apply(conn)`` surface."""
 
 
-class ModuleOverrideError(MigrationApplyError):
-    """Raised when ``--module-path-override`` fails the cross-worktree contract.
-
-    The override sanctions importing a migration module from an active
-    feature-worktree checkout instead of the main modules directory. Any
-    denied shape — path outside the active item worktree, symlink escape,
-    undeclared slug, basename mismatch, missing/inactive worktree scope,
-    scope item mismatch — surfaces as this error so the CLI exits with a
-    structured refusal.
-    """
-
-
 # ---------------------------------------------------------------------------
 # Result dataclasses (operator-facing return shapes)
 # ---------------------------------------------------------------------------
@@ -166,7 +154,6 @@ __all__ = [
     "RehearsalMissingError",
     "ModuleResolutionError",
     "ModuleContractError",
-    "ModuleOverrideError",
     "ModuleAttemptResult",
     "RehearseResult",
     "LiveApplyResult",

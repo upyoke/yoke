@@ -307,30 +307,3 @@ def test_document_shape_rejects_unknown_fields_before_writes() -> None:
         normalize_document(document)
 
 
-def test_alternative_flows_may_govern_the_same_migration_model(test_db) -> None:
-    _seed_project(test_db)
-    settings = json_helper.dumps_compact(
-        {
-            "default_model": "primary",
-            "models": {"primary": {}},
-        }
-    )
-    test_db.execute(
-        "INSERT INTO project_capabilities "
-        "(project_id, type, settings, created_at) "
-        "VALUES (%s, 'migration_model', %s, '2026-01-01T00:00:00Z')",
-        (resolve_project_id(test_db, "acme"), settings),
-    )
-    test_db.commit()
-    shared_gate = {
-        "kind": "migration_apply",
-        "model_name": "primary",
-        "lifecycle_phase": "implementing",
-    }
-    document = _document()
-    for flow in document["flows"]:
-        flow["stages"].insert(0, shared_gate)
-
-    result = reconcile_project_flows(test_db, "acme", document)
-
-    assert result["created"] == ["acme-production", "acme-internal"]

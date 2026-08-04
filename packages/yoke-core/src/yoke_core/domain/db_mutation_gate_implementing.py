@@ -26,7 +26,6 @@ from typing import Any, List, Mapping, Optional
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_mutation_gate_evidence import (
     _audit_row_completed_for_module,
-    _verify_retire_record,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
     _load_capability_settings,
@@ -39,7 +38,6 @@ from yoke_core.domain.db_mutation_gate_shared import (
 )
 from yoke_core.domain.db_mutation_profile import (
     MUTATION_INTENT_APPLY,
-    MUTATION_INTENT_RETIRE,
     STATE_NONE,
     DbMutationProfileError,
     validate as validate_profile,
@@ -111,23 +109,6 @@ def check_implementing_to_reviewing_implementation_gate(
         intent = profile["mutation_intent"]
         identifiers: List[str] = list(profile["migration_modules"])
         repo_path = _resolve_repo_path(c, project)
-
-        if intent == MUTATION_INTENT_RETIRE:
-            if repo_path is None:
-                return GateOutcome(
-                    passed=False,
-                    errors=[
-                        f"project '{project}' has no machine-local checkout "
-                        "mapping; cannot verify retire decision records"
-                    ],
-                )
-            for identifier in identifiers:
-                ok, reason = _verify_retire_record(
-                    repo_path, identifier, profile["model_name"]
-                )
-                if not ok:
-                    errors.append(f"module '{identifier}': {reason}")
-            return GateOutcome(passed=not errors, errors=errors)
 
         if intent == MUTATION_INTENT_APPLY:
             audit_path = audit_db_path or _resolve_audit_db_path(

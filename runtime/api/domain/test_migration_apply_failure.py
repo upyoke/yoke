@@ -111,16 +111,6 @@ class TestProfileGating:
                 worktree_path=apply_env["worktree"],
             )
 
-    def test_retire_intent_refused_by_rehearse(self, apply_env) -> None:
-        _seed_apply_item(
-            apply_env["control_db"], item_id=5041, intent="retire",
-        )
-        with pytest.raises(ProfileNotApplyError):
-            rehearse(
-                5041,
-                control_db_path=apply_env["control_db"],
-                worktree_path=apply_env["worktree"],
-            )
 
     def test_unknown_item_raises(self, apply_env) -> None:
         with pytest.raises(MigrationApplyError):

@@ -13,7 +13,6 @@ from yoke_core.domain.migration_apply_contract import (
     LiveApplyResult,
     RehearseResult,
 )
-from yoke_core.domain.migration_apply_resolve import ModuleOverrideResolution
 
 
 def _subject(item_id: Optional[int]) -> str:
@@ -31,26 +30,14 @@ def _subject(item_id: Optional[int]) -> str:
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
 
 
-def format_override(
-    override: Optional[ModuleOverrideResolution],
-) -> Optional[str]:
-    if override is None:
-        return None
-    return (
-        f"  override_source={override.source_path} "
-        f"override_worktree={override.worktree_path}"
-    )
-
-
 def format_rehearse(
     result: RehearseResult,
-    override: Optional[ModuleOverrideResolution] = None,
 ) -> str:
     lines = [
         f"rehearse {_subject(result.item_id)} model={result.model_name} "
         f"validation_db={result.validation_db_path}",
     ]
-    extra = format_override(override)
+    extra = ""
     if extra is not None:
         lines.append(extra)
     for mod in result.modules:
@@ -68,14 +55,13 @@ def format_rehearse(
 
 def format_live_apply(
     result: LiveApplyResult,
-    override: Optional[ModuleOverrideResolution] = None,
 ) -> str:
     lines = [
         f"live-apply {_subject(result.item_id)} model={result.model_name} "
         f"authoritative_db={result.authoritative_db_path} "
         f"lease_id={result.lease_id}",
     ]
-    extra = format_override(override)
+    extra = ""
     if extra is not None:
         lines.append(extra)
     for mod in result.modules:
@@ -86,4 +72,4 @@ def format_live_apply(
     return "\n".join(lines)
 
 
-__all__ = ["format_live_apply", "format_override", "format_rehearse"]
+__all__ = ["format_live_apply", "format_rehearse"]

@@ -1,8 +1,5 @@
 """Audit-row persistence helpers for governed migration apply.
 
-Also owns the override-marker contract baked into ``migration_audit.description``
-so the rehearsal unit and live-apply unit cannot disagree about whether a
-``--module-path-override`` was used, and the provenance writer that stamps
 ``actor_id`` / ``worktree`` / ``source_branch`` / ``source_commit`` /
 ``integration_target`` / ``change_class`` onto live-apply audit rows.
 """
@@ -18,14 +15,11 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED,
     STATE_REHEARSED,
-    ModuleOverrideError,
     _now,
 )
 
 if TYPE_CHECKING:
-    from yoke_core.domain.migration_apply_resolve import (
-        ModuleOverrideResolution,
-    )
+    pass
 
 PROVENANCE_COLUMNS = (
     "actor_id",
@@ -37,8 +31,6 @@ PROVENANCE_COLUMNS = (
 )
 
 DESCRIPTION_BASE = "two-unit apply contract (governed)"
-_OVERRIDE_DESC_SOURCE = "override_source="
-_OVERRIDE_DESC_WORKTREE = "override_worktree="
 
 
 def _operational_error_types(conn) -> tuple:
@@ -136,78 +128,6 @@ def _latest_rehearsed_row(
 # ---------------------------------------------------------------------------
 # Override-marker helpers — keep description as the persistence channel so no
 # migration_audit schema migration is required.
-# ---------------------------------------------------------------------------
-
-
-def describe_override(resolution: "ModuleOverrideResolution") -> str:
-    """Audit ``description`` value when override is in effect."""
-    return (
-        f"{DESCRIPTION_BASE}; "
-        f"{_OVERRIDE_DESC_SOURCE}{resolution.source_path}; "
-        f"{_OVERRIDE_DESC_WORKTREE}{resolution.worktree_path}"
-    )
-
-
-def parse_override_description(
-    description: Optional[str],
-) -> Optional[Dict[str, str]]:
-    """Inverse of :func:`describe_override`; ``None`` when no marker present."""
-    if not description or _OVERRIDE_DESC_SOURCE not in description:
-        return None
-    fields: Dict[str, str] = {}
-    for fragment in description.split(";"):
-        fragment = fragment.strip()
-        if fragment.startswith(_OVERRIDE_DESC_SOURCE):
-            fields["source_path"] = fragment[len(_OVERRIDE_DESC_SOURCE):]
-        elif fragment.startswith(_OVERRIDE_DESC_WORKTREE):
-            fields["worktree_path"] = fragment[len(_OVERRIDE_DESC_WORKTREE):]
-    return fields or None
-
-
-def assert_live_apply_override_consistent(
-    *,
-    identifier: str,
-    audit_description: Optional[str],
-    override: Optional["ModuleOverrideResolution"],
-) -> None:
-    """Refuse rather than silently fall back when units disagree.
-
-    The override applies per-slug: when ``override.slug != identifier`` the
-    helper treats the effective override for this module as ``None`` so a
-    single CLI ``--module-path-override`` can coexist with sibling modules
-    whose rehearsed audit rows carry the standard description.
-    """
-    effective = (
-        override
-        if override is not None and override.slug == identifier
-        else None
-    )
-    rehearsed = parse_override_description(audit_description)
-    if rehearsed is None and effective is None:
-        return
-    if rehearsed is None:
-        raise ModuleOverrideError(
-            f"module {identifier!r}: live-apply received "
-            "--module-path-override but rehearsed audit row has no override "
-            "marker; refuse rather than fall back to main checkout"
-        )
-    if effective is None:
-        raise ModuleOverrideError(
-            f"module {identifier!r}: rehearsed audit row recorded "
-            f"override_source={rehearsed.get('source_path')!r}; live-apply "
-            "must pass the same --module-path-override or refuse"
-        )
-    expected = rehearsed.get("source_path")
-    if expected and str(effective.source_path) != expected:
-        raise ModuleOverrideError(
-            f"module {identifier!r}: live-apply --module-path-override "
-            f"{effective.source_path} does not match rehearsed "
-            f"override_source {expected}"
-        )
-
-
-# ---------------------------------------------------------------------------
-# Live-apply provenance writer — stamps accountable context onto audit rows.
 # ---------------------------------------------------------------------------
 
 

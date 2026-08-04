@@ -108,7 +108,7 @@ class TestRehearsalCommandFixtures:
             attestation=_attestation(
                 [
                     "python3 -m yoke_core.domain.migration_apply rehearse 1 "
-                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                    "--worktree-path <worktree>/runtime/api/domain",
                 ]
             ),
         )
@@ -306,10 +306,11 @@ class TestNoSubprocessSafety:
             profile=_declared_profile(),
             attestation=_attestation(
                 [
-                    # The exact YOK-1800 broken shape. If the validator
-                    # executed this, the tripwire would fire.
+                    # A command whose worktree placeholder was never
+                    # substituted. If the validator executed this, the
+                    # tripwire would fire.
                     "python3 -m yoke_core.domain.migration_apply rehearse 11 "
-                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                    "--worktree-path <worktree>/runtime/api/domain",
                 ]
             ),
         )

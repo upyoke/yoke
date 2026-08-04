@@ -26,7 +26,6 @@ VALID_MIGRATION_STRATEGIES = frozenset({
     MIGRATION_STRATEGY_EXPAND_CONTRACT,
 })
 
-_MUTATION_INTENT_RETIRE = "retire"
 
 # Reviewed-negative attestation keys — stamped by the ``db_claim.amend``
 # workflow (never caller-supplied) when an amendment lands
@@ -180,19 +179,6 @@ def _normalize_migration_strategy(
     """
     strategy = payload.get("migration_strategy")
     justification = payload.get("migration_strategy_justification")
-
-    if mutation_intent == _MUTATION_INTENT_RETIRE:
-        if strategy is not None:
-            raise DbMutationProfileError(
-                "migration_strategy is forbidden for mutation_intent='retire'; "
-                "retire flows do not apply changes"
-            )
-        if justification is not None:
-            raise DbMutationProfileError(
-                "migration_strategy_justification is forbidden for "
-                "mutation_intent='retire'"
-            )
-        return None, None
 
     if strategy is None:
         raise DbMutationProfileError(

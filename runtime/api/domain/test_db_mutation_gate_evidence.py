@@ -20,7 +20,6 @@ from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_flow_with_migration_apply,
     _seed_project,
-    _write_decision_record,
     _write_module,
     ensure_audit_table,
     gate_audit_path,
@@ -262,71 +261,5 @@ class TestEvidenceGate:
         assert not outcome.passed
         assert any("no migration_audit row" in e for e in outcome.errors)
 
-    def test_retire_missing_record_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=7, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            7, conn=conn,
-        )
-        assert not outcome.passed
-        assert any("missing decision record" in e for e in outcome.errors)
 
-    def test_retire_record_present_passes(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        _write_decision_record(repo_path, "dead_module")
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=8, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            8, conn=conn,
-        )
-        assert outcome.passed, outcome.errors
 
-    def test_retire_record_wrong_model_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        _write_decision_record(
-            repo_path, "dead_module", model_name="other",
-        )
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=9, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            9, conn=conn,
-        )
-        assert not outcome.passed
-        assert any("model_name" in e for e in outcome.errors)

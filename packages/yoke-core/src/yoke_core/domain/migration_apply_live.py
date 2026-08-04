@@ -18,7 +18,6 @@ from yoke_core.domain.migration_apply_targets import (
 )
 from yoke_core.domain.migration_apply_audit import (
     _latest_rehearsed_row, _update_audit_state,
-    assert_live_apply_override_consistent,
     build_live_apply_provenance, set_audit_provenance,
 )
 from yoke_core.domain.migration_apply_contract import (
@@ -30,15 +29,11 @@ from yoke_core.domain.migration_apply_contract import (
     RehearsalStaleError, _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution, _resolve_capability_settings,
-    _resolve_repo_path, default_worktree_path,
+    _resolve_capability_settings,
+    _resolve_repo_path, default_worktree_path, resolve_runner_input,
 )
-from yoke_core.domain.migration_apply_manifest import MigrationApplySubject, resolve_runner_input
-from yoke_core.domain.migration_apply_manifest import assert_manifest_subject_current
-from yoke_core.domain.migration_apply_manifest import assert_rehearsal_subject_consistent
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import _row_count_map, _run_baseline_verify, _run_module_invariants
-from yoke_core.domain.migration_auto_retire import auto_retire_after_live_apply
 from yoke_core.domain.migration_harness_checks import pg_latest_rehearsed_migration_audit_row as pg_latest
 from yoke_core.domain.migration_harness_checks import pg_set_migration_audit_provenance as pg_set_provenance
 from yoke_core.domain.migration_harness_checks import pg_update_migration_audit_state as pg_update_state
@@ -48,16 +43,12 @@ def live_apply(
     session_id: Optional[str] = None,
     control_db_path: Optional[str] = None,
     worktree_path: Optional[Path] = None,
-    module_override: Optional[ModuleOverrideResolution] = None,
 ) -> LiveApplyResult:
     """Run the live-apply unit for *item_id* against the model's authoritative DB.
 
     Requires a successful, fresh rehearsal.  Acquires
     ``LIVE_DB_MIGRATION:<model_name>`` for the duration of the live
     unit; releases it on success or failure with a structured reason.
-    *module_override* must match the override recorded by rehearse — otherwise
-    live-apply refuses rather than falling back
-    to main.
     """
     control_conn = db_helpers.connect(control_db_path)
     try:
@@ -66,7 +57,6 @@ def live_apply(
             item_id=item_id,
             session_id=session_id or "live-apply",
             worktree_path=default_worktree_path(control_conn, item_id, worktree_path),
-            module_override=module_override,
         )
     finally:
         control_conn.close()
@@ -78,12 +68,8 @@ def _live_apply_inner(
     item_id: Optional[int],
     session_id: str,
     worktree_path: Path,
-    module_override: Optional[ModuleOverrideResolution] = None,
-    subject: Optional[MigrationApplySubject] = None,
 ) -> LiveApplyResult:
-    resolved = resolve_runner_input(
-        control_conn, item_id=item_id, subject=subject
-    )
+    resolved = resolve_runner_input(control_conn, item_id=item_id)
     profile = resolved.profile
     project = resolved.project
     project_id = resolved.project_id
@@ -156,16 +142,6 @@ def _live_apply_inner(
                     f"module '{identifier}': rehearsal older than "
                     f"{FRESHNESS_WINDOW_MINUTES}m window — re-rehearse"
                 )
-            assert_rehearsal_subject_consistent(
-                identifier=identifier,
-                audit_description=row.get("description"),
-                subject=subject,
-            )
-            assert_live_apply_override_consistent(
-                identifier=identifier,
-                audit_description=row.get("description"),
-                override=module_override,
-            )
             rehearsed_rows.append((identifier, row))
 
         # Step 2: acquire the per-model lease.  LeaseHeldError propagates
@@ -236,11 +212,9 @@ def _live_apply_inner(
 
                 # live_applied — apply module to authoritative DB.
                 try:
-                    if subject is not None:
-                        assert_manifest_subject_current(control_conn, subject=subject, worktree_path=worktree_path)
                     handle = dispatch_handle(
                         model=model, repo_path=worktree_path,
-                        identifier=identifier, override=module_override,
+                        identifier=identifier,
                         project=project, model_name=profile["model_name"],
                     )
                 except (MigrationApplyError, ModuleResolutionError, ModuleContractError) as exc:
@@ -327,23 +301,6 @@ def _live_apply_inner(
             # Re-read the lease row so the caller sees the final state.
             result.lease_id = get_lease(control_conn, lease.id).id
 
-        if subject is None and all(
-            m.state == STATE_COMPLETED for m in result.modules
-        ):
-            modules_dir_rel = Path(
-                str(model.get("runner", {}).get("config", {})
-                    .get("modules_dir") or "")
-            )
-            if str(modules_dir_rel):
-                auto_retire_after_live_apply(
-                    audit_conn=audit_conn,
-                    project=project,
-                    model=model,
-                    profile=profile,
-                    worktree_path=worktree_path,
-                    modules_dir_rel=modules_dir_rel,
-                    item_id=item_id,
-                )
     finally:
         audit_conn.close()
 
