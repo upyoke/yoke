@@ -176,10 +176,10 @@ def apply_bundle(
         or worktrees_ignore.get("created_file")
     )
 
-    # Yoke-managed Markdown blocks (AGENTS.md / CLAUDE.md / CODEX.md) and the
-    # .claude/settings.json permissions region. Both run after the hook
-    # reconcile above so the settings file already exists; both own only their
-    # marked region and preserve operator content around it.
+    # Yoke-managed Markdown blocks (AGENTS.md / CLAUDE.md / CODEX.md /
+    # CURSOR.md) and the .claude/settings.json permissions region. Both run
+    # after the hook reconcile above so the settings file already exists; both
+    # own only their marked region and preserve operator content around it.
     managed_markdown_records, managed_markdown_report = (
         managed_markdown_layer.apply_managed_markdown(
             repo_root,
@@ -231,6 +231,16 @@ def apply_bundle(
         }
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
+    # Machine-local Cursor stop/sessionEnd backstop: project hooks cannot
+    # spawn when Cursor's project cwd is a deleted linked worktree.
+    try:
+        from yoke_harness.hooks.cursor_lifecycle_hooks import (
+            ensure_user_lifecycle_hooks,
+        )
+
+        ensure_user_lifecycle_hooks()
+    except Exception:  # noqa: BLE001 — install must not fail open on home hooks
+        pass
     return {
         "operation": operation,
         MODE_KEY: MODE_COPY,

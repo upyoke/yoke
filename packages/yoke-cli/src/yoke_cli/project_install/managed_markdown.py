@@ -1,7 +1,7 @@
 """Marker-delimited Yoke-managed blocks inside co-owned Markdown files.
 
 External projects may already own their ``AGENTS.md`` / ``CLAUDE.md`` /
-``CODEX.md``, so the installer owns exactly one marker-delimited block inside
+``CODEX.md`` / ``CURSOR.md``, so the installer owns exactly one marker-delimited block inside
 each file and never touches content outside the markers:
 
 * file absent             -> create it with just our block

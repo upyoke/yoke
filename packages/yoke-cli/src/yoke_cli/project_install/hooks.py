@@ -1,9 +1,10 @@
 """Hook config merge/de-merge for ``yoke install`` / ``uninstall``.
 
-Merges the bundle's ``claude_settings_hooks`` / ``codex_hooks`` subtrees
-into a project repo's ``.claude/settings.json`` and ``.codex/hooks.json``
-without disturbing operator-authored entries, and removes exactly the
-bundle-provided entries on uninstall.
+Merges the bundle's ``claude_settings_hooks`` / ``codex_hooks`` /
+``cursor_hooks`` subtrees into a project repo's ``.claude/settings.json``,
+``.codex/hooks.json``, and ``.cursor/hooks.json`` without disturbing
+operator-authored entries, and removes exactly the bundle-provided entries
+on uninstall.
 
 Identity of a hook entry is ``(matcher, command strings)`` within its
 event — matching on the command string alone would collapse Yoke's

@@ -90,13 +90,24 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Refresh the Yoke project scaffold (.yoke/)"
     if action == "project-install-agent-rules":
         return (
-            "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
+            "Add Yoke's rules to AGENTS.md, CLAUDE.md, CODEX.md, and CURSOR.md "
             "(keeps any existing content)"
         )
     if action == "project-install-tool-permissions":
         return (
-            "Allow Yoke's tools in .claude/settings.json "
+            "Allow Yoke's tools in .claude/settings.json and "
+            ".cursor/cli.json / .cursor/sandbox.json "
             "(keeps your other settings)"
+        )
+    if action == "project-install-harness-hooks":
+        return (
+            "Install harness hooks in .claude/settings.json, "
+            ".codex/hooks.json, and .cursor/hooks.json"
+        )
+    if action == "install-cursor-user-lifecycle-hooks":
+        return (
+            "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json "
+            "(survives a deleted project folder)"
         )
     if action == "project-install-git-hooks":
         return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"

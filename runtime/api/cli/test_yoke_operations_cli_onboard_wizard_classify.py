@@ -1,9 +1,12 @@
 """Pure-function coverage for the onboard wizard's write-plan classifier.
 
-``steps.classify_plan`` buckets ``build_report``'s write-plan steps into the
+``steps.classify_plan`` buckets ``build_plan``'s write-plan steps into the
 machine / Yoke-core-database / repo-local / source-dev-admin groups the Finish
 preview renders. These cases need no Textual pilot, so they live apart from the
 pilot-driven flow suite in ``test_yoke_operations_cli_onboard_wizard.py``.
+
+Install-destination honesty for Cursor/harness paths lives in
+``test_yoke_operations_cli_onboard_wizard_classify_install_destinations``.
 """
 
 from __future__ import annotations
@@ -25,37 +28,11 @@ from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING 
 from yoke_cli.config.project_clone_support import ClonePlan  # noqa: E402
 from yoke_cli.config.project_publish_support import PublishRequest  # noqa: E402
 
-
-def _step_target(plan: dict, action: str) -> str:
-    for step in plan["steps"]:
-        if step["action"] == action:
-            return step["target"]
-    raise AssertionError(f"no {action} step in plan")
-
-
-def _repo_lines(plan: dict, project_mode: str) -> list[str]:
-    """Friendly repo-bucket lines for a ``build_plan`` output.
-
-    ``classify_plan`` consumes the wrapped report shape ``finish_body`` passes it
-    (``{"project_mode": ..., "plan": <build_plan output>}``), so wrap the plan the
-    same way before classifying.
-    """
-    report = {"project_mode": project_mode, "plan": plan}
-    return steps.classify_plan(report)["repo"]
-
-
-def _build_plan(project_inputs: dict, project_mode: str) -> dict:
-    return onboard_report.build_plan(
-        Path("/home/.yoke/config.json"),
-        "prod",
-        "https://api.test",
-        {"kind": "token_file", "path": "/home/.yoke/secrets/prod.token"},
-        {"kind": "prompt"},
-        "quick",
-        project_mode=project_mode,
-        project_inputs=project_inputs,
-        machine_github={"choice": "skip"},
-    )
+from runtime.api.cli.onboard_wizard_classify_test_support import (  # noqa: E402
+    build_plan,
+    repo_lines,
+    step_target,
+)
 
 
 def test_build_plan_keep_existing_remote_target() -> None:
@@ -65,8 +42,8 @@ def test_build_plan_keep_existing_remote_target() -> None:
         "github_adoption": None,
         "keep_existing_remote": True,
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-    assert _step_target(plan, "project-github-auth-choice") == "keep-existing-remote"
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
+    assert step_target(plan, "project-github-auth-choice") == "keep-existing-remote"
 
 
 def test_build_plan_skip_github_target_when_not_keeping_remote() -> None:
@@ -76,8 +53,8 @@ def test_build_plan_skip_github_target_when_not_keeping_remote() -> None:
         "github_adoption": None,
         "keep_existing_remote": False,
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-    assert _step_target(plan, "project-github-auth-choice") == "disabled"
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
+    assert step_target(plan, "project-github-auth-choice") == "disabled"
 
 
 def test_build_plan_clone_outcome_compound_source_target() -> None:
@@ -87,8 +64,8 @@ def test_build_plan_clone_outcome_compound_source_target() -> None:
         "github_adoption": None,
         "clone": ClonePlan(outcome="make-it-mine"),
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    assert _step_target(plan, "project-source-choice") == "clone-remote:make-it-mine"
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    assert step_target(plan, "project-source-choice") == "clone-remote:make-it-mine"
 
 
 def test_build_plan_clone_without_outcome_keeps_bare_mode_target() -> None:
@@ -98,35 +75,8 @@ def test_build_plan_clone_without_outcome_keeps_bare_mode_target() -> None:
         "github_adoption": None,
         "clone": None,
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    assert _step_target(plan, "project-source-choice") == "clone-remote"
-
-
-def test_build_plan_clone_make_it_mine_lists_post_checkout_repo_steps() -> None:
-    # The clone make-it-mine review must summarize the post-clone work, not just
-    # the clone line: re-home + push, install the scaffold, and write board art.
-    project_inputs = {
-        "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        "checkout": "/home/code/widget",
-        "github_adoption": None,
-        "clone": ClonePlan(outcome="make-it-mine"),
-    }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    assert "Clone the project into /home/code/widget" in repo
-    assert "Re-home onto the new repo and push" in repo
-    assert "Install the Yoke project scaffold (.yoke/)" in repo
-    assert (
-        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
-        "(keeps any existing content)"
-    ) in repo
-    assert (
-        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)"
-    ) in repo
-    assert (
-        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
-    ) in repo
-    assert "Write your board art and initial BOARD.md" in repo
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    assert step_target(plan, "project-source-choice") == "clone-remote"
 
 
 def test_build_plan_project_payload_sanitizes_clone_publish_secrets() -> None:
@@ -149,7 +99,7 @@ def test_build_plan_project_payload_sanitizes_clone_publish_secrets() -> None:
             fork_api_url="https://api.github.example",
         ),
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     serialized = json.dumps(plan)
 
     assert "publish-secret" not in serialized
@@ -165,39 +115,11 @@ def test_build_plan_clone_fork_lists_fork_remote_step() -> None:
         "github_adoption": None,
         "clone": ClonePlan(outcome="fork"),
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    repo = repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     assert "Point origin at your fork and track the source as upstream" in repo
     assert "Re-home onto the new repo and push" not in repo
     assert "Install the Yoke project scaffold (.yoke/)" in repo
-
-
-def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
-    project_inputs = {
-        "mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
-        "checkout": "/home/code/widget",
-        "github_adoption": None,
-        "clone": ClonePlan(outcome="just-clone"),
-    }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
-    # just-clone keeps origin on the source — no re-home / fork remote step.
-    assert "Re-home onto the new repo and push" not in repo
-    assert "Point origin at your fork and track the source as upstream" not in repo
-    # The scaffold + rules/permissions/hooks + board-art steps still run for
-    # every checkout mode.
-    assert "Install the Yoke project scaffold (.yoke/)" in repo
-    assert (
-        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
-        "(keeps any existing content)"
-    ) in repo
-    assert (
-        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)"
-    ) in repo
-    assert (
-        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
-    ) in repo
-    assert "Write your board art and initial BOARD.md" in repo
 
 
 def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
@@ -208,9 +130,9 @@ def test_build_plan_existing_project_missing_board_art_lists_art_step() -> None:
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     actions = {step["action"] for step in plan["steps"]}
-    repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    repo = repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     grouped = steps.classify_plan(
         {
             "project_mode": onboard_project.PROJECT_MODE_CLONE_REMOTE,
@@ -239,103 +161,13 @@ def test_build_plan_existing_project_with_board_art_skips_art_step(
         "existing_project_id": 37,
         "clone": ClonePlan(outcome="just-clone"),
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_CLONE_REMOTE)
     actions = {step["action"] for step in plan["steps"]}
-    repo = _repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
+    repo = repo_lines(plan, onboard_project.PROJECT_MODE_CLONE_REMOTE)
 
     assert "project-write-board-art" not in actions
     assert "Install the Yoke project scaffold (.yoke/)" in repo
     assert "Write your board art and initial BOARD.md" not in repo
-
-
-def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
-    project_inputs = {
-        "mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-        "checkout": "/home/code/externalwebapp",
-        "slug": "externalwebapp",
-        "name": "ExternalWebapp",
-        "github_adoption": "disabled",
-        "existing_project_id": 37,
-        "github_repo": "owner/externalwebapp",
-        "default_branch": "trunk",
-        "default_branch_source": (
-            onboard_project.DEFAULT_BRANCH_SOURCE_EXISTING_PROJECT
-        ),
-        "public_item_prefix": "EXT",
-    }
-    reuse = {
-        "yoke_home": True,
-        "active_env": True,
-        "connection": True,
-        "token_reference": True,
-        "machine_github": True,
-        "aws_admin": True,
-        "temp_root": True,
-        "cache_dir": True,
-        "project_identity": True,
-        "project_checkout": True,
-        "project_github_auth": True,
-        "project_scaffold": True,
-    }
-    plan = onboard_report.build_plan(
-        Path("/home/.yoke/config.json"),
-        "prod",
-        "https://api.test",
-        {"kind": "token_file", "path": "/home/.yoke/secrets/prod.token"},
-        {"kind": "token_file", "path": "/home/.yoke/secrets/prod.token"},
-        "quick",
-        project_mode=onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-        project_inputs=project_inputs,
-        machine_github={"choice": "connect"},
-        reuse=reuse,
-    )
-    actions = [step["action"] for step in plan["steps"]]
-    grouped = steps.classify_plan(
-        {
-            "project_mode": onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-            "plan": plan,
-        }
-    )
-    reuse_lines = onboard_reuse_feedback.lines_for_plan(plan)
-
-    assert actions == [
-        "project-refresh-scaffold",
-        "project-install-agent-rules",
-        "project-install-tool-permissions",
-        "project-install-git-hooks",
-        "project-write-board-art",
-    ]
-    assert grouped["machine"] == []
-    assert grouped["core"] == []
-    assert grouped["repo"] == [
-        "Refresh the Yoke project scaffold (.yoke/)",
-        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md (keeps any existing content)",
-        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)",
-        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)",
-        "Write your board art and initial BOARD.md",
-    ]
-    assert (
-        "Existing Yoke project detected in the Yoke core database: ExternalWebapp (id 37)."
-        in reuse_lines
-    )
-    assert (
-        "Existing project GitHub repo in the Yoke core database: owner/externalwebapp."
-        in reuse_lines
-    )
-    assert (
-        "Existing project issue prefix in the Yoke core database: EXT." in reuse_lines
-    )
-    assert (
-        "Existing project default branch in the Yoke core database: trunk."
-        in reuse_lines
-    )
-    assert (
-        "Checkout mapping is already registered in ~/.yoke/config.json at "
-        "/home/code/externalwebapp." in reuse_lines
-    )
-    assert (
-        "Project scaffold is already installed; Apply will refresh it." in reuse_lines
-    )
 
 
 def test_reuse_feedback_names_detected_clone_values() -> None:
@@ -385,7 +217,7 @@ def test_build_plan_source_dev_admin_omits_scaffold_and_board_art() -> None:
         "checkout": "/src/yoke",
         "github_adoption": None,
     }
-    plan = _build_plan(project_inputs, onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
     actions = {step["action"] for step in plan["steps"]}
     assert "project-install-scaffold" not in actions
     assert "project-write-board-art" not in actions

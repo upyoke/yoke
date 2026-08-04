@@ -49,6 +49,7 @@ _MACHINE_ACTIONS = {
     "local-universe-init",
     "store-token-reference", "machine-github-connection", "create-runtime-dir",
     "project-checkout-register",
+    "install-cursor-user-lifecycle-hooks",
     aws_admin_capability.HOSTING_CAPABILITY_ACTION,
 }
 _REPO_ACTIONS = {
@@ -57,6 +58,7 @@ _REPO_ACTIONS = {
     "project-rehome-push", "project-fork-remotes",
     "project-install-scaffold", "project-refresh-scaffold",
     "project-install-agent-rules", "project-install-tool-permissions",
+    "project-install-harness-hooks",
     "project-install-git-hooks",
     "project-write-board-art",
 }
