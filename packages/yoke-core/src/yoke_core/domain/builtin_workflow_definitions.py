@@ -53,7 +53,12 @@ def builtin_workflow_version_history() -> list[Dict[str, Any]]:
     """
     return [
         {
-            "workflow": {"id": generation.workflow_id},
+            # The workflow block is identity (name, description, source), not
+            # version content, so it comes from the current definition rather
+            # than being frozen per generation.
+            "workflow": deepcopy(
+                builtin_workflow_definition(generation.workflow_id)["workflow"]
+            ),
             "version": generation.canon_version,
             "definition": deepcopy(generation.definition),
         }

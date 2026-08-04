@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.builtin_workflow_canon import recognize
 from yoke_core.domain.builtin_workflow_version_convergence import (
     converge_builtin_workflows as _converge_builtin_workflows,
     select_current_builtin_workflow_versions as _select_builtin_versions,
@@ -170,6 +171,26 @@ def publish_workflow_version(
     }
 
 
+def _version_provenance(version_row) -> dict:
+    """Where a stored version's content came from, as the dashboard shows it.
+
+    A universe's version numbers are its own sequence positions, so the number
+    alone says nothing about which published generation a row holds. Matching
+    the digest against the canon answers that, and the caller compares
+    ``canon_version`` with the local number to see that a universe adopted a
+    generation on its own schedule -- normal, and not drift.
+
+    Only built-in workflows have a canon. A workflow authored in this universe
+    is local by definition, not by failing to be recognized.
+    """
+    generation = recognize(
+        str(version_row["workflow_id"]), str(version_row["definition_digest"])
+    )
+    if generation is None:
+        return {"kind": "local"}
+    return {"kind": "canon", "canon_version": generation.canon_version}
+
+
 def list_current_workflows(conn: Any) -> list[dict]:
     """Return each workflow joined to its selected immutable definition."""
     workflow_cursor = conn.execute(
@@ -199,6 +220,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "published_at": version_row["published_at"],
             "published_by_actor_id": version_row["published_by_actor_id"],
             "immutable_at": version_row["immutable_at"],
+            "provenance": _version_provenance(version_row),
         })
     result: list[dict] = []
     for row in rows:

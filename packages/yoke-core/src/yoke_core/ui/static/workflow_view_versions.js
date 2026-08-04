@@ -102,6 +102,37 @@ function inspectButton(documentNode, row, workflow, version, actions) {
   return inspect;
 }
 
+function provenanceNote(documentNode, workflow, version) {
+  // Only built-in workflows have a canon to be recognized against; one
+  // authored here is local by definition rather than by failing to match.
+  const provenance = version.provenance;
+  if (!provenance || workflow.source !== "built_in") {
+    return null;
+  }
+  if (provenance.kind === "local") {
+    return el(
+      documentNode,
+      "div",
+      "workflow-version-provenance local",
+      "Customized here — not a published Yoke version.",
+    );
+  }
+  const canonVersion = Number(provenance.canon_version);
+  if (canonVersion === Number(version.version)) {
+    return null;
+  }
+  // Adopting a published generation at a different local number is what a
+  // universe on its own release schedule looks like. Say so plainly, because
+  // treating it as damage is what used to stop the whole fleet booting.
+  return el(
+    documentNode,
+    "div",
+    "workflow-version-provenance",
+    `Yoke version ${canonVersion}, numbered ${version.version} here.`,
+  );
+}
+
+
 function versionRow(documentNode, workflow, version, actions) {
   const current = Number(version.version) ===
     Number(workflow.current_version);
@@ -128,6 +159,10 @@ function versionRow(documentNode, workflow, version, actions) {
         : "New items pin this version."
       : "Readable and eligible to become current again.",
   ));
+  const provenance = provenanceNote(documentNode, workflow, version);
+  if (provenance) {
+    summary.appendChild(provenance);
+  }
   row.appendChild(summary);
   if (current) {
     const published = el(
