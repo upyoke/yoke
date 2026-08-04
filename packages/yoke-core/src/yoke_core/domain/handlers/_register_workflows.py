@@ -63,7 +63,7 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_read"],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
     )
     registry.register(
@@ -77,7 +77,7 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_read"],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
     )
     registry.register(
@@ -91,7 +91,7 @@ def register(registry) -> None:
         side_effects=["workflow_version_published"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_append"],
-        adapter_status="live",
+        adapter_status="internal",
         claim_required_kind=None,
     )
     registry.register(
