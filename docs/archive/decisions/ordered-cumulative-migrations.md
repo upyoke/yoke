@@ -101,12 +101,54 @@ canonical serializer its readers use, and must write only rows that change.
 
 ## What the evidence gate asks now
 
-Leaving `implementing` used to require a completed live-apply audit row. Under
-boot-driven apply that is evidence from the future — the apply happens after the
-item merges. The gate now asks for what the item can produce: the declared
+Leaving `implementing` used to require a completed audit row for an operator
+apply. Under boot-driven apply that is evidence from the future — the apply
+happens after the item merges. The gate now asks for what the item can
+produce: the declared
 module is IN the history, correctly named and loadable, and a rehearsal receipt
 exists. A runner with no checkout cannot read the history directory; that is
 "cannot inspect", not "missing", and the rehearsal receipt still applies.
+
+## Deploy-before-drop, enforced at the seam that now exists
+
+Membership by name is what makes rollback possible, and it is also what makes a
+rolled-back container dangerous: its history does not contain the newer
+destructive entry at all, so it computes an empty pending set, reports
+`migrations_current` true, and serves broken reads against columns that are
+gone. Head equality would catch that and brick rollback in both directions,
+which is worse. The ordering rule therefore moved rather than disappeared.
+
+A destructive entry declares `MINIMUM_SERVING_VERSION`: the oldest artifact
+version that may serve against a database once the entry has been applied. An
+entry that removes a surface without declaring one fails at module load, which
+is the path every apply route goes through, so the declaration cannot be
+skipped by taking a different one. The applier refuses to run an entry whose
+floor is newer than the build running it.
+
+**The declaration is copied into the ledger row at apply time.** That is the
+whole mechanism: the reader who needs it is a build old enough to be stranded,
+and such a build does not ship the entry module that would tell it so. The
+ledger row is the only surface the two share. `/v1/health` reads it back and
+answers `can_serve_this_database`, naming each offending entry — which is what
+converts a silent broken-read outage into a container that fails its own health
+gate.
+
+Three states are deliberately not violations, because each would otherwise
+manufacture a fleet-wide refusal out of missing information. A row with no
+recorded floor is *unknown*, not unsafe — it is the majority state on any
+database that applied anything before floors were recorded. An unresolved
+running version is a source checkout, which advertises its last tag rather than
+its code and is ahead of the entry it carries, not behind it. An unreadable
+ledger returns no findings, inverting the pending-set probe's fail-closed
+stance on purpose: "am I current?" must read cannot-tell as no, while "am I
+forbidden from serving?" must not.
+
+Rollout overlap turned out not to exist. A tenant is one container plus its own
+database, rolled together and health-gated before the fleet walk continues, so
+neither two builds of one tenant nor one tenant's drop reaching another is
+possible. The exposure is a *completed* roll or rollback that leaves a tenant
+on a build too old for its own database, which is exactly what the health
+answer catches.
 
 ## Squash policy
 
