@@ -80,16 +80,10 @@ def test_migration_rewrites_keys_and_preserves_rows() -> None:
         "INSERT INTO deployment_flows VALUES (?, ?)",
         (
             "release",
-            json.dumps(
-                [
-                    {"name": "merged", "executor": "auto"},
-                    {
-                        "kind": "migration_apply",
-                        "model_name": "primary",
-                        "lifecycle_phase": "implementing",
-                    },
-                ]
-            ),
+            # No retired kind-shaped stage here: the entry that strips those
+            # runs earlier in the history, so by the time this one revalidates
+            # a flow's stages they are gone.
+            json.dumps([{"name": "merged", "executor": "auto"}]),
         ),
     )
 

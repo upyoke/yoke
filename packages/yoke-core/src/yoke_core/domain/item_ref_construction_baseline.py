@@ -49,7 +49,6 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/domain/db_mutation_gate_overlap.py": 1,
     "packages/yoke-core/src/yoke_core/domain/deploy_pipeline.py": 8,
     "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_gates.py": 6,
-    "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_migration.py": 2,
     "packages/yoke-core/src/yoke_core/domain/deployment_runs_validation.py": 6,
     "packages/yoke-core/src/yoke_core/domain/discovery_scan.py": 2,
     "packages/yoke-core/src/yoke_core/domain/ephemeral_environment_item_binding.py": 1,

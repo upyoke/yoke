@@ -80,7 +80,7 @@ _SHAPES = (
         "path-claim-owner-kind", "path-claim-register-rejected-with-deps",
         "path-integrity", "premature-done", "preview-occupancy-stale",
         "project-checkout-mapping", "project-fk-integrity",
-        "project-flow-migration-apply-coverage", "project-json-validity",
+        "project-json-validity",
         "project-verification-configured", "projects-ci-workflow-configured",
         "projects-config-alignment", "projects-without-flows",
         "qa-runs-mutated", "reflection-capture-persist-failed",
