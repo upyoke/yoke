@@ -117,19 +117,13 @@ function provenanceNote(documentNode, workflow, version) {
       "Customized here — not a published Yoke version.",
     );
   }
-  const canonVersion = Number(provenance.canon_version);
-  if (canonVersion === Number(version.version)) {
-    return null;
-  }
-  // Adopting a published generation at a different local number is what a
-  // universe on its own release schedule looks like. Say so plainly, because
-  // treating it as damage is what used to stop the whole fleet booting.
-  return el(
-    documentNode,
-    "div",
-    "workflow-version-provenance",
-    `Yoke version ${canonVersion}, numbered ${version.version} here.`,
-  );
+  // A recognized version gets no note at all, including when the canon
+  // numbers it differently. This universe's number IS the number; the canon's
+  // is an implementation detail of how recognition works, and showing both
+  // hands the reader two competing identities for one thing while implying a
+  // discrepancy where there is none. Customization is the only state here
+  // worth a line, because it is the only one that changes what an update does.
+  return null;
 }
 
 
