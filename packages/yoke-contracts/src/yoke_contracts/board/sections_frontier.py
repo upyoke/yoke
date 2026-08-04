@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
-from yoke_contracts.board.sections_classify import _project_filter_sql
+from yoke_contracts.board.project_scope import project_filter
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 
 # ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ def frontier_counts(
         ``reviewing``, ``release``, ``implemented``, ``refined``,
         ``idea``, ``planning``, ``total``.
     """
-    pf = _project_filter_sql(scope, db=db)
+    pf, params = project_filter(scope, "i")
     since_filter = f"AND i.id >= {art_frontier_since}" if art_frontier_since > 0 else ""
     _tts_in = ", ".join(f"'{s}'" for s in sorted(TASK_TERMINAL_SUCCESS))
 
@@ -92,7 +92,7 @@ def frontier_counts(
         COALESCE(SUM(weight), 0)
     FROM item_or_task
     """
-    rows = db.query_quiet(sql)
+    rows = db.query_quiet(sql, (*params, *params))
 
     if not rows or not rows[0]:
         return {

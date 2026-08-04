@@ -39,8 +39,8 @@ def _patch_post_steps():
     stack.enter_context(
         mock.patch.object(
             merge_worktree_post_local,
-            "_regenerate_views_or_exit5",
-            return_value=0,
+            "_regenerate_views_advisory",
+            return_value=None,
         )
     )
     stack.enter_context(
@@ -111,16 +111,16 @@ def test_lane_removal_runs_after_every_step_that_reads_from_it(tmp_path):
         stack.enter_context(
             mock.patch.object(
                 merge_worktree_post_local,
-                "_regenerate_views_or_exit5",
-                side_effect=lambda _ctx: (order.append("_regenerate_views"), 0)[1],
+                "_regenerate_views_advisory",
+                side_effect=lambda _ctx: order.append("_regenerate_views"),
             )
         )
         stack.enter_context(
-            mock.patch.object(merge_worktree_post_local, "_chdir_out_of_doomed_worktree")
+            mock.patch.object(
+                merge_worktree_post_local, "_chdir_out_of_doomed_worktree"
+            )
         )
-        run_git = stack.enter_context(
-            mock.patch.object(merge_worktree, "_run_git")
-        )
+        run_git = stack.enter_context(mock.patch.object(merge_worktree, "_run_git"))
 
         def record(command, **_kwargs):
             if "worktree" in command and "remove" in command:
