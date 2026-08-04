@@ -13,7 +13,7 @@ from yoke_core.domain.migration_boot_apply import (
     pending_entries,
     stamp_history,
 )
-from yoke_core.domain.migration_receipts import now_stamp, record_missing_receipts
+from yoke_core.domain.migration_audit_receipts import now_stamp, record_missing_receipts
 from yoke_core.domain.migration_audit_schema import (
     ensure_applied_migrations_table,
     ensure_migration_audit_table,

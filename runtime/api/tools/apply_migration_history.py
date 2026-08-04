@@ -24,7 +24,11 @@ from __future__ import annotations
 import argparse
 import sys
 
-from yoke_core.domain import db_helpers, migration_boot_apply, migration_receipts
+from yoke_core.domain import (
+    db_helpers,
+    migration_audit_receipts,
+    migration_boot_apply,
+)
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
 from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
@@ -74,11 +78,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         ensure_applied_migrations_table(conn)
         if args.record_missing_receipts:
-            healed = migration_receipts.record_missing_receipts(
+            healed = migration_audit_receipts.record_missing_receipts(
                 conn,
                 history,
                 applied=migration_boot_apply.applied_names(conn),
-                stamp=migration_receipts.now_stamp(),
+                stamp=migration_audit_receipts.now_stamp(),
                 restore_point=args.record_missing_receipts,
                 project_id=args.project_id,
                 model_name=args.model_name,

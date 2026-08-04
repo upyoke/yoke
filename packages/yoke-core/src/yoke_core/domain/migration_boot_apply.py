@@ -31,7 +31,7 @@ from typing import Any, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend, migration_restore_point
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
-from yoke_core.domain.migration_receipts import now_stamp, write_receipt
+from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 
 #: Advisory-lock id serializing migration apply on one database. Postgres
 #: advisory locks already carry the database in their lock tag, so a single
