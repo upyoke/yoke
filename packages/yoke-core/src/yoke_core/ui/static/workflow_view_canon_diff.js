@@ -167,9 +167,80 @@ export function renderCanonDiff(documentNode, workflow, actions) {
           "merging the two, so your edits are preserved rather than replaced.",
       ));
     }
+    if (actions.takeUpdate) {
+      body.appendChild(takeUpdateControl(documentNode, workflow, actions));
+    }
     host.appendChild(body);
     reveal.disabled = false;
     reveal.textContent = "Hide";
   });
   return host;
+}
+
+// The update is offered next to the diff and only after the merge has been
+// previewed, so nothing is ever applied that the operator has not seen. A
+// conflicted merge offers nothing to click: there is no correct automatic
+// resolution, and pretending otherwise would silently pick a side.
+function takeUpdateControl(documentNode, workflow, actions) {
+  const wrap = el(documentNode, "div", "workflow-diff-apply");
+  const take = button(documentNode, "Take this update", "workflow-button primary");
+  const note = el(documentNode, "p", "workflow-diff-apply-note");
+  wrap.appendChild(take);
+  wrap.appendChild(note);
+
+  take.addEventListener("click", async () => {
+    take.disabled = true;
+    take.textContent = "Checking…";
+    note.textContent = "";
+    note.classList.remove("error");
+    let preview;
+    try {
+      preview = await callFunction(
+        actions.client,
+        "workflows.canon_update.preview",
+        { workflow_id: workflow.id },
+      );
+    } catch (failure) {
+      note.textContent = String(failure);
+      note.classList.add("error");
+      take.disabled = false;
+      take.textContent = "Retry";
+      return;
+    }
+    const merged = preview.envelope?.result;
+    if (preview.status !== 200 || !preview.envelope.success) {
+      note.textContent =
+        preview.envelope?.error?.message || "Could not preview the update.";
+      note.classList.add("error");
+      take.disabled = false;
+      take.textContent = "Retry";
+      return;
+    }
+    if (!merged.clean) {
+      note.textContent =
+        "This update and your edits both change: " +
+        merged.conflicts.map((conflict) => conflict.path).join(", ") +
+        ". Resolve those by editing the workflow, then take the update.";
+      note.classList.add("error");
+      // Stays clickable: the operator resolves the conflict by editing, and
+      // needs to be able to check again without reloading the page.
+      take.disabled = false;
+      take.textContent = "Check again";
+      return;
+    }
+    take.textContent = "Applying…";
+    const applied = await actions.takeUpdate(workflow, merged);
+    if (applied?.error) {
+      note.textContent = applied.error;
+      note.classList.add("error");
+      take.disabled = false;
+      take.textContent = "Retry";
+      return;
+    }
+    take.textContent = "Applied";
+    note.textContent = merged.kept.length
+      ? `Your edits were preserved: ${merged.kept.join(", ")}.`
+      : "";
+  });
+  return wrap;
 }

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import workflows_definition as _wd
 from yoke_core.domain.handlers import workflows_versioning as _wv
+from yoke_core.domain.handlers import (
+    workflows_canon_update as _wcu,
+)
 
 
 def register(registry) -> None:
@@ -60,6 +63,34 @@ def register(registry) -> None:
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.canon_update.preview",
+        _wcu.handle_workflows_canon_update_preview,
+        _wcu.WorkflowCanonUpdatePreviewRequest,
+        _wcu.WorkflowCanonUpdatePreviewResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_canon_update",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.canon_update.apply",
+        _wcu.handle_workflows_canon_update_apply,
+        _wcu.WorkflowCanonUpdateApplyRequest,
+        _wcu.WorkflowCanonUpdateApplyResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_canon_update",
+        target_kinds=["global"],
+        side_effects=["workflow_version_published"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_append"],
         adapter_status="live",
         claim_required_kind=None,
     )

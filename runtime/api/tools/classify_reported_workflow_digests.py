@@ -1,9 +1,9 @@
 """Classify workflow-version digests that were read somewhere else.
 
 The sibling checker reaches into a database itself. This one takes digests a
-caller already has -- from a remote host, an operator paste, a support ticket
--- and answers the only question that matters about them: does the canon
-recognize this content, and at which generation.
+caller already has -- read from a remote host, pasted by an operator, quoted
+in a report -- and answers the only question that matters about them: does the
+canon recognize this content, and at which generation.
 
     python3 -m runtime.api.tools.classify_reported_workflow_digests \\
         --row issue:1:a663bad50366 --row issue:2:3daf973869d8

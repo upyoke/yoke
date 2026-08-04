@@ -60,6 +60,11 @@ class TestRegistrationShape:
             "workflows.testing_default.set",
             "workflows.delivery_default.set",
             "workflows.approval_defaults.publish",
+            # Taking a published workflow update is an operator decision made
+            # in the browser, next to the diff that explains it. It publishes
+            # a version like its siblings above, and refuses rather than
+            # resolving when the merge conflicts with local edits.
+            "workflows.canon_update.apply",
             "test_machine.settings_replace", "test_machine.verify",
             "decision_requests.resolve",
             "notifications.read", "notifications.read_all",

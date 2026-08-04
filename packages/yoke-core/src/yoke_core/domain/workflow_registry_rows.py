@@ -39,4 +39,29 @@ def version_by_id(conn: Any, version_id: int) -> Optional[dict]:
     return row_dict(cursor, cursor.fetchone())
 
 
-__all__ = ["version_by_id", "version_row", "workflow_row"]
+def version_row_by_digest(
+    conn: Any,
+    workflow_id: str,
+    digest: str,
+) -> Optional[dict]:
+    """The row holding this content, whatever number it sits under.
+
+    A workflow holds each digest at most once, so this answers "does this
+    universe already have this definition" without caring which version it
+    numbered it.
+    """
+    bind = marker(conn)
+    cursor = conn.execute(
+        "SELECT * FROM workflow_versions "
+        f"WHERE workflow_id = {bind} AND definition_digest = {bind}",
+        (workflow_id, digest),
+    )
+    return row_dict(cursor, cursor.fetchone())
+
+
+__all__ = [
+    "version_by_id",
+    "version_row",
+    "version_row_by_digest",
+    "workflow_row",
+]

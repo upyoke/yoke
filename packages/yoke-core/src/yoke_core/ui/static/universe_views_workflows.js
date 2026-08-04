@@ -73,6 +73,7 @@ function renderSelectedWorkflow(
       makeCurrent: actions.makeCurrent
         ? (version) => actions.makeCurrent(workflow, version)
         : null,
+      takeUpdate: actions.takeUpdate,
     }),
   );
 }
@@ -219,6 +220,33 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       },
     });
   };
+  // Applying re-reads rather than trusting the client's copy of the merge:
+  // the server merges again under the current version it is told to expect,
+  // so a definition that moved between preview and apply is refused instead
+  // of silently overwritten.
+  const takeCanonUpdate = async (workflow) => {
+    let applied;
+    try {
+      applied = await callFunction(
+        context.client,
+        "workflows.canon_update.apply",
+        {
+          workflow_id: workflow.id,
+          expected_current_version: workflow.current_version,
+        },
+      );
+    } catch (failure) {
+      return { error: String(failure) };
+    }
+    if (applied.status !== 200 || !applied.envelope.success) {
+      return {
+        error: applied.envelope?.error?.message || "Could not take the update.",
+      };
+    }
+    await load();
+    return {};
+  };
+
   const render = () => {
     if (!workflows.length) return;
     const selected = workflows.find(
@@ -254,6 +282,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         editApprovals: mechanicsData.editable ? openApprovalsDialog : null,
         editDelivery: mechanicsData.editable ? openDeliveryDialog : null,
         makeCurrent: mechanicsData.editable ? openCurrentDialog : null,
+        takeUpdate: mechanicsData.editable ? takeCanonUpdate : null,
       },
     );
   };

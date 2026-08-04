@@ -124,6 +124,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "theme.css": "text/css; charset=utf-8",
     "workflows.css": "text/css; charset=utf-8",
     "workflow_controls.css": "text/css; charset=utf-8",
+    "workflow_canon_status.css": "text/css; charset=utf-8",
     "workflow_mechanics.css": "text/css; charset=utf-8",
     "test_machine.css": "text/css; charset=utf-8",
     "test_machine_support.css": "text/css; charset=utf-8",
