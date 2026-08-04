@@ -40,14 +40,13 @@ def drain_watched_child(
     timeout_seconds: float | None,
     raw_capture: Path,
     stall_abort_exit: int,
-    timeout_exit: int,
 ) -> tuple[Optional[int], Optional[str], bool]:
     """Drain *proc* stdout until exit, timeout, or nested-deadlock abort.
 
     Returns ``(early_exit_code, last_summary, timed_out)``. When
     *early_exit_code* is set the caller must return it immediately (abort
     footer already written). Otherwise the caller waits on *proc* unless
-    *timed_out* is true, in which case it uses *timeout_exit*.
+    *timed_out* is true.
     """
     assert proc.stdout is not None
     last_summary: Optional[str] = None
@@ -122,9 +121,10 @@ def drain_watched_child(
             stall_line = progress_watch.report_if_stalled(now)
             if stall_line is not None:
                 emit_immediate(stall_line)
-    if timed_out:
-        return timeout_exit, last_summary, True
-    return None, last_summary, False
+    # Timeout stays in-band so the runner can write the normal summary +
+    # exit footer; only nested-deadlock abort returns an early exit code
+    # (handle_quiet_period already wrote that footer).
+    return None, last_summary, timed_out
 
 
 __all__ = [

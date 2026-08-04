@@ -251,7 +251,6 @@ def run_watcher(
                     timeout_seconds=timeout_seconds,
                     raw_capture=raw_capture,
                     stall_abort_exit=STALL_ABORT_EXIT,
-                    timeout_exit=TIMEOUT_EXIT,
                 )
                 if early is not None:
                     return early
