@@ -45,6 +45,21 @@ Every function call accepts and returns the same envelope shape, defined in `yok
 }
 ```
 
+### Result `item_id` + `item_ref` convention
+
+Every agent-facing result that includes a bare internal `item_id` (the
+`items.id` integer) also includes `item_ref` — the public
+`{projects.public_item_prefix}-{items.project_sequence}` handle. The
+dispatcher applies this at the envelope layer via
+`yoke_core.domain.result_item_ref_enrichment.enrich_result_item_refs`
+(one shared helper; handlers must not assemble refs themselves). Nested
+session objects that carry `current_item_id` / `recent_item_id` gain
+matching `current_item_ref` / `recent_item_ref` siblings. DB rows, events,
+telemetry, and test assertions keep bare integer `item_id` unchanged —
+only the result envelope is enriched. `items.create` established the
+dual-field shape; acquire, lifecycle, structured writes, and sessions
+touch inherit it through the same helper.
+
 The dispatcher always emits `YokeFunctionCalled`. Repeated calls with the same `(function, request_id)` emit `DispatcherIdempotencyReplay` and return the cached response verbatim. The dedup store is the `function_call_ledger` table (exact `request_id` match, written alongside the emission; rows expire after the replay TTL via the events retention prune) — events stay telemetry; the ledger owns the replay decision. Partial-state failures (the primary write succeeded but a downstream sync degraded) return HTTP 207 with `success=true`, `warnings=[...]`, and a `DispatcherDownstreamDegraded` row in `events`. See the yoke source-repo doc `docs/event-catalog.md` for the envelope schemas.
 
 ### Actor identity binding (transport-symmetric)
