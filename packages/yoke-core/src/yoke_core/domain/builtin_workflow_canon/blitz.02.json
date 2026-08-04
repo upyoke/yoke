@@ -1,0 +1,150 @@
+{
+  "canon_version": 2,
+  "definition": {
+    "entry_surfaces": [
+      "harness_skill"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "optional_named_gate",
+      "delivery": "continuous_slice_actions",
+      "generated_children": "none",
+      "item_posture_allowlist": [
+        "verification",
+        "path_claims",
+        "approval",
+        "deployment"
+      ],
+      "ownership": "session_item_and_document_claim",
+      "parallelism": "maximum_safe_slices",
+      "path_claims": "optional",
+      "qa": "item_attachments",
+      "worktrees": "worker_lanes_optional_integration"
+    },
+    "schema_version": 1,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "refine",
+        "through_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "skill_id": "blitz",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "gates": [],
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "joint"
+          }
+        ],
+        "id": "refining-idea",
+        "label": "refining idea"
+      },
+      {
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "refined-idea",
+        "label": "refined idea"
+      },
+      {
+        "description": "The continuous slice loop — the linked document is executed directly, and each slice may merge, migrate, and deploy; there is no separate release stage.",
+        "gates": [
+          {
+            "id": "doc_claim_activation"
+          },
+          {
+            "id": "conflict_survey"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "description": "The once-per-item close — the full suite runs and the document records what was completed, what changed, what remains, the evidence, and how the parent strategy was reconciled.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "description": "The execution document states completion and parent reconciliation; that evidence is the entry gate.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          },
+          {
+            "id": "doc_completion"
+          }
+        ],
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "refining-idea"
+      },
+      {
+        "from_stage_id": "refining-idea",
+        "to_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "prod-db-admin@2",
+    "stage-db-admin@2"
+  ],
+  "published_at": "2026-07-27T13:01:10Z",
+  "workflow_id": "blitz"
+}
