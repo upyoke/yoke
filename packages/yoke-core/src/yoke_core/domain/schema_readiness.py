@@ -6,13 +6,24 @@ that touches it fails at first query. The health payload's ``schema_ready``
 field derives from this module so deploy gates assert schema readiness,
 not just liveness.
 
-Two independent questions live here, and a database can pass one while
-failing the other. :func:`missing_readiness_tables` asks whether the shapes
-this code needs exist; :func:`pending_migration_names` asks whether the
-changes this code requires have actually run. The health payload's
+Three independent questions live here, and a database can pass any of them
+while failing another. :func:`missing_readiness_tables` asks whether the
+shapes this code needs exist; :func:`pending_migration_names` asks whether
+the changes this code requires have actually run. The health payload's
 ``migrations_current`` field derives from the second, which is what lets a
 deploy gate distinguish "the container came up" from "the container's
 database is the one its code was written against".
+
+:func:`stranded_by_applied_migrations` asks the question the first two
+cannot: *has this database had something applied that this code cannot
+survive?* Membership is by name, so an older build whose history simply
+does not contain a newer destructive entry computes an empty pending set
+and reports itself current — correctly, by its own lights, and fatally.
+That build reads columns that are gone. Preserving membership-by-name is
+deliberate and must not change: head equality would brick the rollback
+direction, which is worse. So the answer comes from the ledger row itself,
+which records the floor at apply time precisely because the build in danger
+does not ship the entry that would tell it so.
 
 ``READINESS_TABLES`` is deliberately small — one representative table per
 schema-creation step in :func:`yoke_core.domain.schema_init.converge_core_schema`
@@ -91,3 +102,70 @@ def pending_migration_names(conn: Any) -> List[str]:
         return [entry.name for entry in pending_entries(conn, history)]
     except Exception:  # noqa: BLE001 — cannot tell reads as not current
         return [entry.name for entry in history]
+
+
+def stranded_by_applied_migrations(conn: Any, running_version: str) -> List[str]:
+    """Return one finding per applied entry this build is too old to serve.
+
+    Reads the floor recorded on each ledger row rather than the entry module,
+    because a build old enough to be stranded does not ship the entry that
+    stranded it. Each finding names the entry, the floor, the running
+    version, and the way out, since this text is what an operator sees when
+    a container refuses to go healthy.
+
+    A row with no recorded floor is *not* a finding. That is the majority
+    state on any database that applied anything before floors were recorded,
+    and reading "no record" as "violation" would report most of an existing
+    fleet as stranded on the first boot that could see it. Unknown and unsafe
+    are different answers.
+
+    An unresolved running version is likewise not a finding: a source tree
+    advertises its last tag rather than its code, so it would compare as an
+    old release while actually being ahead of the entry it carries.
+
+    An unreadable ledger returns no findings, which is the opposite of
+    :func:`pending_migration_names`' fail-closed stance and deliberately so.
+    That probe answers "am I current?", where cannot-tell must read as no.
+    This one answers "am I forbidden from serving?", where cannot-tell must
+    not manufacture a fleet-wide refusal out of a transient read error.
+    """
+    from yoke_core.domain.migration_boot_apply import LEDGER_TABLE
+    from yoke_core.domain.migration_serving_version import (
+        ServingVersionError,
+        satisfies_minimum,
+        version_is_unresolved,
+    )
+
+    if version_is_unresolved(running_version):
+        return []
+    try:
+        rows = conn.execute(
+            f"SELECT migration_name, minimum_serving_version FROM {LEDGER_TABLE} "
+            "WHERE minimum_serving_version IS NOT NULL"
+        ).fetchall()
+    except Exception:  # noqa: BLE001 — cannot tell must not refuse service
+        return []
+
+    findings: List[str] = []
+    for row in rows:
+        name = row["migration_name"] if isinstance(row, dict) else row[0]
+        floor = row["minimum_serving_version"] if isinstance(row, dict) else row[1]
+        try:
+            if satisfies_minimum(running_version, str(floor)):
+                continue
+        except ServingVersionError:
+            # An unparseable floor is a real defect, but refusing to serve on
+            # it would turn one malformed row into an outage. Report it as a
+            # finding so it is visible and fixable.
+            findings.append(
+                f"{name}: recorded minimum serving version {floor!r} is not a "
+                "valid version; this database's ledger needs repair"
+            )
+            continue
+        findings.append(
+            f"{name}: applied to this database, which requires engine {floor} "
+            f"or newer to serve against it, but this build is "
+            f"{running_version}. It reads surfaces that entry removed. Deploy "
+            f"{floor} or newer; rolling further back does not restore them."
+        )
+    return findings
