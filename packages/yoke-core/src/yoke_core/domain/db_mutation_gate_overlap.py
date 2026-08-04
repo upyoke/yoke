@@ -85,6 +85,12 @@ def detect_overlap(
         other_id = other.get("__item_id")
         if cand_id is not None and other_id == cand_id:
             continue  # never compare against self
+        # Loaders annotate the already-rendered public ref alongside the id;
+        # without one there is no way to name the other work item correctly,
+        # so the message stays generic rather than inventing a prefix.
+        other_label = str(other.get("__item_ref") or "") or (
+            "another non-terminal work item"
+        )
         dependency_bypass = False
         if cand_id is not None and other_id is not None:
             try:
@@ -115,7 +121,7 @@ def detect_overlap(
                         continue
                     conflicts.append(
                         _conflict_msg(
-                            other_id, cs[0], shared_cols,
+                            other_label, cs[0], shared_cols,
                             "rebuild dominance — at least one side declares "
                             "schema_kinds:rebuild on a shared surface",
                         )
@@ -131,7 +137,7 @@ def detect_overlap(
                         continue
                     conflicts.append(
                         _conflict_msg(
-                            other_id, cs[0], shared_cols,
+                            other_label, cs[0], shared_cols,
                             "data-kind presence on shared surface — at "
                             "least one work item declares a data_kind",
                         )
@@ -149,7 +155,7 @@ def detect_overlap(
                     if shared_cols:
                         conflicts.append(
                             _conflict_msg(
-                                other_id, cs[0], shared_cols,
+                                other_label, cs[0], shared_cols,
                                 "schema-only overlap on the same column(s) — "
                                 "{additive, destructive} on both sides",
                             )
@@ -157,7 +163,7 @@ def detect_overlap(
                     else:
                         conflicts.append(
                             _conflict_msg(
-                                other_id, cs[0], shared_cols,
+                                other_label, cs[0], shared_cols,
                                 "schema-only overlap at table grain — "
                                 "{additive, destructive} on both sides",
                             )
@@ -175,16 +181,11 @@ def detect_overlap(
 
 
 def _conflict_msg(
-    other_id: Any,
+    other_label: str,
     table: str,
     columns: Tuple[str, ...],
     reason: str,
 ) -> str:
-    other_label = (
-        f"YOK-{other_id}"
-        if other_id is not None
-        else "another non-terminal work item"
-    )
     if columns:
         col_part = f" columns {sorted(columns)}"
     else:

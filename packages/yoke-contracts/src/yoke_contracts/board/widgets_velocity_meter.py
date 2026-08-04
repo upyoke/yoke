@@ -61,7 +61,7 @@ def render_velocity_meter(
     """
     days = 120
     dates = _date_range(days)
-    pf_t = _project_filter(scope, "t")
+    pf_t, scope_params = _project_filter(scope, "t")
 
     repos: List[str] = _resolve_repos(db, scope, repo_root) if repo_root else []
 
@@ -85,11 +85,12 @@ def render_velocity_meter(
         "    COALESCE(CAST(t.task_num AS TEXT), '-')"
         ") touched GROUP BY day ORDER BY day"
     )
-    act_task_rows = db.query_quiet(act_task_sql)
+    act_task_rows = db.query_quiet(act_task_sql, scope_params)
 
     cutoff = dates[0] if dates else ""
     act_counts: Dict[str, int] = {
-        day: count for day, count in _activity_day_counts(db, scope).items()
+        day: count
+        for day, count in _activity_day_counts(db, scope).items()
         if day >= cutoff
     }
     for row in act_task_rows:
@@ -124,7 +125,7 @@ def render_velocity_meter(
         "    COALESCE(CAST(t.task_num AS TEXT), '-')"
         ") grouped GROUP BY day ORDER BY day"
     )
-    del_rows = db.query_quiet(del_sql)
+    del_rows = db.query_quiet(del_sql, scope_params)
     del_counts: Dict[str, int] = {}
     for row in del_rows:
         del_counts[row[0]] = del_counts.get(row[0], 0) + int(row[1])
@@ -142,9 +143,7 @@ def render_velocity_meter(
     ]
 
 
-def _strategy_bytes_per_day(
-    db: BoardDBLike, scope: str, days: int
-) -> Dict[str, int]:
+def _strategy_bytes_per_day(db: BoardDBLike, scope: str, days: int) -> Dict[str, int]:
     """Per-day strategy-doc authoring volume from the DB event stream.
 
     ``strategy_docs`` is DB-authoritative; each ``StrategyDocCreated`` /
@@ -156,16 +155,17 @@ def _strategy_bytes_per_day(
     day = day_text_expr("created_at")
     names = ", ".join(f"'{name}'" for name in _STRATEGY_EVENT_NAMES)
     new_bytes = "(envelope::jsonb -> 'context' ->> 'new_bytes')::int"
+    project_sql, params = _project_filter(scope, "")
     sql = (
         f"SELECT {day} AS day, SUM(COALESCE({new_bytes}, 0)) AS n "
         "FROM events "
         f"WHERE event_name IN ({names}) "
         f"AND created_at >= {days_ago_text_expr(days)}"
-        f"{_project_filter(scope, '')} "
+        f"{project_sql} "
         "GROUP BY day ORDER BY day"
     )
     counts: Dict[str, int] = {}
-    for row in db.query_quiet(sql):
+    for row in db.query_quiet(sql, params):
         if row and row[0] is not None:
             counts[str(row[0])] = int(row[1] or 0)
     return counts

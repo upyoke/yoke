@@ -20,6 +20,7 @@ which re-exports the names below for its existing importers.
 from __future__ import annotations
 
 import json
+from difflib import SequenceMatcher
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -132,19 +133,77 @@ class ReplayBoardDB:
         key = entry_key(kind, sql, params)
         if key not in self._lookup:
             excerpt = " ".join(sql.split())[:160]
+            difference = self._describe_miss(kind, sql, params)
             raise BoardDataMissError(
                 f"board data payload has no recorded {kind} result for: "
-                f"{excerpt!r} params={params!r} — the record and replay "
-                "sides ran divergent query plans (parity bug)"
+                f"{excerpt!r} params={params!r} — {difference}; the record "
+                "and replay sides ran divergent query plans (parity bug)"
             )
         return self._lookup[key]
+
+    def _describe_miss(self, kind: str, sql: str, params: Any) -> str:
+        """Name the query-key component that differs from recorded data."""
+        requested_params = json.dumps(params, sort_keys=True)
+        candidates = [
+            (recorded_sql, recorded_params)
+            for recorded_kind, recorded_sql, recorded_params in self._lookup
+            if recorded_kind == kind
+        ]
+        same_sql = [
+            value for candidate_sql, value in candidates if candidate_sql == sql
+        ]
+        if same_sql:
+            recorded = [json.loads(value) for value in same_sql]
+            return (
+                "SQL matched but parameters differed: "
+                f"recorded={recorded!r}, replay={params!r}"
+            )
+        same_params = [
+            candidate_sql
+            for candidate_sql, value in candidates
+            if value == requested_params
+        ]
+        if same_params:
+            closest = max(
+                same_params,
+                key=lambda candidate: SequenceMatcher(None, candidate, sql).ratio(),
+            )
+            return self._sql_difference(closest, sql, params_match=True)
+        if not candidates:
+            return "no recorded query of this kind exists"
+        closest_sql, closest_params = max(
+            candidates,
+            key=lambda candidate: SequenceMatcher(None, candidate[0], sql).ratio(),
+        )
+        return (
+            self._sql_difference(closest_sql, sql, params_match=False)
+            + f"; recorded params={json.loads(closest_params)!r}"
+        )
+
+    @staticmethod
+    def _sql_difference(
+        recorded_sql: str, replay_sql: str, *, params_match: bool
+    ) -> str:
+        limit = min(len(recorded_sql), len(replay_sql))
+        offset = next(
+            (
+                index
+                for index in range(limit)
+                if recorded_sql[index] != replay_sql[index]
+            ),
+            limit,
+        )
+        qualifier = "parameters matched but " if params_match else ""
+        return (
+            f"{qualifier}SQL differed at character {offset}: "
+            f"recorded={recorded_sql[offset : offset + 80]!r}, "
+            f"replay={replay_sql[offset : offset + 80]!r}"
+        )
 
     def query(self, sql: str, params: Optional[Sequence[Any]] = None) -> List[Tuple]:
         return list(self._serve("query", sql, params))
 
-    def has_query(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> bool:
+    def has_query(self, sql: str, params: Optional[Sequence[Any]] = None) -> bool:
         """Return whether a payload can serve a query without guessing."""
         return entry_key("query", sql, params) in self._lookup
 
@@ -153,9 +212,7 @@ class ReplayBoardDB:
     ) -> List[Tuple]:
         return list(self._serve("query_quiet", sql, params))
 
-    def has_query_quiet(
-        self, sql: str, params: Optional[Sequence[Any]] = None
-    ) -> bool:
+    def has_query_quiet(self, sql: str, params: Optional[Sequence[Any]] = None) -> bool:
         """Return whether a payload can serve a quiet query."""
         return entry_key("query_quiet", sql, params) in self._lookup
 

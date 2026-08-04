@@ -9,6 +9,8 @@ verify against that one resolved branch.
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import os
 import sys
 from typing import List, Optional, Tuple
@@ -101,6 +103,17 @@ def _resolve_and_verify_branch(
     return ok, first_item, branch
 
 
+def _merge_evidence_pattern(item_ref: str, item_id: str) -> str:
+    """Extended-regex alternation matching an item in commit subjects.
+
+    Subjects carry the item's public ref; the legacy ``YOK-{items.id}``
+    token stays in the alternation so history written before refs were
+    rendered still counts as merge evidence.
+    """
+    tokens = {item_ref, f"YOK-{item_id}"}
+    return "|".join(sorted(tokens))
+
+
 def _verify_branch_merged(
     branch: str,
     first_item: str,
@@ -111,9 +124,11 @@ def _verify_branch_merged(
 
     Returns (ok, message).  ``ok=True`` means proceed.
     """
+    item_ref = item_ref_for_id(int(first_item)) if str(first_item).isdigit() else str(first_item)
+    grep_pattern = _merge_evidence_pattern(item_ref, str(first_item))
     if not branch or branch == "null":
         return True, (
-            f"Warning: YOK-{first_item} has no branch set — cannot verify "
+            f"Warning: {item_ref} has no branch set — cannot verify "
             f"commits are on {target_branch}. Proceeding."
         )
 
@@ -121,12 +136,15 @@ def _verify_branch_merged(
     r = _run_cmd(["git", "-C", repo_path, "rev-parse", "--verify", branch])
     if r.returncode != 0:
         # Branch doesn't exist — check for squash-merge evidence
-        r2 = _run_cmd(["git", "-C", repo_path, "log", "--oneline", f"--grep=YOK-{first_item}", target_branch])
+        r2 = _run_cmd([
+            "git", "-C", repo_path, "log", "--oneline", "-E",
+            f"--grep={grep_pattern}", target_branch,
+        ])
         merge_found = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
         if not merge_found:
             return True, (
-                f"Warning: YOK-{first_item} branch '{branch}' not found and "
-                f"no merge commit referencing YOK-{first_item} found on "
+                f"Warning: {item_ref} branch '{branch}' not found and "
+                f"no merge commit referencing {item_ref} found on "
                 f"{target_branch}. Proceeding with caution."
             )
         return True, ""
@@ -137,11 +155,14 @@ def _verify_branch_merged(
         return True, ""
 
     # Not ancestor — check for squash-merge evidence
-    r2 = _run_cmd(["git", "-C", repo_path, "log", "--oneline", f"--grep=YOK-{first_item}", target_branch])
+    r2 = _run_cmd([
+            "git", "-C", repo_path, "log", "--oneline", "-E",
+            f"--grep={grep_pattern}", target_branch,
+        ])
     squash_evidence = r2.stdout.strip().split("\n")[0] if r2.stdout.strip() else ""
     if squash_evidence:
         return True, (
-            f"Squash-merge detected for YOK-{first_item} "
+            f"Squash-merge detected for {item_ref} "
             f"(branch exists but is not ancestor of {target_branch}). Proceeding."
         )
 

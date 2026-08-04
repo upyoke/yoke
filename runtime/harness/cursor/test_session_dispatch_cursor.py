@@ -171,6 +171,49 @@ def test_model_report_skips_registration_without_a_session_id(
     assert quiet_side_effects["register"] == []
 
 
+def test_session_start_skips_register_for_subagent_session(
+    quiet_side_effects: dict,
+) -> None:
+    payload = {
+        "session_id": MAIN,
+        "conversation_id": MAIN,
+        "is_subagent_session": True,
+        "subagent_session_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "model_id": "composer-2.5",
+    }
+    out = dispatch_cursor.run_session_start(_context(payload), "/repo")
+    assert json.loads(out) == {"additional_context": ""}
+    assert quiet_side_effects["register"] == []
+
+
+def test_prompt_submit_skips_touch_for_subagent_session(
+    quiet_side_effects: dict,
+) -> None:
+    payload = {
+        "session_id": MAIN,
+        "is_subagent_session": True,
+        "model": "composer-2.5",
+    }
+    out = dispatch_cursor.run_prompt_submit(_context(payload), "/repo")
+    assert out == ""
+    assert quiet_side_effects["touch"] == []
+    assert quiet_side_effects["register"] == []
+
+
+def test_model_report_skips_register_for_subagent_session(
+    quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CURSOR_INVOKED_AS", "cursor-agent")
+    payload = {
+        "session_id": MAIN,
+        "is_subagent_session": True,
+        "model": "cursor-grok-4.5-high",
+        "model_id": "grok-4.5",
+    }
+    assert dispatch_cursor.run_model_report(_context(payload), "/repo") == "{}\n"
+    assert quiet_side_effects["register"] == []
+
+
 def test_model_report_never_replies_empty(quiet_side_effects: dict) -> None:
     """This event fires mid-generation and Cursor waits on the reply. An
     empty stdout drops the stream — the operator sees the agent die with a

@@ -24,6 +24,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
+from yoke_core.domain.events_select import VALID_SEVERITIES
+
 __all__ = [
     "_discover_python_event_names",
     "_extract_event_name_from_line",
@@ -77,6 +79,27 @@ def _event_name_value(node: ast.AST, constants: dict[str, str]) -> Optional[str]
     return None
 
 
+def _dispatcher_event_name(
+    node: ast.Call, constants: dict[str, str],
+) -> Optional[str]:
+    """Resolve an ``events.emit`` name from a dispatcher call."""
+    if _py_call_name(node.func) != "call_dispatcher":
+        return None
+    keywords = {kw.arg: kw.value for kw in node.keywords if kw.arg}
+    if _py_string_value(keywords.get("function_id")) != "events.emit":
+        return None
+    payload = keywords.get("payload")
+    if not isinstance(payload, ast.Dict):
+        return None
+    for key, value in zip(payload.keys, payload.values):
+        if _py_string_value(key) != "name":
+            continue
+        candidate = _event_name_value(value, constants)
+        if candidate and _validate_event_name(candidate):
+            return candidate
+    return None
+
+
 def _validate_event_name(name: str) -> bool:
     """Check PascalCase event name."""
     if not name:
@@ -114,6 +137,11 @@ def _discover_python_event_names(content: str) -> List[str]:
                             discovered.append(event_name)
             continue
 
+        dispatcher_event_name = _dispatcher_event_name(node, constants)
+        if dispatcher_event_name:
+            discovered.append(dispatcher_event_name)
+            continue
+
         is_emitter = (
             func_name == "emit_event"
             or func_name == "_emit_event"
@@ -138,7 +166,11 @@ def _discover_python_event_names(content: str) -> List[str]:
 
         for arg in node.args:
             candidate = _event_name_value(arg, constants)
-            if candidate and _validate_event_name(candidate):
+            if (
+                candidate
+                and candidate not in VALID_SEVERITIES
+                and _validate_event_name(candidate)
+            ):
                 discovered.append(candidate)
                 break
 
@@ -230,7 +262,10 @@ def cmd_registry_discover(repo_root: Optional[str] = None) -> str:
                 continue
             if not any(
                 marker in content
-                for marker in ("emit-event", "emit_event", "_emit_", "parse_args", "EVENT_")
+                for marker in (
+                    "emit-event", "emit_event", "_emit_", "parse_args",
+                    "EVENT_", "call_dispatcher",
+                )
             ):
                 continue
 

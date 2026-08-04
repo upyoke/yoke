@@ -48,6 +48,9 @@ def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
     assert "{projects.public_item_prefix}-{items.project_sequence}" in body
     assert "`github_issue` column" in body
     assert "no `github_issue_number`" in body
+    assert "WHERE project_id = <p> AND project_sequence = <n>" in body
+    assert "self-orient with `WHERE id = <n>`" not in body
+    assert "never treat the N from a public ref as `WHERE id = N`" in body
 
 
 def test_qa_requirements_note_names_qa_kind_not_kind() -> None:

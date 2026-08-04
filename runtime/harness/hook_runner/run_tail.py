@@ -63,7 +63,15 @@ def flush_run_tail(
         },
     ))
     ensure_session = None
-    if context.session_id:
+    # Cursor folds Task/subagent activity onto the container session_id; the
+    # container row already exists from the parent chat. Driving
+    # ensure-register from the child event is unnecessary and, before the
+    # nested-transcript fold, was how phantom child harness_sessions rows
+    # were minted. Skip when the parser flagged a subagent session.
+    is_subagent = (
+        isinstance(payload, dict) and payload.get("is_subagent_session") is True
+    )
+    if context.session_id and not is_subagent:
         remote = controls is not None and controls.remote
         ensure_session = (  # merged payload: wire extras included
             context.session_id,

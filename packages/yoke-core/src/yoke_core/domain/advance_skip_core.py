@@ -121,7 +121,9 @@ def _lookup_item(item_id: int) -> tuple[str, WorkflowRuntime]:
     finally:
         conn.close()
     if row is None:
-        raise ValueError(f"Item YOK-{item_id} not found")
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+        raise ValueError(f"Item {item_ref_for_id(item_id)} not found")
     return row["status"], workflow
 
 

@@ -117,7 +117,7 @@ def _set_epic_task_github_issue_over_transport(
 
 def _select_body_for_create(
     body: str, *, project: str, title: str, status: str,
-    et_slug: str, et_tnum: str, parent_id: str, stderr: TextIO,
+    et_slug: str, et_tnum: str, parent_id: str, epic_ref: str, stderr: TextIO,
 ) -> str:
     """Pick the issue body — full or compact mirror — and emit the
     compact-mirror notice when truncating."""
@@ -125,9 +125,9 @@ def _select_body_for_create(
         body, item_fields={
             "title": title, "status": status, "subject_kind": "task",
             "project": project or "yoke",
-            "identity": _writer.epic_task_identity(et_slug, et_tnum),
+            "identity": _writer.epic_task_identity(epic_ref, et_tnum),
             "body_command": _writer.epic_task_body_command(et_slug, et_tnum),
-            "next_actions": _writer.epic_task_next_actions(et_slug),
+            "next_actions": _writer.epic_task_next_actions(epic_ref),
         },
         conn=None,
         item_id=_task_id_for_mirror(parent_id, int(et_tnum)),
@@ -210,6 +210,7 @@ def repair_local_orphan_epic_task_typed(
         raw_body, project=project, title=issue_title, status=et_status,
         et_slug=et_slug, et_tnum=et_tnum,
         parent_id=str(parent_id) if parent_id is not None else "",
+        epic_ref=parent_ref or et_slug,
         stderr=stderr,
     )
 

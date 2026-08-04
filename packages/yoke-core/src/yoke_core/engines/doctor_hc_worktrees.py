@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -159,9 +160,10 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
     )
     for row in rows:
         item_id = row["id"]
+        item_ref = render_item_ref(conn, int(item_id))
         project = row["project"]
         # Find commits on base branch referencing this item
-        log_cmd = ["git", "log", "main", "--oneline", f"--grep=YOK-{item_id}", "--format=%H"]
+        log_cmd = ["git", "log", "main", "--oneline", f"--grep={item_ref}", "--format=%H"]
         if min_commit_date:
             log_cmd.append(f"--since={min_commit_date}")
         cr = _base._run(log_cmd)
@@ -192,7 +194,7 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
                     item_bad.append(f"  - commit {short}: {fname}")
         if item_bad:
             issues.append(
-                f"- YOK-{item_id} (project={project}):\n" + "\n".join(item_bad)
+                f"- {item_ref} (project={project}):\n" + "\n".join(item_bad)
             )
 
     if issues:

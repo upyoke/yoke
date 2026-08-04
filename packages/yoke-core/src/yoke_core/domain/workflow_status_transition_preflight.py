@@ -38,6 +38,8 @@ def prepare_status_transition(
         (int(item_id),),
     ).fetchone()
     if item is None:
+        from yoke_core.domain.project_identity import render_item_ref
+
         conn.rollback()
         return StatusTransitionPreflight(
             workflow_version_id=0,
@@ -45,7 +47,7 @@ def prepare_status_transition(
             failure={
                 "success": False,
                 "error_code": "NOT_FOUND",
-                "error": f"Item YOK-{item_id} not found",
+                "error": f"Item {render_item_ref(conn, item_id)} not found",
             },
         )
     current_status = str(item["status"] if hasattr(item, "keys") else item[0])

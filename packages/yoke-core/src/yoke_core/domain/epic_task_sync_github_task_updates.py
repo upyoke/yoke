@@ -27,6 +27,8 @@ from yoke_core.domain import github_rest
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.epic_task_sync import LABEL_COLOR_DEFAULT
 from yoke_core.domain.epic_task_sync_github_create import _task_id_from_epic
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
@@ -176,6 +178,11 @@ def sync_task_body(
         )
         return 1
 
+    epic_ref = (
+        render_item_ref(conn, int(epic_id))
+        if conn is not None
+        else item_ref_for_id(int(epic_id))
+    )
     write = _writer.update_issue_body_typed(
         project=gh_project,
         number=issue_num,
@@ -185,9 +192,9 @@ def sync_task_body(
             "status": "implementing",
             "subject_kind": "task",
             "project": gh_project,
-            "identity": _writer.epic_task_identity(epic_id, task_num),
+            "identity": _writer.epic_task_identity(epic_ref, task_num),
             "body_command": _writer.epic_task_body_command(epic_id, task_num),
-            "next_actions": _writer.epic_task_next_actions(epic_id),
+            "next_actions": _writer.epic_task_next_actions(epic_ref),
         },
         conn=conn,
         item_id=_task_id_from_epic(str(epic_id), int(task_num)),

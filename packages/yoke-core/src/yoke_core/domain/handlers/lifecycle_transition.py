@@ -94,8 +94,14 @@ def _error_outcome(code: str, message: str) -> HandlerOutcome:
     )
 
 
-def _read_current_status(item_id: int) -> Optional[str]:
+def _read_current_status(item_id: int) -> tuple[Optional[str], str]:
+    """Return ``(status, item_ref)``; status is ``None`` when the item is gone.
+
+    The public ref is read alongside the status so the caller's operator
+    messages name the item the way the operator does.
+    """
     from yoke_core.domain import db_helpers
+    from yoke_core.domain.project_identity import render_item_ref
 
     with db_helpers.connect() as conn:
         p = _p(conn)
@@ -103,11 +109,12 @@ def _read_current_status(item_id: int) -> Optional[str]:
             f"SELECT status, frozen FROM items WHERE id = {p}",
             (int(item_id),),
         ).fetchone()
+        item_ref = render_item_ref(conn, int(item_id))
     if row is None:
-        return None
+        return None, item_ref
     if hasattr(row, "keys"):
-        return str(row["status"] or "")
-    return str(row[0] or "")
+        return str(row["status"] or ""), item_ref
+    return str(row[0] or ""), item_ref
 
 
 def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
@@ -115,6 +122,7 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
     if force:
         return None
     from yoke_core.domain import db_helpers
+    from yoke_core.domain.project_identity import render_item_ref
 
     with db_helpers.connect() as conn:
         p = _p(conn)
@@ -122,6 +130,7 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
             f"SELECT frozen FROM items WHERE id = {p}",
             (int(item_id),),
         ).fetchone()
+        item_ref = render_item_ref(conn, int(item_id))
     if row is None:
         return None
     frozen_val = row[0] if not hasattr(row, "keys") else row["frozen"]
@@ -129,7 +138,7 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
         return None
     return _error_outcome(
         "frozen",
-        f"YOK-{item_id} is frozen; thaw the item before transitioning "
+        f"{item_ref} is frozen; thaw the item before transitioning "
         f"status (or pass force=True for sanctioned overrides).",
     )
 
@@ -158,16 +167,16 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         WORKFLOW_STATUS_PRECONDITION_FAILED,
     )
 
-    current = _read_current_status(item_id)
+    current, item_ref = _read_current_status(item_id)
     if current is None:
         return _error_outcome(
             "target_not_found",
-            f"YOK-{item_id} not found.",
+            f"{item_ref} not found.",
         )
     if payload.source_status and payload.source_status != current:
         return _error_outcome(
             "precondition_failed",
-            f"YOK-{item_id} status is {current!r}, not {payload.source_status!r}.",
+            f"{item_ref} status is {current!r}, not {payload.source_status!r}.",
         )
     blocked = _frozen_blocked(item_id, payload.force)
     if blocked is not None:

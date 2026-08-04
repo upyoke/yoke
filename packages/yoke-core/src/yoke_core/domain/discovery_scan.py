@@ -94,7 +94,7 @@ def run_scan(item_ref: str, *, repo_root: Optional[str] = None, stdout=None, std
     ouro_text, ouro_count = _read_ouroboros_unreviewed(root, item_num)
 
     scan_output = (
-        f"--- Unreviewed ouroboros entries for YOK-{item_num} ---\n"
+        f"--- Unreviewed ouroboros entries for {item_ref.strip()} ---\n"
         f"{ouro_text}\n"
         "=== END DISCOVERY SCAN ===\n"
     )

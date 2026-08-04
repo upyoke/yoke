@@ -50,6 +50,7 @@ _EXEMPT_RELPATHS: frozenset[str] = frozenset(
         "packages/yoke-core/src/yoke_core/domain/project_identity_item_ref.py",
         "packages/yoke-core/src/yoke_core/domain/worktree_naming.py",
         "packages/yoke-core/src/yoke_core/domain/lint_item_ref_construction.py",
+        "packages/yoke-core/src/yoke_core/domain/item_ref_construction_baseline.py",
         "packages/yoke-core/src/yoke_core/domain/lint_yok_n_cruft.py",
         "packages/yoke-core/src/yoke_core/domain/lint_yok_n_cruft_scan.py",
         "packages/yoke-core/src/yoke_core/engines/check_item_ref_construction.py",

@@ -197,7 +197,7 @@ def run_pipeline(
             )
             # Transition member items to release
             for sri_item in member_items:
-                sri_status = _yoke_db("items", "get", f"YOK-{sri_item}", "status", sd=sd)
+                sri_status = _yoke_db("items", "get", str(sri_item), "status", sd=sd)
                 if sri_status == "implemented":
                     env = dict(os.environ)
                     env["YOKE_CLAIM_BYPASS"] = f"deploy-pipeline:run-{run_id}"

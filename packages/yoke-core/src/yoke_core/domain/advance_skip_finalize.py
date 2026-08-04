@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import os
 from typing import Optional, TextIO
 
@@ -30,7 +32,8 @@ def _emit_skip_event(
         from yoke_core.domain.events import emit_event
     except ImportError:
         print(
-            f"Warning: SkipHopPerformed event emission skipped for YOK-{item_id}"
+            f"Warning: SkipHopPerformed event emission skipped for "
+            f"{item_ref_for_id(item_id)}"
             " (events module unavailable)",
             file=out,
         )
@@ -54,7 +57,8 @@ def _emit_skip_event(
     )
     if not envelope.ok:
         print(
-            f"Warning: SkipHopPerformed event emission failed for YOK-{item_id}",
+            f"Warning: SkipHopPerformed event emission failed for "
+            f"{item_ref_for_id(item_id)}",
             file=out,
         )
 
