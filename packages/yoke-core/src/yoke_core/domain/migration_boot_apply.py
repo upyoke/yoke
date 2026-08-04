@@ -34,8 +34,42 @@ from yoke_core.domain import (
     migration_restore_point,
     migration_serving_version,
 )
+from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
+
+
+class EntryFailed(MigrationApplyError):
+    """An entry that could not be applied, named by what actually broke.
+
+    An entry rarely reports its own failure accurately. Most wrap their SQL in
+    ``try``/``finally`` to restore a guard they crossed, and on Postgres the
+    statement that really failed aborts the transaction — so the cleanup in
+    the ``finally`` fails too, with a generic "transaction is aborted", and
+    that replaces the real error. The original survives only on
+    ``__context__``, which no log surface prints and which the reports
+    reaching an operator routinely truncate away. Carrying the root cause in
+    this message keeps it legible down to a single final line.
+    """
+
+
+def _root_cause(exc: BaseException) -> BaseException:
+    """The deepest exception behind this one, following causes and contexts."""
+    seen = {id(exc)}
+    root = exc
+    while True:
+        deeper = root.__cause__ or root.__context__
+        if deeper is None or id(deeper) in seen:
+            return root
+        seen.add(id(deeper))
+        root = deeper
+
+
+def _failure_reason(exc: BaseException) -> str:
+    root = _root_cause(exc)
+    if root is exc:
+        return f"{type(exc).__name__}: {exc}"
+    return f"{type(root).__name__}: {root} (surfaced as {type(exc).__name__})"
 
 #: Advisory-lock id serializing migration apply on one database. Postgres
 #: advisory locks already carry the database in their lock tag, so a single
@@ -206,6 +240,7 @@ def _apply_one(
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
+        reason = _failure_reason(exc)
         write_receipt(
             conn,
             entry,
@@ -213,15 +248,16 @@ def _apply_one(
             started_at=started_at,
             completed_at=now_stamp(),
             restore_point=restore_point,
-            failure_reason=str(exc)[:500],
+            failure_reason=reason[:500],
         )
-        raise
+        raise EntryFailed(f"{entry.name} apply failed -- {reason}") from exc
 
     invariants = getattr(module, "invariants", None)
     if callable(invariants):
         try:
             invariants(conn)
         except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
+            reason = _failure_reason(exc)
             write_receipt(
                 conn,
                 entry,
@@ -229,9 +265,9 @@ def _apply_one(
                 started_at=started_at,
                 completed_at=now_stamp(),
                 restore_point=restore_point,
-                failure_reason=str(exc)[:500],
+                failure_reason=reason[:500],
             )
-            raise
+            raise EntryFailed(f"{entry.name} invariants failed -- {reason}") from exc
 
     write_receipt(
         conn,
@@ -287,6 +323,7 @@ def _release_apply_lock(conn: Any) -> None:
 
 __all__ = [
     "ApplyOutcome",
+    "EntryFailed",
     "LEDGER_TABLE",
     "MIGRATION_APPLY_LOCK_KEY",
     "applied_names",

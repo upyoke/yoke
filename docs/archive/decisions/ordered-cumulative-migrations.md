@@ -150,6 +150,56 @@ possible. The exposure is a *completed* roll or rollback that leaves a tenant
 on a build too old for its own database, which is exactly what the health
 answer catches.
 
+## An unapplied entry drifts away from applicable
+
+An entry that normalizes stored rows toward the shape the code currently
+writes is racing the code. The registry publishes a new row whenever its
+code-owned definition changes, so while the entry sits unapplied the running
+code can publish the very row the entry would produce. When the entry finally
+runs it recreates a row that now exists and trips whatever uniqueness protects
+that table.
+
+This is the inverse of the usual intuition. An unapplied migration is not
+simply late; it is drifting, and the drift is caused by ordinary correct
+behavior somewhere else. Nothing connects the two changes, and no amount of
+care in either one would surface the conflict.
+
+The stage fleet went down this way. `0003_workflow_and_deployment_stage_vocabulary`
+renames a binding key and bumps a schema version; the registry had already
+published a version carrying that rename, so rewriting the older row made it
+byte-identical to the newer one and violated
+`UNIQUE(workflow_id, definition_digest)`. The one tenant that had applied the
+entry earlier — while its row was still the newest — was unaffected, which is
+what made the failure look tenant-specific rather than structural.
+
+So the re-runnability contract is stronger than it reads. **An entry that
+transforms rows must be idempotent against its own output already existing,
+not merely against having already run.** Where its output collides with a row
+that already holds that content, the two denote one thing and the entry folds
+rather than rewrites: it carries every reference onto the survivor and removes
+the duplicate.
+
+Two smaller lessons came out of the same outage.
+
+An entry that crosses a guard restores it in a `finally`, and on Postgres the
+statement that actually failed aborts the transaction — so the restore fails
+too, with a generic "transaction is aborted", and *that* is what propagates.
+The real error survives only on `__context__`, which no log surface prints and
+which incident reports routinely truncate away. The applier therefore resolves
+the root of the chain into both the `migration_audit` receipt and a named
+`EntryFailed`, so a log cut to its final line still identifies the cause.
+Putting this in the applier rather than in each entry means every entry
+inherits it.
+
+And rehearsing against the declared validation surface proved nothing, because
+that surface is current and a current database has nothing pending. The
+universes an entry exists for are exactly the ones behind it.
+`migration_fleet_preflight` closes that: it dumps every tenant database on a
+connected cluster, restores each onto the local embedded cluster, runs the
+real converge, and reports per database, reading the live databases and
+nothing more. A database it cannot reach reports FAIL — an unreachable check
+that reads as green is worse than no check.
+
 ## Squash policy
 
 Entries may be folded into the baseline schema once every known install's ledger

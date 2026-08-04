@@ -205,18 +205,35 @@ def merge_standalone_branch(
             recorded=recorded,
         )
 
+    output = ""
+    warnings: list[str] = []
     if not commit_sha:
-        return StandaloneMergeOutcome(
-            ok=False,
-            exit_code=1,
-            already_merged=False,
-            error=f"active lane for branch '{branch}' has no recorded HEAD",
+        # A control plane that predates recorded lane identity has no column
+        # to hold this, and it arrives only when that control plane is next
+        # deployed — which is exactly the work that has to merge to get there.
+        # Refusing would make the client's own upgrade unreachable, so derive
+        # what the recorded value would have said and say that it was derived.
+        # The recorded head stays the strong path: it binds the merge to the
+        # commit that was verified, where the branch head only agrees with it
+        # when nothing has been committed since.
+        commit_sha = git.head_of(repo_root, branch)
+        if not commit_sha:
+            return StandaloneMergeOutcome(
+                ok=False,
+                exit_code=1,
+                already_merged=False,
+                error=(
+                    f"active lane for branch '{branch}' has no recorded HEAD "
+                    f"and '{branch}' could not be resolved in {repo_root}"
+                ),
+            )
+        warnings.append(
+            f"lane head not recorded by the control plane; using {branch} at "
+            f"{commit_sha[:12]}. The control plane records it once it is "
+            "deployed on a build carrying item_worktrees.commit_sha."
         )
     observed = git.changed_files(repo_root, commit_sha, target)
     already = git.is_ancestor(repo_root, commit_sha, target)
-
-    output = ""
-    warnings: list[str] = []
     if not already:
         receipt_note = receipts.record(
             item_id,

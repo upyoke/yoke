@@ -20,6 +20,13 @@ from yoke_core.domain.workflow_schema import (
 
 WORKFLOW_SCHEMA_VERSION = 3
 
+#: Every column pointing at a workflow version. Folding one row into another
+#: has to carry these across before the redundant row can go.
+_VERSION_REFERENCES = (
+    ("items", "workflow_version_id"),
+    ("decision_requests", "consumed_workflow_version_id"),
+)
+
 
 def _marker(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -151,6 +158,77 @@ def _allow_workflow_version_rewrite(conn: Any, *, allowed: bool) -> None:
     _ensure_immutable_version_triggers(conn)
 
 
+def _final_forms(rows: list[Any]) -> list[tuple[int, str, int, Any, str]]:
+    """What each row will hold once this entry has run.
+
+    Computed for every row before anything is written, because the choice a
+    row needs -- rewrite in place, or fold away as a duplicate -- depends on
+    what the OTHER rows will hold, not on what they hold now.
+    """
+    forms: list[tuple[int, str, int, Any, str]] = []
+    for row_id, workflow_id, version, raw, digest in rows:
+        original = _object(raw, subject=f"workflow version {row_id}")
+        # Deep copy: _rewrite_workflow edits stage descriptions in place, so a
+        # shallow copy would mutate the baseline it is compared against and
+        # every row would look unchanged.
+        definition = _rewrite_workflow(copy.deepcopy(original))
+        changed = definition != original
+        forms.append(
+            (
+                int(row_id),
+                str(workflow_id),
+                int(version),
+                definition if changed else None,
+                definition_digest(definition) if changed else str(digest),
+            )
+        )
+    return forms
+
+
+def _partition(
+    forms: list[tuple[int, str, int, Any, str]],
+) -> tuple[list[tuple[int, int]], list[tuple[int, dict[str, Any]]]]:
+    """Split the rows into folds and rewrites.
+
+    Two rows of one workflow that end up holding identical content are the
+    same published definition wearing two vocabularies, and a workflow may
+    not carry one digest twice, so one of them has to go. The higher version
+    survives: a workflow's newest version is what new work pins, and removing
+    it would change which definition the registry considers current.
+    """
+    survivor: dict[tuple[str, str], tuple[int, int]] = {}
+    for row_id, workflow_id, version, _definition, digest in forms:
+        held = survivor.get((workflow_id, digest))
+        if held is None or version > held[1]:
+            survivor[(workflow_id, digest)] = (row_id, version)
+
+    folds: list[tuple[int, int]] = []
+    rewrites: list[tuple[int, dict[str, Any]]] = []
+    for row_id, workflow_id, _version, definition, digest in forms:
+        keeper = survivor[(workflow_id, digest)][0]
+        if keeper != row_id:
+            folds.append((row_id, keeper))
+        elif definition is not None:
+            rewrites.append((row_id, definition))
+    return folds, rewrites
+
+
+def _fold_redundant_version(
+    conn: Any, *, redundant: int, survivor: int, marker: str
+) -> None:
+    """Carry every reference onto the surviving row, then drop the duplicate."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    for table, column in _VERSION_REFERENCES:
+        if not _table_exists(conn, table):
+            continue
+        conn.execute(
+            f"UPDATE {table} SET {column}={marker} WHERE {column}={marker}",
+            (survivor, redundant),
+        )
+    conn.execute(f"DELETE FROM workflow_versions WHERE id={marker}", (redundant,))
+
+
 def apply(conn: Any) -> None:
     """Rewrite storage keys without changing stage behavior or row identity.
 
@@ -161,25 +239,29 @@ def apply(conn: Any) -> None:
     digest for no reason — and a published definition whose digest no longer
     matches the code-owned one is a startup abort, not a cosmetic difference.
     An entry that is already done must therefore write nothing at all.
+
+    A row whose rewritten content already exists on another version of the
+    same workflow is folded into that row rather than rewritten. The registry
+    publishes a new version whenever the code-owned definition changes, so
+    while this entry sat unapplied the running code could publish the very row
+    it would produce; rewriting then recreates an existing row and collides on
+    the per-workflow digest. Folds run first so a freed digest is available to
+    whichever row is meant to hold it.
     """
     marker = _marker(conn)
-    workflow_rows = conn.execute(
-        "SELECT id, definition_json, definition_schema_version "
-        "FROM workflow_versions ORDER BY id"
+    rows = conn.execute(
+        "SELECT id, workflow_id, version, definition_json, definition_digest "
+        "FROM workflow_versions ORDER BY workflow_id, version"
     ).fetchall()
-    rewrites = []
-    for row in workflow_rows:
-        original = _object(row[1], subject=f"workflow version {row[0]}")
-        # Deep copy: _rewrite_workflow edits stage descriptions in place, so a
-        # shallow copy would mutate the baseline it is compared against and
-        # every row would look unchanged.
-        definition = _rewrite_workflow(copy.deepcopy(original))
-        if definition != original:
-            rewrites.append((row[0], definition))
+    folds, rewrites = _partition(_final_forms(rows))
 
-    if rewrites:
+    if folds or rewrites:
         _allow_workflow_version_rewrite(conn, allowed=True)
         try:
+            for redundant, survivor in folds:
+                _fold_redundant_version(
+                    conn, redundant=redundant, survivor=survivor, marker=marker
+                )
             for row_id, definition in rewrites:
                 conn.execute(
                     "UPDATE workflow_versions SET definition_json="

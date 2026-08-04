@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain.migration_boot_apply import (
+    EntryFailed,
     applied_names,
     apply_pending,
     pending_entries,
@@ -212,7 +213,7 @@ def test_failed_entry_stops_the_chain_and_leaves_the_ledger_truthful(
         tmp_path, "0001_first", "0002_bad", "0003_third", failing="0002_bad"
     )
 
-    with pytest.raises(RuntimeError, match="entry failed"):
+    with pytest.raises(EntryFailed, match="entry failed"):
         apply_pending(
             conn,
             history=history,
@@ -235,7 +236,7 @@ def test_failed_entry_writes_a_receipt_naming_the_restore_point(
     conn = _connection()
     history = _history(tmp_path, "0001_bad", failing="0001_bad")
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(EntryFailed):
         apply_pending(
             conn,
             history=history,
@@ -282,7 +283,7 @@ def test_invariants_failure_fails_the_boot_but_keeps_the_ledger(
     )
     history = ordered_entries(tmp_path)
 
-    with pytest.raises(AssertionError, match="invariant broken"):
+    with pytest.raises(EntryFailed, match="invariant broken"):
         apply_pending(
             conn,
             history=history,

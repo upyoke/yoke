@@ -39,26 +39,10 @@ RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
     ("events", "user_id"),
 )
 
-#: The platform service's own database, which is not a tenant universe.
-PLATFORM_DATABASE = "yoke_platform"
-
-
 def _connect(dsn: str) -> Any:
     import psycopg
 
     return psycopg.connect(dsn, connect_timeout=20)
-
-
-def _tenant_databases(dsn_for: Any) -> List[str]:
-    """Return every tenant database on the cluster, platform DB excluded."""
-    with _connect(dsn_for(PLATFORM_DATABASE)) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT datname FROM pg_database "
-                "WHERE datistemplate = false AND datname LIKE 'yoke_%' "
-                "ORDER BY datname"
-            )
-            return [r[0] for r in cur.fetchall() if r[0] != PLATFORM_DATABASE]
 
 
 def _org_slugs(cur: Any) -> Optional[List[str]]:
@@ -134,17 +118,18 @@ def _report_database(dsn_for: Any, database: str) -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) != 1:
+    if args[:1] in ([], ["-h"], ["--help"]) or len(args) != 1:
         print(__doc__)
-        return 2
+        return 0 if args[:1] in (["-h"], ["--help"]) else 2
 
     os.environ["YOKE_ENV"] = args[0]
     from yoke_core.domain import db_backend
+    from yoke_core.domain.migration_fleet_preflight import tenant_databases
 
     def dsn_for(database: str) -> str:
         return db_backend.resolve_pg_dsn(dbname=database)
 
-    databases = _tenant_databases(dsn_for)
+    databases = tenant_databases(dsn_for)
     print(f"environment: {args[0]}")
     print(f"tenant databases: {databases}")
     for database in databases:
