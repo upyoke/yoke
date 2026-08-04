@@ -71,6 +71,7 @@ from yoke_core.tools.gate_slot_observability import (
     _stamp_activity,
     slot_identity,
     slot_occupancy,
+    slot_parties,
     waiting_announcement,
 )
 
@@ -91,6 +92,9 @@ CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
 #: Base advisory-lock key for gate slots; slot *i* locks ``BASE + i``.
 #: Distinct from the cluster-role authority lock used by the fixtures.
 GATE_SLOT_LOCK_BASE = 0x596F6B6547617431
+#: Test-only override so a subprocess can share a scratch lock space with
+#: its parent without contending for the machine's live gate slots.
+LOCK_BASE_ENV = "YOKE_TEST_GATE_LOCK_BASE"
 
 _WAIT_ANNOUNCE_INTERVAL_S = 15.0
 _POLL_INTERVAL_S = 2.0
@@ -151,16 +155,29 @@ def _maintenance_dsn() -> Optional[str]:
     return f"{base} dbname=postgres"
 
 
-def try_acquire_slot(conn, cap: int, base: int = GATE_SLOT_LOCK_BASE) -> bool:
+def _lock_base() -> int:
+    """Return the advisory-lock key range this process arbitrates on."""
+    raw = os.environ.get(LOCK_BASE_ENV)
+    if raw is not None:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    return GATE_SLOT_LOCK_BASE
+
+
+def try_acquire_slot(conn, cap: int, base: int | None = None) -> bool:
     """Try to take any of the *cap* gate slots on *conn*'s session.
 
     *base* selects the advisory-lock key range; tests pass a scratch base
     so slot-exhaustion scenarios never collide with live gate slots on the
-    shared cluster.
+    shared cluster. When omitted, the process lock base is used (module
+    default, or ``YOKE_TEST_GATE_LOCK_BASE`` for subprocess fixtures).
     """
+    lock_base = _lock_base() if base is None else base
     for slot in range(cap):
         (got,) = conn.execute(
-            "SELECT pg_try_advisory_lock(%s)", (base + slot,)
+            "SELECT pg_try_advisory_lock(%s)", (lock_base + slot,)
         ).fetchone()
         if got:
             return True
@@ -205,9 +222,10 @@ def _acquire(stream: TextIO):
     last_announce = 0.0
     try:
         while True:
-            # The lock base is read from the module at call time so a test
-            # can retarget the whole gate onto a scratch key range.
-            if try_acquire_slot(conn, cap, GATE_SLOT_LOCK_BASE):
+            # The lock base is read from the process at call time so a test
+            # can retarget the whole gate onto a scratch key range (module
+            # attribute or YOKE_TEST_GATE_LOCK_BASE for subprocesses).
+            if try_acquire_slot(conn, cap):
                 _stamp_activity(conn, SLOT_HELD_APP_PREFIX, identity)
                 waited = time.monotonic() - waited_since
                 if waited > _POLL_INTERVAL_S:
@@ -301,12 +319,14 @@ __all__ = [
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",
     "GATE_SLOT_LOCK_BASE",
+    "LOCK_BASE_ENV",
     "SLOT_HELD_APP_PREFIX",
     "SLOT_WAIT_APP_PREFIX",
     "admitted_gate",
     "is_heavy_invocation",
     "slot_identity",
     "slot_occupancy",
+    "slot_parties",
     "try_acquire_slot",
     "waiting_announcement",
 ]
