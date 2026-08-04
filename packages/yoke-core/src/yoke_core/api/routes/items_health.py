@@ -43,8 +43,7 @@ def health() -> _main.HealthResponse:
     an uninitialized DB answers 200 here while its data routes fail,
     so deploy gates assert this field rather than liveness alone.
     """
-    schema_ready, missing = _schema_readiness_snapshot()
-    pending = _pending_migrations_snapshot()
+    schema_ready, missing, pending = _health_snapshot()
     build = os.environ.get("YOKE_BUILD_SHA", "")
     return _main.HealthResponse(
         status="ok",
@@ -94,50 +93,63 @@ def reset_schema_readiness_cache() -> None:
     _migrations_probe = (0.0, [])
 
 
-def _schema_readiness_snapshot() -> Tuple[bool, List[str]]:
-    """Probe the readiness table set; an unreachable DB is not ready."""
-    global _schema_confirmed_ready
-    if _schema_confirmed_ready:
-        return True, []
-    try:
-        conn = _main.get_db_readonly()
-        try:
-            missing = missing_readiness_tables(conn)
-        finally:
-            conn.close()
-    except Exception:
-        return False, []
-    if not missing:
-        _schema_confirmed_ready = True
-    return not missing, missing
+def _health_snapshot() -> Tuple[bool, List[str], List[str]]:
+    """Return ``(schema_ready, missing_tables, pending_migrations)``.
 
+    ONE connection answers both questions. Container liveness polls this route
+    on a short interval, and every connection resets a serverless database's
+    idle-pause timer, so opening a second one per probe would defeat the reason
+    the readiness latch exists in the first place.
 
-def _pending_migrations_snapshot() -> List[str]:
-    """Names the history entries the connected database has not applied.
-
-    An unreachable database reports the answer it last had rather than
-    inventing one; on a process that has never probed successfully that is the
-    empty list, matching how ``schema_ready`` treats an unreachable database as
-    a liveness question rather than a correctness claim.
+    The two answers cache differently because the underlying facts differ. A
+    schema surface cannot lose tables under a running process, so a positive
+    readiness answer is latched for the process lifetime. A ledger CAN move
+    backwards — a restore to an earlier snapshot, a replica failover, a
+    repointed DSN — so the migration answer is only bounded-stale, never
+    latched. Negative answers are never cached either way: a process that
+    starts ahead of its schema must keep probing until it converges.
     """
-    global _migrations_probe
-    deadline, cached = _migrations_probe
+    global _schema_confirmed_ready, _migrations_probe
+
     now = time.monotonic()
-    if now < deadline:
-        return cached
+    deadline, cached_pending = _migrations_probe
+    migrations_fresh = now < deadline
+    if _schema_confirmed_ready and migrations_fresh:
+        return True, [], cached_pending
+
     try:
         conn = _main.get_db_readonly()
-        try:
-            pending = pending_migration_names(conn)
-        finally:
-            conn.close()
     except Exception:
-        return cached
-    ttl = runtime_settings.get_seconds(
-        MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT
-    )
-    _migrations_probe = (now + ttl, pending)
-    return pending
+        return (
+            (True, [], cached_pending)
+            if _schema_confirmed_ready
+            else (False, [], cached_pending)
+        )
+    try:
+        if _schema_confirmed_ready:
+            ready, missing = True, []
+        else:
+            missing = missing_readiness_tables(conn)
+            ready = not missing
+            if ready:
+                _schema_confirmed_ready = True
+        if migrations_fresh:
+            pending = cached_pending
+        else:
+            pending = pending_migration_names(conn)
+            ttl = runtime_settings.get_seconds(
+                MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT
+            )
+            _migrations_probe = (now + ttl, pending)
+    except Exception:
+        return (
+            (True, [], cached_pending)
+            if _schema_confirmed_ready
+            else (False, [], cached_pending)
+        )
+    finally:
+        conn.close()
+    return ready, missing, pending
 
 
 __all__ = ["reset_schema_readiness_cache", "router"]

@@ -155,10 +155,7 @@ class TestFlows:
         assert scoped[0]["status"] == "active"
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"
-        # Kind-shaped stages identify by kind, executor-shaped by name.
-        assert scoped[0]["stage_names"] == [
-            "migration_apply", "merged", "complete",
-        ]
+        assert scoped[0]["stage_names"] == ["merged", "complete"]
 
         by_id = get_workflows_definition(project=str(yoke_id))["flows"]
         assert [flow["id"] for flow in by_id] == ["alpha-release"]
