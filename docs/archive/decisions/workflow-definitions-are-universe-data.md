@@ -35,6 +35,16 @@ Nobody had customized anything. Every "another number" row was byte-identical to
 a real published generation. The unrecognized rows were generations the code had
 *lost the ability to express* — the reconstruction defect, as a number.
 
+A third universe, a physical test machine running a released build, made the
+mechanism unmistakable. It holds twelve rows, three per workflow, and only the
+four current ones are recognized. The other eight were never published: they
+were *synthesized* by the old back-fill, reconstructed by subtracting remembered
+fields from whatever the current definition was on the day that universe was
+born. Three universes born on three different days therefore hold three
+different "histories" of the same four workflows. Stored history was a function
+of the code version that happened to be installed at creation time, which is why
+changing a current definition could break a boot that had been fine for months.
+
 ## The model
 
 - **Canon is code, literal and frozen**, as JSON beside the loader. It is data;

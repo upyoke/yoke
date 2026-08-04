@@ -215,9 +215,14 @@ def test_convergence_leaves_an_operator_edit_in_place(test_db):
     edited = next(
         version for version in issue["versions"] if version["version"] == 2
     )
-    assert edited["provenance"] == {"kind": "local"}
-    # The operator's edit is still what this universe runs, so its status is
-    # customized -- convergence appended the newer published definition
-    # without overriding the choice.
+    # The edit descends from the generation this universe was holding.
+    assert edited["provenance"] == {
+        "kind": "local", "derived_from_canon_version": 1,
+    }
+    # The operator's edit is still what this universe runs -- convergence
+    # appended the newer published definition without overriding the choice.
+    # The edit descends from generation 1 while Yoke has published since, so
+    # this is the conflicted case: an update here would merge, not overwrite.
     assert issue["current_version"] == 2
-    assert issue["canon_status"]["state"] == "customized"
+    assert issue["canon_status"]["state"] == "customized_update_available"
+    assert issue["canon_status"]["derived_from_canon_version"] == 1

@@ -110,11 +110,17 @@ function provenanceNote(documentNode, workflow, version) {
     return null;
   }
   if (provenance.kind === "local") {
+    // Naming the baseline is what makes a later update explicable: it is the
+    // last point this universe and Yoke agreed, so it is the point a merge
+    // would start from. Say nothing when it was never recorded.
+    const baseline = provenance.derived_from_canon_version;
     return el(
       documentNode,
       "div",
       "workflow-version-provenance local",
-      "Customized here — not a published Yoke version.",
+      baseline == null
+        ? "Customized here — not a published Yoke version."
+        : `Customized here, starting from Yoke version ${baseline}.`,
     );
   }
   // A recognized version gets no note at all, including when the canon
@@ -196,11 +202,31 @@ function canonStatusLine(documentNode, workflow) {
     );
   }
   if (status.state === "customized") {
+    // Only claim the edit is on top of the newest version when the baseline
+    // was actually recorded. Without one there is nothing to compare, and
+    // asserting either direction is the guess this model exists to avoid.
+    const known = status.derived_from_canon_version != null;
     return el(
       documentNode,
       "div",
       "workflow-canon-status customized",
-      "Customized here. Updates will preserve your changes.",
+      known
+        ? "Customized here, on top of the newest Yoke version."
+        : "Customized here. This universe has no record of which Yoke " +
+          "version it started from.",
+    );
+  }
+  if (status.state === "customized_update_available") {
+    // The one state that cannot be resolved by taking Yoke's copy: there are
+    // edits on one side and published changes on the other, so the honest
+    // word is merge.
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status update",
+      `Customized here, starting from Yoke version ` +
+        `${status.derived_from_canon_version}. Yoke has since published ` +
+        `${status.latest_canon_version}, so an update would merge.`,
     );
   }
   return el(

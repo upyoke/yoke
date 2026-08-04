@@ -205,7 +205,10 @@ export function renderTabs(
     // workflow you opened, not on every tab -- a row of reassurances is noise,
     // where a row of nothing-but-the-one-that-needs-you is a signal.
     const canonState = workflow.canon_status?.state;
-    if (canonState === "update_available") {
+    if (
+      canonState === "update_available" ||
+      canonState === "customized_update_available"
+    ) {
       tab.appendChild(el(
         documentNode, "span", "workflow-tab-status update", "update",
       ));
