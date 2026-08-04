@@ -85,6 +85,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "workflow_path_posture_dialogs.js": "text/javascript; charset=utf-8",
     "workflow_view_lifecycle.js": "text/javascript; charset=utf-8",
     "workflow_view_policy.js": "text/javascript; charset=utf-8",
+    "workflow_view_canon_diff.js": "text/javascript; charset=utf-8",
     "workflow_view_primitives.js": "text/javascript; charset=utf-8",
     "workflow_view_versions.js": "text/javascript; charset=utf-8",
     "qa_view_activity.js": "text/javascript; charset=utf-8",

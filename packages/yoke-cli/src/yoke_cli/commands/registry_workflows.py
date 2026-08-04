@@ -8,6 +8,11 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_policy_defaults_publish,
     workflows_version_get,
 )
+from yoke_cli.commands.adapters.workflows_canon import (
+    workflows_canon_get,
+    workflows_canon_update_apply,
+    workflows_canon_update_preview,
+)
 from yoke_cli.commands.adapters.workflow_mechanics import (
     workflows_approval_defaults_publish,
     workflows_delivery_default_set,
@@ -51,6 +56,18 @@ WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "delivery-default", "set"): (
         "workflows.delivery_default.set",
         workflows_delivery_default_set,
+    ),
+    ("workflows", "canon", "get"): (
+        "workflows.canon.get",
+        workflows_canon_get,
+    ),
+    ("workflows", "canon-update", "preview"): (
+        "workflows.canon_update.preview",
+        workflows_canon_update_preview,
+    ),
+    ("workflows", "canon-update", "apply"): (
+        "workflows.canon_update.apply",
+        workflows_canon_update_apply,
     ),
     ("workflows", "approval-defaults", "publish"): (
         "workflows.approval_defaults.publish",

@@ -27,6 +27,42 @@ WORKFLOW_ADAPTERS = [
         ),
         notes="Inspects the immutable workflow version pinned by an item.",
     ),
+    read_entry(
+        function_id="workflows.canon.get",
+        cli_invocation=(
+            "yoke workflows canon get WORKFLOW [--canon-version N] "
+            "[--session-id S] [--json]"
+        ),
+        notes=(
+            "Reads one generation from the code-owned published canon. The "
+            "canon is code rather than rows, so this is the only way to see "
+            "what Yoke published without reading the source."
+        ),
+    ),
+    read_entry(
+        function_id="workflows.canon_update.preview",
+        cli_invocation=(
+            "yoke workflows canon-update preview WORKFLOW "
+            "[--session-id S] [--json]"
+        ),
+        notes=(
+            "Shows what taking the newest published version would produce "
+            "here: what it takes, what it keeps, and any conflict with local "
+            "edits. Pure read."
+        ),
+    ),
+    AdapterEntry(
+        function_id="workflows.canon_update.apply",
+        cli_invocation=(
+            "yoke workflows canon-update apply WORKFLOW "
+            "--expected-current-version N [--session-id S] [--json]"
+        ),
+        notes=(
+            "Publishes the merged definition. Refuses when the merge "
+            "conflicts with local edits, and selects an existing row when "
+            "this universe already holds the merged content."
+        ),
+    ),
     AdapterEntry(
         function_id="workflows.current.set",
         cli_invocation=(
