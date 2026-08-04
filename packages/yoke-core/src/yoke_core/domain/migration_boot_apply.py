@@ -116,7 +116,7 @@ def apply_pending(
     *,
     history: Sequence[MigrationEntry],
     applied_by: str,
-    running_version: str = "",
+    running_version: str,
     backup_root: Optional[Path] = None,
     external_restore_point: Optional[str] = None,
 ) -> ApplyOutcome:
@@ -136,7 +136,10 @@ def apply_pending(
     ``running_version`` is the version of the artifact doing the applying. The
     kernel stays ignorant of what that means — the caller knows whether it is
     a wheel version, an image tag, or nothing at all — and an empty string is
-    the honest answer from a source tree. It is compared against each entry's
+    the honest answer from a source tree. It is required rather than defaulted
+    on purpose: an omitted version reads as unresolved and disables the
+    refusal entirely, so a default would let a caller silently switch the
+    guard off. Passing ``""`` is still allowed, but it has to be said. It is compared against each entry's
     declared floor, so an entry can never be applied by a build too old to
     serve against the result, and it is recorded on the ledger row, because a
     build old enough to be in danger does not ship the entry that would tell

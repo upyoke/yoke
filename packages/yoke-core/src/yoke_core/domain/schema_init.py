@@ -207,6 +207,7 @@ def converge_migration_history(conn, *, was_born: bool) -> None:
     if not db_backend.connection_is_postgres(conn):
         return
 
+    from yoke_contracts.engine_version import installed_engine_version
     from yoke_core.domain import migrations as migration_history_package
     from yoke_core.domain.migration_boot_apply import apply_pending, stamp_history
     from yoke_core.domain.migration_restore_point import configured_restore_point
@@ -228,6 +229,11 @@ def converge_migration_history(conn, *, was_born: bool) -> None:
         conn,
         history=history,
         applied_by="boot-converge",
+        # The version of the artifact doing the applying. Inside a container
+        # this is the wheel version; from a source tree it is empty, which the
+        # applier reads as "unresolved" and never refuses on — a checkout is
+        # ahead of the entry it carries, not behind it.
+        running_version=installed_engine_version(),
         backup_root=backup_root,
         external_restore_point=external_restore_point,
     )

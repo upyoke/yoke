@@ -101,7 +101,7 @@ def test_apply_runs_entries_in_order_and_records_them(tmp_path: Path) -> None:
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test",
+        applied_by="test", running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -117,14 +117,14 @@ def test_apply_is_a_no_op_when_current(tmp_path: Path) -> None:
     apply_pending(
         conn,
         history=history,
-        applied_by="test",
+        applied_by="test", running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test",
+        applied_by="test", running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -145,7 +145,7 @@ def test_apply_only_runs_what_is_outstanding(tmp_path: Path) -> None:
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test",
+        applied_by="test", running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -156,7 +156,8 @@ def test_apply_only_runs_what_is_outstanding(tmp_path: Path) -> None:
 def test_empty_history_needs_no_restore_point(tmp_path: Path) -> None:
     conn = _connection()
 
-    outcome = apply_pending(conn, history=(), applied_by="test")
+    outcome = apply_pending(conn, history=(), applied_by="test",
+            running_version="")
 
     assert outcome.applied == ()
 
@@ -172,7 +173,8 @@ def test_current_database_needs_no_restore_point(tmp_path: Path) -> None:
         "VALUES ('0001_first', 'now', 'test')"
     )
 
-    outcome = apply_pending(conn, history=history, applied_by="test")
+    outcome = apply_pending(conn, history=history, applied_by="test",
+            running_version="")
 
     assert outcome.applied == ()
 
@@ -182,7 +184,8 @@ def test_apply_refuses_without_a_restore_point(tmp_path: Path) -> None:
     history = _history(tmp_path, "0001_first")
 
     with pytest.raises(RestorePointRequired, match="no restore point"):
-        apply_pending(conn, history=history, applied_by="test")
+        apply_pending(conn, history=history, applied_by="test",
+            running_version="")
 
     assert _marks(conn) == []
 
@@ -195,7 +198,7 @@ def test_apply_refuses_two_restore_points(tmp_path: Path) -> None:
         apply_pending(
             conn,
             history=history,
-            applied_by="test",
+            applied_by="test", running_version="",
             backup_root=tmp_path / "backups",
             external_restore_point=RESTORE_POINT,
         )
@@ -213,7 +216,7 @@ def test_failed_entry_stops_the_chain_and_leaves_the_ledger_truthful(
         apply_pending(
             conn,
             history=history,
-            applied_by="test",
+            applied_by="test", running_version="",
             external_restore_point=RESTORE_POINT,
         )
 
@@ -236,7 +239,7 @@ def test_failed_entry_writes_a_receipt_naming_the_restore_point(
         apply_pending(
             conn,
             history=history,
-            applied_by="test",
+            applied_by="test", running_version="",
             external_restore_point=RESTORE_POINT,
         )
 
@@ -256,7 +259,7 @@ def test_completed_apply_writes_a_receipt(tmp_path: Path) -> None:
     apply_pending(
         conn,
         history=history,
-        applied_by="test",
+        applied_by="test", running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -283,7 +286,7 @@ def test_invariants_failure_fails_the_boot_but_keeps_the_ledger(
         apply_pending(
             conn,
             history=history,
-            applied_by="test",
+            applied_by="test", running_version="",
             external_restore_point=RESTORE_POINT,
         )
 
