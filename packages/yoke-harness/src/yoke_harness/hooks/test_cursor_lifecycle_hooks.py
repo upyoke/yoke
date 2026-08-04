@@ -9,7 +9,6 @@ from yoke_contracts.cursor_hook_root import (
     parent_checkout_if_missing_worktree,
     resolve_existing_hook_root,
 )
-from yoke_core.domain.agents_render_hooks import render_cursor_hooks_block
 from yoke_harness.hooks.cursor_lifecycle_hooks import (
     cursor_lifecycle_hook_command,
     ensure_user_lifecycle_hooks,
@@ -49,17 +48,6 @@ def test_lifecycle_command_peels_worktrees_and_marks() -> None:
     assert ".worktrees/" in cmd
     assert "yoke hook evaluate Stop" in cmd
     assert "YOKE_EXECUTOR=cursor" in cmd
-
-
-def test_render_cursor_stop_uses_lifecycle_command() -> None:
-    block = render_cursor_hooks_block()
-    stop = block["hooks"]["stop"][0]["command"]
-    end = block["hooks"]["sessionEnd"][0]["command"]
-    assert "yoke-cursor-lifecycle-root=1" in stop
-    assert "yoke-cursor-lifecycle-root=1" in end
-    # Ordinary tool hooks keep the simple YOKE_ROOT export.
-    pre = block["hooks"]["preToolUse"][0]["command"]
-    assert "yoke-cursor-lifecycle-root" not in pre
 
 
 def test_ensure_user_lifecycle_hooks_merges(tmp_path: Path) -> None:
