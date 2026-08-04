@@ -13,6 +13,10 @@ from yoke_core.domain.migration_boot_apply import (
     pending_entries,
     stamp_history,
 )
+from yoke_core.domain.migration_audit_schema import (
+    ensure_applied_migrations_table,
+    ensure_migration_audit_table,
+)
 from yoke_core.domain.migration_restore_point import RestorePointRequired
 from yoke_core.domain.migration_history import ordered_entries
 
@@ -21,17 +25,12 @@ RESTORE_POINT = "snapshot:test-restore-point"
 
 def _connection() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
-    conn.execute(
-        "CREATE TABLE applied_migrations ("
-        "migration_name TEXT PRIMARY KEY, applied_at TEXT NOT NULL, "
-        "applied_by TEXT)"
-    )
-    conn.execute(
-        "CREATE TABLE migration_audit ("
-        "id INTEGER PRIMARY KEY, migration_name TEXT, state TEXT, "
-        "backup_path TEXT, failure_reason TEXT, started_at TEXT, "
-        "completed_at TEXT, description TEXT)"
-    )
+    # The real DDL, not a convenient subset of it. A hand-rolled table here
+    # once omitted three NOT NULL columns the live schema has, so the receipt
+    # assertions below passed against a shape no database actually has while
+    # every receipt failed its constraint in production.
+    ensure_applied_migrations_table(conn)
+    ensure_migration_audit_table(conn)
     conn.execute("CREATE TABLE marks (name TEXT)")
     conn.commit()
     return conn

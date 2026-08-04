@@ -27,6 +27,8 @@ failure this exists to prevent.
 from __future__ import annotations
 
 import hashlib
+import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -243,14 +245,22 @@ def _write_receipt(
     particular it is where an operator reads *which restore point covers this
     apply* after something has gone wrong, which is the moment when
     reconstructing that answer is hardest.
+
+    ``tables_declared`` / ``expected_deltas`` / ``pre_row_counts`` are NOT NULL
+    and are written empty on purpose. They carry the declared-delta bookkeeping
+    of the rehearse-then-verify runner, which this path does not have and does
+    not claim to: an entry here is trusted to be correct because it ran in
+    order under a lock, not because its row counts were predicted in advance.
+    Empty is the honest value; omitting the columns is a constraint violation.
     """
     p = _p(conn)
     try:
         conn.execute(
             "INSERT INTO migration_audit "
             "(migration_name, state, backup_path, failure_reason, "
-            " started_at, completed_at, description) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
+            " started_at, completed_at, description, "
+            " tables_declared, expected_deltas, pre_row_counts) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
             (
                 entry.name,
                 state,
@@ -259,11 +269,23 @@ def _write_receipt(
                 started_at,
                 _now(),
                 "boot-converge apply from the ordered migration history",
+                json.dumps([]),
+                json.dumps({}),
+                json.dumps({}),
             ),
         )
         conn.commit()
-    except Exception:  # noqa: BLE001 — evidence is not worth failing a boot
+    except Exception as exc:  # noqa: BLE001 — evidence is not worth failing a boot
         conn.rollback()
+        # Loud, but not fatal. A receipt that silently fails to write leaves an
+        # apply with no record of which restore point covers it, and the first
+        # time anyone notices is while recovering from something else. Swallowing
+        # the failure is the right call for a boot; hiding it is not.
+        print(
+            f"WARNING: migration_audit receipt for {entry.name} "
+            f"({state}) was not recorded: {exc}",
+            file=sys.stderr,
+        )
 
 
 def _acquire_apply_lock(conn: Any) -> None:
