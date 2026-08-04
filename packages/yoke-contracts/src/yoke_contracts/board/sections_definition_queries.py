@@ -41,18 +41,19 @@ def _items_sql(project_filter: str, *, definition_metadata: bool) -> str:
     """
 
 
-def query_item_rows(db: Any, project_filter: str) -> List[Tuple[Any, ...]]:
+def query_item_rows(
+    db: Any,
+    project_filter: str,
+    params: Optional[Tuple[Any, ...]] = None,
+) -> List[Tuple[Any, ...]]:
     """Read item definition metadata, falling back for older payloads."""
     enriched_sql = _items_sql(project_filter, definition_metadata=True)
     has_query = getattr(db, "has_query", None)
-    if not callable(has_query) or has_query(enriched_sql):
-        return db.query(enriched_sql)
+    if not callable(has_query) or has_query(enriched_sql, params):
+        return db.query(enriched_sql, params)
 
     legacy_sql = _items_sql(project_filter, definition_metadata=False)
-    return [
-        (*row[:-1], None, None, row[-1])
-        for row in db.query(legacy_sql)
-    ]
+    return [(*row[:-1], None, None, row[-1]) for row in db.query(legacy_sql, params)]
 
 
 def _epic_task_rows_sql(*, definition_metadata: bool) -> str:
@@ -106,7 +107,9 @@ def _precomputed_epic_tasks_sql(
                (SELECT stage->>'glyph'
                 FROM jsonb_array_elements(wv.definition_json::jsonb->'stages') stage
                 WHERE stage->>'id'=et.status LIMIT 1)"""
-        workflow_join = "\n        LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id"
+        workflow_join = (
+            "\n        LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id"
+        )
     return f"""
         SELECT et.epic_id, et.task_num, et.title, et.status{metadata_column}
         FROM epic_tasks et
@@ -117,19 +120,23 @@ def _precomputed_epic_tasks_sql(
 
 
 def query_precomputed_epic_task_rows(
-    db: Any, project_filter: str
+    db: Any,
+    project_filter: str,
+    params: Optional[Tuple[Any, ...]] = None,
 ) -> List[Tuple[Any, ...]]:
     """Read batched task glyphs with an exact legacy-query fallback."""
     enriched_sql = _precomputed_epic_tasks_sql(
-        project_filter, definition_metadata=True,
+        project_filter,
+        definition_metadata=True,
     )
     has_query_quiet = getattr(db, "has_query_quiet", None)
-    if not callable(has_query_quiet) or has_query_quiet(enriched_sql):
-        return db.query_quiet(enriched_sql)
+    if not callable(has_query_quiet) or has_query_quiet(enriched_sql, params):
+        return db.query_quiet(enriched_sql, params)
     legacy_sql = _precomputed_epic_tasks_sql(
-        project_filter, definition_metadata=False,
+        project_filter,
+        definition_metadata=False,
     )
-    return [(*row, None) for row in db.query_quiet(legacy_sql)]
+    return [(*row, None) for row in db.query_quiet(legacy_sql, params)]
 
 
 __all__ = [

@@ -53,8 +53,8 @@ def _stamp_activity(conn, prefix: str, identity: str) -> None:
         pass
 
 
-def slot_occupancy(conn) -> tuple[list[str], int]:
-    """Return ``(holder identities, waiting connection count)``."""
+def slot_parties(conn) -> tuple[list[str], list[str]]:
+    """Return ``(holder identities, waiter identities)`` from the cluster."""
     try:
         rows = conn.execute(
             "SELECT application_name FROM pg_stat_activity "
@@ -62,15 +62,25 @@ def slot_occupancy(conn) -> tuple[list[str], int]:
             (f"{SLOT_HELD_APP_PREFIX}%", f"{SLOT_WAIT_APP_PREFIX}%"),
         ).fetchall()
     except Exception:
-        return ([], 0)
+        return ([], [])
     names = [str(row[0]) for row in rows]
     holders = [
         name[len(SLOT_HELD_APP_PREFIX):]
         for name in names
         if name.startswith(SLOT_HELD_APP_PREFIX)
     ]
-    waiting = sum(1 for name in names if name.startswith(SLOT_WAIT_APP_PREFIX))
-    return (sorted(holders), waiting)
+    waiters = [
+        name[len(SLOT_WAIT_APP_PREFIX):]
+        for name in names
+        if name.startswith(SLOT_WAIT_APP_PREFIX)
+    ]
+    return (sorted(holders), sorted(waiters))
+
+
+def slot_occupancy(conn) -> tuple[list[str], int]:
+    """Return ``(holder identities, waiting connection count)``."""
+    holders, waiters = slot_parties(conn)
+    return (holders, len(waiters))
 
 
 def waiting_announcement(
@@ -92,5 +102,6 @@ __all__ = [
     "SLOT_WAIT_APP_PREFIX",
     "slot_identity",
     "slot_occupancy",
+    "slot_parties",
     "waiting_announcement",
 ]

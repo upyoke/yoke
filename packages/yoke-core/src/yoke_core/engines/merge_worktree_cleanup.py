@@ -56,8 +56,7 @@ def _release_lane_row(ctx: MergeContext) -> None:
         return
     if not response.success:
         detail = (
-            response.error.message if response.error is not None
-            else "release refused"
+            response.error.message if response.error is not None else "release refused"
         )
         mw._print(
             f"WARNING: lane row for {ctx.args.branch} left active after "
@@ -85,12 +84,12 @@ def _post_merge_cleanup(
     # Resolve the post-merge step helpers off the live parent module (mirrors
     # _print / _run_git / _emit_merge_event above) so a monkeypatch on
     # merge_worktree.<helper> is honored by this cleanup routine — the same
-    # reason _regenerate_views_or_exit5 itself routes through the parent. Using
+    # reason _regenerate_views_advisory itself routes through the parent. Using
     # module-level imports here would bypass those patches and run the real
     # _regenerate_views subprocess during tests.
     _sync_local_target = mw._sync_local_target
     _schema_refresh = mw._schema_refresh
-    _regenerate_views_or_exit5 = mw._regenerate_views_or_exit5
+    _regenerate_views_advisory = mw._regenerate_views_advisory
     _ensure_target_branch = mw._ensure_target_branch
 
     _print("")
@@ -288,11 +287,9 @@ def _post_merge_cleanup(
     # Schema refresh
     _schema_refresh(ctx)
 
-    # Regenerate views -- post-merge-cleanup failure after PR merge
-    # landed is its own exit class.  On exit 5 we still run
-    # stash cleanup + target-branch pin + print the YOKE_REPO_ROOT
-    # contract line so done_transition can re-locate the Yoke repo.
-    regen_exit = _regenerate_views_or_exit5(ctx)
+    # Generated views are advisory after the merge has landed. Retry once and
+    # defer any persistent failure without blocking terminal close-out.
+    _regenerate_views_advisory(ctx)
 
     # Stash cleanup
     stash_list = _run_git(["stash", "list"], cwd=ctx.repo_root, capture=True)
@@ -307,9 +304,6 @@ def _post_merge_cleanup(
 
     _print("")
     _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
-    # surface exit 5 from either regen failure or sync failure.
-    if regen_exit != 0:
-        return regen_exit
     if not sync_ok:
         return 5
     return 0

@@ -110,6 +110,11 @@ def run_session_start(record: HookContext, root: str) -> str:
 
     The reply is Cursor's ``sessionStart`` JSON shape: the orientation
     body travels under ``additional_context``.
+
+    Task/subagent sessionStart events (parser sets
+    ``is_subagent_session``) must not register: the parent chat owns the
+    ``harness_sessions`` row. Pin the container id for same-process
+    follow-on and reply without orientation injection.
     """
     from runtime.harness.cursor import cursor_hooks_payload as _cursor
 
@@ -125,6 +130,8 @@ def run_session_start(record: HookContext, root: str) -> str:
             )
         }) + "\n"
     os.environ["YOKE_SESSION_ID"] = session_id
+    if record.payload.get("is_subagent_session") is True:
+        return json.dumps({"additional_context": ""}) + "\n"
     err = _lifecycle.register(
         root, session_id, _payload_model(record.payload) or "unknown",
         _entrypoint(),
@@ -150,13 +157,16 @@ def run_prompt_submit(record: HookContext, root: str) -> str:
     session_id = _cursor.resolve_session_id(raw)
     if not session_id:
         return ""
-    if _lifecycle.touch(root, session_id) != 0:
-        _lifecycle.register(
-            root, session_id, _payload_model(record.payload) or "unknown",
-            _entrypoint(),
-        )
-    if _first_prompt(session_id, codex=False):
-        telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
+    if record.payload.get("is_subagent_session") is not True:
+        if _lifecycle.touch(root, session_id) != 0:
+            _lifecycle.register(
+                root, session_id, _payload_model(record.payload) or "unknown",
+                _entrypoint(),
+            )
+        if _first_prompt(session_id, codex=False):
+            telemetry.emit_harness_session_sent_first_user_prompt_submit(
+                "", session_id,
+            )
     return ""
 
 
@@ -191,6 +201,10 @@ def run_model_report(record: HookContext, root: str) -> str:
         if model
         else ""
     )
-    if model and session_id:
+    if (
+        model
+        and session_id
+        and record.payload.get("is_subagent_session") is not True
+    ):
         _lifecycle.register(root, session_id, model, _entrypoint())
     return _STREAM_SAFE_REPLY

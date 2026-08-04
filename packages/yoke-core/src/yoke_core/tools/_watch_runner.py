@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import os
 import re
-import selectors
 import shlex
 import subprocess
 import sys
@@ -45,6 +44,10 @@ from yoke_core.tools._watch_throttle import (
     annotate_progress_line,
     load_throttle_policy,
 )
+from yoke_core.tools.watch_child_drain import (
+    QUIET_HEARTBEAT_SECONDS_ENV,
+    drain_watched_child,
+)
 
 # Wrapper-level error code: the wrapper itself failed to launch the
 # underlying command (e.g., binary missing). Distinct from a successful
@@ -56,8 +59,8 @@ _EXIT_STATUS_SIGNAL_BASE = 128
 #: ``timeout(1)``'s convention for "the deadline expired". Named so callers
 #: that must recognise a timed-out run do not restate the number.
 TIMEOUT_EXIT = 124
+STALL_ABORT_EXIT = 125  # nested-admission deadlock; capture names the reason
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
-QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
 
 Classifier = Callable[[str], Classification]
@@ -223,71 +226,34 @@ def run_watcher(
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
-        last_summary: Optional[str] = None
-        timed_out = False
-        quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
         try:
             with process_group_reaping.interruption_reaps_process_group(proc):
-                with selectors.DefaultSelector() as selector:
-                    selector.register(proc.stdout, selectors.EVENT_READ)
-                    while True:
-                        wait_seconds = quiet_seconds
-                        if deadline is not None:
-                            wait_seconds = min(wait_seconds, max(0, deadline - clock()))
-                        events = selector.select(timeout=wait_seconds)
-                        # Whether the child is chatty or silent, the run
-                        # itself is the session's liveness evidence.
-                        pump.tick()
-                        if not events:
-                            if proc.poll() is not None:
-                                break
-                            if deadline is not None and clock() >= deadline:
-                                process_group_reaping.terminate_process_group(proc)
-                                timed_out = True
-                                timeout_line = (
-                                    f"# watch_{kind} timed out after "
-                                    f"{timeout_seconds:g} seconds; "
-                                    "child process group reaped\n"
-                                )
-                                raw_f.write(timeout_line)
-                                _emit_immediate(
-                                    timeout_line, progress_f=progress_f, out=out
-                                )
-                                break
-                            heartbeat = (
-                                f"# watch_{kind} still running; "
-                                f"no child output for {quiet_seconds:g}s\n"
-                            )
-                            _emit_immediate(heartbeat, progress_f=progress_f, out=out)
-                            continue
-                        line = proc.stdout.readline()
-                        if line == "":
-                            if proc.poll() is not None:
-                                break
-                            continue
-                        raw_f.write(line)
-                        classification = classifier(line)
-                        cls = classification.cls
-                        if cls is LineClass.NOISE:
-                            continue
-                        if cls in (
-                            LineClass.URGENT,
-                            LineClass.SUMMARY,
-                            LineClass.METADATA,
-                        ):
-                            _emit_immediate(line, progress_f=progress_f, out=out)
-                            if cls is LineClass.SUMMARY:
-                                last_summary = line
-                            continue
-                        # PROGRESS — route through the throttle gate.
-                        decision = gate.consider(classification)
-                        if decision.emit:
-                            _emit_progress(
-                                line,
-                                suppressed=decision.suppressed_count,
-                                progress_f=progress_f,
-                                out=out,
-                            )
+                early, last_summary, timed_out = drain_watched_child(
+                    proc=proc,
+                    kind=kind,
+                    classifier=classifier,
+                    gate=gate,
+                    raw_f=raw_f,
+                    progress_f=progress_f,
+                    out=out,
+                    emit_immediate=lambda line: _emit_immediate(
+                        line, progress_f=progress_f, out=out
+                    ),
+                    emit_progress=lambda line, suppressed: _emit_progress(
+                        line,
+                        suppressed=suppressed,
+                        progress_f=progress_f,
+                        out=out,
+                    ),
+                    pump_tick=pump.tick,
+                    clock=clock,
+                    deadline=deadline,
+                    timeout_seconds=timeout_seconds,
+                    raw_capture=raw_capture,
+                    stall_abort_exit=STALL_ABORT_EXIT,
+                )
+                if early is not None:
+                    return early
                 rc = TIMEOUT_EXIT if timed_out else proc.wait()
         except process_group_reaping.ProcessGroupInterrupted as interruption:
             # The guard has already reaped the child's whole group, so the
