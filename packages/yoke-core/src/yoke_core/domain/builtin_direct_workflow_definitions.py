@@ -15,7 +15,6 @@ silently rewrote it and the fleet refused to boot; see
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
@@ -64,7 +63,6 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
         "coordination shell. Releases happen continuously inside implementing; "
         "the close reconciles the document."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_REFINEMENT_STAGES,
         workflow_stage(
@@ -138,7 +136,6 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         "A short instruction you file in seconds — filing is the spec; "
         "an agent executes it end-to-end."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         workflow_stage("idea", "idea"),
         workflow_stage(

@@ -15,7 +15,6 @@ silently rewrote it and the fleet refused to boot; see
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
@@ -111,7 +110,6 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     description=(
         "One scoped implementation lane with planning, review, QA and delivery."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(
@@ -173,7 +171,6 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         "Planned task decomposition with parallel worktree lanes and an "
         "integration boundary."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(

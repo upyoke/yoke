@@ -11,7 +11,6 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
 )
 from yoke_core.domain.handlers.workflows_definition import (
     handle_workflows_definition_get,
@@ -77,13 +76,17 @@ class TestWorkflowRegistry:
         assert definition["family"] == "work-items"
         by_id = {row["id"]: row for row in definition["workflows"]}
         assert set(by_id) == set(BUILTIN_WORKFLOW_IDS)
-        assert {row["current_version"] for row in by_id.values()} == {
-            BUILTIN_WORKFLOW_PREFERRED_VERSION
-        }
         assert all(row["definition_digest"] for row in by_id.values())
+        # Convergence no longer back-fills history: a universe born now holds
+        # the current definition as its version 1, and its history is what it
+        # actually published rather than a synthetic run up to a global number.
+        assert {row["current_version"] for row in by_id.values()} == {1}
         assert all(
-            [version["version"] for version in row["versions"]]
-            == list(range(1, BUILTIN_WORKFLOW_PREFERRED_VERSION + 1))
+            [version["version"] for version in row["versions"]] == [1]
+            for row in by_id.values()
+        )
+        assert all(
+            row["versions"][0]["provenance"]["kind"] == "canon"
             for row in by_id.values()
         )
         issue_stages = by_id["issue"]["definition"]["stages"]

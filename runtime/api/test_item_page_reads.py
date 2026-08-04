@@ -47,7 +47,7 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["title"] == "Fix the footer"
     assert item["workflow"]["id"] == "dash"
     assert item["workflow"]["version"] == builtin_workflow_definition("dash")[
-        "version"
+        "canon_version"
     ]
     assert item["workflow"]["stage_label"] == "reviewing implementation"
     assert item["workflow"]["skill_id"] == "dash"

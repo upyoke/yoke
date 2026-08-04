@@ -72,6 +72,11 @@ governed migration rewrote `workflow_versions` rows with a different JSON
 serialization, and the digests then failed to match code that was otherwise
 correct.
 
+Recognition is therefore by digest *alone*, never by comparing stored JSON
+byte-for-byte. A byte comparison reads an equivalently-serialized row as a
+definition the universe does not have, and convergence appends a duplicate of
+what it already held — the same serialization sensitivity, one layer down.
+
 ## Two things literal canon exposed immediately
 
 Both were hidden by reconstruction, because a reconstructed fixture always
@@ -85,9 +90,21 @@ inherited the *current* vocabulary:
    rows. The deleted compatibility allowlist carried an *alternate* v1 digest
    for all four workflows to paper over exactly that.
 
-## Consequence worth stating plainly
+## Consequences worth stating plainly
 
-Convergence no longer back-fills history into a universe. A newly created
+**Convergence no longer back-fills history into a universe.** A newly created
 universe comes up with the current definition as version 1, not a synthetic
 1..N. A universe's history is what it actually published, and back-filling is
 what forced version numbers to be globally meaningful in the first place.
+
+**The code no longer names a version number at all.** A single
+`BUILTIN_WORKFLOW_PREFERRED_VERSION` constant used to declare what number every
+universe should converge to. It was the global-numbering fiction in its most
+concrete form, and it was also simply wrong: it read 4 while the four workflows
+had published 5, 5, 7, and 7 times. What a current definition has instead is a
+place in the canon, resolved by digest, because that is a fact about content
+rather than a number to be declared.
+
+**Convergence makes a definition available; it does not select it.** A universe
+that has chosen a version keeps running that version when a newer one arrives.
+Selection is a separate, deliberate act.

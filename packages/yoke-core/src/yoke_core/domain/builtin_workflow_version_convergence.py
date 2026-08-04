@@ -33,7 +33,6 @@ from yoke_core.domain.builtin_workflow_definitions import (
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
-    canonical_definition_json,
     definition_digest,
 )
 from yoke_core.domain.workflow_definition_validation import (
@@ -65,18 +64,24 @@ def _matching_version(
     workflow_id: str,
     definition: Mapping[str, Any],
 ) -> Optional[dict]:
-    """The universe's own row holding exactly *definition*, if it has one."""
+    """The universe's own row holding *definition*, if it has one.
+
+    Matched by digest alone, the same way :func:`recognize` matches canon.
+    Comparing the stored JSON byte-for-byte would make an equivalent row that
+    happens to be serialized differently look like a new definition, and
+    convergence would append a duplicate of what the universe already had.
+    That serialization sensitivity is what produced the first outage, when a
+    governed migration rewrote these rows through a different serializer.
+    """
     bind = marker(conn)
     cursor = conn.execute(
         "SELECT * FROM workflow_versions "
         f"WHERE workflow_id = {bind} AND definition_digest = {bind} "
-        "ORDER BY version",
+        "ORDER BY version LIMIT 1",
         (workflow_id, definition_digest(definition)),
     )
-    canonical = canonical_definition_json(definition)
     for row in rows_dict(cursor):
-        if row["definition_json"] == canonical:
-            return row
+        return row
     return None
 
 

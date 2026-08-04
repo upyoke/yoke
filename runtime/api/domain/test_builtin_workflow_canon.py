@@ -18,6 +18,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definitions,
 )
+from yoke_core.domain.workflow_definition_codec import definition_digest
 
 # Canon is pinned two ways, and both must fail in CI rather than at fleet boot
 # -- which is where a change to history failed twice.
@@ -95,15 +96,28 @@ def test_unknown_digest_is_not_recognized() -> None:
 
 
 def test_current_definition_is_the_newest_canon_generation() -> None:
-    """Shipping a new current definition means appending it to canon."""
+    """Shipping a new current definition means appending it to canon.
+
+    Newest, not merely present: the dashboard reports "up to date" by
+    comparing a universe's current definition against the last generation, so
+    a current definition sitting at an older one would tell every universe it
+    was behind something it already had.
+    """
     for fixture in builtin_workflow_definitions():
         workflow_id = str(fixture["workflow"]["id"])
-        from yoke_core.domain.workflow_definition_codec import definition_digest
-
-        assert recognize(workflow_id, definition_digest(fixture["definition"])) is not None, (
+        generation = recognize(
+            workflow_id, definition_digest(fixture["definition"])
+        )
+        assert generation is not None, (
             f"{workflow_id}'s current definition is not in canon; "
             "append it as the next generation"
         )
+        newest = canon_generations(workflow_id)[-1]
+        assert generation.canon_version == newest.canon_version, (
+            f"{workflow_id}'s current definition is canon generation "
+            f"{generation.canon_version}, but {newest.canon_version} is newer"
+        )
+        assert fixture["canon_version"] == newest.canon_version
 
 
 def test_mutating_a_current_definition_moves_no_canon_digest() -> None:

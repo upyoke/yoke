@@ -10,8 +10,8 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.handlers.workflows_versioning import (
@@ -77,6 +77,7 @@ def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
     test_db,
 ) -> None:
     insert_item(test_db, id=943, workflow_id="issue", status="idea")
+    pinned_version = current_workflow_version(test_db, "issue")
 
     edited_definition = builtin_workflow_definition("issue")["definition"]
     previous_stage_ids = [
@@ -98,7 +99,7 @@ def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
         workflow_id="issue",
         definition=edited_definition,
     )
-    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    assert published["version"] == pinned_version + 1
 
     pin_outcome = handle_workflows_item_get(
         _request(
@@ -108,7 +109,7 @@ def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
     )
     assert pin_outcome.primary_success
     pin = pin_outcome.result_payload
-    assert pin["workflow_version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION
+    assert pin["workflow_version"] == pinned_version
 
     pinned_outcome = handle_workflows_version_get(
         _request(

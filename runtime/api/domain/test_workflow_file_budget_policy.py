@@ -8,6 +8,10 @@ from copy import deepcopy
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
+from runtime.api.workflow_version_test_helpers import (
+    current_workflow_version,
+    seed_generation_lacking_file_budget,
+)
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
@@ -157,10 +161,10 @@ def test_file_budget_posture_only_tightens_allowlisted_optional_workflow(test_db
 
 
 def test_pinned_schema_one_policy_keeps_legacy_axis_coupling(test_db):
-    version_two_id = test_db.execute(
-        "SELECT id FROM workflow_versions "
-        "WHERE workflow_id = 'dash' AND version = 2"
-    ).fetchone()[0]
+    current_version = current_workflow_version(test_db, "dash")
+    version_two_id, legacy_version = seed_generation_lacking_file_budget(
+        test_db,
+    )
     insert_item(
         test_db,
         id=3301,
@@ -184,10 +188,10 @@ def test_pinned_schema_one_policy_keeps_legacy_axis_coupling(test_db):
     legacy_projection = inspect_item_workflow_pin(test_db, 3301)
     current_projection = inspect_item_workflow_pin(test_db, 3302)
 
-    assert legacy.runtime.version == 2
+    assert legacy.runtime.version == legacy_version
     assert "file_budget" not in legacy.runtime.policies
     assert legacy.path_claims == legacy.file_budget == "required"
-    assert current.runtime.version == 4
+    assert current.runtime.version == current_version
     assert current.path_claims == "required"
     assert current.file_budget == "optional"
     assert "file_budget" not in legacy_projection["policies"]

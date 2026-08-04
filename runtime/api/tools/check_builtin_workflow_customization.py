@@ -28,7 +28,6 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any
 
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definitions,
@@ -42,7 +41,7 @@ def _canon_digests() -> dict[str, dict[str, int]]:
     out: dict[str, dict[str, int]] = {}
     for fixture in [*builtin_workflow_version_history(), *builtin_workflow_definitions()]:
         workflow_id = str(fixture["workflow"]["id"])
-        version = int(fixture["version"])
+        version = int(fixture["canon_version"])
         digest = definition_digest(fixture["definition"])
         out.setdefault(workflow_id, {})[digest] = version
     return out
