@@ -6,7 +6,11 @@ from typing import Any
 
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import (
+    _add_column_if_not_exists,
+    _column_exists,
+    _table_exists,
+)
 
 ITEM_WORKTREES_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS item_worktrees (
@@ -44,6 +48,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_item_worktrees_active_single_lane
 def ensure_item_worktree_schema(conn: Any) -> None:
     """Create the additive universal lane table and ownership indexes."""
     execute_schema_script(conn, ITEM_WORKTREES_TABLE_SQL)
+    _add_column_if_not_exists(conn, "item_worktrees", "commit_sha", "TEXT")
     execute_schema_script(conn, ITEM_WORKTREES_INDEX_SQL)
     conn.commit()
 
