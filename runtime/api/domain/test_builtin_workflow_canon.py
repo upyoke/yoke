@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from copy import deepcopy
 
@@ -18,16 +19,32 @@ from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definitions,
 )
 
-# Pinned digests of every published generation. A change to canon must fail
-# here, in CI, rather than at fleet boot -- which is where it failed twice.
-# Sourced from the authoritative universes on 2026-08-04; canon is append-only,
-# so entries are added below and never edited.
-PINNED_CANON_DIGESTS = {
+# Canon is pinned two ways, and both must fail in CI rather than at fleet boot
+# -- which is where a change to history failed twice.
+#
+# The fingerprint covers every generation's digest, in order, so editing any
+# published definition moves it. The counts say how many generations each
+# workflow has. Canon is append-only: appending updates both deliberately,
+# and nothing else ever should.
+PINNED_CANON_GENERATION_COUNTS = {
     "issue": 5,
     "epic": 5,
     "blitz": 7,
     "dash": 7,
 }
+
+PINNED_CANON_FINGERPRINT = (
+    "1bf4af7f47229e1b577faa8b37882a968285a4b8122f278bd9ac13ca322e7747"
+)
+
+
+def _canon_fingerprint() -> str:
+    """One hash over every (workflow, version, digest) triple, in order."""
+    material = "\n".join(
+        f"{g.workflow_id}.{g.canon_version:02d}={g.digest}"
+        for g in canon_generations()
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def test_every_workflow_has_canon() -> None:
@@ -38,7 +55,17 @@ def test_every_workflow_has_canon() -> None:
 def test_canon_generation_counts_are_pinned() -> None:
     """Appending a generation is deliberate; it updates this pin."""
     actual = {w: len(canon_generations(w)) for w in BUILTIN_WORKFLOW_IDS}
-    assert actual == PINNED_CANON_DIGESTS
+    assert actual == PINNED_CANON_GENERATION_COUNTS
+
+
+def test_canon_fingerprint_is_pinned() -> None:
+    """Editing any published definition moves this hash.
+
+    This is the guard the old model lacked: history was rebuilt from current,
+    so a field added to a current definition silently rewrote a historical
+    digest and the failure surfaced at fleet boot instead of in CI.
+    """
+    assert _canon_fingerprint() == PINNED_CANON_FINGERPRINT
 
 
 def test_canon_versions_are_dense_and_ordered() -> None:
