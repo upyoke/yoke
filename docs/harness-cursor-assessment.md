@@ -150,7 +150,7 @@ near-real-time rather than deferred to session end, because `preToolUse` and
 | Allow-time advisory | `hookSpecificOutput.additionalContext` | same | `postToolUse.additional_context`; no allow-time channel on `preToolUse` — advisory-only chain output needs rerouting or omission via `AdapterCapability.pretool_omissions` |
 | Rewrite tool input | — | — | `preToolUse.updated_input` |
 | Orientation injection | `UserPromptSubmit` additionalContext | `SessionStart` | `sessionStart.additional_context` (measured working; only channel in `-p` mode, where `beforeSubmitPrompt` never fires) |
-| Stop discipline | empty stdout | exactly `{}`, short-circuit on `stop_hook_active` | `stop` accepts `followup_message` (auto-submits next turn, capped by `loop_limit`) — Yoke must deliberately *not* emit it |
+| Stop discipline | empty stdout | exactly `{}`, short-circuit on `stop_hook_active` | allow-path `{}` (no `followup_message`); stop/sessionEnd commands peel a missing `.worktrees/<lane>` `YOKE_ROOT` and a `~/.cursor/hooks.json` backstop covers deleted project cwd |
 
 ## Session identity, process shape, container model
 

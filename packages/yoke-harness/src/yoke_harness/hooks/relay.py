@@ -179,6 +179,11 @@ def evaluate_hook_event(
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    from yoke_harness.hooks.cursor_lifecycle_hooks import (
+        ensure_user_lifecycle_hooks_for_executor,
+    )
+
+    ensure_user_lifecycle_hooks_for_executor(executor)
     local = evaluate_local_subset(
         event_name,
         stdin_data,
@@ -221,6 +226,11 @@ def relay_hook_event(
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    from yoke_harness.hooks.cursor_lifecycle_hooks import (
+        ensure_user_lifecycle_hooks_for_executor,
+    )
+
+    ensure_user_lifecycle_hooks_for_executor(executor)
     _codex_capture(event_name, stdin_data, executor)
 
     local = evaluate_local_subset(
