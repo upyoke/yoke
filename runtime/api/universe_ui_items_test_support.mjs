@@ -96,11 +96,24 @@ export function detailItem(workflowId) {
       spec: workflowId === "dash"
         ? "Correct the footer typo and verify every link."
         : "Build one shell.\n\n## Acceptance Criteria\n- [ ] Focus stays put.",
-      body: "",
+      body: workflowId === "blitz"
+        ? "# Blitz body\n\nOverall narrative."
+        : "",
+      design_spec: workflowId === "issue"
+        ? "## Design\n\nKeep focus ownership in the shell."
+        : "",
+      technical_plan: ["dash", "issue", "epic", "blitz"].includes(workflowId)
+        ? "## Plan\n\nTouch the footer renderer first."
+        : "",
       shepherd_log: workflowId === "epic"
         ? "## Verdict\n\nReady to execute." : "",
       worktree_plan: workflowId === "epic"
         ? "- Task lanes activate independently." : "",
+      shepherd_caveats: workflowId === "epic"
+        ? "- Watch the integration lane claim."
+        : "",
+      test_results: "",
+      deploy_log: "",
     },
     progress_log: {
       content: "## 2026-07-26 entry — renderer built\nReal values landed.",
