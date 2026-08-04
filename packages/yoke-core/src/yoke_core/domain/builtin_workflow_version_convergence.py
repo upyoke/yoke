@@ -1,19 +1,39 @@
-"""Converge immutable built-in workflow history and code-owned revisions."""
+"""Make the current built-in definitions available without policing history.
+
+A universe's ``workflow_versions`` rows are its data. Convergence ensures the
+current code-owned definition exists there as a version, and does nothing else
+to what is already stored: it never rewrites a row, never renumbers one, never
+deletes one, and never refuses to boot because a stored definition differs from
+what the code expected at that number.
+
+That refusal is what this replaced, and it was a fleet-wide outage twice. Boot
+convergence ran for every tenant and compared each stored row against a
+code-owned fixture *by version number*, so a universe that had published on its
+own schedule -- which is what a staging environment is for -- was
+indistinguishable from a corrupted one, and one mismatched row crash-looped
+everything.
+
+Recognition replaced enforcement. Whether a stored definition is one Yoke
+published is answered by digest against the canon, at whatever number the
+universe stores it under, and reported through
+:func:`unrecognized_builtin_versions` as a health finding scoped to that one
+universe. See ``builtin_workflow_canon``.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Callable, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.builtin_workflow_canon import recognize
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definitions,
-    builtin_workflow_version_history,
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
     canonical_definition_json,
-    decode_definition,
     definition_digest,
 )
 from yoke_core.domain.workflow_definition_validation import (
@@ -21,61 +41,11 @@ from yoke_core.domain.workflow_definition_validation import (
 )
 from yoke_core.domain.workflow_registry_rows import (
     version_by_id,
-    version_row,
     workflow_row,
-)
-from yoke_core.domain.builtin_workflow_version_compat import (
-    _comparable_form,
-    _rewrite_version_to_canonical,
 )
 from yoke_core.domain.workflow_registry_sql import marker, row_dict, rows_dict
 
 InsertVersion = Callable[..., dict]
-
-# Exact alternate code-owned digests accepted in fixed history slots.
-# Requiring a self-consistent canonical payload keeps supported databases
-# bootable without treating arbitrary definition drift as history. Version 3
-# was first published with the schema-v2 binding vocabulary before the
-# canonical schema-v3 fixtures were introduced; some databases then received
-# the governed vocabulary migration that rewrote those exact rows to schema 3.
-_COMPATIBLE_FIXED_VERSION_DIGESTS = {
-    ("issue", 1): frozenset(
-        {"3daf973869d819ad3efee5869c9be1f4a71bd28711c919f7fda9c3a7c6d523ad"}
-    ),
-    ("epic", 1): frozenset(
-        {"7e15484395d46766c933e27ccc29a6d8af2a6a5cf44f85e9b8e0067cdf03ed36"}
-    ),
-    ("blitz", 1): frozenset(
-        {"dd75d375706225bc131120fe1839179477ae492d8c16f284d8d1c44cd0c6dcce"}
-    ),
-    ("dash", 1): frozenset(
-        {"30ec3957c785b7748ba2a76ab8f34c4a5d73a166bf6c7fa34d1cca2cb594d369"}
-    ),
-    ("issue", 3): frozenset(
-        {
-            "92cd9641c34e4189115515df23a89eb854f98aca737c0e278be6a5a35fee0777",
-            "354fdc4d4728068ee0cbaacec3693f559a74bd7bb274de7d9eff970eb21ad49b",
-        }
-    ),
-    ("epic", 3): frozenset(
-        {
-            "85cdf0ef0b70848a0e193f39f995a2e1c4570ce3afebda89bb6c1fcd1f191231",
-            "cea051353acdf03a61fa6ba50f4048067ed0b95d75b9d834cc0b033728f6d5af",
-        }
-    ),
-    ("blitz", 3): frozenset(
-        {
-            "e8b105ced9262225fc6a91da4e137735d4dafc8e432c692afa764a3a642099d9",
-            "3b1e60c448df15c77dfd9c0e3477868cdd6f08dead29b660b4f4b5b0ba534071",
-        }
-    ),
-    ("dash", 3): frozenset(
-        {
-            "7c2e47fb60470298f74417ac82707f1fde9b4e8dd64b0be0a3e66aa289f0711f",
-            "69a96fa61c05848a10d21af0b97424c82963a0431b8454d840d9844e338d6515",
-        }
-    ),
-}
 
 
 def _locked_workflow_row(conn: Any, workflow_id: str) -> Optional[dict]:
@@ -90,73 +60,12 @@ def _locked_workflow_row(conn: Any, workflow_id: str) -> Optional[dict]:
     return row_dict(cursor, cursor.fetchone())
 
 
-def _matches_compatible_fixed_version(
-    existing: Mapping[str, Any],
-    *,
-    workflow_id: str,
-    version: int,
-) -> bool:
-    accepted_digests = _COMPATIBLE_FIXED_VERSION_DIGESTS.get(
-        (workflow_id, version)
-    )
-    if (
-        accepted_digests is None
-        or str(existing["definition_digest"]) not in accepted_digests
-    ):
-        return False
-    try:
-        decoded = decode_definition(existing["definition_json"])
-    except WorkflowRegistryError:
-        return False
-    return definition_digest(decoded) == str(existing["definition_digest"])
-
-
-def _converge_fixed_version(
-    conn: Any,
-    fixture: Mapping[str, Any],
-    insert_version: InsertVersion,
-) -> dict:
-    workflow_id = str(fixture["workflow"]["id"])
-    version = int(fixture["version"])
-    definition = fixture["definition"]
-    validate_workflow_definition(definition)
-    existing = version_row(conn, workflow_id, version)
-    if existing is None:
-        return insert_version(
-            conn,
-            workflow_id=workflow_id,
-            version=version,
-            definition=definition,
-            published_by_actor_id=None,
-        )
-    if (
-        str(existing["definition_digest"]) == definition_digest(definition)
-        and str(existing["definition_json"]) == canonical_definition_json(definition)
-    ) or _matches_compatible_fixed_version(
-        existing,
-        workflow_id=workflow_id,
-        version=version,
-    ):
-        return existing
-    try:
-        stored = decode_definition(existing["definition_json"])
-    except WorkflowRegistryError:
-        stored = None
-    if stored is not None and canonical_definition_json(
-        _comparable_form(stored)
-    ) == canonical_definition_json(_comparable_form(definition)):
-        return _rewrite_version_to_canonical(conn, existing, definition)
-    raise WorkflowRegistryError(
-        f"published built-in {workflow_id}@{version} differs from "
-        "the code-owned definition"
-    )
-
-
 def _matching_version(
     conn: Any,
     workflow_id: str,
     definition: Mapping[str, Any],
 ) -> Optional[dict]:
+    """The universe's own row holding exactly *definition*, if it has one."""
     bind = marker(conn)
     cursor = conn.execute(
         "SELECT * FROM workflow_versions "
@@ -171,43 +80,24 @@ def _matching_version(
     return None
 
 
-def _semantically_matching_version(
-    conn: Any,
-    workflow_id: str,
-    definition: Mapping[str, Any],
-) -> Optional[dict]:
-    """Row whose decoded content equals *definition* modulo compat forms."""
-    bind = marker(conn)
-    cursor = conn.execute(
-        "SELECT * FROM workflow_versions "
-        f"WHERE workflow_id = {bind} ORDER BY version",
-        (workflow_id,),
-    )
-    target = canonical_definition_json(_comparable_form(definition))
-    for row in rows_dict(cursor):
-        try:
-            stored = decode_definition(row["definition_json"])
-        except WorkflowRegistryError:
-            continue
-        if canonical_definition_json(_comparable_form(stored)) == target:
-            return row
-    return None
-
-
 def _ensure_current_version(
     conn: Any,
     fixture: Mapping[str, Any],
     insert_version: InsertVersion,
 ) -> dict:
+    """Make the current definition available, appending it if absent.
+
+    Appends at the universe's own ``MAX(version) + 1``. Version numbers are
+    that universe's sequence positions, so two universes adopting the same
+    definition on different schedules number it differently and neither is
+    wrong.
+    """
     workflow_id = str(fixture["workflow"]["id"])
     definition = fixture["definition"]
     validate_workflow_definition(definition)
     existing = _matching_version(conn, workflow_id, definition)
     if existing is not None:
         return existing
-    drifted = _semantically_matching_version(conn, workflow_id, definition)
-    if drifted is not None:
-        return _rewrite_version_to_canonical(conn, drifted, definition)
     bind = marker(conn)
     row = conn.execute(
         "SELECT COALESCE(MAX(version), 0) FROM workflow_versions "
@@ -223,18 +113,44 @@ def _ensure_current_version(
     )
 
 
+def unrecognized_builtin_versions(conn: Any) -> list[dict]:
+    """Stored built-in rows whose content the canon does not recognize.
+
+    Read-only, and deliberately not consulted by boot. A universe carrying a
+    definition Yoke never published is worth surfacing -- it is either a local
+    customization or real corruption -- but it is a fact about that one
+    universe, so it belongs in its health report rather than in a startup
+    abort that takes the fleet with it.
+    """
+    findings: list[dict] = []
+    bind = marker(conn)
+    for workflow_id in BUILTIN_WORKFLOW_IDS:
+        cursor = conn.execute(
+            "SELECT workflow_id, version, definition_digest FROM workflow_versions "
+            f"WHERE workflow_id = {bind} ORDER BY version",
+            (workflow_id,),
+        )
+        for row in rows_dict(cursor):
+            digest = str(row["definition_digest"])
+            if recognize(workflow_id, digest) is None:
+                findings.append(
+                    {
+                        "workflow_id": workflow_id,
+                        "version": int(row["version"]),
+                        "definition_digest": digest,
+                    }
+                )
+    return findings
+
+
 def converge_builtin_workflows(
     conn: Any,
     *,
     insert_version: InsertVersion,
 ) -> None:
-    """Append missing revisions while preserving existing current pointers."""
+    """Register the built-in workflows and make current definitions available."""
     now = iso8601_now()
     bind = marker(conn)
-    histories: dict[str, list[dict]] = {}
-    for fixture in builtin_workflow_version_history():
-        workflow_id = str(fixture["workflow"]["id"])
-        histories.setdefault(workflow_id, []).append(fixture)
     for current_fixture in builtin_workflow_definitions():
         workflow = current_fixture["workflow"]
         workflow_id = str(workflow["id"])
@@ -273,8 +189,6 @@ def converge_builtin_workflows(
                 ),
             )
 
-        for fixture in histories[workflow_id]:
-            _converge_fixed_version(conn, fixture, insert_version)
         desired = _ensure_current_version(conn, current_fixture, insert_version)
         current = workflow_row(conn, workflow_id)
         if current is None:
@@ -326,4 +240,5 @@ def select_current_builtin_workflow_versions(
 __all__ = [
     "converge_builtin_workflows",
     "select_current_builtin_workflow_versions",
+    "unrecognized_builtin_versions",
 ]
