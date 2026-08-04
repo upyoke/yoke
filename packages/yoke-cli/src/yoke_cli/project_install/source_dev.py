@@ -55,7 +55,16 @@ def install_source_link(
             "HTTPS copy mode; run the explicit source-dev/admin setup from a "
             "Yoke source checkout."
         ) from exc
-    return module.install_source_link(repo_root, operation=operation)
+    report = module.install_source_link(repo_root, operation=operation)
+    # Same machine-home backstop copy-mode apply_bundle installs: Cursor
+    # stop must survive a deleted worktree project root even on the Yoke
+    # source checkout path.
+    from yoke_harness.hooks.cursor_lifecycle_hooks import (
+        ensure_user_lifecycle_hooks,
+    )
+
+    ensure_user_lifecycle_hooks()
+    return report
 
 
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:

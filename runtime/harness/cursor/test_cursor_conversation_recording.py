@@ -99,6 +99,23 @@ class TestRecorder:
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
 
+    def test_session_start_without_roots_does_not_clobber_worktree_fold(
+        self, machine_home, monkeypatch,
+    ):
+        # Live smoke: worktree sessionStart folds onto the claim holder, then
+        # a later sessionStart without workspace_roots used to rewrite the
+        # map to identity and break ambient resolution.
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        remapped = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+        cursor_session_map.record_conversation_session(remapped, CONTAINER)
+        assert _mapped(machine_home, remapped) == CONTAINER
+        cursor_session_map.record_from_hook_payload(
+            {"session_id": remapped, "conversation_id": remapped},
+            "cursor",
+            "SessionStart",
+        )
+        assert _mapped(machine_home, remapped) == CONTAINER
+
 
 class TestClientEntryPoints:
     """Both hook entry points record, before anything can short-circuit."""

@@ -11,10 +11,12 @@ from __future__ import annotations
 
 from yoke_cli.config import machine_config
 from yoke_contracts.cursor_session_map import (
+    CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
     container_session_id_from_evidence,
     prune_stale_conversation_sessions,
     record_conversation_session as _record_conversation_session,
+    resolve_mapped_session_id,
 )
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_harness.hooks.identity_runtime import is_cursor
@@ -27,6 +29,21 @@ def _map_dir():
 def record_conversation_session(conversation_id: str, session_id: str) -> None:
     """Record that ``conversation_id`` belongs to ``session_id``."""
     _record_conversation_session(conversation_id, session_id, _map_dir())
+
+
+def _existing_fold_container(conversation_id: str) -> str:
+    """Return a prior non-identity map target for ``conversation_id``, else ``\"\"``."""
+    existing = resolve_mapped_session_id(
+        _map_dir(),
+        {CURSOR_CONVERSATION_ENV_VAR: conversation_id},
+    )
+    if (
+        isinstance(existing, str)
+        and existing
+        and existing != conversation_id
+    ):
+        return existing
+    return ""
 
 
 def record_from_hook_payload(
@@ -52,6 +69,11 @@ def record_from_hook_payload(
     top-level session, which is the same basis on which registration
     already treats that id as the container; a sub-conversation carries
     ``parent_conversation_id``, which the evidence rule reads first.
+
+    A later sessionStart (or any write) that would map a conversation onto
+    itself must not erase an existing worktree/subagent fold: Cursor can
+    re-fire sessionStart without ``workspace_roots``, and the identity
+    fallback would otherwise clobber the claim-holder alias.
     """
     if not is_cursor(executor):
         return
@@ -64,6 +86,10 @@ def record_from_hook_payload(
             container = _worktree_remap_container(payload)
         if not container and event_name == SESSION_START_EVENT:
             container = conversation_id
+        if container == conversation_id:
+            folded = _existing_fold_container(conversation_id)
+            if folded:
+                container = folded
         if container:
             record_conversation_session(conversation_id, container)
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook

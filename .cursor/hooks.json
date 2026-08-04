@@ -9,7 +9,7 @@
     ],
     "sessionEnd": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionEnd'",
+        "command": "/bin/zsh -lc 'yoke-cursor-lifecycle-root=1; root=\"\"; for c in \"$YOKE_ROOT\" \"$CURSOR_PROJECT_DIR\" \"$PWD\"; do [ -n \"$c\" ] && [ -d \"$c\" ] && root=\"$c\" && break; done; if [ -z \"$root\" ]; then for c in \"$CURSOR_PROJECT_DIR\" \"$YOKE_ROOT\"; do case \"$c\" in */.worktrees/*|*/.claude/worktrees/*) p=\"${c%%/.worktrees/*}\"; p=\"${p%%/.claude/worktrees/*}\"; [ -d \"$p\" ] && root=\"$p\" && break;; esac; done; fi; [ -n \"$root\" ] || root=\"${HOME:-/tmp}\"; cd \"$root\" 2>/dev/null || cd \"${HOME:-/tmp}\" 2>/dev/null || cd /; env YOKE_ROOT=\"$root\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionEnd'",
         "timeout": 30
       }
     ],
@@ -53,7 +53,7 @@
     ],
     "stop": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate Stop'",
+        "command": "/bin/zsh -lc 'yoke-cursor-lifecycle-root=1; root=\"\"; for c in \"$YOKE_ROOT\" \"$CURSOR_PROJECT_DIR\" \"$PWD\"; do [ -n \"$c\" ] && [ -d \"$c\" ] && root=\"$c\" && break; done; if [ -z \"$root\" ]; then for c in \"$CURSOR_PROJECT_DIR\" \"$YOKE_ROOT\"; do case \"$c\" in */.worktrees/*|*/.claude/worktrees/*) p=\"${c%%/.worktrees/*}\"; p=\"${p%%/.claude/worktrees/*}\"; [ -d \"$p\" ] && root=\"$p\" && break;; esac; done; fi; [ -n \"$root\" ] || root=\"${HOME:-/tmp}\"; cd \"$root\" 2>/dev/null || cd \"${HOME:-/tmp}\" 2>/dev/null || cd /; env YOKE_ROOT=\"$root\" YOKE_EXECUTOR=cursor yoke hook evaluate Stop'",
         "timeout": 30
       }
     ],

@@ -19,8 +19,8 @@ shims are refreshed; missing hooks are created. Linked worktrees share the
 main checkout's ``.git/hooks/``
 (their ``.git`` is a file, reported as skipped) — run the install from
 the main checkout. Distinct from the sibling :mod:`hooks` module, which
-merges the bundle's HARNESS hook config into ``.claude/settings.json``
-and ``.codex/hooks.json``.
+merges the bundle's HARNESS hook config into ``.claude/settings.json``,
+``.codex/hooks.json``, and ``.cursor/hooks.json``.
 """
 
 from __future__ import annotations

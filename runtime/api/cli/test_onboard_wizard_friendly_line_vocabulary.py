@@ -53,9 +53,13 @@ def test_friendly_line_covers_full_action_vocabulary() -> None:
         ("project-refresh-scaffold", ""):
             "Refresh the Yoke project scaffold (.yoke/)",
         ("project-install-agent-rules", ""):
-            "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md (keeps any existing content)",
+            "Add Yoke's rules to AGENTS.md, CLAUDE.md, CODEX.md, and CURSOR.md (keeps any existing content)",
         ("project-install-tool-permissions", ""):
-            "Allow Yoke's tools in .claude/settings.json (keeps your other settings)",
+            "Allow Yoke's tools in .claude/settings.json and .cursor/cli.json / .cursor/sandbox.json (keeps your other settings)",
+        ("project-install-harness-hooks", ""):
+            "Install harness hooks in .claude/settings.json, .codex/hooks.json, and .cursor/hooks.json",
+        ("install-cursor-user-lifecycle-hooks", "~/.cursor/hooks.json"):
+            "Install Cursor stop/sessionEnd backstop in ~/.cursor/hooks.json (survives a deleted project folder)",
         ("project-install-git-hooks", ""):
             "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)",
         ("project-write-board-art", ""):

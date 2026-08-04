@@ -45,6 +45,8 @@ Commands the agent runs in a shell resolve identity through that same container.
 
 **Do not root the Cursor chat on a Yoke worktree.** Keep the agent on the main project checkout and use absolute `worktree_path` values for lane work. Do not call `move_agent_to_root` into `.worktrees/...`. Remounting triggers the conversation remap above; after merge removes the lane, Cursor's sticky cwd/root also leaves Shell failing with `ENOENT` on the deleted path. Pass an explicit live `working_directory` when needed. Yoke still owns worktree placement (`cursor-agent` `-w` / `--worktree-base` stay unused).
 
+**Stop/sessionEnd must still run when the project root is gone.** Cursor project hooks spawn with cwd = project root; a deleted `.worktrees/<lane>` makes that spawn fail, so session-end cleanup never reaches Yoke. Lifecycle hook commands peel a missing worktree path to the parent checkout, emit Cursor-safe `{}` on allow, and a machine-local `~/.cursor/hooks.json` backstop (installed on Cursor hook traffic) runs the same stop/sessionEnd evaluate from `~/.cursor`, which always exists.
+
 ## What Cursor does NOT own
 
 Cursor is a harness adapter, not a replacement for Yoke core. Routing decisions, canonical telemetry, ownership truth, and safety enforcement remain Yoke-core responsibilities. Cursor hooks are enhancements and never the sole safety layer. Cursor-native features that overlap Yoke-owned mechanics stay unused by Yoke flows: `cursor-agent`'s worktree flags (`-w`, `--worktree-base`) — Yoke owns worktree placement; the `stop` hook's `followup_message` loop channel — Yoke's session chaining is core-owned; Cloud Agent handoff (`&`) — Yoke sessions are local.
