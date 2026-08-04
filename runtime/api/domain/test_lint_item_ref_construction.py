@@ -100,3 +100,20 @@ def test_counts_by_relpath_aggregates(tmp_path: Path) -> None:
 def test_no_prefixes_means_no_hits(tmp_path: Path) -> None:
     _write(tmp_path, "packages/pkg/src/mod.py", 'r = f"YOK-{i}"\n')
     assert scan(tmp_path, []) == []
+
+
+def test_baseline_counts_matches_classified_entries() -> None:
+    from yoke_core.domain.item_ref_construction_baseline import (
+        BASELINE,
+        baseline_count,
+        baseline_counts,
+    )
+
+    for path, entry in BASELINE.items():
+        assert baseline_count(path) == int(entry["count"])
+        assert isinstance(entry["reason"], str)
+        assert isinstance(entry["note"], str)
+    assert baseline_counts() == {
+        path: int(entry["count"]) for path, entry in BASELINE.items()
+    }
+    assert sum(baseline_counts().values()) == 62

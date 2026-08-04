@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.qa_gate_definitions import GateTarget
 
 
@@ -20,7 +21,7 @@ def missing_verification_requirement_errors(
     ]
     if target.item_id is not None:
         errors.append(
-            f"  yoke qa requirement add --item YOK-{target.item_id} "
+            f"  yoke qa requirement add --item {item_ref_for_id(int(target.item_id))} "
             "--qa-kind implementation_review --qa-phase verification "
             f"--workflow-transition {transition_id}"
         )

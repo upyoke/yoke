@@ -155,13 +155,9 @@ def _error(item_id: int, deploy_stage: str, message: str) -> ReconcileResult:
 
 def _display_item_ref(item_id: int) -> str:
     """Render a public item ref without making reconciliation depend on it."""
-    try:
-        from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
-        with connect() as conn:
-            return render_item_ref(conn, item_id)
-    except Exception:  # noqa: BLE001 - display fallback only
-        return f"YOK-{item_id}"
+    return item_ref_for_id(int(item_id))
 
 
 def reconcile_item(

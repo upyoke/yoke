@@ -132,20 +132,16 @@ class TestRegenerateViewsTargetsStateDir:
         assert str(control) in captured["args"]
 
 
-class TestRegenerateViewsExitCode5:
-    """_regenerate_views_or_exit5 catches
-    post-merge-cleanup failures and returns exit code 5 with a precise
-    MergeEngineFailed event (phase=post_merge_cleanup, merge_committed=true)."""
+class TestRegenerateViewsAdvisory:
+    """View refresh retries and defers without changing merge success."""
 
-    def test_success_returns_0(self, tmp_path, monkeypatch):
+    def test_success_needs_no_event(self, tmp_path, monkeypatch):
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"))
         ctx.repo_root = str(tmp_path)
         ctx.yoke_repo_root = str(tmp_path)
         ctx.item_id = "9999"
 
-        monkeypatch.setattr(
-            merge_worktree, "_regenerate_views", lambda _c: None
-        )
+        monkeypatch.setattr(merge_worktree, "_regenerate_views", lambda _c: None)
 
         emitted = []
         monkeypatch.setattr(
@@ -154,19 +150,21 @@ class TestRegenerateViewsExitCode5:
             lambda name, **kw: emitted.append((name, kw)),
         )
 
-        exit_code = merge_worktree._regenerate_views_or_exit5(ctx)
-        assert exit_code == 0
-        # No failure event on success.
-        assert not any(name == "MergeEngineFailed" for name, _ in emitted)
+        assert merge_worktree._regenerate_views_advisory(ctx) is None
+        assert emitted == []
 
-    def test_failure_returns_5_with_precise_event(self, tmp_path, monkeypatch):
+    def test_persistent_failure_is_retried_then_deferred(self, tmp_path, monkeypatch):
         ctx = MergeContext(args=MergeArgs(branch="YOK-9999"))
         ctx.repo_root = str(tmp_path)
         ctx.yoke_repo_root = str(tmp_path)
         ctx.item_id = "9999"
         ctx.epic_id = None
 
+        calls = 0
+
         def _boom(_ctx):
+            nonlocal calls
+            calls += 1
             raise FileNotFoundError("simulated missing backlog dir")
 
         monkeypatch.setattr(merge_worktree, "_regenerate_views", _boom)
@@ -178,22 +176,22 @@ class TestRegenerateViewsExitCode5:
             lambda name, **kw: emitted.append((name, kw)),
         )
 
-        exit_code = merge_worktree._regenerate_views_or_exit5(ctx)
+        assert merge_worktree._regenerate_views_advisory(ctx) is None
+        assert calls == 2
 
-        assert exit_code == 5
-
-        # Exactly one precise MergeEngineFailed event — structured.
-        failed = [kw for name, kw in emitted if name == "MergeEngineFailed"]
-        assert len(failed) == 1
-        ctx_kw = failed[0]["context"]
+        deferred = [
+            kw for name, kw in emitted if name == "PostMergeViewRegenerationDeferred"
+        ]
+        assert len(deferred) == 1
+        ctx_kw = deferred[0]["context"]
         assert ctx_kw["phase"] == "post_merge_cleanup"
         assert ctx_kw["merge_committed"] is True
-        assert ctx_kw["exit_code"] == 5
+        assert ctx_kw["attempts"] == 2
         assert ctx_kw["error_type"] == "FileNotFoundError"
         assert "simulated missing backlog dir" in ctx_kw["error"]
-        assert failed[0]["severity"] == "ERROR"
-        assert failed[0]["outcome"] == "failure"
-        assert failed[0]["item_id"] == "9999"
+        assert deferred[0]["severity"] == "WARNING"
+        assert deferred[0]["outcome"] == "deferred"
+        assert deferred[0]["item_id"] == "9999"
 
 
 class TestMergeWorktreeNoLegacyBugPattern:
@@ -209,9 +207,15 @@ class TestMergeWorktreeNoLegacyBugPattern:
             merge_worktree_post,
             merge_worktree_post_helpers,
         )
+
         sources = []
-        for mod in (merge_worktree, merge_worktree_prepare, merge_worktree_execute,
-                    merge_worktree_post, merge_worktree_post_helpers):
+        for mod in (
+            merge_worktree,
+            merge_worktree_prepare,
+            merge_worktree_execute,
+            merge_worktree_post,
+            merge_worktree_post_helpers,
+        ):
             sources.append(Path(mod.__file__).read_text())
         return "\n".join(sources)
 
@@ -251,9 +255,12 @@ class TestResolveContextUsesMainRoot:
         )
         # Stub git calls that happen after repo_root is set
         monkeypatch.setattr(
-            merge_worktree, "_run_git",
+            merge_worktree,
+            "_run_git",
             lambda cmd, cwd=None, capture=False: mock.Mock(
-                returncode=0, stdout="", stderr="",
+                returncode=0,
+                stdout="",
+                stderr="",
             ),
         )
 
@@ -279,6 +286,7 @@ class TestResolveContextUsesMainRoot:
         import ast
 
         from yoke_core.engines import merge_worktree_prepare
+
         source = Path(merge_worktree_prepare.__file__).read_text()
         tree = ast.parse(source)
 

@@ -92,8 +92,8 @@ def _resolve_repos(
     """Resolve local checkout paths for the projects a scope covers."""
     mapped = _mapped_checkouts(machine_config.load_config())
     if scope == "all":
-        visibility = project_id_filter()
-        rows = db.query_quiet(f"SELECT id FROM projects WHERE 1=1{visibility}")
+        visibility, params = project_id_filter()
+        rows = db.query_quiet(f"SELECT id FROM projects WHERE 1=1{visibility}", params)
         repos = [
             mapped[int(r[0])] for r in rows
             if r and int(r[0]) in mapped
@@ -121,11 +121,9 @@ def _mapped_checkouts(config: dict) -> Dict[int, str]:
 
 def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:
     """Return ``(first_iso, project_days)`` for *scope*'s project age."""
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
     first_day = day_from_timestamp_expr(f"MIN({timestamp_expr('created_at')})")
-    first = db.scalar(
-        f"SELECT {first_day} FROM items WHERE 1=1 {pf}"
-    )
+    first = db.scalar(f"SELECT {first_day} FROM items WHERE 1=1 {pf}", params)
     if not first:
         return None, 0
     try:
@@ -164,13 +162,13 @@ def render_weather(db: BoardDBLike, config: BoardConfig, scope: str) -> str:
 
     Always produces output (never returns None).
     """
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
     sql = (
         "SELECT COUNT(*) FROM items "
         "WHERE status='idea' AND (frozen IS NULL OR frozen <> 1) "
         f"{pf}"
     )
-    backlog = db.scalar(sql) or 0
+    backlog = db.scalar(sql, params) or 0
     backlog = int(backlog)
 
     if backlog < 10:

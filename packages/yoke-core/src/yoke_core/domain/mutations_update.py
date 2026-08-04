@@ -92,8 +92,8 @@ def prepare_update(
                     return MutationResult(
                         success=False,
                         error=(
-                            f"Cannot set epic YOK-{item.id} to '{value}' "
-                            f"-- no epic_tasks found. Run '/yoke plan YOK-{item.id}' first."
+                            f"Cannot set epic {item.ref} to '{value}' "
+                            f"-- no epic_tasks found. Run '/yoke plan {item.ref}' first."
                         ),
                         error_code="GATE_EPIC_TASKS",
                         item_id=item.id,
@@ -108,8 +108,8 @@ def prepare_update(
                 return MutationResult(
                     success=False,
                     error=(
-                        f"Cannot set YOK-{item.id} to 'done' -- missing done-transition "
-                        f"ceremony nonce. Use '/yoke usher YOK-{item.id}'."
+                        f"Cannot set {item.ref} to 'done' -- missing done-transition "
+                        f"ceremony nonce. Use '/yoke usher {item.ref}'."
                     ),
                     error_code="GATE_DONE_NONCE",
                     item_id=item.id,
@@ -124,7 +124,7 @@ def prepare_update(
                 return MutationResult(
                     success=False,
                     error=(
-                        f"Cannot set epic YOK-{item.id} to 'done' -- merged_at is not set. "
+                        f"Cannot set epic {item.ref} to 'done' -- merged_at is not set. "
                         f"Epics must be merged before they can reach done status."
                     ),
                     error_code="GATE_EPIC_MERGE",
@@ -139,7 +139,7 @@ def prepare_update(
                     return MutationResult(
                         success=False,
                         error=(
-                            f"Cannot transition YOK-{item.id} to 'reviewing-implementation' "
+                            f"Cannot transition {item.ref} to 'reviewing-implementation' "
                             f"-- no qa_requirements found."
                         ),
                         error_code="GATE_QA_REVIEWING",
@@ -152,7 +152,7 @@ def prepare_update(
                     return MutationResult(
                         success=False,
                         error=(
-                            f"Cannot transition YOK-{item.id} to 'implemented' -- "
+                            f"Cannot transition {item.ref} to 'implemented' -- "
                             f"{gate.unsatisfied_verification_blocking} blocking verification "
                             f"requirement(s) unsatisfied."
                         ),
@@ -167,7 +167,7 @@ def prepare_update(
                     return MutationResult(
                         success=False,
                         error=(
-                            f"Cannot transition YOK-{item.id} to 'release' -- "
+                            f"Cannot transition {item.ref} to 'release' -- "
                             f"{gate.unsatisfied_verification_blocking} blocking verification "
                             f"requirement(s) unsatisfied."
                         ),
@@ -181,7 +181,7 @@ def prepare_update(
                     return MutationResult(
                         success=False,
                         error=(
-                            f"Cannot transition YOK-{item.id} to 'done' -- "
+                            f"Cannot transition {item.ref} to 'done' -- "
                             f"{gate.unsatisfied_all_blocking} blocking QA "
                             f"requirement(s) unsatisfied."
                         ),
@@ -269,7 +269,7 @@ def prepare_update(
                         success=False,
                         error=(
                             f"Deployment flow '{value}' belongs to project "
-                            f"'{gate.flow_project}', but item YOK-{item.id} "
+                            f"'{gate.flow_project}', but item {item.ref} "
                             f"project is '{item.project}'."
                         ),
                         error_code="VALIDATION_ERROR",

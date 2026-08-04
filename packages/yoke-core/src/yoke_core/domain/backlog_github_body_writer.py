@@ -26,8 +26,10 @@ from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import github_rest
 
 
-def epic_task_identity(epic_id: str | int, task_num: str | int) -> str:
-    return f"YOK-{epic_id} task {int(task_num)}"
+def epic_task_identity(epic_ref: str, task_num: str | int) -> str:
+    """Identity line for a task issue. ``epic_ref`` is the parent's rendered
+    public ref — the caller renders it from prefix+sequence, never here."""
+    return f"{epic_ref} task {int(task_num)}"
 
 
 def epic_task_body_command(epic_id: str | int, task_num: str | int) -> str:
@@ -37,8 +39,8 @@ def epic_task_body_command(epic_id: str | int, task_num: str | int) -> str:
     )
 
 
-def epic_task_next_actions(epic_id: str | int) -> list[str]:
-    return [f"`{chr(47)}yoke conduct YOK-{epic_id}` — continue epic execution."]
+def epic_task_next_actions(epic_ref: str) -> list[str]:
+    return [f"`{chr(47)}yoke conduct {epic_ref}` — continue epic execution."]
 
 
 @dataclass(frozen=True)

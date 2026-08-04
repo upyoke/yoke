@@ -51,17 +51,22 @@ STATE_ACTIVATED = "activated"
 #: ``actor_ui_preferences.pref_key`` prefix for per-module dismissals.
 DISMISS_PREF_PREFIX = "overview.module.dismissed."
 
-#: Harness target roster: (key, label). The two family targets light on a
-#: bare canonical executor match; the CLI targets light when a matching
-#: session carries no surface alias in ``executor_display_name``; the
-#: VS Code target lights on its known surface alias. Any one session
-#: activates the module — targets are bonus decoration, never blockers.
+#: Harness target roster: (key, label). Family targets light on a
+#: canonical executor match; Claude/Codex CLI targets light when a matching
+#: session carries no surface alias in ``executor_display_name``; Cursor
+#: CLI/IDE and the Claude VS Code target light on their known surface
+#: aliases (Cursor identity stamps a surface, so bare-session CLI logic
+#: does not apply). Any one session activates the module — targets are
+#: bonus decoration, never blockers.
 HARNESS_TARGETS: Tuple[Tuple[str, str], ...] = (
     ("claude-code", "Claude Code"),
     ("codex", "Codex"),
+    ("cursor", "Cursor"),
     ("claude-cli", "Claude CLI"),
     ("codex-cli", "Codex CLI"),
+    ("cursor-cli", "Cursor CLI"),
     ("claude-vscode", "Claude in VS Code"),
+    ("cursor-desktop", "Cursor IDE"),
 )
 
 
@@ -210,9 +215,12 @@ def _harness_targets(
     hits = {
         "claude-code": "claude-code" in executors,
         "codex": "codex" in executors,
+        "cursor": "cursor" in executors,
         "claude-cli": "claude-code" in bare,
         "codex-cli": "codex" in bare,
+        "cursor-cli": "cursor-cli" in displays,
         "claude-vscode": "claude-vscode" in displays,
+        "cursor-desktop": "cursor-desktop" in displays,
     }
     return [
         {"key": key, "label": label, "hit": hits[key]}

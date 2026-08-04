@@ -37,7 +37,6 @@ from yoke_core.domain.item_block_notifications import (
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
-
 def _execute_update_once(
     item_id: int,
     field: str,
@@ -103,7 +102,7 @@ def _execute_update_once(
             (item_id,),
         ).fetchone()
         if row is None:
-            return {"success": False, "error": f"Item YOK-{item_id} not found"}
+            return {"success": False, "error": f"Item {render_item_ref(conn, item_id)} not found"}
 
         flow_project = None
         if field == "deployment_flow":
@@ -131,12 +130,13 @@ def _execute_update_once(
                 (item_id,),
             ).fetchone()
             if row is None:
-                return {"success": False, "error": f"Item YOK-{item_id} not found"}
+                return {"success": False, "error": f"Item {render_item_ref(conn, item_id)} not found"}
 
         item_dict = dict(row)
         workflow = load_item_workflow_runtime(conn, item_id)
         item_state = mutations.ItemState(
             id=item_dict["id"],
+            item_ref=render_item_ref(conn, int(item_dict["id"])),
             title=item_dict["title"],
             status=item_dict["status"],
             priority=item_dict["priority"],

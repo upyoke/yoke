@@ -19,9 +19,19 @@ from yoke_core.domain.conflict_survey import (
 )
 
 
+class SurveyPathSize(BaseModel):
+    path: str
+    current_line_count: int = Field(..., ge=0)
+    remaining_headroom: int
+    at_or_over_limit: bool
+    limit: int = Field(..., gt=0)
+    classification: str
+
+
 class SurveyRequest(BaseModel):
     paths: List[str] = Field(..., min_length=1)
     integration_target: str = "main"
+    path_sizes: List[SurveyPathSize] = Field(default_factory=list)
 
 
 class SurveyResponse(BaseModel):
@@ -31,6 +41,7 @@ class SurveyResponse(BaseModel):
     fingerprint: str
     blockers: List[dict[str, Any]]
     touch_paths: List[str]
+    path_sizes: List[dict[str, Any]]
     recorded: bool
 
 
@@ -82,6 +93,24 @@ def handle_survey(
                 f"item {item_id} uses workflow {workflow_id!r}, "
                 f"not {expected_workflow!r}",
             )
+        if expected_workflow == "dash":
+            sized_paths = [row.path for row in payload.path_sizes]
+            if sized_paths != [path.removeprefix("./") for path in payload.paths]:
+                return _error(
+                    "survey_sizing_required",
+                    "Dash survey requires one ordered path-size result per path",
+                )
+            if any(
+                row.remaining_headroom != row.limit - row.current_line_count
+                or row.at_or_over_limit != (
+                    row.current_line_count >= row.limit
+                )
+                for row in payload.path_sizes
+            ):
+                return _error(
+                    "survey_sizing_invalid",
+                    "Dash survey path-size headroom or limit flag is inconsistent",
+                )
         reservation = reserve_conflict_survey_record(conn, item_id=item_id)
         try:
             survey = survey_conflicts(
@@ -119,6 +148,7 @@ def handle_survey(
                 for blocker in survey.blockers
             ],
             touch_paths=list(survey.touch_paths),
+            path_sizes=[row.model_dump() for row in payload.path_sizes],
             recorded=recorded,
         ).model_dump(),
     )

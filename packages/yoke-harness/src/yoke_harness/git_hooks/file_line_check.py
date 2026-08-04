@@ -10,7 +10,7 @@ from __future__ import annotations
 import fnmatch
 import pathlib
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -30,6 +30,9 @@ from yoke_contracts.project_contract.strategy_docs_header import (
 )
 from yoke_contracts.project_contract.strategy_docs_paths import (
     is_strategy_view_path,
+)
+from yoke_contracts.project_contract.file_line_git_scope import (
+    resolve_file_line_git_scope,
 )
 
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -91,6 +94,7 @@ class CheckVerdict:
     hard_fails: list[ChangedFile]
     warnings: list[ChangedFile]
     summary: str
+    pre_existing: list[ChangedFile] = field(default_factory=list)
 
 
 def run_git(
@@ -253,13 +257,21 @@ def _build_changed_file(
 def changed_files_check(
     *, repo_root: pathlib.Path, base: Optional[str] = None, staged: bool = False
 ) -> CheckVerdict:
+    integration_target = base or "main"
     try:
-        paths = collect_changed_paths(repo_root=repo_root, base=base, staged=staged)
+        scope = None if staged else resolve_file_line_git_scope(
+            repo_root, integration_target,
+        )
+        effective_base = base if staged else scope.item_base_sha
+        paths = collect_changed_paths(
+            repo_root=repo_root, base=effective_base, staged=staged,
+        )
     except (FileNotFoundError, RuntimeError):
         return CheckVerdict(False, [], [], "not a git working tree or base ref unknown")
     policy = resolved_policy(repo_root)
     hard_fails: list[ChangedFile] = []
     warnings: list[ChangedFile] = []
+    pre_existing: list[ChangedFile] = []
     for path in paths:
         change = _build_changed_file(
             path, repo_root=repo_root, base=base, staged=staged, policy=policy
@@ -274,13 +286,28 @@ def changed_files_check(
             hard_fails.append(change)
         elif is_warn:
             warnings.append(change)
+    if scope is not None:
+        for path in scope.inherited_paths:
+            classification = _classify_path_with_policy(
+                path, repo_root=repo_root, policy=policy,
+            )
+            old = git_show_line_count(integration_target, path, repo_root=repo_root)
+            new = git_show_line_count(scope.item_base_sha, path, repo_root=repo_root)
+            if classification == Classification.AUTHORED and new > policy.limit:
+                pre_existing.append(ChangedFile(
+                    path, classification, old, new, new - old,
+                ))
     if hard_fails:
         summary = f"{len(hard_fails)} hard-fail(s), {len(warnings)} warning(s)"
     elif warnings:
         summary = f"ok with {len(warnings)} warning(s)"
     else:
         summary = f"ok: no authored file violations across {len(paths)} changed paths"
-    return CheckVerdict(not hard_fails, hard_fails, warnings, summary)
+    if pre_existing:
+        summary += f", {len(pre_existing)} pre-existing over-limit file(s)"
+    return CheckVerdict(
+        not hard_fails, hard_fails, warnings, summary, pre_existing,
+    )
 
 
 def inventory(*, repo_root: pathlib.Path) -> list[FileEntry]:

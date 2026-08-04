@@ -21,6 +21,9 @@ lint_tc_label=deny
 # Refuse same-capture polling loops on a running long command.
 lint_long_command_polling=deny
 
+# Require sentinel-aware Monitor tails for watcher captures.
+lint_monitor_watcher_tail=deny
+
 # Refuse piping a live long command into tail/head.
 lint_pipe_to_truncator=deny
 

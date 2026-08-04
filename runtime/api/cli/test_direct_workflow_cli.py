@@ -86,6 +86,30 @@ def test_dash_evidence_adapter_records_actual_files_and_posture(monkeypatch):
     assert captured["payload"]["tree_head_sha"] == "abc1234"
 
 
+def test_dash_survey_reports_client_local_headroom(monkeypatch):
+    captured = _capture(monkeypatch, dash)
+    monkeypatch.setattr(dash, "survey_path_sizes", lambda paths: [{
+        "path": paths[0],
+        "current_line_count": 351,
+        "remaining_headroom": -1,
+        "at_or_over_limit": True,
+        "limit": 350,
+        "classification": "authored",
+    }])
+
+    assert dash.dash_survey([
+        "YOK-9", "--path", "pkg/oversized.py",
+    ]) == 0
+    assert captured["payload"]["path_sizes"] == [{
+        "path": "pkg/oversized.py",
+        "current_line_count": 351,
+        "remaining_headroom": -1,
+        "at_or_over_limit": True,
+        "limit": 350,
+        "classification": "authored",
+    }]
+
+
 def test_dash_evidence_adapter_resolves_the_verification_tree(monkeypatch):
     # Without overrides the adapter names the tree it is standing in, so
     # the recorded evidence always identifies what was verified.

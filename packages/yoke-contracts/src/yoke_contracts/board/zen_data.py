@@ -80,8 +80,7 @@ def _zen_query_projects(db: BoardDBLike, scope: str = "all") -> List[Tuple[str, 
     Returns ``(project_slug, emoji)`` tuples.
     """
     if not scope or scope == "all":
-        scope_sql = project_id_filter("p")
-        params = ()
+        scope_sql, params = project_id_filter("p")
     else:
         scope_sql = "AND p.id = %s"
         params = (_zen_project_id(db, scope),)

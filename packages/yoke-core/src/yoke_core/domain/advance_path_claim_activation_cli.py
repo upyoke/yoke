@@ -39,6 +39,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         resolve_item_actor,
         run_activation_phase,
     )
+    from yoke_core.domain.project_identity import resolve_item_id
 
     parser = argparse.ArgumentParser(prog="advance_path_claim_activation")
     parser.add_argument("--item", required=True)
@@ -54,16 +55,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     raw = str(args.item).strip()
-    if raw.upper().startswith("YOK-"):
-        raw = raw[4:]
-    try:
-        item_id = int(raw)
-    except ValueError:
-        print(f"ERROR: invalid --item value: {args.item!r}", file=sys.stderr)
-        return 2
 
     conn = db_helpers.connect()
     try:
+        try:
+            item_id: Optional[int] = int(raw)
+        except ValueError:
+            item_id = resolve_item_id(conn, raw)
+        if item_id is None:
+            print(f"ERROR: invalid --item value: {args.item!r}", file=sys.stderr)
+            return 2
         actor_id, actor_error = resolve_item_actor(conn, item_id)
         if actor_error is not None:
             prefix = "ERROR" if "not found" in actor_error else "BLOCKED"

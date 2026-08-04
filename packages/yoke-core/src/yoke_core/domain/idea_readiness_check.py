@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
@@ -35,10 +34,6 @@ from yoke_core.domain.idea_readiness_check_refs import (
 )
 from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root_for_item
 from yoke_core.domain.idea_readiness_symlink_advisory import collect_symlink_advisories
-
-LINE_CAP = 350
-SIBLING_REQUIRED_THRESHOLD = 330
-
 _extract_file_budget_paths = extract_file_budget_paths_set
 
 
@@ -129,60 +124,15 @@ def verify_file_budget_line_counts(
     conn: Optional[Any] = None,
     item_id: int = 0,
 ) -> List[Issue]:
-    """Each existing-file edit target named in File Budget must
-    record the current ``wc -l`` (within ~5% tolerance), and any file
-    >=330 lines must have a sibling-module plan in the spec.
-    """
-    issues: List[Issue] = []
-    repo_root = _resolve_repo_root_for_item(conn, item_id)
-    # Look for "path/to/file.py = N" patterns (from File Budget).
-    pattern = re.compile(
-        r"`?([\w/\.\-]+\.(?:py|md))`?\s*=\s*(\d+)"
+    """Validate every File Budget path's sizing and split pressure."""
+    from yoke_core.domain.idea_readiness_file_budget_sizing import (
+        verify_file_budget_sizing,
     )
-    for match in pattern.finditer(spec_text):
-        rel = match.group(1)
-        recorded = int(match.group(2))
-        candidate = repo_root / rel
-        if not candidate.exists():
-            continue
-        actual = sum(1 for _ in candidate.open(encoding="utf-8"))
-        if actual != recorded:
-            tolerance = max(2, int(recorded * 0.05))
-            if abs(actual - recorded) > tolerance:
-                issues.append(Issue(
-                    code="STALE_LINE_COUNT",
-                    message=(
-                        f"spec records {rel}={recorded} lines but the "
-                        f"file currently has {actual} lines"
-                    ),
-                    remediation=(
-                        f"refresh the File Budget with the current "
-                        f"`wc -l {rel}`"
-                    ),
-                    context={"path": rel, "recorded": recorded,
-                             "actual": actual},
-                ))
-        if actual >= SIBLING_REQUIRED_THRESHOLD:
-            sibling_pattern = re.compile(
-                r"\bsibling\b|\bextract\b|\bnew sibling\b|\bsibling module\b",
-                re.IGNORECASE,
-            )
-            if not sibling_pattern.search(spec_text):
-                issues.append(Issue(
-                    code="MISSING_SIBLING_PLAN",
-                    message=(
-                        f"{rel} is at {actual} lines (>= "
-                        f"{SIBLING_REQUIRED_THRESHOLD}) but the spec "
-                        f"has no sibling-module plan"
-                    ),
-                    remediation=(
-                        "declare an explicit sibling-module plan in "
-                        "the spec, e.g. "
-                        "`runtime/api/domain/<sibling>.py (new)`"
-                    ),
-                    context={"path": rel, "lines": actual},
-                ))
-    return issues
+
+    repo_root = _resolve_repo_root_for_item(conn, item_id)
+    return verify_file_budget_sizing(
+        spec_text, repo_root=repo_root, issue_type=Issue,
+    )
 
 
 def verify_file_budget_claim_consistency(

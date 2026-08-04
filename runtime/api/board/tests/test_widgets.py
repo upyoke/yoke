@@ -93,21 +93,28 @@ class TestAllocateProportional:
 
 class TestProjectFilter:
     def test_all_scope(self):
-        assert _project_filter("all") == ""
+        assert _project_filter("all") == ("", ())
 
     def test_scoped(self):
-        result = _project_filter("yoke")
-        assert "project_id" in result
-        assert "slug = 'yoke'" in result
+        sql, params = _project_filter("yoke")
+        assert "project_id" in sql
+        assert "slug = %s" in sql
+        assert params == ("yoke",)
 
     def test_alias(self):
-        result = _project_filter("externalwebapp", "e")
-        assert "e.project_id" in result
-        assert "slug = 'externalwebapp'" in result
+        sql, params = _project_filter("externalwebapp", "e")
+        assert "e.project_id" in sql
+        assert "slug = %s" in sql
+        assert params == ("externalwebapp",)
 
-    def test_escape(self):
-        result = _project_filter("it's")
-        assert "it''s" in result
+    def test_scope_values_do_not_change_sql_shape(self):
+        first_sql, first_params = _project_filter("yoke")
+        second_sql, second_params = _project_filter("it's")
+        assert first_sql == second_sql
+        assert first_params == ("yoke",)
+        assert second_params == ("it's",)
+        assert "yoke" not in first_sql
+        assert "it's" not in second_sql
 
 
 # ---------------------------------------------------------------------------

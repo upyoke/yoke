@@ -9,6 +9,7 @@ from typing import Optional
 from yoke_core.domain.worktree_create_plan import WorktreeCreationEntry
 from yoke_core.domain.worktree_deps import install_worktree_deps
 from yoke_core.domain.worktree_paths import _run
+from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 
 
 def provision_worktree(
@@ -23,6 +24,25 @@ def provision_worktree(
         "git", "-C", repo_root, "show-ref", "--verify", "--quiet",
         f"refs/heads/{entry.branch}",
     ])
+    config_key = item_base_config_key(entry.branch)
+    recorded = _run(["git", "-C", repo_root, "config", "--get", config_key])
+    if recorded.returncode != 0:
+        base_args = (
+            ["merge-base", entry.branch, base_branch]
+            if ref_check.returncode == 0
+            else ["rev-parse", base_branch]
+        )
+        base = _run(["git", "-C", repo_root, *base_args])
+        if base.returncode != 0:
+            return f"could not resolve item base {base_branch!r}: {base.stderr.strip()}"
+        recorded = _run([
+            "git", "-C", repo_root, "config", config_key, base.stdout.strip(),
+        ])
+        if recorded.returncode != 0:
+            return (
+                f"could not record item base for '{entry.branch}': "
+                f"{recorded.stderr.strip()}"
+            )
     if ref_check.returncode == 0:
         result = _run([
             "git", "-C", repo_root, "worktree", "add",
@@ -38,7 +58,6 @@ def provision_worktree(
             f"git worktree add failed for worktree '{entry.branch}': "
             f"{result.stderr.strip()}"
         )
-
     try:
         install_exit = install_worktree_deps(
             entry.path,

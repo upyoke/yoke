@@ -84,7 +84,9 @@ class TestHCUndeployedDone:
         hc_undeployed_done(conn, _default_args(), rec)
         r = _get_result(rec, "HC-undeployed-done")
         assert r.result == "WARN"
-        assert "YOK-1" in r.detail
+        from yoke_core.domain.project_identity import render_item_ref
+
+        assert render_item_ref(conn, 1) in r.detail
 
 
 class TestHCOrphanFK:

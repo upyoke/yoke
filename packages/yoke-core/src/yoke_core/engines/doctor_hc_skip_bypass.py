@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
@@ -107,10 +108,10 @@ def hc_skip_polish_manual_hop(
         "honest.",
     ]
     for row in rows[:10]:
-        item = row["item_id"]
+        item_ref = render_item_ref(conn, int(row["item_id"]))
         gap = int(row["gap_s"] or 0)
         issues.append(
-            f"  - YOK-{item}: reviewed-implementation -> "
+            f"  - {item_ref}: reviewed-implementation -> "
             f"polishing-implementation -> implemented in {gap}s "
             f"(at {row['a_at']})"
         )

@@ -142,19 +142,23 @@ def persist_and_verify(
         raise SystemExit(14)
 
     cli_epic_id = int(epic_id)
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+    cli_epic_ref = item_ref_for_id(cli_epic_id)
 
     if parsed.epic_id is None:
         _err(
             f"No epic ID attested in Simulator output for epic {cli_epic_id} phase {phase}. "
-            f"Expected an `EPIC: YOK-{cli_epic_id}` line near the verdict, or a "
-            f"`# Simulation Report: YOK-{cli_epic_id}` heading."
+            f"Expected an `EPIC: {cli_epic_ref}` line near the verdict, or a "
+            f"`# Simulation Report: {cli_epic_ref}` heading."
         )
         raise SystemExit(17)
 
     if parsed.epic_id != cli_epic_id:
+        attested_ref = item_ref_for_id(int(parsed.epic_id))
         _err(
-            f"Wrong-epic body for phase {phase}: CLI-passed epic was YOK-{cli_epic_id}, "
-            f"but Simulator output attested epic YOK-{parsed.epic_id} "
+            f"Wrong-epic body for phase {phase}: CLI-passed epic was {cli_epic_ref}, "
+            f"but Simulator output attested epic {attested_ref} "
             f"(source={parsed.epic_id_source}). Refusing to persist."
         )
         raise SystemExit(16)

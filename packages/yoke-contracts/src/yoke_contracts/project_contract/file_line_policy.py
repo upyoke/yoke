@@ -25,6 +25,7 @@ DEFAULT_LIMIT = 350
 FILE_LINE_LIMIT_KEY = "file_line_limit"
 FILE_LINE_EXCEPTION_KEY = "file_line_exception"
 PROJECT_CONFIG_REL = ".yoke/project.config"
+ITEM_BASE_CONFIG_SUFFIX = "yokeItemBase"
 TRACKED_GENERATED_VIEWS: tuple[str, ...] = (
     ".yoke/packs.json",
     "docs/atlas.md",
@@ -78,6 +79,11 @@ def tracked_generated_views() -> tuple[str, ...]:
 
 def generated_path_globs() -> tuple[str, ...]:
     return GENERATED_PATH_GLOBS
+
+
+def item_base_config_key(branch: str) -> str:
+    """Return the branch-local git-config key for an item's starting SHA."""
+    return f"branch.{branch}.{ITEM_BASE_CONFIG_SUFFIX}"
 
 
 def read_project_config(repo_root: Path | str) -> tuple[dict[str, str], tuple[str, ...]]:
@@ -146,10 +152,12 @@ __all__ = (
     "FILE_LINE_LIMIT_KEY",
     "FileLinePolicy",
     "GENERATED_PATH_GLOBS",
+    "ITEM_BASE_CONFIG_SUFFIX",
     "PROJECT_CONFIG_REL",
     "TRACKED_GENERATED_VIEWS",
     "default_exception_globs",
     "generated_path_globs",
+    "item_base_config_key",
     "project_exception_globs",
     "project_limit",
     "read_project_config",

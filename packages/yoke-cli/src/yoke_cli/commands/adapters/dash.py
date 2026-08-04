@@ -15,6 +15,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
 
 DASH_FILE_USAGE = (
     "yoke dash TITLE INSTRUCTION [--project P] [--priority P] "
@@ -111,12 +112,24 @@ def dash_survey(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DASH_SURVEY_USAGE)
     if parsed is None:
         return 2
+    try:
+        path_sizes = survey_path_sizes(parsed.paths)
+    except RuntimeError as exc:
+        return usage_error(str(exc))
 
     def _human(response, stdout, stderr) -> None:
         result = response.result or {}
         if result.get("clear"):
             print(f"survey-clear|{result.get('fingerprint') or ''}", file=stdout)
-            return
+        for size in result.get("path_sizes") or []:
+            print(
+                "survey-size|"
+                + "|".join(str(size.get(key)) for key in (
+                    "path", "current_line_count", "remaining_headroom",
+                    "at_or_over_limit", "limit", "classification",
+                )),
+                file=stdout,
+            )
         for blocker in result.get("blockers") or []:
             print(
                 "survey-blocked|"
@@ -133,6 +146,7 @@ def dash_survey(args: List[str]) -> int:
         payload={
             "paths": parsed.paths,
             "integration_target": parsed.integration_target,
+            "path_sizes": path_sizes,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
