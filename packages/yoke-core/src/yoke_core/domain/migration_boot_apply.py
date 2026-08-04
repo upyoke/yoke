@@ -230,6 +230,37 @@ def _record_applied(conn: Any, names: Sequence[str], *, applied_by: str) -> None
         )
 
 
+def record_missing_receipts(
+    conn: Any, history: Sequence[MigrationEntry], *, restore_point: str
+) -> Tuple[str, ...]:
+    """Write ``completed`` receipts for applied entries that have none.
+
+    A receipt failure never fails an apply -- that is deliberate, since a boot
+    must not die over evidence -- so "in the ledger, absent from
+    ``migration_audit``" is a state this design can genuinely reach. Healing it
+    belongs with the applier rather than in whatever hand-written SQL an
+    operator reaches for at the time.
+
+    The ledger is the proof the entry ran; *restore_point* is the one fact only
+    the operator still holds, so it is passed in rather than guessed.
+    """
+    applied = applied_names(conn)
+    recorded = {
+        str(row[0])
+        for row in conn.execute("SELECT migration_name FROM migration_audit").fetchall()
+    }
+    healed = [e for e in history if e.name in applied and e.name not in recorded]
+    for entry in healed:
+        _write_receipt(
+            conn,
+            entry,
+            state="completed",
+            started_at=_now(),
+            restore_point=restore_point,
+        )
+    return tuple(e.name for e in healed)
+
+
 def _write_receipt(
     conn: Any,
     entry: MigrationEntry,

@@ -11,6 +11,7 @@ from yoke_core.domain.migration_boot_apply import (
     applied_names,
     apply_pending,
     pending_entries,
+    record_missing_receipts,
     stamp_history,
 )
 from yoke_core.domain.migration_audit_schema import (
@@ -286,3 +287,45 @@ def test_stamp_records_the_history_without_running_it(tmp_path: Path) -> None:
     assert applied_names(conn) == {"0001_first", "0002_second"}
     assert _marks(conn) == [], "birth stamping must not execute any entry"
     assert pending_entries(conn, history) == ()
+
+
+def test_missing_receipts_are_recorded_for_ledger_entries(tmp_path: Path) -> None:
+    """A stamped database has ledger rows and no receipts -- the same shape a
+    receipt write failure leaves behind."""
+    conn = _connection()
+    history = _history(tmp_path, "0001_first", "0002_second")
+    stamp_history(conn, history, applied_by="test")
+    assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 0
+
+    healed = record_missing_receipts(conn, history, restore_point=RESTORE_POINT)
+
+    assert healed == ("0001_first", "0002_second")
+    rows = conn.execute(
+        "SELECT migration_name, state, backup_path FROM migration_audit "
+        "ORDER BY migration_name"
+    ).fetchall()
+    assert rows == [
+        ("0001_first", "completed", RESTORE_POINT),
+        ("0002_second", "completed", RESTORE_POINT),
+    ]
+
+
+def test_recording_receipts_twice_adds_nothing(tmp_path: Path) -> None:
+    conn = _connection()
+    history = _history(tmp_path, "0001_first")
+    stamp_history(conn, history, applied_by="test")
+    record_missing_receipts(conn, history, restore_point=RESTORE_POINT)
+
+    assert record_missing_receipts(conn, history, restore_point=RESTORE_POINT) == ()
+    assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 1
+
+
+def test_unapplied_entries_get_no_receipt(tmp_path: Path) -> None:
+    """Only the ledger authorizes a receipt; a pending entry never ran."""
+    conn = _connection()
+    history = _history(tmp_path, "0001_first", "0002_second")
+    stamp_history(conn, history[:1], applied_by="test")
+
+    assert record_missing_receipts(
+        conn, history, restore_point=RESTORE_POINT
+    ) == ("0001_first",)

@@ -45,6 +45,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Report the pending set and exit without applying or backing up.",
     )
+    parser.add_argument(
+        "--record-missing-receipts",
+        metavar="RESTORE_POINT",
+        help=(
+            "Write completed receipts for entries already in the ledger that "
+            "have no migration_audit row, naming RESTORE_POINT as the backup "
+            "covering them. Applies nothing."
+        ),
+    )
     args = parser.parse_args(argv)
 
     history = ordered_entries(history_dir(migration_history_package))
@@ -55,6 +64,12 @@ def main(argv: list[str] | None = None) -> int:
     conn = db_helpers.connect()
     try:
         ensure_applied_migrations_table(conn)
+        if args.record_missing_receipts:
+            healed = migration_boot_apply.record_missing_receipts(
+                conn, history, restore_point=args.record_missing_receipts
+            )
+            print(f"recorded receipts: {list(healed)}")
+            return 0
         pending = migration_boot_apply.pending_entries(conn, history)
         applied = sorted(migration_boot_apply.applied_names(conn))
         print(f"ledger: {len(applied)} applied {applied}")
