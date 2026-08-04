@@ -28,9 +28,9 @@ from typing import List, Optional
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if not args:
+    if not args or args[0] in {"-h", "--help"}:
         print(__doc__)
-        return 2
+        return 0 if args else 2
 
     os.environ["YOKE_ENV"] = args[0]
     from yoke_core.domain import db_backend, local_universe, migration_fleet_preflight

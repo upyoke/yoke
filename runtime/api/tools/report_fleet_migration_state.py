@@ -118,9 +118,9 @@ def _report_database(dsn_for: Any, database: str) -> None:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) != 1:
+    if args[:1] in ([], ["-h"], ["--help"]) or len(args) != 1:
         print(__doc__)
-        return 2
+        return 0 if args[:1] in (["-h"], ["--help"]) else 2
 
     os.environ["YOKE_ENV"] = args[0]
     from yoke_core.domain import db_backend
