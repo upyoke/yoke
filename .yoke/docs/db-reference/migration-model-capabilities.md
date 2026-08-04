@@ -6,7 +6,7 @@ of model declarations. The `project_capabilities.type` column is the
 singular, unsuffixed string `migration_model`.
 
 Yoke core reads this project config at validation-surface provisioning,
-rehearsal, and live apply time. The project selects paths and environment
+rehearsal, and apply time. The project selects paths and environment
 variables; Yoke owns lifecycle gates, leases, freshness checks,
 `migration_audit`, rollback evidence, and DB-claim semantics.
 
@@ -61,28 +61,8 @@ Config keys:
 
 `migration_audit.module_identifier` is the bare module slug from
 `db_mutation_profile.migration_modules`, without path or `.py` suffix.
-Rehearsal and live apply dispatch the same slug through the same runner
-shape; only the checkout root differs (`worktree_path` during rehearsal,
-this machine's registered project checkout during live apply).
-
-### Work-item-independent committed manifests
-
-Operator-directed maintenance that deliberately has no backlog item uses a
-committed migration manifest instead of synthesizing a work item. The manifest
-contains the same validated `db_mutation_profile` and
-`db_compatibility_attestation` the item-backed path reads, plus `version: 1`
-and the project slug. Every authored attestation field must be non-empty.
-
-Both units require an explicit clean worktree attached to the project's
-registered checkout. The manifest and every named module must be tracked at
-HEAD and must not be symlinks. Rehearsal records the full source commit,
-manifest-relative path, and manifest SHA-256 in
-`migration_audit.description`; live apply refuses unless those values match
-exactly, then revalidates the clean pinned checkout immediately before loading
-each module after the backup window. The ordinary fingerprint, freshness,
-lease, backup, baseline verification, module invariant, and audit state
-machinery otherwise runs unchanged. The itemless path never auto-deletes a
-module; source cleanup follows authoritative apply evidence.
+Rehearsal dispatches the slug through the runner against the model's
+validation surface, rooted at `worktree_path`.
 
 For the `external_validation` model, create a separate empty Postgres database,
 set only `YOKE_PG_DSN_VALIDATION` to that target, and hydrate it from the
@@ -100,61 +80,35 @@ no-owner/no-privileges dump restore. Merely creating an empty validation
 database is insufficient because migration modules rehearse against the
 deployed schema and data shape.
 
-`<modules_dir>` below is the value the project's declared `migration_model`
+`<modules_dir>` is the value the project's declared `migration_model`
 capability payload carries under `runner.config.modules_dir` — read it there,
-never from another project's layout.
+never from another project's layout. It holds the model's **ordered migration
+history**: `NNNN_slug.py` entries, permanent, each exposing `apply(conn)` and
+optionally `invariants(conn)`.
 
 ```bash
-python3 -m yoke_core.domain.migration_apply rehearse-manifest \
-  <modules_dir>/<name>.migration.json \
-  --worktree-path /absolute/path/to/clean/worktree
-
-python3 -m yoke_core.domain.migration_apply live-apply-manifest \
-  <modules_dir>/<name>.migration.json \
-  --worktree-path /absolute/path/to/the-same-clean-worktree
+python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N
 ```
 
-These remain separate invocations, preserving the operator checkpoint. A
-dirty checkout, untracked or symlinked source, checkout-authority mismatch,
-changed commit or manifest digest, stale database fingerprint, held lease, or
-failed backup refuses before destructive SQL.
+Rehearsal runs the declared entries against the validation surface and records
+the receipt the evidence gate reads. There is no second invocation and no
+operator checkpoint to hold, because rehearsal is the only thing a work item
+performs: the apply happens on the boot converge of a server running the merged
+code.
 
-### Hosted engine fleet executors
+### Hosted engine fleet
 
 An installed engine fleet has one platform control plane and many physical
-tenant targets. It must not pretend that each target is a standalone Yoke
-install or put fleet receipts on a tenant database. The public wheel therefore
-provides
-`yoke_core.domain.portable_migration`,
-which validates the same manifest theorem and loads migration implementations
-from `yoke_core.domain.migrations`. The source-checkout wrapper and installed
-fleet executor import that one packaged implementation.
+tenant targets, and needs no fleet executor at all. Each tenant container
+applies its own pending set at boot from the history packaged in the wheel it
+runs, so the ordinary fleet roll — stop, start, health-gate — IS the apply
+mechanism for every target. The roll's per-tenant health gate asserts
+`migrations_current`, so a tenant that could not apply fails its gate and halts
+the roll rather than serving behind its schema.
 
-The portable surface deliberately resolves no DSN, project row, lease, backup
-path, or audit table. A fleet executor owns those concerns in its separate
-control plane and must preserve the governed runner's ordering for every
-physical target:
-
-1. Prove the exact installed engine pin and complete reader/writer rollout.
-2. Enumerate registry targets and physical databases, refusing any difference.
-3. Rehearse the exact raw manifest and packaged module on isolated restored
-   copies, recording source fingerprints and invariant results.
-4. Stop for a separate operator checkpoint with bounded freshness.
-5. Recheck pin, coverage, and fingerprints; durably receipt a rollback backup
-   for each target before calling `apply_manifest`.
-6. Record each target result in the fleet control plane and require explicit
-   recovery authority after a failed or unexpected partial state.
-
-`apply_manifest` keeps the public runner's module-apply, commit, fixed baseline,
-optional author-invariant, and affected-table-count order. It is not an
-alternate command that weakens the
-ordinary stage/prod path: those governed units still run their manifest source
-rehearsal, lease, backup, fingerprint, and `migration_audit` machinery.
-
-A packaged migration remains in the wheel until completed evidence exists for
-every install that can still carry the old schema: ordinary authoritative
-stage/prod databases and every physical hosted tenant. Validation-copy success
-alone is never retirement evidence.
+The wheel is the distribution mechanism and pip/image digests are the integrity
+boundary; there is no manifest, no dispatch, and no per-target receipt protocol
+to keep in step.
 
 ## `migration_audit` Bootstrap
 
@@ -169,7 +123,7 @@ the two diverge.
 is the canonical idempotent helper. Both
 `yoke_core.domain.migration_apply_rehearse._rehearse_inner`
 and
-`yoke_core.domain.migration_apply_live._live_apply_inner`
+`yoke_core.domain.migration_boot_apply.apply_pending`
 call it on `audit_conn` immediately after opening, so a webapp project's
 first governed apply bootstraps the table automatically. Operators and
 agents do not declare or provision `migration_audit` themselves; the

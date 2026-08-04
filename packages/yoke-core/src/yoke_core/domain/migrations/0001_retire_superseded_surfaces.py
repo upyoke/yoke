@@ -1,4 +1,4 @@
-"""Drop columns whose authority moved to another surface.
+"""Retire surfaces whose authority moved elsewhere.
 
 Each column here was replaced by a different representation and is no longer
 read or written by any code path:
@@ -50,11 +50,15 @@ SUPERSEDED_COLUMNS: tuple[tuple[str, str], ...] = (
     ("path_claims", "actor_id"),
 )
 
+#: Whole tables whose authority moved. ``wrapup_reports`` held session
+#: wrap-up records; that content lives on items now.
+SUPERSEDED_TABLES: tuple[str, ...] = ("wrapup_reports",)
+
 
 def apply(conn: Any) -> None:
-    """Drop each superseded column that is still present.
+    """Drop each superseded surface that is still present.
 
-    Guards with an explicit existence check rather than ``DROP COLUMN IF
+    Guards with an explicit existence check rather than ``DROP ... IF
     EXISTS``, which Postgres accepts and SQLite does not — the generic SQLite
     validation surface has to be able to run this too.
     """
@@ -67,9 +71,13 @@ def apply(conn: Any) -> None:
             continue
         conn.execute(f'ALTER TABLE "{table}" DROP COLUMN "{column}"')
 
+    for table in SUPERSEDED_TABLES:
+        if _table_exists(conn, table):
+            conn.execute(f'DROP TABLE "{table}"')
+
 
 def invariants(conn: Any) -> None:
-    """Prove no superseded column survives on a table that exists."""
+    """Prove no superseded surface survives."""
     from yoke_core.domain.schema_common import _column_exists, _table_exists
 
     for table, column in SUPERSEDED_COLUMNS:
@@ -79,6 +87,9 @@ def invariants(conn: Any) -> None:
             raise AssertionError(
                 f"{table}.{column} is superseded but still present"
             )
+    for table in SUPERSEDED_TABLES:
+        if _table_exists(conn, table):
+            raise AssertionError(f"{table} is superseded but still present")
 
 
-__all__ = ["SUPERSEDED_COLUMNS", "apply", "invariants"]
+__all__ = ["SUPERSEDED_COLUMNS", "SUPERSEDED_TABLES", "apply", "invariants"]

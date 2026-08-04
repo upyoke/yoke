@@ -133,7 +133,6 @@ class TestFlows:
             test_db, "alpha-release", yoke_id,
             name="Alpha Release", target_env="prod",
             stages=dumps_compact([
-                {"kind": "migration_apply", "model_name": "primary"},
                 {"name": "merged", "step_runner": "auto"},
                 {"name": "complete", "step_runner": "auto"},
             ]),

@@ -1,4 +1,4 @@
-"""Migration applied-everywhere evidence gate — apply-variant scenarios.
+"""Migration evidence gate — apply-variant scenarios.
 
 The apply variant exercises ``mutation_intent="apply"``: advancing
 ``implementing → reviewing-implementation`` must fail with the missing

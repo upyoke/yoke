@@ -100,6 +100,17 @@ _RETIRED_QA_AUTO_FUNCTION_PATTERN = r"\bqa\.requirement\.auto_create_for_item\b"
 _RETIRED_QA_AUTO_CLI_PATTERN = r"\byoke\s+qa\s+requirement\s+auto-create-for-item\b"
 _RETIRED_WORK_ITEM_SYNONYM_PATTERN = r"\b" + "tick" + r"ets?\b"
 
+_RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN = (
+    r"yoke_core\.domain\.(?:migration_auto_retire|migration_install_topology"
+    r"|migration_retire_record|migration_apply_manifest|migration_source_checkout"
+    r"|migration_source_digest|migration_manifest_validation|portable_migration"
+    r"|deploy_pipeline_migration|flow_cross_reference)\b"
+)
+_RETIRED_LIVE_APPLY_CLI_PATTERN = r"migration_apply\s+live-apply\b"
+_RETIRED_MODULE_PATH_OVERRIDE_PATTERN = r"--module-path-override\b"
+_RETIRED_MIGRATION_APPLY_STAGE_PATTERN = r'"kind"\s*:\s*"migration_apply"'
+_RETIRED_APPLIED_EVERYWHERE_PATTERN = r"applied\-everywhere evidence"
+
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
     # CLI-argument form of the same retired parent-epic item field. The shape is
@@ -136,11 +147,26 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_QA_AUTO_FUNCTION_PATTERN,
     _RETIRED_QA_AUTO_CLI_PATTERN,
     _RETIRED_WORK_ITEM_SYNONYM_PATTERN,
+    # Migrations became permanent ordered history applied by the boot
+    # converge. Everything that existed only to compensate for their being
+    # ephemeral -- auto-retire, install topology, retire records, the
+    # committed manifest and its source digest, the cross-worktree override,
+    # the live-apply CLI, and the migration_apply deployment stage -- is gone.
+    _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN,
+    _RETIRED_LIVE_APPLY_CLI_PATTERN,
+    _RETIRED_MODULE_PATH_OVERRIDE_PATTERN,
+    _RETIRED_MIGRATION_APPLY_STAGE_PATTERN,
+    _RETIRED_APPLIED_EVERYWHERE_PATTERN,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: "retired ephemeral-migration module",
+    _RETIRED_LIVE_APPLY_CLI_PATTERN: "retired live-apply CLI (boot converge applies)",
+    _RETIRED_MODULE_PATH_OVERRIDE_PATTERN: "retired cross-worktree module override",
+    _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: "retired migration_apply deployment stage",
+    _RETIRED_APPLIED_EVERYWHERE_PATTERN: "retired applied-everywhere deletion rule",
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN: "retired parent-epic item field (symbol form)",
     _RETIRED_PARENT_EPIC_CLI_PATTERN: "retired parent-epic item field (CLI form)",
     _RETIRED_PARENT_EPIC_SQL_PATTERN: "retired parent-epic item field (SQL form)",
@@ -179,7 +205,21 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
 # infrastructure prefixes live in :mod:`doctor_hc_obsoleted_terms_allowlists`
 # alongside the broader per-file exemption; the dict below composes those
 # tuples with the strategic-prose exemptions defined here.
+#: The history entry that STRIPS the retired stage, its test, and the event
+#: registry row that marks the emitter retired all have to name it: their
+#: subject IS the retirement. Historical ledger rows must keep resolving.
+_MIGRATION_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
+    "packages/yoke-core/src/yoke_core/domain/migrations/",
+    "runtime/api/domain/test_drop_migration_apply_stages_migration.py",
+    "packages/yoke-core/src/yoke_core/domain/populate_registry_data_authoritative.py",
+    # The generated catalog's RETIRED rows name the emitter they retire, so
+    # historical ledger rows stay attributable.
+    "docs/event-catalog.md",
+)
+
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
+    _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_CHILD_ISSUE_PATTERN: (
         # WISP-15 in WISPS.md is a deliberately preserved Generation-7
         # deferral whose rule explicitly forbids locking in a parent/child schema

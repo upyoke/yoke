@@ -59,9 +59,13 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     expected = parse_expected_schema()
 
     try:
+        # BASE TABLE only. Without the filter Postgres returns views too, and
+        # the code-owned item_progress_view -- recreated by every boot converge
+        # -- would be reported as an unknown table forever.
         rows = conn.execute(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_schema = current_schema() "
+            "AND table_type = 'BASE TABLE' "
             "ORDER BY table_name"
         ).fetchall()
         actual_tables = {str(row[0]) for row in rows}
@@ -87,7 +91,13 @@ def hc_schema_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 issues.append(f"- {tbl_name}: extra column '{cname}' (exists in DB but not in expected schema)")
 
     if issues:
-        rec.record("HC-schema-drift", "Schema drift detection", "WARN", "\n".join(issues))
+        # FAIL, not WARN. A live schema that differs from what the code
+        # declares is a hand-edit nothing reconciled -- the ordered migration
+        # history and its ledger answer "is this database behind its code?",
+        # so anything left here is a change that bypassed them entirely. That
+        # is the class of drift this whole mechanism exists to make visible,
+        # and a warning is how it stayed invisible.
+        rec.record("HC-schema-drift", "Schema drift detection", "FAIL", "\n".join(issues))
     else:
         rec.record("HC-schema-drift", "Schema drift detection", "PASS", "")
 

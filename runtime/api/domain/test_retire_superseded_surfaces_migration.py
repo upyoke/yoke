@@ -13,7 +13,7 @@ from yoke_core.domain.migration_history import (
     ordered_entries,
 )
 
-_ENTRY_SLUG = "drop_superseded_columns"
+_ENTRY_SLUG = "retire_superseded_surfaces"
 _entry = next(
     entry
     for entry in ordered_entries(history_dir(migration_history_package))
@@ -97,3 +97,25 @@ def test_invariants_reject_a_surviving_column() -> None:
 
     with pytest.raises(AssertionError, match="superseded but still present"):
         migration.invariants(conn)
+
+
+def test_superseded_table_is_dropped_when_present() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE wrapup_reports (id INTEGER PRIMARY KEY)")
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    remaining = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='wrapup_reports'"
+    ).fetchall()
+    assert remaining == []
+
+
+def test_absent_superseded_table_is_a_no_op() -> None:
+    # The overwhelming majority of databases already dropped it; the entry
+    # must be silent there rather than erroring on a missing table.
+    conn = sqlite3.connect(":memory:")
+
+    migration.apply(conn)
+    migration.invariants(conn)

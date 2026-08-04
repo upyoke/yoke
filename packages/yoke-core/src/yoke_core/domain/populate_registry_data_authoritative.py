@@ -109,9 +109,8 @@ PURGED_EVENT_NAMES: Tuple[str, ...] = (
     # handoffs replaced same-session reacquire; retire so the rogue
     # check sees a registered row.
     "ClaimReacquiredAfterHandoff",
-    # PathContextMigrated emitter (path_context_continuity_cutover.py)
-    # was deleted in commit 966d30574 alongside the path-posture doc-link
-    # cutover; see docs/archive/decisions/path-posture-doc-links-cutover.md.
+    # PathContextMigrated emitter was deleted alongside the path-posture
+    # doc-link cutover (docs/archive/decisions/path-posture-doc-links-cutover.md).
     # Historical rows remain in the ledger; no new ones fire.
     "PathContextMigrated",
     # LeakAttempt is a test-isolation fixture name; canonical-DB rows
@@ -124,11 +123,12 @@ PURGED_EVENT_NAMES: Tuple[str, ...] = (
     # DeploymentEventMigrated was a one-shot historical migration
     # backfill event; emitter deleted, historical rows remain.
     "DeploymentEventMigrated",
-    # Codex custom-subagent start/stop hook observers were removed along
-    # with their telemetry bridge; historical rows remain in the ledger,
-    # no new ones fire.
-    "CodexSubagentStarted",
-    "CodexSubagentStopped",
+    # Codex custom-subagent start/stop hook observers were removed along with
+    # their telemetry bridge; historical rows remain, no new ones fire.
+    "CodexSubagentStarted", "CodexSubagentStopped",
+    # Migrations became permanent ordered history; nothing auto-retires a
+    # module, so both emitters and their module were deleted.
+    "MigrationModuleRetired", "MigrationModuleRetireSkipped",
     # The path-claim resnapshot emitter was deleted; historical rows
     # remain in the ledger, no new ones fire.
     "PathClaimSnapshotRefreshed",
