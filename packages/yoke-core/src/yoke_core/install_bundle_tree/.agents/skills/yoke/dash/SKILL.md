@@ -199,7 +199,13 @@ yoke direct-workflow worktree prepare ITEM --workflow dash
 ```
 
 Use the returned absolute `worktree_path` for every read, edit, test, and
-git command. The preparation call reuses the item work claim already held
+git command. Keep the Cursor agent rooted on the main project checkout —
+do not call `move_agent_to_root` (or otherwise remount the chat) into
+`.worktrees/...`. Yoke worktrees are code lanes, not the conversation home;
+remounting assigns a new Cursor conversation id and, after the lane is
+removed, leaves Shell stuck on a deleted cwd (`ENOENT`). Pass an explicit
+live `working_directory` when Shell would inherit a worktree or deleted
+path. The preparation call reuses the item work claim already held
 since step 1 (reporting `work-claim:already-owned`, or acquiring it if
 absent), registers or widens selected path claims from the non-empty
 survey, activates them, and creates or reuses the registered worktree.

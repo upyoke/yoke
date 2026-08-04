@@ -39,9 +39,11 @@ Cursor exports no session-id environment variable. Identity facts:
 | `YOKE_EXECUTOR=cursor` | pinned in the generated hook command | Family attribution regardless of env inheritance |
 | `model` / `model_id` | every hook payload | Model attribution — Cursor multiplexes providers, so the payload is the only truthful model source |
 
-Yoke's container model applies: only the top-level session registers as a `harness_sessions` row; subagent activity (which arrives under per-subagent session ids) folds into that container.
+Yoke's container model applies: only the top-level session registers as a `harness_sessions` row; subagent activity (which arrives under per-subagent session ids) folds into that container. The same fold applies when Cursor remounts a chat onto a linked Yoke worktree (new conversation id under `.worktrees/<lane>`): the new conversation aliases to the session that holds the active work claim for that lane, via `cursor-session-map`, instead of minting competing authority.
 
 Commands the agent runs in a shell resolve identity through that same container. The process-anchor registry cannot help — one `cursor-agent` pid hosts every conversation, so an anchor keyed on it would resolve to whichever sibling wrote last — and `CURSOR_CONVERSATION_ID` alone names a conversation, not a registered session. So every hook records its `conversation_id → container session` pairing under `<machine-home>/cursor-session-map/`, and a shell resolves its own conversation id through that recording. A conversation no hook has recorded resolves to nothing rather than to a guess.
+
+**Do not root the Cursor chat on a Yoke worktree.** Keep the agent on the main project checkout and use absolute `worktree_path` values for lane work. Do not call `move_agent_to_root` into `.worktrees/...`. Remounting triggers the conversation remap above; after merge removes the lane, Cursor's sticky cwd/root also leaves Shell failing with `ENOENT` on the deleted path. Pass an explicit live `working_directory` when needed. Yoke still owns worktree placement (`cursor-agent` `-w` / `--worktree-base` stay unused).
 
 ## What Cursor does NOT own
 
