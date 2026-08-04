@@ -19,7 +19,7 @@ from yoke_core.engines.merge_worktree_post_helpers import (  # noqa: F401
     _schema_refresh,
     _yoke_state_dir,
     _regenerate_views,
-    _regenerate_views_or_exit5,
+    _regenerate_views_advisory,
     _ensure_target_branch,
     _chdir_out_of_doomed_worktree,
 )

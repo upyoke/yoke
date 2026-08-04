@@ -30,10 +30,9 @@ def _resolve_default_wip_cap(project_scope: list[int]) -> int:
     A single-project scope reads the project's ``project-policy`` capability;
     multi-project scopes use the source default.
     """
-    from yoke_core.domain.project_settings import get_project_int_for_id
+    from yoke_core.domain.project_settings import resolve_default_wip_cap
 
-    project_id = project_scope[0] if len(project_scope) == 1 else None
-    return get_project_int_for_id(project_id, "wip_cap")
+    return resolve_default_wip_cap(project_scope)
 
 
 # ---------------------------------------------------------------------------

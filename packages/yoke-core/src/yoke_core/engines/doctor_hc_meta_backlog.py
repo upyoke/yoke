@@ -84,12 +84,15 @@ def hc_title_length(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Items
     item_rows = query_rows(
         conn,
-        "SELECT 'YOK-' || id || ' (' || length(title) || ' chars)' as label "
+        "SELECT id, length(title) AS title_len "
         "FROM items WHERE length(title) > 100 ORDER BY length(title) DESC",
     )
     if item_rows:
         count = len(item_rows)
-        labels = "\n".join(r["label"] for r in item_rows)
+        labels = "\n".join(
+            f"{render_item_ref(conn, int(r['id']))} ({r['title_len']} chars)"
+            for r in item_rows
+        )
         issues.append(f"{count} item(s) with titles >100 chars:\n{labels}")
 
     # Epic tasks

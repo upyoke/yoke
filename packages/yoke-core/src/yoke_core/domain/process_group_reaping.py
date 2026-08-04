@@ -76,7 +76,7 @@ def _group_id(proc: subprocess.Popen) -> int | None:
     return pgid
 
 
-def _descendant_pids(root_pid: int) -> list[int]:
+def descendant_pids(root_pid: int) -> list[int]:
     """Return every live descendant of *root_pid*, deepest last.
 
     Signalling a process group does not reach a descendant that started its own
@@ -116,6 +116,10 @@ def _descendant_pids(root_pid: int) -> list[int]:
             found.append(child)
             frontier.append(child)
     return found
+
+
+# Retained private alias for in-module callers.
+_descendant_pids = descendant_pids
 
 
 def _signal_tree(proc: subprocess.Popen, pgid: int | None, signal_number: int) -> None:
@@ -238,6 +242,7 @@ def run_in_process_group(
 __all__ = [
     "DEFAULT_GRACE_SECONDS",
     "ProcessGroupInterrupted",
+    "descendant_pids",
     "interruption_reaps_process_group",
     "popen_in_process_group",
     "run_in_process_group",

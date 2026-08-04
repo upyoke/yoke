@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.domain.item_ref_construction_baseline import BASELINE
+from yoke_core.domain.item_ref_construction_baseline import baseline_counts
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
     resolve_project_prefixes,
@@ -52,15 +52,16 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
     counts = counts_by_relpath(repo_root, hits)
 
     offenders: list[str] = []
+    allowed_counts = baseline_counts()
     for rel, count in sorted(counts.items()):
-        allowed = BASELINE.get(rel, 0)
+        allowed = allowed_counts.get(rel, 0)
         if count > allowed:
             offenders.append(rel)
 
     # Surface stale baseline entries (file cleaned up but still listed) so the
     # map keeps shrinking, but do not fail on them.
     stale = sorted(
-        rel for rel, allowed in BASELINE.items() if counts.get(rel, 0) < allowed
+        rel for rel, allowed in allowed_counts.items() if counts.get(rel, 0) < allowed
     )
 
     if not offenders:
@@ -82,7 +83,7 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
             rel = hit.path.as_posix()
         hit_by_rel.setdefault(rel, []).append(f"{rel}:{hit.line}: {hit.snippet}")
     for rel in offenders:
-        allowed = BASELINE.get(rel, 0)
+        allowed = allowed_counts.get(rel, 0)
         got = counts[rel]
         offender_lines.append(f"- {rel}: {got} occurrence(s), baseline {allowed}")
         offender_lines.extend(f"    {ln}" for ln in hit_by_rel.get(rel, [])[:5])

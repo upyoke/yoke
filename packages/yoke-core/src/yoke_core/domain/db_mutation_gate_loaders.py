@@ -31,7 +31,7 @@ from yoke_core.domain.migration_model_capability import (
     MigrationModelCapabilityError,
     validate as validate_capability,
 )
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
 
@@ -104,6 +104,7 @@ def _other_non_terminal_profiles(
         except DbMutationProfileError:
             continue
         normalized["__item_id"] = int(item_id)
+        normalized["__item_ref"] = render_item_ref(conn, int(item_id))
         out.append(normalized)
     return out
 

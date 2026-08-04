@@ -21,6 +21,9 @@ lint_tc_label=deny
 # Refuse same-capture polling loops on a running long command.
 lint_long_command_polling=deny
 
+# Require sentinel-aware Monitor tails for watcher captures.
+lint_monitor_watcher_tail=deny
+
 # Refuse piping a live long command into tail/head.
 lint_pipe_to_truncator=deny
 
@@ -40,6 +43,9 @@ lint_subagent_background=deny
 
 # Confine writes to the session's claimed worktree / allowlist.
 lint_session_cwd=deny
+
+# Refuse source writes to main checkout while an implementation lane is held.
+lint_lane_main_write=deny
 
 # Refuse cross-checkout pytest/render/test-runner Bash invocations.
 lint_workspace_cwd_match=deny

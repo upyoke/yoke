@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Tuple
 
 from yoke_contracts.project_contract.project_keys import (
     DB_PROJECT_POLICY_KEYS,
+    DEFAULT_WIP_CAP,
     LOCAL_PROJECT_KEYS,
     RECOGNIZED_PROJECT_KEYS,
 )
@@ -95,6 +96,17 @@ def get_project_int_for_id(
         return resolved_default
     value = _policy_value_for_id(project_id, key, db_path=db_path)
     return _int_value(value, resolved_default)
+
+
+def resolve_default_wip_cap(project_scope: list[int] | None = None) -> int:
+    """DB-backed WIP cap for a single-project scope; source default otherwise.
+
+    Multi-project and empty scopes fall back to ``DEFAULT_WIP_CAP`` from
+    ``RECOGNIZED_PROJECT_KEYS`` — the same rule the board and session-offer
+    adapters already use when no ``--wip-cap`` / query value was supplied.
+    """
+    project_id = project_scope[0] if project_scope and len(project_scope) == 1 else None
+    return get_project_int_for_id(project_id, "wip_cap")
 
 
 def offer_project_config_dir(
@@ -215,6 +227,7 @@ def _int_value(value: Any, default: int) -> int:
 
 __all__ = [
     "DB_PROJECT_POLICY_KEYS",
+    "DEFAULT_WIP_CAP",
     "LOCAL_PROJECT_KEYS",
     "RECOGNIZED_PROJECT_KEYS",
     "checkout_root",
@@ -223,4 +236,5 @@ __all__ = [
     "get_project_str",
     "get_project_str_for_id",
     "offer_project_config_dir",
+    "resolve_default_wip_cap",
 ]

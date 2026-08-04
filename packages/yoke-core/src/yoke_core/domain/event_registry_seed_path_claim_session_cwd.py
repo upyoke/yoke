@@ -86,6 +86,22 @@ SEED_ROWS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "Session-cwd binding health check detected an inconsistent worktree binding",
         "WARN",
     ),
+    (
+        "LaneMainWriteDenied",
+        "lifecycle",
+        "session_cwd",
+        "cli",
+        "PreToolUse blocked a source write to main checkout while an implementation lane was held",
+        "WARN",
+    ),
+    (
+        "LaneMainWriteEscapeUsed",
+        "lifecycle",
+        "session_cwd",
+        "cli",
+        "Recorded deliberate main-checkout write while an implementation lane was held",
+        "INFO",
+    ),
 )
 
 

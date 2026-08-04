@@ -28,9 +28,10 @@ export function wizardSubmodules(done = {}, machineDetail = null) {
 
 export function harnessTargets(hits = {}) {
   return [
-    ["claude-code", "Claude Code"], ["codex", "Codex"],
+    ["claude-code", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"],
     ["claude-cli", "Claude CLI"], ["codex-cli", "Codex CLI"],
-    ["claude-vscode", "Claude in VS Code"],
+    ["cursor-cli", "Cursor CLI"],
+    ["claude-vscode", "Claude in VS Code"], ["cursor-desktop", "Cursor IDE"],
   ].map(([key, label]) => ({ key, label, hit: Boolean(hits[key]) }));
 }
 

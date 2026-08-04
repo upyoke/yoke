@@ -37,7 +37,7 @@ def prepare_approval(
     if not deploy_stage:
         return ApprovalResult(
             success=False,
-            error=f"Item YOK-{item.id} has no deploy_stage set. Cannot approve.",
+            error=f"Item {item.ref} has no deploy_stage set. Cannot approve.",
             error_code="INVALID_STATE",
             item_id=item.id,
         )
@@ -45,7 +45,7 @@ def prepare_approval(
     if not deployment_flow:
         return ApprovalResult(
             success=False,
-            error=f"Item YOK-{item.id} has no deployment_flow set. Cannot approve.",
+            error=f"Item {item.ref} has no deployment_flow set. Cannot approve.",
             error_code="INVALID_STATE",
             item_id=item.id,
         )
@@ -57,7 +57,7 @@ def prepare_approval(
         return ApprovalResult(
             success=False,
             error=(
-                f"Item YOK-{item.id} deploy_stage '{deploy_stage}': "
+                f"Item {item.ref} deploy_stage '{deploy_stage}': "
                 f"{resolution.error}"
             ),
             error_code="INVALID_STATE",

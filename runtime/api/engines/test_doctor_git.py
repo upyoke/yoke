@@ -283,7 +283,9 @@ class TestHcCrossProjectCommits:
         ]
         rec = _run_hc(hc_cross_project_commits, conn)
         assert rec.results[0].result == "WARN"
-        assert "YOK-42" in rec.results[0].detail
+        from yoke_core.domain.project_identity import render_item_ref
+
+        assert render_item_ref(conn, 42) in rec.results[0].detail
         assert "src/main.py" in rec.results[0].detail
 
     @patch("yoke_core.engines.doctor_report._run")

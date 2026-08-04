@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, List
 
+from yoke_contracts.project_contract.project_keys import DEFAULT_WIP_CAP
+
 
 class AdapterCategory(str, Enum):
     """Downstream adapter that should handle a frontier item."""
@@ -60,7 +62,7 @@ class FrontierResult:
     runnable: List[FrontierItem] = field(default_factory=list)
     blocked: List[FrontierItem] = field(default_factory=list)
     frozen: List[FrontierItem] = field(default_factory=list)
-    wip_cap: int = 5
+    wip_cap: int = DEFAULT_WIP_CAP
     wip_active: int = 0
     wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[FrontierItem] = field(default_factory=list)

@@ -43,8 +43,10 @@ def render_board_sections(
     header glyph and every per-row ``done`` status to the celebration emoji.
     """
     with measure_phase(phase_recorder, "max_id_width"):
+        project_sql, project_params = _project_filter(scope)
         max_numid = db.scalar(
-            "SELECT MAX(id) FROM items WHERE 1=1" + (_project_filter(scope))
+            "SELECT MAX(id) FROM items WHERE 1=1" + project_sql,
+            project_params,
         )
     max_id_width = len(str(max_numid or 0)) + 4
 
@@ -61,17 +63,16 @@ def render_board_sections(
                 and config.done_section_limit > 0
                 and len(section_items) > config.done_section_limit
             ):
-                rendered_items = section_items[:config.done_section_limit]
+                rendered_items = section_items[: config.done_section_limit]
                 heading_count = task_expanded_count(section_items, epic_task_counts)
                 omitted_count = len(section_items) - len(rendered_items)
             rendered_expected_tasks += _count_rendered_epic_tasks(
-                rendered_items, epic_task_rows_by_epic,
+                rendered_items,
+                epic_task_rows_by_epic,
             )
             # Frontier inbox-zero: the Done section celebrates with the chosen
             # glyph in both its header and its per-row done statuses.
-            section_emoji = (
-                celebration if (key == "done" and celebration) else emoji
-            )
+            section_emoji = celebration if (key == "done" and celebration) else emoji
             section_text = render_section(
                 heading,
                 rendered_items,

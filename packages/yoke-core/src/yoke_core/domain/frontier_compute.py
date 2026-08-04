@@ -26,6 +26,7 @@ from .frontier_compute_telemetry import _emit_frontier_computed
 from .item_ref_resolution import remap_ref_keys_to_internal
 from .project_identity import resolve_project_slug
 from .project_scope import normalize_project_scope
+from .project_settings import resolve_default_wip_cap
 from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
 from .workflow_definition_builders import (
@@ -49,7 +50,7 @@ def _project_scope_clause(conn: Any, project_scope: List[int]) -> str:
 def compute_frontier(
     conn: Any,
     project_scope: List[Any],
-    wip_cap: int = 5,
+    wip_cap: Optional[int] = None,
     session_id: Optional[str] = None,
     emit_events: bool = True,
 ) -> FrontierResult:
@@ -62,6 +63,8 @@ def compute_frontier(
     """
     _t0 = time.monotonic()
     project_scope = normalize_project_scope(conn, project_scope)
+    if wip_cap is None:
+        wip_cap = resolve_default_wip_cap(project_scope)
     cursor = conn.cursor()
 
     project_clause = _project_scope_clause(conn, project_scope)

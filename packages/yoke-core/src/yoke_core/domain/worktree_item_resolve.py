@@ -98,7 +98,9 @@ def resolve_item_worktree(
             conn, f"SELECT status FROM items WHERE id = {p}", (item_num,)
         )
         if status is None:
-            raise LookupError(f"item YOK-{item_num} not found")
+            from yoke_core.domain.project_identity import render_item_ref
+
+            raise LookupError(f"item {render_item_ref(conn, item_num)} not found")
 
         project_row = conn.execute(
             "SELECT p.slug AS project "

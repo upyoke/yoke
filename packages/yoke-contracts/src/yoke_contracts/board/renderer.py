@@ -63,7 +63,12 @@ def render_board_from_payload(
     visible_project_ids = payload.get("visible_project_ids")
     with scoped_project_visibility(visible_project_ids):
         return _assemble(
-            replay, config, art_config, scope, seed, repo_root,
+            replay,
+            config,
+            art_config,
+            scope,
+            seed,
+            repo_root,
             list(vision_entries or []),
         )
 
@@ -142,9 +147,16 @@ def _assemble(
     # 3. Dashboard widgets (between header art and section tables)
     # ------------------------------------------------------------------
     with measure_phase(phase_recorder, "dashboard"):
-        lines.extend(render_dashboard(
-            db, config, scope, buckets, epic_task_counts, repo_root,
-        ))
+        lines.extend(
+            render_dashboard(
+                db,
+                config,
+                scope,
+                buckets,
+                epic_task_counts,
+                repo_root,
+            )
+        )
 
     # ------------------------------------------------------------------
     # 4. Zen widget
@@ -155,8 +167,12 @@ def _assemble(
 
     with measure_phase(phase_recorder, "zen"):
         zen_lines = render_zen_widget(
-            db, config, config.timeline_scope or scope,
-            active_count, pipeline_count, backlog_count,
+            db,
+            config,
+            config.timeline_scope or scope,
+            active_count,
+            pipeline_count,
+            backlog_count,
             vision_entries or [],
         )
     if zen_lines:
@@ -213,10 +229,11 @@ def _assemble(
 
 def _count_expected_tasks(db, scope: str) -> int:
     """Count total expected epic task sub-rows from DB."""
-    pf = _project_filter(scope)
+    pf, params = _project_filter(scope)
     result = db.scalar(
         "SELECT COUNT(*) FROM epic_tasks et"
         " JOIN items i ON et.epic_id = i.id"
-        f" WHERE i.workflow_id = 'epic'{pf}"
+        f" WHERE i.workflow_id = 'epic'{pf}",
+        params,
     )
     return result or 0

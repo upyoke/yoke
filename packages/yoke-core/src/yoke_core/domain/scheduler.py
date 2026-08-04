@@ -9,6 +9,7 @@ from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 
 from .frontier import AdapterCategory, FrontierResult, compute_frontier as compute_raw_frontier
 from .project_scope import normalize_project_scope
+from .project_settings import resolve_default_wip_cap
 from .scheduler_claims import _evaluate_claim_states
 from .scheduler_exceptional import project_slug_or_id, query_exceptional_items
 from .scheduler_events import _emit_frontier_step_selected, _logger
@@ -83,7 +84,7 @@ def _compute_sml_state(
 def compute_schedule(
     conn: Any,
     project_scope: List[Union[int, str]],
-    wip_cap: int = 5,
+    wip_cap: Optional[int] = None,
     session_id: Optional[str] = None,
     emit_events: bool = True,
 ) -> SchedulerResult:
@@ -96,7 +97,9 @@ def compute_schedule(
         conn: SQLite connection (read-only access sufficient).
         project_scope: Numeric project ids in scope for this schedule. Slugs are
             accepted for CLI/API boundary callers and resolved before SQL.
-        wip_cap: Maximum number of conduct-eligible items.
+        wip_cap: Maximum number of conduct-eligible items. When omitted,
+            resolves from the single-project ``project-policy`` capability
+            (or the ``RECOGNIZED_PROJECT_KEYS`` source default).
         session_id: Optional session ID for claim-state evaluation.
         emit_events: ``False`` suppresses the ``FrontierStepSelected``,
             ``FrontierComputed``, and ``DependencyGateEvaluated``
@@ -108,6 +111,8 @@ def compute_schedule(
         A ``SchedulerResult`` with the full scheduling context.
     """
     project_scope = normalize_project_scope(conn, project_scope)
+    if wip_cap is None:
+        wip_cap = resolve_default_wip_cap(project_scope)
 
     # 1. Compute raw frontier (from frontier.py — handles deps, ranking,
     #    frozen, WIP cap, adapter classification)

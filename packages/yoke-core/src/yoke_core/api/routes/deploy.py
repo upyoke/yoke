@@ -151,7 +151,12 @@ def _scheduler_result_to_model(sr) -> _main.SchedulerResultModel:
 @router.get("/charge/frontier", response_model=_main.FrontierResultModel)
 def api_charge_frontier(
     project: str = Query(default="yoke", description="Project to scope the frontier to."),
-    wip_cap: int = Query(default=5, ge=1, le=100, description="WIP cap for conduct-eligible items."),
+    wip_cap: Optional[int] = Query(
+        default=None,
+        ge=1,
+        le=100,
+        description="WIP cap for conduct-eligible items; omit to use project policy.",
+    ),
 ) -> Union[_main.FrontierResultModel, JSONResponse]:
     """Compute and return the runnable frontier for a project."""
     conn = _main.get_db_readonly()
@@ -169,7 +174,12 @@ def api_charge_frontier(
 @router.get("/charge/schedule", response_model=_main.SchedulerResultModel)
 def api_charge_schedule(
     project: str = Query(default="yoke", description="Project to scope the schedule to."),
-    wip_cap: int = Query(default=5, ge=1, le=100, description="WIP cap for conduct-eligible items."),
+    wip_cap: Optional[int] = Query(
+        default=None,
+        ge=1,
+        le=100,
+        description="WIP cap for conduct-eligible items; omit to use project policy.",
+    ),
 ) -> Union[_main.SchedulerResultModel, JSONResponse]:
     """Compute the shared scheduler result for a project."""
     conn = _main.get_db_readonly()

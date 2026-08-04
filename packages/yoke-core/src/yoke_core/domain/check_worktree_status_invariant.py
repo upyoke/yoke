@@ -31,6 +31,8 @@ Behaviour:
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import os
 import re
 import subprocess
@@ -89,9 +91,9 @@ def _current_branch() -> Optional[str]:
     return name or None
 
 
-def _format_block(item_id: int, observed: str) -> str:
+def _format_block(item_ref: str, observed: str) -> str:
     return (
-        f"ERROR: cannot commit on worktree branch YOK-{item_id} while "
+        f"ERROR: cannot commit on worktree branch {item_ref} while "
         f"items.status is '{observed}'.\n"
         f"\n"
         f"Allowed statuses for a worktree-branch commit: "
@@ -102,7 +104,7 @@ def _format_block(item_id: int, observed: str) -> str:
         f"already moved the item past polishing-implementation.\n"
         f"\n"
         f"Remediation:\n"
-        f"  - From refined-idea: run `/yoke advance YOK-{item_id} "
+        f"  - From refined-idea: run `/yoke advance {item_ref} "
         f"implementation` to drive the proper transition.\n"
         f"  - From a post-polish status: investigate why a worktree "
         f"commit is being attempted; the implementation phase is over.\n"
@@ -166,7 +168,7 @@ def evaluate(*, branch: Optional[str] = None) -> WorktreeStatusVerdict:
     if row is None:
         return WorktreeStatusVerdict(
             ok=True, skipped=True, item_id=item_id,
-            skip_reason=f"no items row for YOK-{item_id}",
+            skip_reason=f"no items row for item id {item_id}",
         )
 
     status = row["status"]
@@ -177,7 +179,7 @@ def evaluate(*, branch: Optional[str] = None) -> WorktreeStatusVerdict:
 
     return WorktreeStatusVerdict(
         ok=False, item_id=item_id, observed_status=status,
-        message=_format_block(item_id, status),
+        message=_format_block(item_ref_for_id(item_id), status),
     )
 
 

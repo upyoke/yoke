@@ -49,6 +49,10 @@ RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
     ),
 }
 
+# Typed int form of the ``wip_cap`` source default — import this instead of
+# restating the numeric literal at call sites and response-model defaults.
+DEFAULT_WIP_CAP = int(RECOGNIZED_PROJECT_KEYS["wip_cap"][0])
+
 LOCAL_PROJECT_KEYS = frozenset({"worktrees_dir"})
 DB_PROJECT_POLICY_KEYS = tuple(
     key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS

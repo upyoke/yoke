@@ -217,7 +217,7 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     if _schema_table_exists(conn, "shepherd_verdicts"):
         try:
-            shepherd_log = cmd_shepherd_log(conn, f"YOK-{item_id}")
+            shepherd_log = cmd_shepherd_log(conn, f"YOK-{item_id}")  # legacy verdict key
             if len(shepherd_log.splitlines()) > 3:
                 chunks.append(shepherd_log.rstrip("\n"))
         except Exception:
@@ -290,7 +290,8 @@ def render_section(
         content = extract_section(body, section)
         if content is None:
             print(
-                f"Advisory: section '{section}' not found on YOK-{item_id}",
+                f"Advisory: section '{section}' not found on "
+                f"{render_item_ref(conn, item_id)}",
                 file=err,
             )
             return 0
@@ -344,7 +345,6 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     except FileNotFoundError:
         print("Error: cannot resolve Yoke DB authority", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
