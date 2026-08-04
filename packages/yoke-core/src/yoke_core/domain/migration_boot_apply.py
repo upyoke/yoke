@@ -11,31 +11,27 @@ caller passes one. That keeps the "should this run here?" judgment with the
 caller that knows the answer, and lets a second install family (a registry
 database with its own history) reuse this code rather than copy it.
 
-Two properties are worth stating because they are the reason to prefer this
-shape over the mechanism it replaces:
-
-*Applied and recorded are one transaction.* Postgres has transactional DDL,
-so an entry's ``apply()`` and its ledger row commit together. The
-"applied but unrecorded" state that forces other migration tools to carry
-repair tooling cannot occur here — there is no window in which it exists.
-
-*A failed entry stops the chain.* Boot is fail-hard. A container that cannot
-migrate does not serve, because serving behind your own schema is the
+Two properties are the reason to prefer this shape over the mechanism it
+replaced. *Applied and recorded are one transaction*: Postgres has
+transactional DDL, so an entry's ``apply()`` and its ledger row commit
+together, and the "applied but unrecorded" state other migration tools ship
+repair tooling for has no window in which to exist. *A failed entry stops the
+chain*: boot is fail-hard, because serving behind your own schema is the
 failure this exists to prevent.
+
+Full rationale: ``docs/archive/decisions/ordered-cumulative-migrations.md``.
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
-import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Sequence, Set, Tuple
 
 from yoke_core.domain import db_backend, migration_restore_point
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
+from yoke_core.domain.migration_receipts import now_stamp, write_receipt
 
 #: Advisory-lock id serializing migration apply on one database. Postgres
 #: advisory locks already carry the database in their lock tag, so a single
@@ -65,10 +61,6 @@ class ApplyOutcome:
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def applied_names(conn: Any) -> Set[str]:
@@ -174,7 +166,7 @@ def _apply_one(
     restore_point: str,
 ) -> None:
     module = load_migration_module(entry.path, entry.name)
-    started_at = _now()
+    started_at = now_stamp()
     try:
         # apply() and the ledger row land together or not at all. The module
         # contract forbids committing inside apply() for exactly this reason.
@@ -183,11 +175,12 @@ def _apply_one(
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
-        _write_receipt(
+        write_receipt(
             conn,
             entry,
             state="live_apply_failed",
             started_at=started_at,
+            completed_at=now_stamp(),
             restore_point=restore_point,
             failure_reason=str(exc)[:500],
         )
@@ -198,21 +191,23 @@ def _apply_one(
         try:
             invariants(conn)
         except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
-            _write_receipt(
+            write_receipt(
                 conn,
                 entry,
                 state="live_verify_failed",
                 started_at=started_at,
+                completed_at=now_stamp(),
                 restore_point=restore_point,
                 failure_reason=str(exc)[:500],
             )
             raise
 
-    _write_receipt(
+    write_receipt(
         conn,
         entry,
         state="completed",
         started_at=started_at,
+        completed_at=now_stamp(),
         restore_point=restore_point,
     )
 
@@ -221,101 +216,12 @@ def _record_applied(conn: Any, names: Sequence[str], *, applied_by: str) -> None
     if not names:
         return
     p = _p(conn)
-    now = _now()
+    now = now_stamp()
     for name in names:
         conn.execute(
             f"INSERT INTO {LEDGER_TABLE} (migration_name, applied_at, applied_by) "
             f"VALUES ({p}, {p}, {p}) ON CONFLICT (migration_name) DO NOTHING",
             (name, now, applied_by),
-        )
-
-
-def record_missing_receipts(
-    conn: Any, history: Sequence[MigrationEntry], *, restore_point: str
-) -> Tuple[str, ...]:
-    """Write ``completed`` receipts for applied entries that have none.
-
-    A receipt failure never fails an apply -- that is deliberate, since a boot
-    must not die over evidence -- so "in the ledger, absent from
-    ``migration_audit``" is a state this design can genuinely reach. Healing it
-    belongs with the applier rather than in whatever hand-written SQL an
-    operator reaches for at the time.
-
-    The ledger is the proof the entry ran; *restore_point* is the one fact only
-    the operator still holds, so it is passed in rather than guessed.
-    """
-    applied = applied_names(conn)
-    recorded = {
-        str(row[0])
-        for row in conn.execute("SELECT migration_name FROM migration_audit").fetchall()
-    }
-    healed = [e for e in history if e.name in applied and e.name not in recorded]
-    for entry in healed:
-        _write_receipt(
-            conn,
-            entry,
-            state="completed",
-            started_at=_now(),
-            restore_point=restore_point,
-        )
-    return tuple(e.name for e in healed)
-
-
-def _write_receipt(
-    conn: Any,
-    entry: MigrationEntry,
-    *,
-    state: str,
-    started_at: str,
-    restore_point: str,
-    failure_reason: Optional[str] = None,
-) -> None:
-    """Record a ``migration_audit`` row; never fail the apply over it.
-
-    The ledger is the cursor and is authoritative. This row is evidence — in
-    particular it is where an operator reads *which restore point covers this
-    apply* after something has gone wrong, which is the moment when
-    reconstructing that answer is hardest.
-
-    ``tables_declared`` / ``expected_deltas`` / ``pre_row_counts`` are NOT NULL
-    and are written empty on purpose. They carry the declared-delta bookkeeping
-    of the rehearse-then-verify runner, which this path does not have and does
-    not claim to: an entry here is trusted to be correct because it ran in
-    order under a lock, not because its row counts were predicted in advance.
-    Empty is the honest value; omitting the columns is a constraint violation.
-    """
-    p = _p(conn)
-    try:
-        conn.execute(
-            "INSERT INTO migration_audit "
-            "(migration_name, state, backup_path, failure_reason, "
-            " started_at, completed_at, description, "
-            " tables_declared, expected_deltas, pre_row_counts) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
-            (
-                entry.name,
-                state,
-                restore_point,
-                failure_reason,
-                started_at,
-                _now(),
-                "boot-converge apply from the ordered migration history",
-                json.dumps([]),
-                json.dumps({}),
-                json.dumps({}),
-            ),
-        )
-        conn.commit()
-    except Exception as exc:  # noqa: BLE001 — evidence is not worth failing a boot
-        conn.rollback()
-        # Loud, but not fatal. A receipt that silently fails to write leaves an
-        # apply with no record of which restore point covers it, and the first
-        # time anyone notices is while recovering from something else. Swallowing
-        # the failure is the right call for a boot; hiding it is not.
-        print(
-            f"WARNING: migration_audit receipt for {entry.name} "
-            f"({state}) was not recorded: {exc}",
-            file=sys.stderr,
         )
 
 

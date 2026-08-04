@@ -11,9 +11,9 @@ from yoke_core.domain.migration_boot_apply import (
     applied_names,
     apply_pending,
     pending_entries,
-    record_missing_receipts,
     stamp_history,
 )
+from yoke_core.domain.migration_receipts import now_stamp, record_missing_receipts
 from yoke_core.domain.migration_audit_schema import (
     ensure_applied_migrations_table,
     ensure_migration_audit_table,
@@ -48,6 +48,16 @@ def _history(tmp_path: Path, *names: str, failing: str | None = None):
             body += "    raise RuntimeError('entry failed')\n"
         (tmp_path / f"{name}.py").write_text(body)
     return ordered_entries(tmp_path)
+
+
+def _heal(conn: sqlite3.Connection, history) -> tuple[str, ...]:
+    return record_missing_receipts(
+        conn,
+        history,
+        applied=applied_names(conn),
+        stamp=now_stamp(),
+        restore_point=RESTORE_POINT,
+    )
 
 
 def _marks(conn: sqlite3.Connection) -> list[str]:
@@ -297,7 +307,7 @@ def test_missing_receipts_are_recorded_for_ledger_entries(tmp_path: Path) -> Non
     stamp_history(conn, history, applied_by="test")
     assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 0
 
-    healed = record_missing_receipts(conn, history, restore_point=RESTORE_POINT)
+    healed = _heal(conn, history)
 
     assert healed == ("0001_first", "0002_second")
     rows = conn.execute(
@@ -314,9 +324,9 @@ def test_recording_receipts_twice_adds_nothing(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first")
     stamp_history(conn, history, applied_by="test")
-    record_missing_receipts(conn, history, restore_point=RESTORE_POINT)
+    _heal(conn, history)
 
-    assert record_missing_receipts(conn, history, restore_point=RESTORE_POINT) == ()
+    assert _heal(conn, history) == ()
     assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 1
 
 
@@ -326,6 +336,4 @@ def test_unapplied_entries_get_no_receipt(tmp_path: Path) -> None:
     history = _history(tmp_path, "0001_first", "0002_second")
     stamp_history(conn, history[:1], applied_by="test")
 
-    assert record_missing_receipts(
-        conn, history, restore_point=RESTORE_POINT
-    ) == ("0001_first",)
+    assert _heal(conn, history) == ("0001_first",)

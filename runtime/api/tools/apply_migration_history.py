@@ -24,7 +24,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from yoke_core.domain import db_helpers, migration_boot_apply
+from yoke_core.domain import db_helpers, migration_boot_apply, migration_receipts
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
 from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
@@ -54,6 +54,15 @@ def main(argv: list[str] | None = None) -> int:
             "covering them. Applies nothing."
         ),
     )
+    parser.add_argument(
+        "--project-id",
+        type=int,
+        help="Attribute healed receipts to this project (evidence readers filter on it).",
+    )
+    parser.add_argument(
+        "--model-name",
+        help="Attribute healed receipts to this migration model.",
+    )
     args = parser.parse_args(argv)
 
     history = ordered_entries(history_dir(migration_history_package))
@@ -65,8 +74,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         ensure_applied_migrations_table(conn)
         if args.record_missing_receipts:
-            healed = migration_boot_apply.record_missing_receipts(
-                conn, history, restore_point=args.record_missing_receipts
+            healed = migration_receipts.record_missing_receipts(
+                conn,
+                history,
+                applied=migration_boot_apply.applied_names(conn),
+                stamp=migration_receipts.now_stamp(),
+                restore_point=args.record_missing_receipts,
+                project_id=args.project_id,
+                model_name=args.model_name,
             )
             print(f"recorded receipts: {list(healed)}")
             return 0
