@@ -25,6 +25,7 @@ class MergeArgs:
     """Parsed command-line arguments."""
 
     branch: str
+    source_sha: Optional[str] = None
     target: str = "main"
     epic_ref: Optional[str] = None
     item_id: Optional[int] = None

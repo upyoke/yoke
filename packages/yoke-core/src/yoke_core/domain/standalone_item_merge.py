@@ -19,8 +19,6 @@ standalone-item-merge.md``.
 
 from __future__ import annotations
 
-import io
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Sequence
@@ -29,6 +27,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
@@ -50,47 +49,6 @@ class StandaloneMergeOutcome:
     error: str = ""
     output: str = ""
     warnings: tuple[str, ...] = field(default=())
-
-
-def _run_merge_engine(
-    *,
-    item_id: int,
-    repo_root: str,
-    branch: str,
-    target: str,
-    local_merge: bool,
-) -> tuple[int, str]:
-    """Run the merge engine with the standalone permission, capturing output."""
-    from yoke_core.engines.merge_worktree import MergeArgs, run as merge_run
-
-    captured = io.StringIO()
-    saved_stdout = sys.stdout
-
-    class _Tee:
-        def write(self, text: str) -> int:
-            saved_stdout.write(text)
-            captured.write(text)
-            return len(text)
-
-        def flush(self) -> None:
-            saved_stdout.flush()
-
-    sys.stdout = _Tee()
-    try:
-        exit_code = merge_run(
-            MergeArgs(
-                branch=branch,
-                target=target,
-                item_id=item_id,
-                expected_repo_root=repo_root,
-                epic_ref=None,
-                local_merge=local_merge,
-                standalone=True,
-            )
-        )
-    finally:
-        sys.stdout = saved_stdout
-    return exit_code, captured.getvalue()
 
 
 def stamp_merged_at(item_id: int) -> Optional[str]:
@@ -210,6 +168,7 @@ def merge_standalone_branch(
     *,
     item_id: int,
     branch: str,
+    commit_sha: str = "",
     target: str,
     repo_root: str,
     project: str,
@@ -246,9 +205,15 @@ def merge_standalone_branch(
             recorded=recorded,
         )
 
-    commit_sha = git.git_out(repo_root, "rev-parse", branch)
-    observed = git.changed_files(repo_root, branch, target)
-    already = git.is_ancestor(repo_root, branch, target)
+    if not commit_sha:
+        return StandaloneMergeOutcome(
+            ok=False,
+            exit_code=1,
+            already_merged=False,
+            error=f"active lane for branch '{branch}' has no recorded HEAD",
+        )
+    observed = git.changed_files(repo_root, commit_sha, target)
+    already = git.is_ancestor(repo_root, commit_sha, target)
 
     output = ""
     warnings: list[str] = []
@@ -270,6 +235,7 @@ def merge_standalone_branch(
                 item_id=item_id,
                 repo_root=repo_root,
                 branch=branch,
+                source_sha=commit_sha,
                 target=target,
                 local_merge=local_merge,
             )

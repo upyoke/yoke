@@ -196,6 +196,19 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
             result = materialize_snapshot_payload(
                 conn, project_id=project_id, payload=snapshot,
             )
+            lane_head_recorded = False
+            if snapshot.ref == "HEAD" and payload.repo_root:
+                from yoke_core.domain.item_worktree_head import (
+                    record_head_for_checkout,
+                )
+
+                lane_head_recorded = record_head_for_checkout(
+                    conn,
+                    project_id=project_id,
+                    checkout_path=payload.repo_root,
+                    commit_sha=snapshot.commit_sha,
+                ) is not None
+                conn.commit()
             rows.append({
                 "status": result.status,
                 "snapshot_id": result.snapshot_id,
@@ -203,6 +216,7 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
                 "commit_sha": result.commit_sha,
                 "entry_count": result.entry_count,
                 "symlink_count": result.symlink_count,
+                "lane_head_recorded": lane_head_recorded,
             })
     return {
         "project_id": project_id,

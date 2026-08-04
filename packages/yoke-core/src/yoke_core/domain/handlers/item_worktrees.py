@@ -31,6 +31,7 @@ class ItemWorktreeLane(BaseModel):
     item_id: int
     branch: str
     path: Optional[str] = None
+    commit_sha: Optional[str] = None
     lane_role: str
     state: str
     created_at: Optional[str] = None

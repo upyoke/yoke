@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS item_worktrees (
   item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   branch TEXT NOT NULL,
   path TEXT,
+  commit_sha TEXT,
   lane_role TEXT NOT NULL
     CHECK(lane_role IN ('implementation','worker','integration')),
   state TEXT NOT NULL DEFAULT 'active'

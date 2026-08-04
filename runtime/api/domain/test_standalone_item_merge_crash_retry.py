@@ -103,9 +103,10 @@ def _land_and_clean_up(repo: Path) -> None:
 
 
 def _merge(repo: Path) -> sim.StandaloneMergeOutcome:
+    recorded = sim.git.git_out(str(repo), "rev-parse", BRANCH)
     return sim.merge_standalone_branch(
         item_id=ITEM_ID, branch=BRANCH, target=TARGET, repo_root=str(repo),
-        project="yoke",
+        project="yoke", commit_sha=recorded,
     )
 
 

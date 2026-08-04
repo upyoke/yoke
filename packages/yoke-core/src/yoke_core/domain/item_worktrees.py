@@ -58,7 +58,7 @@ def list_item_worktrees(
     marker = _placeholder(conn)
     state_clause = " AND state = 'active'" if active_only else ""
     cursor = conn.execute(
-        "SELECT id, item_id, branch, path, lane_role, state, "
+        "SELECT id, item_id, branch, path, commit_sha, lane_role, state, "
         "created_at, updated_at, released_at FROM item_worktrees "
         f"WHERE item_id = {marker}{state_clause} ORDER BY id",
         (int(item_id),),
