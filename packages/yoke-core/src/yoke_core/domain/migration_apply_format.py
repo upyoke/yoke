@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.migration_apply_contract import (
-    LiveApplyResult,
     RehearseResult,
 )
 
@@ -53,23 +52,4 @@ def format_rehearse(
     return "\n".join(lines)
 
 
-def format_live_apply(
-    result: LiveApplyResult,
-) -> str:
-    lines = [
-        f"live-apply {_subject(result.item_id)} model={result.model_name} "
-        f"authoritative_db={result.authoritative_db_path} "
-        f"lease_id={result.lease_id}",
-    ]
-    extra = ""
-    if extra is not None:
-        lines.append(extra)
-    for mod in result.modules:
-        lines.append(
-            f"  {mod.identifier}: state={mod.state}"
-            + (f" ERROR={mod.error}" if mod.error else "")
-        )
-    return "\n".join(lines)
-
-
-__all__ = ["format_live_apply", "format_rehearse"]
+__all__ = ["format_rehearse"]

@@ -86,19 +86,9 @@ class RehearseResult:
     validation_db_path: str
     source_fingerprint: Optional[str]
     rehearsed_at: Optional[str]
-    modules: List[ModuleAttemptResult] = field(default_factory=list)
-
-    @property
-    def all_succeeded(self) -> bool:
-        return all(m.succeeded for m in self.modules) and bool(self.modules)
-
-
-@dataclass
-class LiveApplyResult:
-    item_id: Optional[int]
-    model_name: str
-    authoritative_db_path: str
-    lease_id: Optional[int]
+    #: The migration-territory lease this rehearsal opened. A passing
+    #: rehearsal leaves it held; a failing one releases it.
+    lease_id: Optional[int] = None
     modules: List[ModuleAttemptResult] = field(default_factory=list)
 
     @property
@@ -156,7 +146,6 @@ __all__ = [
     "ModuleContractError",
     "ModuleAttemptResult",
     "RehearseResult",
-    "LiveApplyResult",
     "_now",
     "_safe_parse_json_dict",
 ]

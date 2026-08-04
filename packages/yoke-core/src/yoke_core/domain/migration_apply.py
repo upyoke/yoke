@@ -61,7 +61,6 @@ import argparse
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.coordination_leases import LeaseHeldError
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED, STATE_TEST_COPY_CREATED, STATE_TEST_APPLIED,
     STATE_TEST_VERIFIED, STATE_REHEARSED, STATE_BACKUP_CREATED,
@@ -71,13 +70,11 @@ from yoke_core.domain.migration_apply_contract import (
     MigrationApplyError, ProfileNotApplyError, CompatibilityClassError,
     RehearsalStaleError, RehearsalMissingError, ModuleResolutionError,
     ModuleContractError, ModuleAttemptResult,
-    RehearseResult, LiveApplyResult,
+    RehearseResult,
 )
 from yoke_core.domain.migration_apply_format import (
-    format_live_apply,
     format_rehearse,
 )
-from yoke_core.domain.migration_apply_live import live_apply
 from yoke_core.domain.migration_apply_rehearse import rehearse
 
 
@@ -135,24 +132,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             result = rehearse(item_id)
             print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
-        if args.command == "live-apply":
-            try:
-                assert item_id is not None
-                result = live_apply(item_id)
-            except RehearsalStaleError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except RehearsalMissingError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except CompatibilityClassError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except LeaseHeldError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 3
-            print(format_live_apply(result))
-            return 0 if result.all_succeeded else 1
     except MigrationApplyError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -167,7 +146,6 @@ __all__ = [
     "FAIL_TEST_VERIFY",
     "LEASE_KEY_PREFIX",
     "CompatibilityClassError",
-    "LiveApplyResult",
     "MigrationApplyError",
     "ModuleAttemptResult",
     "ModuleContractError",
@@ -185,7 +163,6 @@ __all__ = [
     "STATE_TEST_APPLIED",
     "STATE_TEST_COPY_CREATED",
     "STATE_TEST_VERIFIED",
-    "live_apply",
     "main",
     "rehearse",
 ]

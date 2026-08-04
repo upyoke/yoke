@@ -8,7 +8,7 @@ table at control-plane init. Project-configured recipes and runners let
 webapp projects declare their own authoritative DB; that webapp
 authoritative DB also needs `migration_audit` bootstrapped. This module is that
 bootstrap — called from `migration_apply_rehearse._rehearse_inner`
-and `migration_apply_live._live_apply_inner` after the audit
+after the audit
 connection opens, and reused by `create_governed_tables` so the DDL
 has one source of truth.
 """

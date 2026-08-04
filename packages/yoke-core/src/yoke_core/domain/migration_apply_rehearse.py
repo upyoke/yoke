@@ -24,11 +24,13 @@ from yoke_core.domain.migration_apply_targets import (
     fingerprint_db_target, resolve_authoritative_db_target,
     resolve_connection_env_var, resolve_validation_db_target,
 )
+from yoke_core.domain import migration_territory_lease
 from yoke_core.domain.migration_apply_contract import (
-    FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED, STATE_REHEARSED,
-    STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED, STATE_TEST_VERIFIED,
-    CompatibilityClassError, MigrationApplyError, ModuleAttemptResult,
-    ModuleContractError, ModuleResolutionError, RehearseResult, _now,
+    FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED,
+    STATE_REHEARSED, STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED,
+    STATE_TEST_VERIFIED, CompatibilityClassError, MigrationApplyError,
+    ModuleAttemptResult, ModuleContractError, ModuleResolutionError,
+    RehearseResult, _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
     _resolve_capability_settings,
@@ -96,6 +98,14 @@ def _rehearse_inner(
             f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
         )
 
+    # Held past this call on purpose -- see migration_territory_lease.
+    lease = migration_territory_lease.enter(
+        control_conn,
+        project=project,
+        model_name=profile["model_name"],
+        session_id=session_id,
+    )
+
     capability = _resolve_capability_settings(control_conn, project)
     try:
         model = resolve_model(capability, profile["model_name"])
@@ -129,6 +139,7 @@ def _rehearse_inner(
     rehearsal_commands = list(attestation.get("rehearsal_commands") or [])
 
     result = RehearseResult(
+        lease_id=lease.id,
         item_id=item_id,
         model_name=profile["model_name"],
         validation_db_path=validation_target.display,
@@ -315,5 +326,15 @@ def _rehearse_inner(
                 attempt.error = str(exc)
     finally:
         audit_conn.close()
+
+    # A rehearsal that failed never entered migration territory, so it must
+    # not leave the door locked behind it. A rehearsal that PASSED keeps the
+    # lease: the item now owns this model until it lands or an operator
+    # releases it (`yoke leases operator-release`), which is what makes the
+    # lease a visible signal rather than a momentary mutex.
+    if not result.all_succeeded:
+        result.lease_id = migration_territory_lease.leave(
+            control_conn, lease.id, "rehearsal-failed"
+        ).id
 
     return result
