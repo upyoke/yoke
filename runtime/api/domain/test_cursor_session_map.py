@@ -16,15 +16,25 @@ import pytest
 from yoke_contracts import session_identity
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
+    CURSOR_TRANSCRIPT_ENV_VAR,
+    container_session_id_from_evidence,
     prune_stale_conversation_sessions,
     record_conversation_session,
     resolve_mapped_session_id,
+    transcript_session_id,
 )
 from yoke_contracts.process_ancestry import ProcessAnchor
 
 
 CONTAINER = "11111111-2222-3333-4444-555555555555"
 SUBAGENT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+TOP_TRANSCRIPT = (
+    f"/home/u/.cursor/projects/p/agent-transcripts/{CONTAINER}/{CONTAINER}.jsonl"
+)
+SUB_TRANSCRIPT = (
+    f"/home/u/.cursor/projects/p/agent-transcripts/"
+    f"{CONTAINER}/subagents/{SUBAGENT}.jsonl"
+)
 
 
 @pytest.fixture()
@@ -34,6 +44,34 @@ def map_dir(tmp_path):
 
 def _env(conversation_id: str) -> dict:
     return {CURSOR_CONVERSATION_ENV_VAR: conversation_id}
+
+
+class TestTranscriptSessionId:
+    def test_top_level_transcript_stem_is_the_container(self):
+        assert transcript_session_id(TOP_TRANSCRIPT) == CONTAINER
+
+    def test_nested_subagent_transcript_resolves_to_parent(self):
+        assert transcript_session_id(SUB_TRANSCRIPT) == CONTAINER
+
+    def test_malformed_subagents_path_refuses_rather_than_guessing(self):
+        assert transcript_session_id(f"/tmp/subagents/{SUBAGENT}.jsonl") == ""
+
+    def test_empty_path_is_empty(self):
+        assert transcript_session_id("") == ""
+
+
+class TestContainerEvidenceFromNestedTranscript:
+    def test_env_nested_transcript_wins(self, monkeypatch):
+        monkeypatch.setenv(CURSOR_TRANSCRIPT_ENV_VAR, SUB_TRANSCRIPT)
+        assert container_session_id_from_evidence(
+            {"session_id": SUBAGENT},
+        ) == CONTAINER
+
+    def test_payload_nested_transcript_wins_without_env(self, monkeypatch):
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        assert container_session_id_from_evidence(
+            {"session_id": SUBAGENT, "transcript_path": SUB_TRANSCRIPT},
+        ) == CONTAINER
 
 
 class TestRecordAndResolve:

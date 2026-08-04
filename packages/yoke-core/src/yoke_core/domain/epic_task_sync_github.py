@@ -133,7 +133,7 @@ def _validate_issue_in_repo(
         ).repo
     except ProjectGithubAuthError as exc:
         print(
-            f"Error: GitHub auth failed for YOK-{item_ref}: {exc}. Mutation skipped.",
+            f"Error: GitHub auth failed for {item_ref}: {exc}. Mutation skipped.",
             file=stderr,
         )
         return False
@@ -146,21 +146,21 @@ def _validate_issue_in_repo(
         )
     except github_rest.RateLimitedError as exc:
         print(
-            f"Error: rate-limited probing issue #{issue_num} for YOK-{item_ref} "
+            f"Error: rate-limited probing issue #{issue_num} for {item_ref} "
             f"in {repo}: {exc}. Mutation skipped; retry after the rate-limit window resets.",
             file=stderr,
         )
         return False
     except github_rest.RestAuthError as exc:
         print(
-            f"Error: permission denied probing issue #{issue_num} for YOK-{item_ref} "
+            f"Error: permission denied probing issue #{issue_num} for {item_ref} "
             f"in {repo}: {exc}. GitHub App access lacks permission for this repo.",
             file=stderr,
         )
         return False
     except github_rest.RestTransportError as exc:
         print(
-            f"Error: transport failure probing issue #{issue_num} for YOK-{item_ref} "
+            f"Error: transport failure probing issue #{issue_num} for {item_ref} "
             f"in {repo}: {exc}. Mutation skipped.",
             file=stderr,
         )
@@ -181,7 +181,7 @@ def _validate_issue_in_repo(
             default_issue = None
         if default_issue is not None:
             print(
-                f"Error: Repo mismatch for YOK-{item_ref} — issue #{issue_num} exists in the "
+                f"Error: Repo mismatch for {item_ref} — issue #{issue_num} exists in the "
                 f"default repo but NOT in {repo}",
                 file=stderr,
             )
@@ -200,7 +200,7 @@ def _validate_issue_in_repo(
             return False
 
     print(
-        f"Error: Issue #{issue_num} for YOK-{item_ref} not found in {repo} or the default repo",
+        f"Error: Issue #{issue_num} for {item_ref} not found in {repo} or the default repo",
         file=stderr,
     )
     return False

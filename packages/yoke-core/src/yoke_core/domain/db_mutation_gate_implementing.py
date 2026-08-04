@@ -74,7 +74,12 @@ def check_implementing_to_reviewing_implementation_gate(
     def _evaluate(c: Any) -> GateOutcome:
         item = _load_item_row(c, item_id)
         if item is None:
-            return GateOutcome(passed=False, errors=[f"Item YOK-{item_id} not found"])
+            from yoke_core.domain.project_identity import render_item_ref
+
+            return GateOutcome(
+                passed=False,
+                errors=[f"Item {render_item_ref(c, item_id)} not found"],
+            )
 
         parsed = _safe_parse_dict(item.get("db_mutation_profile"))
         try:

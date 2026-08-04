@@ -42,8 +42,11 @@ def _emit_non_critical_advisory(body_text: str) -> None:
 def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
     """Authoritative integration simulation gate for epic items."""
     if os.environ.get("YOKE_SKIP_SIMULATION") == "1":
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         print(
-            f"WARNING: Integration simulation gate bypassed via YOKE_SKIP_SIMULATION for YOK-{epic_id}",
+            "WARNING: Integration simulation gate bypassed via YOKE_SKIP_SIMULATION "
+            f"for {item_ref_for_id(int(epic_id))}",
             file=sys.stderr,
         )
         return GateResult(passed=True)

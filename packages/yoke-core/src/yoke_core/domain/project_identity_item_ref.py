@@ -115,7 +115,41 @@ def resolve_cli_item_ref(
     return None
 
 
+def item_ref_for_id(item_id: int) -> str:
+    """Render ``PREFIX-N`` for an internal id, opening a control-plane read.
+
+    For server-side callers that address an item by ``items.id`` and hold no
+    connection of their own (function-call handlers, for instance). Callers
+    that already have a connection use
+    :func:`yoke_core.domain.project_identity.render_item_ref` directly rather
+    than paying for a second one.
+
+    Never raises: many call sites are warning/dry-run notices that must survive
+    an unreachable control plane, so an unopenable connection degrades to the
+    default-prefix form the renderer itself falls back to.
+    """
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.project_identity import (
+        DEFAULT_PUBLIC_ITEM_PREFIX,
+        render_item_ref,
+    )
+
+    try:
+        from yoke_contracts.control_plane_locality import (
+            RemoteControlPlaneConnectionError,
+        )
+
+        with db_helpers.connect() as conn:
+            return render_item_ref(conn, int(item_id))
+    except RemoteControlPlaneConnectionError:
+        # Outside Exception on purpose — https authority has no local DB.
+        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+    except Exception:
+        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+
+
 __all__ = [
     "AmbiguousItemProjectContext",
+    "item_ref_for_id",
     "resolve_cli_item_ref",
 ]

@@ -69,12 +69,13 @@ def _write_cache(path: Path, payload: Dict[str, Any]) -> None:
 
 
 def _latest_activity_row_id(db: Any, scope: str) -> int:
-    pf = project_filter(scope, "a")
+    pf, params = project_filter(scope, "a")
     rows = db.query_quiet(
         "SELECT a.id FROM item_activity_days a "
         "WHERE 1=1 "
         f"{pf} "
-        "ORDER BY a.id DESC LIMIT 1"
+        "ORDER BY a.id DESC LIMIT 1",
+        params,
     )
     if not rows:
         return 0
@@ -85,7 +86,7 @@ def _latest_activity_row_id(db: Any, scope: str) -> int:
 
 
 def _query_activity_day_counts(db: Any, scope: str) -> Dict[str, int]:
-    pf = project_filter(scope, "a")
+    pf, params = project_filter(scope, "a")
     sql = (
         "SELECT a.day AS day,"
         "       COUNT(DISTINCT a.item_id) AS cnt "
@@ -94,7 +95,7 @@ def _query_activity_day_counts(db: Any, scope: str) -> Dict[str, int]:
         f"  {pf}"
         " GROUP BY a.day ORDER BY a.day"
     )
-    rows = db.query_quiet(sql)
+    rows = db.query_quiet(sql, params)
     counts: Dict[str, int] = {}
     for row in rows:
         if row[0]:

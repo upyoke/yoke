@@ -99,11 +99,14 @@ def settlement_errors(
     target_status: str,
 ) -> list[str]:
     """Explain why the requested terminal transition cannot yet proceed."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     records = find_unsettled_records(conn, item_id=item_id)
     if not records:
         return []
     errors = [
-        f"Error: Cannot transition YOK-{item_id} to {target_status!r} -- "
+        f"Error: Cannot transition {render_item_ref(conn, item_id)} "
+        f"to {target_status!r} -- "
         f"{len(records)} QA record(s) are unsettled.",
         "  Terminal QA records are immutable; finish or abort the execution, "
         "record a verdict, or waive the requirement while its item claim is held.",

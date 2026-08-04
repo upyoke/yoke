@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity import render_item_ref
+
 import argparse
 import json
 import sys
@@ -47,12 +49,13 @@ def _cmd_register_new(args: argparse.Namespace) -> int:
             horizon_days=args.horizon_days,
             now_iso=args.now,
         )
+        new_refs = [render_item_ref(conn, int(i)) for i in new_ids]
     if args.json:
         json.dump({"project": args.project, "new_ids": new_ids}, sys.stdout)
         sys.stdout.write("\n")
     else:
-        for item_id in new_ids:
-            sys.stdout.write(f"YOK-{item_id}\n")
+        for item_ref in new_refs:
+            sys.stdout.write(f"{item_ref}\n")
     return 0
 
 

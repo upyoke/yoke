@@ -52,43 +52,39 @@ def scoped_project_visibility(project_ids: Any):
         _VISIBLE_PROJECT_IDS.reset(token)
 
 
-def _ids_sql() -> str:
+def _visible_ids_filter(
+    column: str,
+    *,
+    prefix: str = "AND",
+) -> Tuple[str, tuple[Any, ...]]:
     ids = visible_project_ids()
     if ids is None:
-        return ""
+        return "", ()
     if not ids:
-        return "1=0"
-    return ", ".join(str(project_id) for project_id in ids)
+        return f" {prefix} 1=0", ()
+    markers = ", ".join("%s" for _ in ids)
+    return f" {prefix} {column} IN ({markers})", ids
 
 
-def project_id_filter(alias: str = "", *, prefix: str = "AND") -> str:
-    """Return a visibility clause for a ``projects`` table alias."""
-    ids_sql = _ids_sql()
-    if not ids_sql:
-        return ""
-    col = _column(alias, "id")
-    condition = "1=0" if ids_sql == "1=0" else f"{col} IN ({ids_sql})"
-    return f" {prefix} {condition}"
+def project_id_filter(
+    alias: str = "", *, prefix: str = "AND"
+) -> Tuple[str, tuple[Any, ...]]:
+    """Return a parameterized visibility clause for a projects-table alias."""
+    return _visible_ids_filter(_column(alias, "id"), prefix=prefix)
 
 
-def project_filter(scope: str, alias: str = "") -> str:
+def project_filter(scope: str, alias: str = "") -> Tuple[str, tuple[Any, ...]]:
+    """Return a parameterized project-scope clause and its values."""
     if scope == "all":
-        ids_sql = _ids_sql()
-        if not ids_sql:
-            return ""
-        col = _column(alias, "project_id")
-        if ids_sql == "1=0":
-            return " AND 1=0"
-        return f" AND {col} IN ({ids_sql})"
+        return _visible_ids_filter(_column(alias, "project_id"))
     col = _column(alias, "project_id")
     if str(scope).isdigit():
-        return f" AND {col} = {int(scope)}"
-    escaped = str(scope).replace("'", "''")
-    ids_sql = _ids_sql()
-    visible = "" if not ids_sql else (
-        " AND 1=0" if ids_sql == "1=0" else f" AND id IN ({ids_sql})"
+        return f" AND {col} = %s", (int(scope),)
+    visible_sql, visible_params = _visible_ids_filter("id")
+    return (
+        f" AND {col} = (SELECT id FROM projects WHERE slug = %s{visible_sql})",
+        (str(scope), *visible_params),
     )
-    return f" AND {col} = (SELECT id FROM projects WHERE slug = '{escaped}'{visible})"
 
 
 def project_ref_where(scope: str) -> Tuple[str, tuple[Any, ...]]:

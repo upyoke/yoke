@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.runtime_settings import get_int
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -87,13 +88,14 @@ def hc_work_claim_status_mismatch(
 
         age_text = f"{age:.1f}m" if age is not None else "unknown"
         ended_clause = " ended" if row["session_ended_at"] else ""
+        item_ref = render_item_ref(conn, int(row["item_id"]))
         recovery = (
-            f"/yoke usher YOK-{int(row['item_id'])}"
+            f"/yoke usher {item_ref}"
             if status == "release"
             else "inspect/release the stale draft claim"
         )
         findings.append(
-            f"  - YOK-{int(row['item_id'])} status={status} "
+            f"  - {item_ref} status={status} "
             f"holder={row['session_id']} mode={mode or '<none>'}{ended_clause} "
             f"heartbeat_age={age_text} claim_id={int(row['claim_id'])} "
             f"recovery: {recovery}"

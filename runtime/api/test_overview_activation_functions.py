@@ -192,22 +192,32 @@ def test_harness_targets_hit_from_executor_and_surface_values(test_db):
     _seed_session(
         test_db, "s-cdx", executor="codex", display="codex-desktop",
     )
+    _seed_session(
+        test_db, "s-cur", executor="cursor", display="cursor-desktop",
+    )
     harness = _modules_by_key(_get())["connect_harness"]
     hits = {t["key"]: t["hit"] for t in harness["targets"]}
     assert hits == {
         "claude-code": True,
         "codex": True,
+        "cursor": True,
         "claude-cli": True,
         # No bare codex session: the desktop surface alone lights the family.
         "codex-cli": False,
+        # Cursor lights CLI/IDE from display aliases, not bare sessions.
+        "cursor-cli": False,
         "claude-vscode": True,
+        "cursor-desktop": True,
     }
     labels = [t["label"] for t in harness["targets"]]
     assert labels == [
-        "Claude Code", "Codex", "Claude CLI", "Codex CLI",
-        "Claude in VS Code",
+        "Claude Code", "Codex", "Cursor",
+        "Claude CLI", "Codex CLI", "Cursor CLI",
+        "Claude in VS Code", "Cursor IDE",
     ]
-    assert harness["connected"]["executor"] in {"claude-code", "codex"}
+    assert harness["connected"]["executor"] in {
+        "claude-code", "codex", "cursor",
+    }
     assert harness["connected"]["at"]
 
 

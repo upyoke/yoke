@@ -168,11 +168,13 @@ def handle_prd_validate(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain import prd_validate
 
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
     stderr = io.StringIO()
     try:
         with redirect_stderr(stderr):
             prd_body, item_label = prd_validate.resolve_body(
-                f"YOK-{item_id}",
+                item_ref_for_id(int(item_id)),
                 None,
             )
     except SystemExit as exc:

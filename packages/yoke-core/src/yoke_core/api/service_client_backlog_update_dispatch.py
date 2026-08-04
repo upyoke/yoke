@@ -18,6 +18,7 @@ from __future__ import annotations
 import io
 
 from yoke_core.api.service_client_shared import _emit_backlog_result
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _dispatch_structured_field_replace(
@@ -70,7 +71,7 @@ def _dispatch_structured_field_replace(
                 break
         if sync_warning:
             legacy["sync_warning"] = sync_warning
-        captured.write(f"Structured write complete: YOK-{item_id} {field}\n")
+        captured.write(f"Structured write complete: {item_ref_for_id(item_id)} {field}\n")
         return _emit_backlog_result(legacy, log=captured.getvalue())
 
     err_msg = (

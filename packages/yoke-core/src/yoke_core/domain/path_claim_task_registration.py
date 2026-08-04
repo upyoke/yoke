@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity import render_item_ref
+
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
@@ -58,7 +60,8 @@ def _item_project_id(conn: Any, item_id: int) -> int:
     ).fetchone()
     if row is None or row[0] is None:
         raise PathClaimTaskBindingError(
-            f"item YOK-{item_id} has no project for path registration"
+            f"item {render_item_ref(conn, int(item_id))} has no project "
+            "for path registration"
         )
     return int(row[0])
 
