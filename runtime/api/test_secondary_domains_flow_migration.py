@@ -1,7 +1,6 @@
 """Tests for project-owned flow initialization and migration stages."""
 from __future__ import annotations
 
-import pytest
 
 from yoke_core.domain.schema_common import _get_columns
 
@@ -124,94 +123,7 @@ class TestFlowInitializationOwnership:
         )
 
 
-class TestFlowMigrationCapabilityValidation:
-    def test_cmd_create_rejects_undeclared_model_reference(self, test_db):
-        # Flow-save validator rejects model_name that does
-        # not resolve to a declared migration_model.
-        import json
-        from yoke_core.domain.flow import cmd_create
-        _insert_projects(test_db)
-        _seed_yoke_capability(test_db, models=("primary",))
-        stages = json.dumps([
-            {"kind": "migration_apply", "model_name": "ghost",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        with pytest.raises(ValueError, match="undeclared model"):
-            cmd_create(test_db, "f-undeclared", "yoke", "F", "D", stages)
-
-    def test_cmd_create_rejects_migration_apply_when_no_capability(self, test_db):
-        # A project with no migration_model capability must
-        # reject migration_apply stages entirely.
-        import json
-        from yoke_core.domain.flow import cmd_create
-        _insert_projects(test_db)
-        # Do not seed capability on purpose.
-        stages = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        with pytest.raises(ValueError, match="no migration_model capability"):
-            cmd_create(test_db, "f-nocapability", "yoke", "F", "D", stages)
-
-    def test_cmd_create_rejects_within_flow_duplicate_model(self, test_db):
-        # Within-flow exclusivity — two migration_apply
-        # stages for the same model in a single flow is rejected.
-        import json
-        from yoke_core.domain.flow import cmd_create
-        _insert_projects(test_db)
-        _seed_yoke_capability(test_db, models=("primary",))
-        stages = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        with pytest.raises(ValueError, match="more than once in the same flow"):
-            cmd_create(test_db, "f-dup-within", "yoke", "F", "D", stages)
-
-    def test_cmd_create_allows_alternative_flows_for_same_model(self, test_db):
-        # Release and hotfix flows are alternatives. Each may carry the same
-        # governed model gate because a deployment run selects one flow.
-        import json
-        from yoke_core.domain.flow import cmd_create
-        _insert_projects(test_db)
-        _seed_yoke_capability(test_db, models=("primary",))
-        stages_a = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        cmd_create(test_db, "f-a", "yoke", "A", "D", stages_a)
-        stages_b = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        cmd_create(test_db, "f-b", "yoke", "B", "D", stages_b)
-
-    def test_cmd_create_allows_distinct_models_across_flows(self, test_db):
-        # Complement case — different models in different flows of the
-        # same project are permitted.
-        import json
-        from yoke_core.domain.flow import cmd_create
-        _insert_projects(test_db)
-        _seed_yoke_capability(test_db, models=("primary", "secondary"))
-        stages_a = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        cmd_create(test_db, "f-p", "yoke", "P", "D", stages_a)
-        stages_b = json.dumps([
-            {"kind": "migration_apply", "model_name": "secondary",
-             "lifecycle_phase": "implementing"},
-            {"name": "merged", "step_runner": "auto"},
-        ])
-        cmd_create(test_db, "f-s", "yoke", "S", "D", stages_b)
-
+class TestMigrationModelCapabilityShape:
     def test_governed_postgres_migration_model_seed_shape(self):
         # The generic migration-model builder validates and preserves the
         # caller-supplied Postgres authority.

@@ -121,8 +121,6 @@ def regression_db(tmp_db: str, tmp_path: Path):
         # drives implementing -> reviewing-implementation, having the flow
         # stage in place keeps the migration_model bootstrap honest.
         stages_json = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
             {"name": "merged", "step_runner": "auto"},
         ])
         conn.execute(

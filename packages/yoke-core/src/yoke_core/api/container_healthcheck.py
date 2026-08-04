@@ -88,6 +88,19 @@ def check_health(
         raise RuntimeError(
             "health endpoint did not report schema_ready=true" + detail
         )
+    # A container whose database has every table but has not run the changes
+    # its code requires is exactly as broken as one missing a table, and much
+    # harder to notice — so it fails the gate the same way.
+    if payload.get("migrations_current") is not True:
+        pending = payload.get("pending_migrations")
+        detail = (
+            f" pending_migrations={pending!r}"
+            if isinstance(pending, list) and pending
+            else ""
+        )
+        raise RuntimeError(
+            "health endpoint did not report migrations_current=true" + detail
+        )
     return url
 
 

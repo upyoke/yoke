@@ -47,12 +47,6 @@ def test_active_discovered_events_have_authoritative_metadata() -> None:
             "yoke_core.domain.sessions_lifecycle_resumption_emit",
             "INFO",
         ),
-        "MigrationModuleRetired": (
-            "lifecycle",
-            "migration_apply",
-            "yoke_core.domain.migration_auto_retire",
-            "INFO",
-        ),
         "OuroborosFieldNoteAppended": (
             "domain",
             "ouroboros_feedback",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import List, Tuple
 
 from fastapi.routing import APIRouter
@@ -11,10 +12,14 @@ from fastapi.routing import APIRouter
 import yoke_core.api.main as _main
 from yoke_contracts.api_urls import API_VERSION_PREFIX
 from yoke_contracts.engine_version import advertised_engine_version
+from yoke_core.domain import runtime_settings
 from yoke_core.domain.github_app_public_runtime import (
     current_github_app_public_advertisement,
 )
-from yoke_core.domain.schema_readiness import missing_readiness_tables
+from yoke_core.domain.schema_readiness import (
+    missing_readiness_tables,
+    pending_migration_names,
+)
 
 router = APIRouter()
 
@@ -38,7 +43,7 @@ def health() -> _main.HealthResponse:
     an uninitialized DB answers 200 here while its data routes fail,
     so deploy gates assert this field rather than liveness alone.
     """
-    schema_ready, missing = _schema_readiness_snapshot()
+    schema_ready, missing, pending = _health_snapshot()
     build = os.environ.get("YOKE_BUILD_SHA", "")
     return _main.HealthResponse(
         status="ok",
@@ -47,6 +52,8 @@ def health() -> _main.HealthResponse:
         build=build,
         schema_ready=schema_ready,
         schema_missing_tables=missing,
+        migrations_current=not pending,
+        pending_migrations=pending,
         github_app=current_github_app_public_advertisement(),
     )
 
@@ -62,28 +69,87 @@ def health() -> _main.HealthResponse:
 _schema_confirmed_ready = False
 
 
+#: Machine-config key bounding how stale the migration answer may be.
+MIGRATIONS_PROBE_TTL_KEY = "health_migrations_probe_ttl_seconds"
+MIGRATIONS_PROBE_TTL_DEFAULT = 30
+
+#: Last migration probe: ``(monotonic_deadline, pending_names)``.
+#:
+#: Deliberately a TTL rather than the positive latch above. That latch is
+#: justified by "a schema surface cannot lose tables under a running process",
+#: which is true of additive convergence and false of a ledger: a restore to an
+#: earlier snapshot, a replica failover, or a repointed DSN all move it
+#: backwards, and a latched ``True`` would then report a state the database
+#: left. Bounding staleness instead keeps the connection cost that motivated
+#: the latch — one probe per window, not one per liveness poll — without
+#: promising something the underlying fact cannot keep.
+_migrations_probe: Tuple[float, List[str]] = (0.0, [])
+
+
 def reset_schema_readiness_cache() -> None:
-    """Forget the remembered probe result so the next call probes again."""
-    global _schema_confirmed_ready
+    """Forget the remembered probe results so the next call probes again."""
+    global _schema_confirmed_ready, _migrations_probe
     _schema_confirmed_ready = False
+    _migrations_probe = (0.0, [])
 
 
-def _schema_readiness_snapshot() -> Tuple[bool, List[str]]:
-    """Probe the readiness table set; an unreachable DB is not ready."""
-    global _schema_confirmed_ready
-    if _schema_confirmed_ready:
-        return True, []
+def _health_snapshot() -> Tuple[bool, List[str], List[str]]:
+    """Return ``(schema_ready, missing_tables, pending_migrations)``.
+
+    ONE connection answers both questions. Container liveness polls this route
+    on a short interval, and every connection resets a serverless database's
+    idle-pause timer, so opening a second one per probe would defeat the reason
+    the readiness latch exists in the first place.
+
+    The two answers cache differently because the underlying facts differ. A
+    schema surface cannot lose tables under a running process, so a positive
+    readiness answer is latched for the process lifetime. A ledger CAN move
+    backwards — a restore to an earlier snapshot, a replica failover, a
+    repointed DSN — so the migration answer is only bounded-stale, never
+    latched. Negative answers are never cached either way: a process that
+    starts ahead of its schema must keep probing until it converges.
+    """
+    global _schema_confirmed_ready, _migrations_probe
+
+    now = time.monotonic()
+    deadline, cached_pending = _migrations_probe
+    migrations_fresh = now < deadline
+    if _schema_confirmed_ready and migrations_fresh:
+        return True, [], cached_pending
+
     try:
         conn = _main.get_db_readonly()
-        try:
-            missing = missing_readiness_tables(conn)
-        finally:
-            conn.close()
     except Exception:
-        return False, []
-    if not missing:
-        _schema_confirmed_ready = True
-    return not missing, missing
+        return (
+            (True, [], cached_pending)
+            if _schema_confirmed_ready
+            else (False, [], cached_pending)
+        )
+    try:
+        if _schema_confirmed_ready:
+            ready, missing = True, []
+        else:
+            missing = missing_readiness_tables(conn)
+            ready = not missing
+            if ready:
+                _schema_confirmed_ready = True
+        if migrations_fresh:
+            pending = cached_pending
+        else:
+            pending = pending_migration_names(conn)
+            ttl = runtime_settings.get_seconds(
+                MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT
+            )
+            _migrations_probe = (now + ttl, pending)
+    except Exception:
+        return (
+            (True, [], cached_pending)
+            if _schema_confirmed_ready
+            else (False, [], cached_pending)
+        )
+    finally:
+        conn.close()
+    return ready, missing, pending
 
 
 __all__ = ["reset_schema_readiness_cache", "router"]

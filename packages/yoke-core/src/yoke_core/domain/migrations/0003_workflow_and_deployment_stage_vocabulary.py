@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
 from yoke_core.domain.flow_validation import validate_stages
-from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_definition_codec import (
+    canonical_definition_json,
+    definition_digest,
+)
 from yoke_core.domain.workflow_schema import (
     WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER,
     _ensure_immutable_version_triggers,
 )
 
 
-MIGRATION_NAME = "workflow_and_deployment_stage_vocabulary"
 WORKFLOW_SCHEMA_VERSION = 3
 
 
@@ -83,11 +86,31 @@ def _rewrite_workflow(definition: dict[str, Any]) -> dict[str, Any]:
     schema_version = rewritten.get("schema_version")
     if schema_version == 2:
         rewritten["schema_version"] = WORKFLOW_SCHEMA_VERSION
-    elif schema_version not in {1, WORKFLOW_SCHEMA_VERSION}:
+    elif not _schema_version_at_or_past_this_entry(schema_version):
         raise AssertionError(
             f"workflow definition has unsupported schema version {schema_version!r}"
         )
     return rewritten
+
+
+def _schema_version_at_or_past_this_entry(schema_version: object) -> bool:
+    """Whether a definition is already at or beyond what this entry produces.
+
+    A permanent history entry outlives the shape it was written against. This
+    one moved definitions from version 2 to 3; the codec has since gone past 3,
+    and every later version already satisfies what this entry exists to
+    establish. Treating "newer than my target" as an error would make an entry
+    that ran cleanly a year ago start failing boots the moment the schema moved
+    on — the entry has not become wrong, it has become finished.
+
+    Version 1 predates the versioned definition entirely and is left alone
+    exactly as it was before.
+    """
+    return schema_version == 1 or (
+        isinstance(schema_version, int)
+        and not isinstance(schema_version, bool)
+        and schema_version >= WORKFLOW_SCHEMA_VERSION
+    )
 
 
 def _rewrite_stages(stages: list[Any]) -> list[Any]:
@@ -129,39 +152,62 @@ def _allow_workflow_version_rewrite(conn: Any, *, allowed: bool) -> None:
 
 
 def apply(conn: Any) -> None:
-    """Rewrite storage keys without changing stage behavior or row identity."""
+    """Rewrite storage keys without changing stage behavior or row identity.
+
+    Writes only rows that actually change. That is not an optimization: these
+    rows are published immutable definitions, and this entry has to disable
+    their immutability trigger to touch any of them. Rewriting a row that
+    already carries the new vocabulary would re-serialize it and recompute its
+    digest for no reason — and a published definition whose digest no longer
+    matches the code-owned one is a startup abort, not a cosmetic difference.
+    An entry that is already done must therefore write nothing at all.
+    """
     marker = _marker(conn)
-    _allow_workflow_version_rewrite(conn, allowed=True)
-    try:
-        workflow_rows = conn.execute(
-            "SELECT id, definition_json, definition_schema_version "
-            "FROM workflow_versions ORDER BY id"
-        ).fetchall()
-        for row in workflow_rows:
-            definition = _rewrite_workflow(
-                _object(row[1], subject=f"workflow version {row[0]}")
-            )
-            conn.execute(
-                "UPDATE workflow_versions SET definition_json="
-                f"{marker}, definition_digest={marker}, "
-                f"definition_schema_version={marker} WHERE id={marker}",
-                (
-                    json_helper.dumps_compact(definition),
-                    definition_digest(definition),
-                    definition["schema_version"],
-                    row[0],
-                ),
-            )
-    finally:
-        _allow_workflow_version_rewrite(conn, allowed=False)
+    workflow_rows = conn.execute(
+        "SELECT id, definition_json, definition_schema_version "
+        "FROM workflow_versions ORDER BY id"
+    ).fetchall()
+    rewrites = []
+    for row in workflow_rows:
+        original = _object(row[1], subject=f"workflow version {row[0]}")
+        # Deep copy: _rewrite_workflow edits stage descriptions in place, so a
+        # shallow copy would mutate the baseline it is compared against and
+        # every row would look unchanged.
+        definition = _rewrite_workflow(copy.deepcopy(original))
+        if definition != original:
+            rewrites.append((row[0], definition))
+
+    if rewrites:
+        _allow_workflow_version_rewrite(conn, allowed=True)
+        try:
+            for row_id, definition in rewrites:
+                conn.execute(
+                    "UPDATE workflow_versions SET definition_json="
+                    f"{marker}, definition_digest={marker}, "
+                    f"definition_schema_version={marker} WHERE id={marker}",
+                    (
+                        # The canonical form the registry's own writer uses --
+                        # sorted keys, non-ASCII left literal. Serializing a
+                        # digest-guarded row any other way stores bytes no
+                        # other writer would produce, and that drift is
+                        # indistinguishable from corruption to a reader.
+                        canonical_definition_json(definition),
+                        definition_digest(definition),
+                        definition["schema_version"],
+                        row_id,
+                    ),
+                )
+        finally:
+            _allow_workflow_version_rewrite(conn, allowed=False)
 
     flow_rows = conn.execute(
         "SELECT id, stages FROM deployment_flows ORDER BY id"
     ).fetchall()
     for row in flow_rows:
-        stages = _rewrite_stages(
-            _array(row[1], subject=f"deployment flow {row[0]}")
-        )
+        original = _array(row[1], subject=f"deployment flow {row[0]}")
+        stages = _rewrite_stages(copy.deepcopy(original))
+        if stages == original:
+            continue
         conn.execute(
             f"UPDATE deployment_flows SET stages={marker} WHERE id={marker}",
             (json_helper.dumps_compact(stages), row[0]),
@@ -175,7 +221,9 @@ def invariants(conn: Any) -> None:
         "FROM workflow_versions ORDER BY id"
     ).fetchall():
         definition = _object(row[2], subject=f"workflow version {row[0]}")
-        if definition.get("schema_version") not in {1, WORKFLOW_SCHEMA_VERSION}:
+        if not _schema_version_at_or_past_this_entry(
+            definition.get("schema_version")
+        ):
             raise AssertionError(
                 f"workflow version {row[0]} has stale schema version"
             )
@@ -216,4 +264,4 @@ def invariants(conn: Any) -> None:
                 )
 
 
-__all__ = ["MIGRATION_NAME", "apply", "invariants"]
+__all__ = ["apply", "invariants"]

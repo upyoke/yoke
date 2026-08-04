@@ -23,9 +23,6 @@ from yoke_core.domain.deployment_flow_declaration_schema import (
     empty_declaration_text,
     normalize_document,
 )
-from yoke_core.domain.flow_cross_reference import (
-    _validate_flow_stages_cross_reference,
-)
 from yoke_core.domain.project_identity import resolve_project
 from yoke_contracts.project_contract.deployment_flows import (
     DECLARATION_RELATIVE_PATH,
@@ -59,11 +56,6 @@ def reconcile_project_flows(
     normalized = normalize_document(document)
     ident = resolve_project(conn, project)
     assert ident is not None
-
-    for flow in normalized.flows:
-        _validate_flow_stages_cross_reference(
-            conn, ident.id, flow.stages, flow_id=flow.id,
-        )
 
     created: list[str] = []
     updated: list[str] = []

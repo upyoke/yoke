@@ -105,7 +105,9 @@ def test_container_healthcheck_accepts_ok_response() -> None:
 
     def opener(url: str, timeout: float) -> _Response:
         urls.append((url, timeout))
-        return _Response({"status": "ok", "schema_ready": True})
+        return _Response(
+            {"status": "ok", "schema_ready": True, "migrations_current": True}
+        )
 
     settings = container_healthcheck.HealthcheckSettings(
         host="localhost",

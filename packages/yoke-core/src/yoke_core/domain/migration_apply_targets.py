@@ -216,7 +216,19 @@ def _resolve_external_postgres_validation(
 def _create_postgres_dump_backup(
     target: DbTarget, reason: str, worktree_path: Path
 ) -> str:
-    backup_dir = Path(worktree_path) / ".yoke" / "backups"
+    return dump_postgres_to_directory(
+        target.target, reason, Path(worktree_path) / ".yoke" / "backups"
+    )
+
+
+def dump_postgres_to_directory(dsn: str, reason: str, backup_dir: Path) -> str:
+    """Write a ``pg_dump`` restore point into *backup_dir*; return its path.
+
+    Takes the destination directory outright because callers disagree about
+    where a restore point belongs: an operator-run apply puts it under the
+    worktree, while boot-time apply runs inside a server with no worktree at
+    all and writes to the machine or volume state directory instead.
+    """
     backup_dir.mkdir(parents=True, exist_ok=True)
     safe_reason = _sanitize_backup_reason(reason)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
@@ -231,7 +243,7 @@ def _create_postgres_dump_backup(
             "--no-privileges",
             "--file",
             str(dest),
-            target.target,
+            dsn,
         ],
         capture_output=True,
         text=True,
@@ -265,6 +277,7 @@ __all__ = [
     "POSTGRES_VALIDATION_ENV_SUFFIX",
     "connect_db_target",
     "create_rollback_backup",
+    "dump_postgres_to_directory",
     "ensure_migration_audit_table_for_target",
     "fingerprint_db_target",
     "resolve_authoritative_db_target",

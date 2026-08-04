@@ -83,7 +83,6 @@ from yoke_core.engines.doctor_hc_db import (  # noqa: F401
     hc_orphaned_ephemeral,
     hc_orphaned_runs,
     hc_preview_occupancy_stale,
-    hc_project_flow_migration_apply_coverage,
     hc_run_item_status_consistency,
     hc_run_qa_unsatisfied,
     hc_smoke_artifact_orphan,
@@ -122,7 +121,7 @@ from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
-from yoke_core.engines.doctor_hc_stranded_migrations import hc_stranded_migration_module  # noqa: F401
+from yoke_core.engines.doctor_hc_pending_migrations import hc_pending_migrations  # noqa: F401
 from yoke_core.engines.doctor_hc_stop_hook_chain import hc_stop_hook_chain_end_deferred  # noqa: F401
 from yoke_core.engines.doctor_hc_retired_schema import (  # noqa: F401
     hc_retired_schema_resurrection,
@@ -211,7 +210,6 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("flow-stage-json", "Deployment flow stage JSON validity", hc_flow_stage_json),
     HealthCheck("flow-workflow-exists", "Flow stage workflow files exist", hc_flow_workflow_exists),
     HealthCheck("invalid-item-flows", "Items referencing non-existent or cross-project deployment flows", hc_invalid_item_flows),
-    HealthCheck("project-flow-migration-apply-coverage", "Declared migration models are reachable via a flow stage", hc_project_flow_migration_apply_coverage),
     HealthCheck("missing-flow", "Items without deployment flow", hc_missing_flow),
     HealthCheck("orphaned-ephemeral", "Orphaned ephemeral environments", hc_orphaned_ephemeral),
     HealthCheck("zombie-ephemeral-envs", "Zombie ephemeral environments", hc_zombie_ephemeral_envs),
@@ -251,7 +249,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("path-claim-coordination-rationale", "Coordination_only attestation rationale stale or empty", hc_path_claim_coordination_rationale),
     HealthCheck("path-claim-symlink-coverage", "Non-terminal claim covers a symlink without its canonical target", hc_path_claim_symlink_coverage),
     HealthCheck("oneshot-migration-coverage", "Governed DB-mutation authoring coverage", hc_oneshot_migration_coverage),
-    HealthCheck("stranded-migration-module", "Completed migration module(s) still present", hc_stranded_migration_module),
+    HealthCheck("pending-migrations", "Pending migrations applied", hc_pending_migrations),
     HealthCheck("stop-hook-chain-end-deferred", "Stop-hook deferred chains aged past stale window", hc_stop_hook_chain_end_deferred),
     HealthCheck("retired-schema-resurrection", "Retired schema surfaces present on authoritative DB", hc_retired_schema_resurrection),
     HealthCheck("qa-runs-mutated", "qa_runs rows whose raw_result mixes failing verdict with resolution narrative", hc_qa_runs_mutated),

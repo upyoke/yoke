@@ -32,7 +32,6 @@ from yoke_core.engines.doctor_report import (
 
 
 from yoke_core.engines.doctor_hc_db_flow_workflows import hc_flow_workflow_exists  # noqa: F401
-from yoke_core.engines.doctor_hc_db_flows_migration_coverage import hc_project_flow_migration_apply_coverage  # noqa: F401
 
 
 def _p(conn) -> str:

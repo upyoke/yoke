@@ -61,18 +61,6 @@ class ModuleContractError(MigrationApplyError):
     """Imported module does not expose the expected ``apply(conn)`` surface."""
 
 
-class ModuleOverrideError(MigrationApplyError):
-    """Raised when ``--module-path-override`` fails the cross-worktree contract.
-
-    The override sanctions importing a migration module from an active
-    feature-worktree checkout instead of the main modules directory. Any
-    denied shape — path outside the active item worktree, symlink escape,
-    undeclared slug, basename mismatch, missing/inactive worktree scope,
-    scope item mismatch — surfaces as this error so the CLI exits with a
-    structured refusal.
-    """
-
-
 # ---------------------------------------------------------------------------
 # Result dataclasses (operator-facing return shapes)
 # ---------------------------------------------------------------------------
@@ -98,19 +86,9 @@ class RehearseResult:
     validation_db_path: str
     source_fingerprint: Optional[str]
     rehearsed_at: Optional[str]
-    modules: List[ModuleAttemptResult] = field(default_factory=list)
-
-    @property
-    def all_succeeded(self) -> bool:
-        return all(m.succeeded for m in self.modules) and bool(self.modules)
-
-
-@dataclass
-class LiveApplyResult:
-    item_id: Optional[int]
-    model_name: str
-    authoritative_db_path: str
-    lease_id: Optional[int]
+    #: The migration-territory lease this rehearsal opened. A passing
+    #: rehearsal leaves it held; a failing one releases it.
+    lease_id: Optional[int] = None
     modules: List[ModuleAttemptResult] = field(default_factory=list)
 
     @property
@@ -166,10 +144,8 @@ __all__ = [
     "RehearsalMissingError",
     "ModuleResolutionError",
     "ModuleContractError",
-    "ModuleOverrideError",
     "ModuleAttemptResult",
     "RehearseResult",
-    "LiveApplyResult",
     "_now",
     "_safe_parse_json_dict",
 ]

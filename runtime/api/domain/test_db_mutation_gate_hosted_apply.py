@@ -76,28 +76,6 @@ def test_hosted_postgres_apply_uses_receipt_without_checkout(
     assert outcome.passed, outcome.errors
 
 
-def test_retire_decision_still_requires_checkout(
-    hosted_gate_db, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    conn, _repo_path = hosted_gate_db
-    _insert_profile(conn, item_id=7102, intent="retire")
-    monkeypatch.setattr(
-        db_mutation_gate_implementing,
-        "_resolve_repo_path",
-        lambda _conn, _project: None,
-    )
-
-    outcome = check_implementing_to_reviewing_implementation_gate(
-        7102,
-        conn=conn,
-    )
-
-    assert not outcome.passed
-    assert outcome.errors == [
-        "project 'yoke' has no machine-local checkout mapping; "
-        "cannot verify retire decision records"
-    ]
-
 
 def test_retired_schema_registry_ships_with_core_package() -> None:
     records = load_registry(force_reload=True)

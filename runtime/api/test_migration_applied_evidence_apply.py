@@ -1,13 +1,12 @@
-"""Migration applied-everywhere evidence gate — apply-variant scenarios.
+"""Migration evidence gate — apply-variant scenarios.
 
 The apply variant exercises ``mutation_intent="apply"``: advancing
 ``implementing → reviewing-implementation`` must fail with the missing
 ``migration_audit`` row message.  Once an audit row with
-``state='completed'`` exists for the listed module on the model's
-authoritative DB, the same advance succeeds.
+a rehearsal recorded for the listed module on the model's authoritative DB,
+and the module present in the ordered history, the same advance succeeds.
 
-The retire variant lives in :mod:`runtime.api.test_migration_applied_evidence`;
-shared fixtures and helpers live in
+Shared fixtures and helpers live in
 :mod:`runtime.api.migration_applied_evidence_test_helpers`.
 """
 
@@ -15,6 +14,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict
+
+from yoke_core.domain.migration_model_capability_defaults import (
+    DEFAULT_MODULES_DIR,
+)
 
 from runtime.api.migration_applied_evidence_test_helpers import (
     _advance_status,
@@ -30,7 +33,7 @@ from runtime.api.test_backlog import _conn
 # ---------------------------------------------------------------------------
 
 
-class TestYok1476ApplyRegression:
+class TestApplyEvidenceGate:
     def _profile(self) -> Dict[str, Any]:
         return {
             "state": "declared",
@@ -42,17 +45,14 @@ class TestYok1476ApplyRegression:
         }
 
     def _write_module(self, repo_path: Path) -> None:
+        # A real history entry: NNNN_slug.py in the model's own migrations
+        # directory, exposing apply(conn). The gate checks membership and
+        # loadability, so a placeholder body would not exercise it.
         target = (
-            repo_path / "runtime" / "api" / "domain" / "migrations"
-            / "new_governed_module.py"
+            repo_path / DEFAULT_MODULES_DIR / "0001_new_governed_module.py"
         )
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            "MIGRATION = '''\n"
-            "ALTER TABLE items ADD COLUMN demo TEXT DEFAULT NULL;\n"
-            "'''\n",
-            encoding="utf-8",
-        )
+        target.write_text("def apply(conn):\n    pass\n", encoding="utf-8")
 
     def test_advance_refuses_when_audit_row_missing(self, regression_db) -> None:
         self._write_module(regression_db["checkout_path"])
@@ -64,10 +64,10 @@ class TestYok1476ApplyRegression:
         )
         assert result["success"] is False
         assert result.get("error_code") == "GATE_DB_MUTATION_EVIDENCE"
-        assert "no migration_audit row" in result["error"]
+        assert "no rehearsal recorded" in result["error"]
         assert "new_governed_module" in result["error"]
 
-    def test_advance_passes_after_completed_audit_row_inserted(
+    def test_advance_passes_after_rehearsal_recorded(
         self, regression_db
     ) -> None:
         self._write_module(regression_db["checkout_path"])

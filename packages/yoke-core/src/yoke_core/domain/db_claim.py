@@ -31,7 +31,7 @@ Input shape accepted by :func:`amend`::
         "state": "none" | "declared",
         # Profile side (state="declared" only):
         "model_name": "primary",
-        "mutation_intent": "apply" | "retire",
+        "mutation_intent": "apply",
         "migration_modules": ["..."],
         "compatibility_class": "pre_merge_safe" | "pre_merge_breaking",
         "affected_surfaces": [...],

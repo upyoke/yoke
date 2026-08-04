@@ -68,6 +68,10 @@ PURGED_EVENT_NAMES: Tuple[str, ...] = (
     "PassedToUsherHandoff",
     "INFO",
     "TestEvent",
+    # Migrations became permanent ordered history; nothing auto-retires a
+    # module, so both emitters and their module were deleted.
+    "MigrationModuleRetired",
+    "MigrationModuleRetireSkipped",
 )
 
 
@@ -95,7 +99,6 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "MergeTargetStale",
     "MergeVerificationFailed",
     "MigrationCompleted",
-    "MigrationModuleRetireSkipped",
     "MigrationRolledBack",
     "OperatorLeaseRelease",
     "PathClaimBlockedReasonRefreshed",

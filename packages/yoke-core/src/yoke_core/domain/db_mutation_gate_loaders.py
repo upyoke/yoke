@@ -7,17 +7,14 @@ Owns the single-statement database reads consumed by every gate phase:
   capability settings for the item's project.
 * :func:`_resolve_repo_path` — machine-local checkout path used to
   resolve module files and decision records.
-* :func:`_list_project_flows_with_migration_apply` — every flow whose
-  stages declare ``migration_apply``, used by the §7.1 cross-reference.
 * :func:`_other_non_terminal_profiles` — declared profiles on other
   non-terminal items in the same project, used by overlap detection.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_mutation_gate_shared import (
@@ -84,35 +81,6 @@ def _resolve_repo_path(conn: Any, project: str) -> Optional[Path]:
     return checkout_for_project(conn, project)
 
 
-def _list_project_flows_with_migration_apply(
-    conn: Any, project: str
-) -> List[Tuple[str, List[Dict[str, Any]]]]:
-    """Return ``(flow_id, migration_apply_stages)`` for every flow in the project."""
-    p = _placeholder(conn)
-    project_id = resolve_project_id(conn, project)
-    rows = conn.execute(
-        f"SELECT id, stages FROM deployment_flows WHERE project_id={p}",
-        (project_id,),
-    ).fetchall()
-    out: List[Tuple[str, List[Dict[str, Any]]]] = []
-    for row in rows:
-        flow_id = row["id"] if hasattr(row, "keys") else row[0]
-        raw_stages = row["stages"] if hasattr(row, "keys") else row[1]
-        try:
-            stages = json.loads(raw_stages) if raw_stages else []
-        except json.JSONDecodeError:
-            stages = []
-        if not isinstance(stages, list):
-            continue
-        ma_stages = [
-            s for s in stages
-            if isinstance(s, dict) and s.get("kind") == "migration_apply"
-        ]
-        if ma_stages:
-            out.append((str(flow_id), ma_stages))
-    return out
-
-
 def _other_non_terminal_profiles(
     conn: Any, project: str, exclude_item_id: int
 ) -> List[Dict[str, Any]]:
@@ -142,7 +110,6 @@ def _other_non_terminal_profiles(
 
 
 __all__ = [
-    "_list_project_flows_with_migration_apply",
     "_load_capability_settings",
     "_load_item_row",
     "_other_non_terminal_profiles",

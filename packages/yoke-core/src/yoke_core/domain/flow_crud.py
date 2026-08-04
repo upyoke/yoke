@@ -14,9 +14,6 @@ from yoke_core.domain.db_helpers import (
     query_rows,
     query_scalar,
 )
-from yoke_core.domain.flow_cross_reference import (
-    _validate_flow_stages_cross_reference,
-)
 from yoke_core.domain.flow_validation import validate_stages
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
@@ -67,7 +64,6 @@ def cmd_create(
     validate_stages(stages_json)
     ident = resolve_project(conn, project)
     assert ident is not None
-    _validate_flow_stages_cross_reference(conn, ident.id, stages_json, flow_id=None)
     conn.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, description, stages, on_failure, created_at) "
@@ -170,9 +166,6 @@ def cmd_update_stages(
     if flow is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
     assert_flow_definition_mutable(conn, flow_id)
-    _validate_flow_stages_cross_reference(
-        conn, int(flow[0]), stages_json, flow_id=flow_id
-    )
     conn.execute(
         "UPDATE deployment_flows SET stages=%s WHERE id=%s",
         (stages_json, flow_id),

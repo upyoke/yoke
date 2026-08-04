@@ -17,8 +17,8 @@ Operator-facing error messages always name BOTH axes so the operator
 knows which side to amend.  The matrix is used by:
 
 * :mod:`...db_mutation_gate_idea` — joint gate at idea → refining-idea.
-* :mod:`...migration_apply_live` and :mod:`...migration_apply_rehearse`
-  — governed runner gates at apply / rehearsal time.
+* :mod:`...migration_apply_rehearse` — governed runner gate at rehearsal
+  time.
 
 The matrix is intentionally pure — callers pass the resolved
 ``breakage_policy`` and the validated profile, and the helper returns a

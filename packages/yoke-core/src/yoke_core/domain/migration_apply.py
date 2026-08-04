@@ -1,8 +1,8 @@
 """Two-unit apply contract for governed DB migrations.
 
-Per the governed-DB-mutation contract, an item-backed profile or a committed
-itemless migration manifest runs its migration in two distinct units,
-separated by a mandatory operator checkpoint:
+Per the governed-DB-mutation contract, an item-backed profile runs its
+migration in two distinct units, separated by a mandatory operator
+checkpoint:
 
 **Rehearsal unit** (no lease, no backup, no authoritative mutation):
 
@@ -51,9 +51,7 @@ rollback backup, authoritative mutation):
   rollback backup (when created) is preserved so the operator can
   manually restore.  No auto-rollback in MVP.
 
-Retire flow is NOT handled here — see
-:mod:`yoke_core.domain.migration_retire_record`.  The single-unit
-harness used by the explicit exception pathway stays in
+The single-unit harness used by the explicit exception pathway stays in
 :mod:`yoke_core.domain.migration_harness`.
 """
 
@@ -61,11 +59,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 from typing import List, Optional
 
-from yoke_core.domain import db_helpers
-from yoke_core.domain.coordination_leases import LeaseHeldError
 from yoke_core.domain.migration_apply_contract import (
     STATE_PLANNED, STATE_TEST_COPY_CREATED, STATE_TEST_APPLIED,
     STATE_TEST_VERIFIED, STATE_REHEARSED, STATE_BACKUP_CREATED,
@@ -74,21 +69,13 @@ from yoke_core.domain.migration_apply_contract import (
     FAIL_LIVE_APPLY, FAIL_LIVE_VERIFY, LEASE_KEY_PREFIX,
     MigrationApplyError, ProfileNotApplyError, CompatibilityClassError,
     RehearsalStaleError, RehearsalMissingError, ModuleResolutionError,
-    ModuleContractError, ModuleOverrideError, ModuleAttemptResult,
-    RehearseResult, LiveApplyResult,
+    ModuleContractError, ModuleAttemptResult,
+    RehearseResult,
 )
 from yoke_core.domain.migration_apply_format import (
-    format_live_apply,
     format_rehearse,
 )
-from yoke_core.domain.migration_apply_help import SELF_MIGRATION_TEMP_RECIPE
-from yoke_core.domain.migration_apply_live import live_apply
-from yoke_core.domain.migration_apply_manifest_units import live_apply_manifest, rehearse_manifest
 from yoke_core.domain.migration_apply_rehearse import rehearse
-from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution, _load_item, _resolve_item_worktree_path,
-    _resolve_profile_or_raise, resolve_module_override,
-)
 
 
 def _parse_item_id(raw: str) -> int:
@@ -96,33 +83,6 @@ def _parse_item_id(raw: str) -> int:
     from yoke_core.domain.yok_n_parser import parse_item_id
 
     return parse_item_id(raw, allow_bare_internal=True)
-
-
-def _resolve_override_from_cli(
-    item_id: int, requested: Optional[str],
-) -> Optional[ModuleOverrideResolution]:
-    """Validate the override against the item's worktree + declared modules.
-
-    The CLI reads the live control DB so production callers see the same
-    worktree / profile validation that tests cover via direct API. The
-    item's worktree path is derived from its active universal lane and this
-    machine's checkout mapping — no envelope read.
-    """
-    if not requested:
-        return None
-    conn = db_helpers.connect()
-    try:
-        item = _load_item(conn, item_id)
-        profile = _resolve_profile_or_raise(item)
-        worktree_path = _resolve_item_worktree_path(conn, item_id)
-    finally:
-        conn.close()
-    return resolve_module_override(
-        requested_path=requested,
-        item_id=item_id,
-        declared_modules=profile["migration_modules"],
-        worktree_path=worktree_path,
-    )
 
 
 # _resolve_item_worktree_path moved to migration_apply_resolve so both
@@ -152,104 +112,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         "rehearse",
         help="Run the rehearsal unit.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=SELF_MIGRATION_TEMP_RECIPE,
     )
     p_r.add_argument("item_id", help="YOK-N or N")
-    p_r.add_argument(
-        "--module-path-override", default=None, help=_override_help,
-    )
 
     p_l = sub.add_parser(
         "live-apply",
         help="Run the live-apply unit.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=SELF_MIGRATION_TEMP_RECIPE,
     )
     p_l.add_argument("item_id", help="YOK-N or N")
-    p_l.add_argument(
-        "--module-path-override", default=None, help=_override_help,
-    )
-
-    manifest_help = (
-        "Committed JSON migration manifest inside the exact clean source "
-        "worktree. This is the itemless governed subject."
-    )
-    for command, help_text in (
-        ("rehearse-manifest", "Run itemless rehearsal from a committed manifest."),
-        ("live-apply-manifest", "Run itemless live apply from the rehearsed manifest."),
-    ):
-        manifest_parser = sub.add_parser(command, help=help_text)
-        manifest_parser.add_argument("manifest", help=manifest_help)
-        manifest_parser.add_argument(
-            "--worktree-path",
-            required=True,
-            help="Exact clean source worktree containing the manifest and module.",
-        )
 
     args = parser.parse_args(argv)
     item_id: Optional[int] = None
-    override: Optional[ModuleOverrideResolution] = None
     if args.command in ("rehearse", "live-apply"):
         item_id = _parse_item_id(args.item_id)
-        try:
-            override = _resolve_override_from_cli(
-                item_id, args.module_path_override,
-            )
-        except ModuleOverrideError as exc:
-            print(f"REFUSED: {exc}", file=sys.stderr)
-            return 4
-        except MigrationApplyError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 1
-
-    override_worktree = override.worktree_path if override is not None else None
     try:
         if args.command == "rehearse":
             assert item_id is not None
-            result = rehearse(
-                item_id,
-                module_override=override,
-                worktree_path=override_worktree,
-            )
-            print(format_rehearse(result, override=override))
-            return 0 if result.all_succeeded else 1
-        if args.command == "rehearse-manifest":
-            result = rehearse_manifest(
-                Path(args.manifest),
-                worktree_path=Path(args.worktree_path),
-            )
+            result = rehearse(item_id)
             print(format_rehearse(result))
-            return 0 if result.all_succeeded else 1
-        if args.command in ("live-apply", "live-apply-manifest"):
-            try:
-                if args.command == "live-apply":
-                    assert item_id is not None
-                    result = live_apply(
-                        item_id,
-                        module_override=override,
-                        worktree_path=override_worktree,
-                    )
-                else:
-                    result = live_apply_manifest(
-                        Path(args.manifest),
-                        worktree_path=Path(args.worktree_path),
-                    )
-            except RehearsalStaleError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except RehearsalMissingError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except CompatibilityClassError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 2
-            except ModuleOverrideError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 4
-            except LeaseHeldError as exc:
-                print(f"REFUSED: {exc}", file=sys.stderr)
-                return 3
-            print(format_live_apply(result, override=override))
             return 0 if result.all_succeeded else 1
     except MigrationApplyError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -265,11 +146,9 @@ __all__ = [
     "FAIL_TEST_VERIFY",
     "LEASE_KEY_PREFIX",
     "CompatibilityClassError",
-    "LiveApplyResult",
     "MigrationApplyError",
     "ModuleAttemptResult",
     "ModuleContractError",
-    "ModuleOverrideError",
     "ModuleResolutionError",
     "ProfileNotApplyError",
     "RehearsalMissingError",
@@ -284,11 +163,8 @@ __all__ = [
     "STATE_TEST_APPLIED",
     "STATE_TEST_COPY_CREATED",
     "STATE_TEST_VERIFIED",
-    "live_apply",
-    "live_apply_manifest",
     "main",
     "rehearse",
-    "rehearse_manifest",
 ]
 
 if __name__ == "__main__":

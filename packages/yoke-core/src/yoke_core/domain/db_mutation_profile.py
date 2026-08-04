@@ -14,7 +14,7 @@ Schema shape (two-state)::
     {
         "state": "declared",
         "model_name": "primary",
-        "mutation_intent": "apply" | "retire",
+        "mutation_intent": "apply",
         "migration_modules": ["add_items_due_date", ...],
         "compatibility_class": "pre_merge_safe" | "pre_merge_breaking",
         "migration_strategy": "additive_only" | "hard_cutover" | "expand_contract",  # apply only
@@ -72,8 +72,7 @@ STATE_DECLARED = "declared"
 VALID_STATES = frozenset({STATE_NONE, STATE_DECLARED})
 
 MUTATION_INTENT_APPLY = "apply"
-MUTATION_INTENT_RETIRE = "retire"
-VALID_MUTATION_INTENTS = frozenset({MUTATION_INTENT_APPLY, MUTATION_INTENT_RETIRE})
+VALID_MUTATION_INTENTS = frozenset({MUTATION_INTENT_APPLY})
 
 COMPATIBILITY_PRE_MERGE_SAFE = "pre_merge_safe"
 COMPATIBILITY_PRE_MERGE_BREAKING = "pre_merge_breaking"
@@ -322,7 +321,6 @@ __all__ = [
     "MIGRATION_STRATEGY_EXPAND_CONTRACT",
     "MIGRATION_STRATEGY_HARD_CUTOVER",
     "MUTATION_INTENT_APPLY",
-    "MUTATION_INTENT_RETIRE",
     "NEGATIVE_DEFAULT",
     "NEGATIVE_DEFAULT_JSON",
     "REVIEWED_NEGATIVE_FIELD",

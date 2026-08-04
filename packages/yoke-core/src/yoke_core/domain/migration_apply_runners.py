@@ -28,8 +28,7 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleResolutionError,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution,
-    load_module_with_override as _load_module_with_override,
+    _load_migration_module,
 )
 from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
@@ -97,7 +96,6 @@ def dispatch_handle(
     model: Mapping[str, Any],
     repo_path: Path,
     identifier: str,
-    override: Optional[ModuleOverrideResolution] = None,
     project: Optional[str] = None,
     model_name: Optional[str] = None,
 ) -> RunnerHandle:
@@ -113,7 +111,6 @@ def dispatch_handle(
             model=model,
             repo_path=repo_path,
             identifier=identifier,
-            override=override,
         )
     raise UnknownRunnerKind(
         kind, project=project, model=model_name,
@@ -126,7 +123,6 @@ def _dispatch_governed_module(
     model: Mapping[str, Any],
     repo_path: Path,
     identifier: str,
-    override: Optional[ModuleOverrideResolution],
 ) -> RunnerHandle:
     config = (model.get("runner") or {}).get("config") or {}
     modules_dir_rel = config.get("modules_dir")
@@ -136,13 +132,8 @@ def _dispatch_governed_module(
             f"(identifier {identifier!r})"
         )
     modules_dir = (repo_path / modules_dir_rel).resolve()
-    module = _load_module_with_override(
-        modules_dir=modules_dir, identifier=identifier, override=override,
-    )
-    source_path = (
-        Path(override.module_path) if override is not None and override.slug == identifier
-        else modules_dir / f"{identifier}.py"
-    )
+    module = _load_migration_module(modules_dir, identifier)
+    source_path = modules_dir / f"{identifier}.py"
     invariants = getattr(module, "invariants", None)
     if not callable(invariants):
         invariants = None

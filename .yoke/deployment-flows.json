@@ -13,11 +13,6 @@
       "description": "Script/doc changes, no deployment needed",
       "stages": [
         {
-          "kind": "migration_apply",
-          "model_name": "primary",
-          "lifecycle_phase": "implementing"
-        },
-        {
           "name": "merged",
           "step_runner": "auto"
         },

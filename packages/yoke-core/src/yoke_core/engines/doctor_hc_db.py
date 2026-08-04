@@ -49,7 +49,6 @@ from yoke_core.engines.doctor_hc_db_flows import (
     hc_invalid_item_flows,
     hc_orphaned_ephemeral,
     hc_preview_occupancy_stale,
-    hc_project_flow_migration_apply_coverage,
     hc_zombie_ephemeral_envs,
 )
 
@@ -234,7 +233,6 @@ __all__ = (
     # Re-exports from doctor_hc_db_flows
     "hc_preview_occupancy_stale",
     "hc_orphaned_ephemeral",
-    "hc_project_flow_migration_apply_coverage",
     "hc_deploy_stage_integrity",
     "hc_incomplete_deploy_stage",
     "hc_flow_stage_json",
