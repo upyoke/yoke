@@ -68,7 +68,9 @@ def test_pending_is_history_minus_ledger(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first", "0002_second", "0003_third")
     conn.execute(
-        "INSERT INTO applied_migrations VALUES ('0001_first', 'now', 'test')"
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) "
+        "VALUES ('0001_first', 'now', 'test')"
     )
 
     assert [e.name for e in pending_entries(conn, history)] == [
@@ -84,7 +86,8 @@ def test_ledger_ahead_of_packaged_history_is_current(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first")
     conn.executemany(
-        "INSERT INTO applied_migrations VALUES (?, 'now', 'test')",
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) VALUES (?, 'now', 'test')",
         [("0001_first",), ("0002_from_newer_code",)],
     )
 
@@ -134,7 +137,9 @@ def test_apply_only_runs_what_is_outstanding(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first", "0002_second")
     conn.execute(
-        "INSERT INTO applied_migrations VALUES ('0001_first', 'now', 'test')"
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) "
+        "VALUES ('0001_first', 'now', 'test')"
     )
 
     outcome = apply_pending(
@@ -162,7 +167,9 @@ def test_current_database_needs_no_restore_point(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first")
     conn.execute(
-        "INSERT INTO applied_migrations VALUES ('0001_first', 'now', 'test')"
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) "
+        "VALUES ('0001_first', 'now', 'test')"
     )
 
     outcome = apply_pending(conn, history=history, applied_by="test")

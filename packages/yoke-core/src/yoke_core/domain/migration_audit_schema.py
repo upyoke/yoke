@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -148,7 +149,8 @@ APPLIED_MIGRATIONS_DDL = """
     CREATE TABLE IF NOT EXISTS applied_migrations (
         migration_name TEXT PRIMARY KEY,
         applied_at TEXT NOT NULL,
-        applied_by TEXT
+        applied_by TEXT,
+        minimum_serving_version TEXT
     );
 """
 
@@ -160,6 +162,16 @@ def ensure_applied_migrations_table(conn: Any) -> None:
     :func:`ensure_migration_audit_table` does: a ledger that differs between
     the control plane, a project's authoritative database, and the test
     fixture schema would make "is this database current?" mean three things.
+
+    ``CREATE TABLE IF NOT EXISTS`` does nothing where the table already
+    stands, so a column added to the DDL above never reaches a database born
+    before it. Each such column is converged explicitly — without that step
+    the oldest ledgers, which are exactly the ones most likely to hold an
+    entry a running build cannot survive, would be the ones missing the
+    column that says so.
     """
     execute_schema_script(conn, APPLIED_MIGRATIONS_DDL)
+    _add_column_if_not_exists(
+        conn, "applied_migrations", "minimum_serving_version", "TEXT"
+    )
     conn.commit()

@@ -28,6 +28,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Tuple
 
+from yoke_core.domain import migration_serving_version
 from yoke_core.domain.migration_apply_contract import (
     MigrationApplyError,
     ModuleContractError,
@@ -124,6 +125,11 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
     a pre-ledger archive restored later replays its history — but that is a
     property of the module body, so it is contract prose rather than
     something importing can check.
+
+    An entry that removes a surface must also declare the oldest artifact
+    version that may serve against it. That check lives here because every
+    path that could apply an entry loads it through this function first, so
+    the declaration cannot be forgotten by taking a different route.
     """
     if not path.is_file():
         raise ModuleResolutionError(
@@ -144,6 +150,12 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
         raise ModuleContractError(
             f"migration module '{identifier}' has no callable 'apply(conn)' surface"
         )
+    try:
+        migration_serving_version.require_declaration(
+            identifier, path.read_text(encoding="utf-8"), module
+        )
+    except migration_serving_version.ServingVersionError as exc:
+        raise ModuleContractError(str(exc)) from exc
     return module
 
 

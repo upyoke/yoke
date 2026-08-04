@@ -29,7 +29,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence, Set, Tuple
 
-from yoke_core.domain import db_backend, migration_restore_point
+from yoke_core.domain import (
+    db_backend,
+    migration_restore_point,
+    migration_serving_version,
+)
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 
@@ -112,6 +116,7 @@ def apply_pending(
     *,
     history: Sequence[MigrationEntry],
     applied_by: str,
+    running_version: str = "",
     backup_root: Optional[Path] = None,
     external_restore_point: Optional[str] = None,
 ) -> ApplyOutcome:
@@ -127,6 +132,15 @@ def apply_pending(
 
     Refusing when neither is present is the policy, not a precaution: nothing
     destructive runs without a named way back.
+
+    ``running_version`` is the version of the artifact doing the applying. The
+    kernel stays ignorant of what that means — the caller knows whether it is
+    a wheel version, an image tag, or nothing at all — and an empty string is
+    the honest answer from a source tree. It is compared against each entry's
+    declared floor, so an entry can never be applied by a build too old to
+    serve against the result, and it is recorded on the ledger row, because a
+    build old enough to be in danger does not ship the entry that would tell
+    it so.
     """
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
@@ -151,7 +165,13 @@ def apply_pending(
         outstanding = pending_entries(conn, history)
         applied: list[str] = []
         for entry in outstanding:
-            _apply_one(conn, entry, applied_by=applied_by, restore_point=restore_point)
+            _apply_one(
+                conn,
+                entry,
+                applied_by=applied_by,
+                running_version=running_version,
+                restore_point=restore_point,
+            )
             applied.append(entry.name)
         return ApplyOutcome(applied=tuple(applied), restore_point=restore_point)
     finally:
@@ -163,15 +183,23 @@ def _apply_one(
     entry: MigrationEntry,
     *,
     applied_by: str,
+    running_version: str,
     restore_point: str,
 ) -> None:
     module = load_migration_module(entry.path, entry.name)
+    minimum = migration_serving_version.declared_minimum(module)
+    # Before the DDL, not after: an entry whose floor is newer than the build
+    # running it means the declaration and the code disagree, and catching
+    # that here costs nothing while catching it later costs the database.
+    migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
     started_at = now_stamp()
     try:
         # apply() and the ledger row land together or not at all. The module
         # contract forbids committing inside apply() for exactly this reason.
         module.apply(conn)
-        _record_applied(conn, [entry.name], applied_by=applied_by)
+        _record_applied(
+            conn, [entry.name], applied_by=applied_by, minimum_serving_version=minimum
+        )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
@@ -212,16 +240,30 @@ def _apply_one(
     )
 
 
-def _record_applied(conn: Any, names: Sequence[str], *, applied_by: str) -> None:
+def _record_applied(
+    conn: Any,
+    names: Sequence[str],
+    *,
+    applied_by: str,
+    minimum_serving_version: Optional[str] = None,
+) -> None:
+    """Write ledger rows, carrying each entry's declared floor.
+
+    The floor is recorded rather than looked up later because the reader who
+    needs it is a build that predates the entry and does not ship its module.
+    The ledger row is the only surface the two share.
+    """
     if not names:
         return
     p = _p(conn)
     now = now_stamp()
     for name in names:
         conn.execute(
-            f"INSERT INTO {LEDGER_TABLE} (migration_name, applied_at, applied_by) "
-            f"VALUES ({p}, {p}, {p}) ON CONFLICT (migration_name) DO NOTHING",
-            (name, now, applied_by),
+            f"INSERT INTO {LEDGER_TABLE} "
+            "(migration_name, applied_at, applied_by, minimum_serving_version) "
+            f"VALUES ({p}, {p}, {p}, {p}) "
+            "ON CONFLICT (migration_name) DO NOTHING",
+            (name, now, applied_by, minimum_serving_version),
         )
 
 

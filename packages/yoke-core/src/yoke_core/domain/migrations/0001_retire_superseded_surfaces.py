@@ -31,6 +31,21 @@ from __future__ import annotations
 
 from typing import Any
 
+#: Oldest artifact version that may serve against a database this entry has
+#: been applied to. Every column below was superseded before it was dropped,
+#: so a build new enough to have stopped reading them is unharmed — but a
+#: build older than that reads columns which are simply gone, which is the
+#: pair of outages this entry's own history describes.
+#:
+#: The value is evidence rather than estimate: this version serves both
+#: hosted environments today against databases that have already applied
+#: this entry. That makes it a proven-sufficient floor, and deliberately a
+#: conservative one — an earlier build may also be safe, but nothing here
+#: demonstrates which, and the costs are asymmetric. Too high a floor refuses
+#: a rollback that would have worked; too low a floor permits the outage.
+#: Lowering it is a change that needs its own evidence.
+MINIMUM_SERVING_VERSION = "0.1.1+launch.181"
+
 #: ``(table, column)`` pairs to retire, grouped by the surface that replaced
 #: them. Order is irrelevant — each drop is independent.
 SUPERSEDED_COLUMNS: tuple[tuple[str, str], ...] = (

@@ -17,39 +17,33 @@ checkpoint:
 * ``test_verified → rehearsed``: capture ``source_fingerprint`` of the
   authoritative DB and stamp ``rehearsed_at``.
 
-**Operator checkpoint.**  The engineer reviews the rehearsal outcomes
-and the attestation's ``residual_risk_notes``.  The checkpoint is
-enforced structurally: rehearse and live-apply are separate CLI
-invocations — the two-unit contract cannot execute atomically from a
-single function call.
+**What a work item owes is rehearsal, not application.**  The engineer
+reviews the rehearsal outcomes and the attestation's
+``residual_risk_notes``; the rehearsal receipt is what the evidence gate
+reads.  Rehearsal takes the per-model ``LIVE_DB_MIGRATION:<model_name>``
+lease and holds it, so a second work item cannot enter migration
+territory while one is in flight.
 
-**Live-apply unit** (per-model ``LIVE_DB_MIGRATION:<model_name>`` lease,
-rollback backup, authoritative mutation):
-
-* Freshness gate: the latest rehearsed audit row's fingerprint must
-  still match the authoritative DB AND ``now - rehearsed_at`` must be
-  under 30 minutes (:func:`schema_fingerprint.freshness_expired`).
-  Either fails → refuse; no lease acquired; operator re-rehearses.
-* Acquire lease.  Held row conflict → :class:`LeaseHeldError` surfaces
-  the existing holder.
-* ``rehearsed → backup_created``: create a rollback backup.
-* ``backup_created → live_applied``: apply the module to the
-  authoritative DB.
-* ``live_applied → live_verified``: run baseline verify + author
-  invariants on the authoritative DB.
-* ``live_verified → completed``: mark success; release the lease.
+**Applying belongs to the boot converge**
+(:mod:`yoke_core.domain.migration_boot_apply`).  A container starting on
+new code brings its own database up to that code before it serves, so
+"deployed" and "migrated" stop being two things that can disagree.  The
+converge computes ``history - ledger``, takes an exclusive per-database
+advisory lock, and commits each entry with its ledger row in one
+transaction.  There is no operator apply step and no deploy stage that
+carries one — an apply that could run ahead of the code is the ordering
+failure the boot-coupled design removes.
 
 **Failures** preserve artifacts and surface structured errors:
 
 * Rehearsal failures mark the audit row with
   ``test_copy_failed`` / ``test_apply_failed`` / ``test_verify_failed``.
-  The validation DB stays in place for inspection; no lease was ever
-  acquired.
-* Live-apply failures mark the audit row with
-  ``backup_failed`` / ``live_apply_failed`` / ``live_verify_failed``.
-  The lease is released with a structured ``release_reason``; the
-  rollback backup (when created) is preserved so the operator can
-  manually restore.  No auto-rollback in MVP.
+  The validation DB stays in place for inspection.
+* Boot-apply failures mark the audit row with
+  ``backup_failed`` / ``live_apply_failed`` / ``live_verify_failed`` and
+  fail the boot, because serving behind your own schema is the failure
+  the converge exists to prevent.  The rollback backup (when created) is
+  preserved so the operator can restore.
 
 The single-unit harness used by the explicit exception pathway stays in
 :mod:`yoke_core.domain.migration_harness`.
@@ -86,17 +80,18 @@ def _parse_item_id(raw: str) -> int:
 
 
 # _resolve_item_worktree_path moved to migration_apply_resolve so both
-# the module-override path and the rehearse/live-apply wrappers can
-# share it without circular imports.
+# the module-override path and the rehearse wrapper can share it without
+# circular imports.
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python3 -m yoke_core.domain.migration_apply",
         description=(
-            "Two-unit governed DB migration apply contract. Separate "
-            "'rehearse' and 'live-apply' subcommands enforce the mandatory "
-            "operator checkpoint between units."
+            "Rehearse a governed DB migration against the model's validation "
+            "surface and record the receipt the evidence gate reads. Applying "
+            "belongs to the boot converge, which brings a database up to the "
+            "code that is about to serve it."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -115,16 +110,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     p_r.add_argument("item_id", help="YOK-N or N")
 
-    p_l = sub.add_parser(
-        "live-apply",
-        help="Run the live-apply unit.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p_l.add_argument("item_id", help="YOK-N or N")
-
     args = parser.parse_args(argv)
     item_id: Optional[int] = None
-    if args.command in ("rehearse", "live-apply"):
+    if args.command == "rehearse":
         item_id = _parse_item_id(args.item_id)
     try:
         if args.command == "rehearse":
