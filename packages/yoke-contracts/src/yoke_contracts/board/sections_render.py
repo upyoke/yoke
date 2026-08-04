@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
+from yoke_contracts.board.project_scope import project_filter
 from yoke_contracts.board.sections_definition_queries import (
     query_epic_task_rows,
     query_precomputed_epic_task_rows,
@@ -18,7 +19,6 @@ from yoke_contracts.board.sections_definition_queries import (
 from yoke_contracts.board.sections_classify import (
     EpicStats,
     ItemRow,
-    _project_filter_sql,
     precompute_epic_stats,
     status_emoji,
 )
@@ -130,8 +130,8 @@ def precompute_epic_task_rows(
     scope: str,
 ) -> Dict[int, List[EpicTaskRow]]:
     """Batch-query task rows for all epics in the rendered scope."""
-    pf = _project_filter_sql(scope, db=db)
-    rows = query_precomputed_epic_task_rows(db, pf)
+    pf, params = project_filter(scope, "i")
+    rows = query_precomputed_epic_task_rows(db, pf, params)
     result: Dict[int, List[EpicTaskRow]] = {}
     for epic_id, task_num, title, status, task_glyph in rows:
         result.setdefault(int(epic_id), []).append(

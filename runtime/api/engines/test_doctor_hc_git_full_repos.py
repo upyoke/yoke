@@ -100,7 +100,9 @@ class TestWrongRepoIssues:
         ]
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "WARN"
-        assert "YOK-662" in _result(rec).detail
+        from yoke_core.domain.project_identity import render_item_ref
+
+        assert render_item_ref(conn, 662) in _result(rec).detail
         assert "wrong" in _result(rec).detail.lower() or "Wrong" in _result(rec).detail
 
     @patch(

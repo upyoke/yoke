@@ -30,6 +30,7 @@ from yoke_core.domain.epic_task_sync_github_orchestrator_setup import (
     preflight_sync,
 )
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def sync_epic_tasks(
@@ -81,7 +82,9 @@ def sync_epic_tasks(
 
         # Read parent backlog item info
         parent_item_id = _epic_parent_item_id(epic_name, conn=conn)
-        backlog_id = f"YOK-{parent_item_id}" if parent_item_id else ""
+        backlog_id = (
+            render_item_ref(conn, int(parent_item_id)) if parent_item_id else ""
+        )
 
         # Check for existing github_issue on backlog item
         backlog_github_issue = ""
@@ -151,7 +154,7 @@ def sync_epic_tasks(
                 # Preserve an explicit worktree before falling back to the parent.
                 skip_wt = db_wt
                 if parent_item_id and not skip_wt:
-                    skip_wt = f"YOK-{parent_item_id}"
+                    skip_wt = worktree_name_for_item(conn, parent_item_id)
                     print(
                         f"Warning: task {task_num_str} has empty worktree, "
                         f"defaulting to {skip_wt}",

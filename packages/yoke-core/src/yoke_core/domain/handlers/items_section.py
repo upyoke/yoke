@@ -247,8 +247,10 @@ def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     content = _sections.get_section(item_id, section_name)
     if content is None:
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         return _not_found(
-            f"section {section_name!r} not found on YOK-{item_id}",
+            f"section {section_name!r} not found on {item_ref_for_id(item_id)}",
         )
     response = GetResponse(
         item_id=item_id,

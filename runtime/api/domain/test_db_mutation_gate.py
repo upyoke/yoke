@@ -47,11 +47,25 @@ class TestDetectOverlap:
 
     def test_rebuild_dominance_conflict(self) -> None:
         cand = self._profile(schema_kinds=["rebuild"])
-        other = self._profile(__item_id=42, schema_kinds=["additive"])
+        other = self._profile(
+            __item_id=42,
+            __item_ref="BUZ-7",
+            schema_kinds=["additive"],
+        )
         out = detect_overlap(cand, [other])
         assert out
         assert "rebuild dominance" in out[0]
-        assert "YOK-42" in out[0]
+        assert "BUZ-7" in out[0]
+        assert "YOK-" not in out[0]
+
+    def test_conflict_stays_generic_without_a_rendered_ref(self) -> None:
+        """No annotated ref means no name — never a fabricated one."""
+        cand = self._profile(schema_kinds=["rebuild"])
+        other = self._profile(__item_id=42, schema_kinds=["additive"])
+        out = detect_overlap(cand, [other])
+        assert out
+        assert out[0].startswith("another non-terminal work item conflicts")
+        assert "42" not in out[0]
 
     def test_column_disjointness_no_conflict(self) -> None:
         cand = self._profile(

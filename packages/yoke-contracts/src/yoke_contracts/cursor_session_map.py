@@ -44,9 +44,10 @@ CURSOR_SESSION_MAP_DIR_NAME = "cursor-session-map"
 
 CURSOR_CONVERSATION_ENV_VAR = "CURSOR_CONVERSATION_ID"
 
-# Points at the TOP-LEVEL session's transcript in every hook process,
-# including hooks fired for subagent activity — which is what makes the
-# container recoverable from an event carrying only a sub-conversation id.
+# Prefer this env when present: it *should* name the top-level session's
+# transcript even inside subagent hooks. When Cursor instead points it at
+# the nested ``.../subagents/<child>.jsonl`` layout, ``transcript_session_id``
+# recovers the parent from the path shape.
 CURSOR_TRANSCRIPT_ENV_VAR = "CURSOR_TRANSCRIPT_PATH"
 
 # A conversation outlives any single hook, so entries are kept for far
@@ -66,14 +67,36 @@ _MapDir = Union[str, "os.PathLike[str]"]
 
 
 def transcript_session_id(transcript_path: str) -> str:
-    """Return the session id encoded in a Cursor transcript path.
+    """Return the container session id encoded in a Cursor transcript path.
 
-    Transcripts live at ``.../agent-transcripts/<id>/<id>.jsonl``, so the
-    stem is the id. Empty input returns empty output.
+    Top-level chats live at ``.../agent-transcripts/<id>/<id>.jsonl`` —
+    the stem is the container. Task/subagent transcripts live at
+    ``.../agent-transcripts/<parent>/subagents/<child>.jsonl``; the stem
+    is the *child*, so resolving container from stem alone would mint a
+    phantom ``harness_sessions`` row. When the path carries the nested
+    ``agent-transcripts/<parent>/subagents/`` shape, ``<parent>`` is the
+    container. Empty or malformed input returns empty output rather than
+    guessing the child id.
     """
     if not transcript_path:
         return ""
-    return PurePosixPath(transcript_path).stem
+    path = PurePosixPath(transcript_path.replace("\\", "/"))
+    parts = path.parts
+    try:
+        transcripts_at = parts.index("agent-transcripts")
+    except ValueError:
+        if "subagents" in parts:
+            return ""
+        return path.stem
+    # Nested: .../agent-transcripts/<parent>/subagents/<child>.jsonl
+    if (
+        transcripts_at + 2 < len(parts)
+        and parts[transcripts_at + 2] == "subagents"
+    ):
+        parent = parts[transcripts_at + 1]
+        return parent if parent else ""
+    # Flat: .../agent-transcripts/<id>/<id>.jsonl
+    return path.stem
 
 
 def container_session_id_from_evidence(

@@ -192,6 +192,11 @@ class ItemState:
     title: str
     status: str
     priority: str
+    #: Public ``PREFIX-N`` ref, rendered by the adapter that holds the
+    #: connection. Mutation messages address the operator by this ref; the
+    #: bare ``id`` is the internal address and is never displayed with a
+    #: prefix glued on.
+    item_ref: Optional[str] = None
     rework_count: int = 0
     frozen: bool = False
     blocked: bool = False
@@ -202,6 +207,11 @@ class ItemState:
     deployed_to: Optional[str] = None
     merged_at: Optional[str] = None
     workflow: Optional["WorkflowRuntime"] = None
+
+    @property
+    def ref(self) -> str:
+        """How the operator names this item, with the id as the last resort."""
+        return self.item_ref or str(self.id)
 
 
 # ---------------------------------------------------------------------------

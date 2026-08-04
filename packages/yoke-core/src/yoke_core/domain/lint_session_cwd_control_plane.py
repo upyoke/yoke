@@ -260,15 +260,14 @@ def build_scope_mismatch_block(
 
 
 def render_claims_block(claims: Sequence[ClaimedWorktree]) -> str:
+    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
     if not claims:
         return "  (none)\n"
     lines: List[str] = []
     for c in claims:
-        label = (
-            f"YOK-{c.item_id} (T{c.task_num})"
-            if c.task_num is not None
-            else f"YOK-{c.item_id}"
-        )
+        ref = item_ref_for_id(int(c.item_id))
+        label = f"{ref} (T{c.task_num})" if c.task_num is not None else ref
         lines.append(f"  - {label}: {c.worktree_path}")
     return "\n".join(lines) + "\n"
 

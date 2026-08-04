@@ -53,12 +53,13 @@ class TestCombineRow:
 
 class TestProjectFilter:
     def test_all_scope(self):
-        assert _project_filter("all") == ""
+        assert _project_filter("all") == ("", ())
 
     def test_named_scope(self):
-        result = _project_filter("yoke")
-        assert "project_id" in result
-        assert "slug = 'yoke'" in result
+        sql, params = _project_filter("yoke")
+        assert "project_id" in sql
+        assert "slug = %s" in sql
+        assert params == ("yoke",)
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +123,7 @@ class TestRenderBoardPopulated:
         assert active_pos > 0, "Header/dashboard content should precede sections"
         # Should have table rows
         assert "| YOK-" in output
+
 
 # ---------------------------------------------------------------------------
 # Integration: consistency check
@@ -195,8 +197,9 @@ class TestCLIPreview:
         assert "Clear" in captured.out
 
     def test_preview_velocity_meter(self, capsys):
-        rc = main(["preview", "--rainbow", "--dashboard",
-                    "--velocity-meter", "--seed", "42"])
+        rc = main(
+            ["preview", "--rainbow", "--dashboard", "--velocity-meter", "--seed", "42"]
+        )
         assert rc == 0
         captured = capsys.readouterr()
         assert "120d activity" in captured.out
@@ -222,16 +225,18 @@ class TestCLIPreview:
         conn.commit()
         conn.close()
 
-        rc = main([
-            "preview",
-            "--zen",
-            "--db",
-            test_db_path,
-            "--config",
-            config_file,
-            "--seed",
-            "42",
-        ])
+        rc = main(
+            [
+                "preview",
+                "--zen",
+                "--db",
+                test_db_path,
+                "--config",
+                config_file,
+                "--seed",
+                "42",
+            ]
+        )
         assert rc == 0
         captured = capsys.readouterr()
         assert "Project Timelines Widget" in captured.out
@@ -244,8 +249,9 @@ class TestCLIPreview:
         assert "75%" in captured.out
 
     def test_preview_done_active_total(self, capsys):
-        rc = main(["preview", "--done", "5", "--active", "3",
-                    "--total", "10", "--seed", "42"])
+        rc = main(
+            ["preview", "--done", "5", "--active", "3", "--total", "10", "--seed", "42"]
+        )
         assert rc == 0
 
     def test_preview_dashboard_exit_code(self, capsys):
@@ -253,8 +259,7 @@ class TestCLIPreview:
         assert rc == 0
 
     def test_preview_stats(self, capsys):
-        rc = main(["preview", "--rainbow", "--stats", "5,3,2,10,1",
-                    "--seed", "42"])
+        rc = main(["preview", "--rainbow", "--stats", "5,3,2,10,1", "--seed", "42"])
         assert rc == 0
 
     def test_preview_deterministic(self, capsys):

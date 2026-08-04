@@ -193,9 +193,15 @@ class TestHCOrphanedEphemeral:
         assert _get_result(rec, "HC-orphaned-ephemeral").result == "PASS"
 
     def test_warn_active_env_for_done_item(self, conn):
+        # Pin yoke project_id + sequence so resolve_item_id('YOK-1') is
+        # unambiguous (public refs are project-scoped, not internal id).
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+            "status, priority, project_id, project_sequence) "
+            "VALUES (1, 'T', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'done', 'low', "
+            "(SELECT id FROM projects WHERE slug='yoke'), 1)"
         )
         conn.execute(
             "INSERT INTO ephemeral_environments (item, status) "

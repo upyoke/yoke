@@ -163,9 +163,12 @@ def handle_replace(request: FunctionCallRequest) -> HandlerOutcome:
     reason = str(request.preconditions.get("allow_empty_reason") or "")
     has_content = bool(payload.content and payload.content.strip())
     if not has_content and not (allow_empty and reason):
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
         return _empty_body(
-            f"refusing to write empty content for YOK-{item_id} {payload.field!r} "
-            "without preconditions.allow_empty=true and an explicit reason"
+            f"refusing to write empty content for {item_ref_for_id(item_id)} "
+            f"{payload.field!r} without preconditions.allow_empty=true "
+            "and an explicit reason"
         )
 
     existing = _read_field(item_id, payload.field)

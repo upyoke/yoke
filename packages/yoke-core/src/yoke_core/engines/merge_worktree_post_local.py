@@ -8,13 +8,14 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
     _schema_refresh,
-    _regenerate_views_or_exit5,
+    _regenerate_views_advisory,
     _ensure_target_branch,
 )
 
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
 
 
@@ -41,7 +42,9 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
         # rather than opening a bare local connection.
         head = subprocess.run(
             ["git", "-C", str(ctx.repo_root), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if head.returncode != 0 or not head.stdout.strip():
             return
@@ -60,9 +63,7 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
             _parent()._print(f"  Note: ensure_snapshot_at advisory: {detail}")
     except Exception as exc:  # noqa: BLE001
         try:
-            _parent()._print(
-                f"  Note: ensure_snapshot_at advisory: {exc}"
-            )
+            _parent()._print(f"  Note: ensure_snapshot_at advisory: {exc}")
         except Exception:  # noqa: BLE001
             pass
 
@@ -94,8 +95,7 @@ def _remove_lane(ctx: MergeContext) -> None:
 
     if not clean_after_disposable_cache_removal(_run_git, ctx.worktree_path):
         _print(
-            f"WARNING: Preserving dirty or unverifiable worktree: "
-            f"{ctx.worktree_path}",
+            f"WARNING: Preserving dirty or unverifiable worktree: {ctx.worktree_path}",
             err=True,
         )
         return
@@ -107,8 +107,7 @@ def _remove_lane(ctx: MergeContext) -> None:
     )
     if removed.returncode != 0:
         _print(
-            f"WARNING: Worktree removal refused; preserving branch "
-            f"{ctx.args.branch}",
+            f"WARNING: Worktree removal refused; preserving branch {ctx.args.branch}",
             err=True,
         )
         return
@@ -132,7 +131,10 @@ def do_local_merge(ctx: MergeContext) -> int:
         ["merge", "--no-edit", ctx.args.branch], cwd=ctx.repo_root, capture=True
     )
     if result.returncode != 0:
-        _print(f"Error: Local merge of {ctx.args.branch} into {ctx.args.target} failed:", err=True)
+        _print(
+            f"Error: Local merge of {ctx.args.branch} into {ctx.args.target} failed:",
+            err=True,
+        )
         if result.stderr:
             _print(result.stderr, err=True)
         _run_git(["merge", "--abort"], cwd=ctx.repo_root, capture=True)
@@ -149,9 +151,8 @@ def do_local_merge(ctx: MergeContext) -> int:
     # Schema refresh
     _schema_refresh(ctx)
 
-    # Regenerate views -- post-merge-cleanup failure after local merge
-    # landed is its own exit class.
-    regen_exit = _regenerate_views_or_exit5(ctx)
+    # Generated views are advisory after the merge has landed.
+    _regenerate_views_advisory(ctx)
 
     # Ensure on target branch regardless of regen outcome
     _ensure_target_branch(ctx)
@@ -162,4 +163,4 @@ def do_local_merge(ctx: MergeContext) -> int:
 
     _print("")
     _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
-    return regen_exit
+    return 0

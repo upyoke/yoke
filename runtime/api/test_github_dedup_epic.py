@@ -168,7 +168,7 @@ class TestSyncEpicTasksDedup:
         stdout = io.StringIO()
 
         patches = _patches(
-            dedup_results=[_issue(555, "[YOK-10] 001 Some task")],
+            dedup_results=[_issue(555, "[EXT-10] 001 Some task")],
             create_response=None,
         )
         with patches[0], patches[1]:
@@ -261,8 +261,8 @@ class TestSyncEpicTasksDedup:
 
         # Two list_issues calls: parent dedup returns the exact match;
         # task dedup returns nothing so the task is created fresh.
-        parent_match = _issue(808, "[YOK-10] Existing parent epic")
-        task_created = _issue(9100, "[YOK-10] 001 First task")
+        parent_match = _issue(808, "[EXT-10] Existing parent epic")
+        task_created = _issue(9100, "[EXT-10] 001 First task")
 
         with (
             patch(

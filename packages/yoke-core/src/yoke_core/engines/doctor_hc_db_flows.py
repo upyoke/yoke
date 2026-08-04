@@ -16,8 +16,9 @@ from __future__ import annotations
 
 from typing import List
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, resolve_item_id
 from yoke_core.domain.time_parse import age_hours_since
 from yoke_core.domain.time_sql import now_sql
 from yoke_core.domain.sql_json import json_valid_expr
@@ -28,8 +29,14 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+
+
 from yoke_core.engines.doctor_hc_db_flow_workflows import hc_flow_workflow_exists  # noqa: F401
 from yoke_core.engines.doctor_hc_db_flows_migration_coverage import hc_project_flow_migration_apply_coverage  # noqa: F401
+
+
+def _p(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def hc_preview_occupancy_stale(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -76,17 +83,31 @@ def hc_orphaned_ephemeral(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
 
     issues: List[str] = []
-    rows = query_rows(
+    # ``ephemeral_environments.item`` holds a public ref whose prefix belongs to
+    # the owning project, so the item is resolved through the ref parser rather
+    # than matched against a prefix built in SQL.
+    env_rows = query_rows(
         conn,
-        "SELECT i.id, ee.id as ee_id, ee.status as ee_status FROM items i "
-        "JOIN ephemeral_environments ee ON ee.item = 'YOK-' || i.id "
-        "WHERE i.status = 'done' AND ee.status <> 'stopped' "
-        "ORDER BY i.id",
+        "SELECT id as ee_id, item as ee_item, status as ee_status "
+        "FROM ephemeral_environments "
+        "WHERE status <> 'stopped' AND item IS NOT NULL AND item <> '' "
+        "ORDER BY id",
     )
-    for row in rows:
+    for env in env_rows:
+        item_id = resolve_item_id(conn, str(env["ee_item"]))
+        if item_id is None:
+            continue
+        status = query_scalar(
+            conn,
+            f"SELECT status FROM items WHERE id = {_p(conn)}",
+            (int(item_id),),
+        )
+        if status != "done":
+            continue
         issues.append(
-            f"- {render_item_ref(conn, row['id'])}: ephemeral env '{row['ee_id']}' still at "
-            f"status='{row['ee_status']}' (expected stopped)"
+            f"- {render_item_ref(conn, int(item_id))}: ephemeral env "
+            f"'{env['ee_id']}' still at status='{env['ee_status']}' "
+            "(expected stopped)"
         )
 
     if issues:

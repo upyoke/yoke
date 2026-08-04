@@ -28,6 +28,7 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
@@ -124,6 +125,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     for row in rows:
         item_id = row["id"]
+        item_ref = render_item_ref(conn, int(item_id))
         gh = row["github_issue"]
         project = row["project"]
         num = gh.replace("#", "")
@@ -160,7 +162,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 project_auth_cache[project] = cached
         if isinstance(cached, ProjectGithubAuthError):
             issues.append(
-                f"- YOK-{item_id} (project={project}): "
+                f"- {item_ref} (project={project}): "
                 f"cannot resolve auth: {cached}\n"
                 f"  Repair: {repair_command_hint(cached, project)}"
             )
@@ -192,23 +194,23 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     ):
                         fixed_count += 1
                         issues.append(
-                            f"- YOK-{item_id} (project={project}): "
+                            f"- {item_ref} (project={project}): "
                             f"migrated #{num} from {yoke_repo} to {target_repo}"
                         )
                     else:
                         issues.append(
-                            f"- YOK-{item_id} (project={project}): "
+                            f"- {item_ref} (project={project}): "
                             f"issue #{num} exists in {yoke_repo} but should be "
                             f"in {target_repo} (migration failed)"
                         )
                 else:
                     issues.append(
-                        f"- YOK-{item_id} (project={project}): "
+                        f"- {item_ref} (project={project}): "
                         f"issue #{num} exists in {yoke_repo} but should be in {target_repo}"
                     )
             else:
                 issues.append(
-                    f"- YOK-{item_id} (project={project}): "
+                    f"- {item_ref} (project={project}): "
                     f"issue #{num} not found in {target_repo} or {yoke_repo}"
                 )
 
@@ -319,7 +321,7 @@ def _migrate_issue(
     # 6. Close and delete old issue (best-effort cleanup; Yoke-source auth)
     close_text = (
         f"Migrated to {target_repo}#{new_num}. "
-        f"This issue was in the wrong repo (YOK-{item_id})."
+        f"This issue was in the wrong repo ({render_item_ref(conn, int(item_id))})."
     )
     issue_comment(repo=source_repo, num=old_num, body=close_text, token=yoke_token)
     issue_close(repo=source_repo, num=old_num, token=yoke_token)

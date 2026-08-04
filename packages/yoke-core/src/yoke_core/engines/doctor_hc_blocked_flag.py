@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -28,15 +29,15 @@ def hc_blocked_status_drift(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         "SELECT id, blocked, blocked_reason FROM items WHERE status='blocked'",
     )
     for row in rows:
-        item_id = row["id"]
+        item_ref = render_item_ref(conn, int(row["id"]))
         if row["blocked"] == 1:
             fails.append(
-                f"- YOK-{item_id}: status='blocked' AND blocked=1 (drift "
+                f"- {item_ref}: status='blocked' AND blocked=1 (drift "
                 "from legacy status — migrate via /yoke block / repair)"
             )
         else:
             fails.append(
-                f"- YOK-{item_id}: status='blocked' but blocked=0 "
+                f"- {item_ref}: status='blocked' but blocked=0 "
                 "(legacy lifecycle position survived without flag — repair "
                 "the row to use the flag instead)"
             )
@@ -68,8 +69,9 @@ def hc_blocked_flag_consistency(
     )
     for row in missing_reason:
         fails.append(
-            f"- YOK-{row['id']}: blocked=1 with no blocked_reason (operator "
-            "context is required so unblock has actionable history)"
+            f"- {render_item_ref(conn, int(row['id']))}: blocked=1 with no "
+            "blocked_reason (operator context is required so unblock has "
+            "actionable history)"
         )
     stale_reason = query_rows(
         conn,
@@ -79,7 +81,8 @@ def hc_blocked_flag_consistency(
     )
     for row in stale_reason:
         fails.append(
-            f"- YOK-{row['id']}: blocked=0 with stale blocked_reason "
+            f"- {render_item_ref(conn, int(row['id']))}: blocked=0 with "
+            "stale blocked_reason "
             f"({row['blocked_reason']!r}) — unblock should have cleared it"
         )
     if fails:

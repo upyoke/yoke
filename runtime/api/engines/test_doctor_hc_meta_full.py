@@ -60,7 +60,9 @@ class TestUndeployedDone:
         )
         rec = _run_hc(hc_undeployed_done, conn)
         assert _result(rec).result == "WARN"
-        assert "YOK-1" in _result(rec).detail
+        from yoke_core.domain.project_identity import render_item_ref
+
+        assert render_item_ref(conn, 1) in _result(rec).detail
 
     def test_pass_all_deployed(self):
         """T3: PASS when all done items have deployed_to set."""
@@ -94,8 +96,11 @@ class TestUndeployedDone:
         )
         rec = _run_hc(hc_undeployed_done, conn)
         assert _result(rec).result == "WARN"
-        assert "YOK-1" in _result(rec).detail
-        assert "YOK-2" not in _result(rec).detail
+        from yoke_core.domain.project_identity import render_item_ref
+
+        assert render_item_ref(conn, 1) in _result(rec).detail
+        assert render_item_ref(conn, 2) not in _result(rec).detail
+
 
 
 class TestEpicTaskWorktree:

@@ -151,16 +151,16 @@ def handle_dependency_gate(request: FunctionCallRequest) -> HandlerOutcome:
                     int(request.target.item_id),
                     required=True,
                 )
-            elif body.item_ref:
-                item_ref = (
-                    body.item_ref
-                    if "-" in body.item_ref
-                    else f"YOK-{body.item_ref}"
-                )
+            elif body.item_ref and "-" in body.item_ref:
+                # Already qualified (a PREFIX-N ref or a lane branch named for
+                # one). A bare sequence names no project, and guessing one
+                # would evaluate the gate against the wrong item.
+                item_ref = body.item_ref
             else:
                 return _err(
                     "target_invalid",
-                    "dependency_gate requires an item target or item_ref",
+                    "dependency_gate requires an item target or a "
+                    "project-qualified item_ref",
                 )
             result = evaluate_item_gate(conn, item_ref, body.gate_point)
     except Exception as exc:  # noqa: BLE001 - degrade to an error the caller can skip

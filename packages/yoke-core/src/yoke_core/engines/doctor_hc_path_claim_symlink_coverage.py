@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_symlink_expansion import (
     SYMLINK_CANONICALIZED,
 )
@@ -101,7 +102,11 @@ def _flag_claims(conn) -> list[str]:
             continue
         claim_id = int(_value(row, "claim_id", 0))
         item_id = _value(row, "item_id", 1)
-        item_ref = f"YOK-{item_id}" if item_id is not None else "<item-ref>"
+        item_ref = (
+            render_item_ref(conn, int(item_id))
+            if item_id is not None
+            else "<item-ref>"
+        )
         covered = paths_by_claim.get(claim_id, set())
         for covered_path in sorted(covered):
             canonical = canonical_by_path.get((int(project_id), covered_path))
