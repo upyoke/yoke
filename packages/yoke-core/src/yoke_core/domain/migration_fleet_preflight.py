@@ -15,6 +15,17 @@ The converge is the whole sequence — schema first, then history — because
 the schema step is what an entry actually meets. An entry authored a year ago
 runs against every constraint added since, and only the real ordering shows
 whether it survives them.
+
+**What a copy can and cannot prove.** It proves schema and data: that the
+entries apply to these rows in this shape. It proves nothing about anything
+``pg_restore`` normalizes, and it normalizes ownership and privileges — every
+object in a ``--no-owner`` restore belongs to whoever restored it. So a copy
+cannot answer whether the *serving role* is permitted to converge its own
+tables, and that question has its own failure mode: a table created by another
+role can never afterwards gain a column, which fails a boot rather than a
+migration. Ownership is therefore read from the live database, before the
+rehearsal, in :func:`_live_ownership_verdict`. Anything else a copy silently
+normalizes belongs there too.
 """
 
 from __future__ import annotations
@@ -129,6 +140,35 @@ def _history_names() -> Tuple[str, ...]:
     return tuple(e.name for e in ordered_entries(history_dir(history_package)))
 
 
+def _live_ownership_verdict(source_dsn: str, database: str) -> Optional[Verdict]:
+    """Refuse a database whose serving role cannot converge its own tables.
+
+    Read from the live database and BEFORE the rehearsal, because the copy
+    cannot answer it: ``pg_restore --no-owner`` hands everything to whoever
+    restores it, so the copy always looks uniform. A rehearsal that converges
+    cleanly on such a copy is a true statement about the copy and says nothing
+    about the tenant — which is exactly how a green preflight preceded a
+    production control plane crash-looping at boot.
+    """
+    from yoke_core.domain import db_backend, migration_fleet_ownership
+
+    conn = None
+    try:
+        # Connecting is inside the guard on purpose: a source this cannot
+        # reach must become a FAIL verdict, never an exception that escapes
+        # the fleet loop and takes the other tenants' answers with it.
+        conn = db_backend.connect_psycopg(source_dsn)
+        report = migration_fleet_ownership.inspect(conn)
+    except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
+        return Verdict(database, False, f"could not read ownership: {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
+    if report.uniform:
+        return None
+    return Verdict(database, False, report.summary)
+
+
 def rehearse(
     source_dsn: str,
     *,
@@ -136,7 +176,18 @@ def rehearse(
     spec: ClusterSpec,
     work_dir: Path,
 ) -> Verdict:
-    """Converge a throwaway copy of one database and report what happened."""
+    """Converge a throwaway copy of one database and report what happened.
+
+    Two questions, answered in two places on purpose. *Will the entries apply?*
+    is answered by converging a copy, because applying them to the live
+    database is the thing this exists to avoid. *Is the serving role allowed to
+    apply them?* is answered against the live database, because the copy
+    normalizes the ownership that decides it away.
+    """
+    refusal = _live_ownership_verdict(source_dsn, database)
+    if refusal is not None:
+        return refusal
+
     copy_name = f"{REHEARSAL_PREFIX}{database}"
     dump = work_dir / f"{database}.dump"
     work_dir.mkdir(parents=True, exist_ok=True)

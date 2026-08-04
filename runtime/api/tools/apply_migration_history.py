@@ -36,6 +36,41 @@ from yoke_core.domain.migration_history import history_dir, ordered_entries
 from yoke_core.domain.migration_restore_point import configured_restore_point
 
 
+#: Tables this tool can bring into existence. Only these are handed back —
+#: anything else that disagrees with the majority owner was not created here
+#: and is not this tool's to reassign.
+_TABLES_THIS_TOOL_CREATES = ("applied_migrations", "migration_audit")
+
+
+def _hand_created_tables_to_the_serving_role(conn) -> None:
+    """Give back any table this admin connection just created.
+
+    ``ensure_applied_migrations_table`` creates the ledger when it is absent,
+    and whoever runs it owns whatever it creates. Run through an admin
+    connection — the only way this tool is run — that leaves the server unable
+    to ever add a column to its own ledger, and the boot converge does exactly
+    that. The failure surfaces much later as a tenant crash-looping at boot,
+    with an error that reads like a missing column because Postgres resolves
+    identifiers before it checks privileges. One instance took a production
+    control plane down for twenty-five minutes.
+
+    So the tool hands back what it made, at once, rather than leaving a trap
+    for a release months away.
+    """
+    from yoke_core.domain import migration_fleet_ownership
+
+    report = migration_fleet_ownership.inspect(conn)
+    created = [t for t, _o in report.drifted if t in _TABLES_THIS_TOOL_CREATES]
+    if not created:
+        return
+    altered = migration_fleet_ownership.realign(
+        conn, tables=created, owner=report.expected_owner
+    )
+    conn.commit()
+    for table in altered:
+        print(f"handed {table} back to {report.expected_owner}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="apply-migration-history",
@@ -77,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     conn = db_helpers.connect()
     try:
         ensure_applied_migrations_table(conn)
+        _hand_created_tables_to_the_serving_role(conn)
         if args.record_missing_receipts:
             healed = migration_audit_receipts.record_missing_receipts(
                 conn,

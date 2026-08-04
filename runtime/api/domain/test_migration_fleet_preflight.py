@@ -109,9 +109,11 @@ class TestVerdict:
 
 
 class TestUnreachableSource:
-    def test_a_database_that_cannot_be_copied_fails(self, tmp_path: Path) -> None:
+    def test_a_database_that_cannot_be_reached_fails(self, tmp_path: Path) -> None:
         # Reporting PASS here would tell a release that a database it never
-        # reached is safe to roll.
+        # reached is safe to roll. The ownership read runs first and is where
+        # an unreachable source is now noticed, so the detail names that rather
+        # than the copy — either way it must never read as a pass.
         verdict = rehearse(
             "host=127.0.0.1 port=1 dbname=nothing_here connect_timeout=1",
             database="nothing_here",
@@ -120,4 +122,4 @@ class TestUnreachableSource:
         )
 
         assert not verdict.passed
-        assert "could not copy" in verdict.detail
+        assert "could not" in verdict.detail
