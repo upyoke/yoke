@@ -274,3 +274,25 @@
     justify-self: start;
   }
 }
+
+/* Canon status sits above the timeline: one line answering the question the
+   operator opened this panel to ask. Up-to-date is deliberately quiet but
+   present -- silence would be indistinguishable from never having checked. */
+.universe-app-root .workflow-canon-status {
+  font-size: 11.5px;
+  margin-bottom: 10px;
+}
+
+.universe-app-root .workflow-canon-status.up-to-date,
+.universe-app-root .workflow-canon-status.customized {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .workflow-canon-status.update {
+  color: var(--yoke-accent);
+}
+
+/* The list marker earns attention; only update-available reaches the tabs. */
+.universe-app-root .workflow-tab-status.update {
+  color: var(--yoke-accent);
+}

@@ -178,11 +178,50 @@ function versionRow(documentNode, workflow, version, actions) {
   return row;
 }
 
+function canonStatusLine(documentNode, workflow) {
+  const status = workflow.canon_status;
+  if (!status || status.state === "not_applicable") {
+    return null;
+  }
+  // "Up to date" is stated rather than left to silence. On the boot path
+  // silence correctly means nothing is wrong, but this is a screen someone
+  // opened to ask -- and there, saying nothing is indistinguishable from
+  // never having checked.
+  if (status.state === "up_to_date") {
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status up-to-date",
+      "Up to date with the published Yoke workflow.",
+    );
+  }
+  if (status.state === "customized") {
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status customized",
+      "Customized here. Updates will preserve your changes.",
+    );
+  }
+  return el(
+    documentNode,
+    "div",
+    "workflow-canon-status update",
+    `Yoke has published a newer version of this workflow ` +
+      `(${status.latest_canon_version}).`,
+  );
+}
+
+
 export function renderVersionHistory(documentNode, workflow, actions) {
   const versions = [...(workflow.versions || [])].sort(
     (left, right) => Number(right.version) - Number(left.version),
   );
   const { panel, body } = workflowPanel(documentNode, "Version history");
+  const status = canonStatusLine(documentNode, workflow);
+  if (status) {
+    body.appendChild(status);
+  }
   const timeline = el(documentNode, "div", "workflow-version-timeline");
   for (const version of versions) {
     timeline.appendChild(versionRow(

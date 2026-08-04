@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.builtin_workflow_canon import recognize
+from yoke_core.domain.builtin_workflow_canon import (
+    canon_generations,
+    recognize,
+)
 from yoke_core.domain.builtin_workflow_version_convergence import (
     converge_builtin_workflows as _converge_builtin_workflows,
     select_current_builtin_workflow_versions as _select_builtin_versions,
@@ -191,6 +194,31 @@ def _version_provenance(version_row) -> dict:
     return {"kind": "canon", "canon_version": generation.canon_version}
 
 
+def _workflow_canon_status(workflow_id: str, source: str, digest: str) -> dict:
+    """Whether this universe's current definition is the newest Yoke published.
+
+    Three states, because customization is genuinely a third one rather than a
+    flavour of the other two: until a universe records which generation it
+    customized *from*, "you are behind" is not a claim that can honestly be
+    made about an edited definition. Recording that baseline is what would let
+    ``customized`` split into up-to-date and update-available.
+    """
+    generations = canon_generations(workflow_id)
+    if source != "built_in" or not generations:
+        return {"state": "not_applicable"}
+    newest = generations[-1]
+    current = recognize(workflow_id, digest)
+    if current is None:
+        return {"state": "customized", "latest_canon_version": newest.canon_version}
+    if current.canon_version == newest.canon_version:
+        return {"state": "up_to_date", "latest_canon_version": newest.canon_version}
+    return {
+        "state": "update_available",
+        "latest_canon_version": newest.canon_version,
+        "current_canon_version": current.canon_version,
+    }
+
+
 def list_current_workflows(conn: Any) -> list[dict]:
     """Return each workflow joined to its selected immutable definition."""
     workflow_cursor = conn.execute(
@@ -241,6 +269,9 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "immutable_at": row["immutable_at"],
             "definition": _decode_definition(row["definition_json"]),
             "versions": versions_by_workflow.get(str(row["id"]), []),
+            "canon_status": _workflow_canon_status(
+                str(row["id"]), str(row["source"]), str(row["definition_digest"])
+            ),
         })
     return result
 
