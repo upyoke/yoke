@@ -223,6 +223,23 @@ class TestPreToolUseEditWrite(unittest.TestCase):
         self.assertEqual(chain[-1], "yoke_core.domain.observe_pre")
 
 
+class TestPreToolUseMonitor(unittest.TestCase):
+    """Monitor guards reject invalid first arms before stateful checks."""
+
+    def test_TC_monitor_chain_starts_with_watcher_tail_guard(self):
+        chain = ordered_pipeline_for("PreToolUse", "Monitor")
+        self.assertEqual(
+            chain,
+            [
+                "yoke_core.domain.lint_monitor_watcher_tail",
+                "yoke_core.domain.lint_long_command_polling",
+                "yoke_core.domain.lint_subagent_background",
+                "yoke_core.domain.hint_monitor_relay",
+                "yoke_core.domain.observe_pre",
+            ],
+        )
+
+
 class TestNonPreEvents(unittest.TestCase):
     """PostToolUse, SessionStart/End, UserPromptSubmit, Stop chains."""
 
