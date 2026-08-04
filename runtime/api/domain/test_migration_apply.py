@@ -3,9 +3,9 @@
 Original module covered every flavor of the apply contract. It is now split
 across sibling files so each authored file stays under the 350-line limit:
 this file covers the rehearsal happy path and rehearsal failure branches.
-Live-apply happy path/refusal lives in ``test_migration_apply_live`` and the
-live-verify failure recovery + profile gating lives in
-``test_migration_apply_failure``. Heavy fixture/helper code lives in
+Profile gating lives in ``test_migration_apply_failure``, and the
+migration-territory lease rehearsal takes lives in
+``test_migration_rehearsal_lease``. Heavy fixture/helper code lives in
 ``migration_apply_test_helpers``.
 """
 
