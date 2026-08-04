@@ -310,7 +310,7 @@ def test_health_wire_embeds_only_the_typed_advertisement(monkeypatch):
     monkeypatch.setattr(
         items_health,
         "_health_snapshot",
-        lambda: (True, [], []),
+        lambda: (True, [], [], []),
     )
 
     payload = items_health.health().model_dump(mode="json")

@@ -17,6 +17,7 @@ from yoke_core.domain.github_app_public_runtime import (
     current_github_app_public_advertisement,
 )
 from yoke_core.domain.schema_readiness import (
+    stranded_by_applied_migrations,
     missing_readiness_tables,
     pending_migration_names,
 )
@@ -43,7 +44,7 @@ def health() -> _main.HealthResponse:
     an uninitialized DB answers 200 here while its data routes fail,
     so deploy gates assert this field rather than liveness alone.
     """
-    schema_ready, missing, pending = _health_snapshot()
+    schema_ready, missing, pending, stranded = _health_snapshot()
     build = os.environ.get("YOKE_BUILD_SHA", "")
     return _main.HealthResponse(
         status="ok",
@@ -54,6 +55,8 @@ def health() -> _main.HealthResponse:
         schema_missing_tables=missing,
         migrations_current=not pending,
         pending_migrations=pending,
+        can_serve_this_database=not stranded,
+        stranded_by_migrations=stranded,
         github_app=current_github_app_public_advertisement(),
     )
 
@@ -83,18 +86,18 @@ MIGRATIONS_PROBE_TTL_DEFAULT = 30
 #: left. Bounding staleness instead keeps the connection cost that motivated
 #: the latch — one probe per window, not one per liveness poll — without
 #: promising something the underlying fact cannot keep.
-_migrations_probe: Tuple[float, List[str]] = (0.0, [])
+_migrations_probe: Tuple[float, List[str], List[str]] = (0.0, [], [])
 
 
 def reset_schema_readiness_cache() -> None:
     """Forget the remembered probe results so the next call probes again."""
     global _schema_confirmed_ready, _migrations_probe
     _schema_confirmed_ready = False
-    _migrations_probe = (0.0, [])
+    _migrations_probe = (0.0, [], [])
 
 
-def _health_snapshot() -> Tuple[bool, List[str], List[str]]:
-    """Return ``(schema_ready, missing_tables, pending_migrations)``.
+def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
+    """Return ``(schema_ready, missing, pending_migrations, stranded)``.
 
     ONE connection answers both questions. Container liveness polls this route
     on a short interval, and every connection resets a serverless database's
@@ -112,18 +115,18 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str]]:
     global _schema_confirmed_ready, _migrations_probe
 
     now = time.monotonic()
-    deadline, cached_pending = _migrations_probe
+    deadline, cached_pending, cached_stranded = _migrations_probe
     migrations_fresh = now < deadline
     if _schema_confirmed_ready and migrations_fresh:
-        return True, [], cached_pending
+        return True, [], cached_pending, cached_stranded
 
     try:
         conn = _main.get_db_readonly()
     except Exception:
         return (
-            (True, [], cached_pending)
+            (True, [], cached_pending, cached_stranded)
             if _schema_confirmed_ready
-            else (False, [], cached_pending)
+            else (False, [], cached_pending, cached_stranded)
         )
     try:
         if _schema_confirmed_ready:
@@ -134,22 +137,29 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str]]:
             if ready:
                 _schema_confirmed_ready = True
         if migrations_fresh:
-            pending = cached_pending
+            pending, stranded = cached_pending, cached_stranded
         else:
             pending = pending_migration_names(conn)
+            # Same connection and same cadence as the pending probe: both read
+            # the ledger, and a second probe would defeat the reason the TTL
+            # exists. Both answers also move backwards together — a restore or
+            # a repointed DSN changes what was applied and what may serve it.
+            stranded = stranded_by_applied_migrations(
+                conn, advertised_engine_version()
+            )
             ttl = runtime_settings.get_seconds(
                 MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT
             )
-            _migrations_probe = (now + ttl, pending)
+            _migrations_probe = (now + ttl, pending, stranded)
     except Exception:
         return (
-            (True, [], cached_pending)
+            (True, [], cached_pending, cached_stranded)
             if _schema_confirmed_ready
-            else (False, [], cached_pending)
+            else (False, [], cached_pending, cached_stranded)
         )
     finally:
         conn.close()
-    return ready, missing, pending
+    return ready, missing, pending, stranded
 
 
 __all__ = ["reset_schema_readiness_cache", "router"]
