@@ -275,13 +275,18 @@ def load_workflow_runtime(
 
 
 def builtin_workflow_runtime(workflow_id: str) -> WorkflowRuntime:
-    """Build a non-persistent runtime for pure domain tests and tooling."""
+    """Build a non-persistent runtime for pure domain tests and tooling.
+
+    Nothing is stored, so there is no universe to hold a version number. The
+    published generation stands in for one, which keeps the runtime honest
+    about which definition it carries.
+    """
     fixture = builtin_workflow_definition(workflow_id)
     definition = fixture["definition"]
     return WorkflowRuntime(
         workflow_id=workflow_id,
         workflow_version_id=0,
-        version=int(fixture["version"]),
+        version=int(fixture["canon_version"]),
         definition_digest=definition_digest(definition),
         definition=definition,
     )

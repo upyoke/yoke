@@ -202,7 +202,7 @@ def _connection() -> sqlite3.Connection:
         "INSERT INTO workflow_versions VALUES (?, 'dash', ?, ?, ?)",
         (
             11,
-            fixture["version"],
+            fixture["canon_version"],
             json.dumps(definition),
             definition_digest(definition),
         ),

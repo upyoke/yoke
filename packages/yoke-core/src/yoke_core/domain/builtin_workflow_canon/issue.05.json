@@ -1,0 +1,255 @@
+{
+  "canon_version": 5,
+  "definition": {
+    "entry_surfaces": [
+      "harness_skill",
+      "promotion"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "definition_transitions",
+      "delivery": "release_stage",
+      "file_budget": "required",
+      "generated_children": "none",
+      "item_posture_allowlist": [
+        "verification",
+        "approval",
+        "deployment"
+      ],
+      "ownership": "single_item_claim",
+      "parallelism": "inside_item",
+      "path_claims": "required",
+      "qa": "project_transition_defaults",
+      "worktrees": "single_implementation_lane"
+    },
+    "schema_version": 4,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "refine",
+        "through_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "skill_id": "advance",
+        "through_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "skill_id": "polish",
+        "through_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "skill_id": "usher",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "board_bucket": "idea",
+        "gates": [],
+        "glyph": "💡",
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "board_bucket": "planning",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "joint"
+          }
+        ],
+        "glyph": "📝",
+        "id": "refining-idea",
+        "label": "refining idea"
+      },
+      {
+        "board_bucket": "refined",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "💎",
+        "id": "refined-idea",
+        "label": "refined idea"
+      },
+      {
+        "board_bucket": "implementing",
+        "description": "One implementation lane in an isolated worktree; the engineer builds against the spec and acceptance criteria.",
+        "gates": [
+          {
+            "id": "check_hard_blocks"
+          },
+          {
+            "id": "claim_activation"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "🔨",
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "board_bucket": "reviewing",
+        "description": "The in-worktree review loop — the work is checked against the acceptance criteria before it can leave the lane.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "👀",
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "board_bucket": "reviewing",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "👍",
+        "id": "reviewed-implementation",
+        "label": "reviewed implementation"
+      },
+      {
+        "board_bucket": "reviewing",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "✨",
+        "id": "polishing-implementation",
+        "label": "polishing implementation"
+      },
+      {
+        "board_bucket": "implemented",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "polish"
+          },
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "⛳",
+        "id": "implemented",
+        "label": "implemented"
+      },
+      {
+        "board_bucket": "release",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "🚀",
+        "id": "release",
+        "label": "release"
+      },
+      {
+        "board_bucket": "done",
+        "description": "Merged and delivered through the selected flow; the item closes.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "✅",
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "refining-idea"
+      },
+      {
+        "from_stage_id": "refining-idea",
+        "to_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "to_stage_id": "polishing-implementation"
+      },
+      {
+        "from_stage_id": "polishing-implementation",
+        "to_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "to_stage_id": "release"
+      },
+      {
+        "from_stage_id": "release",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "prod-db-admin@4",
+    "stage-db-admin@5"
+  ],
+  "published_at": "2026-08-03T22:52:31Z",
+  "workflow_id": "issue"
+}

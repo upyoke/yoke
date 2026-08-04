@@ -1,0 +1,334 @@
+{
+  "canon_version": 5,
+  "definition": {
+    "entry_surfaces": [
+      "harness_skill"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "definition_transitions",
+      "delivery": "release_stage",
+      "file_budget": "required_per_task",
+      "generated_children": "epic_tasks",
+      "item_posture_allowlist": [
+        "verification",
+        "approval",
+        "deployment"
+      ],
+      "ownership": "item_claim_and_task_lanes",
+      "parallelism": "task_graph",
+      "path_claims": "required_per_task",
+      "qa": "project_and_task_attachments",
+      "worktrees": "worker_and_integration_lanes"
+    },
+    "schema_version": 4,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "refine",
+        "through_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "skill_id": "shepherd",
+        "through_stage_id": "plan-drafted"
+      },
+      {
+        "from_stage_id": "plan-drafted",
+        "skill_id": "refine",
+        "through_stage_id": "planned"
+      },
+      {
+        "from_stage_id": "planned",
+        "skill_id": "conduct",
+        "through_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "skill_id": "polish",
+        "through_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "skill_id": "usher",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "board_bucket": "idea",
+        "gates": [],
+        "glyph": "💡",
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "board_bucket": "planning",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "joint"
+          }
+        ],
+        "glyph": "📝",
+        "id": "refining-idea",
+        "label": "refining idea"
+      },
+      {
+        "board_bucket": "refined",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "💎",
+        "id": "refined-idea",
+        "label": "refined idea"
+      },
+      {
+        "board_bucket": "planning",
+        "description": "The Architect decomposes the epic into tasks — file budgets, interface contracts, and worktree lanes.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "📐",
+        "id": "planning",
+        "label": "planning"
+      },
+      {
+        "board_bucket": "planning",
+        "description": "The task plan is drafted and awaits the refine pass before it can be committed.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "📋",
+        "id": "plan-drafted",
+        "label": "plan drafted"
+      },
+      {
+        "board_bucket": "planning",
+        "description": "The plan is refined against the spec — simplify lenses and readiness repair — before it commits.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "📝",
+        "id": "refining-plan",
+        "label": "refining plan"
+      },
+      {
+        "board_bucket": "refined",
+        "description": "The plan is committed and has passed the simulator; the tasks are ready to fan out into worktree lanes.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "plan_simulation"
+          }
+        ],
+        "glyph": "💎",
+        "id": "planned",
+        "label": "planned"
+      },
+      {
+        "board_bucket": "implementing",
+        "description": "Parallel task lanes execute against the plan, each in its own worktree, with the main session integrating.",
+        "gates": [
+          {
+            "id": "check_hard_blocks"
+          },
+          {
+            "id": "claim_activation"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "🔨",
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "board_bucket": "reviewing",
+        "description": "Integrated task work is reviewed across the whole epic before the set can advance.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "👀",
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "board_bucket": "reviewing",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "👍",
+        "id": "reviewed-implementation",
+        "label": "reviewed implementation"
+      },
+      {
+        "board_bucket": "reviewing",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "glyph": "✨",
+        "id": "polishing-implementation",
+        "label": "polishing implementation"
+      },
+      {
+        "board_bucket": "implemented",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "polish"
+          },
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "⛳",
+        "id": "implemented",
+        "label": "implemented"
+      },
+      {
+        "board_bucket": "release",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "🚀",
+        "id": "release",
+        "label": "release"
+      },
+      {
+        "board_bucket": "done",
+        "description": "Every task merged, integrated, and delivered; the epic closes.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "glyph": "✅",
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "refining-idea"
+      },
+      {
+        "from_stage_id": "refining-idea",
+        "to_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "to_stage_id": "planning"
+      },
+      {
+        "from_stage_id": "planning",
+        "to_stage_id": "plan-drafted"
+      },
+      {
+        "from_stage_id": "plan-drafted",
+        "to_stage_id": "refining-plan"
+      },
+      {
+        "from_stage_id": "refining-plan",
+        "to_stage_id": "planned"
+      },
+      {
+        "from_stage_id": "planned",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "to_stage_id": "polishing-implementation"
+      },
+      {
+        "from_stage_id": "polishing-implementation",
+        "to_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "to_stage_id": "release"
+      },
+      {
+        "from_stage_id": "release",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "prod-db-admin@4",
+    "stage-db-admin@5"
+  ],
+  "published_at": "2026-08-03T22:52:31Z",
+  "workflow_id": "epic"
+}

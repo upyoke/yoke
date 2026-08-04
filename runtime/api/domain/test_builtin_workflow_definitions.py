@@ -7,7 +7,6 @@ from copy import deepcopy
 import pytest
 
 from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     BUILTIN_WORKFLOW_IDS,
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_SKILL_IDS,
@@ -205,10 +204,13 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
                     row[key] = after
 
 
-def test_builtin_roster_and_immutable_history_are_fixed():
+def test_builtin_roster_is_fixed_and_every_current_definition_is_published():
     fixtures = builtin_workflow_definitions()
     assert tuple(row["workflow"]["id"] for row in fixtures) == BUILTIN_WORKFLOW_IDS
-    assert {row["version"] for row in fixtures} == {BUILTIN_WORKFLOW_PREFERRED_VERSION}
+    # Each workflow has published a different number of times, so there is no
+    # one number they share -- only the requirement that each current
+    # definition be a generation the canon can recognize.
+    assert all(row["canon_version"] is not None for row in fixtures)
     assert {row["workflow"]["source"] for row in fixtures} == {"built_in"}
     assert all(
         row["definition"]["policies"]["approval_defaults"] == {} for row in fixtures
@@ -219,7 +221,6 @@ def test_builtin_roster_and_immutable_history_are_fixed():
 
 def test_current_stages_own_glyphs_and_history_stays_immutable():
     current = builtin_workflow_definition("dash")
-    assert current["version"] == 4
     assert current["definition"]["schema_version"] == 4
     assert all(stage["glyph"] for stage in current["definition"]["stages"])
     assert all(stage["board_bucket"] for stage in current["definition"]["stages"])
@@ -229,17 +230,19 @@ def test_current_stages_own_glyphs_and_history_stays_immutable():
         for row in builtin_workflow_version_history()
         if row["workflow"]["id"] == "dash"
     ]
-    assert {row["version"] for row in dash_history} == {1, 2, 3}
-    assert all(
-        "glyph" not in stage
-        for row in dash_history
-        for stage in row["definition"]["stages"]
+    # Generations are numbered from one and never renumbered, so the set is a
+    # gapless run whose length is however many times dash has published.
+    assert [row["canon_version"] for row in dash_history] == list(
+        range(1, len(dash_history) + 1)
     )
-    assert all(
-        "board_bucket" not in stage
-        for row in dash_history
-        for stage in row["definition"]["stages"]
-    )
+    # Stage glyphs arrived with schema version 4. Keying on the schema version
+    # rather than on a generation number is deliberate: history is not
+    # monotonic in schema version, because a generation was rolled back.
+    for row in dash_history:
+        stages = row["definition"]["stages"]
+        carries_glyphs = row["definition"]["schema_version"] >= 4
+        assert all(("glyph" in stage) is carries_glyphs for stage in stages)
+        assert all(("board_bucket" in stage) is carries_glyphs for stage in stages)
 
 
 @pytest.mark.parametrize(

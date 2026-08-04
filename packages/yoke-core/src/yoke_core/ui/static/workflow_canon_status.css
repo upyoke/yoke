@@ -1,0 +1,98 @@
+/* How a universe's workflow stands against Yoke's published canon:
+   the status line, the version provenance note, the list marker, and
+   the diff that explains what an update would change. */
+
+/* Canon status sits above the timeline: one line answering the question the
+   operator opened this panel to ask. Up-to-date is deliberately quiet but
+   present -- silence would be indistinguishable from never having checked. */
+.universe-app-root .workflow-canon-status {
+  font-size: 11.5px;
+  margin-bottom: 10px;
+}
+
+.universe-app-root .workflow-canon-status.up-to-date,
+.universe-app-root .workflow-canon-status.customized {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .workflow-canon-status.update {
+  color: var(--yoke-accent);
+}
+
+/* The list marker earns attention; only update-available reaches the tabs. */
+.universe-app-root .workflow-tab-status.update {
+  color: var(--yoke-accent);
+}
+
+/* The diff answers the question the status line raises, so it sits directly
+   under it and stays collapsed until asked for -- an operator who is up to
+   date should never see it at all. */
+.universe-app-root .workflow-canon-diff {
+  margin-bottom: 12px;
+}
+
+.universe-app-root .workflow-diff-body {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .workflow-diff-body.error {
+  color: var(--yoke-crit);
+}
+
+.universe-app-root .workflow-diff-heading {
+  margin: 0 0 8px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.universe-app-root .workflow-diff-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+}
+
+.universe-app-root .workflow-diff-change {
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Named separately because it is the one line that changes what the operator
+   should do, not just what changed. */
+.universe-app-root .workflow-diff-merge-note {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* The action sits at the end of the diff: you read what changes, then decide. */
+.universe-app-root .workflow-diff-apply {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .workflow-diff-apply-note {
+  min-width: 180px;
+  flex: 1;
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.universe-app-root .workflow-diff-apply-note.error {
+  color: var(--yoke-crit);
+}

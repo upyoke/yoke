@@ -76,7 +76,13 @@ where = ["src"]
 [tool.setuptools.package-data]
 # The universe UI runtime and its declaration-emitting host contract ship in
 # the wheel; the server exposes only the closed static asset roster.
-"yoke_core.domain" = ["retired_schema_surfaces.yaml"]
+# The published workflow canon is data the server reads at boot to recognize a
+# universe's stored definitions. A wheel without it cannot tell a published
+# generation from a corrupted row, so it ships alongside the code that reads it.
+"yoke_core.domain" = [
+    "retired_schema_surfaces.yaml",
+    "builtin_workflow_canon/*.json",
+]
 "yoke_core.ui" = ["static/*", "contracts/*"]
 "yoke_core.install_bundle_tree" = [
     "AGENTS.md",

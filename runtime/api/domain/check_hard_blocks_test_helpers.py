@@ -60,7 +60,7 @@ def apply_hard_block_schema() -> None:
             "(id, workflow_id, version, definition_json, definition_digest) "
             "VALUES (1, 'issue', %s, %s, %s)",
             (
-                int(fixture["version"]),
+                int(fixture["canon_version"]),
                 canonical_definition_json(definition),
                 definition_digest(definition),
             ),

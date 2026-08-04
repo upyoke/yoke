@@ -1,0 +1,234 @@
+{
+  "canon_version": 2,
+  "definition": {
+    "entry_surfaces": [
+      "harness_skill",
+      "promotion"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "definition_transitions",
+      "delivery": "release_stage",
+      "generated_children": "none",
+      "item_posture_allowlist": [
+        "verification",
+        "approval",
+        "deployment"
+      ],
+      "ownership": "single_item_claim",
+      "parallelism": "inside_item",
+      "path_claims": "required",
+      "qa": "project_transition_defaults",
+      "worktrees": "single_implementation_lane"
+    },
+    "schema_version": 1,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "refine",
+        "through_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "skill_id": "advance",
+        "through_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "skill_id": "polish",
+        "through_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "skill_id": "usher",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "gates": [],
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "joint"
+          }
+        ],
+        "id": "refining-idea",
+        "label": "refining idea"
+      },
+      {
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "refined-idea",
+        "label": "refined idea"
+      },
+      {
+        "description": "One implementation lane in an isolated worktree; the engineer builds against the spec and acceptance criteria.",
+        "gates": [
+          {
+            "id": "check_hard_blocks"
+          },
+          {
+            "id": "claim_activation"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "description": "The in-worktree review loop — the work is checked against the acceptance criteria before it can leave the lane.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "id": "reviewed-implementation",
+        "label": "reviewed implementation"
+      },
+      {
+        "gates": [
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "polishing-implementation",
+        "label": "polishing implementation"
+      },
+      {
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "polish"
+          },
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "id": "implemented",
+        "label": "implemented"
+      },
+      {
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "path_claim_boundary"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "id": "release",
+        "label": "release"
+      },
+      {
+        "description": "Merged and delivered through the selected flow; the item closes.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          }
+        ],
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "refining-idea"
+      },
+      {
+        "from_stage_id": "refining-idea",
+        "to_stage_id": "refined-idea"
+      },
+      {
+        "from_stage_id": "refined-idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "reviewed-implementation"
+      },
+      {
+        "from_stage_id": "reviewed-implementation",
+        "to_stage_id": "polishing-implementation"
+      },
+      {
+        "from_stage_id": "polishing-implementation",
+        "to_stage_id": "implemented"
+      },
+      {
+        "from_stage_id": "implemented",
+        "to_stage_id": "release"
+      },
+      {
+        "from_stage_id": "release",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "prod-db-admin@2",
+    "stage-db-admin@2"
+  ],
+  "published_at": "2026-07-27T13:01:10Z",
+  "workflow_id": "issue"
+}

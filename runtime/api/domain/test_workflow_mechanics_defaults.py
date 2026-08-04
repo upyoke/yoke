@@ -6,8 +6,8 @@ from copy import deepcopy
 
 import pytest
 
+from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.deploy_defaults import set_default_flow_on_connection
@@ -36,10 +36,11 @@ def _definition(workflow_id: str = "issue") -> dict:
 
 
 def test_approval_defaults_are_normalized_and_publish_a_new_version(test_db):
+    converged = current_workflow_version(test_db, "issue")
     published = publish_workflow_policy_defaults(
         test_db,
         workflow_id="issue",
-        expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        expected_current_version=converged,
         approval_defaults={
             "done": {
                 "roles": ["admin", "owner", "owner"],
@@ -49,52 +50,40 @@ def test_approval_defaults_are_normalized_and_publish_a_new_version(test_db):
         published_by_actor_id=2,
     )
 
-    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    assert published["version"] == converged + 1
     assert published["approval_defaults"] == {
         "done": {"roles": ["owner", "admin"], "actors": [2]},
     }
-    historical = get_workflow_version(
-        test_db, workflow_id="issue", version=1,
-    )
-    current = get_workflow_version(
-        test_db,
-        workflow_id="issue",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+    # Publishing appends; the version that was current keeps its own content.
+    before = get_workflow_version(
+        test_db, workflow_id="issue", version=converged,
     )
     edited = get_workflow_version(
-        test_db,
-        workflow_id="issue",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION + 1,
+        test_db, workflow_id="issue", version=converged + 1,
     )
-    historical_policies = historical["definition"]["policies"]
-    assert "approval_defaults" not in historical_policies
-    assert historical_policies.get("approval_defaults", {}) == {}
-    assert current["definition"]["policies"]["approval_defaults"] == {}
+    assert before["definition"]["policies"].get("approval_defaults", {}) == {}
     assert edited["definition"]["policies"]["approval_defaults"] == {
         "done": {"roles": ["owner", "admin"], "actors": [2]},
     }
 
 
 def test_file_budget_default_publishes_independently(test_db):
+    converged = current_workflow_version(test_db, "dash")
     published = publish_workflow_policy_defaults(
         test_db,
         workflow_id="dash",
-        expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        expected_current_version=converged,
         file_budget_default=True,
         published_by_actor_id=2,
     )
 
-    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    assert published["version"] == converged + 1
     assert published["file_budget_default"] is True
     before = get_workflow_version(
-        test_db,
-        workflow_id="dash",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        test_db, workflow_id="dash", version=converged,
     )["definition"]["policies"]
     after = get_workflow_version(
-        test_db,
-        workflow_id="dash",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION + 1,
+        test_db, workflow_id="dash", version=converged + 1,
     )["definition"]["policies"]
     assert before["file_budget"] == "optional"
     assert after["file_budget"] == "required"
@@ -106,7 +95,7 @@ def test_file_budget_default_rejects_non_allowlisted_workflow(test_db):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="issue",
-            expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+            expected_current_version=current_workflow_version(test_db, "issue"),
             file_budget_default=False,
         )
 
@@ -132,7 +121,7 @@ def test_approval_defaults_reject_unknown_named_actors(test_db):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="issue",
-            expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+            expected_current_version=current_workflow_version(test_db, "issue"),
             approval_defaults={
                 "done": {"roles": [], "actors": [999999]},
             },
@@ -168,6 +157,7 @@ def test_testing_default_covers_each_workflow_qa_checkpoint(test_db):
 
 
 def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
+    converged = current_workflow_version(test_db, "dash")
     create_project_structure_tables(test_db)
     test_db.execute(
         "INSERT INTO deployment_flows("
@@ -198,13 +188,11 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
         (row["project"], row["workflow_id"], row["flow_id"])
         for row in defaults
     } >= {("yoke", "dash", "workflows-production")}
+    # A delivery default is project state, not workflow content: it must not
+    # publish a version, so the one that was current still is.
+    assert current_workflow_version(test_db, "dash") == converged
     assert get_workflow_version(
-        test_db, workflow_id="dash", version=1,
-    )["current"] is False
-    assert get_workflow_version(
-        test_db,
-        workflow_id="dash",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        test_db, workflow_id="dash", version=converged,
     )["current"] is True
     assert set_default_flow_on_connection(
         test_db, "yoke", "workflows-stage",

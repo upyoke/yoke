@@ -1,0 +1,116 @@
+{
+  "canon_version": 4,
+  "definition": {
+    "entry_surfaces": [
+      "web_form",
+      "cli",
+      "harness_skill",
+      "promotion"
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "none",
+      "delivery": "after_merge_action",
+      "file_budget": "optional",
+      "generated_children": "none",
+      "item_posture_allowlist": [
+        "verification",
+        "file_budget",
+        "path_claims",
+        "approval_on_done",
+        "deployment"
+      ],
+      "ownership": "exclusive_session_work_claim",
+      "parallelism": "none",
+      "path_claims": "optional",
+      "qa": "optional_item_attachment",
+      "worktrees": "single_implementation_lane"
+    },
+    "schema_version": 3,
+    "skill_bindings": [
+      {
+        "from_stage_id": "idea",
+        "skill_id": "dash",
+        "through_stage_id": "done"
+      }
+    ],
+    "stages": [
+      {
+        "gates": [],
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "description": "The agent surveys for conflicts, takes a worktree, and executes the instruction in one pass.",
+        "gates": [
+          {
+            "id": "work_claim_activation"
+          },
+          {
+            "id": "conflict_survey"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "description": "The verification close — the agent self-checks, plus any case a tightened posture knob added.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "description": "Result and verification evidence are recorded on the item; delivery, when enabled, ran as an after-merge action.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          },
+          {
+            "id": "dash_evidence"
+          }
+        ],
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "prod-db-admin@3"
+  ],
+  "published_at": "2026-07-29T14:13:05Z",
+  "workflow_id": "dash"
+}

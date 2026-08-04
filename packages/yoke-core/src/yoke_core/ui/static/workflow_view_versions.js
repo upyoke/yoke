@@ -1,6 +1,7 @@
 import { el } from "./universe_view_support.js";
 import { callFunction } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
+import { renderCanonDiff } from "./workflow_view_canon_diff.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function inspectionNode(row) {
@@ -102,6 +103,37 @@ function inspectButton(documentNode, row, workflow, version, actions) {
   return inspect;
 }
 
+function provenanceNote(documentNode, workflow, version) {
+  // Only built-in workflows have a canon to be recognized against; one
+  // authored here is local by definition rather than by failing to match.
+  const provenance = version.provenance;
+  if (!provenance || workflow.source !== "built_in") {
+    return null;
+  }
+  if (provenance.kind === "local") {
+    // Naming the baseline is what makes a later update explicable: it is the
+    // last point this universe and Yoke agreed, so it is the point a merge
+    // would start from. Say nothing when it was never recorded.
+    const baseline = provenance.derived_from_canon_version;
+    return el(
+      documentNode,
+      "div",
+      "workflow-version-provenance local",
+      baseline == null
+        ? "Customized here — not a published Yoke version."
+        : `Customized here, starting from Yoke version ${baseline}.`,
+    );
+  }
+  // A recognized version gets no note at all, including when the canon
+  // numbers it differently. This universe's number IS the number; the canon's
+  // is an implementation detail of how recognition works, and showing both
+  // hands the reader two competing identities for one thing while implying a
+  // discrepancy where there is none. Customization is the only state here
+  // worth a line, because it is the only one that changes what an update does.
+  return null;
+}
+
+
 function versionRow(documentNode, workflow, version, actions) {
   const current = Number(version.version) ===
     Number(workflow.current_version);
@@ -128,6 +160,10 @@ function versionRow(documentNode, workflow, version, actions) {
         : "New items pin this version."
       : "Readable and eligible to become current again.",
   ));
+  const provenance = provenanceNote(documentNode, workflow, version);
+  if (provenance) {
+    summary.appendChild(provenance);
+  }
   row.appendChild(summary);
   if (current) {
     const published = el(
@@ -149,11 +185,76 @@ function versionRow(documentNode, workflow, version, actions) {
   return row;
 }
 
+function canonStatusLine(documentNode, workflow) {
+  const status = workflow.canon_status;
+  if (!status || status.state === "not_applicable") {
+    return null;
+  }
+  // "Up to date" is stated rather than left to silence. On the boot path
+  // silence correctly means nothing is wrong, but this is a screen someone
+  // opened to ask -- and there, saying nothing is indistinguishable from
+  // never having checked.
+  if (status.state === "up_to_date") {
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status up-to-date",
+      "Up to date with the published Yoke workflow.",
+    );
+  }
+  if (status.state === "customized") {
+    // Only claim the edit is on top of the newest version when the baseline
+    // was actually recorded. Without one there is nothing to compare, and
+    // asserting either direction is the guess this model exists to avoid.
+    const known = status.derived_from_canon_version != null;
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status customized",
+      known
+        ? "Customized here, on top of the newest Yoke version."
+        : "Customized here. This universe has no record of which Yoke " +
+          "version it started from.",
+    );
+  }
+  if (status.state === "customized_update_available") {
+    // The one state that cannot be resolved by taking Yoke's copy: there are
+    // edits on one side and published changes on the other, so the honest
+    // word is merge.
+    return el(
+      documentNode,
+      "div",
+      "workflow-canon-status update",
+      `Customized here, starting from Yoke version ` +
+        `${status.derived_from_canon_version}. Yoke has since published ` +
+        `${status.latest_canon_version}, so an update would merge.`,
+    );
+  }
+  return el(
+    documentNode,
+    "div",
+    "workflow-canon-status update",
+    `Yoke has published a newer version of this workflow ` +
+      `(${status.latest_canon_version}).`,
+  );
+}
+
+
 export function renderVersionHistory(documentNode, workflow, actions) {
   const versions = [...(workflow.versions || [])].sort(
     (left, right) => Number(right.version) - Number(left.version),
   );
   const { panel, body } = workflowPanel(documentNode, "Version history");
+  const status = canonStatusLine(documentNode, workflow);
+  if (status) {
+    body.appendChild(status);
+  }
+  // The diff sits under the status line rather than behind a separate screen:
+  // "you are behind" and "here is what that means" are one question.
+  const diff = renderCanonDiff(documentNode, workflow, actions);
+  if (diff) {
+    body.appendChild(diff);
+  }
   const timeline = el(documentNode, "div", "workflow-version-timeline");
   for (const version of versions) {
     timeline.appendChild(versionRow(

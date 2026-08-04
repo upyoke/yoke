@@ -1,0 +1,118 @@
+{
+  "canon_version": 6,
+  "definition": {
+    "entry_surfaces": [
+      "web_form",
+      "cli",
+      "harness_skill",
+      "promotion"
+    ],
+    "executor_bindings": [
+      {
+        "executor_id": "dash",
+        "from_stage_id": "idea",
+        "through_stage_id": "done"
+      }
+    ],
+    "policies": {
+      "approval_defaults": {},
+      "approvals": "none",
+      "delivery": "after_merge_action",
+      "file_budget": "optional",
+      "generated_children": "none",
+      "item_posture_allowlist": [
+        "verification",
+        "file_budget",
+        "path_claims",
+        "path_survey",
+        "approval_on_done",
+        "deployment"
+      ],
+      "ownership": "exclusive_session_work_claim",
+      "parallelism": "none",
+      "path_claims": "optional",
+      "path_survey": "required",
+      "qa": "optional_item_attachment",
+      "worktrees": "single_implementation_lane"
+    },
+    "schema_version": 2,
+    "stages": [
+      {
+        "gates": [],
+        "id": "idea",
+        "label": "idea"
+      },
+      {
+        "description": "The agent surveys for conflicts, takes a worktree, and executes the instruction in one pass.",
+        "gates": [
+          {
+            "id": "work_claim_activation"
+          },
+          {
+            "id": "conflict_survey"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "implementing",
+        "label": "implementing"
+      },
+      {
+        "description": "The verification close — the agent self-checks, plus any case a tightened posture knob added.",
+        "gates": [
+          {
+            "id": "db_claim_prose"
+          },
+          {
+            "id": "db_mutation",
+            "mode": "evidence"
+          },
+          {
+            "id": "architecture_impact"
+          }
+        ],
+        "id": "reviewing-implementation",
+        "label": "reviewing implementation"
+      },
+      {
+        "description": "Result and verification evidence are recorded on the item; delivery, when enabled, ran as an after-merge action.",
+        "gates": [
+          {
+            "id": "architecture_impact"
+          },
+          {
+            "id": "qa_verification"
+          },
+          {
+            "id": "dash_evidence"
+          }
+        ],
+        "id": "done",
+        "label": "done"
+      }
+    ],
+    "terminal_stage_ids": [
+      "done"
+    ],
+    "transitions": [
+      {
+        "from_stage_id": "idea",
+        "to_stage_id": "implementing"
+      },
+      {
+        "from_stage_id": "implementing",
+        "to_stage_id": "reviewing-implementation"
+      },
+      {
+        "from_stage_id": "reviewing-implementation",
+        "to_stage_id": "done"
+      }
+    ]
+  },
+  "observed_as": [
+    "stage-db-admin@4"
+  ],
+  "published_at": "2026-08-02T20:42:46Z",
+  "workflow_id": "dash"
+}

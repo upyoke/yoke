@@ -83,7 +83,7 @@ def _add_pre_impl_claim(
         (
             workflow_version_id,
             workflow_id,
-            int(fixture["version"]),
+            int(fixture["canon_version"]),
             canonical_definition_json(definition),
             definition_digest(definition),
         ),
