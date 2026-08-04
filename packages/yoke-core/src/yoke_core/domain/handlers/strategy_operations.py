@@ -27,6 +27,7 @@ class StrategyCarryBaseRequest(BaseModel):
 class StrategyCarryRegisterNewResponse(BaseModel):
     project: str
     new_ids: List[int]
+    new_refs: List[str] = Field(default_factory=list)
 
 
 class StrategyCarryCandidateSetRequest(StrategyCarryBaseRequest):
@@ -100,6 +101,7 @@ def handle_strategy_carry_register_new(
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.strategize_carry_state import register_new_landings
 
     with connect() as conn:
@@ -109,10 +111,12 @@ def handle_strategy_carry_register_new(
             horizon_days=payload.horizon_days,
             now_iso=payload.now,
         )
+        new_refs = [render_item_ref(conn, int(item_id)) for item_id in new_ids]
     return HandlerOutcome(
         result_payload=StrategyCarryRegisterNewResponse(
             project=payload.project,
             new_ids=new_ids,
+            new_refs=new_refs,
         ).model_dump(),
         primary_success=True,
     )

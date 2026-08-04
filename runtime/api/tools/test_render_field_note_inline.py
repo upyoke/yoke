@@ -275,6 +275,7 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
             mock.patch.object(gpc, "_emit_diverged_warning", record("diverged")),
             mock.patch.object(gpc, "_run_file_line_check_or_block", record("file_line")),
             mock.patch.object(gpc, "_run_field_note_render_or_block", record("field_note")),
+            mock.patch.object(gpc, "_run_agent_render_check_or_block", record("agent_render")),
             mock.patch.object(gpc, "_run_worktree_status_check_or_block", record("worktree")),
             mock.patch.object(gpc, "_run_path_claim_coverage_check_or_block", record("path_claim")),
         ):
@@ -286,7 +287,7 @@ class TestPreCommitDispatchWiring(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(
             order,
-            ["diverged", "file_line", "field_note", "worktree", "path_claim"],
+            ["diverged", "file_line", "field_note", "agent_render", "worktree", "path_claim"],
         )
 
     def test_field_note_check_hard_fails(self) -> None:

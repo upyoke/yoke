@@ -83,10 +83,16 @@ def enrich_result_item_refs(
     active = conn
     if active is None:
         try:
+            from yoke_contracts.control_plane_locality import (
+                RemoteControlPlaneConnectionError,
+            )
             from yoke_core.domain import db_helpers
 
             active = db_helpers.connect()
             owns_conn = True
+        except RemoteControlPlaneConnectionError:
+            # Outside Exception on purpose — https authority has no local DB.
+            return out
         except Exception:
             return out
     try:

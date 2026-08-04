@@ -135,8 +135,15 @@ def item_ref_for_id(item_id: int) -> str:
     )
 
     try:
+        from yoke_contracts.control_plane_locality import (
+            RemoteControlPlaneConnectionError,
+        )
+
         with db_helpers.connect() as conn:
             return render_item_ref(conn, int(item_id))
+    except RemoteControlPlaneConnectionError:
+        # Outside Exception on purpose — https authority has no local DB.
+        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
     except Exception:
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
 

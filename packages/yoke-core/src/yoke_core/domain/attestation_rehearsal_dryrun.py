@@ -93,35 +93,49 @@ class ValidationOutcome:
     failure_token: str = ""
 
 
-def _read_profile(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
+def _read_optional_item_column(
+    conn: Any, item_id: int, column: str,
+) -> Any:
+    """Read one items column, tolerating missing columns on slim schemas."""
     p = _p(conn)
-    try:
-        row = conn.execute(
-            f"SELECT db_mutation_profile FROM items WHERE id = {p}",
-            (item_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn=conn):
+    transaction = getattr(conn, "transaction", None)
+    if callable(transaction):
+        try:
+            with transaction():
+                row = conn.execute(
+                    f"SELECT {column} FROM items WHERE id = {p}",
+                    (item_id,),
+                ).fetchone()
+        except db_backend.operational_error_types(conn=conn):
+            return None
+    else:
+        try:
+            row = conn.execute(
+                f"SELECT {column} FROM items WHERE id = {p}",
+                (item_id,),
+            ).fetchone()
+        except db_backend.operational_error_types(conn=conn):
+            return None
+    if row is None:
         return None
-    if row is None or row[0] is None:
+    return row[0]
+
+
+def _read_profile(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
+    raw = _read_optional_item_column(conn, item_id, "db_mutation_profile")
+    if raw is None:
         return None
-    return _parse_attestation(row[0])
+    return _parse_attestation(raw)
 
 
 def _read_attestation(
     conn: Any,
     item_id: int,
 ) -> Optional[Dict[str, Any]]:
-    p = _p(conn)
-    try:
-        row = conn.execute(
-            f"SELECT db_compatibility_attestation FROM items WHERE id = {p}",
-            (item_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn=conn):
+    raw = _read_optional_item_column(conn, item_id, "db_compatibility_attestation")
+    if raw is None:
         return None
-    if row is None or row[0] is None:
-        return None
-    return _parse_attestation(row[0])
+    return _parse_attestation(raw)
 
 
 def _resolve_repo_root() -> Path:

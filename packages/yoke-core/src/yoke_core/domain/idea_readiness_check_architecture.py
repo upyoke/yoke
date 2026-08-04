@@ -33,14 +33,25 @@ def _read_architecture_impact(
     """Return the item's stored architecture_impact value or
     :data:`yoke_core.domain.architecture_impact.NEGATIVE_DEFAULT`
     when the column is missing or NULL."""
-    try:
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            f"SELECT architecture_impact FROM items WHERE id = {p}",
-            (item_id,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        return "none"
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    transaction = getattr(conn, "transaction", None)
+    if callable(transaction):
+        try:
+            with transaction():
+                row = conn.execute(
+                    f"SELECT architecture_impact FROM items WHERE id = {p}",
+                    (item_id,),
+                ).fetchone()
+        except db_backend.operational_error_types(conn):
+            return "none"
+    else:
+        try:
+            row = conn.execute(
+                f"SELECT architecture_impact FROM items WHERE id = {p}",
+                (item_id,),
+            ).fetchone()
+        except db_backend.operational_error_types(conn):
+            return "none"
     if row is None or row[0] is None or str(row[0]).strip() == "":
         return "none"
     return str(row[0]).strip().lower()
