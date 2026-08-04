@@ -28,6 +28,10 @@ def _change_to_dict(change: flc.ChangedFile) -> dict:
     }
 
 
+def _lines_to_remove(change: flc.ChangedFile, limit: int) -> int:
+    return max(0, change.new_line_count - limit)
+
+
 def print_report(
     entries: list[flc.FileEntry], *, limit: int, as_json: bool
 ) -> None:
@@ -47,12 +51,15 @@ def print_report(
         )
 
 
-def print_verdict(verdict: flc.CheckVerdict, *, as_json: bool) -> None:
+def print_verdict(
+    verdict: flc.CheckVerdict, *, limit: int, as_json: bool,
+) -> None:
     if as_json:
         payload = {
             "ok": verdict.ok,
             "hard_fails": [_change_to_dict(c) for c in verdict.hard_fails],
             "warnings": [_change_to_dict(c) for c in verdict.warnings],
+            "pre_existing": [_change_to_dict(c) for c in verdict.pre_existing],
             "summary": verdict.summary,
         }
         print(json.dumps(payload, indent=2))
@@ -60,13 +67,18 @@ def print_verdict(verdict: flc.CheckVerdict, *, as_json: bool) -> None:
     print(f"file_line_check: {verdict.summary}")
     for change in verdict.hard_fails:
         print(
-            f"  HARD-FAIL  {change.path}  {change.old_line_count} -> "
-            f"{change.new_line_count} (delta {change.delta:+d})"
+            f"  HARD-FAIL  {change.path}: current {change.new_line_count}, "
+            f"limit {limit}, remove {_lines_to_remove(change, limit)} line(s)"
         )
     for change in verdict.warnings:
         print(
             f"  WARN       {change.path}  {change.old_line_count} -> "
             f"{change.new_line_count} (delta {change.delta:+d})"
+        )
+    for change in verdict.pre_existing:
+        print(
+            f"  PRE-EXISTING {change.path}  {change.new_line_count} lines "
+            "(outside this item's delta; non-blocking)"
         )
     if not verdict.ok:
         print(
@@ -109,7 +121,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         base=args.base,
         staged=args.staged,
     )
-    print_verdict(verdict, as_json=args.json)
+    print_verdict(verdict, limit=policy.limit, as_json=args.json)
     return 0 if verdict.ok else 1
 
 

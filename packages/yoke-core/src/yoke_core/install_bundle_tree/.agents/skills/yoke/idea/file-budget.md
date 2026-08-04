@@ -8,10 +8,10 @@ authoring this section. `required` enables it on the item,
 off. Never derive the effective value from raw pinned policies or posture.
 
 When enabled, the File Budget section records the existing files the
-implementation will touch, their current line counts, and an explicit
-sibling-module plan when any file is at or above 330 lines (the cap minus
-20-line headroom). When disabled, omit the section; the universal 350-line
-authored-file limit still applies through
+implementation will touch, their current line counts, remaining headroom,
+and explicit at-or-over-limit flags. It also carries a sibling-module plan
+when any file is at or above 330 lines (the cap minus 20-line headroom).
+When disabled, omit the section; the universal 350-line limit still applies through
 `yoke_core.domain.file_line_check`.
 
 **Edit targets only.** A file appears in `## File Budget` only if the
@@ -44,14 +44,17 @@ It returns structured JSON with `verdict=pass|block|skipped`,
 
 ### Current file-size pressure (verified `wc -l` on YYYY-MM-DD)
 
-At-cap files (zero net headroom — sibling required for any net-positive edit):
-- `src/<package>/<file>.py` = 350
+At-cap files (sibling required for any net-positive edit):
+- `src/<package>/<file>.py` — current 350 lines; remaining headroom 0;
+  at-or-over-limit: true; responsibility: `<single responsibility>`.
 
 Near-design-target (small additions OK, but no logic growth):
-- `src/<package>/<file>.py` = 305
+- `src/<package>/<file>.py` — current 305 lines; remaining headroom 45;
+  at-or-over-limit: false; responsibility: `<single responsibility>`.
 
 Plenty of headroom (<200 lines):
-- `src/<package>/<file>.py` = 180
+- `src/<package>/<file>.py` — current 180 lines; remaining headroom 170;
+  at-or-over-limit: false; responsibility: `<single responsibility>`.
 ```
 
 The `wc -l` numbers MUST be current on the day the spec is authored.
@@ -66,9 +69,11 @@ sibling file and which behavior moves into it:
 ```markdown
 **Layer N — <description>:**
 
-- `src/<package>/<existing>.py` (350 lines, AT CAP) — no net add.
+- `src/<package>/<existing>.py` — current 350 lines; remaining headroom 0;
+  at-or-over-limit: true; no net add.
   Extract `<helper_name>` to a new sibling `<existing>_helper.py`.
-- `src/<package>/<existing>_helper.py` (new, ≤180 lines) — owns
+- `src/<package>/<existing>_helper.py` — current 0 lines; remaining headroom
+  350; at-or-over-limit: false; owns
   `<helper_name>` plus its private callees.
 ```
 

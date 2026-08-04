@@ -1,11 +1,4 @@
-"""Helpers for :mod:`yoke_core.domain.file_line_check`.
-
-Split out of the main module to keep it under the 350-line self-compliance
-rule declared in the parent module docstring. Public API lives in
-``file_line_check``; everything here is module-private substrate: the
-dataclasses, classification constants, subprocess wrappers, rule engine,
-and CLI helpers.
-"""
+"""Private helpers for the source-dev authored-file checker."""
 
 from __future__ import annotations
 
@@ -14,7 +7,7 @@ import fnmatch
 import json
 import pathlib
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from yoke_contracts.project_contract.install_manifest import is_install_bundle_generated_path
@@ -90,6 +83,7 @@ class CheckVerdict:
     hard_fails: list[ChangedFile]
     warnings: list[ChangedFile]
     summary: str
+    pre_existing: list[ChangedFile] = field(default_factory=list)
 
 
 def run_git(
@@ -284,6 +278,7 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
             "ok": verdict.ok,
             "hard_fails": [change_to_dict(c) for c in verdict.hard_fails],
             "warnings": [change_to_dict(c) for c in verdict.warnings],
+            "pre_existing": [change_to_dict(c) for c in verdict.pre_existing],
             "summary": verdict.summary,
         }
         print(json.dumps(payload, indent=2))
@@ -300,6 +295,11 @@ def print_verdict(verdict: CheckVerdict, *, as_json: bool) -> None:
             f"  WARN       {change.path}  "
             f"{change.old_line_count} -> {change.new_line_count} "
             f"(delta {change.delta:+d})"
+        )
+    for change in verdict.pre_existing:
+        print(
+            f"  PRE-EXISTING {change.path}  {change.new_line_count} lines "
+            "(outside this item's delta)"
         )
     if not verdict.ok:
         print(

@@ -60,6 +60,9 @@ from yoke_core.domain.file_line_check_pack_versions import (
     is_pack_manifest,
     is_pack_version_carry_forward,
 )
+from yoke_contracts.project_contract.file_line_git_scope import (
+    resolve_file_line_git_scope,
+)
 from yoke_core.domain.file_line_check_helpers import EMPTY_TREE as _EMPTY_TREE
 from yoke_core.domain.strategy_docs_paths import is_strategy_view_path
 
@@ -230,9 +233,14 @@ def changed_files_check(
     staged: bool = False,
 ) -> CheckVerdict:
     """Diff-based hard-fail check. Fail-closed on non-git / missing base."""
+    integration_target = base or "main"
     try:
+        scope = None if staged else resolve_file_line_git_scope(
+            repo_root, integration_target,
+        )
+        effective_base = base if staged else scope.item_base_sha
         paths = collect_changed_paths(
-            repo_root=repo_root, base=base, staged=staged
+            repo_root=repo_root, base=effective_base, staged=staged
         )
     except (RuntimeError, FileNotFoundError):
         return CheckVerdict(
@@ -244,6 +252,7 @@ def changed_files_check(
     policy = resolved_policy(repo_root)
     hard_fails: list[ChangedFile] = []
     warnings: list[ChangedFile] = []
+    pre_existing: list[ChangedFile] = []
     for path in paths:
         change = _build_changed_file(
             path, repo_root=repo_root, base=base, staged=staged, policy=policy
@@ -258,6 +267,18 @@ def changed_files_check(
             hard_fails.append(change)
         elif is_warn:
             warnings.append(change)
+    if scope is not None:
+        for path in scope.inherited_paths:
+            classification = _classify_path_with_policy(
+                path, repo_root=repo_root, policy=policy,
+            )
+            old = git_show_line_count(integration_target, path, repo_root=repo_root)
+            new = git_show_line_count(scope.item_base_sha, path, repo_root=repo_root)
+            if classification == Classification.AUTHORED and new > policy.limit:
+                pre_existing.append(ChangedFile(
+                    path=path, classification=classification,
+                    old_line_count=old, new_line_count=new, delta=new - old,
+                ))
     ok = not hard_fails
     if ok and not warnings:
         summary = (
@@ -267,8 +288,11 @@ def changed_files_check(
         summary = f"ok with {len(warnings)} warning(s)"
     else:
         summary = f"{len(hard_fails)} hard-fail(s), {len(warnings)} warning(s)"
+    if pre_existing:
+        summary += f", {len(pre_existing)} pre-existing over-limit file(s)"
     return CheckVerdict(
-        ok=ok, hard_fails=hard_fails, warnings=warnings, summary=summary
+        ok=ok, hard_fails=hard_fails, warnings=warnings, summary=summary,
+        pre_existing=pre_existing,
     )
 
 

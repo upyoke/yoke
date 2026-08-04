@@ -58,7 +58,8 @@ yoke sessions touch --mode idea
  allowed tightening.
  - When File Budget is enabled, every file the implementer will edit is
    enumerated in `## File Budget`, one path per line, with its line
-   allocation. **Counts and approximations are not acceptable** — phrases
+   allocation, current line count, remaining headroom against 350, and
+   explicit at-or-over-limit flag. **Counts and approximations are not acceptable** — phrases
    like "roughly 30 files", "every caller", "all importers", "the survey
    shows N matches" must be expanded into a literal path list before exit.
  - When path claims are enabled, author complete declared coverage. If File

@@ -117,21 +117,17 @@ def _format_file_line_summary(verdict, *, limit: int) -> str:
         "Hard fails:",
     ]
     for change in verdict.hard_fails:
+        removal = change.new_line_count - limit
         if change.old_line_count == 0:
-            detail = (
-                f"NEW authored file is {change.new_line_count} lines "
-                f"(limit: {limit})"
-            )
+            detail = "NEW authored file; "
         elif change.old_line_count > limit:
-            detail = (
-                f"existing {change.old_line_count}-line authored file grew "
-                f"to {change.new_line_count} lines"
-            )
+            detail = f"existing {change.old_line_count}-line file grew; "
         else:
-            detail = (
-                f"authored file grew from {change.old_line_count} to "
-                f"{change.new_line_count} lines (crosses {limit}-line limit)"
-            )
+            detail = f"grew from {change.old_line_count} lines; "
+        detail += (
+            f"current {change.new_line_count}, limit {limit}, "
+            f"remove {removal} line(s)"
+        )
         lines.append(f"  - {change.path}: {detail}")
     lines.append("")
     lines.append(

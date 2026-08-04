@@ -163,8 +163,13 @@ Record the survey:
 yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
 ```
 
+The response's `path_sizes` carries `current_line_count`,
+`remaining_headroom`, `at_or_over_limit`, `limit`, and `classification` for
+every path. Treat an at/over-limit path as a pre-implementation split or
+alternate-home decision; do not wait for the commit gate.
+
 When `FILE_BUDGET_POLICY` is non-`optional`, persist the surveyed edit targets and their
-single responsibilities under `## File Budget` through
+single responsibilities plus the survey's same per-path sizing fields under `## File Budget` through
 `items.structured_field.section_upsert` before implementation. When disabled,
 do not require or invent the section. When `PATH_CLAIMS_POLICY` is
 non-`optional` and budget is
