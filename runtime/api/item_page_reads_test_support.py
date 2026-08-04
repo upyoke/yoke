@@ -88,6 +88,7 @@ def _connection() -> sqlite3.Connection:
           session_id TEXT,
           branch TEXT,
           path TEXT,
+          commit_sha TEXT,
           lane_role TEXT,
           state TEXT,
           created_at TEXT,
@@ -233,9 +234,12 @@ def _connection() -> sqlite3.Connection:
     )
     conn.execute(
         """
-        INSERT INTO item_worktrees VALUES (
+        INSERT INTO item_worktrees (
+          id, item_id, session_id, branch, path, commit_sha,
+          lane_role, state, created_at, updated_at, released_at
+        ) VALUES (
           1, 51, 'session-z', 'codex/footer', '/tmp/footer',
-          'implementation', 'active', 'now', 'now', NULL
+          'abc123', 'implementation', 'active', 'now', 'now', NULL
         )
         """
     )

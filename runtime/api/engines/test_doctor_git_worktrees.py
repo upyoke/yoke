@@ -52,7 +52,8 @@ def _make_conn():
         );
         CREATE TABLE item_worktrees (
             id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
-            branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+            branch TEXT NOT NULL, path TEXT, commit_sha TEXT,
+            lane_role TEXT NOT NULL,
             state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL, released_at TEXT
         );
