@@ -37,6 +37,11 @@ def branch_exists(repo_root: str, branch: str) -> bool:
     ).returncode == 0
 
 
+def head_of(repo_root: str, branch: str) -> str:
+    """The commit a local branch points at; empty when it cannot be read."""
+    return git_out(repo_root, "rev-parse", f"refs/heads/{branch}")
+
+
 def is_ancestor(repo_root: str, commit: str, target: str) -> bool:
     """Whether ``target`` already contains ``commit``."""
     return _git(
@@ -78,6 +83,7 @@ __all__ = [
     "branch_exists",
     "changed_files",
     "git_out",
+    "head_of",
     "has_remote",
     "is_ancestor",
     "publish",
