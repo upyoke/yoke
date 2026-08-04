@@ -115,9 +115,11 @@ def run(args: MergeArgs) -> int:
         )
         return 1
 
+    source_ref = args.source_sha or args.branch
+
     # Already-merged guard
     already = _run_git(
-        ["merge-base", "--is-ancestor", args.branch, args.target],
+        ["merge-base", "--is-ancestor", source_ref, args.target],
         cwd=ctx.repo_root,
         capture=True,
     )
@@ -129,7 +131,7 @@ def run(args: MergeArgs) -> int:
     # Also check origin
     _run_git(["fetch", "origin", args.target], cwd=ctx.repo_root, capture=True)
     already_origin = _run_git(
-        ["merge-base", "--is-ancestor", args.branch, f"origin/{args.target}"],
+        ["merge-base", "--is-ancestor", source_ref, f"origin/{args.target}"],
         cwd=ctx.repo_root,
         capture=True,
     )
@@ -137,6 +139,13 @@ def run(args: MergeArgs) -> int:
         _print(_already_merged_message(args.branch, args.target, ctx.repo_root))
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
         return 0
+
+    from yoke_core.engines.merge_worktree_recorded_source import (
+        bind_recorded_source,
+    )
+    if source_error := bind_recorded_source(ctx, verify.stdout.strip()):
+        _print(f"Error: {source_error}.", err=True)
+        return 1
 
     # Branch mismatch correction
     if ctx.worktree_path != ctx.repo_root:

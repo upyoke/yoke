@@ -46,7 +46,11 @@ def do_rebase_or_merge(ctx: MergeContext) -> Optional[Tuple[int, str]]:
 
     rebase_succeeded = False
 
-    if original_merge_count > 0:
+    if ctx.args.source_sha:
+        _print("")
+        _print("Recorded standalone HEAD — preserving it as merge ancestry.")
+        ctx.used_merge_fallback = True
+    elif original_merge_count > 0:
         _print(f"")
         _print(f"Branch has {original_merge_count} merge commit(s) \u2014 skipping rebase.")
         _print("Using merge strategy instead...")

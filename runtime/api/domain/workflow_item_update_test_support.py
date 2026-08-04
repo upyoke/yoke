@@ -25,6 +25,7 @@ CREATE TABLE item_worktrees (
     item_id INTEGER NOT NULL,
     branch TEXT NOT NULL,
     path TEXT,
+    commit_sha TEXT,
     lane_role TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL,

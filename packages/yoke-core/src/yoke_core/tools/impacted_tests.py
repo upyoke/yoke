@@ -13,6 +13,10 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
+from yoke_core.tools._impacted_contract_tests import (
+    ITEM_WORKTREE_SCHEMA_TESTS,
+    contract_tests_for,
+)
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
     TEST_ANCHORS,
@@ -36,6 +40,7 @@ SHARED_TEST_FIXTURE_PATHS = (
 #: The selection and test-run machinery itself. A change here can alter
 #: what any other run selects or how it executes.
 TEST_TOOLING_PATHS = (
+    "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py",
     "packages/yoke-core/src/yoke_core/tools/impacted_tests.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_selection.py",
     "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
@@ -88,7 +93,6 @@ ALWAYS_RUN_TESTS = (
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/test_service_client_structured_api_adapter.py",
 )
-
 
 def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
     """Repo-relative paths differing from *base*, including uncommitted work."""
@@ -185,7 +189,9 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
             trigger_paths=tuple(changed),
         )
 
-    tests = tuple(sorted(reached_tests | set(ALWAYS_RUN_TESTS)))
+    tests = tuple(
+        sorted(reached_tests | set(ALWAYS_RUN_TESTS) | contract_tests_for(changed))
+    )
     if not reached_tests:
         return Selection(
             full_sweep=False,
@@ -240,7 +246,9 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             "coverage to the final QA gate"
         ),
-        files=tuple(sorted(reached | set(ALWAYS_RUN_TESTS))),
+        files=tuple(
+            sorted(reached | set(ALWAYS_RUN_TESTS) | contract_tests_for(changed))
+        ),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
