@@ -31,11 +31,16 @@ migration = load_migration_module(_entry.path, _entry.name)
 
 def _connection() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
+    # The per-workflow digest uniqueness is part of the fixture because it is
+    # the guarantee this entry has to write within: without it a rewrite that
+    # recreates an existing row passes here and fails on a real universe.
     conn.execute(
         "CREATE TABLE workflow_versions ("
-        "id INTEGER PRIMARY KEY, definition_json TEXT NOT NULL, "
+        "id INTEGER PRIMARY KEY, workflow_id TEXT NOT NULL, "
+        "version INTEGER NOT NULL, definition_json TEXT NOT NULL, "
         "definition_digest TEXT NOT NULL, "
-        "definition_schema_version INTEGER NOT NULL)"
+        "definition_schema_version INTEGER NOT NULL, "
+        "UNIQUE(workflow_id, definition_digest))"
     )
     conn.execute(
         "CREATE TABLE deployment_flows ("
@@ -43,6 +48,44 @@ def _connection() -> sqlite3.Connection:
     )
     _ensure_immutable_version_triggers(conn)
     return conn
+
+
+def _insert(
+    conn: sqlite3.Connection,
+    row_id: int,
+    definition: dict,
+    schema_version: int,
+    *,
+    workflow_id: str = "issue",
+    version: int | None = None,
+) -> None:
+    conn.execute(
+        "INSERT INTO workflow_versions (id, workflow_id, version, "
+        "definition_json, definition_digest, definition_schema_version) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            row_id,
+            workflow_id,
+            row_id if version is None else version,
+            json.dumps(definition),
+            definition_digest(definition),
+            schema_version,
+        ),
+    )
+
+
+def _migrated(definition: dict) -> dict:
+    """The same definition as the registry publishes it after the cutover."""
+    published = json.loads(json.dumps(definition))
+    published["schema_version"] = 3
+    published["skill_bindings"] = published.pop("executor_bindings")
+    published["skill_bindings"][0]["skill_id"] = published["skill_bindings"][0].pop(
+        "executor_id"
+    )
+    for stage in published["stages"]:
+        if isinstance(stage.get("description"), str):
+            stage["description"] = stage["description"].replace("executor", "skill")
+    return published
 
 
 def _legacy_workflow() -> dict:
@@ -72,10 +115,7 @@ def _legacy_workflow() -> dict:
 def test_migration_rewrites_keys_and_preserves_rows() -> None:
     conn = _connection()
     definition = _legacy_workflow()
-    conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition), 2),
-    )
+    _insert(conn, 1, definition, 2)
     conn.execute(
         "INSERT INTO deployment_flows VALUES (?, ?)",
         (
@@ -124,10 +164,7 @@ def test_migration_rejects_mixed_vocabulary() -> None:
     conn = _connection()
     definition = _legacy_workflow()
     definition["skill_bindings"] = []
-    conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition), 2),
-    )
+    _insert(conn, 1, definition, 2)
 
     with pytest.raises(AssertionError, match="both binding vocabularies"):
         migration.apply(conn)
@@ -147,10 +184,7 @@ def test_migration_no_ops_on_definitions_past_its_target_version() -> None:
     definition["skill_bindings"][0]["skill_id"] = definition["skill_bindings"][
         0
     ].pop("executor_id")
-    conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition), 4),
-    )
+    _insert(conn, 1, definition, 4)
 
     migration.apply(conn)
     migration.invariants(conn)
@@ -172,10 +206,7 @@ def test_migration_leaves_already_migrated_rows_byte_identical() -> None:
     # a startup abort. So an entry that is already done must write nothing.
     conn = _connection()
     definition = _legacy_workflow()
-    conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition), 2),
-    )
+    _insert(conn, 1, definition, 2)
     conn.execute(
         "INSERT INTO deployment_flows VALUES (?, ?)",
         ("release", json.dumps([{"name": "merged", "step_runner": "auto"}])),
@@ -209,10 +240,7 @@ def test_migration_preserves_historical_workflow_schema() -> None:
     conn = _connection()
     definition = _legacy_workflow()
     definition["schema_version"] = 1
-    conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, ?, ?, ?)",
-        (1, json.dumps(definition), definition_digest(definition), 1),
-    )
+    _insert(conn, 1, definition, 1)
 
     migration.apply(conn)
     migration.invariants(conn)
@@ -224,3 +252,66 @@ def test_migration_preserves_historical_workflow_schema() -> None:
     )
     assert stored["schema_version"] == 1
     assert stored["skill_bindings"][0]["skill_id"] == "dash"
+
+
+def test_migration_folds_a_row_the_registry_already_republished() -> None:
+    # The registry publishes a new version whenever the code-owned definition
+    # changes, so the rename this entry performs can already have been
+    # published as its own row while the entry sat unapplied. Rewriting the
+    # older row then recreates the newer one, and a workflow may not carry one
+    # digest twice. Neither referencing table exists here, which is also the
+    # state of a universe that has not created them yet.
+    conn = _connection()
+    legacy = _legacy_workflow()
+    _insert(conn, 9, legacy, 2, version=3)
+    _insert(conn, 15, _migrated(legacy), 3, version=4)
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    rows = conn.execute(
+        "SELECT id, version FROM workflow_versions ORDER BY version"
+    ).fetchall()
+    assert rows == [(15, 4)], "the newer row survives and the duplicate folds"
+
+
+def test_fold_carries_references_onto_the_surviving_row() -> None:
+    conn = _connection()
+    conn.execute(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, workflow_version_id INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE decision_requests ("
+        "id INTEGER PRIMARY KEY, consumed_workflow_version_id INTEGER)"
+    )
+    legacy = _legacy_workflow()
+    _insert(conn, 9, legacy, 2, version=3)
+    _insert(conn, 15, _migrated(legacy), 3, version=4)
+    conn.execute("INSERT INTO items VALUES (1, 9)")
+    conn.execute("INSERT INTO decision_requests VALUES (1, 9)")
+
+    migration.apply(conn)
+
+    assert conn.execute("SELECT workflow_version_id FROM items").fetchone()[0] == 15
+    assert (
+        conn.execute(
+            "SELECT consumed_workflow_version_id FROM decision_requests"
+        ).fetchone()[0]
+        == 15
+    )
+
+
+def test_fold_keeps_versions_of_different_workflows_apart() -> None:
+    # Uniqueness is per workflow, so two workflows legitimately share a
+    # definition. Folding across them would delete a live workflow's only row.
+    conn = _connection()
+    legacy = _legacy_workflow()
+    _insert(conn, 1, legacy, 2, workflow_id="issue", version=1)
+    _insert(conn, 2, legacy, 2, workflow_id="epic", version=1)
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    assert conn.execute(
+        "SELECT COUNT(*) FROM workflow_versions"
+    ).fetchone()[0] == 2
