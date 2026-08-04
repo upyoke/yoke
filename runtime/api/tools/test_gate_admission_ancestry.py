@@ -201,6 +201,98 @@ def test_wait_bound_expires_and_the_run_proceeds(monkeypatch, capsys):
     assert published == gate_admission.MARKER_NO_SLOT
 
 
+def test_descendant_without_marker_queues_behind_parent_slot_shape(
+    monkeypatch,
+):
+    """Regression for the nested-runner wedge: clear the marker and the
+    child must contend for the parent's held slot (the pre-fix shape).
+    With the marker present it rides instead — covered by the sibling
+    ride test. This asserts the *failure* shape still exists so ancestry
+    remains load-bearing.
+    """
+    dsn = gate_admission._maintenance_dsn()
+    assert dsn is not None
+    base = _scratch_lock_base()
+    monkeypatch.setattr(gate_admission, "GATE_SLOT_LOCK_BASE", base)
+    monkeypatch.setenv(gate_admission.CAP_ENV, "1")
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
+    monkeypatch.setenv(test_gate_timeout.WAIT_TIMEOUT_ENV, "0.4")
+    parent = psycopg.connect(dsn, autocommit=True)
+    try:
+        assert gate_admission.try_acquire_slot(parent, 1, base=base) is True
+        started = time.monotonic()
+        with gate_admission.admitted_gate([], stream=sys.stdout):
+            published = os.environ.get(gate_admission.ADMITTED_ENV)
+        elapsed = time.monotonic() - started
+    finally:
+        parent.close()
+
+    # Without an inherited marker the child waited out the bound rather
+    # than returning in a single poll interval the way a rider does.
+    assert elapsed >= 0.4
+    assert published == gate_admission.MARKER_NO_SLOT
+
+
+def test_nested_runner_rides_parent_slot_without_cap_opt_out(
+    monkeypatch, tmp_path
+):
+    """Concurrency regression: parent holds the only slot; nested heavy
+    ``run_tests`` inherits the marker and returns without CAP_ENV=0.
+    """
+    import subprocess
+
+    from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
+
+    dsn = gate_admission._maintenance_dsn()
+    assert dsn is not None
+    base = _scratch_lock_base()
+    monkeypatch.setenv(gate_admission.CAP_ENV, "1")
+    monkeypatch.setenv(gate_admission.LOCK_BASE_ENV, str(base))
+
+    mini = tmp_path / "mini"
+    pkg = mini / "pkgx"
+    pkg.mkdir(parents=True)
+    (mini / "pyproject.toml").write_text(
+        "[project]\nname='pkgx'\nversion='0.0.0'\n"
+        "[tool.pytest.ini_options]\ntestpaths=['pkgx']\n"
+    )
+    (pkg / "__init__.py").write_text("")
+    (pkg / "test_ok.py").write_text("def test_one():\n    assert True\n")
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = (
+        f"{SOURCE_PYTHONPATH}{os.pathsep}{mini}"
+        f"{os.pathsep}{env.get('PYTHONPATH', '')}"
+    )
+    env[gate_admission.CAP_ENV] = "1"
+    env[gate_admission.LOCK_BASE_ENV] = str(base)
+    env[gate_admission.ADMITTED_ENV] = gate_admission.MARKER_SLOT_HELD
+
+    parent = psycopg.connect(dsn, autocommit=True)
+    try:
+        assert gate_admission.try_acquire_slot(parent, 1, base=base) is True
+        started = time.monotonic()
+        result = subprocess.run(
+            [sys.executable, "-m", "yoke_core.tools.run_tests", "pkgx"],
+            cwd=str(mini),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        elapsed = time.monotonic() - started
+    finally:
+        parent.close()
+
+    assert result.returncode == 0, (
+        f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    )
+    assert elapsed < 60.0
+    # Riding never prints a wait announcement.
+    assert "waiting (" not in result.stdout
+    assert "waiting (" not in result.stderr
+
+
 def test_wait_bound_refuses_a_non_positive_override(monkeypatch):
     # "Wait forever" is the failure this bound removes, so it must not be
     # reachable by setting the knob to zero.
