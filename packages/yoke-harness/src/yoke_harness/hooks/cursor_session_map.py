@@ -61,20 +61,63 @@ def record_from_hook_payload(
             return
         container = container_session_id_from_evidence(payload)
         if not container:
-            try:
-                from yoke_core.domain.cursor_worktree_session_fold import (
-                    resolve_worktree_remap_container,
-                )
-
-                container = resolve_worktree_remap_container(payload)
-            except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
-                container = ""
+            container = _worktree_remap_container(payload)
         if not container and event_name == SESSION_START_EVENT:
             container = conversation_id
         if container:
             record_conversation_session(conversation_id, container)
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
         return
+
+
+def _worktree_remap_container(payload: dict) -> str:
+    """Alias a linked-worktree remount onto its claim-holder session.
+
+    Client hooks must not import ``yoke_core`` (package boundary). Lane
+    parsing stays in contracts; holder lookup rides the function-call
+    dispatcher over the active transport.
+    """
+    from yoke_contracts.cursor_session_map import linked_worktree_lane_name
+
+    roots = payload.get("workspace_roots")
+    workspace = ""
+    if isinstance(roots, list) and roots and isinstance(roots[0], str):
+        workspace = roots[0]
+    elif isinstance(payload.get("cwd"), str):
+        workspace = payload["cwd"]
+    lane = linked_worktree_lane_name(workspace)
+    if not lane:
+        return ""
+    try:
+        from yoke_cli.commands._helpers import (
+            ensure_handlers_loaded,
+            item_target,
+        )
+        from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+
+        ensure_handlers_loaded()
+        response = call_dispatcher(
+            function_id="claims.work.holder_get",
+            target=item_target("item", lane, None),
+            payload={},
+            actor=build_actor(session_id=None),
+            timeout_s=5.0,
+        )
+    except Exception:  # noqa: BLE001
+        return ""
+    if not getattr(response, "success", False):
+        return ""
+    result = getattr(response, "result", None) or {}
+    holder = result.get("holder") if isinstance(result, dict) else None
+    if not isinstance(holder, dict):
+        return ""
+    session_id = holder.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return ""
+    own = payload.get("session_id") or payload.get("conversation_id") or ""
+    if isinstance(own, str) and own and own == session_id:
+        return ""
+    return session_id
 
 
 def prune_stale_conversation_map() -> None:

@@ -171,7 +171,7 @@ def resolve_container_session_id(data: Dict[str, Any]) -> str:
     if resolved:
         return resolved
     try:
-        from yoke_core.domain.cursor_worktree_session_fold import (
+        from runtime.harness.cursor.cursor_worktree_session_fold import (
             resolve_worktree_remap_container,
         )
 

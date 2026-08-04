@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.cursor_session_map import linked_worktree_lane_name
-from yoke_core.domain.cursor_worktree_session_fold import (
+from runtime.harness.cursor.cursor_worktree_session_fold import (
     resolve_worktree_remap_container,
 )
 from runtime.harness.cursor.cursor_hooks_payload import parse_payload
@@ -50,7 +50,7 @@ def test_resolve_worktree_remap_container_uses_holder_lookup() -> None:
 
 
 def test_parse_payload_folds_worktree_remap(monkeypatch) -> None:
-    from yoke_core.domain import cursor_worktree_session_fold as fold
+    from runtime.harness.cursor import cursor_worktree_session_fold as fold
 
     monkeypatch.setattr(
         fold,
