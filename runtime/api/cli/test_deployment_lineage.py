@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import fcntl
+import os
 import subprocess
 from unittest.mock import patch
 
@@ -19,26 +21,64 @@ def _completed(returncode: int = 0, stdout: str = "", stderr: str = ""):
     )
 
 
-def test_resolve_commit_lineage_fetches_and_resolves_the_named_remote_ref():
+def test_resolve_commit_lineage_fetches_and_resolves_the_named_remote_ref(
+    tmp_path,
+):
     commit = "a" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
     with patch(
         "yoke_cli.commands.deployment_lineage.subprocess.run",
         side_effect=[
-            _completed(stdout="/repo\n"),
+            _completed(stdout=f"{tmp_path}\n"),
+            _completed(stdout=".git\n"),
             _completed(),
             _completed(stdout=f"{commit}\n"),
         ],
     ) as run:
-        assert resolve_commit_lineage("/repo", "origin/stage") == commit
+        assert resolve_commit_lineage(str(tmp_path), "origin/stage") == commit
 
     assert [call.args[0] for call in run.call_args_list] == [
-        ["git", "-C", "/repo", "rev-parse", "--show-toplevel"],
-        ["git", "-C", "/repo", "fetch", "--quiet", "--no-tags", "origin"],
+        ["git", "-C", str(tmp_path), "rev-parse", "--show-toplevel"],
+        ["git", "-C", str(tmp_path), "rev-parse", "--git-common-dir"],
         [
-            "git", "-C", "/repo", "rev-parse", "--verify",
+            "git", "-C", str(tmp_path), "fetch", "--quiet", "--no-tags",
+            "origin",
+        ],
+        [
+            "git", "-C", str(tmp_path), "rev-parse", "--verify",
             "origin/stage^{commit}",
         ],
     ]
+    assert (git_dir / "yoke-deployment-lineage-fetch.lock").exists()
+
+
+def test_resolve_commit_lineage_holds_checkout_lock_while_fetching(tmp_path):
+    commit = "a" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    lock_path = git_dir / "yoke-deployment-lineage-fetch.lock"
+
+    def fake_git(_repo, *args):
+        if args == ("rev-parse", "--show-toplevel"):
+            return _completed(stdout=f"{tmp_path}\n")
+        if args == ("rev-parse", "--git-common-dir"):
+            return _completed(stdout=".git\n")
+        if args[0] == "fetch":
+            contender = os.open(lock_path, os.O_RDWR)
+            try:
+                with pytest.raises(BlockingIOError):
+                    fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                os.close(contender)
+            return _completed()
+        return _completed(stdout=f"{commit}\n")
+
+    with patch(
+        "yoke_cli.commands.deployment_lineage._git",
+        side_effect=fake_git,
+    ):
+        assert resolve_commit_lineage(str(tmp_path), "origin/main") == commit
 
 
 def test_resolve_commit_lineage_refuses_a_non_top_level_checkout():
@@ -53,11 +93,13 @@ def test_resolve_commit_lineage_refuses_a_non_top_level_checkout():
             resolve_commit_lineage("/repo/subdir", "origin/main")
 
 
-def test_resolve_commit_lineage_refuses_non_commit_output():
+def test_resolve_commit_lineage_refuses_non_commit_output(tmp_path):
+    (tmp_path / ".git").mkdir()
     with patch(
         "yoke_cli.commands.deployment_lineage.subprocess.run",
         side_effect=[
-            _completed(stdout="/repo\n"),
+            _completed(stdout=f"{tmp_path}\n"),
+            _completed(stdout=".git\n"),
             _completed(),
             _completed(stdout="not-a-commit\n"),
         ],
@@ -66,4 +108,4 @@ def test_resolve_commit_lineage_refuses_non_commit_output():
             DeploymentLineageResolutionError,
             match="did not resolve to one full commit SHA",
         ):
-            resolve_commit_lineage("/repo", "origin/main")
+            resolve_commit_lineage(str(tmp_path), "origin/main")

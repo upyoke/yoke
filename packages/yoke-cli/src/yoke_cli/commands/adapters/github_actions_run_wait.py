@@ -128,7 +128,11 @@ def _emit_terminal(response: FunctionCallResponse, *, json_mode: bool) -> int:
     if json_mode:
         emit_response(response, json_mode=True)
     else:
-        print(result.get("message") or result.get("state") or "")
+        message = str(result.get("message") or result.get("state") or "")
+        run_url = str(result.get("html_url") or "")
+        if exit_code and run_url:
+            message = f"{message}|{run_url}"
+        print(message)
     return exit_code
 
 
