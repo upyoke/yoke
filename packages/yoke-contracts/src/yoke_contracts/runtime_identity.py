@@ -14,7 +14,7 @@ from typing import Any, Mapping, Optional, Union
 
 from yoke_contracts.engine_version import (
     ENGINE_DISTRIBUTION_NAME,
-    installed_engine_version,
+    local_handshake_version,
 )
 from yoke_contracts.install_binding import (
     KIND_PACKAGED_WHEEL,
@@ -54,9 +54,11 @@ def build_runtime_identity(
     )
     resolved_version = version
     if resolved_version is None:
+        # Prefer install metadata, then the client distribution (never probe
+        # yoke_core — product-boundary HTTPS clients are core-free).
         resolved_version = (
             str(install_info.get("version") or "")
-            or installed_engine_version()
+            or local_handshake_version()
             or SOURCE_VERSION_LABEL
         )
     if not resolved_version:
@@ -90,7 +92,7 @@ def detect_install(
             "kind": KIND_PACKAGED_WHEEL,
             "checkout_root": None,
             "module_origin": "",
-            "version": installed_engine_version(),
+            "version": local_handshake_version(),
         }
     resolved = Path(module_file)
     checkout_root = source_checkout_root(resolved)

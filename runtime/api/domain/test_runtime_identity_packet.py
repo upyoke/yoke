@@ -19,6 +19,10 @@ def test_build_runtime_identity_uses_install_and_honest_source_fallback(
     monkeypatch,
 ) -> None:
     monkeypatch.delenv("YOKE_BUILD_SHA", raising=False)
+    monkeypatch.setattr(
+        "yoke_contracts.runtime_identity.local_handshake_version",
+        lambda: "",
+    )
     packet = build_runtime_identity(
         install={"kind": KIND_SOURCE_CHECKOUT, "version": ""},
         portability_mode=PORTABILITY_LOCAL,
@@ -28,6 +32,28 @@ def test_build_runtime_identity_uses_install_and_honest_source_fallback(
     assert packet["build"] == ""
     assert packet["environment_label"] == "local universe"
     assert packet["portability_mode"] == PORTABILITY_LOCAL
+
+
+def test_build_runtime_identity_never_probes_yoke_core(monkeypatch) -> None:
+    """Empty install version must resolve without find_spec('yoke_core')."""
+    import importlib.util
+
+    monkeypatch.delenv("YOKE_BUILD_SHA", raising=False)
+    monkeypatch.setattr(
+        "yoke_contracts.runtime_identity.local_handshake_version",
+        lambda: "",
+    )
+    real_find_spec = importlib.util.find_spec
+
+    def _guarded_find_spec(name, *args, **kwargs):
+        assert name != "yoke_core", "runtime identity must stay core-free"
+        return real_find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib.util, "find_spec", _guarded_find_spec)
+    packet = build_runtime_identity(
+        install={"kind": KIND_SOURCE_CHECKOUT, "version": ""},
+    )
+    assert packet["version"] == SOURCE_VERSION_LABEL
 
 
 def test_build_runtime_identity_keeps_build_sha_and_explicit_version(
