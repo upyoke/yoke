@@ -116,12 +116,12 @@ def _refuse_run_that_cannot_execute(
 ) -> None:
     """Apply the dispatch stage's lineage requirement at creation time."""
     from yoke_core.domain import deployment_run_lineage_requirement as lineage
-    from yoke_core.domain.json_helper import loads
+    from yoke_core.domain.json_helper import loads_text
 
     row = conn.execute(
         "SELECT stages FROM deployment_flows WHERE id = %s", (flow,)
     ).fetchone()
-    stages = loads(row[0]) if row and row[0] else []
+    stages = loads_text(row[0]) if row and row[0] else []
     lineage.require_lineage_for_stages(
         stages, release_lineage, flow=flow)
 
