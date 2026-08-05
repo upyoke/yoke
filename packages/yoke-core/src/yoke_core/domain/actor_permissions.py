@@ -60,11 +60,9 @@ ROLE_DESCRIPTIONS = {
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: (
         "Create immutable release tags, trigger deployment workflows, and "
-        "read their status."
+        "read their status and migration rehearsal receipts."
     ),
-    ROLE_INFRASTRUCTURE_CI: (
-        "Read exact infrastructure render inputs for preview workflows."
-    ),
+    ROLE_INFRASTRUCTURE_CI: "Read exact infrastructure render inputs for previews.",
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
 
@@ -136,6 +134,7 @@ ROLE_PERMISSION_KEYS = {
     ),
     ROLE_VIEWER: (PERM_ITEMS_READ, PERM_EVENTS_READ),
     ROLE_DEPLOYMENT_CI: (
+        PERM_EVENTS_READ,
         PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
         PERM_GITHUB_ACTIONS_RUN_READ,
         PERM_GITHUB_ACTIONS_VARIABLE_READ,
@@ -297,11 +296,9 @@ def grant_actor_org_role(
     conn.commit()
 
 
-# Permission/authorization decisions live in the sibling module to keep this
-# file under the authored-file line cap; re-exported so callers keep importing
-# them from ``yoke_core.domain.actor_permissions``. The import sits below the
-# constant/dataclass definitions the checks module pulls back (one-directional;
-# nothing imports actor_permission_checks directly).
+# Permission decisions live in the sibling module to keep this file below the
+# line cap; re-export them here so callers retain their existing import path.
+# The checks module only pulls back the constants and dataclasses defined above.
 from yoke_core.domain.actor_permission_checks import (  # noqa: E402
     org_permission_decision,
     permission_decision,
