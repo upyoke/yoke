@@ -43,11 +43,11 @@ something the signal cannot actually see.
 
 ## What the contract requires
 
-A ledger declaration names its `table`, its `entry_column`, and its
-`semantics`, and `semantics` accepts only `membership`. An optional
-`serving_floor_column` lets a destructive entry's floor travel with its
-row, which is what a rolled-back build reads when it cannot ship the entry
-that would warn it.
+A ledger declaration names its `table`, its `entry_column`, its
+`semantics`, and its `serving_floor_column`. `semantics` accepts only
+`membership`. The serving floor is required once a ledger is declared:
+membership alone cannot stop a rolled-back build from serving a database
+it cannot read — see `project-migration-rollback-safety.md`.
 
 The declaration is validated **when present**, not required outright.
 Models predating this contract are already deployed, and refusing them
@@ -57,8 +57,9 @@ are refused on the spot.
 ## Why the declaration is checked against reality
 
 A declaration is a promise. `HC-project-migration-ledger-contract` reads
-the live ledger rows and reports whether they can answer membership for the
-shipped history. Three outcomes stay distinct on purpose:
+the live ledger rows and reports whether they satisfy the rollback-safety
+contract (membership plus a readable serving floor) for the shipped
+history. Three outcomes stay distinct on purpose:
 
 - **N/A** — the model declares no ledger. An absent opinion is not a
   failure.

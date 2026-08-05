@@ -1,7 +1,8 @@
 """What a declared migration ledger must be able to answer.
 
 Each refusal here corresponds to a way a project can satisfy every
-authoring gate and still apply migrations that silently skip entries.
+authoring gate and still apply migrations that silently skip entries, or
+roll back past a destructive entry and still serve.
 """
 
 from __future__ import annotations
@@ -17,22 +18,25 @@ _VALID = {
     "table": "applied_migrations",
     "entry_column": "migration_name",
     "semantics": contract.MEMBERSHIP,
+    "serving_floor_column": "minimum_serving_version",
 }
 
 
-def test_a_membership_ledger_parses():
+def test_a_membership_ledger_with_serving_floor_parses():
     parsed = contract.parse(_VALID)
     assert parsed.table == "applied_migrations"
     assert parsed.entry_column == "migration_name"
     assert parsed.semantics == contract.MEMBERSHIP
-    assert not parsed.records_serving_floor
-
-
-def test_a_serving_floor_column_is_optional_and_reported_when_present():
-    """Optional because not every project runs builds old enough to strand."""
-    parsed = contract.parse({**_VALID, "serving_floor_column": "min_version"})
     assert parsed.records_serving_floor
-    assert parsed.serving_floor_column == "min_version"
+    assert parsed.serving_floor_column == "minimum_serving_version"
+
+
+def test_a_missing_serving_floor_column_is_refused():
+    """Membership alone cannot stop a rolled-back build from serving."""
+    incomplete = {k: v for k, v in _VALID.items() if k != "serving_floor_column"}
+    with pytest.raises(contract.LedgerContractError) as excinfo:
+        contract.parse(incomplete)
+    assert "serving_floor_column" in str(excinfo.value)
 
 
 def test_a_missing_declaration_is_refused_rather_than_defaulted():
@@ -124,5 +128,5 @@ def test_the_runner_helper_normalizes_every_field():
         "table": "applied_migrations",
         "entry_column": "migration_name",
         "semantics": contract.MEMBERSHIP,
-        "serving_floor_column": "",
+        "serving_floor_column": "minimum_serving_version",
     }

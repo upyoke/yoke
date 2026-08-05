@@ -40,6 +40,9 @@ Match policy:
 * Lines beginning with ``rg -``, ``grep -``, or ``python3 -m`` (after
   whitespace) are ignored — they are tooling references, not declarative
   prose.
+* Lines that pair literal DML with explicit lint/test-fixture evidence
+  language are ignored.  They describe the scanner's regression input rather
+  than an authoritative mutation the item intends to execute.
 """
 
 from __future__ import annotations
@@ -198,6 +201,26 @@ _TOOLING_LINE_RE = re.compile(
     r"^[ \t]*(?:rg|grep|python3?)\b[^\n]*(?:\n|\Z)",
     re.MULTILINE,
 )
+_STRUCTURAL_DML_RE = re.compile(
+    r"\b(?:INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+[A-Za-z_][A-Za-z0-9_]+\s+SET)\b",
+    re.IGNORECASE,
+)
+_NON_EXECUTING_SQL_CONTEXT_RE = re.compile(
+    r"\b(?:false[ -]positive|in[ -]memory|lint|regression(?:\s+case)?|"
+    r"source\s+text|test[ -]fixture|fixture\s+authoring)\b",
+    re.IGNORECASE,
+)
+
+
+def _strip_non_executing_sql_evidence(prose: str) -> str:
+    segments = []
+    for segment in re.split(r"(?<=[.!?])(?=\s)|(?<=\n)", prose):
+        if (_STRUCTURAL_DML_RE.search(segment)
+                and _NON_EXECUTING_SQL_CONTEXT_RE.search(segment)):
+            segments.append("\n" if segment.endswith("\n") else " ")
+        else:
+            segments.append(segment)
+    return "".join(segments)
 
 
 def _strip_code(prose: str) -> str:
@@ -207,7 +230,7 @@ def _strip_code(prose: str) -> str:
     no_fenced = _FENCED_CODE_RE.sub(" ", prose)
     no_inline = _INLINE_CODE_RE.sub(" ", no_fenced)
     no_tools = _TOOLING_LINE_RE.sub(" ", no_inline)
-    return no_tools
+    return _strip_non_executing_sql_evidence(no_tools)
 
 
 def detect_triggers(prose: str) -> List[tuple]:
