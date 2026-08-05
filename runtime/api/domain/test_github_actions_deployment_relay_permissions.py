@@ -12,6 +12,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.actor_permissions import (
+    PERM_EVENTS_READ,
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
@@ -109,6 +110,7 @@ def test_deployment_ci_role_carries_only_required_ci_permissions() -> None:
     conn = _conn()
     try:
         relay_permissions = {
+            PERM_EVENTS_READ,
             PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH,
             PERM_GITHUB_ACTIONS_RUN_READ,
             PERM_GITHUB_ACTIONS_VARIABLE_READ,
@@ -170,6 +172,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             granted_by_actor_id=actor_id,
         )
         allowed = {
+            "events.query.run": False,
             "github_actions.workflow.dispatch": True,
             "github_actions.workflow.dispatch_once": True,
             "github_actions.workflow.find_run": False,
