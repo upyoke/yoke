@@ -48,10 +48,10 @@ def test_status_json_validates_machine_and_project_config(
     assert report["connection"]["prod"] is True
     assert report["connection"]["envs"] == ["prod"]
     assert report["project"]["project_id"] == 1
-    assert report["project"]["board_scope"] == "all"
+    assert report["project"]["board_scope"] == "1"
     assert report["project"]["board_settings_authority"] == "project-policy.settings.board"
-    assert report["project"]["board_render_path"].endswith("BOARD-ALL.md")
-    assert report["project"]["board_ts_path"].endswith("BOARD-ALL.md.ts")
+    assert report["project"]["board_render_path"].endswith(".yoke/BOARD.md")
+    assert report["project"]["board_ts_path"].endswith(".yoke/BOARD.md.ts")
     assert report["project"]["board_art_path"].endswith(".yoke/board-art")
     assert report["paths"]["temp_root"]["writable"] is True
     assert report["paths"]["cache_dir"]["writable"] is True

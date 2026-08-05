@@ -199,7 +199,8 @@ CORE_TABLES: dict[str, dict] = {
             "Append-only TELEMETRY ledger — diagnosis/audit only, never "
             "application state. Status/transition questions read "
             "`item_status_transitions`; board activity reads "
-            "`item_activity_days`; strategize/drift anchors read "
+            "`item_activity_days`; board/Overview code meters read "
+            "`project_code_days`; strategize/drift anchors read "
             "`strategy_checkpoints`; session/tool-call liveness reads "
             "`harness_sessions` columns + `session_tool_calls`; "
             "dispatcher idempotency reads `function_call_ledger`; "
@@ -272,6 +273,23 @@ CORE_TABLES: dict[str, dict] = {
             "from the legacy ledger scan, go-forward rows come only from "
             "mutation-site touches (decision record "
             "board-activity-semantics)."
+        ),
+    },
+    "project_code_days": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("project_id", "INTEGER"),
+            ("day", "TEXT"),
+            ("commit_count", "INTEGER"),
+            ("lines_changed", "INTEGER"),
+        ],
+        "notes": (
+            "Daily commit/line rollup for board + Overview code meters "
+            "(yoke_core.domain.project_code_days). UNIQUE(project_id, day). "
+            "Ingest from the machine commit-cache via board.data.get "
+            "`code_days` payload (or domain upsert_days). Local "
+            ".commit-cache.json is ingest scratch only — not Overview "
+            "authority. Do not invent a parallel git-event code series."
         ),
     },
     "strategy_checkpoints": {

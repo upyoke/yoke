@@ -23,7 +23,7 @@ def test_canonical_example_is_valid_machine_config() -> None:
     assert payload["connections"]["stage"][contract.PROD_FLAG_KEY] is False
     entry = payload["projects"][0]
     assert entry["checkout"] and entry["env"] == "prod"
-    assert set(entry["board"]) == {"render_path", "scope"}
+    assert "board" not in entry
     assert contract.validate_payload(payload) == []
     assert json.loads(contract.canonical_example_text()) == payload
 

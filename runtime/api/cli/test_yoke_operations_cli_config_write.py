@@ -285,49 +285,6 @@ def test_auth_set_token_stdin_imports_without_leaking(
     _assert_auth_token_imported(cfg, "stage", secret, captured)
 
 
-def test_project_register_maps_checkout(cfg, tmp_path, capsys) -> None:
-    _seed(cfg, tmp_path, "prod")
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    capsys.readouterr()
-
-    rc = yoke_operations_cli.main([
-        "project", "register", str(repo),
-        "--project-id", "7",
-        "--board-scope", "all",
-        "--config", str(cfg),
-    ])
-
-    assert rc == 0
-    payload = json.loads(cfg.read_text())
-    checkout = json.loads(capsys.readouterr().out)["checkout"]
-    assert payload["projects"] == [
-        {"checkout": checkout, "project_id": 7, "env": "prod",
-         "board": {"scope": "all"}},
-    ]
-
-
-def test_stamp_project_env_stamps_untagged_entries(cfg, tmp_path, capsys) -> None:
-    _seed(cfg, tmp_path, "prod")
-    # A pre-existing untagged (legacy) mapping in the old object shape.
-    payload = json.loads(cfg.read_text())
-    payload["projects"] = {"/checkout/legacy": {"project_id": 3}}
-    cfg.write_text(json.dumps(payload), encoding="utf-8")
-    capsys.readouterr()
-
-    rc = yoke_operations_cli.main([
-        "config", "stamp-project-env", "--config", str(cfg),
-    ])
-
-    assert rc == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["env"] == "prod"
-    assert [row["checkout"] for row in result["stamped"]] == ["/checkout/legacy"]
-    assert json.loads(cfg.read_text())["projects"] == [
-        {"checkout": "/checkout/legacy", "project_id": 3, "env": "prod"},
-    ]
-
-
 def test_invalid_write_is_refused_with_contract_codes(cfg, capsys) -> None:
     rc = yoke_operations_cli.main([
         "connection", "set", "stage", "--transport", "https",

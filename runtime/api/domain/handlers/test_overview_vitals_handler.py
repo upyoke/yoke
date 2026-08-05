@@ -57,22 +57,57 @@ def test_vitals_returns_closed_state_buckets_and_dense_days():
             },
         ),
         patch(
-            "yoke_core.domain.handlers.overview_vitals._day_counts",
-            return_value={},
+            "yoke_core.domain.board_momentum_signals.build_momentum_series",
+            return_value=(
+                [
+                    {
+                        "day": "2026-08-03",
+                        "activity": 0,
+                        "code": 0,
+                        "issues": 0,
+                        "strategy": 0,
+                    },
+                    {
+                        "day": "2026-08-04",
+                        "activity": 0,
+                        "code": 0,
+                        "issues": 0,
+                        "strategy": 0,
+                    },
+                    {
+                        "day": "2026-08-05",
+                        "activity": 0,
+                        "code": 0,
+                        "issues": 0,
+                        "strategy": 0,
+                    },
+                ],
+                {"streak_days": 0, "lifetime_pct": None, "project_days": 0},
+            ),
         ),
         patch(
-            "yoke_core.domain.handlers.overview_vitals._strategy_timelines",
+            "yoke_core.domain.board_zen_signals.build_zen_payloads",
             return_value=[
                 {
                     "project_id": 1,
                     "project": "yoke",
                     "emoji": "🐄",
+                    "zones": [
+                        {"key": "past", "width": 80},
+                        {"key": "present", "width": 4},
+                        {"key": "near", "width": 10, "label": "2 queued"},
+                        {"key": "1mo", "width": 10, "label": "web steering"},
+                    ],
                     "done_positions": [10, 80],
                     "labels": [{"position": 10, "label": "registry"}],
                     "queued_count": 2,
                     "vision_zones": [{"key": "1mo", "label": "web steering"}],
                 }
             ],
+        ),
+        patch(
+            "yoke_core.domain.board_policy_read.resolve_board_config",
+            return_value=object(),
         ),
     ):
         outcome = handle_overview_vitals(_request({"days": 3}))
@@ -84,7 +119,10 @@ def test_vitals_returns_closed_state_buckets_and_dense_days():
         set(row) == {"day", "activity", "code", "issues", "strategy"}
         for row in outcome.result_payload["momentum"]
     )
-    assert outcome.result_payload["strategy_timeline"][0]["queued_count"] == 2
+    assert outcome.result_payload["zen"][0]["queued_count"] == 2
+    assert outcome.result_payload["streak_days"] == 0
+    assert "lifetime_pct" in outcome.result_payload
+    assert "strategy_timeline" not in outcome.result_payload
 
 
 def test_vitals_rejects_unbounded_window():
@@ -120,7 +158,7 @@ def test_vitals_executes_against_initialized_authority(test_db):
         "frozen",
         "done",
     }.issubset(outcome.result_payload["state_counts"])
-    assert isinstance(outcome.result_payload["strategy_timeline"], list)
+    assert isinstance(outcome.result_payload["zen"], list)
 
 
 def _today():

@@ -44,6 +44,7 @@ class BoardDataGetRequest(BaseModel):
     config_values: Dict[str, Any] = Field(default_factory=dict)
     zen_vision_count: int = 0
     repo_root_token: Optional[str] = None
+    code_days: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class BoardDataGetResponse(BaseModel):
@@ -68,6 +69,7 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
         resolve_board_scope,
     )
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_code_days import ensure_schema, upsert_days
     from yoke_contracts.board.config import config_from_values
     from yoke_contracts.board.policy_settings import board_settings_from_config
 
@@ -81,6 +83,14 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload",
             ),
         )
+    if payload.code_days:
+        conn = connect()
+        try:
+            ensure_schema(conn)
+            upsert_days(conn, payload.code_days)
+            conn.commit()
+        finally:
+            conn.close()
     if payload.settings_project_id is not None:
         conn = connect()
         try:

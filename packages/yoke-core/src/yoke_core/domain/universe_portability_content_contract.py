@@ -79,6 +79,7 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "projects",
     "items",
     "item_activity_days",
+    "project_code_days",
     "item_dependencies",
     "item_sections",
     "item_status_transitions",

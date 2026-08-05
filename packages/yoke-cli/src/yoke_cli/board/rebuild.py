@@ -15,7 +15,6 @@ import is unavailable). The essential fetch + render + write path never imports
 
 from __future__ import annotations
 
-import dataclasses
 import os
 import time
 from datetime import datetime
@@ -23,7 +22,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from yoke_cli.config import machine_config
-from yoke_cli.config.checkout_context import _strip_worktree_path
 from yoke_cli.board import source_dev_extras as extras
 from yoke_cli.board.outcome import (
     RebuildResult,
@@ -33,6 +31,11 @@ from yoke_cli.board.outcome import (
     printed,  # noqa: F401  (re-exported for the adapter's print-only path)
     rebuilt,
     throttled,
+)
+from yoke_cli.board.rebuild_resolve import (
+    BoardProjectResolutionError,
+    resolve_board_path,
+    resolve_main_repo_root,
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.board.art import parse_art_config
@@ -48,111 +51,6 @@ THROTTLE_SECONDS = 5
 
 class BoardDataFetchError(RuntimeError):
     """``board.data.get`` returned a failure envelope."""
-
-
-class BoardProjectResolutionError(RuntimeError):
-    """No unique machine-configured project checkout could be resolved."""
-
-
-def _normalized_path(path: Path) -> Path:
-    selected = Path(_strip_worktree_path(str(path.expanduser())))
-    try:
-        return selected.resolve()
-    except OSError:
-        return selected
-
-
-def _contains(parent: Path, child: Path) -> bool:
-    try:
-        child.relative_to(parent)
-        return True
-    except ValueError:
-        return False
-
-
-def _configured_project_matches(start: Path) -> list[machine_config.ConfiguredProject]:
-    selected = _normalized_path(start.parent if start.is_file() else start)
-    matches: list[machine_config.ConfiguredProject] = []
-    for project in machine_config.configured_projects(existing_only=True):
-        checkout = _normalized_path(project.checkout)
-        if _contains(checkout, selected):
-            matches.append(project)
-    return sorted(
-        matches,
-        key=lambda project: len(_normalized_path(project.checkout).parts),
-        reverse=True,
-    )
-
-
-def _configured_projects() -> list[machine_config.ConfiguredProject]:
-    return machine_config.configured_projects(existing_only=True)
-
-
-def _matching_configured_project_root(start: Path) -> Path | None:
-    matches = _configured_project_matches(start)
-    if matches:
-        return _normalized_path(matches[0].checkout)
-    return None
-
-
-def _resolve_configured_project(start: Path, *, explicit: bool) -> Path:
-    match = _matching_configured_project_root(start)
-    if match is not None:
-        return match
-    projects = _configured_projects()
-    if explicit:
-        raise BoardProjectResolutionError(
-            f"{start.expanduser()} is not inside a project registered in "
-            "machine config; run from a registered checkout or pass one with "
-            "--repo-root."
-        )
-    if len(projects) == 1:
-        return _normalized_path(projects[0].checkout)
-    if not projects:
-        raise BoardProjectResolutionError(
-            "no projects are registered in machine config; run `yoke onboard` "
-            "or `yoke project register` first."
-        )
-    configured = ", ".join(
-        str(_normalized_path(project.checkout)) for project in projects
-    )
-    raise BoardProjectResolutionError(
-        "could not choose a board project from this directory; run from inside "
-        f"one registered checkout or pass --repo-root. Configured projects: {configured}"
-    )
-
-
-def resolve_main_repo_root(repo_arg: Optional[str] = None) -> Path:
-    if repo_arg:
-        return _resolve_configured_project(Path(repo_arg), explicit=True)
-
-    env_value = os.environ.get("CLAUDE_PROJECT_DIR")
-    if env_value:
-        match = _matching_configured_project_root(Path(env_value))
-        if match is not None:
-            return match
-
-    return _resolve_configured_project(Path.cwd(), explicit=False)
-
-
-def resolve_board_path(repo_root: Path, output_name: Optional[str] = None) -> Path:
-    if not output_name:
-        return machine_config.board_render_path(repo_root)
-    return _board_path_for_output(repo_root, output_name)
-
-
-def _board_path_for_output(repo_root: Path, output_name: str) -> Path:
-    selected = Path(output_name).expanduser()
-    if selected.is_absolute():
-        return selected
-    if len(selected.parts) == 1:
-        return machine_config.board_render_path(repo_root).with_name(output_name)
-    return repo_root / selected
-
-
-# ---------------------------------------------------------------------------
-# Fetch + render (CLI transport + contracts render)
-# ---------------------------------------------------------------------------
 
 
 def _timestamp() -> str:
@@ -194,21 +92,42 @@ def fetch_and_render(
     scope: str,
     phase_recorder: Optional[PhaseRecorder],
 ) -> str:
+    from yoke_cli.board.code_days_publish import code_days_for_checkout
+    from yoke_contracts.board.policy_settings import board_config_from_settings
+
     root_token = str(repo_root)
-    config = parse_config(None, repo_root=root_token)
     art_config = parse_art_config(None, repo_root=root_token)
     vision_entries = _zen_extract_vision(root_token)
+    settings_project_id = machine_config.project_id(repo_root)
+    request_payload: Dict[str, Any] = {
+        "zen_vision_count": len(vision_entries),
+        "repo_root_token": root_token,
+    }
+    if settings_project_id is not None:
+        request_payload["settings_project_id"] = int(settings_project_id)
+    if scope:
+        request_payload["scope"] = scope
+
+    with measure_phase(phase_recorder, "publish_code_days"):
+        rows = code_days_for_checkout(
+            repo_root,
+            settings_project_id=settings_project_id,
+            load_config=machine_config.load_config,
+        )
+        if rows:
+            request_payload["code_days"] = rows
+
     with measure_phase(phase_recorder, "fetch_board_data"):
-        payload = fetch_board_data({
-            "scope": scope,
-            "config_values": dataclasses.asdict(config),
-            "zen_vision_count": len(vision_entries),
-            "repo_root_token": root_token,
-        })
+        payload = fetch_board_data(request_payload)
+    if payload.get("config_values"):
+        config = board_config_from_settings(payload.get("config_values"))
+    else:
+        config = parse_config(None, repo_root=root_token)
+    resolved_scope = str(payload.get("scope") or scope or "all")
     with measure_phase(phase_recorder, "render_total"):
         return render_board_from_payload(
             payload,
-            scope=scope,
+            scope=resolved_scope,
             config=config,
             art_config=art_config,
             seed=_parse_seed(),
@@ -235,11 +154,6 @@ def build_board_file_text(
             board_content,
             _timestamp(),
         )
-
-
-# ---------------------------------------------------------------------------
-# Rebuild entrypoints
-# ---------------------------------------------------------------------------
 
 
 def rebuild_one(
@@ -290,9 +204,6 @@ def rebuild_one(
                 extras.emit_outcome(result)
             return result
 
-        # BOARD.md and its .ts are untracked generated project views under
-        # .yoke/, regenerated from DB state. The seed-source check (source-dev
-        # only) catches a schema module loaded from a different checkout.
         extras.assert_seed_source(repo_root)
         with measure_phase(phase_recorder, "file_write"):
             plan_file.parent.mkdir(parents=True, exist_ok=True)
@@ -318,13 +229,12 @@ def rebuild(
 ) -> RebuildResult:
     repo_root = resolve_main_repo_root(repo_arg)
     board_path = resolve_board_path(repo_root, output_name)
-    if not scope:
-        scope = machine_config.board_scope(repo_root)
+    # Empty scope → board.data.get resolves DB project-policy.settings.board.scope
     return rebuild_one(
         repo_root=repo_root,
         board_path=board_path,
         force=force,
-        scope=scope,
+        scope=scope or "",
         emit=emit,
         phase_recorder=phase_recorder,
     )
@@ -340,12 +250,10 @@ def render_text(
     """Return ``(repo_root, board_path, content)`` without writing files."""
     repo_root = resolve_main_repo_root(repo_arg)
     board_path = resolve_board_path(repo_root, output_name)
-    if not scope:
-        scope = machine_config.board_scope(repo_root)
     content = build_board_file_text(
         repo_root=repo_root,
         board_path=board_path,
-        scope=scope,
+        scope=scope or "",
         phase_recorder=phase_recorder,
     )
     return repo_root, board_path, content

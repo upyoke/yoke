@@ -126,8 +126,8 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert (repo / ".yoke/lint-config").is_file(), (
         "edited contract file survives uninstall"
     )
-    assert ".yoke/labels" in report["contract_files_removed"]
-    assert not (repo / ".yoke/labels").exists()
+    assert ".yoke/board-art" in report["contract_files_removed"]
+    assert not (repo / ".yoke/board-art").exists()
 
 
 def test_refresh_discards_out_of_policy_prior_contract_record(

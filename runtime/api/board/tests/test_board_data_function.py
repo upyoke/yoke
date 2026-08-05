@@ -122,14 +122,14 @@ def test_handler_records_only_generated_children_policy(populated_db):
     assert "1/2 (50%)" in markdown
 
 
-def test_handler_rejects_unknown_config_field(populated_db):
+def test_handler_ignores_unknown_config_field(populated_db):
     outcome = orchestration.handle_board_data_get(
         _request({"scope": "yoke", "config_values": {"not_a_field": 1}})
     )
-    # Unknown keys are dropped by the board.json parser client-side; a
-    # raw unknown kwarg here signals client/server contract divergence.
-    assert not outcome.primary_success
-    assert outcome.error.code == "payload_invalid"
+    # Unknown keys are dropped the same way the legacy board.json parser
+    # dropped them; fixture callers may pass a partial mapping.
+    assert outcome.primary_success
+    assert outcome.result_payload["scope"] == "yoke"
 
 
 def test_handler_vision_count_shapes_zen_plan(populated_db):

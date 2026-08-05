@@ -2,12 +2,11 @@
 
 Renders four 120-day sparklines: activity, code lines, issues done,
 strategy volume. Activity/delivery rows read the ``item_activity_days``
-rollup and ``item_status_transitions`` history; the code row's
-git-derived data flows through the unified per-commit cache in
-:mod:`widgets_commit_cache`. The strategy row reads the strategy-doc
-write event stream: ``strategy_docs`` is DB-authoritative and its
-rendered ``.yoke/strategy/`` views are gitignored, so git carries no
-strategy signal.
+rollup and ``item_status_transitions`` history; the code row reads
+``project_code_days`` (control-plane daily line rollup). The strategy
+row reads the strategy-doc write event stream: ``strategy_docs`` is
+DB-authoritative and its rendered ``.yoke/strategy/`` views are
+gitignored, so git carries no strategy signal.
 """
 
 from __future__ import annotations
@@ -24,11 +23,10 @@ from yoke_contracts.board.widgets_activity import (
     _build_sparkline,
     _date_range,
     _project_filter,
-    _resolve_repos,
 )
-from yoke_contracts.board.widgets_commit_cache import (
-    commits_per_day,
-    lines_per_day,
+from yoke_contracts.board.widgets_code_days import (
+    code_commits_by_day,
+    code_lines_by_day,
 )
 
 # Strategy-doc write events whose ``new_bytes`` payload is the per-day
@@ -55,20 +53,16 @@ def render_velocity_meter(
     """Render the 120-day velocity meter (4 sparkline rows).
 
     Returns a list of 4 lines, or ``None`` if disabled or no data.
-    Requires ``repo_root`` for git-log-based effort/SML rows.
+    ``repo_root`` is retained for call-site compatibility; code meters
+    read ``project_code_days`` rather than local git.
 
     Row order: activity, code lines, issues done, strategy lines.
     """
+    del repo_root  # ingest-only; meters read the control-plane rollup
     days = 120
     dates = _date_range(days)
     pf_t, scope_params = _project_filter(scope, "t")
 
-    repos: List[str] = _resolve_repos(db, scope, repo_root) if repo_root else []
-
-    # --- Row 1: Activity (unique items touched per day, 120d) ---
-    # Sourced from item_activity_days (real domain mutations) plus
-    # per-task touch days from the transition history — see the lifetime
-    # activity widget for the rationale for not using items.updated_at.
     transition_day = day_text_expr("t.created_at")
     act_task_sql = (
         "SELECT day, COUNT(*) AS cnt FROM ("
@@ -96,13 +90,11 @@ def render_velocity_meter(
     for row in act_task_rows:
         act_counts[row[0]] = act_counts.get(row[0], 0) + int(row[1])
 
-    # All git-derived rows read from the unified per-commit cache; one
-    # warm-cache lookup or one cold populate covers effort, SML, and the
-    # commit-fallback contribution to row 1.
-    effort_counts = lines_per_day(repos, days)
+    effort_counts = code_lines_by_day(db, scope, days)
     sml_counts = _strategy_bytes_per_day(db, scope, days)
-    for day, n in commits_per_day(repos, days).items():
-        act_counts[day] = act_counts.get(day, 0) + n
+    for day, n in code_commits_by_day(db, scope, days).items():
+        if n > 0:
+            act_counts[day] = act_counts.get(day, 0) + n
 
     act_values = [act_counts.get(d, 0) for d in dates]
     act_spark = _build_sparkline(act_values)
@@ -110,7 +102,6 @@ def render_velocity_meter(
     effort_values = [effort_counts.get(d, 0) for d in dates]
     effort_spark = _build_sparkline(effort_values)
 
-    # --- Row 3: Delivery (transitions into done/passed) ---
     del_sql = (
         "SELECT day, COUNT(*) AS cnt FROM ("
         f"  SELECT {transition_day} AS day,"
@@ -144,14 +135,7 @@ def render_velocity_meter(
 
 
 def _strategy_bytes_per_day(db: BoardDBLike, scope: str, days: int) -> Dict[str, int]:
-    """Per-day strategy-doc authoring volume from the DB event stream.
-
-    ``strategy_docs`` is DB-authoritative; each ``StrategyDocCreated`` /
-    ``StrategyDocReplaced`` event carries the ``new_bytes`` written, so
-    summing ``new_bytes`` per day is the authoring-volume magnitude the
-    strategy sparkline renders. Scoped by the event's native
-    ``project_id`` column.
-    """
+    """Per-day strategy-doc authoring volume from the DB event stream."""
     day = day_text_expr("created_at")
     names = ", ".join(f"'{name}'" for name in _STRATEGY_EVENT_NAMES)
     new_bytes = "(envelope::jsonb -> 'context' ->> 'new_bytes')::int"
@@ -169,21 +153,3 @@ def _strategy_bytes_per_day(db: BoardDBLike, scope: str, days: int) -> Dict[str,
         if row and row[0] is not None:
             counts[str(row[0])] = int(row[1] or 0)
     return counts
-
-
-def _parse_shortstat(output: str) -> int:
-    """Parse ``git diff --shortstat`` output, returning total lines changed."""
-    total = 0
-    for part in output.split(","):
-        part = part.strip()
-        if "insertion" in part:
-            try:
-                total += int(part.split()[0])
-            except (ValueError, IndexError):
-                pass
-        elif "deletion" in part:
-            try:
-                total += int(part.split()[0])
-            except (ValueError, IndexError):
-                pass
-    return total

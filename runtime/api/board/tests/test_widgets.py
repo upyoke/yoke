@@ -7,8 +7,7 @@ Companion files split off by topic:
 - ``test_widgets_badges.py`` — achievement badges, velocity meter, deterministic output
 
 This file holds the pure-function unit tests: sparkline construction,
-proportional allocation, project filter SQL, date range, and shortstat
-parser.
+proportional allocation, project filter SQL, and date range.
 """
 
 from __future__ import annotations
@@ -18,7 +17,6 @@ from yoke_contracts.board.widgets import (
     _allocate_proportional,
     _build_sparkline,
     _date_range,
-    _parse_shortstat,
     _project_filter,
 )
 
@@ -139,23 +137,4 @@ class TestDateRange:
         assert dates[0] == datetime.now(UTC).date().isoformat()
 
 
-# ---------------------------------------------------------------------------
-# _parse_shortstat
-# ---------------------------------------------------------------------------
 
-
-class TestParseShortstat:
-    def test_basic_insertions_and_deletions(self):
-        output = " 2 files changed, 10 insertions(+), 5 deletions(-)"
-        assert _parse_shortstat(output) == 15
-
-    def test_insertions_only(self):
-        output = " 1 file changed, 3 insertions(+)"
-        assert _parse_shortstat(output) == 3
-
-    def test_deletions_only(self):
-        output = " 1 file changed, 7 deletions(-)"
-        assert _parse_shortstat(output) == 7
-
-    def test_empty(self):
-        assert _parse_shortstat("") == 0

@@ -119,6 +119,16 @@ def create_core_tables(conn: Any) -> None:
           day TEXT NOT NULL,
           UNIQUE(project_id, item_id, day)
         );
+        -- daily commit/line rollup for board + Overview code meters
+        -- (yoke_core.domain.project_code_days); ingest from commit cache.
+        CREATE TABLE IF NOT EXISTS project_code_days (
+          id INTEGER PRIMARY KEY,
+          project_id INTEGER NOT NULL,
+          day TEXT NOT NULL,
+          commit_count INTEGER NOT NULL DEFAULT 0,
+          lines_changed INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(project_id, day)
+        );
         -- strategize / drift-review completion anchors per project
         -- (strategy_checkpoints.py); MAX(created_at) bounds delta windows.
         CREATE TABLE IF NOT EXISTS strategy_checkpoints (

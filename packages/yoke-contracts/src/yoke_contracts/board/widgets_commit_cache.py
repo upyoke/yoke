@@ -260,6 +260,35 @@ def lines_per_day(repos: List[str], days: int) -> Dict[str, int]:
     return _per_day(repos, days, "lines")
 
 
+def aggregate_cache_for_projects(
+    cache: Dict[str, Dict],
+    repo_to_project: Dict[str, int],
+) -> List[Dict]:
+    """Fold per-hash commit-cache entries into per-(project, day) rows."""
+
+    buckets: Dict[Tuple[int, str], List[int]] = {}
+    for entry in cache.values():
+        repo = str(entry.get("repo") or "")
+        project_id = repo_to_project.get(repo)
+        if project_id is None:
+            continue
+        day = str(entry.get("day") or "")
+        if not day:
+            continue
+        key = (int(project_id), day)
+        commits, lines = buckets.get(key, [0, 0])
+        buckets[key] = [commits + 1, lines + int(entry.get("lines") or 0)]
+    return [
+        {
+            "project_id": project_id,
+            "day": day,
+            "commit_count": counts[0],
+            "lines_changed": counts[1],
+        }
+        for (project_id, day), counts in sorted(buckets.items())
+    ]
+
+
 def _reset_memo_for_tests() -> None:
     """Clear the per-process memo. Test-only hook."""
     _memo.clear()

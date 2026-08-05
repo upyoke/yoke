@@ -69,6 +69,9 @@ def fetch_and_render(
     from yoke_core.board.renderer import render_board_from_payload
     from yoke_contracts.board.zen import _zen_extract_vision
     from yoke_core.domain import machine_config
+    from yoke_core.domain.board_code_days_publish import (
+        publish_code_days_via_board_payload,
+    )
 
     root_token = str(repo_root)
     art_config = parse_art_config(None, repo_root=root_token)
@@ -82,6 +85,10 @@ def fetch_and_render(
         request_payload["settings_project_id"] = int(settings_project_id)
     if scope:
         request_payload["scope"] = scope
+    with measure_phase(phase_recorder, "publish_code_days"):
+        request_payload = publish_code_days_via_board_payload(
+            request_payload, repo_root=repo_root,
+        )
     with measure_phase(phase_recorder, "fetch_board_data"):
         payload = fetch_board_data(request_payload)
     config = board_config_from_settings(payload.get("config_values"))

@@ -135,7 +135,13 @@ export function signalMasthead(documentNode) {
       chart.replaceChildren();
     }
   };
-  masthead.setVitals = ({ stateCounts = {}, momentum = [], days = 120 } = {}) => {
+  masthead.setVitals = ({
+    stateCounts = {},
+    momentum = [],
+    days = 120,
+    streakDays = 0,
+    lifetimePct = null,
+  } = {}) => {
     const stateTotal = STATE_SIGNALS.reduce(
       (total, [key]) => total + (Number(stateCounts[key]) || 0),
       0,
@@ -151,11 +157,16 @@ export function signalMasthead(documentNode) {
       const values = momentum.map((row) => Number(row[key]) || 0);
       nodes.chart.replaceChildren(sparkline(documentNode, values, key));
     }
-    const recent = momentum.slice(-Math.min(20, momentum.length));
-    const activeDays = recent.filter((row) => Number(row.activity) > 0).length;
-    streak.textContent = recent.length
-      ? `🔥 active ${activeDays} of last ${recent.length} days`
-      : "momentum history unavailable";
+    const streakCount = Number(streakDays) || 0;
+    if (streakCount > 0) {
+      const fires = "🔥".repeat(Math.min(streakCount, 14));
+      const lifetime = lifetimePct == null
+        ? ""
+        : ` (${Number(lifetimePct).toFixed(2)}%)`;
+      streak.textContent = `${fires} ${streakCount}d streak${lifetime}`;
+    } else {
+      streak.textContent = "no active streak";
+    }
     sync.textContent =
       `live engine reads · state is current · momentum window ` +
       `${Number(days) || 120} days · last sync unavailable`;

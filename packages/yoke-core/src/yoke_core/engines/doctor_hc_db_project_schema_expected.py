@@ -55,6 +55,8 @@ _EXPECTED_SCHEMA_STR = (
     "|github_workflow_dispatch_intents:request_id/TEXT,attempt/INTEGER,actor_id/TEXT,authorization_scope/TEXT,payload_checksum/TEXT,repo/TEXT,workflow/TEXT,workflow_ref/TEXT,inputs/TEXT,correlation_id/TEXT,state/TEXT,workflow_run_id/TEXT,run_url/TEXT,html_url/TEXT,created_at/TEXT,updated_at/TEXT"
     "|harness_sessions:session_id/TEXT,executor/TEXT,executor_display_name/TEXT,provider/TEXT,model/TEXT,execution_lane/TEXT,capabilities/TEXT,workspace/TEXT,project_id/INTEGER,mode/TEXT,offered_at/TEXT,last_heartbeat/TEXT,ended_at/TEXT,offer_envelope/TEXT,current_item_id/TEXT,current_item_set_at/TEXT,recent_item_id/TEXT,recent_item_status/TEXT,recent_item_recorded_at/TEXT,last_seen_main_sha/TEXT,last_drift_check_at/TEXT,last_tool_call_at/TEXT,tool_call_count/INTEGER,episode_started_at/TEXT,pending_resume_notice/TEXT,last_chain_step/INTEGER,last_checkpoint_at/TEXT,actor_id/INTEGER"
     "|item_activity_days:id/INTEGER,project_id/INTEGER,item_id/INTEGER,day/TEXT"
+    "|project_code_days:id/INTEGER,project_id/INTEGER,day/TEXT,"
+    "commit_count/INTEGER,lines_changed/INTEGER"
     "|item_dependencies:id/INTEGER,dependent_item/TEXT,blocking_item/TEXT,gate_point/TEXT,satisfaction/TEXT,source/TEXT,session_id/INTEGER,rationale/TEXT,evidence_json/TEXT,created_at/TEXT"
     "|item_sections:item_id/INTEGER,section_name/TEXT,content/TEXT,ordering/INTEGER,source/TEXT,created_at/TEXT,updated_at/TEXT"
     "|item_status_transitions:id/INTEGER,item_id/INTEGER,task_num/INTEGER,from_status/TEXT,to_status/TEXT,source/TEXT,session_id/TEXT,actor_id/INTEGER,project_id/INTEGER,created_at/TEXT"
