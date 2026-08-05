@@ -116,6 +116,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
         test_db,
         requirement_id=requirement_id,
     )
+    assert "lane_commit_sha" not in case
     screenshot = tmp_path / "welcome.png"
     screenshot.write_bytes(b"png-evidence")
     result = MachineCaseResult(
