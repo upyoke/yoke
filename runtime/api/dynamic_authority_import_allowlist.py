@@ -18,7 +18,6 @@ enforcement logic past the authored-file line limit.
 
 from __future__ import annotations
 
-
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
@@ -108,6 +107,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "source_dev_admin",
         "sanctioned boot-coupled schema convergence source-dev/admin command",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py",
+        "yoke_core.domain.migration_apply",
+    ): ("source_dev_admin", "governed migration rehearsal on local authority"),
     (
         "packages/yoke-cli/src/yoke_cli/commands/schema_converge.py",
         "yoke_core.domain.cloud_db_secret_dsn",
@@ -343,6 +346,5 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
      "yoke_core.domain.verification_tree_binding"):
         ("client_local_diagnostics", "name the verification tree from git"),
 }
-
 
 __all__ = ["ALLOWED_DYNAMIC_AUTHORITY_IMPORTS"]

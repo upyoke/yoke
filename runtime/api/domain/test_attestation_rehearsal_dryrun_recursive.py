@@ -29,7 +29,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
     [
         "yoke migration rehearse YOK-1",
         "python3 -m yoke_core.domain.migration_apply rehearse YOK-1",
-        "python3 -m yoke_core.domain.migration_apply live-apply YOK-1",
     ],
 )
 def test_recursive_migration_apply_self_call_caught(command: str) -> None:
@@ -43,7 +42,7 @@ def test_recursive_migration_apply_self_call_caught(command: str) -> None:
 
 def test_dotted_module_ref_without_subcommand_passes() -> None:
     # A bare ``python3 -m yoke_core.domain.migration_apply --help``
-    # (no rehearse/live-apply subcommand) must NOT trigger the
+    # (no rehearse subcommand) must NOT trigger the
     # recursive-self-call guard — it's a meta-invocation, not a child
     # rehearsal run.
     assert _check_command_shape(

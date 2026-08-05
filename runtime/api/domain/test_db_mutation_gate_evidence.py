@@ -34,7 +34,10 @@ from yoke_core.domain.migration_model_capability import (
     RUNNER_KIND_GOVERNED_MODULE,
 )
 from runtime.api.fixtures.backlog import insert_item
-from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
+from runtime.api.fixtures.migration_model_test import (
+    governed_postgres_test_seed,
+    membership_ledger_test_seed,
+)
 
 
 @pytest.fixture
@@ -127,6 +130,7 @@ class TestEvidenceGate:
                         "config": {
                             "modules_dir": "app/db/migrations",
                             "connection_env_var": "APP_DB_PATH",
+                            "ledger": membership_ledger_test_seed(),
                         },
                     },
                 },
@@ -261,6 +265,5 @@ class TestEvidenceGate:
         )
         assert not outcome.passed
         assert any("no rehearsal recorded" in e for e in outcome.errors)
-
 
 

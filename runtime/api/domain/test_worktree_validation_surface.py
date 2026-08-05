@@ -11,7 +11,10 @@ from typing import Iterator
 import pytest
 
 from yoke_core.domain import db_backend
-from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
+from runtime.api.fixtures.migration_model_test import (
+    governed_postgres_test_seed,
+    membership_ledger_test_seed,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree_validation_surface import (
     CANONICAL_YOKE_DB_ENV,
@@ -121,6 +124,7 @@ def _webapp_sqlite_settings() -> dict:
                     "config": {
                         "modules_dir": "app/db/migrations",
                         "connection_env_var": "APP_DB_PATH",
+                        "ledger": membership_ledger_test_seed(),
                     },
                 },
             },
