@@ -11,10 +11,11 @@ from typing import Any, Mapping
 import yoke_core
 from yoke_core.domain import machine_config
 from yoke_contracts import install_binding as install_binding_contract
-from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.runtime_identity import (
-    human_identity_line, with_runtime_identity,
+    detect_install,
+    human_identity_line,
+    with_runtime_identity,
 )
 
 REQUIRED_IMPORTS = ("fastapi", "uvicorn", "pydantic", "nacl")
@@ -87,30 +88,14 @@ def build_status(
     })
     return report
 def _install_binding() -> dict[str, Any]:
-    """Install binding of the process executing this handler.
+    """Install binding for the process executing ``status.run``.
 
-    ``status.run`` dispatch runs this twin wherever the function call
-    executes — the caller's own process for in-process dispatch, the
-    server process over the HTTP function-call surface. Every field in
-    this report (runtime imports, ambient env, config path) describes
-    that executing process, so the install binding does too: it reports
-    where the running ``yoke_core`` package was imported from. A remote
-    client's CLI binding is unknowable here; that binding is reported by
-    the CLI-local ``yoke status``.
+    Reports where the running ``yoke_core`` package was imported from.
+    A remote client's CLI binding is reported by CLI-local ``yoke status``.
     """
-    resolved = Path(yoke_core.__file__)
-    checkout_root = install_binding_contract.source_checkout_root(resolved)
-    version = install_binding_contract.distribution_version_for_module(
-        ENGINE_DISTRIBUTION_NAME,
-        resolved,
-    )
-    return {
-        "kind": (install_binding_contract.KIND_SOURCE_CHECKOUT if checkout_root
-                 else install_binding_contract.KIND_PACKAGED_WHEEL),
-        "checkout_root": str(checkout_root) if checkout_root else None,
-        "module_origin": str(resolved),
-        "version": version,
-    }
+    return detect_install(yoke_core.__file__)
+
+
 def render_human(report: Mapping[str, Any]) -> str:
     lines = [
         "Yoke status",
