@@ -179,3 +179,17 @@ jobs:
             upyoke/platform "$platform_run_id" \
             --project platform \
             --timeout 10800
+
+      - name: Record desired pin after successful Platform release
+        env:
+          PRODUCT_REF: ${{ steps.release.outputs.tag }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+        run: |
+          VERSION="${PRODUCT_REF#v}"
+          test -n "$VERSION"
+          receipt="$(yoke release-pin record \
+            --project platform \
+            --environment "$TARGET_ENVIRONMENT" \
+            --pin "$VERSION")"
+          test -n "$receipt"
+          echo "Desired release pin receipt: $receipt"

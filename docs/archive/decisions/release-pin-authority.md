@@ -38,7 +38,9 @@ fix look like a pin merge conflict.
    `yoke release-pin record --project platform --environment <target> --pin
    <version>`. The Platform-scoped `deployment_ci` identity may use only this
    capability-routed mutation; the infrastructure identity stays read-only
-   and neither identity receives generic project-settings administration.
+   and neither identity receives generic project-settings administration. The
+   outer job remains failed until the record command returns a non-empty
+   receipt; Platform's inner promotion contains no control-plane writer.
 4. `yoke release-pin verify` compares the desired-pin leaf to the
    environment's configured health probe (`release.health_probe_url`)
    without deploying. Disagreement is a doctor/operator signal, not a

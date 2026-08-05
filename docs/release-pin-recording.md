@@ -29,3 +29,17 @@ yoke projects capability-settings merge --project <project> \
 
 Configure the path for the project's own schema. Generic Yoke machinery does
 not supply a default path or environment id.
+
+## Hosted release ordering
+
+The Yoke `platform-release-bridge` switches to the Platform-scoped
+`deployment_ci` token, dispatches Platform's promotion workflow, and waits for
+that run to report terminal success. Only then does the same outer job record
+the version through `yoke release-pin record`. The record command's successful,
+non-empty receipt is the final job gate: a missing declaration, authorization
+denial, mutation refusal, or missing receipt keeps the outer release red.
+
+Platform's promotion workflow owns branch materialization, deployment, and
+failure restoration. It carries no control-plane settings token and contains
+no desired-pin writer. This keeps one writer at the outer success boundary and
+prevents a failed inner deployment from advancing desired authority.
