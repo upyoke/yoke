@@ -84,7 +84,7 @@ def _declared_ledger(conn, rec: Any):
     ).fetchone()
     if not row or not row[0]:
         return None
-    payload = json_helper.loads(row[0])
+    payload = json_helper.loads_text(row[0])
     models = (payload or {}).get("models") or {}
     default = (payload or {}).get("default_model") or ""
     model = models.get(default) or (next(iter(models.values()), None) or {})
