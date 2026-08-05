@@ -22,6 +22,10 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 OPS_ADAPTERS: List[AdapterEntry] = [
     # Deployment flow/run reads + the run-row update writer.
     _read_entry(
+        function_id="deployment_flows.list",
+        cli_invocation="yoke deployment-flows list [--project P]",
+    ),
+    _read_entry(
         function_id="deployment_flows.get", cli_invocation="yoke deployment-flows get"
     ),
     _read_entry(
@@ -69,6 +73,14 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="deployment_runs.list", cli_invocation="yoke deployment-runs list"
     ),
     _read_entry(
+        function_id="deployment_runs.find_by_item",
+        cli_invocation="yoke deployment-runs find-by-item PREFIX-N",
+    ),
+    _read_entry(
+        function_id="deployment_runs.stages",
+        cli_invocation="yoke deployment-runs stages RUN-ID",
+    ),
+    _read_entry(
         function_id="deployment_runs.resolve_target_env",
         cli_invocation="yoke deployment-runs resolve-target-env",
     ),
@@ -94,6 +106,11 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     ),
     # Arbitrary event emit.
     AdapterEntry(function_id="events.emit", cli_invocation="yoke events emit"),
+    _read_entry(
+        function_id="env.list.run",
+        cli_invocation="yoke env list [--config PATH] [--json]",
+        notes="Client-local sanitized connection inventory.",
+    ),
     # Onboarding checklist run (machine-config seeded rows).
     AdapterEntry(
         function_id="onboard.checklist.run", cli_invocation="yoke onboard checklist"

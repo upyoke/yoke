@@ -67,10 +67,12 @@ class TestTokenRouting:
         assert rc == 2
         assert "unknown subcommand" in capsys.readouterr().err
 
-    def test_bare_git_token_exits_two(self, capsys):
+    def test_bare_git_token_shows_group_help(self, capsys):
         rc = cli_main(["git"])
-        assert rc == 2
-        assert "unknown subcommand" in capsys.readouterr().err
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "yoke git - subcommand group" in captured.out
+        assert captured.err == ""
 
     def test_help_lists_tool_shaped_commands(self, capsys):
         assert cli_main(["--help"]) == 0

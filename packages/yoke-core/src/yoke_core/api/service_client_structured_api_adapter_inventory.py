@@ -164,7 +164,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="claims.path.widen",
         cli_invocation="python3 -m yoke_core.api.service_client path-claim-widen",
     ),
-    AdapterEntry(function_id="claims.path.amend", cli_invocation="python3 -m yoke_core.api.service_client path-claim-widen"),
+    AdapterEntry(function_id="claims.path.amend", cli_invocation="yoke claims path amend --claim-id N --add-paths PATHS --reason TEXT --item PREFIX-N"),
     AdapterEntry(
         function_id="claims.path.release",
         cli_invocation=(
