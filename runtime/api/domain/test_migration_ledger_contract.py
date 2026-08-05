@@ -93,21 +93,17 @@ def test_an_entry_applied_out_of_order_is_not_pending_again():
     assert contract.pending_entries(history, ["0002_b", "0001_a"]) == []
 
 
-def test_a_ledger_naming_unknown_entries_is_unanswerable():
-    """Ledger and history are not describing the same migration set."""
-    reason = contract.unanswerable_reason(["0001_a"], ["0001_a", "0009_ghost"])
-    assert "0009_ghost" in reason
-    assert "not describing the same" in reason
+def test_newer_applied_entries_are_a_valid_rollback_shape():
+    outside = contract.applied_entries_outside_history(
+        ["0001_a"], ["0001_a", "0009_from_newer_artifact"],
+    )
+    assert outside == ["0009_from_newer_artifact"]
 
 
-def test_an_agreeing_ledger_has_no_unanswerable_reason():
-    assert contract.unanswerable_reason(["0001_a"], ["0001_a"]) == ""
-
-
-def test_many_unknown_entries_are_summarized_not_dumped():
-    ghosts = [f"{n:04d}_ghost" for n in range(20)]
-    reason = contract.unanswerable_reason([], ghosts)
-    assert "and 15 more" in reason
+def test_an_agreeing_ledger_has_no_entries_outside_history():
+    assert contract.applied_entries_outside_history(
+        ["0001_a"], ["0001_a"],
+    ) == []
 
 
 def test_the_runner_helper_raises_the_callers_error_type():

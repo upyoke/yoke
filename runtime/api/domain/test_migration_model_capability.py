@@ -20,6 +20,13 @@ from runtime.api.fixtures.migration_model_test import (
     POSTGRES_AUTHORITY_LOCATION,
 )
 
+_LEDGER = {
+    "table": "schema_version",
+    "entry_column": "migration_name",
+    "semantics": "membership",
+    "serving_floor_column": "minimum_serving_version",
+}
+
 
 def _minimal_sqlite_model(**overrides):
     base = {
@@ -39,6 +46,7 @@ def _minimal_sqlite_model(**overrides):
             "config": {
                 "modules_dir": "app/db/migrations",
                 "connection_env_var": "APP_DB_PATH",
+                "ledger": _LEDGER,
             },
         },
     }
@@ -182,7 +190,10 @@ class TestRunner:
 
     def test_governed_migration_module_requires_modules_dir(self) -> None:
         model = _minimal_sqlite_model(
-            runner={"kind": "governed_migration_module", "config": {"connection_env_var": "X"}},
+            runner={
+                "kind": "governed_migration_module",
+                "config": {"connection_env_var": "X", "ledger": _LEDGER},
+            },
         )
         with pytest.raises(MigrationModelCapabilityError):
             validate({"models": {"primary": model}})
@@ -192,7 +203,10 @@ class TestRunner:
         model = _minimal_sqlite_model(
             runner={
                 "kind": "governed_migration_module",
-                "config": {"modules_dir": "runtime/api/domain/migrations"},
+                "config": {
+                    "modules_dir": "runtime/api/domain/migrations",
+                    "ledger": _LEDGER,
+                },
             },
         )
         out = validate({"models": {"primary": model}})
@@ -201,11 +215,44 @@ class TestRunner:
             == "YOKE_PG_DSN"
         )
 
+    def test_artifact_version_env_var_is_optional_and_preserved(self) -> None:
+        model = _minimal_sqlite_model()
+        model["runner"]["config"]["artifact_version_env_var"] = "APP_VERSION"
+
+        out = validate({"models": {"primary": model}})
+
+        assert (
+            out["models"]["primary"]["runner"]["config"]
+            ["artifact_version_env_var"] == "APP_VERSION"
+        )
+
+    def test_empty_artifact_version_env_var_is_refused(self) -> None:
+        model = _minimal_sqlite_model()
+        model["runner"]["config"]["artifact_version_env_var"] = ""
+
+        with pytest.raises(
+            MigrationModelCapabilityError, match="artifact_version_env_var"
+        ):
+            validate({"models": {"primary": model}})
+
     def test_external_adapter_unsupported_in_slice(self) -> None:
         model = _minimal_sqlite_model(
             runner={"kind": "external_adapter", "config": {"adapter_id": "x"}},
         )
         with pytest.raises(MigrationModelCapabilityError, match="not yet supported"):
+            validate({"models": {"primary": model}})
+
+    def test_governed_migration_module_requires_a_ledger(self) -> None:
+        model = _minimal_sqlite_model(
+            runner={
+                "kind": "governed_migration_module",
+                "config": {
+                    "modules_dir": "app/db/migrations",
+                    "connection_env_var": "APP_DB_PATH",
+                },
+            },
+        )
+        with pytest.raises(MigrationModelCapabilityError, match="ledger is required"):
             validate({"models": {"primary": model}})
 
 
