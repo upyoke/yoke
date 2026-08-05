@@ -53,7 +53,12 @@ def _query_receipts(event_name: str, project: str) -> Tuple[List[Dict[str, Any]]
     except (OSError, subprocess.SubprocessError) as exc:
         return [], f"{' '.join(argv[:3])} could not run: {exc}"
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or "").strip()
+        details = []
+        if result.stderr.strip():
+            details.append(f"stderr: {result.stderr.strip()}")
+        if result.stdout.strip():
+            details.append(f"stdout: {result.stdout.strip()}")
+        detail = "\n".join(details) or "no output"
         return [], f"receipt query exited {result.returncode}: {detail}"
     try:
         payload = json.loads(result.stdout)
