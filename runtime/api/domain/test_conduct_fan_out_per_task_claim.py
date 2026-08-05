@@ -241,12 +241,14 @@ class TestItemAndEpicTaskClaimsCoexist:
             item_id=1872,
             branch="YOK-1872",
             lane_role="implementation",
+            repo=repo,
         )
         worker_lane_id = _ensure_item_worktree(
             conn,
             item_id=1872,
             branch="YOK-1872-substrate",
             lane_role="worker",
+            repo=repo,
         )
         conn.execute(
             "INSERT INTO epic_tasks "

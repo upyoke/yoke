@@ -125,8 +125,13 @@ class TestReadOnlyAllowEmitsCorrectEvent:
         monkeypatch.setattr(
             lint_session_cwd, "emit_mismatch_allowed_read_only", _allow,
         )
+        # The deny emit is chosen inside the emit module now, so that is
+        # where it has to be intercepted — patching the policy module
+        # would silently observe nothing and the assertion below would
+        # pass without proving anything.
+        from yoke_core.domain import lint_session_cwd_emit
         monkeypatch.setattr(
-            lint_session_cwd, "emit_mismatch_denied", _deny,
+            lint_session_cwd_emit, "emit_mismatch_denied", _deny,
         )
 
         from runtime.harness.hook_runner.types import HookContext, Outcome

@@ -82,14 +82,19 @@ def _active_lane_claims(conn: Any) -> List[LaneOccupant]:
     than as a SQL prefix match, which would have to reimplement path
     boundary semantics in every dialect.
     """
-    from yoke_core.domain.schema_common import _table_exists
+    from yoke_core.domain.schema_common import _column_exists, _table_exists
 
     if not _table_exists(conn, "item_worktrees"):
         return []
     if not _table_exists(conn, "work_claims"):
         return []
-    has_items = _table_exists(conn, "items")
-    has_projects = _table_exists(conn, "projects")
+    # Probe the COLUMNS, not just the tables. A minimal fixture carries
+    # ``items`` and ``projects`` with only the handful of columns its
+    # subject needs, so selecting the ref columns off a table that merely
+    # exists aborts the whole transaction and takes unrelated statements
+    # down with it.
+    has_items = _column_exists(conn, "items", "project_sequence")
+    has_projects = _column_exists(conn, "projects", "public_item_prefix")
     # Aliased even in the NULL branch: an unaliased NULL is named
     # ``?column?`` by Postgres, and two of them collide on one key, so
     # keyed row access breaks on exactly the minimal schemas this branch
