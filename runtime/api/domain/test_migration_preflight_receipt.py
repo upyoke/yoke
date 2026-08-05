@@ -107,6 +107,53 @@ class TestCoverage:
         assert receipt.covered_entries([_row("stage", "0001_a")], "stage") == frozenset()
 
 
+class TestStoredEnvelopeShape:
+    """The shape a receipt actually comes back as, observed from a live read."""
+
+    def _stored(self, environment: str, entries) -> dict:
+        # The emit surface nests a supplied context under `detail`. Copied from
+        # a real queried row rather than assumed, because assuming it was flat
+        # is what made the first live bootstrap record receipts the gate could
+        # not see.
+        envelope = {
+            "event_name": receipt.EVENT_NAME,
+            "context": {
+                "detail": {
+                    receipt.ENVIRONMENT_KEY: environment,
+                    receipt.PRODUCT_SHA_KEY: "07bd1aaf67b7",
+                    receipt.ENTRIES_KEY: entries,
+                }
+            },
+        }
+        return {"envelope": json.dumps(envelope)}
+
+    def test_a_nested_receipt_is_read(self):
+        rows = [self._stored("production", ["0001_a", "0002_b"])]
+        assert receipt.covered_entries(rows, "production") == frozenset(
+            {"0001_a", "0002_b"}
+        )
+
+    def test_a_nested_receipt_still_respects_the_environment_boundary(self):
+        rows = [self._stored("stage", ["0001_a"])]
+        assert receipt.covered_entries(rows, "production") == frozenset()
+
+    def test_an_unnested_receipt_is_still_read(self):
+        # Both shapes work, so the gate does not break if the wrapping stops.
+        rows = [_row("production", ["0001_a"])]
+        assert receipt.covered_entries(rows, "production") == frozenset({"0001_a"})
+
+    def test_a_detail_key_is_not_descended_into_when_the_receipt_is_flat(self):
+        envelope = {
+            "context": {
+                receipt.ENVIRONMENT_KEY: "production",
+                receipt.ENTRIES_KEY: ["0001_a"],
+                "detail": {receipt.ENTRIES_KEY: ["0009_unrelated"]},
+            }
+        }
+        rows = [{"envelope": json.dumps(envelope)}]
+        assert receipt.covered_entries(rows, "production") == frozenset({"0001_a"})
+
+
 class TestUncovered:
     def test_nothing_is_uncovered_when_every_entry_has_a_receipt(self):
         rows = [_row("stage", ["0001_a", "0002_b"])]

@@ -90,7 +90,17 @@ def _context_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
     if not isinstance(envelope, Mapping):
         return {}
     context = envelope.get("context")
-    return context if isinstance(context, Mapping) else {}
+    if not isinstance(context, Mapping):
+        return {}
+    # The emit surface nests a supplied context under `detail`. Descend only
+    # when the receipt's own keys are not already at this level, so a reader
+    # written against the stored shape keeps working if that wrapping ever
+    # stops — and an unwrapped receipt is never mistaken for a wrapped one.
+    if ENVIRONMENT_KEY not in context:
+        detail = context.get("detail")
+        if isinstance(detail, Mapping):
+            return detail
+    return context
 
 
 def covered_entries(
