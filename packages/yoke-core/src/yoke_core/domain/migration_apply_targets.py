@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 import os
-import re
 import sqlite3
-import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend, db_helpers
-from yoke_core.domain import runtime_settings
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_model_capability_validation import (
     DEFAULT_CONNECTION_ENV_VAR,
+)
+from yoke_core.domain.postgres_dump_restore_point import (
+    dump_postgres_to_directory,
 )
 from yoke_core.domain.schema_fingerprint import fingerprint_kind
 from yoke_core.domain.worktree_validation_surface import (
@@ -60,14 +59,7 @@ def resolve_authoritative_db_target(
         candidate = (repo_path / rel).resolve()
         return DbTarget(kind=kind, target=str(candidate), display=str(candidate))
     if kind == "postgres":
-        try:
-            target = db_backend.resolve_pg_dsn()
-        except Exception as exc:  # noqa: BLE001
-            raise MigrationApplyError(
-                "authoritative_db.kind 'postgres' requires a resolved "
-                "Postgres DSN from YOKE_PG_DSN, YOKE_PG_DSN_FILE, or "
-                "connected-env credentials"
-            ) from exc
+        target = _resolve_postgres_authority(model)
         label = _dsn_dbname(target) or (
             (auth.get("location") or {}).get("database_name")
         ) or "authority"
@@ -84,6 +76,7 @@ def resolve_validation_db_target(
     project: str,
     model_name: str,
     model: Mapping[str, Any],
+    authoritative_target: DbTarget,
     control_db_path: Optional[str],
 ) -> DbTarget:
     surface = model.get("validation_surface") or {}
@@ -96,7 +89,11 @@ def resolve_validation_db_target(
             control_db_path=control_db_path,
         )
     if kind == "external_validation":
-        return _resolve_external_postgres_validation(model, model_name)
+        return _resolve_external_postgres_validation(
+            model,
+            model_name,
+            authoritative_target,
+        )
     raise MigrationApplyError(
         f"model '{model_name}' validation surface kind {kind!r} is not wired "
         "for governed migration rehearsal"
@@ -189,9 +186,15 @@ def _resolve_worktree_local_sqlite_validation(
 
 
 def _resolve_external_postgres_validation(
-    model: Mapping[str, Any], model_name: str
+    model: Mapping[str, Any],
+    model_name: str,
+    authoritative_target: DbTarget,
 ) -> DbTarget:
-    authority_dsn = db_backend.resolve_pg_dsn()
+    if authoritative_target.kind != "postgres":
+        raise MigrationApplyError(
+            f"model '{model_name}' uses external_validation but its "
+            "authoritative database is not Postgres"
+        )
     env_var = f"{resolve_connection_env_var(model)}{POSTGRES_VALIDATION_ENV_SUFFIX}"
     validation_dsn = os.environ.get(env_var, "").strip()
     if not validation_dsn:
@@ -200,7 +203,7 @@ def _resolve_external_postgres_validation(
             "to a validation-only Postgres DSN for rehearsal. The "
             "authoritative Postgres DSN is never used as the rehearsal target."
         )
-    if validation_dsn == authority_dsn:
+    if validation_dsn == authoritative_target.target:
         raise MigrationApplyError(
             f"{env_var} matches the authoritative Postgres DSN; rehearsal "
             "requires a separate validation-only Postgres database"
@@ -213,55 +216,34 @@ def _resolve_external_postgres_validation(
     )
 
 
+def _resolve_postgres_authority(model: Mapping[str, Any]) -> str:
+    env_var = resolve_connection_env_var(model)
+    if env_var == db_backend.PG_DSN_ENV:
+        try:
+            return db_backend.resolve_pg_dsn()
+        except Exception as exc:  # noqa: BLE001
+            raise MigrationApplyError(
+                "authoritative_db.kind 'postgres' requires a resolved "
+                f"Postgres DSN from {db_backend.PG_DSN_ENV}, "
+                f"{db_backend.PG_DSN_FILE_ENV}, managed credentials, or "
+                "connected-env credentials"
+            ) from exc
+    target = os.environ.get(env_var, "").strip()
+    if not target:
+        raise MigrationApplyError(
+            "authoritative_db.kind 'postgres' requires the model-declared "
+            f"{env_var} environment variable; custom model routing never "
+            f"falls back to ambient {db_backend.PG_DSN_ENV} authority"
+        )
+    return target
+
+
 def _create_postgres_dump_backup(
     target: DbTarget, reason: str, worktree_path: Path
 ) -> str:
     return dump_postgres_to_directory(
         target.target, reason, Path(worktree_path) / ".yoke" / "backups"
     )
-
-
-def dump_postgres_to_directory(dsn: str, reason: str, backup_dir: Path) -> str:
-    """Write a ``pg_dump`` restore point into *backup_dir*; return its path.
-
-    Takes the destination directory outright because callers disagree about
-    where a restore point belongs: an operator-run apply puts it under the
-    worktree, while boot-time apply runs inside a server with no worktree at
-    all and writes to the machine or volume state directory instead.
-    """
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    safe_reason = _sanitize_backup_reason(reason)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    dest = backup_dir / f"postgres.{ts}.{safe_reason}.sql"
-    timeout = runtime_settings.get_seconds(
-        "backup_subprocess_timeout_seconds", 60,
-    )
-    result = subprocess.run(
-        [
-            "pg_dump",
-            "--no-owner",
-            "--no-privileges",
-            "--file",
-            str(dest),
-            dsn,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-    if result.returncode != 0 or not dest.is_file():
-        stderr = (result.stderr or "").strip()[-500:]
-        raise RuntimeError(f"pg_dump backup failed: {stderr}")
-    if dest.stat().st_size == 0:
-        dest.unlink(missing_ok=True)
-        raise RuntimeError("pg_dump backup file is empty")
-    return str(dest)
-
-
-def _sanitize_backup_reason(reason: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", reason.strip())
-    cleaned = cleaned.strip("-._")
-    return cleaned or "rollback"
 
 
 def _dsn_dbname(dsn: str) -> Optional[str]:
