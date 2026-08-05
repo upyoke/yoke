@@ -20,10 +20,12 @@ export function multiProjectOverviewClient({ failProject } = {}) {
       ? { active: 1, pipeline: 0, backlog: 0, blocked: 0, frozen: 0, done: 5 }
       : { active: 3, pipeline: 2, backlog: 4, blocked: 1, frozen: 0, done: 20 },
     momentum: [{ day: "2026-07-26", activity: 1, code: 1, issues: 0, strategy: 0 }],
-    strategy_timeline: [{
+    zen: [{
       project_id: Number(project), project: project === "2" ? "beta" : "yoke",
       done_positions: [], labels: [], queued_count: 0, vision_zones: [],
     }],
+    streak_days: 0,
+    lifetime_pct: null,
     days: 120,
   });
   const docsFor = (projectId) => ({
@@ -223,7 +225,7 @@ export function overviewClient(overrides = {}) {
         { day: "2026-07-25", activity: 2, code: 1, issues: 1, strategy: 0 },
         { day: "2026-07-26", activity: 4, code: 2, issues: 0, strategy: 1 },
       ],
-      strategy_timeline: [{
+      zen: [{
         project_id: 1,
         project: "yoke",
         emoji: "🐄",
@@ -238,6 +240,8 @@ export function overviewClient(overrides = {}) {
           { key: "6mo", label: "multi-actor" },
         ],
       }],
+      streak_days: 2,
+      lifetime_pct: 40,
       days: 120,
     },
     ...overrides,
