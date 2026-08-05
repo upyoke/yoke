@@ -39,7 +39,7 @@ from yoke_core.domain.lint_session_cwd_control_plane import (
 from yoke_core.domain.lint_session_cwd_emit import (
     emit_fail_open,
     emit_mismatch_allowed_read_only,
-    emit_mismatch_denied,
+    emit_deny_and_build_audit,
 )
 from yoke_core.domain.lint_session_cwd_pre_implementing import (
     build_pre_implementing_verdict,
@@ -47,6 +47,7 @@ from yoke_core.domain.lint_session_cwd_pre_implementing import (
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
+from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
     build_denial_message as build_foreign_lane_message,
@@ -74,8 +75,10 @@ class Verdict:
     """Outcome of a PreToolUse evaluation. ``allow=True`` => no deny payload.
 
     ``failure_class`` discriminates scope-mismatch vs.
-    pre-implementing-status; ``item_id`` / ``item_status`` / ``mode`` /
-    ``suppression_attempted`` carry pre-implementing branch state.
+    pre-implementing-status vs. foreign-lane; ``item_id`` /
+    ``item_status`` / ``mode`` / ``suppression_attempted`` carry
+    pre-implementing branch state, and ``occupant`` carries the holding
+    claim for the foreign-lane branch.
     """
 
     allow: bool
@@ -89,6 +92,7 @@ class Verdict:
     item_status: Optional[str] = None
     mode: str = ""
     suppression_attempted: bool = False
+    occupant: Optional[LaneOccupant] = None
 
 
 @dataclass(frozen=True)
@@ -177,6 +181,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         claims=outcome.claims,
         repo_roots=outcome.repo_roots,
         failure_class=outcome.failure_class,
+        occupant=outcome.occupant,
     )
 
 
@@ -246,23 +251,7 @@ def evaluate(record: HookContext) -> HookDecision:
         if verdict.allow:
             return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
         envelope = json.dumps(_build_deny_response(verdict.reason))
-        if verdict.failure_class != PRE_IMPL_FAILURE_CLASS:
-            # Pre-implementing branch emits its own event in its module.
-            emit_mismatch_denied(
-                session_id=verdict.session_id,
-                offending_target=verdict.offending_target,
-                claim_count=len(verdict.claims),
-            )
-        audit_fields = {
-            "offending_target": verdict.offending_target,
-            "claim_count": len(verdict.claims),
-            "failure_class": verdict.failure_class,
-        }
-        if verdict.failure_class == PRE_IMPL_FAILURE_CLASS:
-            audit_fields["item_id"] = verdict.item_id
-            audit_fields["item_status"] = verdict.item_status
-            audit_fields["mode"] = verdict.mode
-            audit_fields["suppression_attempted"] = verdict.suppression_attempted
+        audit_fields = emit_deny_and_build_audit(verdict)
         return HookDecision(
             outcome=Outcome.DENY, message=envelope, block=True, next=Next.STOP,
             audit_fields=audit_fields,

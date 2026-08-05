@@ -6,7 +6,6 @@ import os
 import subprocess
 from dataclasses import dataclass
 
-from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS
 
 
 @dataclass
@@ -91,9 +90,9 @@ def auto_commit_worktree(worktree_path: str, item_label: str) -> AutoCommitResul
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return AutoCommitResult()
 
-    lines = [l for l in dirty.splitlines() if l.strip()]
+    lines = [entry for entry in dirty.splitlines() if entry.strip()]
     file_count = len(lines)
-    files = ", ".join(l[3:] for l in lines if len(l) > 3)
+    files = ", ".join(entry[3:] for entry in lines if len(entry) > 3)
 
     # This net exists to preserve THIS agent's uncommitted work. Entries
     # already in the index were staged by something else — a worktree's

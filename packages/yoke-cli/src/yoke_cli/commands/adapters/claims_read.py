@@ -1,7 +1,7 @@
 """Read-only claim adapters: work holders, path-claim list/get, conflicts.
 
 * ``claims.work.holder_get`` — fetch the active work-claim holder for
-  an item.
+  an item, or for whatever lane contains a given path.
 * ``claims.work.holder_list`` — list active work-claim holders by
   item-id or session-id filter.
 * ``claims.path.list`` — rich projections of an item's path claims.
@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -162,13 +163,13 @@ def claims_path_coordination_decision_build(args: List[str]) -> int:
 
 
 CLAIM_WORK_HOLDER_GET_USAGE = (
-    "yoke claims work holder-get (--item PREFIX-N | PREFIX-N) "
-    "[--session-id S] [--json]"
+    "yoke claims work holder-get (--item PREFIX-N | PREFIX-N | "
+    "--path ABSOLUTE_PATH) [--session-id S] [--json]"
 )
 
 
 def claims_work_holder_get(args: List[str]) -> int:
-    """Fetch the active work-claim holder; ``--item`` flag or positional."""
+    """Fetch the active work-claim holder, by item or by path."""
     parser = argparse.ArgumentParser(
         prog="yoke claims work holder-get",
         description=CLAIM_WORK_HOLDER_GET_USAGE,
@@ -176,6 +177,15 @@ def claims_work_holder_get(args: List[str]) -> int:
     parser.add_argument(
         "--item", default=None,
         help="Item id (PREFIX-N or project-local number). Alternative to positional.",
+    )
+    parser.add_argument(
+        "--path", default=None,
+        help=(
+            "Absolute path. Answers who holds the worktree lane containing "
+            "it — use this when you are standing in a directory and do not "
+            "know which item owns it. An empty holder means no active "
+            "claimed lane contains the path."
+        ),
     )
     parser.add_argument(
         "item_positional", nargs="?", default=None,
@@ -186,8 +196,21 @@ def claims_work_holder_get(args: List[str]) -> int:
     if parsed is None:
         return 2
     raw_item = parsed.item or parsed.item_positional
-    if not raw_item:
-        return usage_error("holder-get requires --item PREFIX-N or a positional item")
+    if parsed.path and raw_item:
+        return usage_error("holder-get takes an item or --path, not both")
+    if not raw_item and not parsed.path:
+        return usage_error(
+            "holder-get requires --item PREFIX-N, a positional item, "
+            "or --path ABSOLUTE_PATH"
+        )
+    if parsed.path:
+        return dispatch_and_emit(
+            function_id="claims.work.holder_get",
+            target=TargetRef(kind="global"),
+            payload={"path": str(Path(parsed.path).expanduser().resolve())},
+            session_id=parsed.session_id,
+            json_mode=parsed.json_mode,
+        )
     return dispatch_and_emit(
         function_id="claims.work.holder_get",
         target=item_target("item", raw_item, parsed.project),
