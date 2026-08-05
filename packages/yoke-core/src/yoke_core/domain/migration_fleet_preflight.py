@@ -118,7 +118,7 @@ def _run(argv: Sequence[str], *, redact: str = "") -> None:
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
-def _pending_names(conn: Any, history_names: Sequence[str]) -> Tuple[str, ...]:
+def _pending_names(conn: Any, history: Sequence[str]) -> Tuple[str, ...]:
     """History entries this database has no ledger row for.
 
     A missing ledger table and an empty one both mean the whole history is
@@ -127,13 +127,13 @@ def _pending_names(conn: Any, history_names: Sequence[str]) -> Tuple[str, ...]:
     """
     cur = conn.execute("SELECT to_regclass('applied_migrations')")
     if cur.fetchone()[0] is None:
-        return tuple(history_names)
+        return tuple(history)
     rows = conn.execute("SELECT migration_name FROM applied_migrations").fetchall()
     applied = {r[0] for r in rows}
-    return tuple(name for name in history_names if name not in applied)
+    return tuple(name for name in history if name not in applied)
 
 
-def _history_names() -> Tuple[str, ...]:
+def history_names() -> Tuple[str, ...]:
     from yoke_core.domain import migrations as history_package
     from yoke_core.domain.migration_history import history_dir, ordered_entries
 
@@ -229,7 +229,7 @@ def _converge_copy(
 
     conn = db_backend.connect_psycopg(postgres_cluster.dsn(spec, copy_name))
     try:
-        history = _history_names()
+        history = history_names()
         pending = _pending_names(conn, history)
         with _restore_point_named(dump):
             try:

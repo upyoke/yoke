@@ -1,0 +1,161 @@
+"""What proves a migration history entry was rehearsed against the fleet.
+
+The fleet preflight answers the one question a migration entry raises: does it
+still apply to the databases that are behind it? Answering it well is worth
+nothing if a release can ship without asking. This module is the record that
+the question was asked and the predicate a release gate reads to find out.
+
+A receipt names an environment and the history entries covered when the
+rehearsal passed. It exists only on a pass, so a receipt cannot be produced by
+a run that failed, and the gate needs no verdict field to interpret.
+
+**Coverage is a union over receipts, not the newest one.** A release carries
+its whole history, so demanding that one receipt cover all of it would mean
+re-rehearsing every entry ever written on every release — minutes per release
+to re-prove entries the fleet applied long ago. Taking the union instead makes
+the obligation exactly what the risk is: an entry must be rehearsed once for an
+environment before a build carrying it ships there, and never again.
+
+**Coverage is per environment.** Stage and production are different fleets at
+different ledger positions, and an entry that applies cleanly to one says
+nothing about the other. A stage rehearsal is not production evidence.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
+
+#: Emitted by a passing fleet preflight; read by the pre-tag release gate.
+EVENT_NAME = "FleetMigrationPreflightPassed"
+EVENT_KIND = "system"
+EVENT_TYPE = "system"
+SOURCE_TYPE = "migration_fleet_preflight"
+
+ENVIRONMENT_KEY = "environment"
+ENTRIES_KEY = "entries"
+PRODUCT_SHA_KEY = "product_sha"
+
+#: Suffix on the admin connection the preflight runs against. The connection
+#: names a cluster; a receipt names the environment a release targets, and the
+#: gate is dispatched with the latter.
+_ADMIN_SUFFIX = "-db-admin"
+
+#: The release train's environment vocabulary differs from the connection's
+#: for production alone. Recorded rather than inferred so a receipt written by
+#: one side is found by the other.
+_TARGET_ENVIRONMENT_ALIASES = {"prod": "production"}
+
+
+def target_environment_for_admin_env(admin_env: str) -> str:
+    """The release-facing environment name an admin connection rehearses."""
+    name = admin_env.strip()
+    if name.endswith(_ADMIN_SUFFIX):
+        name = name[: -len(_ADMIN_SUFFIX)]
+    return _TARGET_ENVIRONMENT_ALIASES.get(name, name)
+
+
+def receipt_context(
+    environment: str, product_sha: str, entries: Sequence[str]
+) -> Dict[str, Any]:
+    """The event context a passing rehearsal records."""
+    return {
+        ENVIRONMENT_KEY: target_environment_for_admin_env(environment),
+        PRODUCT_SHA_KEY: product_sha.strip(),
+        # Sorted so two receipts covering the same entries are comparable by
+        # eye in an audit listing, where the emission order is meaningless.
+        ENTRIES_KEY: sorted({e.strip() for e in entries if e.strip()}),
+    }
+
+
+def _context_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The context carried by one queried event row, or an empty mapping.
+
+    The query surface returns the envelope as a JSON string, and the context
+    lives inside it. A row this cannot read is not evidence, so it yields
+    nothing rather than raising — one malformed row must not make an otherwise
+    answerable question unanswerable.
+    """
+    envelope: Any = row.get("envelope")
+    if isinstance(envelope, str):
+        try:
+            envelope = json.loads(envelope)
+        except (TypeError, ValueError):
+            return {}
+    if not isinstance(envelope, Mapping):
+        return {}
+    context = envelope.get("context")
+    return context if isinstance(context, Mapping) else {}
+
+
+def covered_entries(
+    rows: Iterable[Mapping[str, Any]], environment: str
+) -> frozenset:
+    """Every history entry some passing receipt covers for one environment."""
+    wanted = target_environment_for_admin_env(environment)
+    covered = set()
+    for row in rows:
+        context = _context_of(row)
+        if context.get(ENVIRONMENT_KEY) != wanted:
+            continue
+        entries = context.get(ENTRIES_KEY)
+        # A JSON round-trip always yields a list; a bare string would otherwise
+        # be iterated one character at a time into nonsense coverage.
+        if isinstance(entries, (list, tuple)):
+            covered.update(str(e) for e in entries)
+    return frozenset(covered)
+
+
+def uncovered(
+    history: Sequence[str], rows: Iterable[Mapping[str, Any]], environment: str
+) -> Tuple[str, ...]:
+    """History entries no passing receipt covers, in history order."""
+    covered = covered_entries(rows, environment)
+    return tuple(name for name in history if name not in covered)
+
+
+def _preflight_command(environment: str) -> str:
+    admin_env = environment
+    if not admin_env.endswith(_ADMIN_SUFFIX):
+        for connection, target in _TARGET_ENVIRONMENT_ALIASES.items():
+            if target == admin_env:
+                admin_env = connection
+                break
+        admin_env = f"{admin_env}{_ADMIN_SUFFIX}"
+    return (
+        "python3 -m runtime.api.tools.preflight_fleet_migrations "
+        f"{admin_env} --record-receipt --product-sha <sha>"
+    )
+
+
+def refusal_message(
+    environment: str, missing: Sequence[str], *, product_sha: str = ""
+) -> str:
+    """Why this release stops, and the one command that unblocks it."""
+    listed = ", ".join(missing)
+    build = f" at {product_sha}" if product_sha.strip() else ""
+    return (
+        f"this build{build} carries {len(missing)} migration history "
+        f"entr{'y' if len(missing) == 1 else 'ies'} no passing fleet preflight "
+        f"has covered for {target_environment_for_admin_env(environment)}: "
+        f"{listed}. An entry exists for the databases that are behind it, and "
+        "nothing here has yet run it against one. Rehearse the fleet, then "
+        f"re-run this release:\n  {_preflight_command(environment)}"
+    )
+
+
+def unreadable_message(environment: str, reason: str) -> str:
+    """Refuse when the receipt store could not be read at all.
+
+    Distinguished from having found no receipt on purpose. Those are different
+    facts — one says the release is unrehearsed, the other says this gate does
+    not know — and reporting an unanswered question as a pass is the exact
+    inversion that lets an unrehearsed build ship.
+    """
+    return (
+        "could not read fleet preflight receipts for "
+        f"{target_environment_for_admin_env(environment)}, so whether this "
+        f"build was rehearsed is unknown rather than answered: {reason}. "
+        "Refusing, because a gate that passes when it cannot check is not a "
+        "gate."
+    )
