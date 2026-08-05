@@ -22,6 +22,9 @@ from yoke_cli.commands.adapters.deployment_composed import (
 from yoke_cli.commands.adapters.deployment_run_create import (
     DEPLOYMENT_RUNS_CREATE_USAGE,
 )
+from yoke_cli.commands.adapters.deployment_run_terminalize import (
+    DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
+)
 
 
 DEPLOYMENT_USAGE = {
@@ -34,6 +37,7 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
     "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
+    "deployment_runs.terminalize": DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
     "deployment_runs.resolve_target_env": (
         DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE
     ),

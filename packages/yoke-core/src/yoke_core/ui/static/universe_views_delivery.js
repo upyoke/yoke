@@ -11,6 +11,10 @@ import {
   statePill,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
+import {
+  isTerminalizable,
+  terminalizationDialog,
+} from "./deployment_run_terminalization_dialog.js";
 
 function memberLink(documentNode, member) {
   const link = el(
@@ -81,7 +85,7 @@ function runTimestamp(row) {
   return row.completed_at || row.started_at || row.created_at || null;
 }
 
-function renderRunsTable(body, rows, projects) {
+function renderRunsTable(body, rows, projects, onTerminalized) {
   const documentNode = body.ownerDocument;
   if (!rows.length) {
     body.appendChild(el(documentNode, "p", "empty", "No runs in this scope."));
@@ -108,9 +112,23 @@ function renderRunsTable(body, rows, projects) {
     const stages = el(documentNode, "td");
     stages.appendChild(runStages(documentNode, row));
     tr.appendChild(stages);
-    const status = el(documentNode, "td");
+    const status = el(documentNode, "td", "delivery-run-status");
     const pill = statePill(documentNode, row.status, row.status);
     if (pill) status.appendChild(pill);
+    if (isTerminalizable(row)) {
+      const terminalize = el(
+        documentNode, "button", "delivery-run-terminalize", "Terminalize",
+      );
+      terminalize.type = "button";
+      terminalize.addEventListener("click", () => {
+        body.appendChild(terminalizationDialog(
+          onTerminalized.context,
+          row,
+          onTerminalized.reload,
+        ));
+      });
+      status.appendChild(terminalize);
+    }
     tr.appendChild(status);
     const when = el(documentNode, "td");
     when.appendChild(relativeTime(documentNode, runTimestamp(row)));
@@ -215,7 +233,10 @@ export function renderDeliveryRunsView(context, main, scope) {
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.rows);
       panel.setCount(rows.length);
-      renderRunsTable(body, rows, context.projects());
+      renderRunsTable(body, rows, context.projects(), {
+        context,
+        reload: () => renderDeliveryRunsView(context, main, scope),
+      });
       const waiting = rows.filter((row) => row.waiting_on_approval).length;
       if (!waiting) return;
       const inbox = el(
