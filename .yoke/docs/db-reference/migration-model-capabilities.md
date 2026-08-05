@@ -58,6 +58,40 @@ Config keys:
 |---  |---      |
 | `modules_dir` | Project-relative directory containing Python migration modules. |
 | `connection_env_var` | Env var implementation/test code should bind to the validation or authoritative DB target. Defaults to `YOKE_PG_DSN` when omitted. |
+| `ledger` | Optional. When present, names where applied-ness is recorded and must satisfy the rollback-safety contract below. |
+
+### Ledger (rollback-safety contract)
+
+A model may omit `ledger` entirely (models predating the contract stay
+silent). When a ledger is declared, every required key must be present —
+there is no half-declared shape:
+
+| Key | Meaning |
+|---  |---      |
+| `table` | Ledger table that records applied entries. |
+| `entry_column` | Column holding each entry's identity (membership key). |
+| `semantics` | Must be `membership`. Threshold / high-water marks are refused. |
+| `serving_floor_column` | Column holding the oldest build that may serve after a destructive entry. Required — membership alone cannot stop a rolled-back build from serving a database it cannot read. |
+
+```json
+"ledger": {
+  "table": "applied_migrations",
+  "entry_column": "migration_name",
+  "semantics": "membership",
+  "serving_floor_column": "minimum_serving_version"
+}
+```
+
+Boot must answer two questions before serving and refuse when either is
+unsafe: (1) is the pending set empty? (2) is any applied floor newer than
+this build? Per applied entry the ledger records identity plus the floor
+copied from a surface-removing entry's declared minimum. Decision records:
+[`project-migration-ledger-contract.md`](../../../docs/archive/decisions/project-migration-ledger-contract.md)
+(membership vs threshold) and
+[`project-migration-rollback-safety.md`](../../../docs/archive/decisions/project-migration-rollback-safety.md)
+(why the floor is required). `HC-project-migration-ledger-contract` reports
+whether a declaring project satisfies the contract; unreadable is a finding,
+never a PASS.
 
 `migration_audit.module_identifier` is the bare module slug from
 `db_mutation_profile.migration_modules`, without path or `.py` suffix.
