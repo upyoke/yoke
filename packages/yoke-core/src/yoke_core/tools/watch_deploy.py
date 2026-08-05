@@ -26,6 +26,10 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
+from yoke_core.domain.deployment_itemless_teaching import (
+    ITEMLESS_RELEASE_RECIPE,
+    WATCH_DEPLOY_DESCRIPTION,
+)
 from yoke_core.tools import _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
@@ -134,10 +138,9 @@ def _parse_args(
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=prog,
-        description=(
-            "Run a Yoke deployment pipeline under a shared raw+progress "
-            "watcher."
-        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=WATCH_DEPLOY_DESCRIPTION,
+        epilog=ITEMLESS_RELEASE_RECIPE,
         allow_abbrev=False,
     )
     parser.add_argument(

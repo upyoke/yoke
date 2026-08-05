@@ -12,7 +12,10 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
-
+from yoke_core.domain.deployment_itemless_teaching import (
+    ITEMLESS_RELEASE_RECIPE,
+    RESOLVE_TARGET_ENV_DESCRIPTION,
+)
 
 DEPLOYMENT_FLOWS_GET_USAGE = (
     "yoke deployment-flows get FLOW-ID [FIELD] [--session-id S] [--json]"
@@ -289,7 +292,9 @@ def deployment_runs_approve(args: List[str]) -> int:
 def deployment_runs_resolve_target_env(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs resolve-target-env",
-        description=DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=RESOLVE_TARGET_ENV_DESCRIPTION,
+        epilog=ITEMLESS_RELEASE_RECIPE,
     )
     parser.add_argument("project")
     parser.add_argument("flow")

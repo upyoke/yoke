@@ -14,7 +14,9 @@ from yoke_cli.commands.registry import (
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS, TOOL_SHAPED_USAGE
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
-
+from yoke_core.domain.deployment_itemless_teaching import (
+    ITEMLESS_RELEASE_RECIPE,
+)
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
     ("deployments",): (("deployment-flows",), ("deployment-runs",)),
@@ -30,6 +32,11 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
         "Simulation is a harness skill, not a terminal adapter. "
         "Run `/yoke simulate PREFIX-N` or `/yoke simulate --system`."
     ),
+}
+
+# Printed after the subcommand list when operators open group help.
+GROUP_TEACHING: dict[tuple[str, ...], str] = {
+    ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
 }
 
 
@@ -89,6 +96,10 @@ def emit_group_help_if_available(argv: Sequence[str]) -> Optional[int]:
         print("    -> client-local helper (no function id)")
         if usage:
             print(f"    {usage}")
+    teaching = GROUP_TEACHING.get(prefix)
+    if teaching:
+        print()
+        print(teaching.rstrip("\n"))
     print()
     print(FIELD_NOTE_FOOTER)
     return 0
@@ -140,6 +151,7 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
 
 __all__ = [
     "GROUP_ROUTES",
+    "GROUP_TEACHING",
     "GUIDANCE_ROUTES",
     "can_route_group",
     "emit_group_help_if_available",
