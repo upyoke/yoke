@@ -19,11 +19,12 @@ declared by the project's ``release_pin`` capability:
       "environment_by_target": {
         "stage": "yoke-api-stage",
         "production": "yoke-api-prod"
-      }
+      },
+      "desired_pin_path": "release.yoke_pin"
     }
 
-Desired pin authority is the control-plane leaf
-``environments.settings.release.yoke_pin`` on the mapped environment id.
+Desired pin authority is the configured ``desired_pin_path`` leaf in
+``environments.settings`` on the mapped environment id.
 The committed pin file remains build materialization on the environment
 branch. A project without that capability is unaffected. When the
 declaration is present but the pin cannot be read on either side, the
@@ -40,7 +41,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Optional
 
-RELEASE_PIN_CAPABILITY = "release_pin"
+from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
 
 
 class PinRegressionError(Exception):

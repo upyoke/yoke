@@ -12,9 +12,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_contracts.release_pin import DESIRED_PIN_PATH_KEY
 from yoke_cli.commands.deployment_pin import RELEASE_PIN_CAPABILITY
 from yoke_cli.commands.release_pin_agreement import (
-    DESIRED_PIN_SETTINGS_PATH,
     HEALTH_PROBE_SETTINGS_PATH,
     environment_id_for_target,
     evaluate_pin_health_agreement,
@@ -53,20 +53,28 @@ def release_pin_verify(args: List[str]) -> int:
             f"release_pin.environment_by_target has no entry for "
             f"{parsed.environment!r}"
         )
+    desired_pin_path = _scalar(settings.get(DESIRED_PIN_PATH_KEY))
+    if not desired_pin_path:
+        return usage_error(
+            f"release_pin.{DESIRED_PIN_PATH_KEY} must explicitly name the "
+            "desired pin leaf"
+        )
     values = _environment_values(
         parsed.project,
         environment_id,
-        [DESIRED_PIN_SETTINGS_PATH, HEALTH_PROBE_SETTINGS_PATH],
+        [desired_pin_path, HEALTH_PROBE_SETTINGS_PATH],
         parsed.session_id,
     )
     agreement = evaluate_pin_health_agreement(
-        desired_pin=_scalar(values.get(DESIRED_PIN_SETTINGS_PATH)),
+        desired_pin=_scalar(values.get(desired_pin_path)),
         probe_url=_scalar(values.get(HEALTH_PROBE_SETTINGS_PATH)),
+        desired_path=desired_pin_path,
     )
     payload = {
         "project": parsed.project,
         "environment": parsed.environment,
         "environment_id": environment_id,
+        "settings_path": desired_pin_path,
         "agreed": agreement.agreed,
         "desired_pin": agreement.desired_pin,
         "served_engine_version": agreement.served_engine_version,

@@ -34,7 +34,12 @@ fix look like a pin merge conflict.
 2. When the deploy train fails after that push, promotion restores the
    previous pin materialization on the same branch. The desired-pin leaf
    in the control plane is updated only after a successful deploy.
-3. `yoke release-pin verify` compares the desired-pin leaf to the
+3. The outer release bridge records that successful deployment through
+   `yoke release-pin record --project platform --environment <target> --pin
+   <version>`. The Platform-scoped `deployment_ci` identity may use only this
+   capability-routed mutation; the infrastructure identity stays read-only
+   and neither identity receives generic project-settings administration.
+4. `yoke release-pin verify` compares the desired-pin leaf to the
    environment's configured health probe (`release.health_probe_url`)
    without deploying. Disagreement is a doctor/operator signal, not a
    silent drift.
@@ -51,4 +56,6 @@ identical content on divergent histories.
 
 - Platform runbook: `docs/runbooks/deploy.md` (Platform repo)
 - Capability declaration: project `release_pin` settings
-  (`pin_file`, `branch_by_environment`, `environment_by_target`)
+  (`pin_file`, `branch_by_environment`, `environment_by_target`, and the
+  explicit `desired_pin_path`). Generic Yoke machinery contains no Platform
+  environment id or desired-pin leaf and does not synthesize missing config.

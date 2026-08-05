@@ -17,7 +17,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke release-pin verify": (
-        "Compare environments.settings.release.yoke_pin to the configured "
+        "Compare the configured desired-pin settings leaf to the configured "
         "health probe without deploying."
     ),
 }

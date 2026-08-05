@@ -45,6 +45,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_CREATE,
     PERM_PROJECT_INSTALL,
     PERM_PROJECT_RENDER_READ,
+    PERM_RELEASE_PIN_RECORD,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
@@ -106,6 +107,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "release_pin.record": AuthzSpec(PROJECT, PERM_RELEASE_PIN_RECORD),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.checkpoint_import": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     # Site/environment registration: the install grant, like onboard.checklist.*.

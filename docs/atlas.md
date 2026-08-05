@@ -146,6 +146,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **271** (operation track
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
+| release_pin | `yoke release-pin record` | `release_pin.record` | ok |
 | projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
 | projects | `yoke projects capability-secret set` | `projects.capability_secret.set` | ok |

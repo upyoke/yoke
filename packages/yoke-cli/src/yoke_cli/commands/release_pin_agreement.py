@@ -59,6 +59,7 @@ def evaluate_pin_health_agreement(
     *,
     desired_pin: Optional[str],
     probe_url: Optional[str],
+    desired_path: str = DESIRED_PIN_SETTINGS_PATH,
     opener: Callable[[str], Mapping[str, Any]] | None = None,
 ) -> PinHealthAgreement:
     """Compare desired pin to the probe's served engine version."""
@@ -67,7 +68,7 @@ def evaluate_pin_health_agreement(
             agreed=False,
             desired_pin=desired_pin,
             probe_url=probe_url,
-            skipped_reason=f"{DESIRED_PIN_SETTINGS_PATH} is unset",
+            skipped_reason=f"{desired_path} is unset",
         )
     if not probe_url:
         return PinHealthAgreement(
