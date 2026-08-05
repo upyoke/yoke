@@ -7,7 +7,8 @@ adapter pattern in :mod:`service_client_backlog_update_dispatch`.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from contextlib import ExitStack, contextmanager
+from typing import Any, Dict, Iterator, List
 from unittest.mock import patch
 
 import pytest
@@ -48,6 +49,38 @@ def _capture_envelopes() -> tuple[List[Dict[str, Any]], Any]:
     return seen, fake_dispatch
 
 
+@contextmanager
+def _dispatch_stack(fake: Any, *, session_id: str = "sid") -> Iterator[None]:
+    """Isolate scalar adapters from live control-plane ref rendering.
+
+    ``item_ref_for_id`` opens a real DB connection; under CI that can map an
+    internal id to a different public sequence than the bare number the test
+    typed, so success-line assertions must not depend on ambient rows.
+    """
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=fake,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "yoke_core.domain.handlers.__init_register__.register_all_handlers",
+            )
+        )
+        stack.enter_context(
+            patch(
+                "yoke_core.api.service_client_shared_session_resolver.current_session_id",
+                return_value=session_id,
+            )
+        )
+        stack.enter_context(
+            patch.object(scalar, "item_ref_for_id", side_effect=lambda i: f"YOK-{i}")
+        )
+        yield
+
+
 @pytest.mark.parametrize("raw,expected", [
     ("1685", 1685),
     (" 42 ", 42),
@@ -64,13 +97,7 @@ def test_parse_item_id_rejects_garbage(raw: Any) -> None:
 def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> None:
     seen, fake = _capture_envelopes()
     with patch.object(scalar, "_dispatch_scalar", wraps=scalar._dispatch_scalar) as wrapped:
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake
-        ), patch(
-            "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-        ), patch(
-            "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="test-sid",
-        ):
+        with _dispatch_stack(fake, session_id="test-sid"):
             rc = scalar.cmd_freeze(["1685"])
     assert rc == 0
     assert wrapped.call_count == 1
@@ -88,15 +115,10 @@ def test_freeze_dispatches_frozen_true(capsys: pytest.CaptureFixture[str]) -> No
 
 def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> None:
     seen, fake = _capture_envelopes()
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake
-    ), patch(
-        "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-    ), patch(
-        "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="sid",
-    ):
+    with _dispatch_stack(fake):
         rc = scalar.cmd_thaw(["42"])
     assert rc == 0
+    assert seen[0]["target"] == {"kind": "item", "item_id": 42}
     assert seen[0]["payload"] == {"field": "frozen", "value": False}
     assert seen[0]["intent"] == "thaw"
     assert "YOK-42: thawed" in capsys.readouterr().out
@@ -104,13 +126,7 @@ def test_thaw_dispatches_frozen_false(capsys: pytest.CaptureFixture[str]) -> Non
 
 def test_block_dispatches_two_writes_in_order(capsys: pytest.CaptureFixture[str]) -> None:
     seen, fake = _capture_envelopes()
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake
-    ), patch(
-        "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-    ), patch(
-        "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="sid",
-    ):
+    with _dispatch_stack(fake):
         rc = scalar.cmd_block(["100", "needs design review"])
     assert rc == 0
     assert len(seen) == 2
@@ -123,13 +139,7 @@ def test_block_dispatches_two_writes_in_order(capsys: pytest.CaptureFixture[str]
 
 def test_unblock_dispatches_two_clears(capsys: pytest.CaptureFixture[str]) -> None:
     seen, fake = _capture_envelopes()
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake
-    ), patch(
-        "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-    ), patch(
-        "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="sid",
-    ):
+    with _dispatch_stack(fake):
         rc = scalar.cmd_unblock(["7"])
     assert rc == 0
     assert len(seen) == 2
@@ -144,13 +154,7 @@ def test_freeze_reports_failure_nonzero(capsys: pytest.CaptureFixture[str]) -> N
     def fake_dispatch(_envelope: Dict[str, Any]) -> _FakeResponse:
         return fail
 
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake_dispatch
-    ), patch(
-        "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-    ), patch(
-        "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="sid",
-    ):
+    with _dispatch_stack(fake_dispatch):
         rc = scalar.cmd_freeze(["1"])
     assert rc == 1
     err_out = capsys.readouterr().err
@@ -168,13 +172,7 @@ def test_block_partial_state_reports_recovery(capsys: pytest.CaptureFixture[str]
             return _err(code="validation_error", message="bad reason")
         return _ok()
 
-    with patch(
-        "yoke_core.domain.yoke_function_dispatch.dispatch", side_effect=fake_dispatch
-    ), patch(
-        "yoke_core.domain.handlers.__init_register__.register_all_handlers",
-    ), patch(
-        "yoke_core.api.service_client_shared_session_resolver.current_session_id", return_value="sid",
-    ):
+    with _dispatch_stack(fake_dispatch):
         rc = scalar.cmd_block(["99", "reason"])
     assert rc == 1
     err_out = capsys.readouterr().err
