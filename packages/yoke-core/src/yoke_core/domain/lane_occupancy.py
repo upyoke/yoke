@@ -90,10 +90,15 @@ def _active_lane_claims(conn: Any) -> List[LaneOccupant]:
         return []
     has_items = _table_exists(conn, "items")
     has_projects = _table_exists(conn, "projects")
+    # Aliased even in the NULL branch: an unaliased NULL is named
+    # ``?column?`` by Postgres, and two of them collide on one key, so
+    # keyed row access breaks on exactly the minimal schemas this branch
+    # exists to serve.
     ref_select = (
-        "p.public_item_prefix, i.project_sequence"
+        "p.public_item_prefix AS public_item_prefix, "
+        "i.project_sequence AS project_sequence"
         if has_items and has_projects
-        else "NULL, NULL"
+        else "NULL AS public_item_prefix, NULL AS project_sequence"
     )
     ref_join = (
         " LEFT JOIN items i ON i.id = iw.item_id"
