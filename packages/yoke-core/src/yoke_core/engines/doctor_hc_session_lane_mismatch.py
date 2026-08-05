@@ -13,8 +13,7 @@ the row-anchor path or a leftover from a session created before this
 fix landed.
 
 Registered in :mod:`yoke_core.engines.doctor_registry` so
-``python3 -m yoke_core.engines.doctor`` runs it alongside the other
-health checks.
+``yoke doctor run`` runs it alongside the other health checks.
 """
 
 from __future__ import annotations

@@ -20,9 +20,11 @@ from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
     WORKFLOWS_VERSION_GET_USAGE,
+    WORKFLOWS_VERSION_LIST_USAGE,
     workflows_current_set,
     workflows_policy_defaults_publish,
     workflows_version_get,
+    workflows_version_list,
 )
 from yoke_contracts.api.function_call import TargetRef
 
@@ -222,10 +224,12 @@ __all__ = [
     "WORKFLOWS_ITEM_MIGRATE_USAGE",
     "WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE",
     "WORKFLOWS_VERSION_GET_USAGE",
+    "WORKFLOWS_VERSION_LIST_USAGE",
     "workflows_current_set",
     "workflows_definition_get",
     "workflows_item_get",
     "workflows_item_migrate",
     "workflows_policy_defaults_publish",
     "workflows_version_get",
+    "workflows_version_list",
 ]

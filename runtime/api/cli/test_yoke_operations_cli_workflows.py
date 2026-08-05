@@ -12,6 +12,7 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_item_migrate,
     workflows_policy_defaults_publish,
     workflows_version_get,
+    workflows_version_list,
 )
 from yoke_contracts.api.function_call import FunctionCallResponse
 
@@ -121,6 +122,7 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         ]) == 0
         assert workflows_item_migrate(["YOK-42", "--version", "2"]) == 0
         assert workflows_version_get(["issue", "1"]) == 0
+        assert workflows_version_list(["dash"]) == 0
         assert workflows_policy_defaults_publish([
             "dash",
             "--path-claims", "on",
@@ -148,19 +150,21 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
     assert calls[1]["payload"] == {"version": 2}
     assert calls[2]["function_id"] == "workflows.version.get"
     assert calls[2]["payload"] == {"workflow_id": "issue", "version": 1}
-    assert calls[3]["function_id"] == "workflows.policy_defaults.publish"
-    assert calls[3]["payload"] == {
+    assert calls[3]["function_id"] == "workflows.version.list"
+    assert calls[3]["payload"] == {"workflow_id": "dash"}
+    assert calls[4]["function_id"] == "workflows.policy_defaults.publish"
+    assert calls[4]["payload"] == {
         "workflow_id": "dash",
         "expected_current_version": 1,
         "path_claims_default": True,
     }
-    assert calls[4]["function_id"] == "workflows.policy_defaults.publish"
-    assert calls[4]["payload"] == {
+    assert calls[5]["function_id"] == "workflows.policy_defaults.publish"
+    assert calls[5]["payload"] == {
         "workflow_id": "dash",
         "expected_current_version": 2,
         "file_budget_default": True,
     }
-    assert calls[5]["payload"] == {
+    assert calls[6]["payload"] == {
         "workflow_id": "dash",
         "expected_current_version": 3,
         "path_survey_default": False,

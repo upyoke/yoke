@@ -15,15 +15,22 @@ declared by the project's ``release_pin`` capability:
 
     {
       "pin_file": "yoke-release-pin.txt",
-      "branch_by_environment": {"stage": "stage", "production": "main"}
+      "branch_by_environment": {"stage": "stage", "production": "main"},
+      "environment_by_target": {
+        "stage": "yoke-api-stage",
+        "production": "yoke-api-prod"
+      }
     }
 
-A project without that capability is unaffected. When the declaration is
-present but the pin cannot be read on either side, the comparison reports
-that it was skipped rather than guessing — an unreadable pin is not
-evidence that the move is safe, but it is also not evidence of a
-regression, and refusing every unreadable case would block projects whose
-pin file legitimately does not exist yet on a new branch.
+Desired pin authority is the control-plane leaf
+``environments.settings.release.yoke_pin`` on the mapped environment id.
+The committed pin file remains build materialization on the environment
+branch. A project without that capability is unaffected. When the
+declaration is present but the pin cannot be read on either side, the
+comparison reports that it was skipped rather than guessing — an
+unreadable pin is not evidence that the move is safe, but it is also not
+evidence of a regression, and refusing every unreadable case would block
+projects whose pin file legitimately does not exist yet on a new branch.
 """
 
 from __future__ import annotations

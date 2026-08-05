@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.items_merge_provenance import (
     items_merge_provenance_operator_correct,
 )
 from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
+from yoke_cli.commands.adapters.claims_path_change import claims_path_amend
+from yoke_cli.commands.adapters.config import env_list
+from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_epic_ops import EPIC_OPS_SUBCOMMAND_REGISTRY
@@ -29,6 +32,7 @@ from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import (
     SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
 )
+from yoke_cli.commands.registry_sessions import SESSIONS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_strategy_event import STRATEGY_EVENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
 
@@ -90,6 +94,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         _adapters.claims_path_register,
     ),
     ("claims", "path", "widen"): ("claims.path.widen", _adapters.claims_path_widen),
+    ("claims", "path", "amend"): ("claims.path.amend", claims_path_amend),
     ("claims", "path", "list"): ("claims.path.list", _adapters.claims_path_list),
     ("claims", "path", "get"): ("claims.path.get", _adapters.claims_path_get),
     ("claims", "path", "coordination-decision-build"): (
@@ -110,20 +115,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("db-claim", "amend"): ("db_claim.amend", _adapters.db_claim_amend),
     ("db", "read"): ("db.read.run", _adapters.db_read),
-    ("sessions", "begin"): ("sessions.begin", _adapters.sessions_begin),
-    ("sessions", "init"): ("sessions.init", _adapters.sessions_init),
-    ("sessions", "list"): ("sessions.list", _adapters.sessions_list),
-    ("sessions", "touch"): ("sessions.touch", _adapters.sessions_touch),
-    ("sessions", "checkpoint"): ("sessions.checkpoint", _adapters.sessions_checkpoint),
-    ("sessions", "checkpoint-read"): (
-        "sessions.checkpoint_read",
-        _adapters.sessions_checkpoint_read,
-    ),
-    ("sessions", "offer"): ("sessions.offer", _adapters.sessions_offer),
-    ("sessions", "ownership-guard"): (
-        "sessions.ownership_guard",
-        _adapters.sessions_ownership_guard,
-    ),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
     ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
     ("agents", "render"): ("agents.render.run", _adapters.agents_render),
@@ -222,6 +213,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         _adapters.onboard_checklist_cmd,
     ),
     ("env", "use"): ("env.use.run", _adapters.env_use),
+    ("env", "list"): ("env.list.run", env_list),
     ("connection", "set"): ("connection.set.run", _adapters.connection_set),
     ("connection", "remove"): ("connection.remove.run", _adapters.connection_remove),
     ("auth", "set"): ("auth.set.run", _adapters.auth_set),
@@ -232,6 +224,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
 }
 
 SUBCOMMAND_REGISTRY.update(SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(SESSIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPIC_OPS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(DEPLOYMENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPHEMERAL_ENV_SUBCOMMAND_REGISTRY)
@@ -242,9 +235,6 @@ SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(WORKFLOW_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_REGISTRY)
-
-
-_TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)
 
 
 # Operator-facing aliases that route to an existing function id with a
@@ -274,8 +264,23 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
 }
 SUBCOMMAND_ALIAS_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY)
-
-
+SPACE_EXPANDED_ROUTE_REGISTRY = expanded_hyphen_routes(
+    SUBCOMMAND_REGISTRY,
+    SUBCOMMAND_ALIAS_REGISTRY,
+)
+_TOKEN_LENGTHS: Tuple[int, ...] = tuple(
+    range(
+        max(
+            max(map(len, SUBCOMMAND_REGISTRY), default=1),
+            max(
+                max(map(len, SUBCOMMAND_ALIAS_REGISTRY), default=1),
+                max(map(len, SPACE_EXPANDED_ROUTE_REGISTRY), default=1),
+            ),
+        ),
+        0,
+        -1,
+    )
+)
 def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List[str]]:
     """Find the registered subcommand at the head of ``argv_head``.
 
@@ -296,6 +301,9 @@ def resolve(argv_head: List[str]) -> Tuple[Tuple[str, ...], str, AdapterFn, List
             return candidate, function_id, adapter, argv_head[length:]
         if candidate in SUBCOMMAND_ALIAS_REGISTRY:
             function_id, adapter = SUBCOMMAND_ALIAS_REGISTRY[candidate]
+            return candidate, function_id, adapter, argv_head[length:]
+        if candidate in SPACE_EXPANDED_ROUTE_REGISTRY:
+            function_id, adapter = SPACE_EXPANDED_ROUTE_REGISTRY[candidate]
             return candidate, function_id, adapter, argv_head[length:]
     raise KeyError(
         "unknown subcommand: {!r}; see `yoke --help` for the canonical list.".format(
@@ -333,6 +341,7 @@ def cli_to_function_id_stem(tokens: Tuple[str, ...]) -> str:
 __all__ = [
     "SUBCOMMAND_REGISTRY",
     "SUBCOMMAND_ALIAS_REGISTRY",
+    "SPACE_EXPANDED_ROUTE_REGISTRY",
     "AdapterFn",
     "resolve",
     "function_id_to_cli",

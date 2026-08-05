@@ -51,7 +51,8 @@ def test_register_attempts_snapshot_sync_before_dispatch() -> None:
 
 def test_widen_attempts_snapshot_sync_before_dispatch() -> None:
     with patch(
-        "yoke_cli.commands.adapters.claims.sync_local_snapshot_for_write"
+        "yoke_cli.commands.adapters.claims_path_change."
+        "sync_local_snapshot_for_write"
     ) as sync:
         rc = _run(
             "claims", "path", "widen",

@@ -66,6 +66,13 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
     currentActor: { id: 2, kind: "human", label: "ben" },
     environmentLabel: "stage · yoke",
     versionLabel: "v9.4.1",
+    runtimeIdentity: {
+      version: "v9.4.1",
+      installKind: "packaged_wheel",
+      build: "abc123def456",
+      environmentLabel: "stage · yoke",
+      portabilityMode: "hosted",
+    },
   });
   await settle();
 
@@ -77,6 +84,18 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   assert.equal(byClass(root, "app-footer-version")[0].textContent, "v9.4.1");
   assert.match(byClass(root, "app-footer-link")[0].href,
     /github\.com\/upyoke\/yoke\/tree\/main\/docs/);
+
+  const versionControl = byClass(root, "app-footer-version")[0];
+  assert.equal(versionControl.tagName.toLowerCase(), "button");
+  assert.equal(byClass(root, "runtime-identity-help")[0].hidden, true);
+  versionControl.dispatchEvent(new Event("click"));
+  const identityPanel = byClass(root, "runtime-identity-help")[0];
+  assert.equal(identityPanel.hidden, false);
+  const identityValues = byClass(root, "runtime-identity-help-value")
+    .map((node) => node.textContent);
+  assert.deepEqual(identityValues, [
+    "v9.4.1", "packaged_wheel", "abc123def456", "stage · yoke", "hosted",
+  ]);
 
   const input = byClass(root, "header-search-input")[0];
   input.value = "shell";

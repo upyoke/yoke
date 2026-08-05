@@ -6,9 +6,9 @@ Yoke already exposes as a CLI adapter or function-call surface. The
 fallback is brittle (no claim-aware gates, no telemetry, no help text) and
 shows up daily in live session transcripts.
 
-Detection: any Bash command containing ``python``/``python3`` ``-c``
-followed by a quoted body that imports a Yoke-owned implementation
-symbol. Post package-split surfaces include ``yoke_core.*``,
+Detection: a Bash command containing ``python``/``python3`` ``-c`` followed
+by a quoted body that imports a Yoke-owned implementation symbol and is not
+classifiable as a conservative read-only inspection probe. Post package-split surfaces include ``yoke_core.*``,
 ``yoke_cli.*``, and ``yoke_harness.*``; transitional legacy surfaces
 include ``runtime.api.*``, ``runtime.harness.*``, and ``runtime.agents.*``.
 
@@ -39,6 +39,9 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
+    is_read_only_import_probe,
+)
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-no-agent-runtime-api-import-from-c"
@@ -141,6 +144,8 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         'operation the dispatcher exposes — reaching for `python3 -c "..."` '
         "bypasses claim-aware gates, telemetry, and help-text affordances.\n\n"
         'This rule targets ONLY `python3 -c "..."` import one-liners. '
+        "Read-only constant and inspection probes are allowed when every "
+        "imported symbol and call has an explicit read-shaped name. "
         "`python3 -m <module>` module invocations (e.g. the `/yoke do` "
         "`python3 -m yoke_core.tools.session_init` bootstrap) are a sanctioned "
         "execution shape and are never blocked by this rule.\n\n"
@@ -192,7 +197,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return None
     hit = False
     for body in _iter_python_c_bodies(command):
-        if _body_imports_runtime(body):
+        if _body_imports_runtime(body) and not is_read_only_import_probe(body):
             hit = True
             break
     if not hit:

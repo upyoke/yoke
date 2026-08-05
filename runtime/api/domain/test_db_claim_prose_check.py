@@ -133,6 +133,29 @@ That's the example schema we will NOT modify here.
         prose = "python3 -m yoke_core.cli.db_router items list --status implementing\nNo DB writes here."
         assert detect_triggers(prose) == []
 
+    def test_lint_fixture_sql_evidence_ignored(self):
+        prose = (
+            "The lifecycle lint denied test-fixture authoring whose source "
+            "text contains INSERT INTO items; preserve it as a regression case."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_in_memory_sql_rehearsal_evidence_ignored(self):
+        prose = (
+            "False-positive evidence: an in-memory SQLite rehearsal executes "
+            "INSERT INTO items against its synthetic table."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_live_dml_still_fires_when_tests_are_also_named(self):
+        prose = (
+            "Add regression tests. The implementation will INSERT INTO items "
+            "in the authoritative database."
+        )
+        labels = [t[0] for t in detect_triggers(prose)]
+        assert "INSERT INTO <table>" in labels
+        assert "authoritative DB" in labels
+
     def test_empty_prose(self):
         assert detect_triggers("") == []
         assert detect_triggers(None) == []  # type: ignore[arg-type]

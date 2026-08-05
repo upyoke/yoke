@@ -183,6 +183,22 @@ export interface UniverseActor {
   readonly systemComponent?: string | null;
 }
 
+/** Portability mode carried by the runtime-identity packet. */
+export type UniversePortabilityMode = "local" | "selfhost" | "hosted";
+
+/**
+ * Compact facts about the running product the host is mounting. Status CLI
+ * and every universe host share this shape so the footer and `yoke status`
+ * never diverge on version authority.
+ */
+export interface UniverseRuntimeIdentity {
+  readonly version: string;
+  readonly installKind: string;
+  readonly build?: string;
+  readonly environmentLabel: string;
+  readonly portabilityMode: UniversePortabilityMode;
+}
+
 export interface UniverseAppOptions {
   readonly client?: UniverseFunctionClient;
   readonly capabilities?: UniverseCapabilities;
@@ -201,6 +217,16 @@ export interface UniverseAppOptions {
    * vanishes rather than guessing.
    */
   readonly currentActor?: UniverseActor;
+  /**
+   * Canonical runtime-identity packet. Hosts that already derived display
+   * fields may omit this, but the local and hosted shells pass it so the
+   * footer detail surface can show install/build/mode facts.
+   */
+  readonly runtimeIdentity?: UniverseRuntimeIdentity;
+  /** Primary version text shown in the footer. */
+  readonly versionLabel?: string;
+  /** Environment / portability label shown beside the brand mark. */
+  readonly environmentLabel?: string;
 }
 
 export interface UniverseAppMount {

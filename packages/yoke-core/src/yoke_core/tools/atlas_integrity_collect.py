@@ -211,6 +211,19 @@ def collect_recipes(target_root: Path) -> Dict[str, Any]:
     }
 
 
+def collect_taught_commands(target_root: Path) -> Dict[str, Any]:
+    """Resolve every command spelling extracted from live teaching surfaces."""
+    from yoke_cli.product_boundary_teaching import generate_teaching_audit
+
+    audit = generate_teaching_audit(repo_root=target_root, include_help=True)
+    surfaces = [asdict(row) for row in audit.surfaces]
+    return {
+        "count": len(surfaces),
+        "drift_count": sum(1 for row in surfaces if row.get("drift_type")),
+        "surfaces": surfaces,
+    }
+
+
 _FIELD_NOTE_FOOTER_HINTS = (
     "yoke ouroboros field-note append",
     "yoke-ouroboros-field-note-append",

@@ -1,10 +1,11 @@
-"""Whether a project's declared migration ledger can answer membership.
+"""Whether a project's declared migration ledger satisfies rollback safety.
 
 A declaration is a promise, and this reads the live rows to see whether the
-promise holds. The distinct outcomes matter more than the pass/fail split:
-a ledger that cannot be read and a ledger that is level are opposite
-answers, and reporting the first as the second is what this check exists
-to prevent.
+promise holds. Membership alone is not enough: the serving floor must also
+be readable so a rolled-back build can answer the serving question from the
+ledger. The distinct outcomes matter more than the pass/fail split: a
+ledger that cannot be read and a ledger that is level are opposite answers,
+and reporting the first as the second is what this check exists to prevent.
 """
 
 from __future__ import annotations
@@ -12,11 +13,11 @@ from __future__ import annotations
 from typing import Any
 
 SLUG = "project-migration-ledger-contract"
-TITLE = "Declared migration ledger answers membership"
+TITLE = "Declared migration ledger answers rollback-safety contract"
 
 
 def hc_project_migration_ledger_contract(conn, args: Any, rec: Any) -> None:
-    """Report whether the declared ledger and the shipped history agree.
+    """Report whether the declared ledger satisfies the rollback-safety contract.
 
     N/A when the project declares no ledger: models predating the contract
     are legitimately silent, and calling that a failure would turn an
@@ -40,14 +41,17 @@ def hc_project_migration_ledger_contract(conn, args: Any, rec: Any) -> None:
 
     try:
         rows = conn.execute(
-            f"SELECT {contract.entry_column} FROM {contract.table}"
+            f"SELECT {contract.entry_column}, {contract.serving_floor_column} "
+            f"FROM {contract.table}"
         ).fetchall()
     except Exception as exc:  # noqa: BLE001 — an unreadable ledger is a finding
         # Never PASS here. "I could not read it" and "it is level" are
-        # opposite answers and only one is safe to assume.
+        # opposite answers and only one is safe to assume. Covers both the
+        # entry identity column and the serving floor column.
         rec.record(
             SLUG, TITLE, "WARN",
-            f"cannot read {contract.table}.{contract.entry_column}: {exc}",
+            f"cannot read {contract.table}."
+            f"{contract.entry_column}/{contract.serving_floor_column}: {exc}",
         )
         return
 
@@ -70,7 +74,8 @@ def hc_project_migration_ledger_contract(conn, args: Any, rec: Any) -> None:
         return
     rec.record(
         SLUG, TITLE, "PASS",
-        f"{len(applied)} applied entry(ies) answer the shipped history",
+        f"{len(applied)} applied entry(ies) answer membership; "
+        f"serving floor readable via {contract.serving_floor_column}",
     )
 
 
@@ -84,7 +89,7 @@ def _declared_ledger(conn, rec: Any):
     ).fetchone()
     if not row or not row[0]:
         return None
-    payload = json_helper.loads(row[0])
+    payload = json_helper.loads_text(row[0])
     models = (payload or {}).get("models") or {}
     default = (payload or {}).get("default_model") or ""
     model = models.get(default) or (next(iter(models.values()), None) or {})

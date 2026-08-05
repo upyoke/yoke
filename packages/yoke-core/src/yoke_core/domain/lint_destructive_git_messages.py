@@ -21,7 +21,13 @@ SHAPES = {
     "reset_hard": ("git reset --hard", "Stash or commit first (`git stash push -u`), or use `git reset --soft` to only move the branch tip."),
     "checkout_path_discard": ("git checkout -- <path>", "Stash the path edits (`git stash push -- <path>`) or commit before discarding."),
     "checkout_force_branch": ("git checkout -f <branch>", "Stash or commit first; checking out without `-f` lets git surface the conflict."),
-    "restore_worktree_path": ("git restore --worktree <path>", "Stash the path edits or use `git restore --staged <path>` to unstage without discarding."),
+    "restore_worktree_path": (
+        "git restore --worktree <path>",
+        "Inspect the exact damage with `git diff -- <path>`, then use "
+        "`apply_patch` to reverse only the corrupted hunks. Stash or commit "
+        "before a whole-file restore; `git restore --staged <path>` remains "
+        "safe when the intent is only to unstage.",
+    ),
     "clean_force": ("git clean -f", "Review with `git clean -n`; .gitignore or stash relevant files before cleaning."),
     "worktree_remove": ("git worktree remove <path>", "Verify the worktree is clean including ignored files, has no active claim, and preserve or commit any work before removing it."),
     "rm_rf_worktree": ("rm -rf .worktrees/<path>", "Use `git worktree remove <path>` after verifying clean status, ignored files, and active claims."),

@@ -74,7 +74,7 @@ def wired(tmp_path, monkeypatch):
         lambda tree: TreeIdentity(root=str(tree), head_sha="a" * 40),
     )
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
-    monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a: None)
+    monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
     monkeypatch.setattr(
         "yoke_core.domain.qa_artifacts.artifact_file_path",
         lambda *a, **k: artifact,
@@ -196,7 +196,7 @@ def test_a_case_without_a_declared_workflow_fails_before_pushing(wired):
     assert recorder.calls == []
 
 
-def test_a_tree_binding_refusal_stops_the_gate(wired, monkeypatch):
+def test_ci_executor_ignores_local_tree_binding(wired, monkeypatch):
     checkout, recorder, artifact = wired
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.evaluate_run",
@@ -205,10 +205,59 @@ def test_a_tree_binding_refusal_stops_the_gate(wired, monkeypatch):
         ),
     )
 
-    with pytest.raises(QaCaseExecutionError, match="TREE-BINDING REFUSAL"):
-        qa_case_ci_run.execute_ci_case(_case(), checkout_path=checkout)
+    result = _run(
+        checkout,
+        dispatch=lambda **kwargs: "42",
+        await_result=lambda **kwargs: (0, "success"),
+    )
+    assert result["verdict"] == "pass"
+    assert recorder.payload("qa.run.complete")["verdict"] == "pass"
 
-    assert recorder.calls == []
+
+def test_cancelled_run_records_an_infrastructure_outcome(wired):
+    checkout, recorder, _ = wired
+    result = _run(
+        checkout,
+        dispatch=lambda **kwargs: "42",
+        await_result=lambda **kwargs: (1, "failed:cancelled"),
+    )
+    assert result["verdict"] == "error"
+    assert result["case_outcome"] == "infrastructure_transient"
+    assert result["ci_conclusion"] == "cancelled"
+    raw = json.loads(recorder.payload("qa.run.complete")["raw_result"])
+    assert raw["failure_class"] == "infrastructure_transient"
+
+
+def test_poll_error_records_a_run_before_refusing(wired):
+    checkout, recorder, _ = wired
+
+    def _raise(**kwargs):
+        raise RuntimeError("relay unavailable")
+
+    with pytest.raises(QaCaseExecutionError, match="recorded QA run #77"):
+        _run(checkout, dispatch=lambda **kwargs: "42", await_result=_raise)
+    assert recorder.payload("qa.run.complete")["verdict"] == "error"
+
+
+def test_released_lane_uses_the_recorded_commit_without_tree_binding(
+    wired, monkeypatch,
+):
+    checkout, _, _ = wired
+    case = _case(lane_commit_sha="b" * 40)
+    monkeypatch.setattr(qa_case_ci_lane, "checked_out_branch", lambda _c: "main")
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _c, ref: ref)
+    pushed: dict = {}
+    monkeypatch.setattr(
+        qa_case_ci_lane, "push_lane",
+        lambda checkout, branch, **kwargs: pushed.update(kwargs),
+    )
+    result = _run(
+        checkout, case=case,
+        dispatch=lambda **kwargs: "42",
+        await_result=lambda **kwargs: (0, "success"),
+    )
+    assert pushed["source_ref"] == "b" * 40
+    assert result["verification_tree"]["head_sha"] == "b" * 40
 
 
 def test_shared_case_execution_routes_ci_run_to_this_executor():

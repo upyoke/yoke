@@ -26,7 +26,7 @@ running the suite on the machine it exists to keep free.
 from __future__ import annotations
 
 import json
-import sys
+import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -46,8 +46,7 @@ EXECUTOR_ID = "ci_run"
 #: would apply to its own command.
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = 5400
 
-#: Surface name carried by this executor's tree-binding refusal.
-_TREE_BINDING_SURFACE = "qa case run (ci)"
+_CONCLUSION_PATTERN = re.compile(r"failed:\s*(?P<conclusion>[a-z_]+)")
 
 
 def _record_run(
@@ -125,15 +124,31 @@ def _resolve_checkout(
     )
     if not checkout.is_dir():
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
-    binding = verification_tree_binding.evaluate_run(
-        surface=_TREE_BINDING_SURFACE, tree=str(checkout),
-        allow_mismatch=allow_tree_mismatch,
-    )
-    if binding.notice:
-        print(binding.notice, file=sys.stderr, flush=True)
-    if binding.refusal:
-        raise QaCaseExecutionError(binding.refusal)
+    # CI verifies a pushed commit on a remote runner. The checkout is only a
+    # Git transport, so local claim-tree binding does not apply to this
+    # executor; the recorded source SHA is the binding authority instead.
     return checkout
+
+
+def _ci_conclusion(exit_code: int, output: str) -> str:
+    if exit_code == 0:
+        return "success"
+    match = _CONCLUSION_PATTERN.search(output.casefold())
+    if match:
+        conclusion = match.group("conclusion")
+        return conclusion if conclusion in {
+            "cancelled", "failure", "neutral", "skipped", "stale",
+            "startup_failure", "success", "timed_out",
+        } else "failure"
+    if "timed out" in output.casefold():
+        return "timed_out"
+    return "error"
+
+
+def _failure_verdict(conclusion: str) -> tuple[str, str]:
+    if conclusion == "failure":
+        return "fail", "test_failure"
+    return "error", "infrastructure_transient"
 
 
 def execute_ci_case(
@@ -154,31 +169,75 @@ def execute_ci_case(
         if timeout_seconds is not None
         else (configured or DEFAULT_CI_RUN_TIMEOUT_SECONDS)
     )
+    started = time.monotonic()
     workflow = qa_case_ci_lane.workflow_file(case)
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
     tree = verification_tree_binding.resolve_tree_identity(checkout)
-    head_sha = tree.head_sha if tree else ""
-    qa_case_ci_lane.push_lane(checkout, branch)
-
-    started = time.monotonic()
-    with qa_case_ci_lane.github_actions_authority():
-        ci_run_id = qa_case_ci_lane.dispatch_workflow(
-            project=project,
-            repo=repo,
-            workflow=workflow,
-            branch=branch,
-            # Keyed on the tree under test: a retry after a lost response
-            # recovers the same run, while a new commit is a new gate.
-            request_id=f"qa-case:{int(case['requirement_id'])}:{head_sha}",
-            timeout_seconds=budget,
+    try:
+        checked_out_branch = qa_case_ci_lane.checked_out_branch(checkout)
+    except QaCaseExecutionError:
+        checked_out_branch = branch if tree else "HEAD"
+    source_ref = (
+        "HEAD" if checked_out_branch == branch
+        else str(case.get("lane_commit_sha") or "").strip()
+    )
+    if not source_ref:
+        raise QaCaseExecutionError(
+            f"CI case for {branch!r} has no recorded commit after lane cleanup"
         )
-        exit_code, poll_output = qa_case_ci_lane.await_workflow(
-            project=project, repo=repo, run_id=ci_run_id, timeout_seconds=budget,
+    head_sha = (
+        tree.head_sha if source_ref == "HEAD" and tree is not None
+        else qa_case_ci_lane.ref_sha(checkout, source_ref)
+    )
+    tree = verification_tree_binding.TreeIdentity(str(checkout), head_sha)
+    ci_run_id = ""
+    try:
+        qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
+        with qa_case_ci_lane.github_actions_authority():
+            ci_run_id = qa_case_ci_lane.dispatch_workflow(
+                project=project,
+                repo=repo,
+                workflow=workflow,
+                branch=branch,
+                # Keyed on the tree under test: a retry after a lost response
+                # recovers the same run, while a new commit is a new gate.
+                request_id=f"qa-case:{int(case['requirement_id'])}:{head_sha}",
+                timeout_seconds=budget,
+            )
+            exit_code, poll_output = qa_case_ci_lane.await_workflow(
+                project=project, repo=repo, run_id=ci_run_id,
+                timeout_seconds=budget,
+            )
+    except Exception as exc:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        raw_result = json.dumps(
+            {
+                "repo": repo,
+                "workflow": workflow,
+                "branch": branch,
+                "ci_run_id": ci_run_id or None,
+                "ci_conclusion": "error",
+                "failure_class": "infrastructure_transient",
+                "error": str(exc),
+                "verification_tree": tree.as_payload(),
+            },
+            sort_keys=True,
         )
+        run_id, _ = _record_run(
+            case, raw_result=raw_result, duration_ms=duration_ms,
+            verdict="error", output=str(exc), actor=actor,
+        )
+        raise QaCaseExecutionError(
+            f"CI execution errored; recorded QA run #{run_id}: {exc}"
+        ) from exc
     duration_ms = int((time.monotonic() - started) * 1000)
-    verdict = "pass" if exit_code == 0 else "fail"
+    conclusion = _ci_conclusion(exit_code, poll_output)
+    verdict, failure_class = (
+        ("pass", "") if conclusion == "success"
+        else _failure_verdict(conclusion)
+    )
     run_url = f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     raw_result = json.dumps(
         {
@@ -188,7 +247,9 @@ def execute_ci_case(
             "ci_run_id": ci_run_id,
             "run_url": run_url,
             "exit_code": exit_code,
-            "verification_tree": tree.as_payload() if tree else None,
+            "ci_conclusion": conclusion,
+            "failure_class": failure_class or None,
+            "verification_tree": tree.as_payload(),
         },
         sort_keys=True,
     )
@@ -210,12 +271,17 @@ def execute_ci_case(
         "artifact_id": artifact_id,
         "executor_id": EXECUTOR_ID,
         "verdict": verdict,
-        "case_outcome": "passed" if verdict == "pass" else "failed",
+        "case_outcome": (
+            "passed" if verdict == "pass" else
+            "failed" if verdict == "fail" else "infrastructure_transient"
+        ),
         "exit_code": exit_code,
         "duration_ms": duration_ms,
         "ci_run_id": ci_run_id,
         "run_url": run_url,
-        "verification_tree": tree.as_payload() if tree else None,
+        "ci_conclusion": conclusion,
+        "failure_class": failure_class or None,
+        "verification_tree": tree.as_payload(),
     }
 
 

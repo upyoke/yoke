@@ -16,6 +16,7 @@ CLIENT_LOCAL_BY_ID: dict[str, AuthzSpec] = {
     "connection.set.run": AuthzSpec(CLIENT_LOCAL, None),
     "connection.remove.run": AuthzSpec(CLIENT_LOCAL, None),
     "env.use.run": AuthzSpec(CLIENT_LOCAL, None),
+    "env.list.run": AuthzSpec(CLIENT_LOCAL, None),
     "config.example.run": AuthzSpec(CLIENT_LOCAL, None),
     "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),
     "status.run": AuthzSpec(CLIENT_LOCAL, None),

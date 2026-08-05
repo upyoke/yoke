@@ -172,6 +172,20 @@ def test_registry_maps_sessions_list_to_function_id() -> None:
     assert SUBCOMMAND_REGISTRY[("sessions", "list")][0] == "sessions.list"
 
 
+def test_session_closeout_and_reclaim_dispatch() -> None:
+    assert _run("sessions", "end-if-empty", "--triggered-by", "hook") == 0
+    request = _CAPTURED_REQUESTS[-1]
+    assert request.function == "sessions.end_if_empty"
+    assert request.payload == {"triggered_by": "hook"}
+
+    assert _run(
+        "sessions", "reclaim-stale", "--confirm", "--project-ids", "1,3",
+    ) == 0
+    request = _CAPTURED_REQUESTS[-1]
+    assert request.function == "sessions.reclaim_stale"
+    assert request.payload == {"confirm": True, "project_ids": [1, 3]}
+
+
 def test_sessions_list_dispatches_filters_and_prints_pipe_rows() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)

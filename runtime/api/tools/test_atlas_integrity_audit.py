@@ -25,6 +25,7 @@ TOP_LEVEL_KEYS = {
     "yoke_cli",
     "operation_tracker",
     "help_pages",
+    "taught_commands",
     "teaching_places",
     "recipes",
     "lints",

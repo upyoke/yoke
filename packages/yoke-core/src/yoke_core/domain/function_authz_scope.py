@@ -190,6 +190,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "sessions.offer": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint": AuthzSpec(ACTOR_SESSION, None),
     "sessions.checkpoint_read": AuthzSpec(ACTOR_SESSION, None),
+    "sessions.end_if_empty": AuthzSpec(ACTOR_SESSION, None),
     "sessions.ownership_guard": AuthzSpec(ACTOR_SESSION, None),
     # The handler releases only rows owned by request.actor.session_id.  It may
     # span projects, so forcing a single PROJECT scope is both unnecessary and

@@ -9,6 +9,7 @@ Enforces only contradictions the audit can prove without judgment:
 * A client-local CLI row lacks its permanent command-boundary
   classification.
 * A registered ``yoke`` subcommand exposes no usable ``--help`` text.
+* A ``yoke`` command spelling in a live teaching surface does not resolve.
 * ``docs/atlas.md`` is stale relative to a freshly-rendered body.
 * ``docs/function-inventory.md`` is still present AND still claims an
   empty registry while the live registry is non-empty.
@@ -120,6 +121,22 @@ def _check_subcommand_help_coverage(
             )
 
 
+def _check_taught_command_resolution(report: dict, fails: List[str]) -> None:
+    taught = report.get("taught_commands") or {}
+    for row in taught.get("surfaces") or []:
+        if row.get("kind") != "yoke" or not row.get("drift_type"):
+            continue
+        fails.append(
+            "- taught command `{recipe}` does not resolve from "
+            "`{source}:{line}` ({drift})".format(
+                recipe=row.get("recipe") or "",
+                source=row.get("source") or "unknown",
+                line=row.get("line_number") or "?",
+                drift=row.get("drift_type"),
+            )
+        )
+
+
 def _check_atlas_staleness(report: dict, fails: List[str]) -> None:
     from yoke_core.tools.atlas_render_docs import is_stale, render
     body = render(report)
@@ -173,6 +190,8 @@ def hc_atlas_integrity(
     _check_cli_function_ids_registered(report, fails)
     _emit_progress("check-help-coverage")
     _check_subcommand_help_coverage(report, fails)
+    _emit_progress("check-taught-commands")
+    _check_taught_command_resolution(report, fails)
     _emit_progress("check-doc-staleness")
     _check_atlas_staleness(report, fails)
     _emit_progress("check-function-inventory")

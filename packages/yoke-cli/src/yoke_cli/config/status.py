@@ -29,18 +29,16 @@ from yoke_cli.config.status_environment import (
     permission_issues,
 )
 from yoke_cli.config.status_render import dumps_json, render_human
-from yoke_cli.config.status_runtime import build_runtime_status
+from yoke_cli.config.status_runtime import (
+    build_runtime_status,
+    with_runtime_identity,
+)
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.install_binding import distribution_version_for_module
 from yoke_contracts.machine_config import schema as contract
 
-
 REQUIRED_IMPORTS = (
-    "yoke_cli",
-    "yoke_contracts",
-    "yoke_harness",
-    "pydantic",
-    "pyfiglet",
+    "yoke_cli", "yoke_contracts", "yoke_harness", "pydantic", "pyfiglet",
 )
 PRODUCT_RUNTIME_MODULES = {
     install_binding.CLI_DISTRIBUTION_NAME: "yoke_cli",
@@ -135,7 +133,7 @@ def build_status(
             "ambient_env": env,
         }
     )
-    return report
+    return with_runtime_identity(report)
 
 
 def _connection_status(

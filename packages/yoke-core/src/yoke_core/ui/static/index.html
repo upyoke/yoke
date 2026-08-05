@@ -30,13 +30,24 @@
     // A local universe trivially has its machine connected, so this page —
     // not the engine — supplies the onboarding machine fact.
     import { mountUniverseApp } from "./assets/app.js";
+    // The UI server replaces the host-identity marker with the live packet
+    // at serve time. The placeholder object is only for static file opens.
+    const hostIdentity = /*YOKE_HOST_IDENTITY*/{
+      "versionLabel": "source",
+      "environmentLabel": "local universe",
+      "runtimeIdentity": {
+        "version": "source",
+        "installKind": "source_checkout",
+        "environmentLabel": "local universe",
+        "portabilityMode": "local"
+      }
+    }/*YOKE_HOST_IDENTITY*/;
     mountUniverseApp(document.getElementById("universe-root"), {
       // The loopback door authenticates a machine session rather than an
       // account. Until the server projects the resolved actor, name that
       // fact honestly instead of presenting the organization as the viewer.
       currentActor: { kind: "human", label: "local actor" },
-      environmentLabel: "local universe",
-      versionLabel: "version unavailable",
+      ...hostIdentity,
       docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",
       capabilities: {
         data: {

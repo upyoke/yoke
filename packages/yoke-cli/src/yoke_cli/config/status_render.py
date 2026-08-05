@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from yoke_cli.config import install_binding
 from yoke_cli.config import status_release_lineage
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.runtime_identity import human_identity_line
 
 
 def render_human(report: Mapping[str, Any]) -> str:
@@ -20,6 +21,9 @@ def render_human(report: Mapping[str, Any]) -> str:
     install = report.get("install")
     if isinstance(install, Mapping):
         lines.append(f"  install: {install_binding.label(install)}")
+    identity_line = human_identity_line(report)
+    if identity_line:
+        lines.append(identity_line)
     lineage_label = status_release_lineage.label(report.get("release_lineage"))
     if lineage_label:
         lines.append(f"  release: {lineage_label}")

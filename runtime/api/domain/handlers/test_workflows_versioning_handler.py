@@ -19,6 +19,9 @@ from yoke_core.domain.handlers.workflows_versioning import (
     handle_workflows_policy_defaults_publish,
     handle_workflows_version_get,
 )
+from yoke_core.domain.handlers.workflows_version_list import (
+    handle_workflows_version_list,
+)
 from yoke_core.domain.workflow_registry import publish_workflow_version
 
 
@@ -103,6 +106,19 @@ def test_version_get_and_policy_default_publish(test_db):
     assert published.primary_success
     assert published.result_payload["version"] == converged + 1
     assert published.result_payload["path_claims_default"] is True
+
+
+def test_version_list_discovers_current_version(test_db):
+    outcome = handle_workflows_version_list(
+        _request(
+            "workflows.version.list",
+            target=TargetRef(kind="global"),
+            payload={"workflow_id": "dash"},
+        )
+    )
+    assert outcome.primary_success
+    assert {row["workflow_id"] for row in outcome.result_payload["rows"]} == {"dash"}
+    assert sum(row["current"] for row in outcome.result_payload["rows"]) == 1
 
 
 def test_item_migrate_moves_only_compatible_target(test_db):

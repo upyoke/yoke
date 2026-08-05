@@ -149,20 +149,13 @@ def test_a_live_lane_wins_over_a_removed_one_in_the_refusal(
     assert f'cd "{lane}"' in refusal
 
 
-# --- the advertised override flag is real on both Command executors ---
+# --- local execution binds to the lane; CI execution binds to a commit ---
 
 
-@pytest.mark.parametrize(
-    "module, executor",
-    [
-        (qa_case_worktree_run, "worktree_run"),
-        (qa_case_ci_run, "ci_run"),
-    ],
-)
-def test_both_command_executors_accept_the_advertised_override(
-    monkeypatch, tmp_path, module, executor,
+def test_worktree_executor_accepts_the_advertised_override(
+    monkeypatch, tmp_path,
 ) -> None:
-    """The refusal names ``--allow-tree-mismatch``; both executors honor it."""
+    """The local-tree refusal names an override that the executor honors."""
     checkout = tmp_path / "main"
     checkout.mkdir()
     seen: dict = {}
@@ -174,7 +167,9 @@ def test_both_command_executors_accept_the_advertised_override(
         return tree_binding.TreeBindingVerdict(refusal="refused")
 
     monkeypatch.setattr(
-        module.verification_tree_binding, "evaluate_run", _evaluate_run
+        qa_case_worktree_run.verification_tree_binding,
+        "evaluate_run",
+        _evaluate_run,
     )
     case = {
         "requirement_id": 1,
@@ -185,23 +180,26 @@ def test_both_command_executors_accept_the_advertised_override(
 
     # Without the flag the guard's refusal still stops the run.
     with pytest.raises(QaCaseExecutionError):
-        if executor == "worktree_run":
-            module.execute_worktree_case(case, checkout_path=checkout)
-        else:
-            module._resolve_checkout(case, checkout)
+        qa_case_worktree_run.execute_worktree_case(case, checkout_path=checkout)
     assert seen["allow_mismatch"] is False
 
     # With it, the guard is satisfied and the executor proceeds past binding.
-    if executor == "worktree_run":
-        with pytest.raises(Exception):
-            module.execute_worktree_case(
-                case, checkout_path=checkout, allow_tree_mismatch=True,
-            )
-    else:
-        assert module._resolve_checkout(
-            case, checkout, allow_tree_mismatch=True,
-        ) == checkout.resolve()
+    with pytest.raises(Exception):
+        qa_case_worktree_run.execute_worktree_case(
+            case, checkout_path=checkout, allow_tree_mismatch=True,
+        )
     assert seen["allow_mismatch"] is True
+
+
+def test_ci_executor_does_not_consult_local_tree_binding(monkeypatch, tmp_path):
+    checkout = tmp_path / "main"
+    checkout.mkdir()
+    monkeypatch.setattr(
+        qa_case_ci_run.verification_tree_binding,
+        "evaluate_run",
+        lambda **_kwargs: pytest.fail("CI consulted local tree binding"),
+    )
+    assert qa_case_ci_run._resolve_checkout({}, checkout) == checkout.resolve()
 
 
 # --- releasing a lane whose directory is already gone ---

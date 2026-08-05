@@ -46,6 +46,7 @@ def _clean_report() -> dict:
                 "claims work acquire": {"exit_code": 0, "body": "ok", "stderr": ""},
             },
         },
+        "taught_commands": {"count": 0, "drift_count": 0, "surfaces": []},
         "summary": {},
     }
 
@@ -151,6 +152,32 @@ class TestPass:
         }
         rec = _record(report, conn, monkeypatch)
         assert rec.results[0].result == "PASS", rec.results[0].detail
+
+
+def test_planted_bad_taught_command_fails(conn, monkeypatch, tmp_path) -> None:
+    report = _clean_report()
+    report["taught_commands"] = {
+        "count": 1,
+        "drift_count": 1,
+        "surfaces": [{
+            "kind": "yoke",
+            "recipe": "yoke planted bad-spelling",
+            "source": "docs/commands.md",
+            "line_number": 7,
+            "drift_type": "taught_yoke_command_unresolved",
+        }],
+    }
+    monkeypatch.setattr(mod, "_repo_root", lambda: tmp_path)
+    import yoke_core.tools.atlas_render_docs as ard_mod
+    monkeypatch.setattr(ard_mod, "render", lambda r: "x")
+    monkeypatch.setattr(ard_mod, "is_stale", lambda root, *, body: False)
+    monkeypatch.setattr(mod, "_build_audit_report", lambda: report)
+    rec = RecordCollector()
+
+    hc_atlas_integrity(conn, DoctorArgs(), rec)
+
+    assert rec.results[0].result == "FAIL"
+    assert "yoke planted bad-spelling" in rec.results[0].detail
 
 
 class TestFailures:
