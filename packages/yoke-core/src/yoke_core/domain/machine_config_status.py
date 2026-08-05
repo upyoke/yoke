@@ -13,6 +13,9 @@ from yoke_core.domain import machine_config
 from yoke_contracts import install_binding as install_binding_contract
 from yoke_contracts.engine_version import ENGINE_DISTRIBUTION_NAME
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.runtime_identity import (
+    human_identity_line, with_runtime_identity,
+)
 
 REQUIRED_IMPORTS = ("fastapi", "uvicorn", "pydantic", "nacl")
 SECRET_ENV_KEYS = {"YOKE_PG_DSN"}
@@ -26,7 +29,6 @@ AMBIENT_ENV_KEYS = (
     "YOKE_SCRATCH_ROOT",
     "YOKE_CONNECTED_ENV_DISABLE",
 )
-
 def build_status(
     *,
     config_path: str | Path | None = None,
@@ -84,8 +86,6 @@ def build_status(
         "ambient_env": env,
     })
     return report
-
-
 def _install_binding() -> dict[str, Any]:
     """Install binding of the process executing this handler.
 
@@ -111,7 +111,6 @@ def _install_binding() -> dict[str, Any]:
         "module_origin": str(resolved),
         "version": version,
     }
-
 def render_human(report: Mapping[str, Any]) -> str:
     lines = [
         "Yoke status",
@@ -122,6 +121,9 @@ def render_human(report: Mapping[str, Any]) -> str:
     install = report.get("install")
     if isinstance(install, Mapping):
         lines.append(f"  install: {install_binding_contract.label(install)}")
+    identity_line = human_identity_line(report)
+    if identity_line:
+        lines.append(identity_line)
     connection = report.get("connection") or {}
     if isinstance(connection, Mapping):
         lines.append(
@@ -166,11 +168,8 @@ def render_human(report: Mapping[str, Any]) -> str:
     else:
         lines.append("  issues: none")
     return "\n".join(lines) + "\n"
-
-
 def dumps_json(report: Mapping[str, Any]) -> str:
     return json.dumps(report, indent=2, sort_keys=True) + "\n"
-
 def _connection_status(
     payload: Mapping[str, Any],
     *,
@@ -202,7 +201,6 @@ def _connection_status(
                            if isinstance(authority, Mapping) else ""),
         "credential_source": credential,
     }, issues)
-
 def _credential_status(
     source: Mapping[str, Any],
     *,
@@ -236,8 +234,6 @@ def _credential_status(
                              f"unsupported credential kind: {kind}"))
     status["issues"] = issues
     return status
-
-
 def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
     project_id = machine_config.project_id(repo_root, config_path)
     issues: list[dict[str, str]] = []
@@ -258,8 +254,6 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
         "board_scope": machine_config.board_scope(repo_root, path=config_path),
         "issues": issues,
     }
-
-
 def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
     imports = {name: _import_status(name) for name in REQUIRED_IMPORTS}
     if connection.get("transport") in contract.POSTGRES_TRANSPORTS:
@@ -281,8 +275,6 @@ def _runtime_status(connection: Mapping[str, Any]) -> dict[str, Any]:
         "imports": imports,
         "issues": issues,
     }
-
-
 def _db_status(
     connection: Mapping[str, Any],
     *,
@@ -310,8 +302,6 @@ def _db_status(
     except Exception as exc:  # noqa: BLE001 - status must report setup failures.
         return {"relevant": True, "ok": False, "action": "status_error",
                 "issues": [_issue("error", "db_status_error", str(exc))]}
-
-
 def _path_status(raw: str | Path, label: str) -> dict[str, Any]:
     path = Path(raw).expanduser()
     exists = path.exists()
@@ -324,8 +314,6 @@ def _path_status(raw: str | Path, label: str) -> dict[str, Any]:
     )]
     return {"path": str(path), "exists": exists, "writable": writable,
             "issues": issues}
-
-
 def _permission_issues(path: Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
@@ -339,8 +327,6 @@ def _permission_issues(path: Path) -> list[dict[str, str]]:
         issues.append(_issue("error", "config_owner",
                              f"{path} is not owned by the current user"))
     return issues
-
-
 def _ambient_env_status() -> dict[str, Any]:
     data = {}
     for key in AMBIENT_ENV_KEYS:
@@ -350,29 +336,24 @@ def _ambient_env_status() -> dict[str, Any]:
             "value": "<redacted>" if key in SECRET_ENV_KEYS and raw else (raw or ""),
         }
     return data
-
-
 def _import_status(name: str) -> dict[str, Any]:
     spec = importlib.util.find_spec(name)
     return {"available": spec is not None,
             "origin": spec.origin if spec and spec.origin else ""}
-
-
 def _issue(severity: str, code: str, message: str, hint: str = "") -> dict[str, str]:
     item = {"severity": severity, "code": code, "message": message}
     if hint:
         item["hint"] = hint
     return item
-
-
 def _report(
     ok: bool,
     config_path: Path,
     repo_root: Path,
     issues: list[dict[str, str]],
 ) -> dict[str, Any]:
-    return {"ok": ok, "config_path": str(config_path),
-            "repo_root": str(repo_root),
-            "install": _install_binding(), "issues": issues}
-
+    return with_runtime_identity({
+        "ok": ok, "config_path": str(config_path),
+        "repo_root": str(repo_root),
+        "install": _install_binding(), "issues": issues,
+    })
 __all__ = ["build_status", "dumps_json", "render_human"]

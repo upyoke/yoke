@@ -185,6 +185,12 @@
       client: useWorkflowFixture ? hostedFrameWorkflowClient() : undefined,
       environmentLabel: "hosted universe · Acme (sample)",
       versionLabel: "frame harness",
+      runtimeIdentity: {
+        version: "frame harness",
+        installKind: "hosted_pin",
+        environmentLabel: "hosted universe · Acme (sample)",
+        portabilityMode: "hosted",
+      },
       docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",
       capabilities: {
         flags: ["hosted-shell"],

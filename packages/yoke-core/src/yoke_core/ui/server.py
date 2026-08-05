@@ -56,6 +56,7 @@ SESSION_TOKEN_BYTES = 32
 SESSION_COOKIE_NAME = "yoke_ui_session"
 
 _BROWSER_OPEN_DELAY_S = 0.5
+_HOST_IDENTITY_MARKER = "/*YOKE_HOST_IDENTITY*/"
 
 
 class UiServerError(RuntimeError):
@@ -131,6 +132,36 @@ def _asset_bytes(asset_name: str) -> bytes:
     return files(__package__).joinpath("static", asset_name).read_bytes()
 
 
+def _local_host_identity_json() -> str:
+    """Serialize mount fields from the canonical runtime-identity packet."""
+    import json
+
+    from yoke_contracts.runtime_identity import (
+        PORTABILITY_LOCAL,
+        build_runtime_identity,
+        mount_fields,
+    )
+
+    packet = build_runtime_identity(portability_mode=PORTABILITY_LOCAL)
+    return json.dumps(mount_fields(packet), separators=(",", ":"))
+
+
+def _inject_host_identity(html: str) -> str:
+    """Replace the shell's host-identity marker with the live packet JSON."""
+    start = html.find(_HOST_IDENTITY_MARKER)
+    if start < 0:
+        return html
+    content_start = start + len(_HOST_IDENTITY_MARKER)
+    end = html.find(_HOST_IDENTITY_MARKER, content_start)
+    if end < 0:
+        return html
+    return (
+        html[:content_start]
+        + _local_host_identity_json()
+        + html[end:]
+    )
+
+
 def create_ui_app(token: str):
     """Build the FastAPI app; every route requires the session token."""
     from fastapi import FastAPI, HTTPException, Query
@@ -186,8 +217,11 @@ def create_ui_app(token: str):
             return redirect
         # No (valid) query token here means the session cookie admitted
         # the request through the gate; serve the shell directly.
-        return HTMLResponse(
+        shell = _inject_host_identity(
             _asset_bytes("index.html").decode("utf-8"),
+        )
+        return HTMLResponse(
+            shell,
             headers={"Cache-Control": ASSET_CACHE_CONTROL},
         )
 
