@@ -14,7 +14,7 @@ from yoke_cli.commands.registry import (
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS, TOOL_SHAPED_USAGE
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
-from yoke_core.domain.deployment_itemless_teaching import (
+from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
 )
 

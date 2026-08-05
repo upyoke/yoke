@@ -12,7 +12,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain.deployment_itemless_teaching import (
+from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     RESOLVE_TARGET_ENV_DESCRIPTION,
 )

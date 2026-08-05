@@ -7,7 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
-from yoke_core.domain.deployment_itemless_teaching import (
+from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
 )
 

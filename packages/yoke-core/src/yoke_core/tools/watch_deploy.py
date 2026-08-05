@@ -26,7 +26,7 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
-from yoke_core.domain.deployment_itemless_teaching import (
+from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
     WATCH_DEPLOY_DESCRIPTION,
 )
