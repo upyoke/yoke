@@ -115,19 +115,25 @@ def _parse_bool(value: str) -> bool:
     return value.strip().lower() in ("true", "1", "yes")
 
 
+def config_from_values(values: Mapping[str, Any] | None) -> BoardConfig:
+    """Build a :class:`BoardConfig` from a mapping of knob values."""
+
+    cfg = BoardConfig()
+    if isinstance(values, Mapping):
+        _apply_values(cfg, values)
+    return cfg
+
+
 def parse_config(config_path: str | None, *, repo_root: str | None = None) -> BoardConfig:
     """Parse board settings into a :class:`BoardConfig`.
 
-    Normal rendering reads ``<repo_root>/.yoke/board.json``. Explicit
-    ``config_path`` accepts JSON; key=value remains only for direct preview
-    fixtures and operator-debug paths.
+    Legacy file path retained for preview fixtures and migration readers.
+    Live board rebuild reads DB ``project-policy.settings.board`` instead.
     """
-    cfg = BoardConfig()
     source = _resolve_source(config_path, repo_root)
     if source is not None and source.is_file():
-        values = _read_values(source)
-        _apply_values(cfg, values)
-    return cfg
+        return config_from_values(_read_values(source))
+    return BoardConfig()
 
 
 def _resolve_source(config_path: str | None, repo_root: str | None) -> Path | None:

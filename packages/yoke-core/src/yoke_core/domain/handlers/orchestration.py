@@ -39,7 +39,8 @@ from yoke_contracts.api.function_call import (
 
 
 class BoardDataGetRequest(BaseModel):
-    scope: str = "all"
+    scope: str = ""
+    settings_project_id: Optional[int] = None
     config_values: Dict[str, Any] = Field(default_factory=dict)
     zen_vision_count: int = 0
     repo_root_token: Optional[str] = None
@@ -55,16 +56,20 @@ class BoardDataGetResponse(BaseModel):
 def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
     """Collect the board's recorded query plan for a client-side render.
 
-    The payload carries the CLIENT's query-shaping inputs: scope, the
-    parsed board.json values, the zen vision-entry count (the rendered
-    VISION doc is a client-local file whose section count feeds a
-    timeline SQL parameter), and the client's repo-root token (presence
-    gates the velocity meter's repo resolution query). Art, seed, and
-    label text shape only markdown, which collection discards.
+    Board appearance knobs and default scope come from the checkout
+    project's ``project-policy.settings.board``. The client may pass an
+    explicit scope override; ``config_values`` remains only for fixture
+    callers that have no settings project id.
     """
-    from yoke_contracts.board.config import BoardConfig
     from yoke_core.board.data import BoardDataError, collect_board_data
     from yoke_core.board.db import BoardDB
+    from yoke_core.domain.board_policy_read import (
+        resolve_board_config,
+        resolve_board_scope,
+    )
+    from yoke_core.domain.db_helpers import connect
+    from yoke_contracts.board.config import config_from_values
+    from yoke_contracts.board.policy_settings import board_settings_from_config
 
     try:
         payload = BoardDataGetRequest.model_validate(request.payload or {})
@@ -76,27 +81,27 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload",
             ),
         )
-    try:
-        config = BoardConfig(**dict(payload.config_values))
-    except TypeError as exc:
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message=(
-                    "config_values does not match this server's BoardConfig "
-                    f"({exc}); client and server board contracts diverge"
-                ),
-                jsonpath="$.payload.config_values",
-            ),
-        )
+    if payload.settings_project_id is not None:
+        conn = connect()
+        try:
+            config = resolve_board_config(conn, payload.settings_project_id)
+            scope = resolve_board_scope(
+                conn,
+                payload.settings_project_id,
+                explicit=payload.scope or None,
+            )
+        finally:
+            conn.close()
+    else:
+        config = config_from_values(payload.config_values)
+        scope = (payload.scope or "all").strip() or "all"
     vision_entries = [("vision", "")] * max(0, int(payload.zen_vision_count))
     visible_project_ids = _visible_project_ids_from_options(request.options)
     try:
         with BoardDB() as db:
             data = collect_board_data(
                 db,
-                scope=payload.scope,
+                scope=scope,
                 config=config,
                 repo_root=payload.repo_root_token,
                 vision_entries=vision_entries,
@@ -107,6 +112,9 @@ def handle_board_data_get(request: FunctionCallRequest) -> HandlerOutcome:
             primary_success=False,
             error=FunctionError(code="downstream_failure", message=str(exc)),
         )
+    data["scope"] = scope
+    data["config_values"] = board_settings_from_config(config, scope=scope)
+    data["settings_project_id"] = payload.settings_project_id
     return HandlerOutcome(result_payload=data, primary_success=True)
 
 

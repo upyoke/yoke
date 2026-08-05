@@ -251,7 +251,7 @@ def _project_status(repo_root: Path, config_path: Path) -> dict[str, Any]:
     return {
         "repo_root": str(repo_root),
         "project_id": project_id,
-        "board_config_path": str(repo_root / ".yoke" / "board.json"),
+        "board_settings_authority": "project-policy.settings.board",
         "board_render_path": str(render_path),
         "board_ts_path": f"{render_path}.ts",
         "board_art_path": str(machine_config.board_art_path(repo_root)),

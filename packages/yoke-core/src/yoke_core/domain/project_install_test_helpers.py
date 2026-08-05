@@ -65,7 +65,6 @@ def strategy_entry(
 
 DEFAULT_CONTRACT_FILES = [
     contract_entry(".yoke/lint-config", "lint_main_commit=deny\n"),
-    contract_entry(".yoke/board.json", "{}\n"),
     contract_entry(".yoke/board-art", "## Master Map\n"),
     contract_entry(".yoke/runbooks/deploy.md", "# Deploy\n"),
 ]
