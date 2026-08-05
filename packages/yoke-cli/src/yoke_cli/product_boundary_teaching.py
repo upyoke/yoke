@@ -186,12 +186,12 @@ def _resolve_yoke_recipe(
             return TaughtSurface(
                 source, line_number, recipe, "yoke", recipe, "navigation",
             )
-        if command_path_is_template(command_argv):
-            return TaughtSurface(
-                source, line_number, recipe, "yoke", recipe, "template",
-            )
         resolved = resolve_tool_shaped(command_argv)
         if resolved is None:
+            if command_path_is_template(command_argv):
+                return TaughtSurface(
+                    source, line_number, recipe, "yoke", recipe, "template",
+                )
             return TaughtSurface(
                 source, line_number, recipe, "yoke", recipe, "unresolved",
                 drift_type=DRIFT_UNRESOLVED_YOKE,
