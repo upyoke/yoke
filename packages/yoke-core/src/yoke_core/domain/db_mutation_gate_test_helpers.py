@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Tuple
@@ -237,37 +238,31 @@ def _seed_project(
     conn.commit()
 
 
-def _seed_flow_with_migration_apply(
-    conn: sqlite3.Connection,
-    project: str,
-    flow_id: str = "test-flow",
-    model_name: str = "primary",
-    lifecycle_phase: str = "implementing",
-) -> None:
-    p = _placeholder(conn)
-    stages = json.dumps([
-        {"kind": "migration_apply", "model_name": model_name,
-         "lifecycle_phase": lifecycle_phase},
-        {"name": "merged", "step_runner": "auto"},
-    ])
-    conn.execute(
-        "INSERT INTO deployment_flows "
-        f"(id, project_id, name, stages, created_at) VALUES ({p}, {p}, {p}, {p}, {p}) "
-        f"ON CONFLICT (id) DO UPDATE SET {_FLOW_UPSERT_SET}",
-        (flow_id, resolve_project_id(conn, project), flow_id, stages, "2026-04-23T00:00:00Z"),
+#: History entries are ``NNNN_slug``; anything else is not discoverable.
+_ENTRY_NAME_RE = re.compile(r"^\d{4}_[a-z0-9][a-z0-9_]*$")
+
+
+def _write_module(
+    repo_path: Path,
+    modules_dir: str,
+    identifier: str,
+    body: str = '',
+    sequence: int = 1,
+) -> Path:
+    """Write a history entry, named the way the applier discovers them.
+
+    Entries are ``NNNN_slug.py`` and must expose ``apply(conn)``. Anything
+    else is not a migration the ordered history can run, which is exactly what
+    the evidence gate checks for, so the helper produces the real shape rather
+    than a placeholder that would pass by accident.
+    """
+    stem = identifier if _ENTRY_NAME_RE.match(identifier) else (
+        f"{sequence:04d}_{identifier}"
     )
-    conn.commit()
-
-
-def _write_module(repo_path: Path, modules_dir: str, identifier: str, body: str = '') -> Path:
-    target = repo_path / modules_dir / f"{identifier}.py"
+    target = repo_path / modules_dir / f"{stem}.py"
     target.parent.mkdir(parents=True, exist_ok=True)
     if not body:
-        body = (
-            "MIGRATION = '''\n"
-            "ALTER TABLE items ADD COLUMN demo TEXT DEFAULT NULL;\n"
-            "'''\n"
-        )
+        body = "def apply(conn):\n    pass\n"
     target.write_text(body, encoding="utf-8")
     return target
 

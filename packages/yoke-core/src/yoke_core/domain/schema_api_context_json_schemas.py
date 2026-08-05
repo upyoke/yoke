@@ -41,7 +41,7 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
         "fields": [
             ("state", "'none'|'declared'", "'none'"),
             ("model", "str|null", "null"),
-            ("mutation_intent", "'apply'|'retire'", "null"),
+            ("mutation_intent", "'apply'", "null"),
             ("compatibility_class", "'pre_merge_safe'|'pre_merge_breaking'", "null"),
             ("migration_strategy", "'additive_only'|'hard_cutover'|'expand_contract'", "null"),
             ("migration_modules", "list[str]", "[]"),

@@ -22,7 +22,6 @@ from yoke_core.domain.db_mutation_gate import (
 from yoke_core.domain.db_mutation_gate_test_helpers import (
     gate_db_context,
     _seed_capability,
-    _seed_flow_with_migration_apply,
     _seed_project,
     _write_module,
 )
@@ -58,14 +57,11 @@ class TestJointGate:
         profile: Mapping[str, Any] | None = None,
         attestation: Mapping[str, Any] | None = None,
         seed_capability: bool = True,
-        seed_flow: bool = True,
     ) -> int:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         if seed_capability:
             _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        if seed_flow:
-            _seed_flow_with_migration_apply(conn, "yoke")
         kwargs: Dict[str, Any] = {"project": "yoke"}
         if profile is not None:
             kwargs["db_mutation_profile"] = json.dumps(profile, sort_keys=True)
@@ -281,28 +277,6 @@ class TestJointGate:
             esc["source"] == "scanner" for esc in outcome.escalations
         )
 
-    def test_no_flow_with_migration_apply_blocks(self, gate_db) -> None:
-        _conn, repo_path = gate_db
-        modules_dir = DEFAULT_MODULES_DIR
-        _write_module(repo_path, modules_dir, "m")
-        item_id = self._stage(
-            gate_db,
-            seed_flow=False,
-            profile={
-                "state": "declared",
-                "model_name": "primary",
-                "mutation_intent": "apply",
-                "migration_modules": ["m"],
-                "compatibility_class": "pre_merge_breaking",
-                "migration_strategy": "additive_only",
-            },
-        )
-        outcome = check_idea_to_refining_idea_gate(item_id, conn=_conn)
-        assert not outcome.passed
-        assert any(
-            "no deployment_flow" in e and "migration_apply stage" in e
-            for e in outcome.errors
-        )
 
     def test_cross_work_item_overlap_blocks(self, gate_db) -> None:
         _conn, repo_path = gate_db

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 
@@ -32,7 +32,24 @@ _GIT_BRANCH_BLOB_RE = re.compile(r"^[0-9a-f]{4,}$", re.IGNORECASE)
 def _resolve_module_path(
     repo_path: Path, modules_dir: str, identifier: str
 ) -> Path:
-    return repo_path / modules_dir / f"{identifier}.py"
+    """Locate a declared module the way the applier discovers it.
+
+    History entries are ``NNNN_slug.py``, so an item that names the slug does
+    not name the filename. Resolving by slug as well as by full stem keeps a
+    declaration valid across a renumbering — a squash renumbers entries, it
+    does not rename them — and stops the scanner silently reading nothing when
+    the two differ.
+    """
+    directory = repo_path / modules_dir
+    exact = directory / f"{identifier}.py"
+    if exact.is_file():
+        return exact
+    suffix = f"_{identifier}.py"
+    match = next(
+        (p for p in sorted(directory.glob("*.py")) if p.name.endswith(suffix)),
+        None,
+    )
+    return match if match is not None else exact
 
 
 def _read_module_text(path: Path) -> Optional[str]:
@@ -101,61 +118,23 @@ def _parse_yaml_frontmatter(text: str) -> dict:
     return out
 
 
-def _verify_retire_record(
-    repo_path: Path,
-    identifier: str,
-    expected_model: str,
-) -> Tuple[bool, str]:
-    """Return ``(ok, reason)`` for a single retire decision record."""
-    path = decision_record_path(repo_path, identifier)
-    if not path.is_file():
-        return (
-            False,
-            f"missing decision record at {_DECISION_RECORD_DIR}/{identifier}.md",
-        )
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        return False, f"cannot read decision record at {path}: {exc}"
-    fm = _parse_yaml_frontmatter(text)
-    if not fm:
-        return False, f"decision record at {path} has no YAML frontmatter"
-    if fm.get("retired-without-apply") is not True:
-        return (
-            False,
-            f"decision record at {path} missing 'retired-without-apply: true' frontmatter",
-        )
-    if fm.get("migration_module") != identifier:
-        return (
-            False,
-            f"decision record at {path} migration_module field "
-            f"({fm.get('migration_module')!r}) does not match identifier '{identifier}'",
-        )
-    if expected_model and fm.get("model_name") != expected_model:
-        return (
-            False,
-            f"decision record at {path} model_name "
-            f"({fm.get('model_name')!r}) does not match profile model_name '{expected_model}'",
-        )
-    if not str(fm.get("reason") or "").strip():
-        return False, f"decision record at {path} has empty 'reason' field"
-    if not str(fm.get("retired_at") or "").strip():
-        return False, f"decision record at {path} has empty 'retired_at' field"
-    return True, ""
-
-
-# ---------------------------------------------------------------------------
-# Audit-row evidence (apply flow)
-# ---------------------------------------------------------------------------
-
-
-def _audit_row_completed_for_module(
+def _audit_row_rehearsed_for_module(
     audit_conn: Any,
     project_id: int,
     model_name: str,
     identifier: str,
 ) -> bool:
-    """True if the model's authoritative DB has a completed audit row."""
+    """True if the model's authoritative DB records a rehearsal for *identifier*.
+
+    Rehearsal is the evidence a work item can actually produce before it
+    merges. Applying is no longer something the item does: the boot converge
+    that starts a server brings its database up to the code that server runs,
+    which happens after this item lands. Demanding a completed apply here
+    would demand proof of something that has not been allowed to happen yet.
+
+    States at or past ``rehearsed`` all count -- a database that went further
+    has plainly rehearsed.
+    """
     p = "%s" if db_backend.connection_is_postgres(audit_conn) else "?"
     cursor = audit_conn.execute(
         "SELECT state FROM migration_audit "
@@ -163,19 +142,22 @@ def _audit_row_completed_for_module(
         f"AND COALESCE(model_name, {p}) = {p}",
         (identifier, project_id, model_name, model_name),
     )
+    settled = {
+        "rehearsed", "backup_created", "live_applied", "live_verified",
+        "completed",
+    }
     for row in cursor.fetchall():
         state_val = row["state"] if hasattr(row, "keys") else row[0]
-        if state_val and str(state_val) == "completed":
+        if state_val and str(state_val) in settled:
             return True
     return False
 
 
 __all__ = [
-    "_audit_row_completed_for_module",
+    "_audit_row_rehearsed_for_module",
     "_extract_candidate_ddl",
     "_parse_yaml_frontmatter",
     "_read_module_text",
     "_resolve_module_path",
-    "_verify_retire_record",
     "decision_record_path",
 ]

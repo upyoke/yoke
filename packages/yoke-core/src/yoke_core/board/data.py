@@ -132,9 +132,15 @@ def collect_board_data(
             repo_root,
             list(vision_entries),
         )
+    from yoke_contracts.engine_version import installed_engine_version
+
     payload = {
         "version": BOARD_DATA_VERSION,
         "scope": scope,
+        # Which build shaped these queries. The replay side compares it with
+        # its own to tell a genuine parity bug from the two sides simply
+        # running different code, which are indistinguishable at the miss.
+        "engine_version": installed_engine_version(),
         "entries": recorder.encoded_entries(),
         "entry_count": len(recorder.encoded_entries()),
     }

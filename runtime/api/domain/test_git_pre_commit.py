@@ -280,7 +280,7 @@ class TestFormatFileLineSummary(unittest.TestCase):
         )
         text = mod._format_file_line_summary(verdict, limit=flc.LIMIT)
         self.assertIn("runtime/foo.py", text)
-        self.assertIn("NEW authored file is 412 lines", text)
+        self.assertIn("current 412, limit 350, remove 62 line(s)", text)
         self.assertIn("--no-verify", text)
         self.assertIn("file-line-limit gate blocked", text)
 

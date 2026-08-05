@@ -205,12 +205,13 @@ test("the harness module lights hit targets and names the connection", async (t)
   assert.match(textOf(harness), /claude-code connected 5m ago\./);
   const chips = byClass(harness, "activation-target");
   assert.deepEqual(chips.map((chip) => chip.textContent), [
-    "Claude Code ✓", "Codex", "Claude CLI ✓", "Codex CLI",
-    "Claude in VS Code ✓",
+    "Claude Code ✓", "Codex", "Cursor",
+    "Claude CLI ✓", "Codex CLI", "Cursor CLI",
+    "Claude in VS Code ✓", "Cursor IDE",
   ]);
   assert.deepEqual(
     chips.map((chip) => chip.attributes.get("data-hit")),
-    ["true", "false", "true", "false", "true"],
+    ["true", "false", "false", "true", "false", "false", "true", "false"],
   );
   // Why the unlit targets are not blockers explains the activation model;
   // the chips carry that themselves without a note beneath them.

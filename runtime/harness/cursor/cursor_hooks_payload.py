@@ -110,13 +110,19 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     if container:
         data["container_session_id"] = container
         own = str(data.get("session_id", ""))
-        data["is_subagent_session"] = bool(own) and own != container
+        folded = bool(own) and own != container
+        evidence = container_session_id_from_evidence(data) if folded else ""
+        data["is_subagent_session"] = folded and bool(evidence)
+        data["is_worktree_remap_session"] = folded and not evidence
         if data["is_subagent_session"]:
             # Container model: the top-level session owns all activity, so
             # every downstream consumer (telemetry, registration, policy)
             # reads the container id from ``session_id``; the subagent's
             # own id stays available for correlation.
             data["subagent_session_id"] = own
+            data["session_id"] = container
+        elif data["is_worktree_remap_session"]:
+            data["remapped_conversation_id"] = own
             data["session_id"] = container
 
     return data
@@ -151,17 +157,29 @@ def resolve_container_session_id(data: Dict[str, Any]) -> str:
     """Resolve the top-level (container) session id for a Cursor hook event.
 
     Direct evidence first (:func:`container_session_id_from_evidence`),
-    then the payload's own ``session_id`` / ``conversation_id`` — correct
-    for top-level events; for a subagent event carrying none of the
-    evidence signals this attributes to the sub-session (callers holding
-    earlier ``subagentStart`` state can correct it).
+    then a linked-worktree claim-holder fold when Cursor remounted the chat
+    onto ``.worktrees/<lane>``, then the payload's own ``session_id`` /
+    ``conversation_id`` — correct for top-level events; for a subagent
+    event carrying none of the evidence signals this attributes to the
+    sub-session (callers holding earlier ``subagentStart`` state can
+    correct it).
 
-    Yoke registers only the container session; sub-session activity folds
-    into it.
+    Yoke registers only the container session; sub-session and worktree-
+    remapped conversation activity folds into it.
     """
     resolved = container_session_id_from_evidence(data)
     if resolved:
         return resolved
+    try:
+        from runtime.harness.cursor.cursor_worktree_session_fold import (
+            resolve_worktree_remap_container,
+        )
+
+        holder = resolve_worktree_remap_container(data)
+    except Exception:  # noqa: BLE001 — fold must never break payload parse
+        holder = ""
+    if holder:
+        return holder
     for key in ("session_id", "conversation_id"):
         value = data.get(key)
         if isinstance(value, str) and value:
@@ -185,6 +203,14 @@ def resolve_session_id(payload: str) -> str:
     if pinned:
         return pinned
     return resolve_container_session_id(_parse_json(payload))
+
+
+def is_folded_cursor_session(payload: Dict[str, Any]) -> bool:
+    """True when the payload's own conversation folds onto a container."""
+    return (
+        payload.get("is_subagent_session") is True
+        or payload.get("is_worktree_remap_session") is True
+    )
 
 
 def resolve_root(payload: str = "") -> str:

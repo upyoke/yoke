@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
+from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 
 
@@ -172,29 +173,21 @@ def _project_db(*args: str, sd: Optional[str] = None) -> str:
 
 
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
-    """Parse flow stages JSON into dicts with name, step_runner, kind, config.
+    """Parse flow stages JSON into dicts with name, step_runner, and config.
 
-    Step runner-shaped stages carry explicit ``name`` + ``step_runner`` keys.
-    Kind-shaped stages (e.g. ``{"kind": "migration_apply", ...}``) carry
-    neither in the flow row; the pipeline derives a stable stage name
-    from the kind (underscores → hyphens, e.g. ``migration-apply``) so
+    Every stage carries an explicit ``name`` and ``step_runner``, which
     ``deployment_runs.current_stage``, ``--from-stage`` resume, and stage
-    telemetry can address the stage without mutating live flow rows. An
-    operator-authored ``name`` on the stage object wins over the derived
-    one. The ``step_runner`` label mirrors the kind for display/telemetry;
-    dispatch branches on ``kind`` before the step_runner vocabulary.
+    telemetry address it by.
     """
     stages = json.loads(stages_json)
-    parsed: List[Dict[str, Any]] = []
-    for s in stages:
-        kind = str(s.get("kind", "") or "")
-        parsed.append({
-            "name": str(s.get("name", "") or kind.replace("_", "-")),
-            "step_runner": str(s.get("step_runner", "") or kind),
-            "kind": kind,
+    return [
+        {
+            "name": str(s.get("name", "") or ""),
+            "step_runner": str(s.get("step_runner", "") or ""),
             "config": s,
-        })
-    return parsed
+        }
+        for s in stages
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +244,9 @@ def _poll_github_actions(
     interval = initial
     transport_retries = 0
     unclassified_retries = 0
+    # Named on every run, not only when it breaks: an operator reading a
+    # stalled poll should not have to infer which authority it is using.
+    print(f"  GitHub Actions status via {poll_authority.authority_label()}")
 
     while True:
         elapsed = int(time.time() - start)
@@ -278,12 +274,17 @@ def _poll_github_actions(
             unclassified_retries = 0
         elif r.returncode == 4:
             transport_retries += 1
-            print(
-                "  GitHub Actions status relay is temporarily unavailable; "
-                f"retrying within the {timeout_sec}s stage budget "
-                f"(consecutive failure {transport_retries}): "
-                f"{stderr or output}"
-            )
+            if transport_retries < poll_authority.ESCALATE_AFTER:
+                print(
+                    "  GitHub Actions status relay is temporarily "
+                    f"unavailable; retrying within the {timeout_sec}s stage "
+                    f"budget (consecutive failure {transport_retries}): "
+                    f"{stderr or output}"
+                )
+            elif poll_authority.should_report(transport_retries):
+                print(
+                    poll_authority.stall_message(run_id, transport_retries)
+                )
             time.sleep(interval)
             interval = min(interval * 2, max_interval)
         else:

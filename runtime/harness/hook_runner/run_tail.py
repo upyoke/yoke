@@ -63,7 +63,20 @@ def flush_run_tail(
         },
     ))
     ensure_session = None
-    if context.session_id:
+    # Cursor folds Task/subagent and linked-worktree remount activity onto
+    # the container session_id; the container row already exists from the
+    # parent chat (or claim holder). Driving ensure-register from the child
+    # / remapped conversation is unnecessary and was how phantom
+    # harness_sessions rows were minted before fold recovery. Skip when
+    # the parser flagged a folded session.
+    from runtime.harness.cursor.cursor_hooks_payload import (
+        is_folded_cursor_session,
+    )
+
+    is_folded = (
+        isinstance(payload, dict) and is_folded_cursor_session(payload)
+    )
+    if context.session_id and not is_folded:
         remote = controls is not None and controls.remote
         ensure_session = (  # merged payload: wire extras included
             context.session_id,

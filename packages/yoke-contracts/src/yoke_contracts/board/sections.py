@@ -7,7 +7,6 @@ Submodules: sections_classify, sections_render, sections_frontier, sections_sess
 from yoke_contracts.board.sections_classify import (  # noqa: F401
     EpicStats,
     ItemRow,
-    _project_filter_sql,
     classify_items,
     precompute_epic_stats,
     priority_rank,

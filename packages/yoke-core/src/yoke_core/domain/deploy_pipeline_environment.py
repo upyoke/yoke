@@ -23,4 +23,21 @@ def release_control_plane_env() -> str:
     return "unbound"
 
 
-__all__ = ["release_control_plane_env"]
+def run_not_found_message(run_id: str) -> str:
+    """Refuse a missing run by naming the control plane that was read.
+
+    A run lives on the control plane that created it, which for a hosted
+    deploy is the release control plane rather than the target
+    environment's. Without that, "not found" reads as "this run does not
+    exist" and sends the operator looking for the wrong thing.
+    """
+    return (
+        f"Error: deployment run '{run_id}' not found on the "
+        f"'{release_control_plane_env()}' control plane. Runs are recorded "
+        "on the control plane that created them; for a hosted deploy that "
+        "is the release control plane, not the target environment's. Retry "
+        "against that control plane's db-admin env."
+    )
+
+
+__all__ = ["release_control_plane_env", "run_not_found_message"]

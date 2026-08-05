@@ -10,7 +10,6 @@ from yoke_contracts.lifecycle_status import (
 )
 
 WORKFLOW_DEFINITION_SCHEMA_VERSION = 4
-BUILTIN_WORKFLOW_PREFERRED_VERSION = 4
 WORKFLOW_FILE_BUDGET_OPTIONAL = "optional"
 WORKFLOW_FILE_BUDGET_REQUIRED = "required"
 WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK = "required_per_task"
@@ -92,7 +91,6 @@ def definition_fixture(
     workflow_id: str,
     name: str,
     description: str,
-    version: int = 1,
     stages: Sequence[Dict[str, Any]],
     entry_surfaces: Sequence[str],
     skill_bindings: Sequence[Dict[str, str]],
@@ -100,7 +98,12 @@ def definition_fixture(
     approval_defaults: Optional[Dict[str, Any]] = None,
     schema_version: int = WORKFLOW_DEFINITION_SCHEMA_VERSION,
 ) -> Dict[str, Any]:
-    """Build one immutable built-in workflow-version fixture."""
+    """Build one built-in workflow fixture: its identity and its definition.
+
+    Carries no version number. A version is a position in some universe's own
+    sequence, not a property of the content, so the number a definition ends up
+    stored under is that universe's to decide.
+    """
     normalized_stages = [dict(stage) for stage in stages]
     if schema_version >= 4:
         for stage in normalized_stages:
@@ -118,7 +121,6 @@ def definition_fixture(
             "description": description,
             "source": "built_in",
         },
-        "version": version,
         "definition": {
             "schema_version": schema_version,
             "stages": normalized_stages,
@@ -135,7 +137,6 @@ def definition_fixture(
 
 
 __all__ = [
-    "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
     "IMPLEMENTATION_WORKFLOW_SKILL_IDS",
     "REGISTERED_WORKFLOW_SKILL_IDS",

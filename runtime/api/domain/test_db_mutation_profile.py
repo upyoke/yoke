@@ -14,7 +14,6 @@ from yoke_core.domain.db_mutation_profile import (
     COMPATIBILITY_PRE_MERGE_SAFE,
     DbMutationProfileError,
     MUTATION_INTENT_APPLY,
-    MUTATION_INTENT_RETIRE,
     NEGATIVE_DEFAULT,
     NEGATIVE_DEFAULT_JSON,
     STATE_DECLARED,
@@ -97,16 +96,6 @@ class TestStateValidation:
         assert out["data_kinds"] == []
         assert out["affected_surfaces"] == []
         assert out["count_preserving"] is True
-
-    def test_state_declared_retire(self) -> None:
-        out = validate({
-            "state": STATE_DECLARED,
-            "model_name": "primary",
-            "mutation_intent": MUTATION_INTENT_RETIRE,
-            "migration_modules": ["never_applied_module"],
-            "compatibility_class": COMPATIBILITY_PRE_MERGE_SAFE,
-        })
-        assert out["mutation_intent"] == MUTATION_INTENT_RETIRE
 
 
 class TestVocabularyRejection:

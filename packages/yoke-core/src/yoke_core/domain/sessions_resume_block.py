@@ -15,6 +15,8 @@ hook-runner subprocess shape (the only consumer today).
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import argparse
 import sys
 from typing import Any, Dict, List, Optional
@@ -37,12 +39,12 @@ def _claim_summary_line(notice: Dict[str, Any]) -> str:
         epic_id = entry.get("epic_id")
         task_num = entry.get("task_num")
         if target_kind == "epic_task" and epic_id is not None and task_num is not None:
-            ref = f"YOK-{epic_id} task #{task_num}"
+            ref = f"{item_ref_for_id(int(epic_id))} task #{task_num}"
         elif item_id is not None:
             ref = (
-                f"YOK-{item_id}"
-                if not str(item_id).startswith("YOK-")
-                else str(item_id)
+                str(item_id)
+                if not str(item_id).isdigit()
+                else item_ref_for_id(int(item_id))
             )
         else:
             ref = "(unknown)"

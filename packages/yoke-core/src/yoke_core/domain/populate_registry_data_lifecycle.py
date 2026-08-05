@@ -1,0 +1,122 @@
+"""Lifecycle state lists for event-registry population.
+
+These tuples drive deprecation, purge, and low-cadence coverage behavior.
+They are separate from the authoritative metadata table so both data modules
+retain authored-row headroom beneath the repository file-size limit.
+"""
+
+from __future__ import annotations
+
+from typing import Tuple
+
+
+DEPRECATE_LIST: Tuple[str, ...] = (
+    "BrowserDaemonStarted",
+    "BrowserDaemonStopped",
+    "BrowserDiffCompleted",
+    "BrowserSnapshotCaptured",
+    "BrowserStepExecuted",
+    "DeploymentRunCancelled",
+    "DeploymentRunCreated",
+    "DeploymentRunItemAdded",
+    "DeploymentRunItemRemoved",
+    "ChargeDecisionMade",
+    "FeedCompleted",
+    "FeedStarted",
+    "QAArtifactAttached",
+    "SessionExecutionScopeChanged",
+    "WorktreeHandoffEmitted",
+)
+
+
+PURGED_EVENT_NAMES: Tuple[str, ...] = (
+    "ModeChosen",
+    "AgentSessionStarted",
+    "SessionStartPayloadObserved",
+    "AgentSessionStopped",
+    "SessionRegistered",
+    "SessionStarted",
+    "SessionEnded",
+    "SessionHookFailed",
+    "SessionOffered",
+    "SessionSentFirstUserPromptSubmit",
+    "SessionEndRejectedActiveClaim",
+    "SessionEndReleasedClaims",
+    "StaleSessionReclaimed",
+    "StaleSessionSweepCompleted",
+    "ToolCallStarted",
+    "ToolCallCompleted",
+    "ToolCallFailed",
+    "ToolCallDenied",
+    "ToolCallStructuredExit",
+    "LifecycleMutationDetected",
+    "ClaimReacquiredAfterHandoff",
+    "PathContextMigrated",
+    "LeakAttempt",
+    "BodyRegenerated",
+    "BodyRegenerationFailed",
+    "DeploymentEventMigrated",
+    "CodexSubagentStarted",
+    "CodexSubagentStopped",
+    "PathClaimSnapshotRefreshed",
+    "HarnessSessionEndDeferred",
+    "BaselinePromoted",
+    "BaselineRecorded",
+    "Gen3I6CleanRoomSmoke",
+    "HarnessSessionEndCleanupCompleted",
+    "OuroborosRecipeEventAppended",
+    "PassedToUsherHandoff",
+    "INFO",
+    "TestEvent",
+    # Migrations became permanent ordered history; nothing auto-retires a
+    # module, so both emitters and their module were deleted.
+    "MigrationModuleRetired",
+    "MigrationModuleRetireSkipped",
+)
+
+
+EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
+    "BranchProtectionCheckFailed",
+    "BoardRebuildCommandFailed",
+    "BrowserDaemonStartupFailed",
+    "ChainEndDeferred",
+    "DataLossDetected",
+    "DeploymentRunFailed",
+    "DeploymentRunStageFailed",
+    "DispatcherDownstreamDegraded",
+    "GitHubCloseFailure",
+    "HarnessSessionResumeBlockShown",
+    "HarnessToolCallStructuredExit",
+    "HookExecutionFailed",
+    "IdeaClaimHeld",
+    "IdeaReadinessClaimCoverageRepairApplied",
+    "IssueMigrated",
+    "ItemClaimReleaseRefused",
+    "LeaseAcquired",
+    "LeaseHeartbeated",
+    "LeaseReleased",
+    "MergePullRequestMergeRetried",
+    "MergeTargetStale",
+    "MergeVerificationFailed",
+    "MigrationCompleted",
+    "MigrationRolledBack",
+    "OperatorLeaseRelease",
+    "PathClaimBlockedReasonRefreshed",
+    "PathIntegrityFailureDetected",
+    "PathIntegrityRepairApplied",
+    "PathTargetSymlinkSkipped",
+    "PathTargetTentative",
+    "PreviewEnvCleaned",
+    "PreviewEnvCreated",
+    "PreviewEnvOverwritten",
+    "RetiredSchemaResurrectionAttempt",
+    "SMLRefreshCompleted",
+    "SessionCwdBindingFailOpen",
+    "SessionCwdBindingHealthCheckFailed",
+    "SessionOfferLaneOverrideIgnored",
+    "SessionReactivationReacquiredClaims",
+    "StrategyDocArchived",
+    "StrategyDocUnarchived",
+    "YokeFunctionPermissionDenied",
+    "WorkHandedOff",
+)

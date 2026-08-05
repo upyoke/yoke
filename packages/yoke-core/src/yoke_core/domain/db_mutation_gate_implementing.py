@@ -25,8 +25,7 @@ from typing import Any, List, Mapping, Optional
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_mutation_gate_evidence import (
-    _audit_row_completed_for_module,
-    _verify_retire_record,
+    _audit_row_rehearsed_for_module,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
     _load_capability_settings,
@@ -39,7 +38,6 @@ from yoke_core.domain.db_mutation_gate_shared import (
 )
 from yoke_core.domain.db_mutation_profile import (
     MUTATION_INTENT_APPLY,
-    MUTATION_INTENT_RETIRE,
     STATE_NONE,
     DbMutationProfileError,
     validate as validate_profile,
@@ -74,7 +72,12 @@ def check_implementing_to_reviewing_implementation_gate(
     def _evaluate(c: Any) -> GateOutcome:
         item = _load_item_row(c, item_id)
         if item is None:
-            return GateOutcome(passed=False, errors=[f"Item YOK-{item_id} not found"])
+            from yoke_core.domain.project_identity import render_item_ref
+
+            return GateOutcome(
+                passed=False,
+                errors=[f"Item {render_item_ref(c, item_id)} not found"],
+            )
 
         parsed = _safe_parse_dict(item.get("db_mutation_profile"))
         try:
@@ -112,23 +115,6 @@ def check_implementing_to_reviewing_implementation_gate(
         identifiers: List[str] = list(profile["migration_modules"])
         repo_path = _resolve_repo_path(c, project)
 
-        if intent == MUTATION_INTENT_RETIRE:
-            if repo_path is None:
-                return GateOutcome(
-                    passed=False,
-                    errors=[
-                        f"project '{project}' has no machine-local checkout "
-                        "mapping; cannot verify retire decision records"
-                    ],
-                )
-            for identifier in identifiers:
-                ok, reason = _verify_retire_record(
-                    repo_path, identifier, profile["model_name"]
-                )
-                if not ok:
-                    errors.append(f"module '{identifier}': {reason}")
-            return GateOutcome(passed=not errors, errors=errors)
-
         if intent == MUTATION_INTENT_APPLY:
             audit_path = audit_db_path or _resolve_audit_db_path(
                 repo_path, model
@@ -145,33 +131,23 @@ def check_implementing_to_reviewing_implementation_gate(
             audit_conn = db_helpers.connect(audit_path)
             try:
                 for identifier in identifiers:
-                    if not _audit_row_completed_for_module(
+                    missing = _history_membership_error(
+                        repo_path, model, identifier
+                    )
+                    if missing is not None:
+                        errors.append(missing)
+                        continue
+                    if not _audit_row_rehearsed_for_module(
                         audit_conn, project_id, profile["model_name"], identifier,
                     ):
                         errors.append(
-                            f"module '{identifier}': no migration_audit row "
-                            f"with state='completed' found on {audit_path}. "
-                            f"Remediation: run the configured migration apply "
-                            f"lifecycle hook against the configured Postgres "
-                            f"authority, then record the completed audit row. See "
-                            f".agents/skills/yoke/advance/implementing/"
-                            f"test-and-record.md section a4."
+                            f"module '{identifier}': no rehearsal recorded in "
+                            f"migration_audit on {audit_path}. Remediation: run "
+                            f"`python3 -m yoke_core.domain.migration_apply "
+                            f"rehearse <ITEM>`, which validates the module "
+                            f"against the model's validation surface and records "
+                            f"the receipt this gate reads."
                         )
-                # Post-state verification for destructive schema claims.
-                # A completed migration_audit row alone is insufficient — the
-                # authoritative DB's current shape must also match the claim.
-                # This closes the failure mode where stale init/bootstrap
-                # code or ambient auto-init re-adds a retired column after
-                # the cutover has officially completed.
-                if not errors:
-                    post_state_errors = _verify_destructive_post_state(
-                        audit_conn,
-                        project=project,
-                        profile=profile,
-                        repo_path=repo_path,
-                        audit_path=audit_path,
-                    )
-                    errors.extend(post_state_errors)
             finally:
                 audit_conn.close()
             return GateOutcome(passed=not errors, errors=errors)
@@ -203,30 +179,55 @@ def _resolve_audit_db_path(
     return str(candidate)
 
 
-def _verify_destructive_post_state(
-    audit_conn: Any,
-    *,
-    project: str,
-    profile: Mapping[str, Any],
-    repo_path: Optional[Path],
-    audit_path: str,
-) -> List[str]:
-    """Post-state verification for destructive schema claims."""
-    from yoke_core.domain.db_mutation_post_state import (
-        verify_destructive_post_state,
+def _history_membership_error(
+    repo_path: Optional[Path], model: Mapping[str, Any], identifier: str
+) -> Optional[str]:
+    """Return why *identifier* is not a usable history entry, or ``None``.
+
+    The evidence a migration is real is now that it is IN the ordered history
+    and loadable, not that somebody already ran it. A module that is present,
+    correctly named, and exposes ``apply(conn)`` will be applied by every
+    install's boot converge; one that is absent or malformed will be applied
+    by none, which is the failure this checks for.
+    """
+    from yoke_core.domain.migration_history import (
+        HistoryError,
+        load_migration_module,
+        ordered_entries,
     )
 
-    return verify_destructive_post_state(
-        audit_conn,
-        project=project,
-        profile=profile,
-        repo_path=repo_path,
-        audit_path=audit_path,
+    modules_rel = ((model.get("runner") or {}).get("config") or {}).get("modules_dir")
+    if repo_path is None or not modules_rel:
+        # A runner with no checkout cannot read the history directory at all.
+        # That is "cannot inspect", not "the module is missing", so it does not
+        # manufacture a failure -- the rehearsal receipt, which this gate still
+        # requires, is evidence the module existed and ran somewhere.
+        return None
+    try:
+        entries = ordered_entries(Path(repo_path) / modules_rel)
+    except HistoryError as exc:
+        return f"module '{identifier}': migration history is malformed: {exc}"
+
+    match = next(
+        (e for e in entries if e.name == identifier or e.name.endswith(f"_{identifier}")),
+        None,
     )
+    if match is None:
+        return (
+            f"module '{identifier}': not found in the ordered migration "
+            f"history at {modules_rel}. Entries are named NNNN_slug.py and are "
+            "permanent; an entry that is not in the history is applied by no "
+            "install."
+        )
+    try:
+        load_migration_module(match.path, match.name)
+    except Exception as exc:  # noqa: BLE001 — surface the contract failure
+        return f"module '{match.name}': does not load as a migration: {exc}"
+    return None
 
 
 __all__ = [
     "_resolve_audit_db_path",
-    "_verify_destructive_post_state",
+    "_history_membership_error",
     "check_implementing_to_reviewing_implementation_gate",
 ]

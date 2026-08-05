@@ -47,11 +47,23 @@ _ALLOWED_GET_FIELDS = (
     frozenset(CANONICAL_COLUMNS) | STRUCTURED_FIELDS | _ADDITIONAL_SCALAR_GET_FIELDS
 )
 
+# Default empty projection: every allowed field, stable order. Pipe-row
+# CANONICAL_COLUMNS alone omitted structured fields and additional scalars,
+# so `yoke items get ITEM --json` looked like technical_plan was missing.
+_DEFAULT_GET_FIELDS = (
+    list(CANONICAL_COLUMNS)
+    + sorted(STRUCTURED_FIELDS)
+    + sorted(_ADDITIONAL_SCALAR_GET_FIELDS)
+)
+
 
 class ItemsGetRequest(BaseModel):
     fields: List[str] = Field(
         default_factory=list,
-        description="Optional projection. Empty -> full canonical row.",
+        description=(
+            "Optional projection. Empty -> every allowed items.get field "
+            "(canonical columns, structured fields, and additional scalars)."
+        ),
     )
 
 
@@ -77,7 +89,7 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
     item_id = int(target.item_id)
     if section is not None:
         return _items_get_section(item_id, requested, str(section))
-    cols = requested or list(CANONICAL_COLUMNS)
+    cols = requested or list(_DEFAULT_GET_FIELDS)
     out: Dict[str, str] = {}
     for col in cols:
         if col not in _ALLOWED_GET_FIELDS:

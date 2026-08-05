@@ -24,7 +24,7 @@ AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
     "yoke --env CONTROL-PLANE-ENV-db-admin deployment-runs execute RUN-ID "
     "[--timeout MIN] [--from-stage STAGE] [--fresh] "
-    "[--product-repo-path PATH] [--image-tag TAG]"
+    "[--product-repo-path PATH --image-tag TAG]"
 )
 
 
@@ -38,6 +38,12 @@ def deployment_runs_execute(args: List[str]) -> int:
             "checkout is resolved from the machine-config projects mapping "
             "for the active env; a stale mapping fails the lineage preflight "
             "with the resolved path named.\n\n"
+            "--product-repo-path applies only to an ITEMLESS environment "
+            "deploy and requires --image-tag, which is why the two are shown "
+            "together. A run carrying items resolves its product source from "
+            "those items, so passing the flag there is refused rather than "
+            "ignored: it would otherwise read as having pinned a checkout "
+            "that the run never consulted.\n\n"
             "--env names the CONTROL-PLANE env holding the run row, not the "
             "environment being deployed to. The target env is fixed on the "
             "run at create time (--target-env). One control plane usually "

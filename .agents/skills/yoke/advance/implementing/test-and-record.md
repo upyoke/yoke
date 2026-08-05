@@ -168,9 +168,19 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
   not a product CLI wrapper. Read its `rehearse` and `live-apply` help epilogs
   before running either subcommand.
 
-  Read the temporary pre-ephemeral Yoke self-migration recipe in the help epilog before running the commands. The short shape is: back up prod Aurora, provision a separate validation-only DB, set **only** `YOKE_PG_DSN_VALIDATION`, run `rehearse`, stop for the operator checkpoint, then run `live-apply`. Never point `YOKE_PG_DSN` at the validation DB. For an unmerged worktree module, pass the same `--module-path-override <worktree>/<migration-package>/<slug>.py` to both commands.
+  **Rehearse, then merge. You do not apply.** `rehearse` runs the module
+  against the model's validation surface and records the receipt the evidence
+  gate reads. Applying to the authoritative database is the job of the boot
+  converge that starts a server running your merged code — there is no
+  live-apply step for you to run and no apply for you to wait on.
 
-  **Commit the migration module BEFORE `live-apply`.** When all declared modules reach `migration_audit.state='completed'` on the authoritative DB, the runner calls `yoke_core.domain.migration_auto_retire.auto_retire_after_live_apply`, which stages `git rm` for the module file plus its sibling `test_<identifier>.py` (single-install topology only). Untracked module files cannot be staged — the auto-retire path emits `MigrationModuleRetired` with `outcome=no_op` and `reason="module_file_not_in_git"`, and the agent has to do the `git rm` manually. The expected sequence is: **commit the module → live-apply → one finalize commit picks up the staged deletion**. The advance/polish finalize step's `git add -A` + commit picks the staged deletion up automatically.
+  **The module is permanent.** Add it to the ordered history as
+  `NNNN_slug.py`, commit it, and leave it there forever. It is never deleted
+  after applying; a module that is gone cannot be applied by a universe that
+  never received it, which is exactly how installs used to diverge silently.
+  The body must be safe to re-run and must NOT commit — the applier commits
+  each entry together with its ledger row, which is what makes "applied but
+  unrecorded" impossible.
 
   **Avoid recursive `rehearsal_commands` self-calls.** The attestation's `rehearsal_commands` list is re-executed inside the rehearse runner against the validation surface. A command that invokes the `migration_apply` rehearse/live-apply runner would recurse into the same runner with the validation DB bound (where the items row does not exist) and die mid-rehearse. Use focused module-surface checks instead: a schema-table probe appropriate to the validation surface, a pytest run against the module's own test file, or similar. The refine-time dryrun (`yoke_core.domain.attestation_rehearsal_dryrun`) now flags this shape as `recursive_migration_apply_self_call`.
 

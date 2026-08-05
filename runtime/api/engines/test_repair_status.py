@@ -144,7 +144,9 @@ def test_issue_rejects_epic_only_status(repair_db, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "is not declared by issue@4" in captured.err
+    # Version-agnostic: the message names the pinned version, and which
+    # number that is belongs to the universe running the test.
+    assert "'planning' is not declared by issue@" in captured.err
 
 
 def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):

@@ -70,10 +70,11 @@ from yoke_core.engines.merge_worktree_post import (  # noqa: F401
     _schema_refresh,
     _yoke_state_dir,
     _regenerate_views,
-    _regenerate_views_or_exit5,
+    _regenerate_views_advisory,
     _ensure_target_branch,
 )
 from yoke_core.engines.merge_worktree_runner import run
+
 
 def parse_args(argv: list[str]) -> MergeArgs:
     """Parse CLI arguments matching the shell contract."""
@@ -108,6 +109,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     raw = argv if argv is not None else sys.argv[1:]
     args = parse_args(raw)
     return run(args)
+
 
 if __name__ == "__main__":
     sys.exit(main())

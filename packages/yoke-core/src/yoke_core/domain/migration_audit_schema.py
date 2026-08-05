@@ -8,7 +8,7 @@ table at control-plane init. Project-configured recipes and runners let
 webapp projects declare their own authoritative DB; that webapp
 authoritative DB also needs `migration_audit` bootstrapped. This module is that
 bootstrap — called from `migration_apply_rehearse._rehearse_inner`
-and `migration_apply_live._live_apply_inner` after the audit
+after the audit
 connection opens, and reused by `create_governed_tables` so the DDL
 has one source of truth.
 """
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -131,4 +132,46 @@ def ensure_migration_audit_table(conn: Any) -> None:
 def ensure_migration_audit_table_postgres(conn: Any) -> None:
     """Idempotently create ``migration_audit`` using native Postgres DDL."""
     conn.execute(MIGRATION_AUDIT_POSTGRES_DDL)
+    conn.commit()
+
+
+#: The per-database cursor into the ordered migration history: one row per
+#: applied entry, keyed by the history's own identity (the module filename
+#: stem). A cursor, not a receipt store — the pending set is
+#: ``history - ledger``, so a database answers "am I current?" from its own
+#: rows plus the code it is running, with no central registry to consult and
+#: nothing to keep in sync. Rich per-apply evidence stays in ``migration_audit``.
+#:
+#: Portable DDL with no foreign keys, deliberately: it is created on the
+#: control plane, on any authoritative database a governed migration targets,
+#: and in the pytest fixture schema, which strips foreign keys.
+APPLIED_MIGRATIONS_DDL = """
+    CREATE TABLE IF NOT EXISTS applied_migrations (
+        migration_name TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL,
+        applied_by TEXT,
+        minimum_serving_version TEXT
+    );
+"""
+
+
+def ensure_applied_migrations_table(conn: Any) -> None:
+    """Idempotently create ``applied_migrations`` on *conn*.
+
+    Shares its DDL with every consumer for the same reason
+    :func:`ensure_migration_audit_table` does: a ledger that differs between
+    the control plane, a project's authoritative database, and the test
+    fixture schema would make "is this database current?" mean three things.
+
+    ``CREATE TABLE IF NOT EXISTS`` does nothing where the table already
+    stands, so a column added to the DDL above never reaches a database born
+    before it. Each such column is converged explicitly — without that step
+    the oldest ledgers, which are exactly the ones most likely to hold an
+    entry a running build cannot survive, would be the ones missing the
+    column that says so.
+    """
+    execute_schema_script(conn, APPLIED_MIGRATIONS_DDL)
+    _add_column_if_not_exists(
+        conn, "applied_migrations", "minimum_serving_version", "TEXT"
+    )
     conn.commit()

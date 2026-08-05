@@ -159,6 +159,36 @@ export function progressPanel(documentNode, item) {
   return panel;
 }
 
+// Narrative fields projected by items.detail.get. Spec/body are workflow-
+// primary panels; these extras appear only when non-empty so create/entry
+// can stay lean while later writes remain visible on the detail page.
+const EXTRA_NARRATIVE_FIELDS = [
+  ["design_spec", "Design spec"],
+  ["technical_plan", "Technical plan"],
+  ["worktree_plan", "Worktree plan"],
+  ["shepherd_log", "Shepherd log"],
+  ["shepherd_caveats", "Shepherd caveats"],
+  ["test_results", "Test results"],
+  ["deploy_log", "Deploy log"],
+];
+
+export function filledNarrativePanels(documentNode, item, skipKeys = []) {
+  const skip = new Set(skipKeys);
+  const panels = [];
+  for (const [key, title] of EXTRA_NARRATIVE_FIELDS) {
+    if (skip.has(key)) continue;
+    const text = String(item.narrative?.[key] || "").trim();
+    if (!text) continue;
+    panels.push(textPanel(documentNode, title, text));
+  }
+  return panels;
+}
+
+export function progressIfPresent(documentNode, item) {
+  if (!String(item.progress_log?.content || "").trim()) return null;
+  return progressPanel(documentNode, item);
+}
+
 export function detailColumns(documentNode, left, right) {
   const grid = el(documentNode, "div", "item-detail-grid");
   const leftColumn = el(documentNode, "div", "item-stack");

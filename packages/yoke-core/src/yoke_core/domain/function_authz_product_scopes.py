@@ -81,6 +81,9 @@ PRODUCT_AUTHZ_BY_ID = {
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.
     "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    # Taking a published update publishes a workflow version, so it
+    # carries the same authority as selecting or editing one.
+    "workflows.canon_update.apply": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.policy_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.mechanics.get": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.testing_default.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

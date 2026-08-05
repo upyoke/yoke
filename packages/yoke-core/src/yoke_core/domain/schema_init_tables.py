@@ -281,9 +281,13 @@ def create_core_tables(conn: Any) -> None:
 
 
 def create_governed_tables(conn: Any) -> None:
-    from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
+    from yoke_core.domain.migration_audit_schema import (
+        ensure_applied_migrations_table,
+        ensure_migration_audit_table,
+    )
 
     ensure_migration_audit_table(conn)
+    ensure_applied_migrations_table(conn)
 
     # coordination_leases — shared-operation lease primitive keyed on
     # (project_id, lease_key).  The migration consumer scopes per-model

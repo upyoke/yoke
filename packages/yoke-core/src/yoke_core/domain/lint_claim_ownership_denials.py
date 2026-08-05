@@ -7,6 +7,8 @@ from typing import Any, Callable, Optional
 
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 RECENT_DENIAL_LOOKBACK_SECONDS = 1800
@@ -34,11 +36,18 @@ def recent_claim_denial_holder(
             "AND started_at > %s ORDER BY started_at DESC LIMIT 100",
             (session_id, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")),
         ).fetchall()
-        item_token, item_bare = f"YOK-{item_id}", str(item_id)
+        # An operator types the item's public ref, which carries the
+        # project prefix; the legacy internal-id token stays matchable
+        # for command summaries recorded before refs were rendered.
+        item_bare = str(item_id)
+        item_tokens = {render_item_ref(conn, int(item_id)), f"YOK-{item_bare}"}
         attempted = any(
             isinstance(row[0], str)
             and "claim-work" in row[0]
-            and (item_token in row[0] or f"--item {item_bare}" in row[0])
+            and (
+                any(tok in row[0] for tok in item_tokens)
+                or f"--item {item_bare}" in row[0]
+            )
             for row in rows
         )
         if not attempted:
@@ -75,13 +84,14 @@ def spoof_reason(family: str, foreign_session: str) -> str:
 
 
 def recent_denial_reason(family: str, item_id: int, holder: str) -> str:
+    item_ref = item_ref_for_id(int(item_id))
     return append_field_note_footer(
         "BLOCKED: claim-boundary bypass after live claim denial.\n\n"
-        f"Mutation family: {family}\nItem: YOK-{item_id}\n"
+        f"Mutation family: {family}\nItem: {item_ref}\n"
         f"Live holder: {holder}\n\n"
         "A recent claim-work in this session was denied with "
         "'already claimed by session' for the same item. Subsequent "
-        f"mutating shapes against YOK-{item_id} from this session are "
+        f"mutating shapes against {item_ref} from this session are "
         "blocked until the holder releases or hands off.",
         rule_id="lint-claim-ownership-mutations",
     )

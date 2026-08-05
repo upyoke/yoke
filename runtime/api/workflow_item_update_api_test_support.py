@@ -35,7 +35,8 @@ CREATE TABLE items (
 );
 CREATE TABLE item_worktrees (
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, branch TEXT NOT NULL,
-    path TEXT, lane_role TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'active',
+    path TEXT, commit_sha TEXT, lane_role TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT
 );
 CREATE TABLE epic_tasks (

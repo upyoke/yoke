@@ -105,7 +105,9 @@ def test_allow_is_explicit_on_permission_events_only() -> None:
     stdout, exit_code = render_cursor_decision([], "PreToolUse")
     assert (json.loads(stdout), exit_code) == ({"permission": "allow"}, 0)
     stdout, exit_code = render_cursor_decision([], "SessionEnd")
-    assert (stdout, exit_code) == ("", 0)
+    assert (stdout, exit_code) == ("{}", 0)
+    stdout, exit_code = render_cursor_decision([], "Stop")
+    assert (stdout, exit_code) == ("{}", 0)
 
 
 def test_context_injection_only_on_accepting_events() -> None:

@@ -22,6 +22,7 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def execute_structured_write(
@@ -99,6 +100,7 @@ def execute_structured_write(
     _assert_write_db_ready(db_path)
     conn = connect(db_path)
     try:
+        item_ref = render_item_ref(conn, int(item_id))
         existing = _query_item_field(conn, item_id, field) or ""
         # Safety net: refuse to overwrite non-empty with empty
         if not content or not content.strip():
@@ -107,7 +109,7 @@ def execute_structured_write(
                     "success": False,
                     "error": (
                         f"refusing to overwrite non-empty {field} with empty"
-                        f" content for YOK-{item_id}"
+                        f" content for {item_ref}"
                     ),
                 }
 
@@ -124,7 +126,7 @@ def execute_structured_write(
                     return {
                         "success": False,
                         "error": (
-                            f"refusing {field} write for YOK-{item_id}:"
+                            f"refusing {field} write for {item_ref}:"
                             f" new content ({new_lines} lines) is less than"
                             f" 50% of existing {field} ({old_lines} lines)."
                             " This may indicate content loss."
@@ -196,7 +198,7 @@ def execute_structured_write(
         conn.close()
 
     _src_label = file_path if file_path else "stdin"
-    print(f"Updated: YOK-{item_id} {field} from {_src_label}", file=out)
+    print(f"Updated: {item_ref} {field} from {_src_label}", file=out)
 
     # Render body from structured fields
     if not _rendering._render_body(item_id, out):

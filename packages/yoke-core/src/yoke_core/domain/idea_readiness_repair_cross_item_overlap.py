@@ -162,16 +162,20 @@ def _find_unresolved_clusters(
     """Walk the SQL surface; apply directional + override filters."""
     p = _p(conn)
     states = ",".join(p for _ in _NON_TERMINAL)
+    transaction = getattr(conn, "transaction", None)
     try:
-        rows = conn.execute(
-            _OVERLAP_SQL.format(p=p, states=states),
-            (item_id, *_NON_TERMINAL, *_NON_TERMINAL),
-        ).fetchall()
+        if callable(transaction):
+            with transaction():
+                rows = conn.execute(
+                    _OVERLAP_SQL.format(p=p, states=states),
+                    (item_id, *_NON_TERMINAL, *_NON_TERMINAL),
+                ).fetchall()
+        else:
+            rows = conn.execute(
+                _OVERLAP_SQL.format(p=p, states=states),
+                (item_id, *_NON_TERMINAL, *_NON_TERMINAL),
+            ).fetchall()
     except db_backend.operational_error_types(conn):
-        try:
-            conn.rollback()
-        except db_backend.database_error_types(conn):
-            pass
         return []
 
     buckets: Dict[Tuple[int, int], Dict[str, Any]] = {}

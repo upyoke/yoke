@@ -225,6 +225,21 @@ def test_unreached_change_still_runs_the_contract_floor(tmp_path):
     assert selection.files == _with_floor()
 
 
+def test_item_worktree_schema_change_runs_fixture_consumers(tmp_path):
+    root = _tiny_repo(tmp_path)
+    changed = "packages/yoke-core/src/yoke_core/domain/item_worktree_schema.py"
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(root, changed, "ITEM_WORKTREES_TABLE_SQL = ''\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS:
+        _write(root, test_path, "def test_fixture_contract(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS) <= set(selection.files)
+
+
 def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
     """A linked worktree lives under ``.worktrees/``, which is skip-listed.
 
@@ -255,5 +270,9 @@ def test_skipped_directories_nested_inside_the_root_stay_skipped(tmp_path):
 
 def test_always_run_tests_exist_in_this_repo():
     repo_root = Path(__file__).resolve().parents[3]
-    for rel in impacted_tests.ALWAYS_RUN_TESTS:
+    required = (
+        *impacted_tests.ALWAYS_RUN_TESTS,
+        *impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS,
+    )
+    for rel in required:
         assert (repo_root / rel).is_file(), rel

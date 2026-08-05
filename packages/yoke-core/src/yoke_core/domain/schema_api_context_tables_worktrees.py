@@ -9,6 +9,7 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             ("item_id", "INTEGER"),
             ("branch", "TEXT"),
             ("path", "TEXT"),
+            ("commit_sha", "TEXT"),
             ("lane_role", "TEXT"),
             ("state", "TEXT"),
             ("created_at", "TEXT"),
@@ -20,6 +21,8 @@ ITEM_WORKTREE_TABLES: dict[str, dict] = {
             "is implementation, worker, or integration; state is active or "
             "released. An active path cannot be owned twice, and each item "
             "may have at most one active implementation or integration lane. "
+            "commit_sha is the last committed HEAD reported for the lane's "
+            "exact checkout path and is the standalone merge identity. "
             "Lanes do not own sessions. Session authority is derived from "
             "active work_claims joined through the claimed item or task. "
             "Read an item's exact interpreted policy with `yoke workflows "

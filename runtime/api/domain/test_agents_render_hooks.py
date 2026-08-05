@@ -85,3 +85,14 @@ def test_cursor_entries_carry_explicit_timeout() -> None:
         for entry in entries:
             assert entry.get("timeout") == _CURSOR_HOOK_TIMEOUT_S, (event, entry)
     assert _CURSOR_HOOK_TIMEOUT_S >= 30
+
+
+def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
+    """Stop/sessionEnd peel a deleted worktree cwd; ordinary tool hooks do not."""
+    block = render_cursor_hooks_block()
+    stop = block["hooks"]["stop"][0]["command"]
+    end = block["hooks"]["sessionEnd"][0]["command"]
+    assert "yoke-cursor-lifecycle-root=1" in stop
+    assert "yoke-cursor-lifecycle-root=1" in end
+    pre = block["hooks"]["preToolUse"][0]["command"]
+    assert "yoke-cursor-lifecycle-root" not in pre

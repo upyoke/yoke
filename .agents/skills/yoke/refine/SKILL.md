@@ -337,7 +337,8 @@ yoke readiness check {N}
 The exit condition is the same as idea's policy-aware path closure:
 
 - When File Budget is enabled, every file the implementer will edit is
-  enumerated in `## File Budget`, one path per line. **Counts and
+  enumerated in `## File Budget`, one path per line, with current line count,
+  remaining headroom against 350, and an at-or-over-limit flag. **Counts and
   approximations ("roughly 30 files", "every caller", "all importers") are
   not acceptable** in place of enumerated paths.
 - When path claims are enabled, coverage is complete from the enabled File

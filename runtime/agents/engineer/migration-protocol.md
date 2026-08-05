@@ -10,15 +10,34 @@ Reference material for the Engineer agent. Read it before any task that modifies
 
 **First classify the change.** Pure-additive schema (net-new `CREATE TABLE`, `ADD COLUMN`, `CREATE INDEX`) follows the project's verified idempotent convergence mechanism and does not need live DDL when that mechanism applies. Data-transforming migrations (backfills, drops, column removals, table rewrites) are the ONLY class that uses the governed path below.
 
-## Before a data-transforming migration
+## For a data-transforming migration
 
-1. **Use the governed migration-apply path for live DDL.** The intended
-   agent-facing wrapper is pending; until it exists, do not invent a raw
-   module recipe in task prose. Dispatch context must name the sanctioned
-   migration rehearse/live-apply surface explicitly before an Engineer runs
-   live DDL.
-2. Verify the live-apply audit row records a non-empty `backup_path` and that
-   the referenced Postgres rollback dump exists.
+You author the change; you do not apply it. A server brings its own database
+up to the code it runs before it serves, so the apply happens on the boot
+converge after your work merges and deploys.
+
+1. **Add an entry to the ordered history.** Name it `NNNN_slug.py` in the
+   model's migrations package, next sequence number. It exposes `apply(conn)`
+   and optionally `invariants(conn)`.
+2. **The body must be safe to re-run and must NOT commit.** The applier
+   commits your entry together with its ledger row, which is what makes
+   "applied but unrecorded" impossible; committing inside `apply()` splits
+   that transaction and gives the guarantee back. Guard every statement
+   (`IF EXISTS` / `IF NOT EXISTS`, or an explicit state check) — a database
+   restored from a pre-ledger archive replays its history.
+3. **Never delete it afterwards.** Entries are permanent. A module that is
+   gone cannot be applied by a universe that never received it.
+4. **Rehearse before merging:**
+   `python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N`. That runs
+   the entry against the model's validation surface and records the receipt
+   the evidence gate reads. It also takes the migration-territory lease and
+   holds it, so a second work item cannot start a migration on the same model
+   while yours is in flight.
+5. **Treat "already at or beyond my target" as finished, not as an error.**
+   A permanent entry outlives the shape it was written against. An entry that
+   pins a version constant and rejects anything newer will start failing boots
+   the moment the schema moves on — it has not become wrong, it has become
+   done.
 
 ## For new columns (ADD COLUMN)
 
@@ -32,11 +51,10 @@ A pure-additive column needs no manual live `ALTER TABLE` or governed migration 
 
 ## For destructive operations (DROP TABLE, table rebuild, column removal)
 
-Write a dedicated migration module with row-count validation and rehearsal
-support, then run the governed migration rehearsal before live apply.
-Never use raw ALTER TABLE for destructive live operations. These are
-data-transforming migrations, not additive schema, so they always take the
-governed path above — they do not self-propagate on boot.
+Write a history entry with row-count validation and rehearsal support, then
+rehearse it. Never use raw ALTER TABLE for destructive live operations. These
+are data-transforming migrations, not additive schema, so they always take the
+history path above — they do not self-propagate on boot.
 
 ## After migration
 
@@ -48,13 +66,13 @@ yoke watch doctor -- --only HC-schema-drift
 ## Checklist summary
 
 - [ ] Change classified: additive schema (self-propagates on boot) vs data-transforming migration (governed path)
-- [ ] (Data-transforming migrations only) Governed migration rehearsal run before live DDL
-- [ ] (Data-transforming migrations only) Governed live apply recorded a Postgres rollback dump in `migration_audit.backup_path`
+- [ ] (Data-transforming migrations only) Entry added to the ordered history as `NNNN_slug.py`, guarded, safe to re-run, and not committing inside `apply()`
+- [ ] (Data-transforming migrations only) Rehearsal run and its receipt recorded; the entry is NOT deleted afterwards
 - [ ] (Additive schema) Additive converger updated so the column reaches existing environments on deploy or boot
 - [ ] Fresh-schema creator updated
 - [ ] Idempotent column helper used in the additive converger, not a legacy-data or one-shot migration wrapper
 - [ ] Schema expectation registry updated
 - [ ] Project schema documentation updated
 - [ ] Relevant domain field projections updated
-- [ ] Dedicated migration script with row-count verification for destructive operations
+- [ ] Dedicated history entry with row-count verification for destructive operations
 - [ ] Doctor passes after migration (`yoke watch doctor -- --only HC-schema-drift`)

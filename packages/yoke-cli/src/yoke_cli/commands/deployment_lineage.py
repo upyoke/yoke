@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import fcntl
+import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Iterator
 
 
 class DeploymentLineageResolutionError(RuntimeError):
@@ -31,6 +35,35 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return result
 
 
+@contextmanager
+def _ref_update_lock(repo: Path) -> Iterator[None]:
+    """Serialize ref updates that share one physical Git repository."""
+    common_dir = Path(
+        _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
+    )
+    if not common_dir.is_absolute():
+        common_dir = (repo / common_dir).resolve()
+    lock_path = common_dir / "yoke-deployment-lineage-fetch.lock"
+    try:
+        descriptor = os.open(
+            lock_path,
+            os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+    except OSError as exc:
+        raise DeploymentLineageResolutionError(
+            f"checkout ref lock is unavailable in {common_dir}"
+        ) from exc
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+
 def resolve_commit_lineage(repo_path: str, source_ref: str) -> str:
     """Fetch ``origin`` and resolve ``source_ref`` to one full commit SHA."""
     candidate = Path(repo_path).expanduser().resolve()
@@ -41,7 +74,8 @@ def resolve_commit_lineage(repo_path: str, source_ref: str) -> str:
         raise DeploymentLineageResolutionError(
             f"project repo path must be its Git top-level: {top_level}"
         )
-    _git(candidate, "fetch", "--quiet", "--no-tags", "origin")
+    with _ref_update_lock(candidate):
+        _git(candidate, "fetch", "--quiet", "--no-tags", "origin")
     commit = _git(
         candidate, "rev-parse", "--verify", f"{source_ref}^{{commit}}",
     ).stdout.strip()

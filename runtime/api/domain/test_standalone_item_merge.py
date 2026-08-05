@@ -24,9 +24,17 @@ def _receipt_free(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
 
 
-def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True,
-                   capture_output=True, text=True)
+def _git(repo: Path, *args: str) -> str:
+    result = subprocess.run(["git", "-C", str(repo), *args], check=True,
+                            capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+def _merge(repo: Path, *, item_id: int = 7, branch: str = "ITEM-1"):
+    return sim.merge_standalone_branch(
+        project="yoke", item_id=item_id, branch=branch, target="main",
+        repo_root=str(repo), commit_sha=_git(repo, "rev-parse", branch),
+    )
 
 
 @pytest.fixture
@@ -72,9 +80,7 @@ class TestMergeBoundary:
             sim, "_run_merge_engine",
             lambda **_kwargs: (1, "merge refused"),
         )
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert not outcome.ok
         assert outcome.exit_code == 1
         assert stamped == []
@@ -87,9 +93,7 @@ class TestMergeBoundary:
             sim, "_run_merge_engine",
             lambda **_kwargs: (sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE, ""),
         )
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert outcome.exit_code == sim.RECOVERABLE_MERGE_LOCK_EXIT_CODE
         assert "retry" in outcome.error
 
@@ -106,9 +110,7 @@ class TestMergeBoundary:
             sim, "_run_merge_engine",
             lambda **_kwargs: pytest.fail("engine must not re-run"),
         )
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert outcome.ok
         assert outcome.already_merged
         assert stamped == [7]
@@ -118,9 +120,7 @@ class TestMergeBoundary:
     ) -> None:
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert outcome.touched_files == ("feature.txt",)
         assert outcome.commit_sha
 
@@ -130,9 +130,7 @@ class TestMergeBoundary:
         """External projects without a remote still complete the merge."""
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert outcome.ok
         assert not outcome.pushed
         assert not outcome.warnings
@@ -144,9 +142,7 @@ class TestMergeBoundary:
             sim, "stamp_merged_at", lambda item_id: "control plane refused",
         )
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
-        outcome = sim.merge_standalone_branch(
-            project="yoke", item_id=7, branch="ITEM-1", target="main", repo_root=str(repo),
-        )
+        outcome = _merge(repo)
         assert outcome.ok
         assert any("merged_at" in warning for warning in outcome.warnings)
 
@@ -168,6 +164,7 @@ class TestEngineArguments:
             item_id=7,
             repo_root="/project/repo",
             branch="descriptive-lane",
+            source_sha="a" * 40,
             target="main",
             local_merge=True,
         )
@@ -242,6 +239,7 @@ class TestCloseOutOrdering:
                     "public_ref": "ITEM-1",
                     "status": "reviewing-implementation",
                     "workflow": {"id": "dash"},
+                    "worktrees": [{"commit_sha": _git(repo, "rev-parse", "ITEM-1")}],
                 },
                 "",
             ),
@@ -280,6 +278,7 @@ class TestCloseOutOrdering:
                     "public_ref": "ITEM-1",
                     "status": "reviewing-implementation",
                     "workflow": {"id": "dash"},
+                    "worktrees": [{"commit_sha": _git(repo, "rev-parse", "ITEM-1")}],
                 },
                 "",
             ),

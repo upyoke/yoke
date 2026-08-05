@@ -17,26 +17,26 @@ from yoke_core.domain.schema_fingerprint import (
     UnsupportedFingerprintKindError,
 )
 from yoke_core.domain.migration_apply_audit import (
-    _insert_audit_row, _update_audit_state, describe_override,
+    _insert_audit_row, _update_audit_state,
 )
 from yoke_core.domain.migration_apply_targets import (
     connect_db_target, ensure_migration_audit_table_for_target,
     fingerprint_db_target, resolve_authoritative_db_target,
     resolve_connection_env_var, resolve_validation_db_target,
 )
+from yoke_core.domain import migration_territory_lease
 from yoke_core.domain.migration_apply_contract import (
-    FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED, STATE_REHEARSED,
-    STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED, STATE_TEST_VERIFIED,
-    CompatibilityClassError, MigrationApplyError, ModuleAttemptResult,
-    ModuleContractError, ModuleResolutionError, RehearseResult, _now,
+    FAIL_TEST_APPLY, FAIL_TEST_VERIFY, STATE_PLANNED,
+    STATE_REHEARSED, STATE_TEST_APPLIED, STATE_TEST_COPY_CREATED,
+    STATE_TEST_VERIFIED, CompatibilityClassError, MigrationApplyError,
+    ModuleAttemptResult, ModuleContractError, ModuleResolutionError,
+    RehearseResult, _now,
 )
 from yoke_core.domain.migration_apply_resolve import (
-    ModuleOverrideResolution, _resolve_capability_settings,
+    _resolve_capability_settings,
     _resolve_repo_path, control_conn_db_path,
-    default_worktree_path,
+    default_worktree_path, resolve_runner_input,
 )
-from yoke_core.domain.migration_apply_manifest import MigrationApplySubject, resolve_runner_input
-from yoke_core.domain.migration_apply_manifest import assert_manifest_subject_current
 from yoke_core.domain.migration_apply_runners import dispatch_handle
 from yoke_core.domain.migration_apply_verify import (
     _append_rehearsal_outcomes, _row_count_map, _run_baseline_verify,
@@ -50,7 +50,6 @@ def rehearse(
     session_id: Optional[str] = None,
     control_db_path: Optional[str] = None,
     worktree_path: Optional[Path] = None,
-    module_override: Optional[ModuleOverrideResolution] = None,
 ) -> RehearseResult:
     """Run the rehearsal unit for *item_id* on the model's validation surface.
 
@@ -58,9 +57,6 @@ def rehearse(
     the control-plane DB lookup for tests; production callers leave it
     ``None`` and the canonical YOKE_DB wins.  *worktree_path* is the
     checkout root; defaults to the current working directory.
-    *module_override*, when supplied, sources the matching module from
-    the active item worktree instead of the model's modules_dir
-    through the sanctioned cross-worktree apply contract.
     """
     control_conn = db_helpers.connect(control_db_path)
     try:
@@ -69,7 +65,6 @@ def rehearse(
             item_id=item_id,
             session_id=session_id,
             worktree_path=default_worktree_path(control_conn, item_id, worktree_path),
-            module_override=module_override,
         )
     finally:
         control_conn.close()
@@ -81,12 +76,8 @@ def _rehearse_inner(
     item_id: Optional[int],
     session_id: Optional[str],
     worktree_path: Path,
-    module_override: Optional[ModuleOverrideResolution] = None,
-    subject: Optional[MigrationApplySubject] = None,
 ) -> RehearseResult:
-    resolved = resolve_runner_input(
-        control_conn, item_id=item_id, subject=subject
-    )
+    resolved = resolve_runner_input(control_conn, item_id=item_id)
     profile = resolved.profile
     project = resolved.project
     project_id = resolved.project_id
@@ -106,6 +97,14 @@ def _rehearse_inner(
             f"Migration subject fails the governed-runner gate matrix on "
             f"breakage_policy={breakage_policy!r}: {'; '.join(matrix_errors)}"
         )
+
+    # Held past this call on purpose -- see migration_territory_lease.
+    lease = migration_territory_lease.enter(
+        control_conn,
+        project=project,
+        model_name=profile["model_name"],
+        session_id=session_id,
+    )
 
     capability = _resolve_capability_settings(control_conn, project)
     try:
@@ -140,6 +139,7 @@ def _rehearse_inner(
     rehearsal_commands = list(attestation.get("rehearsal_commands") or [])
 
     result = RehearseResult(
+        lease_id=lease.id,
         item_id=item_id,
         model_name=profile["model_name"],
         validation_db_path=validation_target.display,
@@ -180,16 +180,6 @@ def _rehearse_inner(
                 state=STATE_PLANNED,
             )
             result.modules.append(attempt)
-            override_matches = (
-                module_override is not None
-                and module_override.slug == identifier
-            )
-            audit_description = subject.audit_description if subject else (
-                describe_override(module_override)
-                if override_matches and module_override is not None
-                else None
-            )
-
             try:
                 attempt.audit_id = insert_audit_row(
                     name=identifier,
@@ -198,15 +188,8 @@ def _rehearse_inner(
                     session_id=session_id,
                     test_copy_path=validation_target.display,
                     tables=affected_tables,
-                    description=audit_description,
+                    description=None,
                 )
-                if override_matches and module_override is not None:
-                    attempt.detail["override_source"] = str(
-                        module_override.source_path
-                    )
-                    attempt.detail["override_worktree"] = str(
-                        module_override.worktree_path
-                    )
                 # test_copy_created
                 update_audit_state(
                     attempt.audit_id, STATE_TEST_COPY_CREATED,
@@ -215,11 +198,9 @@ def _rehearse_inner(
 
                 # test_applied: import + apply module against validation DB.
                 try:
-                    if subject is not None:
-                        assert_manifest_subject_current(control_conn, subject=subject, worktree_path=worktree_path)
                     handle = dispatch_handle(
                         model=model, repo_path=worktree_path,
-                        identifier=identifier, override=module_override,
+                        identifier=identifier,
                         project=project, model_name=profile["model_name"],
                     )
                 except (MigrationApplyError, ModuleResolutionError, ModuleContractError) as exc:
@@ -345,5 +326,15 @@ def _rehearse_inner(
                 attempt.error = str(exc)
     finally:
         audit_conn.close()
+
+    # A rehearsal that failed never entered migration territory, so it must
+    # not leave the door locked behind it. A rehearsal that PASSED keeps the
+    # lease: the item now owns this model until it lands or an operator
+    # releases it (`yoke leases operator-release`), which is what makes the
+    # lease a visible signal rather than a momentary mutex.
+    if not result.all_succeeded:
+        result.lease_id = migration_territory_lease.leave(
+            control_conn, lease.id, "rehearsal-failed"
+        ).id
 
     return result

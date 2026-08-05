@@ -44,9 +44,10 @@ CURSOR_SESSION_MAP_DIR_NAME = "cursor-session-map"
 
 CURSOR_CONVERSATION_ENV_VAR = "CURSOR_CONVERSATION_ID"
 
-# Points at the TOP-LEVEL session's transcript in every hook process,
-# including hooks fired for subagent activity — which is what makes the
-# container recoverable from an event carrying only a sub-conversation id.
+# Prefer this env when present: it *should* name the top-level session's
+# transcript even inside subagent hooks. When Cursor instead points it at
+# the nested ``.../subagents/<child>.jsonl`` layout, ``transcript_session_id``
+# recovers the parent from the path shape.
 CURSOR_TRANSCRIPT_ENV_VAR = "CURSOR_TRANSCRIPT_PATH"
 
 # A conversation outlives any single hook, so entries are kept for far
@@ -66,14 +67,63 @@ _MapDir = Union[str, "os.PathLike[str]"]
 
 
 def transcript_session_id(transcript_path: str) -> str:
-    """Return the session id encoded in a Cursor transcript path.
+    """Return the container session id encoded in a Cursor transcript path.
 
-    Transcripts live at ``.../agent-transcripts/<id>/<id>.jsonl``, so the
-    stem is the id. Empty input returns empty output.
+    Top-level chats live at ``.../agent-transcripts/<id>/<id>.jsonl`` —
+    the stem is the container. Task/subagent transcripts live at
+    ``.../agent-transcripts/<parent>/subagents/<child>.jsonl``; the stem
+    is the *child*, so resolving container from stem alone would mint a
+    phantom ``harness_sessions`` row. When the path carries the nested
+    ``agent-transcripts/<parent>/subagents/`` shape, ``<parent>`` is the
+    container. Empty or malformed input returns empty output rather than
+    guessing the child id.
     """
     if not transcript_path:
         return ""
-    return PurePosixPath(transcript_path).stem
+    path = PurePosixPath(transcript_path.replace("\\", "/"))
+    parts = path.parts
+    try:
+        transcripts_at = parts.index("agent-transcripts")
+    except ValueError:
+        if "subagents" in parts:
+            return ""
+        return path.stem
+    # Nested: .../agent-transcripts/<parent>/subagents/<child>.jsonl
+    if (
+        transcripts_at + 2 < len(parts)
+        and parts[transcripts_at + 2] == "subagents"
+    ):
+        parent = parts[transcripts_at + 1]
+        return parent if parent else ""
+    # Flat: .../agent-transcripts/<id>/<id>.jsonl
+    return path.stem
+
+
+def linked_worktree_lane_name(workspace_path: str) -> str:
+    """Return the Yoke worktree lane name when ``workspace_path`` is under one.
+
+    Recognizes ``.../.worktrees/<lane>`` and ``.../.claude/worktrees/<lane>``
+    (and deeper paths under those roots). Empty when the path is not a
+    linked worktree lane — including the main checkout itself.
+    """
+    if not workspace_path:
+        return ""
+    parts = PurePosixPath(workspace_path.replace("\\", "/")).parts
+    for marker in (".worktrees", "worktrees"):
+        try:
+            idx = parts.index(marker)
+        except ValueError:
+            continue
+        # Require the Yoke layout ``<repo>/.worktrees/<lane>`` (or Claude's
+        # ``.claude/worktrees/<lane>``) rather than an arbitrary directory
+        # named worktrees.
+        if marker == "worktrees" and (
+            idx == 0 or parts[idx - 1] != ".claude"
+        ):
+            continue
+        if idx + 1 < len(parts) and parts[idx + 1]:
+            return parts[idx + 1]
+    return ""
 
 
 def container_session_id_from_evidence(
@@ -198,6 +248,7 @@ __all__ = [
     "CURSOR_SESSION_MAP_DIR_NAME",
     "CURSOR_TRANSCRIPT_ENV_VAR",
     "container_session_id_from_evidence",
+    "linked_worktree_lane_name",
     "prune_stale_conversation_sessions",
     "record_conversation_session",
     "resolve_mapped_session_id",

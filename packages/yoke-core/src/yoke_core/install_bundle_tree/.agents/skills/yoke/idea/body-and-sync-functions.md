@@ -333,12 +333,11 @@ retire-the-module acceptance criterion whose timing matches the
 project's install topology. The agent reads the topology and generates
 the right clause automatically.
 
-Read project + model name via `items.get.run` (`fields: ["project",
-"db_mutation_profile"]`), resolve the `migration_model` capability
-payload, then call `is_single_authoritative_install(model)` from
-`yoke_core.domain.migration_install_topology` (one mapping arg).
+Migration modules are permanent ordered history, so there is no
+retire-timing to word and no install topology to resolve: the same
+acceptance criterion applies to every project.
 
-Pick the matching template — append it to the spec's `Acceptance
+Append it to the spec's `Acceptance
 Criteria` section through `items.structured_field.section_append`
 (heading `Acceptance Criteria`):
 

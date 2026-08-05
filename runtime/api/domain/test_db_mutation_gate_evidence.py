@@ -7,6 +7,10 @@ Split out of ``test_db_mutation_gate.py`` to keep authored files under the
 from __future__ import annotations
 
 import json
+
+from yoke_core.domain.migration_model_capability_defaults import (
+    DEFAULT_MODULES_DIR,
+)
 from pathlib import Path
 
 import pytest
@@ -18,9 +22,7 @@ from yoke_core.domain.db_mutation_gate import (
 )
 from yoke_core.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
-    _seed_flow_with_migration_apply,
     _seed_project,
-    _write_decision_record,
     _write_module,
     ensure_audit_table,
     gate_audit_path,
@@ -135,8 +137,7 @@ class TestEvidenceGate:
         conn, repo_path = gate_db
         _seed_project(conn, "yoke", repo_path)
         _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        modules_dir = "runtime/api/domain/migrations"
+        modules_dir = DEFAULT_MODULES_DIR
         _write_module(repo_path, modules_dir, identifier)
         profile = {
             "state": "declared",
@@ -177,16 +178,16 @@ class TestEvidenceGate:
             item_id, conn=conn, audit_db_path=audit_path,
         )
         assert not outcome.passed
-        assert any("no migration_audit row" in e for e in outcome.errors)
+        assert any("no rehearsal recorded" in e for e in outcome.errors)
 
-    def test_apply_with_completed_state_passes(self, gate_db) -> None:
+    def test_apply_with_rehearsed_state_passes(self, gate_db) -> None:
         conn, repo_path = gate_db
         item_id = self._stage_apply(gate_db)
         audit_path = self._audit_path(gate_db)
         seed_audit_row(
             repo_path,
             columns="migration_name, state, project_id, model_name, started_at",
-            placeholders="?, 'completed', ?, 'primary', ?",
+            placeholders="?, 'rehearsed', ?, 'primary', ?",
             values=("demo_module", 1, "2026-04-23T00:00:00Z"),
         )
         outcome = check_implementing_to_reviewing_implementation_gate(
@@ -201,7 +202,6 @@ class TestEvidenceGate:
         identifier = "001_create_accounts"
         _seed_project(conn, "externalwebapp", repo_path)
         _seed_capability(conn, "externalwebapp", self._externalwebapp_webapp_seed())
-        _seed_flow_with_migration_apply(conn, "externalwebapp")
         _write_module(repo_path, "app/db/migrations", identifier)
         profile = {
             "state": "declared",
@@ -226,7 +226,7 @@ class TestEvidenceGate:
         seed_audit_row(
             repo_path,
             columns="migration_name, state, project_id, model_name, started_at",
-            placeholders="?, 'completed', ?, 'primary', ?",
+            placeholders="?, 'rehearsed', ?, 'primary', ?",
             values=(identifier, 2, "2026-04-23T00:00:00Z"),
             audit_path=str(audit_path),
         )
@@ -237,9 +237,9 @@ class TestEvidenceGate:
 
         assert outcome.passed, outcome.errors
 
-    def test_apply_non_completed_state_still_blocks(self, gate_db) -> None:
-        # Only ``state='completed'`` satisfies the evidence gate. Rows
-        # stuck in earlier states (rehearsed / live_applied) do not.
+    def test_apply_unrehearsed_state_still_blocks(self, gate_db) -> None:
+        # A row that never reached rehearsal is not evidence. States at or
+        # past ``rehearsed`` count; earlier ones do not.
         conn, repo_path = gate_db
         item_id = self._stage_apply(gate_db)
         audit_path = self._audit_path(gate_db)
@@ -251,7 +251,7 @@ class TestEvidenceGate:
                 "pre_row_counts, started_at"
             ),
             placeholders=(
-                "?, 'live_applied', ?, 'primary', "
+                "?, 'planned', ?, 'primary', "
                 "'', '[]', '{}', '{}', ?"
             ),
             values=("demo_module", 1, "2026-04-23T00:00:00Z"),
@@ -260,73 +260,7 @@ class TestEvidenceGate:
             item_id, conn=conn, audit_db_path=audit_path,
         )
         assert not outcome.passed
-        assert any("no migration_audit row" in e for e in outcome.errors)
+        assert any("no rehearsal recorded" in e for e in outcome.errors)
 
-    def test_retire_missing_record_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=7, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            7, conn=conn,
-        )
-        assert not outcome.passed
-        assert any("missing decision record" in e for e in outcome.errors)
 
-    def test_retire_record_present_passes(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        _write_decision_record(repo_path, "dead_module")
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=8, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            8, conn=conn,
-        )
-        assert outcome.passed, outcome.errors
 
-    def test_retire_record_wrong_model_blocks(self, gate_db) -> None:
-        conn, repo_path = gate_db
-        _seed_project(conn, "yoke", repo_path)
-        _seed_capability(conn, "yoke", governed_postgres_test_seed())
-        _seed_flow_with_migration_apply(conn, "yoke")
-        _write_decision_record(
-            repo_path, "dead_module", model_name="other",
-        )
-        profile = {
-            "state": "declared",
-            "model_name": "primary",
-            "mutation_intent": "retire",
-            "migration_modules": ["dead_module"],
-            "compatibility_class": "pre_merge_breaking",
-        }
-        insert_item(
-            conn, id=9, project="yoke", status="implementing",
-            db_mutation_profile=json.dumps(profile, sort_keys=True),
-        )
-        outcome = check_implementing_to_reviewing_implementation_gate(
-            9, conn=conn,
-        )
-        assert not outcome.passed
-        assert any("model_name" in e for e in outcome.errors)

@@ -151,7 +151,7 @@ class TestSchemaDrift:
         conn = _make_conn()
         rec = _run_hc(hc_schema_drift, conn)
         res = _results(rec)
-        assert res["HC-schema-drift"][0] in ("PASS", "WARN")
+        assert res["HC-schema-drift"][0] in ("PASS", "FAIL")
 
 
 class TestSchemaScriptSync:

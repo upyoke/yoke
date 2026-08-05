@@ -29,6 +29,7 @@ from yoke_core.domain.worktree_test_helpers import (
     TEST_ITEM_REF,
     pin_test_item_workflow,
 )
+from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
@@ -114,6 +115,18 @@ class TestCreateWorktree:
             cwd=result.path, capture_output=True, text=True,
         )
         assert r.stdout.strip() == TEST_ITEM_REF
+        item_base = subprocess.run(
+            [
+                "git", "config", "--get",
+                item_base_config_key(TEST_ITEM_REF),
+            ],
+            cwd=result.path, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        main_sha = subprocess.run(
+            ["git", "rev-parse", "main"], cwd=result.path,
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        assert item_base == main_sha
 
     def test_create_does_not_bind_session_scope(self, git_repo, yoke_db):
         # Worktree creation no longer binds a session-scope envelope.

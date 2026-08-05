@@ -3,9 +3,9 @@
 Original module covered every flavor of the apply contract. It is now split
 across sibling files so each authored file stays under the 350-line limit:
 this file covers the rehearsal happy path and rehearsal failure branches.
-Live-apply happy path/refusal lives in ``test_migration_apply_live`` and the
-live-verify failure recovery + profile gating lives in
-``test_migration_apply_failure``. Heavy fixture/helper code lives in
+Profile gating lives in ``test_migration_apply_failure``, and the
+migration-territory lease rehearsal takes lives in
+``test_migration_rehearsal_lease``. Heavy fixture/helper code lives in
 ``migration_apply_test_helpers``.
 """
 
@@ -34,7 +34,6 @@ from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fi
     _seed_apply_item,
     apply_env,  # noqa: F401 — fixture registration
 )
-from yoke_core.domain.migration_apply_resolve import ModuleOverrideResolution
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
 
 
@@ -131,49 +130,6 @@ class TestRehearseHappyPath:
             worktree_path=apply_env["worktree"],
         )
         assert result.source_fingerprint == expected
-
-    def test_cli_override_uses_resolved_worktree_for_both_units(
-        self, monkeypatch, tmp_path,
-    ) -> None:
-        from yoke_core.domain import migration_apply as cli
-
-        class Result:
-            item_id = 7000
-            model_name = "primary"
-            validation_db_path = "validation.db"
-            authoritative_db_path = "authoritative.db"
-            lease_id = "lease-1"
-            modules = []
-            source_fingerprint = None
-            rehearsed_at = None
-            all_succeeded = True
-
-        worktree = tmp_path / "feature"
-        module_path = worktree / "runtime" / "migrations" / "sample.py"
-        module_path.parent.mkdir(parents=True)
-        module_path.write_text("def apply(conn): pass\n", encoding="utf-8")
-        item_id = 7000
-        resolution = ModuleOverrideResolution(
-            module_path=module_path, slug="sample", source_path=module_path,
-            worktree_path=worktree, item_id=item_id,
-        )
-        seen = []
-        monkeypatch.setattr(
-            cli, "_resolve_override_from_cli",
-            lambda item_id, requested: resolution,
-        )
-
-        def fake_unit(item_id, *, module_override=None, worktree_path=None):
-            seen.append((item_id, module_override, worktree_path))
-            return Result()
-
-        monkeypatch.setattr(cli, "rehearse", fake_unit)
-        monkeypatch.setattr(cli, "live_apply", fake_unit)
-        args = [str(item_id), "--module-path-override", str(module_path)]
-        assert cli.main(["rehearse", *args]) == 0
-        assert cli.main(["live-apply", *args]) == 0
-        assert seen == [(item_id, resolution, worktree), (item_id, resolution, worktree)]
-
 
 class TestRehearseFailures:
     def test_missing_module_marks_test_apply_failed(self, apply_env) -> None:

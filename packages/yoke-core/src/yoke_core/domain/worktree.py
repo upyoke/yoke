@@ -218,7 +218,12 @@ def main_resolve() -> int:
         return 1
 
     item_num = _parse_item_id(item_ref)
-    item_label = f"YOK-{item_num}" if item_num is not None else item_ref
+    if item_num is not None:
+        from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+        item_label = item_ref_for_id(int(item_num))
+    else:
+        item_label = item_ref
     if field in ("path", "branch") and result.has_multiple:
         print(
             f"Error: {item_label} resolves to "

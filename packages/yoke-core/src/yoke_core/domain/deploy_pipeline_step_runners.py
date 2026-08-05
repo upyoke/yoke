@@ -53,28 +53,7 @@ def _dispatch_step_runner(
 
     Returns ``(exit_code, diagnostic)``; diagnostic carries step runner output for
     the pipeline's failure event.
-
-    Kind-typed stages dispatch before the step runner vocabulary:
-    ``kind=migration_apply`` routes through the governed-migration
-    evidence surface (:mod:`yoke_core.domain.deploy_pipeline_migration`).
     """
-    kind = str(stage.get("kind", "") or "")
-    if kind == "migration_apply":
-        from yoke_core.domain.deploy_pipeline_migration import (
-            _dispatch_migration_apply,
-        )
-
-        return _dispatch_migration_apply(
-            stage,
-            run_id=run_id,
-            member_items=member_items,
-            project=project,
-            sd=sd,
-        )
-    if kind:
-        print(f"Error: unknown stage kind '{kind}'", file=sys.stderr)
-        return 1, ""
-
     step_runner = stage["step_runner"]
     config = stage["config"]
     name = stage["name"]

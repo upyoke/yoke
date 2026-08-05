@@ -22,179 +22,11 @@ reorder rows during edits.
 
 from __future__ import annotations
 from typing import Tuple
-# Events marked ``deprecated``: zero active call sites and (where
-# verified) zero historical rows.
-DEPRECATE_LIST: Tuple[str, ...] = (
-    # Browser substrate events (future-use registrations)
-    "BrowserDaemonStarted",
-    "BrowserDaemonStopped",
-    "BrowserDiffCompleted",
-    "BrowserSnapshotCaptured",
-    "BrowserStepExecuted",
-    # Deployment CRUD events (never emitted)
-    "DeploymentRunCancelled",
-    "DeploymentRunCreated",
-    "DeploymentRunItemAdded",
-    "DeploymentRunItemRemoved",
-    # /yoke charge dispatch-decision event declared in authoritative
-    # metadata but never wired to an emitter; the charge skill records
-    # decisions through ChargeFrontierObserved / FrontierStepSelected
-    # instead. No successor name, no live call sites.
-    "ChargeDecisionMade",
-    # /yoke feed event names declared in both curated and authoritative
-    # tables but never emitted by the feed skill. No successor name.
-    "FeedCompleted",
-    "FeedStarted",
-    # QA-artifact event declared in curated metadata but never wired to
-    # an emitter; artifact tracking happens inline on the qa_runs row.
-    # No successor name, no live call sites.
-    "QAArtifactAttached",
-)
 
-# Events removed from the registry and ledger; audit references are preserved.
-PURGED_EVENT_NAMES: Tuple[str, ...] = (
-    "ModeChosen",
-    # AgentSessionStarted was renamed first to SessionSentFirstUserPromptSubmit,
-    # then to HarnessSessionSentFirstUserPromptSubmit, because the old name
-    # was misleading — it suggested a session-lifecycle event tied to
-    # session creation, but it actually fires from the UserPromptSubmit
-    # hook at first prompt. Historical rows remain in the events ledger
-    # under the old name; no new ones will be written.
-    "AgentSessionStarted",
-    # SessionStartPayloadObserved was a one-shot diagnostic used to
-    # inspect what fields Claude Code's VS Code extension actually sends
-    # in its SessionStart payload. Question answered: VS Code's payload
-    # omits the ``model`` field entirely, so the emitter has been removed.
-    # Historical rows stay in the ledger as provenance; no new ones fire.
-    "SessionStartPayloadObserved",
-    # Session* -> HarnessSession* rename: the harness_sessions table is
-    # the source of truth for these events, and the name prefix now
-    # reflects that. Historical rows under the old names stay; no new
-    # ones are written.
-    "AgentSessionStopped",
-    "SessionRegistered",
-    "SessionStarted",
-    "SessionEnded",
-    "SessionHookFailed",
-    "SessionOffered",
-    "SessionSentFirstUserPromptSubmit",
-    "SessionEndRejectedActiveClaim",
-    "SessionEndReleasedClaims",
-    "StaleSessionReclaimed",
-    "StaleSessionSweepCompleted",
-    # ToolCall* / LifecycleMutationDetected -> HarnessToolCall* /
-    # HarnessLifecycleMutationDetected rename: these fire from Yoke-owned
-    # PreToolUse/PostToolUse hook surfaces, so the Harness prefix matches
-    # the HarnessSession* convention and makes "emitted from a harness
-    # hook" legible at a glance. Historical rows under the old names stay
-    # in the ledger; no new ones are written.
-    "ToolCallStarted",
-    "ToolCallCompleted",
-    "ToolCallFailed",
-    "ToolCallDenied",
-    "ToolCallStructuredExit",
-    "LifecycleMutationDetected",
-    # WorktreeHandoffEmitted carried parent-session-stop / manual-relaunch
-    # semantics. Retired; worktree creation is no longer a session
-    # boundary, and the session's authority over the new worktree comes
-    # from its work-claim (validated per call by lint_session_cwd).
-    # Historical rows stay in the ledger; no new ones fire.
-    "WorktreeHandoffEmitted",
-    # SessionExecutionScopeChanged carried the session-envelope
-    # execution-scope transitions (main <-> worktree). Retired together
-    # with the envelope; the per-call claim-based lint authority replaces
-    # the envelope. Historical rows stay in the ledger; no new ones fire.
-    "SessionExecutionScopeChanged",
-    # ClaimReacquiredAfterHandoff registry row was deleted when explicit
-    # handoffs replaced same-session reacquire; retire so the rogue
-    # check sees a registered row.
-    "ClaimReacquiredAfterHandoff",
-    # PathContextMigrated emitter (path_context_continuity_cutover.py)
-    # was deleted in commit 966d30574 alongside the path-posture doc-link
-    # cutover; see docs/archive/decisions/path-posture-doc-links-cutover.md.
-    # Historical rows remain in the ledger; no new ones fire.
-    "PathContextMigrated",
-    # LeakAttempt is a test-isolation fixture name; canonical-DB rows
-    # are bounded by the gate. Retire so the rogue check stops flagging.
-    "LeakAttempt",
-    # BodyRegeneration* paired with body-cache removal — emitters were
-    # deleted when body rendering moved to on-demand. Description fields
-    # already say RETIRED; flip status to match.
-    "BodyRegenerated", "BodyRegenerationFailed",
-    # DeploymentEventMigrated was a one-shot historical migration
-    # backfill event; emitter deleted, historical rows remain.
-    "DeploymentEventMigrated",
-    # Codex custom-subagent start/stop hook observers were removed along
-    # with their telemetry bridge; historical rows remain in the ledger,
-    # no new ones fire.
-    "CodexSubagentStarted",
-    "CodexSubagentStopped",
-    # The path-claim resnapshot emitter was deleted; historical rows
-    # remain in the ledger, no new ones fire.
-    "PathClaimSnapshotRefreshed",
-    # The destructive-guard defer emitter was removed together with the
-    # session-end deferral path; historical rows remain in the ledger,
-    # no new ones fire.
-    "HarnessSessionEndDeferred",
-    "BaselinePromoted",
-    "BaselineRecorded",
-    "Gen3I6CleanRoomSmoke",
-    "HarnessSessionEndCleanupCompleted",
-    "OuroborosRecipeEventAppended",
-    "PassedToUsherHandoff",
-    "INFO",
-    "TestEvent",
-)
-
-
-# Active events that should not trip HC-event-registry-coverage solely because
-# they did not emit in the last 30 days. Each remains active because the live
-# emitter represents a rare failure, override, recovery, or exceptional path.
-EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
-    "BranchProtectionCheckFailed",
-    "BoardRebuildCommandFailed",
-    "BrowserDaemonStartupFailed",
-    "ChainEndDeferred",
-    "DataLossDetected",
-    "DeploymentRunFailed",
-    "DeploymentRunStageFailed",
-    "DispatcherDownstreamDegraded",
-    "GitHubCloseFailure",
-    "HarnessSessionResumeBlockShown",
-    "HarnessToolCallStructuredExit",
-    "HookExecutionFailed",
-    "IdeaClaimHeld",
-    "IdeaReadinessClaimCoverageRepairApplied",
-    "IssueMigrated",
-    "ItemClaimReleaseRefused",
-    "LeaseAcquired",
-    "LeaseHeartbeated",
-    "LeaseReleased",
-    "MergePullRequestMergeRetried",
-    "MergeTargetStale",
-    "MergeVerificationFailed",
-    "MigrationCompleted",
-    "MigrationModuleRetireSkipped",
-    "MigrationRolledBack",
-    "OperatorLeaseRelease",
-    "PathClaimBlockedReasonRefreshed",
-    "PathIntegrityFailureDetected",
-    "PathIntegrityRepairApplied",
-    "PathTargetSymlinkSkipped",
-    "PathTargetTentative",
-    "PreviewEnvCleaned",
-    "PreviewEnvCreated",
-    "PreviewEnvOverwritten",
-    "RetiredSchemaResurrectionAttempt",
-    "SMLRefreshCompleted",
-    "SessionCwdBindingFailOpen",
-    "SessionCwdBindingHealthCheckFailed",
-    "SessionOfferLaneOverrideIgnored",
-    "SessionReactivationReacquiredClaims",
-    "StrategyDocArchived",
-    "StrategyDocUnarchived",
-    "YokeFunctionPermissionDenied",
-    "WorkHandedOff",
+from yoke_core.domain.populate_registry_data_lifecycle import (
+    DEPRECATE_LIST,
+    EXPECTED_LOW_CADENCE_ACTIVE,
+    PURGED_EVENT_NAMES,
 )
 
 # Authoritative metadata layer — see module docstring for ordering and apply contract.
@@ -228,6 +60,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("DeploymentRunSucceeded", "lifecycle", "deployment_run", "deployment-runs-db", "STATUS", "Run completed successfully"),
     ("DispatcherDownstreamDegraded", "workflow", "yoke_function_dispatch", "yoke_core.domain.yoke_function_dispatch", "WARN", "Yoke function-call dispatcher detected partial-state failure: the primary mutation committed but a downstream side effect (GitHub sync, board rebuild, follow-on event emission) failed. HTTP 207 surface; the response.warnings array names the failed step and response.success remains true."),
     ("DispatcherIdempotencyReplay", "workflow", "yoke_function_dispatch", "yoke_core.domain.yoke_function_dispatch", "INFO", "Yoke function-call dispatcher returned a cached response because the (function, request_id) pair was previously dispatched. The cached result is returned verbatim; no handler runs. Idempotency-collision (same request_id, different function id) emits a different shape and HTTP 409."),
+    ("DriftReviewCompleted", "lifecycle", "drift_review", "yoke_core.domain.sessions_analytics_dispatch", "STATUS", "A delivered-work drift review completed and advanced the session's review checkpoint with its classification, summary, covered range, and delivered items."),
     ("YokeFunctionCalled", "workflow", "yoke_function_dispatch", "yoke_core.domain.yoke_function_dispatch", "INFO", "Yoke function-call dispatcher invoked a registered handler. Carries function id, request_id, actor_id auth context, target, claim verification outcome, permission key, and downstream surface results."),
     ("YokeFunctionPermissionDenied", "workflow", "yoke_function_dispatch", "yoke_core.domain.yoke_function_dispatch", "WARN", "Yoke function-call dispatcher denied a request before handler execution because the actor lacks the required project permission."),
     ("DbClaimAmended", "workflow", "db_claim_amendment", "yoke_core.domain.db_claim", "INFO", "DB claim amended through the sanctioned unified workflow"),
@@ -267,9 +100,10 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("MergeVerificationFailed", "lifecycle", "merge_lifecycle", "merge_worktree", "ERROR", "Merged branch ancestry verification failed after merge"),
     ("MergeVerificationPassed", "lifecycle", "merge_lifecycle", "merge_worktree", "INFO", "Merged branch ancestry was verified in the target branch"),
     ("MigrationCompleted", "system", "system", "yoke_core.domain.migration_harness_core", "INFO", "Expected low-cadence governed-migration completion event; retained active because migration applies are rare but still part of the live migration harness."),
-    ("MigrationModuleRetireSkipped", "lifecycle", "migration_apply", "yoke_core.domain.migration_auto_retire", "INFO", "Expected low-cadence migration auto-retire skip emitted when install topology or audit evidence prevents module retirement."),
+    ("MigrationModuleRetireSkipped", "lifecycle", "migration_apply", "yoke_core.domain.migration_auto_retire", "INFO", "RETIRED — migration modules are permanent ordered history and are never auto-retired after an apply, so the emitter and its module were deleted. Status retired so historical ledger rows do not register as rogue."),
     ("MigrationRolledBack", "system", "system", "yoke_core.domain.migration_harness_core", "ERROR", "Expected low-cadence governed-migration rollback alarm emitted when migration verification fails and backup restore runs."),
     ("NextActionChosen", "workflow", "session_directive", "cli", "STATUS", "The core chose a next-action directive for an offered session"),
+    ("PathClaimCoverageSuppressed", "hook", "lint_decision", "yoke_core.domain.check_path_claim_coverage_at_commit", "WARN", "A commit-time path-claim coverage denial was explicitly suppressed; context records the claim, uncovered paths, and suppression token."),
     ("PathIntegrityFailureDetected", "lifecycle", "path_integrity", "yoke_core.domain.path_integrity_runs", "WARN", "Path-integrity verifier recorded an invariant failure"),
     ("PathIntegrityRepairApplied", "lifecycle", "path_integrity", "yoke_core.domain.path_integrity_repair", "INFO", "Path-integrity repair operation applied to a verifier finding"),
     ("PathIntegrityRunCompleted", "lifecycle", "path_integrity", "yoke_core.domain.path_integrity_runs", "INFO", "Path-integrity verifier run closed with pass/fail/skip status"),
@@ -286,6 +120,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("SMLChangeApproved", "lifecycle", "strategize", "strategize-skill", "STATUS", "SML change approved by operator"),
     ("SMLChangeProposed", "lifecycle", "strategize", "strategize-skill", "INFO", "SML change proposed to operator"),
     ("SMLRefreshCompleted", "lifecycle", "strategize", "strategize-skill", "INFO", "SML refresh phase completed"),
+    ("SectionAppended", "system", "data_mutation", "yoke_core.domain.item_field_transform_sections", "INFO", "A timestamped entry was appended to a structured item section, the rendered body was refreshed, and downstream synchronization was attempted."),
     ("SectionDeleted", "system", "data_mutation", "cli", "INFO", "item_sections row deleted and body regenerated"),
     ("SectionUpserted", "system", "data_mutation", "cli", "INFO", "item_sections row upserted and body regenerated"),
     ("SessionCwdBindingFailOpen", "lifecycle", "session_cwd", "yoke_core.domain.lint_session_cwd_emit", "WARN", "Expected low-cadence session-cwd fallback alarm emitted when cwd binding cannot be resolved and the guard falls open."),
@@ -299,10 +134,12 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("SessionOfferLaneOverrideIgnored", "system", "session_offer_lane_override_ignored", "yoke_core.domain.sessions_offer_lane", "WARN", "session-offer received a caller-supplied execution_lane (CLI --lane or HTTP body) that disagreed with the authoritative harness_sessions.execution_lane. The server uses the row value; the event records caller_supplied, row_lane, resolved_lane for audit."),
     ("HarnessSessionModelRefreshed", "system", "session_lifecycle", "runtime.harness.hook_runner", "INFO", "Emitted when a placeholder ``harness_sessions.model`` was upgraded to the real model ID from the transcript. Context: previous_model, refreshed_model, hook_source (PreToolUse / Stop / SessionEnd). Primarily a diagnostic for VS Code sessions where SessionStart arrives without a model field."),
     ("HarnessSessionSentFirstUserPromptSubmit", "system", "session_lifecycle", "runtime.harness.hook_runner", "INFO", "First UserPromptSubmit hook for this session has been handled (orientation block rendered). Distinct from HarnessSessionStarted, which fires earlier from the SessionStart hook when the harness_sessions row is inserted."),
+    ("HarnessSessionResumed", "system", "session_lifecycle", "yoke_core.domain.sessions_lifecycle_resumption_emit", "INFO", "A previously ended harness session began a new episode; the event records prior release reason plus inherited, reacquired, and conflicting claim counts and details."),
     ("HarnessSessionStaleReclaimed", "system", "session_lifecycle", "api", "INFO", "Emitted by the shared stale-session reclaimer when an idle session is force-ended. Carries stale_minutes, last_event_at, released_claim_count, executor, reason."),
     ("HarnessSessionStarted", "system", "session_lifecycle", "runtime.harness.hook_runner", "INFO", "A new session was registered in harness_sessions (emitted from the SessionStart hook via runtime.harness.hook_runner)"),
     ("HarnessSessionStopped", "system", "session_lifecycle", "yoke_core.domain.agent_stop", "INFO", "Session stopped via Claude Code's Stop hook (emitted by yoke_core.domain.agent_stop). Context includes stop_reason (completed/auto_committed/unexpected_stop)."),
     ("SkipHopPerformed", "lifecycle", "status", "advance-skip", "STATUS", "Operator-asserted skip-phase hop (--skip-polish or --skip-refine on /yoke advance)"),
+    ("StandaloneMergeReceiptRecorded", "lifecycle", "merge_lifecycle", "yoke_core.domain.standalone_item_merge_receipt", "INFO", "A standalone item merge recorded crash-recovery lineage for its branch, target, commit, merge identity, and touched files."),
     ("StrategizeCompleted", "lifecycle", "strategize", "strategize-skill", "STATUS", "Strategize session completed"),
     ("StrategizeStarted", "lifecycle", "strategize", "strategize-skill", "STATUS", "Strategize session started"), ("StrategyDocCreated", "workflow", "strategy_doc", "yoke_core.domain.handlers.strategy_docs_create", "INFO", "Strategy doc row created through the strategy.doc.create function id; the per-project strategy_docs table is the authority and the project's gitignored local .yoke/strategy/ view re-renders from it. Context carries slug, project_id, project_slug, new_bytes."), ("StrategyDocReplaced", "workflow", "strategy_doc", "yoke_core.domain.handlers.strategy_docs", "INFO", "Strategy doc content replaced through the strategy.doc.replace or strategy.ingest.run function ids; the per-project strategy_docs table is the authority and the project's gitignored local .yoke/strategy/ view re-renders from it. Context carries slug, project_id, project_slug, old_bytes, new_bytes, source (replace|ingest)."), ("StrategyDefaultsSeeded", "workflow", "strategy_doc", "yoke_core.domain.handlers.strategy_docs_seed", "INFO", "Placeholder strategy rows minted for default slugs the project was missing via strategy.seed_defaults.run — the per-slug top-up that cold-starts a fresh corpus and heals an established one (also invoked server-side by the install bundle). Context carries project_id, project_slug, seeded and already_present slugs."),
     ("StrategyDocArchived", "workflow", "strategy_doc", "yoke_core.domain.handlers.strategy_docs_archive", "INFO", "Strategy doc archived via the strategy.doc.archive function id: archived_at is stamped on the strategy_docs row and the rendered view relocates to .yoke/strategy/archive/<slug>.md. The doc stays a full, editable row (unarchive restores it). Context carries slug, project_id, project_slug, archived."),
@@ -323,8 +160,10 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("WorkHandedOff", "system", "session_lifecycle", "api", "INFO", "A work claim has been handed off from one session to another"),
     ("WorktreeHandoffEmitted", "lifecycle", "worktree_handoff", "yoke_core.domain.worktree_handoff", "STATUS", "RETIRED — parent-stop semantics replaced by per-call claim-based lint authority; worktree creation is no longer a session boundary."),
     ("SessionExecutionScopeChanged", "lifecycle", "session_execution_scope", "yoke_core.domain.session_execution_scope", "STATUS", "RETIRED — session-envelope execution scope replaced by per-call claim-based lint authority (lint_session_cwd reads work_claims directly)."),
+    ("SessionAnchorContentionObserved", "lifecycle", "session_lifecycle", "yoke_core.domain.session_process_anchors", "WARN", "A process anchor remained shared by multiple live harness sessions; context identifies the anchor, contenders, and last writer for fail-closed identity resolution."),
     ("OperatorClaimOverride", "system", "session_lifecycle", "api", "WARN", "Operator manually released a stranded claim via human-only override"),
     ("OperatorLeaseRelease", "system", "lease_lifecycle", "api", "WARN", "Operator manually released a stranded coordination lease via human-only override"),
+    ("OuroborosFieldNoteAppended", "domain", "ouroboros_feedback", "yoke_core.domain.handlers.ouroboros_field_note", "INFO", "An agent-authored field note was durably appended with its classification, evidence preview, provenance, project, and optional correction relationship."),
     ("PathClaimRegistered", "lifecycle", "path_claim", "yoke_core.domain.path_claims_events", "INFO", "Path claim registered (planned or blocked) for an item via the on-ramp surface"),
     ("PathClaimRegistrationBlocked", "lifecycle", "path_claim", "yoke_core.domain.path_claims_events", "WARN", "Path-claim registration rejected by the lifecycle layer (overlap, invalid actor, invalid target set)"),
     ("PathClaimActivated", "lifecycle", "path_claim", "yoke_core.domain.path_claims_events", "INFO", "Path claim activated — door lock acquired against pinned base snapshot"),
@@ -359,6 +198,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("ReflectionMarkerParseFailed", "domain", "reflection_marker_parse_failed", "yoke_core.domain.reflection_capture_field_note", "WARN", "Subagent reflection block carried a field_note_kind marker whose value is outside the closed enum (failed|new|unclear|observation). The reflection itself was captured as plain text; the field-note was NOT fired. Context carries raw_value, valid_values, agent, entry_context, body_preview so operators can surface stale PM/PD body teaching."),
     ("ReflectionCaptureHookFired", "system", "tool_call", "yoke_core.domain.reflection_capture_hook", "INFO", "PostToolUse Agent-tool hook fired and called capture_reflections. Carries blocks_seen, blocks_parsed_successfully, blocks_skipped_known_falsepositive, blocks_unrecognized, blocks_partial_no_end_marker, entries_persisted, entries_duplicate_skipped, entries_persist_failed, error_count, tool_use_id, subagent_type, role, project."),
     ("ReflectionCaptureHookUnhandled", "domain", "reflection_unhandled", "yoke_core.domain.reflection_capture_hook", "WARN", "PostToolUse Agent-tool hook observed at least one reflection block with no matching shape parser. Carries blocks_unrecognized count plus raw_examples (each: excerpt + classification_attempt) so operators can grow the parser to cover the new shape, fixed by HC-reflection-capture-unhandled (24h WARN surface)."), ("ReflectionCapturePersistFailed", "domain", "reflection_capture", "yoke_core.domain.reflection_capture", "WARN", "persist_entries swallowed an exception while inserting one parsed reflection entry into ouroboros_entries. Carries agent, category, body_excerpt (first 200 chars), exception_type so operators can surface silent drops; backed by HC-reflection-capture-persist-failed (24h WARN surface)."),
+    ("RenderRelationshipRecorded", "lifecycle", "path_context", "yoke_core.domain.agents_render_path_context", "INFO", "A packet render recorded batch-level provenance for the render-target and render-source relationships it refreshed."),
     ("ClaimReacquiredAfterHandoff", "lifecycle", "session_lifecycle", "yoke_core.domain.work_claim_handoff", "INFO", "RETIRED — handoff semantics replaced by explicit polish/usher hops; emitter and registry row removed in commit 1fe83ff6c. Status retired so historical ledger rows do not register as rogue."), ("PathContextMigrated", "lifecycle", "path_context", "yoke_core.domain.path_context_continuity_cutover", "INFO", "RETIRED — emitter module deleted in commit 966d30574 alongside the path-posture doc-link cutover (docs/archive/decisions/path-posture-doc-links-cutover.md). Status retired so historical ledger rows do not register as rogue."),
     ("LeakAttempt", "system", "test_isolation", "runtime.api.test_events_isolation", "WARN", "RETIRED — test-isolation fixture emission that exercises the canonical-DB gate refusal path. Status retired so historical ledger rows do not register as rogue; the fixture itself remains in place to keep the gate exercised."), ("DeploymentEventMigrated", "lifecycle", "deployment", "yoke_core.domain.deployment", "INFO", "RETIRED — one-shot historical migration backfill event for the legacy deployment_events table; the emit site has been deleted. Status retired so historical event_id=migrate-dep-evt-N rows in the events ledger do not register as rogue."),
     ("CodexSubagentStarted", "system", "subagent_lifecycle", "runtime.harness.hook_runner.subagent_telemetry", "INFO", "RETIRED — Codex custom-subagent start hook observer removed along with its telemetry bridge. Status retired so historical ledger rows do not register as rogue."),

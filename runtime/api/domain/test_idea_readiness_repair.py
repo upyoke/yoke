@@ -17,6 +17,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 
 
 _SAMPLE_PATH = "runtime/api/test_idea_readiness_check_path_extraction.py"
@@ -37,8 +38,16 @@ _ITEMS_DDL = (
 def _spec(*entries) -> str:
     body = ["# Spec\n\n## File Budget\n"]
     for path, recorded in entries:
-        body.append(f"- `{path}` = {recorded}\n")
+        body.append(_entry(path, recorded))
     return "".join(body)
+
+
+def _entry(path: str, count: int) -> str:
+    return (
+        f"- `{path}` — current {count} lines; remaining headroom "
+        f"{DEFAULT_LIMIT - count}; at-or-over-limit: "
+        f"{str(count >= DEFAULT_LIMIT).lower()}; responsibility: fixture.\n"
+    )
 
 
 def _stale_issue(path: str, recorded: int, actual: int = 0) -> dict:
@@ -85,33 +94,6 @@ class TestClassifyReadinessIssues(unittest.TestCase):
             idea_readiness_repair.classify_readiness_issues(issues),
             idea_readiness_repair.CLASS_UNRECOVERABLE,
         )
-
-
-class TestApplyReplacements(unittest.TestCase):
-    def test_single_match_replaced(self):
-        spec = "- `foo.py` = 100\n"
-        text, refused = idea_readiness_repair.apply_stale_count_replacements(
-            spec, [idea_readiness_repair.RepairedPath("foo.py", 100, 155)],
-        )
-        self.assertEqual(text, "- `foo.py` = 155\n")
-        self.assertEqual(refused, [])
-
-    def test_missing_entry_refused(self):
-        text, refused = idea_readiness_repair.apply_stale_count_replacements(
-            "- `bar.py` = 100\n",
-            [idea_readiness_repair.RepairedPath("foo.py", 100, 155)],
-        )
-        self.assertEqual(text, "- `bar.py` = 100\n")
-        self.assertEqual(refused[0]["reason"], "missing_file_budget_entry")
-
-    def test_duplicate_match_refused(self):
-        spec = "- `foo.py` = 100\nlater: `foo.py` = 200\n"
-        text, refused = idea_readiness_repair.apply_stale_count_replacements(
-            spec, [idea_readiness_repair.RepairedPath("foo.py", 100, 155)],
-        )
-        self.assertEqual(text, spec)
-        self.assertEqual(refused[0]["reason"], "duplicate_count_match")
-        self.assertEqual(refused[0]["match_count"], 2)
 
 
 def _apply_items_schema() -> None:
@@ -246,8 +228,8 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
         self.assertTrue(outcome.success, msg=outcome.error)
         self.assertEqual(outcome.repaired_paths[0].actual, actual)
         new_spec = self.db.fetch(item_id) or ""
-        self.assertIn(f"`{_SAMPLE_PATH}` = {actual}", new_spec)
-        self.assertNotIn(f"`{_SAMPLE_PATH}` = {recorded}", new_spec)
+        self.assertIn(f"`{_SAMPLE_PATH}` — current {actual} lines", new_spec)
+        self.assertNotIn(f"`{_SAMPLE_PATH}` — current {recorded} lines", new_spec)
 
     def test_missing_file_refused(self):
         item_id = 1605001
@@ -283,7 +265,10 @@ class TestAttemptStaleCountRepair(unittest.TestCase):
             item_id, [_stale_issue(_OTHER_PATH, 200, 340)],
         )
         self.assertTrue(outcome.success, msg=outcome.error)
-        self.assertIn(f"`{_OTHER_PATH}` = 340", self.db.fetch(item_id) or "")
+        self.assertIn(
+            f"`{_OTHER_PATH}` — current 340 lines",
+            self.db.fetch(item_id) or "",
+        )
 
     def test_mixed_classification_refuses(self):
         item_id = 1605004

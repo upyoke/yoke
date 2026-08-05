@@ -10,9 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from yoke_core.domain.actors import seed_human_actor, set_actor_label
-from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
-)
+from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.ui import local_operator_actor, server as ui_server
 
 
@@ -62,6 +60,11 @@ class TestRegistrationShape:
             "workflows.testing_default.set",
             "workflows.delivery_default.set",
             "workflows.approval_defaults.publish",
+            # Taking a published workflow update is an operator decision made
+            # in the browser, next to the diff that explains it. It publishes
+            # a version like its siblings above, and refuses rather than
+            # resolving when the merge conflicts with local edits.
+            "workflows.canon_update.apply",
             "test_machine.settings_replace", "test_machine.verify",
             "decision_requests.resolve",
             "notifications.read", "notifications.read_all",
@@ -170,6 +173,7 @@ class TestProxyMutations:
     def test_workflow_default_publish_acts_as_org_admin(
         self, ui_client, test_db,
     ):
+        converged = current_workflow_version(test_db, "dash")
         from yoke_core.domain.actor_permissions import (
             ROLE_ADMIN,
             grant_actor_org_role,
@@ -197,14 +201,14 @@ class TestProxyMutations:
             "function": "workflows.policy_defaults.publish",
             "payload": {
                 "workflow_id": "dash",
-                "expected_current_version": BUILTIN_WORKFLOW_PREFERRED_VERSION,
+                "expected_current_version": converged,
                 "path_claims_default": True,
             },
         })
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True, envelope
-        expected_version = BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+        expected_version = converged + 1
         assert envelope["result"]["version"] == expected_version
         row = test_db.execute(
             "SELECT published_by_actor_id FROM workflow_versions "

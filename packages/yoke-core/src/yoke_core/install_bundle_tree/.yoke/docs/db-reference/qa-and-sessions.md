@@ -275,7 +275,7 @@ The Active Harness Sessions and Recent Sessions tables share one Claims column t
 | path_claim process anchor | `📁<total> (⚙ process_key)` | `📁3 (⚙ FEED)`                     |
 | coordination_lease      | `🔒 <lease_key>`            | `🔒 LIVE_DB_MIGRATION:primary`     |
 
-Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; leases never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → leases. The recently-closed table uses the same shapes plus `(release_reason)` decoration on terminal rows; released path_claims and leases do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
+Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; leases never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → leases. Repeat work claims on the same rendered target and repeat coordination leases on the same `lease_key` each collapse to the most recent row (one keycap). Release reasons are not rendered on Claims — drill into claim/lease detail surfaces for audit history. Released path_claims and leases do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
 
 ### Session Offer
 

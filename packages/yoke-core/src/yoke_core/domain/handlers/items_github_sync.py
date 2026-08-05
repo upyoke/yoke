@@ -8,6 +8,8 @@ session holding the item claim blocks the call.
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 from typing import Any, Dict, List
 
 from pydantic import BaseModel
@@ -74,7 +76,8 @@ def handle_github_sync(request: FunctionCallRequest) -> HandlerOutcome:
     if rc != 0:
         return _error_outcome(
             "github_sync_failed",
-            f"GitHub sync failed for YOK-{item_id} with exit code {rc}.",
+            f"GitHub sync failed for {item_ref_for_id(item_id)} "
+            f"with exit code {rc}.",
         )
 
     backlog._maybe_rebuild_board(True)
@@ -124,7 +127,8 @@ def handle_github_done_sync(request: FunctionCallRequest) -> HandlerOutcome:
     if rc != 0:
         return _error_outcome(
             "github_sync_failed",
-            f"GitHub done sync failed for YOK-{item_id} with exit code {rc}.",
+            f"GitHub done sync failed for {item_ref_for_id(item_id)} "
+            f"with exit code {rc}.",
         )
 
     backlog._maybe_rebuild_board(True)

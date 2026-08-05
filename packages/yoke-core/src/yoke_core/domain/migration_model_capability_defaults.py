@@ -38,6 +38,14 @@ def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
                     "config": {
                         "modules_dir": DEFAULT_MODULES_DIR,
                         "connection_env_var": DEFAULT_CONNECTION_ENV_VAR,
+                        # Membership, so a skipped entry stays pending and a
+                        # rollback cannot report itself current.
+                        "ledger": {
+                            "table": "applied_migrations",
+                            "entry_column": "migration_name",
+                            "semantics": "membership",
+                            "serving_floor_column": "minimum_serving_version",
+                        },
                     },
                 },
             },

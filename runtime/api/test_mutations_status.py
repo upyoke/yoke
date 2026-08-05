@@ -71,7 +71,7 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for issue"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "issue@4" in result.error
+            assert "for issue@" in result.error
             assert "Defined stages:" in result.error
 
     def test_issue_accepts_issue_family_statuses(self):
@@ -131,7 +131,7 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for epic"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "epic@4" in result.error
+            assert "for epic@" in result.error
             assert "Defined stages:" in result.error
 
     def test_epic_accepts_exceptional_statuses(self):

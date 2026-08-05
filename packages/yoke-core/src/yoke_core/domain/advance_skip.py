@@ -12,6 +12,8 @@ front door.
 
 from __future__ import annotations
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
 import argparse
 import io
 import sys
@@ -72,9 +74,9 @@ def _run_cli_skip(
         sys.stdout.write(body)
 
     print(
-        "Skip {via}: YOK-{item_id} {frm} -> {to} (skipped {phase})".format(
+        "Skip {via}: {item_ref} {frm} -> {to} (skipped {phase})".format(
             via=result["via"],
-            item_id=item_id,
+            item_ref=item_ref_for_id(item_id),
             frm=result["from_status"],
             to=result["to_status"],
             phase=result["skipped_phase"],

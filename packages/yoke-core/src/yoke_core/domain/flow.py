@@ -6,12 +6,9 @@ plus the small set of CLI helpers used inside :func:`main`.  The
 substantive logic lives in responsibility-named siblings:
 
 - :mod:`yoke_core.domain.flow_validation` — stage-shape validation
-  and the step_runner/kind vocabularies.
+  and the step_runner vocabulary.
 - :mod:`yoke_core.domain.flow_init` — table DDL, seed flows, and the
   ``item_progress_view`` projection.
-- :mod:`yoke_core.domain.flow_cross_reference` — project-level
-  cross-reference of ``migration_apply`` stages against declared
-  ``migration_model`` capabilities.
 - :mod:`yoke_core.domain.flow_crud` — ``cmd_create``/``cmd_get``/
   ``cmd_list``/``cmd_stages`` plus the field allow-list and row
   formatter shared by them.
@@ -44,15 +41,11 @@ from yoke_core.domain.flow_crud import (
 from yoke_core.domain.flow_init import cmd_init
 from yoke_core.domain.flow_validation import (
     VALID_STEP_RUNNERS,
-    VALID_MIGRATION_APPLY_LIFECYCLE_PHASES,
-    VALID_STAGE_KINDS,
     validate_stages,
 )
 
 __all__ = [
     "VALID_STEP_RUNNERS",
-    "VALID_MIGRATION_APPLY_LIFECYCLE_PHASES",
-    "VALID_STAGE_KINDS",
     "cmd_create",
     "cmd_delete",
     "cmd_get",

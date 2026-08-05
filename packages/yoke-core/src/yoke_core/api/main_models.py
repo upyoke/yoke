@@ -58,9 +58,22 @@ class HealthResponse(BaseModel):
     ``schema_ready`` reports whether the connected DB carries the
     canonical readiness table set
     (:mod:`yoke_core.domain.schema_readiness`); ``schema_missing_tables``
-    names the absent tables when it does not. ``status`` stays ``"ok"``
-    either way — liveness consumers are unaffected; deploy gates assert
-    ``schema_ready`` explicitly.
+    names the absent tables when it does not. ``migrations_current``
+    reports whether that DB has applied every entry in the migration
+    history this build ships, and ``pending_migrations`` names the
+    outstanding ones when it has not — a container whose tables all exist
+    but whose migrations never ran passes the first pair and fails this
+    one.
+
+    ``can_serve_this_database`` reports the opposite direction, which the
+    other fields structurally cannot: whether this DB has had something
+    applied that THIS build cannot survive. An older build's history does
+    not contain a newer destructive entry at all, so it computes an empty
+    pending set and reports ``migrations_current`` true while reading
+    columns that are gone. ``stranded_by_migrations`` names each such
+    entry with the remedy. ``status`` stays ``"ok"`` regardless —
+    liveness consumers are unaffected; deploy gates assert these fields
+    explicitly.
     """
 
     status: str
@@ -69,6 +82,10 @@ class HealthResponse(BaseModel):
     build: str = ""
     schema_ready: bool
     schema_missing_tables: List[str] = Field(default_factory=list)
+    migrations_current: bool = True
+    pending_migrations: List[str] = Field(default_factory=list)
+    can_serve_this_database: bool = True
+    stranded_by_migrations: List[str] = Field(default_factory=list)
     github_app: GitHubAppAdvertisement = Field(default_factory=GitHubAppUnavailable)
 
 

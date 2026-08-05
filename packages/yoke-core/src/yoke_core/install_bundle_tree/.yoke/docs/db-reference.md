@@ -93,7 +93,7 @@ Normal runtime commands (reads, domain dispatch, structured-field writes) never 
 
 When a normal command runs against an existing DB whose baseline schema is missing (no `items` table), the router refuses the command and prints remediation pointing at `db_router init`. No silent `CREATE TABLE` as a side effect of a read-looking command.
 
-**Additive schema self-propagates on deploy.** Separately from the CLI bootstrap path above, the API server entrypoint (`yoke_core.api.server_entrypoint.ensure_core_schema`) runs the full idempotent `schema_init.converge_core_schema` — every `CREATE TABLE`/`CREATE INDEX` plus additive `ADD COLUMN` step — on every boot of an already-born universe. So any net-new additive table or column added to the schema-init chain reaches every born universe on its next deploy/restart with no governed migration and no manual catch-up. The governed migration runner (`migration_apply` rehearse/live-apply, with lease/audit/backup) is reserved for data-transforming changes — backfills, drops, rewrites — not net-new additive schema.
+**Additive schema self-propagates on deploy.** Separately from the CLI bootstrap path above, the API server entrypoint (`yoke_core.api.server_entrypoint.ensure_core_schema`) runs the full idempotent `schema_init.converge_core_schema` — every `CREATE TABLE`/`CREATE INDEX` plus additive `ADD COLUMN` step — on every boot of an already-born universe. So any net-new additive table or column added to the schema-init chain reaches every born universe on its next deploy/restart with no governed migration and no manual catch-up. Data-transforming changes — backfills, drops, rewrites — go in the ordered migration history instead, and are applied by the same boot converge.
 
 ### Retired schema surface registry
 
@@ -255,7 +255,7 @@ contract are documented at
 
 ## Live-apply provenance on `migration_audit`
 
-`migration_apply_live` stamps accountable provenance onto every audit row it touches so an operator inspecting a completed (or failed) live-apply can reconstruct who did what against the authoritative DB without re-deriving the context. The columns are nullable so legacy rows remain readable; the writer (`yoke_core.domain.migration_apply_audit.set_audit_provenance`) silently skips on a pre-migration authoritative DB.
+The apply path stamps accountable provenance onto every audit row it touches so an operator inspecting a completed (or failed) apply can reconstruct who did what against the authoritative DB without re-deriving the context. The columns are nullable so legacy rows remain readable; the writer (`yoke_core.domain.migration_apply_audit.set_audit_provenance`) silently skips on a pre-migration authoritative DB.
 
 ```sql
 actor_id          TEXT  -- harness_sessions.actor_id at apply time
@@ -268,37 +268,24 @@ change_class      TEXT  -- profile.migration_strategy (additive_only, hard_cutov
 
 The `coordination_leases.lease_id` join already linked the audit row to the lease that protected it; the new columns answer "from which checkout, by which actor, against which integration target." Doctor's `coordination-leases-unmerged-source` HC uses `source_branch` + `integration_target` to flag completed rows whose source never reached integration target — a sign the worktree was deleted before the slice merged.
 
-## Cross-worktree migration apply (`--module-path-override`)
+## Applying a migration
 
-`yoke_core.domain.migration_apply` exposes a sanctioned cross-worktree override for the two-unit `rehearse` / `live-apply` contract. The override sources the migration module from an active feature-worktree checkout instead of the model's default `runner.config.modules_dir` so a feature work item can apply the module it authored without staging it on `main` first. See AGENTS.md `## Governed DB Mutation` for the surrounding contract.
+There is no apply command. A server brings its own database up to the code it
+runs before it serves: `converge_core_schema` computes `history - ledger`,
+takes an exclusive per-database advisory lock, and applies each pending entry
+in order, committing the entry and its `applied_migrations` row in ONE
+transaction. Boot is fail-hard, so a container never serves behind its schema.
 
-CLI shape (both subcommands):
+A work item authors the entry and rehearses it:
 
 ```bash
-python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N \
-  --module-path-override /path/under/active/worktree/<slug>.py
-
-python3 -m yoke_core.domain.migration_apply live-apply PREFIX-N \
-  --module-path-override /path/under/active/worktree/<slug>.py
+python3 -m yoke_core.domain.migration_apply rehearse PREFIX-N
 ```
 
-Both rehearse and live-apply route through `yoke_core.domain.migration_apply_resolve.resolve_module_override` so the validation rules cannot drift between units.
-
-**Allowed shape.** Resolved real path is a regular `.py` file under the active item worktree. The basename without `.py` (the slug) is in the item's `db_mutation_profile.migration_modules`. The migration runner passes the target worktree path to `resolve_module_override` explicitly (caller-provided); `resolve_module_override` validates the override path resolves under that worktree and does not consult any session-scope state.
-
-**Denied shapes (each refused with `REFUSED:` and exit 4):**
-
-- empty `--module-path-override` argument,
-- caller did not pass a target worktree path (the migration runner resolves this from the item's claim before calling the helper),
-- override path does not exist on disk,
-- override path is a directory (or anything other than a regular file),
-- override path resolves outside the active item worktree (catches symlink escape since `Path.resolve(strict=True)` follows symlinks before the relative-to check),
-- basename is not `<slug>.py`,
-- slug is not declared in `db_mutation_profile.migration_modules`.
-
-`--force` does not bypass any of these. The refusal is structural so live-apply refuses rather than silently falling back to main, for both units.
-
-**Audit/evidence (no schema migration).** When the override is in effect, the rehearsed `migration_audit` row's `description` column carries `override_source=<resolved-path>; override_worktree=<resolved-worktree>` after the canonical `two-unit apply contract (governed)` prefix. Live-apply parses the description on the latest rehearsed row via `yoke_core.domain.migration_apply_audit.assert_live_apply_override_consistent`: if the description has the marker but the live-apply caller did not pass an override (or the paths differ), the unit refuses. The same evidence appears in CLI stdout under each `rehearse` / `live-apply` summary as `override_source=... override_worktree=...`.
+Rehearsal runs the entry against the model's validation surface, records the
+receipt the evidence gate reads, and takes the `LIVE_DB_MIGRATION:<model>`
+coordination lease — holding it so a second work item cannot enter migration
+territory while this one is in flight. A failing rehearsal releases it.
 
 ## JSON-payload columns
 

@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
-from yoke_core.domain.idea_readiness_check import (
+from yoke_core.domain.idea_readiness_file_budget_sizing import (
     SIBLING_REQUIRED_THRESHOLD,
 )
 from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root
@@ -108,7 +108,9 @@ def classify_readiness_issues(issues: List[Dict[str, Any]]) -> str:
 
 
 def _path_pattern(path: str) -> re.Pattern:
-    return re.compile(rf"(`?{re.escape(path)}`?\s*=\s*)(\d+)")
+    from yoke_core.domain.file_budget_sizing import path_sizing_pattern
+
+    return path_sizing_pattern(path)
 
 
 def apply_stale_count_replacements(
@@ -129,8 +131,13 @@ def apply_stale_count_replacements(
                             "recorded": r.recorded, "actual": r.actual,
                             "match_count": len(matches)})
             continue
+        from yoke_core.domain.file_budget_sizing import replacement_for_current_size
+
         text = pattern.sub(
-            lambda m, n=r.actual: f"{m.group(1)}{n}", text, count=1,
+            lambda match, count=r.actual: replacement_for_current_size(
+                match, count,
+            ),
+            text, count=1,
         )
     return text, refused
 

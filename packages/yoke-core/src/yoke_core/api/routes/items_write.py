@@ -262,6 +262,7 @@ def update_item(
         )
         item_state = ItemState(
             id=item_dict["id"],
+            item_ref=render_item_ref(conn, int(item_dict["id"])),
             title=item_dict["title"],
             status=item_dict["status"],
             priority=item_dict["priority"],

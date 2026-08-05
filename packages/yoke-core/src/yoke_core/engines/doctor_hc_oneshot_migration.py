@@ -120,10 +120,10 @@ def _profile_issues(item_ref: str, profile: Dict) -> List[str]:
             f"must be a list (got {type(modules).__name__})."
         )
 
-    if intent and intent not in ("apply", "retire"):
+    if intent and intent != "apply":
         issues.append(
             f"- {item_ref}: db_mutation_profile.mutation_intent must "
-            f"be 'apply' or 'retire' (got {intent!r})."
+            f"be 'apply' (got {intent!r})."
         )
 
     return issues

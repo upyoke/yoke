@@ -50,6 +50,20 @@ class WorkflowVersionGetRequest(BaseModel):
     version: int
 
 
+class WorkflowCanonGetRequest(BaseModel):
+    workflow_id: str
+    canon_version: Optional[int] = None
+
+
+class WorkflowCanonGetResponse(BaseModel):
+    workflow_id: str
+    canon_version: int
+    published_at: str
+    definition_digest: str
+    definition: Dict[str, Any]
+    is_newest: bool
+
+
 class WorkflowVersionGetResponse(BaseModel):
     workflow_id: str
     version: int
@@ -192,6 +206,54 @@ def handle_workflows_version_get(
     except WorkflowRegistryError as exc:
         return _error("not_found", str(exc), "$.payload.version")
     return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_workflows_canon_get(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Serve one published generation from the code-owned canon.
+
+    The canon is code, not rows, so a client comparing what this universe runs
+    against what Yoke published cannot reach it with a database read.
+    """
+    if request.target.kind != "global":
+        return _error(
+            "target_invalid",
+            "workflows.canon.get requires target.kind='global'",
+            "$.target.kind",
+        )
+    try:
+        payload = WorkflowCanonGetRequest.model_validate(request.payload or {})
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
+    from yoke_core.domain.builtin_workflow_canon import canon_generations
+
+    generations = canon_generations(payload.workflow_id)
+    wanted = payload.canon_version
+    found = None
+    if generations:
+        found = generations[-1] if wanted is None else next(
+            (row for row in generations if row.canon_version == wanted), None
+        )
+    if found is None:
+        return _error(
+            "not_found",
+            f"{payload.workflow_id} has no published canon generation {wanted}"
+            if generations or wanted is not None
+            else f"no published canon for workflow {payload.workflow_id!r}",
+            "$.payload.canon_version",
+        )
+    return HandlerOutcome(
+        result_payload={
+            "workflow_id": found.workflow_id,
+            "canon_version": found.canon_version,
+            "published_at": found.published_at,
+            "definition_digest": found.digest,
+            "definition": found.definition,
+            "is_newest": found.canon_version == generations[-1].canon_version,
+        },
+        primary_success=True,
+    )
 
 
 def handle_workflows_policy_defaults_publish(

@@ -82,8 +82,6 @@ def regression_db(tmp_db: str, tmp_path: Path):
              "2026-04-24T00:00:00Z"),
         )
         stages_json = json.dumps([
-            {"kind": "migration_apply", "model_name": "primary",
-             "lifecycle_phase": "implementing"},
             {"name": "merged", "step_runner": "auto"},
         ])
         conn.execute(

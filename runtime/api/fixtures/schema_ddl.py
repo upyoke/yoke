@@ -152,7 +152,15 @@ def apply_fixture_schema(conn: Any) -> None:
         ensure_field_note_dash_promotion_schema,
     )
     from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+    from yoke_core.domain.migration_audit_schema import (
+        ensure_applied_migrations_table,
+    )
 
+    # The fixture schema is hand-composed and never runs converge_core_schema,
+    # so the migration ledger has to be named here explicitly. Without it, any
+    # code that asks a fixture database whether it is current — the health
+    # predicate in particular — hits a missing table rather than an answer.
+    ensure_applied_migrations_table(conn)
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
     create_project_structure_tables(conn)

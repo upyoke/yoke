@@ -59,6 +59,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "workflows.definition.get",
     "workflows.mechanics.get",
     "workflows.version.get",
+    "workflows.canon.get",
+    "workflows.canon_update.preview",
     "test_machine.get",
     # Documented exception to "no side effects": the Overview activation
     # read latches newly satisfied module activations into
@@ -89,6 +91,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
+    "workflows.canon_update.apply",
     "overview.module.dismiss",
     "overview.module.restore",
     "workflows.current.set",

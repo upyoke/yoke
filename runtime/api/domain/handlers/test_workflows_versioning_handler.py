@@ -8,8 +8,8 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.handlers.workflows_versioning import (
@@ -49,7 +49,7 @@ def test_item_get_serves_exact_pin(test_db):
     assert outcome.result_payload["workflow_id"] == "issue"
     assert (
         outcome.result_payload["workflow_version"]
-        == BUILTIN_WORKFLOW_PREFERRED_VERSION
+        == current_workflow_version(test_db, "issue")
     )
     assert outcome.result_payload["status"] == "idea"
 
@@ -74,19 +74,19 @@ def test_current_set_changes_only_new_item_default(test_db):
 
 
 def test_version_get_and_policy_default_publish(test_db):
+    converged = current_workflow_version(test_db, "dash")
     version = handle_workflows_version_get(
         _request(
             "workflows.version.get",
             target=TargetRef(kind="global"),
-            payload={"workflow_id": "dash", "version": 1},
+            payload={"workflow_id": "dash", "version": converged},
         )
     )
     assert version.primary_success
-    assert version.result_payload["current"] is False
-    historical_policies = version.result_payload["definition"]["policies"]
-    assert historical_policies["path_claims"] == "optional"
-    assert "approval_defaults" not in historical_policies
-    assert historical_policies.get("approval_defaults", {}) == {}
+    assert version.result_payload["current"] is True
+    policies = version.result_payload["definition"]["policies"]
+    assert policies["path_claims"] == "optional"
+    assert policies.get("approval_defaults", {}) == {}
 
     published = handle_workflows_policy_defaults_publish(
         _request(
@@ -94,21 +94,19 @@ def test_version_get_and_policy_default_publish(test_db):
             target=TargetRef(kind="global"),
             payload={
                 "workflow_id": "dash",
-                "expected_current_version": BUILTIN_WORKFLOW_PREFERRED_VERSION,
+                "expected_current_version": converged,
                 "path_claims_default": True,
             },
             actor_id="1",
         )
     )
     assert published.primary_success
-    assert (
-        published.result_payload["version"]
-        == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
-    )
+    assert published.result_payload["version"] == converged + 1
     assert published.result_payload["path_claims_default"] is True
 
 
 def test_item_migrate_moves_only_compatible_target(test_db):
+    converged = current_workflow_version(test_db, "issue")
     insert_item(test_db, id=942, workflow_id="issue", status="idea")
     definition = builtin_workflow_definition("issue")["definition"]
     definition["stages"][0]["label"] = "Submitted"
@@ -126,8 +124,7 @@ def test_item_migrate_moves_only_compatible_target(test_db):
     assert outcome.primary_success
     assert outcome.result_payload["changed"] is True
     assert (
-        outcome.result_payload["after"]["workflow_version"]
-        == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+        outcome.result_payload["after"]["workflow_version"] == converged + 1
     )
 
 

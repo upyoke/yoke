@@ -1,9 +1,20 @@
-"""Current definitions for the Issue and Epic delivery workflows."""
+"""Current definitions for the Issue and Epic delivery workflows.
+
+Editing a definition here changes what NEW items pin. It does not, and
+must not, change any generation already published: canon is append-only,
+so a change appends generation N+1 and never alters N or earlier.
+
+After changing a definition, append the new generation to the canon in
+``builtin_workflow_canon/`` and update both pins in
+``runtime/api/domain/test_builtin_workflow_canon.py``. History used to be
+derived from this file by subtracting remembered fields, so editing here
+silently rewrote it and the fleet refused to boot; see
+``docs/archive/decisions/workflow-definitions-are-universe-data.md``.
+"""
 
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
@@ -99,7 +110,6 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     description=(
         "One scoped implementation lane with planning, review, QA and delivery."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(
@@ -161,7 +171,6 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         "Planned task decomposition with parallel worktree lanes and an "
         "integration boundary."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(

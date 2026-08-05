@@ -69,6 +69,10 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.match(rendered, /Execution document/);
   assert.match(rendered, /WORKFLOW-TYPES/);
   assert.match(rendered, /child of MASTER-PLAN/);
+  assert.match(rendered, /Technical plan/);
+  assert.match(rendered, /Touch the footer renderer first/);
+  assert.match(rendered, /Progress Log/);
+  assert.match(rendered, /Real values landed/);
   assert.match(rendered, /Worktree lanes · 2/);
   assert.match(rendered, /codex\/footer/);
   assert.match(rendered, /Verification/);
@@ -82,6 +86,7 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.match(rendered, /Migrations governed/);
   assert.match(rendered, /\/yoke blitz ACM-22/);
   assert.doesNotMatch(rendered, /Build one shell/);
+  assert.doesNotMatch(rendered, /Overall narrative/);
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
     [

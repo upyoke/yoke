@@ -46,6 +46,8 @@ def _seed_item(
     item_id: int,
     profile: Optional[Dict[str, Any]],
     attestation: Optional[Dict[str, Any]],
+    project_id: int = 1,
+    project_sequence: Optional[int] = None,
 ) -> None:
     conn.execute(
         "INSERT INTO items (id, project_id, project_sequence, "
@@ -53,8 +55,8 @@ def _seed_item(
         "VALUES (%s, %s, %s, %s, %s)",
         (
             item_id,
-            1,
-            item_id,
+            project_id,
+            item_id if project_sequence is None else project_sequence,
             json.dumps(profile) if profile is not None else None,
             json.dumps(attestation) if attestation is not None else None,
         ),
@@ -69,6 +71,14 @@ def conn():
         "CREATE TABLE items ("
         "id INTEGER PRIMARY KEY, project_id INTEGER, project_sequence INTEGER, "
         "db_mutation_profile TEXT, db_compatibility_attestation TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE projects ("
+        "id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO projects (id, slug, public_item_prefix) "
+        "VALUES (1, 'yoke', 'YOK'), (2, 'buzzer', 'BUZ')"
     )
     conn.commit()
     yield conn
@@ -108,7 +118,7 @@ class TestRehearsalCommandFixtures:
             attestation=_attestation(
                 [
                     "python3 -m yoke_core.domain.migration_apply rehearse 1 "
-                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                    "--worktree-path <worktree>/runtime/api/domain",
                 ]
             ),
         )
@@ -306,10 +316,11 @@ class TestNoSubprocessSafety:
             profile=_declared_profile(),
             attestation=_attestation(
                 [
-                    # The exact YOK-1800 broken shape. If the validator
-                    # executed this, the tripwire would fire.
+                    # A command whose worktree placeholder was never
+                    # substituted. If the validator executed this, the
+                    # tripwire would fire.
                     "python3 -m yoke_core.domain.migration_apply rehearse 11 "
-                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                    "--worktree-path <worktree>/runtime/api/domain",
                 ]
             ),
         )

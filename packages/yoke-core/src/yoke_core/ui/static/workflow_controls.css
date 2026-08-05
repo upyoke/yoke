@@ -93,6 +93,20 @@
   padding-top: 9px;
 }
 
+/* Provenance sits under the description as a quieter second line: a universe
+   numbering a published version differently is normal, so it reads as a note
+   rather than a warning. Customization is the one worth the accent colour,
+   because it is the state an update has to preserve. */
+.universe-app-root .workflow-version-provenance {
+  color: var(--yoke-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.universe-app-root .workflow-version-provenance.local {
+  color: var(--yoke-accent, var(--yoke-muted));
+}
+
 .universe-app-root .workflow-version-inspection {
   display: flex;
   gap: 10px;

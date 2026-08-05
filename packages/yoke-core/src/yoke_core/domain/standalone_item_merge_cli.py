@@ -88,6 +88,15 @@ def _lane_worktree_path(item: dict) -> str:
     return ""
 
 
+def _lane_commit_sha(item: dict) -> str:
+    """The committed HEAD recorded by the item's implementation lane."""
+    for lane in item.get("worktrees") or []:
+        commit_sha = str(lane.get("commit_sha") or "").strip()
+        if commit_sha:
+            return commit_sha
+    return ""
+
+
 def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
     from yoke_core.engines.done_transition_gates import (
         _get_base_branch,
@@ -151,7 +160,20 @@ def _record_evidence(
     return _relay_error(response, "evidence write failed")
 
 
-def _transition_to_done(item_id: int, source_status: str) -> str:
+def _transition_to_done(
+    item_id: int,
+    source_status: str,
+    repo_root: Path,
+    target: str,
+    commit_sha: str,
+) -> str:
+    from yoke_core.domain import standalone_item_merge_git as git
+
+    if not git.is_ancestor(str(repo_root), commit_sha, target):
+        return (
+            f"terminal transition refused: recorded merge commit {commit_sha} "
+            f"is not reachable from '{target}'"
+        )
     response = call_dispatcher(
         function_id="lifecycle.transition.execute",
         target=TargetRef(kind="item", item_id=item_id),
@@ -230,10 +252,12 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
     branch = _lane_branch(item, item_ref)
+    commit_sha = _lane_commit_sha(item)
 
     outcome = merge_standalone_branch(
         item_id=item_id,
         branch=branch,
+        commit_sha=commit_sha,
         target=target,
         repo_root=str(repo_root),
         project=str((item.get("project") or {}).get("slug") or "yoke"),
@@ -288,7 +312,9 @@ def run(argv: List[str]) -> int:
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
     if not args.skip_status:
-        transition_error = _transition_to_done(item_id, status)
+        transition_error = _transition_to_done(
+            item_id, status, repo_root, target, outcome.commit_sha,
+        )
         if transition_error:
             envelope["ok"] = False
             envelope["error"] = (

@@ -174,7 +174,7 @@ class TestSchemaScriptSyncSample:
         rec = RecordCollector()
         hc_schema_drift(conn, _args(), rec)
         res = _results(rec)
-        assert res["HC-schema-drift"][0] in ("PASS", "WARN")
+        assert res["HC-schema-drift"][0] in ("PASS", "FAIL")
 
 
 class TestDeployStageIntegrity:

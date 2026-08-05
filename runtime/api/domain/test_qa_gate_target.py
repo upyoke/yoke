@@ -32,7 +32,11 @@ class TestGateTarget:
         assert "epic_id" in sql
         assert params == (833, 5)
 
-    def test_display_name_item(self):
+    def test_display_name_item(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
+            lambda item_id: f"YOK-{item_id}",
+        )
         assert GateTarget.parse(str(TEST_ITEM_ID)).display_name() == TEST_ITEM_REF
 
     def test_display_name_epic(self):

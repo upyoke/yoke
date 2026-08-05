@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain.builtin_workflow_definitions import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.item_posture_validation import (
@@ -85,19 +85,18 @@ def test_optional_path_survey_can_be_tightened_at_item_creation():
 
 
 def test_path_survey_default_publishes_without_changing_path_claims(test_db):
+    converged = current_workflow_version(test_db, "dash")
     published = publish_workflow_policy_defaults(
         test_db,
         workflow_id="dash",
-        expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        expected_current_version=converged,
         path_survey_default=False,
         published_by_actor_id=1,
     )
 
     assert published["path_survey_default"] is False
     version = get_workflow_version(
-        test_db,
-        workflow_id="dash",
-        version=BUILTIN_WORKFLOW_PREFERRED_VERSION + 1,
+        test_db, workflow_id="dash", version=converged + 1,
     )
     policies = version["definition"]["policies"]
     assert policies["path_survey"] == "optional"

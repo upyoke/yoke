@@ -14,7 +14,7 @@ when the file already exists.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_compatibility_attestation import AUTHORED_FIELDS
@@ -28,7 +28,6 @@ from yoke_core.domain.db_mutation_gate_evidence import (
     _resolve_module_path,
 )
 from yoke_core.domain.db_mutation_gate_loaders import (
-    _list_project_flows_with_migration_apply,
     _load_capability_settings,
     _load_item_row,
     _other_non_terminal_profiles,
@@ -248,30 +247,6 @@ def check_idea_to_refining_idea_gate(
                                 "source": "scanner",
                                 "observed_at": _now_iso(),
                             })
-
-        # Flow cross-reference — model must be referenced by exactly one
-        # `migration_apply` stage on a project flow at an MVP-accepted phase.
-        flow_hits = _list_project_flows_with_migration_apply(c, project)
-        matching_flows: List[Tuple[str, str]] = []
-        for flow_id, ma_stages in flow_hits:
-            for stage in ma_stages:
-                if stage.get("model_name") == model_name:
-                    matching_flows.append((flow_id, stage.get("lifecycle_phase") or ""))
-        if not matching_flows:
-            errors.append(
-                f"no deployment_flow on project '{project}' has a "
-                f"migration_apply stage referencing model_name='{model_name}'. "
-                "Add the stage to a project flow before the work item can advance "
-                "past idea."
-            )
-        else:
-            phases = {phase for _, phase in matching_flows}
-            if "implementing" not in phases:
-                errors.append(
-                    f"flow stages reference model '{model_name}' but no "
-                    f"stage uses lifecycle_phase='implementing' (found: "
-                    f"{sorted(phases)}); only 'implementing' is wired in governed DB-mutation gate"
-                )
 
         # Step (e): cross-item overlap.  Dependency-aware bypass treats
         # candidate ↔ other pairs that already carry a blocks/depends-on

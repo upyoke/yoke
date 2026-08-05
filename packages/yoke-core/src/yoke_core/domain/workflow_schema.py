@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
   published_at TEXT NOT NULL,
   published_by_actor_id INTEGER,
   immutable_at TEXT NOT NULL,
+  derived_from_canon_version INTEGER,
   UNIQUE(workflow_id, version),
   UNIQUE(workflow_id, definition_digest)
 );
@@ -153,6 +154,17 @@ def ensure_workflow_registry_tables(conn: Any) -> None:
 def ensure_workflow_schema(conn: Any) -> None:
     """Converge the additive registry schema and item pin columns."""
     ensure_workflow_registry_tables(conn)
+    # Which published generation a locally-edited definition was edited from.
+    # NULL on rows that are themselves a published generation, and on rows
+    # that predate this column -- an unknown baseline is reported as unknown
+    # rather than guessed at, because guessing is what this whole model
+    # replaced.
+    _add_column_if_not_exists(
+        conn,
+        "workflow_versions",
+        "derived_from_canon_version",
+        "INTEGER",
+    )
     _add_column_if_not_exists(
         conn,
         "items",

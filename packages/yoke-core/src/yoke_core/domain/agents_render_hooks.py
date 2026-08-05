@@ -282,7 +282,16 @@ _CURSOR_HOOK_TIMEOUT_S = 30
 _CURSOR_MODEL_CAPTURE_EVENT = "afterAgentThought"
 
 
+_CURSOR_LIFECYCLE_VERBS = frozenset({"Stop", "SessionEnd"})
+
+
 def _cursor_command(event_verb: str) -> str:
+    if event_verb in _CURSOR_LIFECYCLE_VERBS:
+        from yoke_harness.hooks.cursor_lifecycle_hooks import (
+            cursor_lifecycle_hook_command,
+        )
+
+        return cursor_lifecycle_hook_command(event_verb)
     return (
         "/bin/zsh -lc '"
         f"env {_environment_export(CURSOR_MANIFEST)} {_CURSOR_IDENTITY_ENV} "
@@ -298,7 +307,9 @@ def render_cursor_hooks_block() -> dict:
     ``{"version": 1, "hooks": {...}}`` and hot-reloads the file on save.
     Matchers are JavaScript regexes over the Cursor tool vocabulary
     (pre-parser names: ``Shell``, ``Read``, ``Write``, ``Task``); events
-    without a matcher fire unconditionally.
+    without a matcher fire unconditionally. ``stop`` / ``sessionEnd`` use
+    a cwd-resilient command so a deleted linked-worktree project root
+    cannot skip session-end cleanup.
     """
     hooks: dict[str, list[dict]] = {}
     for cursor_event, verb, matcher in _CURSOR_EVENTS:

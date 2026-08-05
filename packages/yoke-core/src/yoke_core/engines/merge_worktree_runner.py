@@ -53,7 +53,9 @@ def _pre_acquire_check_with_retry(
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
+
 
 def run(args: MergeArgs) -> int:
     """Execute the full merge workflow. Returns exit code."""
@@ -103,16 +105,23 @@ def run(args: MergeArgs) -> int:
 
     # Verify branch exists
     verify = _run_git(
-        ["rev-parse", "--verify", f"refs/heads/{args.branch}"], cwd=ctx.repo_root, capture=True
+        ["rev-parse", "--verify", f"refs/heads/{args.branch}"],
+        cwd=ctx.repo_root,
+        capture=True,
     )
     if verify.returncode != 0:
-        _print(f"Error: branch '{args.branch}' does not exist as a local ref.", err=True)
+        _print(
+            f"Error: branch '{args.branch}' does not exist as a local ref.", err=True
+        )
         return 1
+
+    source_ref = args.source_sha or args.branch
 
     # Already-merged guard
     already = _run_git(
-        ["merge-base", "--is-ancestor", args.branch, args.target],
-        cwd=ctx.repo_root, capture=True,
+        ["merge-base", "--is-ancestor", source_ref, args.target],
+        cwd=ctx.repo_root,
+        capture=True,
     )
     if already.returncode == 0:
         _print(_already_merged_message(args.branch, args.target, ctx.repo_root))
@@ -122,13 +131,21 @@ def run(args: MergeArgs) -> int:
     # Also check origin
     _run_git(["fetch", "origin", args.target], cwd=ctx.repo_root, capture=True)
     already_origin = _run_git(
-        ["merge-base", "--is-ancestor", args.branch, f"origin/{args.target}"],
-        cwd=ctx.repo_root, capture=True,
+        ["merge-base", "--is-ancestor", source_ref, f"origin/{args.target}"],
+        cwd=ctx.repo_root,
+        capture=True,
     )
     if already_origin.returncode == 0:
         _print(_already_merged_message(args.branch, args.target, ctx.repo_root))
         _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
         return 0
+
+    from yoke_core.engines.merge_worktree_recorded_source import (
+        bind_recorded_source,
+    )
+    if source_error := bind_recorded_source(ctx, verify.stdout.strip()):
+        _print(f"Error: {source_error}.", err=True)
+        return 1
 
     # Branch mismatch correction
     if ctx.worktree_path != ctx.repo_root:
@@ -138,7 +155,10 @@ def run(args: MergeArgs) -> int:
         if actual.returncode == 0 and actual.stdout.strip():
             actual_branch = actual.stdout.strip()
             if actual_branch != args.branch:
-                _print(f"Warning: branch mismatch detected. Correcting to {actual_branch}.", err=True)
+                _print(
+                    f"Warning: branch mismatch detected. Correcting to {actual_branch}.",
+                    err=True,
+                )
                 args.branch = actual_branch
 
     # DB merge lock
@@ -154,11 +174,10 @@ def run(args: MergeArgs) -> int:
         # same project. ctx.project is None for the Yoke control repo itself,
         # which is that project's own slug.
         scope = merge_lock.LockScope(
-            project_slug=ctx.project or "yoke", target_branch=args.target,
+            project_slug=ctx.project or "yoke",
+            target_branch=args.target,
         )
-        block_msg = _pre_acquire_check_with_retry(
-            lambda: merge_lock.check(scope=scope)
-        )
+        block_msg = _pre_acquire_check_with_retry(lambda: merge_lock.check(scope=scope))
         if block_msg:
             _print(block_msg, err=True)
             _print(
@@ -229,14 +248,19 @@ def run(args: MergeArgs) -> int:
 
         # Compute branch-changed files (for doc conflict resolution)
         mb = _run_git(
-            ["merge-base", "HEAD", f"origin/{args.target}"], cwd=ctx.worktree_path, capture=True
+            ["merge-base", "HEAD", f"origin/{args.target}"],
+            cwd=ctx.worktree_path,
+            capture=True,
         )
         if mb.returncode == 0 and mb.stdout.strip():
             diff = _run_git(
                 ["diff", "--name-only", mb.stdout.strip(), "HEAD"],
-                cwd=ctx.worktree_path, capture=True,
+                cwd=ctx.worktree_path,
+                capture=True,
             )
-            ctx.branch_changed_files = diff.stdout.strip().splitlines() if diff.stdout.strip() else []
+            ctx.branch_changed_files = (
+                diff.stdout.strip().splitlines() if diff.stdout.strip() else []
+            )
 
         _print(f"Merging branch: {args.branch} \u2192 {args.target}")
         _print(f"Worktree: {ctx.worktree_path}")
@@ -289,7 +313,7 @@ def run(args: MergeArgs) -> int:
         elif exit_code == 5:
             # the precise MergeEngineFailed event with
             # ``phase=post_merge_cleanup`` / ``merge_committed=true`` has
-            # already been emitted by ``_regenerate_views_or_exit5``.
+            # already been emitted by the committed-merge cleanup path.
             # Suppress the generic emission here so the events ledger
             # only carries the truthful post-merge-cleanup record.
             pass

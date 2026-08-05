@@ -163,8 +163,13 @@ Record the survey:
 yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
 ```
 
+The response's `path_sizes` carries `current_line_count`,
+`remaining_headroom`, `at_or_over_limit`, `limit`, and `classification` for
+every path. Treat an at/over-limit path as a pre-implementation split or
+alternate-home decision; do not wait for the commit gate.
+
 When `FILE_BUDGET_POLICY` is non-`optional`, persist the surveyed edit targets and their
-single responsibilities under `## File Budget` through
+single responsibilities plus the survey's same per-path sizing fields under `## File Budget` through
 `items.structured_field.section_upsert` before implementation. When disabled,
 do not require or invent the section. When `PATH_CLAIMS_POLICY` is
 non-`optional` and budget is
@@ -194,7 +199,13 @@ yoke direct-workflow worktree prepare ITEM --workflow dash
 ```
 
 Use the returned absolute `worktree_path` for every read, edit, test, and
-git command. The preparation call reuses the item work claim already held
+git command. Keep the Cursor agent rooted on the main project checkout —
+do not call `move_agent_to_root` (or otherwise remount the chat) into
+`.worktrees/...`. Yoke worktrees are code lanes, not the conversation home;
+remounting assigns a new Cursor conversation id and, after the lane is
+removed, leaves Shell stuck on a deleted cwd (`ENOENT`). Pass an explicit
+live `working_directory` when Shell would inherit a worktree or deleted
+path. The preparation call reuses the item work claim already held
 since step 1 (reporting `work-claim:already-owned`, or acquiring it if
 absent), registers or widens selected path claims from the non-empty
 survey, activates them, and creates or reuses the registered worktree.

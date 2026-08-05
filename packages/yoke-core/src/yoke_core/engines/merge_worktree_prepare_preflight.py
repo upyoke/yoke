@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import is_yoke_managed_pattern
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
     from yoke_core.engines.merge_worktree_prepare import MergeContext
@@ -208,7 +209,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             data = resp.result or {}
             if data.get("applicable"):
                 iid = int(data.get("item_id"))
-                ref = data.get("item_ref") or f"YOK-{iid}"
+                ref = data.get("item_ref") or item_ref_for_id(iid)
                 if data.get("blocked"):
                     _print(f"  FAIL: Item {ref} is blocked (items.blocked=1).", err=True)
                     if data.get("reason"):

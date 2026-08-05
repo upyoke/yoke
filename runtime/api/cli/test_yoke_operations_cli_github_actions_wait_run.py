@@ -91,7 +91,7 @@ def test_wait_run_dispatches_single_shot_reads_until_success() -> None:
     }
 
 
-def test_wait_run_failure_preserves_failure_exit_code() -> None:
+def test_wait_run_failure_preserves_exit_code_and_names_run_url() -> None:
     rc, sleeps, out, _err = _run_wait(
         "github-actions", "wait-run", "o/r", "123",
         "--project", "yoke",
@@ -99,7 +99,9 @@ def test_wait_run_failure_preserves_failure_exit_code() -> None:
     )
     assert rc == 1
     assert sleeps == []
-    assert out.strip() == "failed:failure"
+    assert out.strip() == (
+        "failed:failure|https://github.com/o/r/actions/runs/123"
+    )
 
 
 def test_wait_run_timeout_returns_three_and_json_state() -> None:
