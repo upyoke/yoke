@@ -6,6 +6,12 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+# Re-exported, not used here: ``agent_stop`` imports this constant from
+# this module and carries it in its own ``__all__``, and three test
+# modules import it by that route. Unused-import tooling will offer to
+# delete it; deleting it breaks collection of everything downstream.
+from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS  # noqa: F401
+
 
 
 @dataclass
