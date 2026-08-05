@@ -1,13 +1,19 @@
 """Tests for :func:`session_claimed_worktrees.claimed_worktrees`.
 
-Covers the four shape rules from the spec body:
+Covers the four shape rules:
 
 * Empty-claim session returns ``[]``.
-* Single ``target_kind='item'`` claim returns the machine-local
-  checkout worktree path.
+* Single ``target_kind='item'`` claim returns its lane's recorded path.
 * Multi-claim epic (``target_kind='epic_task'``) enumerates per-task
-  worktrees, one row per task.
-* Released claims (``released_at IS NOT NULL``) are excluded.
+  worktrees, one row per task, each resolved through that task's own
+  ``epic_tasks.item_worktree_id`` rather than widened to the epic.
+* Released claims and released lanes are both excluded.
+
+Every lane here is seeded WITH its ``path`` column populated, because
+that column is the authority the resolver reads. A lane row with a null
+path models no universe worktree preparation can produce, and seeding
+one would let the resolver silently return no authority at all while
+the test still looked meaningful.
 
 The fixture uses a disposable Postgres database and seeds only the
 columns the resolver reads — no need to materialise the full Yoke schema.
@@ -108,11 +114,13 @@ def _seed_item(conn, *, item_id, worktree=None, project="yoke"):
     if worktree:
         conn.execute(
             "INSERT INTO item_worktrees "
-            "(item_id, branch, lane_role, state, created_at, updated_at) "
-            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            "(item_id, branch, path, lane_role, state, created_at, "
+            "updated_at) "
+            "VALUES (%s, %s, %s, 'implementation', 'active', %s, %s)",
             (
                 item_id,
                 worktree,
+                _worktree_path(worktree),
                 "2026-05-14T12:00:00Z",
                 "2026-05-14T12:00:00Z",
             ),
@@ -123,11 +131,12 @@ def _seed_item(conn, *, item_id, worktree=None, project="yoke"):
 def _seed_epic_task(conn, *, epic_id, task_num, worktree):
     row = conn.execute(
         "INSERT INTO item_worktrees "
-        "(item_id, branch, lane_role, state, created_at, updated_at) "
-        "VALUES (%s, %s, 'worker', 'active', %s, %s) RETURNING id",
+        "(item_id, branch, path, lane_role, state, created_at, updated_at) "
+        "VALUES (%s, %s, %s, 'worker', 'active', %s, %s) RETURNING id",
         (
             epic_id,
             worktree,
+            _worktree_path(worktree),
             "2026-05-14T12:00:00Z",
             "2026-05-14T12:00:00Z",
         ),
@@ -162,7 +171,7 @@ class TestEmptySession:
 
 
 class TestSingleItemClaim:
-    def test_item_claim_returns_computed_worktree_path(self, conn):
+    def test_item_claim_returns_recorded_lane_path(self, conn):
         _seed_item(conn, item_id=1691, worktree="YOK-1691")
         _seed_claim(
             conn, session_id="sid-1", target_kind="item", item_id=1691,

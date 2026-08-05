@@ -39,7 +39,7 @@ def _seed_claimed_worktree(conn, repo):
         Path(repo),
         1,
     )
-    seed_item(conn, item_id=1691, branch="YOK-1691")
+    seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
     seed_item_claim(conn, "sid-1", item_id=1691)
     (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
 

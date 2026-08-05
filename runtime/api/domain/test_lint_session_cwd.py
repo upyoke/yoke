@@ -73,7 +73,7 @@ class TestNoClaims:
 class TestClaimedWorktreeAuthorized:
     def test_target_inside_claimed_worktree_allows(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         wt = repo / ".worktrees" / "YOK-1691"
         wt.mkdir(parents=True)
@@ -89,7 +89,7 @@ class TestClaimedWorktreeAuthorized:
 
     def test_control_plane_target_allows(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         target = repo / "docs/README.md"
@@ -103,7 +103,7 @@ class TestClaimedWorktreeAuthorized:
 
     def test_free_path_target_allows(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         verdict = lint_session_cwd.evaluate_pre_tool_use({
@@ -116,7 +116,7 @@ class TestClaimedWorktreeAuthorized:
 class TestUnauthorizedTarget:
     def test_target_outside_authority_denies(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         # A target inside another item's worktree is not authorised.
@@ -137,7 +137,7 @@ class TestUnauthorizedTarget:
 class TestBashTargetExtraction:
     def test_git_c_target_under_claimed_worktree_allows(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         wt = repo / ".worktrees" / "YOK-1691"
         wt.mkdir(parents=True)
@@ -149,7 +149,7 @@ class TestBashTargetExtraction:
 
     def test_bash_with_no_target_falls_back_to_cwd(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         verdict = lint_session_cwd.evaluate_pre_tool_use({
@@ -161,7 +161,7 @@ class TestBashTargetExtraction:
 
     def test_bash_cwd_outside_authority_denies(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         # Use a synthetic non-tmp path so the free-path allowlist (which
@@ -179,7 +179,7 @@ class TestBashTargetExtraction:
 
     def test_all_absolute_positional_targets_are_checked(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         wt = repo / ".worktrees" / "YOK-1691"
         wt.mkdir(parents=True)
@@ -220,7 +220,7 @@ class TestEvaluateTypedEntrypoint:
 
     def test_deny_returns_deny_with_envelope(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         target = "/opt/elsewhere/file.py"
@@ -265,7 +265,7 @@ class TestValidatorDirect:
 
     def test_repo_root_derived_from_worktree_path(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=1691, branch="YOK-1691")
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
         seed_item_claim(conn, "sid-1", item_id=1691)
         (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
         target = repo / "data" / "config.json"

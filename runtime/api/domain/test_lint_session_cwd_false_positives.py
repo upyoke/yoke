@@ -185,7 +185,7 @@ def conn(tmp_path):
     (repo / ".worktrees" / "YOK-100").mkdir(parents=True)
     with test_database() as c:
         register_machine_checkout(tmp_path / "machine-config", repo, 1)
-        seed_item(c, item_id=100, branch="YOK-100")
+        seed_item(c, item_id=100, branch="YOK-100", repo_path=repo)
         seed_item_claim(c, "s1", item_id=100)
         yield c
 

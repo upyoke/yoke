@@ -1,11 +1,15 @@
 """PreToolUse + orientation guard: refuse tool calls whose target paths
 fall outside the session's claim-based authority.
 
-The session-cwd policy reads the session's active ``work_claims`` and
-authorises a target path when it lands under (a) a claimed worktree,
-(b) the control plane of a claimed project (repo root excluding
-``.worktrees/``), or (c) the free-path allowlist (``/tmp``,
-``/var/folders/...``). Sessions with no claims pass unconditionally.
+The policy answers two questions per target, in order. First: does a
+**different** live session hold the worktree lane this target is inside?
+That refusal applies to every caller, including one holding no claim at
+all, because a session with no stake in a lane is the shape that walks
+into somebody else's. Second, and only for a caller that holds claims:
+the target must land under (a) a claimed worktree, (b) the control plane
+of a claimed project (repo root excluding ``.worktrees/``), or (c) the
+free-path allowlist (``/tmp``, ``/var/folders/...``). A session with no
+claims is otherwise unconstrained.
 
 The same body renders as both a PreToolUse deny payload and an
 orientation warning block; the orientation path uses the harness cwd
@@ -42,6 +46,10 @@ from yoke_core.domain.lint_session_cwd_pre_implementing import (
 )
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
+)
+from yoke_core.domain.lint_session_cwd_foreign_lane import (
+    FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
+    build_denial_message as build_foreign_lane_message,
 )
 from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as PRE_IMPL_FAILURE_CLASS,
@@ -149,14 +157,18 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
                 repo_roots=outcome.repo_roots,
             )
 
-    reason = append_field_note_footer(
-        build_scope_mismatch_block(
+    if outcome.failure_class == FOREIGN_LANE_FAILURE_CLASS and outcome.occupant:
+        body = build_foreign_lane_message(
+            offending_target=outcome.offending_target,
+            occupant=outcome.occupant,
+        )
+    else:
+        body = build_scope_mismatch_block(
             offending_target=outcome.offending_target,
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
-        ),
-        rule_id="lint-session-cwd",
-    )
+        )
+    reason = append_field_note_footer(body, rule_id="lint-session-cwd")
     return Verdict(
         allow=False,
         reason=reason,

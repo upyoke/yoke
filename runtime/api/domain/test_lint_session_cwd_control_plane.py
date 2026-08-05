@@ -84,7 +84,10 @@ def _seed_claimed_checkout(conn, repo_path, project="externalwebapp"):
         project_id(project),
         create_checkout=False,
     )
-    seed_item(conn, item_id=42, branch="YOK-42", project=project)
+    seed_item(
+        conn, item_id=42, branch="YOK-42", project=project,
+        repo_path=repo_path,
+    )
     seed_item_claim(conn, "sid-cross", item_id=42)
 
 
@@ -271,7 +274,9 @@ class TestBlockedMessageWording:
             project_id("yoke"),
             create_checkout=False,
         )
-        seed_item(conn, item_id=42, branch="YOK-42")
+        seed_item(
+            conn, item_id=42, branch="YOK-42", repo_path=fake_yoke_root,
+        )
         seed_item_claim(conn, "sid-yoke", item_id=42)
 
         foreign = Path("/__foreign_target__/file")

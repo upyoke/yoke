@@ -44,7 +44,10 @@ def _register_checkout(repo_path):
 
 def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013, status="implementing"):
     _register_checkout(repo)
-    seed_item(conn, item_id=item_id, branch=f"YOK-{item_id}", status=status)
+    seed_item(
+        conn, item_id=item_id, branch=f"YOK-{item_id}", status=status,
+        repo_path=repo,
+    )
     seed_item_claim(conn, session_id, item_id=item_id)
     wt = repo / ".worktrees" / f"YOK-{item_id}"
     wt.mkdir(parents=True, exist_ok=True)
@@ -148,7 +151,10 @@ class TestUnaffectedCases:
 
     def test_pre_implementing_status_allows_main(self, conn, repo):
         _register_checkout(repo)
-        seed_item(conn, item_id=2013, branch="YOK-2013", status="idea")
+        seed_item(
+            conn, item_id=2013, branch="YOK-2013", status="idea",
+            repo_path=repo,
+        )
         seed_item_claim(conn, "sid-lane", item_id=2013)
         (repo / ".worktrees" / "YOK-2013").mkdir(parents=True, exist_ok=True)
         target = repo / "runtime/api/foo.py"
