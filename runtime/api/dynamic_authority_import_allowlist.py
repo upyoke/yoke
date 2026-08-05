@@ -18,6 +18,10 @@ enforcement logic past the authored-file line limit.
 
 from __future__ import annotations
 
+from runtime.api.dynamic_authority_import_allowlist_cli import (
+    CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS,
+)
+
 
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
@@ -311,38 +315,8 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "local_universe_dispatch",
         "in-process dispatch branch for non-https connections",
     ),
-    (
-        "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
-        "yoke_core.domain.project_github_auth",
-    ): (
-        "local_universe_dispatch",
-        "project-scoped GitHub App token dispatch for a local universe",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
-        "yoke_core.domain.github_actions_local_authority",
-    ): (
-        "local_universe_dispatch",
-        "explicit attended GitHub Actions bootstrap dispatcher",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
-        "runtime.harness.hook_runner.local_universe_lifecycle",
-    ): (
-        "local_universe_dispatch",
-        "drive the in-process session lifecycle for a bound local universe",
-    ),
-    (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
-        "yoke_core.domain.session_orientation",
-    ): (
-        "client_local_diagnostics",
-        "compose session orientation from this machine's own git and files",
-    ),
-    ("packages/yoke-cli/src/yoke_cli/commands/adapters/dash.py",
-     "yoke_core.domain.verification_tree_binding"):
-        ("client_local_diagnostics", "name the verification tree from git"),
 }
+ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS)
 
 
 __all__ = ["ALLOWED_DYNAMIC_AUTHORITY_IMPORTS"]

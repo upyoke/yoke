@@ -184,8 +184,8 @@ class TestExceptionPathBackup:
 
         msg = str(excinfo.value)
         assert "yoke_core.domain.backup" in msg
-        assert "migration_apply rehearse" in msg
-        assert "migration_audit.backup_path" in msg
+        assert "yoke migration rehearse" in msg
+        assert "named restore point" in msg
 
     def test_none_backup_reason_writes_empty_path(
         self, tmp_path: Path, initialized_db: str

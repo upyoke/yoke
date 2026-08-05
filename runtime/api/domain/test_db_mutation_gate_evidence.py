@@ -127,6 +127,12 @@ class TestEvidenceGate:
                         "config": {
                             "modules_dir": "app/db/migrations",
                             "connection_env_var": "APP_DB_PATH",
+                            "ledger": {
+                                "table": "schema_version",
+                                "entry_column": "migration_name",
+                                "semantics": "membership",
+                                "serving_floor_column": "minimum_serving_version",
+                            },
                         },
                     },
                 },
