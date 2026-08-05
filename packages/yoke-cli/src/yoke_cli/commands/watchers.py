@@ -69,6 +69,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "Run done-transition, merge-item, or merge-worktree under the shared "
         "raw+progress watcher."
     ),
+    "yoke watch deploy": (
+        "Run a deployment pipeline under the shared raw+progress watcher; "
+        "pass the run id and `deployment-runs execute` flags after `--`."
+    ),
     "yoke watch qa-case": (
         "Run the QA gate under the shared raw+progress watcher; pass bare "
         "`qa case run` flags after `--`."

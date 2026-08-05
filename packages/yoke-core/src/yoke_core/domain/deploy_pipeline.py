@@ -21,7 +21,7 @@ from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_step_runners import (
     _dispatch_step_runner,
 )
-from yoke_core.domain.deploy_pipeline_environment import release_control_plane_env
+from yoke_core.domain import deploy_pipeline_environment as deploy_env
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
     resolve_flow_gate_branch,
@@ -43,7 +43,7 @@ EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = 1
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
-_release_control_plane_env = release_control_plane_env
+_release_control_plane_env = deploy_env.release_control_plane_env
 
 
 def run_pipeline(
@@ -67,7 +67,7 @@ def run_pipeline(
         run_id = primary_arg
         run_row = _yoke_db("runs", "get", run_id, sd=sd)
         if not run_row:
-            print(f"Error: deployment run '{run_id}' not found", file=sys.stderr)
+            print(deploy_env.run_not_found_message(run_id), file=sys.stderr)
             return EXIT_USAGE
 
         fields = run_row.split("|")
@@ -143,7 +143,7 @@ def run_pipeline(
     target_env = "" if target_env == "null" else target_env
     print(
         "Deployment authority: "
-        f"release_control_plane={release_control_plane_env()} "
+        f"release_control_plane={deploy_env.release_control_plane_env()} "
         f"target_env={target_env or '<unset>'} "
         f"flow={flow_id} run={run_id}"
     )
