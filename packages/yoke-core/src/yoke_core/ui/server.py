@@ -136,13 +136,18 @@ def _local_host_identity_json() -> str:
     """Serialize mount fields from the canonical runtime-identity packet."""
     import json
 
+    import yoke_core
     from yoke_contracts.runtime_identity import (
         PORTABILITY_LOCAL,
         build_runtime_identity,
+        detect_install,
         mount_fields,
     )
 
-    packet = build_runtime_identity(portability_mode=PORTABILITY_LOCAL)
+    packet = build_runtime_identity(
+        portability_mode=PORTABILITY_LOCAL,
+        install=detect_install(yoke_core.__file__),
+    )
     return json.dumps(mount_fields(packet), separators=(",", ":"))
 
 

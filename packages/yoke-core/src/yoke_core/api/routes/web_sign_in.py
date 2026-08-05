@@ -22,9 +22,11 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.routing import APIRouter
 
+import yoke_core
 from yoke_contracts.runtime_identity import (
     PORTABILITY_SELFHOST,
     build_runtime_identity,
+    detect_install,
 )
 from yoke_core.api.http_auth import (
     LANDING_PATH,
@@ -242,7 +244,10 @@ def _signed_in_page(actor_id: int) -> HTMLResponse:
             label = actor_label(conn, actor_id)
         except ActorError:
             label = f"actor {actor_id}"
-    packet = build_runtime_identity(portability_mode=PORTABILITY_SELFHOST)
+    packet = build_runtime_identity(
+        portability_mode=PORTABILITY_SELFHOST,
+        install=detect_install(yoke_core.__file__),
+    )
     build = packet["build"]
     build_row = (
         f"<p>Build: {html.escape(build)}</p>" if build else ""

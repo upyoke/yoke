@@ -80,24 +80,19 @@ def build_runtime_identity(
 def detect_install(
     module_file: Union[str, Path, None] = None,
 ) -> dict[str, Any]:
-    """Install binding for a loaded module origin (defaults to ``yoke_core``)."""
-    resolved: Optional[Path] = None
-    if module_file is not None:
-        resolved = Path(module_file)
-    else:
-        try:
-            import yoke_core
+    """Install binding for a loaded module origin.
 
-            resolved = Path(yoke_core.__file__)
-        except ImportError:
-            resolved = None
-    if resolved is None:
+    Callers in core/CLI pass their own ``__file__``. This contracts module
+    never imports ``yoke_core`` — client packages must stay core-free.
+    """
+    if module_file is None:
         return {
             "kind": KIND_PACKAGED_WHEEL,
             "checkout_root": None,
             "module_origin": "",
             "version": installed_engine_version(),
         }
+    resolved = Path(module_file)
     checkout_root = source_checkout_root(resolved)
     return {
         "kind": (
