@@ -72,14 +72,15 @@ _PATH_TOKEN_RE = re.compile(
 # governed-migration runner (``migration_apply_rehearse._rehearse_inner``)
 # re-executes every entry in ``rehearsal_commands`` as a child process
 # against the validation surface — a child that itself invokes
-# ``migration_apply rehearse|live-apply`` would recurse into the same
+# migration rehearsal/apply command would recurse into the same
 # runner with the validation authority bound, where the items
 # row that named the command does not exist. The result is a confusing
 # ``Item YOK-N not found`` failure deep in the runner. The rehearsal
 # command must instead exercise the module's own surface (a focused
 # pytest run, a schema probe, etc.).
 _RECURSIVE_MIGRATION_APPLY_RE = re.compile(
-    r"yoke_core\.domain\.migration_apply\s+(rehearse|live-apply)\b"
+    r"(?:yoke_core\.domain\.migration_apply|yoke\s+migration)"
+    r"\s+(?:rehearse|live-apply)\b"
 )
 
 
@@ -254,7 +255,7 @@ _FAILURE_MESSAGE_PREFIX = {
     "missing_path": "rehearsal command references missing path",
     "shell_parse_error": "rehearsal command fails to shell-parse",
     "recursive_migration_apply_self_call": (
-        "rehearsal command re-invokes migration_apply rehearse/live-apply "
+        "rehearsal command re-invokes migration rehearsal/apply "
         "(runner would recurse into itself against the validation surface)"
     ),
 }

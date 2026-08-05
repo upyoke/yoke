@@ -227,18 +227,13 @@ idea-creation time rather than left as the schema default. Bucket 2 is
 the only path that intentionally leaves the schema default — a missing
 event on the blocker path is the desired behavior.
 
-5. **Bucket 1, `mutation_intent="apply"` — emit the topology-keyed
-   retire-AC clause.** When bucket 1 lands a declared payload with
-   `mutation_intent="apply"` and one or more `migration_modules`, the
-   spec must carry an explicit retire-the-module acceptance criterion
-   whose timing matches the project's install topology (per `AGENTS.md`
-   `## Cutover-work-item AC wording`). Read the topology and generate the
-   right clause automatically — the operator does not hand-author this.
-   See [`body-and-sync-functions.md`](body-and-sync-functions.md) under
-   "Retire-AC clause" for the full topology + payload recipe; the
-   addendum lands through the
-   `items.structured_field.section_append` function call (heading
-   `Acceptance Criteria`) so the rest of the spec body is preserved.
+5. **Bucket 1, `mutation_intent="apply"` — emit the permanent-history AC.**
+   When the payload names migration modules, the spec must require each entry
+   to remain in ordered history and be safe to re-run. There is no
+   topology-specific deletion path. See `body-and-sync-functions.md` under
+   "Permanent-history AC clause"; write the addendum through
+   `items.structured_field.section_append` so the rest of the spec is
+   preserved.
 
 ## 9. Path-Claim Policy
 

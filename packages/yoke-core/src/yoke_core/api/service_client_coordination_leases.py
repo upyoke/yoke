@@ -3,11 +3,10 @@
 Wires the human-operator recovery path (``coordination-lease-release``) plus
 the diagnostic surfaces (``coordination-lease-acquire``, ``-heartbeat``,
 ``-list``) used by doctor and operators to inspect shared-operation leases
-without dropping to raw SQL. The migration consumer scopes by
-``LIVE_DB_MIGRATION:<model_name>`` and acquires its lease internally during
-governed live-apply; the acquire/heartbeat CLIs are intended for new
-shared-operation consumers and for operator diagnostics, not as a bypass of
-the governed runner.
+without dropping to raw SQL. Migration rehearsal scopes by
+``LIVE_DB_MIGRATION:<model_name>`` and acquires its lease internally; the
+acquire/heartbeat CLIs are intended for new shared-operation consumers and
+operator diagnostics, not as a bypass of the governed runner.
 """
 
 from __future__ import annotations
