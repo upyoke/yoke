@@ -39,12 +39,24 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     dirty_untracked = _run_git(
         ["ls-files", "--others", "--exclude-standard"], cwd=ctx.worktree_path, capture=True
     )
+    # The index is a third source of dirt and the only one that survives
+    # having no working-tree counterpart: a staged deletion shows up in
+    # neither of the two probes above, so without this the merge would
+    # report a clean worktree and then carry the deletion into the merge
+    # commit. A second process sharing this worktree can stage entries
+    # this one never made.
+    dirty_staged = _run_git(
+        ["diff", "--cached", "--name-only"], cwd=ctx.worktree_path, capture=True
+    )
 
     all_dirty = []
     if dirty_tracked.stdout.strip():
         all_dirty.extend(dirty_tracked.stdout.strip().splitlines())
     if dirty_untracked.stdout.strip():
         all_dirty.extend(dirty_untracked.stdout.strip().splitlines())
+    if dirty_staged.stdout.strip():
+        all_dirty.extend(dirty_staged.stdout.strip().splitlines())
+    all_dirty = list(dict.fromkeys(all_dirty))
 
     yoke_dirty = [f for f in all_dirty if is_yoke_managed_pattern(f)]
     user_dirty = [f for f in all_dirty if not is_yoke_managed_pattern(f)]

@@ -11,11 +11,37 @@ from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS
 
 @dataclass
 class AutoCommitResult:
-    """Result of auto-committing uncommitted worktree work."""
+    """Result of auto-committing uncommitted worktree work.
+
+    ``pre_staged`` is non-empty when the index already carried entries
+    this agent did not stage. Nothing is committed in that case: the
+    caller surfaces the paths so their author can be found, because a
+    shared worktree index means they may belong to a different session
+    entirely.
+    """
 
     committed: bool = False
     file_count: int = 0
     files: str = ""
+    pre_staged: tuple[str, ...] = ()
+
+
+def _staged_paths(worktree_path: str) -> tuple[str, ...]:
+    """Paths already in the index, or ``()`` when git cannot be asked."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", worktree_path, "diff", "--cached", "--name-only"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return ()
+    if r.returncode != 0:
+        return ()
+    return tuple(
+        line for line in r.stdout.rstrip("\n").splitlines() if line.strip()
+    )
 
 
 def auto_commit_worktree(worktree_path: str, item_label: str) -> AutoCommitResult:
@@ -68,6 +94,14 @@ def auto_commit_worktree(worktree_path: str, item_label: str) -> AutoCommitResul
     lines = [l for l in dirty.splitlines() if l.strip()]
     file_count = len(lines)
     files = ", ".join(l[3:] for l in lines if len(l) > 3)
+
+    # This net exists to preserve THIS agent's uncommitted work. Entries
+    # already in the index were staged by something else — a worktree's
+    # index is shared by every process in it — and `add -A` followed by a
+    # bare commit would sweep them into a commit nobody authored.
+    pre_staged = _staged_paths(worktree_path)
+    if pre_staged:
+        return AutoCommitResult(pre_staged=pre_staged)
 
     try:
         subprocess.run(
