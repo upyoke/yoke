@@ -20,6 +20,21 @@ def _row(environment: str, entries, *, product_sha: str = "abc123") -> dict:
     return {"envelope": json.dumps(envelope)}
 
 
+class TestEmitEnvelopeIsAccepted:
+    def test_the_source_type_is_one_the_emit_surface_accepts(self):
+        # A rejected emit is a passing rehearsal the gate cannot see, and the
+        # rejection happens at the emit surface rather than here — so the only
+        # place this can be caught early is against that surface's own enum.
+        from yoke_core.domain import events_crud
+
+        assert receipt.SOURCE_TYPE in events_crud.VALID_SOURCE_TYPES
+
+    def test_the_severity_free_envelope_fields_are_non_empty(self):
+        assert receipt.EVENT_NAME
+        assert receipt.EVENT_KIND
+        assert receipt.EVENT_TYPE
+
+
 class TestEnvironmentNaming:
     def test_an_admin_connection_names_the_environment_it_rehearses(self):
         assert receipt.target_environment_for_admin_env("prod-db-admin") == "production"

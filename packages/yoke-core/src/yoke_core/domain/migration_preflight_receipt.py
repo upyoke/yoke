@@ -30,7 +30,12 @@ from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
 EVENT_NAME = "FleetMigrationPreflightPassed"
 EVENT_KIND = "system"
 EVENT_TYPE = "system"
-SOURCE_TYPE = "migration_fleet_preflight"
+
+#: Must be a member of ``events_crud.VALID_SOURCE_TYPES`` — the emit surface
+#: rejects anything else, and a rejected receipt means a passing rehearsal the
+#: gate cannot see. The preflight is a script, so that is what it declares;
+#: naming the tool here instead is what an emit refusal looks like in advance.
+SOURCE_TYPE = "script"
 
 ENVIRONMENT_KEY = "environment"
 ENTRIES_KEY = "entries"
