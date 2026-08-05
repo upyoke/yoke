@@ -8,7 +8,10 @@ half that ships everywhere:
   connection at all. A query the payload does not carry raises
   :class:`BoardDataMissError` loudly: record and replay run the SAME assembly
   code with the SAME query-shaping inputs (scope, board config values, zen
-  vision count, repo-root token), so a miss is a parity bug, never a fallback.
+  vision count, repo-root token), so a miss is never a silent fallback. It is
+  a parity bug only when both sides run the SAME build — otherwise the plans
+  moved apart because the code did, and the payload's recorded engine version
+  is what tells the two apart.
 - The value codec round-trips Postgres ``Decimal`` / ``date`` / ``datetime``
   results through JSON intact, shared by both record and replay sides.
 
@@ -99,8 +102,13 @@ class ReplayBoardDB:
 
     record_mode = False
 
-    def __init__(self, lookup: Dict[Tuple[str, str, str], Any]) -> None:
+    def __init__(
+        self,
+        lookup: Dict[Tuple[str, str, str], Any],
+        recorded_engine_version: str = "",
+    ) -> None:
         self._lookup = lookup
+        self._recorded_engine_version = recorded_engine_version
 
     @classmethod
     def from_payload(cls, payload: Dict[str, Any]) -> "ReplayBoardDB":
@@ -127,7 +135,7 @@ class ReplayBoardDB:
                     tuple(_decode_value(v) for v in row)
                     for row in (entry.get("rows") or [])
                 ]
-        return cls(lookup)
+        return cls(lookup, str(payload.get("engine_version") or ""))
 
     def _serve(self, kind: str, sql: str, params) -> Any:
         key = entry_key(kind, sql, params)
@@ -136,10 +144,53 @@ class ReplayBoardDB:
             difference = self._describe_miss(kind, sql, params)
             raise BoardDataMissError(
                 f"board data payload has no recorded {kind} result for: "
-                f"{excerpt!r} params={params!r} — {difference}; the record "
-                "and replay sides ran divergent query plans (parity bug)"
+                f"{excerpt!r} params={params!r} — {difference}; "
+                f"{self._diagnose_miss()}"
             )
         return self._lookup[key]
+
+    def _diagnose_miss(self) -> str:
+        """Say why the two sides disagree, rather than always accusing.
+
+        A miss has two very different causes that look identical here. If
+        both sides run the same build, the query plan genuinely diverged and
+        that is a defect worth chasing. If they run different builds, nothing
+        is broken — the client simply moved and the plan moved with it, which
+        is the ordinary state of a source checkout against a deployed server.
+        Naming the second as a parity bug sends the reader to debug code that
+        is fine.
+        """
+        from yoke_contracts.engine_version import installed_engine_version
+
+        recorded = self._recorded_engine_version
+        local = installed_engine_version()
+        if not recorded or not local:
+            # Unknown is a third answer and must not render as agreement: a
+            # source checkout resolves no version at all, which is exactly
+            # the case most likely to be skewed.
+            known = (
+                f"the board data came from engine {recorded!r}"
+                if recorded
+                else f"this client is engine {local!r}"
+                if local
+                else "neither side reports an engine version"
+            )
+            return (
+                f"{known}, and the other side reports none, so a genuine "
+                "parity bug cannot be told apart from the two sides running "
+                "different builds — compare them before debugging the board"
+            )
+        if recorded != local:
+            return (
+                f"the board data came from engine {recorded}, this client is "
+                f"{local} — the two ran different code, so this is version "
+                "skew rather than a parity bug; deploy the newer side or pin "
+                "the client to match"
+            )
+        return (
+            f"both sides are engine {local}, so the record and replay sides "
+            "ran divergent query plans (parity bug)"
+        )
 
     def _describe_miss(self, kind: str, sql: str, params: Any) -> str:
         """Name the query-key component that differs from recorded data."""
