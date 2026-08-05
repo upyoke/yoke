@@ -224,7 +224,9 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
     )
     if kind == RUNNER_KIND_GOVERNED_MODULE:
         cfg = _require_dict(obj.get("config"), field="runner.config")
-        extra_cfg = set(cfg.keys()) - {"modules_dir", "connection_env_var"}
+        extra_cfg = set(cfg.keys()) - {
+            "modules_dir", "connection_env_var", "ledger",
+        }
         if extra_cfg:
             raise MigrationModelCapabilityError(
                 f"runner.config has unknown keys for governed_migration_module: "
@@ -240,10 +242,13 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
             raise MigrationModelCapabilityError(
                 "runner.config.connection_env_var must be a non-empty string"
             )
-        return {
-            "kind": kind,
-            "config": {"modules_dir": modules_dir, "connection_env_var": conn_env},
-        }
+        config: Dict[str, Any] = {
+            "modules_dir": modules_dir, "connection_env_var": conn_env}
+        if "ledger" in cfg:
+            from yoke_core.domain import migration_ledger_contract
+            config["ledger"] = migration_ledger_contract.runner_config_ledger(
+                cfg["ledger"], MigrationModelCapabilityError)
+        return {"kind": kind, "config": config}
     raise MigrationModelCapabilityError(
         f"runner.kind '{kind}' is recognized but the combination "
         f"is not yet supported in this slice"
