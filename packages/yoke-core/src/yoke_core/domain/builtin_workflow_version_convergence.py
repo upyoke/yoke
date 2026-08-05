@@ -199,18 +199,30 @@ def converge_builtin_workflows(
         if current is None:
             raise WorkflowRegistryError(f"workflow {workflow_id!r} is missing")
         current_id = current.get("current_version_id")
-        if current_id is None:
+        selected = (
+            version_by_id(conn, int(current_id))
+            if current_id is not None
+            else None
+        )
+        if selected is not None and selected["workflow_id"] != workflow_id:
+            raise WorkflowRegistryError(
+                f"workflow {workflow_id!r} has an invalid current version"
+            )
+        if selected is None:
+            # Unset and dangling are the same question here: a pointer at a row
+            # that is not there carries no information, so both re-resolve to
+            # the code-owned version below. Retiring a redundant version can
+            # leave this column naming the row it dropped, and this convergence
+            # runs before the migration history does — so the boot that retires
+            # it succeeds and every later boot would refuse, with no migration
+            # able to repair it, because the refusal happens first. A pointer
+            # into a DIFFERENT workflow stays fatal: that is a real mix-up
+            # rather than a missing row.
             conn.execute(
                 f"UPDATE workflows SET current_version_id = {bind}, "
                 f"updated_at = {bind} WHERE id = {bind}",
                 (int(desired["id"]), now, workflow_id),
             )
-        else:
-            selected = version_by_id(conn, int(current_id))
-            if selected is None or selected["workflow_id"] != workflow_id:
-                raise WorkflowRegistryError(
-                    f"workflow {workflow_id!r} has an invalid current version"
-                )
     conn.commit()
 
 

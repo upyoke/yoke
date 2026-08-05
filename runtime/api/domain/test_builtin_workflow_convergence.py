@@ -24,6 +24,7 @@ from yoke_core.domain.builtin_workflow_version_convergence import (
     unrecognized_builtin_versions,
 )
 from yoke_core.domain.workflow_definition_codec import (
+    WorkflowRegistryError,
     canonical_definition_json,
     definition_digest,
 )
@@ -226,3 +227,58 @@ def test_convergence_leaves_an_operator_edit_in_place(test_db):
     assert issue["current_version"] == 2
     assert issue["canon_status"]["state"] == "customized_update_available"
     assert issue["canon_status"]["derived_from_canon_version"] == 1
+
+
+def test_a_current_version_pointing_at_a_removed_row_is_re_resolved(test_db):
+    """The refusal that stranded a fleet with no migration able to reach it.
+
+    Retiring a redundant version can leave ``current_version_id`` naming the
+    row it dropped. Convergence runs before the migration history does, so the
+    boot that retires the row succeeds and every later boot read the dangling
+    pointer -- a refusal no migration could repair, because it happened first.
+    A pointer at a row that is not there carries no information, so it is
+    re-resolved exactly like an unset one.
+    """
+    _seed_first_generation(test_db, builtin_workflow_version_history())
+    removed_id = test_db.execute(
+        "SELECT current_version_id FROM workflows WHERE id = 'issue'"
+    ).fetchone()[0]
+    # Point at an id that no row carries, the state a fold leaves behind.
+    test_db.execute(
+        "UPDATE workflows SET current_version_id = %s WHERE id = 'issue'",
+        (removed_id + 10_000,),
+    )
+    test_db.commit()
+
+    converge_builtin_workflows(test_db)
+
+    issue = next(
+        row for row in list_current_workflows(test_db) if row["id"] == "issue"
+    )
+    resolved = test_db.execute(
+        "SELECT current_version_id FROM workflows WHERE id = 'issue'"
+    ).fetchone()[0]
+    assert resolved is not None
+    # It names a row that exists, and that row belongs to this workflow.
+    owner = test_db.execute(
+        "SELECT workflow_id FROM workflow_versions WHERE id = %s",
+        (resolved,),
+    ).fetchone()[0]
+    assert owner == "issue"
+    assert issue["current_version"] is not None
+
+
+def test_a_current_version_owned_by_another_workflow_still_refuses(test_db):
+    """A real mix-up stays fatal; only the missing row is treated as unset."""
+    _seed_first_generation(test_db, builtin_workflow_version_history())
+    foreign_id = test_db.execute(
+        "SELECT current_version_id FROM workflows WHERE id = 'epic'"
+    ).fetchone()[0]
+    test_db.execute(
+        "UPDATE workflows SET current_version_id = %s WHERE id = 'issue'",
+        (foreign_id,),
+    )
+    test_db.commit()
+
+    with pytest.raises(WorkflowRegistryError, match="invalid current version"):
+        converge_builtin_workflows(test_db)

@@ -25,6 +25,7 @@ WORKFLOW_SCHEMA_VERSION = 3
 _VERSION_REFERENCES = (
     ("items", "workflow_version_id"),
     ("decision_requests", "consumed_workflow_version_id"),
+    ("workflows", "current_version_id"),
 )
 
 
