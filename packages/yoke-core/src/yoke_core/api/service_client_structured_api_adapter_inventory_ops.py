@@ -76,6 +76,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="deployment_runs.update",
         cli_invocation="yoke deployment-runs update",
     ),
+    AdapterEntry(
+        function_id="deployment_runs.terminalize",
+        cli_invocation="yoke deployment-runs terminalize",
+    ),
     # Ephemeral environment read/create/update.
     _read_entry(
         function_id="ephemeral_env.get",

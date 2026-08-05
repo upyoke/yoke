@@ -72,6 +72,7 @@ class TestRegistrationShape:
             "items.create",
             "sessions.reclaim_stale",
             "strategy.revision.restore",
+            "deployment_runs.terminalize",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
@@ -169,6 +170,63 @@ class TestProxyMutations:
             "SELECT COUNT(*) FROM actor_ui_preferences"
         ).fetchone()[0]
         assert int(remaining) == 0
+
+    def test_deployment_run_terminalization_is_attributed_and_audited(
+        self, ui_client, test_db,
+    ):
+        from yoke_core.domain.actor_permissions import (
+            ROLE_ADMIN,
+            grant_actor_org_role,
+            seed_roles_and_permissions,
+        )
+
+        seed_roles_and_permissions(test_db)
+        operator = int(local_operator_actor.resolve_local_operator_actor())
+        org_id = int(test_db.execute(
+            "SELECT id FROM organizations ORDER BY id LIMIT 1"
+        ).fetchone()[0])
+        grant_actor_org_role(
+            test_db,
+            actor_id=operator,
+            org_id=org_id,
+            role_name=ROLE_ADMIN,
+            granted_by_actor_id=operator,
+        )
+        test_db.execute(
+            "INSERT INTO deployment_flows "
+            "(id, project_id, name, stages, created_at) "
+            "VALUES ('ui-terminalize', 1, 'UI terminalize', '[]', "
+            "'2026-08-05T00:00:00Z')"
+        )
+        test_db.execute(
+            "INSERT INTO deployment_runs "
+            "(id, project_id, flow, status, created_at) "
+            "VALUES ('run-ui-terminalize', 1, 'ui-terminalize', "
+            "'executing', '2026-08-05T00:00:00Z')"
+        )
+        test_db.commit()
+
+        response = _call(ui_client, {
+            "function": "deployment_runs.terminalize",
+            "target": {
+                "kind": "workflow_run",
+                "workflow_run_id": "run-ui-terminalize",
+            },
+            "payload": {
+                "disposition": "cancelled",
+                "reason": "No external execution remains",
+            },
+        })
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True, envelope
+        assert envelope["result"]["terminalized_by_actor_id"] == operator
+        event = test_db.execute(
+            "SELECT severity, actor_id FROM events WHERE event_id=%s",
+            (envelope["result"]["event_id"],),
+        ).fetchone()
+        assert event[0] == "STATUS"
+        assert int(event[1]) == operator
 
     def test_workflow_default_publish_acts_as_org_admin(
         self, ui_client, test_db,

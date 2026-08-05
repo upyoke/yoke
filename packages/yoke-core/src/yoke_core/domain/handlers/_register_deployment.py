@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.domain.handlers import (
     deployment_common as _models,
     deployment_run_projection as _run_projection,
+    deployment_run_terminalization as _run_terminalization,
     deployment_flows as _flows,
     deployment_runs as _runs,
     deployment_runs_composed as _runs_composed,
@@ -198,6 +199,33 @@ def register(registry) -> None:
         side_effects=["deployment_runs_update"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.terminalize",
+        _run_terminalization.handle_deployment_run_terminalize,
+        _run_terminalization.DeploymentRunTerminalizeRequest,
+        _run_terminalization.DeploymentRunTerminalizeResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.deployment_run_terminalization"
+        ),
+        target_kinds=["workflow_run"],
+        side_effects=["deployment_runs_update", "events_insert"],
+        emitted_event_names=[
+            "DeploymentRunTerminalized", "YokeFunctionCalled",
+        ],
+        guardrails=[
+            "active_run",
+            "allowed_terminal_disposition",
+            "nonempty_reason",
+            "atomic_audit_event",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+        # The loopback dashboard has no harness session. Its proxy binds the
+        # sole local operator actor and the org-admin permission gate still
+        # applies, so browser and CLI calls share this authority safely.
+        ambient_session_required=False,
     )
     registry.register(
         "deployment_runs.resolve_target_env",

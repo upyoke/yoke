@@ -109,6 +109,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "items.create",
     "sessions.reclaim_stale",
     "strategy.revision.restore",
+    "deployment_runs.terminalize",
 })
 
 
