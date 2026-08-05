@@ -2,7 +2,7 @@
 
 CLI usage::
 
-    python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH] [--timeout M] [--from-stage S] [--fresh]
+    python3 -m yoke_core.domain.deploy_pipeline <run-id|item-id> [--product-repo-path PATH --image-tag TAG] [--timeout M] [--from-stage S] [--fresh]
 
 Exit codes: 0 = success, 1 = stage failed, 2 = awaiting approval, 3 = usage/setup error.
 """
