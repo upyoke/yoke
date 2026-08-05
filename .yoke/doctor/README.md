@@ -30,6 +30,20 @@ Anything else in the folder — helpers, fixtures, this README — is ignored.
 A module that fails to import is reported as a FAIL, not skipped — a check
 that cannot load never runs, and silence would read as health.
 
+## Verification audit
+
+The merge-gating test suite imports every discovered `check_*.py` module and
+executes every declared check against its disposable Postgres control plane.
+It also asserts the source-checkout applicability that keeps these checks out
+of runtimes where their project tree is unavailable.
+
+The complete module-symbol audit covers all 48 check modules and 230
+attribute references on imported modules. Ruff's undefined-name/import scan
+found no additional issues; the attribute audit found and corrected the lone
+invalid reference, `json_helper.loads` in the migration-ledger contract check.
+The executable family test seeds that check's migration-model branch so its
+function-local imports and symbol references are reached.
+
 ## Applicability
 
 Declare what the check applies to so the runner can tell "passed" from "not

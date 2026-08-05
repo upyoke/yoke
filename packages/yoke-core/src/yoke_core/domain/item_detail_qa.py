@@ -11,6 +11,7 @@ from yoke_core.domain.qa_execution_proof import (
     qa_proof_summary,
     qa_run_outcome,
 )
+from yoke_core.domain.qa_terminal_settlement import recorded_head_sha
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -118,6 +119,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         run_id = int(row["run_id"]) if row.get("run_id") is not None else None
         outcome = qa_run_outcome(row)
         raw_result = row.pop("raw_result", None)
+        row["recorded_head_sha"] = recorded_head_sha(raw_result)
         precondition_reason = qa_precondition_reason(raw_result)
         row["outcome"] = outcome
         row["precondition_reason"] = precondition_reason

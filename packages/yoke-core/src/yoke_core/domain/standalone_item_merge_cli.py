@@ -19,6 +19,7 @@ from typing import Any, List, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.standalone_item_merge import merge_standalone_branch
+from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 
 # Workflows whose terminal transition is gated on an execution-evidence
 # record. Other standalone workflows merge through the same boundary but
@@ -85,15 +86,6 @@ def _lane_worktree_path(item: dict) -> str:
         path = str(lane.get("path") or "").strip()
         if path:
             return path
-    return ""
-
-
-def _lane_commit_sha(item: dict) -> str:
-    """The committed HEAD recorded by the item's implementation lane."""
-    for lane in item.get("worktrees") or []:
-        commit_sha = str(lane.get("commit_sha") or "").strip()
-        if commit_sha:
-            return commit_sha
     return ""
 
 
@@ -252,7 +244,11 @@ def run(argv: List[str]) -> int:
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
     branch = _lane_branch(item, item_ref)
-    commit_sha = _lane_commit_sha(item)
+    commit_sha, qa_error = qa_preflight(
+        item, item_ref=item_ref, repo_root=repo_root, branch=branch,
+    )
+    if qa_error:
+        return _fail(f"{item_ref}: {qa_error}", as_json=as_json)
 
     outcome = merge_standalone_branch(
         item_id=item_id,

@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.fixtures.backlog import (
     insert_item,
+    insert_item_worktree,
     insert_qa_requirement,
     insert_qa_run,
 )
@@ -95,7 +96,7 @@ def test_terminal_transition_allows_settled_or_waived_records(test_db):
         raw_result='{"timed_out": true}',
     )
     waived_requirement = _row_id(
-        insert_qa_requirement(test_db, item_id=10, blocking_mode="non_blocking")
+        insert_qa_requirement(test_db, item_id=10, blocking_mode="blocking")
     )
     test_db.execute(
         "UPDATE qa_requirements SET waived_at = %s WHERE id = %s",
@@ -109,4 +110,62 @@ def test_terminal_transition_allows_settled_or_waived_records(test_db):
     )
     test_db.commit()
 
+    assert _terminal_result(test_db) == {"success": True}
+
+
+def _seed_merging_sha(test_db, sha: str) -> None:
+    lane = insert_item_worktree(test_db, item_id=10, branch="YOK-10")
+    lane_id = int(lane["id"] if hasattr(lane, "keys") else lane[0])
+    test_db.execute(
+        "UPDATE item_worktrees SET commit_sha = %s WHERE id = %s",
+        (sha, lane_id),
+    )
+    test_db.commit()
+
+
+def test_terminal_transition_refuses_when_nothing_materialized(test_db):
+    insert_item(test_db, id=10, status="release")
+    result = _terminal_result(test_db)
+    assert result["error_code"] == "GATE_QA_TERMINAL_VERDICT"
+    assert "no blocking QA requirement was materialized" in result["error"]
+    assert "yoke qa plan run --item YOK-10" in result["error"]
+
+
+def test_terminal_transition_refuses_cancelled_run(test_db):
+    insert_item(test_db, id=10, status="release")
+    _seed_merging_sha(test_db, "b" * 40)
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=requirement_id, verdict="error",
+        raw_result='{"ci_conclusion":"cancelled"}',
+        completed_at="2026-01-01T00:00:01Z",
+    )
+    result = _terminal_result(test_db)
+    assert "concluded 'error'" in result["error"]
+    assert f"requirement-id {requirement_id}" in result["error"]
+
+
+def test_terminal_transition_refuses_pass_from_an_earlier_commit(test_db):
+    insert_item(test_db, id=10, status="release")
+    _seed_merging_sha(test_db, "b" * 40)
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=requirement_id, verdict="pass",
+        raw_result='{"verification_tree":{"head_sha":"' + "a" * 40 + '"}}',
+        completed_at="2026-01-01T00:00:01Z",
+    )
+    result = _terminal_result(test_db)
+    assert "recorded SHA " + "a" * 40 in result["error"]
+    assert "merging SHA is " + "b" * 40 in result["error"]
+
+
+def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
+    insert_item(test_db, id=10, status="release")
+    _seed_merging_sha(test_db, "b" * 40)
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=requirement_id, verdict="pass",
+        raw_result='{"verification_tree":{"head_sha":"' + "b" * 40 + '"}}',
+        completed_at="2026-01-01T00:00:01Z",
+    )
     assert _terminal_result(test_db) == {"success": True}

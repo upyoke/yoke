@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
 from typing import List, Optional, Tuple
 
@@ -39,8 +40,9 @@ CHECK_ID = "lint-pipe-to-truncator"
 HOOK_NAME = "lint-pipe-to-truncator"
 SUPPRESSION_TOKEN = "# lint:no-pipe-truncator-check"
 
-# Long-command module ids that match anywhere in a pipeline stage. These are
-# specific enough that substring presence means the stage invokes them.
+# Long-command module ids that count only in ``python -m <module>`` command
+# position.  A quoted search pattern or another command's argument may contain
+# the same text without invoking the module.
 _LONG_MODULE_IDS = (
     "yoke_core.tools.watch_pytest",
     "yoke_core.tools.watch_doctor",
@@ -48,15 +50,14 @@ _LONG_MODULE_IDS = (
     "yoke_core.tools.run_tests",
     "yoke_core.engines.doctor",
     "yoke_core.engines.deploy",
-    # The `yoke watch <kind>` commands are the taught spelling of the
-    # first three; match them so the guard is spelling-independent.
-    # `watch tail` is excluded: it follows a capture rather than producing
-    # a run whose failure context a truncator would discard.
-    *(
-        cli_form(module)
-        for module in WATCH_CLI_TOKENS
-        if module != "yoke_core.tools.watch_tail"
-    ),
+)
+
+# The taught ``yoke watch <kind>`` spellings, tokenized once so matching is
+# anchored to the executable and subcommand rather than raw command text.
+_LONG_CLI_TOKEN_PREFIXES = tuple(
+    tuple(cli_form(module).split())
+    for module in WATCH_CLI_TOKENS
+    if module != "yoke_core.tools.watch_tail" and cli_form(module)
 )
 
 _TRUNCATORS = frozenset({"tail", "head"})
@@ -98,7 +99,15 @@ def _read_mode(payload: object | None = None) -> str:
 
 def _stage_tokens(stage: str) -> List[str]:
     """Tokenize one pipeline stage, dropping leading env assignments/subshell parens."""
-    tokens = [t.lstrip("({") for t in stage.split()]
+    try:
+        tokens = shlex.split(stage, posix=True)
+    except ValueError:
+        tokens = stage.split()
+    tokens = [t.lstrip("({") for t in tokens]
+    if tokens and tokens[0].rsplit("/", 1)[-1] == "env":
+        tokens.pop(0)
+        while tokens and tokens[0].startswith("-"):
+            tokens.pop(0)
     while tokens and ("=" in tokens[0] and not tokens[0].startswith("-")):
         tokens.pop(0)
     return [t for t in tokens if t]
@@ -106,9 +115,6 @@ def _stage_tokens(stage: str) -> List[str]:
 
 def _stage_is_long_command(stage: str) -> Optional[str]:
     """Return a short label when *stage* invokes a known long command."""
-    for module_id in _LONG_MODULE_IDS:
-        if module_id in stage:
-            return module_id
     tokens = _stage_tokens(stage)
     if not tokens:
         return None
@@ -117,8 +123,16 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
         return "pytest"
     if first.startswith("python"):
         for idx, tok in enumerate(tokens[1:-1], start=1):
-            if tok == "-m" and tokens[idx + 1] == "pytest":
+            if tok != "-m":
+                continue
+            module_id = tokens[idx + 1]
+            if module_id == "pytest":
                 return "pytest"
+            if module_id in _LONG_MODULE_IDS:
+                return module_id
+    for prefix in _LONG_CLI_TOKEN_PREFIXES:
+        if tuple(tokens[:len(prefix)]) == prefix:
+            return " ".join(prefix)
     return None
 
 

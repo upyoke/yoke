@@ -129,6 +129,42 @@ def test_ad_hoc_method_case_uses_the_same_execution_context() -> None:
     assert context["executor_id"] == "browser_substrate"
 
 
+def test_ci_context_keeps_the_merged_commit_after_lane_release() -> None:
+    with test_database() as conn:
+        insert_item(conn, id=43, title="Run CI", workflow_id="dash")
+        conn.execute(
+            "CREATE TABLE item_sections ("
+            "item_id INTEGER NOT NULL, section_name TEXT NOT NULL, content TEXT, "
+            "ordering INTEGER, source TEXT, created_at TEXT, updated_at TEXT, "
+            "PRIMARY KEY(item_id, section_name))"
+        )
+        conn.execute(
+            "INSERT INTO item_sections "
+            "(item_id, section_name, content, ordering, source, created_at, updated_at) "
+            "VALUES (43, 'Execution Evidence', %s, 190, 'direct-workflow', %s, %s)",
+            (
+                json.dumps({"commit_sha": "b" * 40}),
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        row = conn.execute(
+            "INSERT INTO qa_requirements "
+            "(item_id, qa_kind, qa_phase, blocking_mode, requirement_source, "
+            "method_id, instructions, expected_outcome, method_config, created_at) "
+            "VALUES (43, 'plan_case', 'verification', 'blocking', 'explicit', "
+            "'command-ci', 'Run CI.', 'CI passes.', %s, %s) RETURNING id",
+            (
+                json.dumps({"command": "true", "ci_workflow": "ci.yml"}),
+                "2026-01-01T00:00:00Z",
+            ),
+        ).fetchone()
+        conn.commit()
+        context = get_case_execution_context(conn, requirement_id=int(row["id"]))
+
+    assert context["lane_commit_sha"] == "b" * 40
+
+
 def test_command_case_records_verdict_and_output_artifact(
     tmp_path: Path,
     monkeypatch,
