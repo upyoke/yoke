@@ -36,7 +36,9 @@ def migration_rehearse(args: List[str]) -> int:
             "product connection. Applying belongs to boot convergence."
         ),
     )
-    parser.add_argument("item", help="Public item reference, for example YOK-123")
+    parser.add_argument(
+        "item_ref", help="Public item reference, for example YOK-123"
+    )
     parsed = parse_or_usage_error(parser, args, MIGRATION_REHEARSE_USAGE)
     if parsed is None:
         return 2
@@ -54,7 +56,7 @@ def migration_rehearse(args: List[str]) -> int:
             )
             return 1
         module = importlib.import_module("yoke_core.domain.migration_apply")
-        return int(module.main(["rehearse", parsed.item]))
+        return int(module.main(["rehearse", parsed.item_ref]))
     except Exception as exc:  # noqa: BLE001 - redact authority details
         print(
             "yoke migration rehearse failed "
