@@ -70,12 +70,15 @@ entries, continue silently.
 
 ## S4. Save The Gap Report
 
-Write the Simulator's gap report to:
+Persist the Simulator's gap report through the owned helper. It creates
+`ouroboros/health/` when missing — do not assume a prior doctor or
+simulate run left the directory behind:
 
-```text
-ouroboros/health/simulation-system-{YYYYMMDD}.md
+```bash
+printf '%s' "{simulator gap report}" | python3 -m yoke_core.domain.persist_system_simulation
 ```
 
+The helper writes `ouroboros/health/simulation-system-{YYYYMMDD}.md`.
 This path is local, generated, and gitignored.
 
 Do not stage or commit this report.

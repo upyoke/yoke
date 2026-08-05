@@ -75,6 +75,14 @@ pytest.register_assert_rewrite(
 # imports too -- a function-scoped fixture would be too late.
 os.environ.setdefault("YOKE_DB_INIT_DONE", "1")
 
+# Test databases are not fleet deploys. Name a synthetic restore point so
+# boot-converge can apply pending history without requiring a caller-resolved
+# dump DSN (and without falling through to ambient Yoke authority). Tests
+# that exercise restore-point refusal clear or override this explicitly.
+os.environ.setdefault(
+    "YOKE_MIGRATION_RESTORE_POINT", "pytest-fixture-restore-point"
+)
+
 # ---------------------------------------------------------------------------
 # Postgres backend: per-worker disposable ambient test database
 # ---------------------------------------------------------------------------

@@ -22,13 +22,20 @@ class ImportEdge:
     rationale: str = ""
 
 
-# Source files whose module-level assignments carry the boundary facts. Both
-# are read for both symbols, so moving either declaration between them — as
-# happens when one file approaches the authored-file line limit — does not
-# silently drop the classifications and leave every edge unclassified.
+# Source files whose module-level assignments carry the boundary facts. All
+# are read for every known symbol, so splitting an allowlist across companions
+# when one file approaches the authored-file line limit does not silently drop
+# classifications and leave every edge unclassified.
 _BOUNDARY_FACT_SOURCES = (
     ("runtime", "api", "test_installer_package_boundaries.py"),
     ("runtime", "api", "dynamic_authority_import_allowlist.py"),
+    ("runtime", "api", "dynamic_authority_import_allowlist_cli.py"),
+)
+_DYNAMIC_AUTHORITY_IMPORT_SYMBOLS = frozenset(
+    {
+        "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS",
+        "CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS",
+    }
 )
 
 
@@ -60,7 +67,7 @@ def load_boundary_facts(
                 continue
             if "ENGINE_IMPORT_BOUNDARY_ROOTS" in names:
                 boundary_roots = frozenset(str(item) for item in value)
-            if "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS" in names:
+            if names & _DYNAMIC_AUTHORITY_IMPORT_SYMBOLS:
                 dynamic.update(
                     {
                         (str(rel), str(module)): (str(kind), str(reason))
