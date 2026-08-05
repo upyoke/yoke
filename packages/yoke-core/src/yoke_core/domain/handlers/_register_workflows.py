@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import workflows_definition as _wd
+from yoke_core.domain.handlers import workflows_version_list as _wvl
 from yoke_core.domain.handlers import workflows_versioning as _wv
 from yoke_core.domain.handlers import (
     workflows_canon_update as _wcu,
@@ -45,6 +46,20 @@ def register(registry) -> None:
         _wv.WorkflowVersionGetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.version.list",
+        _wvl.handle_workflows_version_list,
+        _wvl.WorkflowVersionListRequest,
+        _wvl.WorkflowVersionListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_version_list",
         target_kinds=["global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

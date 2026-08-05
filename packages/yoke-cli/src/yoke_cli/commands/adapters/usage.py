@@ -11,9 +11,12 @@ from typing import Dict
 
 from yoke_cli.commands.adapters.claims import (
     CLAIM_PATH_REGISTER_USAGE,
-    CLAIM_PATH_WIDEN_USAGE,
     CLAIM_WORK_ACQUIRE_USAGE,
     CLAIM_WORK_RELEASE_USAGE,
+)
+from yoke_cli.commands.adapters.claims_path_change import (
+    CLAIM_PATH_AMEND_USAGE,
+    CLAIM_PATH_WIDEN_USAGE,
 )
 from yoke_cli.commands.adapters.lint_config import LINT_CONFIG_SHOW_USAGE
 from yoke_cli.commands.adapters.organizations import ORGANIZATIONS_GET_USAGE
@@ -48,6 +51,7 @@ from yoke_cli.commands.adapters.config_write import (
     PROJECT_REGISTER_USAGE,
     STAMP_PROJECT_ENV_USAGE,
 )
+from yoke_cli.commands.adapters.config import ENV_LIST_USAGE
 from yoke_cli.commands.adapters.db_claim import DB_CLAIM_AMEND_USAGE
 from yoke_cli.commands.adapters.db import DB_READ_USAGE
 from yoke_cli.commands.adapters.doctor import (
@@ -196,18 +200,7 @@ from yoke_cli.commands.adapters.packs import (
     PACKS_RELINK_USAGE,
     PACKS_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters.sessions import (
-    CHARGE_SCHEDULE_USAGE,
-    SESSIONS_BEGIN_USAGE,
-    SESSIONS_INIT_USAGE,
-    SESSIONS_CHECKPOINT_READ_USAGE,
-    SESSIONS_CHECKPOINT_USAGE,
-    SESSIONS_OFFER_USAGE,
-    SESSIONS_OWNERSHIP_GUARD_USAGE,
-    SESSIONS_TOUCH_USAGE,
-)
-from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
-from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
+from yoke_cli.commands.adapters import usage_sessions as _session_usage
 __all__ = ["ADAPTER_USAGE"]
 # Function-id → usage-line map consumed by the entrypoint's grouped
 # ``--help`` text. New CLI families add one line each.
@@ -230,6 +223,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "claims.work.release": CLAIM_WORK_RELEASE_USAGE,
     "claims.path.register": CLAIM_PATH_REGISTER_USAGE,
     "claims.path.widen": CLAIM_PATH_WIDEN_USAGE,
+    "claims.path.amend": CLAIM_PATH_AMEND_USAGE,
     "claims.path.list": CLAIMS_PATH_LIST_USAGE,
     "claims.path.get": CLAIMS_PATH_GET_USAGE,
     "claims.path.coordination_decision_build": CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
@@ -238,16 +232,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "path_claims.conflicts.list": PATH_CLAIMS_CONFLICTS_LIST_USAGE,
     "db_claim.amend": DB_CLAIM_AMEND_USAGE,
     "db.read.run": DB_READ_USAGE,
-    "sessions.begin": SESSIONS_BEGIN_USAGE,
-    "sessions.init": SESSIONS_INIT_USAGE,
-    "sessions.list": SESSIONS_LIST_USAGE,
-    "sessions.touch": SESSIONS_TOUCH_USAGE,
-    "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
-    "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,
-    "sessions.offer": SESSIONS_OFFER_USAGE,
-    "sessions.ownership_guard": SESSIONS_OWNERSHIP_GUARD_USAGE,
-    "charge.schedule": CHARGE_SCHEDULE_USAGE,
-    "frontier.list": FRONTIER_LIST_USAGE,
+    **_session_usage.USAGE_BY_FUNCTION_ID,
     "agents.render.run": AGENTS_RENDER_USAGE,
     "agents.render.check": AGENTS_RENDER_CHECK_USAGE,
     "packets.render.run": PACKETS_RENDER_USAGE,
@@ -331,6 +316,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "onboard.checklist.run": ONBOARD_CHECKLIST_USAGE,
     "onboard.checklist.init": ONBOARD_CHECKLIST_INIT_USAGE,
     "env.use.run": ENV_USE_USAGE,
+    "env.list.run": ENV_LIST_USAGE,
     "connection.set.run": CONNECTION_SET_USAGE,
     "connection.remove.run": CONNECTION_REMOVE_USAGE,
     "auth.set.run": AUTH_SET_USAGE,

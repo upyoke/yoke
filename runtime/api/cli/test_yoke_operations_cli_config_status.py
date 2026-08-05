@@ -24,6 +24,37 @@ def test_config_example_prints_canonical_json(capsys) -> None:
     assert payload == contract.canonical_example_payload()
 
 
+def test_env_list_reports_sanitized_connection_inventory(
+    tmp_path: Path, capsys,
+) -> None:
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "active_env": "prod",
+                "connections": {
+                    "local": {"transport": "postgres", "dsn": "secret-dsn"},
+                    "prod": {
+                        "transport": "https",
+                        "prod": True,
+                        "api_url": "https://example.test",
+                        "token": "secret-token",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = yoke_operations_cli.main(["env", "list", "--config", str(config), "--json"])
+
+    assert rc == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["active_env"] == "prod"
+    assert [row["env"] for row in report["rows"]] == ["local", "prod"]
+    assert "secret" not in json.dumps(report)
+
+
 def test_status_json_validates_machine_and_project_config(
     tmp_path: Path, capsys, monkeypatch,
 ) -> None:

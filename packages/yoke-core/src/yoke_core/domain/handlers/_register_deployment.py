@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     deployment_common as _models,
+    deployment_inspection as _inspection,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
     deployment_flows as _flows,
@@ -14,6 +15,16 @@ from yoke_core.domain.handlers import (
 
 def register(registry) -> None:
     """Register deployment flow/run wrappers via the given registry."""
+    registry.register(
+        "deployment_flows.list", _inspection.handle_deployment_flow_list,
+        _inspection.DeploymentFlowListRequest,
+        _inspection.DeploymentFlowListResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_inspection",
+        target_kinds=["global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
     registry.register(
         "deployment_flows.get", _flows.handle_deployment_flow_get,
         _models.DeploymentFlowGetRequest,
@@ -118,6 +129,28 @@ def register(registry) -> None:
         target_kinds=["workflow_run"], side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.find_by_item",
+        _inspection.handle_deployment_runs_find_by_item,
+        _inspection.DeploymentRunsFindByItemRequest,
+        _inspection.DeploymentRunsFindByItemResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_inspection",
+        target_kinds=["item"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.stages", _inspection.handle_deployment_run_stages,
+        _inspection.DeploymentRunStagesRequest,
+        _inspection.DeploymentRunStagesResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_inspection",
+        target_kinds=["workflow_run"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_flow_definition"],
+        adapter_status="live", claim_required_kind=None,
     )
     registry.register(
         "deployment_runs.create", _runs.handle_deployment_run_create,

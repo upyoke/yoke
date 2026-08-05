@@ -286,7 +286,7 @@ The plain-text stdout injection mechanism works because Claude Code appends stdo
 3. Exits 0 as a no-op when the session marker is absent, stale, already ended, or the DB is unavailable.
 4. Calls `python3 -m runtime.harness.session_hooks` which delegates to `session-end --force` when a live session exists.
 
-**Active-claim protection (YOK-1388):** `--force` bypasses the `CHAIN_PENDING` guard but does NOT bypass the active-claim guard. If the session still holds unreleased claims, `end_session()` rejects with `ACTIVE_CLAIM` and the hook treats it as a protected no-op (exit 0, no `SessionHookFailed`). Claims are released through the claim lifecycle (completed, handed_off, finalize-exit) or the stale-session reclaimer (`clean-stale-sessions`), not as a side-effect of session shutdown. For stranded claims, use the human-only `python3 -m runtime.api.service_client claim-release` CLI.
+**Active-claim protection (YOK-1388):** `--force` bypasses the `CHAIN_PENDING` guard but does NOT bypass the active-claim guard. If the session still holds unreleased claims, `end_session()` rejects with `ACTIVE_CLAIM` and the hook treats it as a protected no-op (exit 0, no `SessionHookFailed`). Claims are released through the claim lifecycle (completed, handed_off, finalize-exit) or the stale-session reclaimer (`yoke sessions reclaim-stale --confirm`), not as a side-effect of session shutdown. For stranded claims, use the human-only `python3 -m runtime.api.service_client claim-release` CLI.
 
 This hook is main-session-only. In agent frontmatter, `Stop` still auto-converts to `SubagentStop` and cannot distinguish clean completion from crash.
 

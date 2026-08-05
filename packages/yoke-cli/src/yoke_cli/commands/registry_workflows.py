@@ -7,6 +7,7 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_item_migrate,
     workflows_policy_defaults_publish,
     workflows_version_get,
+    workflows_version_list,
 )
 from yoke_cli.commands.adapters.workflow_mechanics import (
     workflows_approval_defaults_publish,
@@ -31,6 +32,10 @@ WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "version", "get"): (
         "workflows.version.get",
         workflows_version_get,
+    ),
+    ("workflows", "version", "list"): (
+        "workflows.version.list",
+        workflows_version_list,
     ),
     ("workflows", "policy-defaults", "publish"): (
         "workflows.policy_defaults.publish",

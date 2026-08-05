@@ -6,9 +6,23 @@ from yoke_core.domain.handlers import sessions_begin as _sb
 from yoke_core.domain.handlers import sessions_list as _sl
 from yoke_core.domain.handlers import sessions_orchestration as _so
 from yoke_core.domain.handlers import sessions_reclaim as _sr
+from yoke_core.domain.handlers import sessions_closeout as _sc
 
 
 def register(registry) -> None:
+    registry.register(
+        "sessions.end_if_empty", _sc.handle_sessions_end_if_empty,
+        _sc.SessionsEndIfEmptyRequest, _sc.SessionsEndIfEmptyResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_closeout",
+        target_kinds=["global"],
+        side_effects=["harness_sessions_update", "events_insert"],
+        emitted_event_names=[
+            "HarnessSessionEnded", "ChainEndDeferred", "YokeFunctionCalled",
+        ],
+        guardrails=["self_only", "claimless", "chain_budget_complete"],
+        adapter_status="live", claim_required_kind=None,
+    )
     registry.register(
         "sessions.list", _sl.handle_sessions_list,
         _sl.SessionsListRequest, _sl.SessionsListResponse,
@@ -45,7 +59,7 @@ def register(registry) -> None:
             "liveness_recheck",
             "project_scope_exact",
         ],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
     )

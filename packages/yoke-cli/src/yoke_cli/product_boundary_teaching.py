@@ -10,26 +10,21 @@ from typing import Callable, Iterable, Optional, Sequence, Tuple
 
 from yoke_cli import operation_inventory as ops
 from yoke_cli.commands.registry import (
+    SPACE_EXPANDED_ROUTE_REGISTRY,
     SUBCOMMAND_ALIAS_REGISTRY,
     SUBCOMMAND_REGISTRY,
     resolve,
 )
 from yoke_cli.commands.tool_shaped import TOOL_SHAPED_SUBCOMMANDS, resolve_tool_shaped
 from yoke_cli.product_boundary_teaching_extract import extract_recipe_rows
+from yoke_cli.product_boundary_teaching_sources import (
+    TEACHING_GLOBS,
+    command_path_is_template,
+    help_usage_recipes,
+)
 
 
 SmokeRunner = Callable[[str], Tuple[bool, Optional[str], Optional[str]]]
-
-TEACHING_GLOBS: Tuple[str, ...] = (
-    ".agents/skills/yoke/**/*.md",
-    "runtime/agents/*.md",
-    "runtime/harness/claude/agents/yoke-*.md",
-    "runtime/harness/codex/agents/yoke-*.toml",
-    "packages/yoke-core/src/yoke_core/domain/schema_api_context*.py",
-    "AGENTS.md",
-    "CODEX.md",
-    "docs/**/*.md",
-)
 
 DRIFT_UNRESOLVED_YOKE = "taught_yoke_command_unresolved"
 DRIFT_UNSANCTIONED_INTERNAL = "taught_internal_module_unsanctioned"
@@ -93,13 +88,17 @@ def generate_teaching_audit(
     *,
     repo_root: Path | str,
     smoke_yoke: SmokeRunner | None = None,
+    include_help: bool = False,
 ) -> TeachingAudit:
     root = Path(repo_root).resolve()
-    surfaces = tuple(_extract_surfaces(root, smoke_yoke=smoke_yoke))
+    extracted = tuple(_extract_surfaces(root, smoke_yoke=smoke_yoke))
+    surfaces = extracted + (tuple(_help_usage_surfaces()) if include_help else ())
     taught_forms = {
         row.command_form
         for row in surfaces
-        if row.kind == "yoke" and row.resolution in {"registered", "alias", "tool_shaped"}
+        if row.kind == "yoke" and row.resolution in {
+            "registered", "alias", "normalized", "tool_shaped",
+        }
     }
     missing = tuple(
         sorted(
@@ -160,7 +159,11 @@ def _resolve_yoke_recipe(
     try:
         tokens, function_id, _adapter, _remaining = resolve(command_argv)
         command_form = "yoke " + " ".join(tokens)
-        resolution = "alias" if tokens in SUBCOMMAND_ALIAS_REGISTRY else "registered"
+        resolution = (
+            "alias" if tokens in SUBCOMMAND_ALIAS_REGISTRY else
+            "normalized" if tokens in SPACE_EXPANDED_ROUTE_REGISTRY else
+            "registered"
+        )
         smoke_error = _smoke_error(recipe, standalone, smoke_yoke)
         return TaughtSurface(
             source, line_number, recipe, "yoke", command_form, resolution,
@@ -176,6 +179,16 @@ def _resolve_yoke_recipe(
         if not standalone and _skill_router_reference(command_argv):
             return TaughtSurface(
                 source, line_number, recipe, "yoke", recipe, "skill_router",
+            )
+        from yoke_cli.commands.group_help import can_route_group
+
+        if can_route_group(command_argv):
+            return TaughtSurface(
+                source, line_number, recipe, "yoke", recipe, "navigation",
+            )
+        if command_path_is_template(command_argv):
+            return TaughtSurface(
+                source, line_number, recipe, "yoke", recipe, "template",
             )
         resolved = resolve_tool_shaped(command_argv)
         if resolved is None:
@@ -197,6 +210,16 @@ def _resolve_yoke_recipe(
                 else DRIFT_UNRESOLVED_YOKE
             ),
         )
+
+
+def _help_usage_surfaces() -> Iterable[TaughtSurface]:
+    """Validate the usage lines rendered by every live CLI help page."""
+    for line_number, recipe in enumerate(help_usage_recipes(), start=1):
+        command_line = recipe.splitlines()[0].strip()
+        if command_line.startswith("yoke "):
+            yield _resolve_yoke_recipe(
+                "yoke --help", line_number, command_line, False, smoke_yoke=None,
+            )
 
 
 def _strip_global_flags(argv: list[str]) -> tuple[list[str], bool]:
@@ -236,7 +259,12 @@ def _skill_router_reference(argv: Sequence[str]) -> bool:
 
 
 def _registry_token_rows() -> tuple[tuple[str, ...], ...]:
-    return tuple(SUBCOMMAND_REGISTRY) + tuple(SUBCOMMAND_ALIAS_REGISTRY) + tuple(TOOL_SHAPED_SUBCOMMANDS)
+    return (
+        tuple(SUBCOMMAND_REGISTRY)
+        + tuple(SUBCOMMAND_ALIAS_REGISTRY)
+        + tuple(SPACE_EXPANDED_ROUTE_REGISTRY)
+        + tuple(TOOL_SHAPED_SUBCOMMANDS)
+    )
 
 
 def _smoke_error(
@@ -312,15 +340,9 @@ def _missing_teaching_rows(taught_forms: set[str]) -> Iterable[MissingTeaching]:
 
 
 __all__ = [
-    "DRIFT_MISSING_REGISTERED",
-    "DRIFT_MISSING_TOOL_SHAPED",
-    "DRIFT_STALE_ARGUMENT_SHAPE",
-    "DRIFT_UNRESOLVED_YOKE",
-    "DRIFT_UNSANCTIONED_INTERNAL",
-    "MissingTeaching",
-    "SmokeRunner",
-    "TEACHING_GLOBS",
-    "TaughtSurface",
-    "TeachingAudit",
+    "DRIFT_MISSING_REGISTERED", "DRIFT_MISSING_TOOL_SHAPED",
+    "DRIFT_STALE_ARGUMENT_SHAPE", "DRIFT_UNRESOLVED_YOKE",
+    "DRIFT_UNSANCTIONED_INTERNAL", "MissingTeaching", "SmokeRunner",
+    "TEACHING_GLOBS", "TaughtSurface", "TeachingAudit",
     "generate_teaching_audit",
 ]

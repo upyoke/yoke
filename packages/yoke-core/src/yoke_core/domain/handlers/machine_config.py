@@ -34,6 +34,15 @@ class StatusResponse(BaseModel):
     report: Dict[str, Any]
 
 
+class EnvListRequest(BaseModel):
+    config_path: Optional[str] = None
+
+
+class EnvListResponse(BaseModel):
+    active_env: str
+    rows: list[Dict[str, Any]]
+
+
 def handle_config_example(request: FunctionCallRequest) -> HandlerOutcome:
     del request
     return HandlerOutcome(
@@ -57,11 +66,39 @@ def handle_status(request: FunctionCallRequest) -> HandlerOutcome:
                           primary_success=bool(report.get("ok")))
 
 
+def handle_env_list(request: FunctionCallRequest) -> HandlerOutcome:
+    from yoke_core.domain import machine_config
+
+    payload = request.payload or {}
+    config = machine_config.load_config(payload.get("config_path"))
+    connections = config.get("connections")
+    connections = connections if isinstance(connections, dict) else {}
+    active = str(config.get("active_env") or "")
+    rows = [
+        {
+            "env": str(name),
+            "active": str(name) == active,
+            "transport": str(entry.get("transport") or ""),
+            "prod": bool(entry.get("prod", False)),
+            "api_url": str(entry.get("api_url") or ""),
+        }
+        for name, entry in sorted(connections.items())
+        if isinstance(entry, dict)
+    ]
+    return HandlerOutcome(
+        result_payload={"active_env": active, "rows": rows},
+        primary_success=True,
+    )
+
+
 __all__ = [
     "ConfigExampleRequest",
     "ConfigExampleResponse",
+    "EnvListRequest",
+    "EnvListResponse",
     "StatusRequest",
     "StatusResponse",
     "handle_config_example",
+    "handle_env_list",
     "handle_status",
 ]
