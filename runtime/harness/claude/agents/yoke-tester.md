@@ -439,8 +439,8 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
   - `yoke qa run list --requirement-id <id>`
   - Registered read qa.run.list (works over https). Verify recorded runs before claiming a verdict. Rows carry verdict (pass/fail), execution_status (capture outcome), raw_result (result payload). qa_runs.qa_requirement_id is the FK. Do not teach result as a short-form column.
 - _Get one QA run by id_
-  - `yoke qa run get --run-id <id>`
-  - Registered read qa.run.get (works over https). Returns one qa_runs row including verdict, execution_status, raw_result, duration_ms, started_at, and completed_at.
+  - `yoke qa run get --run-id <id> [--project <slug>]`
+  - Registered read qa.run.get (works over https). Project-scoped: pass --project, else $YOKE_PROJECT / checkout map. Returns one qa_runs row including verdict, execution_status, raw_result, duration_ms, started_at, and completed_at. Wrong-project runs return project_mismatch.
 - _Add a QA requirement — ac_verification variant_
   - `yoke qa requirement add --item PREFIX-N --qa-kind ac_verification --qa-phase verification --blocking-mode blocking --requirement-source ac_derived --workflow-transition reviewed-implementation`
   - Registered write qa.requirement.add — item-claim-gated, item-attached. `--workflow-transition` is required and must name a stage in the item's pinned workflow that carries or precedes a qa_verification gate. ac_verification omits `--success-policy` by default; stricter policy is `{"min_runs":N,"min_pass":N}`. Several rows in one transaction: pipe a JSON array to `yoke qa requirement add-batch --item PREFIX-N --stdin`; every row must include `workflow_transition_id`. Epic-task attachment is operator-debug only and requires the same binding: `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K --workflow-transition STAGE ...`. Deployment-run attachment is operator-debug only and may omit the transition because the run owns its delivery context.

@@ -54,11 +54,13 @@ QA_COMMANDS: list[dict] = [
     {
         "topic": "qa",
         "purpose": "Get one QA run by id",
-        "recipe": "yoke qa run get --run-id <id>",
+        "recipe": "yoke qa run get --run-id <id> [--project <slug>]",
         "notes": (
-            "Registered read qa.run.get (works over https). Returns one "
+            "Registered read qa.run.get (works over https). Project-scoped: "
+            "pass --project, else $YOKE_PROJECT / checkout map. Returns one "
             "qa_runs row including verdict, execution_status, raw_result, "
-            "duration_ms, started_at, and completed_at."
+            "duration_ms, started_at, and completed_at. Wrong-project runs "
+            "return project_mismatch."
         ),
     },
     {

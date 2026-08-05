@@ -7,7 +7,9 @@ from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_project_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -200,45 +202,40 @@ def qa_run_list(args: List[str]) -> int:
     )
 
 
-QA_RUN_GET_USAGE = "yoke qa run get --run-id N [--session-id S] [--json]"
-
-_RUN_GET_HELP_DEEP = """\
-Fetch one qa_runs row by primary key.
-
-Worked example:
-
-  yoke qa run get --run-id 8142
-
-Flag matrix:
-
-  flag          required  value shape
-  --run-id      yes       qa_runs.id (integer)
-  --session-id  no        opaque session id (operator-debug)
-  --json        no        flag (typed envelope on stdout)
-
-Rows include execution_status (capture outcome) alongside verdict.
-Exit codes: 0 success, 1 not found / dispatch failure, 2 usage error.
-"""
+QA_RUN_GET_USAGE = (
+    "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
+)
+_RUN_GET_HELP_DEEP = (
+    "Fetch one qa_runs row. Project-scoped (--project / $YOKE_PROJECT / "
+    "checkout map); wrong-project runs are refused. "
+    "Example: yoke qa run get --run-id 8142"
+)
 
 
 def qa_run_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa run get",
         description=f"{QA_RUN_GET_USAGE}\n\n{_RUN_GET_HELP_DEEP}",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
     )
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_GET_USAGE)
     if parsed is None:
         return 2
+    project = client_project_context(parsed.project)
+    if not project:
+        return usage_error(
+            "project context required: pass --project P, set YOKE_PROJECT, "
+            "or run from a registered project checkout"
+        )
     return dispatch_and_emit(
         function_id="qa.run.get",
-        target=TargetRef(kind="global"),
-        payload={"run_id": int(parsed.run_id)},
+        target=TargetRef(kind="global", project_id=str(project)),
+        payload={"run_id": int(parsed.run_id), "project": str(project)},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
