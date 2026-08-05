@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
+from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 
 
@@ -243,6 +244,9 @@ def _poll_github_actions(
     interval = initial
     transport_retries = 0
     unclassified_retries = 0
+    # Named on every run, not only when it breaks: an operator reading a
+    # stalled poll should not have to infer which authority it is using.
+    print(f"  GitHub Actions status via {poll_authority.authority_label()}")
 
     while True:
         elapsed = int(time.time() - start)
@@ -270,12 +274,17 @@ def _poll_github_actions(
             unclassified_retries = 0
         elif r.returncode == 4:
             transport_retries += 1
-            print(
-                "  GitHub Actions status relay is temporarily unavailable; "
-                f"retrying within the {timeout_sec}s stage budget "
-                f"(consecutive failure {transport_retries}): "
-                f"{stderr or output}"
-            )
+            if transport_retries < poll_authority.ESCALATE_AFTER:
+                print(
+                    "  GitHub Actions status relay is temporarily "
+                    f"unavailable; retrying within the {timeout_sec}s stage "
+                    f"budget (consecutive failure {transport_retries}): "
+                    f"{stderr or output}"
+                )
+            elif poll_authority.should_report(transport_retries):
+                print(
+                    poll_authority.stall_message(run_id, transport_retries)
+                )
             time.sleep(interval)
             interval = min(interval * 2, max_interval)
         else:
