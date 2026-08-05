@@ -25,6 +25,34 @@ from yoke_cli.commands.deployment_lineage import (
     resolve_commit_lineage,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.schema import (
+    DB_ADMIN_ENV_SUFFIX,
+    ENV_OVERRIDE,
+)
+
+
+def _execute_authority() -> str:
+    """The owner-only connection that will hold this run at execute time.
+
+    A run lives on the control plane that created it, so the connection this
+    creation is dispatching through already determines the one `execute` must
+    be given. Leaving it as a placeholder for the operator to fill in is what
+    produces a run driven through the wrong connection, which surfaces as
+    'deployment run not found' — a message that reads as a missing run rather
+    than a wrong control plane.
+
+    Empty when there is no active env to name, so the caller falls back to the
+    placeholder rather than printing a confidently wrong recipe.
+    """
+    import os
+
+    active = os.environ.get(ENV_OVERRIDE, "").strip()
+    if not active:
+        return ""
+    base = active[: -len(DB_ADMIN_ENV_SUFFIX)] if active.endswith(
+        DB_ADMIN_ENV_SUFFIX
+    ) else active
+    return f"{base}{DB_ADMIN_ENV_SUFFIX}" if base else ""
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
@@ -81,9 +109,10 @@ def deployment_runs_create(args: List[str]) -> int:
         run_id = result.get("run_id") or ""
         print(run_id, file=stdout)
         if run_id:
+            authority = _execute_authority() or "<control-plane-env>-db-admin"
             print(
                 f"note: run stays 'created' until executed: yoke --env "
-                f"<control-plane-env>-db-admin deployment-runs execute {run_id}",
+                f"{authority} deployment-runs execute {run_id}",
                 file=stderr,
             )
         return None
