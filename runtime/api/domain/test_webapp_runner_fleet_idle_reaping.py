@@ -23,13 +23,18 @@ _BUSY = "i-0aaaaaaaaaaaaaaa1"
 _IDLE = "i-0bbbbbbbbbbbbbbb2"
 
 
-def _two_host_driver(lifecycle_state: str) -> str:
+def _two_host_driver(
+    lifecycle_state: str,
+    *,
+    idle_marker_age_seconds: int = 7200,
+) -> str:
     """Drive one reap pass over a busy host and a long-idle host."""
     return f"""
         import {{ generateKeyPairSync }} from "node:crypto";
         globalThis.__privateKey = generateKeyPairSync("rsa", {{ modulusLength: 2048 }})
           .privateKey.export({{ type: "pkcs8", format: "pem" }});
         const ready = Math.floor(Date.now() / 1000) - 7200;
+        const idleReady = Math.floor(Date.now() / 1000) - {idle_marker_age_seconds};
         globalThis.__activeInstances = ["{_BUSY}", "{_IDLE}"];
         globalThis.__parameters = new Map([
           ["/fleet/lifecycle-state", JSON.stringify({lifecycle_state})],
@@ -39,7 +44,8 @@ def _two_host_driver(lifecycle_state: str) -> str:
           ["/fleet/runner-completion", JSON.stringify({{
             action: "none", runner_name: "", job_id: "", at: 0 }})],
           ["/fleet/bootstrap/{_BUSY}", JSON.stringify({{ state: "ready", at: ready }})],
-          ["/fleet/bootstrap/{_IDLE}", JSON.stringify({{ state: "ready", at: ready }})],
+          ["/fleet/bootstrap/{_IDLE}", JSON.stringify({{
+            state: "ready", at: idleReady }})],
         ]);
         globalThis.__scaled = null;
         globalThis.__terminated = null;
@@ -130,6 +136,25 @@ def test_idle_clocks_survive_a_queue_activity_change(tmp_path):
     # in the record, so the reap pass runs through the reset path.
     assert payload["result"] == {"action": "scaled_down", "reason": "idle"}
     assert payload["terminated"]["InstanceId"] == _IDLE
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
+def test_rearmed_host_cannot_inherit_pre_job_idle_time(tmp_path):
+    """A fresh one-job registration resets only that host's idle window."""
+    _write_node_fixture(tmp_path)
+    stale = "Math.floor(Date.now() / 1000) - 7200"
+    payload = _run_driver(tmp_path, _two_host_driver(
+        f"""{{
+            idle_since: 0, queue_activity: "initial", bootstrap_failures: 0,
+            online_instance_id: "",
+            idle_by_instance: {{ "{_IDLE}": {stale} }},
+        }}""",
+        idle_marker_age_seconds=2,
+    ))
+
+    assert payload["result"] == {"action": "kept", "reason": "busy"}
+    assert payload["terminated"] is None
+    assert payload["state"]["idle_by_instance"][_IDLE] > 0
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is unavailable")
