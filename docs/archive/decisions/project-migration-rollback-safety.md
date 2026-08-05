@@ -21,6 +21,12 @@ at apply time. A build too old to ship the entry module reads the floor
 from the row — the only surface the two builds share — and refuses to
 serve when stranded.
 
+Accordingly, an older artifact may be membership-current while its ledger has
+names outside the packaged history. That is safe only when its artifact
+version satisfies every recorded floor. A diagnostic without artifact-version
+evidence reports the comparison as unknown; it never rejects the newer names
+by themselves.
+
 The two mechanisms only work together:
 
 | Mechanism | Answers | Alone, fails when |
@@ -40,14 +46,15 @@ runner is that project's work.
    serving floor copied from a surface-removing entry's declared minimum
    (empty only when that entry did not remove a surface).
 3. **Declare every element.** `table`, `entry_column`,
-   `semantics=membership`, and `serving_floor_column`. The floor is not
-   optional once a ledger is declared — an unconsumed optional column is
-   the obsolete path that left external projects half-safe.
+   `semantics=membership`, and `serving_floor_column`. The ledger and floor
+   are mandatory; an omitted or unconsumed column is the path that leaves a
+   project unable to answer rollback safety.
 
 ## How an operator can tell
 
-`HC-project-migration-ledger-contract` reports whether a declaring project
-satisfies the contract against live rows. Unreadable stays a finding
+`HC-project-migration-ledger-contract` reports whether the selected project
+satisfies the contract against its declared history, database, and live rows.
+Unreadable stays a finding
 (WARN), never a PASS: "I could not read it" and "it is level" are opposite
 answers.
 

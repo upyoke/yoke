@@ -106,7 +106,7 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.api.server_entrypoint",
     ): (
         "source_dev_admin",
-        "sanctioned additive schema convergence source-dev/admin command",
+        "sanctioned boot-coupled schema convergence source-dev/admin command",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/schema_converge.py",

@@ -57,6 +57,7 @@ obsolete path this module refuses.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Iterable, List, Mapping, Optional, Sequence, Set
 
 #: How a ledger decides what has been applied.
@@ -65,6 +66,7 @@ MEMBERSHIP = "membership"
 THRESHOLD = "threshold"
 
 REQUIRED_KEYS = ("table", "entry_column", "semantics", "serving_floor_column")
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class LedgerContractError(ValueError):
@@ -121,11 +123,21 @@ def parse(declaration: Optional[Mapping[str, Any]]) -> LedgerContract:
             f"migration_model ledger declares unknown semantics "
             f"{semantics!r}; the only accepted value is {MEMBERSHIP!r}"
         )
+    identifiers = {
+        key: str(declaration[key])
+        for key in ("table", "entry_column", "serving_floor_column")
+    }
+    invalid = [key for key, value in identifiers.items() if not _IDENTIFIER.match(value)]
+    if invalid:
+        raise LedgerContractError(
+            "migration_model ledger has unsafe SQL identifier(s): "
+            + ", ".join(invalid)
+        )
     return LedgerContract(
-        table=str(declaration["table"]),
-        entry_column=str(declaration["entry_column"]),
+        table=identifiers["table"],
+        entry_column=identifiers["entry_column"],
         semantics=semantics,
-        serving_floor_column=str(declaration["serving_floor_column"]),
+        serving_floor_column=identifiers["serving_floor_column"],
     )
 
 
@@ -141,27 +153,19 @@ def pending_entries(
     return [name for name in history if name not in recorded]
 
 
-def unanswerable_reason(
+def applied_entries_outside_history(
     history: Sequence[str], applied: Iterable[str]
-) -> str:
-    """Why a ledger cannot answer membership for this history, or ``""``.
+) -> List[str]:
+    """Applied entries this packaged history does not ship.
 
-    An applied row naming an entry the history does not contain means the
-    two are not describing the same history — the likeliest causes are a
-    renamed entry or a ledger shared between projects, and both make every
-    pending answer meaningless rather than merely stale.
+    This is the normal shape of a rollback: an older artifact reads ledger
+    rows written by a newer artifact. It does not invalidate membership.
+    Rollback compatibility is decided from each row's recorded serving floor,
+    because the older artifact cannot consult migration modules it does not
+    ship.
     """
     known = set(history)
-    unknown = sorted({str(name) for name in applied} - known)
-    if not unknown:
-        return ""
-    shown = ", ".join(unknown[:5])
-    more = f" and {len(unknown) - 5} more" if len(unknown) > 5 else ""
-    return (
-        f"the ledger records {len(unknown)} entry name(s) absent from the "
-        f"shipped history ({shown}{more}); the ledger and the history are "
-        "not describing the same migration set"
-    )
+    return sorted({str(name) for name in applied} - known)
 
 
 def runner_config_ledger(declaration: Any, error: Any) -> dict:
@@ -171,10 +175,9 @@ def runner_config_ledger(declaration: Any, error: Any) -> dict:
     validator's own exception type without this module importing it —
     a contract does not depend on the validator that enforces it.
 
-    Callers validate a ledger when the model declares one rather than
-    requiring every model to. Models predating this contract are already
-    deployed, and refusing them would add a check by taking working
-    projects down; new and amended models are refused on the spot.
+    Every governed model must declare a ledger. A missing declaration cannot
+    answer either safety question, so the capability validator refuses it
+    instead of grandfathering an unchecked model.
     """
     try:
         contract = parse(declaration)
@@ -194,7 +197,7 @@ __all__ = [
     "THRESHOLD",
     "LedgerContract",
     "LedgerContractError",
+    "applied_entries_outside_history",
     "parse",
     "pending_entries",
-    "unanswerable_reason",
 ]

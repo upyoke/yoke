@@ -67,27 +67,45 @@ def establish(
     conn: Any,
     *,
     backup_root: Optional[Path],
+    backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str],
 ) -> str:
     """Return the identifier of a restore point covering *conn*.
 
-    Takes the dump itself when given a ``backup_root``; accepts an already
-    established one when given ``external_restore_point``. Refusing when
-    neither is present is the policy, not a precaution: nothing destructive
-    runs without a named way back.
+    Takes the dump itself when given a ``backup_root`` and an explicit
+    caller-resolved ``backup_target_dsn``; accepts an already established one
+    when given ``external_restore_point``. The target is never recovered from
+    ambient Yoke state: this connection may belong to any project's declared
+    authority, so only its caller can name the matching dump target safely.
+
+    Refusing when neither restore-point form is present is the policy, not a
+    precaution: nothing destructive runs without a named way back.
     """
-    if external_restore_point and backup_root:
+    external = None
+    if external_restore_point is not None:
+        external = str(external_restore_point).strip()
+        if not external:
+            raise RestorePointRequired(
+                "external_restore_point must be a non-empty identifier"
+            )
+    if external and backup_root:
         raise RestorePointRequired(
             "supply either backup_root or external_restore_point, not both; "
             "two restore points means neither is authoritative in a recovery"
         )
-    if external_restore_point:
-        return external_restore_point
+    if external:
+        return external
     if backup_root is None:
         raise RestorePointRequired(
             "refusing to apply pending migrations with no restore point: pass "
             "backup_root to dump before applying, or external_restore_point to "
             "name a snapshot already taken"
+        )
+    if not backup_target_dsn or not backup_target_dsn.strip():
+        raise RestorePointRequired(
+            "backup_root requires backup_target_dsn resolved for the same "
+            "authoritative database as conn; ambient Yoke DSN resolution is "
+            "not a safe cross-project dump target"
         )
     if not db_backend.connection_is_postgres(conn):
         raise RestorePointRequired(
@@ -97,7 +115,7 @@ def establish(
     from yoke_core.domain.migration_apply_targets import dump_postgres_to_directory
 
     return dump_postgres_to_directory(
-        db_backend.resolve_pg_dsn(), BACKUP_REASON, Path(backup_root)
+        backup_target_dsn, BACKUP_REASON, Path(backup_root)
     )
 
 

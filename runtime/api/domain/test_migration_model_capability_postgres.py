@@ -13,6 +13,13 @@ from runtime.api.fixtures.migration_model_test import (
     POSTGRES_AUTHORITY_LOCATION,
 )
 
+_LEDGER = {
+    "table": "applied_migrations",
+    "entry_column": "migration_name",
+    "semantics": "membership",
+    "serving_floor_column": "minimum_serving_version",
+}
+
 
 def _postgres_model(location: dict) -> dict:
     return {
@@ -29,6 +36,7 @@ def _postgres_model(location: dict) -> dict:
             "config": {
                 "modules_dir": "runtime/api/domain/migrations",
                 "connection_env_var": "YOKE_PG_DSN",
+                "ledger": _LEDGER,
             },
         },
     }

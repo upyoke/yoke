@@ -26,6 +26,7 @@ _RETIRED = {
 }
 _MERGED = {"name": "merged", "step_runner": "auto"}
 _COMPLETE = {"name": "complete", "step_runner": "auto"}
+_PRE_VOCABULARY = {"name": "merged", "executor": "auto"}
 
 
 def _connection() -> sqlite3.Connection:
@@ -92,6 +93,17 @@ def test_rerun_is_a_no_op() -> None:
     migration.invariants(conn)
 
     assert _stages(conn, "release") == first
+
+
+def test_invariants_accept_the_historical_pre_conversion_vocabulary() -> None:
+    """The next permanent entry owns executor-to-step_runner conversion."""
+    conn = _connection()
+    _insert(conn, "release", [_RETIRED, _PRE_VOCABULARY])
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    assert _stages(conn, "release") == [_PRE_VOCABULARY]
 
 
 def test_a_flow_left_with_no_stages_is_refused() -> None:

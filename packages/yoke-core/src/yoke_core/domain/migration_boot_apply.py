@@ -139,8 +139,18 @@ def stamp_history(
     empty ledger here — a pre-ledger database that predates this mechanism
     also has no rows, and stamping *that* one would skip real work.
     """
-    stamped = [entry.name for entry in history]
-    _record_applied(conn, stamped, applied_by=applied_by)
+    stamped: list[str] = []
+    for entry in history:
+        module = load_migration_module(entry.path, entry.name)
+        _record_applied(
+            conn,
+            [entry.name],
+            applied_by=applied_by,
+            minimum_serving_version=(
+                migration_serving_version.declared_minimum(module)
+            ),
+        )
+        stamped.append(entry.name)
     conn.commit()
     return tuple(stamped)
 
@@ -152,13 +162,15 @@ def apply_pending(
     applied_by: str,
     running_version: str,
     backup_root: Optional[Path] = None,
+    backup_target_dsn: Optional[str] = None,
     external_restore_point: Optional[str] = None,
 ) -> ApplyOutcome:
     """Apply every entry this database still owes, oldest first.
 
-    Exactly one restore-point source must be supplied. ``backup_root`` makes
-    the kernel take a ``pg_dump`` itself, which is right where the database
-    is local to the machine or its volume. ``external_restore_point`` names a
+    Exactly one restore-point source must be supplied. ``backup_root`` plus a
+    caller-resolved ``backup_target_dsn`` makes the kernel take a ``pg_dump``
+    itself, which is right where the database is local to the machine or its
+    volume. ``external_restore_point`` names a
     restore point someone else established — the managed-Postgres snapshot a
     fleet roll takes before replacing any container, which is both faster than
     a per-database dump and, unlike one written inside a container about to be
@@ -190,6 +202,7 @@ def apply_pending(
     restore_point = migration_restore_point.establish(
         conn,
         backup_root=backup_root,
+        backup_target_dsn=backup_target_dsn,
         external_restore_point=external_restore_point,
     )
 
@@ -230,6 +243,7 @@ def _apply_one(
     # that here costs nothing while catching it later costs the database.
     migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
     started_at = now_stamp()
+    failure_state = "live_apply_failed"
     try:
         # apply() and the ledger row land together or not at all. The module
         # contract forbids committing inside apply() for exactly this reason.
@@ -237,6 +251,14 @@ def _apply_one(
         _record_applied(
             conn, [entry.name], applied_by=applied_by, minimum_serving_version=minimum
         )
+        invariants = getattr(module, "invariants", None)
+        if callable(invariants):
+            # Verification belongs to the same transaction as mutation and
+            # membership. Recording an entry before its invariants pass makes
+            # a failed migration look current on the next boot and prevents
+            # the retry that could repair it.
+            failure_state = "live_verify_failed"
+            invariants(conn)
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
@@ -244,30 +266,16 @@ def _apply_one(
         write_receipt(
             conn,
             entry,
-            state="live_apply_failed",
+            state=failure_state,
             started_at=started_at,
             completed_at=now_stamp(),
             restore_point=restore_point,
             failure_reason=reason[:500],
         )
-        raise EntryFailed(f"{entry.name} apply failed -- {reason}") from exc
-
-    invariants = getattr(module, "invariants", None)
-    if callable(invariants):
-        try:
-            invariants(conn)
-        except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
-            reason = _failure_reason(exc)
-            write_receipt(
-                conn,
-                entry,
-                state="live_verify_failed",
-                started_at=started_at,
-                completed_at=now_stamp(),
-                restore_point=restore_point,
-                failure_reason=reason[:500],
-            )
-            raise EntryFailed(f"{entry.name} invariants failed -- {reason}") from exc
+        phase = (
+            "invariants" if failure_state == "live_verify_failed" else "apply"
+        )
+        raise EntryFailed(f"{entry.name} {phase} failed -- {reason}") from exc
 
     write_receipt(
         conn,

@@ -1516,7 +1516,7 @@ def converge_and_validate_restored_universe(
         # Legacy convergence steps own commits and cannot run inside psycopg's
         # nested transaction context. This staging database is discarded on
         # validation failure; the archive restore was already atomic.
-        converge_core_schema(conn)
+        converge_core_schema(conn, backup_target_dsn=bounded_dsn)
         seed_roles_and_permissions(conn)
         # Uploaded TOCs omit views and executable schema. Recreate the canonical
         # view and QA trigger/function from trusted code before fingerprinting.

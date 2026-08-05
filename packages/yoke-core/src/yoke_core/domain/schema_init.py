@@ -93,7 +93,7 @@ def _converge_registered_command_plans(conn) -> None:
         pass
 
 
-def converge_core_schema(conn) -> None:
+def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     """Bring a database's schema up to the current code.
 
     Runs every schema-CREATION step — tables, indexes, and strictly additive
@@ -111,6 +111,11 @@ def converge_core_schema(conn) -> None:
     change is not absent — it is confined to the history, where it is ordered,
     recorded per database, and covered by a restore point, rather than being an
     inline repair nothing can audit.
+
+    When the configured restore-point policy takes a local Postgres dump,
+    ``backup_target_dsn`` must explicitly identify ``conn``'s authority. The
+    convergence kernel never substitutes an ambient Yoke connection for a
+    project database supplied by its caller.
 
     This is the single source of the schema-creation sequence: :func:`cmd_init`
     runs it, then layers seeds and the birth-only data-shape migrations on top.
@@ -186,10 +191,14 @@ def converge_core_schema(conn) -> None:
         create_or_replace_item_progress_view(conn)
     if _table_exists(conn, "qa_runs"):
         _ensure_qa_runs_verdict_trigger(conn)
-    converge_migration_history(conn, was_born=was_born)
+    converge_migration_history(
+        conn, was_born=was_born, backup_target_dsn=backup_target_dsn,
+    )
 
 
-def converge_migration_history(conn, *, was_born: bool) -> None:
+def converge_migration_history(
+    conn, *, was_born: bool, backup_target_dsn: str | None = None,
+) -> None:
     """Bring this database up to the ordered migration history.
 
     Runs last, after every creation step, so an entry can rely on the current
@@ -235,6 +244,7 @@ def converge_migration_history(conn, *, was_born: bool) -> None:
         # ahead of the entry it carries, not behind it.
         running_version=installed_engine_version(),
         backup_root=backup_root,
+        backup_target_dsn=backup_target_dsn,
         external_restore_point=external_restore_point,
     )
 
@@ -243,7 +253,7 @@ def cmd_init() -> None:
     """Create DB and shared tables (idempotent)."""
     conn = _connect_raw("")
     try:
-        converge_core_schema(conn)
+        converge_core_schema(conn, backup_target_dsn=db_backend.resolve_pg_dsn())
         seed_roles_and_permissions(conn)
         seed_default_org(conn)
         apply_legacy_data_migrations(conn)

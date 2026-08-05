@@ -47,10 +47,9 @@ def _run_backup(db_path: str, reason: str) -> str:
     raise MigrationBackupError(
         "GovernedMigration pre-flight backups through "
         "yoke_core.domain.backup are retired. Use "
-        "`python3 -m yoke_core.domain.migration_apply rehearse YOK-N` "
-        "followed by `python3 -m yoke_core.domain.migration_apply "
-        "live-apply YOK-N`; live-apply creates the Postgres rollback dump "
-        "recorded in migration_audit.backup_path."
+        "`yoke migration rehearse PREFIX-N` for validation. Authoritative "
+        "application belongs to ordered boot convergence, which requires a "
+        "named restore point before applying pending entries."
     )
 
 

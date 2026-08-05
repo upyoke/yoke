@@ -233,7 +233,10 @@ def _converge_copy(
         pending = _pending_names(conn, history)
         with _restore_point_named(dump):
             try:
-                converge_core_schema(conn)
+                converge_core_schema(
+                    conn,
+                    backup_target_dsn=postgres_cluster.dsn(spec, copy_name),
+                )
             except BaseException as exc:  # noqa: BLE001 — a verdict, not a crash
                 conn.rollback()
                 return Verdict(database, False, str(exc).strip(), pending)

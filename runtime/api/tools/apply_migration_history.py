@@ -25,6 +25,7 @@ import argparse
 import sys
 
 from yoke_core.domain import (
+    db_backend,
     db_helpers,
     migration_audit_receipts,
     migration_boot_apply,
@@ -34,6 +35,7 @@ from yoke_core.domain.environment_bootstrap import universe_is_born_on
 from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
 from yoke_core.domain.migration_history import history_dir, ordered_entries
 from yoke_core.domain.migration_restore_point import configured_restore_point
+from yoke_contracts.engine_version import installed_engine_version
 
 
 #: Tables this tool can bring into existence. Only these are handed back —
@@ -151,7 +153,11 @@ def main(argv: list[str] | None = None) -> int:
             conn,
             history=history,
             applied_by="operator-apply-migration-history",
+            running_version=installed_engine_version(),
             backup_root=backup_root,
+            backup_target_dsn=(
+                db_backend.resolve_pg_dsn() if backup_root is not None else None
+            ),
             external_restore_point=external,
         )
         print(f"restore point: {outcome.restore_point}")

@@ -35,10 +35,11 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleResolutionError,
 )
 
-#: A history entry is ``NNNN_slug.py``: a zero-padded ordering prefix and a
-#: snake_case slug. The prefix orders the history; the whole stem is the
-#: entry's identity, which is what the ledger stores.
-ENTRY_NAME_PATTERN = re.compile(r"^(\d{4})_([a-z0-9][a-z0-9_]*)$")
+#: New histories are taught ``NNNN_slug.py``. Established project histories
+#: may already use another stable zero-padded width; accept three or more
+#: digits because the whole stem is permanent ledger identity and cannot be
+#: renamed merely to match Yoke's preferred authoring width.
+ENTRY_NAME_PATTERN = re.compile(r"^(\d{3,})_([a-z0-9][a-z0-9_]*)$")
 
 #: Files in a history directory that are supporting code rather than
 #: entries. Everything else must be a well-formed entry — an unrecognized
@@ -101,7 +102,8 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
         if match is None:
             raise HistoryError(
                 f"migration history file {path.name!r} is not a valid entry name; "
-                "entries are NNNN_slug.py (zero-padded sequence, snake_case slug), "
+                "new entries use NNNN_slug.py (established zero-padded prefixes "
+                "of at least three digits remain valid; slug is snake_case), "
                 "and supporting files start with '_' or 'test_'"
             )
         sequence = int(match.group(1))

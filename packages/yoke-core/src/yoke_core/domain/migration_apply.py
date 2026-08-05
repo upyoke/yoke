@@ -86,7 +86,7 @@ def _parse_item_id(raw: str) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python3 -m yoke_core.domain.migration_apply",
+        prog="yoke migration",
         description=(
             "Rehearse a governed DB migration against the model's validation "
             "surface and record the receipt the evidence gate reads. Applying "
@@ -95,13 +95,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
-
-    _override_help = (
-        "Path to a migration module file under the active item worktree "
-        "(sanctioned cross-worktree apply contract). The slug must be "
-        "declared in db_mutation_profile.migration_modules and the "
-        "active session must hold a work-claim on that item."
-    )
 
     p_r = sub.add_parser(
         "rehearse",

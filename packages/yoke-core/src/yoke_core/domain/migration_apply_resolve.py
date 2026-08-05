@@ -9,7 +9,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, Mapping, Optional
 
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_mutation_profile import (
     MUTATION_INTENT_APPLY,
     STATE_DECLARED,
@@ -61,49 +61,35 @@ def _resolve_capability_settings(
 ) -> Dict[str, Any]:
     """Resolve the migration_model capability row for *project*.
 
-    Always reads ``project_capabilities`` from the canonical Yoke
-    control-plane DB regardless of the connection passed in. The *conn*
-    parameter is preserved for API stability and intentionally unused —
-    validation-surface DBs do not carry the table, so the canonical DB
-    is resolved through :func:`yoke_core.domain.db_helpers.resolve_db_path`.
-    Raises :class:`MigrationApplyError` when the canonical DB or the
-    table is unreachable.
+    ``conn`` is the control-plane connection already owned by the caller.
+    Reusing it keeps local-Postgres and relayed/server-side execution on the
+    authority selected for that invocation. Opening a second ambient
+    connection here can silently switch universes and cannot work inside an
+    HTTPS request handler.
     """
-    del conn  # capability rows live on the canonical control plane only
-    return _read_capability_from_canonical(project)
-
-
-def _read_capability_from_canonical(project: str) -> Dict[str, Any]:
+    p = _placeholder(conn)
     try:
-        canonical = db_helpers.connect()
-    except FileNotFoundError as exc:
+        project_id = resolve_project_id(conn, project)
+    except LookupError as exc:
         raise MigrationApplyError(
-            f"canonical Yoke control-plane DB unreachable for "
-            f"project_capabilities lookup of '{project}': {exc} "
-            "(resolved via yoke_core.domain.db_helpers.resolve_db_path)"
+            f"project '{project}' has no migration_model capability row"
+        ) from exc
+    except _operational_error_types(conn) as exc:
+        raise MigrationApplyError(
+            "project registry is unavailable on the supplied control-plane "
+            f"connection for project '{project}': {exc}"
         ) from exc
     try:
-        p = _placeholder(canonical)
-        try:
-            project_id = resolve_project_id(canonical, project)
-        except LookupError as exc:
-            raise MigrationApplyError(
-                f"project '{project}' has no migration_model capability row"
-            ) from exc
-        try:
-            row = canonical.execute(
-                "SELECT COALESCE(settings, '{}') FROM project_capabilities "
-                f"WHERE project_id={p} AND type={p}",
-                (project_id, MIGRATION_MODEL_CAPABILITY_TYPE),
-            ).fetchone()
-        except _operational_error_types(canonical) as exc:
-            raise MigrationApplyError(
-                f"project_capabilities table unreachable on canonical "
-                f"Yoke control-plane DB for project '{project}': {exc} "
-                "(resolved via yoke_core.domain.db_helpers.resolve_db_path)"
-            ) from exc
-    finally:
-        canonical.close()
+        row = conn.execute(
+            "SELECT COALESCE(settings, '{}') FROM project_capabilities "
+            f"WHERE project_id={p} AND type={p}",
+            (project_id, MIGRATION_MODEL_CAPABILITY_TYPE),
+        ).fetchone()
+    except _operational_error_types(conn) as exc:
+        raise MigrationApplyError(
+            "project_capabilities table is unavailable on the supplied "
+            f"control-plane connection for project '{project}': {exc}"
+        ) from exc
     if row is None:
         raise MigrationApplyError(
             f"project '{project}' has no migration_model capability row"
