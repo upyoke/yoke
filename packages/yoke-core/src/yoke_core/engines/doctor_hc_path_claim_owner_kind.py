@@ -17,10 +17,10 @@ Read-only. Self-skips cleanly on minimal-schema fixtures when
 ``path_claims`` is missing or lacks the typed owner columns.
 
 Remediation pointers:
-- ``python3 -m yoke_core.domain.migration_apply rehearse YOK-N``
-  followed by ``live-apply`` re-runs the backfill module.
-- Malformed rows surface their row id and typed fields so the operator
-  can repair the typed owner before re-running the migration.
+- Missing typed columns mean this database has not completed the permanent
+  ordered history. Converge it with a current artifact through the normal
+  boot path; do not run an item-scoped authoritative apply.
+- Malformed rows surface their row id and typed fields for governed repair.
 """
 
 from __future__ import annotations
@@ -64,10 +64,14 @@ def hc_path_claim_owner_kind(
                    "path_claims table missing — skipping")
         return
     if not _table_has_typed_owner(conn):
-        rec.record(_HC_NAME, _HC_DESC, "SKIP",
-                   "typed owner columns absent — pre-migration schema; "
-                   "run migration_apply rehearse + live-apply for "
-                   "path_claim_owner_kind")
+        rec.record(
+            _HC_NAME,
+            _HC_DESC,
+            "SKIP",
+            "typed owner columns absent — pre-history schema; deploy a "
+            "current artifact and let boot convergence apply the pending "
+            "ordered entry",
+        )
         return
 
     issues: List[str] = []

@@ -155,18 +155,22 @@ def ensure_core_schema() -> None:
 
     A container with a long-lived DB must not report healthy while deployed
     code requires tables OR columns the DB has not yet created. This runs the
-    full idempotent schema convergence (tables, indexes, additive columns) so a
-    deploy propagates every additive schema change to an already-born universe —
+    full schema convergence (tables, indexes, additive columns, then pending
+    ordered history) so a deploy propagates every schema change to an
+    already-born universe —
     the boot after a deploy is the only schema-reconciliation point on the prod
-    path. It is strictly non-destructive: the birth-only drops and data
-    backfills stay in :func:`yoke_core.domain.schema_init.cmd_init`. Fail-hard:
-    if convergence cannot complete, the API must not start.
+    path. Pending destructive changes and data backfills run only through the
+    ordered history's restore-point and serving-floor policy. Birth-only
+    legacy work stays in :func:`yoke_core.domain.schema_init.cmd_init`.
+    Fail-hard: if convergence cannot complete, the API must not start.
     """
-    from yoke_core.domain import db_helpers
+    from yoke_core.domain import db_backend, db_helpers
     from yoke_core.domain.schema_init import converge_core_schema
 
     with db_helpers.connect() as conn:
-        converge_core_schema(conn)
+        converge_core_schema(
+            conn, backup_target_dsn=db_backend.resolve_pg_dsn(),
+        )
     _log.info("core schema converged on boot")
 
 

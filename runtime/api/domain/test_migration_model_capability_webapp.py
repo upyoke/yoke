@@ -16,6 +16,13 @@ from yoke_core.domain.migration_model_capability import (
     validate,
 )
 
+_LEDGER = {
+    "table": "schema_version",
+    "entry_column": "migration_name",
+    "semantics": "membership",
+    "serving_floor_column": "minimum_serving_version",
+}
+
 
 def _minimal_sqlite_model(**overrides):
     base = {
@@ -35,6 +42,7 @@ def _minimal_sqlite_model(**overrides):
             "config": {
                 "modules_dir": "app/db/migrations",
                 "connection_env_var": "APP_DB_PATH",
+                "ledger": _LEDGER,
             },
         },
     }
@@ -75,6 +83,7 @@ class TestWebappValidationRecipe:
                 "config": {
                     "modules_dir": "app/db/migrations",
                     "connection_env_var": "APP_DB_PATH",
+                    "ledger": _LEDGER,
                 },
             },
         )
@@ -96,6 +105,7 @@ class TestWebappPythonRunner:
                 "config": {
                     "modules_dir": "app/db/migrations",
                     "connection_env_var": "APP_DB_PATH",
+                    "ledger": _LEDGER,
                 },
             },
         )
@@ -123,7 +133,10 @@ class TestWebappPythonRunner:
             validation_surface=_webapp_validation_surface(),
             runner={
                 "kind": "governed_migration_module",
-                "config": {"modules_dir": "app/db/migrations"},
+                "config": {
+                    "modules_dir": "app/db/migrations",
+                    "ledger": _LEDGER,
+                },
             },
         )
         out = validate({"models": {"primary": model}})

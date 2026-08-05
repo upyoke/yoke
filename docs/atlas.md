@@ -363,7 +363,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | local_universe.validate | `yoke universe validate` | tool_shaped | — |
 | merge | `yoke merge audit` | tool_shaped | — |
 | merge.item | `yoke merge item` | tool_shaped | — |
-| migration.apply | `python3 -m yoke_core.domain.migration_apply rehearse` | operator_break_glass | — |
+| migration.apply | `yoke migration rehearse PREFIX-N` | operator_break_glass | Local-Postgres/db-admin only; authoritative apply is boot convergence. |
 | onboard | `yoke onboard project` | tool_shaped | — |
 | onboard | `yoke onboard` | tool_shaped | — |
 | packets | `yoke packets check` | tool_shaped | — |

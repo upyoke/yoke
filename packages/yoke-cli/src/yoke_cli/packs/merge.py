@@ -15,6 +15,9 @@ class PackMergeError(RuntimeError):
     """A Pack update cannot be planned safely."""
 
 
+_MERGE_FILE_MAX_CONFLICTS = 127
+
+
 def plan_get(
     repo_root: Path,
     desired: list[dict[str, Any]],
@@ -160,9 +163,11 @@ def _merge_content(current: str, base: str, incoming: str) -> dict[str, Any]:
             capture_output=True,
             text=True,
         )
-    if result.returncode not in (0, 1):
-        raise PackMergeError(result.stderr.strip() or "git merge-file failed")
-    return {"content": result.stdout, "conflicted": result.returncode == 1}
+    if result.returncode < 0 or result.returncode > _MERGE_FILE_MAX_CONFLICTS:
+        detail = result.stderr.strip()
+        message = f"git merge-file failed with exit code {result.returncode}"
+        raise PackMergeError(f"{message}: {detail}" if detail else message)
+    return {"content": result.stdout, "conflicted": result.returncode > 0}
 
 
 def _merge_mode(current: int, base: int, incoming: int) -> tuple[int, bool]:

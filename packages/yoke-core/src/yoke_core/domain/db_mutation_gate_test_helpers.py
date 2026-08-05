@@ -238,8 +238,8 @@ def _seed_project(
     conn.commit()
 
 
-#: History entries are ``NNNN_slug``; anything else is not discoverable.
-_ENTRY_NAME_RE = re.compile(r"^\d{4}_[a-z0-9][a-z0-9_]*$")
+#: New histories use ``NNNN_slug``; established identities may use 3+ digits.
+_ENTRY_NAME_RE = re.compile(r"^\d{3,}_[a-z0-9][a-z0-9_]*$")
 
 
 def _write_module(

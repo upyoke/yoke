@@ -1,16 +1,4 @@
-"""Health check: has this database applied the migrations its code requires?
-
-Replaces the stranded-migration-module check, which asked the opposite and
-now-meaningless question — "is a completed migration's source still in the
-tree?" — a question that only existed because migration sources used to be
-deleted after they were applied. Under an ordered permanent history the
-source is *always* present, and the thing worth checking is whether each
-database has caught up to it.
-
-Unlike its predecessor this needs no source checkout: the history ships in
-the installed wheel and the ledger is a table, so the check answers on a
-hosted runner exactly as it does on a developer machine.
-"""
+"""Health check for the selected project's declared history and ledger."""
 
 from __future__ import annotations
 
@@ -23,62 +11,73 @@ TITLE = "Pending migrations applied"
 
 
 def hc_pending_migrations(
-    conn, args: DoctorArgs, rec: RecordCollector
+    conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    """HC-pending-migrations: the ledger is level with the shipped history.
-
-    FAIL when this database is behind: an entry the running code requires has
-    not been applied here. That is the divergence the ordered history exists
-    to surface, and reporting it as anything softer than a failure is what
-    let a universe sit behind for a day without anyone noticing.
-
-    A resolution failure is WARN with a named reason, never a silent PASS.
-    The predecessor's pass-closed posture inverts dangerously under these
-    semantics: "I could not read the ledger" and "the ledger is level" are
-    opposite answers, and only one of them is safe to assume.
-    """
-    from yoke_core.domain import migrations as migration_history_package
-    from yoke_core.domain.migration_boot_apply import pending_entries
-    from yoke_core.domain.migration_history import history_dir, ordered_entries
-
-    try:
-        history = ordered_entries(history_dir(migration_history_package))
-    except Exception as exc:  # noqa: BLE001 — a malformed history is a finding
-        rec.record(
-            SLUG, TITLE, "WARN",
-            f"cannot read the packaged migration history: {exc}",
-        )
-        return
-
-    if not history:
-        rec.record(SLUG, TITLE, "PASS", "")
-        return
-
-    try:
-        pending = pending_entries(conn, history)
-    except Exception as exc:  # noqa: BLE001 — cannot tell is not a pass
-        rec.record(
-            SLUG, TITLE, "WARN",
-            "cannot read the applied_migrations ledger, so whether this "
-            f"database is current is unknown: {exc}",
-        )
-        return
-
-    if not pending:
-        rec.record(SLUG, TITLE, "PASS", "")
-        return
-
-    issues: List[str] = [
-        f"- {entry.name} (declared in the shipped history, absent from this "
-        "database's ledger)"
-        for entry in pending
-    ]
-    issues.append(
-        "This database is behind the code running against it. A boot converge "
-        "applies the pending set; if one has run and these remain, the apply "
-        "failed and its migration_audit row names the restore point."
+    """HC-pending-migrations: selected project history minus its own ledger."""
+    from yoke_core.domain import migration_ledger_contract
+    from yoke_core.engines.doctor_project_migration_state import (
+        MigrationAuthorityUnavailable,
+        MigrationConfigurationError,
+        NoMigrationModel,
+        ledger_rows,
+        resolve_project_migration_state,
     )
-    rec.record(SLUG, TITLE, "FAIL", "\n".join(issues))
+
+    try:
+        state = resolve_project_migration_state(conn, args)
+    except NoMigrationModel as exc:
+        rec.record(SLUG, TITLE, "N/A", str(exc))
+        return
+    except MigrationConfigurationError as exc:
+        rec.record(SLUG, TITLE, "FAIL", str(exc))
+        return
+    except MigrationAuthorityUnavailable as exc:
+        rec.record(SLUG, TITLE, "WARN", str(exc))
+        return
+
+    try:
+        try:
+            applied = [name for name, _floor in ledger_rows(state)]
+        except Exception as exc:  # noqa: BLE001 - cannot tell is not green
+            rec.record(
+                SLUG,
+                TITLE,
+                "WARN",
+                f"cannot read {state.project}.{state.model_name} ledger "
+                f"{state.ledger.table}: {exc}",
+            )
+            return
+        history = [entry.name for entry in state.history]
+        pending = migration_ledger_contract.pending_entries(history, applied)
+        newer = migration_ledger_contract.applied_entries_outside_history(
+            history, applied,
+        )
+        if not pending:
+            rollback = (
+                f", {len(newer)} newer applied row(s) outside this packaged "
+                "history"
+                if newer else ""
+            )
+            rec.record(
+                SLUG,
+                TITLE,
+                "PASS",
+                f"{state.project}.{state.model_name}: {len(applied)} applied, "
+                f"0 pending{rollback}",
+            )
+            return
+        issues: List[str] = [
+            f"- {name} (declared in {state.project}.{state.model_name} "
+            "history, absent from that model's ledger)"
+            for name in pending
+        ]
+        issues.append(
+            "The declared database is behind the selected project's code. "
+            "Run that project's boot converge and inspect its migration audit."
+        )
+        rec.record(SLUG, TITLE, "FAIL", "\n".join(issues))
+    finally:
+        state.close()
 
 
 __all__ = ["SLUG", "TITLE", "hc_pending_migrations"]

@@ -31,6 +31,8 @@ additional pairings additively.
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.domain.migration_apply_runners import UnknownRunnerKind
 from yoke_core.domain.migration_model_capability_defaults import (
     governed_postgres_seed, resolve_model,
@@ -40,9 +42,26 @@ from yoke_core.domain.migration_model_capability_validation import (
     MigrationModelCapabilityError,
     RECIPE_WEBAPP_SQLITE_EMPTY,
     RUNNER_KIND_GOVERNED_MODULE,
-    canonical_json, validate, validate_json_string,
+    validate,
 )
 from yoke_core.domain.worktree_validation_recipes import UnknownValidationRecipe
+
+
+def canonical_json(payload: dict) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def validate_json_string(raw: str) -> str:
+    """Parse, validate, and return compact canonical capability JSON."""
+    if raw is None or raw == "":
+        raise MigrationModelCapabilityError(
+            "migration_model capability settings payload is empty"
+        )
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise MigrationModelCapabilityError(f"malformed JSON: {exc}") from exc
+    return canonical_json(validate(payload))
 
 __all__ = [
     "CAPABILITY_TYPE",

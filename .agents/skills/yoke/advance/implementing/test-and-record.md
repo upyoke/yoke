@@ -159,20 +159,17 @@ The agent covers all file types in test directories — `*.ts`, `*.tsx`, `*.js`,
 
 If the item declares `mutation_intent="apply"` with one or more entries in `migration_modules` (see the `db_mutation_profile` JSON-nested-field schema in your packet), the `check_implementing_to_reviewing_implementation_gate` requires a completed migration-audit row keyed on each module name **on the model's authoritative DB**, not the worktree's validation surface. The authoritative DB is declared by the project's `migration_model` capability; for Yoke's `primary` model it is the connected Postgres authority.
 
-**Governed-runner modules** (runner kind = `governed_migration_module`): rehearse and live-apply go through the standard contract.
+**Governed-runner modules** (runner kind = `governed_migration_module`):
 
-- **Projects whose deployment flow declares a `migration_apply` lifecycle hook:** the live-apply happens automatically during that phase. No extra step.
-- **Projects without that hook** (e.g. Yoke's `primary` model itself when iterating from inside `/yoke advance`): the agent runs the apply manually before advancing past `implementing`:
-
-  The `migration_apply` governed runner is a Yoke source-dev/admin boundary,
-  not a product CLI wrapper. Read its `rehearse` and `live-apply` help epilogs
-  before running either subcommand.
-
-  **Rehearse, then merge. You do not apply.** `rehearse` runs the module
+  **Rehearse, then merge. You do not apply.** Run
+  `yoke migration rehearse PREFIX-{N}` from a local-Postgres or matching
+  db-admin connection. The command refuses HTTPS product connections because
+  it executes the checked-out project's code and validation surface locally.
+  Rehearsal runs the module
   against the model's validation surface and records the receipt the evidence
   gate reads. Applying to the authoritative database is the job of the boot
   converge that starts a server running your merged code — there is no
-  live-apply step for you to run and no apply for you to wait on.
+  authoritative apply step for you to run or wait on.
 
   **The module is permanent.** Add it to the ordered history as
   `NNNN_slug.py`, commit it, and leave it there forever. It is never deleted
@@ -182,7 +179,11 @@ If the item declares `mutation_intent="apply"` with one or more entries in `migr
   each entry together with its ledger row, which is what makes "applied but
   unrecorded" impossible.
 
-  **Avoid recursive `rehearsal_commands` self-calls.** The attestation's `rehearsal_commands` list is re-executed inside the rehearse runner against the validation surface. A command that invokes the `migration_apply` rehearse/live-apply runner would recurse into the same runner with the validation DB bound (where the items row does not exist) and die mid-rehearse. Use focused module-surface checks instead: a schema-table probe appropriate to the validation surface, a pytest run against the module's own test file, or similar. The refine-time dryrun (`yoke_core.domain.attestation_rehearsal_dryrun`) now flags this shape as `recursive_migration_apply_self_call`.
+  **Avoid recursive `rehearsal_commands` self-calls.** The attestation's
+  commands run inside rehearsal against the validation surface. A command
+  that invokes `yoke migration rehearse` would recurse. Use a focused schema
+  probe or the module's tests instead; refine-time dry-run rejects recursive
+  rehearsal commands.
 
 **Exception-pathway modules** (modules that call `record_audit_fingerprint` instead of going through the governed runner): the apply is the author's responsibility. Before calling `/yoke advance PREFIX-{N} reviewing-implementation`, run the module's apply CLI against **both** surfaces:
 
@@ -201,7 +202,10 @@ yoke db read --format lines \
   WHERE migration_name='<module>'"
 ```
 
-Only after the authoritative row is present is the one-shot cutover code safe to delete. Deleting earlier (after validation-surface apply alone) leaves the work item with no path past `implementing` without reconstructing the module from git history.
+The exception module and its verification remain tracked as durable history.
+An audit row proves one execution; it does not prove every present or future
+install has received the change, and therefore never authorizes deleting the
+only executable record.
 
 ## b. Record QA Runs (after implementation, before advance done)
 

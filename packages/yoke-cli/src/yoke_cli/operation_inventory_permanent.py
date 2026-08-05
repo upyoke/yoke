@@ -59,11 +59,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         "claims.work",
         REASON_OPERATOR_BREAK_GLASS,
     ),
-    _p(
-        "python3 -m yoke_core.domain.migration_apply rehearse",
-        "migration.apply",
-        REASON_OPERATOR_BREAK_GLASS,
-    ),
+    _p("yoke migration rehearse", "migration.apply", REASON_TOOL_SHAPED),
     _p(
         "python3 -m yoke_core.domain.path_integrity verify",
         "path_integrity",

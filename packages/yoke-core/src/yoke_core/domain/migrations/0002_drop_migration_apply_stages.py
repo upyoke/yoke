@@ -20,7 +20,6 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend, json_helper
-from yoke_core.domain.flow_validation import validate_stages
 
 RETIRED_STAGE_KIND = "migration_apply"
 
@@ -69,7 +68,13 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
-    """No live flow retains the retired kind, and every array still validates."""
+    """No live flow retains the retired kind.
+
+    This entry intentionally does not run the current whole-array validator.
+    It precedes the permanent vocabulary-conversion entry, so historical rows
+    can still carry the former runner key at this point in the history. The
+    following entry converts and validates that vocabulary.
+    """
     for row in conn.execute(
         "SELECT id, stages FROM deployment_flows ORDER BY id"
     ).fetchall():
@@ -79,7 +84,6 @@ def invariants(conn: Any) -> None:
                 raise AssertionError(
                     f"deployment flow {row[0]} retains a {RETIRED_STAGE_KIND} stage"
                 )
-        validate_stages(json_helper.dumps_compact(stages))
 
 
 __all__ = ["RETIRED_STAGE_KIND", "apply", "invariants"]

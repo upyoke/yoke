@@ -309,7 +309,10 @@ def test_schema_converge_help_marks_source_dev_admin_surface() -> None:
 
     assert rc == 0
     assert "source-dev/admin operation" in out.getvalue()
-    assert "idempotent, additive schema convergence" in out.getvalue()
+    assert "boot-coupled schema convergence" in out.getvalue()
+    assert "pending ordered migration history" in out.getvalue()
+    assert "restore-point and serving-floor" in out.getvalue()
+    assert "destructive changes or data backfills" in out.getvalue()
     assert "role/permission catalog" in out.getvalue()
     assert err.getvalue() == ""
 

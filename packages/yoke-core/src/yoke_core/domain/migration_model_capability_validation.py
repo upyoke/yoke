@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any, Dict
 
@@ -225,7 +224,8 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
     if kind == RUNNER_KIND_GOVERNED_MODULE:
         cfg = _require_dict(obj.get("config"), field="runner.config")
         extra_cfg = set(cfg.keys()) - {
-            "modules_dir", "connection_env_var", "ledger",
+            "modules_dir", "connection_env_var", "artifact_version_env_var",
+            "ledger",
         }
         if extra_cfg:
             raise MigrationModelCapabilityError(
@@ -242,12 +242,27 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
             raise MigrationModelCapabilityError(
                 "runner.config.connection_env_var must be a non-empty string"
             )
+        if "ledger" not in cfg:
+            raise MigrationModelCapabilityError(
+                "runner.config.ledger is required; a governed migration "
+                "model must declare membership and serving-floor columns"
+            )
+        from yoke_core.domain import migration_ledger_contract
         config: Dict[str, Any] = {
-            "modules_dir": modules_dir, "connection_env_var": conn_env}
-        if "ledger" in cfg:
-            from yoke_core.domain import migration_ledger_contract
-            config["ledger"] = migration_ledger_contract.runner_config_ledger(
-                cfg["ledger"], MigrationModelCapabilityError)
+            "modules_dir": modules_dir,
+            "connection_env_var": conn_env,
+            "ledger": migration_ledger_contract.runner_config_ledger(
+                cfg["ledger"], MigrationModelCapabilityError,
+            ),
+        }
+        artifact_version_env = cfg.get("artifact_version_env_var")
+        if artifact_version_env is not None:
+            if not isinstance(artifact_version_env, str) or not artifact_version_env:
+                raise MigrationModelCapabilityError(
+                    "runner.config.artifact_version_env_var must be a "
+                    "non-empty string when present"
+                )
+            config["artifact_version_env_var"] = artifact_version_env
         return {"kind": kind, "config": config}
     raise MigrationModelCapabilityError(
         f"runner.kind '{kind}' is recognized but the combination "
@@ -331,20 +346,3 @@ def validate(payload: Any) -> Dict[str, Any]:
         result["default_model"] = default_model
 
     return result
-
-
-def canonical_json(payload: Dict[str, Any]) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-
-
-def validate_json_string(raw: str) -> str:
-    """Parse *raw* as JSON, validate, and return compact canonical JSON."""
-    if raw is None or raw == "":
-        raise MigrationModelCapabilityError(
-            "migration_model capability settings payload is empty"
-        )
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise MigrationModelCapabilityError(f"malformed JSON: {exc}") from exc
-    return canonical_json(validate(payload))
