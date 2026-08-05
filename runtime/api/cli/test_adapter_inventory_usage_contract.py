@@ -37,6 +37,7 @@ from yoke_cli.commands.adapters.workflows_versions import (
     WORKFLOWS_CURRENT_SET_USAGE,
     WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
     WORKFLOWS_VERSION_GET_USAGE,
+    WORKFLOWS_VERSION_LIST_USAGE,
 )
 from yoke_core.api.service_client_structured_api_adapter_inventory_qa import (
     QA_ADAPTERS,
@@ -53,6 +54,7 @@ def test_workflow_inventory_matches_public_cli_usage() -> None:
     expected = {
         "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
         "workflows.version.get": WORKFLOWS_VERSION_GET_USAGE,
+        "workflows.version.list": WORKFLOWS_VERSION_LIST_USAGE,
         "workflows.item.get": WORKFLOWS_ITEM_GET_USAGE,
         "workflows.current.set": WORKFLOWS_CURRENT_SET_USAGE,
         "workflows.policy_defaults.publish": (WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE),
