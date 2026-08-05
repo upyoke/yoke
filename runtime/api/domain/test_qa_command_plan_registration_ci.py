@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.projects_seed_ci_workflow import (
     CI_WORKFLOW_CAPABILITY_TYPE,
 )
@@ -223,10 +224,11 @@ def test_converge_follows_a_changed_workflow_filename() -> None:
     assert case["method_config"]["ci_workflow"] == "renamed-ci.yml"
 
 
-def test_boot_converge_rebinds_registered_command_plans() -> None:
+def test_boot_converge_rebinds_registered_command_plans(monkeypatch) -> None:
     # The wiring that makes this reach a live universe at all.
     from yoke_core.domain.schema_init import converge_core_schema
 
+    monkeypatch.setenv(RESTORE_POINT_ENV, "qa-command-plan-test-snapshot")
     with test_database() as conn:
         ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="quick",

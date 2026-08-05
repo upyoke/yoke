@@ -22,7 +22,6 @@ from runtime.api.dynamic_authority_import_allowlist_cli import (
     CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS,
 )
 
-
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     (
         "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
@@ -317,6 +316,5 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
 }
 ALLOWED_DYNAMIC_AUTHORITY_IMPORTS.update(CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS)
-
 
 __all__ = ["ALLOWED_DYNAMIC_AUTHORITY_IMPORTS"]

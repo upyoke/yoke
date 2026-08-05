@@ -123,6 +123,7 @@ def _rehearse_inner(
         project=project,
         model_name=profile["model_name"],
         model=model,
+        authoritative_target=authoritative_db,
         control_db_path=control_conn_db_path(control_conn),
     )
 

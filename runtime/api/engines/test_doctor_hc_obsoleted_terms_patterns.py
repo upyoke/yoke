@@ -14,7 +14,6 @@ from __future__ import annotations
 import re
 
 from yoke_project_checks._obsoleted_terms_catalog import (
-    _PER_PATTERN_PATH_ALLOWLIST,
     _RETIRED_CHILD_ISSUE_PATTERN,
     _RETIRED_EPIC_FIELD_PROSE_PATTERN,
     _RETIRED_PARENT_EPIC_SQL_SELECT_PATTERN,
@@ -191,12 +190,6 @@ def test_type_issue_epic_parent_pattern_does_not_match_unrelated_uses():
         "When " + "type=issue" + " advances to refined-idea, the epic taxonomy stays untouched.",
     ]:
         assert not compiled.search(line), f"unexpected type=issue+epic-parent match on: {line!r}"
-
-
-def test_strategy_files_are_in_per_pattern_allowlist():
-    """The child-issue pattern keeps narrow strategy-file waivers."""
-    allow = _PER_PATTERN_PATH_ALLOWLIST.get(_RETIRED_CHILD_ISSUE_PATTERN, ())
-    assert ".yoke/strategy/WISPS.md" in allow
 
 
 def test_retired_browser_execution_paths_are_detected():

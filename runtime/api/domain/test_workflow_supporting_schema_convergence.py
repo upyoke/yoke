@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.decision_request_contract import DECISION_EVENT_ROWS
+from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.qa_catalog_schema import BUILTIN_QA_METHODS
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.schema_init import converge_core_schema
@@ -12,7 +13,10 @@ def _row_count(conn, table: str) -> int:
     return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
 
 
-def test_boot_converges_supporting_schema_and_code_owned_seeds(test_db) -> None:
+def test_boot_converges_supporting_schema_and_code_owned_seeds(
+    test_db, monkeypatch,
+) -> None:
+    monkeypatch.setenv(RESTORE_POINT_ENV, "workflow-schema-test-snapshot")
     converge_core_schema(test_db)
 
     for table in (

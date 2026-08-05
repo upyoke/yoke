@@ -1,31 +1,7 @@
 """QA read handlers — qa.requirement.{list,get}, qa.run.{list,get},
-qa.gate_summary.run.
-
-Typed read legs for the ``qa`` family (family docstring:
-:mod:`yoke_core.domain.handlers.qa_browser`). Each handler wraps the
-matching db_router/domain read without the CLI ``print``/``sys.exit``
-presentation:
-
-- ``qa.requirement.list`` — mirrors
-  :func:`yoke_core.domain.qa_requirement_ops.cmd_requirement_list`
-  (item / epic / deployment-run filter precedence) returning structured
-  rows over :data:`yoke_core.domain.qa_constants.REQ_COLUMNS`.
-- ``qa.requirement.get`` — mirrors ``cmd_requirement_get`` for one
-  ``qa_requirements`` row.
-- ``qa.run.list`` — mirrors
-  :func:`yoke_core.domain.qa_execution.cmd_run_list` over
-  :data:`yoke_core.domain.qa_constants.RUN_COLUMNS` (typed superset:
-  includes ``execution_status``).
-- ``qa.run.get`` — returns one ``qa_runs`` row by id over the same
-  structured column set.
-- ``qa.gate_summary.run`` — calls
-  :func:`yoke_core.domain.qa_gate_summary.render_gate_summary`
-  directly (pure read, no CLI branches to strip). This is the
-  dispatcher-backed fix for the checkout-shaped gate-entry leg that
-  could not run over https.
-
-All four are reads: ``claim_required_kind=None``, no side effects, only
-``YokeFunctionCalled`` emission.
+qa.gate_summary.run. Typed read legs for the ``qa`` family; each wraps
+the matching domain read without CLI presentation. Reads only:
+``claim_required_kind=None``, ``YokeFunctionCalled`` emission.
 """
 
 from __future__ import annotations
@@ -167,6 +143,7 @@ class QaRunListResponse(BaseModel):
 
 class QaRunGetRequest(BaseModel):
     run_id: int
+    project: Optional[str] = None
 
 
 class QaRunGetResponse(BaseModel):
@@ -202,8 +179,22 @@ def handle_qa_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def _qa_run_project_ref(request: FunctionCallRequest) -> Optional[str]:
+    payload = request.payload or {}
+    raw = (
+        payload.get("project")
+        or request.target.project_id
+        or (request.options or {}).get("authorized_project_id")
+    )
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    return text or None
+
+
 def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect, query_one
+    from yoke_core.domain.project_identity import resolve_project_id
 
     payload = request.payload or {}
     run_id = payload.get("run_id")
@@ -213,14 +204,43 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
             "run_id is required",
             jsonpath="$.payload.run_id",
         )
+    project_ref = _qa_run_project_ref(request)
+    cols = ", ".join(RUN_COLUMNS)
+    run_cols = ", ".join(f"r.{col}" for col in RUN_COLUMNS)
 
     conn = connect()
     try:
-        row = query_one(
-            conn,
-            f"SELECT {', '.join(RUN_COLUMNS)} FROM qa_runs WHERE id = {_p(conn)}",
-            (int(run_id),),
-        )
+        p = _p(conn)
+        if project_ref is None:
+            row = query_one(
+                conn, f"SELECT {cols} FROM qa_runs WHERE id = {p}", (int(run_id),)
+            )
+        else:
+            try:
+                project_id = resolve_project_id(conn, project_ref)
+            except LookupError:
+                return _error(
+                    "not_found",
+                    f"project {project_ref!r} not found",
+                    jsonpath="$.payload.project",
+                )
+            row = query_one(
+                conn,
+                f"SELECT {run_cols} FROM qa_runs r "
+                "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
+                "LEFT JOIN items i ON i.id = COALESCE(q.item_id, q.epic_id) "
+                "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
+                f"WHERE r.id = {p} AND COALESCE(i.project_id, dr.project_id) = {p}",
+                (int(run_id), int(project_id)),
+            )
+            if row is None and query_one(
+                conn, f"SELECT id FROM qa_runs WHERE id = {p}", (int(run_id),)
+            ) is not None:
+                return _error(
+                    "project_mismatch",
+                    f"run {run_id} does not belong to project {project_ref!r}",
+                    jsonpath="$.payload.project",
+                )
     finally:
         conn.close()
     if row is None:

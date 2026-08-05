@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 # Scan operator-facing prose plus live runtime Python, so stale retired
-# hook/module references in doctor code cannot reach main unnoticed.
+# hook/module references in doctor code cannot reach main unnoticed. Rendered
+# strategy views stay out of scope because ``.yoke/strategy`` is a gitignored
+# local projection rather than tracked source.
 # JSON/TOML/YAML stay out of scope by design because they are generated
 # from Python/TypeScript inputs.
 SCAN_DIRS_BY_EXT: dict[str, tuple[str, ...]] = {
@@ -13,7 +15,6 @@ SCAN_DIRS_BY_EXT: dict[str, tuple[str, ...]] = {
         ".claude",
         "packs",
         "projects",
-        ".yoke/strategy",
     ),
     ".py": (
         "packages",

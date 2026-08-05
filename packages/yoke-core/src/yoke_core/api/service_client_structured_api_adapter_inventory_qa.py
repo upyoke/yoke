@@ -148,7 +148,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="qa.run.get",
-        cli_invocation=("yoke qa run get --run-id N [--session-id S] [--json]"),
+        cli_invocation=(
+            "yoke qa run get --run-id N [--project P] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.gate_summary.run",
