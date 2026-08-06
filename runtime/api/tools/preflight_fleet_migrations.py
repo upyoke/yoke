@@ -119,6 +119,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     os.environ["YOKE_ENV"] = positional[0]
     from yoke_core.domain import db_backend, local_universe, migration_fleet_preflight
+    from runtime.api.tools import yoke_migration_fleet
 
     spec = local_universe.cluster_spec(
         bin_dir=local_universe.ensure_engine_binaries(lambda msg: print(f"  {msg}"))
@@ -127,13 +128,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     def dsn_for(database: str) -> str:
         return db_backend.resolve_pg_dsn(dbname=database)
 
-    databases = positional[1:] or None
+    databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
+    plan = yoke_migration_fleet.rehearsal_plan()
     print(f"environment: {positional[0]}")
     print(f"rehearsal cluster: {spec.sock_dir}")
 
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
         verdicts = migration_fleet_preflight.rehearse_fleet(
-            dsn_for, spec=spec, work_dir=Path(work), databases=databases
+            dsn_for,
+            databases=databases,
+            plan=plan,
+            spec=spec,
+            work_dir=Path(work),
         )
 
     for verdict in verdicts:
@@ -143,7 +149,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if failed or not record:
         return 1 if failed else 0
 
-    entries = migration_fleet_preflight.history_names()
+    entries = plan.history
     unwritten = _record_receipt(
         receipt_env=receipt_env,
         environment=positional[0],

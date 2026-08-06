@@ -270,7 +270,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     os.environ["YOKE_ENV"] = args[0]
     from yoke_core.domain import db_backend
-    from yoke_core.domain.migration_fleet_preflight import tenant_databases
+    from runtime.api.tools.yoke_migration_fleet import tenant_databases
 
     def dsn_for(database: str) -> str:
         return db_backend.resolve_pg_dsn(dbname=database)
