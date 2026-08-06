@@ -1,16 +1,11 @@
-"""Render harness adapters from canonical Yoke source.
+"""Render harness adapters and native configs from canonical Yoke source.
 
-Writes per-harness agents, configs, and manifests under
-``runtime/harness/{id}/`` plus repo-root native surfaces (``.codex/agents``,
-``.cursor/agents``, and materialized ``.cursor/hooks.json``). Shape-specific
-renderers live in sibling modules. Writers require ``target_root``; readers
-use a strict resolver; atomic writes enforce work-claim and seed-root
-authority.
+Writers require ``target_root``; readers use a strict resolver; atomic writes
+enforce work-claim, seed-root, and symlink-parent authority.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -61,11 +56,10 @@ from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
 from yoke_core.domain import agents_render_project_install
-
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+from yoke_cli.filesystem_safety import (
+    atomic_replace_bytes,
+    first_symlink_component,
+)
 
 CLAUDE_OUT_DIR = Path("runtime") / "harness" / "claude" / "agents"
 CODEX_OUT_DIR = Path("runtime") / "harness" / "codex" / "agents"
@@ -74,14 +68,17 @@ CURSOR_OUT_DIR = Path("runtime") / "harness" / "cursor" / "agents"
 CURSOR_NATIVE_AGENTS_DIR = Path(".cursor/agents")
 
 CLAUDE_SETTINGS_PATH = Path("runtime") / "harness" / "claude" / "settings.json"
+CLAUDE_NATIVE_SETTINGS_PATH = Path(".claude") / "settings.json"
 CLAUDE_MANIFEST_PATH = Path("runtime") / "harness" / "claude" / "manifest.json"
 CODEX_HOOKS_PATH = Path("runtime") / "harness" / "codex" / "hooks.json"
 CODEX_MANIFEST_PATH = Path("runtime") / "harness" / "codex" / "manifest.json"
 CURSOR_HOOKS_PATH = Path("runtime") / "harness" / "cursor" / "hooks.json"
 CURSOR_MANIFEST_PATH = Path("runtime") / "harness" / "cursor" / "manifest.json"
 CURSOR_NATIVE_HOOKS_PATH = Path(".cursor") / "hooks.json"
+_MATERIALIZED_CONFIG_PATHS = frozenset(
+    {CLAUDE_NATIVE_SETTINGS_PATH, CURSOR_NATIVE_HOOKS_PATH}
+)
 
-# The seven primary Yoke agents.
 AGENTS = [
     "product-manager",
     "product-designer",
@@ -92,19 +89,12 @@ AGENTS = [
     "boss",
 ]
 
-# Roles whose rendered adapters embed an always-needed reference section.
 ROLES_WITH_INLINE_REFERENCES = {"architect", "tester"}
 
 
 def _resolve_reader_root(target_root: Optional[Path]) -> Path:
     """Resolve ``target_root`` for reader helpers — see ``require_reader_root``."""
     return require_reader_root(target_root)
-
-
-# ---------------------------------------------------------------------------
-# Claude agent (.md) writer helpers
-# ---------------------------------------------------------------------------
-
 
 def write_all_claude(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[str, str]]:
     """Render Claude agents and on-demand references for an explicit checkout."""
@@ -146,19 +136,14 @@ def detect_drift(*, target_root: Optional[Path] = None) -> list[str]:
             drift.append(f"drift: {CLAUDE_OUT_DIR}/yoke-{agent}.md")
     return drift
 
-
-# ---------------------------------------------------------------------------
-# Universal substrate rendering — every output set in one place
-# ---------------------------------------------------------------------------
-
-
 def _atomic_write(out_path: Path, rendered: str, *, target_root: Path) -> None:
     assert_target_under_session_work_authority(out_path)
     _assert_seed_under_target_root(target_root)
+    symlink = first_symlink_component(target_root, out_path)
+    if symlink is not None:
+        raise RuntimeError(f"refusing render through symlinked parent {symlink}")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
-    tmp_path.write_text(rendered, encoding="utf-8")
-    os.replace(str(tmp_path), str(out_path))
+    atomic_replace_bytes(out_path, rendered.encode("utf-8"))
 
 
 def _assert_seed_under_target_root(target_root: Path) -> None:
@@ -188,6 +173,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
         )
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     outputs.append((CLAUDE_SETTINGS_PATH, render_claude_settings_json()))
+    outputs.append((CLAUDE_NATIVE_SETTINGS_PATH, render_claude_settings_json()))
     outputs.append((CLAUDE_MANIFEST_PATH, render_claude_manifest_json()))
     for agent in AGENTS:
         outputs.append(
@@ -225,13 +211,24 @@ def write_all(*, target_root: Path, dry_run: bool = False) -> dict[str, tuple[st
     for rel_path, rendered in _enumerate_outputs(root):
         out_path = root / rel_path
         rel = str(rel_path)
+        materialize = rel_path in _MATERIALIZED_CONFIG_PATHS
+        if materialize:
+            symlink = first_symlink_component(root, out_path)
+            if symlink is not None:
+                raise RuntimeError(
+                    f"refusing render through symlinked parent {symlink}"
+                )
         if dry_run:
             existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
-            action = "would-write" if rendered != existing else "skip"
+            action = (
+                "would-write"
+                if rendered != existing or materialize and out_path.is_symlink()
+                else "skip"
+            )
             results[rel] = (action, rendered)
             continue
         existing = out_path.read_text(encoding="utf-8") if out_path.exists() else None
-        if existing == rendered:
+        if existing == rendered and not (materialize and out_path.is_symlink()):
             results[rel] = ("skip", rendered)
             continue
         _atomic_write(out_path, rendered, target_root=root)
@@ -290,7 +287,7 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
         outputs = []
     for rel_path, rendered in outputs:
         out_path = root / rel_path
-        if rel_path == CURSOR_NATIVE_HOOKS_PATH and out_path.is_symlink():
+        if rel_path in _MATERIALIZED_CONFIG_PATHS and out_path.is_symlink():
             drift.append(f"invalid symlink: {rel_path}")
             continue
         if not out_path.exists():
@@ -302,9 +299,6 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
         drift.extend(native_agents_link_drift(root, out_dir, native_dir))
     return drift
 
-
-# CLI lives in agents_render_workspace.run_cli — keeps the writer hot path
-# free of argparse plumbing and stays under the 350-line cap.
 
 def write_all_and_record(
     *, target_root: Path, dry_run: bool = False,

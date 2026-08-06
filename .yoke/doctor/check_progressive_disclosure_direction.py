@@ -64,15 +64,15 @@ _BARE_PATH_RE = re.compile(
 )
 _COMMAND_SECTION_RE = re.compile(r"^### ([a-z][a-z0-9_-]*)\s*$")
 _SKILL_ROOT = ".agents/skills/yoke"
-_GENERATED_COMMAND_DOC = ".yoke/docs/commands.md"
+_GENERATED_COMMAND_DOC = ".yoke/docs/reference/commands.md"
 _GENERATED_SKILL_REFERENCE_DOCS = frozenset(
-    {_GENERATED_COMMAND_DOC, ".yoke/docs/lifecycle.md"}
+    {_GENERATED_COMMAND_DOC, ".yoke/docs/reference/lifecycle.md"}
 )
 _EXPLICIT_CITATION_ALIASES = {
-    (".yoke/docs/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
-    (".yoke/docs/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
+    (".yoke/docs/reference/lifecycle.md", "body-and-sync.md"): f"{_SKILL_ROOT}/idea/body-and-sync.md",
+    (".yoke/docs/reference/lifecycle.md", "infer-and-create.md"): f"{_SKILL_ROOT}/idea/infer-and-create.md",
     ("docs/harness-bootstrap.md", "manifest-schema.md"): "runtime/harness/manifest-schema.md",
-    ("runtime/agents/boss.md", "db-reference.md"): ".yoke/docs/db-reference.md",
+    ("runtime/agents/boss.md", "db-reference.md"): ".yoke/docs/reference/db-reference.md",
     ("runtime/agents/engineer.md", "session.md"): "runtime/harness/claude/rules/session.md",
     ("runtime/agents/tester.md", "session.md"): "runtime/harness/claude/rules/session.md",
     (f"{_SKILL_ROOT}/shared/tester-dispatch-template.md", "dispatch-context.md"): f"{_SKILL_ROOT}/conduct/dispatch-context.md",
@@ -82,7 +82,7 @@ _NON_TEACHING_PATH_LABELS = frozenset(
 )
 _EXPLICIT_DIRECTION_EDGES = frozenset(
     {
-        ("AGENTS.md", ".yoke/docs/lifecycle.md"),
+        ("AGENTS.md", ".yoke/docs/reference/lifecycle.md"),
         ("AGENTS.md", "docs/harness-bootstrap.md"),
         ("runtime/harness/claude/rules/session.md", f"{_SKILL_ROOT}/idea/path-claim-blocking.md"),
         ("docs/OVERVIEW.md", f"{_SKILL_ROOT}/SKILL.md"),
@@ -256,7 +256,7 @@ def _is_sanctioned_direction_edge(citing: str, cited: str) -> bool:
     if citing == _GENERATED_COMMAND_DOC and cited.startswith(f"{_SKILL_ROOT}/"):
         return True
     if (
-        citing == ".yoke/docs/lifecycle.md"
+        citing == ".yoke/docs/reference/lifecycle.md"
         and cited.startswith(f"{_SKILL_ROOT}/idea/")
     ):
         return True

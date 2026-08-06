@@ -240,7 +240,7 @@ def test_generated_command_doc_resolves_scoped_phase_and_allows_link(
     conn,
 ):
     """The command catalog resolves phase labels under its command heading."""
-    commands = ".yoke/docs/commands.md"
+    commands = ".yoke/docs/reference/commands.md"
     target = ".agents/skills/yoke/shepherd/finalize.md"
     _setup(
         tmp_path,

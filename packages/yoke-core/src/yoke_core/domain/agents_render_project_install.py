@@ -13,6 +13,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from yoke_cli.filesystem_safety import (
+    atomic_replace_bytes,
+    first_symlink_component,
+)
 from yoke_core.domain.agents_render_claude import render_claude_settings_json
 from yoke_core.domain.agents_render_codex import (
     render_codex_agent,
@@ -36,6 +40,10 @@ _CODEX_SKILL_LINK = Path(".codex") / "skills" / "yoke"
 _CURSOR_SKILL_LINK = Path(".cursor") / "skills" / "yoke"
 _SKILL_LINK_TARGET = "../../.agents/skills/yoke"
 _INSTALL_MANIFEST = Path(".yoke") / "install-manifest.json"
+_SCANNED_CONFIGS = frozenset({
+    Path(".claude/settings.json"),
+    Path(".cursor/hooks.json"),
+})
 
 
 def is_project_install_root(target_root: Path) -> bool:
@@ -59,6 +67,15 @@ def detect_project_install_drift(
         source_root, copy_skills=copy_skills
     ):
         out_path = root / rel_path
+        if rel_path in _SCANNED_CONFIGS:
+            symlink = first_symlink_component(
+                root, out_path, include_leaf=True,
+            )
+            if symlink is not None:
+                drift.append(
+                    f"invalid symlink component: {symlink.relative_to(root)}"
+                )
+                continue
         if not out_path.exists():
             drift.append(f"missing: {rel_path}")
             continue
@@ -84,16 +101,33 @@ def write_project_install(
     root = Path(target_root)
     results: dict[str, tuple[str, str]] = {}
     copy_skills = _installed_delivery_mode(root) == "copy"
-    for rel_path, rendered in _project_install_outputs(
+    outputs = _project_install_outputs(
         source_root, copy_skills=copy_skills
-    ):
+    )
+    for rel_path, _rendered in outputs:
+        if rel_path not in _SCANNED_CONFIGS:
+            continue
+        symlink = first_symlink_component(root, root / rel_path)
+        if symlink is not None:
+            raise RuntimeError(
+                f"refusing project-install render through symlinked parent "
+                f"{symlink}"
+            )
+    for rel_path, rendered in outputs:
         out_path = root / rel_path
-        existing = out_path.read_text(encoding="utf-8") if out_path.exists() else None
-        action = "skip" if existing == rendered else "would-write" if dry_run else "write"
+        materialize = rel_path in _SCANNED_CONFIGS and out_path.is_symlink()
+        existing = (
+            out_path.read_text(encoding="utf-8")
+            if out_path.exists() and not materialize else None
+        )
+        action = (
+            "skip" if existing == rendered and not materialize
+            else "would-write" if dry_run else "write"
+        )
         if action == "write":
             assert_target_under_session_work_authority(out_path)
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(rendered, encoding="utf-8")
+            atomic_replace_bytes(out_path, rendered.encode("utf-8"))
         results[str(rel_path)] = (action, rendered)
     if not copy_skills:
         for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):

@@ -59,6 +59,10 @@ from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
     ordered_pipeline_for,
 )
+from yoke_contracts.hook_runner.config_owner import (
+    CLAUDE_CONFIG_OWNER,
+    CONFIG_OWNER_ENV_VAR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +126,10 @@ def _env_prefix(agent: str) -> str:
     executable. Routing through the ``env`` binary instead would force the
     classifier to special-case ``env`` to find the real executable.
     """
-    return f"YOKE_HOOK_AGENT_TYPE={agent}"
+    return (
+        f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER} "
+        f"YOKE_HOOK_AGENT_TYPE={agent}"
+    )
 
 
 def _hook_entry(command: str) -> dict:

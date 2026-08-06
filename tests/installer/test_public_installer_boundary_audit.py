@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from public_installer_helpers import RecordingRunner, load_installer
+from public_installer_helpers import RecordingRunner, load_installer, write_channel
 
 
 def _options(installer_mod, **overrides):
@@ -65,6 +65,27 @@ def test_channel_missing_version_pin_fails(tmp_path: Path) -> None:
         assert "missing a version pin" in str(exc)
     else:
         raise AssertionError("expected missing version pin failure")
+
+
+def test_content_aware_channel_refuses_missing_release_evidence(
+    tmp_path: Path,
+) -> None:
+    installer_mod = load_installer()
+    release = write_channel(tmp_path, version="1.2.3")
+    channel_path = tmp_path / "site" / "dist" / "channels" / "stable.json"
+    payload = json.loads(channel_path.read_text(encoding="utf-8"))
+    payload["schema_version"] = 3
+    channel_path.write_text(json.dumps(payload), encoding="utf-8")
+    installer = installer_mod.Installer(
+        _options(installer_mod, dry_run=True, base_url=release["base_url"]),
+    )
+
+    try:
+        installer.run()
+    except installer_mod.InstallError as exc:
+        assert "missing trusted migration history evidence" in str(exc)
+    else:
+        raise AssertionError("schema-v3 candidate installed without release evidence")
 
 
 def test_product_boundary_audit_accepts_installed_engine() -> None:

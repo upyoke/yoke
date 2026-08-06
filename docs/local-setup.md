@@ -85,7 +85,7 @@ The repo connection is optional per project: set
 `github_sync_mode=disabled` on a project row and its backlog stays
 DB-only — every issue-sync surface skips it and no GitHub App token is resolved.
 Full semantics, the flip commands, and the safe ordering for changing a
-project's `github_repo` live in [github-sync.md](../.yoke/docs/github-sync.md).
+project's `github_repo` live in [github-sync.md](../.yoke/docs/reference/github-sync.md).
 
 Manage the embedded server directly when needed:
 

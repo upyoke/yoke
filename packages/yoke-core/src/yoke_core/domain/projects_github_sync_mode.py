@@ -18,7 +18,7 @@ content to that repo's issue tracker. Flipping a project's
 ``github_repo`` to a different repo MUST be preceded by flipping this
 switch to ``disabled`` when the backlog is not meant to appear in
 the new repo — otherwise the first sync after the flip would mass-create
-the backlog as issues there (see ``.yoke/docs/github-sync.md``).
+the backlog as issues there (see ``.yoke/docs/reference/github-sync.md``).
 
 New projects default to ``disabled``. Missing schema, missing rows, legacy
 values, and database read failures all resolve to ``disabled`` so sync cannot

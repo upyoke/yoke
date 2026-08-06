@@ -9,6 +9,7 @@ import pytest
 
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.decision_request_events import append_decision_event_envelope
+from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.inbox_notification_projection_contract import (
     DELIVERY_SNAPSHOT_COLUMNS,
 )
@@ -122,6 +123,52 @@ def _snapshots(conn) -> list[tuple[object, ...]]:
     ]
 
 
+def test_sqlite_schema_convergence_adds_actor_id_before_migration() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE actors (id INTEGER PRIMARY KEY, kind TEXT, system_component TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE actor_labels ("
+        "id INTEGER PRIMARY KEY, actor_id INTEGER, surface TEXT, label TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE events ("
+        "event_id TEXT PRIMARY KEY, source_type TEXT NOT NULL, "
+        "session_id TEXT NOT NULL, severity TEXT NOT NULL, "
+        "event_kind TEXT NOT NULL, event_type TEXT NOT NULL, "
+        "event_name TEXT NOT NULL, project_id INTEGER, event_outcome TEXT, "
+        "envelope TEXT, created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE addressed_event_deliveries ("
+        "id INTEGER PRIMARY KEY, channel TEXT NOT NULL, event_id TEXT NOT NULL, "
+        "actor_id INTEGER NOT NULL, notification_kind TEXT NOT NULL, "
+        "reason TEXT NOT NULL, read_at TEXT, created_at TEXT NOT NULL)"
+    )
+    conn.execute("INSERT INTO actors VALUES (2, 'human', NULL)")
+    conn.execute(
+        "INSERT INTO events VALUES ("
+        "'event-legacy', 'system', 'migration-proof', 'INFO', 'lifecycle', "
+        "'state', 'ItemBlocked', 10, 'completed', '{}', "
+        "'2026-08-05T12:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO addressed_event_deliveries VALUES ("
+        "1, 'in_app', 'event-legacy', 2, 'decision_request_resolved', "
+        "'legacy events shape', NULL, '2026-08-05T12:00:00Z')"
+    )
+
+    ensure_event_schema(conn)
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(events)").fetchall()}
+    assert "actor_id" in columns
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    assert _snapshots(conn)[0][:4] == ("ItemBlocked", 10, "completed", None)
+
+
 def test_sqlite_apply_backfills_display_inputs_and_is_idempotent() -> None:
     conn = _legacy_connection()
 
@@ -173,6 +220,49 @@ def test_invariants_reject_a_delivery_without_a_source_snapshot() -> None:
 
 def test_entry_is_additive_and_declares_no_serving_floor() -> None:
     assert getattr(migration, "MINIMUM_SERVING_VERSION", None) is None
+
+
+def test_postgres_schema_convergence_adds_actor_id_before_migration(test_db) -> None:
+    """Schema convergence prepares legacy events before history runs."""
+    from yoke_core.domain.schema_common import _column_exists
+
+    test_db.execute('ALTER TABLE events DROP COLUMN IF EXISTS "actor_id"')
+    assert not _column_exists(test_db, "events", "actor_id")
+    for column, _definition in reversed(DELIVERY_SNAPSHOT_COLUMNS):
+        test_db.execute(
+            f'ALTER TABLE addressed_event_deliveries DROP COLUMN "{column}"'
+        )
+    ensure_event_schema(test_db)
+    assert _column_exists(test_db, "events", "actor_id")
+
+    actor_id = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    test_db.execute(
+        "INSERT INTO events ("
+        "event_id, source_type, session_id, severity, event_kind, event_type, "
+        "event_name, event_outcome, project_id, envelope, created_at"
+        ") VALUES ("
+        "'legacy-no-actor', 'system', 'migration-proof', 'INFO', 'lifecycle', "
+        "'state', 'ItemBlocked', 'completed', 1, '{}', '2026-08-05T12:00:00Z')"
+    )
+    test_db.execute(
+        "INSERT INTO addressed_event_deliveries "
+        "(channel, event_id, actor_id, notification_kind, reason, created_at) "
+        "VALUES ('in_app', 'legacy-no-actor', %s, 'decision_request_resolved', "
+        "'missing actor column', '2026-08-05T12:00:00Z')",
+        (actor_id,),
+    )
+
+    migration.apply(test_db)
+    migration.invariants(test_db)
+
+    row = test_db.execute(
+        "SELECT event_name, event_actor_id, event_envelope "
+        "FROM addressed_event_deliveries WHERE event_id=%s",
+        ("legacy-no-actor",),
+    ).fetchone()
+    assert tuple(row) == ("ItemBlocked", None, "{}")
 
 
 def test_postgres_apply_backfills_current_schema(test_db) -> None:

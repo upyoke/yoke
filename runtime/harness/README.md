@@ -17,7 +17,7 @@ runtime/harness/
   bootstrap-spec.json      # Shared startup-read spec (single source of truth)
   bootstrap.py             # Shared startup-read renderer
   claude/                 # Claude Code adapter
-    settings.json         # Hook configuration (surfaced via .claude/settings.json symlink)
+    settings.json         # Hook source materialized at .claude/settings.json
     agents/               # Rendered Claude agent adapters (yoke-*.md)
     rules/                # Claude-specific session rules
     # Hook entrypoints live under runtime.harness.hook_runner
@@ -127,5 +127,5 @@ Codex Stop fires at the end of every assistant turn. It is a turn-boundary clean
 - [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](../../docs/harness-adapter-template.md) -- five-part template with manifest schema
 - [Harness Substrate](../../docs/harness-substrate.md) -- universal-source + per-harness-renderer model, session cwd binding, path-claim enforcement boundary
-- [Session Offer Contract](../../.yoke/docs/session-offer-contract.md) -- how offers consume harness identity
+- [Session Offer Contract](../../.yoke/docs/reference/session-offer.md) -- how offers consume harness identity
 - [Hook Parity Map](../../docs/hook-parity-map.md) -- three-tier hook classification across harnesses

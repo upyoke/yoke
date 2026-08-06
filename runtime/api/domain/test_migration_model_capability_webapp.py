@@ -19,6 +19,7 @@ from yoke_core.domain.migration_model_capability import (
 _LEDGER = {
     "table": "schema_version",
     "entry_column": "migration_name",
+    "digest_column": "content_sha256",
     "semantics": "membership",
     "serving_floor_column": "minimum_serving_version",
 }
@@ -89,8 +90,8 @@ class TestWebappValidationRecipe:
         )
         out = validate({"models": {"primary": model}})
         assert (
-            out["models"]["primary"]["validation_surface"]
-            ["provisioning"]["recipe"] == "webapp_sqlite_empty"
+            out["models"]["primary"]["validation_surface"]["provisioning"]["recipe"]
+            == "webapp_sqlite_empty"
         )
 
 
@@ -123,12 +124,10 @@ class TestWebappPythonRunner:
                 "config": {"connection_env_var": "APP_DB_PATH"},
             },
         )
-        with pytest.raises(
-            MigrationModelCapabilityError, match="modules_dir"
-        ):
+        with pytest.raises(MigrationModelCapabilityError, match="modules_dir"):
             validate({"models": {"primary": model}})
 
-    def test_governed_migration_module_defaults_connection_env_var(self) -> None:
+    def test_governed_migration_module_requires_connection_env_var(self) -> None:
         model = _minimal_sqlite_model(
             validation_surface=_webapp_validation_surface(),
             runner={
@@ -139,11 +138,8 @@ class TestWebappPythonRunner:
                 },
             },
         )
-        out = validate({"models": {"primary": model}})
-        assert (
-            out["models"]["primary"]["runner"]["config"]["connection_env_var"]
-            == "YOKE_PG_DSN"
-        )
+        with pytest.raises(MigrationModelCapabilityError, match="connection_env_var"):
+            validate({"models": {"primary": model}})
 
     def test_governed_migration_module_rejects_unknown_keys(self) -> None:
         model = _minimal_sqlite_model(
@@ -157,7 +153,5 @@ class TestWebappPythonRunner:
                 },
             },
         )
-        with pytest.raises(
-            MigrationModelCapabilityError, match="bogus_key"
-        ):
+        with pytest.raises(MigrationModelCapabilityError, match="bogus_key"):
             validate({"models": {"primary": model}})

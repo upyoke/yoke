@@ -41,7 +41,11 @@ public health payload.
 
 from __future__ import annotations
 
-from typing import Any, List, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
+
+if TYPE_CHECKING:
+    from yoke_core.domain.migration_content_identity import ContentIdentityStatus
+    from yoke_core.domain.migration_ledger_contract import LedgerContract
 
 READINESS_TABLES: Tuple[str, ...] = (
     "items",
@@ -78,7 +82,8 @@ def missing_readiness_tables(
 
 def pending_migration_names(
     conn: Any,
-    history: Sequence[Any] | None = None,
+    history: Sequence[Any],
+    ledger: LedgerContract,
 ) -> List[str]:
     """Return the history entries this database has not applied.
 
@@ -94,24 +99,45 @@ def pending_migration_names(
     answer, because a health gate that fails open on a broken probe is worse
     than one that reports not-ready.
     """
-    from yoke_core.domain import migrations as migration_history_package
-    from yoke_core.domain.migration_boot_apply import pending_entries
-    from yoke_core.domain.migration_history import history_dir, ordered_entries
+    from yoke_core.domain.migration_ledger_contract import pending_entries
 
-    if history is None:
-        history = ordered_entries(history_dir(migration_history_package))
     if not history:
         return []
     try:
-        return [entry.name for entry in pending_entries(conn, history)]
+        rows = conn.execute(
+            f"SELECT {ledger.entry_column} FROM {ledger.table}"
+        ).fetchall()
+        applied = [str(row[0]) for row in rows]
+        return pending_entries([entry.name for entry in history], applied)
     except Exception:  # noqa: BLE001 — cannot tell reads as not current
         return [entry.name for entry in history]
+
+
+def migration_content_identity_status(
+    conn: Any,
+    history: Sequence[Any],
+    ledger: LedgerContract,
+) -> ContentIdentityStatus:
+    """Return verified, adoption-required, and mismatched ledger evidence.
+
+    This is deliberately separate from :func:`pending_migration_names`.
+    Legacy NULL digests require an explicit artifact-bound adoption, but do
+    not make an otherwise current database unservable in this rollout.  A
+    non-NULL mismatch is fatal to boot apply and is exposed here for health,
+    fleet, and doctor readers that do not execute the applier.
+    """
+    from yoke_core.domain.migration_content_identity import (
+        read_content_identity_status,
+    )
+
+    return read_content_identity_status(conn, history, ledger)
 
 
 def stranded_by_applied_migrations(
     conn: Any,
     running_version: str,
-    history: Sequence[Any] = (),
+    history: Sequence[Any],
+    ledger: LedgerContract,
 ) -> List[str]:
     """Return one finding per applied entry this build is too old to serve.
 
@@ -138,7 +164,6 @@ def stranded_by_applied_migrations(
     truthful when consumed on its own rather than relying on every caller to
     compose both fields correctly.
     """
-    from yoke_core.domain.migration_boot_apply import LEDGER_TABLE
     from yoke_core.domain.migration_history import load_migration_module
     from yoke_core.domain.migration_serving_version import (
         ServingVersionError,
@@ -149,11 +174,12 @@ def stranded_by_applied_migrations(
 
     try:
         rows = conn.execute(
-            f"SELECT migration_name, minimum_serving_version FROM {LEDGER_TABLE}"
+            f"SELECT {ledger.entry_column}, {ledger.serving_floor_column} "
+            f"FROM {ledger.table}"
         ).fetchall()
     except Exception:  # noqa: BLE001 — public health must not expose DB details
         return [
-            f"{LEDGER_TABLE}: migration ledger is unreadable, so serving "
+            f"{ledger.table}: migration ledger is unreadable, so serving "
             "compatibility cannot be proven; repair the ledger before serving"
         ]
 
@@ -161,8 +187,12 @@ def stranded_by_applied_migrations(
     unresolved = version_is_unresolved(running_version)
     findings: List[str] = []
     for row in rows:
-        name = str(row["migration_name"] if isinstance(row, dict) else row[0])
-        raw_floor = row["minimum_serving_version"] if isinstance(row, dict) else row[1]
+        name = str(
+            row[ledger.entry_column] if isinstance(row, dict) else row[0]
+        )
+        raw_floor = (
+            row[ledger.serving_floor_column] if isinstance(row, dict) else row[1]
+        )
         floor = str(raw_floor).strip() if raw_floor is not None else ""
         entry = known.get(name)
         declared = None

@@ -43,13 +43,20 @@ FIELD_NOTE_PROMOTE_USAGE = (
     "[--session-id S] [--json]"
 )
 
+# Parse-time filing choices; stored priority semantics stay in the domain.
+DASH_PRIORITY_CHOICES = ("high", "medium", "low")
+
 
 def dash_file(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke dash", description=DASH_FILE_USAGE)
     parser.add_argument("title")
     parser.add_argument("instruction")
     parser.add_argument("--project")
-    parser.add_argument("--priority")
+    parser.add_argument(
+        "--priority",
+        choices=DASH_PRIORITY_CHOICES,
+        help="Priority bucket: high, medium, or low.",
+    )
     verification = parser.add_mutually_exclusive_group()
     verification.add_argument("--verification-plan", type=int)
     verification.add_argument("--verification-method")
@@ -321,6 +328,7 @@ __all__ = [
     "DASH_EVIDENCE_USAGE",
     "DASH_ESCALATE_USAGE",
     "DASH_FILE_USAGE",
+    "DASH_PRIORITY_CHOICES",
     "DASH_SURVEY_USAGE",
     "FIELD_NOTE_PROMOTE_USAGE",
     "dash_escalate",

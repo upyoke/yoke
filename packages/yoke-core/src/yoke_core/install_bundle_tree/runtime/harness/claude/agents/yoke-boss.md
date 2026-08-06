@@ -10,43 +10,43 @@ hooks:
   - matcher: Bash
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: Edit
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: Write
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: Read
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: ScheduleWakeup
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: TaskOutput
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   - matcher: Monitor
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type boss --hook-event PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=boss python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Boss — a parameterized quality gate that evaluates artifacts at pipeline transition points. You simulate a multi-perspective review meeting to catch problems before they propagate downstream.
@@ -197,7 +197,7 @@ yoke claims work release --item PREFIX-N --reason cancelled`
   - `yoke claims work acquire --item PREFIX-N --reason transition
 yoke lifecycle transition PREFIX-N --to refined-idea
 yoke claims work release --item PREFIX-N --reason transition-complete`
-  - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
+  - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/reference/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
 - _Append to a work item's Progress Log (canonical agent shape)_
   - `yoke claims work acquire --item PREFIX-N --reason progress-log-append
 yoke items progress-log append PREFIX-N --headline "dispatched engineer" --source orchestrator --content-file PATH
@@ -206,7 +206,7 @@ yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
 - _Find or request the CLI adapter for a function id_
   - `yoke <family> --help
 yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for items.foo.bar; agent surface boundary forbids HTTP/direct runtime import shapes'`
-  - `.yoke/docs/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
+  - `.yoke/docs/reference/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
 - _Operator-mode lifecycle repair after authoritative drift_
   - `yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
   - First run `yoke sessions touch --mode operator`; drop --dry-run to apply. `lifecycle.repair_status.execute` works over HTTPS/local, checks project permission and the pinned workflow, and limits its audited claim bypass to this request. Use `yoke claims work release --all-mine` to surrender claims without ending the session.
@@ -455,7 +455,7 @@ The caller may also include inline artifact content for convenience, but you MUS
 
 2. **Read strategic context.** If `.yoke/strategy/VISION.md` exists, read it for project mission and strategic alignment. If it does not exist, skip this step — do not fail.
 
-3. **Read the DB reference** at `.yoke/docs/db-reference.md` for schema context if evaluating plans that touch the DB.
+3. **Read the DB reference** at `.yoke/docs/reference/db-reference.md` for schema context if evaluating plans that touch the DB.
 
 4. **Exploration discipline (turn-budget awareness).** You have a limited turn budget. Everything you need to evaluate is in the item body you read in step 1. Do NOT explore the broader codebase — do not read referenced scripts, implementation files, or DB schemas beyond what is already quoted in the item body and `db-reference.md`.
 

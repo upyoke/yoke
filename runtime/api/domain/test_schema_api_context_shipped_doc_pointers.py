@@ -65,11 +65,11 @@ def test_the_pointer_pattern_recognizes_both_shipped_and_source_paths() -> None:
     # Guards the guard: a regex that matched nothing would make the two
     # tests above pass no matter what the packets say.
     sample = (
-        "see `.yoke/docs/db-reference/functions.md` and also "
+        "see `.yoke/docs/reference/db-reference/functions.md` and also "
         "`docs/atlas.md` plus `runtime/agents/notes.md`"
     )
 
     assert _doc_pointers(sample) == {
-        ".yoke/docs/db-reference/functions.md",
+        ".yoke/docs/reference/db-reference/functions.md",
         "docs/atlas.md",
     }

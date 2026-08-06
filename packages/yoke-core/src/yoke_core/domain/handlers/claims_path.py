@@ -58,21 +58,6 @@ def _validate(model_cls, payload: Any, label: str):
         return None, _err("payload_invalid", f"{label} payload invalid: {exc}")
 
 
-def _project_for_claim(conn: Any, claim_id: int) -> int:
-    """Resolve the owning item's project for a claim id."""
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT items.project_id FROM path_claims "
-        "JOIN items ON path_claims.owner_kind = 'item' "
-        "AND items.id = path_claims.owner_item_id "
-        f"WHERE path_claims.id = {p}",
-        (int(claim_id),),
-    ).fetchone()
-    if row is None or not row[0]:
-        raise ValueError(f"cannot resolve project for claim_id={claim_id}")
-    return int(row[0])
-
-
 def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
     body, err = _validate(RegisterRequest, request.payload, "register")
     if err is not None:
@@ -159,8 +144,13 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
     if err is not None:
         return err
 
+    from yoke_core.domain.coordination_leases import LeaseError
+    from yoke_core.domain.db_claim import DbClaimAmendmentError
+    from yoke_core.domain.migration_path_claim_widen import (
+        lock_claim_for_widen,
+        widen_locked_claim,
+    )
     from yoke_core.domain.path_claims import PathClaimError
-    from yoke_core.domain.path_claims_amend import widen
     from yoke_core.domain.path_claims_resolve import (
         PathResolveError,
         resolve_or_plan_paths_to_target_ids,
@@ -168,25 +158,20 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     with _connect_rw() as conn:
-        add_ids = list(body.add_target_ids)
-        if body.add_paths:
-            try:
-                project = _project_for_claim(conn, int(body.claim_id))
+        try:
+            context = lock_claim_for_widen(
+                conn,
+                claim_id=int(body.claim_id),
+                expected_item_id=request.target.item_id,
+            )
+            add_ids = list(body.add_target_ids)
+            if body.add_paths:
                 if body.allow_planned:
-                    p = _p(conn)
-                    row = conn.execute(
-                        f"SELECT owner_item_id FROM path_claims WHERE id = {p} "
-                        "AND owner_kind = 'item'",
-                        (int(body.claim_id),),
-                    ).fetchone()
-                    item_id_attr = (
-                        int(row[0]) if row is not None and row[0] is not None else None
-                    )
                     resolved_ids = resolve_or_plan_paths_to_target_ids(
                         conn,
-                        project,
+                        context.project_id,
                         list(body.add_paths),
-                        item_id=item_id_attr,
+                        item_id=context.item_id,
                         claim_id=int(body.claim_id),
                         session_id=request.actor.session_id,
                         directory_paths=body.directory_paths,
@@ -194,27 +179,36 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
                 else:
                     resolved_ids = resolve_paths_to_target_ids(
                         conn,
-                        project,
+                        context.project_id,
                         list(body.add_paths),
                     )
                 add_ids = list(dict.fromkeys(add_ids + list(resolved_ids)))
-            except PathResolveError as exc:
-                return _err("path_resolve_failed", str(exc))
-            except ValueError as exc:
-                return _err("widen_failed", str(exc))
-        try:
-            amendment_id = widen(
+            result = widen_locked_claim(
                 conn,
                 claim_id=int(body.claim_id),
+                context=context,
                 add_target_ids=add_ids,
                 reason=body.reason,
+                session_id=request.actor.session_id,
+                db_claim_payload=body.db_claim,
                 repo_path=body.repo_path,
                 worktree_head=body.worktree_head,
             )
-        except PathClaimError as exc:
+        except PathResolveError as exc:
+            conn.rollback()
+            return _err("path_resolve_failed", str(exc))
+        except (DbClaimAmendmentError, LeaseError, PathClaimError, ValueError) as exc:
+            conn.rollback()
             return _err("widen_failed", f"{type(exc).__name__}: {exc}")
 
-    return HandlerOutcome(result_payload={"amendment_id": int(amendment_id)})
+    return HandlerOutcome(
+        result_payload={
+            "amendment_id": int(result.amendment_id),
+            "migration_model": result.migration_model,
+            "migration_lease_id": result.migration_lease_id,
+            "db_claim_event_id": result.db_claim_event_id,
+        }
+    )
 
 
 # ``claims.path.amend`` is an alias on widen — the external "amend" verb

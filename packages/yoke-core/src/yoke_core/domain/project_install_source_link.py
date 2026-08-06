@@ -2,19 +2,20 @@
 
 The Yoke source checkout IS the bundle source, so its harness surfaces
 are git-tracked links into the live tree (edit a canonical file, run
-``agents.render.run``, every consumer sees the change instantly). Cursor's
-hook config is a tracked regular file because Cursor refuses symlinked project
-config files; the renderer and this setup path keep it byte-identical to the
-canonical runtime file.
+``agents.render.run``, every consumer sees the change instantly). Project
+configuration files that Cursor discovers are tracked regular files because
+Cursor refuses config paths containing symlinks; the renderer and this setup
+path keep them byte-identical to their canonical runtime files.
 ``source-link`` owns that wiring:
 
 1. Dev links — ``.claude/`` + ``.codex/`` surfaces pointing at the
    canonical ``runtime/harness/...`` targets, the
    ``.claude/skills/yoke`` compatibility link, and the tester-browser
-   reference link. Cursor's ``.cursor/hooks.json`` is materialized from its
-   canonical runtime file so Cursor's symlink refusal cannot disable the hook
-   chain. The links and file are git-tracked, so a fresh clone already has
-   them; install/refresh repairs drift idempotently.
+   reference link. ``.claude/settings.json`` and ``.cursor/hooks.json`` are
+   materialized from their canonical runtime files so Cursor's symlink refusal
+   cannot disable either native or Claude-compatible hooks. The links and
+   files are git-tracked, so a fresh clone already has them; install/refresh
+   repairs drift idempotently.
 2. Cursor permission regions — the same
    :mod:`yoke_cli.project_install.cursor_permissions` merge copy mode
    runs, unioning Yoke's command approvals and control-plane network
@@ -45,6 +46,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_cli.project_install.cursor_permissions import apply_cursor_permissions
+from yoke_cli.filesystem_safety import (
+    atomic_replace_bytes,
+    first_symlink_component,
+)
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_core.domain import project_install_files as files_layer
 from yoke_core.domain.project_install_files import (
@@ -64,7 +69,6 @@ from yoke_core.domain.project_install_git_hooks import (
 DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
     (".claude/agents", "../runtime/harness/claude/agents"),
     (".claude/rules", "../runtime/harness/claude/rules"),
-    (".claude/settings.json", "../runtime/harness/claude/settings.json"),
     (".claude/skills/yoke", "../../.agents/skills/yoke"),
     (".codex/agents", "../runtime/harness/codex/agents"),
     (".codex/hooks.json", "../runtime/harness/codex/hooks.json"),
@@ -75,6 +79,7 @@ DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
 )
 
 DEV_MATERIALIZED_FILES: Tuple[Tuple[str, str], ...] = (
+    (".claude/settings.json", "runtime/harness/claude/settings.json"),
     (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
 )
 
@@ -156,6 +161,15 @@ def ensure_dev_symlink(
     result.installed += 1
 
 
+def _assert_no_symlinked_parent(target_root: Path, rel: str) -> None:
+    symlink = first_symlink_component(target_root, target_root / rel)
+    if symlink is not None:
+        raise ProjectInstallError(
+            f"source-link materialized file {rel!r} crosses symlinked parent "
+            f"{symlink}; replace that directory link with a real directory"
+        )
+
+
 def ensure_dev_materialized_file(
     target_root: Path,
     rel: str,
@@ -164,16 +178,18 @@ def ensure_dev_materialized_file(
 ) -> None:
     """Materialize a tracked source-dev file from its canonical source.
 
-    Cursor rejects hook configuration paths containing symlinks. A previous
-    source-link setup may still have created one, so migration removes the
-    old link before writing the canonical bytes. Regular-file edits are
-    repaired; directories and other obstructions remain operator-owned.
+    Cursor rejects discovered configuration paths containing symlinks. A
+    previous source-link setup may still have created one, so migration
+    removes the old link before writing the canonical bytes. Regular-file
+    edits are repaired; directories and other obstructions remain
+    operator-owned.
     """
     files_layer.assert_resolved_targets_within(
         target_root,
         [rel, source_rel],
         context="source-link materialized file mutation",
     )
+    _assert_no_symlinked_parent(target_root, rel)
     source = target_root / source_rel
     try:
         content = source.read_bytes()
@@ -184,16 +200,14 @@ def ensure_dev_materialized_file(
 
     target = target_root / rel
     was_link = target.is_symlink()
-    if was_link:
-        target.unlink()
-    had_file = target.is_file()
-    if target.exists() and not target.is_file():
+    had_file = target.is_file() and not was_link
+    if not was_link and target.exists() and not target.is_file():
         result.warn(
             f"{rel} exists as a regular file/dir. Move or remove it and "
             "re-run `yoke dev setup` so the materialized file can be created."
         )
         return
-    if target.is_file() and not was_link:
+    if had_file:
         try:
             if target.read_bytes() == content:
                 result.note(f"Exists: {rel} (materialized from {source_rel})")
@@ -203,9 +217,7 @@ def ensure_dev_materialized_file(
             pass
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_bytes(content)
-    os.replace(str(temporary), str(target))
+    atomic_replace_bytes(target, content)
     action = "Updated" if was_link or had_file else "Created"
     result.note(f"{action}: {rel} (materialized from {source_rel})")
     if action == "Updated":
@@ -217,8 +229,8 @@ def ensure_dev_materialized_file(
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
     return ProjectInstallError(
         f"refusing to uninstall: {root} uses the source-link strategy — "
-        "the .claude/.codex surfaces are git-tracked symlinks into "
-        "runtime/harness/ and the dev layer is part of the repo itself, "
+        "the source-dev harness links and materialized configs are "
+        "git-tracked parts of the repo itself, "
         "not an installed copy. There is nothing to de-install; remove "
         ".git/hooks/ shims manually if you must"
     )
@@ -232,6 +244,13 @@ def install_source_link(
     from yoke_core.domain.install_bundle import yoke_version
 
     old_manifest = files_layer.load_manifest(repo_root) or {}
+    for rel, source_rel in DEV_MATERIALIZED_FILES:
+        files_layer.assert_resolved_targets_within(
+            repo_root,
+            [rel, source_rel],
+            context="source-link materialized file mutation",
+        )
+        _assert_no_symlinked_parent(repo_root, rel)
     links = BootstrapResult()
     for rel, link_target in DEV_SYMLINKS:
         ensure_dev_symlink(repo_root, rel, link_target, links)

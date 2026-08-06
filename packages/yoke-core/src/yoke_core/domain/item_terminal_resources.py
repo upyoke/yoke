@@ -27,6 +27,7 @@ class TerminalResourceReceipt:
     ephemeral_environments_stopped: int = 0
     worktree_lanes_released: int = 0
     work_claims_released: int = 0
+    migration_territories_released: int = 0
     holder_session_ids: tuple[str, ...] = ()
 
 
@@ -160,11 +161,22 @@ def release_for_terminal_transition(
         target_status=target_status,
         successful_terminal=target_status in runtime.terminal_stage_ids,
     )
+    from yoke_core.domain.migration_territory_lease import (
+        release_for_terminal_item,
+    )
+
+    migration_lease_id = release_for_terminal_item(
+        conn,
+        item_id=int(item_id),
+        holder_session_ids=holder_session_ids,
+        target_status=target_status,
+    )
     return TerminalResourceReceipt(
         document_claim_released=document_released,
         ephemeral_environments_stopped=environments_stopped,
         worktree_lanes_released=lanes_released,
         work_claims_released=work_claims_released,
+        migration_territories_released=int(migration_lease_id is not None),
         holder_session_ids=tuple(
             sorted(
                 {

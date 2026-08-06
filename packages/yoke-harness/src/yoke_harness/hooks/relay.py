@@ -19,6 +19,7 @@ from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
+from yoke_contracts.hook_runner.cursor_response import cursor_lifecycle_allow_stdout
 
 from yoke_harness.hooks import cursor_session_map
 from yoke_harness.hooks.deadline import start_hook_deadline
@@ -48,14 +49,18 @@ _HOOK_WIRE_SCHEMA = 1
 _CURSOR_CONTEXT_EVENTS = frozenset({SESSION_START_EVENT, "PostToolUse"})
 _DEGRADED_MARKER = "YOKE_HOOK_DEGRADED"
 
-
 def _cursor_degradation_stdout(
     event_name: str,
     detail: str,
     preserved_stdout: str,
 ) -> str:
     """Expose relay degradation through Cursor's visible context channel."""
-    if not is_cursor(detect_executor()) or event_name not in _CURSOR_CONTEXT_EVENTS:
+    if not is_cursor(detect_executor()):
+        return preserved_stdout
+    preserved_stdout = cursor_lifecycle_allow_stdout(
+        event_name, preserved_stdout,
+    )
+    if event_name not in _CURSOR_CONTEXT_EVENTS:
         return preserved_stdout
     warning = (
         "WARNING: Yoke hook relay degraded to local-only allow; "

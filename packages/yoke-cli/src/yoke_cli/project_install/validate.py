@@ -31,7 +31,11 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
     if not isinstance(bundle.get("yoke_version"), str) or not bundle["yoke_version"]:
         raise ProjectInstallError("bundle yoke_version must be a non-empty string")
     project_id = bundle.get("project_id")
-    if isinstance(project_id, bool) or not isinstance(project_id, int) or project_id <= 0:
+    if (
+        isinstance(project_id, bool)
+        or not isinstance(project_id, int)
+        or project_id <= 0
+    ):
         raise ProjectInstallError("bundle project_id must be a positive integer")
     if not isinstance(bundle.get("project_slug"), str) or not bundle["project_slug"]:
         raise ProjectInstallError("bundle project_slug must be a non-empty string")
@@ -51,7 +55,7 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
             "bundle 'hooks' must carry claude_settings_hooks, codex_hooks, "
             "and cursor_hooks objects"
         )
-    for key in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY:
+    for key, settings_rel in hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY.items():
         value = hooks.get(key)
         if value is None:
             hooks[key] = {}
@@ -61,7 +65,9 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
                 "codex_hooks, and cursor_hooks objects"
             )
         hooks_layer.validate_hooks_subtree(
-            hooks[key], label=f"bundle hooks.{key}",
+            hooks[key],
+            label=f"bundle hooks.{key}",
+            entry_format=hooks_layer.hook_entry_format(settings_rel),
         )
     git_hooks_layer.git_hook_specs_from_bundle(bundle)
     # Optional with default []: servers predating the project contract emit
@@ -121,7 +127,8 @@ def _validate_bundle(bundle: Dict[str, Any]) -> None:
 
 
 def validate_bundle_for_project(
-    bundle: Dict[str, Any], expected_project_id: int,
+    bundle: Dict[str, Any],
+    expected_project_id: int,
 ) -> None:
     """Validate bundle shape and bind its identity to the requested project."""
     _validate_bundle(bundle)

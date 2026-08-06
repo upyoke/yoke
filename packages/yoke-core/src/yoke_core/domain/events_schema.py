@@ -98,6 +98,7 @@ def _ensure_project_dependency(conn: Any) -> None:
 _EVENT_COLUMNS = (
     ("event_outcome", "TEXT"),
     ("org_id", "TEXT"),
+    ("actor_id", "INTEGER REFERENCES actors(id)"),
     ("environment", "TEXT"),
     ("service", "TEXT NOT NULL DEFAULT 'cli'"),
     ("project_id", "INTEGER REFERENCES projects(id)"),
@@ -138,9 +139,11 @@ def _execute_schema_statements(conn: Any, statements: list[str], sqlite_script: 
 def ensure_event_schema(conn: Any) -> None:
     """Create events, severity_config, and event_registry tables on ``conn``.
 
-    Existing ``events`` tables get legacy additive columns here. cloud-runtime
-    ``actor_id`` on existing tables is governed by its migration module, not
-    by this generic initializer.
+    Existing ``events`` tables get legacy additive columns here, including
+    ``actor_id``. Fresh CREATE TABLE already declares ``actor_id``; born
+    databases that predate that declaration still need the additive path so
+    later migration history (for example the inbox notification projection
+    backfill) can join ``events.actor_id`` against a complete current schema.
     """
     _create_events_table(conn)
     _ensure_event_columns(conn)

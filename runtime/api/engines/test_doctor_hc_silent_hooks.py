@@ -180,4 +180,4 @@ def test_warns_when_cursor_config_is_present_but_symlinked(
 
     assert records.results[0].result == "WARN"
     assert "cursor" in records.results[0].detail
-    assert "zero loaded hooks" in records.results[0].detail
+    assert "contains symlink component" in records.results[0].detail

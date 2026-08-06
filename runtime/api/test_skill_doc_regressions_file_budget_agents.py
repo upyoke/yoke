@@ -60,7 +60,7 @@ class TestFileBudgetTesterBackup:
 
 
 class TestFileBudgetCommandsDoc:
-    """`.yoke/docs/commands.md` carries the File Budget cross-reference."""
+    """`.yoke/docs/reference/commands.md` carries the File Budget cross-reference."""
 
     @pytest.fixture
     def commands_md(self) -> Path:

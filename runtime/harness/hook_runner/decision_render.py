@@ -43,6 +43,9 @@ from __future__ import annotations
 import json
 from typing import Iterable
 
+from yoke_contracts.hook_runner.cursor_response import (
+    CURSOR_LIFECYCLE_EVENTS,
+)
 from runtime.harness.hook_runner.types import HookDecision, Outcome
 
 
@@ -221,9 +224,6 @@ _CURSOR_CONTEXT_EVENTS = frozenset({"SessionStart", "PostToolUse"})
 # Empty allow stdout on these events previously left Cursor with no JSON
 # body; stop in particular is happier with an explicit ``{}`` (and must
 # not emit ``followup_message``).
-_CURSOR_EMPTY_OBJECT_EVENTS = frozenset({"Stop", "SessionEnd"})
-
-
 def render_cursor_decision(
     decisions: list[HookDecision],
     event_name: str,
@@ -265,7 +265,7 @@ def render_cursor_decision(
         return (json.dumps({"additional_context": body}), 0)
     if event_name in _CURSOR_PERMISSION_EVENTS:
         return (json.dumps({"permission": "allow"}), 0)
-    if event_name in _CURSOR_EMPTY_OBJECT_EVENTS:
+    if event_name in CURSOR_LIFECYCLE_EVENTS:
         return ("{}", 0)
     return ("", 0)
 

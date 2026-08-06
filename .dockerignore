@@ -9,6 +9,11 @@ __pycache__
 *.egg-info
 *.pyc
 
+# Python packaging tests create and remove these trees while they run. They
+# are never image inputs, and excluding them keeps Docker context assembly
+# independent of concurrent verification scratch.
+packages/*/build
+
 .DS_Store
 node_modules
 playwright-report

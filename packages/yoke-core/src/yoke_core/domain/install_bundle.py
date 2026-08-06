@@ -12,14 +12,17 @@ The bundle carries:
   identically in the Yoke source repo and every installed managed project.
 * **Agent adapters** — the rendered subagent bodies the lifecycle dispatch
   needs: ``.claude/agents/yoke-*.md`` (plus the ``references/`` tree) and
-  ``.codex/agents/yoke-*.toml``, copied from the server tree's committed
-  ``runtime/harness/<harness>/agents/`` adapters.
+  ``.codex/agents/yoke-*.toml`` plus ``.cursor/agents/yoke-*.md``, copied
+  from the server tree's committed ``runtime/harness/<harness>/agents/``
+  adapters.
 * **Session rules** — the shared Claude session rules
   (``.claude/rules/`` from ``runtime/harness/claude/rules``) that the
   lifecycle skills assume are installed.
-* **Hooks** — the exact ``hooks`` subtrees a project's ``.claude/settings.json``
-  and ``.codex/hooks.json`` need, rendered from the canonical hook chain that
-  the committed harness settings files also use (``yoke hook evaluate``).
+* **Hooks** — the exact ``hooks`` subtrees a project's ``.claude/settings.json``,
+  ``.codex/hooks.json``, and ``.cursor/hooks.json`` need, rendered from the
+  canonical hook chain that the committed harness settings files also use
+  (``yoke hook evaluate``).
+* **Docs** — authored under ``docs/public`` and installed at ``.yoke/docs``.
 * **Project contract files** — the seed-if-missing ``.yoke`` contract
   (``project_contract_files``), rendered by
   :mod:`yoke_core.domain.project_contract`. Shipped separately from ``files``
@@ -46,14 +49,10 @@ CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CURSOR_AGENTS_SOURCE = "runtime/harness/cursor/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
-DOCS_SOURCE = ".yoke/docs"
-# Pack source uses the same :func:`server_tree_root` resolver, so product
-# wheels package it alongside the install-bundle sources.
+DOCS_SOURCE = "docs/public"
+DOCS_DEST = ".yoke/docs"
 
-# Repo-root source dirs the packaged install-bundle tree snapshots — the one
-# truth shared by the snapshot materializer (:mod:`install_bundle_tree_sync`),
-# its drift check (``HC-install-bundle-drift``), and the bundle invariant
-# tests. Order matches the ``pyproject.toml`` package-data globs.
+# Packaged snapshot dirs (order matches pyproject package-data globs).
 INSTALL_BUNDLE_SOURCE_DIRS = (
     SKILLS_SOURCE,
     CLAUDE_AGENTS_SOURCE,
@@ -64,10 +63,6 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
     DOCS_SOURCE,
 )
 
-# Machine-generated cache droppings excluded from every bundle enumeration.
-# Pack sources include importable Python, so any test or tool that imports
-# them compiles __pycache__ bytecode next to the sources; those artifacts
-# must never ship in bundles, the packaged snapshot, or drift comparisons.
 _JUNK_DIR_NAMES = frozenset({"__pycache__"})
 _JUNK_FILE_NAMES = frozenset({".DS_Store"})
 _JUNK_FILE_SUFFIXES = (".pyc", ".pyo")
@@ -75,7 +70,6 @@ _JUNK_FILE_SUFFIXES = (".pyc", ".pyo")
 
 def is_bundle_junk_path(path: Path) -> bool:
     """True for cache/junk artifacts every bundle surface must skip."""
-
     if any(part in _JUNK_DIR_NAMES for part in path.parts):
         return True
     if path.name in _JUNK_FILE_NAMES:
@@ -83,12 +77,12 @@ def is_bundle_junk_path(path: Path) -> bool:
     return path.name.endswith(_JUNK_FILE_SUFFIXES)
 
 
-# Project-repo destination dirs.
 CANONICAL_SKILLS_DEST = SKILLS_SOURCE
 CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
 CODEX_SKILLS_DEST = ".codex/skills/yoke"
 CLAUDE_AGENTS_DEST = ".claude/agents"
 CODEX_AGENTS_DEST = ".codex/agents"
+CURSOR_AGENTS_DEST = ".cursor/agents"
 CLAUDE_RULES_DEST = ".claude/rules"
 
 
@@ -106,19 +100,7 @@ def yoke_version() -> str:
 
 
 def server_tree_root() -> Path:
-    """Root of the install-bundle source tree.
-
-    ``YOKE_SERVER_TREE_ROOT`` wins when set — containers COPY the repo-root bundle sources
-    (``packs/``, ``.agents/``, rendered agent adapters) to a declared
-    tree and point this env var at it. Set-but-invalid fails loudly rather
-    than silently falling back to a site-packages parent that lacks the
-    sources.
-
-    Source checkouts resolve from the root ``runtime`` package location,
-    never from cwd — the API process may run anywhere. Product wheels do
-    not ship that root package, so local mode falls back to the packaged
-    bundle-source tree inside ``yoke_core``.
-    """
+    """Install-bundle source tree root (env override, then runtime, else wheel)."""
     import os
 
     declared = os.environ.get("YOKE_SERVER_TREE_ROOT", "").strip()
@@ -126,8 +108,7 @@ def server_tree_root() -> Path:
         root = Path(declared)
         if not root.is_dir():
             raise InstallBundleError(
-                "YOKE_SERVER_TREE_ROOT is set but is not a directory: "
-                f"{declared}"
+                f"YOKE_SERVER_TREE_ROOT is set but is not a directory: {declared}"
             )
         return root
     try:
@@ -179,19 +160,13 @@ def _skill_files(root: Path) -> List[Dict[str, str]]:
         )
     files: List[Dict[str, str]] = []
     for path in sorted(
-        p
-        for p in source.rglob("*")
-        if p.is_file() and not is_bundle_junk_path(p)
+        p for p in source.rglob("*") if p.is_file() and not is_bundle_junk_path(p)
     ):
         content = _read_text(path)
         if content is None:
-            raise InstallBundleError(
-                f"skill source is missing or non-text: {path}"
-            )
+            raise InstallBundleError(f"skill source is missing or non-text: {path}")
         rel = path.relative_to(source).as_posix()
-        files.append(
-            {"path": f"{CANONICAL_SKILLS_DEST}/{rel}", "content": content}
-        )
+        files.append({"path": f"{CANONICAL_SKILLS_DEST}/{rel}", "content": content})
         files.append({"path": f"{CLAUDE_SKILLS_DEST}/{rel}", "content": content})
         files.append({"path": f"{CODEX_SKILLS_DEST}/{rel}", "content": content})
     return files
@@ -203,14 +178,13 @@ def _agent_files(root: Path) -> List[Dict[str, str]]:
     Reads the server tree's committed adapters (kept in sync with the
     canonical agent bodies by ``yoke agents render`` + its drift HC) and
     emits ``.claude/agents/yoke-*.md`` (plus the ``references/`` tree) and
-    ``.codex/agents/yoke-*.toml``.
+    ``.codex/agents/yoke-*.toml``, and ``.cursor/agents/yoke-*.md``.
     """
     files: List[Dict[str, str]] = []
     claude_dir = root / CLAUDE_AGENTS_SOURCE
     if not claude_dir.is_dir():
         raise InstallBundleError(
-            f"claude agents source dir is missing from the server tree: "
-            f"{claude_dir}"
+            f"claude agents source dir is missing from the server tree: {claude_dir}"
         )
     for path in sorted(claude_dir.glob("yoke-*.md")):
         files.append(_agent_entry(path, f"{CLAUDE_AGENTS_DEST}/{path.name}"))
@@ -222,26 +196,28 @@ def _agent_files(root: Path) -> List[Dict[str, str]]:
             if p.is_file() and not is_bundle_junk_path(p)
         ):
             rel = path.relative_to(references).as_posix()
-            files.append(
-                _agent_entry(path, f"{CLAUDE_AGENTS_DEST}/references/{rel}")
-            )
+            files.append(_agent_entry(path, f"{CLAUDE_AGENTS_DEST}/references/{rel}"))
     codex_dir = root / CODEX_AGENTS_SOURCE
     if not codex_dir.is_dir():
         raise InstallBundleError(
-            f"codex agents source dir is missing from the server tree: "
-            f"{codex_dir}"
+            f"codex agents source dir is missing from the server tree: {codex_dir}"
         )
     for path in sorted(codex_dir.glob("yoke-*.toml")):
         files.append(_agent_entry(path, f"{CODEX_AGENTS_DEST}/{path.name}"))
+    cursor_dir = root / CURSOR_AGENTS_SOURCE
+    if not cursor_dir.is_dir():
+        raise InstallBundleError(
+            f"cursor agents source dir is missing from the server tree: {cursor_dir}"
+        )
+    for path in sorted(cursor_dir.glob("yoke-*.md")):
+        files.append(_agent_entry(path, f"{CURSOR_AGENTS_DEST}/{path.name}"))
     return files
 
 
 def _agent_entry(path: Path, dest: str) -> Dict[str, str]:
     content = _read_text(path)
     if content is None:
-        raise InstallBundleError(
-            f"agent adapter source is missing or non-text: {path}"
-        )
+        raise InstallBundleError(f"agent adapter source is missing or non-text: {path}")
     return {"path": dest, "content": content}
 
 
@@ -259,9 +235,7 @@ def _rules_files(root: Path) -> List[Dict[str, str]]:
             f"claude rules source dir is missing from the server tree: {source}"
         )
     for path in sorted(
-        p
-        for p in source.rglob("*")
-        if p.is_file() and not is_bundle_junk_path(p)
+        p for p in source.rglob("*") if p.is_file() and not is_bundle_junk_path(p)
     ):
         rel = path.relative_to(source).as_posix()
         files.append(_agent_entry(path, f"{CLAUDE_RULES_DEST}/{rel}"))
@@ -270,105 +244,27 @@ def _rules_files(root: Path) -> List[Dict[str, str]]:
 
 def _hooks_block() -> Dict[str, Any]:
     # Canonical owner: agents_render_hooks renders the committed
-    # runtime/harness/claude/settings.json "hooks" key and the committed
-    # runtime/harness/codex/hooks.json "hooks" key from the universal
-    # harness_hook_ordering chains. Calling the renderer (instead of reading
-    # the committed files) keeps the bundle drift-proof by construction.
+    # committed Claude, Codex, and Cursor hook files from the universal hook
+    # ordering chains. Calling the renderer (instead of reading the committed
+    # files) keeps the bundle drift-proof by construction.
     from yoke_core.domain.agents_render_hooks import (
         render_claude_hooks_block,
         render_codex_hooks_block,
+        render_cursor_hooks_block,
     )
 
     return {
         "claude_settings_hooks": render_claude_hooks_block(),
         "codex_hooks": render_codex_hooks_block(),
+        "cursor_hooks": render_cursor_hooks_block()["hooks"],
     }
-
-
-def _project_row(project_id: int, conn) -> tuple[str, str]:
-    """Return ``(slug, display_name)`` for the project, or raise."""
-    from yoke_core.domain import db_backend
-
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        f"SELECT slug, name FROM projects WHERE id = {placeholder}",
-        (project_id,),
-    ).fetchone()
-    if row is None:
-        raise ProjectNotFoundError(
-            f"project id {project_id} has no projects row on this env"
-        )
-    if hasattr(row, "keys"):
-        slug, name = row["slug"], row["name"]
-    else:
-        slug, name = row[0], row[1]
-    return str(slug), str(name or slug)
-
-
-def _contract_files(display_name: str) -> List[Dict[str, str]]:
-    """The seed-if-missing ``.yoke`` contract entries for the project."""
-    from yoke_core.domain import project_contract
-    from yoke_core.domain.project_install_files import (
-        assert_safe_contract_paths,
-    )
-
-    entries = project_contract.bundle_contract_files(display_name)
-    assert_safe_contract_paths(entry["path"] for entry in entries)
-    return entries
-
-
-def _strategy_files(
-    project_id: int, display_name: str, conn,
-) -> List[Dict[str, str]]:
-    """The db-render strategy entries — a third ownership class.
-
-    Rendered from the project's ``strategy_docs`` rows (cold-starting
-    the default placeholder corpus for a project with none), so a fresh
-    external install always receives a starter ``.yoke/strategy/``.
-    """
-    from yoke_core.domain.project_install_strategy import (
-        assert_safe_strategy_paths,
-        bundle_strategy_files,
-    )
-
-    entries = bundle_strategy_files(conn, project_id, display_name)
-    assert_safe_strategy_paths(entry["path"] for entry in entries)
-    return entries
 
 
 def build_bundle(project_id: int, conn) -> Dict[str, Any]:
-    """Render the deterministic install bundle for ``project_id``.
+    """Render the deterministic project-bound install bundle."""
+    from yoke_core.domain.install_bundle_project import build_project_bundle
 
-    Raises :class:`ProjectNotFoundError` for an unknown project id and
-    :class:`InstallBundleError` when the server tree lacks a source dir.
-    """
-    slug, display_name = _project_row(project_id, conn)
-    from yoke_core.domain.project_policy_capabilities import (
-        ensure_default_policy_capabilities,
-    )
-
-    policy_capabilities = ensure_default_policy_capabilities(conn, project_id)
-    conn.commit()
-    root = server_tree_root()
-    from yoke_core.domain import install_bundle_managed as _managed
-    files: List[Dict[str, str]] = []
-    files.extend(_skill_files(root))
-    files.extend(_agent_files(root))
-    files.extend(_rules_files(root))
-    files.extend(_managed.docs_bundle_files(root))
-    files.sort(key=lambda entry: entry["path"])
-    return {
-        "bundle_schema": BUNDLE_SCHEMA,
-        "yoke_version": yoke_version(),
-        "project_id": project_id,
-        "project_slug": slug,
-        "files": files,
-        "project_contract_files": _contract_files(display_name),
-        "strategy_files": _strategy_files(project_id, display_name, conn),
-        "project_policy_capabilities": policy_capabilities,
-        "hooks": _hooks_block(),
-        **_managed.managed_bundle_keys(root),
-    }
+    return build_project_bundle(project_id, conn)
 
 
 __all__ = [

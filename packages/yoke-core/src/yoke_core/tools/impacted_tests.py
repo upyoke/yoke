@@ -239,12 +239,21 @@ def select(
     trigger_paths = set(selection.trigger_paths)
     bounded_changed = [path for path in changed if path not in trigger_paths]
     reached = _reachable_tests(bounded_changed, index) or set()
+    reached_count = len(reached)
+    if is_effectively_full(reached_count, total_files):
+        reached = set()
+        subset_note = (
+            f"; computable subset selected {reached_count} of {total_files} "
+            "test files and was also deferred"
+        )
+    else:
+        subset_note = ""
     return Selection(
         full_sweep=False,
         reason=(
             f"selection unbounded ({selection.fallback_rule}: "
             f"{', '.join(selection.trigger_paths)}) — deferring full "
-            "coverage to the final QA gate"
+            f"coverage to the final QA gate{subset_note}"
         ),
         files=tuple(
             sorted(reached | set(ALWAYS_RUN_TESTS) | contract_tests_for(changed))
@@ -307,6 +316,7 @@ __all__ = [
     "FALLBACK_RULES",
     "FULL_SWEEP_TRIGGERS",
     "ImportIndex",
+    "ITEM_WORKTREE_SCHEMA_TESTS",
     "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
     "Selection",
     "SHARED_TEST_FIXTURE_PATHS",

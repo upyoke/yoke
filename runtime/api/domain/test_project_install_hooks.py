@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import stat
 
 import pytest
 
@@ -102,6 +103,64 @@ def test_invalid_settings_json_fails_loudly(repo) -> None:
 
     with pytest.raises(ProjectInstallError):
         apply_bundle(repo, make_bundle(), source="test")
+
+
+def test_refresh_materializes_in_repo_legacy_settings_symlink(repo) -> None:
+    canonical = repo / "runtime/harness/claude/settings.json"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_text(
+        json.dumps({"hooks": make_bundle()["hooks"]["claude_settings_hooks"]}),
+        encoding="utf-8",
+    )
+    settings = repo / SETTINGS_REL
+    settings.parent.mkdir(parents=True)
+    settings.symlink_to("../runtime/harness/claude/settings.json")
+
+    apply_bundle(repo, make_bundle(), operation="refresh", source="test")
+
+    assert settings.is_file()
+    assert not settings.is_symlink()
+    assert _settings(repo)["hooks"] == make_bundle()["hooks"][
+        "claude_settings_hooks"
+    ]
+
+
+def test_merge_does_not_follow_predictable_temp_symlink(repo) -> None:
+    victim = repo.parent / "outside-settings.json"
+    victim.write_text("operator data\n", encoding="utf-8")
+    temporary = repo / ".claude/settings.json.tmp"
+    temporary.parent.mkdir(parents=True)
+    temporary.symlink_to(victim)
+
+    apply_bundle(repo, make_bundle(), source="test")
+
+    assert victim.read_text(encoding="utf-8") == "operator data\n"
+    assert temporary.is_symlink()
+    assert _settings(repo)["hooks"] == make_bundle()["hooks"][
+        "claude_settings_hooks"
+    ]
+
+
+def test_merge_preserves_private_settings_mode(repo) -> None:
+    _write_settings(repo, {"hooks": {}})
+    settings = repo / SETTINGS_REL
+    settings.chmod(0o600)
+
+    apply_bundle(repo, make_bundle(), source="test")
+
+    assert stat.S_IMODE(settings.stat().st_mode) == 0o600
+
+
+def test_merge_refuses_internal_symlinked_settings_parent(repo) -> None:
+    real_parent = repo / ".claude-real"
+    real_parent.mkdir()
+    (repo / ".claude").symlink_to(real_parent.name, target_is_directory=True)
+
+    with pytest.raises(ProjectInstallError, match="symlinked parent"):
+        apply_bundle(repo, make_bundle(), source="test")
+
+    assert list(real_parent.iterdir()) == []
+    assert not (repo / ".yoke/install-manifest.json").exists()
 
 
 def test_invalid_settings_fails_before_other_bundle_mutation(repo) -> None:

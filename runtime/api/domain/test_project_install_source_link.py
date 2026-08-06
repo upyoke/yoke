@@ -43,6 +43,9 @@ def _seed_yoke_checkout(root: Path) -> None:
     cursor_hooks = root / "runtime" / "harness" / "cursor" / "hooks.json"
     cursor_hooks.parent.mkdir(parents=True)
     cursor_hooks.write_text(render_cursor_hooks_json(), encoding="utf-8")
+    claude_settings = root / "runtime" / "harness" / "claude" / "settings.json"
+    claude_settings.parent.mkdir(parents=True)
+    claude_settings.write_text('{"hooks": {}}\n', encoding="utf-8")
 
 
 def _git_init(root: Path) -> None:
@@ -297,7 +300,7 @@ class TestUninstallRefusal:
             project_install.uninstall(checkout)
         message = str(exc_info.value)
         assert "refusing to uninstall" in message
-        assert "git-tracked symlinks" in message
+        assert "git-tracked source-dev files" in message
         assert (checkout / MANIFEST_REL).exists(), "manifest untouched"
 
     def test_uninstall_refuses_in_source_checkout_with_modeless_manifest(

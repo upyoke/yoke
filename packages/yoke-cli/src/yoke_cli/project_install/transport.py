@@ -14,6 +14,7 @@ from yoke_cli.project_install.files import ProjectInstallError
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
+    error_detail,
     request_json,
     safe_diagnostic_text,
 )
@@ -204,9 +205,16 @@ def _fetch_bundle_https(connection, project_id: int) -> Dict[str, Any]:
                 f"({safe_url} returned 404); check the id with `yoke status` "
                 "or pass the right --project-id"
             ) from None
+        detail = error_detail(exc.payload)
+        if detail:
+            detail = safe_diagnostic_text(
+                detail,
+                sensitive_values=(connection.token,),
+            )
+        server_detail = f": {detail}" if detail else ""
         raise ProjectInstallError(
-            f"{safe_url} returned HTTP {exc.status}; verify the active env and "
-            "credential with `yoke status`"
+            f"{safe_url} returned HTTP {exc.status}{server_detail}; verify the "
+            "active env and credential with `yoke status`"
         ) from None
     except BoundedJsonHttpError as exc:
         raise ProjectInstallError(

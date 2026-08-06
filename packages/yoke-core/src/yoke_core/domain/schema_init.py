@@ -192,12 +192,17 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     if _table_exists(conn, "qa_runs"):
         _ensure_qa_runs_verdict_trigger(conn)
     converge_migration_history(
-        conn, was_born=was_born, backup_target_dsn=backup_target_dsn,
+        conn,
+        was_born=was_born,
+        backup_target_dsn=backup_target_dsn,
     )
 
 
 def converge_migration_history(
-    conn, *, was_born: bool, backup_target_dsn: str | None = None,
+    conn,
+    *,
+    was_born: bool,
+    backup_target_dsn: str | None = None,
 ) -> None:
     """Bring this database up to the ordered migration history.
 
@@ -221,7 +226,18 @@ def converge_migration_history(
     from yoke_core.domain.migration_boot_apply import apply_pending, stamp_history
     from yoke_core.domain.migration_restore_point import configured_restore_point
     from yoke_core.domain.migration_history import history_dir, ordered_entries
+    from yoke_core.domain.migration_yoke_ledger import (
+        YOKE_LEDGER_CONTRACT,
+        converge_yoke_migration_content_schema,
+    )
 
+    # Keep this ordering local to the content-aware reader as well as in the
+    # broader schema sequence: a legacy ledger cannot be queried for a digest
+    # until the additive nullable column exists.
+    converge_yoke_migration_content_schema(
+        conn,
+        repair_existing_guards=False,
+    )
     history = ordered_entries(history_dir(migration_history_package))
     if not history:
         return
@@ -230,13 +246,19 @@ def converge_migration_history(
         # A newborn database got its schema from the code that owns this
         # history, so every entry is already true of it. Record them and run
         # none: this is Flyway's baseline / Django's fake-initial.
-        stamp_history(conn, history, applied_by="birth")
+        stamp_history(
+            conn,
+            history,
+            ledger=YOKE_LEDGER_CONTRACT,
+            applied_by="birth",
+        )
         return
 
     backup_root, external_restore_point = configured_restore_point()
     apply_pending(
         conn,
         history=history,
+        ledger=YOKE_LEDGER_CONTRACT,
         applied_by="boot-converge",
         # The version of the artifact doing the applying. Inside a container
         # this is the wheel version; from a source tree it is empty, which the

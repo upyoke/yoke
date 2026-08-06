@@ -1,0 +1,34 @@
+# Public docs sidebar. Platform renders this order; install ships the same tree.
+sections:
+  - title: Start
+    pages:
+      - index.md
+      - modes.md
+      - install.md
+      - concepts.md
+  - title: Operate
+    pages:
+      - cli-and-config.md
+      - projects.md
+      - github.md
+      - strategy.md
+      - frontier.md
+      - items-and-sessions.md
+      - workflows.md
+      - delivery.md
+      - databases-and-migrations.md
+      - qa.md
+      - capabilities.md
+      - events-doctor-ouroboros.md
+      - access-members-billing.md
+      - operating-with-agents.md
+  - title: Reference
+    pages:
+      - reference/commands.md
+      - reference/lifecycle.md
+      - reference/session-offer.md
+      - reference/charge-frontier.md
+      - reference/qa-platform.md
+      - reference/github-sync.md
+      - reference/browser-scenarios.md
+      - reference/db-reference.md

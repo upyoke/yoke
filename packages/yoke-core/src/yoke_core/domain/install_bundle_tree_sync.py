@@ -43,8 +43,14 @@ from yoke_contracts.project_contract.install_manifest import (
     PACKAGED_INSTALL_BUNDLE_TREE_REL,
 )
 from yoke_core.domain.install_bundle import (
+    DOCS_DEST,
     INSTALL_BUNDLE_SOURCE_DIRS,
     is_bundle_junk_path,
+)
+from yoke_core.domain.install_bundle_docs_mirror import (
+    docs_dest_drift,
+    mirror_docs_dest,
+    prune_empty_dirs,
 )
 from yoke_core.domain.install_bundle_managed import INSTALL_BUNDLE_SOURCE_FILES
 from yoke_core.domain.workspace_authority import (
@@ -116,6 +122,7 @@ def _stray_packaged_files(packaged: Path) -> List[str]:
     ]
 
 
+
 def detect_drift(*, target_root: Path) -> List[str]:
     """Return human-readable descriptions of snapshot-vs-source divergence.
 
@@ -153,6 +160,7 @@ def detect_drift(*, target_root: Path) -> List[str]:
             drift.append(f"content drift: {rel}")
     for stray in _stray_packaged_files(packaged):
         drift.append(f"stray packaged file (outside declared source dirs): {stray}")
+    drift.extend(docs_dest_drift(repo=repo, relative_files=_relative_files))
     return drift
 
 
@@ -220,6 +228,29 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
             target = packaged / stray
             assert_target_under_session_work_authority(target)
             target.unlink()
+    # Remove the retired packaged docs tree (``.yoke/docs`` under the
+    # snapshot) if it still exists after the source moved to ``docs/public``.
+    legacy_packaged_docs = packaged / ".yoke" / "docs"
+    if legacy_packaged_docs.exists():
+        for extra in _relative_files_raw(legacy_packaged_docs):
+            removed.append(f".yoke/docs/{extra}")
+            if not dry_run:
+                target = legacy_packaged_docs / extra
+                assert_target_under_session_work_authority(target)
+                target.unlink()
+    mirror = mirror_docs_dest(
+        repo=repo,
+        dry_run=dry_run,
+        relative_files=_relative_files,
+        relative_files_raw=_relative_files_raw,
+        error_cls=InstallBundleTreeError,
+    )
+    written.extend(mirror["written"])
+    removed.extend(mirror["removed"])
+    prune_empty_dirs(
+        bases=[repo / DOCS_DEST, packaged / ".yoke" / "docs", packaged / ".yoke"],
+        dry_run=dry_run,
+    )
     return {"written": written, "removed": removed}
 
 

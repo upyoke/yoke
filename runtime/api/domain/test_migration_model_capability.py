@@ -8,7 +8,6 @@ import pytest
 
 from yoke_core.domain.migration_model_capability import (
     CAPABILITY_TYPE,
-    DEFAULT_CONNECTION_ENV_VAR,
     MigrationModelCapabilityError,
     canonical_json,
     governed_postgres_seed,
@@ -16,16 +15,29 @@ from yoke_core.domain.migration_model_capability import (
     validate,
     validate_json_string,
 )
+from yoke_core.domain.migration_yoke_ledger import governed_yoke_postgres_seed
 from runtime.api.fixtures.migration_model_test import (
     POSTGRES_AUTHORITY_LOCATION,
+    TEST_MEMBERSHIP_LEDGER,
+    TEST_MIGRATION_MODULES_DIR,
 )
 
 _LEDGER = {
     "table": "schema_version",
     "entry_column": "migration_name",
+    "digest_column": "content_sha256",
     "semantics": "membership",
     "serving_floor_column": "minimum_serving_version",
 }
+
+
+def _postgres_seed(location):
+    return governed_postgres_seed(
+        location,
+        modules_dir=TEST_MIGRATION_MODULES_DIR,
+        ledger=TEST_MEMBERSHIP_LEDGER,
+        connection_env_var="PLATFORM_PG_DSN",
+    )
 
 
 def _minimal_sqlite_model(**overrides):
@@ -59,9 +71,6 @@ class TestCapabilityTypeConstant:
         # Type is singular; instance identity lives in keyed settings.
         assert CAPABILITY_TYPE == "migration_model"
 
-    def test_default_env_var_is_postgres_dsn(self) -> None:
-        assert DEFAULT_CONNECTION_ENV_VAR == "YOKE_PG_DSN"
-
 
 class TestGovernedPostgresSeed:
     def test_seed_requires_explicit_authority(self) -> None:
@@ -69,32 +78,56 @@ class TestGovernedPostgresSeed:
             governed_postgres_seed()  # type: ignore[call-arg]
 
     def test_seed_validates(self) -> None:
-        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        seed = _postgres_seed(POSTGRES_AUTHORITY_LOCATION)
         assert validate(seed) == seed
 
     def test_seed_is_postgres_pairing(self) -> None:
-        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        seed = _postgres_seed(POSTGRES_AUTHORITY_LOCATION)
         primary = seed["models"]["primary"]
         assert primary["authoritative_db"]["kind"] == "postgres"
-        assert primary["authoritative_db"]["location"] == (
-            POSTGRES_AUTHORITY_LOCATION
-        )
+        assert primary["authoritative_db"]["location"] == (POSTGRES_AUTHORITY_LOCATION)
         assert primary["validation_surface"]["kind"] == "external_validation"
         assert primary["runner"]["kind"] == "governed_migration_module"
-        assert primary["runner"]["config"]["connection_env_var"] == "YOKE_PG_DSN"
+        assert primary["runner"]["config"]["connection_env_var"] == ("PLATFORM_PG_DSN")
+
+    def test_seed_requires_project_connection_env_var(self) -> None:
+        with pytest.raises(TypeError, match="connection_env_var"):
+            governed_postgres_seed(
+                POSTGRES_AUTHORITY_LOCATION,
+                modules_dir=TEST_MIGRATION_MODULES_DIR,
+                ledger=TEST_MEMBERSHIP_LEDGER,
+            )
 
     def test_seed_declares_default_model(self) -> None:
-        seed = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        seed = _postgres_seed(POSTGRES_AUTHORITY_LOCATION)
         assert seed["default_model"] == "primary"
 
     def test_seed_copies_caller_authority(self) -> None:
         location = dict(POSTGRES_AUTHORITY_LOCATION)
-        seed = governed_postgres_seed(location)
+        seed = _postgres_seed(location)
 
         location["stack"] = "mutated-after-construction"
 
         assert seed["models"]["primary"]["authoritative_db"]["location"] == (
             POSTGRES_AUTHORITY_LOCATION
+        )
+
+    def test_project_declarations_keep_distinct_connection_authority(self) -> None:
+        yoke = governed_yoke_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        platform = _postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        webapp = validate({"models": {"primary": _minimal_sqlite_model()}})
+
+        assert (
+            yoke["models"]["primary"]["runner"]["config"]["connection_env_var"]
+            == "YOKE_PG_DSN"
+        )
+        assert (
+            platform["models"]["primary"]["runner"]["config"]["connection_env_var"]
+            == "PLATFORM_PG_DSN"
+        )
+        assert (
+            webapp["models"]["primary"]["runner"]["config"]["connection_env_var"]
+            == "APP_DB_PATH"
         )
 
 
@@ -118,10 +151,12 @@ class TestStructuralShape:
     def test_default_model_must_exist(self) -> None:
         # default_model, if present, must exist in models.
         with pytest.raises(MigrationModelCapabilityError):
-            validate({
-                "default_model": "missing",
-                "models": {"primary": _minimal_sqlite_model()},
-            })
+            validate(
+                {
+                    "default_model": "missing",
+                    "models": {"primary": _minimal_sqlite_model()},
+                }
+            )
 
     def test_default_model_optional(self) -> None:
         out = validate({"models": {"primary": _minimal_sqlite_model()}})
@@ -165,18 +200,27 @@ class TestValidationSurface:
     def test_worktree_local_sqlite_accepted(self) -> None:
         # Baseline accepted surface.
         out = validate({"models": {"primary": _minimal_sqlite_model()}})
-        assert out["models"]["primary"]["validation_surface"]["kind"] == "worktree_local_sqlite"
+        assert (
+            out["models"]["primary"]["validation_surface"]["kind"]
+            == "worktree_local_sqlite"
+        )
 
     def test_worktree_local_sqlite_requires_path_and_recipe(self) -> None:
         model = _minimal_sqlite_model(
-            validation_surface={"kind": "worktree_local_sqlite", "provisioning": {"path": "x"}},
+            validation_surface={
+                "kind": "worktree_local_sqlite",
+                "provisioning": {"path": "x"},
+            },
         )
         with pytest.raises(MigrationModelCapabilityError):
             validate({"models": {"primary": model}})
 
     def test_staging_db_unsupported_in_slice(self) -> None:
         model = _minimal_sqlite_model(
-            validation_surface={"kind": "staging_db", "provisioning": {"dsn_from_secret": "x", "reset_recipe": "y"}},
+            validation_surface={
+                "kind": "staging_db",
+                "provisioning": {"dsn_from_secret": "x", "reset_recipe": "y"},
+            },
         )
         with pytest.raises(MigrationModelCapabilityError, match="not yet supported"):
             validate({"models": {"primary": model}})
@@ -198,8 +242,7 @@ class TestRunner:
         with pytest.raises(MigrationModelCapabilityError):
             validate({"models": {"primary": model}})
 
-    def test_connection_env_var_defaults_to_postgres_dsn(self) -> None:
-        # Defaulting behaviour.
+    def test_connection_env_var_is_required(self) -> None:
         model = _minimal_sqlite_model(
             runner={
                 "kind": "governed_migration_module",
@@ -209,11 +252,8 @@ class TestRunner:
                 },
             },
         )
-        out = validate({"models": {"primary": model}})
-        assert (
-            out["models"]["primary"]["runner"]["config"]["connection_env_var"]
-            == "YOKE_PG_DSN"
-        )
+        with pytest.raises(MigrationModelCapabilityError, match="connection_env_var"):
+            validate({"models": {"primary": model}})
 
     def test_artifact_version_env_var_is_optional_and_preserved(self) -> None:
         model = _minimal_sqlite_model()
@@ -222,8 +262,8 @@ class TestRunner:
         out = validate({"models": {"primary": model}})
 
         assert (
-            out["models"]["primary"]["runner"]["config"]
-            ["artifact_version_env_var"] == "APP_VERSION"
+            out["models"]["primary"]["runner"]["config"]["artifact_version_env_var"]
+            == "APP_VERSION"
         )
 
     def test_empty_artifact_version_env_var_is_refused(self) -> None:
@@ -282,7 +322,7 @@ class TestResolveModel:
 
 class TestJsonHelpers:
     def test_validate_json_string_canonicalizes(self) -> None:
-        raw = canonical_json(governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION))
+        raw = canonical_json(_postgres_seed(POSTGRES_AUTHORITY_LOCATION))
         assert validate_json_string(raw) == raw
 
     def test_validate_json_string_rejects_empty(self) -> None:

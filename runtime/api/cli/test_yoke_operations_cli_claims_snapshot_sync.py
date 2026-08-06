@@ -23,10 +23,15 @@ def _dispatch_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     )
 
 
-def _run(*argv: str) -> int:
+def _run(*argv: str, requests: list[FunctionCallRequest] | None = None) -> int:
+    def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
+        if requests is not None:
+            requests.append(request)
+        return _dispatch_ok(request)
+
     with patch(
         "yoke_core.domain.yoke_function_dispatch.dispatch",
-        side_effect=_dispatch_ok,
+        side_effect=dispatch,
     ), patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
@@ -65,3 +70,38 @@ def test_widen_attempts_snapshot_sync_before_dispatch() -> None:
     sync.assert_called_once_with(
         project=None, integration_target=None, session_id=None,
     )
+
+
+def test_widen_dispatches_full_db_claim_json_atomically() -> None:
+    requests: list[FunctionCallRequest] = []
+    with patch(
+        "yoke_cli.commands.adapters.claims_path_change."
+        "sync_local_snapshot_for_write"
+    ):
+        rc = _run(
+            "claims", "path", "widen",
+            "--claim-id", "273",
+            "--add-paths", "app/db/migrations/0002_add_index.py",
+            "--reason", "migration scope discovered",
+            "--item", "1819",
+            "--db-claim-json",
+            '{"state":"declared","model_name":"primary"}',
+            requests=requests,
+        )
+
+    assert rc == 0
+    assert requests[0].payload["db_claim"] == {
+        "state": "declared",
+        "model_name": "primary",
+    }
+
+
+def test_widen_refuses_non_object_db_claim_json() -> None:
+    assert _run(
+        "claims", "path", "widen",
+        "--claim-id", "273",
+        "--add-paths", "app/db/migrations/0002_add_index.py",
+        "--reason", "migration scope discovered",
+        "--item", "1819",
+        "--db-claim-json", "[]",
+    ) == 2

@@ -74,7 +74,7 @@ These are consumed by `/yoke do` to construct the session offer with correct har
 
 ## Yoke function-call surface
 
-Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`.yoke/docs/db-reference/functions.md`](.yoke/docs/db-reference/functions.md) for the envelope, the per-family reference, and the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` dispatcher-event schemas.
+Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`.yoke/docs/reference/db-reference/functions.md`](.yoke/docs/reference/db-reference/functions.md) for the envelope, the per-family reference, and the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` dispatcher-event schemas.
 
 External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification. Yoke-owned control-plane reads, writes, and checks are function-shaped.
 
@@ -92,7 +92,7 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 ## Lifecycle & Routing
 
 The canonical lifecycle guide is
-[.yoke/docs/lifecycle.md](.yoke/docs/lifecycle.md). It explains how immutable
+[.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). It explains how immutable
 workflow versions own stages, transitions, target-stage gates, policies, and
 registered executor bindings. For a live item, read
 `yoke workflows item get PREFIX-N` and then
@@ -100,13 +100,13 @@ registered executor bindings. For a live item, read
 guide or a workflow-name branch, is the source of truth for which executor
 owns the current stage.
 
-Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [.yoke/docs/session-offer-contract.md](.yoke/docs/session-offer-contract.md) and [.yoke/docs/charge-frontier.md](.yoke/docs/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
+Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [.yoke/docs/reference/session-offer.md](.yoke/docs/reference/session-offer.md) and [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 
 ## Related docs
 
-- [Lifecycle & Command Boundaries](.yoke/docs/lifecycle.md) -- canonical human lifecycle guide
-- [Session-Offer Contract](.yoke/docs/session-offer-contract.md) -- `/yoke do` request/response shape
-- [Charge Frontier](.yoke/docs/charge-frontier.md) -- frontier computation and status-to-adapter map
+- [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
+- [Session-Offer Contract](.yoke/docs/reference/session-offer.md) -- `/yoke do` request/response shape
+- [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
 - [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
 - [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
 <!-- END YOKE MANAGED BLOCK -->

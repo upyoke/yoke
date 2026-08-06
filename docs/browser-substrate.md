@@ -14,7 +14,7 @@ modules below for source-development diagnostics.
 
 ## Related Documentation
 
-- [Browser Scenario Schema](../.yoke/docs/browser-scenario-schema.md) —
+- [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
   immutable `method_config` for `browser-check` and `browser-inspection`
 
 ## Architecture
@@ -341,7 +341,7 @@ readiness any time with `yoke qa browser status`.
 
 ## Related
 
-- [Browser Scenario Schema](../.yoke/docs/browser-scenario-schema.md) —
+- [Browser Scenario Schema](../.yoke/docs/reference/browser-scenarios.md) —
   `method_config` shape for Browser method cases
 - `packages/yoke-harness/src/yoke_harness/browser_runtime/README.md` — Quick-start guide and usage examples
 - `.agents/skills/yoke/advance/browser-qa.md` — browser execution gate on the `implemented` / `polishing-implementation` path

@@ -110,10 +110,10 @@ def test_advance_skill_does_not_depend_on_private_strategy_files() -> None:
 @pytest.mark.parametrize(
     ("document", "target"),
     (
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/qa-platform.md"),
-        ("docs/qa-platform/cli-reference.md", ".yoke/docs/db-reference/functions.md"),
-        ("docs/session-offer-contract/event-shapes.md", ".yoke/docs/session-offer-contract.md"),
-        ("docs/session-offer-contract/action-payloads.md", ".yoke/docs/session-offer-contract.md"),
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/qa-platform.md"),
+        ("docs/qa-platform/cli-reference.md", ".yoke/docs/reference/db-reference/functions.md"),
+        ("docs/session-offer-contract/event-shapes.md", ".yoke/docs/reference/session-offer.md"),
+        ("docs/session-offer-contract/action-payloads.md", ".yoke/docs/reference/session-offer.md"),
     ),
 )
 def test_cross_tree_document_links_resolve(document: str, target: str) -> None:

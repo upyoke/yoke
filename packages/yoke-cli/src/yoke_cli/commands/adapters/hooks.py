@@ -10,6 +10,7 @@ clearly instead.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from typing import List
 
@@ -17,7 +18,17 @@ from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.hook_runner.chain_registry import (
     SESSION_ORIENTATION_EVENT,
 )
+from yoke_contracts.hook_runner.config_owner import (
+    CONFIG_OWNER_ENV_VAR,
+)
+from yoke_contracts.hook_runner.cursor_response import (
+    cursor_lifecycle_allow_stdout,
+)
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands.adapters.hook_config_dedup import (
+    is_cursor_config_invocation,
+    should_skip_config_duplicate,
+)
 
 
 __all__ = ["HOOK_EVALUATE_USAGE", "hook_evaluate"]
@@ -28,12 +39,18 @@ HOOK_EVALUATE_USAGE = (
 )
 
 
-def _degrade_to_noop(event_name: str, detail: str) -> int:
+def _degrade_to_noop(
+    event_name: str, detail: str, *, cursor_invocation: bool,
+) -> int:
     sys.stderr.write(
         f"WARNING: YOKE_HOOK_DEGRADED: yoke hook evaluate {event_name}: "
         "yoke-harness unavailable; "
         f"degraded to no-op allow ({detail})\n"
     )
+    if cursor_invocation:
+        stdout = cursor_lifecycle_allow_stdout(event_name)
+        if stdout:
+            sys.stdout.write(stdout)
     return 0
 
 
@@ -56,6 +73,25 @@ def hook_evaluate(args: List[str]) -> int:
     if parsed is None:
         return 2
 
+    stdin_data = None
+    cursor_invocation = is_cursor_config_invocation(os.environ, "")
+    if not parsed.dry_run and os.environ.get(CONFIG_OWNER_ENV_VAR):
+        # Owner-marked compatibility/backstop hooks need both process and
+        # payload provenance before deduplication. Read once here so an
+        # ambient Cursor variable cannot disable a genuine Claude hook.
+        stdin_data = sys.stdin.read()
+        cursor_invocation = (
+            cursor_invocation
+            or is_cursor_config_invocation(os.environ, stdin_data)
+        )
+        if should_skip_config_duplicate(
+            parsed.event_name, os.environ, stdin_data,
+        ):
+            stdout = cursor_lifecycle_allow_stdout(parsed.event_name)
+            if stdout:
+                sys.stdout.write(stdout)
+            return 0
+
     try:
         from yoke_harness.hooks.relay import (
             degrade_to_noop,
@@ -69,7 +105,11 @@ def hook_evaluate(args: List[str]) -> int:
                 f"{exc}\n"
             )
             return 1
-        return _degrade_to_noop(parsed.event_name, str(exc))
+        return _degrade_to_noop(
+            parsed.event_name,
+            str(exc),
+            cursor_invocation=cursor_invocation,
+        )
 
     if not parsed.dry_run:
         from yoke_cli.transport.https import (
@@ -81,14 +121,15 @@ def hook_evaluate(args: List[str]) -> int:
             connection = resolve_https_connection()
         except TransportError as exc:
             # Half-configured https: other CLI surfaces fail loudly, but a
-            # hook must never block the harness on transport config. Resolved
-            # before stdin so this path returns without consuming it.
+            # hook must never block the harness on transport config. An
+            # owner-marked config has already supplied stdin for provenance.
             return degrade_to_noop(parsed.event_name, str(exc))
 
         # Read stdin once: the relay, the orientation composer, and the
         # local-universe lifecycle all need the same payload, and a hook
         # process gets exactly one shot at it.
-        stdin_data = sys.stdin.read()
+        if stdin_data is None:
+            stdin_data = sys.stdin.read()
         extra_context = _session_orientation(parsed.event_name, stdin_data)
         if connection is not None:
             return relay_hook_event(

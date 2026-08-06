@@ -99,7 +99,9 @@ def _plan(
 
 
 def apply_settings_permissions(
-    repo_root: Path, managed: Optional[Dict[str, Any]],
+    repo_root: Path,
+    managed: Optional[Dict[str, Any]],
+    prior_record: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Union our permissions region into ``.claude/settings.json``.
 
@@ -110,22 +112,46 @@ def apply_settings_permissions(
     if not managed:
         return {}, {"actions": [], "changed": False}
     assert_resolved_targets_within(
-        repo_root, [CLAUDE_SETTINGS_REL], context="settings permissions mutation",
+        repo_root,
+        [CLAUDE_SETTINGS_REL],
+        context="settings permissions mutation",
     )
     target = repo_root / CLAUDE_SETTINGS_REL
     payload = _load(target)
     created_file = payload is None
-    new_payload, record = _plan(payload, managed)
-    record["created_file"] = created_file
-    changed = bool(record["added_allow"]) or record["set_auto_memory"] or created_file
+    new_payload, current_record = _plan(payload, managed)
+    current_record["created_file"] = created_file
+    changed = (
+        bool(current_record["added_allow"])
+        or current_record["set_auto_memory"]
+        or created_file
+    )
+    prior = prior_record if isinstance(prior_record, dict) else {}
+    record = {
+        "added_allow": list(
+            dict.fromkeys(
+                [
+                    *list(prior.get("added_allow") or []),
+                    *current_record["added_allow"],
+                ]
+            )
+        ),
+        "set_auto_memory": bool(
+            prior.get("set_auto_memory") or current_record["set_auto_memory"]
+        ),
+        "created_permissions": bool(
+            prior.get("created_permissions") or current_record["created_permissions"]
+        ),
+        "created_file": bool(prior.get("created_file") or created_file),
+    }
     actions: List[str] = []
     if changed:
         _write(target, new_payload)
-        added_n = len(record["added_allow"])
+        added_n = len(current_record["added_allow"])
         bits = []
         if added_n:
             bits.append(f"allowed {added_n} Yoke tool(s)")
-        if record["set_auto_memory"]:
+        if current_record["set_auto_memory"]:
             bits.append("set autoMemoryEnabled")
         actions.append(
             f"Updated: {CLAUDE_SETTINGS_REL} ({', '.join(bits) or 'permissions'}; "
@@ -139,7 +165,8 @@ def apply_settings_permissions(
 
 
 def preview_settings_permissions(
-    repo_root: Path, managed: Optional[Dict[str, Any]],
+    repo_root: Path,
+    managed: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Plan the permissions mutation without writing (review/preview)."""
     if not managed:
@@ -167,7 +194,8 @@ def preview_settings_permissions(
 
 
 def remove_settings_permissions(
-    repo_root: Path, record: Optional[Dict[str, Any]],
+    repo_root: Path,
+    record: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """Uninstall pass: remove exactly the allow entries and flag we added.
 
@@ -178,7 +206,9 @@ def remove_settings_permissions(
     if not record:
         return {"removed_allow": [], "unset_auto_memory": False, "deleted_file": False}
     assert_resolved_targets_within(
-        repo_root, [CLAUDE_SETTINGS_REL], context="settings permissions removal",
+        repo_root,
+        [CLAUDE_SETTINGS_REL],
+        context="settings permissions removal",
     )
     target = repo_root / CLAUDE_SETTINGS_REL
     payload = _load(target)

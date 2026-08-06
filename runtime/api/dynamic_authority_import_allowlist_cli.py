@@ -8,6 +8,20 @@ from __future__ import annotations
 
 CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
+        "yoke_core.domain.project_github_auth",
+    ): (
+        "machine_local_credential_custody",
+        "bind refresh-only GitHub user authority inside the merge child",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
+        "yoke_core.domain.standalone_item_merge_cli",
+    ): (
+        "client_local_execution",
+        "execute repository merge mechanics in the isolated local child",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
         "yoke_core.domain.project_github_auth",
     ): (

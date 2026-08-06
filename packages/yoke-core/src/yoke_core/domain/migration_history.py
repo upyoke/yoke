@@ -34,6 +34,7 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleContractError,
     ModuleResolutionError,
 )
+from yoke_core.domain.migration_content_identity import raw_content_sha256
 
 #: New histories are taught ``NNNN_slug.py``. Established project histories
 #: may already use another stable zero-padded width; accept three or more
@@ -64,6 +65,11 @@ class MigrationEntry:
     sequence: int
     name: str
     path: Path
+
+    @property
+    def content_sha256(self) -> str:
+        """SHA256 of the entry's raw bytes, with no text normalization."""
+        return raw_content_sha256(self.path.read_bytes())
 
 
 def history_dir(package: ModuleType) -> Path:
@@ -119,7 +125,12 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
     return tuple(entries)
 
 
-def load_migration_module(path: Path, identifier: str) -> ModuleType:
+def load_migration_module(
+    path: Path,
+    identifier: str,
+    *,
+    source_bytes: bytes | None = None,
+) -> ModuleType:
     """Import a migration module from an explicit file path.
 
     Enforces the module contract: a callable ``apply(conn)`` is required and
@@ -143,7 +154,9 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
         raise ModuleResolutionError(f"cannot construct import spec for {path}")
     module = importlib.util.module_from_spec(spec)
     try:
-        spec.loader.exec_module(module)
+        content = path.read_bytes() if source_bytes is None else source_bytes
+        code = compile(content, str(path), "exec")
+        exec(code, module.__dict__)
     except Exception as exc:  # noqa: BLE001 — surface as structured error
         raise ModuleResolutionError(
             f"failed to import migration module '{identifier}' from {path}: {exc}"
@@ -154,9 +167,9 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
         )
     try:
         migration_serving_version.require_declaration(
-            identifier, path.read_text(encoding="utf-8"), module
+            identifier, content.decode("utf-8"), module
         )
-    except migration_serving_version.ServingVersionError as exc:
+    except (UnicodeDecodeError, migration_serving_version.ServingVersionError) as exc:
         raise ModuleContractError(str(exc)) from exc
     return module
 

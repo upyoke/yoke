@@ -1,8 +1,9 @@
 # Table ownership is repaired outside the governed migration path
 
-`migration_fleet_ownership.realign` issues `ALTER TABLE ... OWNER TO` against a
-live authoritative database. That is write DDL outside the ordered migration
-history, so it needs saying why.
+`migration_fleet_ownership.realign` and `realign_trigger_functions` issue
+targeted `ALTER ... OWNER TO` statements against a live authoritative
+database. That is write DDL outside the ordered migration history, so it needs
+saying why.
 
 ## What it is not
 
@@ -17,10 +18,17 @@ transition calls it. It runs when an operator names a database, passes
 because a differently-owned table is not automatically wrong and a separately
 provisioned surface may legitimately own its own.
 
-The one call site that is not an operator typing a command is the migration
-applier handing back a table it has just created itself, which is narrower
-still: it realigns only the two tables that tool can bring into existence, and
-only when they disagree with the majority owner.
+The non-interactive call sites hand back only objects the current operation can
+bring into existence. The migration applier realigns its two declared tables
+when they disagree with the majority owner. Migration-content preparation
+realigns its evidence table and exact, contract-derived guard functions to the
+declared ledger table's owner before committing. It does not assume the
+database owner is the serving role or that objects live in `public`; catalog
+reads and handoff use the connection's current schema. An RDS admin need not
+hold the ledger owner role: preparation grants it transactionally, revokes it
+before commit, and rolls the grant back with a savepoint if any handoff fails.
+The later adoption transaction uses the same bounded authority so it can write
+the tenant-owned ledger and evidence table without leaving membership behind.
 
 ## Why it cannot be a migration entry
 
@@ -49,7 +57,10 @@ permanently removed the server's ability to converge its own ledger.
 
 ## The rule this establishes
 
-Any tool that creates a table on a tenant database hands it to the serving
-role, or it has left a trap. The applier now does this for the tables it
-creates. Detection lives with the fleet preflight, which reads ownership from
-the live database because a `pg_restore --no-owner` copy cannot show it.
+Any tool that creates a schema object later converged by the serving role hands
+it to that role, or it has left a trap. The applier does this for the tables it
+creates; migration-content preparation also does it for its guard functions.
+Detection lives with the fleet preflight, which reads ownership from the live
+database because a `pg_restore --no-owner` copy cannot show it. Project plans
+bind their exact managed-routine ownership validator so table uniformity alone
+cannot hide a guard function owned by the admin.

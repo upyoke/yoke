@@ -238,7 +238,7 @@ def test_no_helper_wrapped_shell_dispatch_in_production_python() -> None:
 
 _RESIDUE_PATH_ALLOWLIST: Tuple[str, ...] = (
     "docs/archive/",
-    ".yoke/docs/db-reference/",
+    ".yoke/docs/reference/db-reference/",
 )
 
 _RESIDUE_TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
@@ -324,7 +324,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
         "``lint_structured_field_transform_shell_messages``; matching the "
         "Doctor HC ``HC-terminal-recipe-residue`` and the dedicated "
         "manifest test. Allowed surfaces are docs/archive/**, "
-        ".yoke/docs/db-reference/**, and runtime/api/**/test_*.py.\n\n"
+        ".yoke/docs/reference/db-reference/**, and runtime/api/**/test_*.py.\n\n"
         + "\n".join(
             f"  {rel}:{lineno}: [{pat}] {snippet}"
             for rel, lineno, pat, snippet in findings[:40]

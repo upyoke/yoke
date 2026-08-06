@@ -1,13 +1,16 @@
 """Harness / session substrate health-check bundle.
 
 A registry slice carved out of :mod:`doctor_registry` so the parent file stays
-under the 350-line authored-file limit. Three groups of harness-side checks
+under the 350-line authored-file limit. Four groups of harness-side checks
 live here, in this order:
 
 Session/harness substrate:
   ``stale-sessions``, ``stale-session-reclaimer-alive``,
   ``stale-reclaim-collision``, ``session-cwd-binding``,
   ``session-pre-implementing-activity``, ``session-lane-mismatch``.
+
+Project harness config:
+  ``project-hook-config-validity``.
 
 Ledger audit:
   ``claim-boundary-audit``.
@@ -44,6 +47,9 @@ from yoke_core.engines.doctor_hc_reflection_capture_hook_coverage import (
 )
 from yoke_core.engines.doctor_hc_reflection_capture_persist_failed import (
     hc_reflection_capture_persist_failed,
+)
+from yoke_core.engines.doctor_hc_project_hook_config import (
+    hc_project_hook_config_validity,
 )
 from yoke_core.engines.doctor_hc_session_cwd_binding import (
     hc_session_cwd_binding,
@@ -89,6 +95,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "session-lane-mismatch",
         "Session offer lane mismatch (envelope vs row)",
         hc_session_lane_mismatch,
+    ),
+    HealthCheck(
+        "project-hook-config-validity",
+        "Project Cursor-scanned hook configs are regular and schema-valid",
+        hc_project_hook_config_validity,
     ),
     # Group B — harness substrate parity HCs (task 10)
     HealthCheck(

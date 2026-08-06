@@ -118,5 +118,5 @@ Harness-local hook output (e.g., Codex hook logs) is informational. It is never 
 
 - [Harness Bootstrap Contract](harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](harness-adapter-template.md) -- five-part adapter template with manifest schema
-- [Session-Offer Contract](../.yoke/docs/session-offer-contract.md) -- request/response envelope and identity model
+- [Session-Offer Contract](../.yoke/docs/reference/session-offer.md) -- request/response envelope and identity model
 - [Harness README](../runtime/harness/README.md) -- adapter directory convention

@@ -22,6 +22,14 @@ GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
     ("deployments",): (("deployment-flows",), ("deployment-runs",)),
     ("worktrees",): (("item-worktrees",),),
     ("source",): (("source-authority",),),
+    ("environment",): (
+        ("projects", "environment"),
+        ("projects", "environment-settings"),
+    ),
+    ("environments",): (
+        ("projects", "environment"),
+        ("projects", "environment-settings"),
+    ),
     ("qa", "review"): (("qa", "plan"),),
     ("github", "actions", "get"): (("github-actions",),),
     ("github", "actions", "wait"): (("github-actions",),),

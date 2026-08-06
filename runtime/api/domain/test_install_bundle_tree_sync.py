@@ -37,10 +37,14 @@ def test_sync_materializes_a_byte_exact_tree_from_empty(tmp_path) -> None:
     report = sync(target_root=tmp_path)
 
     assert report["removed"] == []
+    # Packaged snapshot entries plus the dogfood ``.yoke/docs`` mirror of
+    # ``docs/public`` (one seeded file per source dir → one dest mirror file).
     assert len(report["written"]) == (
         len(sync_mod.INSTALL_BUNDLE_SOURCE_DIRS)
         + len(sync_mod.INSTALL_BUNDLE_SOURCE_FILES)
+        + 1
     )
+    assert any(w.startswith(".yoke/docs/") for w in report["written"])
     # A second sync is a no-op — idempotent.
     again = sync(target_root=tmp_path)
     assert again == {"written": [], "removed": []}

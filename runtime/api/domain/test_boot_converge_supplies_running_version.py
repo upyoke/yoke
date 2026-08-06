@@ -17,6 +17,7 @@ import inspect
 import pytest
 
 from yoke_core.domain import migration_boot_apply, schema_init
+from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
 
 class TestApplierRequiresAnExplicitVersion:
@@ -31,7 +32,10 @@ class TestApplierRequiresAnExplicitVersion:
     def test_omitting_it_is_a_type_error_not_a_silent_pass(self) -> None:
         with pytest.raises(TypeError):
             migration_boot_apply.apply_pending(
-                object(), history=(), applied_by="test"
+                object(),
+                history=(),
+                ledger=YOKE_LEDGER_CONTRACT,
+                applied_by="test",
             )
 
 

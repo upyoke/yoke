@@ -309,7 +309,7 @@ class TestLifecycleDocsAlignWithManifest:
             re.DOTALL,
         )
         assert match, (
-            ".yoke/docs/lifecycle.md missing '## Registered Skill Boundaries'"
+            ".yoke/docs/reference/lifecycle.md missing '## Registered Skill Boundaries'"
         )
         section = match.group(1)
         assert "`advance`" in section, (

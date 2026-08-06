@@ -49,6 +49,9 @@ GUARDED_FACTORY = "packages/yoke-core/src/yoke_core/domain/db_backend.py"
 #: database directly is exercising the machinery, not shipping a call path.
 SCAN_ROOTS = ("packages", "runtime")
 
+#: Generated Python trees repeat package source and are not shipping call paths.
+GENERATED_TREE_NAMES = frozenset({"build", "dist"})
+
 DRIVER_MODULE = "psycopg"
 DRIVER_CONNECT = "connect"
 AMBIENT_RESOLVER = "resolve_pg_dsn"
@@ -167,9 +170,12 @@ def _scanned_files(repo_root: Path, roots: Sequence[str]) -> Iterator[Path]:
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*.py")):
+            relative = path.relative_to(repo_root)
+            if GENERATED_TREE_NAMES.intersection(relative.parts):
+                continue
             if path.name.startswith("test_"):
                 continue
-            if path.relative_to(repo_root).as_posix() == GUARDED_FACTORY:
+            if relative.as_posix() == GUARDED_FACTORY:
                 continue
             yield path
 
@@ -187,13 +193,17 @@ def scan_for_unguarded_connections(
 
 
 def hc_ambient_authority_connection_guard(
-    conn, args: DoctorArgs, rec: RecordCollector,
+    conn,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Doctor entry. FAILs on an undeclared raw connect to the ambient authority."""
     findings = scan_for_unguarded_connections(_project_root())
     if not findings:
         rec.record(
-            HC_NAME, HC_DESC, "PASS",
+            HC_NAME,
+            HC_DESC,
+            "PASS",
             "Every raw driver connection to the ambient Postgres authority is "
             "either inside the guarded factory or declared exempt.",
         )
@@ -206,15 +216,14 @@ def hc_ambient_authority_connection_guard(
         "authority over — wrap the call in "
         "`yoke_contracts.control_plane_locality.local_authority_exempt()`."
     )
-    body = "\n".join(
-        [head, ""] + [f"  - `{f.relpath}:{f.line}`" for f in findings]
-    )
+    body = "\n".join([head, ""] + [f"  - `{f.relpath}:{f.line}`" for f in findings])
     rec.record(HC_NAME, HC_DESC, "FAIL", body)
 
 
 __all__ = [
     "AMBIENT_RESOLVER",
     "EXEMPTION",
+    "GENERATED_TREE_NAMES",
     "GUARDED_FACTORY",
     "HC_DESC",
     "HC_NAME",
@@ -230,9 +239,9 @@ from yoke_project_checks._declare import (  # noqa: E402
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
     (
-        'ambient-authority-connection-guard',
-        'Raw driver connections to the ambient Postgres authority must go '
-        'through the guarded factory or declare local_authority_exempt()',
+        "ambient-authority-connection-guard",
+        "Raw driver connections to the ambient Postgres authority must go "
+        "through the guarded factory or declare local_authority_exempt()",
         hc_ambient_authority_connection_guard,
     ),
 )

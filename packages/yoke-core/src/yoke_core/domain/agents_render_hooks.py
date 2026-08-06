@@ -28,6 +28,12 @@ from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
     ordered_pipeline_for,
 )
+from yoke_contracts.hook_runner.config_owner import (
+    CLAUDE_CONFIG_OWNER,
+    CONFIG_OWNER_ENV_VAR,
+    CURSOR_NATIVE_RUNNER_EVENTS,
+    CURSOR_PROJECT_CONFIG_OWNER,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +47,9 @@ from yoke_contracts.hook_runner.hook_ordering import (
 # dispatch happens behind the CLI via the loaded ``AdapterCapability``.
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
+_CLAUDE_CONFIG_OWNER_ENV = (
+    f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER}"
+)
 
 
 def _environment_export(manifest: dict) -> str:
@@ -60,7 +69,7 @@ def _claude_command(event: str) -> str:
     # child, so Claude's hook event JSON payload still reaches the runner.
     return (
         "/bin/zsh -lc '"
-        f"env {_environment_export(CLAUDE_MANIFEST)} "
+        f"env {_environment_export(CLAUDE_MANIFEST)} {_CLAUDE_CONFIG_OWNER_ENV} "
         f"{_YOKE_HOOK_EVALUATE} {event}'"
     )
 
@@ -241,7 +250,10 @@ def render_codex_hooks_block() -> dict:
 # multiplex model providers, so the generated command pins the executor
 # family the same way the Codex command pins its identity. Provider stays
 # payload-derived.
-_CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
+_CURSOR_IDENTITY_ENV = (
+    "YOKE_EXECUTOR=cursor "
+    f"{CONFIG_OWNER_ENV_VAR}={CURSOR_PROJECT_CONFIG_OWNER}"
+)
 
 # Cursor-native event -> canonical runner verb. The runner receives the
 # canonical verb as argv; the Cursor payload parser owns payload-shape
@@ -256,16 +268,13 @@ _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
 # Cursor event that cannot afford to run the hook command at all. It fires
 # inside the token stream and is wired separately, to shell only, by
 # `cursor_model_spool` — see that module for the measurements.
-_CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
-    ("sessionStart", "SessionStart", None),
-    ("sessionEnd", "SessionEnd", None),
-    ("beforeSubmitPrompt", "UserPromptSubmit", None),
-    ("beforeShellExecution", "PreToolUse", None),
-    ("afterShellExecution", "PostToolUse", None),
-    ("preToolUse", "PreToolUse", "Write|Read|Task"),
-    ("postToolUse", "PostToolUse", "Write|Read|Task"),
-    ("postToolUseFailure", "PostToolUseFailure", None),
-    ("stop", "Stop", None),
+_CURSOR_MATCHER_BY_NATIVE_EVENT = {
+    "preToolUse": "Write|Read|Task",
+    "postToolUse": "Write|Read|Task",
+}
+_CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = tuple(
+    (native_event, runner_event, _CURSOR_MATCHER_BY_NATIVE_EVENT.get(native_event))
+    for native_event, runner_event in CURSOR_NATIVE_RUNNER_EVENTS
 )
 
 

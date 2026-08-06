@@ -1,9 +1,10 @@
 name: yoke-build-artifacts
 
-# Classification: FACTORY. Builds the complete release artifact contract —
-# the split-package wheels, the installer files, the simple index, and the
-# release records — and uploads it as a workflow artifact. Stays with the
-# product repo when it becomes public.
+# Classification: FACTORY. Builds and validates the complete publication tree —
+# the split-package wheels, installer files, simple index, and release records.
+# It uploads only the immutable, versioned release payload; downloading that
+# workflow artifact produces a flat directory containing records, wheels, and
+# migration evidence. Stays with the product repo when it becomes public.
 #
 # This is the secretless half of what yoke-distribution-publish.yml does:
 # the same yoke_core.tools.build_release + validate-release pipeline, but
@@ -42,7 +43,7 @@ on:
         description: Validated shared product-wheel version.
         value: ${{ jobs.build.outputs.release_version }}
       artifact_name:
-        description: Workflow artifact containing the validated release tree.
+        description: Workflow artifact containing the validated release payload.
         value: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
@@ -101,11 +102,12 @@ jobs:
             --repo-root "$GITHUB_WORKSPACE" \
             --output-root "$release_root" \
             --generated-at "$release_generated_at" \
+            --source-commit "$GITHUB_SHA" \
             --json > "$release_json"
           cat "$release_json"
           release_dir="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["release_dir"])' "$release_json")"
           uv run python -m yoke_core.tools.distribution_publish \
-            validate-release "$release_dir"
+            validate-release "$release_dir" --source-commit "$GITHUB_SHA"
           release_version="$(uv run python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"])' "$release_json")"
           echo "RELEASE_DIR=$release_dir" >> "$GITHUB_ENV"
           {
@@ -123,7 +125,7 @@ jobs:
           overwrite: true
 
   attest:
-    name: attest-validated-wheels
+    name: attest-validated-release-provenance
     needs: build
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -138,13 +140,13 @@ jobs:
     steps:
       # Deliberately no checkout and no run step: the only inputs to the signer
       # are bytes transferred through GitHub's artifact service.
-      - name: Download the validated release tree
+      - name: Download the validated release payload
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.build.outputs.artifact_name }}
           path: ${{ runner.temp }}/validated-release
 
-      - name: Attest the validated product wheels
+      - name: Attest the validated wheels and migration provenance
         id: attest_attempt_1
         continue-on-error: true
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
@@ -152,20 +154,29 @@ jobs:
           # The build job validated this exact product-wheel set before upload,
           # including manifest hashes, wheel ZIP/RECORD integrity, shared
           # version, and sibling pins. Installer and index files are excluded.
-          subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl
+          subject-path: |
+            ${{ runner.temp }}/validated-release/wheels/*.whl
+            ${{ runner.temp }}/validated-release/migration-history.json
+            ${{ runner.temp }}/validated-release/migration-history-record.json
 
-      - name: Retry the wheel attestation after a transport failure
+      - name: Retry artifact attestation after a transport failure
         id: attest_attempt_2
         if: steps.attest_attempt_1.outcome != 'success'
         continue-on-error: true
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
-          subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl
+          subject-path: |
+            ${{ runner.temp }}/validated-release/wheels/*.whl
+            ${{ runner.temp }}/validated-release/migration-history.json
+            ${{ runner.temp }}/validated-release/migration-history-record.json
 
-      - name: Make the final wheel attestation attempt
+      - name: Make the final artifact attestation attempt
         if: >-
           steps.attest_attempt_1.outcome != 'success' &&
           steps.attest_attempt_2.outcome != 'success'
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
-          subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl
+          subject-path: |
+            ${{ runner.temp }}/validated-release/wheels/*.whl
+            ${{ runner.temp }}/validated-release/migration-history.json
+            ${{ runner.temp }}/validated-release/migration-history-record.json

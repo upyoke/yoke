@@ -19,7 +19,7 @@ def merge_item(args: List[str]) -> int:
         [
             sys.executable,
             "-m",
-            "yoke_core.domain.standalone_item_merge_cli",
+            "yoke_cli.commands.merge_item_local_runtime",
             *args,
         ],
         check=False,

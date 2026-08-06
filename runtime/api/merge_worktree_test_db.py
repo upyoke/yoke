@@ -141,6 +141,20 @@ def _seed_yoke_project_with_github_app(
             _SEEDED_FRESH_VERDICT,
         ),
     )
+    # Merge-mechanics tests must exercise the integrated-tree gate without
+    # recursively launching Yoke's real full suite for every fixture. Individual
+    # verification regressions replace this project-owned command as needed.
+    from yoke_core.domain.qa_command_plan_registration import (
+        ensure_registered_command_plan,
+    )
+
+    ensure_registered_command_plan(
+        conn,
+        project_id=1,
+        project="yoke",
+        scope="full",
+        command="true",
+    )
 
 
 def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> None:

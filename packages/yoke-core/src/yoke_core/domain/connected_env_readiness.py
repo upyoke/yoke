@@ -64,6 +64,11 @@ from yoke_core.domain.connected_env_readiness_connector import (
 )
 from yoke_core.domain import connected_env_readiness_tunnel as _tunnel
 from yoke_core.domain import yoke_connected_env
+from yoke_core.domain.connected_env_selected_readiness import (
+    SelectedPostgresAuthority,
+    SelectedPostgresError,
+    activate_selected_postgres,
+)
 
 T = TypeVar("T")
 
@@ -290,11 +295,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 __all__ = [
     "ConnectedEnvUnavailable",
     "ReadinessResult",
+    "SelectedPostgresAuthority",
+    "SelectedPostgresError",
     "TunnelSpec",
     "CONNECTOR_LOCAL_SSH_TUNNEL_PG",
     "CONNECTOR_REMOTE_POSTGRES",
     "CONNECTOR_UNMANAGED",
     "ensure_ready",
+    "activate_selected_postgres",
     "status",
     "connect_with_readiness",
     "is_local_tunnel_connection_error",

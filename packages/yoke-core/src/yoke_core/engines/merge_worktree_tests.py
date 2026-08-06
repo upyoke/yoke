@@ -112,94 +112,96 @@ def _run_streaming(
 
 
 POST_REBASE_TRANSITION_ID = "release"
+# Older control-plane builds validate the transition against the pinned
+# workflow before the has_attached_plans skip. Dash (and other workflows
+# without a `release` stage) need a real stage; try these after `release`.
+_POST_REBASE_TRANSITION_FALLBACKS = (
+    "reviewing-implementation",
+    "done",
+)
 
 
-def _workflow_defines_transition(item_id: int, transition_id: str) -> bool:
-    """Whether the item's pinned workflow declares ``transition_id``.
-
-    Consulted only after a materialization failure, so the happy path pays
-    nothing. Unresolvable workflow identity answers ``True`` so a genuine
-    failure still surfaces rather than being explained away.
-    """
-    item_resp = call_dispatcher(
-        function_id="workflows.item.get",
-        target=TargetRef(kind="item", item_id=int(item_id)),
-        payload={},
-    )
-    if not item_resp.success:
-        return True
-    item_data = item_resp.result or {}
-    workflow_id = item_data.get("workflow_id")
-    version = item_data.get("workflow_version")
-    if not workflow_id or version is None:
-        return True
-
-    version_resp = call_dispatcher(
-        function_id="workflows.version.get",
-        target=TargetRef(kind="global"),
-        payload={"workflow_id": str(workflow_id), "version": int(version)},
-    )
-    if not version_resp.success:
-        return True
-    definition = (version_resp.result or {}).get("definition") or {}
-    transitions = definition.get("transitions")
-    if not isinstance(transitions, list):
-        return True
-    return any(
-        str(t.get("to_stage_id")) == transition_id
-        or str(t.get("from_stage_id")) == transition_id
-        for t in transitions
-        if isinstance(t, dict)
-    )
+def _post_rebase_transition_candidates(item_id: int) -> list[str]:
+    """Ordered transition ids to try for post-rebase plan materialization."""
+    ordered = [POST_REBASE_TRANSITION_ID, *_POST_REBASE_TRANSITION_FALLBACKS]
+    try:
+        resp = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=item_id),
+            payload={},
+        )
+    except Exception:  # noqa: BLE001 - detail lookup is advisory for ordering
+        return ordered
+    if not resp.success or not resp.result:
+        return ordered
+    status = str((resp.result.get("item") or {}).get("status") or "").strip()
+    if status and status in ordered:
+        return [status, *[c for c in ordered if c != status]]
+    return ordered
 
 
-def _post_rebase_requirement_id(ctx: MergeContext) -> Optional[int]:
-    """Materialize and return this item's post-rebase Command case.
+def _is_unknown_workflow_transition(message: str) -> bool:
+    return "is not in" in message and "workflow transition" in message
 
-    Relays the materialize + pre-merge-verification command-case read
-    through the transport-aware ``merge.tests.post_rebase_requirement``
-    function so it runs over an https control plane as well as a local
-    Postgres connection.
 
-    A genuine materialization failure (the handler's
-    ``post_rebase_requirement_failed`` domain error) is re-raised so the
-    merge fails exactly as the inline ``materialize_for_item`` call did. A
-    dispatcher/infrastructure failure — the relay being unavailable, or an
-    unresolved ambient session — degrades to "no post-rebase QA case",
-    matching how the merge-prep gates degrade an unavailable read rather
-    than blocking the merge on transport availability.
+def _registered_verification_command(
+    ctx: MergeContext,
+) -> Optional[Tuple[str, str]]:
+    """Return ``(scope, command)`` for the integrated candidate tree.
+
+    The transport-aware internal function resolves the owning project's
+    registered ``full``/``quick`` Command case server-side and materializes
+    any QA plan attached to the post-rebase transition. Every dispatcher,
+    materialization, or response-shape failure is merge-blocking. Only an
+    ad-hoc, non-project merge with no item identity may use the legacy local
+    runner detection below.
     """
     item_id_raw = getattr(ctx, "item_id", None)
     try:
         item_id = int(str(item_id_raw))
     except (TypeError, ValueError):
+        args = getattr(ctx, "args", None)
+        if (
+            getattr(ctx, "project", None)
+            or getattr(ctx, "epic_id", None)
+            or getattr(args, "item_id", None) is not None
+            or getattr(args, "standalone", False)
+        ):
+            raise RuntimeError(
+                "registered project merge has no resolvable item identity"
+            )
         return None
 
-    resp = call_dispatcher(
-        function_id="merge.tests.post_rebase_requirement",
-        target=TargetRef(kind="item", item_id=item_id),
-        payload={"transition_id": POST_REBASE_TRANSITION_ID},
-    )
-    if not resp.success:
-        code = (resp.error.code if resp.error else "") or ""
-        if code == "post_rebase_requirement_failed":
-            # Materialization validates the transition against the item's
-            # pinned workflow before reading attachments, so a workflow that
-            # never declares this transition fails here even though it has no
-            # pre-merge-verification plan to materialize. That is "no
-            # post-rebase QA case", not a verification failure — skip it the
-            # same way an unavailable relay is skipped.
-            if not _workflow_defines_transition(
-                item_id, POST_REBASE_TRANSITION_ID
-            ):
-                return None
-            raise RuntimeError(
-                f"post-rebase QA materialization failed: {resp.error.message}"
+    last_code = "unknown"
+    last_message = ""
+    for transition_id in _post_rebase_transition_candidates(item_id):
+        try:
+            resp = call_dispatcher(
+                function_id="merge.tests.post_rebase_requirement",
+                target=TargetRef(kind="item", item_id=item_id),
+                payload={"transition_id": transition_id},
             )
-        # Relay/infrastructure unavailability -> skip the post-rebase QA case.
-        return None
-    requirement_id = (resp.result or {}).get("requirement_id")
-    return int(requirement_id) if requirement_id is not None else None
+        except Exception as exc:  # noqa: BLE001 - resolver failure blocks merge.
+            raise RuntimeError(
+                f"integration verification dispatcher failed: {exc}"
+            ) from exc
+        if resp.success:
+            result = resp.result or {}
+            scope = str(result.get("scope") or "").strip()
+            command = str(result.get("command") or "").strip()
+            if scope not in {"full", "quick"} or not command:
+                raise RuntimeError(
+                    "integration verification resolver returned no executable "
+                    "registered full or quick command"
+                )
+            return scope, command
+        last_code = (resp.error.code if resp.error else "unknown") or "unknown"
+        last_message = (resp.error.message if resp.error else "") or ""
+        if not _is_unknown_workflow_transition(last_message):
+            break
+    raise RuntimeError(
+        f"integration verification resolution failed ({last_code}): {last_message}"
+    )
 
 
 def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
@@ -211,38 +213,39 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
 
     _print("")
     _print("Running tests...")
-    generic_test_timeout = runtime_settings.get_seconds("test_timeout", 300)
+    generic_test_timeout = runtime_settings.get_seconds("test_timeout", 1200)
     cwd = ctx.worktree_path
 
-    requirement_id = _post_rebase_requirement_id(ctx)
-    if requirement_id is not None:
-        from yoke_core.domain.qa_case_execution import execute_case
-
+    try:
+        registered = _registered_verification_command(ctx)
+    except RuntimeError as exc:
+        _print(f"Error: {exc}", err=True)
+        return (1, "test command unavailable")
+    if registered is not None:
+        scope, command = registered
         _print(
-            "[phase:tests] executing post-rebase QA plan case "
-            f"(requirement {requirement_id})"
+            "[phase:tests] executing registered project verification "
+            f"({scope}) in candidate worktree"
         )
-        try:
-            result = execute_case(
-                requirement_id,
-                checkout_path=ctx.worktree_path,
+        rc, transcript = _run_streaming(
+            ["/bin/sh", "-c", command],
+            cwd=cwd,
+            timeout=generic_test_timeout,
+            prefix="[verification]",
+        )
+        if rc == -1:
+            _print(
+                f"Error: Test execution timed out after {generic_test_timeout}s.",
+                err=True,
             )
-        except Exception as exc:  # noqa: BLE001 - executor failure blocks merge.
-            _print(f"Post-rebase QA execution failed: {exc}", err=True)
-            return (1, "test execution failed")
-        _print(
-            "[phase:tests] QA run "
-            f"{result.get('run_id')} artifact {result.get('artifact_id')} "
-            f"verdict {result.get('verdict')}"
-        )
-        if result.get("verdict") != "pass":
-            _print("Tests failed after rebase.", err=True)
+            if transcript:
+                _print(transcript, err=True)
+            return (1, "test timeout")
+        if rc != 0:
+            _print("Tests failed after integration.", err=True)
+            if transcript:
+                _print(transcript, err=True)
             return (1, "tests failed")
-    elif ctx.project:
-        _print(
-            f"[phase:tests] no post-rebase QA plan attached for project "
-            f"'{ctx.project}' — skipping project tests"
-        )
     elif (Path(cwd) / "package.json").is_file():
         _print("[phase:tests] npm test")
         rc, transcript = _run_streaming(

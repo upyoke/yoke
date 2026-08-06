@@ -7,9 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.migration_model_capability_defaults import (
-    governed_postgres_seed,
-)
+from yoke_core.domain.migration_yoke_ledger import governed_yoke_postgres_seed
 from yoke_core.engines.doctor_applicability import (
     DoctorContext,
     RUNTIME_LOCAL,
@@ -58,7 +56,7 @@ def _run_checks(checks, conn) -> None:
 
 
 def _seed_migration_model(conn) -> None:
-    settings = governed_postgres_seed({"environment_id": "test"})
+    settings = governed_yoke_postgres_seed({"environment_id": "test"})
     conn.execute(
         "INSERT INTO project_capabilities (project_id, type, settings) "
         "VALUES (%s, %s, %s) "

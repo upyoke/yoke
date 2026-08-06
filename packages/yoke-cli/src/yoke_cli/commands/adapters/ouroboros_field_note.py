@@ -16,6 +16,7 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     parse_or_usage_error,
     usage_error,
@@ -196,6 +197,13 @@ def ouroboros_field_note_append(args: List[str]) -> int:
     actor_role = resolve_actor_role()
     if actor_role:
         payload["actor_role"] = actor_role
+    # Same client ladder as listing/create: YOKE_PROJECT, then the
+    # machine-config checkout→project map. The server never sees cwd, so
+    # the checkout project must ride on the payload. Unmapped directories
+    # omit the hint and keep session/global attribution.
+    checkout_project = client_project_context()
+    if checkout_project:
+        payload["project"] = checkout_project
     return dispatch_and_emit(
         function_id="ouroboros.field_note.append",
         target=TargetRef(kind="global"),

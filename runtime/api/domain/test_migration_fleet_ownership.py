@@ -24,16 +24,27 @@ class _Cursor:
     def fetchall(self) -> list:
         return list(self._rows)
 
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
 
 class _Connection:
     """Answers the ownership probe and records what it was asked to alter."""
 
-    def __init__(self, rows: Sequence[Tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        rows: Sequence[Tuple[str, str]],
+        *,
+        schema: str = "public",
+    ) -> None:
         self._rows = list(rows)
+        self._schema = schema
         self.statements: List[str] = []
         self.closed = False
 
     def execute(self, sql: str, *_args: Any) -> _Cursor:
+        if sql.strip() == "SELECT current_schema()":
+            return _Cursor([(self._schema,)])
         if sql.strip().startswith("SELECT"):
             return _Cursor(self._rows)
         self.statements.append(" ".join(sql.split()))
@@ -105,13 +116,72 @@ class TestRealign:
         altered = ownership.realign(conn, tables=["ledger"], owner="tenant")
 
         assert altered == ["ledger"]
-        assert conn.statements == ['ALTER TABLE public."ledger" OWNER TO "tenant"']
+        assert conn.statements == ['ALTER TABLE "public"."ledger" OWNER TO "tenant"']
 
     def test_skips_a_table_that_is_not_there(self) -> None:
         conn = _Connection(DRIFTED)
 
         assert ownership.realign(conn, tables=["absent"], owner="tenant") == []
         assert conn.statements == []
+
+    def test_alters_only_the_named_trigger_function(self) -> None:
+        conn = _Connection(
+            [("migration_guard_fn", "admin"), ("other_guard_fn", "admin")]
+        )
+
+        altered = ownership.realign_trigger_functions(
+            conn,
+            functions=["migration_guard_fn"],
+            owner="tenant",
+        )
+
+        assert altered == ["migration_guard_fn"]
+        assert conn.statements == [
+            'ALTER FUNCTION "public"."migration_guard_fn"() OWNER TO "tenant"'
+        ]
+
+    def test_uses_the_connection_current_schema(self) -> None:
+        conn = _Connection(DRIFTED, schema="project_data")
+
+        ownership.realign(conn, tables=["ledger"], owner="tenant")
+
+        assert conn.statements == [
+            'ALTER TABLE "project_data"."ledger" OWNER TO "tenant"'
+        ]
+
+
+def test_table_owner_reads_the_declared_authority_table() -> None:
+    assert ownership.table_owner(_Connection(DRIFTED), "ledger") == "admin"
+
+
+class TestOwnerTransferAuthority:
+    def test_temporarily_borrows_and_returns_an_unheld_owner_role(self) -> None:
+        conn = _Connection([(False,)])
+
+        with ownership.owner_transfer_authority(conn, owner="tenant"):
+            conn.execute("ALTER OWNED OBJECT")
+
+        assert conn.statements == [
+            "SAVEPOINT migration_owner_transfer",
+            'GRANT "tenant" TO CURRENT_USER',
+            "ALTER OWNED OBJECT",
+            'REVOKE "tenant" FROM CURRENT_USER',
+            "RELEASE SAVEPOINT migration_owner_transfer",
+        ]
+
+    def test_failure_rolls_back_the_temporary_grant(self) -> None:
+        conn = _Connection([(False,)])
+
+        with pytest.raises(RuntimeError, match="handoff failed"):
+            with ownership.owner_transfer_authority(conn, owner="tenant"):
+                raise RuntimeError("handoff failed")
+
+        assert conn.statements == [
+            "SAVEPOINT migration_owner_transfer",
+            'GRANT "tenant" TO CURRENT_USER',
+            "ROLLBACK TO SAVEPOINT migration_owner_transfer",
+            "RELEASE SAVEPOINT migration_owner_transfer",
+        ]
 
 
 class TestPreflightReadsTheLiveDatabase:
@@ -153,6 +223,8 @@ class TestPreflightReadsTheLiveDatabase:
         assert verdict is not None
         assert not verdict.passed
         assert "ledger" in verdict.detail
+        assert "pending not evaluated" in verdict.line
+        assert "nothing pending" not in verdict.line
 
     def test_preflight_proceeds_when_ownership_is_uniform(
         self, monkeypatch: pytest.MonkeyPatch
@@ -166,6 +238,25 @@ class TestPreflightReadsTheLiveDatabase:
         assert (
             migration_fleet_preflight._live_ownership_verdict("dsn", "tenant_1") is None
         )
+
+    def test_preflight_refuses_contract_owned_function_drift(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from yoke_core.domain import db_backend, migration_fleet_preflight
+
+        monkeypatch.setattr(
+            db_backend, "connect_psycopg", lambda *_a, **_k: _Connection(UNIFORM)
+        )
+        verdict = migration_fleet_preflight._live_ownership_verdict(
+            "dsn",
+            "tenant_1",
+            lambda _conn: "migration guard function owned by admin",
+        )
+
+        assert verdict is not None
+        assert not verdict.passed
+        assert "guard function" in verdict.detail
+        assert "pending not evaluated" in verdict.line
 
     def test_an_unreadable_database_fails_rather_than_passes(
         self, monkeypatch: pytest.MonkeyPatch

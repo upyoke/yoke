@@ -237,7 +237,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         denial = (
             "BLOCKED: path-claim register overlap on item YOK-1665.\n"
             "  conflicting claims:\n"
-            "    claim 300: .yoke/docs/db-reference/functions.md"
+            "    claim 300: .yoke/docs/reference/db-reference/functions.md"
         )
         with self._hold_item_claim(), patch(
             "yoke_core.domain.db_helpers.connect", return_value=mock_conn,
@@ -259,7 +259,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
                 payload={
                     "item_id": 1665,
                     "integration_target": "main",
-                    "paths": [".yoke/docs/db-reference/functions.md"],
+                    "paths": [".yoke/docs/reference/db-reference/functions.md"],
                     "allow_planned": True,
                 },
                 actor_id=None,
@@ -269,25 +269,8 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertEqual(resp.error.code, "register_failed")
         self.assertIn("BLOCKED: path-claim register overlap", resp.error.message)
         self.assertIn("claim 300", resp.error.message)
-        self.assertIn(".yoke/docs/db-reference/functions.md", resp.error.message)
+        self.assertIn(".yoke/docs/reference/db-reference/functions.md", resp.error.message)
         render_denial.assert_called_once()
-
-    def test_widen_routes_to_amend_widen(self):
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.path_claims_amend.widen",
-            return_value=400,
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.widen",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "claim_id": 116,
-                    "add_target_ids": [2956, 2957],
-                    "reason": "split file budget",
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["amendment_id"], 400)
 
     def test_release_routes_to_path_claims_release(self):
         mock_conn = MagicMock()
@@ -341,24 +324,6 @@ class TestClaimsPath(_ClaimsHandlerSuite):
             ))
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["override_event_id"], "evt-1")
-
-    def test_amend_aliases_widen(self):
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.path_claims_amend.widen",
-            return_value=401,
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.amend",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "claim_id": 116,
-                    "add_target_ids": [2958],
-                    "reason": "external amend verb",
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["amendment_id"], 401)
-
 
 if __name__ == "__main__":
     unittest.main()

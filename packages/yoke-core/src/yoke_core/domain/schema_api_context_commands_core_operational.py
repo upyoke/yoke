@@ -59,7 +59,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Same shape for any non-terminal transition. Status "
-            "vocabulary in .yoke/docs/lifecycle.md. The function id "
+            "vocabulary in .yoke/docs/reference/lifecycle.md. The function id "
             "`lifecycle.transition.execute` fires status gates, "
             "cascades, and GitHub sync."
         ),
@@ -93,7 +93,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "boundary forbids HTTP/direct runtime import shapes'"
         ),
         "notes": (
-            "`.yoke/docs/db-reference/functions.md` lists the registered "
+            "`.yoke/docs/reference/db-reference/functions.md` lists the registered "
             "function ids per family, and the matching `yoke <subcommand> "
             "--help` carries that adapter's variants and flag matrix. The "
             "CLI grammar is reversible — dots become spaces, underscores "

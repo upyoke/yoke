@@ -125,13 +125,13 @@ class TestExtractFileBudgetPaths:
 - Expected implementation shape:
   - `runtime/api/domain/foo.py` — does X.
   - `runtime/api/test_foo.py` — covers the new branch.
-  - `.yoke/docs/lifecycle.md` — operator note.
+  - `.yoke/docs/reference/lifecycle.md` — operator note.
 """
         paths = extract_file_budget_paths(spec)
         assert paths == [
             "runtime/api/domain/foo.py",
             "runtime/api/test_foo.py",
-            ".yoke/docs/lifecycle.md",
+            ".yoke/docs/reference/lifecycle.md",
         ]
 
     def test_skips_inline_function_and_shell_tokens(self):
@@ -260,11 +260,11 @@ class TestEvaluate:
             spec=(
                 "## File Budget\n\n"
                 "- `runtime/api/domain/foo.py` — does X.\n"
-                "- `.yoke/docs/lifecycle.md` — note.\n"
+                "- `.yoke/docs/reference/lifecycle.md` — note.\n"
             ),
         )
         t1 = _seed_target(conn, "runtime/api/domain/foo.py")
-        t2 = _seed_target(conn, ".yoke/docs/lifecycle.md")
+        t2 = _seed_target(conn, ".yoke/docs/reference/lifecycle.md")
         claim_id = _seed_active_claim(
             conn,
             item_id=item_id,
@@ -280,7 +280,7 @@ class TestEvaluate:
         assert result.active_claim_ids == [claim_id]
         assert set(result.claim_paths) == {
             "runtime/api/domain/foo.py",
-            ".yoke/docs/lifecycle.md",
+            ".yoke/docs/reference/lifecycle.md",
         }
         assert result.no_claims is False
 

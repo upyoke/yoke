@@ -12,13 +12,17 @@ import os
 from pathlib import Path
 from typing import Any, Sequence
 
-from yoke_core.domain import local_universe
+from yoke_core.domain import local_universe, migration_fleet_preflight
 from yoke_core.domain.migration_fleet_preflight import (
     RESTORE_POINT_ENV,
+    RehearsalPlan,
     Verdict,
-    _pending_names,
     _restore_point_named,
     rehearse,
+)
+from runtime.api.tools.yoke_migration_fleet import (
+    pending_names as _pending_names,
+    rehearsal_plan as _yoke_rehearsal_plan,
 )
 
 
@@ -48,6 +52,17 @@ class _Connection:
 
 
 HISTORY = ("0001_first", "0002_second", "0003_third")
+
+
+def _unused_converge(_conn: Any, _backup_target_dsn: str) -> None:
+    raise AssertionError("unreachable-source rehearsal must not converge")
+
+
+REHEARSAL_PLAN = RehearsalPlan(HISTORY, _pending_names, _unused_converge)
+
+
+def test_yoke_plan_binds_contract_aware_live_ownership() -> None:
+    assert callable(_yoke_rehearsal_plan().live_ownership_validator)
 
 
 class TestPendingNames:
@@ -107,6 +122,47 @@ class TestVerdict:
     def test_line_says_so_when_nothing_was_pending(self) -> None:
         assert "nothing pending" in Verdict("yoke_tenant_1", True, "converged").line
 
+    def test_line_distinguishes_pending_that_was_not_evaluated(self) -> None:
+        line = Verdict(
+            "tenant_1",
+            False,
+            "ownership drift",
+            pending_evaluated=False,
+        ).line
+
+        assert "pending not evaluated" in line
+        assert "nothing pending" not in line
+
+
+def test_fleet_rehearsal_uses_only_the_callers_declared_databases(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    calls = []
+
+    def fake_rehearse(source_dsn: str, **kwargs: Any) -> Verdict:
+        calls.append((source_dsn, kwargs["database"], kwargs["plan"]))
+        return Verdict(kwargs["database"], True, "converged")
+
+    monkeypatch.setattr(migration_fleet_preflight, "rehearse", fake_rehearse)
+
+    verdicts = migration_fleet_preflight.rehearse_fleet(
+        lambda database: f"dsn:{database}",
+        databases=("external_alpha", "external_beta"),
+        plan=REHEARSAL_PLAN,
+        spec=local_universe.cluster_spec(root=tmp_path),
+        work_dir=tmp_path / "work",
+    )
+
+    assert [verdict.database for verdict in verdicts] == [
+        "external_alpha",
+        "external_beta",
+    ]
+    assert calls == [
+        ("dsn:external_alpha", "external_alpha", REHEARSAL_PLAN),
+        ("dsn:external_beta", "external_beta", REHEARSAL_PLAN),
+    ]
+
 
 class TestUnreachableSource:
     def test_a_database_that_cannot_be_reached_fails(self, tmp_path: Path) -> None:
@@ -117,6 +173,7 @@ class TestUnreachableSource:
         verdict = rehearse(
             "host=127.0.0.1 port=1 dbname=nothing_here connect_timeout=1",
             database="nothing_here",
+            plan=REHEARSAL_PLAN,
             spec=local_universe.cluster_spec(root=tmp_path),
             work_dir=tmp_path / "work",
         )

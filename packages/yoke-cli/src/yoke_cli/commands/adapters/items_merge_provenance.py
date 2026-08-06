@@ -10,7 +10,7 @@ Terminal items are otherwise immutable, and that is deliberate: the
 ordinary scalar-write path requires a work claim, and a terminal item
 cannot be claimed. This surface is the single named exception, so it is
 deliberately narrow — it fills an unset value on an already-terminal item
-and nothing else. See ``.yoke/docs/lifecycle.md`` for the contract.
+and nothing else. See ``.yoke/docs/reference/lifecycle.md`` for the contract.
 """
 
 from __future__ import annotations

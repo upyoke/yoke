@@ -69,7 +69,6 @@ require(
 links = (
     ".claude/agents",
     ".claude/rules",
-    ".claude/settings.json",
     ".claude/skills/yoke",
     ".codex/agents",
     ".codex/hooks.json",
@@ -77,11 +76,15 @@ links = (
 )
 for relative in links:
     require((root / relative).is_symlink())
-cursor_hooks = root / ".cursor" / "hooks.json"
-canonical_cursor_hooks = root / "runtime" / "harness" / "cursor" / "hooks.json"
-require(cursor_hooks.is_file())
-require(not cursor_hooks.is_symlink())
-require(cursor_hooks.read_bytes() == canonical_cursor_hooks.read_bytes())
+materialized_configs = (
+    (".claude/settings.json", "runtime/harness/claude/settings.json"),
+    (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
+)
+for relative, source in materialized_configs:
+    config = root / relative
+    require(config.is_file())
+    require(not config.is_symlink())
+    require(config.read_bytes() == (root / source).read_bytes())
 manifest = json.loads(
     (root / ".yoke" / "install-manifest.json").read_text(encoding="utf-8")
 )
@@ -90,7 +93,8 @@ manifest_links = manifest.get("symlinks") or {}
 for relative in links:
     require(relative in manifest_links)
 materialized = manifest.get("materialized_files") or {}
-require(materialized.get(".cursor/hooks.json") == "runtime/harness/cursor/hooks.json")
+for relative, source in materialized_configs:
+    require(materialized.get(relative) == source)
 for hook, marker in (
     ("pre-commit", "yoke-pre-commit"),
     ("post-commit", "yoke-post-commit"),
@@ -111,7 +115,6 @@ from pathlib import Path
 DEV_SYMLINKS = (
     (".claude/agents", "../runtime/harness/claude/agents"),
     (".claude/rules", "../runtime/harness/claude/rules"),
-    (".claude/settings.json", "../runtime/harness/claude/settings.json"),
     (".claude/skills/yoke", "../../.agents/skills/yoke"),
     (".codex/agents", "../runtime/harness/codex/agents"),
     (".codex/hooks.json", "../runtime/harness/codex/hooks.json"),
@@ -122,6 +125,7 @@ DEV_SYMLINKS = (
 )
 
 DEV_MATERIALIZED_FILES = (
+    (".claude/settings.json", "runtime/harness/claude/settings.json"),
     (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
 )
 

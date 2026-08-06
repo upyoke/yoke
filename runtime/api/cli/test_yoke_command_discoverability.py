@@ -14,6 +14,8 @@ from yoke_cli.main import main
         (["deployments"], "yoke deployment-flows list"),
         (["worktrees"], "yoke item-worktrees list"),
         (["source"], "yoke source-authority export"),
+        (["environment"], "yoke projects environment create"),
+        (["environments"], "yoke projects environment-settings get"),
         (["qa", "review"], "yoke qa plan review-submit"),
         (["github", "actions", "get"], "yoke github-actions check-ci"),
         (["simulate"], "/yoke simulate --system"),
@@ -24,6 +26,17 @@ def test_bare_and_intuitive_groups_route_to_real_surfaces(
 ) -> None:
     assert main(argv) == 0
     assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("argv", [["environment"], ["environments"]])
+def test_environment_terminology_lists_registration_and_settings(
+    argv, capsys
+) -> None:
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert "yoke projects environment create" in out
+    assert "yoke projects environment-settings get" in out
+    assert "yoke projects environment-settings merge" in out
 
 
 def test_unknown_member_suggests_nearest_real_subcommand(capsys) -> None:

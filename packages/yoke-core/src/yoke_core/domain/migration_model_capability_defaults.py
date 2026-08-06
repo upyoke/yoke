@@ -1,23 +1,34 @@
-"""Model construction and lookup helpers for migration_model capability."""
+"""Project-neutral construction and lookup helpers for migration models."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, Mapping
 
-from yoke_core.domain.migration_model_capability_validation import (
-    DEFAULT_CONNECTION_ENV_VAR,
-)
-
-#: Repo-relative home of the governed migration modules package.
-DEFAULT_MODULES_DIR = "packages/yoke-core/src/yoke_core/domain/migrations"
+from yoke_core.domain.migration_ledger_contract import runner_config_ledger
 
 
-def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
+def governed_postgres_seed(
+    location: Mapping[str, Any],
+    *,
+    modules_dir: str,
+    ledger: Mapping[str, Any],
+    connection_env_var: str,
+    artifact_version_env_var: str | None = None,
+) -> Dict[str, Any]:
     """Return a governed Postgres migration model for ``location``.
 
-    Database authority belongs to the caller's current capability settings;
-    this helper deliberately has no environment-specific fallback.
+    Every project supplies its own history and ledger identifiers.  There is
+    deliberately no ambient Yoke path/table fallback: a project-neutral seed
+    that inherited Yoke's concrete names would validate while pointing at the
+    wrong code and database evidence.
     """
+    runner_config: Dict[str, Any] = {
+        "modules_dir": modules_dir,
+        "connection_env_var": connection_env_var,
+        "ledger": runner_config_ledger(ledger, ValueError),
+    }
+    if artifact_version_env_var is not None:
+        runner_config["artifact_version_env_var"] = artifact_version_env_var
     return {
         "default_model": "primary",
         "models": {
@@ -35,18 +46,7 @@ def governed_postgres_seed(location: Mapping[str, Any]) -> Dict[str, Any]:
                 },
                 "runner": {
                     "kind": "governed_migration_module",
-                    "config": {
-                        "modules_dir": DEFAULT_MODULES_DIR,
-                        "connection_env_var": DEFAULT_CONNECTION_ENV_VAR,
-                        # Membership, so a skipped entry stays pending and a
-                        # rollback cannot report itself current.
-                        "ledger": {
-                            "table": "applied_migrations",
-                            "entry_column": "migration_name",
-                            "semantics": "membership",
-                            "serving_floor_column": "minimum_serving_version",
-                        },
-                    },
+                    "config": runner_config,
                 },
             },
         },

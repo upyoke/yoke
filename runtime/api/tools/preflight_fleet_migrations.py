@@ -16,9 +16,10 @@ where *env-name* is a configured admin connection (``prod-db-admin`` or
 every tenant database on that cluster.
 
 ``--record-receipt`` records the pass in the control plane, which is what the
-release gate reads before allocating a tag. The receipt is written through the
-ambient ``YOKE_ENV`` connection as it stood before this run repointed it at the
-admin cluster; ``--receipt-env`` names it explicitly instead. It is recorded
+release gate reads before allocating a tag. The explicitly selected admin
+cluster does not replace the ambient ``YOKE_ENV`` control plane used for the
+receipt; ``--receipt-env`` names that control plane explicitly instead. It is
+recorded
 only on a passing run, so a receipt cannot exist for a fleet this did not
 clear.
 
@@ -77,9 +78,8 @@ def _record_receipt(
         "--project", "yoke",
         "--context", json.dumps(context),
     ]
-    # The rehearsal repointed YOKE_ENV at the admin cluster it dumps from. The
-    # receipt belongs to the control plane the release gate will read, which is
-    # a different connection, so the child gets its own.
+    # The receipt belongs to the control plane the release gate will read, not
+    # the separately selected admin cluster, so the child gets its own env.
     child_env = dict(os.environ, YOKE_ENV=receipt_env)
     try:
         result = subprocess.run(
@@ -106,8 +106,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not positional:
         print("name the admin connection to rehearse against", file=sys.stderr)
         return 2
-    # Read before the rehearsal repoints it, so the receipt lands on the
-    # connection the caller was already using rather than the admin cluster.
+    # Read before selecting admin readiness so the receipt remains explicitly
+    # bound to the caller's control plane rather than the admin cluster.
     receipt_env = receipt_env or os.environ.get("YOKE_ENV", "")
     if record and not receipt_env:
         print(
@@ -117,23 +117,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         return 2
 
-    os.environ["YOKE_ENV"] = positional[0]
-    from yoke_core.domain import db_backend, local_universe, migration_fleet_preflight
+    from yoke_core.domain import local_universe, migration_fleet_preflight
+    from yoke_core.domain.connected_env_readiness import activate_selected_postgres
+    from yoke_core.tools.yoke_migration_fleet import database_dsn
+    from runtime.api.tools import yoke_migration_fleet
+
+    authority = activate_selected_postgres(positional[0])
 
     spec = local_universe.cluster_spec(
         bin_dir=local_universe.ensure_engine_binaries(lambda msg: print(f"  {msg}"))
     )
 
     def dsn_for(database: str) -> str:
-        return db_backend.resolve_pg_dsn(dbname=database)
+        return database_dsn(authority.dsn, database)
 
-    databases = positional[1:] or None
+    databases = positional[1:] or yoke_migration_fleet.tenant_databases(dsn_for)
+    plan = yoke_migration_fleet.rehearsal_plan()
     print(f"environment: {positional[0]}")
     print(f"rehearsal cluster: {spec.sock_dir}")
 
     with tempfile.TemporaryDirectory(prefix="yoke-migration-rehearsal-") as work:
         verdicts = migration_fleet_preflight.rehearse_fleet(
-            dsn_for, spec=spec, work_dir=Path(work), databases=databases
+            dsn_for,
+            databases=databases,
+            plan=plan,
+            spec=spec,
+            work_dir=Path(work),
         )
 
     for verdict in verdicts:
@@ -143,7 +152,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if failed or not record:
         return 1 if failed else 0
 
-    entries = migration_fleet_preflight.history_names()
+    entries = plan.history
     unwritten = _record_receipt(
         receipt_env=receipt_env,
         environment=positional[0],

@@ -6,7 +6,7 @@ skipped over https) so the flow works over an https control plane, not
 only a local Postgres connection. These tests monkeypatch
 ``call_dispatcher`` in each finalize module and assert every migrated touch
 relays instead of opening a bare local ``mw._connect()`` — with the
-snapshot pre-warm, post-rebase requirement, and schema-refresh behaviors
+snapshot pre-warm, integrated-tree verification, and schema-refresh behaviors
 preserved. The prune verdict's routing + decisions are proven end-to-end in
 ``test_merge_worktree_safe_prune``.
 """
@@ -108,52 +108,65 @@ class TestSnapshotEnsureRelays:
 
 
 # ---------------------------------------------------------------------------
-# _post_rebase_requirement_id — materialize + read relays
+# _registered_verification_command — materialize + command resolution relay
 # ---------------------------------------------------------------------------
 class TestPostRebaseRelays:
-    def test_relays_and_returns_requirement_id(self, monkeypatch):
+    def test_relays_and_returns_registered_command(self, monkeypatch):
         calls = []
 
         def fake(**kwargs):
             calls.append(kwargs)
+            function_id = kwargs.get("function_id")
+            if function_id == "items.detail.get":
+                return _resp(function_id, {"item": {"status": "implementing"}})
             return _resp(
-                "merge.tests.post_rebase_requirement", {"requirement_id": 73}
+                "merge.tests.post_rebase_requirement",
+                {
+                    "project": "example",
+                    "scope": "full",
+                    "command": "python3 verify_tree.py",
+                },
             )
 
         monkeypatch.setattr(mtests, "call_dispatcher", fake)
         _no_bare_db(monkeypatch)
 
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
-        assert mtests._post_rebase_requirement_id(ctx) == 73
-        assert calls[0]["function_id"] == "merge.tests.post_rebase_requirement"
-        assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_id == 42
-        assert calls[0]["payload"] == {"transition_id": "release"}
+        assert mtests._registered_verification_command(ctx) == (
+            "full",
+            "python3 verify_tree.py",
+        )
+        assert [c["function_id"] for c in calls] == [
+            "items.detail.get",
+            "merge.tests.post_rebase_requirement",
+        ]
+        assert calls[1]["target"].kind == "item"
+        assert calls[1]["target"].item_id == 42
+        assert calls[1]["payload"] == {"transition_id": "release"}
 
-    def test_none_when_no_requirement(self, monkeypatch):
+    def test_missing_command_response_blocks(self, monkeypatch):
         monkeypatch.setattr(
             mtests, "call_dispatcher",
             lambda **k: _resp(
-                "merge.tests.post_rebase_requirement", {"requirement_id": None}
+                "merge.tests.post_rebase_requirement", {"command": None}
             ),
         )
         _no_bare_db(monkeypatch)
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
-        assert mtests._post_rebase_requirement_id(ctx) is None
+        with pytest.raises(RuntimeError, match="no executable"):
+            mtests._registered_verification_command(ctx)
 
-    def test_unparseable_item_skips_relay(self, monkeypatch):
+    def test_unparseable_unregistered_item_skips_relay(self, monkeypatch):
         called = []
         monkeypatch.setattr(
             mtests, "call_dispatcher",
             lambda **k: called.append(k) or _resp("x"),
         )
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id=None)
-        assert mtests._post_rebase_requirement_id(ctx) is None
+        assert mtests._registered_verification_command(ctx) is None
         assert called == []
 
     def test_genuine_materialize_failure_raises(self, monkeypatch):
-        # The handler's own domain error blocks the merge, exactly as the
-        # pre-relay inline ``materialize_for_item`` call did.
         resp = FunctionCallResponse(
             success=False,
             function="merge.tests.post_rebase_requirement",
@@ -165,12 +178,10 @@ class TestPostRebaseRelays:
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
-        with pytest.raises(RuntimeError, match="post-rebase QA materialization"):
-            mtests._post_rebase_requirement_id(ctx)
+        with pytest.raises(RuntimeError, match="post_rebase_requirement_failed"):
+            mtests._registered_verification_command(ctx)
 
-    def test_infrastructure_failure_degrades_to_none(self, monkeypatch):
-        # An unresolved session / unavailable relay must not block the merge;
-        # it degrades to "no post-rebase QA case" like the prep gates.
+    def test_infrastructure_failure_blocks(self, monkeypatch):
         resp = FunctionCallResponse(
             success=False,
             function="merge.tests.post_rebase_requirement",
@@ -182,7 +193,8 @@ class TestPostRebaseRelays:
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
         ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
-        assert mtests._post_rebase_requirement_id(ctx) is None
+        with pytest.raises(RuntimeError, match="actor_session_missing"):
+            mtests._registered_verification_command(ctx)
 
 
 # ---------------------------------------------------------------------------
