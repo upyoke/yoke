@@ -157,25 +157,61 @@ def _selected_manifest(
     return loaded
 
 
-def _database_names(requested: Sequence[str]) -> tuple[str, ...]:
-    if requested:
-        return tuple(requested)
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.migration_fleet_preflight import tenant_databases
+def _admin_authority_dsn(environment: str) -> str:
+    """Resolve exactly one operator-selected local Postgres authority."""
+    from yoke_contracts.machine_config.schema import DB_ADMIN_ENV_SUFFIX
+    from yoke_core.domain import db_backend, yoke_connected_env
 
-    return tuple(
-        tenant_databases(lambda database: db_backend.resolve_pg_dsn(dbname=database))
+    selected = environment.strip()
+    if not selected.endswith(DB_ADMIN_ENV_SUFFIX):
+        raise MigrationContentAdoptionError(
+            "migration adoption requires an explicitly selected *-db-admin connection"
+        )
+    os.environ["YOKE_ENV"] = selected
+    try:
+        active = yoke_connected_env.load_active()
+        if active is None or active.environment != selected:
+            raise MigrationContentAdoptionError(
+                f"admin connection {selected!r} is not configured"
+            )
+        if active.backend != db_backend.POSTGRES:
+            raise MigrationContentAdoptionError(
+                f"admin connection {selected!r} is not local Postgres"
+            )
+        return yoke_connected_env.resolve_postgres_dsn(
+            dsn_env=db_backend.PG_DSN_ENV,
+            dsn_file_env=db_backend.PG_DSN_FILE_ENV,
+        ).dsn
+    except yoke_connected_env.ConnectedEnvError as exc:
+        raise MigrationContentAdoptionError(
+            f"admin connection {selected!r} could not be resolved: {exc}"
+        ) from exc
+
+
+def _database_dsn(authority_dsn: str, database: str) -> str:
+    from psycopg import conninfo
+
+    parameters = conninfo.conninfo_to_dict(authority_dsn)
+    return conninfo.make_conninfo(
+        **{**parameters, "dbname": database, "connect_timeout": "20"}
     )
 
 
-def _connect_database(database: str) -> Any:
-    import psycopg
+def _database_names(requested: Sequence[str], *, authority_dsn: str) -> tuple[str, ...]:
+    if requested:
+        return tuple(requested)
+    from yoke_core.domain.migration_fleet_preflight import tenant_databases
 
+    return tuple(
+        tenant_databases(lambda database: _database_dsn(authority_dsn, database))
+    )
+
+
+def _connect_database(database: str, *, authority_dsn: str) -> Any:
     from yoke_core.domain import db_backend
 
-    return psycopg.connect(
-        db_backend.resolve_pg_dsn(dbname=database),
-        connect_timeout=20,
+    return db_backend.connect_psycopg(
+        _database_dsn(authority_dsn, database),
     )
 
 
@@ -189,8 +225,9 @@ def _run_database(
     entry_names: Sequence[str] | None,
     mode: str,
     artifact_verifier: ArtifactVerifier,
+    authority_dsn: str,
 ) -> tuple[str, ...]:
-    with _connect_database(database) as conn:
+    with _connect_database(database, authority_dsn=authority_dsn) as conn:
         if mode == "PREPARE":
             prepare_yoke_migration_content_schema(conn)
             return ()
@@ -251,7 +288,6 @@ def main(argv: Iterable[str] | None = None) -> int:
         verification_receipt = artifact_verifier(
             artifact_verification_request(manifest)
         )
-        os.environ["YOKE_ENV"] = args.environment
         print(f"environment: {args.environment}")
         print(f"artifact source commit: {manifest.artifact.source_commit}")
         print(f"manifest sha256: {manifest.content_sha256}")
@@ -263,7 +299,8 @@ def main(argv: Iterable[str] | None = None) -> int:
                 separators=(",", ":"),
             )
         )
-        databases = _database_names(args.databases)
+        authority_dsn = _admin_authority_dsn(args.environment)
+        databases = _database_names(args.databases, authority_dsn=authority_dsn)
         if not databases:
             raise MigrationContentAdoptionError(
                 "selected environment has no tenant databases"
@@ -285,6 +322,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                     entry_names=entries,
                     mode=mode,
                     artifact_verifier=artifact_verifier,
+                    authority_dsn=authority_dsn,
                 )
                 if mode == "PREPARE":
                     print(
