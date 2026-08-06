@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Migration evidence gate — apply-variant scenarios.
 
 The apply variant exercises ``mutation_intent="apply"``: advancing
@@ -22,12 +23,10 @@ from runtime.api.fixtures.migration_model_test import (
 from runtime.api.migration_applied_evidence_test_helpers import (
     _advance_status,
     _seed_governed_item,
+    regression_db,  # noqa: F401 — module-local fixture
+    tmp_db,  # noqa: F401 — module-local fixture
 )
 from runtime.api.test_backlog import _conn
-
-
-pytest_plugins = ("runtime.api.migration_applied_evidence_test_helpers",)
-
 
 # ---------------------------------------------------------------------------
 # Apply variant
@@ -49,34 +48,38 @@ class TestApplyEvidenceGate:
         # A real history entry: NNNN_slug.py in the model's own migrations
         # directory, exposing apply(conn). The gate checks membership and
         # loadability, so a placeholder body would not exercise it.
-        target = (
-            repo_path / DEFAULT_MODULES_DIR / "0001_new_governed_module.py"
-        )
+        target = repo_path / DEFAULT_MODULES_DIR / "0001_new_governed_module.py"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("def apply(conn):\n    pass\n", encoding="utf-8")
 
     def test_advance_refuses_when_audit_row_missing(self, regression_db) -> None:
         self._write_module(regression_db["checkout_path"])
         _seed_governed_item(
-            regression_db["db_path"], item_id=1476, profile=self._profile(),
+            regression_db["db_path"],
+            item_id=1476,
+            profile=self._profile(),
         )
         result = _advance_status(
-            regression_db["db_path"], 1476, "reviewing-implementation",
+            regression_db["db_path"],
+            1476,
+            "reviewing-implementation",
         )
         assert result["success"] is False
         assert result.get("error_code") == "GATE_DB_MUTATION_EVIDENCE"
         assert "no rehearsal recorded" in result["error"]
         assert "new_governed_module" in result["error"]
 
-    def test_advance_passes_after_rehearsal_recorded(
-        self, regression_db
-    ) -> None:
+    def test_advance_passes_after_rehearsal_recorded(self, regression_db) -> None:
         self._write_module(regression_db["checkout_path"])
         _seed_governed_item(
-            regression_db["db_path"], item_id=1476, profile=self._profile(),
+            regression_db["db_path"],
+            item_id=1476,
+            profile=self._profile(),
         )
         first = _advance_status(
-            regression_db["db_path"], 1476, "reviewing-implementation",
+            regression_db["db_path"],
+            1476,
+            "reviewing-implementation",
         )
         assert first["success"] is False
 
@@ -94,13 +97,16 @@ class TestApplyEvidenceGate:
             conn.close()
 
         second = _advance_status(
-            regression_db["db_path"], 1476, "reviewing-implementation",
+            regression_db["db_path"],
+            1476,
+            "reviewing-implementation",
         )
         assert second["success"] is True, second.get("error")
         conn = _conn(regression_db["db_path"])
         try:
             row = conn.execute(
-                "SELECT status FROM items WHERE id=%s", (1476,),
+                "SELECT status FROM items WHERE id=%s",
+                (1476,),
             ).fetchone()
         finally:
             conn.close()

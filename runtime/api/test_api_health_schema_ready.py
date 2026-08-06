@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """``/v1/health`` schema-readiness payload tests.
 
 Sibling of ``test_api.py`` (shared fixtures via ``test_api_helpers``).
@@ -9,19 +10,16 @@ from __future__ import annotations
 
 from unittest import mock
 
-# Import the fixture plugin before the route module so it builds
-# ``yoke_core.api.main`` in production order; plugin registration avoids
-# rebinding its fixture names in this module.
-from runtime.api import test_api_helpers as _test_api_helpers  # noqa: F401
+# Import the module-local fixtures before the route module so they build
+# ``yoke_core.api.main`` in production order without globally registering the
+# helper module's generic fixture names.
+from runtime.api.test_api_helpers import client, test_db  # noqa: F401
 from runtime.api.fixtures.file_test_db import connect_test_db
 import yoke_core.api.routes.items_health as items_health
 from yoke_core.domain.migration_content_identity import (
     ContentIdentityStatus,
     ContentMismatch,
 )
-
-
-pytest_plugins = ("runtime.api.test_api_helpers",)
 
 
 class TestHealthSchemaReady:
@@ -202,16 +200,20 @@ class TestHealthMigrationContentIdentity:
         client,
         test_db,
     ):
-        with mock.patch.object(
-            items_health,
-            "migration_content_identity_status",
-            return_value=self._status(adoption=("0001_existing",)),
-        ), mock.patch.object(
-            items_health, "stranded_by_applied_migrations", return_value=[]
-        ), mock.patch.object(
-            items_health,
-            "yoke_migration_content_schema_is_prepared",
-            return_value=True,
+        with (
+            mock.patch.object(
+                items_health,
+                "migration_content_identity_status",
+                return_value=self._status(adoption=("0001_existing",)),
+            ),
+            mock.patch.object(
+                items_health, "stranded_by_applied_migrations", return_value=[]
+            ),
+            mock.patch.object(
+                items_health,
+                "yoke_migration_content_schema_is_prepared",
+                return_value=True,
+            ),
         ):
             data = client.get("/v1/health").json()
 
