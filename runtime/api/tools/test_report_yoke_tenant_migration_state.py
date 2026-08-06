@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from runtime.api.tools import report_yoke_tenant_migration_state as report
 
 
@@ -64,3 +66,54 @@ def test_completed_receipts_are_compared_to_ledger_membership() -> None:
     assert report._ledger_rows_without_completed_evidence(
         rows, {"0001_first"},
     ) == ["0002_second"]
+
+
+class _InvariantConnection:
+    def __init__(self) -> None:
+        self.statements: list[str] = []
+
+    def execute(self, statement: str) -> None:
+        self.statements.append(statement)
+
+
+def _passes(_conn: Any) -> None:
+    return None
+
+
+def _fails(_conn: Any) -> None:
+    raise AssertionError("snapshot is incomplete\nfor delivery 7")
+
+
+def test_packaged_pending_is_history_minus_ledger() -> None:
+    checks = [("0001_first", _passes), ("0002_second", _passes)]
+
+    assert report._packaged_pending(checks, {"0001_first"}) == ["0002_second"]
+
+
+def test_applied_invariants_are_isolated_and_fail_closed() -> None:
+    conn = _InvariantConnection()
+    checks = [
+        ("0001_first", _passes),
+        ("0002_second", _fails),
+        ("0003_third", None),
+        ("0004_pending", _passes),
+    ]
+
+    assert report._applied_invariant_outcomes(
+        conn, checks, {"0001_first", "0002_second", "0003_third"},
+    ) == [
+        ("0001_first", "passed", None),
+        (
+            "0002_second",
+            "failed",
+            "AssertionError: snapshot is incomplete for delivery 7",
+        ),
+        ("0003_third", "not_declared", None),
+    ]
+    assert conn.statements == [
+        "SAVEPOINT yoke_report_migration_invariant",
+        "RELEASE SAVEPOINT yoke_report_migration_invariant",
+        "SAVEPOINT yoke_report_migration_invariant",
+        "ROLLBACK TO SAVEPOINT yoke_report_migration_invariant",
+        "RELEASE SAVEPOINT yoke_report_migration_invariant",
+    ]

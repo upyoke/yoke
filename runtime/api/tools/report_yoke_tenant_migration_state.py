@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable, Sequence
 from typing import Any, List, Optional, Tuple
 
 #: Surfaces the superseded-column entry removes. Presence means that entry's
@@ -38,6 +39,8 @@ RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
     ("events", "parent_id"),
     ("events", "user_id"),
 )
+
+InvariantCheck = Tuple[str, Optional[Callable[[Any], None]]]
 
 def _connect(dsn: str) -> Any:
     import psycopg
@@ -114,6 +117,56 @@ def _ledger_rows_without_completed_evidence(
     return sorted({str(row[0]) for row in rows} - completed)
 
 
+def _packaged_invariant_checks() -> List[InvariantCheck]:
+    """Load invariant checks from the packaged, ordered Yoke history."""
+    from yoke_core.domain import migrations as migration_history_package
+    from yoke_core.domain.migration_history import (
+        history_dir,
+        load_migration_module,
+        ordered_entries,
+    )
+
+    checks = []
+    for entry in ordered_entries(history_dir(migration_history_package)):
+        module = load_migration_module(entry.path, entry.name)
+        check = getattr(module, "invariants", None)
+        checks.append((entry.name, check if callable(check) else None))
+    return checks
+
+
+def _packaged_pending(
+    checks: Sequence[InvariantCheck], applied_names: set[str],
+) -> List[str]:
+    return [name for name, _check in checks if name not in applied_names]
+
+
+def _applied_invariant_outcomes(
+    conn: Any,
+    checks: Sequence[InvariantCheck],
+    applied_names: set[str],
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Run applied-entry invariants inside isolated read-only savepoints."""
+    outcomes = []
+    for name, check in checks:
+        if name not in applied_names:
+            continue
+        if check is None:
+            outcomes.append((name, "not_declared", None))
+            continue
+        conn.execute("SAVEPOINT yoke_report_migration_invariant")
+        try:
+            check(conn)
+        except Exception as exc:  # noqa: BLE001 - report every failed invariant
+            conn.execute("ROLLBACK TO SAVEPOINT yoke_report_migration_invariant")
+            detail = " ".join(str(exc).split())[:240]
+            outcomes.append((name, "failed", f"{type(exc).__name__}: {detail}"))
+        else:
+            outcomes.append((name, "passed", None))
+        finally:
+            conn.execute("RELEASE SAVEPOINT yoke_report_migration_invariant")
+    return outcomes
+
+
 def _surviving_retired_surfaces(cur: Any) -> List[str]:
     surviving = []
     for table, column in RETIRED_SURFACES:
@@ -128,14 +181,14 @@ def _surviving_retired_surfaces(cur: Any) -> List[str]:
     return surviving
 
 
-def _report_database(dsn_for: Any, database: str) -> None:
+def _report_database(dsn_for: Any, database: str) -> bool:
     print(f"\n=== {database} ===")
     with _connect(dsn_for(database)) as conn:
         with conn.cursor() as cur:
             orgs = _org_slugs(cur)
             if orgs is None:
                 print("  not a Yoke universe (no organizations table)")
-                return
+                return False
             print(f"  orgs: {orgs}")
 
             rows = _ledger(cur)
@@ -155,6 +208,19 @@ def _report_database(dsn_for: Any, database: str) -> None:
                     "  applied rows without a serving floor: "
                     f"{missing_floors or 'none'}"
                 )
+
+            applied_names = {str(row[0]) for row in rows or []}
+            checks = _packaged_invariant_checks()
+            pending = _packaged_pending(checks, applied_names)
+            print(f"  packaged migrations pending: {pending or 'none'}")
+            outcomes = _applied_invariant_outcomes(conn, checks, applied_names)
+            print("  applied migration invariants:")
+            for name, state, detail in outcomes:
+                suffix = f" ({detail})" if detail else ""
+                print(f"    {name}: {state}{suffix}")
+            failed_invariants = [
+                name for name, state, _detail in outcomes if state != "passed"
+            ]
 
             attempts = _audit_attempts(cur)
             if attempts is None:
@@ -191,6 +257,9 @@ def _report_database(dsn_for: Any, database: str) -> None:
                     "  MIXED: surfaces already removed with no ledger record — "
                     "the whole history will re-run on the next converge"
                 )
+            current = bool(rows) and not pending and not surviving and not failed_invariants
+            print(f"  current invariant verdict: {'PASS' if current else 'FAIL'}")
+            return current
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -209,9 +278,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     databases = tenant_databases(dsn_for)
     print(f"environment: {args[0]}")
     print(f"tenant databases: {databases}")
-    for database in databases:
-        _report_database(dsn_for, database)
-    return 0
+    current = [_report_database(dsn_for, database) for database in databases]
+    return 0 if databases and all(current) else 1
 
 
 if __name__ == "__main__":
