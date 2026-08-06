@@ -6,29 +6,35 @@ Merges the bundle's ``claude_settings_hooks`` / ``codex_hooks`` /
 operator-authored entries, and removes exactly the bundle-provided entries
 on uninstall.
 
-Identity of a hook entry is ``(matcher, command strings)`` within its
-event — matching on the command string alone would collapse Yoke's
-per-matcher entries (every ``PreToolUse`` matcher shares one command).
-Claude's hook schema is all-or-nothing, so entries are appended in the
-exact nested ``{matcher?, hooks: [{type, command}]}`` shape the bundle
-carries.
+Identity is matcher + command within its event, with timeout included for
+Cursor. Claude and Codex carry nested ``hooks: [{type, command}]`` entries;
+Cursor carries flat ``{command, timeout, matcher?}`` entries. Each settings
+file is validated and reconciled in its native schema, so operator entries
+remain in place while Yoke entries converge.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from yoke_cli.project_install.files import (
     ProjectInstallError,
     assert_resolved_targets_within,
 )
+from yoke_cli.project_install.hook_entries import (
+    CURSOR_HOOKS_REL,
+    entry_key as _entry_key,
+    hook_entry_format,
+    provided_records,
+    record as _record,
+    record_key,
+)
 from yoke_cli.project_install.hook_schema import validate_hooks_subtree
 
 CLAUDE_SETTINGS_REL = ".claude/settings.json"
 CODEX_HOOKS_REL = ".codex/hooks.json"
-CURSOR_HOOKS_REL = ".cursor/hooks.json"
 
 # Bundle hooks key -> project settings file carrying that subtree.
 SETTINGS_FILE_BY_HOOKS_KEY = {
@@ -43,39 +49,6 @@ SETTINGS_FILE_BY_HOOKS_KEY = {
 DEFAULT_PAYLOAD_BY_SETTINGS_REL = {
     CURSOR_HOOKS_REL: {"version": 1},
 }
-
-
-def _entry_key(entry: Dict[str, Any]) -> Tuple[Any, Tuple[str, ...]]:
-    commands = tuple(
-        str(hook.get("command") or "")
-        for hook in entry.get("hooks") or []
-        if isinstance(hook, dict)
-    )
-    return (entry.get("matcher"), commands)
-
-
-def _record(event: str, entry: Dict[str, Any]) -> Dict[str, Any]:
-    matcher, commands = _entry_key(entry)
-    return {"event": event, "matcher": matcher, "commands": list(commands)}
-
-
-def record_key(record: Dict[str, Any]) -> Tuple[str, Any, Tuple[str, ...]]:
-    return (
-        str(record.get("event") or ""),
-        record.get("matcher"),
-        tuple(record.get("commands") or ()),
-    )
-
-
-def provided_records(hooks_subtree: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Flat ``{event, matcher, commands}`` records for every bundle entry."""
-    records: List[Dict[str, Any]] = []
-    for event in sorted(hooks_subtree):
-        for entry in hooks_subtree[event] or []:
-            records.append(_record(event, entry))
-    return records
-
-
 
 
 def _load_settings(path: Path) -> Dict[str, Any]:
@@ -99,8 +72,19 @@ def _write_settings(path: Path, payload: Dict[str, Any]) -> None:
 def _validated_settings_payload(path: Path) -> Dict[str, Any]:
     payload = _load_settings(path)
     hooks = payload.get("hooks", {})
-    validate_hooks_subtree(hooks, label=f"{path} hooks")
+    validate_hooks_subtree(
+        hooks,
+        label=f"{path} hooks",
+        entry_format=hook_entry_format(path),
+    )
     return payload
+
+
+def _empty_payload(settings_rel: str) -> Dict[str, Any]:
+    return {
+        **(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}),
+        "hooks": {},
+    }
 
 
 def plan_hooks_file(
@@ -114,9 +98,14 @@ def plan_hooks_file(
     """Plan exact prior-record removal plus current-record convergence."""
     if settings_rel not in SETTINGS_FILE_BY_HOOKS_KEY.values():
         raise ProjectInstallError(f"unknown hook settings path {settings_rel!r}")
-    validate_hooks_subtree(hooks_subtree)
+    validate_hooks_subtree(
+        hooks_subtree,
+        entry_format=hook_entry_format(settings_rel),
+    )
     assert_resolved_targets_within(
-        repo_root, [settings_rel], context="hook settings mutation",
+        repo_root,
+        [settings_rel],
+        context="hook settings mutation",
     )
     target = repo_root / settings_rel
     current_records = provided_records(hooks_subtree)
@@ -130,7 +119,7 @@ def plan_hooks_file(
         payload = _validated_settings_payload(target)
         created = False
     else:
-        payload = {**(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}), "hooks": {}}
+        payload = _empty_payload(settings_rel)
         created = bool(current_records)
     hooks = payload.setdefault("hooks", {})
     assert isinstance(hooks, dict)
@@ -159,7 +148,7 @@ def plan_hooks_file(
             entries.append(entry)
             existing.add(_entry_key(entry))
             added.append(_record(event, entry))
-    empty_payload = {**(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}), "hooks": {}}
+    empty_payload = _empty_payload(settings_rel)
     deleted_file = created_by_install and payload == empty_payload
     return {
         "created": created,
@@ -226,13 +215,24 @@ def merge_hooks_file(
     entries are never removed or reordered; missing bundle entries append
     at the end of their event's array.
     """
-    validate_hooks_subtree(hooks_subtree)
+    validate_hooks_subtree(
+        hooks_subtree,
+        entry_format=hook_entry_format(settings_rel),
+    )
     assert_resolved_targets_within(
-        repo_root, [settings_rel], context="hook settings mutation",
+        repo_root,
+        [settings_rel],
+        context="hook settings mutation",
     )
     target = repo_root / settings_rel
     if not target.is_file():
-        _write_settings(target, {"hooks": hooks_subtree})
+        _write_settings(
+            target,
+            {
+                **(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}),
+                "hooks": hooks_subtree,
+            },
+        )
         return {
             "created": True,
             "added": provided_records(hooks_subtree),
@@ -277,7 +277,9 @@ def demerge_hooks_file(
     created it; operator-authored files and entries always survive.
     """
     assert_resolved_targets_within(
-        repo_root, [settings_rel], context="hook settings removal",
+        repo_root,
+        [settings_rel],
+        context="hook settings removal",
     )
     target = repo_root / settings_rel
     if not target.is_file():
@@ -294,10 +296,7 @@ def demerge_hooks_file(
             continue
         kept: List[Any] = []
         for entry in entries:
-            if (
-                isinstance(entry, dict)
-                and (event, *_entry_key(entry)) in record_keys
-            ):
+            if isinstance(entry, dict) and (event, *_entry_key(entry)) in record_keys:
                 removed.append(_record(event, entry))
                 continue
             kept.append(entry)
@@ -307,7 +306,7 @@ def demerge_hooks_file(
             del hooks[event]  # event held only Yoke entries
     if not removed:
         return {"removed": [], "deleted_file": False}
-    if created_by_install and payload == {"hooks": {}}:
+    if created_by_install and payload == _empty_payload(settings_rel):
         target.unlink()
         from yoke_cli.project_install.files import remove_empty_parents
 
@@ -320,6 +319,7 @@ def demerge_hooks_file(
 __all__ = [
     "CLAUDE_SETTINGS_REL",
     "CODEX_HOOKS_REL",
+    "CURSOR_HOOKS_REL",
     "SETTINGS_FILE_BY_HOOKS_KEY",
     "demerge_hooks_file",
     "merge_hooks_file",
@@ -328,5 +328,6 @@ __all__ = [
     "provided_records",
     "reconcile_hooks_file",
     "record_key",
+    "hook_entry_format",
     "validate_hooks_subtree",
 ]

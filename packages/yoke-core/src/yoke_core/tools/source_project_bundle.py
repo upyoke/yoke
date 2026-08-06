@@ -20,7 +20,7 @@ import yoke_contracts
 
 from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
-from yoke_core.domain import install_bundle
+from yoke_core.domain import install_bundle, install_bundle_managed
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
@@ -38,6 +38,7 @@ SOURCE_MANAGED_PREFIXES = (
     ".claude/agents/yoke-",
     ".claude/agents/references/",
     ".codex/agents/yoke-",
+    ".cursor/agents/yoke-",
     ".claude/rules/",
 )
 
@@ -70,7 +71,10 @@ def _assert_checkout_origin(source_checkout: Path) -> None:
 
 
 def build_source_bundle(
-    source_checkout: Path, *, project_id: int, project_slug: str,
+    source_checkout: Path,
+    *,
+    project_id: int,
+    project_slug: str,
 ) -> dict[str, Any]:
     """Render the DB-free portion of a project bundle deterministically."""
     source_checkout = source_checkout.expanduser().resolve()
@@ -81,11 +85,13 @@ def build_source_bundle(
     files.extend(install_bundle._rules_files(source_checkout))
     files.sort(key=lambda entry: entry["path"])
     hooks = install_bundle._hooks_block()
+    managed = install_bundle_managed.managed_bundle_keys(source_checkout)
     managed_git_hooks = git_hooks_layer.managed_git_hook_specs()
     digest_source = json.dumps(
         {
             "files": files,
             "hooks": hooks,
+            "managed": managed,
             "managed_git_hooks": managed_git_hooks,
         },
         sort_keys=True,
@@ -104,6 +110,7 @@ def build_source_bundle(
         "strategy_files": [],
         "project_policy_capabilities": {},
         "hooks": hooks,
+        **managed,
         "managed_git_hooks": managed_git_hooks,
         "source_managed_prefixes": list(SOURCE_MANAGED_PREFIXES),
     }

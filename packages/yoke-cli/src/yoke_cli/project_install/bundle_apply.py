@@ -189,7 +189,9 @@ def apply_bundle(
     )
     settings_permissions_record, settings_permissions_report = (
         settings_permissions_layer.apply_settings_permissions(
-            repo_root, bundle.get("claude_settings_permissions"),
+            repo_root,
+            bundle.get("claude_settings_permissions"),
+            old_manifest.get("settings_permissions"),
         )
     )
     # Cursor's command-approval and network-sandbox regions. Their content is

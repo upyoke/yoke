@@ -263,6 +263,11 @@ def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
         "COPY runtime/harness/codex/agents "
         "/srv/yoke-tree/runtime/harness/codex/agents" in dockerfile
     )
+    assert (
+        "COPY runtime/harness/cursor/agents "
+        "/srv/yoke-tree/runtime/harness/cursor/agents" in dockerfile
+    )
+    assert "COPY CURSOR.md /srv/yoke-tree/CURSOR.md" in dockerfile
 
 
 def test_dockerignore_keeps_legacy_local_shapes_out_of_build_context() -> None:

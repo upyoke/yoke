@@ -30,9 +30,7 @@ def _manifest(repo) -> dict:
 
 
 def _settings(repo) -> dict:
-    return json.loads(
-        (repo / ".claude/settings.json").read_text(encoding="utf-8")
-    )
+    return json.loads((repo / ".claude/settings.json").read_text(encoding="utf-8"))
 
 
 def _bundle() -> dict:
@@ -81,14 +79,14 @@ def test_install_creates_rules_and_permissions(repo) -> None:
 
 def test_refresh_is_idempotent(repo) -> None:
     apply_bundle(repo, _bundle(), source="test")
+    first_permissions = _manifest(repo)["settings_permissions"]
     report = apply_bundle(repo, _bundle(), operation="refresh", source="test")
     assert report["managed_markdown_written"] == []
+    assert _manifest(repo)["settings_permissions"] == first_permissions
 
 
 def test_preexisting_file_preserved_and_uninstall(repo) -> None:
-    (repo / "AGENTS.md").write_text(
-        "# Platform rules\n\nkeep me\n", encoding="utf-8"
-    )
+    (repo / "AGENTS.md").write_text("# Platform rules\n\nkeep me\n", encoding="utf-8")
     apply_bundle(repo, _bundle(), source="test")
 
     agents = (repo / "AGENTS.md").read_text(encoding="utf-8")
