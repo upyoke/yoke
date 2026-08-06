@@ -12,10 +12,13 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_contracts.release_pin import DESIRED_PIN_PATH_KEY
+from yoke_contracts.release_pin import (
+    DESIRED_PIN_PATH_KEY,
+    PROBE_URL_PATH_KEY,
+    SERVED_PIN_RESPONSE_PATH_KEY,
+)
 from yoke_cli.commands.deployment_pin import RELEASE_PIN_CAPABILITY
 from yoke_cli.commands.release_pin_agreement import (
-    HEALTH_PROBE_SETTINGS_PATH,
     environment_id_for_target,
     evaluate_pin_health_agreement,
 )
@@ -23,8 +26,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
 
 VERIFY_USAGE = (
-    "yoke release-pin verify --project NAME --environment ENV "
-    "[--session-id S] [--json]"
+    "yoke release-pin verify --project NAME --environment ENV [--session-id S] [--json]"
 )
 
 
@@ -34,7 +36,7 @@ def release_pin_verify(args: List[str]) -> int:
     parser.add_argument(
         "--environment",
         required=True,
-        help="Deploy target name (stage or production).",
+        help="Deploy target name declared by the project's capability.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -50,8 +52,7 @@ def release_pin_verify(args: List[str]) -> int:
     environment_id = environment_id_for_target(settings, parsed.environment)
     if not environment_id:
         return usage_error(
-            f"release_pin.environment_by_target has no entry for "
-            f"{parsed.environment!r}"
+            f"release_pin.environment_by_target has no entry for {parsed.environment!r}"
         )
     desired_pin_path = _scalar(settings.get(DESIRED_PIN_PATH_KEY))
     if not desired_pin_path:
@@ -59,49 +60,60 @@ def release_pin_verify(args: List[str]) -> int:
             f"release_pin.{DESIRED_PIN_PATH_KEY} must explicitly name the "
             "desired pin leaf"
         )
+    probe_url_path = _scalar(settings.get(PROBE_URL_PATH_KEY))
+    if not probe_url_path:
+        return usage_error(
+            f"release_pin.{PROBE_URL_PATH_KEY} must explicitly name the probe URL leaf"
+        )
+    served_pin_response_path = _scalar(settings.get(SERVED_PIN_RESPONSE_PATH_KEY))
+    if not served_pin_response_path:
+        return usage_error(
+            f"release_pin.{SERVED_PIN_RESPONSE_PATH_KEY} must explicitly "
+            "name the served-pin JSON response leaf"
+        )
     values = _environment_values(
         parsed.project,
         environment_id,
-        [desired_pin_path, HEALTH_PROBE_SETTINGS_PATH],
+        [desired_pin_path, probe_url_path],
         parsed.session_id,
     )
     agreement = evaluate_pin_health_agreement(
         desired_pin=_scalar(values.get(desired_pin_path)),
-        probe_url=_scalar(values.get(HEALTH_PROBE_SETTINGS_PATH)),
+        probe_url=_scalar(values.get(probe_url_path)),
         desired_path=desired_pin_path,
+        probe_url_path=probe_url_path,
+        served_pin_response_path=served_pin_response_path,
     )
     payload = {
         "project": parsed.project,
         "environment": parsed.environment,
         "environment_id": environment_id,
         "settings_path": desired_pin_path,
+        "probe_url_path": probe_url_path,
+        "served_pin_response_path": served_pin_response_path,
         "agreed": agreement.agreed,
         "desired_pin": agreement.desired_pin,
-        "served_engine_version": agreement.served_engine_version,
+        "served_pin": agreement.served_pin,
         "probe_url": agreement.probe_url,
-        "skipped_reason": agreement.skipped_reason,
         "error": agreement.error,
     }
     if parsed.json_mode:
-        print(json.dumps({"success": agreement.agreed, "result": payload}, sort_keys=True))
+        print(
+            json.dumps({"success": agreement.agreed, "result": payload}, sort_keys=True)
+        )
     else:
         _print_human(payload)
     if agreement.error:
         return 1
-    if agreement.skipped_reason:
-        return 0
     return 0 if agreement.agreed else 1
 
 
 def _print_human(payload: Dict[str, Any]) -> None:
-    if payload.get("skipped_reason"):
-        print(f"release-pin: skipped — {payload['skipped_reason']}")
-        return
     if payload.get("error"):
         print(f"release-pin: probe failed — {payload['error']}")
         return
     desired = payload.get("desired_pin")
-    served = payload.get("served_engine_version")
+    served = payload.get("served_pin")
     if payload.get("agreed"):
         print(f"release-pin: {desired} agrees with health probe")
         return
@@ -112,15 +124,13 @@ def _print_human(payload: Dict[str, Any]) -> None:
 
 
 def _scalar(value: Any) -> Optional[str]:
-    if value is None:
+    if value is None or isinstance(value, (dict, list)):
         return None
     text = str(value).strip()
     return text or None
 
 
-def _capability_settings(
-    project: str, session_id: Optional[str]
-) -> Optional[dict]:
+def _capability_settings(project: str, session_id: Optional[str]) -> Optional[dict]:
     result = _read(
         "projects.capability_settings.get",
         {"project": project, "cap_type": RELEASE_PIN_CAPABILITY},

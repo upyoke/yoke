@@ -42,9 +42,25 @@ fix look like a pin merge conflict.
    outer job remains failed until the record command returns a non-empty
    receipt; Platform's inner promotion contains no control-plane writer.
 4. `yoke release-pin verify` compares the desired-pin leaf to the
-   environment's configured health probe (`release.health_probe_url`)
-   without deploying. Disagreement is a doctor/operator signal, not a
-   silent drift.
+   environment's configured health probe without deploying. Platform owns the
+   two verification coordinates in its capability: `probe_url_path` is
+   `release.health_probe_url`, and `served_pin_response_path` is
+   `engine_version`. Disagreement is a doctor/operator signal, not silent
+   drift.
+
+Platform's project owner installs those coordinates through the ordinary
+project-owned capability surface:
+
+```bash
+yoke projects capability-settings merge --project platform \
+  --cap-type release_pin \
+  --set probe_url_path=release.health_probe_url \
+  --set served_pin_response_path=engine_version
+```
+
+Both assignments travel in one validated merge. This is an explicit Platform
+configuration update, not a global migration or a fallback embedded in Yoke;
+other projects choose their own settings and response paths.
 
 ## Host fixes without cherry-pick divergence
 
@@ -59,5 +75,7 @@ identical content on divergent histories.
 - Platform runbook: `docs/runbooks/deploy.md` (Platform repo)
 - Capability declaration: project `release_pin` settings
   (`pin_file`, `branch_by_environment`, `environment_by_target`, and the
-  explicit `desired_pin_path`). Generic Yoke machinery contains no Platform
-  environment id or desired-pin leaf and does not synthesize missing config.
+  explicit `desired_pin_path`, `probe_url_path`, and
+  `served_pin_response_path`). Generic Yoke machinery contains no Platform
+  environment id, settings leaf, or probe-response path and does not synthesize
+  missing config.

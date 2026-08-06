@@ -14,8 +14,10 @@ The server resolves both mutation coordinates from that project's
 and `desired_pin_path` selects the one scalar leaf in
 `environments.settings`. Neither coordinate is accepted from the CLI. Missing
 capability, target mapping, or path configuration fails closed; a configured
-environment owned by another project is refused. Recording the same pin again
-is a successful no-op.
+environment owned by another project is refused. If the configured terminal
+leaf currently contains an object or array, recording refuses to replace that
+container with a scalar. Recording the same scalar pin again is a successful
+no-op.
 
 The `deployment_ci` role cannot call the generic environment-settings mutation
 or change the capability declaration. `infrastructure_ci` remains read-only
@@ -29,6 +31,35 @@ yoke projects capability-settings merge --project <project> \
 
 Configure the path for the project's own schema. Generic Yoke machinery does
 not supply a default path or environment id.
+
+## Verification contract
+
+Live agreement checks are optional for a recording-only capability. A project
+that uses `yoke release-pin verify` declares both additional coordinates in the
+same capability:
+
+```bash
+yoke projects capability-settings merge --project <project> \
+  --cap-type release_pin \
+  --set probe_url_path=<environment.settings.url.path> \
+  --set served_pin_response_path=<probe.response.pin.path>
+```
+
+`probe_url_path` selects the scalar URL from the mapped environment's settings.
+`served_pin_response_path` selects the scalar pin from that probe's JSON body.
+The target vocabulary and environment id still come only from
+`environment_by_target`, and the desired value still comes only from
+`desired_pin_path`.
+
+```bash
+yoke release-pin verify --project <project> --environment <target>
+```
+
+Verification exits nonzero when either verification key is absent, either
+environment-settings value is unset or non-scalar, the probe fails, the
+configured response leaf is absent or non-scalar, or the desired and served
+pins disagree. Global machinery supplies no target name, environment id,
+settings path, probe URL, or response-field fallback.
 
 ## Hosted release ordering
 

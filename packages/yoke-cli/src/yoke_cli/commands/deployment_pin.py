@@ -10,18 +10,10 @@ deploying that ref silently rolls the pinned component back.
 The comparison lives beside the caller's checkout because both sides of it
 are refs in that repository, which the control plane never sees. The rule
 is generic — a deploy must not regress a version pin — while the pin's
-location and its branch-per-environment mapping are project configuration,
-declared by the project's ``release_pin`` capability:
-
-    {
-      "pin_file": "yoke-release-pin.txt",
-      "branch_by_environment": {"stage": "stage", "production": "main"},
-      "environment_by_target": {
-        "stage": "yoke-api-stage",
-        "production": "yoke-api-prod"
-      },
-      "desired_pin_path": "release.yoke_pin"
-    }
+location, branch mapping, control-plane environment mapping, desired-pin leaf,
+and optional probe contract are project-owned ``release_pin`` capability
+settings. Global code supplies no repository path, branch, target vocabulary,
+environment id, settings leaf, or probe-response default.
 
 Desired pin authority is the configured ``desired_pin_path`` leaf in
 ``environments.settings`` on the mapped environment id.
@@ -111,9 +103,7 @@ def evaluate_pin_move(
     if not branch:
         return PinComparison(
             regressed=False,
-            skipped_reason=(
-                f"no pin branch declared for environment {target_env!r}"
-            ),
+            skipped_reason=(f"no pin branch declared for environment {target_env!r}"),
         )
     candidate = read_pin_at_ref(repo_path, source_ref, pin_file)
     current = read_pin_at_ref(repo_path, f"origin/{branch}", pin_file)

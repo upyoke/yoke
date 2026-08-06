@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect, query_one
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 from yoke_core.domain.release_pin_capability import (
     CAPABILITY_TYPE,
     ReleasePinRoute,
@@ -37,6 +37,10 @@ class ReleasePinProjectMismatch(ValueError):
     """The configured environment belongs to a different project."""
 
 
+class ReleasePinConfiguredLeafNotScalar(ValueError):
+    """The configured terminal settings value is an object or array."""
+
+
 @dataclass(frozen=True)
 class ReleasePinRecord:
     project: str
@@ -52,32 +56,48 @@ def record_release_pin(
     environment: str,
     pin: str,
     *,
+    authorized_project_id: Optional[int] = None,
+    target_project: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> ReleasePinRecord:
     """Write only the path selected by the project's release-pin capability."""
     normalized_pin = _normalized_pin(pin)
     conn = connect(db_path)
     try:
-        project_id = resolve_project_id(conn, project)
-        route = _configured_route(conn, project_id, project, environment)
+        identity = _request_project(
+            conn,
+            project,
+            authorized_project_id=authorized_project_id,
+            target_project=target_project,
+        )
+        route = _configured_route(conn, identity.id, identity.slug, environment)
         for attempt in range(2):
             row = _environment_settings_row(conn, route.environment_id)
             if row is None:
-                raise LookupError(
-                    f"environment {route.environment_id!r} was not found"
-                )
-            if int(row["project_id"]) != project_id:
+                raise LookupError(f"environment {route.environment_id!r} was not found")
+            if int(row["project_id"]) != identity.id:
                 raise ReleasePinProjectMismatch(
                     f"configured environment {route.environment_id!r} does "
-                    f"not belong to project {project!r}"
+                    f"not belong to project {identity.slug!r}"
                 )
             base = str(row["settings"] or "{}")
             document = parse_settings_object(
                 base, what=f"stored settings for {route.environment_id!r}"
             )
-            if read_key_path(document, route.desired_pin_path) == normalized_pin:
+            current = read_key_path(document, route.desired_pin_path)
+            if isinstance(current, (dict, list)):
+                raise ReleasePinConfiguredLeafNotScalar(
+                    f"configured release-pin path {route.desired_pin_path!r} "
+                    "currently holds an object or array; refusing to replace "
+                    "a container with a scalar pin"
+                )
+            if current == normalized_pin:
                 return _receipt(
-                    project, environment, route, normalized_pin, changed=False
+                    identity.slug,
+                    environment,
+                    route,
+                    normalized_pin,
+                    changed=False,
                 )
             merged = json.dumps(
                 apply_key_path_assignments(
@@ -92,7 +112,11 @@ def record_release_pin(
             if cursor.rowcount:
                 conn.commit()
                 return _receipt(
-                    project, environment, route, normalized_pin, changed=True
+                    identity.slug,
+                    environment,
+                    route,
+                    normalized_pin,
+                    changed=True,
                 )
             conn.rollback()
             if attempt == 1:
@@ -105,13 +129,43 @@ def record_release_pin(
         conn.close()
 
 
+def _request_project(
+    conn: Any,
+    project: str,
+    *,
+    authorized_project_id: Optional[int],
+    target_project: Optional[str],
+) -> ProjectIdentity:
+    anchor: Any = authorized_project_id
+    if anchor is None:
+        anchor = target_project or project
+    identity = resolve_project(conn, anchor)
+    assert identity is not None
+    for source, reference in (
+        ("payload", project),
+        ("target", target_project),
+    ):
+        if reference and not _project_reference_matches(identity, reference):
+            raise ReleasePinProjectMismatch(
+                f"{source} project {reference!r} does not match authorized "
+                f"project {identity.id} ({identity.slug!r})"
+            )
+    return identity
+
+
+def _project_reference_matches(identity: ProjectIdentity, reference: str) -> bool:
+    normalized = str(reference).strip()
+    if normalized.isdigit():
+        return int(normalized) == identity.id
+    return normalized == identity.slug
+
+
 def _configured_route(
     conn: Any, project_id: int, project: str, environment: str
 ) -> ReleasePinRoute:
     row = query_one(
         conn,
-        "SELECT settings FROM project_capabilities "
-        "WHERE project_id=%s AND type=%s",
+        "SELECT settings FROM project_capabilities WHERE project_id=%s AND type=%s",
         (project_id, CAPABILITY_TYPE),
     )
     if row is None:
@@ -170,6 +224,7 @@ def _receipt(
 __all__ = [
     "ReleasePinCapabilityInvalid",
     "ReleasePinCapabilityMissing",
+    "ReleasePinConfiguredLeafNotScalar",
     "ReleasePinProjectMismatch",
     "ReleasePinRecord",
     "ReleasePinTargetNotConfigured",

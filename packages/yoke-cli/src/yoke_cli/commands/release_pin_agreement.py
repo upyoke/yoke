@@ -1,11 +1,4 @@
-"""Compare a project's desired release pin to a live health probe.
-
-Desired pin authority is the control-plane leaf
-``environments.settings.release.yoke_pin``. The committed pin file on an
-environment branch is build materialization only. A probe URL at
-``release.health_probe_url`` reports the engine version the environment is
-actually serving; disagreement is detectable without deploying.
-"""
+"""Compare a project's configured desired pin to a configured JSON probe."""
 
 from __future__ import annotations
 
@@ -15,9 +8,6 @@ from typing import Any, Callable, Mapping, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-DESIRED_PIN_SETTINGS_PATH = "release.yoke_pin"
-HEALTH_PROBE_SETTINGS_PATH = "release.health_probe_url"
-
 
 @dataclass(frozen=True)
 class PinHealthAgreement:
@@ -25,13 +15,14 @@ class PinHealthAgreement:
 
     agreed: bool
     desired_pin: Optional[str] = None
-    served_engine_version: Optional[str] = None
+    served_pin: Optional[str] = None
     probe_url: Optional[str] = None
-    skipped_reason: Optional[str] = None
     error: Optional[str] = None
 
 
-def environment_id_for_target(settings: Mapping[str, Any], target_env: str) -> Optional[str]:
+def environment_id_for_target(
+    settings: Mapping[str, Any], target_env: str
+) -> Optional[str]:
     """Resolve the control-plane environment id for a deploy target name."""
     mapping = settings.get("environment_by_target") or {}
     if not isinstance(mapping, dict):
@@ -40,45 +31,55 @@ def environment_id_for_target(settings: Mapping[str, Any], target_env: str) -> O
     return str(value) if value else None
 
 
-def fetch_health_engine_version(
+def fetch_served_pin(
     probe_url: str,
+    response_path: str,
     *,
     opener: Callable[[str], Mapping[str, Any]] | None = None,
 ) -> str:
-    """Return ``engine_version`` from a Yoke ``/v1/health`` JSON body."""
+    """Return the configured scalar from a JSON probe response."""
     payload = (opener or _get_json)(probe_url)
-    version = payload.get("engine_version")
-    if not isinstance(version, str) or not version.strip():
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"health probe at {probe_url!r} did not return a JSON object")
+    value = _response_value(payload, response_path)
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(
-            f"health probe at {probe_url!r} has no engine_version field"
+            f"health probe at {probe_url!r} has no non-empty string at "
+            f"{response_path!r}"
         )
-    return version.strip()
+    return value.strip()
 
 
 def evaluate_pin_health_agreement(
     *,
     desired_pin: Optional[str],
     probe_url: Optional[str],
-    desired_path: str = DESIRED_PIN_SETTINGS_PATH,
+    desired_path: str,
+    probe_url_path: str,
+    served_pin_response_path: str,
     opener: Callable[[str], Mapping[str, Any]] | None = None,
 ) -> PinHealthAgreement:
-    """Compare desired pin to the probe's served engine version."""
+    """Compare the desired pin to the probe's configured served-pin leaf."""
     if not desired_pin:
         return PinHealthAgreement(
             agreed=False,
             desired_pin=desired_pin,
             probe_url=probe_url,
-            skipped_reason=f"{desired_path} is unset",
+            error=f"{desired_path} is unset",
         )
     if not probe_url:
         return PinHealthAgreement(
             agreed=False,
             desired_pin=desired_pin,
             probe_url=probe_url,
-            skipped_reason=f"{HEALTH_PROBE_SETTINGS_PATH} is unset",
+            error=f"{probe_url_path} is unset",
         )
     try:
-        served = fetch_health_engine_version(probe_url, opener=opener)
+        served = fetch_served_pin(
+            probe_url,
+            served_pin_response_path,
+            opener=opener,
+        )
     except (OSError, ValueError, HTTPError, URLError) as exc:
         return PinHealthAgreement(
             agreed=False,
@@ -89,9 +90,30 @@ def evaluate_pin_health_agreement(
     return PinHealthAgreement(
         agreed=served == desired_pin,
         desired_pin=desired_pin,
-        served_engine_version=served,
+        served_pin=served,
         probe_url=probe_url,
     )
+
+
+def _response_value(payload: Mapping[str, Any], path: str) -> Any:
+    parts = path.split(".")
+    if not path or any(not part for part in parts):
+        raise ValueError(f"invalid served-pin response path {path!r}")
+    value: Any = payload
+    for part in parts:
+        if isinstance(value, Mapping):
+            if part not in value:
+                return None
+            value = value[part]
+            continue
+        if isinstance(value, list) and part.isdigit():
+            index = int(part)
+            if index >= len(value):
+                return None
+            value = value[index]
+            continue
+        return None
+    return value
 
 
 def _get_json(url: str) -> Mapping[str, Any]:
@@ -105,10 +127,8 @@ def _get_json(url: str) -> Mapping[str, Any]:
 
 
 __all__ = [
-    "DESIRED_PIN_SETTINGS_PATH",
-    "HEALTH_PROBE_SETTINGS_PATH",
     "PinHealthAgreement",
     "environment_id_for_target",
     "evaluate_pin_health_agreement",
-    "fetch_health_engine_version",
+    "fetch_served_pin",
 ]

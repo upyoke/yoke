@@ -13,6 +13,7 @@ from yoke_core.domain.pydantic_validation_safety import safe_validation_message
 from yoke_core.domain.release_pin_record import (
     ReleasePinCapabilityInvalid,
     ReleasePinCapabilityMissing,
+    ReleasePinConfiguredLeafNotScalar,
     ReleasePinProjectMismatch,
     ReleasePinTargetNotConfigured,
     record_release_pin,
@@ -41,28 +42,33 @@ def handle_release_pin_record(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         parsed = ReleasePinRecordRequest(**(request.payload or {}))
     except ValidationError as exc:
-        return _failure(
-            "payload_invalid", safe_validation_message(exc), "$.payload"
-        )
-    target_project = str(request.target.project_id or "").strip()
-    if target_project and target_project != parsed.project:
-        return _failure(
-            "project_mismatch",
-            "target project does not match payload project",
-            "$.target.project_id",
-        )
+        return _failure("payload_invalid", safe_validation_message(exc), "$.payload")
+    target_project = str(request.target.project_id or "").strip() or None
+    authorized_project_id = (request.options or {}).get("authorized_project_id")
     try:
         receipt = record_release_pin(
-            parsed.project, parsed.environment, parsed.pin
+            parsed.project,
+            parsed.environment,
+            parsed.pin,
+            authorized_project_id=(
+                int(authorized_project_id)
+                if authorized_project_id is not None
+                else None
+            ),
+            target_project=target_project,
         )
     except ReleasePinCapabilityMissing as exc:
         return _failure("capability_missing", str(exc), "$.payload.project")
     except ReleasePinCapabilityInvalid as exc:
         return _failure("capability_invalid", str(exc), "$.payload.project")
-    except ReleasePinTargetNotConfigured as exc:
+    except ReleasePinConfiguredLeafNotScalar as exc:
         return _failure(
-            "target_not_configured", str(exc), "$.payload.environment"
+            "configured_leaf_not_scalar",
+            str(exc),
+            "$.payload.environment",
         )
+    except ReleasePinTargetNotConfigured as exc:
+        return _failure("target_not_configured", str(exc), "$.payload.environment")
     except ReleasePinProjectMismatch as exc:
         return _failure("project_mismatch", str(exc), "$.payload.project")
     except SettingsConflictError as exc:
