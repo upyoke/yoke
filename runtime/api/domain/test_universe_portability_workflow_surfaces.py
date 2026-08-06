@@ -25,6 +25,23 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
     }
     assert additive_tables <= portability._ARCHIVE_OMITTABLE_TARGET_TABLES
     assert additive_tables <= set(portability.USER_CONTENT_TABLES)
+    assert "migration_content_adoptions" in portability._ARCHIVE_OMITTABLE_TARGET_TABLES
+    assert portability._compatible_restore_columns(
+        "applied_migrations",
+        ("migration_name", "applied_at", "applied_by", "minimum_serving_version"),
+        (
+            "migration_name",
+            "applied_at",
+            "applied_by",
+            "minimum_serving_version",
+            "content_sha256",
+        ),
+    ) == (
+        "migration_name",
+        "applied_at",
+        "applied_by",
+        "minimum_serving_version",
+    )
     legacy_delivery_columns = (
         "id",
         "channel",

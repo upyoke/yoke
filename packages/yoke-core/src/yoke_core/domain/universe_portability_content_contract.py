@@ -10,6 +10,7 @@ ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
         "decision_request_role_authorities",
         "decision_requests",
         "item_strategy_docs",
+        "migration_content_adoptions",
         "ouroboros_entry_dispositions",
         "qa_methods",
         "qa_plan_cases",
@@ -31,6 +32,7 @@ ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset(
 ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
 ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
+    "applied_migrations": frozenset({"content_sha256"}),
     "addressed_event_deliveries": frozenset(
         {
             "event_actor_id",
