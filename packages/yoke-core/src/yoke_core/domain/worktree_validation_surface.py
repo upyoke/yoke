@@ -47,7 +47,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.migration_model_capability import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
-    DEFAULT_CONNECTION_ENV_VAR,
     MigrationModelCapabilityError,
     validate as validate_capability,
 )
@@ -123,7 +122,7 @@ def _load_capability(
 def _resolve_env_var(model: Mapping[str, Any]) -> str:
     runner = model.get("runner") or {}
     config = runner.get("config") or {}
-    return str(config.get("connection_env_var") or DEFAULT_CONNECTION_ENV_VAR)
+    return str(config["connection_env_var"])
 
 
 def _resolve_validation_path(

@@ -1,0 +1,38 @@
+# Temporary files
+temp.txt
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# SQLite databases and WAL files
+*.db
+*.db-shm
+*.db-wal
+
+# Runtime data
+app/data/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / Next.js
+node_modules/
+app/web/.next/
+app/web/out/
+
+# Yoke worktrees
+.worktrees/
+
+# Environment and credentials (NEVER commit)
+.env
+CREDENTIALS.md

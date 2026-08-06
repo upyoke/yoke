@@ -19,15 +19,20 @@ import pytest
 from yoke_core.domain.migration_boot_apply import (
     EntryFailed,
     _failure_reason,
-    apply_pending,
+    apply_pending as _apply_pending,
 )
-from yoke_core.domain.migration_audit_schema import (
-    ensure_applied_migrations_table,
-    ensure_migration_audit_table,
-)
+from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
 from yoke_core.domain.migration_history import ordered_entries
+from yoke_core.domain.migration_yoke_ledger import (
+    YOKE_LEDGER_CONTRACT,
+    ensure_yoke_migration_ledger,
+)
 
 RESTORE_POINT = "snapshot:test-restore-point"
+
+
+def apply_pending(conn, **kwargs):
+    return _apply_pending(conn, ledger=YOKE_LEDGER_CONTRACT, **kwargs)
 
 #: An entry shaped like the ones in the real history: it crosses a guard,
 #: fails inside the guarded region, and its cleanup fails on the way out.
@@ -53,7 +58,7 @@ INVARIANT_FAILURE_ENTRY = (
 
 def _connection() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
-    ensure_applied_migrations_table(conn)
+    ensure_yoke_migration_ledger(conn)
     ensure_migration_audit_table(conn)
     conn.commit()
     return conn

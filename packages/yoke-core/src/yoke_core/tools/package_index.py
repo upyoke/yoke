@@ -150,7 +150,12 @@ def read_wheel_records(wheel_dir: Path) -> list[WheelRecord]:
     wheels = sorted(wheel_dir.glob("*.whl"))
     if not wheels:
         raise ValueError(f"no wheel files found in {wheel_dir}")
-    return [_read_wheel_record(path) for path in wheels]
+    return [read_wheel_record(path) for path in wheels]
+
+
+def read_wheel_record(path: Path) -> WheelRecord:
+    """Read and validate one exact wheel path."""
+    return _read_wheel_record(path)
 
 
 def validate_records(records: Sequence[WheelRecord]) -> None:

@@ -22,7 +22,14 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable, Sequence
 from typing import Any, List, Optional, Tuple
+
+from yoke_core.domain.migration_yoke_ledger import (
+    YOKE_LEDGER_CONTRACT,
+    yoke_migration_content_schema_is_prepared,
+)
+from yoke_core.domain.schema_readiness import migration_content_identity_status
 
 #: Surfaces the superseded-column entry removes. Presence means that entry's
 #: effect has not reached the database, whatever its ledger claims.
@@ -38,6 +45,8 @@ RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
     ("events", "parent_id"),
     ("events", "user_id"),
 )
+
+InvariantCheck = Tuple[str, Optional[Callable[[Any], None]]]
 
 def _connect(dsn: str) -> Any:
     import psycopg
@@ -114,6 +123,86 @@ def _ledger_rows_without_completed_evidence(
     return sorted({str(row[0]) for row in rows} - completed)
 
 
+def _packaged_history() -> Sequence[Any]:
+    """Load the packaged, ordered Yoke history once per tenant report."""
+    from yoke_core.domain import migrations as migration_history_package
+    from yoke_core.domain.migration_history import (
+        history_dir,
+        ordered_entries,
+    )
+
+    return ordered_entries(history_dir(migration_history_package))
+
+
+def _packaged_invariant_checks(history: Sequence[Any]) -> List[InvariantCheck]:
+    """Load invariant checks for an already-resolved packaged history."""
+    from yoke_core.domain.migration_history import load_migration_module
+
+    checks = []
+    for entry in history:
+        module = load_migration_module(entry.path, entry.name)
+        check = getattr(module, "invariants", None)
+        checks.append((entry.name, check if callable(check) else None))
+    return checks
+
+
+def _content_evidence_state(conn: Any, history: Sequence[Any]) -> dict[str, Any]:
+    """Return secret-free content/adoption evidence, failing closed on reads."""
+    try:
+        prepared = yoke_migration_content_schema_is_prepared(conn)
+        status = migration_content_identity_status(
+            conn, history, YOKE_LEDGER_CONTRACT
+        )
+    except Exception:  # noqa: BLE001 — reporter exposes no database internals
+        return {
+            "prepared": False,
+            "verified": [],
+            "adoption_required": [],
+            "mismatches": ["migration content evidence is unreadable"],
+            "ledger_ahead": [],
+        }
+    return {
+        "prepared": prepared,
+        "verified": list(status.verified),
+        "adoption_required": list(status.adoption_required),
+        "mismatches": [item.entry_name for item in status.mismatches],
+        "ledger_ahead": list(status.ledger_ahead),
+    }
+
+
+def _packaged_pending(
+    checks: Sequence[InvariantCheck], applied_names: set[str],
+) -> List[str]:
+    return [name for name, _check in checks if name not in applied_names]
+
+
+def _applied_invariant_outcomes(
+    conn: Any,
+    checks: Sequence[InvariantCheck],
+    applied_names: set[str],
+) -> List[Tuple[str, str, Optional[str]]]:
+    """Run applied-entry invariants inside isolated read-only savepoints."""
+    outcomes = []
+    for name, check in checks:
+        if name not in applied_names:
+            continue
+        if check is None:
+            outcomes.append((name, "not_declared", None))
+            continue
+        conn.execute("SAVEPOINT yoke_report_migration_invariant")
+        try:
+            check(conn)
+        except Exception as exc:  # noqa: BLE001 - report every failed invariant
+            conn.execute("ROLLBACK TO SAVEPOINT yoke_report_migration_invariant")
+            detail = " ".join(str(exc).split())[:240]
+            outcomes.append((name, "failed", f"{type(exc).__name__}: {detail}"))
+        else:
+            outcomes.append((name, "passed", None))
+        finally:
+            conn.execute("RELEASE SAVEPOINT yoke_report_migration_invariant")
+    return outcomes
+
+
 def _surviving_retired_surfaces(cur: Any) -> List[str]:
     surviving = []
     for table, column in RETIRED_SURFACES:
@@ -128,14 +217,14 @@ def _surviving_retired_surfaces(cur: Any) -> List[str]:
     return surviving
 
 
-def _report_database(dsn_for: Any, database: str) -> None:
+def _report_database(dsn_for: Any, database: str) -> bool:
     print(f"\n=== {database} ===")
     with _connect(dsn_for(database)) as conn:
         with conn.cursor() as cur:
             orgs = _org_slugs(cur)
             if orgs is None:
                 print("  not a Yoke universe (no organizations table)")
-                return
+                return False
             print(f"  orgs: {orgs}")
 
             rows = _ledger(cur)
@@ -155,6 +244,20 @@ def _report_database(dsn_for: Any, database: str) -> None:
                     "  applied rows without a serving floor: "
                     f"{missing_floors or 'none'}"
                 )
+
+            applied_names = {str(row[0]) for row in rows or []}
+            history = _packaged_history()
+            checks = _packaged_invariant_checks(history)
+            pending = _packaged_pending(checks, applied_names)
+            print(f"  packaged migrations pending: {pending or 'none'}")
+            outcomes = _applied_invariant_outcomes(conn, checks, applied_names)
+            print("  applied migration invariants:")
+            for name, state, detail in outcomes:
+                suffix = f" ({detail})" if detail else ""
+                print(f"    {name}: {state}{suffix}")
+            failed_invariants = [
+                name for name, state, _detail in outcomes if state != "passed"
+            ]
 
             attempts = _audit_attempts(cur)
             if attempts is None:
@@ -184,6 +287,19 @@ def _report_database(dsn_for: Any, database: str) -> None:
             surviving = _surviving_retired_surfaces(cur)
             print(f"  retired surfaces still present: {surviving or 'none'}")
 
+            content = _content_evidence_state(conn, history)
+            print(
+                "  migration content schema/guards prepared: "
+                f"{content['prepared']}"
+            )
+            print(f"  verified raw-byte identities: {content['verified'] or 'none'}")
+            print(
+                "  content identity adoption required: "
+                f"{content['adoption_required'] or 'none'}"
+            )
+            print(f"  content identity mismatches: {content['mismatches'] or 'none'}")
+            print(f"  ledger ahead of artifact: {content['ledger_ahead'] or 'none'}")
+
             if rows is not None and rows and surviving:
                 print("  MIXED: ledger claims applied while surfaces survive")
             if (rows is None or not rows) and not surviving:
@@ -191,6 +307,20 @@ def _report_database(dsn_for: Any, database: str) -> None:
                     "  MIXED: surfaces already removed with no ledger record — "
                     "the whole history will re-run on the next converge"
                 )
+            content_current = (
+                content["prepared"]
+                and not content["adoption_required"]
+                and not content["mismatches"]
+            )
+            current = (
+                bool(rows)
+                and not pending
+                and not surviving
+                and not failed_invariants
+                and content_current
+            )
+            print(f"  current invariant verdict: {'PASS' if current else 'FAIL'}")
+            return current
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -201,7 +331,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     os.environ["YOKE_ENV"] = args[0]
     from yoke_core.domain import db_backend
-    from yoke_core.domain.migration_fleet_preflight import tenant_databases
+    from runtime.api.tools.yoke_migration_fleet import tenant_databases
 
     def dsn_for(database: str) -> str:
         return db_backend.resolve_pg_dsn(dbname=database)
@@ -209,9 +339,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     databases = tenant_databases(dsn_for)
     print(f"environment: {args[0]}")
     print(f"tenant databases: {databases}")
-    for database in databases:
-        _report_database(dsn_for, database)
-    return 0
+    current = [_report_database(dsn_for, database) for database in databases]
+    return 0 if databases and all(current) else 1
 
 
 if __name__ == "__main__":

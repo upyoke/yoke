@@ -16,6 +16,7 @@ from typing import Iterable, Sequence
 
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
+from yoke_core.domain.migration_history_manifest import SOURCE_COMMIT_PATTERN
 from yoke_core.tools import (
     package_index,
     product_release_version,
@@ -39,6 +40,7 @@ def build_release(
     repo_root: Path,
     output_root: Path,
     base_url: str,
+    source_commit: str,
     channel: str = "latest",
     generated_at: str | None = None,
     uv_executable: str | None = None,
@@ -55,6 +57,11 @@ def build_release(
 
     repo_root = repo_root.resolve()
     output_root = output_root.resolve()
+    if not SOURCE_COMMIT_PATTERN.fullmatch(source_commit):
+        raise ReleaseBuildError(
+            "source_commit must be the full 40-character lowercase Git commit "
+            "whose wheel attestations cover this release"
+        )
     generated_at = generated_at or _utc_now()
     if output_root.exists():
         shutil.rmtree(output_root)
@@ -90,6 +97,7 @@ def build_release(
         channel=channel,
         base_url=base_url,
         generated_at=generated_at,
+        source_commit=source_commit,
         installer_asset_dir=asset_dir,
         aws_bootstrap_asset_dir=aws_asset_dir,
     )
@@ -269,6 +277,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--base-url", default=DISTRIBUTION_PROD_URL)
+    parser.add_argument("--source-commit", required=True)
     parser.add_argument("--channel", default="latest")
     parser.add_argument("--generated-at", default=None)
     parser.add_argument("--uv", dest="uv_executable", default=None)
@@ -286,6 +295,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             repo_root=args.repo_root,
             output_root=args.output_root,
             base_url=args.base_url,
+            source_commit=args.source_commit,
             channel=args.channel,
             generated_at=args.generated_at,
             uv_executable=args.uv_executable,

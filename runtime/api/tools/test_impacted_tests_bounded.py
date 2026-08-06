@@ -83,6 +83,30 @@ def test_bounded_near_total_reachability_defers_instead_of_expanding(
     assert bounded.files == _with_floor()
 
 
+def test_bounded_trigger_defers_a_near_total_computable_remainder(
+    tmp_path: Path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    _write(root, "runtime/api/foundation.py", "VALUE = 1\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root,
+            f"runtime/api/test_foundation_{number}.py",
+            "from runtime.api import foundation\n",
+        )
+
+    bounded = select(
+        ["docs/lifecycle.md", "runtime/api/foundation.py"],
+        build_import_index(root),
+        bounded=True,
+    )
+
+    assert bounded.fallback_rule == "unmapped_file_kind"
+    assert bounded.bounded_deferral is True
+    assert bounded.files == _with_floor()
+    assert "computable subset selected" in bounded.reason
+
+
 def test_bounded_selection_leaves_a_bounded_verdict_alone(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 

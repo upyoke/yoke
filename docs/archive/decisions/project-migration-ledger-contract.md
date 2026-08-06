@@ -48,11 +48,11 @@ something the signal cannot actually see.
 
 ## What the contract requires
 
-A ledger declaration names its `table`, its `entry_column`, its
-`semantics`, and its `serving_floor_column`. `semantics` accepts only
-`membership`. The serving floor is required once a ledger is declared:
-membership alone cannot stop a rolled-back build from serving a database
-it cannot read — see `project-migration-rollback-safety.md`.
+A ledger declaration names its `table`, `entry_column`, `digest_column`,
+`semantics`, and `serving_floor_column`. `semantics` accepts only `membership`.
+The raw-byte digest prevents a permanent entry name from silently changing
+meaning; the serving floor prevents a rolled-back build from serving a
+database it cannot read — see `project-migration-rollback-safety.md`.
 
 Every governed model must declare this ledger. A missing declaration cannot
 answer either safety question and is therefore invalid; established projects
@@ -68,12 +68,13 @@ history. Three outcomes stay distinct on purpose:
 
 - **N/A** — the project declares no migration model, so this check has no
   governed database subject.
-- **WARN** — the ledger cannot be read, or the packaged history cannot be
-  parsed. "I could not read it" and "it is level" are opposite answers, and
-  only one of them is safe to assume.
+- **WARN** — the ledger cannot be read, the packaged history cannot be parsed,
+  or legacy rows still have NULL content identity requiring artifact-bound
+  adoption. "I could not read it" and "it is level" are opposite answers.
 - **FAIL** — the model omits/invalidates its ledger contract, entries are
-  unapplied, a declared floor is absent/invalid, or a known running artifact
-  is below a recorded floor.
+  unapplied, a non-NULL content digest differs from the packaged raw bytes, a
+  declared floor is absent/invalid, a Yoke adoption-evidence guard is missing
+  or behaviorally wrong, or a known running artifact is below it.
 - **WARN** — newer applied rows require a rollback-floor comparison but no
   running artifact version is available. Their names alone are never a
   failure.

@@ -10,9 +10,6 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
-from yoke_core.domain.migration_model_capability_validation import (
-    DEFAULT_CONNECTION_ENV_VAR,
-)
 from yoke_core.domain.postgres_dump_restore_point import (
     dump_postgres_to_directory,
 )
@@ -41,7 +38,13 @@ class DbTarget:
 def resolve_connection_env_var(model: Mapping[str, Any]) -> str:
     runner = model.get("runner") or {}
     config = runner.get("config") or {}
-    return str(config.get("connection_env_var") or DEFAULT_CONNECTION_ENV_VAR)
+    value = str(config.get("connection_env_var") or "").strip()
+    if not value:
+        raise MigrationApplyError(
+            "runner.config.connection_env_var is required; generic migration "
+            "routing cannot infer project database authority"
+        )
+    return value
 
 
 def resolve_authoritative_db_target(
@@ -60,9 +63,11 @@ def resolve_authoritative_db_target(
         return DbTarget(kind=kind, target=str(candidate), display=str(candidate))
     if kind == "postgres":
         target = _resolve_postgres_authority(model)
-        label = _dsn_dbname(target) or (
-            (auth.get("location") or {}).get("database_name")
-        ) or "authority"
+        label = (
+            _dsn_dbname(target)
+            or ((auth.get("location") or {}).get("database_name"))
+            or "authority"
+        )
         return DbTarget(kind=kind, target=target, display=f"postgres:{label}")
     raise MigrationApplyError(
         f"authoritative_db.kind {kind!r} is recognized but not wired for "
@@ -160,7 +165,9 @@ def _resolve_worktree_local_sqlite_validation(
     control_db_path: Optional[str],
 ) -> DbTarget:
     provision = provision_validation_surfaces(
-        worktree_path, project, db_path=control_db_path,
+        worktree_path,
+        project,
+        db_path=control_db_path,
     )
     failure = next((s for s in provision.surfaces if s.error), None)
     if failure is not None:
@@ -169,7 +176,9 @@ def _resolve_worktree_local_sqlite_validation(
             f"'{failure.model_name}': {failure.error}"
         )
     validation_paths = resolve_validation_db_paths(
-        worktree_path, project, db_path=control_db_path,
+        worktree_path,
+        project,
+        db_path=control_db_path,
     )
     entry = validation_paths.get(model_name)
     if entry is None:

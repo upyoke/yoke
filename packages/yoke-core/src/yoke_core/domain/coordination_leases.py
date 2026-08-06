@@ -1,15 +1,9 @@
 """Coordination-lease primitive for Yoke.
 
-A ``coordination_leases`` row is an exclusive, project-scoped, shared-operation
-lease keyed on ``(project_id, lease_key)``. The migration consumer scopes
-per-model via ``LIVE_DB_MIGRATION:<model_name>``; future shared-operation
-consumers pick their own key conventions without adding another lock table.
+A ``coordination_leases`` row is an exclusive project-scoped lease keyed on
+``(project_id, lease_key)``. Consumers choose operation-specific key prefixes.
 
-Coordination leases are NOT work claims (item/process occupancy lives in
-``work_claims``) and they are NOT path claims (repo mutation authority lives
-in ``path_claims``). They cover dangerous shared-state operations whose
-serial ordering is required for correctness — live DB schema mutation is the
-first such operation.
+They are not work claims or path claims; they serialize shared-state operations.
 
 This module owns the core acquire/heartbeat/release/read API plus shared
 event-emission helpers. Listing/diagnostic helpers live in
@@ -101,15 +95,18 @@ def active_lease(
     conn: Any,
     project_id: str | int,
     lease_key: str,
+    *,
+    for_update: bool = False,
 ) -> Optional[Lease]:
     """Return the currently-held lease for ``(project_id, lease_key)``, if any."""
     p = _placeholder(conn)
     numeric_project_id = resolve_project_id(conn, project_id)
+    suffix = " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
     row = conn.execute(
         f"SELECT {SELECT_COLUMNS} "
         "FROM coordination_leases "
         f"WHERE project_id = {p} AND lease_key = {p} AND released_at IS NULL "
-        "ORDER BY acquired_at DESC, id DESC LIMIT 1",
+        f"ORDER BY acquired_at DESC, id DESC LIMIT 1{suffix}",
         (numeric_project_id, lease_key),
     ).fetchone()
     return row_to_lease(row) if row is not None else None
@@ -135,6 +132,7 @@ def acquire_lease(
     *,
     actor_id: Optional[str] = None,
     now: Optional[str] = None,
+    commit: bool = True,
 ) -> Lease:
     """Acquire an exclusive lease on ``(project_id, lease_key)``.
 
@@ -152,6 +150,9 @@ def acquire_lease(
             f"Lease {numeric_project_id}:{lease_key} already held "
             f"(session={existing.session_id}, acquired_at={existing.acquired_at})"
         )
+    use_savepoint = db_backend.connection_is_postgres(conn)
+    if use_savepoint:
+        conn.execute("SAVEPOINT coordination_lease_acquire")
     try:
         cur = conn.execute(
             "INSERT INTO coordination_leases "
@@ -160,6 +161,9 @@ def acquire_lease(
             (numeric_project_id, lease_key, session_id, actor_id, now, now),
         )
     except db_backend.integrity_error_types(conn) as exc:
+        if use_savepoint:
+            conn.execute("ROLLBACK TO SAVEPOINT coordination_lease_acquire")
+            conn.execute("RELEASE SAVEPOINT coordination_lease_acquire")
         current = active_lease(conn, numeric_project_id, lease_key)
         holder = (
             f"session={current.session_id}, acquired_at={current.acquired_at}"
@@ -169,14 +173,18 @@ def acquire_lease(
         raise LeaseHeldError(
             f"Lease {numeric_project_id}:{lease_key} already held ({holder})"
         ) from exc
+    if use_savepoint:
+        conn.execute("RELEASE SAVEPOINT coordination_lease_acquire")
     lease_id = int(cur.fetchone()[0])
-    conn.commit()
+    if commit:
+        conn.commit()
     lease = get_lease(conn, lease_id)
     _emit_lease_event(
         LEASE_ACQUIRED_EVENT,
         "INFO",
         lease,
         context={"actor_id": actor_id},
+        conn=None if commit else conn,
     )
     return lease
 
@@ -186,6 +194,7 @@ def heartbeat_lease(
     lease_id: int,
     *,
     now: Optional[str] = None,
+    commit: bool = True,
 ) -> Lease:
     """Refresh ``heartbeat_at`` on a held lease.
 
@@ -206,9 +215,11 @@ def heartbeat_lease(
         f"WHERE id = {p} AND released_at IS NULL",
         (now, lease_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     refreshed = get_lease(conn, lease_id)
-    _emit_lease_event(LEASE_HEARTBEATED_EVENT, "INFO", refreshed)
+    event_conn = None if commit else conn
+    _emit_lease_event(LEASE_HEARTBEATED_EVENT, "INFO", refreshed, conn=event_conn)
     return refreshed
 
 
@@ -234,13 +245,13 @@ def release_lease(
     if commit:
         conn.commit()
     released = get_lease(conn, lease_id)
-    if commit:
-        _emit_lease_event(
-            LEASE_RELEASED_EVENT,
-            "INFO",
-            released,
-            context={"release_reason": reason},
-        )
+    _emit_lease_event(
+        LEASE_RELEASED_EVENT,
+        "INFO",
+        released,
+        context={"release_reason": reason},
+        conn=None if commit else conn,
+    )
     return released
 
 
@@ -250,6 +261,7 @@ def _emit_lease_event(
     lease: Lease,
     *,
     context: Optional[Dict[str, Any]] = None,
+    conn: Optional[Any] = None,
 ) -> None:
     """Fire a lease-lifecycle event via the shared emitter, best-effort."""
     payload: Dict[str, Any] = {
@@ -277,6 +289,7 @@ def _emit_lease_event(
             severity=severity,
             outcome="completed",
             context=payload,
+            conn=conn,
         )
     except Exception:
         # Best-effort telemetry; the lifecycle row remains the source of truth.

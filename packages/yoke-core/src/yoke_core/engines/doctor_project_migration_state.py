@@ -98,13 +98,14 @@ def resolve_project_migration_state(
     )
 
 
-def ledger_rows(state: ProjectMigrationState) -> list[tuple[str, Any]]:
+def ledger_rows(state: ProjectMigrationState) -> list[tuple[str, Any, Any]]:
     contract = state.ledger
     rows = state.authority_conn.execute(
-        f"SELECT {contract.entry_column}, {contract.serving_floor_column} "
+        f"SELECT {contract.entry_column}, {contract.serving_floor_column}, "
+        f"{contract.digest_column} "
         f"FROM {contract.table} ORDER BY {contract.entry_column}"
     ).fetchall()
-    return [(str(row[0]), row[1]) for row in rows]
+    return [(str(row[0]), row[1], row[2]) for row in rows]
 
 
 def _capability_payload(conn: Any, project: str) -> dict:

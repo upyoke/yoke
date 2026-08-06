@@ -41,21 +41,26 @@ The two mechanisms only work together:
 This is a contract Yoke owns and teaches; changing any individual project's
 runner is that project's work.
 
-1. **Boot answers before serving.** Is the pending set empty? Is any
-   applied floor newer than this build? Refuse when either answer is
-   unsafe.
-2. **Record per applied entry.** Entry identity for membership, plus the
-   serving floor copied from a surface-removing entry's declared minimum
-   (empty only when that entry did not remove a surface).
-3. **Declare every element.** `table`, `entry_column`,
-   `semantics=membership`, and `serving_floor_column`. The ledger and floor
-   are mandatory; an omitted or unconsumed column is the path that leaves a
-   project unable to answer rollback safety.
+1. **Boot answers before serving.** Is the pending set empty? Do common
+   non-NULL content digests match the packaged raw bytes? Is any applied floor
+   newer than this build? Refuse a mismatch or unsafe floor; report legacy NULL
+   content evidence for explicit adoption without inventing a digest. Yoke also
+   refuses migration-safe readiness when adoption evidence lacks enabled,
+   behaviorally correct append-only guards.
+2. **Record per applied entry.** Entry identity for membership, raw-byte
+   SHA256, plus the serving floor copied from a surface-removing entry's
+   declared minimum (empty only when that entry did not remove a surface).
+3. **Declare every element.** `table`, `entry_column`, `digest_column`,
+   `semantics=membership`, and `serving_floor_column`. These are mandatory; an
+   omitted or unconsumed column leaves the project unable to answer content
+   identity or rollback safety.
 
 ## How an operator can tell
 
 `HC-project-migration-ledger-contract` reports whether the selected project
 satisfies the contract against its declared history, database, and live rows.
+For Yoke's own control plane it additionally verifies the adoption-evidence
+schema and exact UPDATE/DELETE/TRUNCATE guard semantics.
 Unreadable stays a finding
 (WARN), never a PASS: "I could not read it" and "it is level" are opposite
 answers.

@@ -151,6 +151,16 @@ jobs:
               --source-digest "$GITHUB_SHA" \
               --deny-self-hosted-runners
           done
+          for evidence in \
+            "$ARTIFACT_DIR/migration-history.json" \
+            "$ARTIFACT_DIR/migration-history-record.json"; do
+            gh attestation verify "$evidence" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/yoke-build-artifacts.yml" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$GITHUB_SHA" \
+              --deny-self-hosted-runners
+          done
 
       - name: Re-resolve the tag and create the GitHub Release entry
         env:
@@ -189,6 +199,8 @@ jobs:
           gh release create "$TAG_NAME" \
             "${wheels[@]}" \
             "$ARTIFACT_DIR/release-records.json" \
+            "$ARTIFACT_DIR/migration-history.json" \
+            "$ARTIFACT_DIR/migration-history-record.json" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "Yoke $RELEASE_VERSION" \

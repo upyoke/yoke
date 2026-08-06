@@ -79,8 +79,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(__doc__)
         return 0 if args else 2
 
-    from yoke_core.domain import migration_fleet_preflight
     from yoke_core.domain import migration_preflight_receipt as receipt
+    from runtime.api.tools import yoke_migration_fleet
 
     environment = args[0]
     product_sha = args[1] if len(args) > 1 else ""
@@ -88,7 +88,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     # The same reader the rehearsal uses, so a receipt and a gate can never
     # disagree about what "the history" is.
-    history = migration_fleet_preflight.history_names()
+    history = yoke_migration_fleet.history_names()
     print(f"target environment: {receipt.target_environment_for_admin_env(environment)}")
     print(f"history entries carried by this build: {len(history)}")
 

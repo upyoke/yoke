@@ -1,8 +1,10 @@
+# ruff: noqa: F401, F811 -- imported pytest fixture is intentionally re-exported.
 """
 test_merge_worktree_additive.py — Additive conflict resolution tests.
 Shared fixtures live in test_merge_worktree_full.py.
 """
 
+import ast
 from pathlib import Path
 
 from runtime.api.test_merge_worktree_full import (
@@ -13,6 +15,25 @@ from runtime.api.test_merge_worktree_full import (
     merge_env,  # re-export so pytest recognises this fixture
     run_merge,
 )
+
+
+def _set_registered_full_command(command: str) -> None:
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.qa_command_plan_registration import (
+        ensure_registered_command_plan,
+    )
+
+    conn = db_backend.connect()
+    try:
+        ensure_registered_command_plan(
+            conn,
+            project_id=1,
+            project="yoke",
+            scope="full",
+            command=command,
+        )
+    finally:
+        conn.close()
 
 
 class TestAdditiveConflictResolution:
@@ -197,3 +218,61 @@ class TestAdditiveConflictResolution:
         result = run_merge(merge_env)
         assert result.exit_code == 3
         assert "overlapping" in result.stderr
+
+    def test_parseable_union_runtime_failure_does_not_advance_target(
+        self, merge_env: MergeEnv,
+    ) -> None:
+        """The resolved tree must execute successfully before main advances."""
+        repo = merge_env.repo
+        wt = merge_env.worktree
+        target = repo / "union_target.py"
+        _write_file(
+            target,
+            "def combine(first, second=None):\n"
+            "    return first\n\n"
+            "value = combine(\n"
+            '    "base",\n'
+            ")\n",
+        )
+        _git(repo, "add", "union_target.py")
+        _git(repo, "commit", "-m", "add executable union fixture")
+        _git(repo, "push", "origin", "main")
+        _git(wt, "pull", "origin", "main", "--rebase")
+
+        feature_text = target.read_text().replace(
+            '    "base",\n',
+            '    "base",\n    "target",\n',
+        )
+        _write_file(target, feature_text)
+        _git(repo, "add", "union_target.py")
+        _git(repo, "commit", "-m", "add target-side argument")
+        _git(repo, "push", "origin", "main")
+
+        branch_target = wt / "union_target.py"
+        branch_text = branch_target.read_text().replace(
+            '    "base",\n',
+            '    "base",\n    "feature",\n',
+        )
+        _write_file(branch_target, branch_text)
+        _git(wt, "add", "union_target.py")
+        _git(wt, "commit", "-m", "add feature-side argument")
+        _git(wt, "push", "origin", TEST_BRANCH, "--force")
+
+        _set_registered_full_command("python3 union_target.py")
+        target_before = _git(repo, "rev-parse", "main").stdout.strip()
+        origin_before = _git(repo, "rev-parse", "origin/main").stdout.strip()
+
+        result = run_merge(
+            merge_env,
+            extra_args=["--local"],
+        )
+
+        assert result.exit_code == 1
+        assert "additive conflict" in result.stdout
+        assert "TypeError" in result.stdout + result.stderr
+        integrated = branch_target.read_text()
+        ast.parse(integrated)
+        assert '"feature"' in integrated
+        assert '"target"' in integrated
+        assert _git(repo, "rev-parse", "main").stdout.strip() == target_before
+        assert _git(repo, "rev-parse", "origin/main").stdout.strip() == origin_before

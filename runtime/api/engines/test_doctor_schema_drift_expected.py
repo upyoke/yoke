@@ -21,7 +21,9 @@ def test_expected_catalog_includes_ordered_migration_ledger() -> None:
         "applied_at": "TEXT",
         "applied_by": "TEXT",
         "minimum_serving_version": "TEXT",
+        "content_sha256": "TEXT",
     }
+    assert expected["migration_content_adoptions"]["source_sha256"] == "TEXT"
 
 
 def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:

@@ -9,6 +9,10 @@ MIGRATIONS_CURRENT_FIELD = "migrations_current"
 PENDING_MIGRATIONS_FIELD = "pending_migrations"
 CAN_SERVE_DATABASE_FIELD = "can_serve_this_database"
 STRANDED_MIGRATIONS_FIELD = "stranded_by_migrations"
+CONTENT_MATCHES_FIELD = "migration_content_matches"
+CONTENT_MISMATCHES_FIELD = "migration_content_mismatches"
+CONTENT_EVIDENCE_READY_FIELD = "migration_content_evidence_ready"
+CONTENT_ADOPTION_REQUIRED_FIELD = "migration_content_adoption_required"
 
 
 def _list_detail(payload: Mapping[str, Any], field: str, label: str) -> str:
@@ -48,11 +52,34 @@ def migration_readiness_problem(
             STRANDED_MIGRATIONS_FIELD,
             "stranded by migrations",
         )
+    content_matches = payload.get(CONTENT_MATCHES_FIELD)
+    if content_matches is False or (require_current and content_matches is not True):
+        return f"did not report {CONTENT_MATCHES_FIELD}=true" + _list_detail(
+            payload,
+            CONTENT_MISMATCHES_FIELD,
+            "migration content mismatches",
+        )
+    evidence_ready = payload.get(CONTENT_EVIDENCE_READY_FIELD)
+    if evidence_ready is False or (require_current and evidence_ready is not True):
+        return f"did not report {CONTENT_EVIDENCE_READY_FIELD}=true"
+    adoption_required = payload.get(CONTENT_ADOPTION_REQUIRED_FIELD)
+    if isinstance(adoption_required, list) and adoption_required:
+        return f"reported non-empty {CONTENT_ADOPTION_REQUIRED_FIELD}" + _list_detail(
+            payload,
+            CONTENT_ADOPTION_REQUIRED_FIELD,
+            "entries requiring adoption",
+        )
+    if require_current and not isinstance(adoption_required, list):
+        return f"did not report {CONTENT_ADOPTION_REQUIRED_FIELD}=[]"
     return ""
 
 
 __all__ = [
     "CAN_SERVE_DATABASE_FIELD",
+    "CONTENT_ADOPTION_REQUIRED_FIELD",
+    "CONTENT_EVIDENCE_READY_FIELD",
+    "CONTENT_MATCHES_FIELD",
+    "CONTENT_MISMATCHES_FIELD",
     "MIGRATIONS_CURRENT_FIELD",
     "PENDING_MIGRATIONS_FIELD",
     "STRANDED_MIGRATIONS_FIELD",

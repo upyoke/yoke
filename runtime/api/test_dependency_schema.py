@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS items (
   spec TEXT,
   spec_updated_at TEXT,
   spec_updated_by TEXT,
+  db_mutation_profile TEXT NOT NULL DEFAULT '{"state":"none"}',
+  db_compatibility_attestation TEXT NOT NULL DEFAULT '{}',
   deployment_flow TEXT,
   deploy_stage TEXT
 );

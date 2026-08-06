@@ -2,9 +2,10 @@
 
 This is the whole distribution mechanism. A container starting on new code
 brings its own database up to that code before it serves, so "deployed" and
-"migrated" stop being two things that can disagree. There is no dispatch, no
-manifest, and no operator step: the wheel carries the history, the boot
-carries the apply.
+"migrated" stop being two things that can disagree. There is no per-target
+dispatch or operator apply: the wheel carries the history, and boot carries
+the apply. Release manifests independently attest which permanent bytes that
+wheel contains; boot does not use them as a dispatch list.
 
 The kernel is deliberately ignorant of *whose* history it applies — the
 caller passes one. That keeps the "should this run here?" judgment with the
@@ -27,7 +28,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Sequence, Set, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
 from yoke_core.domain import (
     db_backend,
@@ -35,7 +36,17 @@ from yoke_core.domain import (
     migration_serving_version,
 )
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
+from yoke_core.domain.migration_boot_ledger import (
+    applied_names,
+    pending_entries,
+    record_applied,
+)
+from yoke_core.domain.migration_content_identity import (
+    raw_content_sha256,
+    require_matching_content_identity,
+)
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
+from yoke_core.domain.migration_ledger_contract import LedgerContract
 from yoke_core.domain.migration_audit_receipts import now_stamp, write_receipt
 
 
@@ -71,6 +82,7 @@ def _failure_reason(exc: BaseException) -> str:
         return f"{type(exc).__name__}: {exc}"
     return f"{type(root).__name__}: {root} (surfaced as {type(exc).__name__})"
 
+
 #: Advisory-lock id serializing migration apply on one database. Postgres
 #: advisory locks already carry the database in their lock tag, so a single
 #: constant gives per-database exclusion for free: two servers rolling the
@@ -81,8 +93,6 @@ MIGRATION_APPLY_LOCK_KEY = int.from_bytes(
     "big",
     signed=True,
 )
-
-LEDGER_TABLE = "applied_migrations"
 
 
 @dataclass(frozen=True)
@@ -97,36 +107,12 @@ class ApplyOutcome:
         return bool(self.applied)
 
 
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def applied_names(conn: Any) -> Set[str]:
-    """Return the migration names this database has recorded as applied."""
-    rows = conn.execute(f"SELECT migration_name FROM {LEDGER_TABLE}").fetchall()
-    return {str(row[0]) for row in rows}
-
-
-def pending_entries(
-    conn: Any, history: Sequence[MigrationEntry]
-) -> Tuple[MigrationEntry, ...]:
-    """Return the ordered entries this database has not applied.
-
-    This is the one definition of "behind", shared by the apply path and the
-    health gate, so a serving container and its health check can never
-    disagree about whether it is current.
-
-    Membership is by name, not by position: a database running *older*
-    packaged code than its ledger — a rolled-back container — has an empty
-    pending set and is correctly current, where a head-equality test would
-    call it broken and refuse to serve in both directions.
-    """
-    recorded = applied_names(conn)
-    return tuple(entry for entry in history if entry.name not in recorded)
-
-
 def stamp_history(
-    conn: Any, history: Sequence[MigrationEntry], *, applied_by: str
+    conn: Any,
+    history: Sequence[MigrationEntry],
+    *,
+    ledger: LedgerContract,
+    applied_by: str,
 ) -> Tuple[str, ...]:
     """Record the whole history as applied without running any of it.
 
@@ -139,19 +125,35 @@ def stamp_history(
     empty ledger here — a pre-ledger database that predates this mechanism
     also has no rows, and stamping *that* one would skip real work.
     """
+    require_matching_content_identity(conn, history, ledger)
     stamped: list[str] = []
-    for entry in history:
-        module = load_migration_module(entry.path, entry.name)
-        _record_applied(
-            conn,
-            [entry.name],
-            applied_by=applied_by,
-            minimum_serving_version=(
-                migration_serving_version.declared_minimum(module)
-            ),
-        )
-        stamped.append(entry.name)
-    conn.commit()
+    try:
+        for entry in history:
+            source_bytes = entry.path.read_bytes()
+            module = load_migration_module(
+                entry.path,
+                entry.name,
+                source_bytes=source_bytes,
+            )
+            if entry.path.read_bytes() != source_bytes:
+                raise EntryFailed(
+                    f"{entry.name} source changed while birth evidence was captured"
+                )
+            record_applied(
+                conn,
+                entry,
+                ledger=ledger,
+                applied_by=applied_by,
+                content_sha256=raw_content_sha256(source_bytes),
+                minimum_serving_version=(
+                    migration_serving_version.declared_minimum(module)
+                ),
+            )
+            stamped.append(entry.name)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return tuple(stamped)
 
 
@@ -159,6 +161,7 @@ def apply_pending(
     conn: Any,
     *,
     history: Sequence[MigrationEntry],
+    ledger: LedgerContract,
     applied_by: str,
     running_version: str,
     backup_root: Optional[Path] = None,
@@ -194,9 +197,13 @@ def apply_pending(
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
+    # A permanent name whose recorded non-NULL digest differs is corruption,
+    # not pending work. Refuse before the current fast-path or any restore.
+    require_matching_content_identity(conn, history, ledger)
+
     # Cheap probe first. The overwhelming majority of boots are current, and
     # they should cost two queries and take no lock at all.
-    if not pending_entries(conn, history):
+    if not pending_entries(conn, history, ledger):
         return ApplyOutcome(applied=(), restore_point=None)
 
     restore_point = migration_restore_point.establish(
@@ -212,12 +219,14 @@ def apply_pending(
         # it is check-then-act: the boot guard other containers hold is a
         # *shared* lock, so two of them genuinely do converge at once, and
         # both would otherwise see the same work and race to do it.
-        outstanding = pending_entries(conn, history)
+        require_matching_content_identity(conn, history, ledger)
+        outstanding = pending_entries(conn, history, ledger)
         applied: list[str] = []
         for entry in outstanding:
             _apply_one(
                 conn,
                 entry,
+                ledger=ledger,
                 applied_by=applied_by,
                 running_version=running_version,
                 restore_point=restore_point,
@@ -232,24 +241,48 @@ def _apply_one(
     conn: Any,
     entry: MigrationEntry,
     *,
+    ledger: LedgerContract,
     applied_by: str,
     running_version: str,
     restore_point: str,
 ) -> None:
-    module = load_migration_module(entry.path, entry.name)
+    source_bytes = entry.path.read_bytes()
+    source_sha256 = raw_content_sha256(source_bytes)
+    module = load_migration_module(
+        entry.path,
+        entry.name,
+        source_bytes=source_bytes,
+    )
+    if entry.path.read_bytes() != source_bytes:
+        raise EntryFailed(
+            f"{entry.name} source changed while the migration module loaded"
+        )
     minimum = migration_serving_version.declared_minimum(module)
-    # Before the DDL, not after: an entry whose floor is newer than the build
-    # running it means the declaration and the code disagree, and catching
-    # that here costs nothing while catching it later costs the database.
+    # Refuse before DDL: a newer floor means the declaration and code disagree.
+    # Catching it here costs nothing; catching it later costs the database.
     migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
     started_at = now_stamp()
     failure_state = "live_apply_failed"
+    failure_phase = "apply"
     try:
         # apply() and the ledger row land together or not at all. The module
         # contract forbids committing inside apply() for exactly this reason.
         module.apply(conn)
-        _record_applied(
-            conn, [entry.name], applied_by=applied_by, minimum_serving_version=minimum
+        failure_state = "live_verify_failed"
+        failure_phase = "source verification"
+        if entry.path.read_bytes() != source_bytes:
+            raise MigrationApplyError(
+                f"{entry.name} source changed while apply executed"
+            )
+        failure_state = "live_apply_failed"
+        failure_phase = "ledger write"
+        record_applied(
+            conn,
+            entry,
+            ledger=ledger,
+            applied_by=applied_by,
+            content_sha256=source_sha256,
+            minimum_serving_version=minimum,
         )
         invariants = getattr(module, "invariants", None)
         if callable(invariants):
@@ -258,7 +291,14 @@ def _apply_one(
             # a failed migration look current on the next boot and prevents
             # the retry that could repair it.
             failure_state = "live_verify_failed"
+            failure_phase = "invariants"
             invariants(conn)
+        failure_state = "live_verify_failed"
+        failure_phase = "source verification"
+        if entry.path.read_bytes() != source_bytes:
+            raise MigrationApplyError(
+                f"{entry.name} source changed before migration commit"
+            )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
@@ -272,10 +312,7 @@ def _apply_one(
             restore_point=restore_point,
             failure_reason=reason[:500],
         )
-        phase = (
-            "invariants" if failure_state == "live_verify_failed" else "apply"
-        )
-        raise EntryFailed(f"{entry.name} {phase} failed -- {reason}") from exc
+        raise EntryFailed(f"{entry.name} {failure_phase} failed -- {reason}") from exc
 
     write_receipt(
         conn,
@@ -285,33 +322,6 @@ def _apply_one(
         completed_at=now_stamp(),
         restore_point=restore_point,
     )
-
-
-def _record_applied(
-    conn: Any,
-    names: Sequence[str],
-    *,
-    applied_by: str,
-    minimum_serving_version: Optional[str] = None,
-) -> None:
-    """Write ledger rows, carrying each entry's declared floor.
-
-    The floor is recorded rather than looked up later because the reader who
-    needs it is a build that predates the entry and does not ship its module.
-    The ledger row is the only surface the two share.
-    """
-    if not names:
-        return
-    p = _p(conn)
-    now = now_stamp()
-    for name in names:
-        conn.execute(
-            f"INSERT INTO {LEDGER_TABLE} "
-            "(migration_name, applied_at, applied_by, minimum_serving_version) "
-            f"VALUES ({p}, {p}, {p}, {p}) "
-            "ON CONFLICT (migration_name) DO NOTHING",
-            (name, now, applied_by, minimum_serving_version),
-        )
 
 
 def _acquire_apply_lock(conn: Any) -> None:
@@ -332,7 +342,6 @@ def _release_apply_lock(conn: Any) -> None:
 __all__ = [
     "ApplyOutcome",
     "EntryFailed",
-    "LEDGER_TABLE",
     "MIGRATION_APPLY_LOCK_KEY",
     "applied_names",
     "apply_pending",

@@ -37,7 +37,7 @@ def hc_pending_migrations(
 
     try:
         try:
-            applied = [name for name, _floor in ledger_rows(state)]
+            applied = [name for name, _floor, _digest in ledger_rows(state)]
         except Exception as exc:  # noqa: BLE001 - cannot tell is not green
             rec.record(
                 SLUG,

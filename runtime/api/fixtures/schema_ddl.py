@@ -152,8 +152,9 @@ def apply_fixture_schema(conn: Any) -> None:
         ensure_field_note_dash_promotion_schema,
     )
     from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
-    from yoke_core.domain.migration_audit_schema import (
-        ensure_applied_migrations_table,
+    from yoke_core.domain.migration_yoke_ledger import (
+        YOKE_LEDGER_CONTRACT,
+        ensure_yoke_migration_ledger,
     )
 
     # The fixture schema is hand-composed and never runs converge_core_schema,
@@ -163,7 +164,7 @@ def apply_fixture_schema(conn: Any) -> None:
     # Stamp the ordered history as birth: the composed fixture already matches
     # current schema code, so pending apply on a later schema.cmd_init would
     # re-run entries against a database that never owed them.
-    ensure_applied_migrations_table(conn)
+    ensure_yoke_migration_ledger(conn)
     from yoke_core.domain import migrations as migration_history_package
     from yoke_core.domain.migration_boot_apply import stamp_history
     from yoke_core.domain.migration_history import history_dir, ordered_entries
@@ -171,6 +172,7 @@ def apply_fixture_schema(conn: Any) -> None:
     stamp_history(
         conn,
         ordered_entries(history_dir(migration_history_package)),
+        ledger=YOKE_LEDGER_CONTRACT,
         applied_by="fixture-birth",
     )
     ensure_workflow_schema(conn)

@@ -27,15 +27,18 @@ and the apply is on the deploy path, so nobody has to remember to run it.
 - **History** — `packages/yoke-core/src/yoke_core/domain/migrations/NNNN_slug.py`,
   ordered by the numeric prefix, never deleted. The filename stem is the entry's
   only identity; there is deliberately no second name to disagree with it.
-- **Ledger** — `applied_migrations(migration_name, applied_at, applied_by)` on
-  every governed database. A cursor, not a receipt store.
+- **Ledger** — `applied_migrations(migration_name, applied_at, applied_by,
+  content_sha256, minimum_serving_version)` on every governed database. Each
+  row carries membership, exact-byte identity, and rollback-floor evidence.
 - **Pending set** — `history - ledger`, computable from the installed wheel plus
   one connection.
 - **Applier** — the tail of `converge_core_schema`. Probes cheaply; on a
   non-empty pending set takes an exclusive per-database advisory lock,
   re-enumerates under it, and applies each entry in order.
-- **Health** — `migrations_current` on `/v1/health`, plus
-  `HC-pending-migrations`.
+- **Health** — `migrations_current`, `migration_content_matches`,
+  `migration_content_evidence_ready`, adoption and mismatch details, and
+  `can_serve_this_database` on `/v1/health`, plus the corresponding Doctor
+  checks. Evidence readiness verifies guard behavior, not names alone.
 
 ## Decisions worth keeping
 

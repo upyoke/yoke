@@ -24,7 +24,7 @@ _KNOWN_VALIDATION_RECIPES = frozenset({
     RECIPE_WEBAPP_SQLITE_EMPTY,
 })
 _MODEL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
-DEFAULT_CONNECTION_ENV_VAR = "YOKE_PG_DSN"
+
 
 class MigrationModelCapabilityError(ValueError):
     """Raised when a ``migration_model`` capability payload fails validation."""
@@ -237,7 +237,7 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
             raise MigrationModelCapabilityError(
                 "runner.config.modules_dir must be a non-empty string"
             )
-        conn_env = cfg.get("connection_env_var", DEFAULT_CONNECTION_ENV_VAR)
+        conn_env = cfg.get("connection_env_var")
         if not isinstance(conn_env, str) or not conn_env:
             raise MigrationModelCapabilityError(
                 "runner.config.connection_env_var must be a non-empty string"
@@ -245,7 +245,8 @@ def _validate_runner(value: Any) -> Dict[str, Any]:
         if "ledger" not in cfg:
             raise MigrationModelCapabilityError(
                 "runner.config.ledger is required; a governed migration "
-                "model must declare membership and serving-floor columns"
+                "model must declare membership, content-digest, and "
+                "serving-floor columns"
             )
         from yoke_core.domain import migration_ledger_contract
         config: Dict[str, Any] = {
@@ -308,9 +309,9 @@ def _validate_model(name: str, raw: Any) -> Dict[str, Any]:
 def validate(payload: Any) -> Dict[str, Any]:
     """Validate and normalize a ``migration_model`` capability settings payload.
 
-    Returns a normalized dict with canonical key ordering, stable field
-    shapes, and ``connection_env_var`` defaulted to ``YOKE_PG_DSN`` when
-    the governed runner omits it.
+    Returns a normalized dict with canonical key ordering and stable field
+    shapes. Every governed runner declares its owning connection env var;
+    project-neutral validation never substitutes Yoke authority.
     """
     obj = _require_dict(payload, field="migration_model capability settings")
     extra = set(obj.keys()) - {"default_model", "models"}

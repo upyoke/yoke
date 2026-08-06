@@ -41,12 +41,9 @@ from yoke_core.domain import postgres_cluster
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
-#: The platform service's own database, which is not a tenant universe.
-PLATFORM_DATABASE = "yoke_platform"
-
 #: Prefix for the throwaway copy a rehearsal converges. Names it clearly
 #: enough that an operator who finds one left behind knows it is disposable.
-REHEARSAL_PREFIX = "yoke_migration_rehearsal_"
+REHEARSAL_PREFIX = "migration_rehearsal_"
 
 #: Seconds allowed for one dump or restore. Tenant databases are small, but
 #: the dump crosses a tunnel to a managed cluster.
@@ -70,18 +67,13 @@ class Verdict:
         return f"{mark} {self.database}: {pending} -> {self.detail}"
 
 
-def tenant_databases(dsn_for: Callable[[str], str]) -> List[str]:
-    """Every tenant database on the cluster, the platform database excluded."""
-    import psycopg
+@dataclass(frozen=True)
+class RehearsalPlan:
+    """Project-supplied history, ledger reader, and convergence operation."""
 
-    with psycopg.connect(dsn_for(PLATFORM_DATABASE), connect_timeout=20) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT datname FROM pg_database "
-                "WHERE datistemplate = false AND datname LIKE 'yoke_%' "
-                "ORDER BY datname"
-            )
-            return [r[0] for r in cur.fetchall() if r[0] != PLATFORM_DATABASE]
+    history: Tuple[str, ...]
+    pending_names: Callable[[Any, Sequence[str]], Tuple[str, ...]]
+    converge: Callable[[Any, str], None]
 
 
 @contextmanager
@@ -118,28 +110,6 @@ def _run(argv: Sequence[str], *, redact: str = "") -> None:
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
-def _pending_names(conn: Any, history: Sequence[str]) -> Tuple[str, ...]:
-    """History entries this database has no ledger row for.
-
-    A missing ledger table and an empty one both mean the whole history is
-    pending. They are different facts about how the database got there, and
-    the same fact about what happens next.
-    """
-    cur = conn.execute("SELECT to_regclass('applied_migrations')")
-    if cur.fetchone()[0] is None:
-        return tuple(history)
-    rows = conn.execute("SELECT migration_name FROM applied_migrations").fetchall()
-    applied = {r[0] for r in rows}
-    return tuple(name for name in history if name not in applied)
-
-
-def history_names() -> Tuple[str, ...]:
-    from yoke_core.domain import migrations as history_package
-    from yoke_core.domain.migration_history import history_dir, ordered_entries
-
-    return tuple(e.name for e in ordered_entries(history_dir(history_package)))
-
-
 def _live_ownership_verdict(source_dsn: str, database: str) -> Optional[Verdict]:
     """Refuse a database whose serving role cannot converge its own tables.
 
@@ -173,6 +143,7 @@ def rehearse(
     source_dsn: str,
     *,
     database: str,
+    plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
 ) -> Verdict:
@@ -215,28 +186,27 @@ def rehearse(
         _run([postgres_cluster.binary(spec, "pg_restore"), "-h", str(spec.sock_dir),
               "-U", spec.superuser, "-d", copy_name, "--no-owner",
               "--no-privileges", str(dump)])
-        return _converge_copy(spec, database, copy_name, dump)
+        return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
         _drop_copy(spec, copy_name)
         dump.unlink(missing_ok=True)
 
 
 def _converge_copy(
-    spec: ClusterSpec, database: str, copy_name: str, dump: Path
+    spec: ClusterSpec,
+    database: str,
+    copy_name: str,
+    dump: Path,
+    plan: RehearsalPlan,
 ) -> Verdict:
     from yoke_core.domain import db_backend
-    from yoke_core.domain.schema_init import converge_core_schema
 
     conn = db_backend.connect_psycopg(postgres_cluster.dsn(spec, copy_name))
     try:
-        history = history_names()
-        pending = _pending_names(conn, history)
+        pending = plan.pending_names(conn, plan.history)
         with _restore_point_named(dump):
             try:
-                converge_core_schema(
-                    conn,
-                    backup_target_dsn=postgres_cluster.dsn(spec, copy_name),
-                )
+                plan.converge(conn, postgres_cluster.dsn(spec, copy_name))
             except BaseException as exc:  # noqa: BLE001 — a verdict, not a crash
                 conn.rollback()
                 return Verdict(database, False, str(exc).strip(), pending)
@@ -267,23 +237,28 @@ def _drop_copy(spec: ClusterSpec, copy_name: str) -> None:
 def rehearse_fleet(
     dsn_for: Callable[[str], str],
     *,
+    databases: Sequence[str],
+    plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
-    databases: Optional[Sequence[str]] = None,
 ) -> List[Verdict]:
-    """Rehearse every tenant database on the connected cluster."""
-    targets = list(databases) if databases is not None else tenant_databases(dsn_for)
+    """Rehearse the caller-declared databases with its migration plan."""
     return [
-        rehearse(dsn_for(name), database=name, spec=spec, work_dir=work_dir)
-        for name in targets
+        rehearse(
+            dsn_for(name),
+            database=name,
+            plan=plan,
+            spec=spec,
+            work_dir=work_dir,
+        )
+        for name in databases
     ]
 
 
 __all__ = [
-    "PLATFORM_DATABASE",
     "REHEARSAL_PREFIX",
+    "RehearsalPlan",
     "Verdict",
     "rehearse",
     "rehearse_fleet",
-    "tenant_databases",
 ]

@@ -16,6 +16,7 @@ from runtime.api.fixtures.migration_model_test import (
 _LEDGER = {
     "table": "applied_migrations",
     "entry_column": "migration_name",
+    "digest_column": "content_sha256",
     "semantics": "membership",
     "serving_floor_column": "minimum_serving_version",
 }

@@ -7,8 +7,8 @@ Split out of ``test_db_mutation_gate.py`` to keep authored files under the
 
 from __future__ import annotations
 
-from yoke_core.domain.migration_model_capability_defaults import (
-    DEFAULT_MODULES_DIR,
+from runtime.api.fixtures.migration_model_test import (
+    TEST_MIGRATION_MODULES_DIR as DEFAULT_MODULES_DIR,
 )
 import json
 from pathlib import Path

@@ -17,9 +17,13 @@ from yoke_core.domain.github_app_public_runtime import (
     current_github_app_public_advertisement,
 )
 from yoke_core.domain.schema_readiness import (
-    stranded_by_applied_migrations,
+    migration_content_identity_status,
     missing_readiness_tables,
     pending_migration_names,
+    stranded_by_applied_migrations,
+)
+from yoke_core.domain.migration_yoke_ledger import (
+    yoke_migration_content_schema_is_prepared,
 )
 
 router = APIRouter()
@@ -44,7 +48,16 @@ def health() -> _main.HealthResponse:
     an uninitialized DB answers 200 here while its data routes fail,
     so deploy gates assert this field rather than liveness alone.
     """
-    schema_ready, missing, pending, stranded = _health_snapshot()
+    (
+        schema_ready,
+        missing,
+        pending,
+        stranded,
+        content_matches,
+        evidence_ready,
+        adoption_required,
+        content_mismatches,
+    ) = _health_snapshot()
     build = os.environ.get("YOKE_BUILD_SHA", "")
     return _main.HealthResponse(
         status="ok",
@@ -55,8 +68,14 @@ def health() -> _main.HealthResponse:
         schema_missing_tables=missing,
         migrations_current=not pending,
         pending_migrations=pending,
-        can_serve_this_database=not stranded,
+        can_serve_this_database=(
+            not stranded and content_matches and evidence_ready
+        ),
         stranded_by_migrations=stranded,
+        migration_content_matches=content_matches,
+        migration_content_evidence_ready=evidence_ready,
+        migration_content_adoption_required=adoption_required,
+        migration_content_mismatches=content_mismatches,
         github_app=current_github_app_public_advertisement(),
     )
 
@@ -76,7 +95,7 @@ _schema_confirmed_ready = False
 MIGRATIONS_PROBE_TTL_KEY = "health_migrations_probe_ttl_seconds"
 MIGRATIONS_PROBE_TTL_DEFAULT = 30
 
-#: Last migration probe: ``(monotonic_deadline, pending_names)``.
+#: Last migration probe: deadline plus membership, serving, and content state.
 #:
 #: Deliberately a TTL rather than the positive latch above. That latch is
 #: justified by "a schema surface cannot lose tables under a running process",
@@ -86,18 +105,38 @@ MIGRATIONS_PROBE_TTL_DEFAULT = 30
 #: left. Bounding staleness instead keeps the connection cost that motivated
 #: the latch — one probe per window, not one per liveness poll — without
 #: promising something the underlying fact cannot keep.
-_migrations_probe: Tuple[float, List[str], List[str]] = (0.0, [], [])
+_migrations_probe: Tuple[
+    float, List[str], List[str], bool, bool, List[str], List[str]
+] = (
+    0.0,
+    [],
+    [],
+    False,
+    False,
+    [],
+    ["migration content identity has not been probed"],
+)
 
 
 def reset_schema_readiness_cache() -> None:
     """Forget the remembered probe results so the next call probes again."""
     global _schema_confirmed_ready, _migrations_probe
     _schema_confirmed_ready = False
-    _migrations_probe = (0.0, [], [])
+    _migrations_probe = (
+        0.0,
+        [],
+        [],
+        False,
+        False,
+        [],
+        ["migration content identity has not been probed"],
+    )
 
 
-def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
-    """Return ``(schema_ready, missing, pending_migrations, stranded)``.
+def _health_snapshot() -> Tuple[
+    bool, List[str], List[str], List[str], bool, bool, List[str], List[str]
+]:
+    """Return schema, migration-membership, serving, and content state.
 
     ONE connection answers both questions. Container liveness polls this route
     on a short interval, and every connection resets a serverless database's
@@ -115,18 +154,53 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
     global _schema_confirmed_ready, _migrations_probe
 
     now = time.monotonic()
-    deadline, cached_pending, cached_stranded = _migrations_probe
+    (
+        deadline,
+        cached_pending,
+        cached_stranded,
+        cached_content_matches,
+        cached_evidence_ready,
+        cached_adoption_required,
+        cached_content_mismatches,
+    ) = _migrations_probe
     migrations_fresh = now < deadline
     if _schema_confirmed_ready and migrations_fresh:
-        return True, [], cached_pending, cached_stranded
+        return (
+            True,
+            [],
+            cached_pending,
+            cached_stranded,
+            cached_content_matches,
+            cached_evidence_ready,
+            cached_adoption_required,
+            cached_content_mismatches,
+        )
 
     try:
         conn = _main.get_db_readonly()
     except Exception:
         return (
-            (True, [], cached_pending, cached_stranded)
+            (
+                True,
+                [],
+                cached_pending,
+                cached_stranded,
+                cached_content_matches,
+                cached_evidence_ready,
+                cached_adoption_required,
+                cached_content_mismatches,
+            )
             if _schema_confirmed_ready
-            else (False, [], cached_pending, cached_stranded)
+            else (
+                False,
+                [],
+                cached_pending,
+                cached_stranded,
+                cached_content_matches,
+                cached_evidence_ready,
+                cached_adoption_required,
+                cached_content_mismatches,
+            )
         )
     try:
         if _schema_confirmed_ready:
@@ -138,6 +212,10 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
                 _schema_confirmed_ready = True
         if migrations_fresh:
             pending, stranded = cached_pending, cached_stranded
+            content_matches = cached_content_matches
+            evidence_ready = cached_evidence_ready
+            adoption_required = cached_adoption_required
+            content_mismatches = cached_content_mismatches
         else:
             from yoke_core.domain import migrations as migration_history_package
             from yoke_core.domain.migration_history import (
@@ -146,27 +224,88 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
             )
 
             history = ordered_entries(history_dir(migration_history_package))
-            pending = pending_migration_names(conn, history)
+            from yoke_core.domain.migration_yoke_ledger import (
+                YOKE_LEDGER_CONTRACT,
+            )
+
+            pending = pending_migration_names(conn, history, YOKE_LEDGER_CONTRACT)
             # Same connection and same cadence as the pending probe: both read
             # the ledger, and a second probe would defeat the reason the TTL
             # exists. Both answers also move backwards together — a restore or
             # a repointed DSN changes what was applied and what may serve it.
             stranded = stranded_by_applied_migrations(
-                conn, advertised_engine_version(), history
+                conn,
+                advertised_engine_version(),
+                history,
+                YOKE_LEDGER_CONTRACT,
             )
+            try:
+                evidence_ready = yoke_migration_content_schema_is_prepared(conn)
+            except Exception:  # noqa: BLE001 — public payload stays non-secret
+                evidence_ready = False
+            try:
+                content_status = migration_content_identity_status(
+                    conn, history, YOKE_LEDGER_CONTRACT
+                )
+                content_matches = content_status.content_matches
+                adoption_required = list(content_status.adoption_required)
+                content_mismatches = [
+                    f"{item.entry_name}: recorded digest does not match "
+                    "packaged raw migration bytes"
+                    for item in content_status.mismatches
+                ]
+            except Exception:  # noqa: BLE001 — public payload stays non-secret
+                content_matches = False
+                adoption_required = []
+                content_mismatches = ["migration ledger content identity is unreadable"]
             ttl = runtime_settings.get_seconds(
                 MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT
             )
-            _migrations_probe = (now + ttl, pending, stranded)
+            _migrations_probe = (
+                now + ttl,
+                pending,
+                stranded,
+                content_matches,
+                evidence_ready,
+                adoption_required,
+                content_mismatches,
+            )
     except Exception:
         return (
-            (True, [], cached_pending, cached_stranded)
+            (
+                True,
+                [],
+                cached_pending,
+                cached_stranded,
+                cached_content_matches,
+                cached_evidence_ready,
+                cached_adoption_required,
+                cached_content_mismatches,
+            )
             if _schema_confirmed_ready
-            else (False, [], cached_pending, cached_stranded)
+            else (
+                False,
+                [],
+                cached_pending,
+                cached_stranded,
+                cached_content_matches,
+                cached_evidence_ready,
+                cached_adoption_required,
+                cached_content_mismatches,
+            )
         )
     finally:
         conn.close()
-    return ready, missing, pending, stranded
+    return (
+        ready,
+        missing,
+        pending,
+        stranded,
+        content_matches,
+        evidence_ready,
+        adoption_required,
+        content_mismatches,
+    )
 
 
 __all__ = ["reset_schema_readiness_cache", "router"]

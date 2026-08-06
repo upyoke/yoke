@@ -14,11 +14,25 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WORKFLOW = "yoke-build-artifacts.yml"
+_ATTESTED_SUBJECTS = (
+    "${{ runner.temp }}/validated-release/wheels/*.whl",
+    "${{ runner.temp }}/validated-release/migration-history.json",
+    "${{ runner.temp }}/validated-release/migration-history-record.json",
+)
 
 
 def _text() -> str:
     workflows_dir = _ROOT / ".github" / "workflows"
     return workflows_dir.joinpath(_WORKFLOW).read_text(encoding="utf-8")
+
+
+def _attested_subject_sets(text: str) -> list[tuple[str, ...]]:
+    blocks = re.findall(
+        r"^          subject-path: \|\n((?:^            .+\n)+)",
+        text,
+        re.MULTILINE,
+    )
+    return [tuple(line.strip() for line in block.splitlines()) for block in blocks]
 
 
 def test_remains_fork_buildable_and_reusable_by_release_factory():
@@ -85,7 +99,7 @@ def test_signer_attests_exact_validated_wheels_after_transfer():
     download_index = text.index("uses: actions/download-artifact@")
     attest_index = text.index("uses: actions/attest@")
     assert validate_index < upload_index < download_index < attest_index
-    assert "subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl" in text
+    assert _attested_subject_sets(text) == [_ATTESTED_SUBJECTS] * 3
     assert "subject-checksums:" not in text
     assert "subject-path: ${{ env.RELEASE_DIR }}" not in text
 
@@ -98,9 +112,7 @@ def test_signer_retries_transient_attestation_transport_failures():
     assert signer.count("continue-on-error: true") == 2
     assert "steps.attest_attempt_1.outcome != 'success'" in signer
     assert "steps.attest_attempt_2.outcome != 'success'" in signer
-    assert signer.count(
-        "subject-path: ${{ runner.temp }}/validated-release/wheels/*.whl"
-    ) == 3
+    assert _attested_subject_sets(signer) == [_ATTESTED_SUBJECTS] * 3
 
 
 def test_validated_identity_drives_reusable_outputs_and_upload_name():

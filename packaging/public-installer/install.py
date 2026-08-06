@@ -326,6 +326,7 @@ class Installer:
             raise InstallError(
                 f"{self.options.channel} channel is missing a version pin"
             )
+        _require_channel_release_evidence(channel, self.options.channel)
         return version
 
     def _run_uv_install(self, command: Sequence[str]) -> bool:
@@ -641,6 +642,37 @@ def _loads_json(data: bytes, label: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise InstallError(f"{label} must be a JSON object")
     return value
+
+
+def _require_channel_release_evidence(
+    channel: dict[str, object],
+    label: str,
+) -> None:
+    """Preserve historical v2 while requiring content evidence from v3."""
+    schema_version = channel.get("schema_version")
+    if schema_version == 2:
+        return
+    if schema_version != 3:
+        raise InstallError(f"{label} channel has unsupported schema_version")
+    migration_history = channel.get("migration_history")
+    if not isinstance(migration_history, dict):
+        raise InstallError(
+            f"{label} channel schema v3 is missing trusted migration history evidence"
+        )
+    digest = str(migration_history.get("manifest_sha256") or "")
+    source_commit = str(migration_history.get("source_commit") or "")
+    manifest_url = str(migration_history.get("manifest_url") or "")
+    evidence_url = str(migration_history.get("evidence_url") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise InstallError(f"{label} channel has an invalid migration manifest digest")
+    if not re.fullmatch(r"[0-9a-f]{40}", source_commit):
+        raise InstallError(f"{label} channel has an invalid migration source commit")
+    if not manifest_url.endswith("/migration-history.json"):
+        raise InstallError(f"{label} channel has an invalid migration manifest URL")
+    if not evidence_url.endswith("/migration-history-record.json"):
+        raise InstallError(
+            f"{label} channel has an invalid migration release-evidence URL"
+        )
 
 
 def _format_command_failure(

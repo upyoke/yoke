@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain.migration_model_capability_defaults import (
-    DEFAULT_MODULES_DIR,
+from runtime.api.fixtures.migration_model_test import (
+    TEST_MIGRATION_MODULES_DIR as DEFAULT_MODULES_DIR,
 )
 from pathlib import Path
 
@@ -265,5 +265,3 @@ class TestEvidenceGate:
         )
         assert not outcome.passed
         assert any("no rehearsal recorded" in e for e in outcome.errors)
-
-

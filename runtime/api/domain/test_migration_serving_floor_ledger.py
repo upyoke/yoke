@@ -5,18 +5,32 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
 from yoke_core.domain.migration_boot_apply import stamp_history
 from yoke_core.domain.migration_history import ordered_entries
 from yoke_core.domain.migration_serving_floor_ledger import (
     backfill_serving_floors,
     missing_declared_serving_floors,
 )
+from yoke_core.domain.migration_yoke_ledger import (
+    YOKE_LEDGER_CONTRACT,
+    ensure_yoke_migration_ledger,
+)
 
 
 def _connection() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
-    ensure_applied_migrations_table(conn)
+    ensure_yoke_migration_ledger(conn)
+    conn.execute("CREATE TABLE marks (name TEXT)")
+    return conn
+
+
+def _legacy_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE applied_migrations ("
+        "migration_name TEXT PRIMARY KEY, applied_at TEXT NOT NULL, "
+        "applied_by TEXT, minimum_serving_version TEXT)"
+    )
     conn.execute("CREATE TABLE marks (name TEXT)")
     return conn
 
@@ -32,7 +46,12 @@ def _history(tmp_path: Path):
 
 def test_birth_stamp_records_each_entry_serving_floor(tmp_path: Path) -> None:
     conn = _connection()
-    stamp_history(conn, _history(tmp_path), applied_by="birth")
+    stamp_history(
+        conn,
+        _history(tmp_path),
+        ledger=YOKE_LEDGER_CONTRACT,
+        applied_by="birth",
+    )
 
     row = conn.execute(
         "SELECT minimum_serving_version FROM applied_migrations "
@@ -45,7 +64,7 @@ def test_birth_stamp_records_each_entry_serving_floor(tmp_path: Path) -> None:
 def test_missing_floor_is_reconstructed_from_permanent_history(
     tmp_path: Path,
 ) -> None:
-    conn = _connection()
+    conn = _legacy_connection()
     history = _history(tmp_path)
     conn.execute(
         "INSERT INTO applied_migrations "
@@ -53,8 +72,21 @@ def test_missing_floor_is_reconstructed_from_permanent_history(
         "VALUES ('0001_retire_surface', 'now', 'old-stamp', NULL)"
     )
 
-    assert missing_declared_serving_floors(conn, history) == (
-        "0001_retire_surface",
+    assert missing_declared_serving_floors(
+        conn,
+        history,
+        ledger=YOKE_LEDGER_CONTRACT,
+    ) == ("0001_retire_surface",)
+    assert backfill_serving_floors(
+        conn,
+        history,
+        ledger=YOKE_LEDGER_CONTRACT,
+    ) == ("0001_retire_surface",)
+    assert (
+        missing_declared_serving_floors(
+            conn,
+            history,
+            ledger=YOKE_LEDGER_CONTRACT,
+        )
+        == ()
     )
-    assert backfill_serving_floors(conn, history) == ("0001_retire_surface",)
-    assert missing_declared_serving_floors(conn, history) == ()

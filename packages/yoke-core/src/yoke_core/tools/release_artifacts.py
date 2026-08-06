@@ -5,6 +5,8 @@ versioned wheels. Layout under ``output_root``::
 
     dist/releases/<version>/wheels/<wheel>.whl   immutable versioned wheels
     dist/releases/<version>/release-records.json per-wheel sha256/size record
+    dist/releases/<version>/migration-history.json raw-byte migration identity
+    dist/releases/<version>/migration-history-record.json attested source binding
     dist/releases/<version>/yoke-aws-admin.yaml  hosting bootstrap CFN template
     simple/index.html                            PEP 503 root (lists projects)
     simple/<project>/index.html                  per-project wheel links (#sha256=)
@@ -32,7 +34,11 @@ from typing import Sequence
 from urllib.parse import quote
 
 from yoke_core.domain import json_helper
-from yoke_core.tools import package_index
+from yoke_core.tools import (
+    distribution_channel,
+    migration_history_release_artifact,
+    package_index,
+)
 
 
 DIST_ROOT = "dist"
@@ -41,9 +47,15 @@ RELEASES_DIR = "releases"
 WHEELS_DIR = "wheels"
 SIMPLE_DIR = "simple"
 RELEASE_RECORDS_FILENAME = "release-records.json"
+MIGRATION_HISTORY_MANIFEST_FILENAME = (
+    distribution_channel.MIGRATION_HISTORY_MANIFEST_FILENAME
+)
+MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME = (
+    distribution_channel.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME
+)
 INSTALLER_ASSET_DIR = Path("packaging") / "public-installer"
-INSTALL_PY = "install.py"
-INSTALL_SHIM = "install"
+INSTALL_PY = distribution_channel.INSTALL_PY
+INSTALL_SHIM = distribution_channel.INSTALL_SHIM
 AWS_BOOTSTRAP_ASSET_DIR = Path("packaging") / "aws"
 AWS_ADMIN_TEMPLATE = "yoke-aws-admin.yaml"
 
@@ -57,6 +69,8 @@ class ReleasePaths:
     simple_dir: Path
     channels_dir: Path
     release_records_path: Path
+    migration_history_manifest_path: Path
+    migration_history_release_evidence_path: Path
     install_py: Path
     install_shim: Path
     channel_path: Path
@@ -71,6 +85,7 @@ class ReleaseBuild:
     index_url: str
     paths: ReleasePaths
     release_records: list[dict[str, object]]
+    migration_history_manifest_sha256: str
     channel_payload: dict[str, object]
 
     def to_json(self) -> dict[str, object]:
@@ -84,6 +99,15 @@ class ReleaseBuild:
             "wheels_dir": str(self.paths.wheels_dir),
             "simple_dir": str(self.paths.simple_dir),
             "release_records_path": str(self.paths.release_records_path),
+            "migration_history_manifest_path": str(
+                self.paths.migration_history_manifest_path
+            ),
+            "migration_history_manifest_sha256": (
+                self.migration_history_manifest_sha256
+            ),
+            "migration_history_release_evidence_path": str(
+                self.paths.migration_history_release_evidence_path
+            ),
             "install_py": str(self.paths.install_py),
             "install": str(self.paths.install_shim),
             "channel_path": str(self.paths.channel_path),
@@ -103,6 +127,7 @@ def materialize_release_artifacts(
     channel: str,
     base_url: str,
     generated_at: str,
+    source_commit: str,
     installer_asset_dir: Path,
     aws_bootstrap_asset_dir: Path,
 ) -> ReleaseBuild:
@@ -122,6 +147,15 @@ def materialize_release_artifacts(
     )
     release_records = package_index.build_records_manifest(wheel_records)
     json_helper._dump_json(paths.release_records_path, release_records)
+    migration_manifest = migration_history_release_artifact.write_release_manifest(
+        paths.migration_history_manifest_path,
+        wheel_records,
+        source_commit=source_commit,
+    )
+    migration_history_release_artifact.write_release_evidence(
+        paths.migration_history_release_evidence_path,
+        migration_manifest,
+    )
     _copy_installer_assets(installer_asset_dir, paths)
     _copy_aws_admin_template(aws_bootstrap_asset_dir, paths)
     index_url = _join_url(base_url, SIMPLE_DIR) + "/"
@@ -131,6 +165,8 @@ def materialize_release_artifacts(
         generated_at=generated_at,
         release_base_url=release_base_url,
         index_url=index_url,
+        migration_manifest_sha256=migration_manifest.content_sha256,
+        source_commit=source_commit,
     )
     json_helper._dump_json(paths.channel_path, channel_payload)
     return ReleaseBuild(
@@ -140,6 +176,7 @@ def materialize_release_artifacts(
         index_url=index_url,
         paths=paths,
         release_records=release_records,
+        migration_history_manifest_sha256=migration_manifest.content_sha256,
         channel_payload=channel_payload,
     )
 
@@ -165,6 +202,12 @@ def _prepare_release_paths(
         simple_dir=simple_dir,
         channels_dir=channels_dir,
         release_records_path=release_dir / RELEASE_RECORDS_FILENAME,
+        migration_history_manifest_path=(
+            release_dir / MIGRATION_HISTORY_MANIFEST_FILENAME
+        ),
+        migration_history_release_evidence_path=(
+            release_dir / MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME
+        ),
         install_py=dist_root / INSTALL_PY,
         install_shim=output_root / INSTALL_SHIM,
         channel_path=channels_dir / f"{channel}.json",
@@ -189,9 +232,7 @@ def _copy_installer_assets(asset_dir: Path, paths: ReleasePaths) -> None:
         if not path.is_file()
     ]
     if missing:
-        raise ReleaseBuildError(
-            "missing installer asset(s): " + ", ".join(missing)
-        )
+        raise ReleaseBuildError("missing installer asset(s): " + ", ".join(missing))
     shutil.copy2(install_py_source, paths.install_py)
     shutil.copy2(install_shim_source, paths.install_shim)
 
@@ -210,19 +251,18 @@ def _channel_payload(
     generated_at: str,
     release_base_url: str,
     index_url: str,
+    migration_manifest_sha256: str,
+    source_commit: str,
 ) -> dict[str, object]:
-    return {
-        "schema_version": 2,
-        "channel": channel,
-        "version": version,
-        "generated_at": generated_at,
-        "index_url": index_url,
-        "release_base_url": release_base_url,
-        "installer": {
-            "python_url": _join_url(release_base_url, "..", "..", INSTALL_PY),
-            "shell_url": _join_url(release_base_url, "..", "..", "..", INSTALL_SHIM),
-        },
-    }
+    return distribution_channel.channel_payload(
+        channel=channel,
+        version=version,
+        generated_at=generated_at,
+        release_base_url=release_base_url,
+        index_url=index_url,
+        migration_manifest_sha256=migration_manifest_sha256,
+        source_commit=source_commit,
+    )
 
 
 def _join_url(base: str, *parts: str) -> str:
