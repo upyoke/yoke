@@ -32,6 +32,7 @@ def record_applied(
     *,
     ledger: LedgerContract,
     applied_by: str,
+    content_sha256: str,
     minimum_serving_version: Optional[str] = None,
 ) -> None:
     """Insert membership, floor, and raw-byte digest in one transaction."""
@@ -48,7 +49,7 @@ def record_applied(
             now_stamp(),
             applied_by,
             minimum_serving_version,
-            entry.content_sha256,
+            content_sha256,
         ),
     )
 

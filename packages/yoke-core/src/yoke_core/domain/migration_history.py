@@ -125,7 +125,12 @@ def ordered_entries(directory: Path) -> Tuple[MigrationEntry, ...]:
     return tuple(entries)
 
 
-def load_migration_module(path: Path, identifier: str) -> ModuleType:
+def load_migration_module(
+    path: Path,
+    identifier: str,
+    *,
+    source_bytes: bytes | None = None,
+) -> ModuleType:
     """Import a migration module from an explicit file path.
 
     Enforces the module contract: a callable ``apply(conn)`` is required and
@@ -149,7 +154,9 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
         raise ModuleResolutionError(f"cannot construct import spec for {path}")
     module = importlib.util.module_from_spec(spec)
     try:
-        spec.loader.exec_module(module)
+        content = path.read_bytes() if source_bytes is None else source_bytes
+        code = compile(content, str(path), "exec")
+        exec(code, module.__dict__)
     except Exception as exc:  # noqa: BLE001 — surface as structured error
         raise ModuleResolutionError(
             f"failed to import migration module '{identifier}' from {path}: {exc}"
@@ -160,9 +167,9 @@ def load_migration_module(path: Path, identifier: str) -> ModuleType:
         )
     try:
         migration_serving_version.require_declaration(
-            identifier, path.read_text(encoding="utf-8"), module
+            identifier, content.decode("utf-8"), module
         )
-    except migration_serving_version.ServingVersionError as exc:
+    except (UnicodeDecodeError, migration_serving_version.ServingVersionError) as exc:
         raise ModuleContractError(str(exc)) from exc
     return module
 

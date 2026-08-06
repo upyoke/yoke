@@ -42,6 +42,7 @@ from yoke_core.domain.migration_boot_ledger import (
     record_applied,
 )
 from yoke_core.domain.migration_content_identity import (
+    raw_content_sha256,
     require_matching_content_identity,
 )
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
@@ -81,6 +82,7 @@ def _failure_reason(exc: BaseException) -> str:
         return f"{type(exc).__name__}: {exc}"
     return f"{type(root).__name__}: {root} (surfaced as {type(exc).__name__})"
 
+
 #: Advisory-lock id serializing migration apply on one database. Postgres
 #: advisory locks already carry the database in their lock tag, so a single
 #: constant gives per-database exclusion for free: two servers rolling the
@@ -91,6 +93,7 @@ MIGRATION_APPLY_LOCK_KEY = int.from_bytes(
     "big",
     signed=True,
 )
+
 
 @dataclass(frozen=True)
 class ApplyOutcome:
@@ -124,19 +127,33 @@ def stamp_history(
     """
     require_matching_content_identity(conn, history, ledger)
     stamped: list[str] = []
-    for entry in history:
-        module = load_migration_module(entry.path, entry.name)
-        record_applied(
-            conn,
-            entry,
-            ledger=ledger,
-            applied_by=applied_by,
-            minimum_serving_version=(
-                migration_serving_version.declared_minimum(module)
-            ),
-        )
-        stamped.append(entry.name)
-    conn.commit()
+    try:
+        for entry in history:
+            source_bytes = entry.path.read_bytes()
+            module = load_migration_module(
+                entry.path,
+                entry.name,
+                source_bytes=source_bytes,
+            )
+            if entry.path.read_bytes() != source_bytes:
+                raise EntryFailed(
+                    f"{entry.name} source changed while birth evidence was captured"
+                )
+            record_applied(
+                conn,
+                entry,
+                ledger=ledger,
+                applied_by=applied_by,
+                content_sha256=raw_content_sha256(source_bytes),
+                minimum_serving_version=(
+                    migration_serving_version.declared_minimum(module)
+                ),
+            )
+            stamped.append(entry.name)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return tuple(stamped)
 
 
@@ -229,7 +246,13 @@ def _apply_one(
     running_version: str,
     restore_point: str,
 ) -> None:
-    module = load_migration_module(entry.path, entry.name)
+    source_bytes = entry.path.read_bytes()
+    source_sha256 = raw_content_sha256(source_bytes)
+    module = load_migration_module(
+        entry.path,
+        entry.name,
+        source_bytes=source_bytes,
+    )
     minimum = migration_serving_version.declared_minimum(module)
     # Before the DDL, not after: an entry whose floor is newer than the build
     # running it means the declaration and the code disagree, and catching
@@ -237,15 +260,25 @@ def _apply_one(
     migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
     started_at = now_stamp()
     failure_state = "live_apply_failed"
+    failure_phase = "apply"
     try:
         # apply() and the ledger row land together or not at all. The module
         # contract forbids committing inside apply() for exactly this reason.
         module.apply(conn)
+        failure_state = "live_verify_failed"
+        failure_phase = "source verification"
+        if entry.path.read_bytes() != source_bytes:
+            raise MigrationApplyError(
+                f"{entry.name} source changed while apply executed"
+            )
+        failure_state = "live_apply_failed"
+        failure_phase = "ledger write"
         record_applied(
             conn,
             entry,
             ledger=ledger,
             applied_by=applied_by,
+            content_sha256=source_sha256,
             minimum_serving_version=minimum,
         )
         invariants = getattr(module, "invariants", None)
@@ -255,7 +288,14 @@ def _apply_one(
             # a failed migration look current on the next boot and prevents
             # the retry that could repair it.
             failure_state = "live_verify_failed"
+            failure_phase = "invariants"
             invariants(conn)
+        failure_state = "live_verify_failed"
+        failure_phase = "source verification"
+        if entry.path.read_bytes() != source_bytes:
+            raise MigrationApplyError(
+                f"{entry.name} source changed before migration commit"
+            )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 — receipt, then fail the boot
         conn.rollback()
@@ -269,10 +309,7 @@ def _apply_one(
             restore_point=restore_point,
             failure_reason=reason[:500],
         )
-        phase = (
-            "invariants" if failure_state == "live_verify_failed" else "apply"
-        )
-        raise EntryFailed(f"{entry.name} {phase} failed -- {reason}") from exc
+        raise EntryFailed(f"{entry.name} {failure_phase} failed -- {reason}") from exc
 
     write_receipt(
         conn,
