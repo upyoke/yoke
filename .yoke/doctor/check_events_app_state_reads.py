@@ -30,16 +30,18 @@ allowlist enumerates the sanctioned reader classes:
 - **Portability audit receipts** — bounded telemetry watermarks carried as
   source-authority comparison evidence.
 - **Emission-side capability probes** — write-path probes, not reads.
-- **Governed migration backfills** — one-time history loads into the state
-  tables (the ``migrations/`` prefix; modules retire after live apply).
+- **Governed migration backfills** — permanent ordered-history modules that
+  perform one-time loads into state tables (the exact ``migrations/``
+  prefix). Applied modules remain in history; a history may simply contain
+  no event-reading backfill.
 
 Maintenance
 -----------
 A new legitimate telemetry/audit reader adds its path here in the same
 commit, with the reader class named in the inline comment. Moving an
 app-state read back onto events is never the fix — give the concept a
-table owner. Stale entries (no longer matching) surface in the PASS detail
-so retirements clean up their allowlist rows.
+table owner. Stale exact-file entries (no longer matching) surface in the
+PASS detail so removed readers clean up their allowlist rows.
 """
 
 from __future__ import annotations
@@ -118,17 +120,17 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_event_emission.py",
     # -- teaching: telemetry-recipe SQL examples in the events packet entry
     f"{_CORE_DOMAIN_SOURCE_ROOT}/schema_api_context_tables_core.py",
-    # -- governed one-time backfills (modules retire after live apply).
-    # Legitimately empty at steady state (no migration in flight) — exempt
-    # from the stale-entry check via _TRANSIENT_EMPTY_OK below.
+    # -- governed one-time backfills in permanent ordered migration history.
+    # The exact prefix sanctions event-reading backfill modules when present;
+    # a history with no such entry may leave this class unmatched.
     f"{_CORE_DOMAIN_SOURCE_ROOT}/migrations/",
 )
 
-# Allowlist prefixes that are legitimately empty between migrations: a
-# governed backfill module reads events transiently, then retires after
-# live apply. These are structural reader classes, not retirement residue,
-# so they are never reported stale even when no file currently matches.
-_TRANSIENT_EMPTY_OK: frozenset[str] = frozenset(
+# Structural reader prefixes whose class may legitimately have no matching
+# event read. Migration modules are permanent ordered history; an unmatched
+# prefix means the current history has no event-reading backfill, never that
+# an applied module was deleted.
+_OPTIONAL_MATCH_READER_PREFIXES: frozenset[str] = frozenset(
     {f"{_CORE_DOMAIN_SOURCE_ROOT}/migrations/"}
 )
 
@@ -161,7 +163,7 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
 
     Violations are ``path:line: text`` strings for events reads outside the
     allowlist. Stale entries are allowlist rows that matched no file with a
-    read — retirement residue the owner should drop.
+    read — a removed or misclassified exact reader path the owner should drop.
     """
     violations: list[str] = []
     matched_entries: set[str] = set()
@@ -194,7 +196,7 @@ def scan_events_reads(repo_root: Path) -> tuple[list[str], list[str]]:
     stale = [
         e
         for e in ALLOWED_EVENTS_READERS
-        if e not in matched_entries and e not in _TRANSIENT_EMPTY_OK
+        if e not in matched_entries and e not in _OPTIONAL_MATCH_READER_PREFIXES
     ]
     return violations, stale
 

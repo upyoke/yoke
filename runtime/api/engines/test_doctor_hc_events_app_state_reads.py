@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 
 from yoke_project_checks.check_events_app_state_reads import (
     ALLOWED_EVENTS_READERS,
-    _TRANSIENT_EMPTY_OK,
+    _OPTIONAL_MATCH_READER_PREFIXES,
     scan_events_reads,
 )
 
@@ -52,13 +52,13 @@ class TestScanEventsReads(unittest.TestCase):
             violations, _ = scan_events_reads(root)
         self.assertEqual(len(violations), 2)
 
-    def test_allowlist_prefix_covers_directory(self):
+    def test_migration_history_prefix_covers_permanent_backfill(self):
         with TemporaryDirectory() as td:
             root = Path(td)
-            migrations_prefix = next(iter(_TRANSIENT_EMPTY_OK))
+            migrations_prefix = next(iter(_OPTIONAL_MATCH_READER_PREFIXES))
             _write(
                 root,
-                migrations_prefix + "some_backfill.py",
+                migrations_prefix + "0042_backfill_state_from_events.py",
                 'SEED = "SELECT envelope FROM events WHERE event_name = %s"\n',
             )
             violations, _ = scan_events_reads(root)
@@ -162,14 +162,16 @@ class TestScanEventsReads(unittest.TestCase):
             root = Path(td)
             (root / "packages").mkdir()
             _, stale = scan_events_reads(root)
-        # Empty tree: every entry is stale EXCEPT the transient-empty-OK
-        # reader classes (governed backfills, empty between migrations).
+        # Empty tree: every exact-file entry is stale. The governed migration
+        # prefix is a structural reader class and may have no event-reading
+        # entry in the current permanent history.
         expected = tuple(
-            e for e in ALLOWED_EVENTS_READERS if e not in _TRANSIENT_EMPTY_OK
+            e
+            for e in ALLOWED_EVENTS_READERS
+            if e not in _OPTIONAL_MATCH_READER_PREFIXES
         )
         self.assertEqual(tuple(stale), expected)
-        # The migrations backfill class is never reported stale.
-        self.assertFalse(_TRANSIENT_EMPTY_OK.intersection(stale))
+        self.assertFalse(_OPTIONAL_MATCH_READER_PREFIXES.intersection(stale))
 
     def test_event_name_lines_do_not_match(self):
         with TemporaryDirectory() as td:
