@@ -144,15 +144,27 @@ def _default_actor_id_resolver(session_id: str) -> ActorLookup:
         return ActorLookup()
     try:
         from yoke_core.domain import db_helpers
+        from yoke_core.domain.control_plane_transport import (
+            local_connection_or_none,
+        )
     except Exception:
         return ActorLookup()
+    # Never bare-connect on an https client: attempt local authority,
+    # otherwise leave actor unbound (dispatcher provenance path).
+    conn = local_connection_or_none(db_helpers.connect)
+    if conn is None:
+        return ActorLookup()
     try:
-        with db_helpers.connect() as conn:
-            return _read_actor_lookup(conn, session_id)
+        return _read_actor_lookup(conn, session_id)
     except db_backend.operational_error_types():
         return ActorLookup()
     except (AttributeError, RuntimeError, TypeError):
         return ActorLookup()
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 def _read_actor_lookup(conn: Any, session_id: str) -> ActorLookup:

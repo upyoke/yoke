@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.claims_path_override import claims_path_override
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -25,6 +26,8 @@ READINESS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("claims.path.required_gate", _adapters.claims_path_required_gate),
     ("claims", "path", "activation-run"):
         ("claims.path.activation_run", _adapters.claims_path_activation_run),
+    ("claims", "path", "override"):
+        ("claims.path.override", claims_path_override),
 }
 
 

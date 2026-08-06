@@ -64,7 +64,23 @@ def print_error(code: str, message: str, **extra: object) -> None:
 
 
 def open_conn():
-    return connect()
+    """Open a local control-plane connection, or refuse honestly.
+
+    Operator dispatch modules that still use a direct connection must not
+    bare-connect under https. Prefer the product ``yoke claims path *``
+    adapters (dispatcher/relay) for https-connected checkouts.
+    """
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
+
+    conn = local_connection_or_none(connect)
+    if conn is None:
+        raise RuntimeError(
+            "path-claims dispatch needs a local-postgres control plane; "
+            "this connection has none. Use `yoke claims path <verb>` "
+            "(dispatcher/relay) from an https checkout instead of the "
+            "legacy service_client path-claims entrypoints."
+        )
+    return conn
 
 
 __all__ = [

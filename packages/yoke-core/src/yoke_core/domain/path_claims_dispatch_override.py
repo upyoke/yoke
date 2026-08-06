@@ -1,9 +1,9 @@
 """``path-claims override`` CLI handler.
 
-Sibling of :mod:`path_claims_dispatch` for the operator-collision-
-approval surface. The parent dispatch module imports this handler
-and registers it under the same ``path-claims override`` subcommand
-operators see in ``path-claims --help``.
+Routes through the registered ``claims.path.override`` function so the
+operator surface works over an https control plane. The legacy
+``service_client path-claim-override`` entry still reaches this module;
+both paths must relay rather than bare-connect.
 
 Usage:
 
@@ -28,18 +28,7 @@ from __future__ import annotations
 import argparse
 from typing import List, Sequence
 
-from yoke_core.domain.path_claims_dispatch_io import (
-    open_conn,
-    print_error,
-    print_json,
-)
-from yoke_core.domain.path_claims_override import (
-    ClaimNotFound,
-    EmptyActorReason,
-    HookContextRejection,
-    PathClaimOverrideError,
-    invoke_override,
-)
+from yoke_core.domain.path_claims_dispatch_io import print_error, print_json
 
 
 def _parse_int_list(raw: str) -> List[int]:
@@ -83,59 +72,48 @@ def cmd_override(argv: Sequence[str]) -> int:
         print_error("USAGE", "see --help for path-claims override")
         return 2
 
-    conn = open_conn()
-    try:
-        try:
-            event_id = invoke_override(
-                conn,
-                path_claim_id=args.claim_id,
-                override_point=args.override_point,
-                integration_target=args.integration_target,
-                actor_id=args.actor_id,
-                actor_reason=args.actor_reason,
-                blocking_claim_id=args.blocking_claim_id,
-                blocking_path_targets=(
-                    _parse_int_list(args.blocking_path_targets)
-                    if args.blocking_path_targets
-                    else []
-                ),
-                conflict_reason=args.conflict_reason,
-                item_id=args.item_id,
-                project=args.project,
-                session_id=args.session_id,
-            )
-        except HookContextRejection as exc:
-            # Distinct error code so the hook-context rejection
-            # is grep-able from the empty-reason rejection.
-            print_error(
-                "HOOK_CONTEXT", str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except EmptyActorReason as exc:
-            print_error(
-                "EMPTY_ACTOR_REASON", str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except ClaimNotFound as exc:
-            print_error(
-                "CLAIM_NOT_FOUND", str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-        except (PathClaimOverrideError, ValueError) as exc:
-            print_error(
-                "VALIDATION", str(exc),
-                claim_id=args.claim_id,
-            )
-            return 1
-    finally:
-        conn.close()
+    from yoke_contracts.api.function_call import ActorContext, TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
 
+    payload = {
+        "path_claim_id": args.claim_id,
+        "override_point": args.override_point,
+        "integration_target": args.integration_target,
+        "actor_id": args.actor_id,
+        "actor_reason": args.actor_reason,
+        "blocking_claim_id": args.blocking_claim_id,
+        "blocking_path_targets": (
+            _parse_int_list(args.blocking_path_targets)
+            if args.blocking_path_targets
+            else []
+        ),
+        "conflict_reason": args.conflict_reason,
+        "item_id": args.item_id,
+        "project": args.project,
+    }
+    actor = ActorContext(session_id=args.session_id or "")
+    response = call_dispatcher(
+        function_id="claims.path.override",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        actor=actor,
+    )
+    if not response.success:
+        code = (
+            response.error.code if response.error is not None else "override_failed"
+        )
+        message = (
+            response.error.message if response.error is not None else "override failed"
+        )
+        print_error(str(code).upper(), message, claim_id=args.claim_id)
+        return 1
+
+    result = response.result or {}
     print_json({
         "success": True,
-        "event_id": event_id,
+        "event_id": result.get("override_event_id"),
         "claim_id": args.claim_id,
         "blocking_claim_id": args.blocking_claim_id,
         "override_point": args.override_point,

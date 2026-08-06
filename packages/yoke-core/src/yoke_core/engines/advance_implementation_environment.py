@@ -113,26 +113,67 @@ def run(
             "project": project, "branch": branch, "push_error": push_err,
         }
 
+    from yoke_core.domain.control_plane_transport import (
+        local_connection_or_none,
+        relay,
+    )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.ephemeral_env import cmd_create, cmd_update
-    with connect() as conn:
-        item_label = _item_label(conn, item)
-        env_id_raw = cmd_create(conn, project, branch, item=item_label)
+
+    conn = local_connection_or_none(connect)
+    if conn is not None:
         try:
-            env_id = int(env_id_raw)
-        except (TypeError, ValueError):
-            return "pending:env-create-failed", {
-                "project": project, "branch": branch, "env_id": env_id_raw,
-            }
-
-    slug = slugify_branch(branch)
-    url = preview_url(slug, policy.preview_domain)
-    deployed_sha = _git_ref_sha(repo_root, branch)
-
-    with connect() as conn:
-        cmd_update(conn, env_id, "url", url)
+            item_label = _item_label(conn, item)
+            env_id_raw = cmd_create(conn, project, branch, item=item_label)
+            try:
+                env_id = int(env_id_raw)
+            except (TypeError, ValueError):
+                return "pending:env-create-failed", {
+                    "project": project, "branch": branch, "env_id": env_id_raw,
+                }
+            slug = slugify_branch(branch)
+            url = preview_url(slug, policy.preview_domain)
+            deployed_sha = _git_ref_sha(repo_root, branch)
+            cmd_update(conn, env_id, "url", url)
+            if deployed_sha:
+                cmd_update(conn, env_id, "deployed_sha", deployed_sha)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    else:
+        # https / no local Postgres: relay CP writes through registered
+        # ephemeral_env.* functions — never bare-connect, never YOKE_ENV=.
+        item_label = ""
+        item_id = item.get("id")
+        if item_id:
+            item_label = str(item.get("public_ref") or item_id)
+        created = relay(
+            "ephemeral_env.create",
+            {
+                "project": str(project),
+                "branch": branch,
+                "item": item_label,
+            },
+        )
+        env_id = int(created["env_id"])
+        slug = slugify_branch(branch)
+        url = preview_url(slug, policy.preview_domain)
+        deployed_sha = _git_ref_sha(repo_root, branch)
+        relay(
+            "ephemeral_env.update",
+            {"env_id": env_id, "field": "url", "value": url},
+        )
         if deployed_sha:
-            cmd_update(conn, env_id, "deployed_sha", deployed_sha)
+            relay(
+                "ephemeral_env.update",
+                {
+                    "env_id": env_id,
+                    "field": "deployed_sha",
+                    "value": deployed_sha,
+                },
+            )
 
     return "provisioned", {
         "project": project, "branch": branch, "env_id": env_id,
