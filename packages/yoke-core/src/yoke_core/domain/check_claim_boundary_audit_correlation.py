@@ -77,20 +77,29 @@ def has_correlated_function_call(
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     event_id = int(harness_row["id"])
     rows = conn.execute(
-        "SELECT envelope FROM events "
+        "SELECT item_id, envelope FROM events "
         "WHERE event_name='YokeFunctionCalled' "
-        f"AND session_id={p} AND item_id={p} AND id BETWEEN {p} AND {p} "
+        f"AND session_id={p} AND id BETWEEN {p} AND {p} "
         "ORDER BY id",
         (
             harness_row["session_id"],
-            str(item_id),
             event_id - id_window,
             event_id + id_window,
         ),
     ).fetchall()
     for row in rows:
         ctx = _envelope(row["envelope"]).get("context") or {}
-        if isinstance(ctx, dict) and str(ctx.get("function") or "") == function_name:
+        if not isinstance(ctx, dict):
+            continue
+        target = ctx.get("target")
+        target = target if isinstance(target, dict) else {}
+        durable_item_id = _coerce_item_id(target.get("item_id"))
+        if durable_item_id is None:
+            durable_item_id = _coerce_item_id(row["item_id"])
+        if (
+            durable_item_id == item_id
+            and str(ctx.get("function") or "") == function_name
+        ):
             return True
     return False
 
