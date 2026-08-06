@@ -9,16 +9,19 @@ from __future__ import annotations
 
 from unittest import mock
 
-# The helpers import ``yoke_core.api.main`` (building the app) before the
-# route module, matching the production import direction — importing
-# ``items_health`` first would enter the app-build cycle mid-initialization.
-from runtime.api.test_api_helpers import test_db, client  # noqa: F401
+# Import the fixture plugin before the route module so it builds
+# ``yoke_core.api.main`` in production order; plugin registration avoids
+# rebinding its fixture names in this module.
+from runtime.api import test_api_helpers as _test_api_helpers  # noqa: F401
 from runtime.api.fixtures.file_test_db import connect_test_db
 import yoke_core.api.routes.items_health as items_health
 from yoke_core.domain.migration_content_identity import (
     ContentIdentityStatus,
     ContentMismatch,
 )
+
+
+pytest_plugins = ("runtime.api.test_api_helpers",)
 
 
 class TestHealthSchemaReady:

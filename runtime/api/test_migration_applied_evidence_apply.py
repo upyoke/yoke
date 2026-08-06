@@ -22,10 +22,11 @@ from runtime.api.fixtures.migration_model_test import (
 from runtime.api.migration_applied_evidence_test_helpers import (
     _advance_status,
     _seed_governed_item,
-    regression_db,  # noqa: F401 — re-exported fixture
-    tmp_db,  # noqa: F401 — re-exported fixture
 )
 from runtime.api.test_backlog import _conn
+
+
+pytest_plugins = ("runtime.api.migration_applied_evidence_test_helpers",)
 
 
 # ---------------------------------------------------------------------------

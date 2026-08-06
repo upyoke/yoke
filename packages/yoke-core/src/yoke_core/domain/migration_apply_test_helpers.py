@@ -26,7 +26,7 @@ from yoke_core.domain.migration_apply_targets import (
 )
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixture
+from runtime.api.test_backlog import _conn
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
 
