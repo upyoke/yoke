@@ -115,9 +115,15 @@ def test_cmd_init_creates_no_board_activity_indexes(fresh_db: Path) -> None:
         conn.close()
 
 
-def test_existing_events_table_does_not_gain_actor_id_outside_migration(
+def test_existing_events_table_gains_actor_id_from_additive_converge(
     tmp_path: Path,
 ) -> None:
+    """Born databases may predate CREATE TABLE actor_id; converge must add it.
+
+    Migration history runs after schema converge and joins ``events.actor_id``
+    (inbox notification projection backfill). Leaving the column migration-only
+    after that additive history was retired leaves born DBs without the column.
+    """
     db_path = tmp_path / "legacy.db"
     conn = _open(db_path)
     try:
@@ -142,7 +148,7 @@ def test_existing_events_table_does_not_gain_actor_id_outside_migration(
 
         ensure_event_schema(conn)
 
-        assert not _column_exists(conn, "events", "actor_id")
-        assert "idx_events_actor_id" not in _index_names(conn)
+        assert _column_exists(conn, "events", "actor_id")
+        assert "idx_events_actor_id" in _index_names(conn)
     finally:
         conn.close()
