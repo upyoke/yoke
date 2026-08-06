@@ -14,6 +14,7 @@ from yoke_contracts.cursor_permissions import (
 )
 from yoke_core.domain import project_install_source_link as source_link
 from yoke_core.domain.agents_render_cursor import render_cursor_hooks_json
+from yoke_core.domain.project_install_files import ProjectInstallError
 
 CONFIGURED_ORIGIN = "control.example.test"
 
@@ -144,3 +145,36 @@ def test_source_link_migrates_legacy_claude_settings_symlink(checkout) -> None:
         checkout / "runtime/harness/claude/settings.json"
     ).read_bytes()
     assert report["materialized_files_updated"] == 1
+
+
+def test_source_link_does_not_follow_predictable_temp_symlink(checkout) -> None:
+    victim = checkout.parent / "outside-settings.json"
+    victim.write_text("operator data\n", encoding="utf-8")
+    temporary = checkout / ".claude/settings.json.tmp"
+    temporary.parent.mkdir(parents=True)
+    temporary.symlink_to(victim)
+
+    source_link.install_source_link(checkout)
+
+    assert victim.read_text(encoding="utf-8") == "operator data\n"
+    assert temporary.is_symlink()
+    assert (checkout / ".claude/settings.json").read_bytes() == (
+        checkout / "runtime/harness/claude/settings.json"
+    ).read_bytes()
+
+
+@pytest.mark.parametrize("parent_rel", [".claude", ".cursor"])
+def test_source_link_refuses_internal_symlinked_config_parent(
+    checkout: Path, parent_rel: str,
+) -> None:
+    real_parent = checkout / f"{parent_rel}-real"
+    real_parent.mkdir()
+    (checkout / parent_rel).symlink_to(
+        real_parent.name, target_is_directory=True,
+    )
+
+    with pytest.raises(ProjectInstallError, match="symlinked parent"):
+        source_link.install_source_link(checkout)
+
+    assert list(real_parent.iterdir()) == []
+    assert not (checkout / ".yoke/install-manifest.json").exists()

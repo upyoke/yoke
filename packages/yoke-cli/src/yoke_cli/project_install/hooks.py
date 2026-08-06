@@ -32,6 +32,10 @@ from yoke_cli.project_install.hook_entries import (
     record_key,
 )
 from yoke_cli.project_install.hook_schema import validate_hooks_subtree
+from yoke_cli.filesystem_safety import (
+    atomic_replace_bytes,
+    first_symlink_component,
+)
 
 CLAUDE_SETTINGS_REL = ".claude/settings.json"
 CODEX_HOOKS_REL = ".codex/hooks.json"
@@ -50,7 +54,6 @@ DEFAULT_PAYLOAD_BY_SETTINGS_REL = {
     CURSOR_HOOKS_REL: {"version": 1},
 }
 
-
 def _load_settings(path: Path) -> Dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -64,15 +67,25 @@ def _load_settings(path: Path) -> Dict[str, Any]:
     return payload
 
 
+def _assert_settings_target(
+    repo_root: Path, settings_rel: str, *, context: str,
+) -> None:
+    assert_resolved_targets_within(repo_root, [settings_rel], context=context)
+    target = repo_root / settings_rel
+    symlink = first_symlink_component(repo_root, target)
+    if symlink is not None:
+        raise ProjectInstallError(
+            f"{context} target {settings_rel!r} crosses symlinked parent "
+            f"{symlink}; replace that directory link with a real directory"
+        )
+
+
 def _write_settings(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink():
-        path.unlink()
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    atomic_replace_bytes(
+        path,
+        (json.dumps(payload, indent=2) + "\n").encode("utf-8"),
     )
-    temporary.replace(path)
 
 
 def _validated_settings_payload(path: Path) -> Dict[str, Any]:
@@ -108,10 +121,8 @@ def plan_hooks_file(
         hooks_subtree,
         entry_format=hook_entry_format(settings_rel),
     )
-    assert_resolved_targets_within(
-        repo_root,
-        [settings_rel],
-        context="hook settings mutation",
+    _assert_settings_target(
+        repo_root, settings_rel, context="hook settings mutation",
     )
     target = repo_root / settings_rel
     materialize = target.is_symlink()
@@ -229,10 +240,8 @@ def merge_hooks_file(
         hooks_subtree,
         entry_format=hook_entry_format(settings_rel),
     )
-    assert_resolved_targets_within(
-        repo_root,
-        [settings_rel],
-        context="hook settings mutation",
+    _assert_settings_target(
+        repo_root, settings_rel, context="hook settings mutation",
     )
     target = repo_root / settings_rel
     if not target.is_file():
@@ -286,10 +295,8 @@ def demerge_hooks_file(
     deleted only when it becomes ``{"hooks": {}}``-empty AND install
     created it; operator-authored files and entries always survive.
     """
-    assert_resolved_targets_within(
-        repo_root,
-        [settings_rel],
-        context="hook settings removal",
+    _assert_settings_target(
+        repo_root, settings_rel, context="hook settings removal",
     )
     target = repo_root / settings_rel
     if not target.is_file():

@@ -26,6 +26,7 @@ _ENGINE_SESSION_SLUGS = (
     "session-pre-implementing-activity",
     "session-lane-mismatch",
 )
+_ENGINE_CONFIG_SLUGS = ("project-hook-config-validity",)
 
 # Session/harness substrate checks that read this repo's own hook wiring and
 # machine browser runtime, so this project keeps them in ``.yoke/doctor/``.
@@ -103,6 +104,7 @@ def test_bundle_holds_session_then_audit_checks_in_order():
     slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
     assert slugs == (
         list(_ENGINE_SESSION_SLUGS)
+        + list(_ENGINE_CONFIG_SLUGS)
         + list(_ENGINE_LEDGER_AUDIT_SLUGS)
         + list(_ENGINE_REFLECTION_SLUGS)
     )

@@ -25,6 +25,7 @@ from yoke_core.engines.doctor_report import (
     RecordCollector,
     _resolve_repo_root,
 )
+from yoke_cli.filesystem_safety import first_symlink_component
 
 
 # Required Cursor-native events in hooks.json. The shell gate rides
@@ -102,10 +103,14 @@ def hc_cursor_hook_surfacing(conn, args: DoctorArgs, rec: RecordCollector) -> No
     problems: List[str] = []
     for project_path, _canonical_path in _MATERIALIZED_CONFIGS:
         hooks_file = root / project_path
-        if hooks_file.is_symlink():
+        symlink = first_symlink_component(
+            root, hooks_file, include_leaf=True,
+        )
+        if symlink is not None:
             problems.append(
-                f"{project_path} is a symlink; Cursor refuses project "
-                "hook config paths containing symlinks"
+                f"{project_path} contains symlink component "
+                f"{symlink.relative_to(root)}; "
+                "Cursor refuses project hook config paths containing symlinks"
             )
         elif not hooks_file.is_file():
             problems.append(f"{project_path} is not a regular file")
@@ -139,9 +144,14 @@ def cursor_hook_config_diagnostics(root: Path) -> List[str]:
     for project_path, canonical_path in _MATERIALIZED_CONFIGS:
         native = root / project_path
         canonical = root / canonical_path
-        if native.is_symlink():
+        symlink = first_symlink_component(
+            root, native, include_leaf=True,
+        )
+        if symlink is not None:
             problems.append(
-                f"{project_path} is a symlink; Cursor may reject this project config"
+                f"{project_path} contains symlink component "
+                f"{symlink.relative_to(root)}; "
+                "Cursor may reject this project config"
             )
             continue
         if not native.is_file():

@@ -46,6 +46,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_cli.project_install.cursor_permissions import apply_cursor_permissions
+from yoke_cli.filesystem_safety import (
+    atomic_replace_bytes,
+    first_symlink_component,
+)
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
 from yoke_core.domain import project_install_files as files_layer
 from yoke_core.domain.project_install_files import (
@@ -157,6 +161,15 @@ def ensure_dev_symlink(
     result.installed += 1
 
 
+def _assert_no_symlinked_parent(target_root: Path, rel: str) -> None:
+    symlink = first_symlink_component(target_root, target_root / rel)
+    if symlink is not None:
+        raise ProjectInstallError(
+            f"source-link materialized file {rel!r} crosses symlinked parent "
+            f"{symlink}; replace that directory link with a real directory"
+        )
+
+
 def ensure_dev_materialized_file(
     target_root: Path,
     rel: str,
@@ -176,6 +189,7 @@ def ensure_dev_materialized_file(
         [rel, source_rel],
         context="source-link materialized file mutation",
     )
+    _assert_no_symlinked_parent(target_root, rel)
     source = target_root / source_rel
     try:
         content = source.read_bytes()
@@ -186,16 +200,14 @@ def ensure_dev_materialized_file(
 
     target = target_root / rel
     was_link = target.is_symlink()
-    if was_link:
-        target.unlink()
-    had_file = target.is_file()
-    if target.exists() and not target.is_file():
+    had_file = target.is_file() and not was_link
+    if not was_link and target.exists() and not target.is_file():
         result.warn(
             f"{rel} exists as a regular file/dir. Move or remove it and "
             "re-run `yoke dev setup` so the materialized file can be created."
         )
         return
-    if target.is_file() and not was_link:
+    if had_file:
         try:
             if target.read_bytes() == content:
                 result.note(f"Exists: {rel} (materialized from {source_rel})")
@@ -205,9 +217,7 @@ def ensure_dev_materialized_file(
             pass
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_bytes(content)
-    os.replace(str(temporary), str(target))
+    atomic_replace_bytes(target, content)
     action = "Updated" if was_link or had_file else "Created"
     result.note(f"{action}: {rel} (materialized from {source_rel})")
     if action == "Updated":
@@ -234,6 +244,13 @@ def install_source_link(
     from yoke_core.domain.install_bundle import yoke_version
 
     old_manifest = files_layer.load_manifest(repo_root) or {}
+    for rel, source_rel in DEV_MATERIALIZED_FILES:
+        files_layer.assert_resolved_targets_within(
+            repo_root,
+            [rel, source_rel],
+            context="source-link materialized file mutation",
+        )
+        _assert_no_symlinked_parent(repo_root, rel)
     links = BootstrapResult()
     for rel, link_target in DEV_SYMLINKS:
         ensure_dev_symlink(repo_root, rel, link_target, links)
