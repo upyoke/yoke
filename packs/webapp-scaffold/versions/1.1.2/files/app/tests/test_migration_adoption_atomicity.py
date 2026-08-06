@@ -15,10 +15,12 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, APP_DIR)
 
 from db.migrations import migrate as migration_runner  # noqa: E402
-
-
-SOURCE_COMMIT = "b" * 40
-SOURCE_SHA256 = "a" * 64
+from tests.conftest import (  # noqa: E402
+    SOURCE_COMMIT,
+    SOURCE_SHA256,
+    adoption_arguments as _adoption_args,
+    write_adoption_manifest as _manifest,
+)
 
 
 def _entry(directory, name: str, source: str):
@@ -31,40 +33,6 @@ def _digest(path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _manifest(path, entries: dict[str, str]):
-    payload = {
-        "schema_version": 1,
-        "artifact": {
-            "engine_version": "1.0.0",
-            "source_artifact": "sample-app-1.0.0",
-            "source_sha256": SOURCE_SHA256,
-            "source_commit": SOURCE_COMMIT,
-        },
-        "entries": [
-            {"name": name, "content_sha256": digest}
-            for name, digest in entries.items()
-        ],
-    }
-    canonical = json.dumps(
-        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True,
-    ).encode("utf-8")
-    manifest_sha256 = hashlib.sha256(canonical).hexdigest()
-    path.write_text(
-        json.dumps({**payload, "manifest_sha256": manifest_sha256}),
-        encoding="utf-8",
-    )
-    return path, manifest_sha256
-
-
-def _adoption_args(manifest_sha256: str) -> dict:
-    return {
-        "source_commit": SOURCE_COMMIT,
-        "source_sha256": SOURCE_SHA256,
-        "manifest_sha256": manifest_sha256,
-        "adopted_by": "test-operator",
-    }
-
-
 def _ledger(conn) -> None:
     conn.execute(
         "CREATE TABLE schema_version ("
@@ -75,7 +43,8 @@ def _ledger(conn) -> None:
 
 
 def test_exact_manifest_adopts_and_records_trusted_artifact_identity(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -97,11 +66,14 @@ def test_exact_manifest_adopts_and_records_trusted_artifact_identity(
     conn.commit()
     conn.close()
     manifest, manifest_sha256 = _manifest(
-        tmp_path / "adopt.json", {"0001_existing": _digest(module)},
+        tmp_path / "adopt.json",
+        {"0001_existing": _digest(module)},
     )
 
     result = migration_runner.migrate(
-        db_path=database, running_version="1.0.0", adoption_manifest=manifest,
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
         **_adoption_args(manifest_sha256),
     )
 
@@ -116,10 +88,17 @@ def test_exact_manifest_adopts_and_records_trusted_artifact_identity(
     conn.close()
     assert row == ("0001_existing", _digest(module))
     assert receipt[:4] == (
-        manifest_sha256, SOURCE_SHA256, SOURCE_COMMIT, "test-operator",
+        manifest_sha256,
+        SOURCE_SHA256,
+        SOURCE_COMMIT,
+        "test-operator",
     )
     assert json.loads(receipt[4]) == [
-        {"content_sha256": _digest(module), "name": "0001_existing"}
+        {
+            "content_sha256": _digest(module),
+            "minimum_serving_version": None,
+            "name": "0001_existing",
+        }
     ]
     assert result["data"]["adopted"] == ["0001_existing"]
     assert result["data"]["applied"] == []
@@ -127,7 +106,8 @@ def test_exact_manifest_adopts_and_records_trusted_artifact_identity(
 
 
 def test_wrong_entry_digest_refuses_every_identity_update(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -147,8 +127,12 @@ def test_wrong_entry_digest_refuses_every_identity_update(
     database = tmp_path / "app.db"
     conn = sqlite3.connect(database)
     _ledger(conn)
-    conn.execute("INSERT INTO schema_version VALUES ('0001_first', 1, NULL, NULL, NULL)")
-    conn.execute("INSERT INTO schema_version VALUES ('0002_second', 2, NULL, NULL, NULL)")
+    conn.execute(
+        "INSERT INTO schema_version VALUES ('0001_first', 1, NULL, NULL, NULL)"
+    )
+    conn.execute(
+        "INSERT INTO schema_version VALUES ('0002_second', 2, NULL, NULL, NULL)"
+    )
     conn.commit()
     conn.close()
     manifest, manifest_sha256 = _manifest(
@@ -158,8 +142,10 @@ def test_wrong_entry_digest_refuses_every_identity_update(
 
     with pytest.raises(RuntimeError, match="does not match the exact"):
         migration_runner.migrate(
-            db_path=database, running_version="1.0.0",
-            adoption_manifest=manifest, **_adoption_args(manifest_sha256),
+            db_path=database,
+            running_version="1.0.0",
+            adoption_manifest=manifest,
+            **_adoption_args(manifest_sha256),
         )
 
     conn = sqlite3.connect(database)
@@ -171,15 +157,15 @@ def test_wrong_entry_digest_refuses_every_identity_update(
 
 
 def test_project_state_verifier_adopts_apply_only_permanent_module(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
     module = _entry(
         history,
         "0001_existing",
-        "def apply(conn):\n"
-        "    raise AssertionError('adoption must not replay')\n",
+        "def apply(conn):\n    raise AssertionError('adoption must not replay')\n",
     )
     permanent_bytes = module.read_bytes()
     monkeypatch.setattr(migration_runner, "MIGRATIONS_DIR", history)
@@ -188,13 +174,18 @@ def test_project_state_verifier_adopts_apply_only_permanent_module(
     conn.execute("CREATE TABLE marks (value TEXT)")
     conn.execute("INSERT INTO marks VALUES ('ok')")
     _ledger(conn)
-    conn.execute("INSERT INTO schema_version (migration_name, version) VALUES (?, ?)", (
-        "0001_existing", 1,
-    ))
+    conn.execute(
+        "INSERT INTO schema_version (migration_name, version) VALUES (?, ?)",
+        (
+            "0001_existing",
+            1,
+        ),
+    )
     conn.commit()
     conn.close()
     manifest, manifest_sha256 = _manifest(
-        tmp_path / "adopt.json", {"0001_existing": _digest(module)},
+        tmp_path / "adopt.json",
+        {"0001_existing": _digest(module)},
     )
     verified = []
 
@@ -203,7 +194,9 @@ def test_project_state_verifier_adopts_apply_only_permanent_module(
         verified.append("0001_existing")
 
     result = migration_runner.migrate(
-        db_path=database, running_version="1.0.0", adoption_manifest=manifest,
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
         adoption_state_verifiers={"0001_existing": verify_existing_state},
         **_adoption_args(manifest_sha256),
     )
@@ -221,7 +214,10 @@ def test_project_state_verifier_adopts_apply_only_permanent_module(
     ],
 )
 def test_invalid_state_verifier_registry_refuses_before_identity_mutation(
-    tmp_path, monkeypatch, registry, message,
+    tmp_path,
+    monkeypatch,
+    registry,
+    message,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -241,12 +237,14 @@ def test_invalid_state_verifier_registry_refuses_before_identity_mutation(
     conn.commit()
     conn.close()
     manifest, manifest_sha256 = _manifest(
-        tmp_path / "adopt.json", {"0001_existing": _digest(module)},
+        tmp_path / "adopt.json",
+        {"0001_existing": _digest(module)},
     )
 
     with pytest.raises(RuntimeError, match=message):
         migration_runner.migrate(
-            db_path=database, running_version="1.0.0",
+            db_path=database,
+            running_version="1.0.0",
             adoption_manifest=manifest,
             adoption_state_verifiers=registry,
             **_adoption_args(manifest_sha256),
@@ -266,7 +264,8 @@ def test_invalid_state_verifier_registry_refuses_before_identity_mutation(
 
 
 def test_failed_state_equivalence_rolls_back_identity_and_receipt(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -289,13 +288,16 @@ def test_failed_state_equivalence_rolls_back_identity_and_receipt(
     conn.commit()
     conn.close()
     manifest, manifest_sha256 = _manifest(
-        tmp_path / "state.json", {"0001_expected_state": _digest(module)},
+        tmp_path / "state.json",
+        {"0001_expected_state": _digest(module)},
     )
 
     with pytest.raises(AssertionError):
         migration_runner.migrate(
-            db_path=database, running_version="1.0.0",
-            adoption_manifest=manifest, **_adoption_args(manifest_sha256),
+            db_path=database,
+            running_version="1.0.0",
+            adoption_manifest=manifest,
+            **_adoption_args(manifest_sha256),
         )
 
     conn = sqlite3.connect(database)

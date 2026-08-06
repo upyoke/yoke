@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-from packaging.version import InvalidVersion, Version
-
 APP_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(APP_DIR))
 
@@ -21,6 +19,13 @@ from utils.db import (  # noqa: E402
     establish_migration_restore_point,
     get_connection,
     preview_migration_work,
+)
+from db.migrations.adoption_manifest import (  # noqa: E402
+    minimum_serving_version,
+    read_adoption_manifest,
+    refuse_old_build,
+    validated_running_version,
+    verify_artifact_evidence,
 )
 from db.migrations.content_identity import (  # noqa: E402
     adopt_from_manifest,
@@ -31,13 +36,23 @@ from db.migrations.content_identity import (  # noqa: E402
     module_sha256,
     require_matching_content,
 )
+from db.migrations.receipt_guards import (  # noqa: E402
+    ensure_schema_version,
+    require_adoption_receipt_guards,
+)
 
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent
 MIGRATION_RE = re.compile(r"^(\d{4})_([a-z0-9][a-z0-9_]*)\.py$")
 SURFACE_REMOVAL_RE = re.compile(r"\bDROP\s+(COLUMN|TABLE)\b", re.IGNORECASE)
 SPECIAL_FILES = frozenset(
-    {"__init__.py", "adoption_manifest.py", "content_identity.py", "migrate.py"}
+    {
+        "__init__.py",
+        "adoption_manifest.py",
+        "content_identity.py",
+        "migrate.py",
+        "receipt_guards.py",
+    }
 )
 
 
@@ -71,19 +86,30 @@ def ordered_history() -> tuple[MigrationEntry, ...]:
     return tuple(sorted(entries, key=lambda entry: entry.sequence))
 
 
-def load_migration_module(entry: MigrationEntry) -> ModuleType:
+def load_migration_module(
+    entry: MigrationEntry,
+    *,
+    source_bytes: bytes | None = None,
+) -> ModuleType:
     """Load one entry and enforce its serving-floor declaration."""
     spec = importlib.util.spec_from_file_location(
-        f"_{{project_slug}}_migration_{entry.name}", entry.path,
+        f"_{{project_slug}}_migration_{entry.name}",
+        entry.path,
     )
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load migration {entry.name} at {entry.path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    content = entry.path.read_bytes() if source_bytes is None else source_bytes
+    try:
+        code = compile(content, str(entry.path), "exec")
+        exec(code, module.__dict__)
+        source_text = content.decode("utf-8")
+    except (UnicodeDecodeError, SyntaxError) as exc:
+        raise RuntimeError(f"Cannot load migration {entry.name}: {exc}") from exc
     if not callable(getattr(module, "apply", None)):
         raise RuntimeError(f"Migration {entry.name} must define apply(conn)")
     floor = minimum_serving_version(module)
-    if floor is None and SURFACE_REMOVAL_RE.search(entry.path.read_text()):
+    if floor is None and SURFACE_REMOVAL_RE.search(source_text):
         raise RuntimeError(
             f"Migration {entry.name} removes a surface and must declare "
             "MINIMUM_SERVING_VERSION"
@@ -91,89 +117,27 @@ def load_migration_module(entry: MigrationEntry) -> ModuleType:
     return module
 
 
-def minimum_serving_version(module: ModuleType) -> str | None:
-    raw = getattr(module, "MINIMUM_SERVING_VERSION", None)
-    if raw is None or not str(raw).strip():
-        return None
-    value = str(raw).strip()
-    try:
-        Version(value)
-    except InvalidVersion as exc:
-        raise RuntimeError(
-            f"MINIMUM_SERVING_VERSION is invalid: {value!r}"
-        ) from exc
-    return value
-
-
-def ensure_schema_version(
-    conn, history: tuple[MigrationEntry, ...], *, commit: bool = True,
-) -> None:
-    """Create identity columns without inferring evidence for legacy rows."""
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS schema_version ("
-        "migration_name TEXT PRIMARY KEY, version INTEGER UNIQUE, "
-        "applied_at DATETIME DEFAULT (datetime('now')), "
-        "minimum_serving_version TEXT, content_sha256 TEXT)"
-    )
-    columns = {
-        row[1] for row in conn.execute("PRAGMA table_info(schema_version)").fetchall()
-    }
-    if "migration_name" not in columns:
-        conn.execute("ALTER TABLE schema_version ADD COLUMN migration_name TEXT")
-    if "minimum_serving_version" not in columns:
-        conn.execute(
-            "ALTER TABLE schema_version ADD COLUMN minimum_serving_version TEXT"
-        )
-    if "content_sha256" not in columns:
-        conn.execute("ALTER TABLE schema_version ADD COLUMN content_sha256 TEXT")
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS "
-        "schema_version_migration_name_uq ON schema_version(migration_name)"
-    )
-    if commit:
-        conn.commit()
-
-
-def _refuse_old_build(name: str, running_version: str, floor: str | None) -> None:
-    running_version = _validated_running_version(running_version)
-    if not floor:
-        return
-    try:
-        safe = Version(running_version) >= Version(floor)
-    except InvalidVersion as exc:
-        raise RuntimeError(
-            f"Cannot compare build {running_version!r} with {name} floor {floor!r}"
-        ) from exc
-    if not safe:
-        raise RuntimeError(
-            f"Migration {name} requires build {floor} or newer; this build is "
-            f"{running_version}"
-        )
-
-
-def _validated_running_version(running_version: str) -> str:
-    value = str(running_version).strip()
-    if not value:
-        raise RuntimeError("non-empty running artifact version is required")
-    try:
-        Version(value)
-    except InvalidVersion as exc:
-        raise RuntimeError(f"Invalid running artifact version: {value!r}") from exc
-    return value
-
-
 def apply_migration(conn, entry: MigrationEntry, *, running_version: str) -> None:
     """Commit mutation, verification, membership, and floor atomically."""
-    module = load_migration_module(entry)
-    digest = module_sha256(entry)
+    source_bytes = entry.path.read_bytes()
+    module = load_migration_module(entry, source_bytes=source_bytes)
+    if entry.path.read_bytes() != source_bytes:
+        raise RuntimeError(
+            f"Migration {entry.name} source changed while the module loaded"
+        )
+    digest = module_sha256(entry, source_bytes=source_bytes)
     floor = minimum_serving_version(module)
-    _refuse_old_build(entry.name, running_version, floor)
+    refuse_old_build(entry.name, running_version, floor)
     try:
         conn.execute("BEGIN IMMEDIATE")
         module.apply(conn)
         invariants = getattr(module, "invariants", None)
         if callable(invariants):
             invariants(conn)
+        if entry.path.read_bytes() != source_bytes:
+            raise RuntimeError(
+                f"Migration {entry.name} source changed while apply executed"
+            )
         existing = conn.execute(
             "SELECT migration_name FROM schema_version WHERE version=?",
             (entry.sequence,),
@@ -195,6 +159,10 @@ def apply_migration(conn, entry: MigrationEntry, *, running_version: str) -> Non
                 "VALUES (?, ?, ?, ?)",
                 (entry.name, entry.sequence, floor, digest),
             )
+        if entry.path.read_bytes() != source_bytes:
+            raise RuntimeError(
+                f"Migration {entry.name} source changed before migration commit"
+            )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -210,13 +178,18 @@ def migration_state(conn, *, running_version: str) -> dict:
         applied = applied_names(conn, history) if columns else set()
         by_sequence = {entry.sequence for entry in history}
         name_expr = "migration_name" if "migration_name" in columns else "NULL"
-        unmapped = [
-            row[0] for row in conn.execute(
-                f"SELECT version FROM schema_version WHERE {name_expr} IS NULL "
-                "ORDER BY version"
-            ).fetchall()
-            if row[0] is None or int(row[0]) not in by_sequence
-        ] if "version" in columns else []
+        unmapped = (
+            [
+                row[0]
+                for row in conn.execute(
+                    f"SELECT version FROM schema_version WHERE {name_expr} IS NULL "
+                    "ORDER BY version"
+                ).fetchall()
+                if row[0] is None or int(row[0]) not in by_sequence
+            ]
+            if "version" in columns
+            else []
+        )
         floor_rows = (
             conn.execute(
                 "SELECT migration_name, minimum_serving_version "
@@ -243,22 +216,30 @@ def migration_state(conn, *, running_version: str) -> dict:
             declared = minimum_serving_version(load_migration_module(entry))
             if floor != declared:
                 stranded.append(
-                    f"{name}: declared serving floor is absent" if floor is None
-                    else f"{name}: recorded floor {floor!r} != packaged {declared!r}")
+                    f"{name}: declared serving floor is absent"
+                    if floor is None
+                    else f"{name}: recorded floor {floor!r} != packaged {declared!r}"
+                )
                 continue
         if not floor:
             continue
         try:
-            _refuse_old_build(name, running_version, floor)
+            refuse_old_build(name, running_version, floor)
         except RuntimeError as exc:
             stranded.append(str(exc))
-    content_safe = not identity["content_mismatches"]
-    content_identity_ready = content_safe and not identity["adoptable"]
+    content_identity_ready = not any(
+        identity[key]
+        for key in ("content_mismatches", "sequence_mismatches", "adoptable")
+    )
     return {
         "ledger_ready": ledger_ready,
         "ready": (
-            ledger_ready and content_safe and not pending and not unmapped
-            and not stranded and identity["adoption_receipt_guards_ready"]
+            ledger_ready
+            and content_identity_ready
+            and not pending
+            and not unmapped
+            and not stranded
+            and identity["adoption_receipt_guards_ready"]
         ),
         "pending": pending,
         "unmapped_legacy_versions": unmapped,
@@ -270,40 +251,69 @@ def migration_state(conn, *, running_version: str) -> dict:
 
 
 def migrate(
-    db_path=None, *, running_version: str,
+    db_path=None,
+    *,
+    running_version: str,
     external_restore_point: str | None = None,
-    adoption_manifest=None, source_commit=None, source_sha256=None,
-    manifest_sha256=None, adopted_by=None, adoption_state_verifiers=None,
+    adoption_manifest=None,
+    source_commit=None,
+    source_sha256=None,
+    manifest_sha256=None,
+    adopted_by=None,
+    adoption_state_verifiers=None,
+    adoption_artifact_verifier=None,
 ) -> dict:
     """Converge pending history before the process serves."""
-    running_version = _validated_running_version(running_version)
+    running_version = validated_running_version(running_version)
     external = None
     if external_restore_point is not None:
         external = str(external_restore_point).strip()
         if not external:
             raise RuntimeError("external_restore_point must be a non-empty identifier")
+    history = ordered_history()
+    manifest = None
+    artifact_verification = None
+    if adoption_manifest is not None:
+        manifest = read_adoption_manifest(
+            adoption_manifest,
+            history,
+            source_commit=source_commit,
+            source_sha256=source_sha256,
+            manifest_sha256=manifest_sha256,
+        )
+        artifact_verification = verify_artifact_evidence(
+            manifest,
+            adoption_artifact_verifier,
+        )
     conn = get_connection(db_path=db_path)
     try:
-        history = ordered_history()
-        require_matching_content(conn, history)
+        initial_identity = require_matching_content(conn, history)
+        if manifest is None and initial_identity["adoptable"]:
+            raise RuntimeError(
+                "Migration content identity requires explicit artifact-verified "
+                f"adoption before normal boot: {initial_identity['adoptable']!r}"
+            )
         preview_pending, ledger_change = preview_migration_work(conn, history)
         restore_point = None
         if preview_pending or ledger_change:
             restore_point = external or establish_migration_restore_point(
-                conn, preview_pending)
+                conn, preview_pending
+            )
         adoption = {"adopted": [], "adoption_receipt": None}
-        if adoption_manifest is not None:
+        if manifest is not None:
             adoption = adopt_from_manifest(
-                conn, history, adoption_manifest,
-                running_version=running_version,
-                source_commit=source_commit, source_sha256=source_sha256,
-                manifest_sha256=manifest_sha256, adopted_by=adopted_by,
+                conn,
+                history,
+                manifest,
+                artifact_verification,
+                adopted_by=adopted_by,
                 ensure_ledger=ensure_schema_version,
                 state_verifiers=adoption_state_verifiers,
                 load_module=load_migration_module,
             )
         else:
             ensure_schema_version(conn, history)
+        require_adoption_receipt_guards(conn)
         require_matching_content(conn, history)
         pending = find_pending_migrations(history, applied_names(conn, history))
         applied = []
@@ -318,12 +328,8 @@ def migrate(
         state = migration_state(conn, running_version=running_version)
         if not state["ready"]:
             raise RuntimeError(f"Database migration readiness failed: {state}")
-        return {
-            "status": "ok",
-            "data": {
-                "applied": applied, **adoption, "restore_point": restore_point, **state,
-            },
-        }
+        data = {"applied": applied, **adoption, "restore_point": restore_point, **state}
+        return {"status": "ok", "data": data}
     finally:
         conn.close()
 
@@ -333,16 +339,8 @@ def main(argv=None) -> None:
     parser.add_argument("--db-path", help="Path to SQLite database file")
     parser.add_argument("--running-version", required=True)
     parser.add_argument("--external-restore-point")
-    for flag in "adoption-manifest source-commit source-sha256 manifest-sha256 adopted-by".split():
-        parser.add_argument(f"--{flag}")
     args = parser.parse_args(argv)
-    result = migrate(
-        db_path=args.db_path, running_version=args.running_version,
-        external_restore_point=args.external_restore_point,
-        adoption_manifest=args.adoption_manifest, source_commit=args.source_commit,
-        source_sha256=args.source_sha256, manifest_sha256=args.manifest_sha256,
-        adopted_by=args.adopted_by,
-    )
+    result = migrate(**vars(args))
     print(json.dumps(result, indent=2))
 
 

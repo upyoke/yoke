@@ -5,7 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
+
+from packaging.version import InvalidVersion, Version
 
 
 MANIFEST_SCHEMA = 1
@@ -13,17 +16,56 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_COMMIT_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
-def module_sha256(entry) -> str:
+def module_sha256(entry, *, source_bytes: bytes | None = None) -> str:
     """Hash the exact bytes stored for one permanent migration module."""
-    return hashlib.sha256(entry.path.read_bytes()).hexdigest()
+    content = entry.path.read_bytes() if source_bytes is None else source_bytes
+    return hashlib.sha256(content).hexdigest()
+
+
+def minimum_serving_version(module) -> str | None:
+    """Return and validate an entry's oldest compatible artifact version."""
+    raw = getattr(module, "MINIMUM_SERVING_VERSION", None)
+    if raw is None or not str(raw).strip():
+        return None
+    value = str(raw).strip()
+    try:
+        Version(value)
+    except InvalidVersion as exc:
+        raise RuntimeError(f"MINIMUM_SERVING_VERSION is invalid: {value!r}") from exc
+    return value
+
+
+def validated_running_version(running_version: str) -> str:
+    value = str(running_version).strip()
+    if not value:
+        raise RuntimeError("non-empty running artifact version is required")
+    try:
+        Version(value)
+    except InvalidVersion as exc:
+        raise RuntimeError(f"Invalid running artifact version: {value!r}") from exc
+    return value
+
+
+def refuse_old_build(name: str, running_version: str, floor: str | None) -> None:
+    running_version = validated_running_version(running_version)
+    if not floor:
+        return
+    try:
+        safe = Version(running_version) >= Version(floor)
+    except InvalidVersion as exc:
+        raise RuntimeError(
+            f"Cannot compare build {running_version!r} with {name} floor {floor!r}"
+        ) from exc
+    if not safe:
+        raise RuntimeError(
+            f"Migration {name} requires build {floor} or newer; this build is "
+            f"{running_version}"
+        )
 
 
 def canonical_manifest_sha256(raw: dict) -> str:
     """Digest the semantic manifest payload, excluding its digest field."""
-    payload = {
-        key: raw[key]
-        for key in ("schema_version", "artifact", "entries")
-    }
+    payload = {key: raw[key] for key in ("schema_version", "artifact", "entries")}
     encoded = json.dumps(
         payload,
         ensure_ascii=False,
@@ -49,7 +91,9 @@ def _read_json(path, trusted_manifest_sha256: str) -> dict:
         )
     supplied = raw["manifest_sha256"]
     if not isinstance(supplied, str) or not SHA256_RE.fullmatch(supplied):
-        raise RuntimeError("Migration adoption manifest_sha256 must be lowercase SHA256")
+        raise RuntimeError(
+            "Migration adoption manifest_sha256 must be lowercase SHA256"
+        )
     expected = canonical_manifest_sha256(raw)
     if supplied != expected:
         raise RuntimeError(
@@ -66,21 +110,28 @@ def _read_json(path, trusted_manifest_sha256: str) -> dict:
 
 
 def _validate_artifact(
-    artifact, *, running_version: str, source_commit: str,
+    artifact,
+    *,
+    source_commit: str,
     trusted_source_sha256: str,
 ) -> dict[str, str]:
     keys = {
-        "engine_version", "source_artifact", "source_sha256", "source_commit",
+        "engine_version",
+        "source_artifact",
+        "source_sha256",
+        "source_commit",
     }
     if not isinstance(artifact, dict) or set(artifact) != keys:
         raise RuntimeError(
             "Migration adoption artifact requires only engine_version, "
             "source_artifact, source_sha256, and source_commit"
         )
-    if artifact["engine_version"] != running_version:
+    if (
+        not isinstance(artifact["engine_version"], str)
+        or not artifact["engine_version"].strip()
+    ):
         raise RuntimeError(
-            "Migration adoption artifact engine_version does not match the "
-            "running artifact version"
+            "Migration adoption artifact engine_version must be non-empty"
         )
     trusted_commit = str(source_commit or "").strip()
     if not SOURCE_COMMIT_RE.fullmatch(trusted_commit):
@@ -106,9 +157,8 @@ def _validate_artifact(
     ):
         raise RuntimeError("Migration adoption source_artifact must be non-empty")
     artifact_source_sha256 = artifact["source_sha256"]
-    if (
-        not isinstance(artifact_source_sha256, str)
-        or not SHA256_RE.fullmatch(artifact_source_sha256)
+    if not isinstance(artifact_source_sha256, str) or not SHA256_RE.fullmatch(
+        artifact_source_sha256
     ):
         raise RuntimeError("Migration adoption source_sha256 must be lowercase SHA256")
     trusted_digest = str(trusted_source_sha256 or "").strip()
@@ -122,10 +172,14 @@ def _validate_artifact(
 
 
 def read_adoption_manifest(
-    path, history, *, running_version: str, source_commit: str,
-    source_sha256: str, manifest_sha256: str,
+    path,
+    history,
+    *,
+    source_commit: str,
+    source_sha256: str,
+    manifest_sha256: str,
 ) -> dict:
-    """Validate artifact identity, canonical digest, order, and exact bytes."""
+    """Validate an audited history subset and its immutable artifact."""
     raw = _read_json(path, manifest_sha256)
     if raw["schema_version"] != MANIFEST_SCHEMA:
         raise RuntimeError(
@@ -133,7 +187,6 @@ def read_adoption_manifest(
         )
     artifact = _validate_artifact(
         raw["artifact"],
-        running_version=running_version,
         source_commit=source_commit,
         trusted_source_sha256=source_sha256,
     )
@@ -157,13 +210,17 @@ def read_adoption_manifest(
             raise RuntimeError(f"Adoption manifest repeats migration {name!r}")
         entries[name] = digest
         ordered_names.append(name)
-    expected_names = [entry.name for entry in history]
-    if ordered_names != expected_names:
+    history_names = [entry.name for entry in history]
+    unknown = [name for name in ordered_names if name not in history_names]
+    expected_order = [name for name in history_names if name in entries]
+    if unknown or ordered_names != expected_order:
         raise RuntimeError(
-            "Adoption manifest entries must exactly match ordered migration history; "
-            f"expected={expected_names!r}, supplied={ordered_names!r}"
+            "Adoption manifest entries must be an ordered subset of current "
+            f"migration history; unknown={unknown!r}, supplied={ordered_names!r}"
         )
     for entry in history:
+        if entry.name not in entries:
+            continue
         if entries[entry.name] != module_sha256(entry):
             raise RuntimeError(
                 f"Adoption manifest digest for {entry.name!r} does not match "
@@ -176,9 +233,50 @@ def read_adoption_manifest(
     }
 
 
+def verify_artifact_evidence(manifest, verifier) -> dict:
+    """Require a project-owned verifier receipt bound to this manifest."""
+    if not callable(verifier):
+        raise RuntimeError(
+            "Migration adoption requires a project-owned artifact evidence verifier"
+        )
+    result = verifier(manifest)
+    required = {
+        "verifier",
+        "source_artifact",
+        "source_sha256",
+        "source_commit",
+        "manifest_sha256",
+        "verification_receipt_sha256",
+    }
+    if not isinstance(result, Mapping) or set(result) != required:
+        raise RuntimeError(
+            "Artifact evidence verifier must return the exact bound receipt fields"
+        )
+    artifact = manifest["artifact"]
+    expected = {
+        "source_artifact": artifact["source_artifact"],
+        "source_sha256": artifact["source_sha256"],
+        "source_commit": artifact["source_commit"],
+        "manifest_sha256": manifest["manifest_sha256"],
+    }
+    mismatched = [name for name, value in expected.items() if result[name] != value]
+    verifier_name = str(result["verifier"] or "").strip()
+    receipt_digest = str(result["verification_receipt_sha256"] or "").strip()
+    if mismatched or not verifier_name or not SHA256_RE.fullmatch(receipt_digest):
+        raise RuntimeError(
+            "Artifact evidence receipt does not bind the selected adoption "
+            f"artifact; mismatched={mismatched!r}"
+        )
+    return dict(result)
+
+
 __all__ = [
     "SHA256_RE",
     "canonical_manifest_sha256",
+    "minimum_serving_version",
     "module_sha256",
     "read_adoption_manifest",
+    "refuse_old_build",
+    "validated_running_version",
+    "verify_artifact_evidence",
 ]

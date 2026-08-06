@@ -15,11 +15,19 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, APP_DIR)
 
 from db.migrations import migrate as migration_runner  # noqa: E402
-from db.migrations.content_identity import RECEIPT_GUARDS  # noqa: E402
-
-
-SOURCE_COMMIT = "b" * 40
-SOURCE_SHA256 = "a" * 64
+from db.migrations.adoption_manifest import (  # noqa: E402
+    canonical_manifest_sha256 as _canonical_sha256,
+)
+from db.migrations.receipt_guards import (  # noqa: E402
+    LEDGER_GUARDS,
+    RECEIPT_GUARDS,
+)
+from tests.conftest import (  # noqa: E402
+    SOURCE_COMMIT,
+    SOURCE_SHA256,
+    adoption_arguments as _adoption_args,
+    write_adoption_manifest,
+)
 
 
 def _migration(directory):
@@ -34,44 +42,13 @@ def _migration(directory):
     return path
 
 
-def _canonical_sha256(payload) -> str:
-    canonical = json.dumps(
-        payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True,
-    ).encode("utf-8")
-    return hashlib.sha256(canonical).hexdigest()
-
-
 def _manifest(path, module):
-    payload = {
-        "schema_version": 1,
-        "artifact": {
-            "engine_version": "1.0.0",
-            "source_artifact": "sample-app-1.0.0",
-            "source_sha256": SOURCE_SHA256,
-            "source_commit": SOURCE_COMMIT,
+    return write_adoption_manifest(
+        path,
+        {
+            "0001_existing": hashlib.sha256(module.read_bytes()).hexdigest(),
         },
-        "entries": [
-            {
-                "name": "0001_existing",
-                "content_sha256": hashlib.sha256(module.read_bytes()).hexdigest(),
-            }
-        ],
-    }
-    digest = _canonical_sha256(payload)
-    document = {**payload, "manifest_sha256": digest}
-    path.write_text(json.dumps(document, indent=2), encoding="utf-8")
-    return path, digest
-
-
-def _adoption_args(
-    manifest_sha256, *, source_commit=SOURCE_COMMIT, source_sha256=SOURCE_SHA256,
-) -> dict:
-    return {
-        "source_commit": source_commit,
-        "source_sha256": source_sha256,
-        "manifest_sha256": manifest_sha256,
-        "adopted_by": "test-operator",
-    }
+    )
 
 
 def _legacy_database(path):
@@ -97,10 +74,13 @@ def _assert_no_evidence(database) -> None:
     assert conn.execute(
         "SELECT migration_name, content_sha256 FROM schema_version"
     ).fetchone() == ("0001_existing", None)
-    assert conn.execute(
-        "SELECT name FROM sqlite_master "
-        "WHERE type='table' AND name='migration_adoption_receipts'"
-    ).fetchone() is None
+    assert (
+        conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name='migration_adoption_receipts'"
+        ).fetchone()
+        is None
+    )
     conn.close()
 
 
@@ -112,7 +92,11 @@ def _assert_no_evidence(database) -> None:
     ],
 )
 def test_wrong_trusted_artifact_identity_refuses_without_evidence(
-    tmp_path, monkeypatch, trusted_commit, trusted_source_sha256, message,
+    tmp_path,
+    monkeypatch,
+    trusted_commit,
+    trusted_source_sha256,
+    message,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -138,7 +122,8 @@ def test_wrong_trusted_artifact_identity_refuses_without_evidence(
 
 
 def test_recomputed_tampered_manifest_refuses_pinned_digest(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -149,15 +134,14 @@ def test_recomputed_tampered_manifest_refuses_pinned_digest(
     manifest, trusted_manifest_sha256 = _manifest(tmp_path / "adopt.json", module)
     tampered = json.loads(manifest.read_text())
     tampered["artifact"]["source_artifact"] = "tampered-app-1.0.0"
-    payload = {
-        key: tampered[key] for key in ("schema_version", "artifact", "entries")
-    }
+    payload = {key: tampered[key] for key in ("schema_version", "artifact", "entries")}
     tampered["manifest_sha256"] = _canonical_sha256(payload)
     manifest.write_text(json.dumps(tampered), encoding="utf-8")
 
     with pytest.raises(RuntimeError, match="Trusted manifest SHA256"):
         migration_runner.migrate(
-            db_path=database, running_version="1.0.0",
+            db_path=database,
+            running_version="1.0.0",
             adoption_manifest=manifest,
             **_adoption_args(trusted_manifest_sha256),
         )
@@ -188,7 +172,8 @@ def test_empty_non_null_digest_is_mismatch_not_adoption(tmp_path, monkeypatch) -
 
 
 def test_adoption_fills_only_missing_name_and_preserves_digest(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -207,8 +192,10 @@ def test_adoption_fills_only_missing_name_and_preserves_digest(
     manifest, manifest_sha256 = _manifest(tmp_path / "adopt.json", module)
 
     migration_runner.migrate(
-        db_path=database, running_version="1.0.0",
-        adoption_manifest=manifest, **_adoption_args(manifest_sha256),
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
+        **_adoption_args(manifest_sha256),
     )
 
     conn = sqlite3.connect(database)
@@ -241,9 +228,7 @@ def test_successful_adoption_receipt_is_append_only(tmp_path, monkeypatch) -> No
     assert receipt["adopted_by"] == "test-operator"
     conn = sqlite3.connect(database)
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-        conn.execute(
-            "UPDATE migration_adoption_receipts SET source_commit='changed'"
-        )
+        conn.execute("UPDATE migration_adoption_receipts SET source_commit='changed'")
     conn.rollback()
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
         conn.execute("DELETE FROM migration_adoption_receipts")
@@ -254,15 +239,20 @@ def test_successful_adoption_receipt_is_append_only(tmp_path, monkeypatch) -> No
     ).fetchone()
     conn.close()
     assert row == (
-        manifest_digest, SOURCE_COMMIT, "test-operator",
-        '[{"content_sha256":"' + hashlib.sha256(module.read_bytes()).hexdigest()
-        + '","name":"0001_existing"}]',
+        manifest_digest,
+        SOURCE_COMMIT,
+        "test-operator",
+        '[{"content_sha256":"'
+        + hashlib.sha256(module.read_bytes()).hexdigest()
+        + '","minimum_serving_version":null,"name":"0001_existing"}]',
     )
 
 
-@pytest.mark.parametrize("dropped_guard", sorted(RECEIPT_GUARDS))
-def test_missing_receipt_guard_blocks_readiness_and_adoption_restores_it(
-    tmp_path, monkeypatch, dropped_guard,
+@pytest.mark.parametrize("dropped_guard", sorted(RECEIPT_GUARDS | LEDGER_GUARDS))
+def test_missing_identity_guard_blocks_readiness_and_adoption_restores_it(
+    tmp_path,
+    monkeypatch,
+    dropped_guard,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -272,8 +262,10 @@ def test_missing_receipt_guard_blocks_readiness_and_adoption_restores_it(
     _legacy_database(database)
     manifest, manifest_digest = _manifest(tmp_path / "adopt.json", module)
     migration_runner.migrate(
-        db_path=database, running_version="1.0.0",
-        adoption_manifest=manifest, **_adoption_args(manifest_digest),
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
+        **_adoption_args(manifest_digest),
     )
     conn = sqlite3.connect(database)
     conn.execute(f"DROP TRIGGER {dropped_guard}")
@@ -284,19 +276,22 @@ def test_missing_receipt_guard_blocks_readiness_and_adoption_restores_it(
     assert state["adoption_receipt_guards_ready"] is False
     assert state["missing_adoption_receipt_guards"] == [dropped_guard]
 
-    with pytest.raises(RuntimeError, match="readiness failed"):
+    with pytest.raises(RuntimeError, match="normal boot will not repair"):
         migration_runner.migrate(db_path=database, running_version="1.0.0")
 
     repaired = migration_runner.migrate(
-        db_path=database, running_version="1.0.0",
-        adoption_manifest=manifest, **_adoption_args(manifest_digest),
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
+        **_adoption_args(manifest_digest),
     )
     assert repaired["data"]["adopted"] == []
     assert repaired["data"]["adoption_receipt"] is None
     assert repaired["data"]["adoption_receipt_guards_ready"] is True
     conn = sqlite3.connect(database)
     installed = {
-        row[0] for row in conn.execute(
+        row[0]
+        for row in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='trigger' "
             "AND tbl_name='migration_adoption_receipts'"
         )
@@ -306,7 +301,8 @@ def test_missing_receipt_guard_blocks_readiness_and_adoption_restores_it(
 
 
 def test_wrong_receipt_guard_body_is_detected_and_replaced(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     history = tmp_path / "history"
     history.mkdir()
@@ -317,8 +313,10 @@ def test_wrong_receipt_guard_body_is_detected_and_replaced(
     manifest, digest = _manifest(tmp_path / "adopt.json", module)
     args = _adoption_args(digest)
     migration_runner.migrate(
-        db_path=database, running_version="1.0.0",
-        adoption_manifest=manifest, **args,
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
+        **args,
     )
     guard = "migration_adoption_receipts_no_update"
     conn = sqlite3.connect(database)
@@ -328,13 +326,16 @@ def test_wrong_receipt_guard_body_is_detected_and_replaced(
         "migration_adoption_receipts BEGIN SELECT 1; END"
     )
     assert migration_runner.migration_state(
-        conn, running_version="1.0.0",
+        conn,
+        running_version="1.0.0",
     )["missing_adoption_receipt_guards"] == [guard]
     conn.close()
 
     migration_runner.migrate(
-        db_path=database, running_version="1.0.0",
-        adoption_manifest=manifest, **args,
+        db_path=database,
+        running_version="1.0.0",
+        adoption_manifest=manifest,
+        **args,
     )
     conn = sqlite3.connect(database)
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):

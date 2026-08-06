@@ -69,6 +69,11 @@ module's exact bytes, and its serving floor commit in one transaction. Sequence
 numbers order entries but never decide whether one is pending, so a
 lower-numbered entry merged later still runs.
 
+The runner reads each entry once, compiles and executes those captured bytes,
+records their digest, and requires the file to remain unchanged before commit.
+A file replaced or rewritten while it loads, applies, or verifies cannot leave
+either application mutation or membership evidence behind.
+
 An entry containing `DROP TABLE` or `DROP COLUMN` declares
 `MINIMUM_SERVING_VERSION`, the oldest application version safe against the
 result. Boot applies the pending membership set before serving. The public
@@ -82,8 +87,9 @@ current-database return. Keep migration files forever.
 
 Rows written before content identity carry a NULL `content_sha256` and report
 `adoption_required`; boot never fills that field from whatever source happens
-to be present now. A compatibility boot may start while those rows remain NULL,
-but `/api/health` stays unready until explicit adoption succeeds. Adoption
+to be present now. Normal boot refuses while a known packaged row remains
+adoptable, and `/api/health` stays unready until explicit adoption succeeds.
+Adoption
 requires an operator-authored JSON manifest backed by trusted evidence for the
 attested adoption candidate whose exact bytes and invariants are being used as
 proof. It does not claim to identify the unknown historical bytes:
@@ -105,29 +111,33 @@ proof. It does not claim to identify the unknown historical bytes:
       "manifest_sha256": "<SHA256 of the canonical manifest payload>"
     }
 
-The manifest must name the complete ordered history shipped by that artifact,
-and each digest must also match its current module's exact bytes. Compute
+The manifest names the ordered subset audited in that artifact. Later artifacts
+may append permanent entries; unknown names, changed ordering, and omission of
+any row that actually needs adoption are refused. Each supplied digest must
+also match its current permanent module's exact bytes. Compute
 `manifest_sha256` over the UTF-8 JSON encoding of only `schema_version`,
 `artifact`, and `entries`, using sorted keys, no ASCII escaping, and separators
 `,` and `:` with no extra whitespace. The deploy must supply that value again
-as `--manifest-sha256`; changing the payload and recomputing its embedded digest
-cannot satisfy the pinned value. Its engine version must match
-`--running-version`, its source commit must match the separately supplied
-`--source-commit`, and its artifact digest must match `--source-sha256`.
+as an independently pinned input; changing the payload and recomputing its
+embedded digest cannot satisfy the pin. The manifest's engine version identifies
+the audited artifact and need not equal the newer runtime performing adoption.
+Its source commit and artifact digest must match independently selected release
+evidence.
 
-Those three trusted values come from deploy-owned release metadata, not from
-the manifest or current checkout. The deploy surface is responsible for
-verifying the selected artifact bytes against `--source-sha256`; the migration
-runner compares the independently selected value and records it but does not
-rediscover an artifact around its own source tree. Every entry being adopted
-must expose `invariants(conn)` so the runner can prove equivalent database state
-without executing `apply(conn)`.
+Those trusted values come from project-owned release metadata, not from the
+manifest or current checkout. The release adapter must authenticate the source
+artifact, manifest, and source commit using its provider's signed evidence, then
+pass an `adoption_artifact_verifier` callback. The callback returns a receipt
+bound to the exact artifact and manifest; a callback that merely recomputes or
+echoes caller-provided hashes is not a verifier. Verification completes before
+the database is opened. Every entry being adopted must expose
+`invariants(conn)` so the runner can prove equivalent database state without
+executing `apply(conn)`.
 
 If a permanent legacy module has no `invariants` function, do not edit that
 released file. A project-owned runner may supply
-`adoption_state_verifiers={"NNNN_name": callable}` to `migrate(...)`, or the
-same mapping as `state_verifiers` when calling `adopt_from_manifest(...)`
-directly. A registered callable receives the open SQLite connection and
+`adoption_state_verifiers={"NNNN_name": callable}` to `migrate(...)`. A
+registered callable receives the open SQLite connection and
 replaces module invariants only for that exact name. Unknown names and
 non-callables are refused. Verifiers execute inside the same rollback-only
 savepoint as module invariants, so the project can keep permanent migration
@@ -136,26 +146,36 @@ bytes unchanged while proving equivalent live state.
 Only then does one transaction fill NULL identity fields and insert an
 immutable row in
 `migration_adoption_receipts`. Update and delete triggers keep those receipts
-append-only; each receipt preserves the adopted name/digest pairs and
-`--adopted-by` records the accountable operator. Missing, extra, conflicting,
+append-only; each receipt preserves the adopted name, digest, serving floor,
+external verifier identity, and verification-receipt digest. `adopted_by`
+records the accountable operator. Missing, extra, conflicting,
 wrong-content, wrong-commit, wrong-source-digest, wrong-manifest-digest,
-wrong-artifact-version, or failed-invariant manifests leave both the ledger and
-receipt table unchanged.
+unverified-artifact, or failed-invariant manifests leave both the ledger and
+receipt table unchanged. Ledger sequences, names, non-NULL digests, non-NULL
+floors, and membership deletion are immutable; only a same-transaction matching
+receipt may fill legacy NULL identity.
 
-Once the receipt table exists, readiness also requires both append-only
-triggers. A dropped guard makes health and normal boot unsafe. Re-running the
-explicit trusted adoption surface recreates either missing guard atomically,
-even when no identity row remains to adopt; a fresh database with no receipt
-table remains valid.
+Readiness requires the exact receipt-table columns and constraints plus exact
+receipt and membership guards. A fresh database creates them with its ledger.
+Missing, extra, or lookalike columns and dropped or altered guards make boot unsafe;
+normal boot deliberately does not repair an existing ledger. Re-running the
+explicit artifact-verified adoption surface repairs exact guards atomically,
+even when no identity row remains to adopt, but refuses an inexact table shape.
 
-Run an audited adoption explicitly before normal boot:
+Run adoption through the project-owned release adapter before normal boot:
 
-    python3 app/db/migrations/migrate.py --running-version 0.1.0 \
-      --source-commit <trusted-build-source-commit> \
-      --source-sha256 <trusted-artifact-sha256> \
-      --manifest-sha256 <trusted-manifest-sha256> \
-      --adopted-by <operator-identity> \
-      --adoption-manifest /secure/path/migration-adoption.json
+    migrate(
+        running_version="<deployed-version>",
+        adoption_manifest="/secure/path/migration-adoption.json",
+        source_commit="<attested-source-commit>",
+        source_sha256="<attested-artifact-sha256>",
+        manifest_sha256="<attested-manifest-sha256>",
+        adopted_by="<operator-identity>",
+        adoption_artifact_verifier=verify_signed_release_evidence,
+    )
+
+The generic command-line runner intentionally exposes normal boot only; it has
+no flags that can substitute caller-provided hashes for project verification.
 
 The health response exposes content identity, ledger-ahead, and adoption
 receipt guard state. A ledger row from a newer artifact remains a normal
@@ -181,10 +201,12 @@ A project-owned runner may have a different ledger table, helper modules, or
 health payload than this Pack's default. Do not resolve a three-way conflict by
 blindly choosing either whole file. Preserve the project's ledger and restore
 point flow while porting these behaviors: a nullable `content_sha256`, exact
-raw-module hashing in the same transaction as each new membership write,
+captured-source execution and hashing in the same transaction as each new
+membership write,
 non-NULL mismatch refusal before backup or a current return, explicit NULL
-adoption state, invariant-gated adoption, guarded append-only evidence, exact
-known-floor parity, and identified ledger-ahead floors.
+adoption state, externally verified and invariant-gated adoption, receipt-first
+name/digest/floor transitions, immutable membership, explicit-only guard repair,
+exact known-floor parity, and identified ledger-ahead floors.
 
 Use this gated sequence while the old build remains available:
 
@@ -196,14 +218,13 @@ Use this gated sequence while the old build remains available:
 2. Manually port every customized conflict and copy the additive helper files.
    Register project-owned state verifiers for permanent entries that do not
    already expose `invariants(conn)`. Run the project's tests and verify a NULL
-   row reports `adoption_required`; the compatibility process may start, but
-   readiness must remain false.
+   row reports `adoption_required`; normal serving must remain blocked.
 3. Build the audited manifest from immutable artifact evidence. With traffic
-   stopped or against a restore-point copy, run the candidate migration CLI
-   with `--adoption-manifest`, deploy-owned `--manifest-sha256`,
-   `--source-sha256`, and `--source-commit` values, plus an accountable
-   `--adopted-by`. Require no common-history NULL or mismatch afterward and
-   inspect the append-only receipt.
+   stopped or against a restore-point copy, invoke the project release adapter.
+   It must verify signed artifact, manifest, and source evidence before calling
+   `migrate(...)` with the verifier receipt and accountable actor. Require no
+   common-history NULL or mismatch afterward and inspect the append-only
+   receipt.
 4. Preview again, explicitly accepting only files whose project-owned merge was
    just verified. Repeat `--accept-current <path>` for each remaining conflict,
    then add `--apply` to that exact clean command. This writes source additions

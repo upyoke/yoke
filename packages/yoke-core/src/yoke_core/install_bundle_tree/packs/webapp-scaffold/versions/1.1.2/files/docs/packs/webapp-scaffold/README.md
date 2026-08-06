@@ -10,11 +10,13 @@ source.
 - A FastAPI service with cookie authentication, health routes, background-task
   helpers, tests, and boot-coupled SQLite migrations with membership and
   exact-module SHA256 identity plus exact rollback-serving-floor checks. Every
-  apply requires an artifact version and establishes a named, WAL-consistent
-  SQLite restore point before pending work. Legacy rows require explicit,
-  commit-bound manifest and state-invariant adoption with a guarded append-only
-  receipt; missing receipt guards block readiness and can be restored only by
-  explicit adoption. The runner never infers legacy digests from current source.
+  apply requires an artifact version, executes one captured source image, and
+  establishes a named, WAL-consistent SQLite restore point before pending work.
+  Legacy rows require explicit, project-verified artifact evidence plus
+  commit-bound manifest and state-invariant adoption. Receipt-first transitions,
+  append-only receipts, and immutable membership guards block readiness when
+  absent and can be repaired only by explicit adoption. The runner never infers
+  legacy identity from current source.
 - A Next.js application shell with login, dashboard, settings, shared UI
   components, Vitest support, and Playwright examples.
 - Project-level agent guidance, a roadmap starter, environment examples,
