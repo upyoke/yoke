@@ -44,12 +44,16 @@ def apply(conn: Any) -> None:
     # Fresh CREATE TABLE events includes actor_id, but additive ensure_event_schema
     # deliberately leaves legacy tables alone — this entry is the migration that
     # may first need the column while copying display fields onto deliveries.
+    # Existing events tables do not gain actor_id from ambient schema
+    # converge; this history entry is the surface that needs the column
+    # for the display-snapshot backfill, so it adds the column when absent.
     if _table_exists(conn, "events"):
         _add_column_if_not_exists(
             conn,
             "events",
             "actor_id",
             "INTEGER",
+            "INTEGER REFERENCES actors(id)",
         )
 
     rows = conn.execute(

@@ -18,15 +18,17 @@ NO event is emitted (no use logging telemetry for a write that did not
 land).
 
 Attribution is resolved at write time, not left for a later pass: the
-row records a meaningful author label and the calling session's project
-scope (see ``ouroboros_field_note_provenance``). A note that supersedes
-an earlier one passes ``corrects`` and the two are linked rather than
-left sitting next to each other in the unreviewed queue (see
-``ouroboros_entry_corrections``).
+row records a meaningful author label from the calling session and a
+project slug that prefers a client checkout hint over the session's
+project scope (see ``ouroboros_field_note_provenance``). A note that
+supersedes an earlier one passes ``corrects`` and the two are linked
+rather than left sitting next to each other in the unreviewed queue
+(see ``ouroboros_entry_corrections``).
 
 Target shape: ``target.kind = "global"`` (no item, claim, or project
 binding). The dispatcher's claim-verification matrix treats ``global``
-as "no claim required".
+as "no claim required". Checkout project rides on the payload, not the
+target — the server never resolves an ambient cwd.
 """
 
 from __future__ import annotations
@@ -63,6 +65,10 @@ class FieldNoteAppendRequest(BaseModel):
     # Dispatched subagent role, when the caller runs as one. Attribution
     # falls back to the session's executor.
     actor_role: Optional[str] = None
+    # Client-resolved registered checkout project (slug or numeric id).
+    # Wins over the session's project scope when present; omitted when the
+    # caller has no checkout mapping (global/no-checkout fallback).
+    project: Optional[str] = None
     # Entry id this note corrects; that note is superseded, not duplicated.
     corrects: Optional[int] = None
 
@@ -122,6 +128,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 actor_role=payload.actor_role,
                 session_id=session_id,
+                project=payload.project,
             )
             entry_id = cmd_insert_entry(
                 conn,
@@ -139,6 +146,10 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                     corrected_entry_id=payload.corrects,
                 )
     except CorrectionTargetError as exc:
+        return _bad_request(str(exc))
+    except LookupError as exc:
+        # Unknown checkout project hint — refuse rather than silently
+        # attributing to the session project (isolation).
         return _bad_request(str(exc))
     except Exception as exc:
         return _emit_failed(f"durable write failed: {exc}")

@@ -95,6 +95,41 @@ def test_field_note_append_allows_direct_terminal_without_session() -> None:
     assert req.actor.session_id == ""
 
 
+def test_field_note_append_carries_external_checkout_project() -> None:
+    """Registered external checkout → project hint on the append payload."""
+    with patch(
+        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        return_value="42",
+    ):
+        rc, _out, err = _run_capture(
+            "ouroboros", "field-note", "append",
+            "--kind", "failed",
+            "--evidence", "platform recipe failed from its checkout",
+        )
+    assert rc == 0, err
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "ouroboros.field_note.append"
+    assert req.payload["project"] == "42"
+    assert req.payload["kind"] == "failed"
+
+
+def test_field_note_append_omits_project_from_unmapped_directory() -> None:
+    """Unmapped cwd keeps global/no-checkout behavior — no project hint."""
+    with patch(
+        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        return_value=None,
+    ):
+        rc, _out, err = _run_capture(
+            "ouroboros", "field-note", "append",
+            "--kind", "observation",
+            "--evidence", "note from an unmapped scratch directory",
+        )
+    assert rc == 0, err
+    req = _CAPTURED_REQUESTS[-1]
+    assert req.function == "ouroboros.field_note.append"
+    assert "project" not in req.payload
+
+
 def test_field_note_subcommand_registered() -> None:
     # The top-level CLI catches argparse's help SystemExit and returns 0.
     # Capture stdout to verify HELP_BODY rendered.
@@ -161,7 +196,13 @@ def test_field_note_append_dispatches_against_project_id_schema(
     with init_test_db(tmp_path) as db_path:
         monkeypatch.setenv("YOKE_DB", db_path)
         monkeypatch.setenv("YOKE_SESSION_ID", "test-session")
-        with patch.object(
+        # Keep the unmapped/no-checkout path: a live machine-config map
+        # would otherwise send a project hint the bare test schema lacks.
+        with patch(
+            "yoke_cli.commands.adapters.ouroboros_field_note."
+            "client_project_context",
+            return_value=None,
+        ), patch.object(
             _ofn._events,
             "emit_event",
             return_value=EmitResult(
