@@ -20,7 +20,7 @@ CLI::
     #   --quick      skip GitHub-dependent HCs (no gh subprocess calls)
     #   --full       run every HC including GitHub-dependent ones
     #   --only X     run only the named HC(s)
-    #   --list-checks  info-only; list slugs and exit
+    #   --list-checks  info-only; list engine slugs and exit
     python3 -m yoke_core.engines.doctor --quick
     python3 -m yoke_core.engines.doctor --full
     python3 -m yoke_core.engines.doctor --only status-consistency
@@ -57,6 +57,7 @@ from yoke_core.engines.doctor_roster import (
     build_roster,
     record_discovery_failures,
     record_not_applicable,
+    record_roster_collisions,
 )
 
 # Star-import re-exports the full registry surface (HealthCheck, HEALTH_CHECKS,
@@ -114,6 +115,7 @@ def run_checks(args: DoctorArgs) -> int:
     context = resolve_context(conn, args)
     roster = build_roster(HEALTH_CHECKS, args, context)
     record_discovery_failures(roster, rec)
+    record_roster_collisions(roster, rec)
     record_not_applicable(roster, rec)
     print(
         f"doctor context: project={context.project} "
@@ -179,7 +181,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--list-checks",
         action="store_true",
-        help="Print sorted HC slugs and exit",
+        help=(
+            "Print sorted engine HC slugs and exit; project-local slugs "
+            "are declared in the target checkout's .yoke/doctor/ folder"
+        ),
     )
     parser.add_argument(
         "--json",
