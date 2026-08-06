@@ -25,6 +25,32 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
     }
     assert additive_tables <= portability._ARCHIVE_OMITTABLE_TARGET_TABLES
     assert additive_tables <= set(portability.USER_CONTENT_TABLES)
+    legacy_delivery_columns = (
+        "id",
+        "channel",
+        "event_id",
+        "actor_id",
+        "notification_kind",
+        "reason",
+        "read_at",
+        "created_at",
+    )
+    assert (
+        portability._compatible_restore_columns(
+            "addressed_event_deliveries",
+            legacy_delivery_columns,
+            legacy_delivery_columns
+            + (
+                "event_name",
+                "project_id",
+                "event_outcome",
+                "event_actor_id",
+                "event_actor_label",
+                "event_envelope",
+            ),
+        )
+        == legacy_delivery_columns
+    )
     assert portability._compatible_restore_columns(
         "qa_requirements",
         ("id", "created_at"),

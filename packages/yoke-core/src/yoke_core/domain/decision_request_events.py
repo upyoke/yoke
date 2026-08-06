@@ -24,7 +24,32 @@ def append_decision_event(
     context: Mapping[str, Any],
     created_at: str,
 ) -> str:
-    """Append an event without committing the caller-owned transaction."""
+    """Append an event and return its id without committing."""
+    envelope = append_decision_event_envelope(
+        conn,
+        event_name,
+        actor_id=actor_id,
+        session_id=session_id,
+        project_id=project_id,
+        org_id=org_id,
+        context=context,
+        created_at=created_at,
+    )
+    return str(envelope["event_id"])
+
+
+def append_decision_event_envelope(
+    conn: Any,
+    event_name: str,
+    *,
+    actor_id: Optional[int],
+    session_id: str,
+    project_id: Optional[int],
+    org_id: Optional[int],
+    context: Mapping[str, Any],
+    created_at: str,
+) -> dict[str, Any]:
+    """Append an event and return the envelope for transactional projections."""
     project = "yoke"
     if project_id is not None:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -56,7 +81,7 @@ def append_decision_event(
     if not db_backend.connection_is_postgres(conn):
         sql = sql.replace("%s", "?")
     conn.execute(sql, event_insert_params(envelope, project_id))
-    return str(envelope["event_id"])
+    return envelope
 
 
-__all__ = ["append_decision_event"]
+__all__ = ["append_decision_event", "append_decision_event_envelope"]

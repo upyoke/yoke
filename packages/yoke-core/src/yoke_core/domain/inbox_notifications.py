@@ -33,41 +33,15 @@ def _row_dict(row: Any) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
 
-def _registered_event(
-    conn: Any,
-    event_id: str,
-) -> tuple[str, Mapping[str, Any], str]:
-    p = _p(conn)
-    row = conn.execute(
-        f"SELECT event_name, envelope, created_at FROM events WHERE event_id = {p}",
-        (event_id,),
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"registered producer event {event_id!r} does not exist")
-    try:
-        envelope = json.loads(row[1] or "{}")
-    except (TypeError, json.JSONDecodeError):
-        envelope = {}
-    context = envelope.get("context") if isinstance(envelope, Mapping) else {}
-    return (
-        str(row[0]),
-        context if isinstance(context, Mapping) else {},
-        str(row[2]),
-    )
-
-
-def addressed_actor_ids_for_registered_event(
+def addressed_actor_ids_for_event(
     conn: Any,
     *,
-    event_id: str,
+    event_name: str,
     notification_kind: str | None = None,
     event_context: Mapping[str, Any] | None = None,
 ) -> tuple[int, ...]:
-    """Resolve one event's recipients at the shared addressing chokepoint."""
-    event_name, stored_context, _ = _registered_event(conn, event_id)
-    context = dict(stored_context)
-    if event_context:
-        context.update(event_context)
+    """Resolve one event's recipients from its transaction-owned context."""
+    context = dict(event_context or {})
 
     if event_name in {REQUEST_CREATED_EVENT, REQUEST_WITHDRAWN_EVENT}:
         request_id = context.get("request_id")
@@ -112,9 +86,7 @@ def addressed_actor_ids_for_registered_event(
                 deployment_completion_actor_ids,
             )
 
-            recipients.update(
-                deployment_completion_actor_ids(conn, run_id=run_id)
-            )
+            recipients.update(deployment_completion_actor_ids(conn, run_id=run_id))
         else:
             initiator = context.get("initiator_actor_id")
             approvers = context.get("stage_approver_actor_ids") or []
@@ -134,26 +106,51 @@ def addressed_actor_ids_for_registered_event(
     return tuple(sorted(recipients))
 
 
+def _event_actor_label(conn: Any, actor_id: int | None) -> str | None:
+    if actor_id is None:
+        return None
+    p = _p(conn)
+    row = conn.execute(
+        "SELECT COALESCE(dl.label, a.system_component, "
+        "'actor ' || CAST(a.id AS TEXT)) "
+        "FROM actors a LEFT JOIN actor_labels dl "
+        "ON dl.actor_id = a.id AND dl.surface = 'display' "
+        f"WHERE a.id = {p}",
+        (actor_id,),
+    ).fetchone()
+    return (
+        str(row[0])
+        if row is not None and row[0] is not None
+        else f"actor {actor_id}"
+    )
+
+
 def fan_out_in_app_notification(
     conn: Any,
     *,
-    event_id: str,
+    event_envelope: Mapping[str, Any],
+    project_id: int | None,
     notification_kind: str,
     recipient_actor_ids: Iterable[int],
     reason: str,
-    created_at: str,
+    created_at: str | None = None,
 ) -> int:
-    """Materialize one idempotent in-app delivery per addressed actor."""
+    """Materialize one idempotent notification snapshot per addressed actor."""
     if notification_kind not in IN_APP_NOTIFICATION_KINDS:
         raise ValueError(f"unknown in-app notification kind {notification_kind!r}")
+    event_id = str(event_envelope.get("event_id") or "")
+    event_name = str(event_envelope.get("event_name") or "")
+    if not event_id or not event_name:
+        raise ValueError("addressed event envelope needs event_id and event_name")
+    event_created_at = str(created_at or event_envelope.get("created_at") or "")
+    if not event_created_at:
+        raise ValueError("addressed event envelope needs created_at")
+    raw_actor_id = event_envelope.get("actor_id")
+    event_actor_id = int(raw_actor_id) if raw_actor_id is not None else None
+    event_actor_label = _event_actor_label(conn, event_actor_id)
+    event_outcome = event_envelope.get("event_outcome")
+    event_envelope_json = json.dumps(dict(event_envelope), ensure_ascii=False)
     p = _p(conn)
-    event = conn.execute(
-        f"SELECT event_name FROM events WHERE event_id = {p}",
-        (event_id,),
-    ).fetchone()
-    if event is None:
-        raise LookupError(f"registered producer event {event_id!r} does not exist")
-    event_name = str(event[0])
     if event_name not in _PRODUCER_NAMES[notification_kind]:
         raise ValueError(
             f"{event_name!r} cannot produce {notification_kind!r} notifications"
@@ -162,61 +159,60 @@ def fan_out_in_app_notification(
     for actor_id in sorted({int(value) for value in recipient_actor_ids}):
         cursor = conn.execute(
             "INSERT INTO addressed_event_deliveries "
-            "(channel, event_id, actor_id, notification_kind, reason, created_at) "
-            f"VALUES ('in_app', {p}, {p}, {p}, {p}, {p}) "
+            "(channel, event_id, actor_id, notification_kind, reason, created_at, "
+            "event_name, project_id, event_outcome, event_actor_id, "
+            "event_actor_label, event_envelope) "
+            f"VALUES ('in_app', {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
+            f"{p}, {p}, {p}) "
             "ON CONFLICT(channel, event_id, actor_id) DO NOTHING",
-            (event_id, actor_id, notification_kind, reason, created_at),
+            (
+                event_id,
+                actor_id,
+                notification_kind,
+                reason,
+                event_created_at,
+                event_name,
+                project_id,
+                event_outcome,
+                event_actor_id,
+                event_actor_label,
+                event_envelope_json,
+            ),
         )
         inserted += max(int(cursor.rowcount or 0), 0)
     return inserted
 
 
-def fan_out_registered_event(
-    conn: Any,
-    *,
-    event_id: str,
-    notification_kind: str,
-    event_context: Mapping[str, Any],
-    reason: str,
-    created_at: str,
-) -> int:
-    """Compatibility wrapper around the transaction-bound dispatch seam."""
-    return dispatch_addressed_event(
-        conn,
-        event_id=event_id,
-        notification_kind=notification_kind,
-        reason=reason,
-        created_at=created_at,
-        event_context=event_context,
-    )
-
-
 def dispatch_addressed_event(
     conn: Any,
     *,
-    event_id: str,
+    event_envelope: Mapping[str, Any],
+    project_id: int | None,
     notification_kind: str,
     reason: str,
     created_at: str | None = None,
     event_context: Mapping[str, Any] | None = None,
 ) -> int:
     """Resolve and materialize in-app recipients without committing."""
-    recipients = addressed_actor_ids_for_registered_event(
+    event_name = str(event_envelope.get("event_name") or "")
+    stored_context = event_envelope.get("context")
+    context = dict(stored_context) if isinstance(stored_context, Mapping) else {}
+    if event_context:
+        context.update(event_context)
+    recipients = addressed_actor_ids_for_event(
         conn,
-        event_id=event_id,
+        event_name=event_name,
         notification_kind=notification_kind,
-        event_context=event_context,
+        event_context=context,
     )
-    event_created_at = created_at
-    if event_created_at is None:
-        _, _, event_created_at = _registered_event(conn, event_id)
     return fan_out_in_app_notification(
         conn,
-        event_id=event_id,
+        event_envelope=event_envelope,
+        project_id=project_id,
         notification_kind=notification_kind,
         recipient_actor_ids=recipients,
         reason=reason,
-        created_at=event_created_at,
+        created_at=created_at,
     )
 
 
@@ -226,21 +222,15 @@ def notification_rows(
     *,
     unread_only: bool = True,
 ) -> list[dict[str, Any]]:
-    """Return addressed projections joined to their source event."""
+    """Return addressed notification snapshots without reading telemetry."""
     p = _p(conn)
     unread = "AND d.read_at IS NULL " if unread_only else ""
     rows = conn.execute(
         "SELECT d.id, d.event_id, d.notification_kind, d.reason, "
-        "d.read_at, d.created_at, e.event_name, e.project_id, "
-        "e.event_outcome, "
-        "COALESCE(dl.label, a.system_component, "
-        "'actor ' || CAST(e.actor_id AS TEXT)) AS event_actor_label, "
-        "e.envelope "
+        "d.read_at, d.created_at, d.event_name, d.project_id, "
+        "d.event_outcome, d.event_actor_id, d.event_actor_label, "
+        "d.event_envelope "
         "FROM addressed_event_deliveries d "
-        "JOIN events e ON e.event_id = d.event_id "
-        "LEFT JOIN actors a ON a.id = e.actor_id "
-        "LEFT JOIN actor_labels dl "
-        "ON dl.actor_id = e.actor_id AND dl.surface = 'display' "
         f"WHERE d.actor_id = {p} AND d.channel = 'in_app' {unread}"
         "ORDER BY d.created_at DESC, d.id DESC",
         (actor_id,),
@@ -248,7 +238,8 @@ def notification_rows(
     result = []
     for row in rows:
         value = _row_dict(row)
-        envelope = value.pop("envelope", None)
+        envelope = value.pop("event_envelope", None)
+        value.pop("event_actor_id", None)
         event_actor_label = value.pop("event_actor_label", None)
         try:
             value["event"] = json.loads(envelope) if envelope else {}
@@ -299,15 +290,11 @@ def mark_all_notifications_read(
         if scoped_project_ids:
             placeholders = ", ".join(p for _ in scoped_project_ids)
             project_clause = (
-                " AND event_id IN (SELECT event_id FROM events "
-                f"WHERE project_id IS NULL OR project_id IN ({placeholders}))"
+                f" AND (project_id IS NULL OR project_id IN ({placeholders}))"
             )
             params.extend(scoped_project_ids)
         else:
-            project_clause = (
-                " AND event_id IN (SELECT event_id FROM events "
-                "WHERE project_id IS NULL)"
-            )
+            project_clause = " AND project_id IS NULL"
     cursor = conn.execute(
         f"UPDATE addressed_event_deliveries SET read_at = {p} "
         f"WHERE actor_id = {p} AND channel = 'in_app' AND read_at IS NULL"
@@ -318,10 +305,9 @@ def mark_all_notifications_read(
 
 
 __all__ = [
-    "addressed_actor_ids_for_registered_event",
+    "addressed_actor_ids_for_event",
     "dispatch_addressed_event",
     "fan_out_in_app_notification",
-    "fan_out_registered_event",
     "mark_all_notifications_read",
     "mark_notification_read",
     "notification_rows",

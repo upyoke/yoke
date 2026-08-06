@@ -195,7 +195,8 @@ def emit_deployment_completion(
         )
     inserted = dispatch_addressed_event(
         conn,
-        event_id=event.event_id,
+        event_envelope=event.envelope or {},
+        project_id=int(run["project_id"]),
         notification_kind=DEPLOYMENT_RUN_COMPLETED,
         reason=reason,
         created_at=str((event.envelope or {})["created_at"]),

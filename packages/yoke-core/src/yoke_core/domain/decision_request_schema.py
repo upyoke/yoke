@@ -18,6 +18,16 @@ def _sql_values(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{value}'" for value in values)
 
 
+_DELIVERY_SNAPSHOT_COLUMNS = (
+    ("event_name", "TEXT"),
+    ("project_id", "INTEGER"),
+    ("event_outcome", "TEXT"),
+    ("event_actor_id", "INTEGER"),
+    ("event_actor_label", "TEXT"),
+    ("event_envelope", "TEXT"),
+)
+
+
 def create_decision_request_tables(
     conn: Any,
     *,
@@ -97,6 +107,12 @@ def create_decision_request_tables(
             reason TEXT NOT NULL,
             read_at TEXT,
             created_at TEXT NOT NULL,
+            event_name TEXT,
+            project_id INTEGER,
+            event_outcome TEXT,
+            event_actor_id INTEGER,
+            event_actor_label TEXT,
+            event_envelope TEXT,
             UNIQUE(channel, event_id, actor_id)
         );
         CREATE INDEX IF NOT EXISTS idx_addressed_events_actor_unread
@@ -127,6 +143,13 @@ def create_decision_request_tables(
         "consumed_workflow_version_id",
         "INTEGER",
     )
+    for column, definition in _DELIVERY_SNAPSHOT_COLUMNS:
+        _add_column_if_not_exists(
+            conn,
+            "addressed_event_deliveries",
+            column,
+            definition,
+        )
     seed_decision_request_events(conn)
     if commit:
         conn.commit()

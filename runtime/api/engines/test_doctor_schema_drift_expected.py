@@ -27,6 +27,22 @@ def test_expected_catalog_includes_ordered_migration_ledger() -> None:
 def test_expected_catalog_includes_additive_workflow_and_lane_columns() -> None:
     expected = parse_expected_schema()
 
+    assert expected["addressed_event_deliveries"] == {
+        "id": "INTEGER",
+        "channel": "TEXT",
+        "event_id": "TEXT",
+        "actor_id": "INTEGER",
+        "notification_kind": "TEXT",
+        "reason": "TEXT",
+        "read_at": "TEXT",
+        "created_at": "TEXT",
+        "event_name": "TEXT",
+        "project_id": "INTEGER",
+        "event_outcome": "TEXT",
+        "event_actor_id": "INTEGER",
+        "event_actor_label": "TEXT",
+        "event_envelope": "TEXT",
+    }
     assert expected["item_worktrees"]["commit_sha"] == "TEXT"
     assert expected["workflow_versions"]["derived_from_canon_version"] == "INTEGER"
 

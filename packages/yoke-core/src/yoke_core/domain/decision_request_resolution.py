@@ -10,7 +10,10 @@ from yoke_core.domain.decision_request_contract import (
     REQUEST_RESOLVED_EVENT,
     REQUEST_WITHDRAWN_EVENT,
 )
-from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_events import (
+    append_decision_event,
+    append_decision_event_envelope,
+)
 from yoke_core.domain.decision_request_subject_state import (
     require_decision_request_subject_ended,
 )
@@ -74,7 +77,7 @@ def resolve_decision_request(
                 note=note,
                 resolved_at=stamp,
             )
-    event_id = append_decision_event(
+    event_envelope = append_decision_event_envelope(
         conn,
         REQUEST_RESOLVED_EVENT,
         actor_id=actor_id,
@@ -92,7 +95,8 @@ def resolve_decision_request(
     if request["originator_actor_id"] is not None:
         dispatch_addressed_event(
             conn,
-            event_id=event_id,
+            event_envelope=event_envelope,
+            project_id=request["project_id"],
             notification_kind=DECISION_RESOLVED,
             reason=f"{request['kind']} {action}",
             created_at=stamp,
