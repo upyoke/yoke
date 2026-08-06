@@ -16,6 +16,7 @@ ADOPTION_TRANSITION_GUARD_PREFIX = "migration_adoption_transition_guard_"
 _MISSING_EVIDENCE_MESSAGE = (
     "migration digest adoption requires matching immutable evidence"
 )
+_IMMUTABLE_MEMBERSHIP_MESSAGE = "applied migration membership is immutable"
 
 
 def _guard_object_name(
@@ -37,13 +38,31 @@ def _guard_object_name(
     return f"{ADOPTION_TRANSITION_GUARD_PREFIX}{digest}"
 
 
-def _sqlite_guard_sql(
+def _sqlite_update_guard_sql(
     name: str,
     ledger: LedgerContract,
     evidence: AdoptionEvidenceContract,
 ) -> str:
     return (
-        f"CREATE TRIGGER {name} BEFORE UPDATE OF {ledger.digest_column} "
+        f"CREATE TRIGGER {name}_update BEFORE UPDATE OF {ledger.entry_column}, "
+        f"{ledger.digest_column}, {ledger.serving_floor_column} "
+        f"ON {ledger.table} FOR EACH ROW "
+        f"WHEN NEW.{ledger.entry_column} IS NOT OLD.{ledger.entry_column} "
+        f"OR NEW.{ledger.serving_floor_column} "
+        f"IS NOT OLD.{ledger.serving_floor_column} "
+        f"OR (OLD.{ledger.digest_column} IS NOT NULL "
+        f"AND NEW.{ledger.digest_column} IS NOT OLD.{ledger.digest_column}) "
+        f"BEGIN SELECT RAISE(ABORT, '{_IMMUTABLE_MEMBERSHIP_MESSAGE}'); END"
+    )
+
+
+def _sqlite_adoption_guard_sql(
+    name: str,
+    ledger: LedgerContract,
+    evidence: AdoptionEvidenceContract,
+) -> str:
+    return (
+        f"CREATE TRIGGER {name}_adopt BEFORE UPDATE OF {ledger.digest_column} "
         f"ON {ledger.table} FOR EACH ROW "
         f"WHEN OLD.{ledger.digest_column} IS NULL "
         f"AND NEW.{ledger.digest_column} IS NOT NULL "
@@ -51,6 +70,14 @@ def _sqlite_guard_sql(
         f"WHERE {evidence.entry_column} = NEW.{ledger.entry_column} "
         f"AND {evidence.content_digest_column} = NEW.{ledger.digest_column}) "
         f"BEGIN SELECT RAISE(ABORT, '{_MISSING_EVIDENCE_MESSAGE}'); END"
+    )
+
+
+def _sqlite_delete_guard_sql(name: str, ledger: LedgerContract) -> str:
+    return (
+        f"CREATE TRIGGER {name}_delete BEFORE DELETE ON {ledger.table} "
+        f"FOR EACH ROW BEGIN SELECT RAISE(ABORT, "
+        f"'{_IMMUTABLE_MEMBERSHIP_MESSAGE}'); END"
     )
 
 
@@ -67,8 +94,11 @@ def ensure_adoption_transition_guard(
     """
     name = _guard_object_name(ledger, evidence)
     if not db_backend.connection_is_postgres(conn):
-        conn.execute(f"DROP TRIGGER IF EXISTS {name}")
-        conn.execute(_sqlite_guard_sql(name, ledger, evidence))
+        for suffix in ("update", "adopt", "delete"):
+            conn.execute(f"DROP TRIGGER IF EXISTS {name}_{suffix}")
+        conn.execute(_sqlite_update_guard_sql(name, ledger, evidence))
+        conn.execute(_sqlite_adoption_guard_sql(name, ledger, evidence))
+        conn.execute(_sqlite_delete_guard_sql(name, ledger))
         return
 
     function_name = f"{name}_fn"
@@ -79,6 +109,20 @@ def ensure_adoption_transition_guard(
         LANGUAGE plpgsql
         AS $migration_adoption_transition_guard$
         BEGIN
+            IF TG_OP = 'DELETE' THEN
+                RAISE EXCEPTION '{_IMMUTABLE_MEMBERSHIP_MESSAGE}';
+            END IF;
+            IF NEW.{ledger.entry_column} IS DISTINCT FROM OLD.{ledger.entry_column}
+               OR NEW.{ledger.serving_floor_column}
+                  IS DISTINCT FROM OLD.{ledger.serving_floor_column}
+               OR (
+                   OLD.{ledger.digest_column} IS NOT NULL
+                   AND NEW.{ledger.digest_column}
+                       IS DISTINCT FROM OLD.{ledger.digest_column}
+               )
+            THEN
+                RAISE EXCEPTION '{_IMMUTABLE_MEMBERSHIP_MESSAGE}';
+            END IF;
             IF OLD.{ledger.digest_column} IS NULL
                AND NEW.{ledger.digest_column} IS NOT NULL
                AND NOT EXISTS (
@@ -94,10 +138,16 @@ def ensure_adoption_transition_guard(
         $migration_adoption_transition_guard$
         """
     )
-    conn.execute(f"DROP TRIGGER IF EXISTS {name} ON {ledger.table}")
+    conn.execute(f"DROP TRIGGER IF EXISTS {name}_update ON {ledger.table}")
     conn.execute(
-        f"CREATE TRIGGER {name} BEFORE UPDATE OF {ledger.digest_column} "
+        f"CREATE TRIGGER {name}_update BEFORE UPDATE OF {ledger.entry_column}, "
+        f"{ledger.digest_column}, {ledger.serving_floor_column} "
         f"ON {ledger.table} FOR EACH ROW EXECUTE FUNCTION {function_name}()"
+    )
+    conn.execute(f"DROP TRIGGER IF EXISTS {name}_delete ON {ledger.table}")
+    conn.execute(
+        f"CREATE TRIGGER {name}_delete BEFORE DELETE ON {ledger.table} "
+        f"FOR EACH ROW EXECUTE FUNCTION {function_name}()"
     )
 
 
@@ -109,35 +159,74 @@ def adoption_transition_guard_is_enforced(
     """Return whether the exact declared transition guard is active."""
     name = _guard_object_name(ledger, evidence)
     if not db_backend.connection_is_postgres(conn):
-        row = conn.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'trigger' "
-            "AND name = ? AND tbl_name = ?",
-            (name, ledger.table),
-        ).fetchone()
-        return row is not None and _normalized_sql(row[0]) == _normalized_sql(
-            _sqlite_guard_sql(name, ledger, evidence)
+        rows = conn.execute(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' "
+            "AND tbl_name = ?",
+            (ledger.table,),
+        ).fetchall()
+        actual = {str(row[0]): _normalized_sql(row[1]) for row in rows}
+        expected = {
+            f"{name}_update": _sqlite_update_guard_sql(name, ledger, evidence),
+            f"{name}_adopt": _sqlite_adoption_guard_sql(name, ledger, evidence),
+            f"{name}_delete": _sqlite_delete_guard_sql(name, ledger),
+        }
+        return all(
+            actual.get(trigger) == _normalized_sql(definition)
+            for trigger, definition in expected.items()
         )
 
-    row = conn.execute(
-        "SELECT procedure.proname, trigger.tgenabled, trigger.tgtype::int, "
+    rows = conn.execute(
+        "SELECT trigger.tgname, procedure.proname, trigger.tgenabled, "
+        "trigger.tgtype::int, "
         "procedure.prosrc, language.lanname, "
         "pg_catalog.pg_get_function_result(procedure.oid), "
-        "trigger.tgattr::text, attribute.attnum::text "
+        "trigger.tgattr::text "
         "FROM pg_trigger AS trigger "
         "JOIN pg_proc AS procedure ON procedure.oid = trigger.tgfoid "
         "JOIN pg_language AS language ON language.oid = procedure.prolang "
-        "JOIN pg_attribute AS attribute "
-        "ON attribute.attrelid = trigger.tgrelid AND attribute.attname = %s "
         "WHERE trigger.tgrelid = to_regclass(%s) "
-        "AND trigger.tgname = %s AND NOT trigger.tgisinternal",
-        (ledger.digest_column, ledger.table, name),
-    ).fetchone()
-    if row is None:
+        "AND trigger.tgname IN (%s, %s) AND NOT trigger.tgisinternal",
+        (ledger.table, f"{name}_update", f"{name}_delete"),
+    ).fetchall()
+    if len(rows) != 2:
         return False
+    attributes = conn.execute(
+        "SELECT attname, attnum::text FROM pg_attribute "
+        "WHERE attrelid = to_regclass(%s) AND attname IN (%s, %s, %s)",
+        (
+            ledger.table,
+            ledger.entry_column,
+            ledger.digest_column,
+            ledger.serving_floor_column,
+        ),
+    ).fetchall()
+    by_attribute = {str(row[0]): str(row[1]) for row in attributes}
+    expected_attributes = " ".join(
+        by_attribute.get(column, "")
+        for column in (
+            ledger.entry_column,
+            ledger.digest_column,
+            ledger.serving_floor_column,
+        )
+    )
     function_name = f"{name}_fn"
     expected_body = _normalized_sql(
         f"""
         BEGIN
+            IF TG_OP = 'DELETE' THEN
+                RAISE EXCEPTION '{_IMMUTABLE_MEMBERSHIP_MESSAGE}';
+            END IF;
+            IF NEW.{ledger.entry_column} IS DISTINCT FROM OLD.{ledger.entry_column}
+               OR NEW.{ledger.serving_floor_column}
+                  IS DISTINCT FROM OLD.{ledger.serving_floor_column}
+               OR (
+                   OLD.{ledger.digest_column} IS NOT NULL
+                   AND NEW.{ledger.digest_column}
+                       IS DISTINCT FROM OLD.{ledger.digest_column}
+               )
+            THEN
+                RAISE EXCEPTION '{_IMMUTABLE_MEMBERSHIP_MESSAGE}';
+            END IF;
             IF OLD.{ledger.digest_column} IS NULL
                AND NEW.{ledger.digest_column} IS NOT NULL
                AND NOT EXISTS (
@@ -152,14 +241,22 @@ def adoption_transition_guard_is_enforced(
         END;
         """
     )
-    return (
-        str(row[0]) == function_name
-        and str(row[1]) == "O"
-        and int(row[2]) == 19  # BEFORE UPDATE FOR EACH ROW
-        and _normalized_sql(row[3]) == expected_body
-        and str(row[4]) == "plpgsql"
-        and str(row[5]) == "trigger"
-        and str(row[6]).strip() == str(row[7])
+    by_name = {str(row[0]): row for row in rows}
+    update = by_name.get(f"{name}_update")
+    delete = by_name.get(f"{name}_delete")
+    return all(
+        row is not None
+        and str(row[1]) == function_name
+        and str(row[2]) == "O"
+        and int(row[3]) == trigger_type
+        and _normalized_sql(row[4]) == expected_body
+        and str(row[5]) == "plpgsql"
+        and str(row[6]) == "trigger"
+        and str(row[7]).strip() == expected_columns
+        for row, trigger_type, expected_columns in (
+            (update, 19, expected_attributes),
+            (delete, 11, ""),
+        )
     )
 
 

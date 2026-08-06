@@ -84,6 +84,30 @@ def test_sqlite_digest_born_with_membership_needs_no_adoption_evidence() -> None
     assert conn.execute(f"SELECT count(*) FROM {EVIDENCE.table}").fetchone() == (0,)
 
 
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "DELETE FROM project_history",
+        "UPDATE project_history SET entry_id='0001_rewritten'",
+        "UPDATE project_history SET engine_floor='2.0.0'",
+        f"UPDATE project_history SET body_hash='{'b' * 64}'",
+    ],
+)
+def test_sqlite_applied_membership_is_immutable(statement: str) -> None:
+    conn = sqlite3.connect(":memory:")
+    _prepare(conn)
+    _insert_ledger(conn, DIGEST)
+
+    with pytest.raises(sqlite3.IntegrityError, match="membership is immutable"):
+        conn.execute(statement)
+    conn.rollback()
+
+    assert conn.execute(
+        f"SELECT {LEDGER.entry_column}, {LEDGER.serving_floor_column}, "
+        f"{LEDGER.digest_column} FROM {LEDGER.table}"
+    ).fetchone() == ("0001_existing", None, DIGEST)
+
+
 @pytest.mark.parametrize("evidence_digest", [None, "b" * 64])
 def test_sqlite_direct_adoption_requires_matching_evidence(
     evidence_digest: str | None,
@@ -147,6 +171,30 @@ def test_postgres_direct_adoption_requires_matching_evidence() -> None:
         assert conn.execute(
             f"SELECT {LEDGER.digest_column} FROM {LEDGER.table}"
         ).fetchone() == (None,)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "DELETE FROM project_history",
+        "UPDATE project_history SET entry_id='0001_rewritten'",
+        "UPDATE project_history SET engine_floor='2.0.0'",
+        f"UPDATE project_history SET body_hash='{'b' * 64}'",
+    ],
+)
+def test_postgres_applied_membership_is_immutable(statement: str) -> None:
+    with pg_testdb.test_database() as conn:
+        _prepare(conn)
+        _insert_ledger(conn, DIGEST)
+
+        with pytest.raises(psycopg.errors.RaiseException, match="membership is immutable"):
+            conn.execute(statement)
+        conn.rollback()
+
+        assert conn.execute(
+            f"SELECT {LEDGER.entry_column}, {LEDGER.serving_floor_column}, "
+            f"{LEDGER.digest_column} FROM {LEDGER.table}"
+        ).fetchone() == ("0001_existing", None, DIGEST)
 
 
 def test_postgres_convergence_reenables_transition_guard() -> None:
