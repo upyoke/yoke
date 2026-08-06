@@ -66,7 +66,7 @@ def _coerce_item_id(value) -> Optional[int]:
     if value is None:
         return None
     try:
-        return int(str(value).replace("YOK-", ""))
+        return int(str(value))
     except (ValueError, TypeError):
         return None
 

@@ -9,6 +9,10 @@ from typing import Iterator
 
 import pytest
 
+from yoke_core.domain.check_claim_boundary_audit_function_evidence import (
+    FunctionAuditMetadata,
+    target_item_id,
+)
 from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     CLAIM_VERIFICATION_ALLOWED,
     CLAIM_VERIFICATION_PHASE,
@@ -83,6 +87,17 @@ def test_typed_target_item_wins_over_divergent_event_index(env):
     _add_harness_preview(conn, caller, 918)
 
     assert _run(conn).results[0].result == "PASS"
+
+
+def test_target_item_identity_requires_a_bare_integer():
+    metadata = FunctionAuditMetadata(("db_write",), "item")
+
+    assert target_item_id(
+        {"target": {"kind": "item", "item_id": 918}}, metadata, None,
+    ) == 918
+    assert target_item_id(
+        {"target": {"kind": "item", "item_id": "ALPHA-918"}}, metadata, None,
+    ) is None
 
 
 def test_pre_handler_evidence_survives_terminal_claim_release(env):

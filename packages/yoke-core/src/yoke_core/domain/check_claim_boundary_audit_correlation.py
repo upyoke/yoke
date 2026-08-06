@@ -12,7 +12,7 @@ def _coerce_item_id(value: object) -> Optional[int]:
     if value is None:
         return None
     try:
-        return int(str(value).replace("YOK-", ""))
+        return int(str(value))
     except (TypeError, ValueError):
         return None
 

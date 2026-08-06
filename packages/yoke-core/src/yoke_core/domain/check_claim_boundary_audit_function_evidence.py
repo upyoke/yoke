@@ -127,7 +127,7 @@ def target_item_id(
     for value in candidates:
         try:
             if value is not None:
-                return int(str(value).replace("YOK-", ""))
+                return int(str(value))
         except (TypeError, ValueError):
             continue
     return None
