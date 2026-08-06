@@ -51,3 +51,20 @@ def test_atomic_replace_preserves_existing_private_file_mode(
 
     assert target.read_bytes() == b"new\n"
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+def test_atomic_replace_preserves_private_mode_from_symlink_target(
+    tmp_path: Path,
+) -> None:
+    linked_target = tmp_path / "shared-settings.json"
+    linked_target.write_bytes(b"shared\n")
+    linked_target.chmod(0o600)
+    materialized = tmp_path / "settings.json"
+    materialized.symlink_to(linked_target)
+
+    filesystem_safety.atomic_replace_bytes(materialized, b"local\n")
+
+    assert not materialized.is_symlink()
+    assert materialized.read_bytes() == b"local\n"
+    assert stat.S_IMODE(materialized.stat().st_mode) == 0o600
+    assert linked_target.read_bytes() == b"shared\n"

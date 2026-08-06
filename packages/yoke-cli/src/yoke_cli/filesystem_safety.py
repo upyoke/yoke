@@ -43,6 +43,14 @@ def atomic_replace_bytes(
     else:
         if stat.S_ISREG(target_info.st_mode):
             selected_mode = stat.S_IMODE(target_info.st_mode)
+        elif stat.S_ISLNK(target_info.st_mode):
+            try:
+                effective_info = target.stat()
+            except OSError:
+                pass
+            else:
+                if stat.S_ISREG(effective_info.st_mode):
+                    selected_mode = stat.S_IMODE(effective_info.st_mode)
     descriptor = -1
     temporary: Path | None = None
     try:
