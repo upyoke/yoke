@@ -1,23 +1,26 @@
 """Verify or adopt legacy Yoke migration digests on an admin connection.
 
 This is the installed, sanctioned direct-authority surface for fleet adoption.
-It consumes an exact ``yoke-core`` wheel plus its release manifest; callers
-must first verify both files' GitHub attestations against ``--source-commit``.
-The manifest digest supplied here is recorded with every adoption row.
+It consumes an exact ``yoke-core`` wheel plus its release manifest and record,
+then verifies all three GitHub attestations against the explicitly supplied
+repository and source commit. The safe receipt is printed before any database
+operation; the manifest digest is recorded with every adoption row.
 
 Examples::
 
     python3 -m yoke_core.tools.adopt_migration_content_identity \
       stage-db-admin --wheel yoke_core.whl --manifest migration-history.json \
       --release-evidence migration-history-record.json \
-      --source-commit <full-commit> --manifest-sha256 <sha256> \
+      --repository upyoke/yoke --source-commit <full-commit> \
+      --manifest-sha256 <sha256> \
       --adopted-by operator:<name> --prepare
 
     python3 -m yoke_core.tools.adopt_migration_content_identity \
       prod-db-admin yoke_acme --wheel yoke_core.whl \
       --manifest migration-history.json --source-commit <full-commit> \
       --release-evidence migration-history-record.json \
-      --manifest-sha256 <sha256> --adopted-by operator:<name> --apply
+      --repository upyoke/yoke --manifest-sha256 <sha256> \
+      --adopted-by operator:<name> --apply
 
 ``--prepare`` is the separately committed pre-deploy phase: it adds the
 nullable digest column, evidence table, and immutability guards while old code
@@ -31,12 +34,19 @@ the environment's Platform catalog.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from yoke_core.domain.migration_artifact_trust import (
+    MIGRATION_MANIFEST_ROLE,
+    SOURCE_ARTIFACT_ROLE,
+    ArtifactVerifier,
+    artifact_verification_request,
+)
 from yoke_core.domain.migration_content_adoption import (
     MigrationContentAdoptionError,
     verify_legacy_content_adoption,
@@ -48,15 +58,23 @@ from yoke_core.domain.migration_history_manifest import (
 )
 from yoke_core.domain.migration_yoke_ledger import (
     YOKE_LEDGER_CONTRACT,
+    YOKE_RELEASE_ATTESTATION_WORKFLOW,
     adopt_yoke_legacy_content_identities,
     prepare_yoke_migration_content_schema,
     yoke_migration_content_schema_is_prepared,
+)
+from yoke_core.tools.github_artifact_attestation import (
+    GitHubArtifactAttestationVerifier,
+    GitHubAttestationSubject,
 )
 from yoke_core.tools.migration_history_release_artifact import (
     manifest_for_core_wheel_path,
     materialize_core_wheel_history,
     validate_release_evidence,
 )
+
+
+YOKE_RELEASE_RECORD_ROLE = "release_record"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -77,6 +95,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wheel", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--release-evidence", type=Path, required=True)
+    parser.add_argument(
+        "--repository",
+        required=True,
+        help="GitHub owner/repository whose release workflow signed the artifacts.",
+    )
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--manifest-sha256", required=True)
     parser.add_argument("--adopted-by", required=True)
@@ -165,6 +188,7 @@ def _run_database(
     adopted_by: str,
     entry_names: Sequence[str] | None,
     mode: str,
+    artifact_verifier: ArtifactVerifier,
 ) -> tuple[str, ...]:
     with _connect_database(database) as conn:
         if mode == "PREPARE":
@@ -182,6 +206,7 @@ def _run_database(
                 manifest=manifest,
                 artifact=manifest.artifact,
                 expected_manifest_sha256=expected_manifest_sha256,
+                artifact_verifier=artifact_verifier,
                 adopted_by=adopted_by,
                 entry_names=entry_names,
             )
@@ -193,6 +218,7 @@ def _run_database(
             manifest=manifest,
             artifact=manifest.artifact,
             expected_manifest_sha256=expected_manifest_sha256,
+            artifact_verifier=artifact_verifier,
             entry_names=entry_names,
         )
         conn.rollback()
@@ -209,7 +235,34 @@ def main(argv: Iterable[str] | None = None) -> int:
             source_commit=args.source_commit,
             manifest_sha256=args.manifest_sha256,
         )
+        artifact_verifier = GitHubArtifactAttestationVerifier(
+            repository=args.repository,
+            source_commit=args.source_commit,
+            signer_workflow=(f"{args.repository}/{YOKE_RELEASE_ATTESTATION_WORKFLOW}"),
+            subjects=(
+                GitHubAttestationSubject(SOURCE_ARTIFACT_ROLE, args.wheel),
+                GitHubAttestationSubject(MIGRATION_MANIFEST_ROLE, args.manifest),
+                GitHubAttestationSubject(
+                    YOKE_RELEASE_RECORD_ROLE,
+                    args.release_evidence,
+                ),
+            ),
+        )
+        verification_receipt = artifact_verifier(
+            artifact_verification_request(manifest)
+        )
         os.environ["YOKE_ENV"] = args.environment
+        print(f"environment: {args.environment}")
+        print(f"artifact source commit: {manifest.artifact.source_commit}")
+        print(f"manifest sha256: {manifest.content_sha256}")
+        print(
+            "artifact verification receipt: "
+            + json.dumps(
+                verification_receipt.to_json(),
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
         databases = _database_names(args.databases)
         if not databases:
             raise MigrationContentAdoptionError(
@@ -222,9 +275,6 @@ def main(argv: Iterable[str] | None = None) -> int:
                 args.wheel,
                 Path(work) / "migrations",
             )
-            print(f"environment: {args.environment}")
-            print(f"artifact source commit: {manifest.artifact.source_commit}")
-            print(f"manifest sha256: {manifest.content_sha256}")
             for database in databases:
                 selected = _run_database(
                     database,
@@ -234,6 +284,7 @@ def main(argv: Iterable[str] | None = None) -> int:
                     adopted_by=args.adopted_by,
                     entry_names=entries,
                     mode=mode,
+                    artifact_verifier=artifact_verifier,
                 )
                 if mode == "PREPARE":
                     print(

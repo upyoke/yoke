@@ -7,6 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.migration_artifact_trust_test_helpers import (
+    artifact_verifier_for,
+)
 from runtime.api.domain.migration_boot_test_helpers import connection
 from yoke_core.domain.migration_content_adoption import (
     MigrationContentAdoptionError,
@@ -83,6 +86,7 @@ def test_existing_evidence_conflict_rolls_back_ledger_digest(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
         )
 
@@ -119,6 +123,7 @@ def test_dropped_evidence_guard_refuses_before_ledger_write(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
         )
 
@@ -140,8 +145,7 @@ def test_racing_digest_update_rolls_back_new_evidence(tmp_path: Path) -> None:
     def write_evidence_then_race(database, records) -> None:
         write_yoke_adoption_evidence(database, records)
         database.execute(
-            "UPDATE applied_migrations SET content_sha256 = ? "
-            "WHERE migration_name = ?",
+            "UPDATE applied_migrations SET content_sha256 = ? WHERE migration_name = ?",
             (records[0].content_sha256, records[0].entry_name),
         )
 
@@ -153,6 +157,7 @@ def test_racing_digest_update_rolls_back_new_evidence(tmp_path: Path) -> None:
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
             write_evidence=write_evidence_then_race,
             verify_evidence_immutability=adoption_evidence_verifier(

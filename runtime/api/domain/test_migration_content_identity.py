@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.migration_artifact_trust_test_helpers import (
+    artifact_verifier_for,
+)
 from runtime.api.domain.migration_boot_test_helpers import (
     RESTORE_POINT,
     apply_pending,
@@ -232,6 +235,7 @@ def test_partial_adoption_updates_only_null_and_appends_evidence(
         manifest=manifest,
         artifact=artifact,
         expected_manifest_sha256=manifest.content_sha256,
+        artifact_verifier=artifact_verifier_for(manifest),
         adopted_by="operator:test",
         entry_names=("0001_first",),
         adopted_at="2026-08-06T00:00:00Z",
@@ -268,6 +272,7 @@ def test_partial_adoption_updates_only_null_and_appends_evidence(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
             entry_names=("0001_first",),
         )
@@ -309,6 +314,7 @@ def test_invariant_failure_leaves_digest_and_evidence_unchanged(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
         )
 

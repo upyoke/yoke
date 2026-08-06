@@ -9,6 +9,12 @@ from typing import Any, Callable, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
+from yoke_core.domain.migration_artifact_trust import (
+    ArtifactVerificationError,
+    ArtifactVerifier,
+    artifact_verification_request,
+    require_artifact_verification,
+)
 from yoke_core.domain.migration_content_identity import (
     SHA256_PATTERN,
     require_matching_content_identity,
@@ -99,23 +105,15 @@ def verify_migration_entry_state_equivalence(
         ) from exc
 
 
-def verify_legacy_content_adoption(
-    conn: Any,
+def _verify_artifact_bundle(
     *,
     history: Sequence[MigrationEntry],
-    ledger: LedgerContract,
     manifest: MigrationHistoryManifest,
     artifact: ArtifactIdentity,
     expected_manifest_sha256: str,
-    entry_names: Sequence[str] | None = None,
-    state_verifiers: MigrationStateVerifierSource | None = None,
-) -> Tuple[str, ...]:
-    """Return adoptable names after artifact, digest, and state proof.
-
-    Every selected invariant runs inside a savepoint that is rolled back even
-    on success.  A verifier therefore cannot accidentally turn its proof into
-    part of the adoption mutation.
-    """
+    artifact_verifier: ArtifactVerifier | None,
+) -> None:
+    """Authenticate the complete in-memory artifact set without touching DB."""
     if manifest.artifact != artifact:
         raise MigrationContentAdoptionError(
             "migration history manifest is not bound to the selected artifact"
@@ -138,6 +136,26 @@ def verify_legacy_content_adoption(
             "migration history manifest does not exactly describe the selected "
             "artifact's packaged history"
         )
+    try:
+        require_artifact_verification(
+            artifact_verifier,
+            artifact_verification_request(manifest),
+        )
+    except ArtifactVerificationError as exc:
+        raise MigrationContentAdoptionError(
+            f"migration adoption artifact verification failed: {exc}"
+        ) from exc
+
+
+def _verify_requested_state(
+    conn: Any,
+    *,
+    history: Sequence[MigrationEntry],
+    ledger: LedgerContract,
+    entry_names: Sequence[str] | None,
+    state_verifiers: MigrationStateVerifierSource | None,
+) -> Tuple[str, ...]:
+    """Select NULL rows and prove their project state inside a savepoint."""
 
     status = require_matching_content_identity(conn, history, ledger)
     requested = tuple(entry_names) if entry_names is not None else status.adoptable
@@ -171,6 +189,40 @@ def verify_legacy_content_adoption(
     return requested
 
 
+def verify_legacy_content_adoption(
+    conn: Any,
+    *,
+    history: Sequence[MigrationEntry],
+    ledger: LedgerContract,
+    manifest: MigrationHistoryManifest,
+    artifact: ArtifactIdentity,
+    expected_manifest_sha256: str,
+    artifact_verifier: ArtifactVerifier | None,
+    entry_names: Sequence[str] | None = None,
+    state_verifiers: MigrationStateVerifierSource | None = None,
+) -> Tuple[str, ...]:
+    """Return adoptable names after external artifact and database-state proof.
+
+    The project-owned artifact verifier runs before any connection operation.
+    Every selected invariant then runs inside a savepoint that is rolled back
+    even on success, so its proof cannot become part of adoption mutation.
+    """
+    _verify_artifact_bundle(
+        history=history,
+        manifest=manifest,
+        artifact=artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
+        artifact_verifier=artifact_verifier,
+    )
+    return _verify_requested_state(
+        conn,
+        history=history,
+        ledger=ledger,
+        entry_names=entry_names,
+        state_verifiers=state_verifiers,
+    )
+
+
 def adopt_legacy_content_identities(
     conn: Any,
     *,
@@ -179,6 +231,7 @@ def adopt_legacy_content_identities(
     manifest: MigrationHistoryManifest,
     artifact: ArtifactIdentity,
     expected_manifest_sha256: str,
+    artifact_verifier: ArtifactVerifier | None,
     adopted_by: str,
     write_evidence: EvidenceWriter,
     verify_evidence_immutability: EvidenceGuardVerifier,
@@ -197,18 +250,22 @@ def adopt_legacy_content_identities(
     actor = adopted_by.strip()
     if not actor:
         raise MigrationContentAdoptionError("adopted_by must be non-empty")
+    _verify_artifact_bundle(
+        history=history,
+        manifest=manifest,
+        artifact=artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
+        artifact_verifier=artifact_verifier,
+    )
     if not verify_evidence_immutability(conn):
         raise MigrationContentAdoptionError(
             "migration content adoption is not protected by the declared "
             "evidence and ledger-transition database guards"
         )
-    requested = verify_legacy_content_adoption(
+    requested = _verify_requested_state(
         conn,
         history=history,
         ledger=ledger,
-        manifest=manifest,
-        artifact=artifact,
-        expected_manifest_sha256=expected_manifest_sha256,
         entry_names=entry_names,
         state_verifiers=state_verifiers,
     )

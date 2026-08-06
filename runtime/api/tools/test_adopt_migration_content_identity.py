@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -10,6 +13,7 @@ import pytest
 
 from yoke_core.domain.migration_history_manifest import write_manifest
 from yoke_core.tools import adopt_migration_content_identity as tool
+from yoke_core.tools import github_artifact_attestation
 from yoke_core.tools.migration_history_release_artifact import (
     manifest_for_core_wheel_path,
     write_release_evidence,
@@ -17,6 +21,7 @@ from yoke_core.tools.migration_history_release_artifact import (
 
 
 SOURCE_COMMIT = "b" * 40
+SOURCE_REPOSITORY = "upyoke/yoke"
 
 
 def _legacy_connection() -> sqlite3.Connection:
@@ -77,6 +82,8 @@ def _argv(
         str(manifest),
         "--release-evidence",
         str(evidence),
+        "--repository",
+        SOURCE_REPOSITORY,
         "--source-commit",
         SOURCE_COMMIT,
         "--manifest-sha256",
@@ -89,12 +96,53 @@ def _argv(
     return args
 
 
+def _mock_github_attestations(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    returncode: int = 0,
+    digest_overrides: dict[str, str] | None = None,
+) -> list[tuple[str, ...]]:
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        github_artifact_attestation,
+        "_resolve_executable",
+        lambda _executable: "/usr/bin/gh",
+    )
+
+    def run(command):
+        captured = tuple(command)
+        calls.append(captured)
+        path = Path(captured[3])
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest_overrides and path.name in digest_overrides:
+            digest = digest_overrides[path.name]
+        payload = [
+            {
+                "verificationResult": {
+                    "statement": {
+                        "subject": [{"name": path.name, "digest": {"sha256": digest}}]
+                    }
+                }
+            }
+        ]
+        return subprocess.CompletedProcess(
+            list(command),
+            returncode,
+            stdout=json.dumps(payload),
+            stderr="external verifier diagnostic",
+        )
+
+    monkeypatch.setattr(github_artifact_attestation, "_run_verification", run)
+    return calls
+
+
 def test_admin_surface_verifies_then_explicitly_applies(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     wheel, manifest, evidence, digest = _artifact(tmp_path)
+    verification_calls = _mock_github_attestations(monkeypatch)
     conn = _legacy_connection()
     conn.execute(
         "INSERT INTO applied_migrations "
@@ -114,7 +162,11 @@ def test_admin_surface_verifies_then_explicitly_applies(
     )
 
     assert tool.main(_argv(wheel, manifest, evidence, digest, mode="prepare")) == 0
-    assert "additive digest/evidence schema committed" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "additive digest/evidence schema committed" in output
+    assert "artifact verification receipt:" in output
+    assert SOURCE_REPOSITORY in output
+    assert str(tmp_path) not in output
     assert (
         conn.execute("SELECT content_sha256 FROM applied_migrations").fetchone()[0]
         is None
@@ -135,6 +187,17 @@ def test_admin_surface_verifies_then_explicitly_applies(
         "SELECT source_commit, manifest_sha256 FROM migration_content_adoptions"
     ).fetchone()
     assert row == (SOURCE_COMMIT, digest)
+    assert len(verification_calls) == 12
+    for command in verification_calls:
+        assert command[:3] == ("/usr/bin/gh", "attestation", "verify")
+        assert ("--repo", SOURCE_REPOSITORY) == command[4:6]
+        assert command[6:8] == (
+            "--signer-workflow",
+            f"{SOURCE_REPOSITORY}/.github/workflows/yoke-build-artifacts.yml",
+        )
+        assert "--deny-self-hosted-runners" in command
+        assert ("--source-digest", SOURCE_COMMIT) == command[8:10]
+        assert command[-2:] == ("--format", "json")
 
 
 def test_admin_surface_rejects_external_evidence_drift(
@@ -142,6 +205,7 @@ def test_admin_surface_rejects_external_evidence_drift(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     wheel, manifest, evidence, digest = _artifact(tmp_path)
+    _mock_github_attestations(monkeypatch)
     conn = _legacy_connection()
     conn.execute(
         "INSERT INTO applied_migrations "
@@ -157,3 +221,65 @@ def test_admin_surface_rejects_external_evidence_drift(
         conn.execute("SELECT content_sha256 FROM applied_migrations").fetchone()[0]
         is None
     )
+
+
+def test_admin_surface_refuses_failed_or_mismatched_attestation_before_prepare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wheel, manifest, evidence, digest = _artifact(tmp_path)
+    conn = _legacy_connection()
+    monkeypatch.setattr(tool, "_connect_database", lambda _database: conn)
+    calls = _mock_github_attestations(monkeypatch, returncode=1)
+
+    assert tool.main(_argv(wheel, manifest, evidence, digest, mode="prepare")) == 1
+    assert len(calls) == 1
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM sqlite_master "
+            "WHERE type='table' AND name='migration_content_adoptions'"
+        ).fetchone()[0]
+        == 0
+    )
+
+    calls = _mock_github_attestations(
+        monkeypatch,
+        digest_overrides={wheel.name: "f" * 64},
+    )
+    assert tool.main(_argv(wheel, manifest, evidence, digest, mode="prepare")) == 1
+    assert len(calls) == 3
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM sqlite_master "
+            "WHERE type='table' AND name='migration_content_adoptions'"
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def test_admin_surface_refuses_missing_verifier_tool_and_release_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wheel, manifest, evidence, digest = _artifact(tmp_path)
+    conn = _legacy_connection()
+    monkeypatch.setattr(tool, "_connect_database", lambda _database: conn)
+    monkeypatch.setattr(
+        github_artifact_attestation,
+        "_resolve_executable",
+        lambda _executable: (_ for _ in ()).throw(
+            ValueError("GitHub CLI is unavailable")
+        ),
+    )
+
+    assert tool.main(_argv(wheel, manifest, evidence, digest, mode="prepare")) == 1
+    assert (
+        conn.execute(
+            "SELECT count(*) FROM sqlite_master "
+            "WHERE type='table' AND name='migration_content_adoptions'"
+        ).fetchone()[0]
+        == 0
+    )
+
+    evidence.unlink()
+    assert tool.main(_argv(wheel, manifest, evidence, digest, mode="prepare")) == 1

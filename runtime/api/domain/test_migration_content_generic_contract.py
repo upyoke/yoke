@@ -5,6 +5,9 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from runtime.api.domain.migration_artifact_trust_test_helpers import (
+    artifact_verifier_for,
+)
 from yoke_core.domain.migration_audit_schema import (
     ensure_migration_audit_table,
     ensure_migration_ledger_table,
@@ -106,6 +109,7 @@ def test_custom_ledger_schema_adoption_and_apply_use_no_fixed_identifiers(
         manifest=manifest,
         artifact=artifact,
         expected_manifest_sha256=manifest.content_sha256,
+        artifact_verifier=artifact_verifier_for(manifest),
         adopted_by="operator:test",
         write_evidence=adoption_evidence_writer(evidence),
         verify_evidence_immutability=adoption_evidence_verifier(ledger, evidence),
@@ -197,6 +201,7 @@ def test_apply_only_history_uses_project_owned_verifier_registry(
         manifest=manifest,
         artifact=artifact,
         expected_manifest_sha256=manifest.content_sha256,
+        artifact_verifier=artifact_verifier_for(manifest),
         adopted_by="operator:test",
         write_evidence=adoption_evidence_writer(evidence),
         verify_evidence_immutability=adoption_evidence_verifier(ledger, evidence),
@@ -233,6 +238,7 @@ def test_unknown_or_noncallable_project_verifier_refuses(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             entry_names=("0001_first",),
             state_verifiers=state_verifiers,
         )
@@ -268,7 +274,38 @@ def test_project_verifier_failure_rolls_back_all_savepoint_writes(
             manifest=manifest,
             artifact=artifact,
             expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=artifact_verifier_for(manifest),
             state_verifiers=resolve,
         )
 
     assert conn.execute("SELECT count(*) FROM verifier_marks").fetchone() == (0,)
+
+
+@pytest.mark.parametrize("verification_case", ["missing", "mismatched"])
+def test_artifact_verification_refuses_before_connection_access(
+    tmp_path: Path,
+    verification_case: str,
+) -> None:
+    conn, ledger, _evidence, history, artifact, manifest = _apply_only_adoption_case(
+        tmp_path
+    )
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    verifier = (
+        None
+        if verification_case == "missing"
+        else artifact_verifier_for(manifest, manifest_sha256="f" * 64)
+    )
+
+    with pytest.raises(MigrationContentAdoptionError, match="artifact verification"):
+        verify_legacy_content_adoption(
+            conn,
+            history=history,
+            ledger=ledger,
+            manifest=manifest,
+            artifact=artifact,
+            expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=verifier,
+        )
+
+    assert statements == []

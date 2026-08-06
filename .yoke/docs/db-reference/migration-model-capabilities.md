@@ -172,15 +172,18 @@ per-target migration dispatch: each tenant boot applies its own pending set.
 ### Legacy digest adoption and pre-deploy ordering
 
 Adoption is an explicit state-equivalence claim, not a backfill. The selected
-artifact manifest must exactly match the selected packaged history and its
-independently trusted manifest digest/source commit. Before any ledger UPDATE,
-every selected entry must pass a project-owned verifier from the optional
-registry/resolver, or its callable `invariants(conn)` fallback when no registry
-is supplied. A supplied registry fails closed on unknown or non-callable
-entries. Every verifier runs inside a rolled-back savepoint. The adopter then
-updates only NULL digest rows and appends artifact, manifest, actor, and time
-evidence in one transaction; a conflict or invariant failure leaves both
-ledger and evidence unchanged.
+artifact manifest must exactly match the selected packaged history, and every
+generic verify/apply call requires a project-owned artifact verifier. Its
+receipt must bind the exact source artifact and migration manifest digests to
+the manifest's source commit before the kernel touches the database. Caller-
+supplied or recomputed hashes alone are transport checks, never provenance.
+After artifact authentication, every selected entry must pass a project-owned
+state verifier from the optional registry/resolver, or its callable
+`invariants(conn)` fallback when no registry is supplied. A supplied registry
+fails closed on unknown or non-callable entries. Every state verifier runs
+inside a rolled-back savepoint. The adopter then appends evidence and updates
+only its matching NULL digest in one transaction; a conflict or invariant
+failure leaves both ledger and evidence unchanged.
 
 For Platform Stage/production, ordering is mandatory:
 
@@ -189,9 +192,10 @@ For Platform Stage/production, ordering is mandatory:
    platform_evidence_contract)`. It commits nullable metadata, the evidence
    table, and database-enforced append-only guards as a distinct transaction,
    so the deployed build remains compatible.
-2. The adapter loads a Platform-source manifest and externally trusted manifest
-   SHA/source commit, selects Platform's own permanent history, and calls the
-   generic `adopt_legacy_content_identities`, binding both
+2. The adapter loads a Platform-source manifest, selects Platform's own
+   permanent history, and authenticates its project-owned release artifacts.
+   It calls the generic `adopt_legacy_content_identities`, binding the required
+   `artifact_verifier` plus both
    `adoption_evidence_writer(platform_evidence_contract)` and
    `adoption_evidence_verifier(platform_evidence_contract)`. It then requires
    no common-row mismatch or remaining adoptable NULL.
@@ -205,16 +209,23 @@ python3 -m yoke_core.tools.adopt_migration_content_identity stage-db-admin \
   --wheel <attested-yoke-core-wheel> \
   --manifest <attested-migration-history.json> \
   --release-evidence <attested-migration-history-record.json> \
-  --source-commit <full-commit> --manifest-sha256 <sha256> \
+  --repository upyoke/yoke --source-commit <full-commit> \
+  --manifest-sha256 <sha256> \
   --adopted-by operator:<name> --prepare
 ```
 
-The mandatory `--prepare` invocation commits only additive schema. After it
-succeeds on the whole selected fleet, repeat the same command without a mode
-for invariant verification and a printed plan; then repeat with `--apply` for
-atomic adoption. The tool refuses verify/apply when preparation or its
-immutability guards are absent. Platform and external projects call the generic
-primitives with their own history, ledger, evidence table, and artifact type;
+Before opening a database, every mode uses `gh attestation verify` to
+authenticate the exact core wheel, migration manifest, and release record
+against the supplied repository/source commit, Yoke's release signer workflow,
+and GitHub-hosted runners. It prints one secret-free receipt containing only
+the verifier policy and verified subject identities. Missing tooling, evidence,
+or a mismatched attestation refuses the run. The mandatory `--prepare`
+invocation then commits only additive schema. After it succeeds on the whole
+selected fleet, repeat the same command without a mode for invariant
+verification and a printed plan; then repeat with `--apply` for atomic
+adoption. The tool refuses verify/apply when preparation or its immutability
+guards are absent. Platform and external projects call the generic primitives
+with their own verifier, history, ledger, evidence table, and artifact type;
 they do not reuse Yoke tenant enumeration or wheel assumptions.
 
 Full-universe replacement is the only sanctioned guard suspension. Trusted

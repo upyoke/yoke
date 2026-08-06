@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence, Tuple
 
+from yoke_core.domain.migration_artifact_trust import ArtifactVerifier
 from yoke_core.domain.migration_content_adoption import (
     AdoptionRecord,
     adopt_legacy_content_identities,
@@ -31,6 +32,7 @@ YOKE_SERVING_FLOOR_COLUMN = "minimum_serving_version"
 YOKE_APPLIED_AT_COLUMN = "applied_at"
 YOKE_APPLIED_BY_COLUMN = "applied_by"
 YOKE_ADOPTION_EVIDENCE_TABLE = "migration_content_adoptions"
+YOKE_RELEASE_ATTESTATION_WORKFLOW = ".github/workflows/yoke-build-artifacts.yml"
 YOKE_ADOPTION_EVIDENCE_CONTRACT = AdoptionEvidenceContract(
     table=YOKE_ADOPTION_EVIDENCE_TABLE,
 )
@@ -137,6 +139,7 @@ def adopt_yoke_legacy_content_identities(
     manifest: MigrationHistoryManifest,
     artifact: ArtifactIdentity,
     expected_manifest_sha256: str,
+    artifact_verifier: ArtifactVerifier | None,
     adopted_by: str,
     entry_names: Sequence[str] | None = None,
     adopted_at: str | None = None,
@@ -149,11 +152,11 @@ def adopt_yoke_legacy_content_identities(
         manifest=manifest,
         artifact=artifact,
         expected_manifest_sha256=expected_manifest_sha256,
+        artifact_verifier=artifact_verifier,
         adopted_by=adopted_by,
         write_evidence=write_yoke_adoption_evidence,
         verify_evidence_immutability=adoption_evidence_verifier(
-            YOKE_LEDGER_CONTRACT,
-            YOKE_ADOPTION_EVIDENCE_CONTRACT
+            YOKE_LEDGER_CONTRACT, YOKE_ADOPTION_EVIDENCE_CONTRACT
         ),
         entry_names=entry_names,
         adopted_at=adopted_at,
@@ -170,6 +173,7 @@ __all__ = [
     "YOKE_LEDGER_CONTRACT",
     "YOKE_LEDGER_TABLE",
     "YOKE_MIGRATION_MODULES_DIR",
+    "YOKE_RELEASE_ATTESTATION_WORKFLOW",
     "YOKE_SERVING_FLOOR_COLUMN",
     "adopt_yoke_legacy_content_identities",
     "converge_yoke_migration_content_schema",

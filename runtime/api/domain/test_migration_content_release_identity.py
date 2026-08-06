@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.migration_artifact_trust_test_helpers import (
+    artifact_verifier_for,
+)
 from runtime.api.domain.test_migration_content_identity import (
     SOURCE_COMMIT,
     _adoptable_history,
@@ -59,6 +62,7 @@ def test_wrong_release_identity_refuses_before_adoption(
             manifest=manifest,
             artifact=selected_artifact,
             expected_manifest_sha256=expected_digest,
+            artifact_verifier=artifact_verifier_for(manifest),
             adopted_by="operator:test",
         )
 
