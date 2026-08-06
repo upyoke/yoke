@@ -1,9 +1,10 @@
 name: yoke-build-artifacts
 
-# Classification: FACTORY. Builds the complete release artifact contract —
-# the split-package wheels, the installer files, the simple index, and the
-# release records — and uploads it as a workflow artifact. Stays with the
-# product repo when it becomes public.
+# Classification: FACTORY. Builds and validates the complete publication tree —
+# the split-package wheels, installer files, simple index, and release records.
+# It uploads only the immutable, versioned release payload; downloading that
+# workflow artifact produces a flat directory containing records, wheels, and
+# migration evidence. Stays with the product repo when it becomes public.
 #
 # This is the secretless half of what yoke-distribution-publish.yml does:
 # the same yoke_core.tools.build_release + validate-release pipeline, but
@@ -42,7 +43,7 @@ on:
         description: Validated shared product-wheel version.
         value: ${{ jobs.build.outputs.release_version }}
       artifact_name:
-        description: Workflow artifact containing the validated release tree.
+        description: Workflow artifact containing the validated release payload.
         value: ${{ jobs.build.outputs.artifact_name }}
 
 concurrency:
@@ -139,7 +140,7 @@ jobs:
     steps:
       # Deliberately no checkout and no run step: the only inputs to the signer
       # are bytes transferred through GitHub's artifact service.
-      - name: Download the validated release tree
+      - name: Download the validated release payload
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.build.outputs.artifact_name }}

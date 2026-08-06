@@ -1,11 +1,11 @@
 """Validate Yoke static distribution release artifacts and public URLs.
 
 The release tree is a private PEP 503 "simple" index plus immutable versioned
-wheels. ``validate-release`` checks versioned wheels against the per-wheel
-``release-records.json`` and that the ``simple/`` tree lists every product wheel
-with a matching ``#sha256=`` fragment. ``write-channel`` writes the mutable
-channel -> version pointer. ``smoke`` GETs the index pages and wheels and
-asserts cache headers.
+wheels. ``validate-release-artifact`` checks the flat, immutable payload emitted
+for one release version. ``validate-release`` additionally requires that payload
+at ``<output-root>/dist/releases/<version>`` and checks the sibling ``simple/``
+tree. ``write-channel`` writes the mutable channel -> version pointer. ``smoke``
+GETs the index pages and wheels and asserts cache headers.
 """
 
 from __future__ import annotations
@@ -53,22 +53,52 @@ def validate_release_directory(
     *,
     expected_source_commit: str | None = None,
 ) -> list[dict[str, object]]:
-    """Validate versioned wheels + the ``simple/`` index for ``release_dir``.
+    """Validate a canonical publication tree and its ``simple/`` index.
 
-    ``release_dir`` is ``dist/releases/<version>``; the ``simple/`` tree lives at
-    the output root (``release_dir.parents[2]``). Returns the per-wheel records.
+    ``release_dir`` must be ``<output-root>/dist/releases/<version>``; the
+    ``simple/`` tree lives at ``<output-root>/simple``. Returns the per-wheel
+    records.
+    """
+
+    output_root = _publication_output_root(release_dir)
+    records = validate_release_artifact_directory(
+        release_dir,
+        expected_source_commit=expected_source_commit,
+    )
+    versions = {str(record["version"]) for record in records}
+    if versions != {release_dir.name}:
+        raise ValueError(
+            "release directory version does not match release records: "
+            f"{release_dir.name}"
+        )
+    by_filename = {str(record["filename"]): record for record in records}
+    distribution_release_validation.validate_simple_index(
+        output_root / release_artifacts.SIMPLE_DIR, by_filename
+    )
+    return records
+
+
+def validate_release_artifact_directory(
+    release_artifact_dir: Path,
+    *,
+    expected_source_commit: str | None = None,
+) -> list[dict[str, object]]:
+    """Validate one flat downloaded release-artifact payload.
+
+    The payload contains ``release-records.json``, ``wheels/``, and the
+    migration-history manifest and evidence directly beneath
+    ``release_artifact_dir``. It intentionally has no publication-tree or
+    ``simple/`` index requirement.
     """
 
     records = _load_release_records(
-        release_dir / release_artifacts.RELEASE_RECORDS_FILENAME
+        release_artifact_dir / release_artifacts.RELEASE_RECORDS_FILENAME
     )
     distribution_release_validation.validate_product_release_records(records)
-    wheels_dir = release_dir / release_artifacts.WHEELS_DIR
-    by_filename: dict[str, dict[str, object]] = {}
+    wheels_dir = release_artifact_dir / release_artifacts.WHEELS_DIR
     missing: list[str] = []
     for record in records:
         filename = str(record["filename"])
-        by_filename[filename] = record
         wheel = wheels_dir / filename
         if not wheel.is_file():
             missing.append(f"{release_artifacts.WHEELS_DIR}/{filename}")
@@ -81,19 +111,33 @@ def validate_release_directory(
     distribution_release_validation.validate_wheel_records_match(records, wheels_dir)
     distribution_release_validation.validate_sibling_pins(records, wheels_dir)
     migration_manifest = migration_history_release_artifact.validate_release_manifest(
-        release_dir / release_artifacts.MIGRATION_HISTORY_MANIFEST_FILENAME,
+        release_artifact_dir / release_artifacts.MIGRATION_HISTORY_MANIFEST_FILENAME,
         package_index.read_wheel_records(wheels_dir),
         expected_source_commit=expected_source_commit,
     )
     migration_history_release_artifact.validate_release_evidence(
-        release_dir / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME,
+        release_artifact_dir
+        / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME,
         migration_manifest,
         expected_source_commit=expected_source_commit,
     )
-    distribution_release_validation.validate_simple_index(
-        release_dir.parents[2] / release_artifacts.SIMPLE_DIR, by_filename
-    )
     return records
+
+
+def _publication_output_root(release_dir: Path) -> Path:
+    releases_dir = release_dir.parent
+    dist_dir = releases_dir.parent
+    if (
+        not release_dir.name
+        or releases_dir.name != release_artifacts.RELEASES_DIR
+        or dist_dir.name != release_artifacts.DIST_ROOT
+    ):
+        raise ValueError(
+            "validate-release requires release_dir layout "
+            f"<output-root>/{release_artifacts.DIST_ROOT}/"
+            f"{release_artifacts.RELEASES_DIR}/<version>; got {release_dir}"
+        )
+    return dist_dir.parent
 
 
 def verify_urls(checks: Sequence[UrlCheck], *, timeout: float = 20.0) -> None:
@@ -243,6 +287,9 @@ def build_parser() -> argparse.ArgumentParser:
     validate_release = subparsers.add_parser("validate-release")
     validate_release.add_argument("release_dir", type=Path)
     validate_release.add_argument("--source-commit")
+    validate_release_artifact = subparsers.add_parser("validate-release-artifact")
+    validate_release_artifact.add_argument("release_artifact_dir", type=Path)
+    validate_release_artifact.add_argument("--source-commit")
     channel = subparsers.add_parser("write-channel")
     channel.add_argument("--channel", choices=["stable", "latest"], required=True)
     channel.add_argument("--channel-input", type=Path, required=True)
@@ -267,6 +314,12 @@ def main(argv: Iterable[str] | None = None) -> int:
                 expected_source_commit=args.source_commit,
             )
             print(args.release_dir)
+        elif args.command == "validate-release-artifact":
+            validate_release_artifact_directory(
+                args.release_artifact_dir,
+                expected_source_commit=args.source_commit,
+            )
+            print(args.release_artifact_dir)
         elif args.command == "write-channel":
             _write_channel(args.channel, args.channel_input, args.output)
             print(args.output)
