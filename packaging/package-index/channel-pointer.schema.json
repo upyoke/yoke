@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://yoke.local/schemas/distribution-channel.json",
   "title": "Yoke distribution channel pointer",
-  "description": "Mutable channel -> version pointer published at /dist/channels/<channel>.json. The installer reads it to pin the immutable version uv installs from the private PEP 503 index at index_url.",
+  "description": "Mutable channel -> version pointer published at /dist/channels/<channel>.json. Historical schema v2 pointers remain valid without migration evidence; schema v3 binds content-aware releases to their migration manifest and release record.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,8 +14,18 @@
     "release_base_url",
     "installer"
   ],
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": 2 } } },
+      "then": { "not": { "required": ["migration_history"] } }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": 3 } } },
+      "then": { "required": ["migration_history"] }
+    }
+  ],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "enum": [2, 3] },
     "channel": { "enum": ["stable", "latest"] },
     "version": { "type": "string", "minLength": 1 },
     "generated_at": { "type": "string" },
@@ -27,6 +37,17 @@
     "release_base_url": {
       "type": "string",
       "description": "Immutable versioned release base: <base>/dist/releases/<version>."
+    },
+    "migration_history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_url", "evidence_url", "manifest_sha256", "source_commit"],
+      "properties": {
+        "manifest_url": { "type": "string", "pattern": "/migration-history\\.json$" },
+        "evidence_url": { "type": "string", "pattern": "/migration-history-record\\.json$" },
+        "manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "source_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+      }
     },
     "installer": {
       "type": "object",

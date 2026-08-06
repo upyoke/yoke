@@ -18,21 +18,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 from yoke_core.domain import json_helper
 from yoke_core.tools import (
+    distribution_channel,
     distribution_release_validation,
+    migration_history_release_artifact,
+    package_index,
     release_artifacts,
 )
 
 
-CHANNELS = ("stable", "latest")
+CHANNELS = distribution_channel.CHANNELS
+channel_payload = distribution_channel.channel_payload
+validate_channel_pointer = distribution_channel.validate_channel_pointer
 MUTABLE_COMMON_PATHS = (
     "/install",
     "/dist/install.py",
 )
+
 
 @dataclass(frozen=True)
 class UrlCheck:
@@ -42,7 +48,11 @@ class UrlCheck:
     cache_control_contains: str | None = None
 
 
-def validate_release_directory(release_dir: Path) -> list[dict[str, object]]:
+def validate_release_directory(
+    release_dir: Path,
+    *,
+    expected_source_commit: str | None = None,
+) -> list[dict[str, object]]:
     """Validate versioned wheels + the ``simple/`` index for ``release_dir``.
 
     ``release_dir`` is ``dist/releases/<version>``; the ``simple/`` tree lives at
@@ -68,40 +78,22 @@ def validate_release_directory(release_dir: Path) -> list[dict[str, object]]:
             raise ValueError(f"{filename} sha256 does not match release record")
     if missing:
         raise ValueError("release directory is missing: " + ", ".join(missing))
-    distribution_release_validation.validate_wheel_records_match(
-        records, wheels_dir
-    )
+    distribution_release_validation.validate_wheel_records_match(records, wheels_dir)
     distribution_release_validation.validate_sibling_pins(records, wheels_dir)
+    migration_manifest = migration_history_release_artifact.validate_release_manifest(
+        release_dir / release_artifacts.MIGRATION_HISTORY_MANIFEST_FILENAME,
+        package_index.read_wheel_records(wheels_dir),
+        expected_source_commit=expected_source_commit,
+    )
+    migration_history_release_artifact.validate_release_evidence(
+        release_dir / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME,
+        migration_manifest,
+        expected_source_commit=expected_source_commit,
+    )
     distribution_release_validation.validate_simple_index(
         release_dir.parents[2] / release_artifacts.SIMPLE_DIR, by_filename
     )
     return records
-
-
-def channel_payload(
-    *,
-    channel: str,
-    version: str,
-    index_url: str,
-    release_base_url: str,
-    generated_at: str,
-    site_root: str | None = None,
-) -> dict[str, object]:
-    if channel not in CHANNELS:
-        raise ValueError("channel must be stable or latest")
-    root = site_root or _site_root_from_release_base(release_base_url)
-    return {
-        "schema_version": 2,
-        "channel": channel,
-        "version": version,
-        "generated_at": generated_at,
-        "index_url": index_url,
-        "release_base_url": release_base_url,
-        "installer": {
-            "python_url": urljoin(root, "dist/install.py"),
-            "shell_url": urljoin(root, "install"),
-        },
-    }
 
 
 def verify_urls(checks: Sequence[UrlCheck], *, timeout: float = 20.0) -> None:
@@ -114,9 +106,13 @@ def verify_urls(checks: Sequence[UrlCheck], *, timeout: float = 20.0) -> None:
             continue
         actual = hashlib.sha256(body).hexdigest()
         if check.sha256 is not None and actual != check.sha256:
-            failures.append(f"{check.url}: sha256 {actual} does not match {check.sha256}")
+            failures.append(
+                f"{check.url}: sha256 {actual} does not match {check.sha256}"
+            )
         if check.size is not None and len(body) != check.size:
-            failures.append(f"{check.url}: size {len(body)} does not match {check.size}")
+            failures.append(
+                f"{check.url}: size {len(body)} does not match {check.size}"
+            )
         cache_control = headers.get("Cache-Control", "")
         if (
             check.cache_control_contains is not None
@@ -167,7 +163,7 @@ def build_url_checks(
                     cache_control_contains="max-age=60",
                 )
             )
-        root = _site_root_from_release_base(base_url)
+        root = distribution_channel.site_root_from_release_base(base_url)
         checks.extend(
             UrlCheck(
                 urljoin(root, path.lstrip("/")),
@@ -200,26 +196,12 @@ def _optional_int(record: Mapping[str, object], key: str) -> int | None:
     return None if value is None else int(value)
 
 
-def _site_root_from_release_base(base_url: str) -> str:
-    marker = "/dist/releases/"
-    if marker not in base_url:
-        return base_url.rstrip("/") + "/"
-    return base_url.split(marker, 1)[0].rstrip("/") + "/"
-
-
 def _join_public_url(base: str, *parts: str) -> str:
-    value = _quote_url_path(base.rstrip("/"))
-    for part in parts:
-        value += "/" + quote(part.strip("/"), safe="%")
-    return value
+    return distribution_channel.join_public_url(base, *parts)
 
 
 def _quote_url_path(url: str) -> str:
-    parsed = urlsplit(url)
-    return urlunsplit(
-        (parsed.scheme, parsed.netloc, quote(parsed.path, safe="/%"),
-         parsed.query, parsed.fragment)
-    )
+    return distribution_channel.quote_url_path(url)
 
 
 def _get_url(url: str, *, timeout: float) -> tuple[Mapping[str, str], bytes]:
@@ -236,12 +218,18 @@ def _write_channel(channel: str, channel_input: Path, output: Path) -> None:
     source = json_helper._load_json(channel_input)
     if not isinstance(source, dict):
         raise ValueError("channel input must be an object")
+    validate_channel_pointer(source, require_content_evidence=True)
+    migration_history = source.get("migration_history")
+    if not isinstance(migration_history, dict):
+        raise ValueError("channel input lacks migration_history release evidence")
     payload = channel_payload(
         channel=channel,
         version=str(source["version"]),
         index_url=str(source["index_url"]),
         release_base_url=str(source["release_base_url"]),
         generated_at=str(source.get("generated_at") or ""),
+        migration_manifest_sha256=str(migration_history.get("manifest_sha256") or ""),
+        source_commit=str(migration_history.get("source_commit") or ""),
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -252,7 +240,9 @@ def build_parser() -> argparse.ArgumentParser:
         description="Validate Yoke static distribution artifacts and smoke URLs.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("validate-release").add_argument("release_dir", type=Path)
+    validate_release = subparsers.add_parser("validate-release")
+    validate_release.add_argument("release_dir", type=Path)
+    validate_release.add_argument("--source-commit")
     channel = subparsers.add_parser("write-channel")
     channel.add_argument("--channel", choices=["stable", "latest"], required=True)
     channel.add_argument("--channel-input", type=Path, required=True)
@@ -272,7 +262,10 @@ def main(argv: Iterable[str] | None = None) -> int:
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     try:
         if args.command == "validate-release":
-            validate_release_directory(args.release_dir)
+            validate_release_directory(
+                args.release_dir,
+                expected_source_commit=args.source_commit,
+            )
             print(args.release_dir)
         elif args.command == "write-channel":
             _write_channel(args.channel, args.channel_input, args.output)

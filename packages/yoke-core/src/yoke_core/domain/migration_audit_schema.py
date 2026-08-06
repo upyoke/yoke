@@ -19,6 +19,11 @@ from typing import Any
 
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.migration_content_schema import (
+    AdoptionEvidenceContract,
+    converge_migration_content_schema,
+)
+from yoke_core.domain.migration_ledger_contract import LedgerContract
 
 
 MIGRATION_AUDIT_DDL = """
@@ -135,28 +140,12 @@ def ensure_migration_audit_table_postgres(conn: Any) -> None:
     conn.commit()
 
 
-#: The per-database cursor into the ordered migration history: one row per
-#: applied entry, keyed by the history's own identity (the module filename
-#: stem). A cursor, not a receipt store — the pending set is
-#: ``history - ledger``, so a database answers "am I current?" from its own
-#: rows plus the code it is running, with no central registry to consult and
-#: nothing to keep in sync. Rich per-apply evidence stays in ``migration_audit``.
-#:
-#: Portable DDL with no foreign keys, deliberately: it is created on the
-#: control plane, on any authoritative database a governed migration targets,
-#: and in the pytest fixture schema, which strips foreign keys.
-APPLIED_MIGRATIONS_DDL = """
-    CREATE TABLE IF NOT EXISTS applied_migrations (
-        migration_name TEXT PRIMARY KEY,
-        applied_at TEXT NOT NULL,
-        applied_by TEXT,
-        minimum_serving_version TEXT
-    );
-"""
-
-
-def ensure_applied_migrations_table(conn: Any) -> None:
-    """Idempotently create ``applied_migrations`` on *conn*.
+def ensure_migration_ledger_table(
+    conn: Any,
+    ledger: LedgerContract,
+    evidence: AdoptionEvidenceContract,
+) -> None:
+    """Idempotently converge one caller-declared membership ledger.
 
     Shares its DDL with every consumer for the same reason
     :func:`ensure_migration_audit_table` does: a ledger that differs between
@@ -170,8 +159,22 @@ def ensure_applied_migrations_table(conn: Any) -> None:
     entry a running build cannot survive, would be the ones missing the
     column that says so.
     """
-    execute_schema_script(conn, APPLIED_MIGRATIONS_DDL)
+    execute_schema_script(
+        conn,
+        f"""
+        CREATE TABLE IF NOT EXISTS {ledger.table} (
+            {ledger.entry_column} TEXT PRIMARY KEY,
+            {ledger.applied_at_column} TEXT NOT NULL,
+            {ledger.applied_by_column} TEXT,
+            {ledger.serving_floor_column} TEXT,
+            {ledger.digest_column} TEXT
+        );
+        """,
+    )
     _add_column_if_not_exists(
-        conn, "applied_migrations", "minimum_serving_version", "TEXT"
+        conn, ledger.table, ledger.serving_floor_column, "TEXT"
+    )
+    converge_migration_content_schema(
+        conn, ledger, evidence,
     )
     conn.commit()

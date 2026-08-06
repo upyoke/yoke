@@ -39,13 +39,15 @@ uv run python -m yoke_core.tools.build_release \
   --repo-root . \
   --output-root /tmp/yoke-release \
   --base-url https://api.upyoke.com \
+  --source-commit <full-source-commit> \
   --channel latest
 ```
 
 The builder creates the product wheels, the PEP 503 `simple/` index, the
-per-wheel `release-records.json`, the channel JSON, `dist/install.py`, and the
-root `/install` shim. Installer consumers do not need a Yoke source checkout;
-they install from the hosted index.
+per-wheel `release-records.json`, deterministic migration manifest,
+independently attestable migration evidence record, channel JSON,
+`dist/install.py`, and the root `/install` shim. Installer consumers do not
+need a Yoke source checkout; they install from the hosted index.
 
 ## Public Release Layout
 
@@ -61,6 +63,8 @@ https://api.upyoke.com/simple/yoke-harness/
 https://api.upyoke.com/simple/yoke-core/
 https://api.upyoke.com/dist/releases/<version>/wheels/<wheel>.whl   immutable
 https://api.upyoke.com/dist/releases/<version>/release-records.json immutable
+https://api.upyoke.com/dist/releases/<version>/migration-history.json immutable
+https://api.upyoke.com/dist/releases/<version>/migration-history-record.json immutable
 ```
 
 Wheels under `dist/releases/<version>/` are immutable (one-year `immutable`
@@ -71,17 +75,25 @@ accrete new wheels as versions ship.
 ## Channel Pointer
 
 Each channel pointer at `/dist/channels/<channel>.json` maps a channel to one
-immutable version pin. Its shape is defined in
+immutable version pin. Historical schema v2 pointers remain valid without
+migration evidence; content-aware releases publish schema v3 and fail closed
+without it. The shapes are defined in
 [`channel-pointer.schema.json`](channel-pointer.schema.json):
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "channel": "stable",
   "version": "<version>",
   "generated_at": "<commit ISO time>",
   "index_url": "https://api.upyoke.com/simple/",
   "release_base_url": "https://api.upyoke.com/dist/releases/<version>",
+  "migration_history": {
+    "manifest_url": "https://api.upyoke.com/dist/releases/<version>/migration-history.json",
+    "evidence_url": "https://api.upyoke.com/dist/releases/<version>/migration-history-record.json",
+    "manifest_sha256": "<sha256>",
+    "source_commit": "<full-source-commit>"
+  },
   "installer": {
     "python_url": "https://api.upyoke.com/dist/install.py",
     "shell_url": "https://api.upyoke.com/install"
@@ -100,7 +112,11 @@ https://api.upyoke.com/simple/
 
 ## Publish Flow
 
-The `yoke-distribution-publish` workflow uploads immutable wheels and the
+The release factory validates and attests the wheels, migration manifest, and
+migration evidence record against one full source commit. Release validation
+rejects any manifest/record/wheel mismatch; channel generation repeats the
+externally usable manifest digest and source commit. The
+`yoke-distribution-publish` workflow uploads those immutable files and the
 versioned `release-records.json` first (refusing any overwrite whose bytes
 differ), uploads the mutable `simple/` index pages, channel JSON, and installer
 assets, invalidates the mutable CloudFront paths (`/simple/*`, `/install`,

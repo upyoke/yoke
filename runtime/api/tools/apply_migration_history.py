@@ -32,9 +32,12 @@ from yoke_core.domain import (
 )
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
-from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
 from yoke_core.domain.migration_history import history_dir, ordered_entries
 from yoke_core.domain.migration_restore_point import configured_restore_point
+from yoke_core.domain.migration_yoke_ledger import (
+    YOKE_LEDGER_CONTRACT,
+    ensure_yoke_migration_ledger,
+)
 from yoke_contracts.engine_version import installed_engine_version
 
 
@@ -47,7 +50,7 @@ _TABLES_THIS_TOOL_CREATES = ("applied_migrations", "migration_audit")
 def _hand_created_tables_to_the_serving_role(conn) -> None:
     """Give back any table this admin connection just created.
 
-    ``ensure_applied_migrations_table`` creates the ledger when it is absent,
+    ``ensure_yoke_migration_ledger`` creates the ledger when it is absent,
     and whoever runs it owns whatever it creates. Run through an admin
     connection — the only way this tool is run — that leaves the server unable
     to ever add a column to its own ledger, and the boot converge does exactly
@@ -113,13 +116,15 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = db_helpers.connect()
     try:
-        ensure_applied_migrations_table(conn)
+        ensure_yoke_migration_ledger(conn)
         _hand_created_tables_to_the_serving_role(conn)
         if args.record_missing_receipts:
             healed = migration_audit_receipts.record_missing_receipts(
                 conn,
                 history,
-                applied=migration_boot_apply.applied_names(conn),
+                applied=migration_boot_apply.applied_names(
+                    conn, YOKE_LEDGER_CONTRACT,
+                ),
                 stamp=migration_audit_receipts.now_stamp(),
                 restore_point=args.record_missing_receipts,
                 project_id=args.project_id,
@@ -127,8 +132,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"recorded receipts: {list(healed)}")
             return 0
-        pending = migration_boot_apply.pending_entries(conn, history)
-        applied = sorted(migration_boot_apply.applied_names(conn))
+        pending = migration_boot_apply.pending_entries(
+            conn, history, YOKE_LEDGER_CONTRACT,
+        )
+        applied = sorted(
+            migration_boot_apply.applied_names(conn, YOKE_LEDGER_CONTRACT)
+        )
         print(f"ledger: {len(applied)} applied {applied}")
         print(f"pending: {[e.name for e in pending]}")
 
@@ -143,7 +152,10 @@ def main(argv: list[str] | None = None) -> int:
             # already satisfies every entry; running them would be a no-op at
             # best. Stamping is the correct answer, and it is what boot does.
             stamped = migration_boot_apply.stamp_history(
-                conn, history, applied_by="operator-birth-stamp"
+                conn,
+                history,
+                ledger=YOKE_LEDGER_CONTRACT,
+                applied_by="operator-birth-stamp",
             )
             print(f"newborn database: stamped {len(stamped)} entries, applied none")
             return 0
@@ -152,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         outcome = migration_boot_apply.apply_pending(
             conn,
             history=history,
+            ledger=YOKE_LEDGER_CONTRACT,
             applied_by="operator-apply-migration-history",
             running_version=installed_engine_version(),
             backup_root=backup_root,

@@ -65,14 +65,14 @@ def test_server_entrypoint_invokes_uvicorn_with_import_string() -> None:
     # universe_is_born gates the first-birth branch, and admin_credential_exists
     # gates the interrupted-birth-completion branch — both must be stubbed so
     # main() falls through to the schema/permission seams and then serves.
-    with mock.patch("uvicorn.run") as run, mock.patch.object(
-        server_entrypoint, "universe_is_born", return_value=True
-    ), mock.patch.object(
-        server_entrypoint, "admin_credential_exists", return_value=True
-    ), mock.patch.object(
-        server_entrypoint, "ensure_core_schema"
-    ), mock.patch.object(
-        server_entrypoint, "ensure_permission_catalog"
+    with (
+        mock.patch("uvicorn.run") as run,
+        mock.patch.object(server_entrypoint, "universe_is_born", return_value=True),
+        mock.patch.object(
+            server_entrypoint, "admin_credential_exists", return_value=True
+        ),
+        mock.patch.object(server_entrypoint, "ensure_core_schema"),
+        mock.patch.object(server_entrypoint, "ensure_permission_catalog"),
     ):
         rc = server_entrypoint.main(["--host", "127.0.0.1", "--port", "9001"])
 
@@ -95,8 +95,7 @@ def test_container_healthcheck_targets_v1_health_by_default() -> None:
     settings = container_healthcheck.resolve_settings(env={})
 
     assert (
-        container_healthcheck.build_url(settings)
-        == "http://127.0.0.1:8765/v1/health"
+        container_healthcheck.build_url(settings) == "http://127.0.0.1:8765/v1/health"
     )
 
 
@@ -106,7 +105,14 @@ def test_container_healthcheck_accepts_ok_response() -> None:
     def opener(url: str, timeout: float) -> _Response:
         urls.append((url, timeout))
         return _Response(
-            {"status": "ok", "schema_ready": True, "migrations_current": True}
+            {
+                "status": "ok",
+                "schema_ready": True,
+                "migrations_current": True,
+                "migration_content_matches": True,
+                "migration_content_evidence_ready": True,
+                "migration_content_adoption_required": [],
+            }
         )
 
     settings = container_healthcheck.HealthcheckSettings(
@@ -138,11 +144,13 @@ def test_container_healthcheck_rejects_non_ok_response() -> None:
 
 def test_container_healthcheck_rejects_schema_not_ready() -> None:
     def opener(url: str, timeout: float) -> _Response:  # noqa: ARG001
-        return _Response({
-            "status": "ok",
-            "schema_ready": False,
-            "schema_missing_tables": ["items"],
-        })
+        return _Response(
+            {
+                "status": "ok",
+                "schema_ready": False,
+                "schema_missing_tables": ["items"],
+            }
+        )
 
     settings = container_healthcheck.resolve_settings(env={})
 
@@ -185,10 +193,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
         "--constraint /tmp/yoke-local-constraints.txt ."
     )
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
-    assert (
-        'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]'
-        in dockerfile
-    )
+    assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
     assert "EXPOSE 8765" in dockerfile
     assert "USER yoke" in dockerfile
     assert "curl" not in dockerfile
@@ -209,9 +214,7 @@ def test_local_wheel_constraints_emit_exact_split_package_versions(
         version="0.2.0.dev1",
     )
 
-    assert constraints_for_wheelhouse(
-        tmp_path, ["yoke-cli", "yoke-harness"]
-    ) == [
+    assert constraints_for_wheelhouse(tmp_path, ["yoke-cli", "yoke-harness"]) == [
         "yoke-cli==0.2.0.dev1",
         "yoke-harness==0.2.0.dev1",
     ]
@@ -273,9 +276,9 @@ def test_dockerignore_keeps_legacy_local_shapes_out_of_build_context() -> None:
 
 
 def test_ci_builds_container_without_registry_push() -> None:
-    workflow = (
-        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
-    ).read_text(encoding="utf-8")
+    workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "docker build" in workflow
     assert "fetch-depth: 0" in workflow
@@ -285,9 +288,9 @@ def test_ci_builds_container_without_registry_push() -> None:
 
 
 def test_ci_workflow_preserves_pipe_failures() -> None:
-    workflow = (
-        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
-    ).read_text(encoding="utf-8")
+    workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "set -o pipefail\n          host_port=" in workflow
     assert "Postgres host port did not resolve" in workflow
@@ -296,9 +299,9 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
 
 
 def test_ci_shards_backend_suite_without_renaming_required_checks() -> None:
-    workflow = (
-        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
-    ).read_text(encoding="utf-8")
+    workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert "test_shard:" in workflow
     assert "shard: [1, 2, 3, 4]" in workflow
@@ -312,9 +315,9 @@ def test_ci_shards_backend_suite_without_renaming_required_checks() -> None:
 
 
 def test_ci_disk_reclaim_receives_explicit_runner_authority() -> None:
-    workflow = (
-        REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
-    ).read_text(encoding="utf-8")
+    workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
+        encoding="utf-8"
+    )
 
     assert '--runner-environment "${{ runner.environment }}"' in workflow
     assert '--runner-os "${{ runner.os }}"' in workflow

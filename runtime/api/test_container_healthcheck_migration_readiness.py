@@ -45,6 +45,39 @@ class _Response:
             "can_serve_this_database=false",
             "0001 requires launch.181",
         ),
+        (
+            {
+                "migrations_current": True,
+                "can_serve_this_database": True,
+                "migration_content_matches": False,
+                "migration_content_mismatches": [
+                    "0005_inbox_notification_projection: digest mismatch"
+                ],
+            },
+            "migration_content_matches=true",
+            "0005_inbox_notification_projection",
+        ),
+        (
+            {
+                "migrations_current": True,
+                "can_serve_this_database": True,
+                "migration_content_matches": True,
+                "migration_content_evidence_ready": False,
+            },
+            "migration_content_evidence_ready=true",
+            "migration_content_evidence_ready",
+        ),
+        (
+            {
+                "migrations_current": True,
+                "can_serve_this_database": True,
+                "migration_content_matches": True,
+                "migration_content_evidence_ready": True,
+                "migration_content_adoption_required": ["0001_existing"],
+            },
+            "migration_content_adoption_required",
+            "0001_existing",
+        ),
     ],
 )
 def test_container_healthcheck_rejects_migration_refusal(

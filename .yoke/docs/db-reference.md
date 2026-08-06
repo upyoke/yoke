@@ -273,8 +273,17 @@ The `coordination_leases.lease_id` join already linked the audit row to the leas
 There is no apply command. A server brings its own database up to the code it
 runs before it serves: `converge_core_schema` computes `history - ledger`,
 takes an exclusive per-database advisory lock, and applies each pending entry
-in order, committing the entry and its `applied_migrations` row in ONE
-transaction. Boot is fail-hard, so a container never serves behind its schema.
+in order, committing the entry and its raw-byte SHA256 in the
+`applied_migrations` row in ONE transaction. A common non-NULL digest mismatch
+refuses before restore or mutation. Legacy NULL rows remain serviceable but are
+reported for explicit manifest-bound adoption; the mandatory prepare/verify/
+apply procedure lives in
+[migration-model-capabilities.md](db-reference/migration-model-capabilities.md).
+`/v1/health` reports `migration_content_evidence_ready` and refuses serving
+when the evidence schema or exact append-only guard behavior is not intact;
+container/deploy readiness also requires the adoption-required list to be empty.
+Boot is fail-hard, so a container never serves behind its schema or against
+known mismatched permanent migration bytes.
 
 A work item authors the entry and rehearses it:
 

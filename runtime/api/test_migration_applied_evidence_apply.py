@@ -15,8 +15,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict
 
-from yoke_core.domain.migration_model_capability_defaults import (
-    DEFAULT_MODULES_DIR,
+from runtime.api.fixtures.migration_model_test import (
+    TEST_MIGRATION_MODULES_DIR as DEFAULT_MODULES_DIR,
 )
 
 from runtime.api.migration_applied_evidence_test_helpers import (

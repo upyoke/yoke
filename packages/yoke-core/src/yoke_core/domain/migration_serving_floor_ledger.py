@@ -6,8 +6,14 @@ from typing import Any, Sequence, Tuple
 
 from yoke_core.domain import db_backend, migration_serving_version
 from yoke_core.domain.migration_history import MigrationEntry, load_migration_module
+from yoke_core.domain.migration_ledger_contract import LedgerContract
 
-LEDGER_TABLE = "applied_migrations"
+
+def _permanent_history_compatibility_ledger() -> LedgerContract:
+    """Bind immutable Yoke entry 0004's historical two-argument call."""
+    from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
+
+    return YOKE_LEDGER_CONTRACT
 
 
 def _placeholder(conn: Any) -> str:
@@ -15,10 +21,16 @@ def _placeholder(conn: Any) -> str:
 
 
 def backfill_serving_floors(
-    conn: Any, history: Sequence[MigrationEntry],
+    conn: Any,
+    history: Sequence[MigrationEntry],
+    *,
+    ledger: LedgerContract | None = None,
 ) -> Tuple[str, ...]:
     """Fill missing ledger floors from permanent applied history entries."""
-    rows = conn.execute(f"SELECT migration_name FROM {LEDGER_TABLE}").fetchall()
+    selected = ledger or _permanent_history_compatibility_ledger()
+    rows = conn.execute(
+        f"SELECT {selected.entry_column} FROM {selected.table}"
+    ).fetchall()
     recorded = {str(row[0]) for row in rows}
     repaired: list[str] = []
     marker = _placeholder(conn)
@@ -30,8 +42,9 @@ def backfill_serving_floors(
         if minimum is None:
             continue
         cursor = conn.execute(
-            f"UPDATE {LEDGER_TABLE} SET minimum_serving_version = {marker} "
-            f"WHERE migration_name = {marker} AND minimum_serving_version IS NULL",
+            f"UPDATE {selected.table} SET {selected.serving_floor_column} = {marker} "
+            f"WHERE {selected.entry_column} = {marker} "
+            f"AND {selected.serving_floor_column} IS NULL",
             (minimum, entry.name),
         )
         if getattr(cursor, "rowcount", 0):
@@ -40,12 +53,16 @@ def backfill_serving_floors(
 
 
 def missing_declared_serving_floors(
-    conn: Any, history: Sequence[MigrationEntry],
+    conn: Any,
+    history: Sequence[MigrationEntry],
+    *,
+    ledger: LedgerContract | None = None,
 ) -> Tuple[str, ...]:
     """Applied entries whose declared rollback floor is absent in the ledger."""
+    selected = ledger or _permanent_history_compatibility_ledger()
     rows = conn.execute(
-        f"SELECT migration_name FROM {LEDGER_TABLE} "
-        "WHERE minimum_serving_version IS NULL"
+        f"SELECT {selected.entry_column} FROM {selected.table} "
+        f"WHERE {selected.serving_floor_column} IS NULL"
     ).fetchall()
     missing = {str(row[0]) for row in rows}
     findings = []

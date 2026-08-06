@@ -47,7 +47,8 @@ class RecordingRunner:
         rc: int = 0,
         stdout: str = "",
         stderr: str = "",
-        responses: dict[tuple[str, ...], subprocess.CompletedProcess[str]] | None = None,
+        responses: dict[tuple[str, ...], subprocess.CompletedProcess[str]]
+        | None = None,
     ) -> None:
         self.commands: list[list[str]] = []
         self.rc = rc
@@ -74,7 +75,18 @@ def write_channel(
     """
     channels_dir = tmp_path / "site" / "dist" / "channels"
     channels_dir.mkdir(parents=True, exist_ok=True)
-    payload = {"version": version, "channel": channel}
+    payload = {
+        "schema_version": 2,
+        "version": version,
+        "channel": channel,
+        "generated_at": "2026-06-18T00:00:00Z",
+        "index_url": "https://api.upyoke.com/simple/",
+        "release_base_url": f"https://api.upyoke.com/dist/releases/{version}",
+        "installer": {
+            "python_url": "https://api.upyoke.com/dist/install.py",
+            "shell_url": "https://api.upyoke.com/install",
+        },
+    }
     (channels_dir / f"{channel}.json").write_text(json.dumps(payload), encoding="utf-8")
     return {
         "base_url": tmp_path.joinpath("site").as_uri(),
@@ -151,7 +163,7 @@ def write_uv_stub(
     if install_py_body is not None:
         serve = (
             'if [ -n "${INSTALLER_OUT:-}" ]; then\n'
-            '  cat > "$INSTALLER_OUT" <<\'INSTALL_PY_BODY\'\n'
+            "  cat > \"$INSTALLER_OUT\" <<'INSTALL_PY_BODY'\n"
             f"{install_py_body}\n"
             "INSTALL_PY_BODY\n"
             "  exit 0\n"

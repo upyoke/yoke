@@ -13,7 +13,12 @@ from unittest import mock
 # route module, matching the production import direction — importing
 # ``items_health`` first would enter the app-build cycle mid-initialization.
 from runtime.api.test_api_helpers import test_db, client  # noqa: F401
+from runtime.api.fixtures.file_test_db import connect_test_db
 import yoke_core.api.routes.items_health as items_health
+from yoke_core.domain.migration_content_identity import (
+    ContentIdentityStatus,
+    ContentMismatch,
+)
 
 
 class TestHealthSchemaReady:
@@ -123,7 +128,10 @@ class TestHealthProbeConnectionCost:
 
 class TestHealthVersionHandshake:
     def test_payload_separates_api_contract_from_engine_version(
-        self, client, test_db, monkeypatch,
+        self,
+        client,
+        test_db,
+        monkeypatch,
     ):
         """``version`` is the /v1 route-shape token; ``engine_version`` is
         the installed engine dist the skew handshake compares."""
@@ -137,7 +145,10 @@ class TestHealthVersionHandshake:
         assert data["engine_version"] == "3.2.1"
 
     def test_source_run_reports_empty_engine_version(
-        self, client, test_db, monkeypatch,
+        self,
+        client,
+        test_db,
+        monkeypatch,
     ):
         """No dist metadata (source run) degrades to an empty engine_version
         while the rest of the payload keeps working."""
@@ -152,7 +163,10 @@ class TestHealthVersionHandshake:
         assert data["version"] == "v1"
 
     def test_image_build_with_unresolved_scm_metadata_reports_build_only(
-        self, client, test_db, monkeypatch,
+        self,
+        client,
+        test_db,
+        monkeypatch,
     ):
         """The image build SHA remains authoritative when wheel metadata
         only resolved to the setuptools-scm fallback."""
@@ -160,9 +174,114 @@ class TestHealthVersionHandshake:
 
         monkeypatch.setenv("YOKE_BUILD_SHA", "abc123def456")
         monkeypatch.setattr(
-            ev, "installed_engine_version",
+            ev,
+            "installed_engine_version",
             lambda: ev.UNRESOLVED_SCM_FALLBACK_VERSION,
         )
         data = client.get("/v1/health").json()
         assert data["engine_version"] == ""
         assert data["build"] == "abc123def456"
+
+
+class TestHealthMigrationContentIdentity:
+    @staticmethod
+    def _status(*, adoption=(), mismatches=()) -> ContentIdentityStatus:
+        return ContentIdentityStatus(
+            verified=(),
+            adoption_required=tuple(adoption),
+            adoptable=tuple(adoption),
+            mismatches=tuple(mismatches),
+            ledger_ahead=(),
+        )
+
+    def test_null_digest_is_visible_without_refusing_service(
+        self,
+        client,
+        test_db,
+    ):
+        with mock.patch.object(
+            items_health,
+            "migration_content_identity_status",
+            return_value=self._status(adoption=("0001_existing",)),
+        ), mock.patch.object(
+            items_health, "stranded_by_applied_migrations", return_value=[]
+        ), mock.patch.object(
+            items_health,
+            "yoke_migration_content_schema_is_prepared",
+            return_value=True,
+        ):
+            data = client.get("/v1/health").json()
+
+        assert data["migration_content_matches"] is True
+        assert data["migration_content_adoption_required"] == ["0001_existing"]
+        assert data["migration_content_mismatches"] == []
+        assert data["can_serve_this_database"] is True
+
+    def test_mismatch_is_public_and_refuses_service(self, client, test_db):
+        mismatch = ContentMismatch("0001_existing", "0" * 64, "1" * 64)
+        with mock.patch.object(
+            items_health,
+            "migration_content_identity_status",
+            return_value=self._status(mismatches=(mismatch,)),
+        ):
+            data = client.get("/v1/health").json()
+
+        assert data["migration_content_matches"] is False
+        assert data["migration_content_adoption_required"] == []
+        assert "0001_existing" in data["migration_content_mismatches"][0]
+        assert data["can_serve_this_database"] is False
+
+    def test_content_probe_shares_ttl_and_reset_reprobes(self, client, test_db):
+        with mock.patch.object(
+            items_health,
+            "migration_content_identity_status",
+            return_value=self._status(),
+        ) as probe:
+            client.get("/v1/health")
+            client.get("/v1/health")
+            assert probe.call_count == 1
+
+            items_health.reset_schema_readiness_cache()
+            client.get("/v1/health")
+
+        assert probe.call_count == 2
+
+    def test_content_probe_read_failure_fails_closed(self, client, test_db):
+        with mock.patch.object(
+            items_health,
+            "migration_content_identity_status",
+            side_effect=OSError("ledger read failed"),
+        ):
+            data = client.get("/v1/health").json()
+
+        assert data["migration_content_matches"] is False
+        assert data["can_serve_this_database"] is False
+        assert data["migration_content_mismatches"] == [
+            "migration ledger content identity is unreadable"
+        ]
+
+    def test_dropped_evidence_guard_is_public_and_refuses_service(
+        self,
+        client,
+        test_db,
+    ):
+        from yoke_core.domain.migration_yoke_ledger import ensure_yoke_migration_ledger
+
+        conn = connect_test_db(test_db["db_path"])
+        try:
+            ensure_yoke_migration_ledger(conn)
+            trigger = conn.execute(
+                "SELECT tgname FROM pg_trigger "
+                "WHERE tgrelid = to_regclass('migration_content_adoptions') "
+                "AND NOT tgisinternal ORDER BY tgname LIMIT 1"
+            ).fetchone()[0]
+            conn.execute(f'DROP TRIGGER "{trigger}" ON migration_content_adoptions')
+            conn.commit()
+        finally:
+            conn.close()
+
+        data = client.get("/v1/health").json()
+
+        assert data["migration_content_matches"] is True
+        assert data["migration_content_evidence_ready"] is False
+        assert data["can_serve_this_database"] is False

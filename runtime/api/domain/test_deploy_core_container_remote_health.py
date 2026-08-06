@@ -60,6 +60,39 @@ class TestOriginHealthGate:
                 "can_serve_this_database=false",
                 "0001 requires launch.181",
             ),
+            (
+                {
+                    "migrations_current": True,
+                    "can_serve_this_database": True,
+                    "migration_content_matches": False,
+                    "migration_content_mismatches": [
+                        "0005_inbox_notification_projection: digest mismatch"
+                    ],
+                },
+                "migration_content_matches=true",
+                "0005_inbox_notification_projection",
+            ),
+            (
+                {
+                    "migrations_current": True,
+                    "can_serve_this_database": True,
+                    "migration_content_matches": True,
+                    "migration_content_evidence_ready": False,
+                },
+                "migration_content_evidence_ready=true",
+                "migration_content_evidence_ready",
+            ),
+            (
+                {
+                    "migrations_current": True,
+                    "can_serve_this_database": True,
+                    "migration_content_matches": True,
+                    "migration_content_evidence_ready": True,
+                    "migration_content_adoption_required": ["0001_existing"],
+                },
+                "migration_content_adoption_required",
+                "0001_existing",
+            ),
         ],
     )
     def test_rejects_explicit_migration_refusal(
@@ -78,8 +111,7 @@ class TestOriginHealthGate:
                 CommandResult(
                     0,
                     "HTTP/1.1 200 OK\n"
-                    f"x-request-id: {request_id}\n\n"
-                    + json.dumps(payload),
+                    f"x-request-id: {request_id}\n\n" + json.dumps(payload),
                     "",
                 )
             ]
@@ -117,8 +149,7 @@ class TestOriginHealthGate:
                 CommandResult(
                     0,
                     "HTTP/1.1 200 OK\n"
-                    f"x-request-id: {request_id}\n\n"
-                    + json.dumps(payload),
+                    f"x-request-id: {request_id}\n\n" + json.dumps(payload),
                     "",
                 )
             ]

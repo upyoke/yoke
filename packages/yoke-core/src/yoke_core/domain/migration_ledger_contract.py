@@ -44,14 +44,18 @@ What must be recorded per applied entry so a rolled-back build can answer
 from the ledger row alone:
 
 - the entry's identity (``entry_column``), so membership is decidable;
+- the raw-byte content digest (``digest_column``), so a permanent name cannot
+  silently begin naming different migration code;
 - the serving floor (``serving_floor_column``), copied from a destructive
   entry's declared minimum at apply time — empty/NULL only when that entry
   did not remove a surface.
 
-The declaration surface expresses every element this contract requires:
-``table``, ``entry_column``, ``semantics=membership``, and
-``serving_floor_column``. Leaving the floor optional and unconsumed is the
-obsolete path this module refuses.
+The normalized declaration surface expresses every element this contract
+requires: ``table``, ``entry_column``, ``digest_column``,
+``semantics=membership``, and ``serving_floor_column``. Declarations stored
+before content identity existed normalize an omitted digest column to the
+project-neutral standard ``content_sha256``; new declarations emit it
+explicitly. Leaving the floor optional and unconsumed remains refused.
 """
 
 from __future__ import annotations
@@ -64,8 +68,16 @@ from typing import Any, Iterable, List, Mapping, Optional, Sequence, Set
 MEMBERSHIP = "membership"
 #: Rejected: a single high-water mark cannot express the three losses above.
 THRESHOLD = "threshold"
+DEFAULT_DIGEST_COLUMN = "content_sha256"
+DEFAULT_APPLIED_AT_COLUMN = "applied_at"
+DEFAULT_APPLIED_BY_COLUMN = "applied_by"
 
-REQUIRED_KEYS = ("table", "entry_column", "semantics", "serving_floor_column")
+REQUIRED_KEYS = (
+    "table",
+    "entry_column",
+    "semantics",
+    "serving_floor_column",
+)
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -75,12 +87,15 @@ class LedgerContractError(ValueError):
 
 @dataclass(frozen=True)
 class LedgerContract:
-    """Where applied-ness and serving floors are recorded, and how read."""
+    """Where membership, content identity, and serving floors are recorded."""
 
     table: str
     entry_column: str
+    digest_column: str
     serving_floor_column: str
     semantics: str = MEMBERSHIP
+    applied_at_column: str = DEFAULT_APPLIED_AT_COLUMN
+    applied_by_column: str = DEFAULT_APPLIED_BY_COLUMN
 
     @property
     def records_serving_floor(self) -> bool:
@@ -124,8 +139,18 @@ def parse(declaration: Optional[Mapping[str, Any]]) -> LedgerContract:
             f"{semantics!r}; the only accepted value is {MEMBERSHIP!r}"
         )
     identifiers = {
-        key: str(declaration[key])
-        for key in ("table", "entry_column", "serving_floor_column")
+        "table": str(declaration["table"]),
+        "entry_column": str(declaration["entry_column"]),
+        "digest_column": str(
+            declaration.get("digest_column") or DEFAULT_DIGEST_COLUMN
+        ),
+        "serving_floor_column": str(declaration["serving_floor_column"]),
+        "applied_at_column": str(
+            declaration.get("applied_at_column") or DEFAULT_APPLIED_AT_COLUMN
+        ),
+        "applied_by_column": str(
+            declaration.get("applied_by_column") or DEFAULT_APPLIED_BY_COLUMN
+        ),
     }
     invalid = [key for key, value in identifiers.items() if not _IDENTIFIER.match(value)]
     if invalid:
@@ -136,8 +161,11 @@ def parse(declaration: Optional[Mapping[str, Any]]) -> LedgerContract:
     return LedgerContract(
         table=identifiers["table"],
         entry_column=identifiers["entry_column"],
+        digest_column=identifiers["digest_column"],
         semantics=semantics,
         serving_floor_column=identifiers["serving_floor_column"],
+        applied_at_column=identifiers["applied_at_column"],
+        applied_by_column=identifiers["applied_by_column"],
     )
 
 
@@ -186,13 +214,19 @@ def runner_config_ledger(declaration: Any, error: Any) -> dict:
     return {
         "table": contract.table,
         "entry_column": contract.entry_column,
+        "digest_column": contract.digest_column,
         "semantics": contract.semantics,
         "serving_floor_column": contract.serving_floor_column,
+        "applied_at_column": contract.applied_at_column,
+        "applied_by_column": contract.applied_by_column,
     }
 
 
 __all__ = [
     "MEMBERSHIP",
+    "DEFAULT_APPLIED_AT_COLUMN",
+    "DEFAULT_APPLIED_BY_COLUMN",
+    "DEFAULT_DIGEST_COLUMN",
     "REQUIRED_KEYS",
     "THRESHOLD",
     "LedgerContract",

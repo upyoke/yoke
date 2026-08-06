@@ -35,10 +35,11 @@ import json
 
 from yoke_core.domain.migration_apply_runners import UnknownRunnerKind
 from yoke_core.domain.migration_model_capability_defaults import (
-    governed_postgres_seed, resolve_model,
+    governed_postgres_seed,
+    resolve_model,
 )
 from yoke_core.domain.migration_model_capability_validation import (
-    CAPABILITY_TYPE, DEFAULT_CONNECTION_ENV_VAR,
+    CAPABILITY_TYPE,
     MigrationModelCapabilityError,
     RECIPE_WEBAPP_SQLITE_EMPTY,
     RUNNER_KIND_GOVERNED_MODULE,
@@ -63,9 +64,9 @@ def validate_json_string(raw: str) -> str:
         raise MigrationModelCapabilityError(f"malformed JSON: {exc}") from exc
     return canonical_json(validate(payload))
 
+
 __all__ = [
     "CAPABILITY_TYPE",
-    "DEFAULT_CONNECTION_ENV_VAR",
     "MigrationModelCapabilityError",
     "RECIPE_WEBAPP_SQLITE_EMPTY",
     "RUNNER_KIND_GOVERNED_MODULE",

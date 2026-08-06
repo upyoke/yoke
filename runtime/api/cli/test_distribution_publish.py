@@ -8,6 +8,8 @@ from pathlib import Path
 from runtime.api.cli.test_yoke_package_index import _record, _sample_release
 from yoke_core.tools import distribution_publish, package_index, release_artifacts
 
+SOURCE_COMMIT = "a" * 40
+
 
 def test_distribution_publish_validates_release_and_writes_channel(
     tmp_path: Path,
@@ -22,14 +24,13 @@ def test_distribution_publish_validates_release_and_writes_channel(
 
     records, wheel_records = _sample_release(wheels_dir, version=version)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
-        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+        json.dumps(records, indent=2) + "\n",
+        encoding="utf-8",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,
         records=wheel_records,
-        wheel_base_url=(
-            f"https://api.upyoke.com/dist/releases/{url_version}/wheels"
-        ),
+        wheel_base_url=(f"https://api.upyoke.com/dist/releases/{url_version}/wheels"),
     )
 
     assert distribution_publish.validate_release_directory(release_dir) == records
@@ -38,12 +39,19 @@ def test_distribution_publish_validates_release_and_writes_channel(
         channel="stable",
         version=version,
         index_url="https://api.upyoke.com/simple/",
-        release_base_url=(
-            f"https://api.upyoke.com/dist/releases/{url_version}"
-        ),
+        release_base_url=(f"https://api.upyoke.com/dist/releases/{url_version}"),
         generated_at="2026-06-18T00:00:00+00:00",
+        migration_manifest_sha256=(
+            json.loads(
+                (
+                    release_dir
+                    / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME
+                ).read_text(encoding="utf-8")
+            )["manifest"]["sha256"]
+        ),
+        source_commit=SOURCE_COMMIT,
     )
-    assert channel["schema_version"] == 2
+    assert channel["schema_version"] == 3
     assert channel["channel"] == "stable"
     assert channel["version"] == version
     assert channel["index_url"] == "https://api.upyoke.com/simple/"
@@ -51,6 +59,7 @@ def test_distribution_publish_validates_release_and_writes_channel(
         "https://api.upyoke.com/dist/install.py"
     )
     assert channel["installer"]["shell_url"] == "https://api.upyoke.com/install"
+    assert channel["migration_history"]["source_commit"] == SOURCE_COMMIT
 
     checks = distribution_publish.build_url_checks(
         base_url=f"https://api.upyoke.com/dist/releases/{url_version}/",
@@ -77,6 +86,35 @@ def test_distribution_publish_validates_release_and_writes_channel(
     assert "https://api.upyoke.com/install" in urls
 
 
+def test_channel_contract_preserves_v2_and_requires_evidence_for_v3() -> None:
+    legacy = {
+        "schema_version": 2,
+        "channel": "stable",
+        "version": "0.1.0+launch.190",
+    }
+    distribution_publish.validate_channel_pointer(legacy)
+    try:
+        distribution_publish.validate_channel_pointer(
+            legacy,
+            require_content_evidence=True,
+        )
+    except ValueError as exc:
+        assert "schema v2" in str(exc)
+    else:
+        raise AssertionError("content adoption accepted a legacy v2 pointer")
+
+    candidate = {**legacy, "schema_version": 3}
+    try:
+        distribution_publish.validate_channel_pointer(
+            candidate,
+            require_content_evidence=True,
+        )
+    except ValueError as exc:
+        assert "lacks migration_history" in str(exc)
+    else:
+        raise AssertionError("candidate channel accepted missing release evidence")
+
+
 def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) -> None:
     output_root = tmp_path / "release"
     release_dir = output_root / "dist" / "releases" / "0.2.0"
@@ -86,7 +124,8 @@ def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) ->
 
     records, wheel_records = _sample_release(wheels_dir)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
-        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+        json.dumps(records, indent=2) + "\n",
+        encoding="utf-8",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,
@@ -105,6 +144,44 @@ def test_distribution_publish_rejects_simple_index_hash_drift(tmp_path: Path) ->
         raise AssertionError("validate-release must reject hash drift")
 
 
+def test_distribution_publish_rejects_migration_evidence_tampering(
+    tmp_path: Path,
+) -> None:
+    output_root = tmp_path / "release"
+    release_dir = output_root / "dist" / "releases" / "0.2.0+gabc123"
+    wheels_dir = release_dir / "wheels"
+    wheels_dir.mkdir(parents=True)
+    records, wheel_records = _sample_release(
+        wheels_dir,
+        version="0.2.0+gabc123",
+    )
+    (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
+        json.dumps(records, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    package_index.write_simple_index(
+        index_dir=output_root / "simple",
+        records=wheel_records,
+        wheel_base_url=("https://api.upyoke.com/dist/releases/0.2.0%2Bgabc123/wheels"),
+    )
+    evidence_path = (
+        release_dir / release_artifacts.MIGRATION_HISTORY_RELEASE_EVIDENCE_FILENAME
+    )
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    evidence["manifest"]["sha256"] = "f" * 64
+    evidence_path.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    try:
+        distribution_publish.validate_release_directory(release_dir)
+    except ValueError as exc:
+        assert "does not bind" in str(exc)
+    else:
+        raise AssertionError("release validation must reject evidence tampering")
+
+
 def test_validate_release_matches_url_quoted_local_version_links(
     tmp_path: Path,
 ) -> None:
@@ -117,7 +194,8 @@ def test_validate_release_matches_url_quoted_local_version_links(
 
     records, wheel_records = _sample_release(wheels_dir, version=version)
     (release_dir / release_artifacts.RELEASE_RECORDS_FILENAME).write_text(
-        json.dumps(records, indent=2) + "\n", encoding="utf-8",
+        json.dumps(records, indent=2) + "\n",
+        encoding="utf-8",
     )
     package_index.write_simple_index(
         index_dir=simple_dir,

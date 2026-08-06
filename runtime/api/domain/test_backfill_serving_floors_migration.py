@@ -5,12 +5,12 @@ from __future__ import annotations
 import sqlite3
 
 from yoke_core.domain import migrations
-from yoke_core.domain.migration_audit_schema import ensure_applied_migrations_table
 from yoke_core.domain.migration_history import (
     history_dir,
     load_migration_module,
     ordered_entries,
 )
+from yoke_core.domain.migration_yoke_ledger import ensure_yoke_migration_ledger
 
 
 def test_ordered_repair_backfills_the_destructive_history_entry() -> None:
@@ -25,7 +25,7 @@ def test_ordered_repair_backfills_the_destructive_history_entry() -> None:
     )
     module = load_migration_module(repair.path, repair.name)
     conn = sqlite3.connect(":memory:")
-    ensure_applied_migrations_table(conn)
+    ensure_yoke_migration_ledger(conn)
     conn.execute(
         "INSERT INTO applied_migrations "
         "(migration_name, applied_at, applied_by, minimum_serving_version) "

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from yoke_core.domain import schema_readiness
 from yoke_core.domain.migration_history import MigrationEntry
+from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
 RETIREMENT_ENTRY_NAME = "0001_retire_superseded_surfaces"
 
@@ -55,7 +56,7 @@ class TestStrandedBuildIsReported:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.169", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.169", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -70,14 +71,14 @@ class TestStrandedBuildIsReported:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.181", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.181", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
     def test_newer_build_serves(self) -> None:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
 
@@ -86,7 +87,7 @@ class TestIncompleteCompatibilityEvidenceFailsClosed:
         conn = _ledger((RETIREMENT_ENTRY_NAME, None))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -96,14 +97,14 @@ class TestIncompleteCompatibilityEvidenceFailsClosed:
         conn = _ledger()
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
     def test_absent_ledger_table_refuses_service(self) -> None:
         conn = sqlite3.connect(":memory:")
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -113,7 +114,7 @@ class TestIncompleteCompatibilityEvidenceFailsClosed:
         conn = _ledger(("0009_unknown_entry", None))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -130,14 +131,14 @@ class TestIncompleteCompatibilityEvidenceFailsClosed:
         conn = _ledger((path.stem, None))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", history
+            conn, "0.1.1+launch.200", history, YOKE_LEDGER_CONTRACT
         )
 
     def test_recorded_floor_must_match_packaged_declaration(self) -> None:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.182"))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -154,14 +155,14 @@ class TestSourceCheckoutIsNeverStranded:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "", RETIREMENT_HISTORY
+            conn, "", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
     def test_unresolved_build_refuses_unknown_applied_entry(self) -> None:
         conn = _ledger(("0009_unknown_entry", "0.1.1+launch.200"))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "", RETIREMENT_HISTORY
+            conn, "", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1
@@ -173,7 +174,7 @@ class TestMalformedFloorIsVisibleNotFatal:
         conn = _ledger(("0009_unknown_entry", "not-a-version"))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.2", RETIREMENT_HISTORY
+            conn, "0.1.2", RETIREMENT_HISTORY, YOKE_LEDGER_CONTRACT
         )
 
         assert len(findings) == 1

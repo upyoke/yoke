@@ -12,6 +12,8 @@ import pytest
 
 from yoke_core.tools import build_release, package_index, release_artifacts
 
+SOURCE_COMMIT = "a" * 40
+
 
 def test_build_release_renders_pep503_simple_index(
     tmp_path: Path,
@@ -43,6 +45,7 @@ def test_build_release_renders_pep503_simple_index(
         repo_root=tmp_path,
         output_root=tmp_path / "release",
         base_url="https://api.upyoke.com",
+        source_commit=SOURCE_COMMIT,
         channel="stable",
         generated_at="2026-06-18T00:00:00+00:00",
         installer_asset_dir=asset_dir,
@@ -54,28 +57,34 @@ def test_build_release_renders_pep503_simple_index(
     release_dir = result.paths.release_dir
     assert release_dir == tmp_path / "release" / "dist" / "releases" / "0.2.0"
 
-    # Installer assets and immutable versioned product wheels.
     assert (tmp_path / "release" / "install").read_text(encoding="utf-8")
     assert (tmp_path / "release" / "dist" / "install.py").is_file()
-    # The hosting bootstrap template rides the same immutable version
-    # directory, so onboarding's one-click link resolves for this build.
     assert result.paths.aws_admin_template == (
         release_dir / release_artifacts.AWS_ADMIN_TEMPLATE
     )
     assert result.paths.aws_admin_template.is_file()
+    manifest = json.loads(
+        result.paths.migration_history_manifest_path.read_text(encoding="utf-8")
+    )
+    assert manifest["artifact"]["engine_version"] == "0.2.0"
+    assert manifest["artifact"]["source_artifact"].startswith("yoke_core-")
+    assert manifest["artifact"]["source_commit"] == SOURCE_COMMIT
+    assert manifest["entries"][0]["name"] == "0001_test_entry"
+    evidence = json.loads(
+        result.paths.migration_history_release_evidence_path.read_text(encoding="utf-8")
+    )
+    assert evidence["manifest"]["sha256"] == (result.migration_history_manifest_sha256)
+    assert evidence["artifact"]["source_commit"] == SOURCE_COMMIT
     wheels_dir = release_dir / "wheels"
-    # Third-party wheels are NOT hosted; only the product wheels.
     assert sorted(p.name for p in wheels_dir.glob("*.whl")) == [
         "yoke_cli-0.2.0-py3-none-any.whl",
         "yoke_contracts-0.2.0-py3-none-any.whl",
         "yoke_core-0.2.0-py3-none-any.whl",
         "yoke_harness-0.2.0-py3-none-any.whl",
     ]
-    # No wheelhouse zip, no per-target wheelhouse machinery.
     assert not (release_dir / "targets").exists()
     assert not list((tmp_path / "release").rglob("*.zip"))
 
-    # PEP 503 root index lists the normalized product project names only.
     simple_dir = result.paths.simple_dir
     assert simple_dir == tmp_path / "release" / "simple"
     root_html = (simple_dir / "index.html").read_text(encoding="utf-8")
@@ -83,7 +92,6 @@ def test_build_release_renders_pep503_simple_index(
         assert f'href="{project}/"' in root_html
     assert "pydantic" not in root_html
 
-    # Per-project index links the wheel at its immutable versioned URL + sha256.
     cli_html = (simple_dir / "yoke-cli" / "index.html").read_text(encoding="utf-8")
     record = next(
         entry for entry in result.release_records if entry["project"] == "yoke-cli"
@@ -95,7 +103,6 @@ def test_build_release_renders_pep503_simple_index(
     assert expected in cli_html
     assert "yoke_cli-0.2.0-py3-none-any.whl</a>" in cli_html
 
-    # release-records.json carries product sha256/size for publish-verify.
     records = json.loads(result.paths.release_records_path.read_text(encoding="utf-8"))
     assert {entry["project"] for entry in records} == {
         "yoke-cli",
@@ -103,20 +110,19 @@ def test_build_release_renders_pep503_simple_index(
         "yoke-harness",
         "yoke-core",
     }
-    assert not {"pydantic", "pyfiglet"}.intersection(
-        entry["name"] for entry in records
-    )
+    assert not {"pydantic", "pyfiglet"}.intersection(entry["name"] for entry in records)
 
-    # Channel pointer pins one version and names the served index URL.
     channel = json.loads(result.paths.channel_path.read_text(encoding="utf-8"))
-    assert channel["schema_version"] == 2
+    assert channel["schema_version"] == 3
     assert channel["channel"] == "stable"
     assert channel["version"] == "0.2.0"
     assert channel["index_url"] == "https://api.upyoke.com/simple/"
-    assert channel["release_base_url"] == (
-        "https://api.upyoke.com/dist/releases/0.2.0"
-    )
+    assert channel["release_base_url"] == ("https://api.upyoke.com/dist/releases/0.2.0")
     assert channel["generated_at"] == "2026-06-18T00:00:00+00:00"
+    assert channel["migration_history"]["manifest_sha256"] == (
+        result.migration_history_manifest_sha256
+    )
+    assert channel["migration_history"]["source_commit"] == SOURCE_COMMIT
     assert "wheelhouse" not in channel
     assert "manifest" not in channel
     assert "targets" not in channel
@@ -148,6 +154,7 @@ def test_build_release_quotes_local_version_public_urls(
         repo_root=tmp_path,
         output_root=tmp_path / "release",
         base_url="https://api.upyoke.com",
+        source_commit=SOURCE_COMMIT,
         channel="stable",
         generated_at="2026-06-18T00:00:00+00:00",
         installer_asset_dir=asset_dir,
@@ -158,15 +165,13 @@ def test_build_release_quotes_local_version_public_urls(
     assert channel["release_base_url"] == (
         "https://api.upyoke.com/dist/releases/0.2.0%2Bgabc123"
     )
-    # The simple index links the local-version wheel with a quoted '+' in the URL.
-    cli_html = (
-        result.paths.simple_dir / "yoke-cli" / "index.html"
-    ).read_text(encoding="utf-8")
+    cli_html = (result.paths.simple_dir / "yoke-cli" / "index.html").read_text(
+        encoding="utf-8"
+    )
     assert (
         "https://api.upyoke.com/dist/releases/0.2.0%2Bgabc123/wheels/"
         "yoke_cli-0.2.0%2Bgabc123-py3-none-any.whl#sha256="
     ) in cli_html
-    # The link text is the unquoted filename.
     assert "yoke_cli-0.2.0+gabc123-py3-none-any.whl</a>" in cli_html
 
 
@@ -187,6 +192,7 @@ def test_build_release_refuses_missing_installer_assets(
             repo_root=tmp_path,
             output_root=tmp_path / "release",
             base_url="https://api.upyoke.com",
+            source_commit=SOURCE_COMMIT,
             installer_asset_dir=tmp_path / "missing-assets",
             aws_bootstrap_asset_dir=_aws_bootstrap_assets(tmp_path),
         )
@@ -215,6 +221,7 @@ def test_build_release_refuses_missing_hosting_bootstrap_template(
             repo_root=tmp_path,
             output_root=tmp_path / "release",
             base_url="https://api.upyoke.com",
+            source_commit=SOURCE_COMMIT,
             installer_asset_dir=asset_dir,
             aws_bootstrap_asset_dir=tmp_path / "missing-aws-assets",
         )
@@ -231,9 +238,7 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
         commands.append(list(command))
         if "--package" in command:
             package = command[command.index("--package") + 1]
-            _write_wheel(
-                wheelhouse, name=package, version="0.2.0+gtest"
-            )
+            _write_wheel(wheelhouse, name=package, version="0.2.0+gtest")
         elif "wheel" in command:
             _write_wheel(wheelhouse, name="pip", version="25.3")
 
@@ -286,7 +291,8 @@ def _aws_bootstrap_assets(root: Path) -> Path:
     directory = root / "aws-assets"
     directory.mkdir()
     (directory / release_artifacts.AWS_ADMIN_TEMPLATE).write_text(
-        "AWSTemplateFormatVersion: \"2010-09-09\"\n", encoding="utf-8",
+        'AWSTemplateFormatVersion: "2010-09-09"\n',
+        encoding="utf-8",
     )
     return directory
 
@@ -294,11 +300,7 @@ def _aws_bootstrap_assets(root: Path) -> Path:
 def _write_wheel(wheelhouse: Path, *, name: str, version: str) -> None:
     dist = name.replace("-", "_")
     filename = f"{dist}-{version}-py3-none-any.whl"
-    metadata_text = (
-        "Metadata-Version: 2.1\n"
-        f"Name: {name}\n"
-        f"Version: {version}\n"
-    )
+    metadata_text = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
     for sibling in package_index.PRODUCT_SIBLING_DEPENDENCIES.get(name, ()):
         metadata_text += f"Requires-Dist: {sibling}\n"
     metadata = metadata_text.encode("utf-8")
@@ -311,15 +313,16 @@ def _write_wheel(wheelhouse: Path, *, name: str, version: str) -> None:
         f"{dist_info}/METADATA": metadata,
         f"{dist_info}/WHEEL": wheel_metadata,
     }
+    if name == "yoke-core":
+        files["yoke_core/domain/migrations/0001_test_entry.py"] = (
+            b"def apply(conn):\n    pass\n"
+        )
     record_arcname = f"{dist_info}/RECORD"
     record_lines = [
-        f"{arcname},{_record_hash(data)},{len(data)}"
-        for arcname, data in files.items()
+        f"{arcname},{_record_hash(data)},{len(data)}" for arcname, data in files.items()
     ]
     record_lines.append(f"{record_arcname},,")
-    files[record_arcname] = (
-        "\n".join(record_lines) + "\n"
-    ).encode("utf-8")
+    files[record_arcname] = ("\n".join(record_lines) + "\n").encode("utf-8")
     with zipfile.ZipFile(wheelhouse / filename, "w") as archive:
         for arcname, data in files.items():
             archive.writestr(arcname, data)

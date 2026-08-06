@@ -128,14 +128,13 @@ class TestMigrationModelCapabilityShape:
         # The generic migration-model builder validates and preserves the
         # caller-supplied Postgres authority.
         from yoke_core.domain.migration_model_capability import (
-            governed_postgres_seed,
             validate,
         )
         from runtime.api.fixtures.migration_model_test import (
-            POSTGRES_AUTHORITY_LOCATION,
+            governed_postgres_test_seed,
         )
 
-        expected = governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+        expected = governed_postgres_test_seed()
         normalized = validate(expected)
         assert normalized["default_model"] == "primary"
         assert "primary" in normalized["models"]

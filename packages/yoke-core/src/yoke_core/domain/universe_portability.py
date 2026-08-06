@@ -756,17 +756,11 @@ def _prepare_trusted_restore_schema(dsn: str, *, timeout_s: float) -> None:
     )
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
-        tables = conn.execute(
-            "SELECT tablename::text FROM pg_catalog.pg_tables"
-            " WHERE schemaname = current_schema() ORDER BY tablename"
-        ).fetchall()
-        if tables:
-            identifiers = [sql.Identifier(str(row[0])) for row in tables]
-            conn.execute(
-                sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY CASCADE").format(
-                    sql.SQL(", ").join(identifiers)
-                )
-            )
+        from yoke_core.domain.migration_content_restore_guards import (
+            truncate_trusted_schema_bootstrap_rows,
+        )
+
+        truncate_trusted_schema_bootstrap_rows(conn)
         conn.commit()
     finally:
         conn.close()

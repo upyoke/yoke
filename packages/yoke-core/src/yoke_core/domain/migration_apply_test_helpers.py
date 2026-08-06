@@ -17,8 +17,10 @@ import pytest
 
 from runtime.api.conftest import insert_item
 from yoke_core.domain import db_backend
-from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODULES_DIR
-from runtime.api.fixtures.migration_model_test import governed_postgres_test_seed
+from runtime.api.fixtures.migration_model_test import (
+    TEST_MIGRATION_MODULES_DIR as DEFAULT_MODULES_DIR,
+    governed_postgres_test_seed,
+)
 from yoke_core.domain.migration_apply_targets import (
     POSTGRES_VALIDATION_ENV_SUFFIX,
 )

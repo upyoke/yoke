@@ -2,63 +2,24 @@
 
 from __future__ import annotations
 
-import sqlite3
 from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.migration_boot_apply import (
-    EntryFailed,
+from runtime.api.domain.migration_boot_test_helpers import (
+    RESTORE_POINT,
     applied_names,
     apply_pending,
+    connection as _connection,
+    heal as _heal,
+    history as _history,
+    marks as _marks,
     pending_entries,
     stamp_history,
 )
-from yoke_core.domain.migration_audit_receipts import now_stamp, record_missing_receipts
-from yoke_core.domain.migration_audit_schema import (
-    ensure_applied_migrations_table,
-    ensure_migration_audit_table,
-)
+from yoke_core.domain.migration_boot_apply import EntryFailed
 from yoke_core.domain.migration_restore_point import RestorePointRequired
 from yoke_core.domain.migration_history import ordered_entries
-
-RESTORE_POINT = "snapshot:test-restore-point"
-
-
-def _connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(":memory:")
-    ensure_applied_migrations_table(conn)
-    ensure_migration_audit_table(conn)
-    conn.execute("CREATE TABLE marks (name TEXT)")
-    conn.commit()
-    return conn
-
-
-def _history(tmp_path: Path, *names: str, failing: str | None = None):
-    """Build a history whose entries each record that they ran."""
-    for name in names:
-        body = (
-            "def apply(conn):\n"
-            f"    conn.execute(\"INSERT INTO marks VALUES ('{name}')\")\n"
-        )
-        if name == failing:
-            body += "    raise RuntimeError('entry failed')\n"
-        (tmp_path / f"{name}.py").write_text(body)
-    return ordered_entries(tmp_path)
-
-
-def _heal(conn: sqlite3.Connection, history) -> tuple[str, ...]:
-    return record_missing_receipts(
-        conn,
-        history,
-        applied=applied_names(conn),
-        stamp=now_stamp(),
-        restore_point=RESTORE_POINT,
-    )
-
-
-def _marks(conn: sqlite3.Connection) -> list[str]:
-    return [row[0] for row in conn.execute("SELECT name FROM marks").fetchall()]
 
 
 def test_pending_is_history_minus_ledger(tmp_path: Path) -> None:
@@ -98,7 +59,8 @@ def test_apply_runs_entries_in_order_and_records_them(tmp_path: Path) -> None:
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test", running_version="",
+        applied_by="test",
+        running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -114,14 +76,16 @@ def test_apply_is_a_no_op_when_current(tmp_path: Path) -> None:
     apply_pending(
         conn,
         history=history,
-        applied_by="test", running_version="",
+        applied_by="test",
+        running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test", running_version="",
+        applied_by="test",
+        running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -142,7 +106,8 @@ def test_apply_only_runs_what_is_outstanding(tmp_path: Path) -> None:
     outcome = apply_pending(
         conn,
         history=history,
-        applied_by="test", running_version="",
+        applied_by="test",
+        running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -153,8 +118,7 @@ def test_apply_only_runs_what_is_outstanding(tmp_path: Path) -> None:
 def test_empty_history_needs_no_restore_point(tmp_path: Path) -> None:
     conn = _connection()
 
-    outcome = apply_pending(conn, history=(), applied_by="test",
-            running_version="")
+    outcome = apply_pending(conn, history=(), applied_by="test", running_version="")
 
     assert outcome.applied == ()
 
@@ -170,8 +134,9 @@ def test_current_database_needs_no_restore_point(tmp_path: Path) -> None:
         "VALUES ('0001_first', 'now', 'test')"
     )
 
-    outcome = apply_pending(conn, history=history, applied_by="test",
-            running_version="")
+    outcome = apply_pending(
+        conn, history=history, applied_by="test", running_version=""
+    )
 
     assert outcome.applied == ()
 
@@ -181,8 +146,7 @@ def test_apply_refuses_without_a_restore_point(tmp_path: Path) -> None:
     history = _history(tmp_path, "0001_first")
 
     with pytest.raises(RestorePointRequired, match="no restore point"):
-        apply_pending(conn, history=history, applied_by="test",
-            running_version="")
+        apply_pending(conn, history=history, applied_by="test", running_version="")
 
     assert _marks(conn) == []
 
@@ -195,7 +159,8 @@ def test_apply_refuses_two_restore_points(tmp_path: Path) -> None:
         apply_pending(
             conn,
             history=history,
-            applied_by="test", running_version="",
+            applied_by="test",
+            running_version="",
             backup_root=tmp_path / "backups",
             external_restore_point=RESTORE_POINT,
         )
@@ -213,7 +178,8 @@ def test_failed_entry_stops_the_chain_and_leaves_the_ledger_truthful(
         apply_pending(
             conn,
             history=history,
-            applied_by="test", running_version="",
+            applied_by="test",
+            running_version="",
             external_restore_point=RESTORE_POINT,
         )
 
@@ -236,13 +202,13 @@ def test_failed_entry_writes_a_receipt_naming_the_restore_point(
         apply_pending(
             conn,
             history=history,
-            applied_by="test", running_version="",
+            applied_by="test",
+            running_version="",
             external_restore_point=RESTORE_POINT,
         )
 
     row = conn.execute(
-        "SELECT state, backup_path FROM migration_audit "
-        "WHERE migration_name='0001_bad'"
+        "SELECT state, backup_path FROM migration_audit WHERE migration_name='0001_bad'"
     ).fetchone()
     assert row is not None, "a failed apply must leave evidence"
     assert row[0] == "live_apply_failed"
@@ -256,7 +222,8 @@ def test_completed_apply_writes_a_receipt(tmp_path: Path) -> None:
     apply_pending(
         conn,
         history=history,
-        applied_by="test", running_version="",
+        applied_by="test",
+        running_version="",
         external_restore_point=RESTORE_POINT,
     )
 
@@ -283,7 +250,8 @@ def test_invariants_failure_rolls_back_mutation_and_ledger(
         apply_pending(
             conn,
             history=history,
-            applied_by="test", running_version="",
+            applied_by="test",
+            running_version="",
             external_restore_point=RESTORE_POINT,
         )
 

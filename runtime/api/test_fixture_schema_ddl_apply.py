@@ -101,11 +101,12 @@ def test_composed_fixture_schema_stamps_migration_history_as_birth(
     from yoke_core.domain import migrations as migration_history_package
     from yoke_core.domain.migration_boot_apply import pending_entries
     from yoke_core.domain.migration_history import history_dir, ordered_entries
+    from yoke_core.domain.migration_yoke_ledger import YOKE_LEDGER_CONTRACT
 
     apply_fixture_schema(scratch_db)
     history = ordered_entries(history_dir(migration_history_package))
     assert history
-    assert pending_entries(scratch_db, history) == ()
+    assert pending_entries(scratch_db, history, YOKE_LEDGER_CONTRACT) == ()
     rows = scratch_db.execute(
         "SELECT applied_by FROM applied_migrations "
         "ORDER BY migration_name LIMIT 1"

@@ -17,6 +17,7 @@ from yoke_core.domain.migration_model_capability_validation import (
 _VALID = {
     "table": "applied_migrations",
     "entry_column": "migration_name",
+    "digest_column": "content_sha256",
     "semantics": contract.MEMBERSHIP,
     "serving_floor_column": "minimum_serving_version",
 }
@@ -26,9 +27,20 @@ def test_a_membership_ledger_with_serving_floor_parses():
     parsed = contract.parse(_VALID)
     assert parsed.table == "applied_migrations"
     assert parsed.entry_column == "migration_name"
+    assert parsed.digest_column == "content_sha256"
     assert parsed.semantics == contract.MEMBERSHIP
     assert parsed.records_serving_floor
     assert parsed.serving_floor_column == "minimum_serving_version"
+    assert parsed.applied_at_column == "applied_at"
+    assert parsed.applied_by_column == "applied_by"
+
+
+def test_pre_content_identity_declaration_normalizes_without_invalidating() -> None:
+    legacy = {key: value for key, value in _VALID.items() if key != "digest_column"}
+
+    parsed = contract.parse(legacy)
+
+    assert parsed.digest_column == contract.DEFAULT_DIGEST_COLUMN
 
 
 def test_a_missing_serving_floor_column_is_refused():
@@ -123,6 +135,9 @@ def test_the_runner_helper_normalizes_every_field():
     assert normalized == {
         "table": "applied_migrations",
         "entry_column": "migration_name",
+        "digest_column": "content_sha256",
         "semantics": contract.MEMBERSHIP,
         "serving_floor_column": "minimum_serving_version",
+        "applied_at_column": "applied_at",
+        "applied_by_column": "applied_by",
     }

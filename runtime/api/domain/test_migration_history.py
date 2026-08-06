@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -33,6 +34,18 @@ def test_entries_order_by_sequence_not_lexically(tmp_path: Path) -> None:
     names = [entry.name for entry in ordered_entries(tmp_path)]
 
     assert names == ["0001_first", "0009_ninth", "0010_tenth"]
+
+
+def test_entry_digest_hashes_raw_bytes_without_newline_normalization(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "0001_raw.py"
+    raw = b"def apply(conn):\r\n    pass\r\n"
+    path.write_bytes(raw)
+
+    entry = ordered_entries(tmp_path)[0]
+
+    assert entry.content_sha256 == hashlib.sha256(raw).hexdigest()
 
 
 def test_sequence_gaps_are_allowed(tmp_path: Path) -> None:

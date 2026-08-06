@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -25,6 +26,7 @@ def _capability(
         config["ledger"] = {
             "table": "schema_version",
             "entry_column": "migration_name",
+            "digest_column": "content_sha256",
             "semantics": "membership",
             "serving_floor_column": "minimum_serving_version",
         }
@@ -97,7 +99,7 @@ def _checkout(
         db.execute(
             "CREATE TABLE schema_version ("
             "migration_name TEXT PRIMARY KEY, "
-            "minimum_serving_version TEXT)"
+            "minimum_serving_version TEXT, content_sha256 TEXT)"
         )
     db.close()
     return root
@@ -108,6 +110,11 @@ def _run(check, conn) -> object:
     check(conn, DoctorArgs(project="external"), rec)
     assert len(rec.results) == 1
     return rec.results[0]
+
+
+def _entry_digest(checkout: Path, name: str) -> str:
+    source = checkout / "app" / "db" / "migrations" / f"{name}.py"
+    return hashlib.sha256(source.read_bytes()).hexdigest()
 
 
 def test_external_project_cannot_pass_from_the_control_plane_ledger(
@@ -143,7 +150,10 @@ def test_external_project_passes_only_when_its_own_ledger_is_level(
     control = _control(_capability())
     checkout = _checkout(tmp_path)
     db = sqlite3.connect(checkout / "app/data/app.db")
-    db.execute("INSERT INTO schema_version VALUES ('0001_external', '2.0.0')")
+    db.execute(
+        "INSERT INTO schema_version VALUES ('0001_external', '2.0.0', ?)",
+        (_entry_digest(checkout, "0001_external"),),
+    )
     db.commit()
     db.close()
     monkeypatch.setattr(resolution, "checkout_for_project", lambda *_: checkout)
@@ -158,7 +168,10 @@ def test_external_three_digit_permanent_history_is_discovered(
     control = _control(_capability())
     checkout = _checkout(tmp_path, entry_name="001_external")
     db = sqlite3.connect(checkout / "app/data/app.db")
-    db.execute("INSERT INTO schema_version VALUES ('001_external', '2.0.0')")
+    db.execute(
+        "INSERT INTO schema_version VALUES ('001_external', '2.0.0', ?)",
+        (_entry_digest(checkout, "001_external"),),
+    )
     db.commit()
     db.close()
     monkeypatch.setattr(resolution, "checkout_for_project", lambda *_: checkout)
@@ -186,7 +199,9 @@ def test_declared_floor_missing_from_applied_row_fails_contract(
     control = _control(_capability())
     checkout = _checkout(tmp_path)
     db = sqlite3.connect(checkout / "app/data/app.db")
-    db.execute("INSERT INTO schema_version VALUES ('0001_external', NULL)")
+    db.execute(
+        "INSERT INTO schema_version VALUES ('0001_external', NULL, NULL)"
+    )
     db.commit()
     db.close()
     monkeypatch.setattr(resolution, "checkout_for_project", lambda *_: checkout)
@@ -197,6 +212,45 @@ def test_declared_floor_missing_from_applied_row_fails_contract(
     assert "declared floors absent" in record.detail
 
 
+def test_legacy_null_digest_is_reported_as_adoption_required(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    control = _control(_capability())
+    checkout = _checkout(tmp_path)
+    db = sqlite3.connect(checkout / "app/data/app.db")
+    db.execute(
+        "INSERT INTO schema_version VALUES ('0001_external', '2.0.0', NULL)"
+    )
+    db.commit()
+    db.close()
+    monkeypatch.setattr(resolution, "checkout_for_project", lambda *_: checkout)
+
+    record = _run(hc_project_migration_ledger_contract, control)
+
+    assert record.result == "WARN"
+    assert "adoption required" in record.detail
+
+
+def test_non_null_digest_mismatch_fails_contract(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    control = _control(_capability())
+    checkout = _checkout(tmp_path)
+    db = sqlite3.connect(checkout / "app/data/app.db")
+    db.execute(
+        "INSERT INTO schema_version VALUES ('0001_external', '2.0.0', ?)",
+        ("0" * 64,),
+    )
+    db.commit()
+    db.close()
+    monkeypatch.setattr(resolution, "checkout_for_project", lambda *_: checkout)
+
+    record = _run(hc_project_migration_ledger_contract, control)
+
+    assert record.result == "FAIL"
+    assert "content mismatch" in record.detail
+
+
 def test_rollback_membership_passes_but_floor_evidence_is_limited_without_version(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -204,8 +258,11 @@ def test_rollback_membership_passes_but_floor_evidence_is_limited_without_versio
     checkout = _checkout(tmp_path)
     db = sqlite3.connect(checkout / "app/data/app.db")
     db.executemany(
-        "INSERT INTO schema_version VALUES (?, ?)",
-        [("0001_external", "2.0.0"), ("0002_newer", "3.0.0")],
+        "INSERT INTO schema_version VALUES (?, ?, ?)",
+        [
+            ("0001_external", "2.0.0", _entry_digest(checkout, "0001_external")),
+            ("0002_newer", "3.0.0", "f" * 64),
+        ],
     )
     db.commit()
     db.close()
@@ -225,8 +282,11 @@ def test_rollback_floor_refuses_an_older_declared_artifact(
     checkout = _checkout(tmp_path)
     db = sqlite3.connect(checkout / "app/data/app.db")
     db.executemany(
-        "INSERT INTO schema_version VALUES (?, ?)",
-        [("0001_external", "2.0.0"), ("0002_newer", "3.0.0")],
+        "INSERT INTO schema_version VALUES (?, ?, ?)",
+        [
+            ("0001_external", "2.0.0", _entry_digest(checkout, "0001_external")),
+            ("0002_newer", "3.0.0", "f" * 64),
+        ],
     )
     db.commit()
     db.close()
@@ -245,8 +305,11 @@ def test_rollback_floor_accepts_a_compatible_declared_artifact(
     checkout = _checkout(tmp_path)
     db = sqlite3.connect(checkout / "app/data/app.db")
     db.executemany(
-        "INSERT INTO schema_version VALUES (?, ?)",
-        [("0001_external", "2.0.0"), ("0002_newer", "3.0.0")],
+        "INSERT INTO schema_version VALUES (?, ?, ?)",
+        [
+            ("0001_external", "2.0.0", _entry_digest(checkout, "0001_external")),
+            ("0002_newer", "3.0.0", "f" * 64),
+        ],
     )
     db.commit()
     db.close()

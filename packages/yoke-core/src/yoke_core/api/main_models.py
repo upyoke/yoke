@@ -73,6 +73,13 @@ class HealthResponse(BaseModel):
     columns that are gone. ``stranded_by_migrations`` names each such
     entry with the remedy. Missing ledger or serving-floor evidence also
     fails closed because compatibility cannot be inferred from silence.
+    ``migration_content_matches`` answers whether every common non-NULL ledger
+    digest matches the packaged raw migration bytes. Mismatches refuse serving
+    and are named in ``migration_content_mismatches``. Legacy NULL rows remain
+    serviceable but are named in ``migration_content_adoption_required`` so an
+    operator can run artifact-bound adoption. ``migration_content_evidence_ready``
+    reports whether the adoption evidence table and its database-enforced
+    append-only guards are intact; guard loss refuses serving.
     ``status`` stays ``"ok"`` regardless — liveness consumers are
     unaffected; the container healthcheck and deploy gates assert these
     fields explicitly.
@@ -88,6 +95,10 @@ class HealthResponse(BaseModel):
     pending_migrations: List[str] = Field(default_factory=list)
     can_serve_this_database: bool = True
     stranded_by_migrations: List[str] = Field(default_factory=list)
+    migration_content_matches: bool = True
+    migration_content_evidence_ready: bool = True
+    migration_content_adoption_required: List[str] = Field(default_factory=list)
+    migration_content_mismatches: List[str] = Field(default_factory=list)
     github_app: GitHubAppAdvertisement = Field(default_factory=GitHubAppUnavailable)
 
 

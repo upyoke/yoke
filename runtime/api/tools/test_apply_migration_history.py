@@ -18,12 +18,18 @@ def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> Non
     monkeypatch.setattr(tool, "ordered_entries", lambda _directory: (entry,))
     monkeypatch.setattr(tool, "history_dir", lambda _package: object())
     monkeypatch.setattr(tool.db_helpers, "connect", lambda: _Connection())
-    monkeypatch.setattr(tool, "ensure_applied_migrations_table", lambda _conn: None)
+    monkeypatch.setattr(tool, "ensure_yoke_migration_ledger", lambda _conn: None)
     monkeypatch.setattr(tool, "_hand_created_tables_to_the_serving_role", lambda _conn: None)
     monkeypatch.setattr(
-        tool.migration_boot_apply, "pending_entries", lambda _conn, _history: (entry,)
+        tool.migration_boot_apply,
+        "pending_entries",
+        lambda _conn, _history, _ledger: (entry,),
     )
-    monkeypatch.setattr(tool.migration_boot_apply, "applied_names", lambda _conn: set())
+    monkeypatch.setattr(
+        tool.migration_boot_apply,
+        "applied_names",
+        lambda _conn, _ledger: set(),
+    )
     monkeypatch.setattr(tool, "universe_is_born_on", lambda _conn: True)
     monkeypatch.setattr(
         tool, "configured_restore_point", lambda: (None, "snapshot:test")

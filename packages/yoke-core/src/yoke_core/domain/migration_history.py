@@ -34,6 +34,7 @@ from yoke_core.domain.migration_apply_contract import (
     ModuleContractError,
     ModuleResolutionError,
 )
+from yoke_core.domain.migration_content_identity import raw_content_sha256
 
 #: New histories are taught ``NNNN_slug.py``. Established project histories
 #: may already use another stable zero-padded width; accept three or more
@@ -64,6 +65,11 @@ class MigrationEntry:
     sequence: int
     name: str
     path: Path
+
+    @property
+    def content_sha256(self) -> str:
+        """SHA256 of the entry's raw bytes, with no text normalization."""
+        return raw_content_sha256(self.path.read_bytes())
 
 
 def history_dir(package: ModuleType) -> Path:
