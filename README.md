@@ -273,7 +273,6 @@ AGENTS.md                            # Always-on project rules (CLAUDE.md is a c
 
 .yoke/
 ├── BOARD.md                         # Auto-generated project-local board view
-├── board.json                       # Project-local board renderer settings
 ├── board-art                        # Project-local board presentation art
 └── lint-config                      # Project-local hook guard policy
 
@@ -302,7 +301,7 @@ The flywheel: agents work → reflections capture learnings → curator creates 
 
 ## Multi-Project Support
 
-Each project is a registered git repository with its own deployment flows and configuration. Every item has a non-null integer `project_id`. Local checkout context is machine-resolved from `~/.yoke/config.json`; board rendering defaults to `.yoke/BOARD.md` and reads project-local renderer settings from `.yoke/board.json`.
+Each project is a registered git repository with its own deployment flows and configuration. Every item has a non-null integer `project_id`. Local checkout context is machine-resolved from `~/.yoke/config.json`; board appearance and scope come from DB-backed `project-policy.settings.board`, while project-local `.yoke/board-art` supplies the presentation variants rendered into `.yoke/BOARD.md`.
 
 ```sh
 yoke config example

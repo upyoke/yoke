@@ -80,7 +80,7 @@ repo by the project bundle.
 
 Machine-local runtime context lives in `~/.yoke/config.json`. It owns the
 active env, credential source, temp/cache roots, checkout-to-project
-bindings, board render path, and physical worktree layout.
+bindings, and physical worktree layout.
 
 Its `settings` object owns machine-local runtime tunables only — timeouts,
 retry budgets, guardrail modes, and per-machine thresholds. Every recognized
@@ -95,7 +95,6 @@ nothing.
 
 Project-local configuration lives in the project checkout:
 
-- `.yoke/board.json` controls board rendering appearance and behavior.
 - `.yoke/board-art` contains board presentation variants.
 - `.yoke/lint-config` and `.yoke/labels` carry guardrail and label policy.
 - `.yoke/runbooks/` is project-owned onboarding context; `.yoke/strategy/`
@@ -106,9 +105,10 @@ Project-local configuration lives in the project checkout:
 Shared project behavior lives in the Yoke DB, not checkout files:
 
 - `project-policy` capability settings own `base_branch`, `wip_cap`,
-  `default_priority`, `merge_conflict_threshold`, and `max_attempts`. The
-  authored-file line limit is not among them: it must hold in a fresh clone
-  with no DB reachable, so it is checked-in project-file policy.
+  `default_priority`, `merge_conflict_threshold`, and `max_attempts`, plus
+  nested `board` appearance and scope settings. The authored-file line limit
+  is not among them: it must hold in a fresh clone with no DB reachable, so it
+  is checked-in project-file policy.
 - `session-routing` capability settings own default lanes, lane path
   allowlists, and `/yoke do` process-offer policy.
 

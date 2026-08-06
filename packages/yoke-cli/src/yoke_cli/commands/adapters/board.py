@@ -166,7 +166,7 @@ def board_rebuild(args: List[str]) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     board_path = board_rebuild_flow.resolve_board_path(repo_root, parsed.output_name)
-    effective_scope = parsed.scope or machine_config.board_scope(repo_root)
+    effective_scope = parsed.scope or ""
     force = bool(parsed.force)
     print_mode = _print_mode(parsed)
     phase_recorder = PhaseRecorder()
@@ -250,7 +250,7 @@ def board_rebuild(args: List[str]) -> int:
             repo_root=repo_root,
             output_name=parsed.output_name,
             content=board_text if board_text is not None else None,
-            scope=effective_scope,
+            scope=parsed.scope,
             env_name=_active_env_name(),
             data_source=_active_data_source(),
         )

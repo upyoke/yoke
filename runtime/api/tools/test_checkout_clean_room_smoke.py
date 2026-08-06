@@ -33,7 +33,6 @@ def test_build_machine_config_uses_code_owned_example(tmp_path: Path) -> None:
             "checkout": str(clone.resolve()),
             "project_id": 1,
             "env": "prod",
-            "board": {"render_path": ".yoke/BOARD.md", "scope": "1"},
         }
     ]
 

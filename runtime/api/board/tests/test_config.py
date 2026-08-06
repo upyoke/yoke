@@ -1,4 +1,4 @@
-"""Tests for yoke_contracts.board.config — BoardConfig parsing.
+"""Tests for the BoardConfig model and explicit compatibility-file parser.
 
 Covers:
 - Default values
@@ -54,7 +54,7 @@ class TestBoardConfigDefaults:
 
 
 class TestParseConfig:
-    """Parsing a config file into BoardConfig."""
+    """Preview fixtures and retired-file migration input parse explicitly."""
 
     def test_basic_parsing(self, tmp_path):
         cfg_file = tmp_path / "config"
@@ -74,7 +74,7 @@ class TestParseConfig:
         assert cfg.art_frontier_since == 42
         assert cfg.done_section_limit == 50
 
-    def test_project_local_board_json(self, tmp_path):
+    def test_legacy_board_json_from_repo_root(self, tmp_path):
         repo = tmp_path / "repo"
         (repo / ".yoke").mkdir(parents=True)
         (repo / ".yoke" / "board.json").write_text(
@@ -170,7 +170,7 @@ class TestParseConfig:
         assert cfg.art_weight_mixed == 25
         assert cfg.art_weight_frontier == 60
 
-    def test_project_board_json_owns_art_weight_settings(self, tmp_path):
+    def test_legacy_board_json_parses_art_weight_settings(self, tmp_path):
         repo = tmp_path / "repo"
         (repo / ".yoke").mkdir(parents=True)
         (repo / ".yoke" / "board.json").write_text(

@@ -1,4 +1,4 @@
-"""Tests for the board package scaffold: DB layer + config parser.
+"""Tests for the board DB layer and explicit compatibility-file parser.
 
 Covers:
 - BoardDB context manager, query, scalar, query_quiet
@@ -212,8 +212,8 @@ class TestBoardConfig:
         cfg = parse_config(str(config_file))
         assert cfg.dashboard_meter_cap == 100
 
-    def test_parse_machine_and_project_config(self, tmp_path, monkeypatch):
-        """Parse machine config plus project-local board art settings."""
+    def test_parse_legacy_board_json_fixture(self, tmp_path, monkeypatch):
+        """An explicit legacy fixture remains readable for preview/migration."""
         machine_cfg = tmp_path / "config.json"
         machine_cfg.write_text(
             json.dumps(

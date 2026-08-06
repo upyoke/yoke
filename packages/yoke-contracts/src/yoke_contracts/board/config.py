@@ -1,4 +1,4 @@
-"""Project-local board settings parser."""
+"""Board renderer settings model and compatibility fixture parser."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from yoke_contracts.project_contract.board_art.config_paths import board_config_
 
 @dataclass
 class BoardConfig:
-    """Parsed project-local board configuration."""
+    """Typed board rendering settings supplied by project policy."""
 
     # -- dashboard widget toggles (true = show) --------------------------------
     dashboard_velocity: bool = True

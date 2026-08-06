@@ -150,8 +150,8 @@ def board_data_get(args: List[str]) -> int:
     """Fetch the board's recorded data payload (operator-debug surface).
 
     The production consumer is the ``yoke board rebuild`` composition,
-    which ships the checkout's board.json values and zen vision count;
-    this bare adapter fetches the default-config plan for inspection.
+    which resolves DB-backed project policy and the checkout's zen vision
+    count; this bare adapter fetches the default-config plan for inspection.
     """
     parser = argparse.ArgumentParser(
         prog="yoke board data get", description=BOARD_DATA_GET_USAGE,

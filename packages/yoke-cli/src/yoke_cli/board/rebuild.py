@@ -39,7 +39,6 @@ from yoke_cli.board.rebuild_resolve import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.board.art import parse_art_config
-from yoke_contracts.board.config import parse_config
 from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
 from yoke_contracts.board.renderer import render_board_from_payload
 from yoke_contracts.board.splice import _fresh_board_text, splice_board
@@ -119,10 +118,7 @@ def fetch_and_render(
 
     with measure_phase(phase_recorder, "fetch_board_data"):
         payload = fetch_board_data(request_payload)
-    if payload.get("config_values"):
-        config = board_config_from_settings(payload.get("config_values"))
-    else:
-        config = parse_config(None, repo_root=root_token)
+    config = board_config_from_settings(payload.get("config_values"))
     resolved_scope = str(payload.get("scope") or scope or "all")
     with measure_phase(phase_recorder, "render_total"):
         return render_board_from_payload(

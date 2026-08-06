@@ -1,5 +1,6 @@
 # Board header art for .yoke/BOARD.md.
-# Render tuning (bucket weights, frontier window, etc.) lives in .yoke/board.json.
+# Render tuning (bucket weights, frontier window, etc.) lives in
+# project-policy.settings.board.
 #
 # The Python board renderer (runtime/api/board) reads grids from this file by
 # section header and pastes the stats box to their right. Section types:
@@ -15,7 +16,7 @@
 # - Grid lines are raw text/emoji, one row per line; the first blank line (or
 #   next "## " header) ends the section.
 # - Multiple Emoji/ASCII/Mixed sections may be interspersed in any order. On
-#   each rebuild the renderer picks one bucket by the board.json art_weight_*
+#   each rebuild the renderer picks one bucket by the DB-backed art_weight_*
 #   values, then one variant within that bucket.
 #
 # Per-variant weights (within a bucket):
