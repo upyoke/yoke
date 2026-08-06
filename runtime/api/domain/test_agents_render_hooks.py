@@ -9,6 +9,9 @@ rather than fanning the same command out across per-tool matchers.
 from __future__ import annotations
 
 from yoke_harness.hooks import cursor_model_spool
+from yoke_contracts.hook_runner.config_owner import (
+    CURSOR_NATIVE_RUNNER_EVENTS,
+)
 
 from yoke_core.domain.agents_render_hooks import (
     _CURSOR_HOOK_TIMEOUT_S,
@@ -110,3 +113,23 @@ def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
     assert "yoke-cursor-lifecycle-root=1" in end
     pre = block["hooks"]["preToolUse"][0]["command"]
     assert "yoke-cursor-lifecycle-root" not in pre
+
+
+def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
+    block = render_cursor_hooks_block()
+    commands = [
+        entry["command"]
+        for entries in block["hooks"].values()
+        for entry in entries
+        if "yoke hook evaluate" in entry["command"]
+    ]
+    assert commands
+    assert all(
+        "YOKE_HOOK_CONFIG_OWNER=cursor-project" in command
+        for command in commands
+    )
+    for native_event, runner_event in CURSOR_NATIVE_RUNNER_EVENTS:
+        assert any(
+            f"yoke hook evaluate {runner_event}" in entry["command"]
+            for entry in block["hooks"][native_event]
+        )

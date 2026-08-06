@@ -48,6 +48,7 @@ def test_lifecycle_command_peels_worktrees_and_marks() -> None:
     assert ".worktrees/" in cmd
     assert "yoke hook evaluate Stop" in cmd
     assert "YOKE_EXECUTOR=cursor" in cmd
+    assert "YOKE_HOOK_CONFIG_OWNER=cursor-project" in cmd
 
 
 def test_ensure_user_lifecycle_hooks_merges(tmp_path: Path) -> None:
@@ -72,6 +73,10 @@ def test_ensure_user_lifecycle_hooks_merges(tmp_path: Path) -> None:
     assert payload["hooks"]["afterFileEdit"] == [{"command": "echo keep"}]
     stop_cmds = [e["command"] for e in payload["hooks"]["stop"]]
     assert any("yoke-cursor-lifecycle-root=1" in c for c in stop_cmds)
+    assert any(
+        "YOKE_HOOK_CONFIG_OWNER=cursor-user-lifecycle" in c
+        for c in stop_cmds
+    )
     assert not any("yoke-cursor-stop-canary" in c for c in stop_cmds)
     assert any(
         "yoke-cursor-lifecycle-root=1" in e["command"]

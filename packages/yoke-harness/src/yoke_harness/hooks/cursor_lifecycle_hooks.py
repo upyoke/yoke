@@ -14,6 +14,13 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from yoke_contracts.hook_runner.config_owner import (
+    CONFIG_OWNER_ENV_VAR,
+    CURSOR_LIFECYCLE_COMMAND_MARKER,
+    CURSOR_PROJECT_CONFIG_OWNER,
+    CURSOR_USER_LIFECYCLE_OWNER,
+)
+
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 _CURSOR_IDENTITY_ENV = "YOKE_EXECUTOR=cursor"
 
@@ -26,10 +33,11 @@ _LIFECYCLE_VERBS: dict[str, str] = {
     "sessionEnd": "SessionEnd",
 }
 
-_MARKER = "yoke-cursor-lifecycle-root"
-
-
-def cursor_lifecycle_hook_command(event_verb: str) -> str:
+def cursor_lifecycle_hook_command(
+    event_verb: str,
+    *,
+    config_owner: str = CURSOR_PROJECT_CONFIG_OWNER,
+) -> str:
     """Shell command for Cursor ``stop`` / ``sessionEnd`` (and user backstop).
 
     Picks an existing ``YOKE_ROOT`` (peeling a missing ``.worktrees/<lane>``
@@ -39,7 +47,7 @@ def cursor_lifecycle_hook_command(event_verb: str) -> str:
     """
     # Single-quoted -lc body: no single quotes inside.
     body = (
-        f'{_MARKER}=1; '
+        f'{CURSOR_LIFECYCLE_COMMAND_MARKER}; '
         'root=""; '
         'for c in "$YOKE_ROOT" "$CURSOR_PROJECT_DIR" "$PWD"; do '
         '[ -n "$c" ] && [ -d "$c" ] && root="$c" && break; '
@@ -57,6 +65,7 @@ def cursor_lifecycle_hook_command(event_verb: str) -> str:
         '[ -n "$root" ] || root="${HOME:-/tmp}"; '
         'cd "$root" 2>/dev/null || cd "${HOME:-/tmp}" 2>/dev/null || cd /; '
         f'env YOKE_ROOT="$root" {_CURSOR_IDENTITY_ENV} '
+        f'{CONFIG_OWNER_ENV_VAR}={config_owner} '
         f'{_YOKE_HOOK_EVALUATE} {event_verb}'
     )
     return f"/bin/zsh -lc '{body}'"
@@ -64,7 +73,10 @@ def cursor_lifecycle_hook_command(event_verb: str) -> str:
 
 def _lifecycle_entry(event_verb: str) -> dict[str, Any]:
     return {
-        "command": cursor_lifecycle_hook_command(event_verb),
+        "command": cursor_lifecycle_hook_command(
+            event_verb,
+            config_owner=CURSOR_USER_LIFECYCLE_OWNER,
+        ),
         "timeout": 30,
     }
 
@@ -73,7 +85,10 @@ def _is_yoke_lifecycle_entry(entry: Any) -> bool:
     if not isinstance(entry, dict):
         return False
     command = entry.get("command")
-    return isinstance(command, str) and _MARKER in command
+    return (
+        isinstance(command, str)
+        and CURSOR_LIFECYCLE_COMMAND_MARKER in command
+    )
 
 
 def ensure_user_lifecycle_hooks(
