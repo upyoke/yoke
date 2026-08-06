@@ -25,6 +25,12 @@ import sys
 from collections.abc import Callable, Sequence
 from typing import Any, List, Optional, Tuple
 
+from yoke_core.domain.migration_yoke_ledger import (
+    YOKE_LEDGER_CONTRACT,
+    yoke_migration_content_schema_is_prepared,
+)
+from yoke_core.domain.schema_readiness import migration_content_identity_status
+
 #: Surfaces the superseded-column entry removes. Presence means that entry's
 #: effect has not reached the database, whatever its ledger claims.
 RETIRED_SURFACES: Tuple[Tuple[str, str], ...] = (
@@ -117,21 +123,51 @@ def _ledger_rows_without_completed_evidence(
     return sorted({str(row[0]) for row in rows} - completed)
 
 
-def _packaged_invariant_checks() -> List[InvariantCheck]:
-    """Load invariant checks from the packaged, ordered Yoke history."""
+def _packaged_history() -> Sequence[Any]:
+    """Load the packaged, ordered Yoke history once per tenant report."""
     from yoke_core.domain import migrations as migration_history_package
     from yoke_core.domain.migration_history import (
         history_dir,
-        load_migration_module,
         ordered_entries,
     )
 
+    return ordered_entries(history_dir(migration_history_package))
+
+
+def _packaged_invariant_checks(history: Sequence[Any]) -> List[InvariantCheck]:
+    """Load invariant checks for an already-resolved packaged history."""
+    from yoke_core.domain.migration_history import load_migration_module
+
     checks = []
-    for entry in ordered_entries(history_dir(migration_history_package)):
+    for entry in history:
         module = load_migration_module(entry.path, entry.name)
         check = getattr(module, "invariants", None)
         checks.append((entry.name, check if callable(check) else None))
     return checks
+
+
+def _content_evidence_state(conn: Any, history: Sequence[Any]) -> dict[str, Any]:
+    """Return secret-free content/adoption evidence, failing closed on reads."""
+    try:
+        prepared = yoke_migration_content_schema_is_prepared(conn)
+        status = migration_content_identity_status(
+            conn, history, YOKE_LEDGER_CONTRACT
+        )
+    except Exception:  # noqa: BLE001 — reporter exposes no database internals
+        return {
+            "prepared": False,
+            "verified": [],
+            "adoption_required": [],
+            "mismatches": ["migration content evidence is unreadable"],
+            "ledger_ahead": [],
+        }
+    return {
+        "prepared": prepared,
+        "verified": list(status.verified),
+        "adoption_required": list(status.adoption_required),
+        "mismatches": [item.entry_name for item in status.mismatches],
+        "ledger_ahead": list(status.ledger_ahead),
+    }
 
 
 def _packaged_pending(
@@ -210,7 +246,8 @@ def _report_database(dsn_for: Any, database: str) -> bool:
                 )
 
             applied_names = {str(row[0]) for row in rows or []}
-            checks = _packaged_invariant_checks()
+            history = _packaged_history()
+            checks = _packaged_invariant_checks(history)
             pending = _packaged_pending(checks, applied_names)
             print(f"  packaged migrations pending: {pending or 'none'}")
             outcomes = _applied_invariant_outcomes(conn, checks, applied_names)
@@ -250,6 +287,19 @@ def _report_database(dsn_for: Any, database: str) -> bool:
             surviving = _surviving_retired_surfaces(cur)
             print(f"  retired surfaces still present: {surviving or 'none'}")
 
+            content = _content_evidence_state(conn, history)
+            print(
+                "  migration content schema/guards prepared: "
+                f"{content['prepared']}"
+            )
+            print(f"  verified raw-byte identities: {content['verified'] or 'none'}")
+            print(
+                "  content identity adoption required: "
+                f"{content['adoption_required'] or 'none'}"
+            )
+            print(f"  content identity mismatches: {content['mismatches'] or 'none'}")
+            print(f"  ledger ahead of artifact: {content['ledger_ahead'] or 'none'}")
+
             if rows is not None and rows and surviving:
                 print("  MIXED: ledger claims applied while surfaces survive")
             if (rows is None or not rows) and not surviving:
@@ -257,7 +307,18 @@ def _report_database(dsn_for: Any, database: str) -> bool:
                     "  MIXED: surfaces already removed with no ledger record — "
                     "the whole history will re-run on the next converge"
                 )
-            current = bool(rows) and not pending and not surviving and not failed_invariants
+            content_current = (
+                content["prepared"]
+                and not content["adoption_required"]
+                and not content["mismatches"]
+            )
+            current = (
+                bool(rows)
+                and not pending
+                and not surviving
+                and not failed_invariants
+                and content_current
+            )
             print(f"  current invariant verdict: {'PASS' if current else 'FAIL'}")
             return current
 

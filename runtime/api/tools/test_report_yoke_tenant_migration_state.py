@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 from runtime.api.tools import report_yoke_tenant_migration_state as report
@@ -66,6 +67,43 @@ def test_completed_receipts_are_compared_to_ledger_membership() -> None:
     assert report._ledger_rows_without_completed_evidence(
         rows, {"0001_first"},
     ) == ["0002_second"]
+
+
+def test_content_evidence_state_reports_adoption_and_mismatch_names(
+    monkeypatch,
+) -> None:
+    status = SimpleNamespace(
+        verified=("0001_first",),
+        adoption_required=("0002_second",),
+        mismatches=(SimpleNamespace(entry_name="0003_third"),),
+        ledger_ahead=("0004_future",),
+    )
+    monkeypatch.setattr(
+        report, "yoke_migration_content_schema_is_prepared", lambda _conn: True
+    )
+    monkeypatch.setattr(
+        report, "migration_content_identity_status", lambda *_args: status
+    )
+
+    assert report._content_evidence_state(object(), ()) == {
+        "prepared": True,
+        "verified": ["0001_first"],
+        "adoption_required": ["0002_second"],
+        "mismatches": ["0003_third"],
+        "ledger_ahead": ["0004_future"],
+    }
+
+
+def test_content_evidence_state_fails_closed_without_error_detail(monkeypatch) -> None:
+    def unreadable(_conn):
+        raise RuntimeError("dsn=must-not-leak")
+
+    monkeypatch.setattr(
+        report, "yoke_migration_content_schema_is_prepared", unreadable
+    )
+    state = report._content_evidence_state(object(), ())
+    assert state["prepared"] is False
+    assert state["mismatches"] == ["migration content evidence is unreadable"]
 
 
 class _InvariantConnection:
