@@ -89,7 +89,52 @@ class TestRecordAndResolve:
         # The bare id is NOT the answer: a conversation no hook recorded
         # names no registered session, and guessing would attribute the
         # work to a row that does not exist.
-        assert resolve_mapped_session_id(map_dir, _env(SUBAGENT)) is None
+        assert resolve_mapped_session_id(
+            map_dir, _env(SUBAGENT), projects_root=map_dir / "no-projects",
+        ) is None
+
+    def test_nested_transcript_env_recovers_unmapped_subagent(self, map_dir):
+        env = {
+            **_env(SUBAGENT),
+            CURSOR_TRANSCRIPT_ENV_VAR: SUB_TRANSCRIPT,
+        }
+        assert resolve_mapped_session_id(
+            map_dir, env, projects_root=map_dir / "no-projects",
+        ) == CONTAINER
+        # Self-heals so a later shell without transcript env still resolves.
+        assert resolve_mapped_session_id(
+            map_dir, _env(SUBAGENT), projects_root=map_dir / "no-projects",
+        ) == CONTAINER
+
+    def test_on_disk_subagent_transcript_recovers_unmapped_child(
+        self, map_dir, tmp_path,
+    ):
+        projects = tmp_path / "projects"
+        nested = (
+            projects / "proj" / "agent-transcripts" / CONTAINER
+            / "subagents" / f"{SUBAGENT}.jsonl"
+        )
+        nested.parent.mkdir(parents=True)
+        nested.write_text("{}", encoding="utf-8")
+        assert resolve_mapped_session_id(
+            map_dir, _env(SUBAGENT), projects_root=projects,
+        ) == CONTAINER
+        assert resolve_mapped_session_id(
+            map_dir, _env(SUBAGENT), projects_root=projects,
+        ) == CONTAINER
+
+    def test_ambiguous_on_disk_layout_refuses(self, map_dir, tmp_path):
+        projects = tmp_path / "projects"
+        for proj in ("a", "b"):
+            nested = (
+                projects / proj / "agent-transcripts" / CONTAINER
+                / "subagents" / f"{SUBAGENT}.jsonl"
+            )
+            nested.parent.mkdir(parents=True)
+            nested.write_text("{}", encoding="utf-8")
+        assert resolve_mapped_session_id(
+            map_dir, _env(SUBAGENT), projects_root=projects,
+        ) is None
 
     def test_no_conversation_id_resolves_to_nothing(self, map_dir):
         record_conversation_session(CONTAINER, CONTAINER, map_dir)

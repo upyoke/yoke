@@ -9,6 +9,8 @@ can be written; every later shell is a reader.
 
 from __future__ import annotations
 
+import os
+
 from yoke_cli.config import machine_config
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
@@ -74,11 +76,19 @@ def record_from_hook_payload(
     itself must not erase an existing worktree/subagent fold: Cursor can
     re-fire sessionStart without ``workspace_roots``, and the identity
     fallback would otherwise clobber the claim-holder alias.
+
+    When the payload adapter has already folded ``session_id`` onto the
+    container, the child id survives on ``subagent_session_id`` /
+    ``remapped_conversation_id`` / ``conversation_id`` / the Cursor env
+    var — each distinct child alias is recorded so shells that only carry
+    the child conversation id still resolve.
     """
     if not is_cursor(executor):
         return
     try:
         conversation_id = payload.get("session_id")
+        if not isinstance(conversation_id, str) or not conversation_id:
+            conversation_id = payload.get("conversation_id")
         if not isinstance(conversation_id, str) or not conversation_id:
             return
         container = container_session_id_from_evidence(payload)
@@ -90,8 +100,22 @@ def record_from_hook_payload(
             folded = _existing_fold_container(conversation_id)
             if folded:
                 container = folded
-        if container:
-            record_conversation_session(conversation_id, container)
+        if not container:
+            return
+        aliases = {conversation_id}
+        for key in (
+            "conversation_id",
+            "subagent_session_id",
+            "remapped_conversation_id",
+        ):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                aliases.add(value.strip())
+        env_cid = (os.environ.get(CURSOR_CONVERSATION_ENV_VAR, "") or "").strip()
+        if env_cid:
+            aliases.add(env_cid)
+        for alias in aliases:
+            record_conversation_session(alias, container)
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
         return
 

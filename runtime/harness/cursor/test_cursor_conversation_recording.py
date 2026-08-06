@@ -62,6 +62,21 @@ class TestRecorder:
         cursor_session_map.record_from_hook_payload(_payload(), "cursor")
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
 
+    def test_folded_payload_still_records_the_child_alias(self, machine_home):
+        # Payload adapter folds session_id onto the container and parks the
+        # child on subagent_session_id; shells still export the child id.
+        cursor_session_map.record_from_hook_payload(
+            {
+                "hook_event_name": "beforeShellExecution",
+                "session_id": CONTAINER,
+                "conversation_id": SUBAGENT,
+                "subagent_session_id": SUBAGENT,
+            },
+            "cursor",
+        )
+        assert _mapped(machine_home, SUBAGENT) == CONTAINER
+        assert _mapped(machine_home, CONTAINER) == CONTAINER
+
     def test_top_level_conversation_records_against_itself(self, machine_home):
         cursor_session_map.record_from_hook_payload(_payload(CONTAINER), "cursor")
         assert _mapped(machine_home, CONTAINER) == CONTAINER

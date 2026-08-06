@@ -22,20 +22,34 @@ FAILURE_CLASS = "foreign_lane"
 
 def build_denial_message(
     *, offending_target: str, occupant: LaneOccupant,
+    caller_session_id: str = "",
 ) -> str:
     """Name the lane, its holder, and the two ways forward."""
     owner = occupant.item_ref or f"item {occupant.item_id}"
     acquire_ref = occupant.item_ref or "PREFIX-N"
-    return "\n".join(
+    lines = [
+        "Refusing a write into a worktree lane held by another "
+        "session.",
+        "",
+        f"  target:  {offending_target}",
+        f"  lane:    {occupant.lane_path}",
+        f"  owner:   {owner}",
+        f"  held by: session {occupant.session_id}",
+        "",
+    ]
+    if not (caller_session_id or "").strip():
+        lines.extend(
+            [
+                "This caller resolved no ambient session identity "
+                "(env chain / process-anchor / cursor-session-map), so "
+                "the lane holder looks foreign even when a parent Cursor "
+                "conversation dispatched the work. That is an identity "
+                "plumbing gap — not a cue to take the claim.",
+                "",
+            ]
+        )
+    lines.extend(
         [
-            "Refusing a write into a worktree lane held by another "
-            "session.",
-            "",
-            f"  target:  {offending_target}",
-            f"  lane:    {occupant.lane_path}",
-            f"  owner:   {owner}",
-            f"  held by: session {occupant.session_id}",
-            "",
             "That lane has a live work claim. Two agents editing one "
             "worktree share its git index, so staged changes from either "
             "land in whichever one commits first.",
@@ -47,6 +61,7 @@ def build_denial_message(
             '--reason "<why you are taking over>"',
         ]
     )
+    return "\n".join(lines)
 
 
 __all__ = ["FAILURE_CLASS", "build_denial_message"]
