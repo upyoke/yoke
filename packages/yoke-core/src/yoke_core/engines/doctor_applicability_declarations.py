@@ -57,7 +57,10 @@ _EXT_VPS = CheckApplicability(
 
 _SHAPES = (
     (_DB, (
-        "architecture-impact-declaration", "backlog-hygiene", "backlog-quality",
+        "architecture-cross-cutting-entrypoint", "architecture-forbidden-edge",
+        "architecture-impact-declaration", "architecture-scan-error",
+        "architecture-unclassified-path",
+        "backlog-hygiene", "backlog-quality",
         "blocked-flag-consistency", "blocked-items", "blocked-status-drift",
         "branch-protection-required-check", "cancelled-blocker-dependencies",
         "claim-boundary-audit", "coordination-leases-stale-or-orphan",
@@ -101,9 +104,8 @@ _SHAPES = (
         "wrong-repo-issues", "zombie-ephemeral-envs",
     )),
     (_SRC, (
-        "architecture-cross-cutting-entrypoint", "architecture-forbidden-edge",
-        "architecture-model-doc-drift", "architecture-scan-error",
-        "architecture-unclassified-path", "branch-divergence",
+        "architecture-model-doc-drift",
+        "branch-divergence",
         "config-validation", "cross-project-commits", "file-line-limit",
         "flow-workflow-exists", "gate-liveness", "main-checkout",
         "orphaned-stashes", "orphaned-temp-files", "path-claim-symlink-coverage",
@@ -146,4 +148,18 @@ def undeclared_slugs(slugs) -> List[str]:
     return sorted(slug for slug in slugs if slug not in DECLARATIONS)
 
 
-__all__ = ["DECLARATIONS", "applicability_for", "undeclared_slugs"]
+def source_checkout_slugs() -> frozenset[str]:
+    """Slugs whose applicability requires a machine-local source checkout."""
+    return frozenset(
+        slug
+        for slug, shape in DECLARATIONS.items()
+        if shape.requires_source_checkout
+    )
+
+
+__all__ = [
+    "DECLARATIONS",
+    "applicability_for",
+    "source_checkout_slugs",
+    "undeclared_slugs",
+]

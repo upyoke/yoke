@@ -122,6 +122,11 @@ def doctor_run(args: List[str]) -> int:
     if parsed.db_path:
         payload["db_path"] = parsed.db_path
     if _active_transport_is_https():
+        from yoke_cli.commands.adapters.doctor_https_compose import (
+            resolve_operator_project,
+        )
+
+        payload["project"] = resolve_operator_project(str(payload["project"]))
         return _dispatch_chunked(
             payload=payload,
             session_id=parsed.session_id,
@@ -170,6 +175,61 @@ def _dispatch_chunked(
     session_id: str | None,
     json_mode: bool,
 ) -> int:
+    from yoke_cli.commands.adapters.doctor_https_compose import (
+        false_na_source_slugs,
+        machine_has_checkout_for,
+        merge_relayed_with_local,
+        recount,
+        run_local_source_checks,
+    )
+
+    response = _collect_chunked(
+        payload=payload,
+        session_id=session_id,
+    )
+    if not response.success:
+        return emit_response(response, json_mode=json_mode)
+
+    result = dict(response.result or {})
+    results = list(result.get("results") or [])
+    project = str(result.get("project") or payload.get("project") or "")
+    if machine_has_checkout_for(project):
+        redo = false_na_source_slugs(results)
+        if redo:
+            local_rows = run_local_source_checks(
+                project=project,
+                quick=bool(payload.get("quick")),
+                full=bool(payload.get("full")),
+                fix=bool(payload.get("fix")),
+                only=payload.get("only"),
+                slugs=redo,
+            )
+            results = merge_relayed_with_local(results, local_rows)
+            counts = recount(results)
+            result.update(counts)
+            result["results"] = results
+            # Client held the checkout — report the merged runtime as local
+            # for the source half while preserving relayed CP evidence.
+            result["runtime"] = result.get("runtime") or payload.get("runtime")
+            result["composed"] = "local_source+relayed_control_plane"
+
+    final_response = FunctionCallResponse(
+        success=True,
+        function=response.function,
+        version=response.version,
+        request_id=response.request_id,
+        result=result,
+        event_ids=response.event_ids,
+        warnings=response.warnings,
+    )
+    return emit_response(final_response, json_mode=json_mode)
+
+
+def _collect_chunked(
+    *,
+    payload: Dict[str, Any],
+    session_id: str | None,
+) -> FunctionCallResponse:
     actor = build_actor(session_id=session_id)
     target = TargetRef(kind="global")
     cursor = None
@@ -188,9 +248,6 @@ def _dispatch_chunked(
     while True:
         chunk_payload = dict(payload)
         chunk_payload["max_checks"] = DOCTOR_CHUNK_MAX_CHECKS
-        # A read-only quick run may be authorized with project-read
-        # permission alone, in exchange for the small project-safe check
-        # set. Anything wider needs the raw control-plane read permission.
         if payload.get("quick") and not any(
             payload.get(key) for key in ("full", "only", "fix", "db_path")
         ):
@@ -208,7 +265,7 @@ def _dispatch_chunked(
         event_ids.extend(response.event_ids)
         warnings.extend(response.warnings)
         if not response.success:
-            return emit_response(response, json_mode=json_mode)
+            return response
 
         result = response.result or {}
         results.extend(result.get("results") or [])
@@ -223,7 +280,7 @@ def _dispatch_chunked(
         if result.get("done", True):
             break
         if not next_cursor or next_cursor == cursor:
-            guard = response.model_copy(
+            return response.model_copy(
                 update={
                     "success": False,
                     "error": FunctionError(
@@ -234,11 +291,10 @@ def _dispatch_chunked(
                     ),
                 }
             )
-            return emit_response(guard, json_mode=json_mode)
         cursor = str(next_cursor)
 
     assert last_response is not None
-    final_response = FunctionCallResponse(
+    return FunctionCallResponse(
         success=True,
         function=last_response.function,
         version=last_response.version,
@@ -256,4 +312,3 @@ def _dispatch_chunked(
         event_ids=event_ids,
         warnings=warnings,
     )
-    return emit_response(final_response, json_mode=json_mode)

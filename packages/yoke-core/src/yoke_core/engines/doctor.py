@@ -109,7 +109,22 @@ def _attach_remediation_footers(rec: RecordCollector) -> None:
 
 def run_checks(args: DoctorArgs) -> int:
     """Run all applicable health checks and return exit code (0 or 1)."""
-    conn = connect(path=args.db_path)
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
+
+    conn = local_connection_or_none(lambda: connect(path=args.db_path))
+    if conn is None:
+        print(
+            "doctor engine entrypoint needs a local-postgres control plane; "
+            "this connection has none.\n"
+            "Use the product surface instead:\n"
+            "  yoke doctor run --quick\n"
+            "(or --full / --only). That adapter relays control-plane checks "
+            "and runs source-tree checks on this machine when a checkout is "
+            "present — do not switch environments to recover.",
+            file=sys.stderr,
+        )
+        return 1
+
     rec = RecordCollector()
 
     context = resolve_context(conn, args)
