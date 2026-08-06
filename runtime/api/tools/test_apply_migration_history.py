@@ -15,10 +15,17 @@ class _Connection:
 def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> None:
     entry = SimpleNamespace(name="0001_pending")
     seen = {}
+    guard_repairs = []
     monkeypatch.setattr(tool, "ordered_entries", lambda _directory: (entry,))
     monkeypatch.setattr(tool, "history_dir", lambda _package: object())
     monkeypatch.setattr(tool.db_helpers, "connect", lambda: _Connection())
-    monkeypatch.setattr(tool, "ensure_yoke_migration_ledger", lambda _conn: None)
+    monkeypatch.setattr(
+        tool,
+        "ensure_yoke_migration_ledger",
+        lambda _conn, *, repair_existing_guards: guard_repairs.append(
+            repair_existing_guards
+        ),
+    )
     monkeypatch.setattr(tool, "_hand_created_tables_to_the_serving_role", lambda _conn: None)
     monkeypatch.setattr(
         tool.migration_boot_apply,
@@ -44,3 +51,4 @@ def test_pending_apply_supplies_the_running_artifact_version(monkeypatch) -> Non
 
     assert tool.main([]) == 0
     assert seen["running_version"] == "4.2.0"
+    assert guard_repairs == [True]

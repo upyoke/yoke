@@ -234,7 +234,10 @@ def converge_migration_history(
     # Keep this ordering local to the content-aware reader as well as in the
     # broader schema sequence: a legacy ledger cannot be queried for a digest
     # until the additive nullable column exists.
-    converge_yoke_migration_content_schema(conn)
+    converge_yoke_migration_content_schema(
+        conn,
+        repair_existing_guards=False,
+    )
     history = ordered_entries(history_dir(migration_history_package))
     if not history:
         return

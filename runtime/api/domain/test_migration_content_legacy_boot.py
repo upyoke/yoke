@@ -11,6 +11,7 @@ from yoke_core.domain.migration_history import history_dir, ordered_entries
 from yoke_core.domain.migration_yoke_ledger import (
     YOKE_LEDGER_CONTRACT,
     ensure_yoke_migration_ledger,
+    yoke_migration_content_schema_is_prepared,
 )
 
 
@@ -34,6 +35,7 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
     # create_governed_tables performs this additive convergence before
     # converge_migration_history calls the content-aware boot kernel.
     ensure_yoke_migration_ledger(conn)
+    assert not yoke_migration_content_schema_is_prepared(conn)
     outcome = apply_pending(
         conn,
         history=history,
@@ -45,6 +47,7 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
 
     assert history[-1].name == "0006_migration_content_identity"
     assert outcome.applied == (history[-1].name,)
+    assert yoke_migration_content_schema_is_prepared(conn)
     rows = conn.execute(
         "SELECT migration_name, content_sha256 FROM applied_migrations "
         "ORDER BY migration_name"

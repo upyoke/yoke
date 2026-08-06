@@ -12,6 +12,7 @@ from runtime.api.fixtures import pg_testdb
 from yoke_core.domain.migration_audit_schema import ensure_migration_ledger_table
 from yoke_core.domain.migration_content_schema import (
     AdoptionEvidenceContract,
+    adoption_evidence_is_immutable,
     converge_migration_content_schema,
     migration_content_schema_is_prepared,
 )
@@ -70,6 +71,38 @@ def _insert_evidence(conn, digest: str) -> None:
         ),
     )
     conn.commit()
+
+
+def test_sqlite_new_ledger_installs_exact_guards_without_repair_opt_in() -> None:
+    conn = sqlite3.connect(":memory:")
+
+    _prepare(conn)
+
+    assert adoption_evidence_is_immutable(conn, EVIDENCE)
+    assert adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
+
+
+def test_sqlite_existing_ledger_needs_explicit_guard_repair() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE project_history ("
+        "entry_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL, applied_by TEXT)"
+    )
+
+    ensure_migration_ledger_table(conn, LEDGER, EVIDENCE)
+
+    assert not adoption_evidence_is_immutable(conn, EVIDENCE)
+    assert not adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
+    assert not migration_content_schema_is_prepared(conn, LEDGER, EVIDENCE)
+
+    ensure_migration_ledger_table(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=True,
+    )
+
+    assert migration_content_schema_is_prepared(conn, LEDGER, EVIDENCE)
 
 
 def test_sqlite_digest_born_with_membership_needs_no_adoption_evidence() -> None:
@@ -145,7 +178,20 @@ def test_sqlite_convergence_repairs_semantically_wrong_transition_guard() -> Non
     )
 
     assert not migration_content_schema_is_prepared(conn, LEDGER, EVIDENCE)
-    converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+    converge_migration_content_schema(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=False,
+    )
+    assert not migration_content_schema_is_prepared(conn, LEDGER, EVIDENCE)
+
+    converge_migration_content_schema(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=True,
+    )
 
     assert migration_content_schema_is_prepared(conn, LEDGER, EVIDENCE)
     with pytest.raises(sqlite3.IntegrityError, match="matching immutable evidence"):
@@ -212,7 +258,20 @@ def test_postgres_convergence_reenables_transition_guard() -> None:
         )
 
         assert not adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=False,
+        )
+        assert not adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
+
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
 
@@ -235,6 +294,19 @@ def test_postgres_convergence_restores_transition_function_body() -> None:
         )
 
         assert not adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=False,
+        )
+        assert not adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
+
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)

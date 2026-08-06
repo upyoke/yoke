@@ -144,6 +144,8 @@ def ensure_migration_ledger_table(
     conn: Any,
     ledger: LedgerContract,
     evidence: AdoptionEvidenceContract,
+    *,
+    repair_existing_guards: bool = False,
 ) -> None:
     """Idempotently converge one caller-declared membership ledger.
 
@@ -158,7 +160,14 @@ def ensure_migration_ledger_table(
     the oldest ledgers, which are exactly the ones most likely to hold an
     entry a running build cannot survive, would be the ones missing the
     column that says so.
+
+    A ledger created by this call receives the exact evidence and membership
+    guards. A ledger that already existed receives only additive schema unless
+    a trusted migration or adoption caller requests ``repair_existing_guards``.
     """
+    from yoke_core.domain.schema_common import _table_exists
+
+    ledger_already_existed = _table_exists(conn, ledger.table)
     execute_schema_script(
         conn,
         f"""
@@ -175,6 +184,9 @@ def ensure_migration_ledger_table(
         conn, ledger.table, ledger.serving_floor_column, "TEXT"
     )
     converge_migration_content_schema(
-        conn, ledger, evidence,
+        conn,
+        ledger,
+        evidence,
+        repair_existing_guards=(repair_existing_guards or not ledger_already_existed),
     )
     conn.commit()

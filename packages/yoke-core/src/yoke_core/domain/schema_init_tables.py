@@ -299,7 +299,7 @@ def create_governed_tables(conn: Any) -> None:
     )
 
     ensure_migration_audit_table(conn)
-    ensure_yoke_migration_ledger(conn)
+    ensure_yoke_migration_ledger(conn, repair_existing_guards=False)
 
     # coordination_leases — shared-operation lease primitive keyed on
     # (project_id, lease_key).  The migration consumer scopes per-model

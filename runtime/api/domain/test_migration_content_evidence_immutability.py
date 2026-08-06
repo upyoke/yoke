@@ -80,7 +80,20 @@ def test_sqlite_convergence_restores_dropped_guards() -> None:
         conn.execute(f"DROP TRIGGER {row[0]}")
     assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-    converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+    converge_migration_content_schema(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=False,
+    )
+    assert not adoption_evidence_is_immutable(conn, EVIDENCE)
+
+    converge_migration_content_schema(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=True,
+    )
 
     assert adoption_evidence_is_immutable(conn, EVIDENCE)
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
@@ -109,7 +122,12 @@ def test_sqlite_convergence_replaces_wrong_guard_semantics(wrong_event: bool) ->
         )
     assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-    converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+    converge_migration_content_schema(
+        conn,
+        LEDGER,
+        EVIDENCE,
+        repair_existing_guards=True,
+    )
 
     assert adoption_evidence_is_immutable(conn, EVIDENCE)
 
@@ -146,7 +164,12 @@ def test_postgres_convergence_restores_dropped_guard_function() -> None:
         )
         assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_evidence_is_immutable(conn, EVIDENCE)
         with pytest.raises(psycopg.errors.RaiseException, match="append-only"):
@@ -174,7 +197,12 @@ def test_postgres_convergence_reenables_disabled_guard() -> None:
         )
         assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_evidence_is_immutable(conn, EVIDENCE)
 
@@ -200,7 +228,12 @@ def test_postgres_convergence_replaces_wrong_event_guard() -> None:
         )
         assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_evidence_is_immutable(conn, EVIDENCE)
 
@@ -217,7 +250,12 @@ def test_postgres_convergence_replaces_wrong_guard_function_body() -> None:
         )
         assert not adoption_evidence_is_immutable(conn, EVIDENCE)
 
-        converge_migration_content_schema(conn, LEDGER, EVIDENCE)
+        converge_migration_content_schema(
+            conn,
+            LEDGER,
+            EVIDENCE,
+            repair_existing_guards=True,
+        )
 
         assert adoption_evidence_is_immutable(conn, EVIDENCE)
 

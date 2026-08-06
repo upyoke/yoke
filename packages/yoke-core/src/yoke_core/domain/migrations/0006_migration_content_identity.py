@@ -14,7 +14,10 @@ def apply(conn) -> None:
         converge_yoke_migration_content_schema,
     )
 
-    converge_yoke_migration_content_schema(conn)
+    converge_yoke_migration_content_schema(
+        conn,
+        repair_existing_guards=True,
+    )
 
 
 def invariants(conn) -> None:

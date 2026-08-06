@@ -76,8 +76,12 @@ def governed_yoke_postgres_seed(location: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
-def converge_yoke_migration_content_schema(conn: Any) -> None:
-    """Converge Yoke's declared digest and evidence surfaces without commit."""
+def converge_yoke_migration_content_schema(
+    conn: Any,
+    *,
+    repair_existing_guards: bool = False,
+) -> None:
+    """Converge Yoke's content schema under the declared guard-repair policy."""
     from yoke_core.domain.migration_content_schema import (
         converge_migration_content_schema,
     )
@@ -86,6 +90,7 @@ def converge_yoke_migration_content_schema(conn: Any) -> None:
         conn,
         YOKE_LEDGER_CONTRACT,
         YOKE_ADOPTION_EVIDENCE_CONTRACT,
+        repair_existing_guards=repair_existing_guards,
     )
 
 
@@ -107,8 +112,12 @@ def yoke_migration_content_schema_is_prepared(conn: Any) -> bool:
     )
 
 
-def ensure_yoke_migration_ledger(conn: Any) -> None:
-    """Create/converge Yoke's concrete ledger through the generic schema API."""
+def ensure_yoke_migration_ledger(
+    conn: Any,
+    *,
+    repair_existing_guards: bool = False,
+) -> None:
+    """Create/converge Yoke's ledger under the declared guard-repair policy."""
     from yoke_core.domain.migration_audit_schema import (
         ensure_migration_ledger_table,
     )
@@ -117,6 +126,7 @@ def ensure_yoke_migration_ledger(conn: Any) -> None:
         conn,
         YOKE_LEDGER_CONTRACT,
         YOKE_ADOPTION_EVIDENCE_CONTRACT,
+        repair_existing_guards=repair_existing_guards,
     )
 
 

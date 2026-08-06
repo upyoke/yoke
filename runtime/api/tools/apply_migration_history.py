@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = db_helpers.connect()
     try:
-        ensure_yoke_migration_ledger(conn)
+        ensure_yoke_migration_ledger(conn, repair_existing_guards=True)
         _hand_created_tables_to_the_serving_role(conn)
         if args.record_missing_receipts:
             healed = migration_audit_receipts.record_missing_receipts(

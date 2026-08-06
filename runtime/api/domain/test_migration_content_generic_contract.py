@@ -69,7 +69,12 @@ def test_custom_ledger_schema_adoption_and_apply_use_no_fixed_identifiers(
     )
     # The caller's additive convergence must precede a boot kernel that reads
     # the declared digest. This is the legacy custom-ledger rollout shape.
-    ensure_migration_ledger_table(conn, ledger, evidence)
+    ensure_migration_ledger_table(
+        conn,
+        ledger,
+        evidence,
+        repair_existing_guards=True,
+    )
     (tmp_path / "0001_existing.py").write_text(
         "def apply(conn):\n    pass\n\n"
         "def invariants(conn):\n"
@@ -163,7 +168,12 @@ def _apply_only_adoption_case(tmp_path: Path):
         "CREATE TABLE project_history (entry_id TEXT PRIMARY KEY, "
         "engine_floor TEXT, body_hash TEXT)"
     )
-    ensure_migration_ledger_table(conn, ledger, evidence)
+    ensure_migration_ledger_table(
+        conn,
+        ledger,
+        evidence,
+        repair_existing_guards=True,
+    )
     for name in ("0001_first", "0002_second"):
         (tmp_path / f"{name}.py").write_text(
             "def apply(conn):\n    pass\n",

@@ -55,11 +55,17 @@ def converge_migration_content_schema(
     conn: Any,
     ledger: LedgerContract,
     evidence: AdoptionEvidenceContract,
+    *,
+    repair_existing_guards: bool = False,
 ) -> None:
     """Add nullable digest metadata and the project-declared evidence table.
 
     No commit is performed.  A pre-deploy admin adapter commits this additive
     step before adoption so the currently deployed build remains compatible.
+    Existing guard objects are authority-bearing database state: ordinary
+    schema convergence must expose missing or changed guards as unsafe instead
+    of silently replacing them. Fresh-ledger creation and explicit trusted
+    migration/adoption paths opt into exact guard installation or repair.
     """
     _add_column_if_not_exists(
         conn,
@@ -83,8 +89,9 @@ def converge_migration_content_schema(
         );
         """,
     )
-    _ensure_adoption_evidence_immutability(conn, evidence)
-    ensure_adoption_transition_guard(conn, ledger, evidence)
+    if repair_existing_guards:
+        _ensure_adoption_evidence_immutability(conn, evidence)
+        ensure_adoption_transition_guard(conn, ledger, evidence)
 
 
 def _immutability_object_name(table: str) -> str:
@@ -233,7 +240,12 @@ def prepare_migration_content_schema(
 ) -> None:
     """Commit the additive pre-deploy schema as its own rollout phase."""
     try:
-        converge_migration_content_schema(conn, ledger, evidence)
+        converge_migration_content_schema(
+            conn,
+            ledger,
+            evidence,
+            repair_existing_guards=True,
+        )
         conn.commit()
     except Exception:
         conn.rollback()
