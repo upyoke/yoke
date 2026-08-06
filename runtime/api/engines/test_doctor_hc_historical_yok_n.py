@@ -182,7 +182,7 @@ class TestIsGeneratedOutputPath(unittest.TestCase):
                 )
 
     def test_live_source_does_not_match(self) -> None:
-        self.assertFalse(hc._is_generated_output_path(".yoke/docs/lifecycle.md"))
+        self.assertFalse(hc._is_generated_output_path(".yoke/docs/reference/lifecycle.md"))
         self.assertFalse(hc._is_generated_output_path("runtime/api/widget.py"))
         self.assertFalse(
             hc._is_generated_output_path("runtime/agents/architect.md")

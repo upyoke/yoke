@@ -1,7 +1,7 @@
 """Drift lock: the typed safe-operator-surface registry vs. the docs.
 
 The 19-command Tier 1 operator surface is enumerated in three markdown
-locations (docs/harness-bootstrap.md, .yoke/docs/commands.md, the help SKILL.md),
+locations (docs/harness-bootstrap.md, .yoke/docs/reference/commands.md, the help SKILL.md),
 plus the per-harness compat statement in CODEX.md. The typed source of truth
 is :data:`yoke_core.domain.harness_capability_registry.SAFE_OPERATOR_SURFACE`.
 
@@ -56,7 +56,7 @@ def test_commands_md_lists_full_safe_surface():
     text = _read(YOKE_DOCS / "commands.md")
     for command in safe_operator_surface():
         assert command.entrypoint in text, (
-            f".yoke/docs/commands.md missing safe-surface entrypoint "
+            f".yoke/docs/reference/commands.md missing safe-surface entrypoint "
             f"{command.entrypoint!r}"
         )
 

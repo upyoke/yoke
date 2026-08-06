@@ -174,21 +174,26 @@ def test_bundle_files_stay_out_of_yoke_dir_except_docs(conn) -> None:
 
 
 def test_bundle_ships_universal_docs(conn) -> None:
-    from yoke_core.domain.install_bundle_managed import DOCS_SOURCE
+    from yoke_core.domain.install_bundle import DOCS_DEST, DOCS_SOURCE
 
     bundle = install_bundle.build_bundle(1, conn)
     by_path = {e["path"]: e["content"] for e in bundle["files"]}
-    # The relocated universal docs ship at .yoke/docs/ so installed skills and
-    # agents resolve their references; a sampling must be present, non-empty.
+    # Authored under docs/public; installed projects receive .yoke/docs/.
     for rel in (
-        "commands.md", "lifecycle.md", "db-reference.md",
-        "db-reference/functions.md", "qa-platform/success-policy-schema.md",
+        "index.md",
+        "nav.yaml",
+        "reference/commands.md",
+        "reference/lifecycle.md",
+        "reference/db-reference.md",
+        "reference/db-reference/functions.md",
+        "reference/qa-platform/success-policy-schema.md",
     ):
-        path = f"{DOCS_SOURCE}/{rel}"
+        path = f"{DOCS_DEST}/{rel}"
         assert path in by_path, f"bundle missing shipped doc {path}"
         assert by_path[path].strip()
-    # Every shipped doc byte-matches the server tree's .yoke/docs/ source.
+    # Every shipped doc byte-matches the server tree's docs/public source.
     root = install_bundle.server_tree_root()
     for path, content in by_path.items():
-        if path.startswith(f"{DOCS_SOURCE}/"):
-            assert content == (root / path).read_text("utf-8")
+        if path.startswith(f"{DOCS_DEST}/"):
+            rel = path[len(DOCS_DEST) + 1 :]
+            assert content == (root / DOCS_SOURCE / rel).read_text("utf-8")

@@ -106,11 +106,15 @@ def _managed_block_body(path: Path) -> str:
 def docs_bundle_files(root: Path) -> List[Dict[str, str]]:
     """The universal Yoke docs, shipped as yoke-authoritative ``files`` entries.
 
-    A managed project's skills/agents reference ``.yoke/docs/...``; shipping the
-    relocated universal docs there (overwrite-on-refresh, pruned like every
-    other authored bundle file) makes those references resolve.
+    Authored under ``docs/public/`` (``DOCS_SOURCE``); installed projects
+    receive them at ``.yoke/docs/`` (``DOCS_DEST``) so skills/agents that
+    cite ``.yoke/docs/...`` resolve. Overwrite-on-refresh and prune like
+    every other authored bundle file.
     """
-    from yoke_core.domain.install_bundle import is_bundle_junk_path
+    from yoke_core.domain.install_bundle import (
+        DOCS_DEST,
+        is_bundle_junk_path,
+    )
 
     source = root / DOCS_SOURCE
     if not source.is_dir():
@@ -126,7 +130,7 @@ def docs_bundle_files(root: Path) -> List[Dict[str, str]]:
         if content is None:
             raise InstallBundleError(f"docs source is missing or non-text: {path}")
         rel = path.relative_to(source).as_posix()
-        entries.append({"path": f"{DOCS_SOURCE}/{rel}", "content": content})
+        entries.append({"path": f"{DOCS_DEST}/{rel}", "content": content})
     return entries
 
 

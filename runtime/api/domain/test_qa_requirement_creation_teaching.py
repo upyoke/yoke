@@ -68,17 +68,17 @@ def test_executor_packet_creation_recipes_are_transition_bound(
             "  --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/browser-scenario-schema.md",
+            ".yoke/docs/reference/browser-scenarios.md",
             "--qa-phase verification \\\n"
             "  --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/db-reference/qa-cli-and-body-write.md",
+            ".yoke/docs/reference/db-reference/qa-cli-and-body-write.md",
             "--qa-phase verification \\\n"
             " --workflow-transition reviewed-implementation",
         ),
         (
-            ".yoke/docs/db-reference.md",
+            ".yoke/docs/reference/db-reference.md",
             "--qa-phase verification --workflow-transition reviewed-implementation",
         ),
         (

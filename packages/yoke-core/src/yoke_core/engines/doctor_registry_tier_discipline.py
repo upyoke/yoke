@@ -41,8 +41,8 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     # Tier 2 — orientation docs, read on demand.
     2: (
         "docs/OVERVIEW.md",
-        ".yoke/docs/lifecycle.md",
-        ".yoke/docs/commands.md",
+        ".yoke/docs/reference/lifecycle.md",
+        ".yoke/docs/reference/commands.md",
         "docs/harness-substrate.md",
         "docs/harness-bootstrap.md",
     ),
@@ -88,10 +88,10 @@ TIER_1_GLOBS: tuple[str, ...] = ()
 TIER_3_GLOBS: tuple[str, ...] = (
     "docs/atlas.md",
     "docs/event-catalog.md",
-    ".yoke/docs/db-reference.md",
-    ".yoke/docs/db-reference/*.md",
+    ".yoke/docs/reference/db-reference.md",
+    ".yoke/docs/reference/db-reference/*.md",
     "docs/state-management.md",
-    ".yoke/docs/charge-frontier.md",
+    ".yoke/docs/reference/charge-frontier.md",
 )
 
 

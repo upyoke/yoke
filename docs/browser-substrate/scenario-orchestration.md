@@ -10,7 +10,7 @@ the Yoke checkout and from a connected project checkout.
 
 See [Browser Automation Substrate](../browser-substrate.md) for daemon, ref,
 and step-executor primitives, and
-[Browser Scenario Schema](../../.yoke/docs/browser-scenario-schema.md) for the
+[Browser Scenario Schema](../../.yoke/docs/reference/browser-scenarios.md) for the
 case configuration contract.
 
 ## Usage

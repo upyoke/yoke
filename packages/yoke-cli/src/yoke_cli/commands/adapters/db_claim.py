@@ -3,7 +3,7 @@
 Covers ``db_claim.amend`` — apply a unified DB-claim amendment
 atomically. The unified payload (``db_mutation_profile`` +
 ``db_compatibility_attestation`` fields in one dict) is documented in
-``.yoke/docs/db-reference/items-and-epics.md`` under "DB Claim — the unified
+``.yoke/docs/reference/db-reference/items-and-epics.md`` under "DB Claim — the unified
 amendment workflow."
 
 The CLI mirrors the operator/debug adapter

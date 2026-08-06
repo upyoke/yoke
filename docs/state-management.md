@@ -88,7 +88,7 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 - `updated_at` — ISO timestamp, updated on every field change
 - `merged_at` — ISO timestamp, automatically populated by `yoke_core.engines.done_transition` when the item transitions to `done` (set to current UTC timestamp if null). Not overwritten if already set (e.g., by the merge pipeline). Tracks when the item's code was finalized on main.
 
-**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:done`, `status:implemented`, or `fact:merged`). Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/db-reference.md` for the full schema.
+**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:done`, `status:implemented`, or `fact:merged`). Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/reference/db-reference.md` for the full schema.
 
 ### Counter Mechanics
 
@@ -126,7 +126,7 @@ Item-bound runs operate on one or more items through
 zero items. Run execution may move the item through the definition's delivery
 stages, while `needs-capability` and `awaiting-approval` remain run halt states.
 Stage authority for the run itself lives on `deployment_runs.current_stage`.
-See `.yoke/docs/db-reference.md` for the `deployment_runs`,
+See `.yoke/docs/reference/db-reference.md` for the `deployment_runs`,
 `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`,
 `environments`, and `project_capabilities` table schemas.
 

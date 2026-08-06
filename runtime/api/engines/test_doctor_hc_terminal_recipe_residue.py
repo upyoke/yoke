@@ -3,7 +3,7 @@
 Covers the banned-literal list keyed off
 RECIPE_RESIDUE_PATTERNS, the fixture-based regression guard,
 the registry-aware second pass, and the allowlist contract
-(docs/archive/**, .yoke/docs/db-reference/**, runtime/api/**/test_*.py).
+(docs/archive/**, .yoke/docs/reference/db-reference/**, runtime/api/**/test_*.py).
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ class TestRecipeResidueScan(unittest.TestCase):
                 encoding="utf-8",
             )
             findings = hc._scan_recipe_residue(tmp)
-        self.assertFalse(findings, ".yoke/docs/db-reference/** is allowlisted")
+        self.assertFalse(findings, ".yoke/docs/reference/db-reference/** is allowlisted")
 
 
 class TestRegistryChoreographyScan(unittest.TestCase):
@@ -107,7 +107,7 @@ class TestRegistryChoreographyScan(unittest.TestCase):
             _copy_fixture_into(tmp)
             findings = registry_choreography_findings(
                 tmp,
-                allowlist=("docs/archive/", ".yoke/docs/db-reference/"),
+                allowlist=("docs/archive/", ".yoke/docs/reference/db-reference/"),
                 test_file_re=re.compile(r"runtime/api/.*test_.*\.py$"),
             )
         # Fixture contains a mutating adapter wrapped in command capture.
@@ -128,7 +128,7 @@ class TestRegistryChoreographyScan(unittest.TestCase):
             )
             findings = registry_choreography_findings(
                 tmp,
-                allowlist=("docs/archive/", ".yoke/docs/db-reference/"),
+                allowlist=("docs/archive/", ".yoke/docs/reference/db-reference/"),
                 test_file_re=re.compile(r"runtime/api/.*test_.*\.py$"),
             )
         self.assertFalse(findings)
@@ -147,7 +147,7 @@ class TestRegistryChoreographyScan(unittest.TestCase):
             )
             findings = registry_choreography_findings(
                 tmp,
-                allowlist=("docs/archive/", ".yoke/docs/db-reference/"),
+                allowlist=("docs/archive/", ".yoke/docs/reference/db-reference/"),
                 test_file_re=re.compile(r"runtime/api/.*test_.*\.py$"),
             )
         self.assertFalse(findings, findings)
@@ -215,7 +215,7 @@ class TestPathInAllowlist(unittest.TestCase):
 
     def test_no_match(self) -> None:
         self.assertFalse(
-            path_in_allowlist(".yoke/docs/lifecycle.md", ("docs/archive/",))
+            path_in_allowlist(".yoke/docs/reference/lifecycle.md", ("docs/archive/",))
         )
 
     def test_empty(self) -> None:

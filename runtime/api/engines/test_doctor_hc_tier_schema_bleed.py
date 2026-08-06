@@ -231,7 +231,7 @@ def test_see_your_items_packet_stanza_passes(tmp_path, monkeypatch, conn):
 def test_see_the_worktree_column_packet_stanza_passes(tmp_path, monkeypatch, conn):
     """`see the `worktree` column in your `items` packet stanza` passes."""
 
-    rel = ".yoke/docs/commands.md"
+    rel = ".yoke/docs/reference/commands.md"
     body = (
         "The worktree binding is recorded — see the `worktree` column in "
         "your `items` packet stanza.\n"
@@ -297,7 +297,7 @@ def test_empty_file_emits_pass(tmp_path, monkeypatch, conn):
 def test_fenced_sql_block_does_not_fire(tmp_path, monkeypatch, conn):
     """Fenced code blocks are exempt for Class A (raw SQL examples)."""
 
-    rel = ".yoke/docs/commands.md"
+    rel = ".yoke/docs/reference/commands.md"
     body = (
         "# Commands\n\n"
         "Example:\n\n"

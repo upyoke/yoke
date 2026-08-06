@@ -22,6 +22,7 @@ The bundle carries:
   ``.codex/hooks.json``, and ``.cursor/hooks.json`` need, rendered from the
   canonical hook chain that the committed harness settings files also use
   (``yoke hook evaluate``).
+* **Docs** — authored under ``docs/public`` and installed at ``.yoke/docs``.
 * **Project contract files** — the seed-if-missing ``.yoke`` contract
   (``project_contract_files``), rendered by
   :mod:`yoke_core.domain.project_contract`. Shipped separately from ``files``
@@ -48,14 +49,10 @@ CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CURSOR_AGENTS_SOURCE = "runtime/harness/cursor/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
-DOCS_SOURCE = ".yoke/docs"
-# Pack source uses the same :func:`server_tree_root` resolver, so product
-# wheels package it alongside the install-bundle sources.
+DOCS_SOURCE = "docs/public"
+DOCS_DEST = ".yoke/docs"
 
-# Repo-root source dirs the packaged install-bundle tree snapshots — the one
-# truth shared by the snapshot materializer (:mod:`install_bundle_tree_sync`),
-# its drift check (``HC-install-bundle-drift``), and the bundle invariant
-# tests. Order matches the ``pyproject.toml`` package-data globs.
+# Packaged snapshot dirs (order matches pyproject package-data globs).
 INSTALL_BUNDLE_SOURCE_DIRS = (
     SKILLS_SOURCE,
     CLAUDE_AGENTS_SOURCE,
@@ -66,10 +63,6 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
     DOCS_SOURCE,
 )
 
-# Machine-generated cache droppings excluded from every bundle enumeration.
-# Pack sources include importable Python, so any test or tool that imports
-# them compiles __pycache__ bytecode next to the sources; those artifacts
-# must never ship in bundles, the packaged snapshot, or drift comparisons.
 _JUNK_DIR_NAMES = frozenset({"__pycache__"})
 _JUNK_FILE_NAMES = frozenset({".DS_Store"})
 _JUNK_FILE_SUFFIXES = (".pyc", ".pyo")
@@ -77,7 +70,6 @@ _JUNK_FILE_SUFFIXES = (".pyc", ".pyo")
 
 def is_bundle_junk_path(path: Path) -> bool:
     """True for cache/junk artifacts every bundle surface must skip."""
-
     if any(part in _JUNK_DIR_NAMES for part in path.parts):
         return True
     if path.name in _JUNK_FILE_NAMES:
@@ -85,7 +77,6 @@ def is_bundle_junk_path(path: Path) -> bool:
     return path.name.endswith(_JUNK_FILE_SUFFIXES)
 
 
-# Project-repo destination dirs.
 CANONICAL_SKILLS_DEST = SKILLS_SOURCE
 CLAUDE_SKILLS_DEST = ".claude/skills/yoke"
 CODEX_SKILLS_DEST = ".codex/skills/yoke"
@@ -109,19 +100,7 @@ def yoke_version() -> str:
 
 
 def server_tree_root() -> Path:
-    """Root of the install-bundle source tree.
-
-    ``YOKE_SERVER_TREE_ROOT`` wins when set — containers COPY the repo-root bundle sources
-    (``packs/``, ``.agents/``, rendered agent adapters) to a declared
-    tree and point this env var at it. Set-but-invalid fails loudly rather
-    than silently falling back to a site-packages parent that lacks the
-    sources.
-
-    Source checkouts resolve from the root ``runtime`` package location,
-    never from cwd — the API process may run anywhere. Product wheels do
-    not ship that root package, so local mode falls back to the packaged
-    bundle-source tree inside ``yoke_core``.
-    """
+    """Install-bundle source tree root (env override, then runtime, else wheel)."""
     import os
 
     declared = os.environ.get("YOKE_SERVER_TREE_ROOT", "").strip()

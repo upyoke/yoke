@@ -50,7 +50,7 @@ def _read(path: Path) -> str:
 
 
 class TestBootstrapSpec:
-    """Bootstrap must load yoke/.yoke/docs/lifecycle.md."""
+    """Bootstrap must load yoke/.yoke/docs/reference/lifecycle.md."""
 
     @pytest.fixture
     def spec(self) -> dict:
@@ -59,17 +59,17 @@ class TestBootstrapSpec:
 
     def test_required_files_includes_lifecycle(self, spec):
         required = spec.get("required_files", [])
-        assert ".yoke/docs/lifecycle.md" in required, (
-            "bootstrap-spec.json must include yoke/.yoke/docs/lifecycle.md in required_files"
+        assert ".yoke/docs/reference/lifecycle.md" in required, (
+            "bootstrap-spec.json must include yoke/.yoke/docs/reference/lifecycle.md in required_files"
         )
 
     def test_lifecycle_loaded_after_commands(self, spec):
         """lifecycle.md should follow commands.md so readers get command
         vocabulary before the lifecycle tables that use it."""
         required = spec.get("required_files", [])
-        assert ".yoke/docs/commands.md" in required
-        assert required.index(".yoke/docs/lifecycle.md") > required.index(
-            ".yoke/docs/commands.md"
+        assert ".yoke/docs/reference/commands.md" in required
+        assert required.index(".yoke/docs/reference/lifecycle.md") > required.index(
+            ".yoke/docs/reference/commands.md"
         )
 
 

@@ -1,6 +1,6 @@
 # Action-Specific Context Payloads
 
-The `NextAction.context` dict carries action-specific data. These are conventions, not enforced schemas — adapters should handle missing keys gracefully. Cross-link back from [session-offer-contract.md](../../.yoke/docs/session-offer-contract.md) for the request envelope, response envelope, identity model, event shapes, and adapter responsibilities that surround these payloads.
+The `NextAction.context` dict carries action-specific data. These are conventions, not enforced schemas — adapters should handle missing keys gracefully. Cross-link back from [session-offer-contract.md](../../.yoke/docs/reference/session-offer.md) for the request envelope, response envelope, identity model, event shapes, and adapter responsibilities that surround these payloads.
 
 ## resume
 

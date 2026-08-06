@@ -94,7 +94,7 @@ When creating a documentation task, review **every** file below and include any 
 
 - `README.md` — project overview, feature descriptions, command reference, directory structure, FAQ
 - `AGENTS.md` — project rules, file layout, command counts (the `CLAUDE.md` symlink points here)
-- `.yoke/docs/commands.md` — command reference
+- `.yoke/docs/reference/commands.md` — command reference
 - `.agents/skills/yoke/SKILL.md` — root command router
 - Any other docs referenced in the project's `AGENTS.md` (e.g. an architecture overview or agent-patterns doc)
 

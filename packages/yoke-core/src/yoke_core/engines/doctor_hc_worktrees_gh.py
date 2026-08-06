@@ -116,7 +116,7 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
     # Iterate every project with a configured github_repo. Disabled
     # projects are out of scope: their backlog never mirrors to their
     # repo's issue tracker, so a [YOK-]-prefixed issue there is not a
-    # sync orphan (.yoke/docs/github-sync.md, "Disabled semantics").
+    # sync orphan (.yoke/docs/reference/github-sync.md, "Disabled semantics").
     all_gh_issues: List[dict] = []
     auth_failures: List[str] = []
     search_failures: List[str] = []
