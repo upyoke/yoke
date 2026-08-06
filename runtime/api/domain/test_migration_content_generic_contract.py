@@ -108,7 +108,7 @@ def test_custom_ledger_schema_adoption_and_apply_use_no_fixed_identifiers(
         expected_manifest_sha256=manifest.content_sha256,
         adopted_by="operator:test",
         write_evidence=adoption_evidence_writer(evidence),
-        verify_evidence_immutability=adoption_evidence_verifier(evidence),
+        verify_evidence_immutability=adoption_evidence_verifier(ledger, evidence),
         entry_names=("0001_existing",),
     )
     outcome = apply_pending(
@@ -199,7 +199,7 @@ def test_apply_only_history_uses_project_owned_verifier_registry(
         expected_manifest_sha256=manifest.content_sha256,
         adopted_by="operator:test",
         write_evidence=adoption_evidence_writer(evidence),
-        verify_evidence_immutability=adoption_evidence_verifier(evidence),
+        verify_evidence_immutability=adoption_evidence_verifier(ledger, evidence),
         entry_names=("0001_first",),
         state_verifiers={
             "0001_first": lambda database: database.execute("SELECT 1").fetchone()

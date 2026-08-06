@@ -15,6 +15,9 @@ from yoke_core.domain.migration_content_schema import (
     adoption_evidence_is_immutable,
     converge_migration_content_schema,
 )
+from yoke_core.domain.migration_content_transition_guard import (
+    adoption_transition_guard_is_enforced,
+)
 from yoke_core.domain.migration_ledger_contract import LedgerContract
 from yoke_core.domain.migration_content_restore_guards import (
     truncate_trusted_schema_bootstrap_rows,
@@ -227,6 +230,7 @@ def test_full_replacement_truncate_preserves_append_only_guards() -> None:
         conn.commit()
 
         assert adoption_evidence_is_immutable(conn, EVIDENCE)
+        assert adoption_transition_guard_is_enforced(conn, LEDGER, EVIDENCE)
         _seed(conn)
         with pytest.raises(psycopg.errors.RaiseException, match="append-only"):
             conn.execute(f"TRUNCATE TABLE {EVIDENCE.table}")

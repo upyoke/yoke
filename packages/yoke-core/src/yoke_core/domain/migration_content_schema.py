@@ -9,6 +9,10 @@ from typing import Any, Callable, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_content_adoption import AdoptionRecord
+from yoke_core.domain.migration_content_transition_guard import (
+    adoption_transition_guard_is_enforced,
+    ensure_adoption_transition_guard,
+)
 from yoke_core.domain.migration_ledger_contract import LedgerContract
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -80,6 +84,7 @@ def converge_migration_content_schema(
         """,
     )
     _ensure_adoption_evidence_immutability(conn, evidence)
+    ensure_adoption_transition_guard(conn, ledger, evidence)
 
 
 def _immutability_object_name(table: str) -> str:
@@ -214,7 +219,11 @@ def migration_content_schema_is_prepared(
             evidence.timestamp_column,
         )
     )
-    return columns_ready and adoption_evidence_is_immutable(conn, evidence)
+    return (
+        columns_ready
+        and adoption_evidence_is_immutable(conn, evidence)
+        and adoption_transition_guard_is_enforced(conn, ledger, evidence)
+    )
 
 
 def prepare_migration_content_schema(
@@ -276,10 +285,14 @@ def adoption_evidence_writer(
 
 
 def adoption_evidence_verifier(
+    ledger: LedgerContract,
     evidence: AdoptionEvidenceContract,
 ) -> Callable[[Any], bool]:
-    """Bind database-enforced immutability for the generic adoption API."""
-    return lambda conn: adoption_evidence_is_immutable(conn, evidence)
+    """Bind every database guard required by the generic adoption API."""
+    return lambda conn: (
+        adoption_evidence_is_immutable(conn, evidence)
+        and adoption_transition_guard_is_enforced(conn, ledger, evidence)
+    )
 
 
 __all__ = [

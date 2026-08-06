@@ -10,7 +10,9 @@ import pytest
 from runtime.api.domain.migration_boot_test_helpers import connection
 from yoke_core.domain.migration_content_adoption import (
     MigrationContentAdoptionError,
+    adopt_legacy_content_identities,
 )
+from yoke_core.domain.migration_content_schema import adoption_evidence_verifier
 from yoke_core.domain.migration_history import ordered_entries
 from yoke_core.domain.migration_history_manifest import (
     ArtifactIdentity,
@@ -19,7 +21,9 @@ from yoke_core.domain.migration_history_manifest import (
 from yoke_core.domain.migration_yoke_ledger import (
     YOKE_ADOPTION_EVIDENCE_CONTRACT,
     YOKE_ADOPTION_EVIDENCE_TABLE,
+    YOKE_LEDGER_CONTRACT,
     adopt_yoke_legacy_content_identities,
+    write_yoke_adoption_evidence,
 )
 
 
@@ -108,7 +112,7 @@ def test_dropped_evidence_guard_refuses_before_ledger_write(
         conn.execute(f"DROP TRIGGER {row[0]}")
     conn.commit()
 
-    with pytest.raises(MigrationContentAdoptionError, match="append-only"):
+    with pytest.raises(MigrationContentAdoptionError, match="database guards"):
         adopt_yoke_legacy_content_identities(
             conn,
             history=history,
@@ -121,3 +125,45 @@ def test_dropped_evidence_guard_refuses_before_ledger_write(
     assert conn.execute("SELECT content_sha256 FROM applied_migrations").fetchone() == (
         None,
     )
+
+
+def test_racing_digest_update_rolls_back_new_evidence(tmp_path: Path) -> None:
+    conn = connection()
+    history, artifact, manifest = _adoption_case(tmp_path)
+    conn.execute(
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by, content_sha256) "
+        "VALUES ('0001_existing', 'now', 'legacy', NULL)"
+    )
+    conn.commit()
+
+    def write_evidence_then_race(database, records) -> None:
+        write_yoke_adoption_evidence(database, records)
+        database.execute(
+            "UPDATE applied_migrations SET content_sha256 = ? "
+            "WHERE migration_name = ?",
+            (records[0].content_sha256, records[0].entry_name),
+        )
+
+    with pytest.raises(MigrationContentAdoptionError, match="changed before adoption"):
+        adopt_legacy_content_identities(
+            conn,
+            history=history,
+            ledger=YOKE_LEDGER_CONTRACT,
+            manifest=manifest,
+            artifact=artifact,
+            expected_manifest_sha256=manifest.content_sha256,
+            adopted_by="operator:test",
+            write_evidence=write_evidence_then_race,
+            verify_evidence_immutability=adoption_evidence_verifier(
+                YOKE_LEDGER_CONTRACT,
+                YOKE_ADOPTION_EVIDENCE_CONTRACT,
+            ),
+        )
+
+    assert conn.execute("SELECT content_sha256 FROM applied_migrations").fetchone() == (
+        None,
+    )
+    assert conn.execute(
+        f"SELECT count(*) FROM {YOKE_ADOPTION_EVIDENCE_TABLE}"
+    ).fetchone() == (0,)

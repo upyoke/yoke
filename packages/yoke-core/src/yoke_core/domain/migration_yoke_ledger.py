@@ -152,6 +152,7 @@ def adopt_yoke_legacy_content_identities(
         adopted_by=adopted_by,
         write_evidence=write_yoke_adoption_evidence,
         verify_evidence_immutability=adoption_evidence_verifier(
+            YOKE_LEDGER_CONTRACT,
             YOKE_ADOPTION_EVIDENCE_CONTRACT
         ),
         entry_names=entry_names,

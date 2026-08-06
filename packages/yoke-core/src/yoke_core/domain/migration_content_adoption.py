@@ -199,8 +199,8 @@ def adopt_legacy_content_identities(
         raise MigrationContentAdoptionError("adopted_by must be non-empty")
     if not verify_evidence_immutability(conn):
         raise MigrationContentAdoptionError(
-            "migration content adoption evidence is not protected by the "
-            "declared append-only database guards"
+            "migration content adoption is not protected by the declared "
+            "evidence and ledger-transition database guards"
         )
     requested = verify_legacy_content_adoption(
         conn,
@@ -233,6 +233,10 @@ def adopt_legacy_content_identities(
         for name in requested
     )
     try:
+        # The database guard permits a legacy NULL-to-digest transition only
+        # after the matching immutable row exists. Both writes share this
+        # transaction, so a race or failed update removes the evidence too.
+        write_evidence(conn, records)
         for record in records:
             cursor = conn.execute(
                 f"UPDATE {ledger.table} SET {ledger.digest_column} = {marker} "
@@ -248,7 +252,6 @@ def adopt_legacy_content_identities(
         # Catch a concurrent conflicting rewrite of any other common row before
         # append-only evidence and ledger updates commit together.
         require_matching_content_identity(conn, history, ledger)
-        write_evidence(conn, records)
         conn.commit()
     except Exception:
         conn.rollback()
