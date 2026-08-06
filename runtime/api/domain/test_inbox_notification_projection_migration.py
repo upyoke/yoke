@@ -122,6 +122,48 @@ def _snapshots(conn) -> list[tuple[object, ...]]:
     ]
 
 
+def test_sqlite_apply_adds_missing_events_actor_id() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE actors (id INTEGER PRIMARY KEY, kind TEXT, system_component TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE actor_labels ("
+        "id INTEGER PRIMARY KEY, actor_id INTEGER, surface TEXT, label TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE events ("
+        "event_id TEXT PRIMARY KEY, event_name TEXT NOT NULL, "
+        "project_id INTEGER, event_outcome TEXT, envelope TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE addressed_event_deliveries ("
+        "id INTEGER PRIMARY KEY, channel TEXT NOT NULL, event_id TEXT NOT NULL, "
+        "actor_id INTEGER NOT NULL, notification_kind TEXT NOT NULL, "
+        "reason TEXT NOT NULL, read_at TEXT, created_at TEXT NOT NULL)"
+    )
+    conn.execute("INSERT INTO actors VALUES (2, 'human', NULL)")
+    conn.execute(
+        "INSERT INTO events VALUES ("
+        "'event-legacy', 'ItemBlocked', 10, 'completed', '{}')"
+    )
+    conn.execute(
+        "INSERT INTO addressed_event_deliveries VALUES ("
+        "1, 'in_app', 'event-legacy', 2, 'decision_request_resolved', "
+        "'legacy events shape', NULL, '2026-08-05T12:00:00Z')"
+    )
+
+    migration.apply(conn)
+    migration.invariants(conn)
+
+    columns = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(events)").fetchall()
+    }
+    assert "actor_id" in columns
+    assert _snapshots(conn)[0][:4] == ("ItemBlocked", 10, "completed", None)
+
+
 def test_sqlite_apply_backfills_display_inputs_and_is_idempotent() -> None:
     conn = _legacy_connection()
 
