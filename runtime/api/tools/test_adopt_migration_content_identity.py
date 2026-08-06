@@ -74,10 +74,11 @@ def _argv(
     manifest_sha256: str,
     *,
     mode: str,
+    databases: tuple[str, ...] = ("yoke_test",),
 ) -> list[str]:
     args = [
         "stage-db-admin",
-        "yoke_test",
+        *databases,
         "--wheel",
         str(wheel),
         "--manifest",

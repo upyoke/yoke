@@ -189,18 +189,15 @@ def _admin_authority_dsn(environment: str) -> str:
 
 
 def _database_dsn(authority_dsn: str, database: str) -> str:
-    from psycopg import conninfo
+    from yoke_core.tools.yoke_migration_fleet import database_dsn
 
-    parameters = conninfo.conninfo_to_dict(authority_dsn)
-    return conninfo.make_conninfo(
-        **{**parameters, "dbname": database, "connect_timeout": "20"}
-    )
+    return database_dsn(authority_dsn, database)
 
 
 def _database_names(requested: Sequence[str], *, authority_dsn: str) -> tuple[str, ...]:
     if requested:
         return tuple(requested)
-    from yoke_core.domain.migration_fleet_preflight import tenant_databases
+    from yoke_core.tools.yoke_migration_fleet import tenant_databases
 
     return tuple(
         tenant_databases(lambda database: _database_dsn(authority_dsn, database))

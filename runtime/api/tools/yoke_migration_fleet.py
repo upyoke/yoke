@@ -8,28 +8,14 @@ Yoke database names or module paths.
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Sequence, Tuple
+from typing import Any, Sequence, Tuple
 
 from yoke_core.domain.migration_fleet_preflight import RehearsalPlan
-
-
-PLATFORM_DATABASE = "yoke_platform"
-TENANT_DATABASE_PATTERN = "yoke_%"
-
-
-def tenant_databases(dsn_for: Callable[[str], str]) -> List[str]:
-    """Return Yoke tenant databases, excluding the Platform control plane."""
-    import psycopg
-
-    with psycopg.connect(dsn_for(PLATFORM_DATABASE), connect_timeout=20) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT datname FROM pg_database "
-                "WHERE datistemplate = false AND datname LIKE %s "
-                "ORDER BY datname",
-                (TENANT_DATABASE_PATTERN,),
-            )
-            return [str(row[0]) for row in cur.fetchall() if row[0] != PLATFORM_DATABASE]
+from yoke_core.tools.yoke_migration_fleet import (
+    PLATFORM_DATABASE,
+    TENANT_DATABASE_PATTERN,
+    tenant_databases,
+)
 
 
 def history_names() -> Tuple[str, ...]:
