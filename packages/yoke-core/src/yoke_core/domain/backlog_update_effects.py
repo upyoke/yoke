@@ -139,6 +139,8 @@ def run_transactional_update_effects(
                 f"{terminal_receipt.work_claims_released} "
                 "item/task work claim(s)."
             )
+        if terminal_receipt.migration_territories_released:
+            messages.append("Released the item migration territory.")
     path_claim_ids_to_propagate: tuple[int, ...] = ()
     if (
         field == "status"

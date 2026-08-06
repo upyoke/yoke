@@ -1,15 +1,9 @@
 """Coordination-lease primitive for Yoke.
 
-A ``coordination_leases`` row is an exclusive, project-scoped, shared-operation
-lease keyed on ``(project_id, lease_key)``. The migration consumer scopes
-per-model via ``LIVE_DB_MIGRATION:<model_name>``; future shared-operation
-consumers pick their own key conventions without adding another lock table.
+A ``coordination_leases`` row is an exclusive project-scoped lease keyed on
+``(project_id, lease_key)``. Consumers choose operation-specific key prefixes.
 
-Coordination leases are NOT work claims (item/process occupancy lives in
-``work_claims``) and they are NOT path claims (repo mutation authority lives
-in ``path_claims``). They cover dangerous shared-state operations whose
-serial ordering is required for correctness — live DB schema mutation is the
-first such operation.
+They are not work claims or path claims; they serialize shared-state operations.
 
 This module owns the core acquire/heartbeat/release/read API plus shared
 event-emission helpers. Listing/diagnostic helpers live in
@@ -101,15 +95,18 @@ def active_lease(
     conn: Any,
     project_id: str | int,
     lease_key: str,
+    *,
+    for_update: bool = False,
 ) -> Optional[Lease]:
     """Return the currently-held lease for ``(project_id, lease_key)``, if any."""
     p = _placeholder(conn)
     numeric_project_id = resolve_project_id(conn, project_id)
+    suffix = " FOR UPDATE" if for_update and db_backend.connection_is_postgres(conn) else ""
     row = conn.execute(
         f"SELECT {SELECT_COLUMNS} "
         "FROM coordination_leases "
         f"WHERE project_id = {p} AND lease_key = {p} AND released_at IS NULL "
-        "ORDER BY acquired_at DESC, id DESC LIMIT 1",
+        f"ORDER BY acquired_at DESC, id DESC LIMIT 1{suffix}",
         (numeric_project_id, lease_key),
     ).fetchone()
     return row_to_lease(row) if row is not None else None
@@ -248,13 +245,13 @@ def release_lease(
     if commit:
         conn.commit()
     released = get_lease(conn, lease_id)
-    if commit:
-        _emit_lease_event(
-            LEASE_RELEASED_EVENT,
-            "INFO",
-            released,
-            context={"release_reason": reason},
-        )
+    _emit_lease_event(
+        LEASE_RELEASED_EVENT,
+        "INFO",
+        released,
+        context={"release_reason": reason},
+        conn=None if commit else conn,
+    )
     return released
 
 
