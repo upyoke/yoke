@@ -41,6 +41,17 @@ def apply(conn: Any) -> None:
             definition,
         )
 
+    # Existing events tables do not gain actor_id from ambient schema
+    # converge; this history entry is the surface that needs the column
+    # for the display-snapshot backfill, so it adds the column when absent.
+    if _table_exists(conn, "events"):
+        _add_column_if_not_exists(
+            conn,
+            "events",
+            "actor_id",
+            "INTEGER REFERENCES actors(id)",
+        )
+
     rows = conn.execute(
         "SELECT d.id, e.event_name, e.project_id, e.event_outcome, e.actor_id, "
         "COALESCE(dl.label, a.system_component, "
