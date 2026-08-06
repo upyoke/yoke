@@ -58,3 +58,19 @@ def test_ledger_record_skips_when_no_local_authority(monkeypatch) -> None:
         payload_checksum="checksum",
     )
     assert written is False
+
+
+def test_path_claims_open_conn_refuses_without_local_authority(monkeypatch) -> None:
+    from yoke_core.domain import path_claims_dispatch_io as io
+
+    monkeypatch.setattr(
+        "yoke_core.domain.control_plane_transport.local_connection_or_none",
+        lambda connect: None,
+    )
+    try:
+        io.open_conn()
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "yoke claims path" in message
+        assert "YOKE_ENV" not in message
