@@ -86,6 +86,8 @@ class MergeEnv:
             "YOKE_ROOT": str(self.yoke_root),
             "YOKE_REST_FAKE_DIR": str(self.rest_fake_dir),
             "YOKE_EVENTS_REGISTRY_VALIDATE": "0",
+            # Model production's inherited session for QA materialization.
+            "YOKE_SESSION_ID": "merge-worktree-test",
             "HOME": os.environ.get("HOME", "/tmp"),
             "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
             # git needs these

@@ -7,9 +7,9 @@ Postgres):
 * the fail-closed prune authority verdict (does a DB-owned terminal
   worktree / branch still hold active authority, or is it safe to prune?),
   and
-* the post-rebase QA requirement resolution (materialize the item's
-  release-transition QA plan, then find the pre-merge-verification command
-  requirement to execute).
+* the integration-tree verification resolution (materialize any attached
+  release-transition QA plan, then resolve a project-owned registered
+  verification command).
 
 These handlers relay both touches server-side (dispatched in-process
 against a local Postgres connection, or over https server-side) while the
@@ -22,7 +22,7 @@ verdict wraps the unchanged
 :func:`~yoke_core.engines.merge_worktree_safe_prune._has_active_authority`
 fail-closed logic, and the post-rebase read wraps
 :func:`yoke_core.domain.qa_plan_attachments.materialize_for_item` plus the
-unchanged pre-merge-verification command-case query. The prune/keep
+registered project Command-plan reader. The prune/keep
 decision and every engine-side narrative stay client-side; these handlers
 return only the raw verdict data. They are ``adapter_status='internal'``
 (merge glue, never an agent CLI surface), so they carry no CLI adapter
@@ -59,6 +59,9 @@ class PostRebaseRequirementRequest(BaseModel):
 
 class PostRebaseRequirementResponse(BaseModel):
     requirement_id: Optional[int] = None
+    project: str
+    scope: str
+    command: str
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -112,14 +115,21 @@ def handle_prune_authority_verdict(request: FunctionCallRequest) -> HandlerOutco
 
 
 def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutcome:
-    """Materialize the item's release QA plan, return its command requirement.
+    """Resolve local verification for the item's integrated candidate tree.
 
-    Wraps the unchanged single-connection sequence the engine ran inline:
-    :func:`yoke_core.domain.qa_plan_attachments.materialize_for_item` at the
-    supplied transition, then the pre-merge-verification command-case query.
-    Returns ``requirement_id=None`` when no such requirement exists (the
-    no-attached-plan case); a materialization failure surfaces as a
-    structured error so the engine can propagate it exactly as before.
+    Any effective QA plan attached to the supplied transition is materialized
+    before command resolution. Workflows without that transition commonly
+    have no attachment there; checking first avoids manufacturing a transition
+    requirement just to run the project-wide integration gate. Once any
+    attached plan is snapshotted, prefer the registered ``full`` command and
+    fall back to ``quick``. Both local and CI-routed Command cases retain this
+    project-owned command in their immutable method configuration, so the
+    merge engine can deliberately execute it against the local candidate tree.
+
+    Missing command configuration and every materialization/read failure are
+    structured failures. The client treats every failed dispatcher response as
+    merge-blocking, so a registered project can never advance without an
+    executable verification contract.
     """
     item_id = request.target.item_id
     if item_id is None:
@@ -130,35 +140,58 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
         return _err("payload_invalid", f"post_rebase payload invalid: {exc}")
 
     from yoke_core.domain import db_backend
-    from yoke_core.domain.qa_plan_attachments import materialize_for_item
+    from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.qa_command_plans import (
+        list_registered_commands_for_project_id,
+    )
+    from yoke_core.domain.qa_plan_attachments import (
+        has_attached_plans,
+        materialize_for_item,
+    )
 
     try:
         with _connect_rw() as conn:
-            materialize_for_item(
-                conn,
-                item_id=int(item_id),
-                transition_id=body.transition_id,
-            )
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            row = conn.execute(
-                "SELECT q.id FROM qa_requirements q "
-                "JOIN qa_plans p ON p.id=q.plan_id "
-                "JOIN qa_plan_cases c "
-                "ON c.plan_id=q.plan_id AND c.case_key=q.plan_case_key "
-                f"WHERE q.item_id={marker} "
-                f"AND q.workflow_transition_id={marker} "
-                "AND q.waived_at IS NULL "
-                "AND p.slug='pre-merge-verification' "
-                "AND c.method_id='command' "
-                "ORDER BY q.id DESC LIMIT 1",
-                (int(item_id), body.transition_id),
-            ).fetchone()
-            requirement_id = int(row[0]) if row is not None else None
+            item = query_one(
+                conn,
+                "SELECT i.project_id, p.slug AS project "
+                "FROM items i JOIN projects p ON p.id=i.project_id "
+                f"WHERE i.id={marker}",
+                (int(item_id),),
+            )
+            if item is None:
+                raise LookupError(f"item {item_id} not found")
+            project_id = int(item["project_id"])
+            project = str(item["project"])
+            if has_attached_plans(
+                conn, item_id=int(item_id), transition_id=body.transition_id,
+            ):
+                materialize_for_item(
+                    conn,
+                    item_id=int(item_id),
+                    transition_id=body.transition_id,
+                )
+            commands = list_registered_commands_for_project_id(conn, project_id)
     except Exception as exc:  # noqa: BLE001 - materialize failure blocks the merge
         return _err("post_rebase_requirement_failed", str(exc))
 
+    selected = next(
+        ((scope, commands[scope]) for scope in ("full", "quick") if scope in commands),
+        None,
+    )
+    if selected is None:
+        return _err(
+            "post_rebase_verification_missing",
+            f"project {project!r} has no executable registered full or quick command",
+        )
+    scope, command = selected
     return HandlerOutcome(
-        result_payload={"requirement_id": requirement_id},
+        result_payload={
+            "requirement_id": None,
+            "project": project,
+            "scope": scope,
+            "command": command,
+        },
         primary_success=True,
     )
 

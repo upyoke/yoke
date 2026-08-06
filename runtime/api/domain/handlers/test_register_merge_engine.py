@@ -3,10 +3,11 @@
 The wiring contract: importing ``_register_merge_engine`` in the domain
 import block AND listing it in ``_DOMAIN_REGISTRARS`` must both happen for
 ``register_all_handlers()`` to register the two merge-engine function ids.
-The prune verdict is a side-effect-free read; the post-rebase requirement
-resolution materializes QA requirements. Both are internal (no CLI
-adapter). ``project.snapshot.ensure_at`` is verified alongside as the
-snapshot-family write the finalize path relays.
+The prune verdict is a side-effect-free read; integrated-tree verification
+resolution may materialize attached QA requirements before returning the
+project's registered command. Both are internal (no CLI adapter).
+``project.snapshot.ensure_at`` is verified alongside as the snapshot-family
+write the finalize path relays.
 """
 
 from __future__ import annotations
