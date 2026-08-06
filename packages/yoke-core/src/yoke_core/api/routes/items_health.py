@@ -139,13 +139,20 @@ def _health_snapshot() -> Tuple[bool, List[str], List[str], List[str]]:
         if migrations_fresh:
             pending, stranded = cached_pending, cached_stranded
         else:
-            pending = pending_migration_names(conn)
+            from yoke_core.domain import migrations as migration_history_package
+            from yoke_core.domain.migration_history import (
+                history_dir,
+                ordered_entries,
+            )
+
+            history = ordered_entries(history_dir(migration_history_package))
+            pending = pending_migration_names(conn, history)
             # Same connection and same cadence as the pending probe: both read
             # the ledger, and a second probe would defeat the reason the TTL
             # exists. Both answers also move backwards together — a restore or
             # a repointed DSN changes what was applied and what may serve it.
             stranded = stranded_by_applied_migrations(
-                conn, advertised_engine_version()
+                conn, advertised_engine_version(), history
             )
             ttl = runtime_settings.get_seconds(
                 MIGRATIONS_PROBE_TTL_KEY, MIGRATIONS_PROBE_TTL_DEFAULT

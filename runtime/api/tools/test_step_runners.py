@@ -196,6 +196,40 @@ class ExecHealthCheckTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("schema ready", buf.getvalue())
 
+    def test_explicit_migration_refusals_return_one(self) -> None:
+        payloads = (
+            (
+                b'{"status":"ok","schema_ready":true,'
+                b'"migrations_current":false,'
+                b'"pending_migrations":["0004_backfill_serving_floors"]}',
+                "migrations_current=true",
+                "0004_backfill_serving_floors",
+            ),
+            (
+                b'{"status":"ok","schema_ready":true,'
+                b'"migrations_current":true,'
+                b'"can_serve_this_database":false,'
+                b'"stranded_by_migrations":["0001 requires launch.181"]}',
+                "can_serve_this_database=false",
+                "0001 requires launch.181",
+            ),
+        )
+        for body, expected, detail in payloads:
+            with self.subTest(expected=expected):
+                fake = _FakeResponse(200, body=body)
+                with mock.patch.object(
+                    step_runners.urllib.request, "urlopen", return_value=fake
+                ):
+                    buf = io.StringIO()
+                    with redirect_stderr(buf):
+                        rc = step_runners.exec_health_check(
+                            "http://example.invalid/health",
+                            require_schema_ready=True,
+                        )
+                self.assertEqual(rc, 1)
+                self.assertIn(expected, buf.getvalue())
+                self.assertIn(detail, buf.getvalue())
+
     def test_schema_ready_false_names_missing_tables_and_returns_one(self) -> None:
         fake = _FakeResponse(
             200,

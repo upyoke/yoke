@@ -10,6 +10,8 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional
 
+from yoke_core.api.health_payload_contract import migration_readiness_problem
+
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PATH = "/v1/health"
@@ -88,19 +90,14 @@ def check_health(
         raise RuntimeError(
             "health endpoint did not report schema_ready=true" + detail
         )
-    # A container whose database has every table but has not run the changes
-    # its code requires is exactly as broken as one missing a table, and much
-    # harder to notice — so it fails the gate the same way.
-    if payload.get("migrations_current") is not True:
-        pending = payload.get("pending_migrations")
-        detail = (
-            f" pending_migrations={pending!r}"
-            if isinstance(pending, list) and pending
-            else ""
-        )
-        raise RuntimeError(
-            "health endpoint did not report migrations_current=true" + detail
-        )
+    # A container whose tables exist can still be behind its own history or too
+    # old for something already applied. Both directions fail the same gate.
+    migration_problem = migration_readiness_problem(
+        payload,
+        require_current=True,
+    )
+    if migration_problem:
+        raise RuntimeError("health endpoint " + migration_problem)
     return url
 
 

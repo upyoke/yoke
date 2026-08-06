@@ -6,6 +6,7 @@ import json
 import time
 from typing import Callable
 
+from yoke_core.api.health_payload_contract import migration_readiness_problem
 from yoke_core.domain.deploy_core_container_remote_errors import (
     RemoteConvergenceError,
     fail_remote_step,
@@ -98,6 +99,15 @@ def verify_origin_health(
         raise RemoteConvergenceError(
             "[core-deploy] origin health did not report schema_ready=true" + detail
         )
+    migration_problem = migration_readiness_problem(
+        payload,
+        # An origin probe can observe the previous build during a rolling
+        # replacement. Missing fields remain compatible; an explicit unsafe
+        # answer from any build is authoritative.
+        require_current=False,
+    )
+    if migration_problem:
+        raise RemoteConvergenceError("[core-deploy] origin health " + migration_problem)
     served_build = payload.get("build")
     engine_version = payload.get("engine_version")
     if (

@@ -71,9 +71,11 @@ class HealthResponse(BaseModel):
     not contain a newer destructive entry at all, so it computes an empty
     pending set and reports ``migrations_current`` true while reading
     columns that are gone. ``stranded_by_migrations`` names each such
-    entry with the remedy. ``status`` stays ``"ok"`` regardless —
-    liveness consumers are unaffected; deploy gates assert these fields
-    explicitly.
+    entry with the remedy. Missing ledger or serving-floor evidence also
+    fails closed because compatibility cannot be inferred from silence.
+    ``status`` stays ``"ok"`` regardless — liveness consumers are
+    unaffected; the container healthcheck and deploy gates assert these
+    fields explicitly.
     """
 
     status: str

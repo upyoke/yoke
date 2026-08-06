@@ -133,15 +133,17 @@ answers `can_serve_this_database`, naming each offending entry — which is what
 converts a silent broken-read outage into a container that fails its own health
 gate.
 
-Three states are deliberately not violations, because each would otherwise
-manufacture a fleet-wide refusal out of missing information. A row with no
-recorded floor is *unknown*, not unsafe — it is the majority state on any
-database that applied anything before floors were recorded. An unresolved
-running version is a source checkout, which advertises its last tag rather than
-its code and is ahead of the entry it carries, not behind it. An unreadable
-ledger returns no findings, inverting the pending-set probe's fail-closed
-stance on purpose: "am I current?" must read cannot-tell as no, while "am I
-forbidden from serving?" must not.
+Compatibility evidence fails closed. An applied entry absent from the running
+artifact's history is unsafe when its ledger row has no floor; a known entry
+whose packaged floor is absent from or disagrees with its row is likewise
+unsafe. A known additive entry may legitimately have no declared or recorded
+floor. An unresolved source version may serve entries its own history contains,
+because that source necessarily includes their code, but cannot make that claim
+about an unknown applied entry. An unreadable ledger is unsafe rather than a
+silent empty finding set. The container healthcheck and both deployment health
+probes reject explicit `migrations_current=false` or
+`can_serve_this_database=false`; cross-version probes accept absent fields while
+rolling past builds that predate this payload contract.
 
 Rollout overlap turned out not to exist. A tenant is one container plus its own
 database, rolled together and health-gated before the fleet walk continues, so

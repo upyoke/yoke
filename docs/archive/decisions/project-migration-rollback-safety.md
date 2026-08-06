@@ -23,9 +23,11 @@ serve when stranded.
 
 Accordingly, an older artifact may be membership-current while its ledger has
 names outside the packaged history. That is safe only when its artifact
-version satisfies every recorded floor. A diagnostic without artifact-version
-evidence reports the comparison as unknown; it never rejects the newer names
-by themselves.
+version satisfies every recorded floor. Missing evidence is not compatibility:
+an unknown applied entry without a floor, an unreadable ledger, or an unresolved
+artifact version facing an unknown entry refuses service until compatibility is
+proved. An unresolved source build remains safe for entries in the history it
+ships, because it necessarily contains the code paired with those entries.
 
 The two mechanisms only work together:
 
@@ -61,7 +63,8 @@ answers.
 ## Scope
 
 Yoke's own `applied_migrations` semantics and `/v1/health`
-`can_serve_this_database` already implement this for Yoke. Building a
+`can_serve_this_database` implement this for Yoke, and container/deploy gates
+reject an explicit false answer. Building a
 hosted health endpoint on an external project's behalf is out of scope.
 See also `project-migration-ledger-contract.md` (membership vs threshold)
 and `ordered-cumulative-migrations.md` (Yoke's floor copy at apply).
