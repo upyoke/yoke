@@ -24,6 +24,17 @@ def _connection() -> sqlite3.Connection:
     return conn
 
 
+def _legacy_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(":memory:")
+    conn.execute(
+        "CREATE TABLE applied_migrations ("
+        "migration_name TEXT PRIMARY KEY, applied_at TEXT NOT NULL, "
+        "applied_by TEXT, minimum_serving_version TEXT)"
+    )
+    conn.execute("CREATE TABLE marks (name TEXT)")
+    return conn
+
+
 def _history(tmp_path: Path):
     (tmp_path / "0001_retire_surface.py").write_text(
         "MINIMUM_SERVING_VERSION = '2.4.0'\n"
@@ -53,7 +64,7 @@ def test_birth_stamp_records_each_entry_serving_floor(tmp_path: Path) -> None:
 def test_missing_floor_is_reconstructed_from_permanent_history(
     tmp_path: Path,
 ) -> None:
-    conn = _connection()
+    conn = _legacy_connection()
     history = _history(tmp_path)
     conn.execute(
         "INSERT INTO applied_migrations "
@@ -62,13 +73,20 @@ def test_missing_floor_is_reconstructed_from_permanent_history(
     )
 
     assert missing_declared_serving_floors(
-        conn, history, ledger=YOKE_LEDGER_CONTRACT,
-    ) == (
-        "0001_retire_surface",
-    )
-    assert backfill_serving_floors(
-        conn, history, ledger=YOKE_LEDGER_CONTRACT,
+        conn,
+        history,
+        ledger=YOKE_LEDGER_CONTRACT,
     ) == ("0001_retire_surface",)
-    assert missing_declared_serving_floors(
-        conn, history, ledger=YOKE_LEDGER_CONTRACT,
-    ) == ()
+    assert backfill_serving_floors(
+        conn,
+        history,
+        ledger=YOKE_LEDGER_CONTRACT,
+    ) == ("0001_retire_surface",)
+    assert (
+        missing_declared_serving_floors(
+            conn,
+            history,
+            ledger=YOKE_LEDGER_CONTRACT,
+        )
+        == ()
+    )

@@ -10,7 +10,11 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_contracts.api.function_call import ActorContext, FunctionCallRequest, TargetRef
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain import coordination_leases, migration_territory_lease
 from yoke_core.domain.db_claim import amend
 from yoke_core.domain.db_helpers import iso8601_now
@@ -21,6 +25,13 @@ from yoke_core.domain.migration_model_capability_defaults import governed_postgr
 
 YOKE_MODULES = "packages/yoke-core/src/yoke_core/domain/migrations"
 EXTERNAL_MODULES = "app/db/migrations"
+TEST_LEDGER = {
+    "table": "project_migration_history",
+    "entry_column": "migration_name",
+    "digest_column": "content_sha256",
+    "semantics": "membership",
+    "serving_floor_column": "minimum_serving_version",
+}
 
 
 @pytest.fixture
@@ -40,9 +51,11 @@ def _capability(modules_dir: str) -> dict[str, Any]:
             "database_name": "test-db",
             "endpoint_output": "endpoint",
             "secret_arn_output": "secret",
-        }
+        },
+        modules_dir=modules_dir,
+        ledger=TEST_LEDGER,
+        connection_env_var="TEST_PROJECT_PG_DSN",
     )
-    settings["models"]["primary"]["runner"]["config"]["modules_dir"] = modules_dir
     return settings
 
 
@@ -155,10 +168,13 @@ def _stored_claim(conn: Any, item_id: int) -> tuple[dict, dict]:
 
 
 def _claim_has_target(conn: Any, claim_id: int, target_id: int) -> bool:
-    return conn.execute(
-        "SELECT 1 FROM path_claim_targets WHERE claim_id = %s AND target_id = %s",
-        (claim_id, target_id),
-    ).fetchone() is not None
+    return (
+        conn.execute(
+            "SELECT 1 FROM path_claim_targets WHERE claim_id = %s AND target_id = %s",
+            (claim_id, target_id),
+        ).fetchone()
+        is not None
+    )
 
 
 def test_atomic_widen_amends_claim_acquires_lease_and_adds_path(control_conn):
@@ -246,9 +262,12 @@ def test_missing_declaration_refuses_without_partial_state(control_conn):
     assert "state='declared'" in outcome.error.message
     assert _stored_claim(control_conn, 4103) == ({"state": "none"}, {})
     assert not _claim_has_target(control_conn, claim_id, target_id)
-    assert coordination_leases.active_lease(
-        control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-    ) is None
+    assert (
+        coordination_leases.active_lease(
+            control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
+        )
+        is None
+    )
 
 
 def test_same_session_reuses_existing_migration_territory(control_conn):
@@ -314,6 +333,9 @@ def test_external_project_modules_dir_controls_classification(control_conn):
     )
     assert lease is not None and lease.project_id == 2
     assert lease.session_id == "external-owner"
-    assert coordination_leases.active_lease(
-        control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
-    ) is None
+    assert (
+        coordination_leases.active_lease(
+            control_conn, "yoke", "LIVE_DB_MIGRATION:primary"
+        )
+        is None
+    )
