@@ -42,6 +42,7 @@ SESSION_ID = "session-field-note-provenance"
 UNKNOWN_SESSION_ID = "session-never-registered"
 SESSION_EXECUTOR = "claude-code"
 SESSION_PROJECT = "yoke"
+EXTERNAL_PROJECT = "externalwebapp"
 
 
 @pytest.fixture
@@ -162,6 +163,50 @@ class TestFieldNoteAuthorAndProject:
         entry = _entry(isolated_db, response.result["entry_id"])
         assert entry["agent"] == DEFAULT_AUTHOR
         assert entry["project"] == ""
+
+    def test_checkout_project_wins_over_session_project(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        """A note filed from an external registered checkout attributes to
+        that project while the author still comes from the session."""
+        _seed_session(isolated_db)
+        response = _append(project=EXTERNAL_PROJECT)
+        assert response.success is True, response.error
+
+        entry = _entry(isolated_db, response.result["entry_id"])
+        assert entry["agent"] == SESSION_EXECUTOR
+        assert entry["project"] == EXTERNAL_PROJECT
+        assert response.result["author"] == SESSION_EXECUTOR
+        assert response.result["project"] == EXTERNAL_PROJECT
+
+    def test_checkout_project_numeric_id_resolves_to_slug(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        """Machine-config maps checkouts to numeric project ids; the row
+        still stores the human slug."""
+        _seed_session(isolated_db)
+        response = _append(project=str(SEED_PROJECT_IDS[EXTERNAL_PROJECT]))
+        assert response.success is True, response.error
+
+        entry = _entry(isolated_db, response.result["entry_id"])
+        assert entry["project"] == EXTERNAL_PROJECT
+        assert entry["agent"] == SESSION_EXECUTOR
+
+    def test_unknown_checkout_project_is_rejected(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        """An explicit checkout hint that names no projects row must not
+        silently fall through to the session project."""
+        _seed_session(isolated_db)
+        response = _append(project="not-a-registered-project")
+        assert response.success is False
+        assert response.error.code == "invalid_payload"
 
 
 class TestFieldNoteCorrections:
