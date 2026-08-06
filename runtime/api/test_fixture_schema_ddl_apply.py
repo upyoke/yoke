@@ -94,6 +94,26 @@ def test_composed_fixture_schema_includes_auth_foundation_tables(scratch_db) -> 
     assert set(REQUIRED_AUTH_TABLES) <= tables
 
 
+def test_composed_fixture_schema_stamps_migration_history_as_birth(
+    scratch_db,
+) -> None:
+    """Fixture DBs match current schema code, so they must not owe history."""
+    from yoke_core.domain import migrations as migration_history_package
+    from yoke_core.domain.migration_boot_apply import pending_entries
+    from yoke_core.domain.migration_history import history_dir, ordered_entries
+
+    apply_fixture_schema(scratch_db)
+    history = ordered_entries(history_dir(migration_history_package))
+    assert history
+    assert pending_entries(scratch_db, history) == ()
+    rows = scratch_db.execute(
+        "SELECT applied_by FROM applied_migrations "
+        "ORDER BY migration_name LIMIT 1"
+    ).fetchone()
+    assert rows is not None
+    assert rows[0] == "fixture-birth"
+
+
 def test_composed_fixture_schema_generates_ids(scratch_db) -> None:
     """Rows inserted without explicit ids get identity-generated ones."""
     apply_fixture_schema(scratch_db)

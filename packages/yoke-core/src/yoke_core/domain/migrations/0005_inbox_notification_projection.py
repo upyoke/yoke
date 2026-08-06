@@ -41,6 +41,17 @@ def apply(conn: Any) -> None:
             definition,
         )
 
+    # Fresh CREATE TABLE events includes actor_id, but additive ensure_event_schema
+    # deliberately leaves legacy tables alone — this entry is the migration that
+    # may first need the column while copying display fields onto deliveries.
+    if _table_exists(conn, "events"):
+        _add_column_if_not_exists(
+            conn,
+            "events",
+            "actor_id",
+            "INTEGER",
+        )
+
     rows = conn.execute(
         "SELECT d.id, e.event_name, e.project_id, e.event_outcome, e.actor_id, "
         "COALESCE(dl.label, a.system_component, "

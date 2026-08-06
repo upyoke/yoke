@@ -175,6 +175,47 @@ def test_entry_is_additive_and_declares_no_serving_floor() -> None:
     assert getattr(migration, "MINIMUM_SERVING_VERSION", None) is None
 
 
+def test_postgres_apply_adds_missing_events_actor_id(test_db) -> None:
+    """Legacy events tables without actor_id still accept the backfill."""
+    from yoke_core.domain.schema_common import _column_exists
+
+    test_db.execute('ALTER TABLE events DROP COLUMN IF EXISTS "actor_id"')
+    assert not _column_exists(test_db, "events", "actor_id")
+    for column, _definition in reversed(DELIVERY_SNAPSHOT_COLUMNS):
+        test_db.execute(
+            f'ALTER TABLE addressed_event_deliveries DROP COLUMN "{column}"'
+        )
+    actor_id = int(
+        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    )
+    test_db.execute(
+        "INSERT INTO events ("
+        "event_id, source_type, session_id, severity, event_kind, event_type, "
+        "event_name, event_outcome, project_id, envelope, created_at"
+        ") VALUES ("
+        "'legacy-no-actor', 'system', 'migration-proof', 'INFO', 'lifecycle', "
+        "'state', 'ItemBlocked', 'completed', 1, '{}', '2026-08-05T12:00:00Z')"
+    )
+    test_db.execute(
+        "INSERT INTO addressed_event_deliveries "
+        "(channel, event_id, actor_id, notification_kind, reason, created_at) "
+        "VALUES ('in_app', 'legacy-no-actor', %s, 'decision_request_resolved', "
+        "'missing actor column', '2026-08-05T12:00:00Z')",
+        (actor_id,),
+    )
+
+    migration.apply(test_db)
+    migration.invariants(test_db)
+
+    assert _column_exists(test_db, "events", "actor_id")
+    row = test_db.execute(
+        "SELECT event_name, event_actor_id, event_envelope "
+        "FROM addressed_event_deliveries WHERE event_id=%s",
+        ("legacy-no-actor",),
+    ).fetchone()
+    assert tuple(row) == ("ItemBlocked", None, "{}")
+
+
 def test_postgres_apply_backfills_current_schema(test_db) -> None:
     for column, _definition in reversed(DELIVERY_SNAPSHOT_COLUMNS):
         test_db.execute(
