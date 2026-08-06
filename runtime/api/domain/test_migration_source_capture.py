@@ -71,6 +71,29 @@ def test_apply_rolls_back_when_entry_rewrites_its_source(tmp_path: Path) -> None
     assert state == ("live_verify_failed",)
 
 
+def test_import_time_rewrite_prevents_entry_execution(tmp_path: Path) -> None:
+    path = tmp_path / "0001_rewrites_on_import.py"
+    path.write_text(
+        "from pathlib import Path\n"
+        "Path(__file__).write_text('def apply(conn):\\n    pass\\n')\n"
+        "def apply(conn):\n"
+        "    conn.execute(\"INSERT INTO marks VALUES ('must-not-run')\")\n"
+    )
+    conn = connection()
+
+    with pytest.raises(EntryFailed, match="module loaded"):
+        apply_pending(
+            conn,
+            history=ordered_entries(tmp_path),
+            applied_by="test",
+            running_version="",
+            external_restore_point=RESTORE_POINT,
+        )
+
+    assert marks(conn) == []
+    assert applied_names(conn) == set()
+
+
 def test_applied_digest_names_the_executed_source(tmp_path: Path) -> None:
     path = tmp_path / "0001_stable.py"
     source = _entry_body("stable")

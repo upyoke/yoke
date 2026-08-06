@@ -253,10 +253,13 @@ def _apply_one(
         entry.name,
         source_bytes=source_bytes,
     )
+    if entry.path.read_bytes() != source_bytes:
+        raise EntryFailed(
+            f"{entry.name} source changed while the migration module loaded"
+        )
     minimum = migration_serving_version.declared_minimum(module)
-    # Before the DDL, not after: an entry whose floor is newer than the build
-    # running it means the declaration and the code disagree, and catching
-    # that here costs nothing while catching it later costs the database.
+    # Refuse before DDL: a newer floor means the declaration and code disagree.
+    # Catching it here costs nothing; catching it later costs the database.
     migration_serving_version.refuse_if_behind(entry.name, running_version, minimum)
     started_at = now_stamp()
     failure_state = "live_apply_failed"
