@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -34,10 +34,20 @@ class WidenRequest(BaseModel):
     worktree_head: Optional[str] = None
     allow_planned: bool = False
     directory_paths: Optional[List[str]] = None
+    db_claim: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Full unified db_claim amendment payload required when new "
+            "coverage enters migration territory without a matching claim."
+        ),
+    )
 
 
 class WidenResponse(BaseModel):
     amendment_id: int
+    migration_model: Optional[str] = None
+    migration_lease_id: Optional[int] = None
+    db_claim_event_id: Optional[str] = None
 
 
 class ReleaseRequest(BaseModel):

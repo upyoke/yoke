@@ -117,6 +117,7 @@ def amend(
     reason: str,
     conn: Optional[Any] = None,
     session_id: Optional[str] = None,
+    commit: bool = True,
 ) -> AmendmentResult:
     """Apply a unified DB-claim amendment atomically.
 
@@ -139,6 +140,8 @@ def amend(
         session_id: Optional session ID override. Falls back to
             ``YOKE_SESSION_ID`` / ``CLAUDE_SESSION_ID`` /
             ``CODEX_THREAD_ID`` in that order.
+        commit: Commit the amendment when true. With ``commit=False`` the
+            caller owns commit/rollback so this write can compose atomically.
 
     Returns:
         An :class:`AmendmentResult` with previous and new claim shapes
@@ -212,6 +215,10 @@ def amend(
                     f"non-empty authored fields; missing/empty: {missing}"
                 )
 
+    if conn is None and not commit:
+        raise DbClaimAmendmentError(
+            "commit=False requires a caller-owned database connection"
+        )
     if conn is None:
         with db_helpers.connect() as owned:
             return _apply(
@@ -221,6 +228,7 @@ def amend(
                 validated_attestation_input,
                 reason,
                 session_id,
+                commit,
             )
     return _apply(
         conn,
@@ -229,6 +237,7 @@ def amend(
         validated_attestation_input,
         reason,
         session_id,
+        commit,
     )
 
 

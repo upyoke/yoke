@@ -37,7 +37,12 @@ def lease_key_for(model_name: str) -> str:
 
 
 def enter(
-    conn: Any, *, project: str, model_name: str, session_id: Optional[str]
+    conn: Any,
+    *,
+    project: str | int,
+    model_name: str,
+    session_id: Optional[str],
+    commit: bool = True,
 ) -> Lease:
     """Claim migration territory for *model_name*, or reuse an owned claim.
 
@@ -50,9 +55,8 @@ def enter(
     holder = session_id or ANONYMOUS_HOLDER
     held = active_lease(conn, project, key)
     if held is not None and held.session_id == holder:
-        heartbeat_lease(conn, held.id)
-        return held
-    return acquire_lease(conn, project, key, holder)
+        return heartbeat_lease(conn, held.id, commit=commit)
+    return acquire_lease(conn, project, key, holder, commit=commit)
 
 
 def leave(conn: Any, lease_id: int, reason: str) -> Lease:

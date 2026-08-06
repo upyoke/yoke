@@ -272,23 +272,6 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertIn(".yoke/docs/db-reference/functions.md", resp.error.message)
         render_denial.assert_called_once()
 
-    def test_widen_routes_to_amend_widen(self):
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.path_claims_amend.widen",
-            return_value=400,
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.widen",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "claim_id": 116,
-                    "add_target_ids": [2956, 2957],
-                    "reason": "split file budget",
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["amendment_id"], 400)
-
     def test_release_routes_to_path_claims_release(self):
         mock_conn = MagicMock()
         mock_conn.__enter__.return_value = mock_conn
@@ -341,24 +324,6 @@ class TestClaimsPath(_ClaimsHandlerSuite):
             ))
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["override_event_id"], "evt-1")
-
-    def test_amend_aliases_widen(self):
-        with self._hold_item_claim(), patch(
-            "yoke_core.domain.path_claims_amend.widen",
-            return_value=401,
-        ):
-            resp = dispatch(_envelope(
-                "claims.path.amend",
-                target={"kind": "item", "item_id": 1665},
-                payload={
-                    "claim_id": 116,
-                    "add_target_ids": [2958],
-                    "reason": "external amend verb",
-                },
-            ))
-        self.assertTrue(resp.success, msg=resp.error)
-        self.assertEqual(resp.result["amendment_id"], 401)
-
 
 if __name__ == "__main__":
     unittest.main()

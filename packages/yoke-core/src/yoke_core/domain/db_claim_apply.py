@@ -71,6 +71,7 @@ def _apply(
     caller_attestation: Dict[str, Any],
     reason: str,
     session_id: Optional[str],
+    commit: bool = True,
 ) -> AmendmentResult:
     from yoke_core.domain.project_identity import render_item_ref
 
@@ -152,14 +153,17 @@ def _apply(
                 f"DbClaimAmended event emission failed for {item_ref}; "
                 "claim was not written"
             )
-        conn.commit()
+        if commit:
+            conn.commit()
     except db_backend.database_error_types(conn) as exc:
-        conn.rollback()
+        if commit:
+            conn.rollback()
         raise DbClaimAmendmentError(
             f"amendment write failed for {item_ref}: {exc}"
         ) from exc
     except DbClaimAmendmentError:
-        conn.rollback()
+        if commit:
+            conn.rollback()
         raise
 
     return AmendmentResult(
