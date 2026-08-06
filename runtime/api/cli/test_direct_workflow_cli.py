@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_cli.commands import direct_workflow_worktree
 from yoke_cli.commands.adapters import blitz, dash
 from yoke_cli.commands.registry_direct_workflows import (
@@ -52,6 +54,39 @@ def test_dash_filing_uses_cli_provenance_and_tightening_posture(monkeypatch):
         },
         "project": "yoke",
     }
+
+
+def test_dash_filing_help_lists_priority_choices(capsys):
+    with pytest.raises(SystemExit) as raised:
+        dash.dash_file(["--help"])
+    assert raised.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "{high,medium,low}" in help_text
+    assert "Priority bucket: high, medium, or low." in help_text
+
+
+def test_dash_filing_accepts_named_priority(monkeypatch):
+    captured = _capture(monkeypatch, dash)
+
+    assert dash.dash_file([
+        "Tighten footer",
+        "Fix the footer copy.",
+        "--priority",
+        "high",
+    ]) == 0
+    assert captured["payload"]["priority"] == "high"
+
+
+def test_dash_filing_rejects_unknown_priority(capsys):
+    assert dash.dash_file([
+        "Tighten footer",
+        "Fix the footer copy.",
+        "--priority",
+        "P2",
+    ]) == 2
+    err = capsys.readouterr().err
+    assert "invalid choice" in err
+    assert "P2" in err
 
 
 def test_dash_evidence_adapter_records_actual_files_and_posture(monkeypatch):
