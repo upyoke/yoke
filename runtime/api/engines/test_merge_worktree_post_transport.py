@@ -116,6 +116,9 @@ class TestPostRebaseRelays:
 
         def fake(**kwargs):
             calls.append(kwargs)
+            function_id = kwargs.get("function_id")
+            if function_id == "items.detail.get":
+                return _resp(function_id, {"item": {"status": "implementing"}})
             return _resp(
                 "merge.tests.post_rebase_requirement",
                 {
@@ -133,10 +136,13 @@ class TestPostRebaseRelays:
             "full",
             "python3 verify_tree.py",
         )
-        assert calls[0]["function_id"] == "merge.tests.post_rebase_requirement"
-        assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_id == 42
-        assert calls[0]["payload"] == {"transition_id": "release"}
+        assert [c["function_id"] for c in calls] == [
+            "items.detail.get",
+            "merge.tests.post_rebase_requirement",
+        ]
+        assert calls[1]["target"].kind == "item"
+        assert calls[1]["target"].item_id == 42
+        assert calls[1]["payload"] == {"transition_id": "release"}
 
     def test_missing_command_response_blocks(self, monkeypatch):
         monkeypatch.setattr(
