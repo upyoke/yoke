@@ -83,7 +83,8 @@ class TestScanEventsReads(unittest.TestCase):
         with TemporaryDirectory() as td:
             root = Path(td)
             allowlisted_rel = next(
-                p for p in ALLOWED_EVENTS_READERS
+                p
+                for p in ALLOWED_EVENTS_READERS
                 if p.endswith("/check_claim_boundary_audit_select.py")
             )
             _write(
@@ -94,6 +95,49 @@ class TestScanEventsReads(unittest.TestCase):
             violations, stale = scan_events_reads(root)
         self.assertEqual(violations, [])
         self.assertNotIn(allowlisted_rel, stale)
+
+    def test_current_telemetry_readers_are_allowlisted_by_exact_path(self):
+        reader_suffixes = (
+            "yoke_contracts/board/widgets_velocity_meter.py",
+            "yoke_core/domain/board_momentum_signals.py",
+            "yoke_core/domain/last_doctor_run_read.py",
+            "yoke_core/domain/source_authority_receipts.py",
+            ".yoke/doctor/check_session_identity_provenance.py",
+            ".yoke/doctor/check_silent_hooks.py",
+        )
+        for suffix in reader_suffixes:
+            with self.subTest(reader=suffix), TemporaryDirectory() as td:
+                root = Path(td)
+                allowlisted_rel = next(
+                    path for path in ALLOWED_EVENTS_READERS if path.endswith(suffix)
+                )
+                _write(root, allowlisted_rel, 'SQL = "SELECT 1 FROM events"\n')
+                violations, stale = scan_events_reads(root)
+            self.assertEqual(violations, [])
+            self.assertNotIn(allowlisted_rel, stale)
+
+    def test_package_build_output_is_excluded(self):
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            for rel in (
+                "packages/yoke-core/build/lib/yoke_core/domain/copied_reader.py",
+                "packages/yoke-contracts/build/lib/yoke_contracts/board/copied_widget.py",
+            ):
+                _write(root, rel, 'SQL = "SELECT 1 FROM events"\n')
+            violations, _ = scan_events_reads(root)
+        self.assertEqual(violations, [])
+
+    def test_python_import_from_events_is_not_a_sql_read(self):
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _write(
+                root,
+                "packages/yoke-core/src/yoke_core/install_bundle_tree/"
+                "packs/structured-events/files/events.py",
+                "from events import emit_event\n",
+            )
+            violations, _ = scan_events_reads(root)
+        self.assertEqual(violations, [])
 
     def test_tests_fixtures_and_self_are_excluded(self):
         with TemporaryDirectory() as td:
@@ -134,7 +178,7 @@ class TestScanEventsReads(unittest.TestCase):
                 root,
                 "packages/yoke-core/src/yoke_core/domain/emitter.py",
                 'emit_event(conn, event_name="ItemStatusChanged")\n'
-                '# reads come from events_queries, not here\n'
+                "# reads come from events_queries, not here\n"
                 'TABLE = "events"\n',
             )
             violations, _ = scan_events_reads(root)

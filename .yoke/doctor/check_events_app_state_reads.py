@@ -22,8 +22,13 @@ allowlist enumerates the sanctioned reader classes:
 
 - **Telemetry-admin surfaces** — the events platform itself (queries,
   prune, registry audit, severity tooling, ledger-hygiene HCs).
+- **Telemetry-observability surfaces** — dashboards and history views that
+  summarize the telemetry record itself rather than reconstructing
+  application state.
 - **Keep-as-audit doctor surfaces** — checks whose PURPOSE is verifying
   behavior against the telemetry record (the audit-inspection carve-out).
+- **Portability audit receipts** — bounded telemetry watermarks carried as
+  source-authority comparison evidence.
 - **Emission-side capability probes** — write-path probes, not reads.
 - **Governed migration backfills** — one-time history loads into the state
   tables (the ``migrations/`` prefix; modules retire after live apply).
@@ -51,13 +56,17 @@ from yoke_core.engines.doctor_report import (
 # SQL read shapes against the events table. Line-based; covers aliased
 # forms (``FROM events e``). INSERT shapes are emission discipline, not
 # read inversion, and stay out of scope.
-EVENTS_READ_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+events\b", re.IGNORECASE)
+EVENTS_READ_PATTERN = re.compile(
+    r"\b(?:FROM|JOIN)\s+events\b(?!\s+import\b)",
+    re.IGNORECASE,
+)
 
 # Repo-relative allowlist. Prefix-matched, so a directory entry covers the
 # subtree. Keep entries grouped by reader class.
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 _CORE_ENGINE_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/engines"
 _CORE_TOOLS_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/tools"
+_CONTRACTS_BOARD_SOURCE_ROOT = "packages/yoke-contracts/src/yoke_contracts/board"
 _PROJECT_CHECK_SOURCE_ROOT = ".yoke/doctor"
 
 # Source trees scanned for events reads, repo-relative. Project-local health
@@ -84,6 +93,10 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_event_outcome_drift.py",
     f"{_PROJECT_CHECK_SOURCE_ROOT}/check_event_outcome_enum_coverage.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_event_severity_drift.py",
+    # -- telemetry-observability: views over the event record itself
+    f"{_CONTRACTS_BOARD_SOURCE_ROOT}/widgets_velocity_meter.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/board_momentum_signals.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/last_doctor_run_read.py",
     # -- keep-as-audit: doctor surfaces that verify behavior against telemetry
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_agents_sessions.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_stop_hook_chain.py",
@@ -92,10 +105,14 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_PROJECT_CHECK_SOURCE_ROOT}/check_apply_patch.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_reflection_capture_hook_coverage.py",
     f"{_PROJECT_CHECK_SOURCE_ROOT}/check_reflection_capture_hook_coverage.py",
+    f"{_PROJECT_CHECK_SOURCE_ROOT}/check_session_identity_provenance.py",
+    f"{_PROJECT_CHECK_SOURCE_ROOT}/check_silent_hooks.py",
     f"{_CORE_ENGINE_SOURCE_ROOT}/doctor_hc_reflection_capture_persist_failed.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_correlation.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_cutoff.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/check_claim_boundary_audit_select.py",
+    # -- portability audit: telemetry watermark in source-authority receipts
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/source_authority_receipts.py",
     # -- emission-side capability probes (SELECT 1 ... LIMIT 1)
     f"{_CORE_DOMAIN_SOURCE_ROOT}/epic_cascade.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/observe_event_emission.py",
@@ -120,6 +137,8 @@ _SELF_PATH = Path(__file__).resolve()
 
 def _is_scan_target(path: Path) -> bool:
     """Live runtime Python only: no tests, fixtures, or this registry."""
+    if "build" in path.parts:
+        return False
     if path.name.startswith("test_") or path.name == "conftest.py":
         return False
     # Test-support modules (shared helpers/schemas for suites) follow the
@@ -213,11 +232,16 @@ def hc_events_app_state_reads(conn, args: DoctorArgs, rec: RecordCollector) -> N
         detail,
     )
 
+
 # Slug and display name are the ones this check has always reported under.
 from yoke_project_checks._declare import (  # noqa: E402
     self_project_checks,
 )
 
 PROJECT_HEALTH_CHECKS = self_project_checks(
-    ('events-app-state-reads', 'Events table reads outside telemetry allowlist', hc_events_app_state_reads),
+    (
+        "events-app-state-reads",
+        "Events table reads outside telemetry allowlist",
+        hc_events_app_state_reads,
+    ),
 )
