@@ -26,6 +26,7 @@ could not be read.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -101,7 +102,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"covered by a passing fleet preflight: {covered} of {len(history)}")
     if missing:
         print(
-            receipt.refusal_message(environment, missing, product_sha=product_sha),
+            receipt.refusal_message(
+                environment,
+                missing,
+                product_sha=product_sha,
+                receipt_connection=os.environ.get("YOKE_ENV", ""),
+            ),
             file=sys.stderr,
         )
         return 1

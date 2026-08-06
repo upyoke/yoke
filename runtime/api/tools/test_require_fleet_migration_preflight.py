@@ -6,6 +6,7 @@ import json
 import subprocess
 
 from runtime.api.tools import require_fleet_migration_preflight as preflight
+from yoke_core.domain import migration_fleet_preflight
 
 
 def test_query_failure_preserves_advisory_stderr_and_api_error_stdout(monkeypatch) -> None:
@@ -41,3 +42,33 @@ def test_query_success_reads_stdout_despite_advisory_stderr(monkeypatch) -> None
 
     assert rows == expected
     assert unreadable == ""
+
+
+def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("YOKE_ENV", "prod")
+    monkeypatch.setattr(
+        migration_fleet_preflight,
+        "history_names",
+        lambda: ("0005_x",),
+    )
+    monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
+
+    assert preflight.main(["production", "abc123"]) == 1
+
+    assert "--receipt-env prod" in capsys.readouterr().err
+
+
+def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    monkeypatch.setattr(
+        migration_fleet_preflight,
+        "history_names",
+        lambda: ("0005_x",),
+    )
+    monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
+
+    assert preflight.main(["production", "abc123"]) == 1
+
+    assert "--receipt-env <control-plane-connection>" in capsys.readouterr().err

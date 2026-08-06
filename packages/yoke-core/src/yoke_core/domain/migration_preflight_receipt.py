@@ -24,6 +24,7 @@ nothing about the other. A stage rehearsal is not production evidence.
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
 
 #: Emitted by a passing fleet preflight; read by the pre-tag release gate.
@@ -129,7 +130,7 @@ def uncovered(
     return tuple(name for name in history if name not in covered)
 
 
-def _preflight_command(environment: str) -> str:
+def _preflight_command(environment: str, receipt_connection: str = "") -> str:
     admin_env = environment
     if not admin_env.endswith(_ADMIN_SUFFIX):
         for connection, target in _TARGET_ENVIRONMENT_ALIASES.items():
@@ -137,14 +138,23 @@ def _preflight_command(environment: str) -> str:
                 admin_env = connection
                 break
         admin_env = f"{admin_env}{_ADMIN_SUFFIX}"
+    receipt_env = receipt_connection.strip()
+    receipt_env_arg = (
+        shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
+    )
     return (
         "python3 -m runtime.api.tools.preflight_fleet_migrations "
-        f"{admin_env} --record-receipt --product-sha <sha>"
+        f"{admin_env} --record-receipt --product-sha <sha> "
+        f"--receipt-env {receipt_env_arg}"
     )
 
 
 def refusal_message(
-    environment: str, missing: Sequence[str], *, product_sha: str = ""
+    environment: str,
+    missing: Sequence[str],
+    *,
+    product_sha: str = "",
+    receipt_connection: str = "",
 ) -> str:
     """Why this release stops, and the one command that unblocks it."""
     listed = ", ".join(missing)
@@ -155,7 +165,8 @@ def refusal_message(
         f"has covered for {target_environment_for_admin_env(environment)}: "
         f"{listed}. An entry exists for the databases that are behind it, and "
         "nothing here has yet run it against one. Rehearse the fleet, then "
-        f"re-run this release:\n  {_preflight_command(environment)}"
+        "re-run this release:\n  "
+        f"{_preflight_command(environment, receipt_connection)}"
     )
 
 
