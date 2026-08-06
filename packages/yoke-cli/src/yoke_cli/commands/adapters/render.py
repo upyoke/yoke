@@ -45,7 +45,8 @@ def agents_render(args: List[str]) -> int:
                         help="Optional repo-root override.")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true",
                         help="Compute write actions without persisting.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, AGENTS_RENDER_USAGE)
     if parsed is None:
         return 2
@@ -76,7 +77,8 @@ def agents_render_check(args: List[str]) -> int:
     )
     parser.add_argument("--target-root", dest="target_root", default=None,
                         help="Optional repo-root override.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, AGENTS_RENDER_CHECK_USAGE)
     if parsed is None:
         return 2
@@ -104,7 +106,8 @@ def packets_render(args: List[str]) -> int:
     )
     parser.add_argument("--role", required=True,
                         help="Packet role (e.g. 'main_agent', 'engineer_agent').")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PACKETS_RENDER_USAGE)
     if parsed is None:
         return 2
@@ -127,7 +130,8 @@ def packets_check(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke packets check", description=PACKETS_CHECK_USAGE,
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PACKETS_CHECK_USAGE)
     if parsed is None:
         return 2
@@ -158,7 +162,8 @@ def board_data_get(args: List[str]) -> int:
     )
     parser.add_argument("--scope", default="all",
                         help="Project scope (slug, id, or 'all').")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, BOARD_DATA_GET_USAGE)
     if parsed is None:
         return 2
