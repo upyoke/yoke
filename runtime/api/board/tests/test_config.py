@@ -14,8 +14,6 @@ from __future__ import annotations
 import json
 import textwrap
 
-import pytest
-
 from yoke_contracts.board.config import BoardConfig, parse_config
 
 

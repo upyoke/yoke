@@ -25,7 +25,6 @@ from yoke_cli.config import machine_config
 from yoke_cli.board import source_dev_extras as extras
 from yoke_cli.board.outcome import (
     RebuildResult,
-    THROTTLED,
     failed,
     lock_skipped,
     printed,  # noqa: F401  (re-exported for the adapter's print-only path)
