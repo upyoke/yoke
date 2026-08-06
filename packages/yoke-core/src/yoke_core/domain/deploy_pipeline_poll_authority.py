@@ -93,8 +93,8 @@ def stall_message(run_id: str, consecutive: int) -> str:
         f"attempts via {authority_label()}. Status is read through a peer "
         "control plane that must fail independently of the environment under "
         "deploy; the run is still progressing on GitHub regardless. Check it "
-        f"directly with `gh run view {run_id}`. This poll keeps retrying "
-        "within its stage budget."
+        f"directly in the GitHub Actions UI for run {run_id}. This poll "
+        "keeps retrying within its stage budget."
     )
 
 

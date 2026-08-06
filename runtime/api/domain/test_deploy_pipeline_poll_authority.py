@@ -107,5 +107,6 @@ def test_the_stall_message_names_the_dependency_and_the_way_out():
     assert "12 consecutive" in message
     assert "peer control plane" in message
     assert "fail independently" in message
-    assert "gh run view 30968749771" in message
+    assert "GitHub Actions UI" in message
+    assert "30968749771" in message
     assert "stage budget" in message

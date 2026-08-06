@@ -34,8 +34,8 @@ Two shapes reached the circular dependency. This decision picks the second.
 
 The peer is a different deployment unit on the release train. Deploying
 `prod` reads GitHub through `stage` (and the reverse). A joint outage of
-both peers is outside this mitigation; the poll still names `gh run view`
-as the operator surface that answers without either plane.
+both peers is outside this mitigation; the poll still names the GitHub
+Actions UI as the operator surface that answers without either plane.
 
 Same-base sibling derivation (`*-db-admin` → same base HTTPS env) is the
 obsolete circular path and is removed. An owner-only env without a known
