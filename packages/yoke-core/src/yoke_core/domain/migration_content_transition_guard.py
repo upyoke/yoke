@@ -38,6 +38,14 @@ def _guard_object_name(
     return f"{ADOPTION_TRANSITION_GUARD_PREFIX}{digest}"
 
 
+def adoption_transition_guard_function_name(
+    ledger: LedgerContract,
+    evidence: AdoptionEvidenceContract,
+) -> str:
+    """Return the PostgreSQL function owned by the declared guard."""
+    return f"{_guard_object_name(ledger, evidence)}_fn"
+
+
 def _sqlite_update_guard_sql(
     name: str,
     ledger: LedgerContract,
@@ -101,7 +109,7 @@ def ensure_adoption_transition_guard(
         conn.execute(_sqlite_delete_guard_sql(name, ledger))
         return
 
-    function_name = f"{name}_fn"
+    function_name = adoption_transition_guard_function_name(ledger, evidence)
     conn.execute(
         f"""
         CREATE OR REPLACE FUNCTION {function_name}()
@@ -209,7 +217,7 @@ def adoption_transition_guard_is_enforced(
             ledger.serving_floor_column,
         )
     )
-    function_name = f"{name}_fn"
+    function_name = adoption_transition_guard_function_name(ledger, evidence)
     expected_body = _normalized_sql(
         f"""
         BEGIN
@@ -266,6 +274,7 @@ def _normalized_sql(value: Any) -> str:
 
 __all__ = [
     "ADOPTION_TRANSITION_GUARD_PREFIX",
+    "adoption_transition_guard_function_name",
     "adoption_transition_guard_is_enforced",
     "ensure_adoption_transition_guard",
 ]

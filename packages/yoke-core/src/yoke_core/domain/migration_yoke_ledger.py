@@ -155,6 +155,20 @@ def adopt_yoke_legacy_content_identities(
     adopted_at: str | None = None,
 ) -> Tuple[AdoptionRecord, ...]:
     """Use the generic adopter with Yoke's ledger and evidence table."""
+    from yoke_core.domain import db_backend, migration_fleet_ownership
+
+    authority = None
+    if db_backend.connection_is_postgres(conn):
+
+        def yoke_owner_authority():
+            return migration_fleet_ownership.owner_transfer_authority(
+                conn,
+                owner=migration_fleet_ownership.table_owner(
+                    conn, YOKE_LEDGER_CONTRACT.table
+                ),
+            )
+
+        authority = yoke_owner_authority
     return adopt_legacy_content_identities(
         conn,
         history=history,
@@ -168,6 +182,7 @@ def adopt_yoke_legacy_content_identities(
         verify_evidence_immutability=adoption_evidence_verifier(
             YOKE_LEDGER_CONTRACT, YOKE_ADOPTION_EVIDENCE_CONTRACT
         ),
+        transaction_authority=authority,
         entry_names=entry_names,
         adopted_at=adopted_at,
     )

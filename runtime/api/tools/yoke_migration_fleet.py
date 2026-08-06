@@ -43,12 +43,30 @@ def converge(conn: Any, backup_target_dsn: str) -> None:
     converge_core_schema(conn, backup_target_dsn=backup_target_dsn)
 
 
+def migration_content_ownership_detail(conn: Any) -> str | None:
+    """Bind Yoke's declared ledger and evidence objects to live preflight."""
+    from yoke_core.domain.migration_content_schema_ownership import (
+        migration_content_schema_ownership_detail,
+    )
+    from yoke_core.domain.migration_yoke_ledger import (
+        YOKE_ADOPTION_EVIDENCE_CONTRACT,
+        YOKE_LEDGER_CONTRACT,
+    )
+
+    return migration_content_schema_ownership_detail(
+        conn,
+        YOKE_LEDGER_CONTRACT,
+        YOKE_ADOPTION_EVIDENCE_CONTRACT,
+    )
+
+
 def rehearsal_plan() -> RehearsalPlan:
     """Bind the generic rehearsal kernel to Yoke project authority."""
     return RehearsalPlan(
         history=history_names(),
         pending_names=pending_names,
         converge=converge,
+        live_ownership_validator=migration_content_ownership_detail,
     )
 
 
@@ -57,6 +75,7 @@ __all__ = [
     "TENANT_DATABASE_PATTERN",
     "converge",
     "history_names",
+    "migration_content_ownership_detail",
     "pending_names",
     "rehearsal_plan",
     "tenant_databases",

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from collections.abc import Mapping
-from typing import Any, Callable, Sequence, Tuple
+from typing import Any, Callable, ContextManager, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
@@ -56,6 +57,7 @@ MigrationStateVerifierResolver = Callable[
 MigrationStateVerifierSource = (
     Mapping[str, MigrationStateVerifier] | MigrationStateVerifierResolver
 )
+TransactionAuthorityFactory = Callable[[], ContextManager[None]]
 _VERIFY_SAVEPOINT = "migration_content_identity_verify"
 
 
@@ -238,6 +240,7 @@ def adopt_legacy_content_identities(
     entry_names: Sequence[str] | None = None,
     adopted_at: str | None = None,
     state_verifiers: MigrationStateVerifierSource | None = None,
+    transaction_authority: TransactionAuthorityFactory | None = None,
 ) -> Tuple[AdoptionRecord, ...]:
     """Adopt selected legacy rows, changing only NULL digests atomically.
 
@@ -245,7 +248,9 @@ def adopt_legacy_content_identities(
     the independently selected artifact identity.  ``entry_names`` allows a
     deliberately partial rollout; omitted means every currently adoptable row
     represented by this artifact.  Ledger-ahead rows remain untouched because
-    this artifact cannot prove bytes it does not ship.
+    this artifact cannot prove bytes it does not ship. Admin adapters may bind
+    a lazy ``transaction_authority`` factory; it is opened only after artifact
+    trust and closed before the adoption commit.
     """
     actor = adopted_by.strip()
     if not actor:
@@ -257,58 +262,60 @@ def adopt_legacy_content_identities(
         expected_manifest_sha256=expected_manifest_sha256,
         artifact_verifier=artifact_verifier,
     )
-    if not verify_evidence_immutability(conn):
-        raise MigrationContentAdoptionError(
-            "migration content adoption is not protected by the declared "
-            "evidence and ledger-transition database guards"
-        )
-    requested = _verify_requested_state(
-        conn,
-        history=history,
-        ledger=ledger,
-        entry_names=entry_names,
-        state_verifiers=state_verifiers,
-    )
-    if not requested:
-        return ()
-
-    digest_by_name = {entry.name: entry.content_sha256 for entry in manifest.entries}
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    stamp = adopted_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    records = tuple(
-        AdoptionRecord(
-            entry_name=name,
-            content_sha256=digest_by_name[name],
-            artifact_engine_version=artifact.engine_version,
-            source_artifact=artifact.source_artifact,
-            source_sha256=artifact.source_sha256,
-            source_commit=artifact.source_commit,
-            manifest_sha256=manifest.content_sha256,
-            adopted_by=actor,
-            adopted_at=stamp,
-        )
-        for name in requested
-    )
+    authority = transaction_authority() if transaction_authority else nullcontext()
     try:
-        # The database guard permits a legacy NULL-to-digest transition only
-        # after the matching immutable row exists. Both writes share this
-        # transaction, so a race or failed update removes the evidence too.
-        write_evidence(conn, records)
-        for record in records:
-            cursor = conn.execute(
-                f"UPDATE {ledger.table} SET {ledger.digest_column} = {marker} "
-                f"WHERE {ledger.entry_column} = {marker} "
-                f"AND {ledger.digest_column} IS NULL",
-                (record.content_sha256, record.entry_name),
-            )
-            if getattr(cursor, "rowcount", 0) != 1:
+        with authority:
+            if not verify_evidence_immutability(conn):
                 raise MigrationContentAdoptionError(
-                    f"{record.entry_name} changed before adoption could update "
-                    "its NULL digest; no evidence was recorded"
+                    "migration content adoption is not protected by the declared "
+                    "evidence and ledger-transition database guards"
                 )
-        # Catch a concurrent conflicting rewrite of any other common row before
-        # append-only evidence and ledger updates commit together.
-        require_matching_content_identity(conn, history, ledger)
+            requested = _verify_requested_state(
+                conn,
+                history=history,
+                ledger=ledger,
+                entry_names=entry_names,
+                state_verifiers=state_verifiers,
+            )
+            if not requested:
+                return ()
+
+            digest_by_name = {
+                entry.name: entry.content_sha256 for entry in manifest.entries
+            }
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            stamp = adopted_at or datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+            records = tuple(
+                AdoptionRecord(
+                    entry_name=name,
+                    content_sha256=digest_by_name[name],
+                    artifact_engine_version=artifact.engine_version,
+                    source_artifact=artifact.source_artifact,
+                    source_sha256=artifact.source_sha256,
+                    source_commit=artifact.source_commit,
+                    manifest_sha256=manifest.content_sha256,
+                    adopted_by=actor,
+                    adopted_at=stamp,
+                )
+                for name in requested
+            )
+            # Evidence must exist before the guard permits the digest update.
+            write_evidence(conn, records)
+            for record in records:
+                cursor = conn.execute(
+                    f"UPDATE {ledger.table} SET {ledger.digest_column} = {marker} "
+                    f"WHERE {ledger.entry_column} = {marker} "
+                    f"AND {ledger.digest_column} IS NULL",
+                    (record.content_sha256, record.entry_name),
+                )
+                if getattr(cursor, "rowcount", 0) != 1:
+                    raise MigrationContentAdoptionError(
+                        f"{record.entry_name} changed before adoption could update "
+                        "its NULL digest; no evidence was recorded"
+                    )
+            require_matching_content_identity(conn, history, ledger)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -324,6 +331,7 @@ __all__ = [
     "MigrationStateVerifier",
     "MigrationStateVerifierResolver",
     "MigrationStateVerifierSource",
+    "TransactionAuthorityFactory",
     "adopt_legacy_content_identities",
     "verify_legacy_content_adoption",
     "verify_migration_entry_state_equivalence",

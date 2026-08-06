@@ -59,11 +59,16 @@ class Verdict:
     detail: str
     pending_before: Tuple[str, ...] = ()
     applied: Tuple[str, ...] = ()
+    pending_evaluated: bool = True
 
     @property
     def line(self) -> str:
         mark = "PASS" if self.passed else "FAIL"
-        pending = ", ".join(self.pending_before) or "nothing pending"
+        pending = (
+            ", ".join(self.pending_before) or "nothing pending"
+            if self.pending_evaluated
+            else "pending not evaluated"
+        )
         return f"{mark} {self.database}: {pending} -> {self.detail}"
 
 
@@ -74,6 +79,7 @@ class RehearsalPlan:
     history: Tuple[str, ...]
     pending_names: Callable[[Any, Sequence[str]], Tuple[str, ...]]
     converge: Callable[[Any, str], None]
+    live_ownership_validator: Callable[[Any], str | None] | None = None
 
 
 @contextmanager
@@ -110,7 +116,11 @@ def _run(argv: Sequence[str], *, redact: str = "") -> None:
     raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
-def _live_ownership_verdict(source_dsn: str, database: str) -> Optional[Verdict]:
+def _live_ownership_verdict(
+    source_dsn: str,
+    database: str,
+    live_ownership_validator: Callable[[Any], str | None] | None = None,
+) -> Optional[Verdict]:
     """Refuse a database whose serving role cannot converge its own tables.
 
     Read from the live database and BEFORE the rehearsal, because the copy
@@ -129,14 +139,31 @@ def _live_ownership_verdict(source_dsn: str, database: str) -> Optional[Verdict]
         # the fleet loop and takes the other tenants' answers with it.
         conn = db_backend.connect_psycopg(source_dsn)
         report = migration_fleet_ownership.inspect(conn)
+        contract_detail = (
+            live_ownership_validator(conn)
+            if report.uniform and live_ownership_validator is not None
+            else None
+        )
     except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
-        return Verdict(database, False, f"could not read ownership: {exc}")
+        return Verdict(
+            database,
+            False,
+            f"could not read ownership: {exc}",
+            pending_evaluated=False,
+        )
     finally:
         if conn is not None:
             conn.close()
     if report.uniform:
-        return None
-    return Verdict(database, False, report.summary)
+        if contract_detail is None:
+            return None
+        return Verdict(
+            database,
+            False,
+            contract_detail,
+            pending_evaluated=False,
+        )
+    return Verdict(database, False, report.summary, pending_evaluated=False)
 
 
 def rehearse(
@@ -155,7 +182,11 @@ def rehearse(
     apply them?* is answered against the live database, because the copy
     normalizes the ownership that decides it away.
     """
-    refusal = _live_ownership_verdict(source_dsn, database)
+    refusal = _live_ownership_verdict(
+        source_dsn,
+        database,
+        plan.live_ownership_validator,
+    )
     if refusal is not None:
         return refusal
 
@@ -181,11 +212,30 @@ def rehearse(
 
     try:
         _drop_copy(spec, copy_name)
-        _run([postgres_cluster.binary(spec, "createdb"), "-h",
-              str(spec.sock_dir), "-U", spec.superuser, copy_name])
-        _run([postgres_cluster.binary(spec, "pg_restore"), "-h", str(spec.sock_dir),
-              "-U", spec.superuser, "-d", copy_name, "--no-owner",
-              "--no-privileges", str(dump)])
+        _run(
+            [
+                postgres_cluster.binary(spec, "createdb"),
+                "-h",
+                str(spec.sock_dir),
+                "-U",
+                spec.superuser,
+                copy_name,
+            ]
+        )
+        _run(
+            [
+                postgres_cluster.binary(spec, "pg_restore"),
+                "-h",
+                str(spec.sock_dir),
+                "-U",
+                spec.superuser,
+                "-d",
+                copy_name,
+                "--no-owner",
+                "--no-privileges",
+                str(dump),
+            ]
+        )
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
         _drop_copy(spec, copy_name)

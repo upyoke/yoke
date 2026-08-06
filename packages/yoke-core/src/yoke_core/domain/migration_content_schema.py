@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Callable, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_content_adoption import AdoptionRecord
+from yoke_core.domain.migration_content_schema_ownership import (
+    ADOPTION_EVIDENCE_GUARD_PREFIX,
+    adoption_evidence_guard_object_name,
+    preparation_owner_authority,
+)
 from yoke_core.domain.migration_content_transition_guard import (
     adoption_transition_guard_is_enforced,
     ensure_adoption_transition_guard,
@@ -19,7 +23,6 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-ADOPTION_EVIDENCE_GUARD_PREFIX = "migration_evidence_guard_"
 _APPEND_ONLY_MESSAGE = "migration adoption evidence is append-only"
 
 
@@ -94,18 +97,12 @@ def converge_migration_content_schema(
         ensure_adoption_transition_guard(conn, ledger, evidence)
 
 
-def _immutability_object_name(table: str) -> str:
-    """Return a short, collision-resistant SQL object-name stem."""
-    digest = hashlib.sha256(table.encode("utf-8")).hexdigest()[:16]
-    return f"{ADOPTION_EVIDENCE_GUARD_PREFIX}{digest}"
-
-
 def _ensure_adoption_evidence_immutability(
     conn: Any,
     evidence: AdoptionEvidenceContract,
 ) -> None:
     """Restore database-enforced UPDATE/DELETE refusal idempotently."""
-    stem = _immutability_object_name(evidence.table)
+    stem = adoption_evidence_guard_object_name(evidence.table)
     if not db_backend.connection_is_postgres(conn):
         for operation in ("UPDATE", "DELETE"):
             conn.execute(f"DROP TRIGGER IF EXISTS {stem}_{operation.lower()}")
@@ -147,7 +144,7 @@ def adoption_evidence_is_immutable(
     evidence: AdoptionEvidenceContract,
 ) -> bool:
     """Return whether the declared table has every expected mutation guard."""
-    stem = _immutability_object_name(evidence.table)
+    stem = adoption_evidence_guard_object_name(evidence.table)
     if not db_backend.connection_is_postgres(conn):
         rows = conn.execute(
             "SELECT name, sql FROM sqlite_master "
@@ -238,14 +235,12 @@ def prepare_migration_content_schema(
     ledger: LedgerContract,
     evidence: AdoptionEvidenceContract,
 ) -> None:
-    """Commit the additive pre-deploy schema as its own rollout phase."""
+    """Commit additive schema and hand objects to its inferred serving owner."""
     try:
-        converge_migration_content_schema(
-            conn,
-            ledger,
-            evidence,
-            repair_existing_guards=True,
-        )
+        with preparation_owner_authority(conn, ledger, evidence):
+            converge_migration_content_schema(
+                conn, ledger, evidence, repair_existing_guards=True
+            )
         conn.commit()
     except Exception:
         conn.rollback()

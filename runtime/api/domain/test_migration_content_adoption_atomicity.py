@@ -52,6 +52,35 @@ def _adoption_case(tmp_path: Path):
     return history, artifact, manifest_from_history(history, artifact)
 
 
+def test_adoption_authority_is_lazy_until_artifact_verification(
+    tmp_path: Path,
+) -> None:
+    conn = connection()
+    history, artifact, manifest = _adoption_case(tmp_path)
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+
+    def forbidden_authority():
+        raise AssertionError("transaction authority opened before artifact trust")
+
+    with pytest.raises(MigrationContentAdoptionError, match="artifact verification"):
+        adopt_legacy_content_identities(
+            conn,
+            history=history,
+            ledger=YOKE_LEDGER_CONTRACT,
+            manifest=manifest,
+            artifact=artifact,
+            expected_manifest_sha256=manifest.content_sha256,
+            artifact_verifier=None,
+            adopted_by="operator:test",
+            write_evidence=lambda _conn, _records: None,
+            verify_evidence_immutability=lambda _conn: True,
+            transaction_authority=forbidden_authority,
+        )
+
+    assert statements == []
+
+
 def test_existing_evidence_conflict_rolls_back_ledger_digest(
     tmp_path: Path,
 ) -> None:
