@@ -174,7 +174,9 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="claims.path.override",
         cli_invocation=(
-            "python3 -m yoke_core.api.service_client path-claim-override"
+            "yoke claims path override --claim-id N "
+            "--override-point creation --integration-target main "
+            "--actor-id N --actor-reason TEXT"
         ),
     ),
     AdapterEntry(

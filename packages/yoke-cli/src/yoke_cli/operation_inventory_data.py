@@ -50,6 +50,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims path register", "claims.path"),
     _w("yoke claims path widen", "claims.path"),
     _w("yoke claims path amend", "claims.path"),
+    _w("yoke claims path override", "claims.path"),
     _w("yoke events query", "events.query"),
     _w("yoke lifecycle transition", "lifecycle"),
     _w("yoke lifecycle repair-status", "lifecycle"),
