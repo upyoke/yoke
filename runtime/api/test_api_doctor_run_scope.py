@@ -35,6 +35,43 @@ class _Conn:
         pass
 
 
+class _AbortedTransactionConn:
+    def __init__(self):
+        self.aborted = False
+
+    def execute(self, statement, *_args):
+        if self.aborted:
+            raise RuntimeError("current transaction is aborted")
+        if statement == "synthetic broken query":
+            self.aborted = True
+            raise RuntimeError("synthetic query failed")
+        return self
+
+    def fetchone(self):
+        return None
+
+    def rollback(self):
+        self.aborted = False
+
+    def close(self):
+        pass
+
+
+def _record_query_failure_without_raising(conn, args, rec):
+    try:
+        conn.execute("synthetic broken query")
+    except RuntimeError:
+        rec.record(
+            "HC-query-failure", "Query-failure HC", "FAIL",
+            "the original query failed",
+        )
+
+
+def _record_after_query_failure(conn, args, rec):
+    conn.execute("synthetic healthy query")
+    rec.record("HC-after-query", "After-query HC", "PASS", "query ran")
+
+
 class TestDoctorRunScope(unittest.TestCase):
     def test_returns_cursor_for_chunked_runs(self):
         fake_hcs = [
@@ -184,3 +221,37 @@ class TestDoctorRunScope(unittest.TestCase):
             if row["severity"] != "N/A"
         ]
         self.assertEqual(executed, ["HC-token", "HC-flows", "HC-ci"])
+
+    def test_normal_return_with_aborted_transaction_does_not_poison_roster(self):
+        conn = _AbortedTransactionConn()
+        fake_hcs = [
+            HealthCheck(
+                slug="query-failure", name="Query-failure HC",
+                fn=_record_query_failure_without_raising,
+            ),
+            HealthCheck(
+                slug="after-query", name="After-query HC",
+                fn=_record_after_query_failure,
+            ),
+        ]
+
+        with patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs):
+            with patch(
+                "yoke_core.domain.db_helpers.connect", return_value=conn,
+            ):
+                outcome = reads_misc.handle_doctor_run(_request({
+                    "quick": True,
+                    "project": "yoke",
+                    "runtime": "hosted",
+                }))
+
+        self.assertTrue(outcome.primary_success)
+        by_hc = {
+            row["hc"]: row for row in outcome.result_payload["results"]
+        }
+        self.assertEqual(by_hc["HC-query-failure"]["severity"], "FAIL")
+        self.assertEqual(
+            by_hc["HC-query-failure"]["detail"],
+            "the original query failed",
+        )
+        self.assertEqual(by_hc["HC-after-query"]["severity"], "PASS")

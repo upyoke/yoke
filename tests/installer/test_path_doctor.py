@@ -8,6 +8,8 @@ import os
 
 from yoke_cli.commands.adapters import path_doctor as cli
 from yoke_cli.config import path_doctor as doctor
+from yoke_cli.main import main as yoke_main
+from yoke_cli.product_boundary_teaching import generate_teaching_audit
 
 
 def test_render_block_has_markers_and_dir():
@@ -205,3 +207,27 @@ def test_path_fix_print_block_writes_nothing(capsys):
     out = capsys.readouterr().out
     assert doctor.MANAGED_BEGIN in out
     assert doctor.MANAGED_END in out
+
+
+def test_top_level_help_teaches_concrete_path_commands(capsys):
+    assert yoke_main(["--help"]) == 0
+    out = capsys.readouterr().out
+
+    assert "yoke path <check|fix|verify>" not in out
+    for command in ("yoke path check", "yoke path fix", "yoke path verify"):
+        assert command in out
+
+
+def test_path_help_recipes_resolve_in_teaching_audit(tmp_path):
+    audit = generate_teaching_audit(repo_root=tmp_path, include_help=True)
+    rows = [
+        row for row in audit.surfaces
+        if row.source == "yoke --help" and row.recipe.startswith("yoke path ")
+    ]
+
+    assert {row.command_form for row in rows} == {
+        "yoke path check",
+        "yoke path fix",
+        "yoke path verify",
+    }
+    assert all(row.drift_type is None for row in rows)

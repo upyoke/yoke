@@ -108,6 +108,7 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         validate_only_slugs,
     )
     from yoke_core.engines.doctor_context import FALLBACK_PROJECT, resolve_context
+    from yoke_core.engines.doctor_check_execution import execute_check_isolated
     from yoke_core.engines.doctor_registry import HEALTH_CHECKS
     from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
     from yoke_core.engines.doctor_roster import (
@@ -238,13 +239,7 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         for hc in selected[start_index:]:
             if max_checks is not None and ran_count >= max_checks:
                 break
-            try:
-                hc.fn(conn, args, rec)
-            except Exception as exc:  # pragma: no cover - defensive
-                rec.record(
-                    f"HC-{hc.slug}", hc.name, "FAIL",
-                    f"Internal error: {exc}",
-                )
+            execute_check_isolated(conn, args, rec, hc)
             ran_count += 1
             last_cursor = hc.slug
     finally:

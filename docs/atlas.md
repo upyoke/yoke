@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-05T16:33:07Z_
+_Audit generated_at: 2026-08-06T00:50:46Z_
 
 ## 1. Summary
 
-- Function ids registered: **368**
+- Function ids registered: **369**
 - Internal dispatch-only functions without CLI adapters: **74**
-- `yoke` CLI subcommands: **293** (293 carry usable `--help`)
-- Operation tracker: **271 wrapped**, 4 tool_cli, 114 permanent, 0 pending
+- `yoke` CLI subcommands: **294** (294 carry usable `--help`)
+- Operation tracker: **272 wrapped**, 5 tool_cli, 114 permanent, 0 pending
 - Skill-body recipes: 270 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **271** (operation tracker confirms 271 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **272** (operation tracker confirms 272 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -146,7 +146,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **271** (operation track
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
-| release_pin | `yoke release-pin record` | `release_pin.record` | ok |
 | projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
 | projects | `yoke projects capability-secret set` | `projects.capability_secret.set` | ok |
@@ -207,6 +206,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **271** (operation track
 | readiness | `yoke readiness prd-validate` | `readiness.prd_validate.run` | ok |
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
+| release_pin | `yoke release-pin record` | `release_pin.record` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
@@ -299,6 +299,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 
 | family | yoke form | reason |
 |---|---|---|
+| tools.release_pin | `yoke release-pin verify` | tool_shaped |
 | tools.watch | `yoke watch doctor` | tool_shaped |
 | tools.watch | `yoke watch merge` | tool_shaped |
 | tools.watch | `yoke watch pytest` | tool_shaped |
@@ -364,7 +365,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | local_universe.validate | `yoke universe validate` | tool_shaped | — |
 | merge | `yoke merge audit` | tool_shaped | — |
 | merge.item | `yoke merge item` | tool_shaped | — |
-| migration.apply | `yoke migration rehearse PREFIX-N` | operator_break_glass | Local-Postgres/db-admin only; authoritative apply is boot convergence. |
+| migration.apply | `yoke migration rehearse` | tool_shaped | — |
 | onboard | `yoke onboard project` | tool_shaped | — |
 | onboard | `yoke onboard` | tool_shaped | — |
 | packets | `yoke packets check` | tool_shaped | — |
@@ -456,10 +457,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 43 |
-| claude-code | 5 |
-| agent | 1 |
-| cursor | 1 |
+| codex | 26 |
+| agent | 24 |
 
 ## 8. Contradictions
 
