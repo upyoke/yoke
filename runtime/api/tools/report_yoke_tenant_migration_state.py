@@ -6,9 +6,9 @@ tenant is its own database with its own ``applied_migrations`` ledger, so
 "the fleet is current" is a claim about every tenant, not about whichever
 database a connection happens to resolve to.
 
-Reads only. Credential material is owned by the connection's declared source
-and resolved through :func:`db_backend.resolve_pg_dsn`, so no secret reaches
-this process's argv or its output.
+Reads only. Credential material is owned by the explicitly named connection's
+declared source and retained in a secret-safe readiness handle, so no secret
+reaches this process's argv or its output.
 
 Usage::
 
@@ -20,7 +20,6 @@ where *env-name* is a configured admin connection (for example
 
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable, Sequence
 from typing import Any, List, Optional, Tuple
@@ -329,12 +328,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(__doc__)
         return 0 if args[:1] in (["-h"], ["--help"]) else 2
 
-    os.environ["YOKE_ENV"] = args[0]
-    from yoke_core.domain import db_backend
-    from runtime.api.tools.yoke_migration_fleet import tenant_databases
+    from yoke_core.domain.connected_env_readiness import activate_selected_postgres
+    from yoke_core.tools.yoke_migration_fleet import database_dsn, tenant_databases
+
+    authority = activate_selected_postgres(args[0])
 
     def dsn_for(database: str) -> str:
-        return db_backend.resolve_pg_dsn(dbname=database)
+        return database_dsn(authority.dsn, database)
 
     databases = tenant_databases(dsn_for)
     print(f"environment: {args[0]}")

@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -160,29 +159,20 @@ def _selected_manifest(
 def _admin_authority_dsn(environment: str) -> str:
     """Resolve exactly one operator-selected local Postgres authority."""
     from yoke_contracts.machine_config.schema import DB_ADMIN_ENV_SUFFIX
-    from yoke_core.domain import db_backend, yoke_connected_env
+    from yoke_core.domain.connected_env_readiness import (
+        ConnectedEnvUnavailable,
+        SelectedPostgresError,
+        activate_selected_postgres,
+    )
 
     selected = environment.strip()
     if not selected.endswith(DB_ADMIN_ENV_SUFFIX):
         raise MigrationContentAdoptionError(
             "migration adoption requires an explicitly selected *-db-admin connection"
         )
-    os.environ["YOKE_ENV"] = selected
     try:
-        active = yoke_connected_env.load_active()
-        if active is None or active.environment != selected:
-            raise MigrationContentAdoptionError(
-                f"admin connection {selected!r} is not configured"
-            )
-        if active.backend != db_backend.POSTGRES:
-            raise MigrationContentAdoptionError(
-                f"admin connection {selected!r} is not local Postgres"
-            )
-        return yoke_connected_env.resolve_postgres_dsn(
-            dsn_env=db_backend.PG_DSN_ENV,
-            dsn_file_env=db_backend.PG_DSN_FILE_ENV,
-        ).dsn
-    except yoke_connected_env.ConnectedEnvError as exc:
+        return activate_selected_postgres(selected).dsn
+    except (SelectedPostgresError, ConnectedEnvUnavailable) as exc:
         raise MigrationContentAdoptionError(
             f"admin connection {selected!r} could not be resolved: {exc}"
         ) from exc
