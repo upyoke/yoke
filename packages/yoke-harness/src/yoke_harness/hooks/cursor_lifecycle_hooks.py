@@ -17,6 +17,7 @@ from typing import Any, Optional
 from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
     CURSOR_LIFECYCLE_COMMAND_MARKER,
+    CURSOR_LIFECYCLE_COMMAND_MARKERS,
     CURSOR_PROJECT_CONFIG_OWNER,
     CURSOR_USER_LIFECYCLE_OWNER,
 )
@@ -33,6 +34,7 @@ _LIFECYCLE_VERBS: dict[str, str] = {
     "sessionEnd": "SessionEnd",
 }
 
+
 def cursor_lifecycle_hook_command(
     event_verb: str,
     *,
@@ -47,7 +49,6 @@ def cursor_lifecycle_hook_command(
     """
     # Single-quoted -lc body: no single quotes inside.
     body = (
-        f'{CURSOR_LIFECYCLE_COMMAND_MARKER}; '
         'root=""; '
         'for c in "$YOKE_ROOT" "$CURSOR_PROJECT_DIR" "$PWD"; do '
         '[ -n "$c" ] && [ -d "$c" ] && root="$c" && break; '
@@ -65,6 +66,7 @@ def cursor_lifecycle_hook_command(
         '[ -n "$root" ] || root="${HOME:-/tmp}"; '
         'cd "$root" 2>/dev/null || cd "${HOME:-/tmp}" 2>/dev/null || cd /; '
         f'env YOKE_ROOT="$root" {_CURSOR_IDENTITY_ENV} '
+        f'{CURSOR_LIFECYCLE_COMMAND_MARKER} '
         f'{CONFIG_OWNER_ENV_VAR}={config_owner} '
         f'{_YOKE_HOOK_EVALUATE} {event_verb}'
     )
@@ -87,7 +89,7 @@ def _is_yoke_lifecycle_entry(entry: Any) -> bool:
     command = entry.get("command")
     return (
         isinstance(command, str)
-        and CURSOR_LIFECYCLE_COMMAND_MARKER in command
+        and any(marker in command for marker in CURSOR_LIFECYCLE_COMMAND_MARKERS)
     )
 
 

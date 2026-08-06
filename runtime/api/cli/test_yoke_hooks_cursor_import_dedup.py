@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.hook_runner.config_owner import (
+    CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER,
     CURSOR_LIFECYCLE_COMMAND_MARKER,
 )
 from yoke_cli.commands.adapters.hook_config_dedup import (
@@ -23,6 +24,7 @@ def _write_cursor_owner(
     native_events: str | tuple[str, ...],
     runner_event: str,
     *,
+    lifecycle_marker: str = CURSOR_LIFECYCLE_COMMAND_MARKER,
     owner: str = "cursor-project",
 ) -> None:
     cursor = root / ".cursor"
@@ -35,7 +37,7 @@ def _write_cursor_owner(
             "hooks": {
                 native_event: [{
                     "command": (
-                        f"{CURSOR_LIFECYCLE_COMMAND_MARKER}; "
+                        f"{lifecycle_marker}; "
                         f"env YOKE_HOOK_CONFIG_OWNER={owner} "
                         f"yoke hook evaluate {runner_event}"
                     ),
@@ -200,6 +202,28 @@ def test_user_backstop_owns_lifecycle_when_project_config_is_missing(
         },
         payload,
     )
+
+
+def test_legacy_user_backstop_stays_owner_until_refresh(tmp_path) -> None:
+    machine_home = tmp_path / "machine"
+    _write_cursor_owner(
+        machine_home,
+        "stop",
+        "Stop",
+        lifecycle_marker=CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER,
+        owner="cursor-user-lifecycle",
+    )
+    environment = {
+        "CURSOR_PROJECT_DIR": str(tmp_path / "missing-project"),
+        "HOME": str(machine_home),
+        "YOKE_HOOK_CONFIG_OWNER": "claude",
+    }
+    payload = (
+        '{"session_id":"cursor-legacy-user",'
+        '"conversation_id":"cursor-legacy-user"}'
+    )
+
+    assert should_skip_config_duplicate("Stop", environment, payload)
 
 
 def test_claude_owned_hook_still_runs_outside_cursor(monkeypatch) -> None:

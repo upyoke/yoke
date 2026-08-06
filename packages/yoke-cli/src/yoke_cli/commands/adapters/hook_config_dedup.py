@@ -12,7 +12,7 @@ from yoke_contracts.hook_runner.config_owner import (
     CONFIG_OWNER_ENV_VAR,
     CURSOR_COMPATIBILITY_RUNNER_ALIASES,
     CURSOR_EXECUTOR_ID,
-    CURSOR_LIFECYCLE_COMMAND_MARKER,
+    CURSOR_LIFECYCLE_COMMAND_MARKERS,
     CURSOR_NATIVE_RUNNER_EVENTS,
     CURSOR_PROJECT_CONFIG_OWNER,
     CURSOR_USER_LIFECYCLE_OWNER,
@@ -53,7 +53,7 @@ def _cursor_config_owns_event(
     event_name: str,
     owner: str,
     *,
-    required_marker: str | None = None,
+    accepted_markers: tuple[str, ...] = (),
 ) -> bool:
     native_verb = CURSOR_COMPATIBILITY_RUNNER_ALIASES.get(
         event_name, event_name,
@@ -97,8 +97,8 @@ def _cursor_config_owns_event(
             and marker_pattern.search(entry["command"])
             and evaluate_pattern.search(entry["command"])
             and (
-                required_marker is None
-                or required_marker in entry["command"]
+                not accepted_markers
+                or any(marker in entry["command"] for marker in accepted_markers)
             )
             for entry in hooks.get(native_event, [])
         )
@@ -131,7 +131,7 @@ def _user_cursor_config_owns_lifecycle_event(
         Path(home),
         event_name,
         CURSOR_USER_LIFECYCLE_OWNER,
-        required_marker=CURSOR_LIFECYCLE_COMMAND_MARKER,
+        accepted_markers=CURSOR_LIFECYCLE_COMMAND_MARKERS,
     )
 
 

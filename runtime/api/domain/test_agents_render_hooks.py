@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_harness.hooks import cursor_model_spool
 from yoke_contracts.hook_runner.config_owner import (
+    CURSOR_LIFECYCLE_COMMAND_MARKER,
     CURSOR_NATIVE_RUNNER_EVENTS,
 )
 
@@ -109,10 +110,10 @@ def test_cursor_stop_and_session_end_use_lifecycle_command() -> None:
     block = render_cursor_hooks_block()
     stop = block["hooks"]["stop"][0]["command"]
     end = block["hooks"]["sessionEnd"][0]["command"]
-    assert "yoke-cursor-lifecycle-root=1" in stop
-    assert "yoke-cursor-lifecycle-root=1" in end
+    assert CURSOR_LIFECYCLE_COMMAND_MARKER in stop
+    assert CURSOR_LIFECYCLE_COMMAND_MARKER in end
     pre = block["hooks"]["preToolUse"][0]["command"]
-    assert "yoke-cursor-lifecycle-root" not in pre
+    assert CURSOR_LIFECYCLE_COMMAND_MARKER not in pre
 
 
 def test_cursor_runner_commands_mark_the_project_config_owner() -> None:
