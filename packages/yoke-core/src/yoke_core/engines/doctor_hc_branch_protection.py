@@ -2,7 +2,7 @@
 
 HC-branch-protection-required-check auto-detects the project's remote CI
 enforcement posture and classifies the outcome. Pairs with
-``.github/workflows/yoke-ci.yml`` and the operator runbook at
+``.github/workflows/yoke-ci.yml`` / ``cla.yml`` and the operator runbook at
 the operator's private branch-protection runbook.
 
 Two-mode model (operator decision recorded 2026-05-26):
@@ -12,7 +12,8 @@ Two-mode model (operator decision recorded 2026-05-26):
   in ``required_status_checks.contexts``, PASS — remote merge blocking
   is in place. When checks are missing or branch protection is absent
   entirely, FAIL and emit ``BranchProtectionCheckFailed`` with the
-  reason.
+  reason. When a live required context matches no workflow job name,
+  FAIL as stale-protection drift.
 - **Notify-only mode**: the repo plan / visibility does NOT permit
   branch protection (the canonical GitHub response is HTTP 403 with the
   ``Upgrade to GitHub Pro or make this repository public`` message).
@@ -27,13 +28,16 @@ do not register as failures.
 Emits ``BranchProtectionCheckFailed`` (WARN) on drift / unavailability
 so the events ledger carries a structured trail. The ``reason`` field
 distinguishes ``branch_protection_absent``,
-``missing_required_checks``, and ``branch_protection_unavailable``.
+``missing_required_checks``, ``stale_required_checks``, and
+``branch_protection_unavailable``.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
-from typing import Iterable, Sequence, Tuple
+from pathlib import Path
+from typing import Iterable, Optional, Sequence, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
@@ -52,16 +56,18 @@ from yoke_core.domain.project_github_auth import (
     repair_command_hint,
     resolve_project_github_auth,
 )
-from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector, _resolve_repo_root
 
 
 CHECK_ID = "branch-protection-required-check"
 CHECK_NAME = "Branch protection required check"
 PROTECTED_BRANCH = "main"
 
-# Expected status-check contexts produced by .github/workflows/yoke-ci.yml:
-# the SQLite Python-version matrix plus the dedicated Postgres proof job.
-EXPECTED_CHECKS: Tuple[str, ...] = ("test (3.9)", "test (3.13)", "test-postgres")
+# Project-declared required contexts for upyoke/yoke main. Live branch
+# protection requires only CLA's signature-check; yoke-ci shard/container
+# jobs authorize through the QA run conclusion and the merge engine's
+# all-check-runs poll, not through required_status_checks.
+EXPECTED_CHECKS: Tuple[str, ...] = ("signature-check",)
 
 # GitHub's canonical plan-gated 403 message for branches/{branch}/protection.
 # Match on the substring so we don't depend on exact JSON shape.
@@ -70,6 +76,9 @@ _PLAN_GATED_MARKERS: Tuple[str, ...] = (
     "make this repository public",
 )
 
+_JOB_ID_RE = re.compile(r"(?m)^  ([A-Za-z0-9_-]+):\n")
+_JOB_NAME_RE = re.compile(r"(?m)^  [A-Za-z0-9_-]+:\n    name: (.+)$")
+
 
 def _is_plan_gated_unavailable(exc: RestAuthError) -> bool:
     """True when a 403 body indicates branch protection is plan-gated."""
@@ -77,6 +86,65 @@ def _is_plan_gated_unavailable(exc: RestAuthError) -> bool:
         return False
     body = (exc.body or "") + " " + (str(exc) or "")
     return any(marker in body for marker in _PLAN_GATED_MARKERS)
+
+
+def workflow_job_names(workflows_dir: Path) -> Tuple[str, ...]:
+    """Return check-run bases from workflow job ids and explicit ``name:`` values.
+
+    GitHub uses a job's ``name:`` when present, otherwise the job id, as the
+    check-run context base (matrix legs append `` (… )``).
+    """
+    if not workflows_dir.is_dir():
+        return ()
+    names: list[str] = []
+    seen: set[str] = set()
+    for path in sorted(workflows_dir.glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        # Only scan the jobs: block so top-level keys are not treated as jobs.
+        jobs_idx = text.find("\njobs:\n")
+        if jobs_idx < 0:
+            if text.startswith("jobs:\n"):
+                jobs_block = text
+            else:
+                continue
+        else:
+            jobs_block = text[jobs_idx + 1 :]
+        for match in _JOB_ID_RE.finditer(jobs_block):
+            job_id = match.group(1)
+            if job_id not in seen:
+                seen.add(job_id)
+                names.append(job_id)
+        for match in _JOB_NAME_RE.finditer(jobs_block):
+            name = match.group(1).strip()
+            if name not in seen:
+                seen.add(name)
+                names.append(name)
+    return tuple(names)
+
+
+def context_matches_job(context: str, job_names: Sequence[str]) -> bool:
+    """True when a required context matches a workflow job name or matrix base."""
+    if context in job_names:
+        return True
+    if " (" in context:
+        return context.split(" (", 1)[0] in job_names
+    return False
+
+
+def orphan_required_contexts(
+    actual: Sequence[str], job_names: Sequence[str],
+) -> Tuple[str, ...]:
+    """Live required contexts that no workflow job name can produce."""
+    if not job_names:
+        return ()
+    return tuple(c for c in actual if not context_matches_job(c, job_names))
+
+
+def _workflows_dir_from_checkout() -> Optional[Path]:
+    root = _resolve_repo_root()
+    if not root:
+        return None
+    return Path(root) / ".github" / "workflows"
 
 
 def hc_branch_protection_required_check(
@@ -170,34 +238,57 @@ def hc_branch_protection_required_check(
     actual = _extract_contexts(resp.body if isinstance(resp.body, dict) else {})
     missing = tuple(c for c in EXPECTED_CHECKS if c not in actual)
 
-    if not missing:
+    if missing:
+        _emit_drift_event(
+            repo=auth.repo,
+            expected=EXPECTED_CHECKS,
+            actual=actual,
+            missing=missing,
+            reason="missing_required_checks",
+        )
         rec.record(
-            CHECK_ID, CHECK_NAME, "PASS",
+            CHECK_ID, CHECK_NAME, "FAIL",
             (
-                f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} "
-                f"requires {len(EXPECTED_CHECKS)} yoke-ci check(s): "
-                f"{', '.join(EXPECTED_CHECKS)}."
+                f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} is missing "
+                f"required check(s): {', '.join(missing)}.\n"
+                f"  Configured contexts: "
+                f"{', '.join(actual) if actual else '(none)'}.\n"
+                "  Add the missing context(s) via the GitHub branch-protection "
+                "API (see the branch-protection runbook in the operator's private ops repo)."
             ),
         )
         return
 
-    _emit_drift_event(
-        repo=auth.repo,
-        expected=EXPECTED_CHECKS,
-        actual=actual,
-        missing=missing,
-        reason="missing_required_checks",
-    )
+    workflows_dir = _workflows_dir_from_checkout()
+    job_names = workflow_job_names(workflows_dir) if workflows_dir else ()
+    orphans = orphan_required_contexts(actual, job_names)
+    if orphans:
+        _emit_drift_event(
+            repo=auth.repo,
+            expected=EXPECTED_CHECKS,
+            actual=actual,
+            missing=orphans,
+            reason="stale_required_checks",
+        )
+        rec.record(
+            CHECK_ID, CHECK_NAME, "FAIL",
+            (
+                f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} requires "
+                f"context(s) no workflow job produces: {', '.join(orphans)}.\n"
+                f"  Declared expectation: {', '.join(EXPECTED_CHECKS)}.\n"
+                f"  Configured contexts: {', '.join(actual)}.\n"
+                "  Remove the stale context(s) from branch protection or restore "
+                "the matching workflow job."
+            ),
+        )
+        return
 
     rec.record(
-        CHECK_ID, CHECK_NAME, "FAIL",
+        CHECK_ID, CHECK_NAME, "PASS",
         (
-            f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} is missing "
-            f"required check(s): {', '.join(missing)}.\n"
-            f"  Configured contexts: "
-            f"{', '.join(actual) if actual else '(none)'}.\n"
-            "  Add the missing context(s) via the GitHub branch-protection "
-            "API (see the branch-protection runbook in the operator's private ops repo)."
+            f"Branch protection on {auth.repo}@{PROTECTED_BRANCH} "
+            f"requires the declared context(s): "
+            f"{', '.join(EXPECTED_CHECKS)}."
         ),
     )
 
@@ -245,5 +336,8 @@ __all__ = [
     "CHECK_NAME",
     "EXPECTED_CHECKS",
     "PROTECTED_BRANCH",
+    "context_matches_job",
     "hc_branch_protection_required_check",
+    "orphan_required_contexts",
+    "workflow_job_names",
 ]

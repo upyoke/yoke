@@ -6,10 +6,10 @@ Companion to [`docs/testing-verification.md`](../testing-verification.md).
 
 The full three-anchor suite runs off-machine in CI on both the pull request
 and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
-`pull_request` and `push` to `main`). The protected merge path requires the
-PR checks, so every merge carries one complete pre-merge sweep, and the push
-trigger re-proves the true merge commit afterward. Local verification stays
-change-scoped:
+`pull_request` and `push` to `main`). Branch protection on main requires only
+`signature-check` (CLA); Yoke-owned gates — the QA CI run conclusion and the
+merge engine's all-check-runs poll — authorize the suite. Local verification
+stays change-scoped:
 
 - **While implementing** — run the impacted selection over the branch diff:
 
@@ -29,7 +29,8 @@ change-scoped:
   `ci_workflow_file` capability, that case registers on the `command-ci`
   method and the gate executes on CI rather than on the machine (see
   *The gate runs on CI* below).
-- **At done** — no local sweep. The merge already required green PR checks,
+- **At done** — no local sweep. The merge path already waited on green
+  check-runs (PR merges) or ran the local merge after the gate (standalone),
   and the pushed merge commit gets its own CI run.
 
 ## The gate runs on CI
