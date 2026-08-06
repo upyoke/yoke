@@ -17,15 +17,23 @@ def _resp(success: bool, *, result=None, code: str = "", message: str = ""):
     return SimpleNamespace(success=success, result=result, error=error)
 
 
-def _patch_dispatcher(monkeypatch, response):
+def _patch_dispatcher(monkeypatch, responses):
+    """Patch call_dispatcher; *responses* is a list or a single response."""
+    queue = list(responses if isinstance(responses, list) else [responses])
     calls: list[dict] = []
 
     def fake(**kwargs):
         calls.append(kwargs)
-        return response
+        if not queue:
+            raise AssertionError(f"unexpected dispatcher call: {kwargs}")
+        return queue.pop(0)
 
     monkeypatch.setattr(mod, "call_dispatcher", fake)
     return calls
+
+
+def _detail_resp(status: str = "implementing"):
+    return _resp(True, result={"item": {"status": status}})
 
 
 @pytest.fixture
@@ -55,7 +63,7 @@ def test_resolution_errors_block_registered_project(
 ) -> None:
     _patch_dispatcher(
         monkeypatch,
-        _resp(False, code=code, message=message),
+        [_detail_resp(), _resp(False, code=code, message=message)],
     )
 
     with pytest.raises(RuntimeError, match=code):
@@ -82,14 +90,17 @@ def test_success_returns_registered_command(
 ) -> None:
     calls = _patch_dispatcher(
         monkeypatch,
-        _resp(
-            True,
-            result={
-                "project": "example",
-                "scope": scope,
-                "command": "python3 verify_tree.py",
-            },
-        ),
+        [
+            _detail_resp(),
+            _resp(
+                True,
+                result={
+                    "project": "example",
+                    "scope": scope,
+                    "command": "python3 verify_tree.py",
+                },
+            ),
+        ],
     )
 
     assert mod._registered_verification_command(ctx) == (
@@ -97,10 +108,45 @@ def test_success_returns_registered_command(
         "python3 verify_tree.py",
     )
     assert [call["function_id"] for call in calls] == [
-        "merge.tests.post_rebase_requirement"
+        "items.detail.get",
+        "merge.tests.post_rebase_requirement",
     ]
-    assert calls[0]["target"].item_id == ITEM_ID
-    assert calls[0]["payload"] == {"transition_id": "release"}
+    assert calls[1]["target"].item_id == ITEM_ID
+    assert calls[1]["payload"] == {"transition_id": "release"}
+
+
+def test_unknown_release_stage_falls_back_to_reviewing_implementation(
+    ctx,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _patch_dispatcher(
+        monkeypatch,
+        [
+            _detail_resp("implementing"),
+            _resp(
+                False,
+                code="post_rebase_requirement_failed",
+                message="workflow transition 'release' is not in dash@3",
+            ),
+            _resp(
+                True,
+                result={
+                    "project": "example",
+                    "scope": "quick",
+                    "command": "python3 verify_tree.py",
+                },
+            ),
+        ],
+    )
+
+    assert mod._registered_verification_command(ctx) == (
+        "quick",
+        "python3 verify_tree.py",
+    )
+    assert [c["payload"].get("transition_id") for c in calls[1:]] == [
+        "release",
+        "reviewing-implementation",
+    ]
 
 
 def test_success_without_executable_command_blocks(
@@ -109,7 +155,7 @@ def test_success_without_executable_command_blocks(
 ) -> None:
     _patch_dispatcher(
         monkeypatch,
-        _resp(True, result={"scope": "full", "command": ""}),
+        [_detail_resp(), _resp(True, result={"scope": "full", "command": ""})],
     )
 
     with pytest.raises(RuntimeError, match="no executable"):

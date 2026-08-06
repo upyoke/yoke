@@ -112,6 +112,36 @@ def _run_streaming(
 
 
 POST_REBASE_TRANSITION_ID = "release"
+# Older control-plane builds validate the transition against the pinned
+# workflow before the has_attached_plans skip. Dash (and other workflows
+# without a `release` stage) need a real stage; try these after `release`.
+_POST_REBASE_TRANSITION_FALLBACKS = (
+    "reviewing-implementation",
+    "done",
+)
+
+
+def _post_rebase_transition_candidates(item_id: int) -> list[str]:
+    """Ordered transition ids to try for post-rebase plan materialization."""
+    ordered = [POST_REBASE_TRANSITION_ID, *_POST_REBASE_TRANSITION_FALLBACKS]
+    try:
+        resp = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=item_id),
+            payload={},
+        )
+    except Exception:  # noqa: BLE001 - detail lookup is advisory for ordering
+        return ordered
+    if not resp.success or not resp.result:
+        return ordered
+    status = str((resp.result.get("item") or {}).get("status") or "").strip()
+    if status and status in ordered:
+        return [status, *[c for c in ordered if c != status]]
+    return ordered
+
+
+def _is_unknown_workflow_transition(message: str) -> bool:
+    return "is not in" in message and "workflow transition" in message
 
 
 def _registered_verification_command(
@@ -142,31 +172,36 @@ def _registered_verification_command(
             )
         return None
 
-    try:
-        resp = call_dispatcher(
-            function_id="merge.tests.post_rebase_requirement",
-            target=TargetRef(kind="item", item_id=item_id),
-            payload={"transition_id": POST_REBASE_TRANSITION_ID},
-        )
-    except Exception as exc:  # noqa: BLE001 - resolver failure blocks merge.
-        raise RuntimeError(
-            f"integration verification dispatcher failed: {exc}"
-        ) from exc
-    if not resp.success:
-        code = (resp.error.code if resp.error else "unknown") or "unknown"
-        message = (resp.error.message if resp.error else "") or ""
-        raise RuntimeError(
-            f"integration verification resolution failed ({code}): {message}"
-        )
-    result = resp.result or {}
-    scope = str(result.get("scope") or "").strip()
-    command = str(result.get("command") or "").strip()
-    if scope not in {"full", "quick"} or not command:
-        raise RuntimeError(
-            "integration verification resolver returned no executable "
-            "registered full or quick command"
-        )
-    return scope, command
+    last_code = "unknown"
+    last_message = ""
+    for transition_id in _post_rebase_transition_candidates(item_id):
+        try:
+            resp = call_dispatcher(
+                function_id="merge.tests.post_rebase_requirement",
+                target=TargetRef(kind="item", item_id=item_id),
+                payload={"transition_id": transition_id},
+            )
+        except Exception as exc:  # noqa: BLE001 - resolver failure blocks merge.
+            raise RuntimeError(
+                f"integration verification dispatcher failed: {exc}"
+            ) from exc
+        if resp.success:
+            result = resp.result or {}
+            scope = str(result.get("scope") or "").strip()
+            command = str(result.get("command") or "").strip()
+            if scope not in {"full", "quick"} or not command:
+                raise RuntimeError(
+                    "integration verification resolver returned no executable "
+                    "registered full or quick command"
+                )
+            return scope, command
+        last_code = (resp.error.code if resp.error else "unknown") or "unknown"
+        last_message = (resp.error.message if resp.error else "") or ""
+        if not _is_unknown_workflow_transition(last_message):
+            break
+    raise RuntimeError(
+        f"integration verification resolution failed ({last_code}): {last_message}"
+    )
 
 
 def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
