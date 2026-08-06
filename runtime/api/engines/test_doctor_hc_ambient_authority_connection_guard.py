@@ -9,7 +9,9 @@ from yoke_project_checks import check_ambient_authority_connection_guard as hc
 
 
 def _write(root: Path, name: str, body: str) -> None:
-    (root / name).write_text(body, encoding="utf-8")
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
 
 
 def test_current_tree_declares_every_raw_ambient_connection() -> None:
@@ -66,8 +68,7 @@ def test_explicit_dsn_is_not_an_ambient_acquisition(tmp_path: Path) -> None:
     _write(
         tmp_path,
         "explicit.py",
-        "import psycopg\n"
-        "conn = psycopg.connect(maintenance_dsn())\n",
+        "import psycopg\nconn = psycopg.connect(maintenance_dsn())\n",
     )
     assert hc.scan_for_unguarded_connections(tmp_path, roots=["."]) == []
 
@@ -106,3 +107,14 @@ def test_test_modules_are_out_of_scope(tmp_path: Path) -> None:
         "conn = psycopg.connect(db_backend.resolve_pg_dsn())\n",
     )
     assert hc.scan_for_unguarded_connections(tmp_path, roots=["."]) == []
+
+
+def test_generated_build_trees_are_out_of_scope(tmp_path: Path) -> None:
+    _write(
+        tmp_path,
+        "packages/example/build/lib/example/bypass.py",
+        "import psycopg\n"
+        "from yoke_core.domain import db_backend\n"
+        "conn = psycopg.connect(db_backend.resolve_pg_dsn())\n",
+    )
+    assert hc.scan_for_unguarded_connections(tmp_path, roots=["packages"]) == []
