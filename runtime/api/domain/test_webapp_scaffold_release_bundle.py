@@ -47,9 +47,19 @@ def test_packaged_webapp_bundle_exposes_content_identity_release(
 
     assert descriptor["latest_version"] == "1.1.2"
     assert bundle["version"] == "1.1.2"
+    release = descriptor["versions"]["1.1.2"]
+    declared_sources = {row["source"] for row in release["files"]}
+    release_root = canonical / release["source"]
+    actual_sources = {
+        path.relative_to(release_root).as_posix()
+        for path in release_root.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
+    }
+    assert declared_sources == actual_sources
     paths = {row["path"] for row in bundle["files"]}
     assert "app/db/migrations/adoption_manifest.py" in paths
     assert "app/db/migrations/content_identity.py" in paths
+    assert "app/db/migrations/receipt_guards.py" in paths
     assert "app/tests/test_migration_adoption_atomicity.py" in paths
     assert "app/tests/test_migration_adoption_receipts.py" in paths
     assert "app/tests/test_migration_content_identity.py" in paths

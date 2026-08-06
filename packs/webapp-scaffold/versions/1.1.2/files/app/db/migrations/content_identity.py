@@ -9,13 +9,12 @@ from .adoption_manifest import (
     module_sha256,
     read_adoption_manifest,
 )
-
-
-RECEIPT_TABLE = "migration_adoption_receipts"
-RECEIPT_GUARDS = {
-    "migration_adoption_receipts_no_update": "UPDATE",
-    "migration_adoption_receipts_no_delete": "DELETE",
-}
+from .receipt_guards import (
+    RECEIPT_GUARDS,
+    RECEIPT_TABLE,
+    adoption_receipt_guard_state,
+    ensure_adoption_receipt_guards,
+)
 
 
 def ledger_columns(conn) -> set[str]:
@@ -75,29 +74,6 @@ def _ledger_rows(conn, history) -> list[dict]:
             }
         )
     return result
-
-
-def adoption_receipt_guard_state(conn) -> dict:
-    """Treat an existing receipt ledger as unsafe unless both guards exist."""
-    table_present = conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
-        (RECEIPT_TABLE,),
-    ).fetchone() is not None
-    missing = []
-    if table_present:
-        installed = {
-            str(row[0]) for row in conn.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='trigger' AND tbl_name=?",
-                (RECEIPT_TABLE,),
-            ).fetchall()
-        }
-        missing = sorted(set(RECEIPT_GUARDS) - installed)
-    return {
-        "adoption_receipt_table_present": table_present,
-        "adoption_receipt_guards_ready": not missing,
-        "missing_adoption_receipt_guards": missing,
-    }
 
 
 def content_identity_state(conn, history) -> dict:
@@ -207,28 +183,10 @@ def _validate_adoption(
     return candidates
 
 
-def _ensure_adoption_receipt_guards(conn) -> None:
-    conn.execute(
-        f"CREATE TABLE IF NOT EXISTS {RECEIPT_TABLE} ("
-        "receipt_id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "manifest_sha256 TEXT NOT NULL UNIQUE, engine_version TEXT NOT NULL, "
-        "source_artifact TEXT NOT NULL, source_sha256 TEXT NOT NULL, "
-        "source_commit TEXT NOT NULL, adopted_by TEXT NOT NULL, "
-        "adopted_entries_json TEXT NOT NULL, "
-        "recorded_at TEXT NOT NULL DEFAULT (datetime('now')))"
-    )
-    for name, operation in RECEIPT_GUARDS.items():
-        conn.execute(
-            f"CREATE TRIGGER IF NOT EXISTS {name} BEFORE {operation} "
-            f"ON {RECEIPT_TABLE} BEGIN SELECT RAISE(ABORT, "
-            "'migration adoption receipts are append-only'); END"
-        )
-
-
 def _record_adoption_receipt(
     conn, manifest, adopted: list[str], adopted_by: str,
 ) -> dict | None:
-    _ensure_adoption_receipt_guards(conn)
+    ensure_adoption_receipt_guards(conn)
     if not adopted:
         return None
     artifact = manifest["artifact"]

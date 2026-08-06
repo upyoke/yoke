@@ -303,3 +303,40 @@ def test_missing_receipt_guard_blocks_readiness_and_adoption_restores_it(
     }
     conn.close()
     assert installed == set(RECEIPT_GUARDS)
+
+
+def test_wrong_receipt_guard_body_is_detected_and_replaced(
+    tmp_path, monkeypatch,
+) -> None:
+    history = tmp_path / "history"
+    history.mkdir()
+    module = _migration(history)
+    monkeypatch.setattr(migration_runner, "MIGRATIONS_DIR", history)
+    database = tmp_path / "app.db"
+    _legacy_database(database)
+    manifest, digest = _manifest(tmp_path / "adopt.json", module)
+    args = _adoption_args(digest)
+    migration_runner.migrate(
+        db_path=database, running_version="1.0.0",
+        adoption_manifest=manifest, **args,
+    )
+    guard = "migration_adoption_receipts_no_update"
+    conn = sqlite3.connect(database)
+    conn.execute(f"DROP TRIGGER {guard}")
+    conn.execute(
+        f"CREATE TRIGGER {guard} BEFORE UPDATE ON "
+        "migration_adoption_receipts BEGIN SELECT 1; END"
+    )
+    assert migration_runner.migration_state(
+        conn, running_version="1.0.0",
+    )["missing_adoption_receipt_guards"] == [guard]
+    conn.close()
+
+    migration_runner.migrate(
+        db_path=database, running_version="1.0.0",
+        adoption_manifest=manifest, **args,
+    )
+    conn = sqlite3.connect(database)
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        conn.execute("UPDATE migration_adoption_receipts SET adopted_by='x'")
+    conn.close()
