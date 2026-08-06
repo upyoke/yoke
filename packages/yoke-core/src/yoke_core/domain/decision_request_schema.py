@@ -10,22 +10,15 @@ from yoke_core.domain.decision_request_contract import (
     DECISION_REQUEST_KINDS,
     IN_APP_NOTIFICATION_KINDS,
 )
+from yoke_core.domain.inbox_notification_projection_contract import (
+    DELIVERY_SNAPSHOT_COLUMNS,
+)
 from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 def _sql_values(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{value}'" for value in values)
-
-
-_DELIVERY_SNAPSHOT_COLUMNS = (
-    ("event_name", "TEXT"),
-    ("project_id", "INTEGER"),
-    ("event_outcome", "TEXT"),
-    ("event_actor_id", "INTEGER"),
-    ("event_actor_label", "TEXT"),
-    ("event_envelope", "TEXT"),
-)
 
 
 def create_decision_request_tables(
@@ -36,6 +29,10 @@ def create_decision_request_tables(
     """Create the Inbox substrate, committing unless the caller owns the transaction."""
     request_kinds = _sql_values(DECISION_REQUEST_KINDS)
     notification_kinds = _sql_values(IN_APP_NOTIFICATION_KINDS)
+    delivery_snapshot_columns = ",\n            ".join(
+        f"{column} {definition}"
+        for column, definition in DELIVERY_SNAPSHOT_COLUMNS
+    )
     execute_schema_script(
         conn,
         f"""
@@ -107,12 +104,7 @@ def create_decision_request_tables(
             reason TEXT NOT NULL,
             read_at TEXT,
             created_at TEXT NOT NULL,
-            event_name TEXT,
-            project_id INTEGER,
-            event_outcome TEXT,
-            event_actor_id INTEGER,
-            event_actor_label TEXT,
-            event_envelope TEXT,
+            {delivery_snapshot_columns},
             UNIQUE(channel, event_id, actor_id)
         );
         CREATE INDEX IF NOT EXISTS idx_addressed_events_actor_unread
@@ -143,7 +135,7 @@ def create_decision_request_tables(
         "consumed_workflow_version_id",
         "INTEGER",
     )
-    for column, definition in _DELIVERY_SNAPSHOT_COLUMNS:
+    for column, definition in DELIVERY_SNAPSHOT_COLUMNS:
         _add_column_if_not_exists(
             conn,
             "addressed_event_deliveries",

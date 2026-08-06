@@ -15,15 +15,8 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-
-
-SNAPSHOT_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("event_name", "TEXT"),
-    ("project_id", "INTEGER"),
-    ("event_outcome", "TEXT"),
-    ("event_actor_id", "INTEGER"),
-    ("event_actor_label", "TEXT"),
-    ("event_envelope", "TEXT"),
+from yoke_core.domain.inbox_notification_projection_contract import (
+    DELIVERY_SNAPSHOT_COLUMNS,
 )
 
 
@@ -40,7 +33,7 @@ def apply(conn: Any) -> None:
 
     if not _table_exists(conn, "addressed_event_deliveries"):
         return
-    for column, definition in SNAPSHOT_COLUMNS:
+    for column, definition in DELIVERY_SNAPSHOT_COLUMNS:
         _add_column_if_not_exists(
             conn,
             "addressed_event_deliveries",
@@ -81,7 +74,7 @@ def invariants(conn: Any) -> None:
         return
     missing = [
         column
-        for column, _definition in SNAPSHOT_COLUMNS
+        for column, _definition in DELIVERY_SNAPSHOT_COLUMNS
         if not _column_exists(conn, "addressed_event_deliveries", column)
     ]
     if missing:
@@ -118,4 +111,4 @@ def invariants(conn: Any) -> None:
         )
 
 
-__all__ = ["SNAPSHOT_COLUMNS", "apply", "invariants"]
+__all__ = ["apply", "invariants"]

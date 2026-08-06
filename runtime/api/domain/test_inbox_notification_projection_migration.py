@@ -9,6 +9,9 @@ import pytest
 
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.decision_request_events import append_decision_event_envelope
+from yoke_core.domain.inbox_notification_projection_contract import (
+    DELIVERY_SNAPSHOT_COLUMNS,
+)
 from yoke_core.domain.migration_history import (
     history_dir,
     load_migration_module,
@@ -173,7 +176,7 @@ def test_entry_is_additive_and_declares_no_serving_floor() -> None:
 
 
 def test_postgres_apply_backfills_current_schema(test_db) -> None:
-    for column, _definition in reversed(migration.SNAPSHOT_COLUMNS):
+    for column, _definition in reversed(DELIVERY_SNAPSHOT_COLUMNS):
         test_db.execute(
             f'ALTER TABLE addressed_event_deliveries DROP COLUMN "{column}"'
         )
