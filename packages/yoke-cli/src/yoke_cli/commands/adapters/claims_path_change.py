@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -17,12 +18,15 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
+from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 
 
 CLAIM_PATH_WIDEN_USAGE = (
     "yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... "
     "--reason TEXT --item PREFIX-N [--allow-planned] "
-    "[--directory-paths PATH1,PATH2,...] [--session-id S] [--json]"
+    "[--directory-paths PATH1,PATH2,...] "
+    "[(--db-claim-json JSON | --db-claim-file PATH)] "
+    "[--session-id S] [--json]"
 )
 CLAIM_PATH_AMEND_USAGE = CLAIM_PATH_WIDEN_USAGE.replace(" path widen ", " path amend ")
 
@@ -71,6 +75,15 @@ def _claims_path_change(
         default=None,
         help="Comma-separated subset of --add-paths that are directory targets.",
     )
+    db_claim_group = parser.add_mutually_exclusive_group()
+    add_text_file_pair(
+        db_claim_group,
+        "--db-claim-json",
+        "--db-claim-file",
+        dest="db_claim_json",
+        help_text="Full unified DB-claim amendment as a JSON object.",
+        file_help="Read the unified DB-claim amendment from a JSON file.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -90,6 +103,22 @@ def _claims_path_change(
     }
     if parsed.directory_paths:
         payload["directory_paths"] = split_comma(parsed.directory_paths)
+    try:
+        db_claim_raw = resolve_text_file(
+            parsed.db_claim_json,
+            parsed.db_claim_json_file,
+            "--db-claim-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
+    if db_claim_raw is not None:
+        try:
+            db_claim = json.loads(db_claim_raw)
+        except json.JSONDecodeError as exc:
+            return usage_error(f"DB claim JSON is invalid: {exc}")
+        if not isinstance(db_claim, dict):
+            return usage_error("DB claim JSON must be an object")
+        payload["db_claim"] = db_claim
     sync_local_snapshot_for_write(
         project=parsed.project,
         integration_target=None,
