@@ -39,7 +39,7 @@ def session_with_claim(conn, tmp_path):
     repo_path = tmp_path / "repo"
     (repo_path / ".worktrees" / "YOK-100").mkdir(parents=True)
     register_machine_checkout(tmp_path / "machine-config", repo_path, 1)
-    seed_item(conn, item_id=100, branch="YOK-100")
+    seed_item(conn, item_id=100, branch="YOK-100", repo_path=repo_path)
     seed_item_claim(conn, "s1", item_id=100)
     return "s1"
 

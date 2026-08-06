@@ -17,7 +17,6 @@ that truth for humans without duplicating it as editable runtime state.
 - `file-line-exceptions` - repo-relative globs for files exempt from the
   local authored-file line limit.
 - `labels` - GitHub label color policy in `label_color_*=HEX` format.
-- `board.json` - board renderer appearance/tuning knobs.
 - `board-art` - live board header art read by the renderer.
 - `test-inventory.md` - Yoke test surfaces and lifecycle placement.
 - `packs.json` - project-owned receipt for separately updateable Packs; it
@@ -42,18 +41,17 @@ including the starter board art — renders from Python
 ## What lives where
 
 - Project appearance and repo-owned policy files (this directory):
-  `board.json`, `board-art`, `lint-config`, `file-line-exceptions`, `labels`.
+  `board-art`, `lint-config`, `file-line-exceptions`, `labels`.
 - Shared project behavior (authoritative DB): `project-policy` capability
   settings such as `base_branch`, `wip_cap`, `default_priority`,
-  `merge_conflict_threshold`, `max_attempts`, and `file_line_limit`.
+  `merge_conflict_threshold`, `max_attempts`, and `file_line_limit`; board
+  appearance and scope live under `project-policy.settings.board`.
 - Session routing (authoritative DB): `session-routing` capability settings
   for default lanes, lane allowlists, and `/yoke do` process-offer policy.
-- Machine view binding (`~/.yoke/config.json`): `projects[<checkout>].board`
-  carries `scope` and `render_path` - per-machine, because one machine may
-  render this checkout's board with `scope="all"`.
-- Generated board view: written to the path machine config resolves
-  (default `.yoke/BOARD.md`). Generated output - never edit it, and it
-  is never an installed file.
+- Machine checkout binding (`~/.yoke/config.json`): maps this checkout to the
+  connected universe's project id; it carries no board policy.
+- Generated board view: always written to `.yoke/BOARD.md`. Generated output
+  is never an installed file and must not be edited.
 
 ## Boundaries
 

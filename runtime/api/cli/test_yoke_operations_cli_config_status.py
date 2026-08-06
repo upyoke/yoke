@@ -24,6 +24,37 @@ def test_config_example_prints_canonical_json(capsys) -> None:
     assert payload == contract.canonical_example_payload()
 
 
+def test_env_list_reports_sanitized_connection_inventory(
+    tmp_path: Path, capsys,
+) -> None:
+    config = tmp_path / "config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "active_env": "prod",
+                "connections": {
+                    "local": {"transport": "postgres", "dsn": "secret-dsn"},
+                    "prod": {
+                        "transport": "https",
+                        "prod": True,
+                        "api_url": "https://example.test",
+                        "token": "secret-token",
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    rc = yoke_operations_cli.main(["env", "list", "--config", str(config), "--json"])
+
+    assert rc == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["active_env"] == "prod"
+    assert [row["env"] for row in report["rows"]] == ["local", "prod"]
+    assert "secret" not in json.dumps(report)
+
+
 def test_status_json_validates_machine_and_project_config(
     tmp_path: Path, capsys, monkeypatch,
 ) -> None:
@@ -48,10 +79,10 @@ def test_status_json_validates_machine_and_project_config(
     assert report["connection"]["prod"] is True
     assert report["connection"]["envs"] == ["prod"]
     assert report["project"]["project_id"] == 1
-    assert report["project"]["board_scope"] == "all"
-    assert report["project"]["board_config_path"].endswith(".yoke/board.json")
-    assert report["project"]["board_render_path"].endswith("BOARD-ALL.md")
-    assert report["project"]["board_ts_path"].endswith("BOARD-ALL.md.ts")
+    assert report["project"]["board_scope"] == "1"
+    assert report["project"]["board_settings_authority"] == "project-policy.settings.board"
+    assert report["project"]["board_render_path"].endswith(".yoke/BOARD.md")
+    assert report["project"]["board_ts_path"].endswith(".yoke/BOARD.md.ts")
     assert report["project"]["board_art_path"].endswith(".yoke/board-art")
     assert report["paths"]["temp_root"]["writable"] is True
     assert report["paths"]["cache_dir"]["writable"] is True

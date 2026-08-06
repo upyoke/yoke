@@ -76,7 +76,14 @@ def ensure_item_worktree(
     item_id: int,
     branch: str,
     lane_role: str,
+    repo: Path,
 ) -> int:
+    """Return the lane's id, creating it with its recorded path.
+
+    ``repo`` is required because lane authority is read from
+    ``item_worktrees.path``: a lane row without it authorises nothing, so
+    a fixture that omits it looks meaningful while proving nothing.
+    """
     row = conn.execute(
         "SELECT id FROM item_worktrees "
         "WHERE item_id = %s AND branch = %s AND state = 'active'",
@@ -86,11 +93,12 @@ def ensure_item_worktree(
         return int(row["id"])
     row = conn.execute(
         "INSERT INTO item_worktrees "
-        "(item_id, branch, lane_role, state, created_at, updated_at) "
-        "VALUES (%s, %s, %s, 'active', %s, %s) RETURNING id",
+        "(item_id, branch, path, lane_role, state, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, 'active', %s, %s) RETURNING id",
         (
             item_id,
             branch,
+            str(Path(repo) / ".worktrees" / branch),
             lane_role,
             "2026-01-01T00:00:00Z",
             "2026-01-01T00:00:00Z",
@@ -127,6 +135,7 @@ def seed_fanout(
             item_id=item_id,
             branch=branch,
             lane_role="worker",
+            repo=repo,
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, item_worktree_id) "

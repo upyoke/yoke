@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from yoke_core.domain.handlers import reads_misc
-from yoke_core.engines.doctor_applicability import CheckApplicability
+from yoke_core.engines.doctor_applicability import (
+    CheckApplicability,
+    DoctorContext,
+    RUNTIME_LOCAL,
+)
+from yoke_core.engines.doctor_project_checks import Discovery
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -35,7 +41,108 @@ class _Conn:
         pass
 
 
+class _AbortedTransactionConn:
+    def __init__(self):
+        self.aborted = False
+
+    def execute(self, statement, *_args):
+        if self.aborted:
+            raise RuntimeError("current transaction is aborted")
+        if statement == "synthetic broken query":
+            self.aborted = True
+            raise RuntimeError("synthetic query failed")
+        return self
+
+    def fetchone(self):
+        return None
+
+    def rollback(self):
+        self.aborted = False
+
+    def close(self):
+        pass
+
+
+def _record_query_failure_without_raising(conn, args, rec):
+    try:
+        conn.execute("synthetic broken query")
+    except RuntimeError:
+        rec.record(
+            "HC-query-failure", "Query-failure HC", "FAIL",
+            "the original query failed",
+        )
+
+
+def _record_after_query_failure(conn, args, rec):
+    conn.execute("synthetic healthy query")
+    rec.record("HC-after-query", "After-query HC", "PASS", "query ran")
+
+
+def _run_only_with_project_roster(
+    *, context: DoctorContext, checks: list[HealthCheck], slug: str,
+):
+    with (
+        patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", []),
+        patch("yoke_core.domain.db_helpers.connect", return_value=_Conn()),
+        patch(
+            "yoke_core.engines.doctor_context.resolve_context",
+            return_value=context,
+        ),
+        patch(
+            "yoke_core.engines.doctor_roster.discover_project_checks",
+            return_value=Discovery(checks, []),
+        ),
+    ):
+        return reads_misc.handle_doctor_run(_request({
+            "only": slug,
+            "project": context.project,
+            "runtime": context.runtime,
+        }))
+
+
 class TestDoctorRunScope(unittest.TestCase):
+    def test_only_accepts_a_check_from_the_target_project_roster(self):
+        project_hc = HealthCheck(
+            slug="project-policy",
+            name="Project policy HC",
+            fn=_record("project-policy"),
+        )
+        context = DoctorContext(
+            project="yoke",
+            runtime=RUNTIME_LOCAL,
+            self_project="yoke",
+            source_checkout=Path("/target/yoke"),
+        )
+
+        outcome = _run_only_with_project_roster(
+            context=context,
+            checks=[project_hc],
+            slug="HC-project-policy",
+        )
+
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(
+            [row["hc"] for row in outcome.result_payload["results"]],
+            ["HC-project-policy"],
+        )
+
+    def test_only_does_not_borrow_checks_from_another_project_roster(self):
+        context = DoctorContext(
+            project="external",
+            runtime=RUNTIME_LOCAL,
+            self_project="yoke",
+            source_checkout=Path("/target/external"),
+        )
+
+        outcome = _run_only_with_project_roster(
+            context=context,
+            checks=[],
+            slug="HC-project-policy",
+        )
+
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "invalid_check")
+
     def test_returns_cursor_for_chunked_runs(self):
         fake_hcs = [
             HealthCheck(slug="first", name="First HC", fn=_record("first")),
@@ -184,3 +291,37 @@ class TestDoctorRunScope(unittest.TestCase):
             if row["severity"] != "N/A"
         ]
         self.assertEqual(executed, ["HC-token", "HC-flows", "HC-ci"])
+
+    def test_normal_return_with_aborted_transaction_does_not_poison_roster(self):
+        conn = _AbortedTransactionConn()
+        fake_hcs = [
+            HealthCheck(
+                slug="query-failure", name="Query-failure HC",
+                fn=_record_query_failure_without_raising,
+            ),
+            HealthCheck(
+                slug="after-query", name="After-query HC",
+                fn=_record_after_query_failure,
+            ),
+        ]
+
+        with patch("yoke_core.engines.doctor_registry.HEALTH_CHECKS", fake_hcs):
+            with patch(
+                "yoke_core.domain.db_helpers.connect", return_value=conn,
+            ):
+                outcome = reads_misc.handle_doctor_run(_request({
+                    "quick": True,
+                    "project": "yoke",
+                    "runtime": "hosted",
+                }))
+
+        self.assertTrue(outcome.primary_success)
+        by_hc = {
+            row["hc"]: row for row in outcome.result_payload["results"]
+        }
+        self.assertEqual(by_hc["HC-query-failure"]["severity"], "FAIL")
+        self.assertEqual(
+            by_hc["HC-query-failure"]["detail"],
+            "the original query failed",
+        )
+        self.assertEqual(by_hc["HC-after-query"]["severity"], "PASS")

@@ -58,6 +58,48 @@ Config keys:
 |---  |---      |
 | `modules_dir` | Project-relative directory containing Python migration modules. |
 | `connection_env_var` | Env var implementation/test code should bind to the validation or authoritative DB target. Defaults to `YOKE_PG_DSN` when omitted. |
+| `artifact_version_env_var` | Optional env var naming the running artifact version. Doctor uses it to compare recorded serving floors when an older packaged history sees newer ledger rows; without it that rollback check reports limited evidence, never a false mismatch. |
+| `ledger` | Required. Names where applied membership and serving floors are recorded. |
+
+### Ledger (rollback-safety contract)
+
+Every governed model declares `ledger`; an omitted or partial declaration
+cannot answer whether the database is current or safe for this build and is
+therefore refused:
+
+| Key | Meaning |
+|---  |---      |
+| `table` | Ledger table that records applied entries. |
+| `entry_column` | Column holding each entry's identity (membership key). |
+| `semantics` | Must be `membership`. Threshold / high-water marks are refused. |
+| `serving_floor_column` | Column holding the oldest build that may serve after a destructive entry. Required — membership alone cannot stop a rolled-back build from serving a database it cannot read. |
+
+```json
+"ledger": {
+  "table": "applied_migrations",
+  "entry_column": "migration_name",
+  "semantics": "membership",
+  "serving_floor_column": "minimum_serving_version"
+}
+```
+
+Boot must answer two questions before serving and refuse when either is
+unsafe: (1) is the pending set empty? (2) is any applied floor newer than
+this build? Per applied entry the ledger records identity plus the floor
+copied from a surface-removing entry's declared minimum. Decision records:
+[`project-migration-ledger-contract.md`](../../../docs/archive/decisions/project-migration-ledger-contract.md)
+(membership vs threshold) and
+[`project-migration-rollback-safety.md`](../../../docs/archive/decisions/project-migration-rollback-safety.md)
+(why the floor is required). `HC-project-migration-ledger-contract` reports
+whether a declaring project satisfies the contract; unreadable is a finding,
+never a PASS.
+
+An older artifact normally sees applied entry names absent from its packaged
+history. That is rollback, not a project/history mismatch: membership still
+answers whether everything the older artifact ships has run. Serving safety is
+decided from those newer rows' recorded floors. When Doctor has no running
+artifact version (no declared/bound `artifact_version_env_var`), it reports
+that comparison as limited evidence instead of failing the names themselves.
 
 `migration_audit.module_identifier` is the bare module slug from
 `db_mutation_profile.migration_modules`, without path or `.py` suffix.

@@ -7,11 +7,12 @@ imports from here and re-exports; this module imports nothing back.
 
 Project ids are numbered per universe (each connection env's ``projects``
 table starts at 1), so ``projects`` is a flat list of ``{checkout,
-project_id, env, board?}`` entries. The same checkout appears once per env
-it lives in — the rows are identical apart from ``env`` (and any per-env
+project_id, env}`` entries. The same checkout appears once per env it
+lives in — the rows are identical apart from ``env`` (and any per-env
 id). Resolution matches a checkout AND the active/requested env. A bare
 untagged entry (legacy, pre-stamp) resolves only under the active env.
 A legacy checkout-keyed object is still read (normalized to the list form).
+Machine ``board`` keys are retired; normalize drops them.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ def project_entry_for_checkout(
     Resolution is env-scoped: an entry contributes its project id only for
     the env it is tagged with, so a per-universe id never resolves against
     the wrong universe. The returned entry is flattened to ``{project_id,
-    env?, board?}`` (no ``checkout``) so existing readers keep working. An
+    env?}`` (no ``checkout``) so existing readers keep working. An
     untagged legacy entry resolves only under ``active_env`` (or by path
     alone when there is no env context), which keeps reads working before the
     config is stamped. Returns ``{}`` when nothing matches.
@@ -95,11 +96,13 @@ def mapped_checkouts(
 
 
 def normalize_projects(projects: Any) -> list[dict[str, Any]]:
-    """Return ``projects`` as a clean list of ``{checkout, project_id, env?, board?}``.
+    """Return ``projects`` as a clean list of ``{checkout, project_id, env?}``.
 
     Accepts the flat list shape and the legacy checkout-keyed object shape
-    (``{checkout: {project_id, env?, board?}}``). Malformed rows are dropped;
-    validation reports them separately against the raw payload.
+    (``{checkout: {project_id, env?}}``). Malformed rows are dropped;
+    validation reports them separately against the raw payload. Retired
+    ``board`` keys are discarded here so write paths that normalize before
+    validate do not re-persist machine board settings.
     """
     out: list[dict[str, Any]] = []
     for checkout, raw in _iter_raw_projects(projects):
@@ -115,9 +118,6 @@ def normalize_projects(projects: Any) -> list[dict[str, Any]]:
         env = raw.get("env")
         if _is_nonempty_str(env):
             entry["env"] = str(env).strip()
-        board = _clean_board(raw.get("board"))
-        if board:
-            entry["board"] = board
         out.append(entry)
     return out
 
@@ -169,9 +169,6 @@ def _flatten_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"project_id": entry["project_id"]}
     if _is_nonempty_str(entry.get("env")):
         out["env"] = str(entry["env"]).strip()
-    board = _clean_board(entry.get("board"))
-    if board:
-        out["board"] = board
     return out
 
 
@@ -189,8 +186,10 @@ def upsert_project_entry(
     once per env it lives in. But a given ``(env, project_id)`` slot belongs to
     exactly one checkout, so any *other* checkout claiming the same slot is
     dropped (the project moved). An untagged row's env is unknown, so it
-    collides with any env for the same id.
+    collides with any env for the same id. ``board`` is accepted only so
+    legacy callers compile; it is ignored (machine board is retired).
     """
+    del board  # retired; DB project-policy.settings.board is authoritative
     checkout_key = _path_key(Path(str(checkout)).expanduser())
     env_key = str(env).strip() if _is_nonempty_str(env) else None
     target_id = int(project_id)
@@ -211,9 +210,6 @@ def upsert_project_entry(
     }
     if env_key is not None:
         new_entry["env"] = env_key
-    clean_board = _clean_board(board)
-    if clean_board:
-        new_entry["board"] = clean_board
     kept.append(new_entry)
     return kept
 
@@ -221,17 +217,6 @@ def upsert_project_entry(
 def _env_collides(left: str | None, right: str | None) -> bool:
     """Whether two env labels occupy the same slot (equal, or either unknown)."""
     return left is None or right is None or left == right
-
-
-def _clean_board(board: Any) -> dict[str, Any] | None:
-    if not isinstance(board, Mapping):
-        return None
-    clean = {
-        key: str(board[key]).strip()
-        for key in ("render_path", "scope")
-        if _is_nonempty_str(board.get(key))
-    }
-    return clean or None
 
 
 def checkout_path_candidates(repo_root: str | Path) -> list[Path]:

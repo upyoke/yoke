@@ -220,17 +220,6 @@ _MIGRATION_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
-    _RETIRED_CHILD_ISSUE_PATTERN: (
-        # WISP-15 in WISPS.md is a deliberately preserved Generation-7
-        # deferral whose rule explicitly forbids locking in a parent/child schema
-        # before managed parallel execution exists. Removing the entry would
-        # destroy a strategic deferral artifact.
-        ".yoke/strategy/WISPS.md",
-    ),
-    _RETIRED_WORK_ITEM_SYNONYM_PATTERN: (
-        # Strategy documents are planning evidence, not live product teaching.
-        ".yoke/strategy/",
-    ),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
 }

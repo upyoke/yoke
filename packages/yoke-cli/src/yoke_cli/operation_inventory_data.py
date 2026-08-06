@@ -49,6 +49,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims work release", "claims.work"),
     _w("yoke claims path register", "claims.path"),
     _w("yoke claims path widen", "claims.path"),
+    _w("yoke claims path amend", "claims.path"),
     _w("yoke events query", "events.query"),
     _w("yoke lifecycle transition", "lifecycle"),
     _w("yoke lifecycle repair-status", "lifecycle"),
@@ -91,6 +92,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions checkpoint-read", "sessions"),
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
+    _w("yoke sessions end-if-empty", "sessions"),
+    _w("yoke sessions reclaim-stale", "sessions"),
     *WORKFLOW_WRAPPED_ROWS,
     *PRODUCT_SURFACE_WRAPPED_ROWS,
     _w("yoke charge schedule", "charge"),
@@ -181,6 +184,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # PR-create was the last bearer-token GitHub admin surface without a wrapper
     # (repo-level github family, not github_actions).
     _w("yoke github pr create", "github"),
+    _w("yoke release-pin record", "release_pin"),
     _w("yoke onboard checklist", "onboard"),
     _w("yoke onboard checklist init", "onboard"),
     _w("yoke project snapshot sync", "project.snapshot"),

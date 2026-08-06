@@ -41,7 +41,7 @@ DISPATCH_TABLES: dict[str, dict] = {
             "workflow run-name and recovers a lost accepted response. Completed "
             "attempts keep the exact workflow_run_id; a conclusively failed run "
             "advances attempt instead of replaying it. Never infer this state "
-            "from events or a branch/head-SHA search."
+            "by scanning the telemetry journal or a branch/head-SHA search."
         ),
     },
 }

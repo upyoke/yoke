@@ -34,7 +34,6 @@ from yoke_core.api.service_client_sessions_checkpoint import (
     cmd_session_checkpoint_read,
 )
 from yoke_core.api.service_client_sessions_inspect import (
-    cmd_clean_stale_sessions,
     cmd_harness_capabilities,
 )
 
@@ -44,7 +43,6 @@ __all__ = [
     "_resolve_monkeypatchable",
     "_validate_active_session",
     "cmd_claim_release",
-    "cmd_clean_stale_sessions",
     "cmd_harness_capabilities",
     "cmd_release_all_claims",
     "cmd_release_done_claims",

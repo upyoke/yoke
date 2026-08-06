@@ -32,6 +32,21 @@ def primary_item_worktree_branch_sql(item_id_expression: str) -> str:
     )
 
 
+def recorded_item_worktree_value_sql(
+    item_id_expression: str, column: str,
+) -> str:
+    """Return an active-first lane value, retaining released audit history."""
+    if column not in {"branch", "commit_sha"}:
+        raise ValueError(f"unsupported item worktree value: {column}")
+    return (
+        f"(SELECT iw.{column} FROM item_worktrees iw "
+        f"WHERE iw.item_id = {item_id_expression} "
+        f"AND iw.{column} IS NOT NULL "
+        "ORDER BY CASE WHEN iw.state = 'active' THEN 0 ELSE 1 END, "
+        "iw.id DESC LIMIT 1)"
+    )
+
+
 def recorded_item_worktree_records(
     conn: Any,
     item_id: int,
@@ -173,6 +188,7 @@ def _complete_lane(
 
 __all__ = [
     "primary_item_worktree_branch_sql",
+    "recorded_item_worktree_value_sql",
     "recorded_item_worktree_lanes",
     "recorded_item_worktree_records",
     "resolve_item_id_by_worktree_name",

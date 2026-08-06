@@ -3,8 +3,8 @@
 Sibling of ``test_attestation_rehearsal_dryrun.py`` so the new check has
 test coverage without pushing the main test file over the 350-line cap.
 
-The detection: rehearsal_commands MUST NOT re-invoke
-``python3 -m yoke_core.domain.migration_apply rehearse|live-apply``
+The detection: rehearsal_commands MUST NOT re-invoke the current
+``yoke migration rehearse`` surface or the retained module spellings
 because the rehearse runner would recurse into itself against the
 validation surface — and the validation DB does not have the items
 row that named the command. That manifests as ``Item YOK-N not found``
@@ -24,10 +24,16 @@ from yoke_core.domain.attestation_rehearsal_dryrun import _check_command_shape
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-@pytest.mark.parametrize("subcommand", ["rehearse", "live-apply"])
-def test_recursive_migration_apply_self_call_caught(subcommand: str) -> None:
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke migration rehearse YOK-1",
+        "python3 -m yoke_core.domain.migration_apply rehearse YOK-1",
+    ],
+)
+def test_recursive_migration_apply_self_call_caught(command: str) -> None:
     result = _check_command_shape(
-        f"python3 -m yoke_core.domain.migration_apply {subcommand} YOK-1",
+        command,
         _REPO_ROOT,
     )
     assert result is not None
@@ -36,7 +42,7 @@ def test_recursive_migration_apply_self_call_caught(subcommand: str) -> None:
 
 def test_dotted_module_ref_without_subcommand_passes() -> None:
     # A bare ``python3 -m yoke_core.domain.migration_apply --help``
-    # (no rehearse/live-apply subcommand) must NOT trigger the
+    # (no rehearse subcommand) must NOT trigger the
     # recursive-self-call guard — it's a meta-invocation, not a child
     # rehearsal run.
     assert _check_command_shape(

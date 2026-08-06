@@ -183,6 +183,11 @@ def register_project(
     path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Map a local checkout path to its DB project id."""
+    if board_scope is not None or board_render_path is not None:
+        raise MachineConfigWriteError(
+            "projects[].board is retired; set board scope under "
+            "project-policy.settings.board in the DB"
+        )
     root = Path(repo_root).expanduser()
     try:
         root = root.resolve()
@@ -198,12 +203,9 @@ def register_project(
     # Project ids are per universe, so the mapping records the id per env: the
     # (checkout, env) row is upserted, leaving the checkout's rows for other
     # envs intact.
-    board = {k: v for k, v in (
-        ("scope", board_scope), ("render_path", board_render_path),
-    ) if v}
     payload["projects"] = contract.upsert_project_entry(
         payload.get("projects"), checkout=str(root),
-        project_id=normalized, env=env, board=board or None,
+        project_id=normalized, env=env, board=None,
     )
     _write_payload(payload, cfg_path)
     written = next(

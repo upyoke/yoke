@@ -18,15 +18,46 @@ ran, treat everything above it as pending. It loses three different ways:
   higher lands first, the lower is never pending.
 
 Membership answers all three: the pending set is ``history - applied``, so
-an entry is pending exactly when its own identity is absent. That is what
-this contract requires, and it is why a threshold is refused outright
-rather than warned about — a warning would leave the unsound reader in
-place while implying it had been reviewed.
+an entry is pending exactly when its own identity is absent.
+
+Membership alone is still not rollback-safe. A rolled-back build's history
+genuinely lacks a newer destructive entry, so membership reports current
+while the build reads a surface that is gone. The serving floor closes that
+gap: each applied row records the oldest build that may serve against it,
+and a build too old to ship the entry module answers the serving question
+from the row — the only surface the two builds share.
+
+Rollback-safety contract for a declaring project
+================================================
+
+A project's boot must answer two questions before it serves, and refuse
+when either answer is unsafe:
+
+1. **Pending membership** — is every shipped history entry recorded in the
+   ledger? Refuse to serve when the pending set is non-empty (the schema
+   this code expects has not been applied).
+2. **Serving floor** — does any applied row record a floor newer than this
+   build? Refuse to serve when stranded (this build reads surfaces a newer
+   entry removed).
+
+What must be recorded per applied entry so a rolled-back build can answer
+from the ledger row alone:
+
+- the entry's identity (``entry_column``), so membership is decidable;
+- the serving floor (``serving_floor_column``), copied from a destructive
+  entry's declared minimum at apply time — empty/NULL only when that entry
+  did not remove a surface.
+
+The declaration surface expresses every element this contract requires:
+``table``, ``entry_column``, ``semantics=membership``, and
+``serving_floor_column``. Leaving the floor optional and unconsumed is the
+obsolete path this module refuses.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Any, Iterable, List, Mapping, Optional, Sequence, Set
 
 #: How a ledger decides what has been applied.
@@ -34,31 +65,31 @@ MEMBERSHIP = "membership"
 #: Rejected: a single high-water mark cannot express the three losses above.
 THRESHOLD = "threshold"
 
-REQUIRED_KEYS = ("table", "entry_column", "semantics")
+REQUIRED_KEYS = ("table", "entry_column", "semantics", "serving_floor_column")
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class LedgerContractError(ValueError):
-    """A declared ledger cannot answer membership."""
+    """A declared ledger cannot answer the rollback-safety contract."""
 
 
 @dataclass(frozen=True)
 class LedgerContract:
-    """Where applied-ness is recorded and how it is read."""
+    """Where applied-ness and serving floors are recorded, and how read."""
 
     table: str
     entry_column: str
+    serving_floor_column: str
     semantics: str = MEMBERSHIP
-    serving_floor_column: str = ""
 
     @property
     def records_serving_floor(self) -> bool:
         """Whether a destructive entry's floor travels with its row.
 
-        Optional because not every project runs builds old enough to be
-        stranded, and requiring it would refuse ledgers that are otherwise
-        sound. Where it is present, a rolled-back build can answer "can I
-        serve this database?" from the row rather than from a history it
-        does not ship.
+        Always true for a successfully parsed declaration: the serving
+        floor is required so a rolled-back build can answer "can I serve
+        this database?" from the row rather than from a history it does
+        not ship.
         """
         return bool(self.serving_floor_column)
 
@@ -92,11 +123,21 @@ def parse(declaration: Optional[Mapping[str, Any]]) -> LedgerContract:
             f"migration_model ledger declares unknown semantics "
             f"{semantics!r}; the only accepted value is {MEMBERSHIP!r}"
         )
+    identifiers = {
+        key: str(declaration[key])
+        for key in ("table", "entry_column", "serving_floor_column")
+    }
+    invalid = [key for key, value in identifiers.items() if not _IDENTIFIER.match(value)]
+    if invalid:
+        raise LedgerContractError(
+            "migration_model ledger has unsafe SQL identifier(s): "
+            + ", ".join(invalid)
+        )
     return LedgerContract(
-        table=str(declaration["table"]),
-        entry_column=str(declaration["entry_column"]),
+        table=identifiers["table"],
+        entry_column=identifiers["entry_column"],
         semantics=semantics,
-        serving_floor_column=str(declaration.get("serving_floor_column") or ""),
+        serving_floor_column=identifiers["serving_floor_column"],
     )
 
 
@@ -112,27 +153,19 @@ def pending_entries(
     return [name for name in history if name not in recorded]
 
 
-def unanswerable_reason(
+def applied_entries_outside_history(
     history: Sequence[str], applied: Iterable[str]
-) -> str:
-    """Why a ledger cannot answer membership for this history, or ``""``.
+) -> List[str]:
+    """Applied entries this packaged history does not ship.
 
-    An applied row naming an entry the history does not contain means the
-    two are not describing the same history — the likeliest causes are a
-    renamed entry or a ledger shared between projects, and both make every
-    pending answer meaningless rather than merely stale.
+    This is the normal shape of a rollback: an older artifact reads ledger
+    rows written by a newer artifact. It does not invalidate membership.
+    Rollback compatibility is decided from each row's recorded serving floor,
+    because the older artifact cannot consult migration modules it does not
+    ship.
     """
     known = set(history)
-    unknown = sorted({str(name) for name in applied} - known)
-    if not unknown:
-        return ""
-    shown = ", ".join(unknown[:5])
-    more = f" and {len(unknown) - 5} more" if len(unknown) > 5 else ""
-    return (
-        f"the ledger records {len(unknown)} entry name(s) absent from the "
-        f"shipped history ({shown}{more}); the ledger and the history are "
-        "not describing the same migration set"
-    )
+    return sorted({str(name) for name in applied} - known)
 
 
 def runner_config_ledger(declaration: Any, error: Any) -> dict:
@@ -142,10 +175,9 @@ def runner_config_ledger(declaration: Any, error: Any) -> dict:
     validator's own exception type without this module importing it —
     a contract does not depend on the validator that enforces it.
 
-    Callers validate a ledger when the model declares one rather than
-    requiring every model to. Models predating this contract are already
-    deployed, and refusing them would add a check by taking working
-    projects down; new and amended models are refused on the spot.
+    Every governed model must declare a ledger. A missing declaration cannot
+    answer either safety question, so the capability validator refuses it
+    instead of grandfathering an unchecked model.
     """
     try:
         contract = parse(declaration)
@@ -165,7 +197,7 @@ __all__ = [
     "THRESHOLD",
     "LedgerContract",
     "LedgerContractError",
+    "applied_entries_outside_history",
     "parse",
     "pending_entries",
-    "unanswerable_reason",
 ]

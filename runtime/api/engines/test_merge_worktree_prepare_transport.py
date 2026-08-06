@@ -157,9 +157,7 @@ class TestResolveContextRelays:
         assert ctx.epic_id == "880"
 
 
-# ---------------------------------------------------------------------------
 # preflight_checks — PF-3..PF-6 relay
-# ---------------------------------------------------------------------------
 def _clean_git(args, *, cwd=None, capture=False, check=False):
     # rev-parse returns non-zero so PF-2 skips the branch-tracking check;
     # diff / ls-files return empty so PF-1 sees a clean worktree.
@@ -184,7 +182,7 @@ def _pass_responses():
         ),
         "merge.preflight.blocked_gate": _resp(
             "merge.preflight.blocked_gate",
-            {"applicable": True, "item_id": 42, "blocked": False},
+            {"applicable": True, "item_id": TEST_ITEM_ID, "item_ref": TEST_ITEM_REF, "blocked": False},
         ),
     }
 
@@ -197,6 +195,7 @@ def _run_preflight(monkeypatch, responses, *, skip_simulation=False, item_id=Non
         return responses[kwargs["function_id"]]
 
     monkeypatch.setattr(pf, "call_dispatcher", fake)
+    monkeypatch.setattr(pf, "item_ref_for_id", lambda _id: pytest.fail("fallback"))
     monkeypatch.setattr(mw, "_run_git", _clean_git)
     _no_bare_db(monkeypatch)
 
@@ -290,7 +289,8 @@ class TestPreflightRelays:
             "merge.preflight.blocked_gate",
             {
                 "applicable": True,
-                "item_id": 42,
+                "item_id": TEST_ITEM_ID,
+                "item_ref": TEST_ITEM_REF,
                 "blocked": True,
                 "reason": "upstream unresolved",
             },

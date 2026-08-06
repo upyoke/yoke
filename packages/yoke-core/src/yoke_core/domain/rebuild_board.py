@@ -4,7 +4,7 @@ One composition for both transports: the data fetch is a
 ``board.data.get`` function call (relayed over https on an
 https-default machine, dispatched in-process against the connected
 Postgres otherwise); the render consumes the returned payload together
-with the client-local inputs (``.yoke/board.json``, board art, the
+with the client-local inputs (board art, the
 rendered VISION doc, the machine commit cache) and writes
 ``.yoke/BOARD.md`` + its timestamp file locally.
 """
@@ -214,9 +214,6 @@ def rebuild(
     repo_root = resolve_main_repo_root(repo_arg)
 
     board_path = resolve_board_path(repo_root, output_name)
-    if not scope:
-        scope = machine_config.board_scope(repo_root)
-
     return rebuild_one(
         repo_root=repo_root,
         board_path=board_path,
@@ -237,8 +234,6 @@ def render_text(
     """Return ``(repo_root, board_path, content)`` without writing files."""
     repo_root = resolve_main_repo_root(repo_arg)
     board_path = resolve_board_path(repo_root, output_name)
-    if not scope:
-        scope = machine_config.board_scope(repo_root)
     content = build_board_file_text(
         repo_root=repo_root,
         board_path=board_path,
@@ -250,7 +245,7 @@ def render_text(
 
 def resolve_board_path(repo_root: Path, output_name: str | None = None) -> Path:
     if not output_name:
-        return machine_config.board_render_path(repo_root)
+        return repo_root / machine_config.DEFAULT_BOARD_PATH
     return _board_path_for_output(repo_root, output_name)
 
 
@@ -259,7 +254,7 @@ def _board_path_for_output(repo_root: Path, output_name: str) -> Path:
     if selected.is_absolute():
         return selected
     if len(selected.parts) == 1:
-        return machine_config.board_render_path(repo_root).with_name(output_name)
+        return (repo_root / machine_config.DEFAULT_BOARD_PATH).with_name(output_name)
     return repo_root / selected
 
 

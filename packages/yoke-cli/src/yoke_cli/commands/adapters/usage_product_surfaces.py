@@ -26,6 +26,7 @@ USAGE_BY_FUNCTION_ID = {
         workflows_read.WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE
     ),
     "workflows.version.get": workflows_read.WORKFLOWS_VERSION_GET_USAGE,
+    "workflows.version.list": workflows_read.WORKFLOWS_VERSION_LIST_USAGE,
     "item_worktrees.create": (item_worktree_create.ITEM_WORKTREES_CREATE_USAGE),
     "item_worktrees.get": item_worktrees.ITEM_WORKTREES_GET_USAGE,
     "item_worktrees.list": item_worktrees.ITEM_WORKTREES_LIST_USAGE,

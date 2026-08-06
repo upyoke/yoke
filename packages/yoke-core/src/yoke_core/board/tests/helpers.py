@@ -109,6 +109,29 @@ def insert_activity_day(db_path: str, project: object, item_id: int, day: str) -
     conn.close()
 
 
+def insert_code_day(
+    db_path: str,
+    project: object,
+    day: str,
+    *,
+    commit_count: int = 1,
+    lines_changed: int = 1,
+) -> None:
+    """Upsert one ``project_code_days`` rollup row."""
+    conn = connect_test_db(db_path)
+    conn.execute(
+        "INSERT INTO project_code_days "
+        "(project_id, day, commit_count, lines_changed) "
+        "VALUES (%s, %s, %s, %s) "
+        "ON CONFLICT (project_id, day) DO UPDATE SET "
+        "commit_count = EXCLUDED.commit_count, "
+        "lines_changed = EXCLUDED.lines_changed",
+        (project_id(project), day, int(commit_count), int(lines_changed)),
+    )
+    conn.commit()
+    conn.close()
+
+
 def insert_transition(
     db_path: str,
     project: object,

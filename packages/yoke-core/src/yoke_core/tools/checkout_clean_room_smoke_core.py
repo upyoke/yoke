@@ -191,7 +191,6 @@ def build_machine_config(
             "checkout": str(clone_root.resolve()),
             "project_id": project_id,
             "env": env_name,
-            "board": {"render_path": ".yoke/BOARD.md", "scope": str(project_id)},
         }
     ]
     payload.setdefault("settings", {})

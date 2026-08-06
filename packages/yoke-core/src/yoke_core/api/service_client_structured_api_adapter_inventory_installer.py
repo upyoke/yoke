@@ -136,6 +136,17 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         notes="Server-side read-merge-CAS composition with project/environment ownership verification.",
     ),
     AdapterEntry(
+        function_id="release_pin.record",
+        cli_invocation=(
+            "yoke release-pin record --project NAME --environment ENV "
+            "--pin VERSION"
+        ),
+        notes=(
+            "Deployment-CI-safe mutation of only the environment and scalar "
+            "path declared by the project's release_pin capability."
+        ),
+    ),
+    AdapterEntry(
         function_id="projects.pulumi_state.migrate",
         cli_invocation="yoke projects pulumi-state migrate --project NAME --site-id ID --stack NAME [--apply]",
         notes="Dry-run-default exact-set transactional move with a metadata-only receipt; sensitive Pulumi operator-state values never cross the function boundary.",

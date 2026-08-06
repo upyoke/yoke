@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-03T04:47:27Z_
+_Audit generated_at: 2026-08-06T00:50:46Z_
 
 ## 1. Summary
 
-- Function ids registered: **358**
-- Internal dispatch-only functions without CLI adapters: **72**
-- `yoke` CLI subcommands: **284** (284 carry usable `--help`)
-- Operation tracker: **263 wrapped**, 4 tool_cli, 98 permanent, 0 pending
+- Function ids registered: **369**
+- Internal dispatch-only functions without CLI adapters: **74**
+- `yoke` CLI subcommands: **294** (294 carry usable `--help`)
+- Operation tracker: **272 wrapped**, 5 tool_cli, 114 permanent, 0 pending
 - Skill-body recipes: 270 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation tracker confirms 263 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **272** (operation tracker confirms 272 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -24,6 +24,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation track
 | board | `yoke board rebuild` | `board.rebuild.run` | ok |
 | charge | `yoke charge schedule` | `charge.schedule` | ok |
 | claims | `yoke claims path activation-run` | `claims.path.activation_run` | ok |
+| claims | `yoke claims path amend` | `claims.path.amend` | ok |
 | claims | `yoke claims path coordination-decision-build` | `claims.path.coordination_decision_build` | ok |
 | claims | `yoke claims path get` | `claims.path.get` | ok |
 | claims | `yoke claims path list` | `claims.path.list` | ok |
@@ -43,17 +44,21 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation track
 | decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
 | deployment_flows | `yoke deployment-flows describe` | `deployment_flows.describe` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
+| deployment_flows | `yoke deployment-flows list` | `deployment_flows.list` | ok |
 | deployment_flows | `yoke deployment-flows reconcile-project` | `deployment_flows.reconcile_project` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
 | deployment_flows | `yoke deployment-flows stages` | `deployment_flows.stages` | ok |
 | deployment_flows | `yoke deployment-flows update-stages` | `deployment_flows.update_stages` | ok |
 | deployment_runs | `yoke deployment-runs approve` | `deployment_runs.approve` | ok |
 | deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
+| deployment_runs | `yoke deployment-runs find-by-item` | `deployment_runs.find_by_item` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs project-snapshot` | `deployment_runs.project_snapshot` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
+| deployment_runs | `yoke deployment-runs stages` | `deployment_runs.stages` | ok |
 | deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
+| deployment_runs | `yoke deployment-runs terminalize` | `deployment_runs.terminalize` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
 | direct_workflow | `yoke direct-workflow blitz survey` | `direct_workflow.blitz.survey` | ok |
 | direct_workflow | `yoke direct-workflow conflict-survey status` | `direct_workflow.conflict_survey.status` | ok |
@@ -201,12 +206,15 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation track
 | readiness | `yoke readiness prd-validate` | `readiness.prd_validate.run` | ok |
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
 | readiness | `yoke readiness repair-stale-count` | `readiness.repair_stale_count` | ok |
+| release_pin | `yoke release-pin record` | `release_pin.record` | ok |
 | sessions | `yoke sessions begin` | `sessions.begin` | ok |
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
+| sessions | `yoke sessions end-if-empty` | `sessions.end_if_empty` | ok |
 | sessions | `yoke sessions list` | `sessions.list` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |
 | sessions | `yoke sessions ownership-guard` | `sessions.ownership_guard` | ok |
+| sessions | `yoke sessions reclaim-stale` | `sessions.reclaim_stale` | ok |
 | sessions | `yoke sessions touch` | `sessions.touch` | ok |
 | shepherd | `yoke shepherd caveat-disposition` | `shepherd.caveat_disposition.run` | ok |
 | shepherd | `yoke shepherd dependency-add` | `shepherd.dependency_add.run` | ok |
@@ -283,6 +291,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **263** (operation track
 | workflows | `yoke workflows policy-defaults publish` | `workflows.policy_defaults.publish` | ok |
 | workflows | `yoke workflows testing-default set` | `workflows.testing_default.set` | ok |
 | workflows | `yoke workflows version get` | `workflows.version.get` | ok |
+| workflows | `yoke workflows version list` | `workflows.version.list` | ok |
 
 ## 3. Tool-shaped CLI roster
 
@@ -290,6 +299,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 
 | family | yoke form | reason |
 |---|---|---|
+| tools.release_pin | `yoke release-pin verify` | tool_shaped |
 | tools.watch | `yoke watch doctor` | tool_shaped |
 | tools.watch | `yoke watch merge` | tool_shaped |
 | tools.watch | `yoke watch pytest` | tool_shaped |
@@ -314,6 +324,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | claims.path | `python3 -m yoke_core.cli.db_router path-claims activate` | operator_break_glass | — |
 | claims.path | `python3 -m yoke_core.cli.db_router path-claims amend` | operator_break_glass | — |
 | claims.path | `python3 -m yoke_core.cli.db_router path-claims release` | operator_break_glass | — |
+| claims.work | `python3 -m yoke_core.api.service_client claim-release` | operator_break_glass | — |
 | config | `yoke config example` | tool_shaped | — |
 | config | `yoke config stamp-project-env` | tool_shaped | — |
 | connection | `yoke connection remove` | tool_shaped | — |
@@ -336,13 +347,16 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | dev | `yoke dev path-snapshot-prewarm` | tool_shaped | — |
 | dev | `yoke dev setup` | tool_shaped | — |
 | direct_workflow.worktree | `yoke direct-workflow worktree prepare` | tool_shaped | — |
+| env | `yoke env list` | tool_shaped | — |
 | env | `yoke env use` | tool_shaped | — |
 | git | `yoke git post-commit` | tool_shaped | — |
 | git | `yoke git pre-commit` | tool_shaped | — |
 | github | `yoke github connect` | tool_shaped | — |
 | github | `yoke github disconnect` | tool_shaped | — |
 | github | `yoke github status` | tool_shaped | — |
+| install_bundle.sync | `python3 -m yoke_core.domain.install_bundle_tree_sync sync` | tool_shaped | — |
 | lint.config | `yoke lint config show` | tool_shaped | — |
+| local.demo | `yoke local demo seed` | tool_shaped | — |
 | local_universe | `yoke init` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped | — |
@@ -350,6 +364,8 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | local_universe.ui | `yoke ui` | tool_shaped | — |
 | local_universe.validate | `yoke universe validate` | tool_shaped | — |
 | merge | `yoke merge audit` | tool_shaped | — |
+| merge.item | `yoke merge item` | tool_shaped | — |
+| migration.apply | `yoke migration rehearse` | tool_shaped | — |
 | onboard | `yoke onboard project` | tool_shaped | — |
 | onboard | `yoke onboard` | tool_shaped | — |
 | packets | `yoke packets check` | tool_shaped | — |
@@ -357,6 +373,10 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | packs | `yoke packs get` | tool_shaped | — |
 | packs | `yoke packs relink` | tool_shaped | — |
 | packs | `yoke packs update` | tool_shaped | — |
+| path | `yoke path check` | tool_shaped | — |
+| path | `yoke path fix` | tool_shaped | — |
+| path | `yoke path verify` | tool_shaped | — |
+| path_integrity | `python3 -m yoke_core.domain.path_integrity verify` | operator_break_glass | — |
 | project | `yoke project create` | tool_shaped | — |
 | project | `yoke project import` | tool_shaped | — |
 | project | `yoke project install` | tool_shaped | — |
@@ -368,6 +388,9 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | qa.browser | `yoke qa browser setup` | tool_shaped | — |
 | qa.browser | `yoke qa browser status` | tool_shaped | — |
 | qa.case | `yoke qa case run` | tool_shaped | — |
+| qa.plan | `yoke qa plan abort` | tool_shaped | — |
+| qa.plan | `yoke qa plan review-submit` | tool_shaped | — |
+| qa.plan | `yoke qa plan run` | tool_shaped | — |
 | raw.sql | `python3 -m yoke_core.cli.db_router query` | operator_break_glass | — |
 | resync | `yoke resync` | tool_shaped | — |
 | runner_fleet | `yoke runner-fleet exec` | tool_shaped | — |
@@ -382,8 +405,8 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | status | `yoke status` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped | — |
-| tools.step_runners | `python3 -m yoke_core.tools.step_runners` | tool_shaped | — |
 | tools.module_source_path | `python3 -m yoke_core.tools.module_source_path` | tool_shaped | — |
+| tools.step_runners | `python3 -m yoke_core.tools.step_runners` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_advance` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_doctor` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_inventory` | tool_shaped | — |
@@ -396,6 +419,9 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | universe.export | `yoke universe export` | tool_shaped | — |
 | universe.import | `yoke universe import` | tool_shaped | — |
 | usher | `yoke usher reconcile-github` | tool_shaped | — |
+| vps | `yoke vps start` | tool_shaped | — |
+| vps | `yoke vps status` | tool_shaped | — |
+| vps | `yoke vps stop` | tool_shaped | — |
 | worktree | `python3 -m yoke_core.domain.worktree create` | tool_shaped | — |
 
 ### Human-only stranded work-claim release
@@ -431,8 +457,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 37 |
-| claude-code | 13 |
+| codex | 26 |
+| agent | 24 |
 
 ## 8. Contradictions
 

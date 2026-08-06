@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
-
-
 # Project-scoped roles (grantable via ``actor_project_roles``).
 ROLE_OWNER = "owner"
 ROLE_OPERATOR = "operator"
@@ -36,6 +34,7 @@ PERM_GITHUB_ACTIONS_WORKFLOW_DISPATCH = "github_actions.workflow.dispatch"
 PERM_GITHUB_ACTIONS_RUN_READ = "github_actions.run.read"
 PERM_GITHUB_ACTIONS_VARIABLE_READ = "github_actions.variable.read"
 PERM_GITHUB_RELEASE_CREATE = "github.release.create"
+PERM_RELEASE_PIN_RECORD = "release_pin.record"
 # Org-scoped permissions (never carried by a project role).
 PERM_ORG_ADMIN = "org.admin"  # renamed from "system.admin"
 PERM_PROJECT_CREATE = "project.create"
@@ -52,20 +51,17 @@ PROJECT_ROLES = (
     ROLE_DEPLOYMENT_CI,
     ROLE_INFRASTRUCTURE_CI,
 )
-
-
 ROLE_DESCRIPTIONS = {
     ROLE_OWNER: "Project admin and normal operator work.",
     ROLE_OPERATOR: "Normal Yoke operations for a project.",
     ROLE_VIEWER: "Read-only access.",
     ROLE_DEPLOYMENT_CI: (
         "Create immutable release tags, trigger deployment workflows, and "
-        "read their status and migration rehearsal receipts."
+        "read status; record capability-routed pins after successful delivery."
     ),
     ROLE_INFRASTRUCTURE_CI: "Read exact infrastructure render inputs for previews.",
     ROLE_ADMIN: "Org-wide administration across all of the org's projects.",
 }
-
 PERMISSION_DESCRIPTIONS = {
     PERM_ITEMS_READ: "Read item data.",
     PERM_ITEMS_WRITE: "Mutate item data.",
@@ -94,6 +90,7 @@ PERMISSION_DESCRIPTIONS = {
     PERM_GITHUB_RELEASE_CREATE: (
         "Create the next immutable annotated release tag for the project."
     ),
+    PERM_RELEASE_PIN_RECORD: "Record a pin at the configured environment and path.",
     PERM_ORG_ADMIN: "Administer the org and all of its projects.",
     PERM_PROJECT_CREATE: "Create new projects in the org.",
 }
@@ -116,6 +113,7 @@ _PROJECT_OWNER_PERMS = (
     PERM_GITHUB_ACTIONS_RUN_READ,
     PERM_GITHUB_ACTIONS_VARIABLE_READ,
     PERM_GITHUB_RELEASE_CREATE,
+    PERM_RELEASE_PIN_RECORD,
 )
 
 ROLE_PERMISSION_KEYS = {
@@ -139,10 +137,9 @@ ROLE_PERMISSION_KEYS = {
         PERM_GITHUB_ACTIONS_RUN_READ,
         PERM_GITHUB_ACTIONS_VARIABLE_READ,
         PERM_GITHUB_RELEASE_CREATE,
+        PERM_RELEASE_PIN_RECORD,
     ),
-    ROLE_INFRASTRUCTURE_CI: (
-        PERM_PROJECT_RENDER_READ,
-    ),
+    ROLE_INFRASTRUCTURE_CI: (PERM_PROJECT_RENDER_READ,),
     # Org role — every permission, incl. org-scoped ones.
     ROLE_ADMIN: tuple(PERMISSION_DESCRIPTIONS),
 }
@@ -335,6 +332,7 @@ __all__ = [
     "PERM_GITHUB_ACTIONS_RUN_READ",
     "PERM_GITHUB_ACTIONS_VARIABLE_READ",
     "PERM_GITHUB_RELEASE_CREATE",
+    "PERM_RELEASE_PIN_RECORD",
     "PERM_ORG_ADMIN",
     "PERM_PROJECT_CREATE",
     "grant_actor_org_role",

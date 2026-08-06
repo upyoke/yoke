@@ -63,10 +63,11 @@ def _capture_empty_board_payload(repo_root_token: str) -> dict:
     recorded plan replays without a parity miss. No Postgres: the query plan is
     recorded against an all-empty fake DB seam.
     """
-    from yoke_contracts.board.config import parse_config
+    from yoke_contracts.board.config import BoardConfig
+    from yoke_contracts.board.policy_settings import board_settings_from_config
     from yoke_core.board.data import collect_board_data
 
-    config = parse_config(None, repo_root=repo_root_token)
+    config = BoardConfig()
     payload = collect_board_data(
         _EmptyBoardDB(),
         scope="yoke",
@@ -74,6 +75,8 @@ def _capture_empty_board_payload(repo_root_token: str) -> dict:
         repo_root=repo_root_token,
         vision_entries=[],
     )
+    payload["config_values"] = board_settings_from_config(config, scope="yoke")
+    payload["scope"] = "yoke"
     # Prove transport fidelity in the bargain: everything survives JSON.
     return json.loads(json.dumps(payload))
 
@@ -97,7 +100,6 @@ def test_board_rebuild_runs_without_yoke_core(tmp_path: Path) -> None:
         "projects": {
             str(checkout): {
                 "project_id": 37,
-                "board": {"scope": "yoke"},
             },
         },
     }), encoding="utf-8")

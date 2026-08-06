@@ -28,7 +28,6 @@ EXPECTED_CONTRACT_PATHS = {
     ".yoke/project.config",
     ".yoke/lint-config",
     ".yoke/labels",
-    ".yoke/board.json",
     ".yoke/board-art",
     ".yoke/deployment-flows.json",
     ".yoke/test-inventory.md",
@@ -92,35 +91,28 @@ def test_render_label_policy_uses_key_value_format() -> None:
     assert "{" not in body
 
 
-def test_board_config_covers_every_recognized_knob_at_default() -> None:
-    payload = json.loads(_entries()[".yoke/board.json"]["content"])
+def test_board_policy_defaults_cover_every_recognized_knob() -> None:
+    from yoke_contracts.board.policy_settings import (
+        BOARD_SCOPE_KEY,
+        board_config_from_settings,
+        board_settings_defaults,
+    )
+
+    payload = board_settings_defaults()
     recognized = {
         f.name: f.default for f in fields(BoardConfig) if f.default is not MISSING
     }
-    assert payload == recognized, (
-        "seeded board.json must carry exactly the recognized scalar knobs "
-        "at their dataclass defaults"
-    )
+    knobs = {k: v for k, v in payload.items() if k != BOARD_SCOPE_KEY}
+    assert knobs == recognized
     assert "rainbow_sub_weights" not in payload
-    # Machine view binding never leaks into the project file.
-    assert "scope" not in payload
+    assert payload[BOARD_SCOPE_KEY] == "all"
     assert "render_path" not in payload
-
-
-def test_seeded_board_config_parses_to_default_render_behavior(
-    tmp_path: Path,
-) -> None:
-    target = tmp_path / "board.json"
-    target.write_text(_entries()[".yoke/board.json"]["content"], "utf-8")
-    parsed = parse_config(str(target))
+    parsed = board_config_from_settings(payload)
     defaults = BoardConfig()
     for f in fields(BoardConfig):
         if f.name == "rainbow_sub_weights":
             continue
         assert getattr(parsed, f.name) == getattr(defaults, f.name)
-    # All-zero rainbow sub-weights are behavior-equivalent to unset: the
-    # selector falls back to equal weights when the pool total is 0.
-    assert set(parsed.rainbow_sub_weights.values()) <= {0}
 
 
 def test_board_art_parses_and_master_map_spells_display_name(
@@ -180,9 +172,8 @@ def test_render_board_art_truncates_long_single_token_without_project_fallback(
 def test_readme_documents_the_three_way_split() -> None:
     body = _entries()[".yoke/README.md"]["content"]
     assert "# Acme Yoke Project Contract" in body
-    assert "~/.yoke/config.json" in body
-    assert "board.json" in body
-    assert "render_path" in body
+    assert "project-policy.settings.board" in body
+    assert "BOARD.md" in body
     assert "seeded once" in body
 
 
@@ -192,7 +183,6 @@ def test_readme_maps_where_settings_live() -> None:
     # Repo-owned families.
     for token in (
         "project.config",
-        "board.json",
         "deployment-flows.json",
         "packs.json",
         "lint-config",
@@ -202,6 +192,7 @@ def test_readme_maps_where_settings_live() -> None:
         assert token in body, token
     assert "ordinary project-owned source" in body
     assert "not classified as drift" in body
+    assert "board.json" not in body
     # DB-owned families each name their read/write command.
     for token in (
         "project-policy",
@@ -258,6 +249,5 @@ def test_scaffolds_are_parameterized_by_display_name() -> None:
         ".yoke/project.config",
         ".yoke/lint-config",
         ".yoke/labels",
-        ".yoke/board.json",
     ):
         assert one[rel] == other[rel]

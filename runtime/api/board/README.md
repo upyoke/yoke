@@ -30,7 +30,7 @@ yoke board rebuild
 | Module | Purpose |
 |--------|---------|
 | `db.py` | `BoardDB` class: Postgres read queries for items, epic tasks, and event data. All renderer DB access is centralized here. |
-| `config.py` | `BoardConfig` dataclass and `parse_config()`: reads project-local `.yoke/board.json` renderer settings. |
+| `config.py` | `BoardConfig` dataclass and mapping parser. Live settings arrive in the `board.data.get` payload from DB-backed `project-policy.settings.board`; explicit file parsing remains only for preview fixtures and migration compatibility. |
 | `art.py` | `ArtConfig`, `ArtVariant`, art selection, master map parsing, header rendering. Reads art variants (emoji, ASCII, mixed) from project-local `.yoke/board-art`. Supports frontier fill, rainbow modes (5 sub-modes), and standalone variant display. Stats box rendering with 10-cell proportional meters. |
 | `widgets.py` | Dashboard widget renderers: velocity sparkline (14-day touched-units), 120-day velocity meter, weather heuristic, type badges, age heatmap, achievement badges. |
 | `sections.py` | Board section classification (Active, Pipeline, Backlog, Freezer, Done), item row rendering, epic sub-row expansion, frontier counting, consistency checks. |

@@ -94,12 +94,30 @@ def lane_branch(case: dict, checkout: Path) -> str:
     return branch
 
 
-def push_lane(checkout: Path, branch: str) -> None:
+def checked_out_branch(checkout: Path) -> str:
+    """Return the checkout's current branch, or ``HEAD`` when detached."""
+    return _git_output(
+        checkout, "rev-parse", "--abbrev-ref", "HEAD",
+        what="resolving the checkout's current branch",
+    )
+
+
+def ref_sha(checkout: Path, ref: str) -> str:
+    """Resolve the immutable commit CI will check out."""
+    return _git_output(
+        checkout, "rev-parse", f"{ref}^{{commit}}",
+        what=f"resolving CI source ref {ref!r}",
+    )
+
+
+def push_lane(checkout: Path, branch: str, *, source_ref: str = "HEAD") -> None:
     """Publish the lane branch so CI can check out the tree under test.
 
     Item branches stay local until merge, so the gate has to push before
-    it can dispatch. ``--force-with-lease`` keeps a rebased or amended
-    lane publishable without ever overwriting a remote branch this
+    it can dispatch. ``source_ref`` may be the recorded lane commit after
+    local cleanup; CI binds to that commit, not to the checkout directory.
+    ``--force-with-lease`` keeps a rebased or amended lane publishable without
+    ever overwriting a remote branch this
     checkout has not seen; the preceding fetch is what gives the lease
     something to compare against, and it is best-effort because a first
     push has no remote branch to fetch.
@@ -107,7 +125,7 @@ def push_lane(checkout: Path, branch: str) -> None:
     _git(checkout, "fetch", "--quiet", "--no-tags", "origin", branch, timeout=300)
     _git_output(
         checkout, "push", "--force-with-lease", "origin",
-        f"HEAD:refs/heads/{branch}",
+        f"{source_ref}:refs/heads/{branch}",
         what=f"pushing lane branch {branch!r} to origin",
         timeout=600,
     )
@@ -220,10 +238,12 @@ def await_workflow(
 __all__ = [
     "POLL_LABEL",
     "await_workflow",
+    "checked_out_branch",
     "dispatch_workflow",
     "github_actions_authority",
     "lane_branch",
     "push_lane",
+    "ref_sha",
     "repo_slug",
     "workflow_file",
 ]

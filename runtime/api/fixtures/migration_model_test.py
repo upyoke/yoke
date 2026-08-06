@@ -20,3 +20,9 @@ POSTGRES_AUTHORITY_LOCATION: dict[str, Any] = {
 def governed_postgres_test_seed() -> dict[str, Any]:
     """Build the standard test model with an explicit neutral authority."""
     return governed_postgres_seed(POSTGRES_AUTHORITY_LOCATION)
+
+
+def membership_ledger_test_seed() -> dict[str, Any]:
+    """Build the canonical per-entry membership ledger test declaration."""
+    model = governed_postgres_test_seed()["models"]["primary"]
+    return dict(model["runner"]["config"]["ledger"])

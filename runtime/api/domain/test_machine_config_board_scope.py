@@ -90,9 +90,10 @@ def test_project_entry_matches_worktree_to_main_checkout(
     assert machine_config.project_id(worktree) == 1
 
 
-def test_machine_project_board_can_override_scope_and_render_path(
+def test_machine_project_board_override_is_ignored(
     tmp_path: Path, monkeypatch
 ) -> None:
+    """Retired machine ``projects[].board`` must not change local fallbacks."""
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     config = _write_config(
@@ -112,9 +113,9 @@ def test_machine_project_board_can_override_scope_and_render_path(
     )
     monkeypatch.setenv(machine_config.CONFIG_FILE_ENV, str(config))
 
-    assert machine_config.board_scope(repo_root) == "all"
+    assert machine_config.board_scope(repo_root) == "1"
     assert machine_config.board_render_path(repo_root) == (
-        repo_root / ".yoke" / "BOARD-ALL.md"
+        repo_root / ".yoke" / "BOARD.md"
     )
 
 

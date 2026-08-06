@@ -5,6 +5,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from yoke_core.engines.doctor_applicability import (
     CheckApplicability,
@@ -15,6 +16,7 @@ from yoke_core.engines.doctor_applicability import (
     RUNTIME_LOCAL,
 )
 from yoke_core.engines.doctor_project_checks import (
+    Discovery,
     discover_project_checks,
     project_checks_dir,
     register_project_checks_package,
@@ -25,6 +27,7 @@ from yoke_core.engines.doctor_roster import (
     build_roster,
     record_discovery_failures,
     record_not_applicable,
+    record_roster_collisions,
 )
 
 
@@ -198,6 +201,39 @@ class TestRosterIntegration(unittest.TestCase):
             roster = build_roster([], self._args(), context)
 
         self.assertEqual(roster.slugs, ["release-pin-freshness"])
+        self.assertEqual(roster.known_slugs, {"release-pin-freshness"})
+
+    def test_a_duplicate_slug_is_reported_and_neither_declaration_runs(self):
+        engine_check = HealthCheck(
+            slug="shared", name="Engine declaration",
+            fn=lambda conn, args, rec: None,
+        )
+        project_check = HealthCheck(
+            slug="shared", name="Project declaration",
+            fn=lambda conn, args, rec: None,
+        )
+        context = DoctorContext(
+            project="yoke",
+            runtime=RUNTIME_LOCAL,
+            self_project="yoke",
+            source_checkout=Path("/target/yoke"),
+        )
+
+        with patch(
+            "yoke_core.engines.doctor_roster.discover_project_checks",
+            return_value=Discovery([project_check], []),
+        ):
+            roster = build_roster([engine_check], self._args(), context)
+
+        self.assertEqual(roster.known_slugs, {"shared"})
+        self.assertEqual(roster.applicable, [])
+        self.assertEqual(roster.not_applicable, [])
+        self.assertEqual([c.slug for c in roster.collisions], ["shared"])
+
+        rec = RecordCollector()
+        record_roster_collisions(roster, rec)
+        self.assertEqual(rec.fail_count, 1)
+        self.assertIn("no declaration ran", rec.results[0].detail)
 
     def test_a_runner_without_the_checkout_discovers_nothing(self):
         context = DoctorContext(

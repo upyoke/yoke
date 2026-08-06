@@ -107,20 +107,28 @@ def _add_session(conn, session_id, mode="advance", current_item_id="9001"):
     conn.commit()
 
 
-def _add_item(conn, item_id, worktree="YOK-9001", project="yoke"):
+def _add_item(
+    conn, item_id, worktree="YOK-9001", project="yoke",
+    checkout_path="/repo/yoke",
+):
     project_id = 1 if project == "yoke" else 999
     conn.execute(
         "INSERT INTO items (id, project_id) VALUES (%s, %s)",
         (item_id, project_id),
     )
     if worktree:
+        # Lane authority reads item_worktrees.path, so the seed records
+        # the path worktree preparation would have written under the same
+        # checkout _add_project registers.
         conn.execute(
             "INSERT INTO item_worktrees "
-            "(item_id, branch, lane_role, state, created_at, updated_at) "
-            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            "(item_id, branch, path, lane_role, state, created_at, "
+            "updated_at) "
+            "VALUES (%s, %s, %s, 'implementation', 'active', %s, %s)",
             (
                 item_id,
                 worktree,
+                f"{str(checkout_path).rstrip('/')}/.worktrees/{worktree}",
                 "2026-01-01T00:00:00Z",
                 "2026-01-01T00:00:00Z",
             ),
@@ -187,7 +195,7 @@ class TestSessionCwdBindingHC:
         worktree.mkdir(parents=True)
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))
-        _add_item(conn, 9001, worktree="YOK-9001")
+        _add_item(conn, 9001, worktree="YOK-9001", checkout_path=str(main))
         _add_session(conn, "sess-A", current_item_id="9001")
         _add_work_claim(conn, "sess-A", 9001)
         _add_tool_event(conn, "sess-A", str(worktree))
@@ -206,7 +214,7 @@ class TestSessionCwdBindingHC:
         outside.mkdir()
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))
-        _add_item(conn, 9001, worktree="YOK-9001")
+        _add_item(conn, 9001, worktree="YOK-9001", checkout_path=str(main))
         _add_session(conn, "sess-bad", current_item_id="9001")
         _add_work_claim(conn, "sess-bad", 9001)
         _add_tool_event(conn, "sess-bad", str(outside))
@@ -233,8 +241,8 @@ class TestSessionCwdBindingHC:
         outside.mkdir()
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))
-        _add_item(conn, 9001, worktree="YOK-9001")
-        _add_item(conn, 9002, worktree="YOK-9002")
+        _add_item(conn, 9001, worktree="YOK-9001", checkout_path=str(main))
+        _add_item(conn, 9002, worktree="YOK-9002", checkout_path=str(main))
         _add_session(conn, "sess-good", current_item_id="9001")
         _add_session(conn, "sess-bad", current_item_id="9002")
         _add_work_claim(conn, "sess-good", 9001)
@@ -258,7 +266,7 @@ class TestSessionCwdBindingHC:
         (main / ".worktrees" / "YOK-9001").mkdir(parents=True)
         conn = _make_conn()
         _add_project(conn, checkout_path=str(main))
-        _add_item(conn, 9001, worktree="YOK-9001")
+        _add_item(conn, 9001, worktree="YOK-9001", checkout_path=str(main))
         _add_session(conn, "sess-mute", current_item_id="9001")
         _add_work_claim(conn, "sess-mute", 9001)
         rec = RecordCollector()

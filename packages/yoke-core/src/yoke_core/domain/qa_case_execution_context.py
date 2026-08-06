@@ -8,7 +8,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.item_worktree_resolution import (
-    primary_item_worktree_branch_sql,
+    recorded_item_worktree_value_sql,
 )
 
 
@@ -47,7 +47,9 @@ def get_case_execution_context(
         "q.required_completion, q.method_name, q.executor_id, "
         "q.required_capability_kind, q.verdict_path, "
         "q.execution_target_json, q.execution_target_digest, "
-        f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
+        f"{recorded_item_worktree_value_sql('i.id', 'branch')} AS lane_branch, "
+        f"{recorded_item_worktree_value_sql('i.id', 'commit_sha')} "
+        "AS lane_commit_sha, "
         "p.id AS project_id, "
         "p.slug AS project "
         "FROM qa_requirements q "
@@ -121,6 +123,25 @@ def get_case_execution_context(
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
     }
+    if str(method_snapshot["executor_id"]) == "ci_run":
+        context["lane_commit_sha"] = row["lane_commit_sha"]
+    if (
+        "lane_commit_sha" in context
+        and not context["lane_commit_sha"]
+        and context["item_id"] is not None
+    ):
+        from yoke_core.domain.dash_execution import (
+            DASH_EVIDENCE_SECTION,
+            read_json_section,
+        )
+
+        evidence = read_json_section(
+            conn,
+            item_id=int(context["item_id"]),
+            section=DASH_EVIDENCE_SECTION,
+        )
+        if evidence:
+            context["lane_commit_sha"] = evidence.get("commit_sha")
     if plan_id is not None:
         raw_target = row["execution_target_json"]
         if not raw_target or not row["execution_target_digest"]:

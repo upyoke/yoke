@@ -83,7 +83,6 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke dev path-snapshot-prewarm": "yoke dev path-snapshot-prewarm",
     "yoke onboard": "yoke onboard [--project-mode machine-only|local-checkout] [--yes]",
     "yoke onboard project": "yoke onboard project CHECKOUT --slug SLUG --name NAME [--org ORG] [--yes|--dry-run]",
-    "yoke path": "yoke path <check|fix|verify> [--json]",
     "yoke path check": "yoke path check [--json]",
     "yoke path fix": "yoke path fix [--yes] [--file PATH] [--print-block] [--json]",
     "yoke path verify": "yoke path verify [--json]",

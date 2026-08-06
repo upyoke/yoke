@@ -326,20 +326,5 @@ class TestQaRunList:
         assert _CAPTURED_REQUESTS[-1].target.kind == "global"
 
 
-class TestQaRunGet:
-    def test_dispatches_run_id_payload(self) -> None:
-        rc = _run(_stub_ok, "qa", "run", "get", "--run-id", "8142")
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "qa.run.get"
-        assert req.target.kind == "global"
-        assert req.payload == {"run_id": 8142}
-
-    def test_missing_run_id_returns_two(self) -> None:
-        rc = _run(_stub_ok, "qa", "run", "get")
-        assert rc == 2
-        assert _CAPTURED_REQUESTS == []
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-q"])

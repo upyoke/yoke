@@ -4,28 +4,21 @@ Renders the project-visible ``.yoke`` contract files that
 :func:`yoke_core.domain.install_bundle.build_bundle` ships as
 ``project_contract_files``: policy/appearance files generated from their
 owning recognizers (``lint_config.GUARD_CATALOG``,
-``label_policy.REPO_LABEL_DEFINITIONS``, ``BoardConfig``) plus
-fill-me-in scaffolds (runbooks and test inventory).
+``label_policy.REPO_LABEL_DEFINITIONS``) plus fill-me-in scaffolds
+(runbooks and test inventory).
 
 Every entry carries ``install_policy="seed_if_missing"``: the installer
 writes a file only when absent and never overwrites project edits on
 refresh, so these files are project-owned the moment they land.
 
-Machine view binding (board ``scope`` / ``render_path``) deliberately
-stays out of these files — it lives in ``~/.yoke/config.json`` under
-``projects[<checkout>].board``, because one machine may render a
-checkout's board with ``scope="all"``. The generated board view lands
-wherever ``machine_config.board_render_path`` resolves (default
-``.yoke/BOARD.md``) and is never an installed contract file.
+Board appearance and scope live in DB ``project-policy.settings.board``;
+the generated board view always lands at ``.yoke/BOARD.md``.
 """
 
 from __future__ import annotations
 
-import json
-from dataclasses import MISSING, fields
 from typing import Dict, List
 
-from yoke_contracts.board.config import BoardConfig
 from yoke_core.domain import lint_config
 from yoke_contracts.project_contract.board_art import render_board_art
 from yoke_contracts.project_contract.install_policy import (
@@ -69,7 +62,6 @@ def bundle_contract_files(display_name: str) -> List[Dict[str, str]]:
         f"{CONTRACT_DIR}/project.config": render_project_config(display_name),
         f"{CONTRACT_DIR}/lint-config": lint_config.render_lint_config(),
         f"{CONTRACT_DIR}/labels": render_label_policy(),
-        f"{CONTRACT_DIR}/board.json": render_board_config(),
         f"{CONTRACT_DIR}/board-art": render_board_art(display_name),
         DECLARATION_RELATIVE_PATH: EMPTY_DECLARATION_TEXT,
         f"{CONTRACT_DIR}/test-inventory.md": render_test_inventory(display_name),
@@ -176,25 +168,6 @@ def render_label_policy() -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_board_config() -> str:
-    """Render ``.yoke/board.json`` with every recognized renderer knob.
-
-    Source of truth is the ``BoardConfig`` dataclass: every scalar knob
-    appears at its default value, so the seeded file renders identically
-    to no file at all and doubles as the knob inventory. The parser's
-    internal catch-all (``rainbow_sub_weights``, the only factory-default
-    field) is not a knob and is excluded.
-    """
-
-    knobs = {
-        field.name: field.default
-        for field in fields(BoardConfig)
-        if field.default is not MISSING
-    }
-    # JSON via stdlib follows the machine_config_writer precedent.
-    return json.dumps(knobs, indent=2) + "\n"
-
-
 def render_readme(display_name: str) -> str:
     return f"""# {display_name} Yoke Project Contract
 
@@ -216,8 +189,6 @@ materialized into that authority by named commands.
   database or network: the authored-file `file_line_limit` and repeated
   `file_line_exception` globs for files exempt from it.
 - `labels` - GitHub label color policy in `label_color_*=HEX` format.
-- `board.json` - board renderer appearance/tuning; every recognized knob
-  at its default value.
 - `board-art` - live board header art read by the renderer.
 - `deployment-flows.json` - project-owned delivery definitions. Project
   install/refresh additively reconciles declared rows; omitted and historically
@@ -242,7 +213,6 @@ Repo-owned project files (this directory; rides the repo):
 - `project.config` - on-disk project settings that must be readable with no
   database or network: `file_line_limit` and repeated `file_line_exception`
   globs for the local hook and `yoke check file-line`.
-- `board.json` - board renderer knobs, every key at its default.
 - `lint-config` - hook guard modes (`<guard>=deny|warn`).
 - `labels` - GitHub label colors (`label_color_*=HEX`).
 - `deployment-flows.json` - desired flow definitions and optional project
@@ -260,9 +230,10 @@ DB-owned execution truth and project policy:
   `yoke projects get|update --project <project>`.
 - Project policy (`project_capabilities.type='project-policy'`): shared
   scalar behavior such as `base_branch`, `wip_cap`, `default_priority`,
-  `merge_conflict_threshold`, and `max_attempts`. The authored-file line
-  limit is not here — it is checked-in policy in `.yoke/project.config` so
-  the offline pre-commit hook can enforce it in a fresh clone.
+  `merge_conflict_threshold`, and `max_attempts`, plus nested `board`
+  appearance/scope settings. The authored-file line limit is not here — it is
+  checked-in policy in `.yoke/project.config` so the offline pre-commit
+  hook can enforce it in a fresh clone.
 - Session routing (`project_capabilities.type='session-routing'`): shared
   lane defaults, lane path allowlists, and `/yoke do` process-offer policy.
 - Capabilities (`project_capabilities` + `capability_secrets`):
@@ -277,11 +248,9 @@ DB-owned execution truth and project policy:
   `yoke project-structure patch apply`. Deterministic project commands are
   Command-method QA plans, read through `yoke qa plan list|get`.
 
-Machine view binding (`~/.yoke/config.json`): `projects[<checkout>].board`
-carries `scope` and `render_path` - per-machine, because one machine may
-render this checkout's board with `scope="all"`. The generated board view
-lands at the resolved path (default `.yoke/BOARD.md`) - never edit it,
-and it is never an installed file.
+The generated board view always lands at `.yoke/BOARD.md` — never edit it,
+and it is never an installed contract file. Board scope and appearance are
+DB-owned under `project-policy.settings.board`.
 
 These files are seeded once by `yoke project install` and never
 overwritten on refresh; project edits are preserved. Delete a file and
@@ -300,7 +269,6 @@ __all__ = [
     "SEED_IF_MISSING",
     "bundle_contract_files",
     "render_board_art",
-    "render_board_config",
     "render_deploy_checklist",
     "render_deploy_runbook",
     "render_project_config",

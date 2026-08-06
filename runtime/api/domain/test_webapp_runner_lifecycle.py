@@ -127,12 +127,15 @@ def test_queue_activity_during_scale_down_restores_capacity(tmp_path):
 def test_parallel_idle_hosts_scale_down_independently(tmp_path):
     _write_node_fixture(tmp_path)
     second_instance = "i-1123456789abcdef0"
+    idle_marker_age_seconds = 3600
     values = json.loads(_parameters(
         idle_since=int(time.time()) - 3600,
         online_instance_id="",
+        marker_age_seconds=idle_marker_age_seconds,
     ))
     values[f"/fleet/bootstrap/{second_instance}"] = json.dumps({
-        "state": "ready", "at": int(time.time()) - 600,
+        "state": "ready",
+        "at": int(time.time()) - idle_marker_age_seconds,
     })
     second_runner = {
         **_online_runner(),

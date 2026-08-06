@@ -107,7 +107,16 @@ def _project_id(project: str = "yoke") -> int:
     return {"yoke": 1, "externalwebapp": 2}.get(project, 100)
 
 
+#: Checkout most recently registered by :func:`_seed_project`, so a lane
+#: seeded afterwards can record the path worktree preparation would have
+#: written. Lane authority is read from ``item_worktrees.path``, so a lane
+#: row without it grants nothing and quietly makes a fixture meaningless.
+_REGISTERED_CHECKOUT: "str | None" = None
+
+
 def _seed_project(conn, checkout: str, project: str = "yoke") -> None:
+    global _REGISTERED_CHECKOUT
+    _REGISTERED_CHECKOUT = str(checkout)
     conn.execute(
         "INSERT INTO projects (id, slug) VALUES (%s, %s)",
         (_project_id(project), project),
@@ -140,13 +149,20 @@ def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") ->
         ),
     )
     if branch is not None:
+        lane_path = (
+            os.path.join(_REGISTERED_CHECKOUT, ".worktrees", branch)
+            if _REGISTERED_CHECKOUT
+            else None
+        )
         conn.execute(
             "INSERT INTO item_worktrees "
-            "(item_id, branch, lane_role, state, created_at, updated_at) "
-            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            "(item_id, branch, path, lane_role, state, created_at, "
+            "updated_at) "
+            "VALUES (%s, %s, %s, 'implementation', 'active', %s, %s)",
             (
                 item_id,
                 branch,
+                lane_path,
                 "2026-01-01T00:00:00Z",
                 "2026-01-01T00:00:00Z",
             ),

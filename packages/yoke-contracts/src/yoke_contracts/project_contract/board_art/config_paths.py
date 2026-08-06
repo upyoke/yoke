@@ -1,4 +1,4 @@
-"""Path helpers for project-local board config and art files."""
+"""Path helpers for board art and retired board-settings migration input."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ BOARD_ART_FILENAME = "board-art"
 
 
 def board_config_path(repo_root: str | Path) -> Path:
+    """Return the retired board.json path for migration/fixture readers."""
+
     return Path(repo_root).expanduser() / ".yoke" / BOARD_CONFIG_FILENAME
 
 

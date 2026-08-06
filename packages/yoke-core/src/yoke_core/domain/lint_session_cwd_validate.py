@@ -11,11 +11,17 @@ This module owns the validator surface; the slim policy glue lives in
 
 Behaviour:
 
-* Session with no claims → allow (no enforcement; the unconstrained
-  control-plane / orchestrator session shape).
-* Session with one or more claims → each target path must land under
-  (a) a claimed worktree, (b) a control-plane repo root (the project's
-  ``repo_path`` excluding ``.worktrees/``), or (c) a free path.
+* Every target, from every caller → refused when it lands inside a
+  worktree lane that a **different** live session holds. This test runs
+  before the caller's own authority is consulted and does not depend on
+  the caller holding any claim, because the sessions that cause the most
+  damage here are precisely those with no claim on the lane they are
+  writing into.
+* Session with no claims → allowed everywhere except another session's
+  live lane.
+* Session with one or more claims → each target path must additionally
+  land under (a) a claimed worktree, (b) a control-plane repo root (the
+  project's ``repo_path`` excluding ``.worktrees/``), or (c) a free path.
 * Bash with no extractable targets → the caller passes ``fallback_cwd``
   as a synthetic target so a worktree-binding session that runs a
   control-plane read from outside its worktree still validates against
@@ -28,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.lane_occupancy import LaneOccupant, occupying_claim
 from yoke_core.domain.lint_session_cwd_control_plane import (
     is_under_yoke_control_plane,
 )
@@ -56,6 +63,7 @@ from yoke_core.domain.workflow_runtime import (
 
 
 SCOPE_FAILURE_CLASS = "scope_mismatch"
+FOREIGN_LANE_FAILURE_CLASS = "foreign_lane"
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,9 @@ class ValidationVerdict:
     worktree but the item's status is still pre-implementing".
     ``matched_claim`` and ``item_status`` are populated for the
     pre-implementing case so the emit layer can name the item directly.
+    ``"foreign_lane"`` means the target is inside a worktree lane a
+    different live session holds; ``occupant`` carries that holder so
+    the render layer can name who to coordinate with.
     """
 
     allow: bool
@@ -82,6 +93,7 @@ class ValidationVerdict:
     failure_class: str = SCOPE_FAILURE_CLASS
     matched_claim: Optional[ClaimedWorktree] = None
     item_status: Optional[str] = None
+    occupant: Optional[LaneOccupant] = None
 
 
 def validate_targets(
@@ -100,13 +112,9 @@ def validate_targets(
     the no-target case to allow unconditionally (Edit/Read/Write always
     carry an explicit file_path target).
     """
-    if not session_id:
-        return ValidationVerdict(allow=True, session_id="")
-
-    claims = claimed_worktrees(conn, session_id=session_id)
-    if not claims:
-        return ValidationVerdict(allow=True, session_id=session_id)
-
+    claims = (
+        claimed_worktrees(conn, session_id=session_id) if session_id else []
+    )
     repo_roots = tuple(_derive_repo_roots(conn, claims))
 
     targets_to_check: List[str] = [
@@ -114,6 +122,31 @@ def validate_targets(
     ]
     if not targets_to_check and fallback_cwd.strip():
         targets_to_check = [fallback_cwd]
+
+    # Ownership before authority. A caller with no claims, or with a
+    # claim on some other item, is exactly the shape that reaches into a
+    # lane somebody else is working in, so this test cannot sit behind
+    # either of those conditions.
+    for raw in targets_to_check:
+        occupant = occupying_claim(conn, target=raw, session_id=session_id)
+        if occupant is not None:
+            return ValidationVerdict(
+                allow=False,
+                offending_target=_resolve_for_display(raw),
+                claims=claims,
+                repo_roots=repo_roots,
+                session_id=session_id,
+                failure_class=FOREIGN_LANE_FAILURE_CLASS,
+                occupant=occupant,
+            )
+
+    if not session_id or not claims:
+        return ValidationVerdict(
+            allow=True,
+            claims=claims,
+            repo_roots=repo_roots,
+            session_id=session_id,
+        )
 
     for raw in targets_to_check:
         worktree_match = _matching_claim(raw, claims)

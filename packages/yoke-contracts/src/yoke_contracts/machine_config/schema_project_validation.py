@@ -63,8 +63,8 @@ def _validate_project_entry(
                        "project entry requires a non-empty checkout path",
                        path=f"{prefix}.checkout" if in_list else "projects")]
     issues: list[ValidationIssue] = []
-    allowed = {"checkout", "project_id", "env", "board"} if in_list \
-        else {"project_id", "env", "board"}
+    allowed = {"checkout", "project_id", "env"} if in_list \
+        else {"project_id", "env"}
     for key in sorted(set(entry) - allowed):
         issues.append(_error("project_key_invalid",
                              f"project entry does not support {key!r}",
@@ -75,7 +75,15 @@ def _validate_project_entry(
                              path=f"{prefix}.project_id"))
     issues.extend(_validate_project_env(entry, prefix=prefix,
                                         connection_labels=connection_labels))
-    issues.extend(_validate_project_board(entry.get("board"), prefix=prefix))
+    if "board" in entry:
+        issues.append(_error(
+            "project_board_retired",
+            "projects[].board is retired; board scope and appearance live in "
+            "project-policy.settings.board",
+            path=f"{prefix}.board",
+            hint="Remove board from machine config; set scope under "
+                 "project-policy.settings.board in the DB.",
+        ))
     return issues
 
 
@@ -102,25 +110,3 @@ def _validate_project_env(
                        f"(configured: {sorted(connection_labels)})",
                        path=f"{prefix}.env")]
     return []
-
-
-def _validate_project_board(board: Any, *, prefix: str) -> list[ValidationIssue]:
-    if board is None:
-        return []
-    if not isinstance(board, Mapping):
-        return [_error("project_board_invalid",
-                       "project board must be an object",
-                       path=f"{prefix}.board")]
-    issues: list[ValidationIssue] = []
-    allowed = {"render_path", "scope"}
-    for key in sorted(set(board) - allowed):
-        issues.append(_error("project_board_key_invalid",
-                             f"project board does not support {key!r}",
-                             path=f"{prefix}.board.{key}",
-                             hint="Use only render_path and scope. board-art is always .yoke/board-art."))
-    for key in allowed:
-        if key in board and not _is_nonempty_str(board.get(key)):
-            issues.append(_error("project_board_value_invalid",
-                                 f"project board {key} must be a non-empty string",
-                                 path=f"{prefix}.board.{key}"))
-    return issues

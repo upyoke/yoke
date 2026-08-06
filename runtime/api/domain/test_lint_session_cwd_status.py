@@ -46,11 +46,11 @@ def _seed(
     branch="YOK-9001",
     workflow_id="issue",
 ):
-    del repo_path
     seed_item(
         conn,
         item_id=item_id,
         branch=branch,
+        repo_path=repo_path,
         status=status,
         workflow_id=workflow_id,
     )

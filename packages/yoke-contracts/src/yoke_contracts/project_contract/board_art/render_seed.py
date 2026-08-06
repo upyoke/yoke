@@ -107,7 +107,7 @@ class BoardArtVariant:
 
 _ART_HEADER = """\
 # Board header art — read by the Yoke board renderer on every rebuild.
-# Render tuning (bucket weights, frontier window) lives in .yoke/board.json;
+# Render tuning (bucket weights, frontier window) lives in project-policy.settings.board;
 # to pin a variant, set art_override there (e.g. frontier, rainbow_letters,
 # ascii_1, mixed_1).
 #

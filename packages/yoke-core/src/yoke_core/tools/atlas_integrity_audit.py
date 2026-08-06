@@ -32,6 +32,7 @@ from yoke_core.tools.atlas_integrity_collect import (
     collect_lints,
     collect_operation_tracker,
     collect_recipes,
+    collect_taught_commands,
     collect_subcommand_registry,
     collect_teaching_places,
 )
@@ -187,6 +188,7 @@ def build_report(
     help_pages = collect_help_pages(yoke_cli)
     teaching_places = collect_teaching_places(target_root)
     recipes = collect_recipes(target_root)
+    taught_commands = collect_taught_commands(target_root)
     lints = collect_lints(target_root)
     field_notes = collect_field_notes()
     doc_state = _function_inventory_doc_state(target_root)
@@ -208,6 +210,7 @@ def build_report(
         "help_pages": help_pages,
         "teaching_places": teaching_places,
         "recipes": recipes,
+        "taught_commands": taught_commands,
         "lints": lints,
         "field_notes": field_notes,
         "contradictions": contradictions,

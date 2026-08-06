@@ -127,16 +127,18 @@ class TestDeclarationTable(unittest.TestCase):
         self.assertNotIn("atlas-integrity", DECLARATIONS)
         self.assertNotIn("doc-drift", DECLARATIONS)
 
-    def test_the_pending_migrations_check_answers_everywhere(self):
-        # Deliberately the inverse of the check it replaced, which needed a
-        # source checkout and a declared migration capability. The history
-        # ships in the wheel and the ledger is a table, so "is this database
-        # behind its code?" is answerable on a hosted runner that has neither
-        # — and a check that self-skipped there would be blind to exactly the
-        # installs most likely to drift.
-        declaration = applicability_for("pending-migrations")
-        self.assertEqual(declaration.required_capabilities, ())
-        self.assertFalse(declaration.requires_source_checkout)
+    def test_migration_state_checks_require_the_selected_project_sources(self):
+        # An engine wheel only contains its own history. Calling that history
+        # universal made an external project pass from the control-plane
+        # ledger without inspecting either of its declared surfaces.
+        for slug in (
+            "pending-migrations", "project-migration-ledger-contract",
+        ):
+            declaration = applicability_for(slug)
+            self.assertEqual(
+                declaration.required_capabilities, ("migration_model",),
+            )
+            self.assertTrue(declaration.requires_source_checkout)
 
 
 class TestNotApplicableReporting(unittest.TestCase):

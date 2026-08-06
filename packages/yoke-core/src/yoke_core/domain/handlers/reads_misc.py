@@ -108,12 +108,14 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         validate_only_slugs,
     )
     from yoke_core.engines.doctor_context import FALLBACK_PROJECT, resolve_context
+    from yoke_core.engines.doctor_check_execution import execute_check_isolated
     from yoke_core.engines.doctor_registry import HEALTH_CHECKS
     from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
     from yoke_core.engines.doctor_roster import (
         build_roster,
         record_discovery_failures,
         record_not_applicable,
+        record_roster_collisions,
     )
 
     payload = request.payload or {}
@@ -149,22 +151,6 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload.only",
             ),
         )
-
-    if only_raw:
-        unknown = validate_only_slugs(only_raw)
-        if unknown:
-            return HandlerOutcome(
-                primary_success=False,
-                error=FunctionError(
-                    code="invalid_check",
-                    message=(
-                        "unknown HC slug(s): " + ", ".join(unknown)
-                        + ". Use only registered slugs (list via "
-                        "`python3 -m yoke_core.engines.doctor --list-checks`)."
-                    ),
-                    jsonpath="$.payload.only",
-                ),
-            )
 
     if cursor_after_raw is not None and not isinstance(cursor_after_raw, str):
         return HandlerOutcome(
@@ -204,6 +190,25 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect(path=args.db_path)
     context = resolve_context(conn, args)
     roster = build_roster(HEALTH_CHECKS, args, context)
+    if only_raw:
+        unknown = validate_only_slugs(only_raw, roster.known_slugs)
+        if unknown:
+            conn.close()
+            return HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="invalid_check",
+                    message=(
+                        "unknown HC slug(s): " + ", ".join(unknown)
+                        + ". Use only slugs registered for the target "
+                        "project. List engine slugs via `python3 -m "
+                        "yoke_core.engines.doctor --list-checks`; "
+                        "project-local slugs are declared in the target "
+                        "checkout's `.yoke/doctor/` folder."
+                    ),
+                    jsonpath="$.payload.only",
+                ),
+            )
     selected = roster.applicable
     if bool(payload.get("project_safe_quick")) and not context.targets_self_project:
         selected = project_safe_quick_checks(selected)
@@ -212,6 +217,7 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     # already known before any check runs.
     if not cursor_after_raw:
         record_discovery_failures(roster, rec)
+        record_roster_collisions(roster, rec)
         record_not_applicable(roster, rec)
     start_index = 0
     cursor_after = (cursor_after_raw or "").strip()
@@ -238,13 +244,7 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
         for hc in selected[start_index:]:
             if max_checks is not None and ran_count >= max_checks:
                 break
-            try:
-                hc.fn(conn, args, rec)
-            except Exception as exc:  # pragma: no cover - defensive
-                rec.record(
-                    f"HC-{hc.slug}", hc.name, "FAIL",
-                    f"Internal error: {exc}",
-                )
+            execute_check_isolated(conn, args, rec, hc)
             ran_count += 1
             last_cursor = hc.slug
     finally:

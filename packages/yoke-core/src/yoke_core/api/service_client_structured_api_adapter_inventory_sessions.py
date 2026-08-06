@@ -37,6 +37,16 @@ SESSION_ADAPTERS = [
             "yoke sessions offer --executor E --provider P --workspace W"
         ),
     ),
+    AdapterEntry(
+        function_id="sessions.end_if_empty",
+        cli_invocation="yoke sessions end-if-empty [--triggered-by SOURCE]",
+    ),
+    AdapterEntry(
+        function_id="sessions.reclaim_stale",
+        cli_invocation=(
+            "yoke sessions reclaim-stale --confirm [--project-ids ID,ID,...]"
+        ),
+    ),
     _read_entry(
         function_id="sessions.list",
         cli_invocation=(

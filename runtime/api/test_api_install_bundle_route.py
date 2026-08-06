@@ -78,8 +78,9 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
     assert contract, "bundle must carry the seed-if-missing project contract"
     contract_paths = [entry["path"] for entry in contract]
     assert all(p.startswith(".yoke/") for p in contract_paths)
-    assert ".yoke/board.json" in contract_paths
+    assert ".yoke/board.json" not in contract_paths
     assert ".yoke/lint-config" in contract_paths
+    assert ".yoke/board-art" in contract_paths
     assert all(entry["install_policy"] == "seed_if_missing" for entry in contract)
 
 

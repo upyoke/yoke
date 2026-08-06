@@ -56,7 +56,6 @@ def test_refresh_never_overwrites_edited_contract_files(repo) -> None:
     apply_bundle(repo, make_bundle(), source="test")
     edited = {
         ".yoke/lint-config": "lint_main_commit=warn  # allow-warn\n",
-        ".yoke/board.json": '{"art_override": "frontier"}\n',
         ".yoke/board-art": "## Master Map\n⬜⬛\n",
     }
     for rel, content in edited.items():

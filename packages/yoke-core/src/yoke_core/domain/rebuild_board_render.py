@@ -7,7 +7,6 @@ render markdown locally, then merge it with any existing BOARD.md wrapper.
 
 from __future__ import annotations
 
-import dataclasses
 import os
 from datetime import datetime
 from pathlib import Path
@@ -61,30 +60,43 @@ def fetch_board_data(payload: Dict[str, Any]) -> Dict[str, Any]:
 
 def fetch_and_render(
     repo_root: Path,
-    scope: str,
+    scope: str | None,
     phase_recorder: PhaseRecorder | None,
 ) -> str:
     """Fetch the board data payload and render markdown locally."""
     from yoke_contracts.board.art import parse_art_config
-    from yoke_contracts.board.config import parse_config
+    from yoke_contracts.board.policy_settings import board_config_from_settings
     from yoke_core.board.renderer import render_board_from_payload
     from yoke_contracts.board.zen import _zen_extract_vision
+    from yoke_core.domain import machine_config
+    from yoke_core.domain.board_code_days_publish import (
+        publish_code_days_via_board_payload,
+    )
 
     root_token = str(repo_root)
-    config = parse_config(None, repo_root=root_token)
     art_config = parse_art_config(None, repo_root=root_token)
     vision_entries = _zen_extract_vision(root_token)
+    settings_project_id = machine_config.project_id(repo_root)
+    request_payload: Dict[str, Any] = {
+        "zen_vision_count": len(vision_entries),
+        "repo_root_token": root_token,
+    }
+    if settings_project_id is not None:
+        request_payload["settings_project_id"] = int(settings_project_id)
+    if scope:
+        request_payload["scope"] = scope
+    with measure_phase(phase_recorder, "publish_code_days"):
+        request_payload = publish_code_days_via_board_payload(
+            request_payload, repo_root=repo_root,
+        )
     with measure_phase(phase_recorder, "fetch_board_data"):
-        payload = fetch_board_data({
-            "scope": scope,
-            "config_values": dataclasses.asdict(config),
-            "zen_vision_count": len(vision_entries),
-            "repo_root_token": root_token,
-        })
+        payload = fetch_board_data(request_payload)
+    config = board_config_from_settings(payload.get("config_values"))
+    resolved_scope = str(payload.get("scope") or scope or "all")
     with measure_phase(phase_recorder, "render_total"):
         return render_board_from_payload(
             payload,
-            scope=scope,
+            scope=resolved_scope,
             config=config,
             art_config=art_config,
             seed=parse_seed(),
@@ -98,7 +110,7 @@ def build_board_file_text(
     *,
     repo_root: Path,
     board_path: Path,
-    scope: str,
+    scope: str | None,
     phase_recorder: PhaseRecorder | None,
 ) -> str:
     """Return the exact BOARD.md text that write mode would persist."""

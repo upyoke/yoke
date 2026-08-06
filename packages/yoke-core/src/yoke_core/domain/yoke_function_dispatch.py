@@ -271,7 +271,10 @@ def _dispatch_impl(
     if idem is not None:
         return idem
 
-    claim_error = verify_claim(entry, typed_request)
+    claim_verification: dict[str, Any] = {}
+    claim_error = verify_claim(
+        entry, typed_request, evidence=claim_verification,
+    )
     if claim_error is not None:
         return claim_error
 
@@ -312,6 +315,7 @@ def _dispatch_impl(
         project=permission.project_slug,
         authorization_scope=authorization_scope,
         idempotency_payload_checksum=idempotency_checksum,
+        claim_verification=claim_verification,
     )
     return response
 

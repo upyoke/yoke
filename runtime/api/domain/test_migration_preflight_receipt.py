@@ -190,6 +190,16 @@ class TestRefusalMessage:
         message = receipt.refusal_message("production", ["0002_b"])
         assert "preflight_fleet_migrations" in message
         assert "--record-receipt" in message
+        assert "--receipt-env <control-plane-connection>" in message
+
+    def test_the_command_names_the_gate_connection_when_known(self):
+        message = receipt.refusal_message(
+            "production",
+            ["0002_b"],
+            receipt_connection="prod",
+        )
+        assert "--receipt-env prod" in message
+        assert "<control-plane-connection>" not in message
 
     def test_the_command_names_the_admin_connection_not_the_release_name(self):
         # The operator runs the preflight against a cluster, and "production"

@@ -31,6 +31,16 @@ ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset(
 ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
 ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
+    "addressed_event_deliveries": frozenset(
+        {
+            "event_actor_id",
+            "event_actor_label",
+            "event_envelope",
+            "event_name",
+            "event_outcome",
+            "project_id",
+        }
+    ),
     "project_github_repo_bindings": frozenset(
         {
             "last_sync_at",
@@ -79,6 +89,7 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "projects",
     "items",
     "item_activity_days",
+    "project_code_days",
     "item_dependencies",
     "item_sections",
     "item_status_transitions",

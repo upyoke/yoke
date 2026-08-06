@@ -63,7 +63,10 @@ def _seed_fanout(conn, repo):
         (9, "YOK-1684-backfill"),
     ]
     for task_num, branch in lanes:
-        seed_epic_task(conn, epic_id=1684, task_num=task_num, branch=branch)
+        seed_epic_task(
+            conn, epic_id=1684, task_num=task_num, branch=branch,
+            repo_path=repo,
+        )
         seed_epic_task_claim(conn, "sid-parent", epic_id=1684, task_num=task_num)
         (repo / ".worktrees" / branch).mkdir(parents=True)
 
@@ -146,13 +149,14 @@ class TestParallelFanoutLint:
         repo = tmp_path / "repo"
         (repo / ".worktrees").mkdir(parents=True)
         register_machine_checkout(repo.parent / "machine-config", repo, 1)
-        seed_item(conn, item_id=1872, branch="YOK-1872")
+        seed_item(conn, item_id=1872, branch="YOK-1872", repo_path=repo)
         for task_num, branch in (
             (1, "YOK-1872-substrate"),
             (10, "YOK-1872-propagation"),
         ):
             seed_epic_task(
                 conn, epic_id=1872, task_num=task_num, branch=branch,
+                repo_path=repo,
             )
             (repo / ".worktrees" / branch).mkdir(parents=True)
         (repo / ".worktrees" / "YOK-1872").mkdir(parents=True)

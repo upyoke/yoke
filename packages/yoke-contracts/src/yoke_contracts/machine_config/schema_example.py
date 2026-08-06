@@ -93,7 +93,6 @@ def canonical_example_payload() -> dict[str, Any]:
                 "checkout": "/Users/example/yoke",
                 "project_id": 1,
                 "env": "prod",
-                "board": {"render_path": _contract().DEFAULT_BOARD_PATH, "scope": "yoke"},
             },
         ],
         "settings": {},

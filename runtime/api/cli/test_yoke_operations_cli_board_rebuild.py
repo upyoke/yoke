@@ -187,7 +187,7 @@ def test_print_rebuilds_then_prints_board_to_stdout(tmp_path: Path) -> None:
 
     assert rc == 0
     assert stdout.getvalue() == (
-        f"Yoke board source: scope=all checkout={tmp_path} "
+        f"Yoke board source: checkout={tmp_path} "
         f"board={board_path}\n\n"
         "BOARD CONTENT\n"
     )
@@ -233,7 +233,7 @@ def test_print_banner_includes_active_data_source(tmp_path: Path) -> None:
     assert rc == 0
     first_line = stdout.getvalue().splitlines()[0]
     assert "env=stage" in first_line
-    assert "scope=all" in first_line
+    assert "scope=" not in first_line
     assert f"checkout={tmp_path}" in first_line
     assert f"board={board_path}" in first_line
     assert "data=https://api.stage.upyoke.com" in first_line
@@ -265,7 +265,7 @@ def test_print_only_renders_without_writing_board(tmp_path: Path) -> None:
 
     assert rc == 0
     assert stdout.getvalue() == (
-        f"Yoke board source: scope=all checkout={tmp_path} "
+        f"Yoke board source: checkout={tmp_path} "
         f"board={board_path}\n\n"
         "FRESH BOARD\n"
     )

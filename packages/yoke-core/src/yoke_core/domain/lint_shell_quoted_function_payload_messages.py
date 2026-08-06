@@ -156,6 +156,15 @@ def build_payload_remediation() -> str:
 
 
 def build_choreography_remediation(adapter_key: str, function_id: str) -> str:
+    lane_renderer = ""
+    if function_id == "agents.render.run":
+        lane_renderer = (
+            "\n\nLane-source renderer validation has an explicit source-dev/admin "
+            "shape that uses the checked-out implementation and targets the lane:\n"
+            "  uv run --frozen python3 -m yoke_core.domain.agents_render "
+            "render --target-root <worktree>\n"
+            "Run it bare; the renderer reports its own result without a pipe."
+        )
     return (
         "BLOCKED: registry-covered Yoke CLI wrapped with shell "
         f"choreography.\n\n"
@@ -167,6 +176,7 @@ def build_choreography_remediation(adapter_key: str, function_id: str) -> str:
         "the function-call surface is the cheaper escape hatch for "
         "machine callers.\n\n"
         + REMEDIATION_API_FIRST
+        + lane_renderer
         + "\n\n"
         + CONCRETE_READ_EXAMPLE
         + "\n\nOverride: add `# lint:no-shell-json-payload-check` to the "

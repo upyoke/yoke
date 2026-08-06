@@ -13,6 +13,7 @@ the status-gate tests pass their status explicitly.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import (
@@ -34,10 +35,19 @@ def seed_item(
     *,
     item_id: int,
     branch: "str | None",
+    repo_path: "Any | None" = None,
     project: str = "yoke",
     status: str = "implementing",
     workflow_id: str = "issue",
 ) -> None:
+    """Seed one item and, when ``branch`` is given, its worktree lane.
+
+    ``repo_path`` is required alongside ``branch`` because the lane's
+    recorded ``path`` is what every authority reader consumes; a lane
+    row with a null path models no universe that worktree preparation
+    can produce, and a fixture that omits it silently grants the
+    session no authority at all.
+    """
     insert_item(
         conn,
         id=item_id,
@@ -46,19 +56,46 @@ def seed_item(
         workflow_id=workflow_id,
     )
     if branch:
+        if repo_path is None:
+            raise ValueError(
+                "seed_item(branch=...) also needs repo_path: the lane's "
+                "recorded path is the authority every reader consumes."
+            )
         insert_item_worktree(
             conn,
             item_id=item_id,
             branch=branch,
+            path=str(Path(repo_path) / ".worktrees" / branch),
             lane_role="integration" if workflow_id == "epic" else "implementation",
         )
 
 
 def seed_epic_task(
-    conn: Any, *, epic_id: int, task_num: int, branch: str,
+    conn: Any,
+    *,
+    epic_id: int,
+    task_num: int,
+    branch: str,
+    repo_path: "Any | None" = None,
 ) -> None:
+    """Seed one epic task and its own worker lane.
+
+    Carries ``repo_path`` for the same reason ``seed_item`` does: the
+    lane's recorded path is the authority, and the task's claim
+    resolves through ``epic_tasks.item_worktree_id`` to exactly this
+    row.
+    """
+    if repo_path is None:
+        raise ValueError(
+            "seed_epic_task needs repo_path: the lane's recorded path "
+            "is the authority every reader consumes."
+        )
     insert_epic_task(
-        conn, epic_id=epic_id, task_num=task_num, worktree=branch,
+        conn,
+        epic_id=epic_id,
+        task_num=task_num,
+        worktree=branch,
+        worktree_path=str(Path(repo_path) / ".worktrees" / branch),
     )
 
 

@@ -60,4 +60,6 @@ def build_runtime_status(
     }
 
 
-__all__ = ["build_runtime_status"]
+from yoke_contracts.runtime_identity import with_runtime_identity
+
+__all__ = ["build_runtime_status", "with_runtime_identity"]

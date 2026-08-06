@@ -34,6 +34,11 @@ Membership answers all three, because the pending set is
 is absent. Order in the history decides *when* an entry runs, never
 *whether* it is owed.
 
+The inverse difference is not an error. `applied - history` is the expected
+shape of an older rolled-back artifact reading rows written by newer code.
+Those rows remain meaningful through their recorded serving floors; their
+names must not manufacture a project/history mismatch.
+
 A warning was considered and rejected. A warning leaves the unsound reader
 in place while implying it has been reviewed, which is strictly worse than
 either refusing it or saying nothing: the operator gets the feeling of
@@ -43,32 +48,35 @@ something the signal cannot actually see.
 
 ## What the contract requires
 
-A ledger declaration names its `table`, its `entry_column`, and its
-`semantics`, and `semantics` accepts only `membership`. An optional
-`serving_floor_column` lets a destructive entry's floor travel with its
-row, which is what a rolled-back build reads when it cannot ship the entry
-that would warn it.
+A ledger declaration names its `table`, its `entry_column`, its
+`semantics`, and its `serving_floor_column`. `semantics` accepts only
+`membership`. The serving floor is required once a ledger is declared:
+membership alone cannot stop a rolled-back build from serving a database
+it cannot read — see `project-migration-rollback-safety.md`.
 
-The declaration is validated **when present**, not required outright.
-Models predating this contract are already deployed, and refusing them
-would add a check by taking working projects down. New and amended models
-are refused on the spot.
+Every governed model must declare this ledger. A missing declaration cannot
+answer either safety question and is therefore invalid; established projects
+must add the declaration and converge their project-owned ledger before they
+can report migration health.
 
 ## Why the declaration is checked against reality
 
 A declaration is a promise. `HC-project-migration-ledger-contract` reads
-the live ledger rows and reports whether they can answer membership for the
-shipped history. Three outcomes stay distinct on purpose:
+the live ledger rows and reports whether they satisfy the rollback-safety
+contract (membership plus a readable serving floor) for the shipped
+history. Three outcomes stay distinct on purpose:
 
-- **N/A** — the model declares no ledger. An absent opinion is not a
-  failure.
+- **N/A** — the project declares no migration model, so this check has no
+  governed database subject.
 - **WARN** — the ledger cannot be read, or the packaged history cannot be
   parsed. "I could not read it" and "it is level" are opposite answers, and
   only one of them is safe to assume.
-- **FAIL** — entries are unapplied, or the ledger names entries the history
-  does not contain. The second means the ledger and the history are not
-  describing the same migration set, which makes every pending answer
-  meaningless rather than merely stale.
+- **FAIL** — the model omits/invalidates its ledger contract, entries are
+  unapplied, a declared floor is absent/invalid, or a known running artifact
+  is below a recorded floor.
+- **WARN** — newer applied rows require a rollback-floor comparison but no
+  running artifact version is available. Their names alone are never a
+  failure.
 
 ## Scope
 

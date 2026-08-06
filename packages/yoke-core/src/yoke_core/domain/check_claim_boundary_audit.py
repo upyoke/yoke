@@ -1,8 +1,6 @@
 """Read-only scanner for claim-boundary violations in the events ledger.
 
-Findings cover mutating function attribution, claim-release overrides,
-and path-claim amendments against the live work-claim holder at event
-time. The scanner never mutates rows or emits repair events.
+The scanner never mutates rows or emits repair events.
 """
 
 from __future__ import annotations
@@ -18,6 +16,13 @@ from yoke_core.domain.check_claim_boundary_audit_correlation import (
 from yoke_core.domain.check_claim_boundary_audit_cutoff import (
     select_events as _select_events,
 )
+from yoke_core.domain.check_claim_boundary_audit_function_evidence import (
+    claim_verification_snapshot,
+    claimed_mutation_function_names,
+    classify_claim_verification,
+    function_audit_metadata,
+    target_item_id,
+)
 from yoke_core.domain.check_claim_boundary_audit_rows import (
     ensure_row_factory as _ensure_row_factory,
 )
@@ -30,19 +35,6 @@ from yoke_core.domain.check_claim_boundary_audit_path_claims import (
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 
 
-_MUTATING_FUNCTION_PREFIXES = (
-    "items.structured_field",
-    "items.section",
-    "items.scalar",
-    "items.progress_log",
-    "lifecycle.transition",
-    "workflow_item.epic_task",
-    "workflow_item.epic_progress_note",
-    "db_claim",
-    "qa.requirement",
-    "qa.run",
-)
-_NON_MUTATING_FUNCTION_NAMES = ("qa.requirement.get", "qa.requirement.list", "qa.run.list")
 @dataclass(frozen=True)
 class Finding:
     severity: str
@@ -70,20 +62,11 @@ def _envelope(row: Any) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _is_mutating_function(name: str) -> bool:
-    if name in _NON_MUTATING_FUNCTION_NAMES:
-        return False
-    return any(
-        name == prefix or name.startswith(prefix + ".")
-        for prefix in _MUTATING_FUNCTION_PREFIXES
-    )
-
-
 def _coerce_item_id(value) -> Optional[int]:
     if value is None:
         return None
     try:
-        return int(str(value).replace("YOK-", ""))
+        return int(str(value))
     except (ValueError, TypeError):
         return None
 
@@ -174,12 +157,28 @@ def scan_function_call_attribution(
     for row in _select_events(conn, "YokeFunctionCalled", since):
         ctx = _context(row)
         fn_name = str(ctx.get("function") or "")
-        if not _is_mutating_function(fn_name):
+        metadata = function_audit_metadata(ctx, fn_name)
+        if metadata is None or not metadata.is_claimed_mutation:
             continue
-        item_id_int = _coerce_item_id(row["item_id"])
+        item_id_int = target_item_id(ctx, metadata, row["item_id"])
         if item_id_int is None:
             continue
         caller = row["session_id"]
+        snapshot = claim_verification_snapshot(ctx)
+        if snapshot is not None:
+            mismatch = classify_claim_verification(snapshot, metadata, caller)
+            if mismatch is not None:
+                findings.append(Finding(
+                    severity=mismatch.severity,
+                    finding_class="function_call_attribution_mismatch",
+                    event_id=int(row["id"]),
+                    item_id=item_id_int,
+                    holder_session_id=mismatch.holder_session_id,
+                    caller_session_id=mismatch.caller_session_id,
+                    mutation_surface=fn_name,
+                    rationale=mismatch.rationale,
+                ))
+            continue
         holder = _live_claim_holder_at(
             conn, item_id_int, row["created_at"],
         )
@@ -206,13 +205,14 @@ def scan_function_call_attribution(
         if finding is not None:
             findings.append(finding)
     for row in select_unattributed_harness_events(
-        conn, since, mutating_prefixes=_MUTATING_FUNCTION_PREFIXES,
+        conn, since, mutating_functions=claimed_mutation_function_names(),
     ):
         flags = str(row["anomaly_flags"] or "")
         if "unattributed" not in flags:
             continue
         fn_name, item_id_int = _preview_surface_and_item(row)
-        if not _is_mutating_function(fn_name):
+        metadata = function_audit_metadata({}, fn_name)
+        if metadata is None or not metadata.is_claimed_mutation:
             continue
         if has_correlated_function_call(
             conn, harness_row=row, function_name=fn_name, item_id=item_id_int,

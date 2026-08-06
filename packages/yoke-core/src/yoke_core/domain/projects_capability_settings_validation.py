@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
 from yoke_core.domain import json_helper
 
 
@@ -44,6 +45,10 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         )
 
         return validate_test_machine_json(raw_json)
+    if cap_type == RELEASE_PIN_CAPABILITY:
+        from yoke_core.domain.release_pin_capability import validate_json_string
+
+        return validate_json_string(raw_json)
     return raw_json
 
 

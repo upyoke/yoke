@@ -5,6 +5,8 @@ Whether a requested check can honestly answer for a given project and
 runtime is a separate question, answered by the applicability model in
 :mod:`yoke_core.engines.doctor_applicability` — the runner reports anything
 out of scope as not-applicable rather than filtering it out of the report.
+``--only`` validation consumes the already-resolved target roster so engine
+and project-local checks share one typo-rejection boundary.
 """
 
 from __future__ import annotations
@@ -41,8 +43,11 @@ def doctor_scope_label(args: Any) -> str:
     return "full"
 
 
-def validate_only_slugs(only_raw: str) -> list[str] | None:
-    known = _resolve_known_slugs()
+def validate_only_slugs(
+    only_raw: str,
+    known_slugs: Iterable[str],
+) -> list[str] | None:
+    known = set(known_slugs)
     alias_map = {"confabulation": "path-confabulation"}
     unknown: list[str] = []
     for raw in only_raw.split(","):
@@ -50,18 +55,10 @@ def validate_only_slugs(only_raw: str) -> list[str] | None:
         if not token:
             continue
         bare = token[3:] if token.startswith("HC-") else token
-        if token in known or bare in known or alias_map.get(bare) in known:
+        if bare in known or alias_map.get(bare) in known:
             continue
         unknown.append(token)
     return unknown or None
-
-
-def _resolve_known_slugs() -> set[str]:
-    from yoke_core.engines.doctor_registry import HEALTH_CHECKS
-
-    known = {f"HC-{hc.slug}" for hc in HEALTH_CHECKS}
-    known.update(hc.slug for hc in HEALTH_CHECKS)
-    return known
 
 
 __all__ = [

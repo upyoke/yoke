@@ -61,7 +61,7 @@ def render_board(
         Project scope (e.g. ``"yoke"``, ``"all"``).
     config_path:
         Optional explicit JSON or key=value settings path for tests/operator-debug.
-        Normal runtime reads board settings from ``<repo_root>/.yoke/board.json``
+        Normal runtime reads board settings from DB ``project-policy.settings.board``
         and art from ``<repo_root>/.yoke/board-art``.
     seed:
         Explicit random seed for deterministic art/variant selection.

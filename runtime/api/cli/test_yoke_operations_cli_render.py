@@ -156,7 +156,8 @@ class TestBoardRebuild:
             repo_arg="/tmp/repo",
             force=False,
             output_name=None,
-            scope="all",
+            # Empty defers scope resolution to the project's DB-backed board policy.
+            scope="",
             emit=False,
             phase_recorder=ANY,
         )

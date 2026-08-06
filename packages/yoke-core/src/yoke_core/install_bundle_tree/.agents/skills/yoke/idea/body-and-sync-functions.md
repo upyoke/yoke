@@ -325,28 +325,18 @@ takes `target={kind: "epic_task", epic_id: N}` with empty payload.
 `qa.requirement.update` takes the matching `qa_requirement_id` target
 plus a payload naming the field being updated.
 
-## Retire-AC clause — topology-keyed (Bucket 1, `mutation_intent="apply"`)
+## Permanent-history AC clause (Bucket 1, `mutation_intent="apply"`)
 
-When bucket 1 lands a declared payload with `mutation_intent="apply"`
-and one or more `migration_modules`, the spec must carry an explicit
-retire-the-module acceptance criterion whose timing matches the
-project's install topology. The agent reads the topology and generates
-the right clause automatically.
+When bucket 1 declares one or more `migration_modules`, the spec must say
+that every entry remains in the model's ordered history. There is no
+install-topology branch and no retire timing: a database that has not seen an
+entry yet still needs the source that can apply it.
 
-Migration modules are permanent ordered history, so there is no
-retire-timing to word and no install topology to resolve: the same
-acceptance criterion applies to every project.
+Append this through `items.structured_field.section_append` under
+`Acceptance Criteria`:
 
-Append it to the spec's `Acceptance
-Criteria` section through `items.structured_field.section_append`
-(heading `Acceptance Criteria`):
+`- [ ] AC-{N}: Each declared migration entry ({modules}) is committed as permanent ordered history, remains safe to re-run, and is never deleted after apply; boot convergence records filename-stem membership in the authoritative database's ledger.`
 
-- **Single-install**: `- [ ] AC-{N}: The one-shot migration module(s) ({modules}) and any module-only tests are deleted in the same slice as live-apply, once \`migration_audit.state='completed'\` is present on the model's authoritative DB.`
-- **Multi-install**: `- [ ] AC-{N}: The one-shot migration module(s) ({modules}) and any module-only tests are deleted in the same commit range after \`migration_audit.state='completed'\` is present on every install of the model's authoritative DB.`
-
-Where `{modules}` lists the slugs from
-`db_mutation_profile.migration_modules`. If a retire-AC already exists
-in the spec (operator hand-authored), verify it matches the topology
-template; if not, replace via the section-append handler. Routing the
-addendum through the structured-field section-append handler preserves
-the rest of the spec body.
+Where `{modules}` lists the declared slugs. If the spec already tells an
+implementer to delete or auto-retire an entry, replace that conflicting AC;
+do not preserve both instructions.

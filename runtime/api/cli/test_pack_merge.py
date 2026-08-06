@@ -59,6 +59,35 @@ def test_update_reports_overlapping_customization_without_writing_markers(
     assert "<<<<<<<" not in (tmp_path / "config.txt").read_text(encoding="utf-8")
 
 
+def test_update_reports_multiple_conflict_hunks_as_one_file_conflict(
+    tmp_path: Path,
+) -> None:
+    middle = "".join(f"unchanged-{index}\n" for index in range(20))
+    base = f"first=base\n{middle}second=base\n"
+    current = f"first=project\n{middle}second=project\n"
+    incoming = f"first=pack\n{middle}second=pack\n"
+    (tmp_path / "customized.txt").write_text(current, encoding="utf-8")
+
+    plan = plan_update(
+        tmp_path,
+        [_text_entry("customized.txt", base)],
+        [_text_entry("customized.txt", incoming)],
+    )
+
+    assert plan["updates"] == []
+    assert plan["conflicts"] == [
+        {
+            "path": "customized.txt",
+            "reason": "overlapping_customization",
+            "content_conflict": True,
+            "mode_conflict": False,
+        }
+    ]
+    assert "<<<<<<<" not in (tmp_path / "customized.txt").read_text(
+        encoding="utf-8"
+    )
+
+
 def test_update_keeps_a_file_removed_by_the_new_pack(tmp_path: Path) -> None:
     (tmp_path / "retired.txt").write_text("project keeps this\n", encoding="utf-8")
 

@@ -29,14 +29,20 @@ def test_project_entry_rejects_slug_copy() -> None:
     assert any(issue.code == "project_key_invalid" for issue in issues)
 
 
-def test_project_board_rejects_art_path() -> None:
+def test_project_board_is_retired() -> None:
     payload = contract.canonical_example_payload()
     project = payload["projects"][0]
-    project["board"]["art_path"] = ".yoke/board-art"
+    project["board"] = {
+        "scope": "all",
+        "render_path": ".yoke/BOARD.md",
+        "art_path": ".yoke/board-art",
+    }
 
     issues = contract.validate_payload(payload)
+    codes = {issue.code for issue in issues}
 
-    assert any(issue.code == "project_board_key_invalid" for issue in issues)
+    assert "project_board_retired" in codes
+    assert "project_key_invalid" in codes
 
 
 def test_project_entry_matches_worktree_path(tmp_path) -> None:

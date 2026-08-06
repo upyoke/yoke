@@ -15,9 +15,6 @@ from typing import List
 
 from yoke_cli.config import path_doctor as doctor
 
-PATH_USAGE = "yoke path <check|fix|verify> [--json]"
-
-
 def _resolutions(resolved: list[doctor.ToolResolution]) -> dict[str, str | None]:
     return {res.name: res.path for res in resolved}
 
@@ -206,7 +203,6 @@ def path_group(args: List[str]) -> int:
 
 
 __all__ = [
-    "PATH_USAGE",
     "path_check",
     "path_fix",
     "path_group",

@@ -24,7 +24,10 @@ from yoke_cli.commands.registry import (
     resolve,
 )
 from yoke_cli.commands.flag_adapters import ADAPTER_USAGE
-from yoke_cli.commands.group_help import emit_group_help_if_available
+from yoke_cli.commands.group_help import (
+    emit_group_help_if_available,
+    nearest_subcommand_hint,
+)
 from yoke_cli.commands.help_labels import labeled_cli_form
 from yoke_cli.commands.manifest_drift import (
     manifest_unknown_hint,
@@ -153,7 +156,7 @@ def _emit_bare_onboard_route(problem: str, *, interactive: bool) -> int:
 
 def _emit_unknown(argv: Sequence[str]) -> int:
     head = " ".join(list(argv)[:3]) if argv else "<no subcommand>"
-    hint = manifest_unknown_hint(list(argv)) or (
+    hint = manifest_unknown_hint(list(argv)) or nearest_subcommand_hint(argv) or (
         "Run `yoke --help` for the canonical list of subcommands."
     )
     print(f"yoke: unknown subcommand: {head!r}\n{hint}", file=sys.stderr)

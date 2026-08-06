@@ -12,7 +12,9 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain.harness_capability_registry import shared_downstream_paths
-from yoke_core.domain.project_policy_capabilities import _SESSION_ROUTING_DEFAULTS
+from yoke_core.domain.project_session_routing_defaults import (
+    _SESSION_ROUTING_DEFAULTS,
+)
 from yoke_core.domain.scheduler_types import (
     ClaimState,
     NextStep,

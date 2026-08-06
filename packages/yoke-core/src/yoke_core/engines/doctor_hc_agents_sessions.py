@@ -77,7 +77,7 @@ def hc_stale_session_reclaimer_alive(conn, args: DoctorArgs, rec: RecordCollecto
 
     Checks that a HarnessSessionStaleSweepCompleted event has been emitted within the
     documented cadence.  The sweep fires on every session-start hook invocation
-    and from the periodic clean-stale-sessions CLI.  A gap longer than 2 hours
+    and from the periodic ``yoke sessions reclaim-stale --confirm`` CLI. A gap longer than 2 hours
     suggests the reclaimer is not running.
     """
     slug = "HC-stale-session-reclaimer-alive"
@@ -98,7 +98,8 @@ def hc_stale_session_reclaimer_alive(conn, args: DoctorArgs, rec: RecordCollecto
             slug, label, "WARN",
             "No HarnessSessionStaleSweepCompleted events found. "
             "The stale-session reclaimer may not be running. "
-            "It fires via session-start hooks and clean-stale-sessions CLI.",
+            "It fires via session-start hooks and `yoke sessions "
+            "reclaim-stale --confirm`.",
         )
         return
 

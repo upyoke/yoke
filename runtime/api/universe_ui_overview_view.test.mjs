@@ -169,7 +169,7 @@ test("the masthead projects state and 120-day momentum as distinct signals", asy
   );
   assert.equal(
     byClass(root, "overview-streak")[0].textContent,
-    "🔥 active 2 of last 2 days",
+    "🔥🔥 2d streak (40.00%)",
   );
   assert.match(
     byClass(root, "overview-sync")[0].textContent,

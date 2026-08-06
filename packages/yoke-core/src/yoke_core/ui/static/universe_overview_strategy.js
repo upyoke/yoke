@@ -32,7 +32,7 @@ export async function loadVitals(context, masthead, getScope) {
     result: (callResults[index] && callResults[index].envelope.result) || {},
   }));
   const timelines = perProject.flatMap(
-    (entry) => entry.result.strategy_timeline || [],
+    (entry) => entry.result.zen || [],
   );
   const paint = () => {
     if (!context.isMounted()) return;
@@ -66,16 +66,55 @@ export async function loadVitals(context, masthead, getScope) {
         momentumByDay.set(row.day, combined);
       }
     }
+    const momentum = [...momentumByDay.values()].sort(
+      (left, right) => String(left.day).localeCompare(String(right.day)),
+    );
+    let streakDays = 0;
+    let lifetimePct = null;
+    if (chosen.length === 1) {
+      streakDays = Number(chosen[0].result.streak_days) || 0;
+      lifetimePct = chosen[0].result.lifetime_pct;
+    } else {
+      streakDays = streakFromMomentum(momentum);
+    }
     masthead.setVitals({
       stateCounts,
       days,
-      momentum: [...momentumByDay.values()].sort(
-        (left, right) => String(left.day).localeCompare(String(right.day)),
-      ),
+      momentum,
+      streakDays,
+      lifetimePct,
     });
   };
   paint();
   return { timelines, paint };
+}
+
+function streakFromMomentum(momentum) {
+  const active = new Set(
+    momentum
+      .filter((row) => (Number(row.activity) || 0) > 0 || (Number(row.code) || 0) > 0)
+      .map((row) => String(row.day)),
+  );
+  const today = new Date();
+  const utcToday = Date.UTC(
+    today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(),
+  );
+  let streak = 0;
+  let started = false;
+  for (let offset = 0; offset <= momentum.length + 1; offset += 1) {
+    const day = new Date(utcToday - offset * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    if (active.has(day)) {
+      started = true;
+      streak += 1;
+    } else if (!started && offset <= 1) {
+      continue;
+    } else {
+      break;
+    }
+  }
+  return streak;
 }
 
 // The strategy corpus, project-scoped through the target the same way the full
@@ -150,6 +189,10 @@ export async function loadStrategy(
           `${project.slug || project.name || "Project"} strategy timeline`,
         );
         const past = el(documentNode, "div", "overview-zen-past");
+        const pastZone = (timeline?.zones || []).find((zone) => zone.key === "past");
+        if (pastZone && Number(pastZone.width) > 0) {
+          past.style.flex = String(Number(pastZone.width));
+        }
         for (const position of timeline?.done_positions || []) {
           const dot = el(documentNode, "i", "overview-zen-dot");
           dot.style.left =
@@ -179,6 +222,10 @@ export async function loadStrategy(
         track.appendChild(el(documentNode, "span", "overview-zen-now", "🔸"));
         if (Number(timeline?.queued_count) > 0) {
           const queued = el(documentNode, "div", "overview-zen-queued");
+          const nearZone = (timeline?.zones || []).find((zone) => zone.key === "near");
+          if (nearZone && Number(nearZone.width) > 0) {
+            queued.style.flex = String(Number(nearZone.width));
+          }
           queued.appendChild(el(
             documentNode,
             "span",
@@ -190,6 +237,12 @@ export async function loadStrategy(
         for (const zone of timeline?.vision_zones || []) {
           const vision = el(documentNode, "div", "overview-zen-vision");
           vision.setAttribute("data-zone", zone.key || "vision");
+          const matching = (timeline?.zones || []).find(
+            (entry) => entry.key === zone.key,
+          );
+          if (matching && Number(matching.width) > 0) {
+            vision.style.flex = String(Number(matching.width));
+          }
           vision.appendChild(el(
             documentNode,
             "i",

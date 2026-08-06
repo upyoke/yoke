@@ -10,20 +10,20 @@ deploying that ref silently rolls the pinned component back.
 The comparison lives beside the caller's checkout because both sides of it
 are refs in that repository, which the control plane never sees. The rule
 is generic — a deploy must not regress a version pin — while the pin's
-location and its branch-per-environment mapping are project configuration,
-declared by the project's ``release_pin`` capability:
+location, branch mapping, control-plane environment mapping, desired-pin leaf,
+and optional probe contract are project-owned ``release_pin`` capability
+settings. Global code supplies no repository path, branch, target vocabulary,
+environment id, settings leaf, or probe-response default.
 
-    {
-      "pin_file": "yoke-release-pin.txt",
-      "branch_by_environment": {"stage": "stage", "production": "main"}
-    }
-
-A project without that capability is unaffected. When the declaration is
-present but the pin cannot be read on either side, the comparison reports
-that it was skipped rather than guessing — an unreadable pin is not
-evidence that the move is safe, but it is also not evidence of a
-regression, and refusing every unreadable case would block projects whose
-pin file legitimately does not exist yet on a new branch.
+Desired pin authority is the configured ``desired_pin_path`` leaf in
+``environments.settings`` on the mapped environment id.
+The committed pin file remains build materialization on the environment
+branch. A project without that capability is unaffected. When the
+declaration is present but the pin cannot be read on either side, the
+comparison reports that it was skipped rather than guessing — an
+unreadable pin is not evidence that the move is safe, but it is also not
+evidence of a regression, and refusing every unreadable case would block
+projects whose pin file legitimately does not exist yet on a new branch.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Optional
 
-RELEASE_PIN_CAPABILITY = "release_pin"
+from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
 
 
 class PinRegressionError(Exception):
@@ -103,9 +103,7 @@ def evaluate_pin_move(
     if not branch:
         return PinComparison(
             regressed=False,
-            skipped_reason=(
-                f"no pin branch declared for environment {target_env!r}"
-            ),
+            skipped_reason=(f"no pin branch declared for environment {target_env!r}"),
         )
     candidate = read_pin_at_ref(repo_path, source_ref, pin_file)
     current = read_pin_at_ref(repo_path, f"origin/{branch}", pin_file)

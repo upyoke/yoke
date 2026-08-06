@@ -21,6 +21,9 @@ WORKFLOWS_CURRENT_SET_USAGE = (
 WORKFLOWS_VERSION_GET_USAGE = (
     "yoke workflows version get WORKFLOW VERSION [--session-id S] [--json]"
 )
+WORKFLOWS_VERSION_LIST_USAGE = (
+    "yoke workflows version list [WORKFLOW] [--session-id S] [--json]"
+)
 WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE = (
     "yoke workflows policy-defaults publish WORKFLOW "
     "(--file-budget on|off | --path-claims on|off | --path-survey on|off) "
@@ -102,6 +105,41 @@ def workflows_version_get(args: List[str]) -> int:
     )
 
 
+def workflows_version_list(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke workflows version list",
+        description=WORKFLOWS_VERSION_LIST_USAGE,
+    )
+    parser.add_argument("workflow", nargs="?", default=None)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, WORKFLOWS_VERSION_LIST_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        del stderr
+        for row in (response.result or {}).get("rows") or []:
+            print(
+                f"{row.get('workflow_id', '')}|{row.get('version', '')}|"
+                f"{str(bool(row.get('current'))).lower()}|"
+                f"{row.get('definition_digest', '')}",
+                file=stdout,
+            )
+
+    payload = {}
+    if parsed.workflow:
+        payload["workflow_id"] = parsed.workflow
+    return dispatch_and_emit(
+        function_id="workflows.version.list",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
 def workflows_policy_defaults_publish(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows policy-defaults publish",
@@ -167,7 +205,9 @@ __all__ = [
     "WORKFLOWS_CURRENT_SET_USAGE",
     "WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE",
     "WORKFLOWS_VERSION_GET_USAGE",
+    "WORKFLOWS_VERSION_LIST_USAGE",
     "workflows_current_set",
     "workflows_policy_defaults_publish",
     "workflows_version_get",
+    "workflows_version_list",
 ]

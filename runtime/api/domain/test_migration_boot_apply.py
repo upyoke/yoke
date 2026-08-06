@@ -27,10 +27,6 @@ RESTORE_POINT = "snapshot:test-restore-point"
 
 def _connection() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
-    # The real DDL, not a convenient subset of it. A hand-rolled table here
-    # once omitted three NOT NULL columns the live schema has, so the receipt
-    # assertions below passed against a shape no database actually has while
-    # every receipt failed its constraint in production.
     ensure_applied_migrations_table(conn)
     ensure_migration_audit_table(conn)
     conn.execute("CREATE TABLE marks (name TEXT)")
@@ -271,7 +267,7 @@ def test_completed_apply_writes_a_receipt(tmp_path: Path) -> None:
     assert row == ("completed", RESTORE_POINT)
 
 
-def test_invariants_failure_fails_the_boot_but_keeps_the_ledger(
+def test_invariants_failure_rolls_back_mutation_and_ledger(
     tmp_path: Path,
 ) -> None:
     conn = _connection()
@@ -291,9 +287,12 @@ def test_invariants_failure_fails_the_boot_but_keeps_the_ledger(
             external_restore_point=RESTORE_POINT,
         )
 
-    # The entry really did apply, so the ledger must say so — the ledger
-    # records what happened, not whether we were happy about it.
-    assert applied_names(conn) == {"0001_first"}
+    assert applied_names(conn) == set()
+    assert _marks(conn) == []
+    row = conn.execute(
+        "SELECT state FROM migration_audit WHERE migration_name='0001_first'"
+    ).fetchone()
+    assert row == ("live_verify_failed",)
 
 
 def test_stamp_records_the_history_without_running_it(tmp_path: Path) -> None:

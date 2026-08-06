@@ -8,6 +8,7 @@ from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.deployment_flow_reconcile import (
     deployment_flows_reconcile_project,
 )
+from yoke_cli.commands.adapters import deployment_inspection as _inspection
 from yoke_cli.commands.adapters.deployment_run_projection import (
     deployment_runs_project_snapshot,
 )
@@ -20,6 +21,8 @@ AdapterFn = Callable[[List[str]], int]
 
 
 DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("deployment-flows", "list"):
+        ("deployment_flows.list", _inspection.deployment_flows_list),
     ("deployment-flows", "get"):
         ("deployment_flows.get", _adapters.deployment_flows_get),
     ("deployment-flows", "reconcile-project"):
@@ -50,6 +53,13 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("deployment_runs.get", _adapters.deployment_runs_get),
     ("deployment-runs", "list"):
         ("deployment_runs.list", _adapters.deployment_runs_list),
+    ("deployment-runs", "find-by-item"):
+        (
+            "deployment_runs.find_by_item",
+            _inspection.deployment_runs_find_by_item,
+        ),
+    ("deployment-runs", "stages"):
+        ("deployment_runs.stages", _inspection.deployment_runs_stages),
     ("deployment-runs", "update"):
         ("deployment_runs.update", _adapters.deployment_runs_update),
     ("deployment-runs", "terminalize"):

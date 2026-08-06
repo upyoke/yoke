@@ -131,6 +131,34 @@ def _zen_compute_labels(
     return labels
 
 
+def vision_from_content(content: str) -> List[Tuple[str, str]]:
+    """Parse VISION markdown into ``(key, label)`` zone labels.
+
+    Same section rules the board zen widget uses for the rendered VISION
+    strategy doc — one label per horizon from the first bullet.
+    """
+    results: List[Tuple[str, str]] = []
+    text = content or ""
+    for section_name, key in _VISION_SECTIONS:
+        pattern = re.compile(
+            r"^### " + re.escape(section_name) + r"\s*\n(.*?)(?=^### |\Z)",
+            re.MULTILINE | re.DOTALL,
+        )
+        match = pattern.search(text)
+        if not match:
+            continue
+        for line in match.group(1).splitlines():
+            candidate = line.strip()
+            if not candidate.startswith("- "):
+                continue
+            words = candidate[2:].strip().split()[:2]
+            label = " ".join(words).lower()[:12]
+            if label:
+                results.append((key, label))
+            break
+    return results
+
+
 def _zen_extract_vision(repo_root: Optional[str]) -> List[Tuple[str, str]]:
     """Parse the rendered VISION strategy doc for timeline zone labels.
 
@@ -150,27 +178,7 @@ def _zen_extract_vision(repo_root: Optional[str]) -> List[Tuple[str, str]]:
     except OSError:
         return []
 
-    results: List[Tuple[str, str]] = []
-    for section_name, key in _VISION_SECTIONS:
-        pattern = re.compile(
-            r"^### " + re.escape(section_name) + r"\s*\n(.*?)(?=^### |\Z)",
-            re.MULTILINE | re.DOTALL,
-        )
-        m = pattern.search(content)
-        if not m:
-            continue
-        block = m.group(1)
-        for line in block.splitlines():
-            line = line.strip()
-            if line.startswith("- "):
-                text = line[2:].strip()
-                words = text.split()[:2]
-                label = " ".join(words).lower()[:12]
-                if label:
-                    results.append((key, label))
-                break
-
-    return results
+    return vision_from_content(content)
 
 
 __all__ = [
@@ -178,4 +186,5 @@ __all__ = [
     "_labels_for_window",
     "_zen_compute_labels",
     "_zen_extract_vision",
+    "vision_from_content",
 ]

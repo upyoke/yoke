@@ -18,10 +18,9 @@ from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 import psycopg
 from psycopg import conninfo, pq, sql
 
-from yoke_core.domain import (
-    postgres_binaries,
-    postgres_cluster,
-    universe_archive_output,
+from yoke_core.domain import universe_archive_output
+from yoke_core.domain.postgres_client_runtime import (
+    postgres_executable as _postgres_executable,
 )
 from yoke_core.domain.source_authority_connect_policy import FENCE_STATE_SCHEMA
 from yoke_core.domain.universe_portability_content_contract import (
@@ -178,13 +177,6 @@ class ArchiveInspection:
     catalog_tables: tuple[str, ...] = ()
     catalog_sequences: tuple[str, ...] = ()
     catalog_digest: str = ""
-
-
-def _postgres_executable(name: str) -> str:
-    return postgres_cluster.executable(
-        postgres_binaries.installed_bin_dir(),
-        name,
-    )
 
 
 def _remaining_timeout(deadline: float, operation: str) -> float:
@@ -1516,7 +1508,7 @@ def converge_and_validate_restored_universe(
         # Legacy convergence steps own commits and cannot run inside psycopg's
         # nested transaction context. This staging database is discarded on
         # validation failure; the archive restore was already atomic.
-        converge_core_schema(conn)
+        converge_core_schema(conn, backup_target_dsn=bounded_dsn)
         seed_roles_and_permissions(conn)
         # Uploaded TOCs omit views and executable schema. Recreate the canonical
         # view and QA trigger/function from trusted code before fingerprinting.

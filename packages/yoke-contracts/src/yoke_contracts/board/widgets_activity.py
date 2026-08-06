@@ -25,8 +25,9 @@ from yoke_contracts.board.sql import (
     day_from_timestamp_expr,
     timestamp_expr,
 )
-from yoke_contracts.board.widgets_commit_cache import (
-    commits_per_day as _commits_per_day,
+from yoke_contracts.board.widgets_code_days import (
+    code_commit_days_all_time,
+    code_commits_by_day,
 )
 from yoke_contracts.machine_config import runtime as machine_config
 
@@ -209,13 +210,13 @@ def render_velocity_sparkline(
         if day >= cutoff
     }
 
-    # One git-log call covers the 14d bar, the 365d streak, and the
-    # lifetime percentage — fetch at the widest window any consumer needs.
-    repos = _resolve_repos(db, scope, repo_root)
+    # One control-plane rollup covers the 14d bar, the 365d streak, and the
+    # lifetime percentage — commit days come from project_code_days.
     first_iso, project_days = _project_age_days(db, scope)
-    commits = _commits_per_day(repos, max(365, project_days))
+    commits = code_commits_by_day(db, scope, max(365, project_days))
     for day, n in commits.items():
-        day_counts[day] = day_counts.get(day, 0) + n
+        if n > 0:
+            day_counts[day] = day_counts.get(day, 0) + n
 
     merged = _merge_counts(day_counts, dates)
     values = [c for _, c in merged]
@@ -254,12 +255,8 @@ def _active_day_set(
     """Return the set of YYYY-MM-DD strings active in the last *lookback_days*.
 
     A day is active if it has at least one ``item_activity_days`` row
-    OR at least one commit in the scope's repos. *commits* may be a pre-fetched dict (from the
-    dashboard's shared call) — when omitted the helper fetches its own.
-
-    Shared by :func:`_compute_streak` (current run from today) and
-    :func:`_compute_achievement_streak` (longest run anywhere in the
-    window) so both metrics agree on what counts as an active day.
+    OR at least one commit day in ``project_code_days``. *commits* may be a
+    pre-fetched dict — when omitted the helper loads the rollup.
     """
     cutoff = (_utc_today() - timedelta(days=lookback_days)).isoformat()
     active_days: set = {
@@ -268,8 +265,8 @@ def _active_day_set(
     }
 
     if commits is None:
-        commits = _commits_per_day(_resolve_repos(db, scope, repo_root), lookback_days)
-    active_days.update(commits.keys())
+        commits = code_commits_by_day(db, scope, lookback_days)
+    active_days.update(day for day, n in commits.items() if int(n) > 0)
 
     return active_days
 
@@ -335,14 +332,12 @@ def _compute_lifetime_activity(
 
     if project_days > 0 and first_iso:
         if commits is None:
-            commits = _commits_per_day(
-                _resolve_repos(db, scope, repo_root), project_days,
-            )
+            commits = code_commit_days_all_time(db, scope)
         # Clamp commit days to the project's own lifetime so a repo
         # whose history predates the first work item can't push the
         # percentage above 100%.
-        for day in commits:
-            if day >= first_iso:
+        for day, n in commits.items():
+            if int(n) > 0 and day >= first_iso:
                 active_set.add(day)
 
     return len(active_set), project_days

@@ -18,7 +18,7 @@ def select_unattributed_harness_events(
     conn: Any,
     since: Optional[str],
     *,
-    mutating_prefixes: Sequence[str],
+    mutating_functions: Sequence[str],
 ) -> list[Any]:
     marker = _p(conn)
     params: list[Any] = ["HarnessToolCallCompleted", "%unattributed%"]
@@ -31,9 +31,9 @@ def select_unattributed_harness_events(
         params.append(since)
 
     preview_clauses: list[str] = []
-    for prefix in mutating_prefixes:
+    for function_name in mutating_functions:
         preview_clauses.append(f"envelope LIKE {marker}")
-        params.append(f"%{prefix}%")
+        params.append(f"%{function_name}%")
     where += " AND (" + " OR ".join(preview_clauses) + ")"
     where, params = apply_event_id_cutoff(where, params, marker=marker)
     sql = (

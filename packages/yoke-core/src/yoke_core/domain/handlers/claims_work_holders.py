@@ -20,6 +20,11 @@ from yoke_contracts.api.function_call import (
 
 class HolderGetRequest(BaseModel):
     item_id: Optional[int] = None
+    # An absolute filesystem path. Every other ownership surface is keyed
+    # by item or session, which forces a caller standing in a directory
+    # to work out which item owns it before it can ask anything — and not
+    # knowing that is the usual reason for asking.
+    path: Optional[str] = None
 
 
 class HolderRow(BaseModel):
@@ -89,17 +94,22 @@ def _current_item_before_implementation(
 
 
 def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
-    """Look up the active work-claim holder for an item id (read-only)."""
+    """Look up the active work-claim holder for an item id or a path."""
     try:
         body = HolderGetRequest.model_validate(request.payload)
     except Exception as exc:
         return _err("payload_invalid", f"holder.get payload invalid: {exc}")
 
+    if body.path:
+        return _holder_for_path(body.path)
+
     item_id = body.item_id
     if item_id is None and request.target.item_id is not None:
         item_id = int(request.target.item_id)
     if item_id is None:
-        return _err("payload_invalid", "holder.get requires an item id")
+        return _err(
+            "payload_invalid", "holder.get requires an item id or a path",
+        )
 
     from yoke_core.domain.sessions_queries_lookup import (
         get_claim_for_work_unit,
@@ -114,6 +124,35 @@ def handle_holder_get(request: FunctionCallRequest) -> HandlerOutcome:
                 holder["claim_id"], []
             )
 
+    return HandlerOutcome(result_payload={"holder": holder})
+
+
+def _holder_for_path(path: str) -> HandlerOutcome:
+    """The claim holding the lane that contains ``path``, if any.
+
+    Resolves through the same occupancy reader the write guard uses, so
+    an operator asking "who owns this directory?" and the guard refusing
+    a write into it can never disagree. An empty holder means the path is
+    inside no active claimed lane — which is the answer, not an error.
+    """
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.lane_occupancy import occupying_claim
+    from yoke_core.domain.sessions_queries_lookup import (
+        get_claim_for_work_unit,
+    )
+
+    with db_helpers.connect() as conn:
+        # session_id="" holds no claim, so every occupied lane counts as
+        # foreign and the reader answers for whoever does hold it.
+        occupant = occupying_claim(conn, target=path, session_id="")
+        if occupant is None:
+            return HandlerOutcome(result_payload={"holder": None})
+        row = get_claim_for_work_unit(conn, item_id=str(occupant.item_id))
+        holder = _holder_row_to_dict(row) if row else None
+        if holder is not None:
+            holder["lane_worktrees"] = _lane_worktrees(conn, [holder]).get(
+                holder["claim_id"], []
+            )
     return HandlerOutcome(result_payload={"holder": holder})
 
 

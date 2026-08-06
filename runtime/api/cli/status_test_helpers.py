@@ -31,10 +31,6 @@ def status_config(tmp_path: Path, repo: Path) -> Path:
     temp_root.mkdir()
     cache_dir.mkdir()
     (repo / ".yoke").mkdir(parents=True)
-    (repo / ".yoke" / "board.json").write_text(
-        json.dumps({"timeline_widget": "always", "dashboard_weather": False}),
-        encoding="utf-8",
-    )
     token_file = tmp_path / "actor-token"
     token_file.write_text("secret-token\n", encoding="utf-8")
     token_file.chmod(0o600)
@@ -56,15 +52,13 @@ def status_config(tmp_path: Path, repo: Path) -> Path:
             },
             "temp_root": str(temp_root),
             "cache_dir": str(cache_dir),
-            "projects": {
-                str(repo.resolve()): {
+            "projects": [
+                {
+                    "checkout": str(repo.resolve()),
                     "project_id": 1,
-                    "board": {
-                        "scope": "all",
-                        "render_path": ".yoke/BOARD-ALL.md",
-                    },
+                    "env": "prod",
                 },
-            },
+            ],
         }),
         encoding="utf-8",
     )

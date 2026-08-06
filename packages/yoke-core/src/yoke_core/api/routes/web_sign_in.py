@@ -22,7 +22,12 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.routing import APIRouter
 
-from yoke_contracts.engine_version import installed_engine_version
+import yoke_core
+from yoke_contracts.runtime_identity import (
+    PORTABILITY_SELFHOST,
+    build_runtime_identity,
+    detect_install,
+)
 from yoke_core.api.http_auth import (
     LANDING_PATH,
     OIDC_CALLBACK_PATH,
@@ -239,12 +244,22 @@ def _signed_in_page(actor_id: int) -> HTMLResponse:
             label = actor_label(conn, actor_id)
         except ActorError:
             label = f"actor {actor_id}"
-    version = installed_engine_version() or "source"
+    packet = build_runtime_identity(
+        portability_mode=PORTABILITY_SELFHOST,
+        install=detect_install(yoke_core.__file__),
+    )
+    build = packet["build"]
+    build_row = (
+        f"<p>Build: {html.escape(build)}</p>" if build else ""
+    )
     return _page(
         f"Yoke — {org_name}",
         f"<p>Signed in as <strong>{html.escape(label)}</strong> "
         f"({html.escape(org_name)}).</p>"
-        f"<p>Engine version: {html.escape(version)}</p>"
+        f"<p>Engine version: {html.escape(packet['version'])}</p>"
+        f"<p>Install: {html.escape(packet['install_kind'])}</p>"
+        f"{build_row}"
+        f"<p>Environment: {html.escape(packet['environment_label'])}</p>"
         "<p>This browser session is read-only. To work against this "
         "server, attach a CLI with <code>yoke connect &lt;server-url&gt; "
         "--token-stdin</code> using an API token — see "

@@ -1,7 +1,8 @@
 """What a declared migration ledger must be able to answer.
 
 Each refusal here corresponds to a way a project can satisfy every
-authoring gate and still apply migrations that silently skip entries.
+authoring gate and still apply migrations that silently skip entries, or
+roll back past a destructive entry and still serve.
 """
 
 from __future__ import annotations
@@ -17,22 +18,25 @@ _VALID = {
     "table": "applied_migrations",
     "entry_column": "migration_name",
     "semantics": contract.MEMBERSHIP,
+    "serving_floor_column": "minimum_serving_version",
 }
 
 
-def test_a_membership_ledger_parses():
+def test_a_membership_ledger_with_serving_floor_parses():
     parsed = contract.parse(_VALID)
     assert parsed.table == "applied_migrations"
     assert parsed.entry_column == "migration_name"
     assert parsed.semantics == contract.MEMBERSHIP
-    assert not parsed.records_serving_floor
-
-
-def test_a_serving_floor_column_is_optional_and_reported_when_present():
-    """Optional because not every project runs builds old enough to strand."""
-    parsed = contract.parse({**_VALID, "serving_floor_column": "min_version"})
     assert parsed.records_serving_floor
-    assert parsed.serving_floor_column == "min_version"
+    assert parsed.serving_floor_column == "minimum_serving_version"
+
+
+def test_a_missing_serving_floor_column_is_refused():
+    """Membership alone cannot stop a rolled-back build from serving."""
+    incomplete = {k: v for k, v in _VALID.items() if k != "serving_floor_column"}
+    with pytest.raises(contract.LedgerContractError) as excinfo:
+        contract.parse(incomplete)
+    assert "serving_floor_column" in str(excinfo.value)
 
 
 def test_a_missing_declaration_is_refused_rather_than_defaulted():
@@ -89,21 +93,17 @@ def test_an_entry_applied_out_of_order_is_not_pending_again():
     assert contract.pending_entries(history, ["0002_b", "0001_a"]) == []
 
 
-def test_a_ledger_naming_unknown_entries_is_unanswerable():
-    """Ledger and history are not describing the same migration set."""
-    reason = contract.unanswerable_reason(["0001_a"], ["0001_a", "0009_ghost"])
-    assert "0009_ghost" in reason
-    assert "not describing the same" in reason
+def test_newer_applied_entries_are_a_valid_rollback_shape():
+    outside = contract.applied_entries_outside_history(
+        ["0001_a"], ["0001_a", "0009_from_newer_artifact"],
+    )
+    assert outside == ["0009_from_newer_artifact"]
 
 
-def test_an_agreeing_ledger_has_no_unanswerable_reason():
-    assert contract.unanswerable_reason(["0001_a"], ["0001_a"]) == ""
-
-
-def test_many_unknown_entries_are_summarized_not_dumped():
-    ghosts = [f"{n:04d}_ghost" for n in range(20)]
-    reason = contract.unanswerable_reason([], ghosts)
-    assert "and 15 more" in reason
+def test_an_agreeing_ledger_has_no_entries_outside_history():
+    assert contract.applied_entries_outside_history(
+        ["0001_a"], ["0001_a"],
+    ) == []
 
 
 def test_the_runner_helper_raises_the_callers_error_type():
@@ -124,5 +124,5 @@ def test_the_runner_helper_normalizes_every_field():
         "table": "applied_migrations",
         "entry_column": "migration_name",
         "semantics": contract.MEMBERSHIP,
-        "serving_floor_column": "",
+        "serving_floor_column": "minimum_serving_version",
     }

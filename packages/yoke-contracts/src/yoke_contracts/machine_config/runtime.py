@@ -196,15 +196,15 @@ def board_scope(
     explicit: str | None = None,
     path: str | Path | None = None,
 ) -> str:
-    """Resolve the board scope for a checkout."""
+    """Resolve a local fallback board scope (DB policy is authoritative).
+
+    Explicit CLI/API overrides still win. Otherwise fall back to the
+    checkout's project id, or ``all`` when unmapped. Machine
+    ``projects[].board.scope`` is retired.
+    """
 
     if explicit:
         return explicit
-    board = project_entry(repo_root, path).get("board", {})
-    if isinstance(board, Mapping):
-        value = board.get("scope")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
     pid = project_id(repo_root, path)
     return str(pid) if pid is not None else "all"
 
@@ -214,17 +214,10 @@ def board_render_path(
     explicit: str | Path | None = None,
     path: str | Path | None = None,
 ) -> Path:
-    """Resolve the generated board path for a checkout."""
+    """Resolve the generated board path (fixed ``.yoke/BOARD.md`` convention)."""
 
     root = Path(repo_root).expanduser()
-    raw: str | Path | None = explicit
-    if raw is None:
-        board = project_entry(root, path).get("board", {})
-        if isinstance(board, Mapping):
-            value = board.get("render_path")
-            if isinstance(value, str) and value.strip():
-                raw = value.strip()
-    selected = Path(raw or DEFAULT_BOARD_PATH).expanduser()
+    selected = Path(explicit or DEFAULT_BOARD_PATH).expanduser()
     if selected.is_absolute():
         return selected
     return root / selected

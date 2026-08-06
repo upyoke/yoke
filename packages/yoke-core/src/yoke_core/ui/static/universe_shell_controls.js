@@ -2,8 +2,8 @@
 // the cross-screen search and the persistent environment/footer strip.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { createFooter } from "./universe_shell_footer.js";
 
-const DEFAULT_DOCS_URL = "https://github.com/upyoke/yoke/tree/main/docs";
 // Items are searched on the server, so the cap travels with the query and
 // bounds the response. Sessions are still filtered from a cached roster, so
 // theirs bounds how much of that roster the browser holds.
@@ -236,65 +236,9 @@ function createSearch(documentNode, client) {
   return { close, host, input };
 }
 
-function environmentLabel(options) {
-  if (options.environmentLabel) return String(options.environmentLabel);
-  const mode = options.capabilities?.data?.portability?.mode;
-  if (mode === "hosted") return "hosted universe";
-  if (mode === "selfhost") return "self-hosted universe";
-  return "local universe";
-}
-
-function createFooter(documentNode, options) {
-  const footer = el(documentNode, "footer", "app-footer");
-  footer.appendChild(el(documentNode, "span", "app-footer-mark", "Yoke"));
-  footer.appendChild(el(
-    documentNode, "span", "app-footer-environment", environmentLabel(options),
-  ));
-  const links = el(documentNode, "span", "app-footer-links");
-  const docs = el(documentNode, "a", "app-footer-link", "Docs");
-  docs.href = String(options.docsUrl || DEFAULT_DOCS_URL);
-  docs.target = "_blank";
-  docs.rel = "noopener noreferrer";
-  links.appendChild(docs);
-  const keyboard = el(
-    documentNode, "button", "app-footer-link keyboard-help-toggle", "Keyboard",
-  );
-  keyboard.type = "button";
-  keyboard.setAttribute("aria-expanded", "false");
-  links.appendChild(keyboard);
-  links.appendChild(el(
-    documentNode,
-    "span",
-    "app-footer-version",
-    String(options.versionLabel || "version unavailable"),
-  ));
-  footer.appendChild(links);
-  const panel = el(documentNode, "div", "keyboard-help");
-  panel.hidden = true;
-  panel.setAttribute("role", "dialog");
-  panel.setAttribute("aria-label", "Keyboard shortcuts");
-  for (const [key, action] of [
-    ["⌘K / Ctrl K", "Search items and sessions"],
-    ["↑ / ↓", "Move through search results"],
-    ["Enter", "Open the selected result"],
-    ["Esc", "Close search or keyboard help"],
-  ]) {
-    const row = el(documentNode, "div", "keyboard-help-row");
-    row.appendChild(el(documentNode, "kbd", null, key));
-    row.appendChild(el(documentNode, "span", null, action));
-    panel.appendChild(row);
-  }
-  footer.appendChild(panel);
-  keyboard.addEventListener("click", () => {
-    panel.hidden = !panel.hidden;
-    keyboard.setAttribute("aria-expanded", String(!panel.hidden));
-  });
-  return { footer, keyboardPanel: panel };
-}
-
 export function createShellControls({ documentNode, client, options }) {
   const search = createSearch(documentNode, client);
-  const { footer, keyboardPanel } = createFooter(documentNode, options);
+  const { footer, closePanels } = createFooter(documentNode, options);
   const windowNode = documentNode.defaultView;
   const onWindowKeydown = (event) => {
     const key = String(event.key || "").toLowerCase();
@@ -308,7 +252,7 @@ export function createShellControls({ documentNode, client, options }) {
     }
     if (event.key === "Escape") {
       search.close();
-      keyboardPanel.hidden = true;
+      closePanels();
     }
   };
   windowNode.addEventListener("keydown", onWindowKeydown);

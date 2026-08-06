@@ -1,4 +1,4 @@
-"""Source-dev/admin wrapper for additive core-schema convergence."""
+"""Source-dev/admin wrapper for boot-coupled schema convergence."""
 
 from __future__ import annotations
 
@@ -21,11 +21,12 @@ SCHEMA_CONVERGE_USAGE = "yoke schema converge [--json]"
 _DIRECT_AUTHORITY_ENV_VARS = ("YOKE_PG_DSN", "YOKE_PG_DSN_FILE")
 
 _SCHEMA_CONVERGE_HELP = """\
-Run the same idempotent, additive schema convergence used at API boot.
-This creates missing tables, indexes, and additive columns, then reconciles
-the code-owned role/permission catalog through the same idempotent boot seam.
-It does not run other domain seeds, destructive changes, data backfills, or
-the full init chain.
+Run the same boot-coupled schema convergence used at API startup.
+This creates missing tables, indexes, and additive columns, then applies the
+pending ordered migration history under its restore-point and serving-floor
+policy. History entries may contain destructive changes or data backfills.
+The command then reconciles the code-owned role/permission catalog through the
+same boot seam. It does not run other domain seeds or the full init chain.
 
 This is an explicit source-dev/admin operation. Database authority is
 selected through the normal connected-environment contract, including

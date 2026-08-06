@@ -8,6 +8,21 @@ from yoke_core.domain.handlers import machine_config, machine_config_write
 def register(registry) -> None:
     _register_writers(registry)
     registry.register(
+        "env.list.run",
+        machine_config.handle_env_list,
+        machine_config.EnvListRequest,
+        machine_config.EnvListResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["system"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
         "config.example.run",
         machine_config.handle_config_example,
         machine_config.ConfigExampleRequest,

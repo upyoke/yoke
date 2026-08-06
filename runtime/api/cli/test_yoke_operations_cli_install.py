@@ -89,11 +89,11 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert sorted(report["contract_files_written"]) == sorted(
         e["path"] for e in DEFAULT_CONTRACT_FILES
     )
-    assert (repo / ".yoke/board.json").is_file()
+    assert (repo / ".yoke/lint-config").is_file()
 
     # Project edits to seeded contract files survive refresh.
-    (repo / ".yoke/board.json").write_text(
-        '{"art_override": "frontier"}\n', encoding="utf-8"
+    (repo / ".yoke/lint-config").write_text(
+        "lint_destructive_git=warn\n", encoding="utf-8"
     )
 
     # Refresh resolves the project id from the registered mapping.
@@ -107,9 +107,9 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert report["contract_files_written"] == []
     assert report["worktrees_ignore"]["status"] == "present"
     assert report["worktrees_ignore"]["patch"] == []
-    assert ".yoke/board.json" in report["contract_files_existing"]
-    assert (repo / ".yoke/board.json").read_text("utf-8") == (
-        '{"art_override": "frontier"}\n'
+    assert ".yoke/lint-config" in report["contract_files_existing"]
+    assert (repo / ".yoke/lint-config").read_text("utf-8") == (
+        "lint_destructive_git=warn\n"
     )
 
     rc = yoke_operations_cli.main([
@@ -121,13 +121,13 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert not (repo / ".yoke/install-manifest.json").exists()
     assert not (repo / ".claude").exists()
     assert report["contract_files_preserved_modified"] == [
-        ".yoke/board.json"
+        ".yoke/lint-config"
     ]
-    assert (repo / ".yoke/board.json").is_file(), (
+    assert (repo / ".yoke/lint-config").is_file(), (
         "edited contract file survives uninstall"
     )
-    assert ".yoke/lint-config" in report["contract_files_removed"]
-    assert not (repo / ".yoke/lint-config").exists()
+    assert ".yoke/board-art" in report["contract_files_removed"]
+    assert not (repo / ".yoke/board-art").exists()
 
 
 def test_refresh_discards_out_of_policy_prior_contract_record(

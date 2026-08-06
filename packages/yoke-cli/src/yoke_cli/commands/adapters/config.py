@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     attach_field_note_footer,
@@ -15,6 +15,44 @@ from yoke_contracts.machine_config import schema as machine_config_contract
 
 CONFIG_EXAMPLE_USAGE = "yoke config example"
 STATUS_USAGE = "yoke status [--config PATH] [--repo-root PATH] [--env NAME] [--json]"
+ENV_LIST_USAGE = "yoke env list [--config PATH] [--json]"
+
+
+def env_list(args: List[str]) -> int:
+    from yoke_cli.config import machine_config
+
+    parser = argparse.ArgumentParser(prog="yoke env list")
+    parser.add_argument("--config", dest="config_path", default=None)
+    parser.add_argument("--json", dest="json_mode", action="store_true")
+    parsed = parse_or_usage_error(parser, args, ENV_LIST_USAGE)
+    if parsed is None:
+        return 2
+    payload = machine_config.load_config(parsed.config_path)
+    connections = payload.get("connections")
+    connections = connections if isinstance(connections, dict) else {}
+    active = str(payload.get("active_env") or "")
+    rows: list[dict[str, Any]] = [
+        {
+            "env": str(name),
+            "active": str(name) == active,
+            "transport": str(entry.get("transport") or ""),
+            "prod": bool(entry.get("prod", False)),
+            "api_url": str(entry.get("api_url") or ""),
+        }
+        for name, entry in sorted(connections.items())
+        if isinstance(entry, dict)
+    ]
+    if parsed.json_mode:
+        import json
+
+        print(json.dumps({"active_env": active, "rows": rows}, sort_keys=True))
+    else:
+        for row in rows:
+            print(
+                f"{row['env']}|{str(row['active']).lower()}|"
+                f"{row['transport']}|{str(row['prod']).lower()}|{row['api_url']}"
+            )
+    return 0
 
 
 def config_example(args: List[str]) -> int:
@@ -50,7 +88,9 @@ def status(args: List[str]) -> int:
 
 __all__ = [
     "CONFIG_EXAMPLE_USAGE",
+    "ENV_LIST_USAGE",
     "STATUS_USAGE",
     "config_example",
+    "env_list",
     "status",
 ]

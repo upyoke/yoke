@@ -20,8 +20,10 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_ADMIN,
     PERM_PROJECT_INSTALL,
     PERM_PROJECT_RENDER_READ,
+    PERM_RELEASE_PIN_RECORD,
     ROLE_ADMIN,
     ROLE_DEPLOYMENT_CI,
+    ROLE_INFRASTRUCTURE_CI,
     ROLE_OWNER,
     grant_actor_org_role,
     grant_actor_project_role,
@@ -115,6 +117,7 @@ def test_deployment_ci_role_carries_only_required_ci_permissions() -> None:
             PERM_GITHUB_ACTIONS_RUN_READ,
             PERM_GITHUB_ACTIONS_VARIABLE_READ,
             PERM_GITHUB_RELEASE_CREATE,
+            PERM_RELEASE_PIN_RECORD,
         }
         assert _role_permission_keys(conn, ROLE_DEPLOYMENT_CI) == relay_permissions
         assert relay_permissions <= _role_permission_keys(conn, ROLE_OWNER)
@@ -159,6 +162,35 @@ def test_catalog_reseed_removes_stale_ci_install_and_render_permissions() -> Non
         conn.close()
 
 
+def test_catalog_reseed_converges_release_pin_permission_to_deployment_only() -> None:
+    conn = _conn()
+    try:
+        conn.execute(
+            "DELETE FROM role_permissions WHERE role_id=(SELECT id FROM roles "
+            "WHERE name=?) AND permission_id=(SELECT id FROM permissions "
+            "WHERE key=?)",
+            (ROLE_DEPLOYMENT_CI, PERM_RELEASE_PIN_RECORD),
+        )
+        conn.execute(
+            "INSERT INTO role_permissions (role_id, permission_id, created_at) "
+            "SELECT r.id, p.id, '2026-01-01T00:00:00Z' FROM roles r, "
+            "permissions p WHERE r.name=? AND p.key=?",
+            (ROLE_INFRASTRUCTURE_CI, PERM_RELEASE_PIN_RECORD),
+        )
+        conn.commit()
+
+        seed_roles_and_permissions(conn)
+
+        assert PERM_RELEASE_PIN_RECORD in _role_permission_keys(
+            conn, ROLE_DEPLOYMENT_CI
+        )
+        assert PERM_RELEASE_PIN_RECORD not in _role_permission_keys(
+            conn, ROLE_INFRASTRUCTURE_CI
+        )
+    finally:
+        conn.close()
+
+
 def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
     conn = _conn()
     try:
@@ -181,6 +213,7 @@ def test_relay_can_dispatch_and_read_only_deploy_reporting_surfaces() -> None:
             "github_actions.check_ci": False,
             "github_actions.variable.get": False,
             "github.release.create_next_tag": True,
+            "release_pin.record": True,
         }
         for function_id, write in allowed.items():
             decision = check_dispatch_permission(

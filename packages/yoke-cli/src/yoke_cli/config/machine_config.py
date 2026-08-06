@@ -207,13 +207,10 @@ def board_scope(
     explicit: str | None = None,
     path: str | Path | None = None,
 ) -> str:
+    """Resolve a local fallback scope; DB project policy is authoritative."""
+
     if explicit:
         return explicit
-    board = project_entry(repo_root, path).get("board", {})
-    if isinstance(board, Mapping):
-        value = board.get("scope")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
     pid = project_id(repo_root, path)
     return str(pid) if pid is not None else "all"
 
@@ -223,15 +220,10 @@ def board_render_path(
     explicit: str | Path | None = None,
     path: str | Path | None = None,
 ) -> Path:
+    """Resolve the fixed generated-board path, with an explicit override."""
+
     root = Path(repo_root).expanduser()
-    raw: str | Path | None = explicit
-    if raw is None:
-        board = project_entry(root, path).get("board", {})
-        if isinstance(board, Mapping):
-            value = board.get("render_path")
-            if isinstance(value, str) and value.strip():
-                raw = value.strip()
-    selected = Path(raw or DEFAULT_BOARD_PATH).expanduser()
+    selected = Path(explicit or DEFAULT_BOARD_PATH).expanduser()
     if selected.is_absolute():
         return selected
     return root / selected

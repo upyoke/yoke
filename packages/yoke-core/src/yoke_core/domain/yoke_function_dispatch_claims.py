@@ -36,6 +36,12 @@ from yoke_core.domain.yoke_function_dispatch_qa_claims import (
 from yoke_core.domain.claim_recovery import (
     canonical_item_ref as _claim_recovery_item_ref,
 )
+from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
+    ClaimVerificationEvidence,
+    WORK_CLAIM_AUTHORITY,
+    allow_claim_verification,
+    begin_claim_verification,
+)
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
@@ -177,15 +183,13 @@ def _session_claim_id_for_target(target: Any, actor_session: str) -> Optional[in
 
 
 def verify_claim(
-    entry: RegistryEntry, request: FunctionCallRequest
+    entry: RegistryEntry,
+    request: FunctionCallRequest,
+    *,
+    evidence: Optional[ClaimVerificationEvidence] = None,
 ) -> Optional[FunctionCallResponse]:
-    """Run the registry entry's ``claim_required_kind`` check.
-
-    Returns ``None`` when verification passes (or no claim is required).
-    Returns a populated :class:`FunctionCallResponse` carrying
-    ``error.code="claim_required"`` or ``error.code=
-    "operator_override_required"`` otherwise.
-    """
+    """Return an error response unless the registry-directed check passes."""
+    begin_claim_verification(evidence, entry, request)
     kind = entry.claim_required_kind
     if kind is None:
         return None
@@ -199,6 +203,7 @@ def verify_claim(
             target, actor_session, request.payload
         )
         if allowed:
+            allow_claim_verification(evidence, authority="qa_subject_policy")
             return None
         return _claim_error(
             request, fid, ver, code or "claim_required", message or ""
@@ -247,6 +252,14 @@ def verify_claim(
                 f"{kind} {target_ref}; acquire one first: "
                 f"{recovery}",
             )
+        allow_claim_verification(
+            evidence,
+            authority=WORK_CLAIM_AUTHORITY,
+            target_item_id=int(target_id) if kind == "item" else None,
+            target_epic_id=int(target_id) if kind == "epic" else None,
+            claim_id=row.get("id"),
+            holder_session_id=claim_session,
+        )
         return None
 
     if kind == "self_only":
@@ -271,6 +284,12 @@ def verify_claim(
             # The lookup filters on the actor's session, so resolution
             # itself is the self-ownership proof — no re-check needed.
             target.claim_id = resolved
+            allow_claim_verification(
+                evidence,
+                authority=WORK_CLAIM_AUTHORITY,
+                claim_id=resolved,
+                holder_session_id=actor_session,
+            )
             return None
         if claim_id is None:
             return _claim_error(
@@ -293,6 +312,12 @@ def verify_claim(
                 f"yoke claims work acquire "
                 f'--item "YOK-<id>" --reason "<intent>"',
             )
+        allow_claim_verification(
+            evidence,
+            authority=WORK_CLAIM_AUTHORITY,
+            claim_id=row.get("id"),
+            holder_session_id=owner,
+        )
         return None
 
     if kind == "operator_override":
@@ -304,6 +329,7 @@ def verify_claim(
                 "operator_override_required",
                 f"session {actor_session!r} lacks operator-override authority",
             )
+        allow_claim_verification(evidence, authority="operator_session")
         return None
 
     # Defensive — registry validation makes this unreachable.

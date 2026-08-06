@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.release_pin_record import release_pin_record
 
 
 AdapterFn = Callable[[List[str]], int]
 
 
 PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    ("release-pin", "record"): ("release_pin.record", release_pin_record),
     ("projects", "get"): ("projects.get", _adapters.projects_get),
     ("projects", "list"): ("projects.list", _adapters.projects_list),
     ("projects", "resolve-by-github-repo"): (

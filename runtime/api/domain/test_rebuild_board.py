@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import os
 from pathlib import Path
 
@@ -26,13 +25,6 @@ def _init_repo(tmp_path: Path):
     backlog_dir = yoke_root / "backlog"
     backlog_dir.mkdir(parents=True)
     (backlog_dir / ".counter").write_text("1\n", encoding="utf-8")
-    (yoke_root / "board.json").write_text(
-        json.dumps({
-            "render_path": ".yoke/BOARD.md",
-            "scope": "yoke",
-        }),
-        encoding="utf-8",
-    )
     machine_cfg = register_machine_checkout(tmp_path / "machine-config", repo_root, 1)
 
     # init_test_db provisions the disposable per-test Postgres database and

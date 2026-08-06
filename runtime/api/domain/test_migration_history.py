@@ -44,6 +44,17 @@ def test_sequence_gaps_are_allowed(tmp_path: Path) -> None:
     assert [entry.sequence for entry in ordered_entries(tmp_path)] == [1, 7]
 
 
+def test_established_three_digit_identity_remains_discoverable(
+    tmp_path: Path,
+) -> None:
+    _write_entry(tmp_path, "001_first")
+    _write_entry(tmp_path, "005_fifth")
+
+    assert [entry.name for entry in ordered_entries(tmp_path)] == [
+        "001_first", "005_fifth",
+    ]
+
+
 def test_supporting_files_are_skipped(tmp_path: Path) -> None:
     _write_entry(tmp_path, "0001_first")
     _write_entry(tmp_path, "__init__")

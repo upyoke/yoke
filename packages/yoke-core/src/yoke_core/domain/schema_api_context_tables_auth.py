@@ -21,7 +21,8 @@ AUTH_TABLES: dict[str, dict] = {
         "notes": (
             "Role catalog. Project roles: owner, operator, viewer, deployment_ci, "
             "and infrastructure_ci (granted via actor_project_roles). The deploy "
-            "role can dispatch workflows and read their run/routing state only; "
+            "role can dispatch workflows, read their run/routing state, and "
+            "record only capability-routed release pins; "
             "the infrastructure role carries only project.render.read. "
             "Neither carries project.install. Org roles: admin, "
             "viewer (granted via actor_org_roles). The all-access role is admin "
@@ -39,7 +40,7 @@ AUTH_TABLES: dict[str, dict] = {
         "notes": (
             "Permission catalog keyed by dotted key (items.read, claims.acquire, "
             "...). project.render.read belongs to infrastructure_ci; the "
-            "three github_actions.* relay permissions "
+            "three github_actions.* relay permissions and release_pin.record "
             "belong to deployment_ci. Org-scoped permissions org.admin "
             "(renamed from the retired "
             "'system.admin') and project.create are never carried by a project "

@@ -17,9 +17,9 @@ from yoke_contracts.board.widgets import (
     _compute_streak,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.board.tests.conftest import (
     insert_activity_day,
+    insert_code_day,
     insert_item_raw,
 )
 
@@ -157,46 +157,9 @@ class TestStreakRollupOnly:
 
 
 class TestCommitFallback:
-    """Days with commits but no rollup rows still keep the streak alive."""
+    """Days with code-day rollup rows but no activity still keep the streak."""
 
-    def _init_repo_with_commits_on_days(
-        self, repo_dir, days: "list[str]"
-    ) -> None:
-        import os
-        import subprocess
-        repo_dir.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["git", "init", "-q", str(repo_dir)], check=True)
-        subprocess.run(
-            ["git", "-C", str(repo_dir), "config", "user.email", "t@t"],
-            check=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(repo_dir), "config", "user.name", "t"],
-            check=True,
-        )
-        for i, day in enumerate(days):
-            f = repo_dir / f"f{i}.txt"
-            f.write_text(f"v{i}\n")
-            subprocess.run(["git", "-C", str(repo_dir), "add", "."], check=True)
-            ts = f"{day}T12:00:00"
-            env = {
-                "GIT_AUTHOR_DATE": ts,
-                "GIT_COMMITTER_DATE": ts,
-                "PATH": os.environ.get("PATH", ""),
-            }
-            subprocess.run(
-                ["git", "-C", str(repo_dir), "commit", "-q", "-m", f"c{i}"],
-                check=True, env=env,
-            )
-
-    def _wire_checkout(self, test_db_path: str, repo_dir) -> None:
-        register_machine_checkout(
-            repo_dir.parent / "machine-config",
-            repo_dir,
-            1,
-        )
-
-    def test_streak_unbroken_by_commit_only_day(self, test_db_path, tmp_path):
+    def test_streak_unbroken_by_commit_only_day(self, test_db_path):
         """Two activity-days bracketing a commit-only day still streak as 3."""
         today = date.today()
         d_act_old = (today - timedelta(days=2)).isoformat()
@@ -209,18 +172,13 @@ class TestCommitFallback:
         ])
         for d in (d_act_old, d_act_today):
             insert_activity_day(test_db_path, "yoke", 1, d)
-
-        repo_dir = tmp_path / "repo"
-        self._init_repo_with_commits_on_days(repo_dir, [d_commit_only])
-        self._wire_checkout(test_db_path, repo_dir)
+        insert_code_day(test_db_path, "yoke", d_commit_only)
 
         with BoardDB(test_db_path) as db:
             streak = _compute_streak(db, "yoke", 365)
         assert streak == 3
 
-    def test_achievement_streak_unbroken_by_commit_only_day(
-        self, test_db_path, tmp_path,
-    ):
+    def test_achievement_streak_unbroken_by_commit_only_day(self, test_db_path):
         """Commit-only days must extend the achievement-streak run too,
         so the badge agrees with the sparkline on what counts as active.
 
@@ -238,10 +196,7 @@ class TestCommitFallback:
         ])
         for d in (d_act_old, d_act_today):
             insert_activity_day(test_db_path, "yoke", 1, d)
-
-        repo_dir = tmp_path / "repo"
-        self._init_repo_with_commits_on_days(repo_dir, [d_commit_only])
-        self._wire_checkout(test_db_path, repo_dir)
+        insert_code_day(test_db_path, "yoke", d_commit_only)
 
         with BoardDB(test_db_path) as db:
             best = _compute_achievement_streak(db, "yoke")
@@ -250,7 +205,7 @@ class TestCommitFallback:
             "day between two activity-days does not break the run"
         )
 
-    def test_lifetime_counts_commit_only_day(self, test_db_path, tmp_path):
+    def test_lifetime_counts_commit_only_day(self, test_db_path):
         """A commit-only day counts toward lifetime active_days."""
         today = date.today()
         d_act = (today - timedelta(days=1)).isoformat()
@@ -261,10 +216,7 @@ class TestCommitFallback:
              f"{d_act}T12:00:00Z", f"{d_act}T12:00:00Z"),
         ])
         insert_activity_day(test_db_path, "yoke", 1, d_act)
-
-        repo_dir = tmp_path / "repo"
-        self._init_repo_with_commits_on_days(repo_dir, [d_commit_only])
-        self._wire_checkout(test_db_path, repo_dir)
+        insert_code_day(test_db_path, "yoke", d_commit_only)
 
         with BoardDB(test_db_path) as db:
             active, _ = _compute_lifetime_activity(db, "yoke")

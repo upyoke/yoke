@@ -13,17 +13,20 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
+from yoke_contracts.board.policy_settings import board_settings_defaults
 from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
     RECOGNIZED_PROJECT_KEYS,
     SESSION_ROUTING_CAPABILITY,
 )
-from yoke_contracts.session_lane import DEFAULT_LANE_METADATA
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import row_value
+from yoke_core.domain.project_session_routing_defaults import (
+    session_routing_defaults,
+)
 
 _INT_POLICY_KEYS = frozenset(
     {
@@ -36,43 +39,6 @@ _INT_POLICY_KEYS = frozenset(
 _PROJECT_POLICY_KEYS = tuple(
     key for key in RECOGNIZED_PROJECT_KEYS if key not in LOCAL_PROJECT_KEYS
 )
-
-_SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
-    "executor_default_lanes": {
-        "claude*": "DARIUS",
-        "codex*": "ALTMAN",
-        "DARIUS": "DARIUS",
-        "ALTMAN": "ALTMAN",
-    },
-    "lane_paths": {
-        "DARIUS": [
-            "shepherd",
-            "advance",
-            "conduct",
-            "dash",
-            "blitz",
-            "refine",
-            "polish",
-            "usher",
-            "strategize",
-            "feed",
-            "doctor",
-        ],
-        "ALTMAN": [
-            "refine",
-            "polish",
-            "usher",
-            "dash",
-        ],
-    },
-    "lane_metadata": DEFAULT_LANE_METADATA,
-    "process_offers": {
-        "default": False,
-        "strategize": False,
-        "feed": False,
-        "doctor": False,
-    },
-}
 
 
 @dataclass(frozen=True)
@@ -121,13 +87,8 @@ def project_policy_defaults(
             ).strip()
     if resolved_base_branch:
         defaults["base_branch"] = resolved_base_branch
+    defaults["board"] = board_settings_defaults()
     return defaults
-
-
-def session_routing_defaults() -> dict[str, Any]:
-    """Return default ``session-routing`` settings."""
-
-    return copy.deepcopy(_SESSION_ROUTING_DEFAULTS)
 
 
 def default_project_capability_settings(

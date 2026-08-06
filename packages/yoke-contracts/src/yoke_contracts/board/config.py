@@ -1,4 +1,4 @@
-"""Project-local board settings parser."""
+"""Board renderer settings model and compatibility fixture parser."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from yoke_contracts.project_contract.board_art.config_paths import board_config_
 
 @dataclass
 class BoardConfig:
-    """Parsed project-local board configuration."""
+    """Typed board rendering settings supplied by project policy."""
 
     # -- dashboard widget toggles (true = show) --------------------------------
     dashboard_velocity: bool = True
@@ -115,19 +115,25 @@ def _parse_bool(value: str) -> bool:
     return value.strip().lower() in ("true", "1", "yes")
 
 
+def config_from_values(values: Mapping[str, Any] | None) -> BoardConfig:
+    """Build a :class:`BoardConfig` from a mapping of knob values."""
+
+    cfg = BoardConfig()
+    if isinstance(values, Mapping):
+        _apply_values(cfg, values)
+    return cfg
+
+
 def parse_config(config_path: str | None, *, repo_root: str | None = None) -> BoardConfig:
     """Parse board settings into a :class:`BoardConfig`.
 
-    Normal rendering reads ``<repo_root>/.yoke/board.json``. Explicit
-    ``config_path`` accepts JSON; key=value remains only for direct preview
-    fixtures and operator-debug paths.
+    Legacy file path retained for preview fixtures and migration readers.
+    Live board rebuild reads DB ``project-policy.settings.board`` instead.
     """
-    cfg = BoardConfig()
     source = _resolve_source(config_path, repo_root)
     if source is not None and source.is_file():
-        values = _read_values(source)
-        _apply_values(cfg, values)
-    return cfg
+        return config_from_values(_read_values(source))
+    return BoardConfig()
 
 
 def _resolve_source(config_path: str | None, repo_root: str | None) -> Path | None:

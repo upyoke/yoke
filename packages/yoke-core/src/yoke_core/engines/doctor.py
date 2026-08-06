@@ -20,7 +20,7 @@ CLI::
     #   --quick      skip GitHub-dependent HCs (no gh subprocess calls)
     #   --full       run every HC including GitHub-dependent ones
     #   --only X     run only the named HC(s)
-    #   --list-checks  info-only; list slugs and exit
+    #   --list-checks  info-only; list engine slugs and exit
     python3 -m yoke_core.engines.doctor --quick
     python3 -m yoke_core.engines.doctor --full
     python3 -m yoke_core.engines.doctor --only status-consistency
@@ -52,10 +52,12 @@ from yoke_core.domain.db_helpers import connect
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 
 from yoke_core.engines.doctor_context import default_project, resolve_context
+from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_roster import (
     build_roster,
     record_discovery_failures,
     record_not_applicable,
+    record_roster_collisions,
 )
 
 # Star-import re-exports the full registry surface (HealthCheck, HEALTH_CHECKS,
@@ -113,6 +115,7 @@ def run_checks(args: DoctorArgs) -> int:
     context = resolve_context(conn, args)
     roster = build_roster(HEALTH_CHECKS, args, context)
     record_discovery_failures(roster, rec)
+    record_roster_collisions(roster, rec)
     record_not_applicable(roster, rec)
     print(
         f"doctor context: project={context.project} "
@@ -125,11 +128,7 @@ def run_checks(args: DoctorArgs) -> int:
     for hc in roster.applicable:
         print(f"running HC-{hc.slug}", flush=True)
         pre_len = len(rec.results)
-        try:
-            hc.fn(conn, args, rec)
-        except Exception as exc:
-            rec.record(f"HC-{hc.slug}", hc.name, "FAIL",
-                       f"Internal error: {exc}")
+        execute_check_isolated(conn, args, rec, hc)
         for new_record in rec.results[pre_len:]:
             print(f"{new_record.check_id}: {new_record.result}", flush=True)
 
@@ -182,7 +181,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--list-checks",
         action="store_true",
-        help="Print sorted HC slugs and exit",
+        help=(
+            "Print sorted engine HC slugs and exit; project-local slugs "
+            "are declared in the target checkout's .yoke/doctor/ folder"
+        ),
     )
     parser.add_argument(
         "--json",

@@ -8,6 +8,7 @@ one idempotent pass:
 - ``PathClaimEditGuardDenied`` (event_type=``path_claim``)
 - ``PathClaimBashGuardDenied`` (event_type=``path_claim``)
 - ``SessionCwdMismatchDenied`` (event_type=``session_cwd``)
+- ``SessionCwdForeignLaneDenied`` (event_type=``session_cwd``)
 - ``SessionCwdMismatchAllowedReadOnly`` (event_type=``session_cwd``)
 - ``SessionCwdBindingFailOpen`` (event_type=``session_cwd``)
 - ``SessionCwdBindingHealthCheckFailed`` (event_type=``session_cwd``)
@@ -60,6 +61,14 @@ SEED_ROWS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "session_cwd",
         "cli",
         "PreToolUse blocked because session cwd does not match the bound worktree",
+        "WARN",
+    ),
+    (
+        "SessionCwdForeignLaneDenied",
+        "lifecycle",
+        "session_cwd",
+        "cli",
+        "PreToolUse blocked a write into a worktree lane held by another session",
         "WARN",
     ),
     (

@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import importlib
 import sqlite3
+from pathlib import Path
 
 from yoke_core.domain import schema_readiness
+from yoke_core.domain.migration_history import MigrationEntry
 
 RETIREMENT_ENTRY_NAME = "0001_retire_superseded_surfaces"
 
@@ -19,6 +21,13 @@ RETIREMENT_ENTRY_NAME = "0001_retire_superseded_surfaces"
 # not a valid identifier and cannot be imported by name.
 retirement_entry = importlib.import_module(
     f"yoke_core.domain.migrations.{RETIREMENT_ENTRY_NAME}"
+)
+RETIREMENT_HISTORY = (
+    MigrationEntry(
+        sequence=1,
+        name=RETIREMENT_ENTRY_NAME,
+        path=Path(retirement_entry.__file__).resolve(),
+    ),
 )
 
 
@@ -46,7 +55,7 @@ class TestStrandedBuildIsReported:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         findings = schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.169"
+            conn, "0.1.1+launch.169", RETIREMENT_HISTORY
         )
 
         assert len(findings) == 1
@@ -61,38 +70,78 @@ class TestStrandedBuildIsReported:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.181"
+            conn, "0.1.1+launch.181", RETIREMENT_HISTORY
         )
 
     def test_newer_build_serves(self) -> None:
         conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
         assert not schema_readiness.stranded_by_applied_migrations(
-            conn, "0.1.1+launch.200"
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
         )
 
 
-class TestAbsentFloorIsNotAViolation:
-    def test_row_without_a_recorded_floor_is_not_a_finding(self) -> None:
-        """The majority state on any database that applied before floors existed.
-
-        Reading "no record" as "violation" would report most of an existing
-        fleet as stranded on the first boot that could see it.
-        """
+class TestIncompleteCompatibilityEvidenceFailsClosed:
+    def test_declared_floor_missing_from_ledger_is_a_finding(self) -> None:
         conn = _ledger((RETIREMENT_ENTRY_NAME, None))
 
-        assert not schema_readiness.stranded_by_applied_migrations(conn, "0.0.1")
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+        )
+
+        assert len(findings) == 1
+        assert "absent from its applied ledger row" in findings[0]
 
     def test_empty_ledger_is_not_a_finding(self) -> None:
         conn = _ledger()
 
-        assert not schema_readiness.stranded_by_applied_migrations(conn, "0.0.1")
+        assert not schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+        )
 
-    def test_absent_ledger_table_does_not_refuse_service(self) -> None:
-        """Cannot-tell must not manufacture a fleet-wide refusal."""
+    def test_absent_ledger_table_refuses_service(self) -> None:
         conn = sqlite3.connect(":memory:")
 
-        assert not schema_readiness.stranded_by_applied_migrations(conn, "0.0.1")
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+        )
+
+        assert len(findings) == 1
+        assert "ledger is unreadable" in findings[0]
+
+    def test_unknown_entry_without_floor_refuses_service(self) -> None:
+        conn = _ledger(("0009_unknown_entry", None))
+
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+        )
+
+        assert len(findings) == 1
+        assert "absent from this build's history" in findings[0]
+        assert "no recorded minimum" in findings[0]
+
+    def test_known_entry_without_declared_floor_is_safe(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        path = tmp_path / "0002_additive_change.py"
+        path.write_text("def apply(conn):\n    pass\n", encoding="utf-8")
+        history = (MigrationEntry(sequence=2, name=path.stem, path=path),)
+        conn = _ledger((path.stem, None))
+
+        assert not schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", history
+        )
+
+    def test_recorded_floor_must_match_packaged_declaration(self) -> None:
+        conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.182"))
+
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.1+launch.200", RETIREMENT_HISTORY
+        )
+
+        assert len(findings) == 1
+        assert "does not match packaged declaration" in findings[0]
 
 
 class TestSourceCheckoutIsNeverStranded:
@@ -102,16 +151,30 @@ class TestSourceCheckoutIsNeverStranded:
         Comparing it as that tag would strand every developer machine on the
         entry that tree just authored.
         """
-        conn = _ledger((RETIREMENT_ENTRY_NAME, "99.0.0"))
+        conn = _ledger((RETIREMENT_ENTRY_NAME, "0.1.1+launch.181"))
 
-        assert not schema_readiness.stranded_by_applied_migrations(conn, "")
+        assert not schema_readiness.stranded_by_applied_migrations(
+            conn, "", RETIREMENT_HISTORY
+        )
+
+    def test_unresolved_build_refuses_unknown_applied_entry(self) -> None:
+        conn = _ledger(("0009_unknown_entry", "0.1.1+launch.200"))
+
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "", RETIREMENT_HISTORY
+        )
+
+        assert len(findings) == 1
+        assert "engine version is unresolved" in findings[0]
 
 
 class TestMalformedFloorIsVisibleNotFatal:
     def test_unparseable_floor_is_reported_as_a_repair_finding(self) -> None:
-        conn = _ledger((RETIREMENT_ENTRY_NAME, "not-a-version"))
+        conn = _ledger(("0009_unknown_entry", "not-a-version"))
 
-        findings = schema_readiness.stranded_by_applied_migrations(conn, "0.1.2")
+        findings = schema_readiness.stranded_by_applied_migrations(
+            conn, "0.1.2", RETIREMENT_HISTORY
+        )
 
         assert len(findings) == 1
         assert "repair" in findings[0]

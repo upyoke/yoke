@@ -90,6 +90,7 @@ def emit_called(
     project: Optional[str] = None,
     authorization_scope: str,
     idempotency_payload_checksum: str,
+    claim_verification: Dict[str, Any],
 ) -> None:
     """Emit the canonical ``YokeFunctionCalled`` event for one call.
 
@@ -109,6 +110,9 @@ def emit_called(
         "target": request.target.model_dump(exclude_none=True),
         "payload_byte_count": payload_bytes,
         "payload_checksum": payload_hash,
+        "side_effects": list(entry.side_effects),
+        "claim_required_kind": entry.claim_required_kind,
+        "claim_verification": dict(claim_verification),
         "guardrail_outcomes": list(entry.guardrails),
         "verification_status": (
             "ok" if outcome.primary_success else "failed"

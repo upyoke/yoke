@@ -79,9 +79,12 @@ files and prints the item; it does not execute it.
 
 - Treat the stored instruction as the complete requested scope.
 - Acquire the item work claim as the first action once the item reference
-  exists, and release it as the last action when the Dash finishes or
-  escalates. This mirrors `/yoke idea` and `/yoke refine`, which claim
-  before touching any shared state and release on completion.
+  exists, and hold it through the Dash. A successful standalone merge or
+  terminal transition may already release the claim and remove the lane —
+  only call `claims.work.release` when a claim remains, or when exiting
+  before merge (including escalation). This mirrors `/yoke idea` and
+  `/yoke refine` on acquire; release is conditional on what close-out
+  already did.
 - Perform all writes in the registered item worktree, never in main.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
@@ -356,12 +359,17 @@ yoke lifecycle transition ITEM --from reviewing-implementation --to done --reaso
 
 When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
-then retry the transition. The successful terminal transition releases
-the registered Dash worktree lane. Finally release the item work claim:
+then retry the transition. A successful standalone merge (or the terminal
+transition it drives) may already release the item work claim and remove the
+registered Dash worktree lane. Only release when a claim remains, or when
+exiting before merge:
 
 ```text
 yoke claims work release --item ITEM --reason "Dash completed"
 ```
+
+Skip that call when merge or `done` already released the claim. Do not treat
+an already-released claim as a close-out failure.
 
 ## Escalate
 

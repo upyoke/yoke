@@ -53,11 +53,11 @@ def handle_environment_settings_get(
     try:
         parsed = EnvironmentSettingsGetRequest(**(request.payload or {}))
     except ValidationError as exc:
-        return _failure(
-            "payload_invalid", safe_validation_message(exc), "$.payload"
-        )
+        return _failure("payload_invalid", safe_validation_message(exc), "$.payload")
     mismatch = _environment_project_mismatch(
-        parsed.environment_id, parsed.project
+        parsed.environment_id,
+        parsed.project,
+        authorized_project_id=(request.options or {}).get("authorized_project_id"),
     )
     if mismatch is not None:
         return mismatch
@@ -90,11 +90,11 @@ def handle_environment_settings_merge(
     try:
         parsed = EnvironmentSettingsMergeRequest(**(request.payload or {}))
     except ValidationError as exc:
-        return _failure(
-            "payload_invalid", safe_validation_message(exc), "$.payload"
-        )
+        return _failure("payload_invalid", safe_validation_message(exc), "$.payload")
     mismatch = _environment_project_mismatch(
-        parsed.environment_id, parsed.project
+        parsed.environment_id,
+        parsed.project,
+        authorized_project_id=(request.options or {}).get("authorized_project_id"),
     )
     if mismatch is not None:
         return mismatch
@@ -108,9 +108,7 @@ def handle_environment_settings_merge(
             parsed.environment_id, parsed.assignments
         )
     except SettingsConflictError as exc:
-        return _failure(
-            "settings_conflict", str(exc), "$.payload.assignments"
-        )
+        return _failure("settings_conflict", str(exc), "$.payload.assignments")
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload.environment_id")
     except ValueError as exc:
@@ -127,13 +125,19 @@ def handle_environment_settings_merge(
 
 
 def _environment_project_mismatch(
-    environment_id: str, project: str
+    environment_id: str,
+    project: str,
+    *,
+    authorized_project_id: Any = None,
 ) -> Optional[HandlerOutcome]:
     from yoke_core.domain.db_helpers import connect
 
     conn = connect()
     try:
-        project_id = resolve_project_id(conn, project)
+        project_ref = (
+            int(authorized_project_id) if authorized_project_id is not None else project
+        )
+        project_id = resolve_project_id(conn, project_ref)
         row = conn.execute(
             "SELECT s.project_id FROM environments e "
             "JOIN sites s ON s.id=e.site WHERE e.id=%s",
@@ -152,16 +156,13 @@ def _environment_project_mismatch(
     if int(row[0]) != project_id:
         return _failure(
             "project_mismatch",
-            f"environment {environment_id!r} does not belong to project "
-            f"{project!r}",
+            f"environment {environment_id!r} does not belong to project {project!r}",
             "$.payload.project",
         )
     return None
 
 
-def _project_scalar_paths(
-    settings_json: str, paths: list[str]
-) -> dict[str, Any]:
+def _project_scalar_paths(settings_json: str, paths: list[str]) -> dict[str, Any]:
     """Return named scalar leaves; numeric segments traverse array entries."""
     if not paths:
         raise ValueError("at least one JSON path is required")

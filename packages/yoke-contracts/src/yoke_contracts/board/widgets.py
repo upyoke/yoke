@@ -27,8 +27,7 @@ from yoke_contracts.board.widgets_badges import (  # noqa: F401
     render_workflow_badges,
 )
 
-# Git velocity meter
+# Velocity meter (control-plane code days)
 from yoke_contracts.board.widgets_velocity_meter import (  # noqa: F401
-    _parse_shortstat,
     render_velocity_meter,
 )

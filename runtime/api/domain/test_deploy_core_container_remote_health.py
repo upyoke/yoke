@@ -41,6 +41,59 @@ class TestOriginHealthGate:
         assert "items" in str(exc.value)
 
     @pytest.mark.parametrize(
+        ("migration_fields", "expected", "detail"),
+        [
+            (
+                {
+                    "migrations_current": False,
+                    "pending_migrations": ["0004_backfill_serving_floors"],
+                },
+                "migrations_current=true",
+                "0004_backfill_serving_floors",
+            ),
+            (
+                {
+                    "migrations_current": True,
+                    "can_serve_this_database": False,
+                    "stranded_by_migrations": ["0001 requires launch.181"],
+                },
+                "can_serve_this_database=false",
+                "0001 requires launch.181",
+            ),
+        ],
+    )
+    def test_rejects_explicit_migration_refusal(
+        self, migration_fields, expected, detail
+    ):
+        request_id = "rid-migrations"
+        payload = {
+            "status": "ok",
+            "schema_ready": True,
+            "build": "abc123def456",
+            "engine_version": "0.1.1+launch.200",
+            **migration_fields,
+        }
+        runner = FakeRunner(
+            [
+                CommandResult(
+                    0,
+                    "HTTP/1.1 200 OK\n"
+                    f"x-request-id: {request_id}\n\n"
+                    + json.dumps(payload),
+                    "",
+                )
+            ]
+        )
+
+        with pytest.raises(RemoteConvergenceError) as exc:
+            verify_origin_health(
+                runner, _env(), request_id, "abc123def456", lambda _line: None
+            )
+
+        assert expected in str(exc.value)
+        assert detail in str(exc.value)
+
+    @pytest.mark.parametrize(
         "payload",
         [
             {

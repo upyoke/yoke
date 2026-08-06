@@ -18,7 +18,13 @@ from unittest.mock import patch
 from pydantic import BaseModel
 
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
+from yoke_core.domain import yoke_function_dispatch_claims as claims_module
 from yoke_core.domain import yoke_function_dispatch_events as events_module
+from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
+    CLAIM_VERIFICATION_ALLOWED,
+    CLAIM_VERIFICATION_PHASE,
+    WORK_CLAIM_AUTHORITY,
+)
 from yoke_core.domain.observe_anomaly import detect_anomalies
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
 from yoke_core.domain.observe_parsing import parse_hook_event
@@ -217,9 +223,18 @@ class TestEventEmission(_DispatcherTestBase):
     def test_called_event_envelope(self):
         register(
             "evt.family.op", _ok_handler, _Req, _Resp,
-            **_stable_kwargs(guardrails=["empty_body_guard"]),
+            **_stable_kwargs(
+                guardrails=["empty_body_guard"],
+                side_effects=["db_write"],
+                claim_required_kind="item",
+            ),
         )
-        dispatch(_make_request("evt.family.op"))
+        with patch.object(
+            claims_module,
+            "who_claims_for_item",
+            return_value={"id": 7, "session_id": "s-1"},
+        ):
+            dispatch(_make_request("evt.family.op"))
         calls = events_module.emit_event.calls  # type: ignore[attr-defined]
         called_events = [c for c in calls if c["args"] and c["args"][0] == "YokeFunctionCalled"]
         self.assertEqual(len(called_events), 1)
@@ -228,12 +243,26 @@ class TestEventEmission(_DispatcherTestBase):
             "function", "version", "target", "payload_byte_count",
             "payload_checksum", "guardrail_outcomes",
             "verification_status", "sync_status", "event_ids",
-            "result_byte_count", "result_checksum",
+            "result_byte_count", "result_checksum", "side_effects",
+            "claim_required_kind", "claim_verification",
         ):
             self.assertIn(key, ctx)
         self.assertEqual(ctx["guardrail_outcomes"], ["empty_body_guard"])
         self.assertEqual(ctx["verification_status"], "ok")
         self.assertEqual(ctx["sync_status"], "ok")
+        self.assertEqual(ctx["side_effects"], ["db_write"])
+        self.assertEqual(ctx["claim_required_kind"], "item")
+        self.assertEqual(ctx["claim_verification"], {
+            "phase": CLAIM_VERIFICATION_PHASE,
+            "required_kind": "item",
+            "decision": CLAIM_VERIFICATION_ALLOWED,
+            "caller_session_id": "s-1",
+            "target_kind": "item",
+            "target_item_id": 42,
+            "authority": WORK_CLAIM_AUTHORITY,
+            "claim_id": 7,
+            "holder_session_id": "s-1",
+        })
 
 
 def _run_observe(payload: Dict[str, Any], db_path: str) -> tuple:

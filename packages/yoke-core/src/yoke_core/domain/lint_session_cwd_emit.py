@@ -14,6 +14,7 @@ open on any internal error; the audit trail is best-effort.
 from __future__ import annotations
 
 import json
+import sys
 from typing import Optional
 
 
@@ -159,17 +160,113 @@ def emit_pre_implementing_status(
     )
 
 
+def emit_foreign_lane_denied(
+    session_id: str,
+    offending_target: str,
+    occupant_session_id: str,
+    occupant_item_id: int,
+    lane_path: str,
+) -> None:
+    """Emit ``SessionCwdForeignLaneDenied`` for a cross-session block.
+
+    Recorded separately from a scope mismatch because the two describe
+    different situations: a scope mismatch is one session outside its
+    own authority, while this one names two sessions in the same lane
+    and is the row an operator reads to find out who collided.
+    """
+    context = {
+        "session_id": session_id,
+        "offending_target": offending_target,
+        "occupant_session_id": occupant_session_id,
+        "occupant_item_id": int(occupant_item_id),
+        "lane_path": lane_path,
+    }
+    _emit(
+        name="SessionCwdForeignLaneDenied",
+        outcome="warn",
+        context=context,
+        session_id=session_id,
+    )
+
+
+def emit_deny_and_build_audit(verdict: object) -> dict:
+    """Emit the event a deny verdict calls for and return its audit row.
+
+    One place decides which of the three deny classes a verdict is, so
+    the hook body cannot emit the wrong event or record audit fields
+    that disagree with it. Takes the verdict structurally rather than by
+    type to keep the emit layer free of an import back into the policy
+    module.
+    """
+    from yoke_core.domain.lint_session_cwd_foreign_lane import (
+        FAILURE_CLASS as _FOREIGN_LANE,
+    )
+    from yoke_core.domain.lint_session_cwd_status import (
+        FAILURE_CLASS as _PRE_IMPL,
+    )
+
+    failure_class = getattr(verdict, "failure_class", "")
+    occupant = getattr(verdict, "occupant", None)
+    claims = getattr(verdict, "claims", ()) or ()
+
+    if failure_class == _FOREIGN_LANE and occupant is not None:
+        emit_foreign_lane_denied(
+            session_id=verdict.session_id,
+            offending_target=verdict.offending_target,
+            occupant_session_id=occupant.session_id,
+            occupant_item_id=occupant.item_id,
+            lane_path=occupant.lane_path,
+        )
+    elif failure_class != _PRE_IMPL:
+        # The pre-implementing branch emits its own event in its module.
+        emit_mismatch_denied(
+            session_id=verdict.session_id,
+            offending_target=verdict.offending_target,
+            claim_count=len(claims),
+        )
+
+    audit: dict = {
+        "offending_target": verdict.offending_target,
+        "claim_count": len(claims),
+        "failure_class": failure_class,
+    }
+    if occupant is not None:
+        audit["occupant_session_id"] = occupant.session_id
+        audit["occupant_item_id"] = occupant.item_id
+    if failure_class == _PRE_IMPL:
+        audit["item_id"] = getattr(verdict, "item_id", None)
+        audit["item_status"] = getattr(verdict, "item_status", None)
+        audit["mode"] = getattr(verdict, "mode", "")
+        audit["suppression_attempted"] = getattr(
+            verdict, "suppression_attempted", False,
+        )
+    return audit
+
+
 def emit_fail_open(
     session_id: str = "",
     error_class: str = "",
     error_message: str = "",
 ) -> None:
-    """Emit ``SessionCwdBindingFailOpen`` for an internal-error path."""
+    """Emit ``SessionCwdBindingFailOpen`` and say so on the tool call.
+
+    The event alone is not enough. This branch runs precisely when the
+    control plane could not be reached, which is also when the emit is
+    least likely to land — so a guard that failed silently here left no
+    trace anywhere, in the one session it had just stopped protecting.
+    The stderr line is the part that cannot be lost.
+    """
     context = {
         "session_id": session_id,
         "error_class": error_class,
         "error_message": error_message,
     }
+    print(
+        f"[yoke] session-cwd guard could not evaluate "
+        f"({error_class}: {error_message}); this tool call was NOT "
+        f"checked against lane ownership.",
+        file=sys.stderr,
+    )
     _emit(
         name="SessionCwdBindingFailOpen",
         outcome="warn",

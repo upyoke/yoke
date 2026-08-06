@@ -174,23 +174,21 @@ def test_scan_does_not_fire_on_corrected_ontology_prose(tmp_path: Path):
     assert scan_repo(tmp_path) == []
 
 
-def test_scan_per_pattern_allowlist_exempts_strategy_files(tmp_path: Path):
-    """The child-issue pattern allows only named strategy-file waivers."""
+def test_scan_ignores_only_generated_strategy_renders(tmp_path: Path):
     (tmp_path / ".yoke" / "strategy").mkdir(parents=True)
     (tmp_path / ".yoke" / "strategy" / "WISPS.md").write_text(
         "WISP-15 considers parent linking and "
         + "child issues"
         + " for future generation.\n"
     )
-    # A non-exempt strategy file must still trigger the pattern, proving the
-    # exemption is path-scoped rather than blanket-suppressing the pattern.
-    (tmp_path / ".yoke" / "strategy" / "OTHER.md").write_text(
-        "Future plans referencing " + "child issues" + " explicitly.\n"
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "untracked.md").write_text(
+        "Live prose referencing " + "child issues" + " explicitly.\n"
     )
     hits = scan_repo(tmp_path)
     paths = {h.split(":", 1)[0] for h in hits}
     assert ".yoke/strategy/WISPS.md" not in paths, hits
-    assert ".yoke/strategy/OTHER.md" in paths, hits
+    assert "docs/untracked.md" in paths, hits
 
 
 def test_scan_ignores_archive_path(tmp_path: Path):
@@ -307,8 +305,7 @@ def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
 
 def test_scan_widening_skips_python_files_outside_runtime(tmp_path: Path):
     """``.py`` scanning is scoped to ``runtime/`` only — Python files
-    under ``docs/`` or ``.yoke/strategy/`` are not in scope (the .md scan covers
-    those dirs)."""
+    under ``docs/`` are not in scope."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale.py").write_text(
         '_BAD = "yoke-db.sh"\n',

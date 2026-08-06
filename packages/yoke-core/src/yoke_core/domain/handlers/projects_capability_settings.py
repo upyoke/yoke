@@ -77,7 +77,11 @@ def handle_capability_settings_get(
     )
 
     try:
-        settings_json = cmd_capability_get_settings(parsed.project, parsed.cap_type)
+        project_ref = _authorized_project_ref(request, parsed.project)
+        settings_json = cmd_capability_get_settings(
+            project_ref,
+            parsed.cap_type,
+        )
     except LookupError as exc:
         return _failure("not_found", str(exc), "$.payload.project")
     except ValueError as exc:
@@ -106,14 +110,15 @@ def handle_capability_settings_set(
     )
 
     try:
+        project_ref = _authorized_project_ref(request, parsed.project)
         message = cmd_capability_set_settings(
-            parsed.project,
+            project_ref,
             parsed.cap_type,
             parsed.settings_json,
             base_settings_json=parsed.base_settings_json,
             create=parsed.create,
         )
-        settings_json = cmd_capability_get_settings(parsed.project, parsed.cap_type)
+        settings_json = cmd_capability_get_settings(project_ref, parsed.cap_type)
     except SettingsConflictError as exc:
         return _failure("settings_conflict", str(exc), "$.payload.base_settings_json")
     except LookupError as exc:
@@ -138,13 +143,14 @@ def handle_capability_settings_merge(
     )
 
     try:
+        project_ref = _authorized_project_ref(request, parsed.project)
         message = cmd_capability_merge_settings(
-            parsed.project, parsed.cap_type, parsed.assignments
+            project_ref, parsed.cap_type, parsed.assignments
         )
         settings_json = (
             None
             if parsed.cap_type == "pulumi-state"
-            else cmd_capability_get_settings(parsed.project, parsed.cap_type)
+            else cmd_capability_get_settings(project_ref, parsed.cap_type)
         )
     except SettingsConflictError as exc:
         return _failure("settings_conflict", str(exc), "$.payload.assignments")
@@ -178,7 +184,7 @@ def handle_capability_settings_remove(
 
     try:
         message = cmd_capability_remove_settings(
-            parsed.project,
+            _authorized_project_ref(request, parsed.project),
             parsed.cap_type,
             base_settings_json=parsed.base_settings_json,
         )
@@ -209,6 +215,14 @@ def _success(
             "changed_paths": changed_paths,
         },
     )
+
+
+def _authorized_project_ref(request: FunctionCallRequest, payload_project: str) -> str:
+    """Prefer the concrete project identity resolved by authorization."""
+    authorized = (request.options or {}).get("authorized_project_id")
+    if authorized is None:
+        return payload_project
+    return str(int(authorized))
 
 
 def _payload_invalid(exc: ValidationError) -> HandlerOutcome:

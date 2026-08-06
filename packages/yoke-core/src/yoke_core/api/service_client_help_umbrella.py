@@ -48,8 +48,7 @@ _FAMILY_GROUPS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
         "session-offer", "session-begin", "session-touch",
         "session-heartbeat", "session-end", "session-end-if-empty",
         "session-checkpoint", "session-checkpoint-read",
-        "harness-capabilities", "clean-stale-sessions",
-        "cleanup-never-engaged",
+        "harness-capabilities",
     )),
     ("Frontier / Routing", (
         "charge-frontier", "charge-schedule", "plan-candidates",

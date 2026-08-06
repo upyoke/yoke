@@ -11,7 +11,7 @@ from yoke_core.domain.decision_request_contract import (
     ITEM_BLOCK_STATE_CHANGED,
     ITEM_UNBLOCKED_EVENT,
 )
-from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_events import append_decision_event_envelope
 from yoke_core.domain.inbox_notifications import dispatch_addressed_event
 from yoke_core.domain.schema_common import _table_exists
 
@@ -62,7 +62,7 @@ def emit_item_block_state_notification(
         str(item.get("blocked_reason") or "Item blocked")
         if blocked else "Item unblocked"
     )
-    event_id = append_decision_event(
+    event_envelope = append_decision_event_envelope(
         conn,
         event_name,
         actor_id=actor_id,
@@ -80,7 +80,8 @@ def emit_item_block_state_notification(
     )
     inserted = dispatch_addressed_event(
         conn,
-        event_id=event_id,
+        event_envelope=event_envelope,
+        project_id=int(item["project_id"]),
         notification_kind=ITEM_BLOCK_STATE_CHANGED,
         reason=reason,
         created_at=stamp,

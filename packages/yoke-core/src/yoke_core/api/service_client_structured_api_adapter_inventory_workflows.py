@@ -21,6 +21,13 @@ WORKFLOW_ADAPTERS = [
         notes="Reads one immutable version, including its complete definition.",
     ),
     read_entry(
+        function_id="workflows.version.list",
+        cli_invocation=(
+            "yoke workflows version list [WORKFLOW] [--session-id S] [--json]"
+        ),
+        notes="Lists published immutable versions, optionally for one workflow.",
+    ),
+    read_entry(
         function_id="workflows.item.get",
         cli_invocation=(
             "yoke workflows item get ITEM [--project P] [--session-id S] [--json]"

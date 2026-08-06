@@ -18,14 +18,9 @@ from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
     withdraw_decision_request,
 )
-from yoke_core.domain.decision_request_events import append_decision_event
-from yoke_core.domain.decision_request_contract import (
-    DEPLOYMENT_RUN_COMPLETED,
-    ITEM_BLOCK_STATE_CHANGED,
-)
+from yoke_core.domain.decision_request_contract import REQUEST_CREATED_EVENT
 from yoke_core.domain.inbox_notifications import (
-    addressed_actor_ids_for_registered_event,
-    fan_out_registered_event,
+    addressed_actor_ids_for_event,
     mark_all_notifications_read,
     mark_notification_read,
     notification_rows,
@@ -133,16 +128,18 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
 
 def test_request_lifecycle_addressing_resolves_live_authority_union(conn):
     request, _ = _transition_request(conn)
-    created_event_id = conn.execute(
-        "SELECT event_id FROM events WHERE event_name = 'DecisionRequestCreated'"
-    ).fetchone()[0]
-    assert addressed_actor_ids_for_registered_event(
-        conn, event_id=created_event_id,
+    event_context = {"request_id": request["id"]}
+    assert addressed_actor_ids_for_event(
+        conn,
+        event_name=REQUEST_CREATED_EVENT,
+        event_context=event_context,
     ) == (2, 3, 5)
 
     conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 2, 'later')")
-    assert addressed_actor_ids_for_registered_event(
-        conn, event_id=created_event_id,
+    assert addressed_actor_ids_for_event(
+        conn,
+        event_name=REQUEST_CREATED_EVENT,
+        event_context=event_context,
     ) == (2, 3, 4, 5)
     assert request["named_actor_ids"] == [3]
 
@@ -232,99 +229,6 @@ def test_notification_read_state_is_actor_scoped(conn):
     conn.commit()
     assert notification_rows(conn, 1) == []
 
-def test_bulk_notification_read_preserves_hidden_project_rows(conn):
-    conn.execute(
-        "INSERT INTO projects "
-        "(id, slug, name, public_item_prefix, org_id, created_at) "
-        "VALUES (11, 'hidden', 'Hidden', 'HID', 1, 'now')"
-    )
-    for index, project_id in enumerate((10, 11, None), 1):
-        event_id = append_decision_event(
-            conn,
-            "DeploymentRunSucceeded",
-            actor_id=2,
-            session_id="",
-            project_id=project_id,
-            org_id=None,
-            context={"run_id": f"run-{index}"},
-            created_at=f"2026-07-26T14:0{index}:00Z",
-        )
-        fan_out_registered_event(
-            conn,
-            event_id=event_id,
-            notification_kind=DEPLOYMENT_RUN_COMPLETED,
-            event_context={"initiator_actor_id": 1},
-            reason=f"run-{index} succeeded",
-            created_at=f"2026-07-26T14:0{index}:00Z",
-        )
-    conn.commit()
-
-    assert (
-        mark_all_notifications_read(
-            conn,
-            1,
-            "later",
-            project_ids=[10],
-        )
-        == 2
-    )
-    remaining = notification_rows(conn, 1)
-    assert [row["project_id"] for row in remaining] == [11]
-
-
-def test_registered_event_fanout_derives_exact_v1_recipients(conn):
-    deploy_event = append_decision_event(
-        conn,
-        "DeploymentRunSucceeded",
-        actor_id=2,
-        session_id="",
-        project_id=10,
-        org_id=None,
-        context={"run_id": "run-1"},
-        created_at="2026-07-26T14:00:00Z",
-    )
-    assert (
-        fan_out_registered_event(
-            conn,
-            event_id=deploy_event,
-            notification_kind=DEPLOYMENT_RUN_COMPLETED,
-            event_context={
-                "initiator_actor_id": 1,
-                "stage_approver_actor_ids": [2, 2, 3],
-            },
-            reason="run-1 succeeded",
-            created_at="2026-07-26T14:00:00Z",
-        )
-        == 3
-    )
-    item_event = append_decision_event(
-        conn,
-        "ItemUnblocked",
-        actor_id=None,
-        session_id="",
-        project_id=10,
-        org_id=None,
-        context={"item_ref": "YOK-9"},
-        created_at="2026-07-26T14:01:00Z",
-    )
-    assert (
-        fan_out_registered_event(
-            conn,
-            event_id=item_event,
-            notification_kind=ITEM_BLOCK_STATE_CHANGED,
-            event_context={"owner_actor_id": 4},
-            reason="dependency reached done",
-            created_at="2026-07-26T14:01:00Z",
-        )
-        == 1
-    )
-    conn.commit()
-    assert len(notification_rows(conn, 1)) == 1
-    assert len(notification_rows(conn, 2)) == 1
-    assert len(notification_rows(conn, 3)) == 1
-    assert notification_rows(conn, 4)[0]["notification_kind"] == (
-        "item_block_state_changed"
-    )
 
 def test_item_block_state_is_addressed_to_accountable_owner(conn):
     item = {

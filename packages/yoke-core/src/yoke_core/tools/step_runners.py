@@ -12,7 +12,8 @@ Each step runner returns an integer exit code:
   ``request_id`` it sends ``x-request-id`` and requires the response to echo
   it (the Yoke core request-id propagation contract). With
   ``require_schema_ready`` the JSON body must report ``schema_ready: true``
-  (the deployed core's DB carries its expected schema surface).
+  and must not explicitly report a pending or rollback-incompatible migration
+  state (the deployed core's DB can be served by that artifact).
 - ``exec_ephemeral_verify`` -> ``0`` with ``EPHEMERAL_URL=<url>`` printed on
   success, ``1`` otherwise.  Preserves the stdout contract that
   :func:`yoke_core.domain.deploy_pipeline_step_runners._dispatch_ephemeral_verify`
@@ -36,6 +37,7 @@ import urllib.error
 import urllib.request
 from typing import List, Optional
 
+from yoke_core.api.health_payload_contract import migration_readiness_problem
 from yoke_core.domain.github_actions_rest import (
     latest_workflow_run,
     resolve_token,
@@ -86,12 +88,12 @@ def exec_health_check(
     health endpoint serves ``build``, so callers set this only on
     env-resolved checks.
 
-    When *require_schema_ready* is true the response body MUST be JSON
-    whose ``schema_ready`` is ``true`` — proof the DB behind the deployed
-    core carries its expected schema surface, not just an HTTP-live
-    process over an uninitialized DB whose data routes fail. Only the
-    Yoke core health endpoint serves ``schema_ready``, so callers set
-    this only on env-resolved checks.
+    When *require_schema_ready* is true the response body MUST be JSON whose
+    ``schema_ready`` is ``true`` and whose migration fields do not explicitly
+    refuse service — proof the DB behind the deployed core carries its expected
+    surface and can be served by that artifact, not just an HTTP-live process.
+    Only the Yoke core health endpoint serves these fields, so callers set this
+    only on env-resolved checks.
 
     When *warmup_timeout* > 0 the check retries every *retry_interval* seconds
     until it passes or the budget elapses; the build and schema assertions
@@ -189,6 +191,21 @@ def _attempt_health_check(
                     file=sys.stderr,
                 )
                 return 1
+            if require_schema_ready:
+                migration_problem = migration_readiness_problem(
+                    body,
+                    # Deploy probes can span a rolling upgrade from a build
+                    # predating these fields. Missing remains compatible;
+                    # explicit false is authoritative and fails closed.
+                    require_current=False,
+                )
+                if migration_problem:
+                    print(
+                        f"exec-health-check: {url} returned {status} but "
+                        f"{migration_problem}",
+                        file=sys.stderr,
+                    )
+                    return 1
             suffix = ""
             if request_id:
                 suffix += f" (request-id {request_id} echoed)"

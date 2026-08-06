@@ -181,7 +181,6 @@ from yoke_core.api.service_client_sessions import (  # noqa: F401
     _build_frontier_state_from_schedule,
     _validate_active_session,
     cmd_claim_release,
-    cmd_clean_stale_sessions,
     cmd_harness_capabilities,
     cmd_release_all_claims,
     cmd_release_done_claims,
@@ -291,8 +290,6 @@ COMMANDS = {
     "session-checkpoint-read": cmd_session_checkpoint_read,
     "harness-capabilities": cmd_harness_capabilities,
     "release-done-claims": cmd_release_done_claims,
-    "clean-stale-sessions": cmd_clean_stale_sessions,
-    "cleanup-never-engaged": cmd_clean_stale_sessions,  # deprecated alias
     "charge-frontier": cmd_charge_frontier,
     "charge-schedule": cmd_charge_schedule,
     "evaluate-gate": cmd_evaluate_gate,

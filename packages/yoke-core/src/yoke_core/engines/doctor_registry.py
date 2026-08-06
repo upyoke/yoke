@@ -122,6 +122,9 @@ from yoke_core.engines.doctor_hc_oneshot_migration import (  # noqa: F401
 from yoke_core.engines.doctor_hc_path_integrity import hc_path_integrity  # noqa: F401
 from yoke_core.engines.doctor_hc_qa_runs import hc_qa_runs_mutated  # noqa: F401
 from yoke_core.engines.doctor_hc_pending_migrations import hc_pending_migrations  # noqa: F401
+from yoke_core.engines.doctor_hc_project_migration_ledger import (  # noqa: F401
+    hc_project_migration_ledger_contract,
+)
 from yoke_core.engines.doctor_hc_stop_hook_chain import hc_stop_hook_chain_end_deferred  # noqa: F401
 from yoke_core.engines.doctor_hc_retired_schema import (  # noqa: F401
     hc_retired_schema_resurrection,
@@ -250,6 +253,11 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("path-claim-symlink-coverage", "Non-terminal claim covers a symlink without its canonical target", hc_path_claim_symlink_coverage),
     HealthCheck("oneshot-migration-coverage", "Governed DB-mutation authoring coverage", hc_oneshot_migration_coverage),
     HealthCheck("pending-migrations", "Pending migrations applied", hc_pending_migrations),
+    HealthCheck(
+        "project-migration-ledger-contract",
+        "Declared migration ledger answers rollback-safety contract",
+        hc_project_migration_ledger_contract,
+    ),
     HealthCheck("stop-hook-chain-end-deferred", "Stop-hook deferred chains aged past stale window", hc_stop_hook_chain_end_deferred),
     HealthCheck("retired-schema-resurrection", "Retired schema surfaces present on authoritative DB", hc_retired_schema_resurrection),
     HealthCheck("qa-runs-mutated", "qa_runs rows whose raw_result mixes failing verdict with resolution narrative", hc_qa_runs_mutated),
