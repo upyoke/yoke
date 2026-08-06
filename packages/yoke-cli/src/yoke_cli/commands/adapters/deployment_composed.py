@@ -14,6 +14,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.deployment_owner_authority import (
+    https_product_plane_create_error,
+)
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
 
@@ -144,6 +147,12 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
+    owner_error = https_product_plane_create_error(
+        "deployment-runs start-for-item",
+    )
+    if owner_error is not None:
+        print(f"Error: {owner_error}", file=sys.stderr)
+        return 1
     payload = {
         key: value
         for key in (

@@ -86,10 +86,14 @@ For each `(project, flow)` group:
 Lead with the composed surface `runs start-for-item`, which folds resolve-target-env, create-run, add-item, and validate-composition into a single invocation:
 
 ```bash
-yoke deployment-runs start-for-item {item-id} \
+yoke --env {control-plane}-db-admin deployment-runs start-for-item {item-id} \
     [--project {project}] [--flow {flow}] [--target-env {target-env}] \
     [--release-lineage {lineage-id}] [--created-by {actor}]
 ```
+
+Create and start-for-item require the owner-only local-postgres connection
+(not the HTTPS product plane) so run rows stay writable when that plane is
+the deploy target. Use the same `*-db-admin` env that execute will use.
 
 Multiple resolvable target envs → `AskUserQuestion` for selection, then re-run with `--target-env`. Validation failure → halt.
 
