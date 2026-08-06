@@ -111,6 +111,7 @@ def test_bash_capable_subagent_pretool_commands_are_env_wrapped_runner() -> None
             assert len(entry["hooks"]) == 1, entry
             command = entry["hooks"][0]["command"]
             expected = (
+                "YOKE_HOOK_CONFIG_OWNER=claude "
                 f"YOKE_HOOK_AGENT_TYPE={role} "
                 f"yoke hook evaluate PreToolUse"
             )
@@ -151,7 +152,10 @@ def test_posttool_observe_command_includes_env_prefix_and_agent_type() -> None:
             entries = block.get(event_name, [])
             assert len(entries) == 1, (role, event_name, entries)
             command = entries[0]["hooks"][0]["command"]
-            assert command.startswith(f"YOKE_HOOK_AGENT_TYPE={role} "), (
+            assert command.startswith(
+                "YOKE_HOOK_CONFIG_OWNER=claude "
+                f"YOKE_HOOK_AGENT_TYPE={role} "
+            ), (
                 role,
                 event_name,
                 command,
@@ -171,6 +175,7 @@ def test_subagent_stop_runs_agent_stop_with_env_prefix() -> None:
         assert len(entries) == 1, (role, entries)
         command = entries[0]["hooks"][0]["command"]
         expected = (
+            "YOKE_HOOK_CONFIG_OWNER=claude "
             f"YOKE_HOOK_AGENT_TYPE={role} "
             f"python3 -m yoke_core.domain.agent_stop"
         )

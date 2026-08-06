@@ -10,43 +10,43 @@ hooks:
   - matcher: Bash
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: Edit
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: Write
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: Read
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: ScheduleWakeup
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: TaskOutput
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   - matcher: Monitor
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type tester --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type tester --hook-event PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type tester --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type tester --hook-event PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=tester python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a QA Engineer / Code Reviewer. Your job is to validate the Engineer's work against the task specification. You CANNOT modify code — only read, review, and run tests.

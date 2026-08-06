@@ -50,6 +50,9 @@ def checkout(tmp_path: Path, machine_home: Path) -> Path:
     (root / "runtime" / "harness" / "cursor" / "hooks.json").write_text(
         render_cursor_hooks_json(), encoding="utf-8",
     )
+    claude_settings = root / "runtime" / "harness" / "claude" / "settings.json"
+    claude_settings.parent.mkdir(parents=True)
+    claude_settings.write_text('{"hooks": {}}\n', encoding="utf-8")
     return root
 
 
@@ -65,6 +68,12 @@ def test_source_link_materializes_cursor_hooks_file(checkout) -> None:
     assert report["materialized_files_created"] == len(
         source_link.DEV_MATERIALIZED_FILES
     )
+
+    for rel, source_rel in source_link.DEV_MATERIALIZED_FILES:
+        target = checkout / rel
+        assert target.is_file(), f"{rel} must be a regular file"
+        assert not target.is_symlink()
+        assert target.read_bytes() == (checkout / source_rel).read_bytes()
 
 
 def test_source_link_materialized_cursor_config_is_idempotent(checkout) -> None:
@@ -120,3 +129,18 @@ def test_source_link_migrates_legacy_cursor_hook_symlink(checkout) -> None:
     assert target.read_bytes() == (
         checkout / "runtime" / "harness" / "cursor" / "hooks.json"
     ).read_bytes()
+
+
+def test_source_link_migrates_legacy_claude_settings_symlink(checkout) -> None:
+    settings = checkout / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True)
+    settings.symlink_to("../runtime/harness/claude/settings.json")
+
+    report = source_link.install_source_link(checkout, operation="refresh")
+
+    assert settings.is_file()
+    assert not settings.is_symlink()
+    assert settings.read_bytes() == (
+        checkout / "runtime/harness/claude/settings.json"
+    ).read_bytes()
+    assert report["materialized_files_updated"] == 1

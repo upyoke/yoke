@@ -11,6 +11,8 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 Cursor loads `AGENTS.md` automatically. The session-start hook (wired in `.cursor/hooks.json`) injects the Yoke orientation and the generated `main_agent` packet block through the `sessionStart` hook's `additional_context` output — the same compact `core` + `claims` schema/API spine other supported harness sessions receive. Substrate capability truth (hooks, identity, cwd binding, adapter render format, supported commands, parity limits) is documented as `harness_contract` in [`docs/harness-bootstrap.md`](docs/harness-bootstrap.md); the measured substrate mapping lives in [`docs/harness-cursor-assessment.md`](docs/harness-cursor-assessment.md).
 
+`.cursor/hooks.json` is the sole active Yoke hook owner in Cursor. Cursor may also list compatible entries discovered in the regular `.claude/settings.json` file when third-party config import is enabled; those entries carry a Claude-config owner marker and exit before transport or policy evaluation under Cursor, preventing duplicate lifecycle and tool dispatch. Project refresh and source-dev setup materialize both Cursor-scanned files and migrate legacy in-repo symlinks.
+
 ### Repo-local skill discovery
 
 Yoke skills live canonically in `.agents/skills/yoke/`. Cursor discovers that tree natively (measured on Cursor IDE 3.14+ and cursor-agent 2026.07+), so no `.cursor/skills` mirror is required for ordinary Yoke work. Skills surface in the `/` menu and via description-based invocation; `.claude/skills/yoke` remains the Claude discovery copy and is not authoritative.

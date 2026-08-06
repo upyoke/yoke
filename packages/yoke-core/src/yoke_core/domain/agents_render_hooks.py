@@ -28,6 +28,10 @@ from yoke_contracts.hook_runner.hook_ordering import (
     matchers_for,
     ordered_pipeline_for,
 )
+from yoke_contracts.hook_runner.config_owner import (
+    CLAUDE_CONFIG_OWNER,
+    CONFIG_OWNER_ENV_VAR,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +45,9 @@ from yoke_contracts.hook_runner.hook_ordering import (
 # dispatch happens behind the CLI via the loaded ``AdapterCapability``.
 
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
+_CLAUDE_CONFIG_OWNER_ENV = (
+    f"{CONFIG_OWNER_ENV_VAR}={CLAUDE_CONFIG_OWNER}"
+)
 
 
 def _environment_export(manifest: dict) -> str:
@@ -60,7 +67,7 @@ def _claude_command(event: str) -> str:
     # child, so Claude's hook event JSON payload still reaches the runner.
     return (
         "/bin/zsh -lc '"
-        f"env {_environment_export(CLAUDE_MANIFEST)} "
+        f"env {_environment_export(CLAUDE_MANIFEST)} {_CLAUDE_CONFIG_OWNER_ENV} "
         f"{_YOKE_HOOK_EVALUATE} {event}'"
     )
 

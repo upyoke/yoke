@@ -10,43 +10,43 @@ hooks:
   - matcher: Bash
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: Edit
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: Write
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: Read
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: ScheduleWakeup
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: TaskOutput
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   - matcher: Monitor
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type architect --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type architect --hook-event PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type architect --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type architect --hook-event PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=architect python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Software Architect. Your job is to translate an item spec into a technical implementation plan, then decompose it into tasks that each fit in a single harness session.

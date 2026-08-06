@@ -10,12 +10,16 @@ clearly instead.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from typing import List
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.hook_runner.chain_registry import (
     SESSION_ORIENTATION_EVENT,
+)
+from yoke_contracts.hook_runner.config_owner import (
+    is_cursor_imported_claude_hook,
 )
 from yoke_cli.commands._helpers import parse_or_usage_error
 
@@ -55,6 +59,13 @@ def hook_evaluate(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, HOOK_EVALUATE_USAGE)
     if parsed is None:
         return 2
+
+    # Cursor can import Claude project settings while also loading Yoke's
+    # native .cursor/hooks.json. The native file is the sole Cursor owner;
+    # imported Claude entries exit before reading stdin or contacting a
+    # universe so the same lifecycle/policy chain cannot run twice.
+    if not parsed.dry_run and is_cursor_imported_claude_hook(os.environ):
+        return 0
 
     try:
         from yoke_harness.hooks.relay import (

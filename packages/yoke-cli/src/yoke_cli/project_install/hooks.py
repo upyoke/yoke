@@ -66,7 +66,13 @@ def _load_settings(path: Path) -> Dict[str, Any]:
 
 def _write_settings(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    if path.is_symlink():
+        path.unlink()
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+    )
+    temporary.replace(path)
 
 
 def _validated_settings_payload(path: Path) -> Dict[str, Any]:
@@ -108,6 +114,7 @@ def plan_hooks_file(
         context="hook settings mutation",
     )
     target = repo_root / settings_rel
+    materialize = target.is_symlink()
     current_records = provided_records(hooks_subtree)
     current_keys = {record_key(record) for record in current_records}
     stale_keys = {
@@ -155,7 +162,10 @@ def plan_hooks_file(
         "added": added,
         "removed": removed,
         "deleted_file": deleted_file,
-        "changed": bool(created or added or removed or deleted_file),
+        "changed": bool(
+            created or added or removed or deleted_file or materialize
+        ),
+        "materialized": materialize,
         "payload": payload,
     }
 
@@ -258,7 +268,7 @@ def merge_hooks_file(
                 continue
             entries.append(entry)
             added.append(_record(event, entry))
-    if added:
+    if added or target.is_symlink():
         _write_settings(target, payload)
     return {"created": False, "added": added}
 

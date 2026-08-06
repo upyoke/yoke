@@ -104,6 +104,26 @@ def test_invalid_settings_json_fails_loudly(repo) -> None:
         apply_bundle(repo, make_bundle(), source="test")
 
 
+def test_refresh_materializes_in_repo_legacy_settings_symlink(repo) -> None:
+    canonical = repo / "runtime/harness/claude/settings.json"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_text(
+        json.dumps({"hooks": make_bundle()["hooks"]["claude_settings_hooks"]}),
+        encoding="utf-8",
+    )
+    settings = repo / SETTINGS_REL
+    settings.parent.mkdir(parents=True)
+    settings.symlink_to("../runtime/harness/claude/settings.json")
+
+    apply_bundle(repo, make_bundle(), operation="refresh", source="test")
+
+    assert settings.is_file()
+    assert not settings.is_symlink()
+    assert _settings(repo)["hooks"] == make_bundle()["hooks"][
+        "claude_settings_hooks"
+    ]
+
+
 def test_invalid_settings_fails_before_other_bundle_mutation(repo) -> None:
     (repo / ".claude").mkdir(parents=True)
     (repo / SETTINGS_REL).write_text("{not json", encoding="utf-8")

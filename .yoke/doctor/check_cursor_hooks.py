@@ -1,14 +1,14 @@
 """HCs covering the Cursor hook substrate.
 
 Three checks share this module because they read the Cursor hook artefacts
-(``runtime/harness/cursor/hooks.json`` and its repo-root surfacing):
+(``runtime/harness/cursor/hooks.json`` plus every project config Cursor scans):
 
 * ``HC-cursor-hook-events`` — required Cursor event entries are present in
   ``runtime/harness/cursor/hooks.json`` with the schema version marker.
 * ``HC-cursor-hook-surfacing`` — the repo-root ``.cursor/agents`` symlink and
-  materialized ``.cursor/hooks.json`` are present.
-* ``HC-cursor-hook-config-drift`` — the materialized hook file is byte-identical
-  to the canonical runtime file.
+  materialized Cursor/Claude project configs are present.
+* ``HC-cursor-hook-config-drift`` — both materialized config files are
+  byte-identical to their canonical runtime files.
 
 Byte-level render drift is ``HC-harness-substrate-drift``'s job; these
 checks assert the wired shape Cursor actually loads.
@@ -46,6 +46,12 @@ _REQUIRED_EVENTS: tuple[str, ...] = (
 
 _HOOKS_PATH = Path("runtime/harness/cursor/hooks.json")
 _NATIVE_HOOKS_PATH = Path(".cursor/hooks.json")
+_CLAUDE_HOOKS_PATH = Path("runtime/harness/claude/settings.json")
+_CLAUDE_PROJECT_HOOKS_PATH = Path(".claude/settings.json")
+_MATERIALIZED_CONFIGS = (
+    (_NATIVE_HOOKS_PATH, _HOOKS_PATH),
+    (_CLAUDE_PROJECT_HOOKS_PATH, _CLAUDE_HOOKS_PATH),
+)
 _NATIVE_AGENT_LINKS: tuple[tuple[str, str], ...] = (
     (".cursor/agents", "../runtime/harness/cursor/agents"),
 )
@@ -94,14 +100,15 @@ def hc_cursor_hook_surfacing(conn, args: DoctorArgs, rec: RecordCollector) -> No
     desc = "Repo-root Cursor surfaces reach the rendered Cursor substrate"
     root = _root()
     problems: List[str] = []
-    hooks_file = root / _NATIVE_HOOKS_PATH
-    if hooks_file.is_symlink():
-        problems.append(
-            f"{_NATIVE_HOOKS_PATH} is a symlink; Cursor refuses project "
-            "hook config paths containing symlinks"
-        )
-    elif not hooks_file.is_file():
-        problems.append(f"{_NATIVE_HOOKS_PATH} is not a regular file")
+    for project_path, _canonical_path in _MATERIALIZED_CONFIGS:
+        hooks_file = root / project_path
+        if hooks_file.is_symlink():
+            problems.append(
+                f"{project_path} is a symlink; Cursor refuses project "
+                "hook config paths containing symlinks"
+            )
+        elif not hooks_file.is_file():
+            problems.append(f"{project_path} is not a regular file")
     for rel, expected_target in _NATIVE_AGENT_LINKS:
         link = root / rel
         if not link.is_symlink():
@@ -121,47 +128,50 @@ def hc_cursor_hook_surfacing(conn, args: DoctorArgs, rec: RecordCollector) -> No
         name,
         desc,
         "PASS",
-        "materialized .cursor/hooks.json and .cursor/agents surface the "
-        "rendered tree",
+        "materialized Cursor/Claude hook configs and .cursor/agents surface "
+        "the rendered tree",
     )
 
 
 def cursor_hook_config_diagnostics(root: Path) -> List[str]:
     """Return static Cursor config problems that can produce zero loaded hooks."""
-    native = root / _NATIVE_HOOKS_PATH
-    canonical = root / _HOOKS_PATH
-    if native.is_symlink():
-        return [
-            f"{_NATIVE_HOOKS_PATH} is a symlink; Cursor may report zero loaded "
-            "hooks for this project"
-        ]
-    if not native.is_file():
-        return [f"{_NATIVE_HOOKS_PATH} is missing or not a regular file"]
-    if not canonical.is_file():
-        return [f"canonical {_HOOKS_PATH} is missing or not a regular file"]
-    try:
-        native_bytes = native.read_bytes()
-        canonical_bytes = canonical.read_bytes()
-    except OSError as exc:
-        return [f"Cursor hook config drift check could not read files: {exc}"]
-    if native_bytes != canonical_bytes:
-        return [
-            f"{_NATIVE_HOOKS_PATH} differs from canonical {_HOOKS_PATH}; "
-            "Cursor may report zero loaded hooks"
-        ]
-    return []
+    problems: List[str] = []
+    for project_path, canonical_path in _MATERIALIZED_CONFIGS:
+        native = root / project_path
+        canonical = root / canonical_path
+        if native.is_symlink():
+            problems.append(
+                f"{project_path} is a symlink; Cursor may reject this project config"
+            )
+            continue
+        if not native.is_file():
+            problems.append(f"{project_path} is missing or not a regular file")
+            continue
+        if not canonical.is_file():
+            problems.append(
+                f"canonical {canonical_path} is missing or not a regular file"
+            )
+            continue
+        try:
+            if native.read_bytes() != canonical.read_bytes():
+                problems.append(
+                    f"{project_path} differs from canonical {canonical_path}"
+                )
+        except OSError as exc:
+            problems.append(f"Cursor hook config drift check could not read files: {exc}")
+    return problems
 
 
 def hc_cursor_hook_config_drift(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     name = "cursor-hook-config-drift"
-    desc = "Materialized Cursor hook config matches the canonical runtime file"
+    desc = "Cursor-scanned hook configs match their canonical runtime files"
     problems = cursor_hook_config_diagnostics(_root())
     if problems:
         rec.record(name, desc, "FAIL", "; ".join(problems))
         return
-    rec.record(name, desc, "PASS", "Cursor hook config is byte-identical to canonical")
+    rec.record(name, desc, "PASS", "Cursor-scanned configs are byte-identical to canonical")
 
 
 from yoke_project_checks._declare import (  # noqa: E402
@@ -171,5 +181,5 @@ from yoke_project_checks._declare import (  # noqa: E402
 PROJECT_HEALTH_CHECKS = self_project_checks(
     ("cursor-hook-events", "Cursor hooks.json carries required events + schema version", hc_cursor_hook_events),
     ("cursor-hook-surfacing", "Repo-root Cursor surfaces reach rendered Cursor substrate", hc_cursor_hook_surfacing),
-    ("cursor-hook-config-drift", "Materialized Cursor hook config matches canonical runtime file", hc_cursor_hook_config_drift),
+    ("cursor-hook-config-drift", "Cursor-scanned hook configs match canonical runtime files", hc_cursor_hook_config_drift),
 )

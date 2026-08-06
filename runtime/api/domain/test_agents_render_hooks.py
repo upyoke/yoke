@@ -55,6 +55,20 @@ def test_claude_omits_verbs_no_claude_surface_fires() -> None:
     assert "AgentModelReported" not in block
 
 
+def test_claude_commands_mark_their_config_owner() -> None:
+    """Cursor imports Claude settings, so the CLI needs source ownership
+    to no-op those entries when native Cursor hooks are also installed."""
+    block = render_claude_hooks_block()
+    commands = [
+        hook["command"]
+        for entries in block.values()
+        for entry in entries
+        for hook in entry["hooks"]
+    ]
+    assert commands
+    assert all("YOKE_HOOK_CONFIG_OWNER=claude" in command for command in commands)
+
+
 def test_model_capture_hook_never_starts_the_interpreter() -> None:
     """``afterAgentThought`` fires inside the token stream, where starting
     Python already exceeds what Cursor tolerates — a 0.25s hook carrying no

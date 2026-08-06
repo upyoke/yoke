@@ -70,7 +70,7 @@ def install_source_link(
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
     return ProjectInstallError(
         f"refusing to uninstall: {root} uses the source-link strategy. The "
-        ".claude/.codex surfaces are git-tracked symlinks/source-dev files, "
+        "harness links and materialized configs are git-tracked source-dev files, "
         "not an installed product copy."
     )
 

@@ -17,7 +17,7 @@ runtime/harness/
   bootstrap-spec.json      # Shared startup-read spec (single source of truth)
   bootstrap.py             # Shared startup-read renderer
   claude/                 # Claude Code adapter
-    settings.json         # Hook configuration (surfaced via .claude/settings.json symlink)
+    settings.json         # Hook source materialized at .claude/settings.json
     agents/               # Rendered Claude agent adapters (yoke-*.md)
     rules/                # Claude-specific session rules
     # Hook entrypoints live under runtime.harness.hook_runner

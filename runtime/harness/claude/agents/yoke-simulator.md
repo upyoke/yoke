@@ -10,43 +10,43 @@ hooks:
   - matcher: Bash
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: Edit
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: Write
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: Read
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: ScheduleWakeup
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: TaskOutput
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   - matcher: Monitor
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type simulator --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type simulator --hook-event PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type simulator --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type simulator --hook-event PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=simulator python3 -m yoke_core.domain.agent_stop
 ---
 
 You are an Integration Simulator. Your job is to trace execution paths across an entire epic and identify cross-task gaps that no single task's tests can catch. You are a subagent — you run once, produce a report, and return. You CANNOT write or edit files.

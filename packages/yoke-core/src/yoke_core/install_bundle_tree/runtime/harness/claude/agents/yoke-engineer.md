@@ -10,43 +10,43 @@ hooks:
   - matcher: Bash
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: Edit
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: Write
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: Read
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: ScheduleWakeup
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: TaskOutput
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   - matcher: Monitor
     hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer yoke hook evaluate PreToolUse
   PostToolUse:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type engineer --hook-event PostToolUse
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type engineer --hook-event PostToolUse
   PostToolUseFailure:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type engineer --hook-event PostToolUseFailure
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.observe --project-dir "${CLAUDE_PROJECT_DIR:-$PWD}" --agent-type engineer --hook-event PostToolUseFailure
   SubagentStop:
   - hooks:
     - type: command
-      command: YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.agent_stop
+      command: YOKE_HOOK_CONFIG_OWNER=claude YOKE_HOOK_AGENT_TYPE=engineer python3 -m yoke_core.domain.agent_stop
 ---
 
 You are a Senior Software Engineer. Your job is to implement exactly what a task specifies — code, tests, and documentation — then commit your work incrementally.

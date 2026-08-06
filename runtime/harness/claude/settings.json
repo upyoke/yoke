@@ -5,7 +5,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -14,7 +14,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -23,7 +23,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -32,7 +32,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -41,7 +41,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -50,7 +50,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -59,7 +59,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PreToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PreToolUse'",
             "type": "command"
           }
         ],
@@ -70,7 +70,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PostToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
             "type": "command"
           }
         ],
@@ -79,7 +79,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PostToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
             "type": "command"
           }
         ],
@@ -88,7 +88,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PostToolUse'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUse'",
             "type": "command"
           }
         ]
@@ -98,7 +98,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PostToolUseFailure'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PostToolUseFailure'",
             "type": "command"
           }
         ]
@@ -108,7 +108,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate PermissionRequest'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate PermissionRequest'",
             "type": "command"
           }
         ]
@@ -118,7 +118,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate SessionStart'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate SessionStart'",
             "type": "command"
           }
         ]
@@ -128,7 +128,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate SessionEnd'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate SessionEnd'",
             "type": "command"
           }
         ]
@@ -138,7 +138,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate UserPromptSubmit'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate UserPromptSubmit'",
             "type": "command"
           }
         ]
@@ -148,7 +148,7 @@
       {
         "hooks": [
           {
-            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" yoke hook evaluate Stop'",
+            "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CLAUDE_PROJECT_DIR:-$PWD}\" YOKE_HOOK_CONFIG_OWNER=claude yoke hook evaluate Stop'",
             "type": "command"
           }
         ]

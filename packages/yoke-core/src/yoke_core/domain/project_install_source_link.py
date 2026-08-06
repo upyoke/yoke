@@ -2,19 +2,20 @@
 
 The Yoke source checkout IS the bundle source, so its harness surfaces
 are git-tracked links into the live tree (edit a canonical file, run
-``agents.render.run``, every consumer sees the change instantly). Cursor's
-hook config is a tracked regular file because Cursor refuses symlinked project
-config files; the renderer and this setup path keep it byte-identical to the
-canonical runtime file.
+``agents.render.run``, every consumer sees the change instantly). Project
+configuration files that Cursor discovers are tracked regular files because
+Cursor refuses config paths containing symlinks; the renderer and this setup
+path keep them byte-identical to their canonical runtime files.
 ``source-link`` owns that wiring:
 
 1. Dev links — ``.claude/`` + ``.codex/`` surfaces pointing at the
    canonical ``runtime/harness/...`` targets, the
    ``.claude/skills/yoke`` compatibility link, and the tester-browser
-   reference link. Cursor's ``.cursor/hooks.json`` is materialized from its
-   canonical runtime file so Cursor's symlink refusal cannot disable the hook
-   chain. The links and file are git-tracked, so a fresh clone already has
-   them; install/refresh repairs drift idempotently.
+   reference link. ``.claude/settings.json`` and ``.cursor/hooks.json`` are
+   materialized from their canonical runtime files so Cursor's symlink refusal
+   cannot disable either native or Claude-compatible hooks. The links and
+   files are git-tracked, so a fresh clone already has them; install/refresh
+   repairs drift idempotently.
 2. Cursor permission regions — the same
    :mod:`yoke_cli.project_install.cursor_permissions` merge copy mode
    runs, unioning Yoke's command approvals and control-plane network
@@ -64,7 +65,6 @@ from yoke_core.domain.project_install_git_hooks import (
 DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
     (".claude/agents", "../runtime/harness/claude/agents"),
     (".claude/rules", "../runtime/harness/claude/rules"),
-    (".claude/settings.json", "../runtime/harness/claude/settings.json"),
     (".claude/skills/yoke", "../../.agents/skills/yoke"),
     (".codex/agents", "../runtime/harness/codex/agents"),
     (".codex/hooks.json", "../runtime/harness/codex/hooks.json"),
@@ -75,6 +75,7 @@ DEV_SYMLINKS: Tuple[Tuple[str, str], ...] = (
 )
 
 DEV_MATERIALIZED_FILES: Tuple[Tuple[str, str], ...] = (
+    (".claude/settings.json", "runtime/harness/claude/settings.json"),
     (".cursor/hooks.json", "runtime/harness/cursor/hooks.json"),
 )
 
@@ -164,10 +165,11 @@ def ensure_dev_materialized_file(
 ) -> None:
     """Materialize a tracked source-dev file from its canonical source.
 
-    Cursor rejects hook configuration paths containing symlinks. A previous
-    source-link setup may still have created one, so migration removes the
-    old link before writing the canonical bytes. Regular-file edits are
-    repaired; directories and other obstructions remain operator-owned.
+    Cursor rejects discovered configuration paths containing symlinks. A
+    previous source-link setup may still have created one, so migration
+    removes the old link before writing the canonical bytes. Regular-file
+    edits are repaired; directories and other obstructions remain
+    operator-owned.
     """
     files_layer.assert_resolved_targets_within(
         target_root,
@@ -217,8 +219,8 @@ def ensure_dev_materialized_file(
 def source_link_uninstall_refusal(root: Path) -> ProjectInstallError:
     return ProjectInstallError(
         f"refusing to uninstall: {root} uses the source-link strategy — "
-        "the .claude/.codex surfaces are git-tracked symlinks into "
-        "runtime/harness/ and the dev layer is part of the repo itself, "
+        "the source-dev harness links and materialized configs are "
+        "git-tracked parts of the repo itself, "
         "not an installed copy. There is nothing to de-install; remove "
         ".git/hooks/ shims manually if you must"
     )

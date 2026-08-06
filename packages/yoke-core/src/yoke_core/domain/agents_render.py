@@ -74,6 +74,7 @@ CURSOR_OUT_DIR = Path("runtime") / "harness" / "cursor" / "agents"
 CURSOR_NATIVE_AGENTS_DIR = Path(".cursor/agents")
 
 CLAUDE_SETTINGS_PATH = Path("runtime") / "harness" / "claude" / "settings.json"
+CLAUDE_NATIVE_SETTINGS_PATH = Path(".claude") / "settings.json"
 CLAUDE_MANIFEST_PATH = Path("runtime") / "harness" / "claude" / "manifest.json"
 CODEX_HOOKS_PATH = Path("runtime") / "harness" / "codex" / "hooks.json"
 CODEX_MANIFEST_PATH = Path("runtime") / "harness" / "codex" / "manifest.json"
@@ -188,6 +189,7 @@ def _enumerate_outputs(target_root: Optional[Path] = None) -> list[tuple[Path, s
         )
     outputs.extend(rendered_reference_outputs(root / CANONICAL_DIR))
     outputs.append((CLAUDE_SETTINGS_PATH, render_claude_settings_json()))
+    outputs.append((CLAUDE_NATIVE_SETTINGS_PATH, render_claude_settings_json()))
     outputs.append((CLAUDE_MANIFEST_PATH, render_claude_manifest_json()))
     for agent in AGENTS:
         outputs.append(
@@ -290,7 +292,7 @@ def detect_substrate_drift(*, target_root: Optional[Path] = None) -> list[str]:
         outputs = []
     for rel_path, rendered in outputs:
         out_path = root / rel_path
-        if rel_path == CURSOR_NATIVE_HOOKS_PATH and out_path.is_symlink():
+        if rel_path in {CLAUDE_NATIVE_SETTINGS_PATH, CURSOR_NATIVE_HOOKS_PATH} and out_path.is_symlink():
             drift.append(f"invalid symlink: {rel_path}")
             continue
         if not out_path.exists():
