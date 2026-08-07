@@ -19,9 +19,9 @@ Allocation registry (canonical owner per glyph; reassignments noted):
   Per-row lifecycle status (STATUS_EMOJI): see dict below.
   Session actions (sections_sessions._MODE_EMOJI):
     📝 refine · ✨ polish · ⚡ charge · 🧠 strategize · 🚨 escalate · 🔧 manual
-    🔄 resume · ⏩ advance · ⏳ wait · 🎼 conduct · 🧑‍🌾 shepherd · 🎬 usher
-    🧹 curate · 🩺 doctor · 🔮 simulate · 💡 idea · 🧾 wrapup · 🎮 do · 🍴 feed
-    📌 plan · 🪝 hook · 💨 dash
+    🦾 operator · 🔄 resume · ⏩ advance · ⏳ wait · 🎼 conduct · 🧑‍🌾 shepherd
+    🎬 usher · 🧹 curate · 🩺 doctor · 🔮 simulate · 💡 idea · 🧾 wrapup
+    🎮 do · 🍴 feed · 📌 plan · 🪝 hook · 💨 dash
   Executors (sections_sessions_cells._EXECUTOR_EMOJI):
     🤖 claude-code · 🍎 claude-desktop · 🪟 claude-vscode · 📟 claude-cli
     📕 codex · 💻 codex-desktop · 🪄 codex-vscode · 📠 codex-cli

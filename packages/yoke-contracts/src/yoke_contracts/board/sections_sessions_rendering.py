@@ -26,6 +26,7 @@ _MODE_EMOJI: Dict[str, str] = {
     "strategize": "🧠",
     "escalate": "🚨",
     "manual": "🔧",
+    "operator": "🦾",
     "resume": "🔄",
     "advance": "⏩",
     "wait": "⏳",
