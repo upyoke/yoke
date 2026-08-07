@@ -62,6 +62,70 @@ class PostRebaseRequirementResponse(BaseModel):
     project: str
     scope: str
     command: str
+    covering_runs: list[dict[str, Any]] = Field(default_factory=list)
+
+
+def _covering_runs(
+    conn: Any, marker: str, item_id: int, scope: str, command: str,
+) -> list[dict[str, Any]]:
+    """Passing QA runs whose evidence can waive a same-tree re-execution.
+
+    A run qualifies when it passed and recorded the exact commit it covered
+    (``raw_result.verification_tree.head_sha``), and its requirement's
+    execution family vouches for the resolved verification scope: a ``ci_run``
+    case executed the project's declared CI workflow (the merge-path suite
+    authority regardless of the registered command's scope), while a local
+    ``worktree_run`` case covers only the identical registered command.
+    The client compares git tree identity; unparseable evidence is dropped
+    so the caller falls back to executing the suite.
+    """
+    from yoke_core.domain.db_helpers import query_rows
+    from yoke_core.domain.json_helper import loads_text
+
+    def _loads_or_none(text: str) -> Any:
+        try:
+            return loads_text(text)
+        except Exception:  # noqa: BLE001 - malformed evidence is non-covering
+            return None
+
+    rows = query_rows(
+        conn,
+        "SELECT r.id AS run_id, r.raw_result, q.executor_id, q.method_config "
+        "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
+        f"WHERE q.item_id={marker} AND r.verdict='pass'",
+        (item_id,),
+    )
+    covering: list[dict[str, Any]] = []
+    for row in rows:
+        raw = _loads_or_none(row["raw_result"] or "")
+        if not isinstance(raw, dict):
+            continue
+        tree = raw.get("verification_tree")
+        head_sha = (
+            str(tree.get("head_sha") or "").strip()
+            if isinstance(tree, dict) else ""
+        )
+        if not head_sha:
+            continue
+        executor_id = str(row["executor_id"] or "")
+        if executor_id == "worktree_run":
+            config = _loads_or_none(row["method_config"] or "")
+            if not isinstance(config, dict):
+                continue
+            if str(config.get("command") or "") != command:
+                continue
+            if str(config.get("registered_scope") or "") != scope:
+                continue
+        elif executor_id != "ci_run":
+            continue
+        covering.append(
+            {
+                "run_id": int(row["run_id"]),
+                "head_sha": head_sha,
+                "executor_id": executor_id,
+            }
+        )
+    return covering
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -172,13 +236,23 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
                     transition_id=body.transition_id,
                 )
             commands = list_registered_commands_for_project_id(conn, project_id)
+            selected = next(
+                (
+                    (scope, commands[scope])
+                    for scope in ("full", "quick")
+                    if scope in commands
+                ),
+                None,
+            )
+            covering = (
+                _covering_runs(
+                    conn, marker, int(item_id), selected[0], selected[1],
+                )
+                if selected is not None else []
+            )
     except Exception as exc:  # noqa: BLE001 - materialize failure blocks the merge
         return _err("post_rebase_requirement_failed", str(exc))
 
-    selected = next(
-        ((scope, commands[scope]) for scope in ("full", "quick") if scope in commands),
-        None,
-    )
     if selected is None:
         return _err(
             "post_rebase_verification_missing",
@@ -191,6 +265,7 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
             "project": project,
             "scope": scope,
             "command": command,
+            "covering_runs": covering,
         },
         primary_success=True,
     )

@@ -148,6 +148,7 @@ class TestPostRebaseRequirement:
             "project": "yoke",
             "scope": "full",
             "command": "python3 verify_tree.py",
+            "covering_runs": [],
         }
         ops.PostRebaseRequirementResponse(**outcome.result_payload)
 
@@ -247,6 +248,82 @@ class TestPostRebaseRequirement:
         assert outcome.error is not None
         assert outcome.error.code == "post_rebase_requirement_failed"
         assert "snapshot write failed" in outcome.error.message
+
+    def test_covering_runs_report_qualifying_pass_evidence(self, db):
+        item_id = 9415
+        conn = connect_test_db(db)
+        try:
+            insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+            from yoke_core.domain.qa_command_plan_registration import (
+                ensure_registered_command_plan,
+            )
+
+            ensure_registered_command_plan(
+                conn,
+                project_id=1,
+                project="yoke",
+                scope="full",
+                command="python3 verify_tree.py",
+            )
+            matching_config = (
+                '{"command": "python3 verify_tree.py", '
+                '"registered_scope": "full"}'
+            )
+            requirements = [
+                (1, "ci_run", '{"ci_workflow": "ci.yml"}'),
+                (2, "worktree_run", matching_config),
+                (3, "worktree_run", '{"command": "other", '
+                                    '"registered_scope": "full"}'),
+                (4, "ci_run", "{}"),
+                (5, "ci_run", "{}"),
+            ]
+            from yoke_core.domain import db_backend
+
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            for req_id, executor_id, config in requirements:
+                conn.execute(
+                    "INSERT INTO qa_requirements "
+                    "(id, item_id, qa_kind, qa_phase, executor_id, "
+                    "method_config, created_at) VALUES "
+                    f"({','.join([marker] * 7)})",
+                    (req_id, item_id, "plan_case", "verification",
+                     executor_id, config, "2026-01-01T00:00:00Z"),
+                )
+            evidence = '{"verification_tree": {"head_sha": "%s"}}'
+            runs = [
+                (1, 1, "pass", evidence % ("a" * 40)),
+                (2, 2, "pass", evidence % ("b" * 40)),
+                (3, 3, "pass", evidence % ("c" * 40)),  # command mismatch
+                (4, 4, "fail", evidence % ("d" * 40)),  # not a pass
+                (5, 5, "pass", "{}"),  # no covered commit recorded
+            ]
+            for run_id, req_id, verdict, raw in runs:
+                conn.execute(
+                    "INSERT INTO qa_runs (id, qa_requirement_id, "
+                    "executor_type, qa_kind, verdict, raw_result, created_at)"
+                    f" VALUES ({','.join([marker] * 7)})",
+                    (run_id, req_id, "command", "plan_case", verdict, raw,
+                     "2026-01-01T00:00:00Z"),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        outcome = ops.handle_post_rebase_requirement(
+            _item_envelope(
+                "merge.tests.post_rebase_requirement", item_id=item_id
+            )
+        )
+
+        assert outcome.primary_success, outcome.error
+        covering = outcome.result_payload["covering_runs"]
+        assert sorted(c["run_id"] for c in covering) == [1, 2]
+        by_run = {c["run_id"]: c for c in covering}
+        assert by_run[1] == {
+            "run_id": 1, "head_sha": "a" * 40, "executor_id": "ci_run",
+        }
+        assert by_run[2]["head_sha"] == "b" * 40
+        ops.PostRebaseRequirementResponse(**outcome.result_payload)
 
     def test_missing_item_target_is_invalid(self, db):
         outcome = ops.handle_post_rebase_requirement(

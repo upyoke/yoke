@@ -135,6 +135,7 @@ class TestPostRebaseRelays:
         assert mtests._registered_verification_command(ctx) == (
             "full",
             "python3 verify_tree.py",
+            [],
         )
         assert [c["function_id"] for c in calls] == [
             "items.detail.get",
