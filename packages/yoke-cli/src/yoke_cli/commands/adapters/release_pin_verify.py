@@ -19,8 +19,10 @@ from yoke_contracts.release_pin import (
 )
 from yoke_cli.commands.deployment_pin import RELEASE_PIN_CAPABILITY
 from yoke_cli.commands.release_pin_agreement import (
+    accepted_environment_targets,
     environment_id_for_target,
     evaluate_pin_health_agreement,
+    format_accepted_environment_targets,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
@@ -36,7 +38,10 @@ def release_pin_verify(args: List[str]) -> int:
     parser.add_argument(
         "--environment",
         required=True,
-        help="Deploy target name declared by the project's capability.",
+        help=(
+            "Deploy target key from release_pin.environment_by_target, or the "
+            "mapped environment's id or name."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -49,10 +54,19 @@ def release_pin_verify(args: List[str]) -> int:
         return usage_error(
             f"project {parsed.project!r} has no {RELEASE_PIN_CAPABILITY} capability"
         )
-    environment_id = environment_id_for_target(settings, parsed.environment)
+    environments = _project_environments(parsed.project, parsed.session_id)
+    environment_id = environment_id_for_target(
+        settings,
+        parsed.environment,
+        environments=environments,
+    )
     if not environment_id:
+        valid = format_accepted_environment_targets(
+            accepted_environment_targets(settings, environments=environments)
+        )
         return usage_error(
-            f"release_pin.environment_by_target has no entry for {parsed.environment!r}"
+            "release_pin.environment_by_target has no entry for "
+            f"{parsed.environment!r}; valid keys: {valid}"
         )
     desired_pin_path = _scalar(settings.get(DESIRED_PIN_PATH_KEY))
     if not desired_pin_path:
@@ -140,6 +154,18 @@ def _capability_settings(project: str, session_id: Optional[str]) -> Optional[di
         return None
     settings = json.loads(str(result.get("settings_json") or "null"))
     return settings if isinstance(settings, dict) else None
+
+
+def _project_environments(
+    project: str, session_id: Optional[str]
+) -> List[Dict[str, Any]]:
+    result = _read(
+        "projects.infrastructure.list",
+        {"project": project},
+        session_id,
+    )
+    rows = (result or {}).get("environments") or []
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def _environment_values(

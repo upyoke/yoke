@@ -122,6 +122,32 @@ class TestNonMatches(unittest.TestCase):
     def test_pytest_word_in_argument_not_matched(self):
         self.assertIsNone(_eval("echo pytest | tail -1"))
         self.assertIsNone(_eval("rg -n pytest runtime/api/conftest.py | head -3"))
+        self.assertIsNone(_eval("grep -n pytest runtime/api/conftest.py | head -3"))
+        self.assertIsNone(
+            _eval("rg -n 'pytest|watch_pytest' runtime/api | head -40")
+        )
+
+    def test_quoted_evidence_pipes_are_not_live_pipelines(self):
+        # Field-note / CLI evidence that quotes a long-command|truncator shape
+        # must not be classified as a live pipe — only unquoted | joins stages.
+        self.assertIsNone(
+            _eval(
+                "yoke ouroboros field-note append --kind observation "
+                "--evidence 'blocked pytest runtime/api/ -q | head -30'"
+            )
+        )
+        self.assertIsNone(
+            _eval(
+                "yoke ouroboros field-note append --kind observation "
+                "--evidence \"python3 -m yoke_core.tools.watch_pytest -- x | tail -8\""
+            )
+        )
+        self.assertIsNone(
+            _eval(
+                "yoke ouroboros field-note append --kind observation "
+                "--evidence 'saw | pytest runtime/api/ -q | head -30'"
+            )
+        )
 
     def test_pipe_to_non_truncator_allowed(self):
         # The named clause is pipe-to-truncator; grep-only chains are the

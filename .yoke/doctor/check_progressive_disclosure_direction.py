@@ -77,12 +77,13 @@ _EXPLICIT_CITATION_ALIASES = {
     ("runtime/agents/tester.md", "session.md"): "runtime/harness/claude/rules/session.md",
     (f"{_SKILL_ROOT}/shared/tester-dispatch-template.md", "dispatch-context.md"): f"{_SKILL_ROOT}/conduct/dispatch-context.md",
 }
-# CLA.md / LICENSE.md are governance documents cited by contributor rules;
-# they teach nothing and belong to no tier.
-_NON_TEACHING_PATH_LABELS = frozenset(
-    {"product-designer-spec.md", "product-manager-spec.md",
-     "CLA.md", "LICENSE.md"}
-)
+_NON_TEACHING_PATH_LABELS = frozenset({
+    "product-designer-spec.md",
+    "product-manager-spec.md",
+    # Legal/governance artifacts cited from orientation prose — not teaching tiers.
+    "LICENSE.md",
+    "CLA.md",
+})
 _EXPLICIT_DIRECTION_EDGES = frozenset(
     {
         ("AGENTS.md", ".yoke/docs/reference/lifecycle.md"),
