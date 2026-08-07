@@ -24,7 +24,6 @@ nothing about the other. A stage rehearsal is not production evidence.
 from __future__ import annotations
 
 import json
-import shlex
 from typing import Any, Dict, Iterable, Mapping, Sequence, Tuple
 
 #: Emitted by a passing fleet preflight; read by the pre-tag release gate.
@@ -59,6 +58,17 @@ def target_environment_for_admin_env(admin_env: str) -> str:
     if name.endswith(_ADMIN_SUFFIX):
         name = name[: -len(_ADMIN_SUFFIX)]
     return _TARGET_ENVIRONMENT_ALIASES.get(name, name)
+
+
+def admin_connection_for_environment(environment: str) -> str:
+    """The admin connection name a fleet adapter runs against for *environment*."""
+    admin_env = environment.strip()
+    if admin_env.endswith(_ADMIN_SUFFIX):
+        return admin_env
+    for connection, target in _TARGET_ENVIRONMENT_ALIASES.items():
+        if target == admin_env:
+            return f"{connection}{_ADMIN_SUFFIX}"
+    return f"{admin_env}{_ADMIN_SUFFIX}"
 
 
 def receipt_context(
@@ -130,23 +140,13 @@ def uncovered(
     return tuple(name for name in history if name not in covered)
 
 
-def _preflight_command(environment: str, receipt_connection: str = "") -> str:
-    admin_env = environment
-    if not admin_env.endswith(_ADMIN_SUFFIX):
-        for connection, target in _TARGET_ENVIRONMENT_ALIASES.items():
-            if target == admin_env:
-                admin_env = connection
-                break
-        admin_env = f"{admin_env}{_ADMIN_SUFFIX}"
-    receipt_env = receipt_connection.strip()
-    receipt_env_arg = (
-        shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
-    )
-    return (
-        "python3 -m runtime.api.tools.preflight_fleet_migrations "
-        f"{admin_env} --record-receipt --product-sha <sha> "
-        f"--receipt-env {receipt_env_arg}"
-    )
+#: Project-generic unblock recipe. Callers that own a fleet adapter (for
+#: example Yoke's release gate) inject that recipe via ``rehearse_command``;
+#: the default must not name any project's source-dev path.
+_DEFAULT_REHEARSE_COMMAND = (
+    "yoke migration rehearse <item>  # see --help; use the project-owned "
+    "fleet binding for fleet coverage before release"
+)
 
 
 def refusal_message(
@@ -154,19 +154,24 @@ def refusal_message(
     missing: Sequence[str],
     *,
     product_sha: str = "",
-    receipt_connection: str = "",
+    rehearse_command: str = "",
 ) -> str:
-    """Why this release stops, and the one command that unblocks it."""
+    """Why this release stops, and the one command that unblocks it.
+
+    ``rehearse_command`` is the project-owned fleet recipe when a caller
+    has one. Empty keeps the message project-generic so shared domain code
+    never teaches a single project's source-dev adapter.
+    """
     listed = ", ".join(missing)
     build = f" at {product_sha}" if product_sha.strip() else ""
+    command = rehearse_command.strip() or _DEFAULT_REHEARSE_COMMAND
     return (
         f"this build{build} carries {len(missing)} migration history "
         f"entr{'y' if len(missing) == 1 else 'ies'} no passing fleet preflight "
         f"has covered for {target_environment_for_admin_env(environment)}: "
         f"{listed}. An entry exists for the databases that are behind it, and "
         "nothing here has yet run it against one. Rehearse the fleet, then "
-        "re-run this release:\n  "
-        f"{_preflight_command(environment, receipt_connection)}"
+        f"re-run this release:\n  {command}"
     )
 
 
