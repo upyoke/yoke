@@ -16,7 +16,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.adapters.strategy import strategy_target
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.domain.work_processes import is_known_process, list_processes
+from yoke_contracts.work_processes import is_known_process, list_processes
 
 
 def _global(
