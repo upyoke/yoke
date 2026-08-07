@@ -99,7 +99,8 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             self.conn,
             "CREATE TABLE work_claims (id INTEGER PRIMARY KEY, "
             "session_id TEXT, target_kind TEXT, item_id INTEGER, "
-            "epic_id INTEGER, task_num INTEGER, released_at TEXT);",
+            "epic_id INTEGER, task_num INTEGER, process_key TEXT, "
+            "conflict_group TEXT, released_at TEXT);",
         )
         from contextlib import contextmanager
 
@@ -118,12 +119,16 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
         self.conn.close()
 
     def _seed(self, *, session_id, target_kind, item_id=None, epic_id=None,
-              task_num=None, released_at=None) -> int:
+              task_num=None, process_key=None, conflict_group=None,
+              released_at=None) -> int:
         cur = self.conn.execute(
             "INSERT INTO work_claims (session_id, target_kind, item_id, "
-            "epic_id, task_num, released_at) VALUES (%s, %s, %s, %s, %s, %s) "
-            "RETURNING id",
-            (session_id, target_kind, item_id, epic_id, task_num, released_at),
+            "epic_id, task_num, process_key, conflict_group, released_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (
+                session_id, target_kind, item_id, epic_id, task_num,
+                process_key, conflict_group, released_at,
+            ),
         )
         claim_id = int(cur.fetchone()[0])
         self.conn.commit()
@@ -168,6 +173,38 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             claims_module._session_claim_id_for_target(target, "sid-e"),
             claim_id,
         )
+
+    def test_process_key_resolves_session_claim(self):
+        claim_id = self._seed(
+            session_id="sid-e",
+            target_kind="process",
+            process_key="STRATEGIZE",
+            conflict_group="strategy-control-plane:yoke",
+        )
+        target = TargetRef(kind="global")
+        self.assertEqual(
+            claims_module._session_claim_id_for_target(
+                target, "sid-e",
+                process_key="STRATEGIZE", project="yoke",
+            ),
+            claim_id,
+        )
+
+    def test_process_key_ignores_other_session(self):
+        self._seed(
+            session_id="sid-other",
+            target_kind="process",
+            process_key="STRATEGIZE",
+            conflict_group="strategy-control-plane:yoke",
+        )
+        target = TargetRef(kind="global")
+        self.assertIsNone(
+            claims_module._session_claim_id_for_target(
+                target, "sid-e",
+                process_key="STRATEGIZE", project="yoke",
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

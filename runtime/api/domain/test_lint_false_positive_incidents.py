@@ -38,8 +38,17 @@ def _payload(command: str, **extra: object) -> dict:
     [
         "rg -n 'pytest|watch_pytest' runtime/api | head -40",
         "rg 'yoke watch merge --' packages runtime | head",
+        "grep -n pytest runtime/api/conftest.py | head -30",
         "ps aux | rg 'pytest|watch_pytest|qa case' | head -20",
         "ps -axo pid,command | sort -k1 | head -20",
+        (
+            "yoke ouroboros field-note append --kind observation "
+            "--evidence 'blocked pytest runtime/api/ -q | head -30'"
+        ),
+        (
+            "yoke ouroboros field-note append --kind observation "
+            "--evidence \"python3 -m yoke_core.tools.watch_pytest -- x | tail -8\""
+        ),
     ],
 )
 def test_search_and_process_diagnostics_are_not_live_long_commands(command: str) -> None:

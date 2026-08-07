@@ -61,7 +61,8 @@ STRATEGY_ADAPTERS = [
     AdapterEntry(
         function_id="strategy.claim.release",
         cli_invocation=(
-            "yoke strategy claim release ITEM [--reason TEXT] --project P"
+            "yoke strategy claim release (ITEM | PROCESS_KEY) "
+            "[--reason TEXT] --project P"
         ),
     ),
     AdapterEntry(

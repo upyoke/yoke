@@ -129,16 +129,20 @@ def claims_work_acquire(args: List[str]) -> int:
 
 CLAIM_WORK_RELEASE_USAGE = (
     "yoke claims work release "
-    "(--claim-id N | --item PREFIX-N | --epic-id N --task-num N | --all-mine) "
+    "(--claim-id N | --item PREFIX-N | --epic-id N --task-num N | "
+    "--process KEY | --all-mine) "
     "[--reason TEXT] [--session-id S] [--json]\n"
     "  --epic-id + --task-num release the calling session's active "
     "epic_task claim on (epic_id, task_num).\n"
+    "  --process KEY releases this session's active process claim "
+    "(STRATEGIZE, FEED, DOCTOR).\n"
     "  --all-mine releases every active claim this session holds, without "
     "ending the session (harness owns session lifecycle)."
 )
 
 _SELECTOR_ERR = (
-    "exactly one of --claim-id, --item, --epic-id+--task-num, or --all-mine is required"
+    "exactly one of --claim-id, --item, --epic-id+--task-num, "
+    "--process, or --all-mine is required"
 )
 
 
@@ -160,6 +164,16 @@ def claims_work_release(args: List[str]) -> int:
         help="Task number within the epic (pair with --epic-id).",
     )
     parser.add_argument(
+        "--process",
+        default=None,
+        help="Process key for this session's process claim (STRATEGIZE, FEED, DOCTOR).",
+    )
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project scope for --process / bare numeric --item refs.",
+    )
+    parser.add_argument(
         "--all-mine",
         action="store_true",
         help=(
@@ -171,7 +185,10 @@ def claims_work_release(args: List[str]) -> int:
     parser.add_argument(
         "--reason",
         default=None,
-        help="Required with --claim-id, --item, or --epic-id+--task-num.",
+        help=(
+            "Required with --claim-id, --item, --epic-id+--task-num, "
+            "or --process."
+        ),
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -191,6 +208,7 @@ def claims_work_release(args: List[str]) -> int:
             parsed.claim_id is not None,
             parsed.item is not None,
             epic_task_selector,
+            parsed.process is not None,
             parsed.all_mine,
         )
     )
@@ -209,12 +227,12 @@ def claims_work_release(args: List[str]) -> int:
     if not parsed.reason:
         return usage_error(
             "--reason is required when releasing by --claim-id, --item, "
-            "or --epic-id+--task-num"
+            "--epic-id+--task-num, or --process"
         )
 
     # The dispatcher's self_only verification resolves the calling
-    # session's active claim for item / epic_task shaped targets, so the
-    # client never pre-reads work_claims (relay contract).
+    # session's active claim for item / epic_task / process shaped
+    # targets, so the client never pre-reads work_claims (relay contract).
     target_ref: TargetRef
     payload: Dict[str, Any] = {"reason": parsed.reason}
     if parsed.claim_id is not None:
@@ -228,8 +246,13 @@ def claims_work_release(args: List[str]) -> int:
         target_ref = item_target(
             "item",
             parsed.item,
-            getattr(parsed, "project", None),
+            parsed.project,
         )
+    elif parsed.process is not None:
+        project = parsed.project or "yoke"
+        target_ref = TargetRef(kind="global", project_id=project)
+        payload["process_key"] = parsed.process
+        payload["project"] = project
     else:
         try:
             epic_id = int(parsed.epic_id)

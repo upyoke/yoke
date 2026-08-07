@@ -222,6 +222,28 @@ class TestReleaseEpicTask:
         assert req.target.claim_id is None
         assert req.payload == {"reason": "done here"}
 
+    def test_release_process_dispatches_process_payload(self) -> None:
+        rc, _o, err = _run(
+            "claims",
+            "work",
+            "release",
+            "--process",
+            "STRATEGIZE",
+            "--project",
+            "yoke",
+            "--reason",
+            "era closeout",
+        )
+        assert rc == 0, err
+        req = _CAPTURED[-1]
+        assert req.function == "claims.work.release"
+        assert req.target.kind == "global"
+        assert req.payload == {
+            "reason": "era closeout",
+            "process_key": "STRATEGIZE",
+            "project": "yoke",
+        }
+
 
 # ---------------------------------------------------------------------------
 # Help — selector form documented
@@ -242,6 +264,8 @@ class TestReleaseHelp:
         assert "--epic-id" in out
         assert "--task-num" in out
         assert "epic_task" in out
+        assert "--process" in out
+        assert "STRATEGIZE" in out
 
 
 class TestPathRegisterModes:

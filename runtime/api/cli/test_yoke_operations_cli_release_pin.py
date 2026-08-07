@@ -143,6 +143,21 @@ def test_record_is_registered_as_a_dispatcher_backed_surface():
     assert function_id == "release_pin.record"
 
 
+_PLATFORM_VERIFY_SETTINGS = {
+    "environment_by_target": {
+        "stage": "yoke-api-stage",
+        "production": "yoke-api-prod",
+    },
+    "desired_pin_path": "delivery.component_pin",
+    "probe_url_path": "monitoring.status_url",
+    "served_pin_response_path": "build.release",
+}
+_PLATFORM_ENVIRONMENTS = [
+    {"id": "yoke-api-stage", "name": "stage"},
+    {"id": "yoke-api-prod", "name": "prod"},
+]
+
+
 def test_verify_reads_the_complete_capability_configured_probe_contract():
     observed = {}
 
@@ -177,6 +192,10 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
             },
         ),
         patch(
+            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            return_value=[{"id": "customer-canary", "name": "canary"}],
+        ),
+        patch(
             "yoke_cli.commands.adapters.release_pin_verify._environment_values",
             side_effect=environment_values,
         ),
@@ -205,6 +224,92 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
 
 
 @pytest.mark.parametrize(
+    ("environment", "environment_id"),
+    (
+        ("stage", "yoke-api-stage"),
+        ("production", "yoke-api-prod"),
+        ("yoke-api-stage", "yoke-api-stage"),
+        ("yoke-api-prod", "yoke-api-prod"),
+        ("prod", "yoke-api-prod"),
+    ),
+)
+def test_verify_accepts_platform_name_id_and_canonical_keys(
+    environment, environment_id, capsys
+):
+    observed = {}
+
+    def environment_values(project, resolved_id, paths, session_id):
+        observed["environment_id"] = resolved_id
+        return {
+            "delivery.component_pin": "build-43",
+            "monitoring.status_url": "https://service.example.test/status",
+        }
+
+    with (
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._capability_settings",
+            return_value=_PLATFORM_VERIFY_SETTINGS,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            return_value=_PLATFORM_ENVIRONMENTS,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._environment_values",
+            side_effect=environment_values,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify.evaluate_pin_health_agreement",
+            return_value=PinHealthAgreement(
+                agreed=True,
+                desired_pin="build-43",
+                served_pin="build-43",
+            ),
+        ),
+    ):
+        assert (
+            release_pin_verify(
+                ["--project", "platform", "--environment", environment]
+            )
+            == 0
+        )
+
+    assert observed["environment_id"] == environment_id
+    capsys.readouterr()
+
+
+def test_verify_lists_valid_keys_when_environment_is_unknown(capsys):
+    with (
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._capability_settings",
+            return_value=_PLATFORM_VERIFY_SETTINGS,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            return_value=_PLATFORM_ENVIRONMENTS,
+        ),
+    ):
+        assert (
+            release_pin_verify(
+                ["--project", "platform", "--environment", "missing"]
+            )
+            == 2
+        )
+
+    err = capsys.readouterr().err
+    assert "valid keys:" in err
+    for token in (
+        "prod",
+        "production",
+        "stage",
+        "yoke-api-prod",
+        "yoke-api-stage",
+    ):
+        assert token in err
+
+
+
+@pytest.mark.parametrize(
     "missing_key",
     ("desired_pin_path", "probe_url_path", "served_pin_response_path"),
 )
@@ -216,9 +321,15 @@ def test_verify_refuses_an_incomplete_capability(missing_key):
         "served_pin_response_path": "build.release",
     }
     settings.pop(missing_key)
-    with patch(
-        "yoke_cli.commands.adapters.release_pin_verify._capability_settings",
-        return_value=settings,
+    with (
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._capability_settings",
+            return_value=settings,
+        ),
+        patch(
+            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            return_value=[{"id": "customer-canary", "name": "canary"}],
+        ),
     ):
         assert (
             release_pin_verify(["--project", "customer-app", "--environment", "canary"])

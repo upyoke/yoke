@@ -41,7 +41,7 @@ __all__ = [
 
 OUROBOROS_ENTRY_LIST_USAGE = (
     "yoke ouroboros entry list [--unreviewed] [--project P] "
-    "[--limit N] [--session-id S] [--json]"
+    "[--limit N] [--offset N] [--count] [--session-id S] [--json]"
 )
 
 
@@ -59,7 +59,15 @@ def ouroboros_entry_list(args: List[str]) -> int:
     )
     parser.add_argument(
         "--limit", type=int, default=None,
-        help="Maximum number of rows to return.",
+        help="Maximum rows to return (default 50, max 500).",
+    )
+    parser.add_argument(
+        "--offset", type=int, default=None,
+        help="Rows to skip before the page (default 0).",
+    )
+    parser.add_argument(
+        "--count", action="store_true",
+        help="Return the matching row count instead of entry bodies.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -73,6 +81,10 @@ def ouroboros_entry_list(args: List[str]) -> int:
         payload["project"] = parsed.project
     if parsed.limit is not None:
         payload["limit"] = parsed.limit
+    if parsed.offset is not None:
+        payload["offset"] = parsed.offset
+    if parsed.count:
+        payload["count"] = True
     return dispatch_and_emit(
         function_id="ouroboros.entry.list",
         target=TargetRef(kind="global"),
