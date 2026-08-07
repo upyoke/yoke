@@ -83,7 +83,7 @@ class TestLifecycleDoc:
 
     @pytest.fixture
     def text(self) -> str:
-        return _read(YOKE_DOCS / "reference" / "lifecycle.md")
+        return _read(YOKE_DOCS / "lifecycle.md")
 
     def test_names_immutable_item_pin(self, text):
         assert "`workflow_id` / `workflow_version_id` pin" in text
@@ -142,7 +142,7 @@ class TestCommandsDoc:
 
     @pytest.fixture
     def text(self) -> str:
-        return _read(YOKE_DOCS / "reference" / "commands.md")
+        return _read(YOKE_DOCS / "commands.md")
 
     def test_refine_advances_status(self, text):
         """Refine must no longer be described as 'does not advance status'."""

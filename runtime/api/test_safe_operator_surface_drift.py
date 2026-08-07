@@ -53,7 +53,7 @@ def test_harness_bootstrap_lists_full_safe_surface():
 
 
 def test_commands_md_lists_full_safe_surface():
-    text = _read(YOKE_DOCS / "reference" / "commands.md")
+    text = _read(YOKE_DOCS / "commands.md")
     for command in safe_operator_surface():
         assert command.entrypoint in text, (
             f".yoke/docs/reference/commands.md missing safe-surface entrypoint "
@@ -75,7 +75,7 @@ def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
     surfaces = (
         REPO / ".agents" / "skills" / "yoke" / "SKILL.md",
         REPO / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
-        YOKE_DOCS / "reference" / "commands.md",
+        YOKE_DOCS / "commands.md",
     )
     for path in surfaces:
         text = _read(path)
