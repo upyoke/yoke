@@ -35,8 +35,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
-# Universal docs shipped to managed projects now live under .yoke/docs.
-YOKE_DOCS = REPO / ".yoke" / "docs"
+# Reference docs shipped to managed projects live under .yoke/docs/reference.
+YOKE_DOCS = REPO / ".yoke" / "docs" / "reference"
 
 
 def _read(path: Path) -> str:
