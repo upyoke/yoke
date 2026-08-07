@@ -62,6 +62,7 @@ def reconcile_project_flows(
     unchanged: list[str] = []
     retired: list[str] = []
     retire_absent: list[str] = []
+    retire_foreign: list[str] = []
     retire_unchanged: list[str] = []
     default_flow_updated = False
     try:
@@ -142,9 +143,10 @@ def reconcile_project_flows(
                 retire_absent.append(flow_id)
                 continue
             if int(row[0]) != ident.id:
-                raise ValueError(
-                    f"retirement flow '{flow_id}' belongs to another project"
-                )
+                # Same-id flow owned elsewhere is not present for this
+                # project — report and continue; do not disable it.
+                retire_foreign.append(flow_id)
+                continue
             if str(row[1]) != FLOW_STATUS_ACTIVE:
                 retire_unchanged.append(flow_id)
                 continue
@@ -187,6 +189,7 @@ def reconcile_project_flows(
         "unchanged": unchanged,
         "retired": retired,
         "retire_absent": retire_absent,
+        "retire_foreign": retire_foreign,
         "retire_unchanged": retire_unchanged,
         "default_flow": normalized.default_flow,
         "default_flow_declared": normalized.default_flow_declared,
