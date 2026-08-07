@@ -321,6 +321,7 @@ def test_every_nav_destination_is_routable_and_scoped():
         "delivery",
         "qa",
         "workflows",
+        "instructions",
         "capabilities",
         "events",
         "doctor",

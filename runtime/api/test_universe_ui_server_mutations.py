@@ -65,6 +65,12 @@ class TestRegistrationShape:
             # a version like its siblings above, and refuses rather than
             # resolving when the merge conflicts with local edits.
             "workflows.canon_update.apply",
+            # Execution instructions are operator-authored in the browser,
+            # next to the workflow roster they scope over.
+            "workflow.execution_instruction.create",
+            "workflow.execution_instruction.update",
+            "workflow.execution_instruction.set_scope",
+            "workflow.execution_instruction.delete",
             "test_machine.settings_replace", "test_machine.verify",
             "decision_requests.resolve",
             "notifications.read", "notifications.read_all",

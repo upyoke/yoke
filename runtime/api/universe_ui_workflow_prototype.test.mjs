@@ -50,7 +50,10 @@ test("the four workflow tabs and lifecycle shapes follow the prototype", async (
     assert.deepEqual(classText(root, "workflow-stage-label"), STAGES[id]);
     assert.deepEqual(
       panelTitles(root),
-      ["Stages", "Execution posture", "Mechanics", "Version history"],
+      [
+        "Stages", "Execution posture", "Mechanics",
+        "Execution instructions", "Version history",
+      ],
     );
   }
   mounted.unmount();
@@ -307,6 +310,7 @@ test("empty registry and empty version history keep explicit product states", as
     t, workflowsClient([noVersions]),
   );
   assert.deepEqual(classText(mounted.root, "empty"), [
+    "No active execution instructions apply to this workflow.",
     "No published versions.",
   ]);
   mounted.mounted.unmount();
@@ -327,7 +331,10 @@ test("a rejected secondary mechanics read leaves the registry readable", async (
   assert.deepEqual(classText(root, "workflow-tab"), ["Dash"]);
   assert.deepEqual(
     panelTitles(root),
-    ["Stages", "Execution posture", "Mechanics", "Version history"],
+    [
+      "Stages", "Execution posture", "Mechanics",
+      "Execution instructions", "Version history",
+    ],
   );
   assert.equal(
     allNodes(root).some(

@@ -83,6 +83,12 @@ The empty-branch guard exists to catch accidental merges of branches with no wor
 
 **Verify before claiming done (P-9).** The done-transition must confirm every AC is addressed, not just the core implementation. Execution-type deliverables (running a script, configuring secrets) need explicit verification separate from code correctness (P-52).
 
+## Operator execution instructions
+
+Obey the `# Workflow Execution Instructions` operator block at the top of
+fetched item content; it layers on top of, and never replaces, the item's
+own stored spec and plan.
+
 ## Lifecycle authority
 
 The item's `workflow_id` and `workflow_version_id` select the immutable

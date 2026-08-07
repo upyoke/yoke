@@ -194,6 +194,11 @@ def _connection() -> sqlite3.Connection:
         );
         """
     )
+    from yoke_core.domain.workflow_execution_instructions_schema import (
+        WORKFLOW_EXECUTION_INSTRUCTIONS_TABLES_SQL,
+    )
+
+    conn.executescript(WORKFLOW_EXECUTION_INSTRUCTIONS_TABLES_SQL)
     fixture = builtin_workflow_definition("dash")
     definition = fixture["definition"]
     conn.execute("INSERT INTO projects VALUES (7, 'acme', 'Acme', 'ACM')")

@@ -66,6 +66,9 @@ from yoke_core.domain.strategy_docs_schema import (
 from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
 from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
+from yoke_core.domain.workflow_execution_instructions_schema import (
+    ensure_workflow_execution_instructions_schema,
+)
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
@@ -159,6 +162,9 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     # Plans attach to projects, workflows and items; requirements snapshot
     # those plans, so the catalog follows all four authorities.
     create_qa_catalog_tables(conn)
+    # Instruction scope junctions reference workflows and projects, so the
+    # instruction tables follow both authorities.
+    ensure_workflow_execution_instructions_schema(conn, commit=False)
     converge_qa_plan_execution_schema(conn)
     ensure_qa_plan_review_schema(conn)
     ensure_test_machine_schema(conn)

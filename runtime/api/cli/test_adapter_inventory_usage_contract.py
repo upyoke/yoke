@@ -25,6 +25,9 @@ from yoke_cli.commands.adapters.qa_read import (
     QA_RUN_GET_USAGE,
     QA_RUN_LIST_USAGE,
 )
+from yoke_cli.commands.adapters.workflow_execution_instructions import (
+    USAGE_BY_FUNCTION_ID as execution_instruction_usage,
+)
 from yoke_cli.commands.adapters.workflow_mechanics import (
     USAGE_BY_FUNCTION_ID as mechanics_usage,
 )
@@ -60,6 +63,7 @@ def test_workflow_inventory_matches_public_cli_usage() -> None:
         "workflows.policy_defaults.publish": (WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE),
         "workflows.item.migrate": WORKFLOWS_ITEM_MIGRATE_USAGE,
         **mechanics_usage,
+        **execution_instruction_usage,
     }
     actual = {entry.function_id: entry.cli_invocation for entry in WORKFLOW_ADAPTERS}
     assert actual == expected

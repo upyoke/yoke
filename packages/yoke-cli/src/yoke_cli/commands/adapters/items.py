@@ -27,6 +27,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.adapters.workflow_execution_instructions import (
+    render_execution_instruction_block,
+)
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 
 
@@ -104,6 +107,10 @@ def items_get(args: List[str]) -> int:
             return None
         fields = result.get("fields")
         if requested_fields and isinstance(fields, dict):
+            if "body" in requested_fields:
+                stdout.write(render_execution_instruction_block(
+                    result.get("execution_instructions") or []
+                ))
             for field in requested_fields:
                 value = fields.get(field)
                 text = "" if value is None else str(value)

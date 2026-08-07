@@ -51,6 +51,7 @@ test("flat navigation matches the canonical prototype arc", () => {
       ["delivery", "⬈", "Delivery", "multi"],
       ["qa", "◉", "QA", "multi"],
       ["workflows", "⚗", "Workflows", "none"],
+      ["instructions", "✎", "Execution Instructions", "none"],
       ["capabilities", "⚿", "Capabilities", "multi"],
       ["events", "≋", "Events", "multi"],
       ["doctor", "♥", "Doctor", "multi"],

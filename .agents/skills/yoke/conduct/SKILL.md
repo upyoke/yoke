@@ -145,7 +145,9 @@ If `PREFIX-N` is not provided, stop with:
 
 ## Pre-Dispatch Gates
 
-Before routing, enforce the dispatch gate and acceptance criteria gate.
+Before routing, enforce the dispatch gate and acceptance criteria gate. Obey
+the `# Workflow Execution Instructions` operator block at the top of fetched
+item content; it layers on top of, and never replaces, the item's own spec.
 
 1. **Dispatch gate (HARD BLOCK):** Read item status:
  ```bash
