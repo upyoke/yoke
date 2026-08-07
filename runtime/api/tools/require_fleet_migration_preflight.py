@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -36,6 +37,24 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 #: names the entries and the command to clear them.
 _RECEIPT_QUERY_LIMIT = 500
 _QUERY_TIMEOUT_SECONDS = 120
+
+
+def _yoke_fleet_rehearse_command(
+    environment: str, receipt_connection: str = ""
+) -> str:
+    """Yoke source-dev fleet adapter recipe for the refusal unblock line."""
+    from yoke_core.domain import migration_preflight_receipt as receipt
+
+    admin_env = receipt.admin_connection_for_environment(environment)
+    receipt_env = receipt_connection.strip()
+    receipt_env_arg = (
+        shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
+    )
+    return (
+        "python3 -m runtime.api.tools.preflight_fleet_migrations "
+        f"{admin_env} --record-receipt --product-sha <sha> "
+        f"--receipt-env {receipt_env_arg}"
+    )
 
 
 def _query_receipts(event_name: str, project: str) -> Tuple[List[Dict[str, Any]], str]:
@@ -106,7 +125,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 environment,
                 missing,
                 product_sha=product_sha,
-                receipt_connection=os.environ.get("YOKE_ENV", ""),
+                rehearse_command=_yoke_fleet_rehearse_command(
+                    environment, os.environ.get("YOKE_ENV", "")
+                ),
             ),
             file=sys.stderr,
         )
