@@ -2,7 +2,7 @@
 
 The calling harness session may write a repo-tree file only when the
 target lands under one of its active worktree claims, or the free-path
-allowlist (``/tmp``, ``/var/folders/...``). Sessions with no worktree
+allowlist (``/tmp``, ``/var/folders/...``, machine scratch root). Sessions with no worktree
 claims fall through to no-op (operator maintenance / test fixtures /
 orchestrator shape) — the same posture
 :mod:`yoke_core.domain.lint_session_cwd_validate` takes for the
@@ -22,7 +22,7 @@ Composition rather than duplication: this module consumes
 :func:`yoke_core.domain.verification_tree_binding.resolve_claim_worktrees`,
 which reaches the registered ``claims.work.holder_list`` read over either
 local Postgres or HTTPS, and
-:data:`yoke_core.domain.lint_session_cwd_validate.FREE_PATH_PREFIXES`. The
+:func:`yoke_core.domain.lint_session_cwd_path_authority.is_free_path`. The
 claim-lane query and free-path allowlist therefore stay shared with the
 verification and per-tool-call guards.
 """
@@ -33,7 +33,7 @@ import os
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from yoke_core.domain.lint_session_cwd_validate import FREE_PATH_PREFIXES
+from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 SESSION_ID_ENV_VAR = "YOKE_SESSION_ID"
 
 # Where a Yoke source checkout keeps the ``yoke_core`` package the seed
@@ -101,16 +101,7 @@ def _is_inside(target: Path, root: str) -> bool:
 
 
 def _is_free_path(target: Path) -> bool:
-    candidates = {_resolve_for_display(target)}
-    raw = str(target)
-    expanded = os.path.expanduser(raw)
-    if expanded != raw:
-        candidates.add(_resolve_for_display(Path(expanded)))
-    for cand in candidates:
-        for prefix in FREE_PATH_PREFIXES:
-            if cand == prefix or cand.startswith(prefix + os.sep):
-                return True
-    return False
+    return is_free_path(str(target))
 
 
 def _is_planning_scratch_allowed(

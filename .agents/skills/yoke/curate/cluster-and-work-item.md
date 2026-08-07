@@ -4,12 +4,19 @@ This phase owns entry loading, clustering, code validation, duplicate checking, 
 
 ## 1. Read Unreviewed Ouroboros Entries From The DB
 
+The shared entry reader is always bounded (default newest 50) so the
+https relay cannot exceed its response size ceiling. Start with a count,
+then page:
+
 ```bash
-yoke ouroboros entry list --unreviewed
+yoke ouroboros entry list --unreviewed --count
+yoke ouroboros entry list --unreviewed --limit 50
+yoke ouroboros entry list --unreviewed --limit 50 --offset 50
 ```
 
-This returns a JSON object whose `entries` array carries one typed
-record per entry:
+Each list response is a JSON object whose `entries` array carries one typed
+record per entry (plus `limit` / `offset` for the page). A `--count` call
+returns `{ "count": N }` instead of entry bodies:
 
 - `id` — integer entry ID
 - `timestamp` — when the observation was made
@@ -27,7 +34,7 @@ record per entry:
 
 To filter by project:
 ```bash
-yoke ouroboros entry list --unreviewed --project yoke
+yoke ouroboros entry list --unreviewed --project yoke --limit 50
 ```
 
 Read one full entry by id (preserves newlines in `body`):
@@ -35,9 +42,11 @@ Read one full entry by id (preserves newlines in `body`):
 yoke ouroboros entry get {id}
 ```
 
-Collect all entries into a working set for clustering.
+Page until a page returns fewer than `--limit` rows (or `count` is
+exhausted). Collect the working set for clustering from those pages —
+do not request an unbounded list.
 
-- If `entries` is empty: report "No new Ouroboros entries to review." and stop.
+- If `entries` is empty on the first page: report "No new Ouroboros entries to review." and stop.
 - If an entry record is malformed: log a warning and skip it.
 
 ## 2. Cluster Related Observations

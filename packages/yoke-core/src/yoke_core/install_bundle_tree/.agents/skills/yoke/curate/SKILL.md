@@ -26,10 +26,12 @@ yoke ouroboros field-note promote {entry-id} --title "{specific title}" [--instr
 
 Reach for `/yoke idea` only when the cluster names a root cause that needs crafted acceptance criteria, design work, or more than one delivery slice.
 
-**Field-notes are the primary channel.** Agents call `ouroboros.field_note.append` (CLI adapter: `yoke ouroboros field-note append --kind {failed|new|unclear|observation} --evidence TEXT`) when a recipe failed, was missing, or was unclear, and when they notice a minor bug best held as a supporting record. Read them through the dedicated reader — it is indexed on the entry table and needs no time window:
+**Field-notes are the primary channel.** Agents call `ouroboros.field_note.append` (CLI adapter: `yoke ouroboros field-note append --kind {failed|new|unclear|observation} --evidence TEXT`) when a recipe failed, was missing, or was unclear, and when they notice a minor bug best held as a supporting record. Read them through the dedicated reader — it is indexed on the entry table, needs no time window, and is always bounded (default newest 50). Count first, then page:
 
 ```bash
-yoke ouroboros field-note list --unreviewed --project yoke
+yoke ouroboros field-note list --unreviewed --project yoke --count
+yoke ouroboros field-note list --unreviewed --project yoke --limit 50
+yoke ouroboros field-note list --unreviewed --project yoke --limit 50 --offset 50
 ```
 
 Treat a cluster of recipe gaps as a candidate recipe edit — repair the recipe in the matching packet seed file rather than promoting one Dash per signal.
@@ -83,7 +85,7 @@ Close the run with a retrospective in chat:
 ## Notes
 
 - This command is operator-invoked only. There is no auto-trigger.
-- Entries are read through the registered Ouroboros readers, for example `yoke ouroboros entry list --unreviewed`.
+- Entries are read through the registered Ouroboros readers with paging, for example `yoke ouroboros entry list --unreviewed --limit 50` (use `--count` and `--offset` for large queues).
 - Mark reviewed entries through the registered lifecycle writer:
   `yoke ouroboros entry mark-reviewed {id}`.
 - The `reviewed_at` timestamp mechanism ensures entries are only processed once (unless deferred). Promoting a note marks it reviewed as part of the promotion.
