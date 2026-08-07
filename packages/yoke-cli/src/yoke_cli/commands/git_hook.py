@@ -9,9 +9,11 @@ inventory: ``status="permanent"``, ``reason="tool_shaped"``).
 
 Transport honesty:
 
-* ``git pre-commit`` delegates the product-safe local gate to
-  ``yoke_harness`` (staged git content + file reads). Exit 1 blocks the
-  commit.
+* ``git pre-commit`` runs the product-safe local gate via
+  ``yoke_harness`` (staged git content + file reads). When ``yoke_core``
+  is available (Yoke source checkout), it also quietly refreshes and
+  stages ``docs/atlas.md`` if staged inventory inputs make it stale.
+  Exit 1 blocks the commit.
 * ``git post-commit`` never takes local DB authority. It delegates to the
   product-safe ``yoke project snapshot sync --hook --head-only``
   scanner/dispatcher path and preserves the exit-0 degrade shape so a
@@ -20,7 +22,10 @@ Transport honesty:
 
 from __future__ import annotations
 
+import importlib
 import os
+import pathlib
+import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
@@ -34,12 +39,15 @@ _PRE_COMMIT_HELP = """\
 usage: yoke git pre-commit
 
 Run the Yoke pre-commit gate against the staged content of the current
-repo: diverged-files advisory and file-line-limit check. Exit 1 blocks
-the commit; bypass with `git commit --no-verify`.
+repo: diverged-files advisory, file-line-limit check, and (on a Yoke
+source checkout) silent Atlas currency refresh when staged inventory
+inputs make docs/atlas.md stale. Exit 1 blocks the commit; bypass with
+`git commit --no-verify`.
 
 Invoked by the `.git/hooks/pre-commit` shim that `yoke project
 install` writes (both delivery strategies). Extra arguments from git are
-accepted and ignored. Implementation: yoke_harness.git_hooks.pre_commit."""
+accepted and ignored. Product-safe checks: yoke_harness.git_hooks.pre_commit;
+Atlas refresh: yoke_core.tools.atlas_pre_commit_refresh (optional)."""
 
 _POST_COMMIT_HELP = """\
 usage: yoke git post-commit
@@ -58,6 +66,39 @@ def _wants_help(args: List[str]) -> bool:
     return any(a in ("-h", "--help") for a in args)
 
 
+def _refresh_atlas_currency_or_skip() -> None:
+    """Quietly refresh ``docs/atlas.md`` when currency inputs are staged.
+
+    Optional: external projects without ``yoke_core`` skip silently.
+    Loaded dynamically so the CLI package keeps its engine-import boundary.
+    """
+    try:
+        refresh = importlib.import_module(
+            "yoke_core.tools.atlas_pre_commit_refresh"
+        )
+    except ImportError:
+        return
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception:
+        return
+    if result.returncode != 0:
+        return
+    root_text = (result.stdout or "").strip()
+    if not root_text:
+        return
+    root = pathlib.Path(root_text)
+    staged = refresh.staged_name_only(root)
+    if not staged:
+        return
+    refresh.stage_atlas_if_refreshed(root, staged_paths=staged)
+
+
 def git_pre_commit(args: List[str]) -> int:
     """Run the pre-commit gate; the verdict's exit code blocks the commit."""
     if _wants_help(args):
@@ -66,6 +107,7 @@ def git_pre_commit(args: List[str]) -> int:
     # git passes no args to pre-commit hooks today; the shim forwards
     # "$@" for forward-compat and the gate ignores any extras (a hard
     # error here would block every commit on a git behavior change).
+    _refresh_atlas_currency_or_skip()
     try:
         from yoke_harness.git_hooks.pre_commit import run
     except ImportError as exc:
@@ -113,7 +155,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 # cli form -> one-line usage for `yoke --help`.
 TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke git pre-commit": (
-        "Pre-commit gate (diverged-files advisory, file-line limit); "
+        "Pre-commit gate (diverged-files, file-line limit, Atlas refresh); "
         "installed .git/hooks shims exec this."
     ),
     "yoke git post-commit": (

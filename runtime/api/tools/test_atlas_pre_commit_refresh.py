@@ -164,9 +164,9 @@ class TestRefreshIfStale:
         assert "docs/atlas.md" in calls[0]
 
 
-class TestHarnessPreCommitHook:
-    def test_run_invokes_atlas_refresh(self, monkeypatch) -> None:
-        from yoke_harness.git_hooks import pre_commit as gate
+class TestCliPreCommitAtlasRefresh:
+    def test_pre_commit_invokes_atlas_refresh(self, monkeypatch) -> None:
+        from yoke_cli.commands import git_hook as hook
 
         called: list[bool] = []
 
@@ -174,30 +174,22 @@ class TestHarnessPreCommitHook:
             called.append(True)
 
         monkeypatch.setattr(
-            gate, "_refresh_atlas_currency_or_skip", fake_refresh,
+            hook, "_refresh_atlas_currency_or_skip", fake_refresh,
         )
-        monkeypatch.setattr(gate, "_emit_diverged_warning", lambda: None)
-        monkeypatch.setattr(gate, "_run_file_line_check_or_block", lambda: 0)
-        assert gate.run() == 0
+        monkeypatch.setattr(
+            "yoke_harness.git_hooks.pre_commit.run", lambda: 0,
+        )
+        assert hook.git_pre_commit([]) == 0
         assert called == [True]
 
     def test_missing_yoke_core_skips_quietly(self, monkeypatch, capsys) -> None:
-        from yoke_harness.git_hooks import pre_commit as gate
+        from yoke_cli.commands import git_hook as hook
 
-        monkeypatch.setattr(
-            gate, "_resolve_repo_root", lambda: str(_repo_root()),
-        )
+        def boom(_name: str):
+            raise ImportError("simulated missing yoke_core")
 
-        import builtins
-        real_import = builtins.__import__
-
-        def fake_import(name, *args, **kwargs):
-            if name.startswith("yoke_core.tools"):
-                raise ImportError("simulated missing yoke_core")
-            return real_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "__import__", fake_import)
-        gate._refresh_atlas_currency_or_skip()
+        monkeypatch.setattr(hook.importlib, "import_module", boom)
+        hook._refresh_atlas_currency_or_skip()
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""

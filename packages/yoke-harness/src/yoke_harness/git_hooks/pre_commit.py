@@ -128,30 +128,9 @@ def _run_file_line_check_or_block() -> int:
     return 1
 
 
-def _refresh_atlas_currency_or_skip() -> None:
-    """Auto-refresh ``docs/atlas.md`` when staged currency inputs change.
-
-    Optional: external projects without ``yoke_core`` skip silently.
-    No-op renders print nothing and stage nothing.
-    """
-    try:
-        from yoke_core.tools import atlas_pre_commit_refresh as refresh
-    except ImportError:
-        return
-    repo_root = _resolve_repo_root()
-    if repo_root is None:
-        return
-    root = pathlib.Path(repo_root)
-    staged = refresh.staged_name_only(root)
-    if not staged:
-        return
-    refresh.stage_atlas_if_refreshed(root, staged_paths=staged)
-
-
 def run() -> int:
     """Run the product-safe local pre-commit checks."""
     _emit_diverged_warning()
-    _refresh_atlas_currency_or_skip()
     return _run_file_line_check_or_block()
 
 
