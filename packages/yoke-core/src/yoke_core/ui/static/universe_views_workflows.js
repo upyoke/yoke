@@ -21,6 +21,7 @@ import {
   renderPathSurveyDialog,
 } from "./workflow_path_posture_dialogs.js";
 import { clearWorkflowDialog, linkWorkflowPanel } from "./workflow_accessibility.js";
+import { workflowInstructionsPanel } from "./workflow_instructions_panel.js";
 function renderSelectedWorkflow(
   documentNode,
   content,
@@ -68,6 +69,7 @@ function renderSelectedWorkflow(
         ? () => actions.editDelivery(workflow)
         : null,
     }),
+    workflowInstructionsPanel(documentNode, workflow, actions.client),
     renderVersionHistory(documentNode, workflow, {
       client: actions.client,
       makeCurrent: actions.makeCurrent

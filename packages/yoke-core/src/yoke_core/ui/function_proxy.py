@@ -56,6 +56,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "qa.activity.list",
     "qa.artifact.read",
     "inbox.list",
+    "workflow.execution_instruction.list",
     "workflows.definition.get",
     "workflows.mechanics.get",
     "workflows.version.get",
@@ -91,6 +92,10 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
+    "workflow.execution_instruction.create",
+    "workflow.execution_instruction.update",
+    "workflow.execution_instruction.set_scope",
+    "workflow.execution_instruction.delete",
     "workflows.canon_update.apply",
     "overview.module.dismiss",
     "overview.module.restore",

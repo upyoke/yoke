@@ -152,6 +152,9 @@ def apply_fixture_schema(conn: Any) -> None:
         ensure_field_note_dash_promotion_schema,
     )
     from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
+    from yoke_core.domain.workflow_execution_instructions_schema import (
+        ensure_workflow_execution_instructions_schema,
+    )
     from yoke_core.domain.migration_yoke_ledger import (
         YOKE_LEDGER_CONTRACT,
         ensure_yoke_migration_ledger,
@@ -179,6 +182,7 @@ def apply_fixture_schema(conn: Any) -> None:
     converge_builtin_workflows(conn)
     create_project_structure_tables(conn)
     create_qa_catalog_tables(conn)
+    ensure_workflow_execution_instructions_schema(conn, commit=False)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     sync_machine_qa_pack_methods(conn)

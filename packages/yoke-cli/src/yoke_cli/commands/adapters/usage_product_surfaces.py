@@ -12,6 +12,7 @@ from yoke_cli.commands.adapters import (
     qa_plan_edit,
     strategy_surfaces,
     test_machine,
+    workflow_execution_instructions,
     workflow_mechanics,
     workflows_read,
 )
@@ -47,6 +48,7 @@ USAGE_BY_FUNCTION_ID = {
     **qa_plan_edit.USAGE_BY_FUNCTION_ID,
     **strategy_surfaces.USAGE_BY_FUNCTION_ID,
     **test_machine.USAGE_BY_FUNCTION_ID,
+    **workflow_execution_instructions.USAGE_BY_FUNCTION_ID,
     **workflow_mechanics.USAGE_BY_FUNCTION_ID,
 }
 

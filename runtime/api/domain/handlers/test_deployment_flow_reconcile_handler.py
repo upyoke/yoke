@@ -18,6 +18,7 @@ def test_reconcile_uses_target_project() -> None:
         "unchanged": [],
         "retired": [],
         "retire_absent": [],
+        "retire_foreign": [],
         "retire_unchanged": [],
         "default_flow": None,
         "default_flow_declared": False,

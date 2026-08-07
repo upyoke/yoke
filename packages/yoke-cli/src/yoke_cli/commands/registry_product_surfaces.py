@@ -20,6 +20,9 @@ from yoke_cli.commands.registry_project_structure import (
 from yoke_cli.commands.registry_strategy_surfaces import (
     STRATEGY_SURFACE_SUBCOMMAND_REGISTRY,
 )
+from yoke_cli.commands.registry_workflow_execution_instructions import (
+    EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
+)
 
 
 QA_CATALOG_SUBCOMMAND_REGISTRY = {
@@ -115,6 +118,7 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
+    **EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
     **INBOX_DECISION_SUBCOMMAND_REGISTRY,
     **ITEM_PAGE_SUBCOMMAND_REGISTRY,
     **ITEM_WORKTREE_SUBCOMMAND_REGISTRY,

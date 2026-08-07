@@ -137,6 +137,9 @@ export function workflowsClient(workflows) {
       if (request.function === "qa.plan.list") {
         return okEnvelope({ rows: [] });
       }
+      if (request.function === "workflow.execution_instruction.list") {
+        return okEnvelope({ instructions: [] });
+      }
       if (request.function === "workflows.version.get") {
         const workflow = rows.find(
           (row) => row.id === request.payload.workflow_id,
