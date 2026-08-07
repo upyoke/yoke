@@ -102,8 +102,16 @@ def _iter_scan_paths(repo_root: Path):
             base = repo_root / rel
             if not base.is_dir():
                 continue
-            for f in base.rglob(f"*{ext}"):
-                if _is_exempt(f):
+            try:
+                discovered = list(base.rglob(f"*{ext}"))
+            except OSError:
+                # Concurrent xdist wheel builds can delete ``build/`` trees mid-walk.
+                continue
+            for f in discovered:
+                try:
+                    if _is_exempt(f):
+                        continue
+                except OSError:
                     continue
                 yield f
 
