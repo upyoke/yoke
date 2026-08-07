@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_core.domain.path_claim_bash_splitter import (
     has_unquoted_heredoc,
+    iter_pipeline_groups,
     split_pipeline,
 )
 
@@ -133,3 +134,21 @@ def test_heredoc_body_newlines_are_opaque():
     # statements (field-note 8667 was a docs-only apply_patch heredoc).
     cmd = "apply_patch <<'EOF'\n*** Begin Patch\nExternalWebapp and webapp\n*** End Patch\nEOF"
     assert split_pipeline(cmd) == [cmd]
+
+
+def test_iter_pipeline_groups_keeps_quoted_pipes_in_one_stage():
+    cmd = (
+        "yoke ouroboros field-note append --kind observation "
+        "--evidence 'saw | pytest runtime/api/ -q | head -30'"
+    )
+    assert iter_pipeline_groups(cmd) == [[cmd]]
+
+
+def test_iter_pipeline_groups_splits_real_pipe_per_statement():
+    assert iter_pipeline_groups("pytest -q | head -5 && echo done") == [
+        ["pytest -q", "head -5"],
+        ["echo done"],
+    ]
+    assert iter_pipeline_groups('echo "a | b" | grep x') == [
+        ['echo "a | b"', "grep x"],
+    ]

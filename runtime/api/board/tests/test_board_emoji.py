@@ -78,6 +78,13 @@ class TestSessionModeGlyphs:
         others = [m for m, g in _MODE_EMOJI.items() if g == "💨"]
         assert others == ["dash"]
 
+    def test_operator_has_its_own_glyph(self):
+        from yoke_contracts.board.sections_sessions import _MODE_EMOJI
+
+        assert _MODE_EMOJI["operator"] == "🦾"
+        others = [m for m, g in _MODE_EMOJI.items() if g == "🦾"]
+        assert others == ["operator"]
+
     def test_every_mode_glyph_is_unique(self):
         from yoke_contracts.board.sections_sessions import _MODE_EMOJI
 

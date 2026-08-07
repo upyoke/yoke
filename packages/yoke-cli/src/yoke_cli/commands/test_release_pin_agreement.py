@@ -2,10 +2,50 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_cli.commands.release_pin_agreement import (
-    evaluate_pin_health_agreement,
+    accepted_environment_targets,
     environment_id_for_target,
+    evaluate_pin_health_agreement,
+    format_accepted_environment_targets,
 )
+
+
+# Platform-shaped capability map: target keys differ from environment names.
+PLATFORM_RELEASE_PIN = {
+    "environment_by_target": {
+        "stage": "yoke-api-stage",
+        "production": "yoke-api-prod",
+    }
+}
+PLATFORM_ENVIRONMENTS = [
+    {"id": "yoke-api-stage", "name": "stage"},
+    {"id": "yoke-api-prod", "name": "prod"},
+]
+
+
+@pytest.mark.parametrize(
+    ("token", "expected_id"),
+    (
+        ("stage", "yoke-api-stage"),
+        ("production", "yoke-api-prod"),
+        ("yoke-api-stage", "yoke-api-stage"),
+        ("yoke-api-prod", "yoke-api-prod"),
+        ("prod", "yoke-api-prod"),
+    ),
+)
+def test_platform_environment_tokens_resolve(
+    token: str, expected_id: str
+) -> None:
+    assert (
+        environment_id_for_target(
+            PLATFORM_RELEASE_PIN,
+            token,
+            environments=PLATFORM_ENVIRONMENTS,
+        )
+        == expected_id
+    )
 
 
 def test_environment_id_for_target_reads_capability_map() -> None:
@@ -17,6 +57,47 @@ def test_environment_id_for_target_reads_capability_map() -> None:
     }
     assert environment_id_for_target(settings, "canary") == "service-canary"
     assert environment_id_for_target(settings, "missing") is None
+
+
+def test_environment_id_for_target_accepts_mapped_environment_id() -> None:
+    settings = {
+        "environment_by_target": {"production": "yoke-api-prod"},
+    }
+    assert environment_id_for_target(settings, "yoke-api-prod") == "yoke-api-prod"
+
+
+def test_environment_name_outside_mapped_ids_is_rejected() -> None:
+    settings = {
+        "environment_by_target": {"production": "yoke-api-prod"},
+    }
+    environments = [
+        {"id": "yoke-api-prod", "name": "prod"},
+        {"id": "other-env", "name": "sandbox"},
+    ]
+    assert (
+        environment_id_for_target(settings, "sandbox", environments=environments)
+        is None
+    )
+
+
+def test_accepted_environment_targets_lists_keys_ids_and_names() -> None:
+    assert accepted_environment_targets(
+        PLATFORM_RELEASE_PIN, environments=PLATFORM_ENVIRONMENTS
+    ) == [
+        "prod",
+        "production",
+        "stage",
+        "yoke-api-prod",
+        "yoke-api-stage",
+    ]
+    assert (
+        format_accepted_environment_targets(
+            accepted_environment_targets(
+                PLATFORM_RELEASE_PIN, environments=PLATFORM_ENVIRONMENTS
+            )
+        )
+        == "prod, production, stage, yoke-api-prod, yoke-api-stage"
+    )
 
 
 def test_agreement_when_probe_matches_desired_pin() -> None:
