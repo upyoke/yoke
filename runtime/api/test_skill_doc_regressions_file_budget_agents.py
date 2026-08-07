@@ -64,7 +64,7 @@ class TestFileBudgetCommandsDoc:
 
     @pytest.fixture
     def commands_md(self) -> Path:
-        return REPO / ".yoke" / "docs" / "commands.md"
+        return REPO / ".yoke" / "docs" / "reference" / "commands.md"
 
     def test_commands_md_mentions_file_budget(self, commands_md):
         text = _read(commands_md)
@@ -83,7 +83,7 @@ class TestFileBudgetPreservesLateStageProse:
             REPO / "runtime" / "agents" / "tester.md",
             REPO / "runtime" / "agents" / "architect" / "hard-constraints.md",
             SKILLS / "polish" / "review.md",
-            REPO / ".yoke" / "docs" / "commands.md",
+            REPO / ".yoke" / "docs" / "reference" / "commands.md",
         ]
 
     def test_each_file_still_mentions_350(self, files):
@@ -141,7 +141,7 @@ class TestFileBudgetUpstreamPropagationBundle:
             REPO / "runtime" / "agents" / "architect" / "hard-constraints.md",
             REPO / "runtime" / "agents" / "engineer.md",
             REPO / "runtime" / "agents" / "tester.md",
-            REPO / ".yoke" / "docs" / "commands.md",
+            REPO / ".yoke" / "docs" / "reference" / "commands.md",
         ]
         bundle = _read_bundle(*chain)
         for path in chain:
