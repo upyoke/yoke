@@ -119,6 +119,17 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
     return 1, f"unknown:{status}"
 
 
+def workflow_run_head_sha(repo: str, run_id: str, *, token: str) -> str:
+    """Return the commit SHA GitHub reports for a workflow run, or ``""``."""
+    try:
+        data = rest_get(f"/repos/{repo}/actions/runs/{run_id}", token=token)
+    except RestTransportError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    return str(data.get("head_sha") or "").strip()
+
+
 def adaptive_wait_interval(attempt: int) -> int:
     """Return the next wait interval in seconds for workflow polling."""
     return min(30, 5 * max(1, attempt + 1))
@@ -219,4 +230,5 @@ __all__ = [
     "rest_get",
     "rest_post",
     "run_state",
+    "workflow_run_head_sha",
 ]

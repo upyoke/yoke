@@ -38,6 +38,9 @@ class MergeArgs:
     # epic lane. Held by the standalone-item merge operation, which owns the
     # surrounding item bookkeeping the engine does not.
     standalone: bool = False
+    # Force local post-rebase verification even when the project declares a
+    # ci_workflow_file capability (offline / deliberate local execution).
+    local_verification: bool = False
 
 
 @dataclass

@@ -234,6 +234,12 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if receipt is not None:
             _print(receipt)
             return None
+        from yoke_core.engines import merge_worktree_tests_ci
+
+        if merge_worktree_tests_ci._should_route_ci(ctx):
+            return merge_worktree_tests_ci.run_ci_verification(
+                ctx, scope=scope, command=command,
+            )
         _print(
             "[phase:tests] executing registered project verification "
             f"({scope}) in candidate worktree"

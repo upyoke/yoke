@@ -186,7 +186,10 @@ def _parse_args(
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            "Run a Yoke merge engine under a shared raw+progress watcher."
+            "Run a Yoke merge engine under a shared raw+progress watcher. "
+            "Pass-through flags include --local-verification (force local "
+            "post-rebase suite even when the project declares CI; CI routing "
+            "frees the local admission slot, not wall-clock latency)."
         ),
         allow_abbrev=False,
     )

@@ -15,6 +15,7 @@ def _ctx(tmp_path, *, project="example", item_id="42"):
         project=project,
         item_id=item_id,
         worktree_path=str(tmp_path),
+        args=SimpleNamespace(branch="example-branch", local_verification=True),
     )
 
 

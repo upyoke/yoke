@@ -20,6 +20,7 @@ from yoke_core.domain.handlers import __init_register__ as init_register
 _MERGE_ENGINE_FUNCTION_IDS = (
     "merge.prune.authority_verdict",
     "merge.tests.post_rebase_requirement",
+    "merge.tests.record_post_rebase_ci_run",
 )
 
 
@@ -59,6 +60,19 @@ def test_post_rebase_requirement_is_internal_qa_write() -> None:
     assert entry.target_kinds == ("item",)
     assert entry.side_effects == ("qa_requirements_insert",)
     assert entry.claim_required_kind is None
+
+
+def test_record_post_rebase_ci_run_is_internal_claim_free_write() -> None:
+    init_register.register_all_handlers()
+    entry = yoke_function_registry.lookup("merge.tests.record_post_rebase_ci_run")
+    assert entry is not None
+    assert entry.adapter_status == "internal"
+    assert entry.target_kinds == ("item",)
+    assert "qa_runs_insert" in entry.side_effects
+    assert entry.claim_required_kind is None
+    assert entry.owner_module == (
+        "yoke_core.domain.handlers.merge_engine_post_rebase_ci"
+    )
 
 
 def test_snapshot_ensure_at_is_internal_snapshot_write() -> None:

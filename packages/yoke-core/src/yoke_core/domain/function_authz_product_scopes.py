@@ -63,6 +63,7 @@ PRODUCT_AUTHZ_BY_ID = {
     # PROJECT + items-write scope is what gates the write.
     "resync.epic_task_github_issue_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge.tests.post_rebase_requirement": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge.tests.record_post_rebase_ci_run": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Merge-lock rows are machine coordination, not tenant content: they hold
     # no item, carry no project target, and say only "a merge is in flight on
     # this branch". Any authenticated actor that can merge may take and

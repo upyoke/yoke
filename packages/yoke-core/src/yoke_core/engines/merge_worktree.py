@@ -82,6 +82,26 @@ def parse_args(argv: list[str]) -> MergeArgs:
     positional: list[str] = []
 
     for arg in argv:
+        if arg in ("-h", "--help"):
+            sys.stdout.write(
+                "Usage: merge-worktree BRANCH [TARGET] [EPIC_REF] [flags]\n"
+                "\n"
+                "Flags:\n"
+                "  --local                 Merge into local target without a PR\n"
+                "  --force-lock            Take the merge lock even when held\n"
+                "  --keep-remote           Leave the remote branch after merge\n"
+                "  --skip-simulation       Skip the pre-merge simulation gate\n"
+                "  --standalone            Permit merging a non-epic item branch\n"
+                "  --local-verification    Run post-rebase verification locally\n"
+                "                          even when the project declares a CI\n"
+                "                          workflow (offline / deliberate local).\n"
+                "                          When CI routing is selected, wall-clock\n"
+                "                          while holding the merge lock is comparable\n"
+                "                          to a local run; the win is freeing the\n"
+                "                          local machine and admission slot, not\n"
+                "                          latency.\n"
+            )
+            raise SystemExit(0)
         if arg == "--local":
             args.local_merge = True
         elif arg == "--force-lock":
@@ -92,6 +112,8 @@ def parse_args(argv: list[str]) -> MergeArgs:
             args.skip_simulation = True
         elif arg == "--standalone":
             args.standalone = True
+        elif arg == "--local-verification":
+            args.local_verification = True
         else:
             positional.append(arg)
 
