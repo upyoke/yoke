@@ -238,7 +238,7 @@ it is banned by the governed-mutation contract.
 
 #### The one exception: an unrecorded merge timestamp
 
-A branch that lands outside the merge boundary — a hand-run `gh pr merge`,
+A branch that lands outside the merge boundary — a hand merge outside Yoke,
 for example — leaves `items.merged_at` unset, and the item can then reach a
 terminal stage with no record of when it merged. Because terminal records
 are immutable, nothing could repair that afterward.
