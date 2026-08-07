@@ -146,4 +146,71 @@ def has_unquoted_heredoc(segment: str) -> bool:
     return False
 
 
-__all__ = ["has_unquoted_heredoc", "split_pipeline"]
+def iter_pipeline_groups(command: str) -> List[List[str]]:
+    """Yield each statement as its quote-aware ``|`` stages.
+
+    Statement boundaries (unquoted): ``;`` / ``&&`` / ``||`` / newline.
+    Stage boundaries within a statement (unquoted): ``|``.
+    Quoted operators stay literal, so
+    ``cmd --evidence 'a | pytest | head'`` is one stage, not a live pipeline.
+    """
+    split_on_newline = not has_unquoted_heredoc(command)
+    groups: List[List[str]] = []
+    stages: List[str] = []
+    buf: List[str] = []
+    i = 0
+    in_single = False
+    in_double = False
+    n = len(command)
+
+    def flush_stage() -> None:
+        seg = "".join(buf).strip()
+        buf.clear()
+        if seg:
+            stages.append(seg)
+
+    def flush_group() -> None:
+        flush_stage()
+        if stages:
+            groups.append(list(stages))
+            stages.clear()
+
+    while i < n:
+        ch = command[i]
+        if ch == "\\" and not in_single and i + 1 < n:
+            buf.append(ch)
+            buf.append(command[i + 1])
+            i += 2
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            buf.append(ch)
+            i += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            buf.append(ch)
+            i += 1
+            continue
+        if in_single or in_double:
+            buf.append(ch)
+            i += 1
+            continue
+        if ch in ";|&" and i + 1 < n and command[i + 1] == ch:
+            flush_group()
+            i += 2
+            continue
+        if ch == "|" or ch == ";" or (ch == "\n" and split_on_newline):
+            if ch == "|":
+                flush_stage()
+            else:
+                flush_group()
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    flush_group()
+    return groups
+
+
+__all__ = ["has_unquoted_heredoc", "iter_pipeline_groups", "split_pipeline"]
