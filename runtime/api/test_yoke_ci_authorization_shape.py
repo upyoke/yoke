@@ -31,6 +31,10 @@ def test_yoke_ci_has_no_runner_consuming_aggregate_tail() -> None:
     assert "name: test\n" not in workflow
     assert "test_shard:" in workflow
     assert "  container:" in workflow
+    assert "reuse_coverage:" in workflow
+    assert "needs: [reuse_coverage]" in workflow
+    assert "REUSE_WINDOW_HOURS:" in workflow
+    assert "yoke_core.tools.yoke_ci_tree_reuse" in workflow
 
 
 def test_declared_required_contexts_match_workflow_jobs() -> None:

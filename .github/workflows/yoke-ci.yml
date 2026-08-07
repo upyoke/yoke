@@ -1,73 +1,34 @@
 name: yoke-ci
 
-# A dispatched run carries its caller's correlation id in the run name, so a
-# dispatch whose HTTP response was lost is recovered by finding this marker
-# instead of posting a second run. Branch and pull-request runs have no
-# caller, so they keep a plain descriptive name.
+# Dispatched runs embed the caller's correlation id in run-name for lost-
+# response recovery. FACTORY workflow: read-only GITHUB_TOKEN; never set
+# YOKE_LINUX_RUNS_ON on a public fork (that routes strangers onto private
+# runners). Branch protection requires only CLA signature-check; yoke-ci
+# authorizes via QA conclusion + merge-engine check-run poll. Shards use
+# hand-launched postgres:16 (fsync off) + pytest-split/xdist; no aggregate
+# tail. Main-push may short-circuit via reuse-coverage when a recent
+# successful dispatch/push run already covered the identical tree oid.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
       || format('yoke-ci {0}', github.ref_name) }}
-
-# Classification: FACTORY. Tests and container-builds public artifacts;
-# stays with the product repo when it becomes public. Fork-PR safety
-# posture for the public repo:
-#   - No step reads a repository secret; the implicit GITHUB_TOKEN is
-#     pinned read-only by the workflow-level permissions block below.
-#   - runs-on resolves through vars.YOKE_LINUX_RUNS_ON with a
-#     GitHub-hosted fallback: an unset repository variable evaluates to
-#     the empty string, which is falsy in Actions expressions, so the
-#     fromJSON argument falls back to '["ubuntu-latest"]' and the job
-#     lands on GitHub-hosted runners. The public repo must NEVER set
-#     YOKE_LINUX_RUNS_ON — that variable is how the operator's private
-#     repo routes to its own runner fleet, and setting it on a public
-#     repo would hand stranger pull requests operator infrastructure.
-#
-# Backend test + container build workflow for the Yoke suite.
-# Runs on every pull request targeting main and on every push to main.
-# Live branch protection on main requires only `signature-check` (from
-# cla.yml). Yoke-owned gates authorize merges: the QA CI executor uses the
-# workflow run conclusion, and the merge engine's PR path waits on every
-# check-run on the head SHA. This workflow therefore ends at its substantive
-# jobs (test-shard matrix + container) with no runner-consuming aggregate.
-#
-# Each shard lane runs against a disposable postgres:16 container, in parallel
-# via pytest-xdist (-n auto). pytest-split uses recorded test durations to keep
-# four outer shards balanced. The container is launched by hand (not via a
-# `services:` block) so durability can be turned off with `-c` server flags —
-# the data is throwaway, so fsync/WAL durability is pure overhead. There is no
-# SQLite lane: db_backend is Postgres-only. xdist gives each worker its own
-# disposable database, and isolated tests create fresh databases too, so the
-# Postgres user must hold CREATEDB.
-#
-# Uses the default GITHUB_TOKEN provided by Actions (no PAT plumbing). The
-# product-wide no-gh-on-laptop invariant is scoped to Yoke-app code on
-# the laptop / cloud-Yoke surface; workflow definitions inside
-# .github/workflows/** run server-side on GitHub-hosted runners where
-# GITHUB_TOKEN is auto-injected.
 
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
-    # Strategy/docs-only commits don't change test behavior — skip the suite
-    # (matches yoke-core-image / yoke-env-deploy). paths-ignore is on push only,
-    # not pull_request: a skipped PR check that is also required stays pending
-    # and blocks merge, so PR runs always execute the suite.
+    # paths-ignore is push-only: a skipped required PR check stays pending.
     paths-ignore:
       - ".yoke/strategy/**"
       - "docs/**"
       - "**/*.md"
-  # Dispatched by the CI-run QA executor to gate an item's branch before
-  # merge: the same suite, on runners, instead of on a developer machine.
   workflow_dispatch:
     inputs:
       yoke_dispatch_id:
         description: >-
-          Correlation id supplied by the dispatching Yoke control plane;
-          echoed into the run name so a lost dispatch response is recovered
-          rather than reposted. Empty for hand-triggered runs.
+          Correlation id from the dispatching control plane; echoed into
+          run-name for lost-response recovery. Empty for hand triggers.
         required: false
         default: ""
 
@@ -75,22 +36,47 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Read-only token everywhere: no job in this workflow mutates repository
-# state, and fork pull requests must never see an elevated token.
+# Read-only token everywhere; fork PRs must never see an elevated token.
+# reuse-coverage elevates actions:read at job scope only (main push).
 permissions:
   contents: read
 
+env:
+  # Bound for reuse-coverage: covering runs older than this still force suite.
+  REUSE_WINDOW_HOURS: "24"
+
 jobs:
+  reuse_coverage:
+    name: reuse-coverage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip_suite: ${{ steps.probe.outputs.skip_suite }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Probe same-tree coverage
+        id: probe
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          PYTHONPATH=packages/yoke-core/src python3 -m
+          yoke_core.tools.yoke_ci_tree_reuse --write-github-output
+
   test_shard:
     name: test-shard
+    needs: [reuse_coverage]
+    # Fail open: only skip when the probe explicitly reports skip_suite=true.
+    if: always() && needs.reuse_coverage.outputs.skip_suite != 'true'
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
-      # The disposable CI Postgres is launched manually (a "Start Postgres" step
-      # below) instead of via `services:` so we can pass cluster-level server
-      # flags (fsync=off et al.) — the GitHub `services:` block cannot. The name
-      # is run-id + python-version unique so two matrix lanes, or two parallel
-      # workflow runs, that land on the same self-hosted instance never collide
-      # on the container name.
+      # Hand-launched Postgres (not services:) so fsync can be disabled.
+      # Name is run-id + python + shard unique across shared self-hosted hosts.
       PG_CONTAINER: yoke-ci-pg-${{ github.run_id }}-${{ matrix.python-version }}-${{ matrix.shard }}
     strategy:
       fail-fast: false
@@ -290,6 +276,8 @@ jobs:
 
   container:
     name: container
+    needs: [reuse_coverage]
+    if: always() && needs.reuse_coverage.outputs.skip_suite != 'true'
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     permissions:
       contents: read
