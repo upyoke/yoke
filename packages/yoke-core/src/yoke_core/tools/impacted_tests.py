@@ -86,12 +86,14 @@ FALLBACK_RULES = tuple(rule for rule, _paths, _why in _PATH_RULES) + (
 )
 
 #: Fast cross-cutting contract tests appended to every impacted selection.
-#: They exercise CLI registry, operation inventory, and adapter parity
-#: end-to-end — where a break hides from reachability yet fails the sweep.
+#: They exercise CLI registry, operation inventory, adapter parity, and
+#: Atlas currency end-to-end — where a break hides from reachability yet
+#: fails the sweep.
 ALWAYS_RUN_TESTS = (
     "runtime/api/cli/test_adapter_inventory_usage_contract.py",
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/test_service_client_structured_api_adapter.py",
+    "runtime/api/tools/test_atlas_currency_contract.py",
 )
 
 def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:

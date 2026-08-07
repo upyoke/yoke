@@ -24,7 +24,8 @@ Local verification stays change-scoped:
   module paths appearing as string literals (subprocess `-m` targets,
   patch targets, registry keys) count as dependency edges, and a small
   always-run floor of fast cross-cutting contract tests executes on every
-  selection. The conservative full-sweep fallback (non-Python changes,
+  selection (CLI registry, operation inventory, adapter parity, and Atlas
+  currency). The conservative full-sweep fallback (non-Python changes,
   conftest or shared-fixture edits, test tooling) still catches anything
   reachability cannot bound.
 - **At the review gate** — the project-default plan case blocks the
