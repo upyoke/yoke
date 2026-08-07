@@ -1,10 +1,4 @@
-"""Tests for the Atlas docs renderer.
-
-Covers: rendered-body invariants (section headings present in order,
-counts surfaced, contradiction rows visible), the ``--check`` staleness
-gate, and the ``--from-report`` round-trip (renderer body matches when
-the same report is fed twice).
-"""
+"""Tests for the Atlas docs renderer (body, staleness, --from-report)."""
 
 from __future__ import annotations
 
@@ -294,6 +288,17 @@ class TestStaleness:
         })
         second = ard.render(report)
         assert second != first  # field-note section differs
+        assert ard.is_stale(tmp_path, body=second) is False
+
+    def test_next_slice_followup_diff_is_not_stale(
+        self, tmp_path: Path, report: dict
+    ) -> None:
+        first = ard.render(report)
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "atlas.md").write_text(first, encoding="utf-8")
+        report["followup_candidates"] = []
+        second = ard.render(report)
+        assert second != first
         assert ard.is_stale(tmp_path, body=second) is False
 
     def test_content_diff_trips_staleness(

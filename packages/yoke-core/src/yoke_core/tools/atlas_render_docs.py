@@ -1,15 +1,7 @@
-"""Render ``docs/atlas.md`` from the Atlas integrity audit report.
+"""Render ``docs/atlas.md`` from the Atlas integrity audit.
 
-Workspace-anchored: callers pass ``--target-root``. Two CLI verbs:
-``render`` writes ``docs/atlas.md`` under ``target_root``; ``check``
-builds a fresh report, prints the rendered body, and exits 1 when the
-on-disk file is stale (the ``generated_at`` timestamp is normalised so
-a stale timestamp alone does not trip the check).
-
-Sections (sorted, deterministic): summary; wrapped operation roster;
-tool-shaped CLI roster; permanent command-shaped boundary roster; pending
-handler-registration roster; teaching coverage; field-note hotspots;
-contradictions; next-slice recommendation.
+``render`` writes under ``--target-root``; ``check`` exits 1 when stale
+(``generated_at`` and live-DB sections are stripped from the comparison).
 """
 
 from __future__ import annotations
@@ -40,14 +32,21 @@ _TIMESTAMP_LINE_RE = re.compile(
     r"^_Audit generated_at: .*_$", re.MULTILINE
 )
 _TIMESTAMP_PLACEHOLDER = "_Audit generated_at: <stripped for diff>_"
-# Field-note hotspots reads live ouroboros_entries; the breakdown
-# churns continuously and would always flag the doc as stale.
-# Normalise the entire section out of the staleness comparison.
+# Live DB sections (field-notes + next-slice derived from them) churn;
+# strip them so tree-only CI matches a laptop-rendered atlas.md.
 _FIELD_NOTE_SECTION_RE = re.compile(
     r"^## 7\. Field-note hotspots\n.*?(?=^## )",
     re.MULTILINE | re.DOTALL,
 )
 _FIELD_NOTE_PLACEHOLDER = "## 7. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
+_NEXT_SLICE_SECTION_RE = re.compile(
+    r"^## 9\. Next-slice recommendation\n.*?(?=^## |\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+_NEXT_SLICE_PLACEHOLDER = (
+    "## 9. Next-slice recommendation\n\n"
+    "_<live DB section, stripped for diff>_\n\n"
+)
 _FIELD_NOTE_SUMMARY_RE = re.compile(
     r"^- Recent field-notes inspected: \d+$",
     re.MULTILINE,
@@ -271,7 +270,8 @@ def _normalise(body: str) -> str:
         _FIELD_NOTE_SUMMARY_PLACEHOLDER,
         body,
     )
-    return _FIELD_NOTE_SECTION_RE.sub(_FIELD_NOTE_PLACEHOLDER, body)
+    body = _FIELD_NOTE_SECTION_RE.sub(_FIELD_NOTE_PLACEHOLDER, body)
+    return _NEXT_SLICE_SECTION_RE.sub(_NEXT_SLICE_PLACEHOLDER, body)
 
 
 def is_stale(target_root: Path, *, body: str) -> bool:
