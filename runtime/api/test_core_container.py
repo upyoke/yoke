@@ -268,6 +268,8 @@ def test_dockerfile_ships_declared_server_tree_bundle_sources() -> None:
         "/srv/yoke-tree/runtime/harness/cursor/agents" in dockerfile
     )
     assert "COPY CURSOR.md /srv/yoke-tree/CURSOR.md" in dockerfile
+    assert "COPY docs/public /srv/yoke-tree/docs/public" in dockerfile
+    assert "COPY .yoke/docs /srv/yoke-tree/.yoke/docs" in dockerfile
 
 
 def test_dockerignore_keeps_legacy_local_shapes_out_of_build_context() -> None:
@@ -303,7 +305,7 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
     assert 'exit "${PIPESTATUS[0]}"' in workflow
 
 
-def test_ci_shards_backend_suite_without_renaming_required_checks() -> None:
+def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
     workflow = (REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml").read_text(
         encoding="utf-8"
     )
@@ -314,9 +316,12 @@ def test_ci_shards_backend_suite_without_renaming_required_checks() -> None:
     assert '--group "${{ matrix.shard }}"' in workflow
     assert "--splitting-algorithm least_duration" in workflow
     assert "--dist worksteal" in workflow
-    assert "test:\n    name: test\n    needs: test_shard" in workflow
+    assert "needs: test_shard" not in workflow
+    assert "SHARD_RESULT" not in workflow
+    assert "\n  test:\n" not in workflow
+    assert "  container:" in workflow
     container = workflow.split("  container:", 1)[1]
-    assert "needs: test" not in container
+    assert "needs:" not in container
 
 
 def test_ci_disk_reclaim_receives_explicit_runner_authority() -> None:

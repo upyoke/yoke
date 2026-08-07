@@ -191,19 +191,10 @@ def record_conversation_session(
     return True
 
 
-def resolve_mapped_session_id(
-    map_dir: _MapDir,
-    env: Optional[Mapping[str, str]] = None,
+def _read_recorded_session_id(
+    map_dir: _MapDir, conversation_id: str,
 ) -> Optional[str]:
-    """Resolve this process's session from its Cursor conversation id.
-
-    ``None`` when the process carries no conversation id, when no hook has
-    recorded that conversation, or when the recording has aged out — every
-    one of which is a truthful "unknown", and a better answer than the
-    conversation id itself. Never raises.
-    """
-    source = os.environ if env is None else env
-    conversation_id = (source.get(CURSOR_CONVERSATION_ENV_VAR) or "").strip()
+    """Return a live map entry's session id, or ``None`` when absent/stale."""
     path = _entry_path(map_dir, conversation_id)
     if path is None:
         return None
@@ -218,6 +209,87 @@ def resolve_mapped_session_id(
         return None
     session_id = record.get("session_id")
     return session_id if isinstance(session_id, str) and session_id else None
+
+
+def resolve_container_from_subagent_transcript_layout(
+    conversation_id: str,
+    *,
+    projects_root: Optional[Union[str, "os.PathLike[str]"]] = None,
+) -> str:
+    """Recover the parent session from Cursor's on-disk subagent transcript.
+
+    Cursor Task subagents write under
+    ``~/.cursor/projects/<proj>/agent-transcripts/<parent>/subagents/<child>.jsonl``
+    even when hook processes omit ``CURSOR_TRANSCRIPT_PATH`` /
+    ``parent_conversation_id``. A unique match is the container; zero or
+    many matches refuse rather than guess. Never raises.
+    """
+    if not conversation_id or not _SAFE_ID.match(conversation_id):
+        return ""
+    root = Path(projects_root) if projects_root is not None else (
+        Path.home() / ".cursor" / "projects"
+    )
+    try:
+        matches = list(
+            root.glob(
+                f"*/agent-transcripts/*/subagents/{conversation_id}.jsonl"
+            )
+        )
+    except OSError:
+        return ""
+    if len(matches) != 1:
+        return ""
+    # .../agent-transcripts/<parent>/subagents/<child>.jsonl
+    parent = matches[0].parent.parent.name
+    return parent if parent and parent != conversation_id else ""
+
+
+def _resolve_unmapped_container(
+    conversation_id: str,
+    source: Mapping[str, str],
+    *,
+    projects_root: Optional[Union[str, "os.PathLike[str]"]] = None,
+) -> str:
+    """Container for an unmapped conversation, or empty when unknown."""
+    from_env = transcript_session_id(
+        source.get(CURSOR_TRANSCRIPT_ENV_VAR, "") or ""
+    )
+    if from_env and from_env != conversation_id:
+        return from_env
+    return resolve_container_from_subagent_transcript_layout(
+        conversation_id, projects_root=projects_root,
+    )
+
+
+def resolve_mapped_session_id(
+    map_dir: _MapDir,
+    env: Optional[Mapping[str, str]] = None,
+    *,
+    projects_root: Optional[Union[str, "os.PathLike[str]"]] = None,
+) -> Optional[str]:
+    """Resolve this process's session from its Cursor conversation id.
+
+    Prefers a hook-written map entry. When the map misses, recovers the
+    parent from transcript env (nested ``subagents/`` layout) or from the
+    on-disk Cursor transcript tree, then self-heals the map so later
+    shells without those signals still resolve. ``None`` when the process
+    carries no conversation id or no container evidence exists — never
+    treat the bare conversation id as a registered session. Never raises.
+    """
+    source = os.environ if env is None else env
+    conversation_id = (source.get(CURSOR_CONVERSATION_ENV_VAR) or "").strip()
+    if not conversation_id or not _SAFE_ID.match(conversation_id):
+        return None
+    mapped = _read_recorded_session_id(map_dir, conversation_id)
+    if mapped:
+        return mapped
+    container = _resolve_unmapped_container(
+        conversation_id, source, projects_root=projects_root,
+    )
+    if not container:
+        return None
+    record_conversation_session(conversation_id, container, map_dir)
+    return container
 
 
 def prune_stale_conversation_sessions(map_dir: _MapDir) -> int:
@@ -251,6 +323,7 @@ __all__ = [
     "linked_worktree_lane_name",
     "prune_stale_conversation_sessions",
     "record_conversation_session",
+    "resolve_container_from_subagent_transcript_layout",
     "resolve_mapped_session_id",
     "transcript_session_id",
 ]

@@ -186,29 +186,27 @@ class TestRefusalMessage:
         assert "0002_b" in message
         assert "0003_c" in message
 
-    def test_the_refusal_prints_the_command_that_resolves_it(self):
+    def test_default_refusal_teaches_project_generic_rehearsal(self):
         message = receipt.refusal_message("production", ["0002_b"])
-        assert "preflight_fleet_migrations" in message
-        assert "--record-receipt" in message
-        assert "--receipt-env <control-plane-connection>" in message
+        assert "yoke migration rehearse" in message
+        assert "--help" in message
+        assert "preflight_fleet_migrations" not in message
+        assert "runtime.api.tools" not in message
 
-    def test_the_command_names_the_gate_connection_when_known(self):
+    def test_injected_rehearse_command_appears_in_the_refusal(self):
+        command = (
+            "python3 -m runtime.api.tools.preflight_fleet_migrations "
+            "prod-db-admin --record-receipt --product-sha <sha> "
+            "--receipt-env <control-plane-connection>"
+        )
         message = receipt.refusal_message(
             "production",
             ["0002_b"],
-            receipt_connection="prod",
+            rehearse_command=command,
         )
-        assert "--receipt-env prod" in message
-        assert "<control-plane-connection>" not in message
-
-    def test_the_command_names_the_admin_connection_not_the_release_name(self):
-        # The operator runs the preflight against a cluster, and "production"
-        # is not a configured connection.
-        message = receipt.refusal_message("production", ["0002_b"])
+        assert "preflight_fleet_migrations" in message
+        assert "--record-receipt" in message
         assert "prod-db-admin" in message
-
-    def test_a_stage_refusal_names_the_stage_connection(self):
-        assert "stage-db-admin" in receipt.refusal_message("stage", ["0002_b"])
 
     def test_one_entry_reads_as_one_rather_than_as_a_plural(self):
         message = receipt.refusal_message("stage", ["0002_b"])
@@ -226,6 +224,16 @@ class TestRefusalMessage:
         message = receipt.refusal_message("stage", ["0002_b"], product_sha="  ")
         assert "at  " not in message
 
+
+class TestAdminConnectionForEnvironment:
+    def test_an_admin_connection_is_already_itself(self):
+        assert receipt.admin_connection_for_environment("prod-db-admin") == "prod-db-admin"
+
+    def test_production_resolves_to_the_admin_connection(self):
+        assert receipt.admin_connection_for_environment("production") == "prod-db-admin"
+
+    def test_stage_resolves_to_the_admin_connection(self):
+        assert receipt.admin_connection_for_environment("stage") == "stage-db-admin"
 
 class TestUnreadableMessage:
     def test_unreadable_is_stated_as_unknown_rather_than_as_unrehearsed(self):

@@ -88,7 +88,7 @@ class TestRecipeResidueScan(unittest.TestCase):
     def test_findings_skipped_under_docs_db_reference(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
-            ref = tmp / ".yoke" / "docs" / "db-reference"
+            ref = tmp / ".yoke" / "docs" / "reference" / "db-reference"
             ref.mkdir(parents=True)
             (ref / "cli.md").write_text(
                 "Operator example: sqlite3 data/yoke.db 'SELECT *...'\n",

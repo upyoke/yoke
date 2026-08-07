@@ -96,10 +96,10 @@ digest mismatch is fatal before the current fast path, restore-point creation,
 or mutation. A legacy NULL is reported as `adoption_required`, not silently
 filled and not treated as a boot mismatch. Per new applied entry the ledger
 records membership, raw-byte SHA256, and the declared serving floor in the
-same transaction. Decision records:
-[`project-migration-ledger-contract.md`](../../../docs/archive/decisions/project-migration-ledger-contract.md)
+same transaction. Decision records (Yoke source tree):
+`docs/archive/decisions/project-migration-ledger-contract.md`
 (membership vs threshold) and
-[`project-migration-rollback-safety.md`](../../../docs/archive/decisions/project-migration-rollback-safety.md)
+`docs/archive/decisions/project-migration-rollback-safety.md`
 (why the floor is required). `HC-project-migration-ledger-contract` reports
 whether a declaring project satisfies the contract; unreadable is a finding,
 never a PASS.
@@ -280,19 +280,8 @@ Yoke's authority shape — `authoritative_db.kind="postgres"` with the
 provisioning surface; the authoritative DB location names a Postgres
 stack/output source:
 
-```json
-{
-  "kind": "postgres",
-  "location": {
-    "stack": "<production-stack>",
-    "state_backend": "<capability-resolved-state-backend>",
-    "region": "<aws-region>",
-    "database_name": "<database-name>",
-    "endpoint_output": "databaseClusterEndpoint",
-    "secret_arn_output": "databaseSecretArn"
-  }
-}
-```
+See that file for the full `migration_model_defaults` JSON shape (sqlite_file authoritative DB + worktree_local_sqlite validation surface).
+
 
 The validator keeps this shape generic: it validates stack/output/database
 references, not Yoke-only endpoint literals. Local proof commands can bind the
@@ -304,10 +293,11 @@ rejected.
 
 ## Webapp Pack Configuration
 
-The Webapp Scaffold Pack's
-[`settings-reference.json`](../../packs/webapp-scaffold/versions/1.1.2/settings-reference.json)
-carries a top-level `migration_model_defaults` block describing what an
-installed webapp project can declare:
+The Webapp Scaffold Pack's app database is **app-local SQLite**. Yoke backlog
+and delivery state stay on the **Postgres control plane** — never aim Yoke
+operations at the app DB or the retired worktree-local `data/yoke.db` path.
+The pack's `packs/webapp-scaffold/versions/1.1.2/settings-reference.json`
+(Yoke source tree) carries a top-level `migration_model_defaults` block:
 
 ```json
 {

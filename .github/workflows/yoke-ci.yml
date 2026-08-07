@@ -23,12 +23,13 @@ run-name: >-
 #     repo routes to its own runner fleet, and setting it on a public
 #     repo would hand stranger pull requests operator infrastructure.
 #
-# Required-status-check workflow for the Yoke backend test suite.
+# Backend test + container build workflow for the Yoke suite.
 # Runs on every pull request targeting main and on every push to main.
-# Branch protection on main requires the aggregate Postgres check names
-# (test (3.10), test (3.13)) to pass before merge — configured in the
-# operator's private ops repo. The aggregate jobs retain those stable names
-# while the expensive suite fans out across four duration-balanced shards.
+# Live branch protection on main requires only `signature-check` (from
+# cla.yml). Yoke-owned gates authorize merges: the QA CI executor uses the
+# workflow run conclusion, and the merge engine's PR path waits on every
+# check-run on the head SHA. This workflow therefore ends at its substantive
+# jobs (test-shard matrix + container) with no runner-consuming aggregate.
 #
 # Each shard lane runs against a disposable postgres:16 container, in parallel
 # via pytest-xdist (-n auto). pytest-split uses recorded test durations to keep
@@ -51,9 +52,9 @@ on:
   push:
     branches: [main]
     # Strategy/docs-only commits don't change test behavior — skip the suite
-    # (matches yoke-core-image / yoke-env-deploy). NOTE: paths-ignore is on push
-    # only, NOT pull_request: test (3.10)/(3.13) are required PR checks, and a
-    # path-skipped required check stays "pending" and blocks merge.
+    # (matches yoke-core-image / yoke-env-deploy). paths-ignore is on push only,
+    # not pull_request: a skipped PR check that is also required stays pending
+    # and blocks merge, so PR runs always execute the suite.
     paths-ignore:
       - ".yoke/strategy/**"
       - "docs/**"
@@ -107,8 +108,8 @@ jobs:
           # from git via setuptools_scm (dynamic version; tag v0.1.0 in history),
           # and a depth-1 clone drops tags+history, collapsing the editable
           # installs to the 0.1.0 fallback. The ~18s a shallow fetch would save
-          # isn't worth degraded version derivation, and
-          # test_ci_workflow_auth_invariant pins this value.
+          # isn't worth degraded version derivation.
+          # test_ci_builds_container_without_registry_push pins this value.
           fetch-depth: 0
 
       - name: Reclaim runner disk
@@ -286,23 +287,6 @@ jobs:
         # missing/already-gone container from failing the job.
         if: always()
         run: docker rm -f "$PG_CONTAINER" || true
-
-  # Keep the required status-check names stable while the underlying suite is
-  # sharded. Both aggregate lanes intentionally require every shard: a failure
-  # in either Python version must block both release-authorizing checks.
-  test:
-    name: test
-    needs: test_shard
-    if: always()
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.13']
-    steps:
-      - name: Require every test shard
-        env:
-          SHARD_RESULT: ${{ needs.test_shard.result }}
-        run: test "$SHARD_RESULT" = success
 
   container:
     name: container

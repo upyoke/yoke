@@ -162,9 +162,10 @@ class TestRegistryProgramShape:
             "Action": "cloudfront:ListDistributions",
             "Resource": "*",
         }
-        assert by_sid["InvalidateProjectDistributions"]["Action"] == (
-            "cloudfront:CreateInvalidation"
-        )
+        assert by_sid["InvalidateProjectDistributions"]["Action"] == [
+            "cloudfront:CreateInvalidation",
+            "cloudfront:GetInvalidation",
+        ]
         assert by_sid["InvalidateProjectDistributions"]["Resource"] == [
             "arn:aws:cloudfront::123456789012:distribution/EDISTRIBUTION"
         ]
@@ -180,6 +181,7 @@ class TestRegistryProgramShape:
         }
         assert cloudfront_actions == {
             "cloudfront:CreateInvalidation",
+            "cloudfront:GetInvalidation",
             "cloudfront:ListDistributions",
         }
         deny = by_sid["DenyGitHubAppPrivateKeys"]

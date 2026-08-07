@@ -299,4 +299,3 @@ Restricts conduct-eligible items to 3 concurrent WIP slots.
 - [commands.md](commands.md) -- full command reference
 - `docs/OVERVIEW.md` (yoke source repo) -- architecture overview with frontier-based flow
 - [db-reference.md](db-reference.md) -- database schema (items, item_dependencies tables)
-- [structured-logging-standard.md](structured-logging-standard.md) -- event envelope format

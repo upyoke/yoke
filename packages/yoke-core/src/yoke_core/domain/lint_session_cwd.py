@@ -165,6 +165,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
         body = build_foreign_lane_message(
             offending_target=outcome.offending_target,
             occupant=outcome.occupant,
+            caller_session_id=outcome.session_id,
         )
     else:
         body = build_scope_mismatch_block(

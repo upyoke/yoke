@@ -238,7 +238,7 @@ it is banned by the governed-mutation contract.
 
 #### The one exception: an unrecorded merge timestamp
 
-A branch that lands outside the merge boundary — a hand-run `gh pr merge`,
+A branch that lands outside the merge boundary — a hand merge outside Yoke,
 for example — leaves `items.merged_at` unset, and the item can then reach a
 terminal stage with no record of when it merged. Because terminal records
 are immutable, nothing could repair that afterward.
@@ -321,7 +321,7 @@ retained claim should query the events ledger first:
 
 Routing decisions (which command to invoke for an item at a given status, which lane to run in, how `/yoke do` chains) are owned by the core scheduler and session-offer path, not by this document. The canonical sources are:
 
-- [session-offer-contract.md](./session-offer-contract.md) — request/response envelope, `NextAction` shape, chainability rules
+- [session-offer.md](./session-offer.md) — request/response envelope, `NextAction` shape, chainability rules
 - [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
 - `yoke_core.domain.scheduler_routing` — the `next_step` function that turns a status into a command
 - `yoke_core.domain.sessions` — shared session-offer path that emits `HarnessSessionOffered` and `NextActionChosen`
@@ -334,7 +334,7 @@ item's stage graph.
 ## See Also
 
 - [commands.md](./commands.md)
-- [session-offer-contract.md](./session-offer-contract.md)
+- [session-offer.md](./session-offer.md)
 - [charge-frontier.md](./charge-frontier.md)
 - [qa-platform.md](./qa-platform.md)
 - [db-reference.md](./db-reference.md)

@@ -17,6 +17,9 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.deployment_owner_authority import (
+    https_product_plane_create_error,
+)
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
 )
@@ -104,6 +107,10 @@ def deployment_runs_create(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
     if parsed is None:
         return 2
+    owner_error = https_product_plane_create_error("deployment-runs create")
+    if owner_error is not None:
+        print(f"Error: {owner_error}", file=sys.stderr)
+        return 1
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}

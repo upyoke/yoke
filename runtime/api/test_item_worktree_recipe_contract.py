@@ -22,7 +22,7 @@ PACKAGED_SKILLS = (
     / "yoke"
 )
 SOURCE_FUNCTION_REFERENCE = (
-    REPO_ROOT / ".yoke" / "docs" / "db-reference" / "functions.md"
+    REPO_ROOT / ".yoke" / "docs" / "reference" / "db-reference" / "functions.md"
 )
 PACKAGED_FUNCTION_REFERENCE = (
     REPO_ROOT
@@ -31,8 +31,9 @@ PACKAGED_FUNCTION_REFERENCE = (
     / "src"
     / "yoke_core"
     / "install_bundle_tree"
-    / ".yoke"
     / "docs"
+    / "public"
+    / "reference"
     / "db-reference"
     / "functions.md"
 )

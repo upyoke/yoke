@@ -103,20 +103,25 @@ def record_call(
     )
     if conn is not None:
         return conn.execute(sql, params).rowcount > 0
-    # Broad on purpose: connection RESOLUTION failures (e.g. the
-    # https-transport env refusing a local Postgres binding) raise plain
-    # RuntimeError before any database error class can occur, and the
-    # own-connection path is documented non-fatal.
+    # Own-connection path is non-fatal and must not bare-connect on an
+    # https client (client-context guard). Prefer local authority; else
+    # skip the ledger write — dispatch already committed its mutation.
+    from yoke_core.domain.control_plane_transport import local_connection_or_none
+
+    own = local_connection_or_none(db_helpers.connect)
+    if own is None:
+        return False
     try:
-        own = db_helpers.connect()
-        try:
-            written = own.execute(sql, params).rowcount > 0
-            own.commit()
-            return written
-        finally:
-            own.close()
+        written = own.execute(sql, params).rowcount > 0
+        own.commit()
+        return written
     except Exception:
         return False
+    finally:
+        try:
+            own.close()
+        except Exception:
+            pass
 
 
 def lookup_call(
@@ -132,21 +137,31 @@ def lookup_call(
         return None
     try:
         from yoke_core.domain import db_helpers
+        from yoke_core.domain.control_plane_transport import (
+            local_connection_or_none,
+        )
     except Exception:
         return None
-    # Broad on purpose: connection RESOLUTION failures (https-transport
-    # envs raise RuntimeError from connect()) degrade to "no prior call"
-    # exactly like a missing table — dispatch proceeds fresh.
+    # No bare connect on https: missing local authority reads as "no
+    # prior call" so dispatch proceeds fresh (same as a missing table).
+    conn = local_connection_or_none(db_helpers.connect)
+    if conn is None:
+        return None
+    row = None
     try:
-        with db_helpers.connect() as conn:
-            row = conn.execute(
-                "SELECT result, function_id, actor_id, authorization_scope, "
-                f"payload_checksum FROM {LEDGER_TABLE} "
-                "WHERE request_id = %s",
-                (request_id,),
-            ).fetchone()
+        row = conn.execute(
+            "SELECT result, function_id, actor_id, authorization_scope, "
+            f"payload_checksum FROM {LEDGER_TABLE} "
+            "WHERE request_id = %s",
+            (request_id,),
+        ).fetchone()
     except Exception:
         return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
     if row is None:
         return None
     raw, function_id, actor_id, authorization_scope, payload_checksum = row

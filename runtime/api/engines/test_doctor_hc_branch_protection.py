@@ -7,6 +7,7 @@ missing required checks, PASS when expected checks present, and
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pytest
@@ -183,22 +184,22 @@ def test_fail_when_all_expected_checks_missing(monkeypatch, conn, events_sink):
 
 def test_fail_when_one_expected_check_missing(monkeypatch, conn, events_sink):
     _patch_auth_ok(monkeypatch)
-    # Drop 'test-postgres', keep the SQLite matrix checks.
+    # Live contexts omit the declared CLA signature-check requirement.
     _patch_rest_returns(monkeypatch, {
         "required_status_checks": {
             "strict": True,
-            "contexts": ["test (3.9)", "test (3.13)"],
+            "contexts": ["unrelated-check"],
         },
     })
 
     rec = _record(conn)
 
     assert rec.results[0].result == "FAIL"
-    assert "test-postgres" in rec.results[0].detail
+    assert "signature-check" in rec.results[0].detail
 
     assert len(events_sink) == 1
     ctx = events_sink[0]["context"]
-    assert ctx["missing_checks"] == ["test-postgres"]
+    assert ctx["missing_checks"] == ["signature-check"]
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +215,10 @@ def test_pass_when_all_expected_checks_present(monkeypatch, conn, events_sink):
             "contexts": list(EXPECTED_CHECKS),
         },
     })
+    monkeypatch.setattr(mod, "workflow_job_names", lambda _dir: tuple(EXPECTED_CHECKS))
+    monkeypatch.setattr(
+        mod, "_workflows_dir_from_checkout", lambda: Path("/synthetic/workflows"),
+    )
 
     rec = _record(conn)
 
@@ -222,7 +227,7 @@ def test_pass_when_all_expected_checks_present(monkeypatch, conn, events_sink):
     assert events_sink == [], "PASS path must not emit drift events"
 
 
-def test_pass_when_extra_contexts_alongside_expected(monkeypatch, conn, events_sink):
+def test_fail_when_required_context_has_no_workflow_job(monkeypatch, conn, events_sink):
     _patch_auth_ok(monkeypatch)
     _patch_rest_returns(monkeypatch, {
         "required_status_checks": {
@@ -230,11 +235,19 @@ def test_pass_when_extra_contexts_alongside_expected(monkeypatch, conn, events_s
             "contexts": list(EXPECTED_CHECKS) + ["lint", "typecheck"],
         },
     })
+    monkeypatch.setattr(mod, "workflow_job_names", lambda _dir: tuple(EXPECTED_CHECKS))
+    monkeypatch.setattr(
+        mod, "_workflows_dir_from_checkout", lambda: Path("/synthetic/workflows"),
+    )
 
     rec = _record(conn)
 
-    assert rec.results[0].result == "PASS"
-    assert events_sink == []
+    assert rec.results[0].result == "FAIL"
+    assert "lint" in rec.results[0].detail
+    assert "typecheck" in rec.results[0].detail
+    assert len(events_sink) == 1
+    assert events_sink[0]["context"]["reason"] == "stale_required_checks"
+    assert events_sink[0]["context"]["missing_checks"] == ["lint", "typecheck"]
 
 
 # ---------------------------------------------------------------------------

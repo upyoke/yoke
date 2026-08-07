@@ -1,9 +1,11 @@
 """``path-claims override`` CLI handler.
 
 Sibling of :mod:`path_claims_dispatch` for the operator-collision-
-approval surface. The parent dispatch module imports this handler
-and registers it under the same ``path-claims override`` subcommand
-operators see in ``path-claims --help``.
+approval surface. Prefers a local control-plane connection so the
+legacy ``service_client path-claim-override`` entry (and unit tests)
+keep distinct rejection codes. When this checkout has no local
+authority (https product connection), falls through to the registered
+``claims.path.override`` function via the dispatcher.
 
 Usage:
 
@@ -46,6 +48,61 @@ def _parse_int_list(raw: str) -> List[int]:
     return [int(p) for p in raw.split(",") if p.strip()]
 
 
+def _relay_override(args: argparse.Namespace) -> int:
+    """https fallback: relay through ``claims.path.override``."""
+    from yoke_contracts.api.function_call import ActorContext, TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    payload = {
+        "path_claim_id": args.claim_id,
+        "override_point": args.override_point,
+        "integration_target": args.integration_target,
+        "actor_id": args.actor_id,
+        "actor_reason": args.actor_reason,
+        "blocking_claim_id": args.blocking_claim_id,
+        "blocking_path_targets": (
+            _parse_int_list(args.blocking_path_targets)
+            if args.blocking_path_targets
+            else []
+        ),
+        "conflict_reason": args.conflict_reason,
+        "item_id": args.item_id,
+        "project": args.project,
+    }
+    actor = ActorContext(session_id=args.session_id or "")
+    response = call_dispatcher(
+        function_id="claims.path.override",
+        target=TargetRef(kind="global"),
+        payload=payload,
+        actor=actor,
+    )
+    if not response.success:
+        code = (
+            response.error.code
+            if response.error is not None
+            else "override_failed"
+        )
+        message = (
+            response.error.message
+            if response.error is not None
+            else "override failed"
+        )
+        print_error(str(code).upper(), message, claim_id=args.claim_id)
+        return 1
+
+    result = response.result or {}
+    print_json({
+        "success": True,
+        "event_id": result.get("override_event_id"),
+        "claim_id": args.claim_id,
+        "blocking_claim_id": args.blocking_claim_id,
+        "override_point": args.override_point,
+    })
+    return 0
+
+
 def cmd_override(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="path-claims override", add_help=False,
@@ -83,7 +140,11 @@ def cmd_override(argv: Sequence[str]) -> int:
         print_error("USAGE", "see --help for path-claims override")
         return 2
 
-    conn = open_conn()
+    try:
+        conn = open_conn()
+    except RuntimeError:
+        return _relay_override(args)
+
     try:
         try:
             event_id = invoke_override(
@@ -105,8 +166,6 @@ def cmd_override(argv: Sequence[str]) -> int:
                 session_id=args.session_id,
             )
         except HookContextRejection as exc:
-            # Distinct error code so the hook-context rejection
-            # is grep-able from the empty-reason rejection.
             print_error(
                 "HOOK_CONTEXT", str(exc),
                 claim_id=args.claim_id,

@@ -29,6 +29,9 @@ from yoke_cli.commands.adapters.claims_read import (
     CLAIMS_PATH_LIST_USAGE,
     PATH_CLAIMS_CONFLICTS_LIST_USAGE,
 )
+from yoke_cli.commands.adapters.claims_path_override import (
+    CLAIMS_PATH_OVERRIDE_USAGE,
+)
 from yoke_cli.commands.adapters.config import (
     CONFIG_EXAMPLE_USAGE,
     STATUS_USAGE,
@@ -227,6 +230,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "claims.path.amend": CLAIM_PATH_AMEND_USAGE,
     "claims.path.list": CLAIMS_PATH_LIST_USAGE,
     "claims.path.get": CLAIMS_PATH_GET_USAGE,
+    "claims.path.override": CLAIMS_PATH_OVERRIDE_USAGE,
     "claims.path.coordination_decision_build": CLAIMS_PATH_COORDINATION_DECISION_BUILD_USAGE,
     "claims.work.holder_get": CLAIM_WORK_HOLDER_GET_USAGE,
     "claims.work.holder_list": CLAIM_WORK_HOLDER_LIST_USAGE,

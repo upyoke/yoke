@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import List
 
-from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.gh_rest_transport import request_with_retry
 from yoke_core.domain.project_github_auth import (
     MissingCapability,
@@ -48,10 +48,10 @@ def hc_project_lookup(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             f"projects table does not exist, cannot look up '{args.project}'",
         )
         return
-    exists = query_scalar(
-        conn, "SELECT count(*) FROM projects WHERE slug=%s", (args.project,)
-    )
-    if not exists or int(exists) == 0:
+    # Accept slug or numeric id — machine checkout defaults often pass id.
+    try:
+        resolve_project_id(conn, args.project)
+    except LookupError:
         rec.record(
             "HC-project-lookup",
             "Project lookup",

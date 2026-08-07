@@ -13,8 +13,8 @@ worktrees, docs drift, dispatch chains, project-local checks under
 `.yoke/doctor/`.
 
 ```bash
-yoke doctor
-yoke doctor --fix   # when auto-repair is appropriate
+yoke doctor run --quick
+yoke doctor run --full --fix   # when auto-repair is appropriate
 ```
 
 Checks declare applicability (project scope, capabilities, runtime). Results
