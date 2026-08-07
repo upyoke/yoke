@@ -29,6 +29,8 @@ def test_yoke_ci_has_no_runner_consuming_aggregate_tail() -> None:
     assert "SHARD_RESULT" not in workflow
     assert "\n  test:\n" not in workflow
     assert "name: test\n" not in workflow
+    assert "repo_contracts:" in workflow
+    assert "needs: repo_contracts" in workflow
     assert "test_shard:" in workflow
     assert "  container:" in workflow
 
@@ -37,6 +39,7 @@ def test_declared_required_contexts_match_workflow_jobs() -> None:
     job_names = workflow_job_names(WORKFLOWS)
 
     assert "signature-check" in job_names
+    assert "repo-contracts" in job_names
     assert "test-shard" in job_names
     assert "container" in job_names
     for context in EXPECTED_CHECKS:

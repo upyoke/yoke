@@ -9,42 +9,14 @@ run-name: >-
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
       || format('yoke-ci {0}', github.ref_name) }}
 
-# Classification: FACTORY. Tests and container-builds public artifacts;
-# stays with the product repo when it becomes public. Fork-PR safety
-# posture for the public repo:
-#   - No step reads a repository secret; the implicit GITHUB_TOKEN is
-#     pinned read-only by the workflow-level permissions block below.
-#   - runs-on resolves through vars.YOKE_LINUX_RUNS_ON with a
-#     GitHub-hosted fallback: an unset repository variable evaluates to
-#     the empty string, which is falsy in Actions expressions, so the
-#     fromJSON argument falls back to '["ubuntu-latest"]' and the job
-#     lands on GitHub-hosted runners. The public repo must NEVER set
-#     YOKE_LINUX_RUNS_ON — that variable is how the operator's private
-#     repo routes to its own runner fleet, and setting it on a public
-#     repo would hand stranger pull requests operator infrastructure.
-#
-# Backend test + container build workflow for the Yoke suite.
-# Runs on every pull request targeting main and on every push to main.
-# Live branch protection on main requires only `signature-check` (from
-# cla.yml). Yoke-owned gates authorize merges: the QA CI executor uses the
-# workflow run conclusion, and the merge engine's PR path waits on every
-# check-run on the head SHA. This workflow therefore ends at its substantive
-# jobs (test-shard matrix + container) with no runner-consuming aggregate.
-#
-# Each shard lane runs against a disposable postgres:16 container, in parallel
-# via pytest-xdist (-n auto). pytest-split uses recorded test durations to keep
-# four outer shards balanced. The container is launched by hand (not via a
-# `services:` block) so durability can be turned off with `-c` server flags —
-# the data is throwaway, so fsync/WAL durability is pure overhead. There is no
-# SQLite lane: db_backend is Postgres-only. xdist gives each worker its own
-# disposable database, and isolated tests create fresh databases too, so the
-# Postgres user must hold CREATEDB.
-#
-# Uses the default GITHUB_TOKEN provided by Actions (no PAT plumbing). The
-# product-wide no-gh-on-laptop invariant is scoped to Yoke-app code on
-# the laptop / cloud-Yoke surface; workflow definitions inside
-# .github/workflows/** run server-side on GitHub-hosted runners where
-# GITHUB_TOKEN is auto-injected.
+# Classification: FACTORY. Fork-PR safety: read-only GITHUB_TOKEN; runs-on
+# falls back to ubuntu-latest when YOKE_LINUX_RUNS_ON is unset — the public
+# repo must NEVER set that variable (it would route stranger PRs onto the
+# operator fleet). Branch protection requires only cla.yml signature-check;
+# Yoke-owned gates use the workflow conclusion / check-runs on the head SHA.
+# Ends at substantive jobs (repo-contracts → test-shard matrix + container)
+# with no runner-consuming aggregate. Shards use disposable postgres:16
+# (manual docker, durability off, CREATEDB) + pytest-xdist; no SQLite lane.
 
 on:
   pull_request:
@@ -81,8 +53,43 @@ permissions:
   contents: read
 
 jobs:
+  # Tree-only contracts on one runner before the 8-shard matrix. Shards keep
+  # their own copies (defense in depth); this job is the fast-fail front.
+  repo_contracts:
+    name: repo-contracts
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install dependencies
+        run: uv sync --all-packages --all-groups --locked
+
+      - name: Run repo contracts
+        run: |
+          args=()
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            args+=(--base "origin/${{ github.base_ref }}")
+          fi
+          uv run python -m yoke_core.tools.ci_repo_contracts "${args[@]}"
+
   test_shard:
     name: test-shard
+    needs: repo_contracts
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       # The disposable CI Postgres is launched manually (a "Start Postgres" step
