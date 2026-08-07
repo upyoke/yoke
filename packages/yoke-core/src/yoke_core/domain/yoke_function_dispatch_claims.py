@@ -42,13 +42,11 @@ from yoke_core.domain.yoke_function_dispatch_claim_evidence import (
     allow_claim_verification,
     begin_claim_verification,
 )
+from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
+    claim_row_for_id as _claim_row_for_id,
+    session_claim_id_for_target as _session_claim_id_for_target,
+)
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
-
-def _placeholder(conn: Any) -> str:
-    from yoke_core.domain import db_backend
-
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
@@ -82,6 +80,10 @@ def is_operator_session(actor_session_id: str) -> bool:
     conn = None
     try:
         with db_helpers.connect() as conn:
+            from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
+                _placeholder,
+            )
+
             p = _placeholder(conn)
             row = conn.execute(
                 f"SELECT mode FROM harness_sessions WHERE session_id = {p}",
@@ -114,72 +116,19 @@ def _claim_error(
     )
 
 
-def _claim_row_for_id(claim_id: int) -> Optional[Dict[str, Any]]:
-    try:
-        from yoke_core.domain import db_helpers
-
-        with db_helpers.connect() as conn:
-            p = _placeholder(conn)
-            row = conn.execute(
-                "SELECT id, session_id FROM work_claims "
-                f"WHERE id = {p} AND released_at IS NULL",
-                (int(claim_id),),
-            ).fetchone()
-    except Exception:
-        return None
-    if row is None:
-        return None
-    return {
-        "id": row[0],
-        "session_id": row[1],
-    }
-
-
-def _session_claim_id_for_target(target: Any, actor_session: str) -> Optional[int]:
-    """Resolve the calling session's active claim id for an item or
-    epic_task shaped ``self_only`` target.
-
-    Server-side replacement for the retired client-side claim-id lookup:
-    ``yoke claims work release --item / --epic-id+--task-num`` now ship
-    the typed target and the dispatcher finds the session's own claim.
-    Filtering on ``session_id = actor_session`` makes the lookup itself
-    the self-ownership proof.
-    """
-    if not actor_session:
-        return None
-    try:
-        from yoke_core.domain import db_helpers
-
-        with db_helpers.connect() as conn:
-            p = _placeholder(conn)
-            if target.kind == "item" and target.item_id is not None:
-                row = conn.execute(
-                    "SELECT id FROM work_claims "
-                    f"WHERE session_id = {p} AND target_kind = 'item' "
-                    f"AND item_id = {p} AND released_at IS NULL "
-                    "ORDER BY id DESC LIMIT 1",
-                    (actor_session, int(target.item_id)),
-                ).fetchone()
-            elif (
-                target.kind == "epic_task"
-                and target.epic_id is not None
-                and target.task_num is not None
-            ):
-                row = conn.execute(
-                    "SELECT id FROM work_claims "
-                    f"WHERE session_id = {p} AND target_kind = 'epic_task' "
-                    f"AND epic_id = {p} AND task_num = {p} "
-                    "AND released_at IS NULL "
-                    "ORDER BY id DESC LIMIT 1",
-                    (actor_session, int(target.epic_id), int(target.task_num)),
-                ).fetchone()
-            else:
-                return None
-    except Exception:
-        return None
-    if row is None:
-        return None
-    return int(row[0] if not hasattr(row, "keys") else row["id"])
+def _allow_resolved_self_claim(
+    evidence: Optional[ClaimVerificationEvidence],
+    target: Any,
+    actor_session: str,
+    resolved: int,
+) -> None:
+    target.claim_id = resolved
+    allow_claim_verification(
+        evidence,
+        authority=WORK_CLAIM_AUTHORITY,
+        claim_id=resolved,
+        holder_session_id=actor_session,
+    )
 
 
 def verify_claim(
@@ -264,14 +213,26 @@ def verify_claim(
 
     if kind == "self_only":
         claim_id = target.claim_id
-        if claim_id is None and target.kind in ("item", "epic_task"):
-            resolved = _session_claim_id_for_target(target, actor_session)
+        payload = request.payload or {}
+        process_key = payload.get("process_key")
+        if claim_id is None and (
+            target.kind in ("item", "epic_task") or process_key
+        ):
+            resolved = _session_claim_id_for_target(
+                target,
+                actor_session,
+                process_key=process_key,
+                project=payload.get("project"),
+            )
             if resolved is None:
-                shape = (
-                    f"item {target.item_id}"
-                    if target.kind == "item"
-                    else f"epic_task ({target.epic_id}, {target.task_num})"
-                )
+                if process_key:
+                    shape = f"process {process_key}"
+                elif target.kind == "item":
+                    shape = f"item {target.item_id}"
+                else:
+                    shape = (
+                        f"epic_task ({target.epic_id}, {target.task_num})"
+                    )
                 return _claim_error(
                     request,
                     fid,
@@ -281,14 +242,9 @@ def verify_claim(
                     f"{shape}; pass --claim-id explicitly or acquire one "
                     "first: yoke claims work acquire",
                 )
-            # The lookup filters on the actor's session, so resolution
-            # itself is the self-ownership proof — no re-check needed.
-            target.claim_id = resolved
-            allow_claim_verification(
-                evidence,
-                authority=WORK_CLAIM_AUTHORITY,
-                claim_id=resolved,
-                holder_session_id=actor_session,
+            # Lookup filters on actor session — resolution is ownership proof.
+            _allow_resolved_self_claim(
+                evidence, target, actor_session, resolved,
             )
             return None
         if claim_id is None:
@@ -347,4 +303,6 @@ __all__ = [
     "is_operator_session",
     "verify_claim",
     "_resolve_qa_requirement_item_id",
+    "_session_claim_id_for_target",
+    "_claim_row_for_id",
 ]

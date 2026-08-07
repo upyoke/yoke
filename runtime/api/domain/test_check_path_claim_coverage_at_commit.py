@@ -156,15 +156,18 @@ class TestReadCommitMessage:
 
 class TestFormatDeny:
     def test_lists_missing_paths(self):
-        text = mod.format_deny(
-            item_id=42,
-            claim_id=7,
-            missing_paths=["a.py", "b.py"],
-            declared_paths=["src/"],
-        )
-        assert "a.py" in text
-        assert "b.py" in text
-        assert "src/" in text
+        # Pin the public-ref renderer — live CI DBs can map id 42 to another sequence.
+        with mock.patch(
+            "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
+            return_value="YOK-42",
+        ):
+            text = mod.format_deny(
+                item_id=42,
+                claim_id=7,
+                missing_paths=["a.py", "b.py"],
+                declared_paths=["src/"],
+            )
+        assert "a.py" in text and "b.py" in text and "src/" in text
         assert "YOK-42" in text
 
     def test_includes_widen_template(self):

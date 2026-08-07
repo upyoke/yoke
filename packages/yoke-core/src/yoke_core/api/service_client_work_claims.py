@@ -27,7 +27,6 @@ from yoke_core.domain.work_claim_targets import (
 )
 from yoke_core.domain.work_processes import (
     UnknownProcessError,
-    is_known_process,
 )
 from yoke_core.api.service_client_shared import (
     _get_db_readonly,
@@ -121,11 +120,7 @@ def _resolve_target(parsed: argparse.Namespace) -> WorkClaimTarget:
             int(normalize_claim_item_id(parsed.epic_task)),
             parsed.task_num,
         )
-    # process
-    if not is_known_process(parsed.process):
-        raise UnknownProcessError(
-            f"unknown process key {parsed.process!r}"
-        )
+    # process — make_process_target raises UnknownProcessError with known keys
     return make_process_target(parsed.process, parsed.project)
 
 

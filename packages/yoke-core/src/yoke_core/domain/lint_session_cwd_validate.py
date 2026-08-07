@@ -3,7 +3,8 @@
 The session-cwd policy's authority is a session's **active work_claims**:
 the session may write under any worktree it holds a claim on, under the
 main control plane (the project repo root excluding ``.worktrees/``),
-or under the free-path allowlist (``/tmp``, ``/var/folders/...``).
+or under the free-path allowlist (``/tmp``, ``/var/folders/...``, and
+the live machine scratch root from ``project_scratch_dir``).
 
 This module owns the validator surface; the slim policy glue lives in
 :mod:`lint_session_cwd`. The lint reads claims directly through
@@ -46,6 +47,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     is_inside_control_plane as _is_inside_control_plane,
     is_free_path as _path_is_free_path,
     is_under_tool_dir as _path_is_under_tool_dir,
+    is_yoke_watcher_capture_path,
     resolve_for_display as _resolve_for_display,
 )
 from yoke_core.domain.lint_session_cwd_status import (
@@ -215,7 +217,11 @@ def _is_target_authorised(
 
 
 def _is_free_path(target: str) -> bool:
-    return _path_is_free_path(target, prefixes=FREE_PATH_PREFIXES)
+    # FREE_PATH_PREFIXES stays monkeypatchable for tests; watcher-captures
+    # under the live machine scratch root are a separate allowlist entry.
+    if _path_is_free_path(target, prefixes=FREE_PATH_PREFIXES):
+        return True
+    return is_yoke_watcher_capture_path(target)
 
 
 def _is_under_tool_dir(target: str) -> bool:
@@ -283,5 +289,6 @@ __all__ = [
     "SCOPE_FAILURE_CLASS",
     "TOOL_DIR_PREFIXES",
     "ValidationVerdict",
+    "is_yoke_watcher_capture_path",
     "validate_targets",
 ]
