@@ -6,10 +6,13 @@ Companion to [`docs/testing-verification.md`](../testing-verification.md).
 
 The full three-anchor suite runs off-machine in CI on both the pull request
 and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
-`pull_request` and `push` to `main`). Branch protection on main requires only
-`signature-check` (CLA); Yoke-owned gates — the QA CI run conclusion and the
-merge engine's all-check-runs poll — authorize the suite. Local verification
-stays change-scoped:
+`pull_request` and `push` to `main`). A main-push run may short-circuit when
+`reuse-coverage` finds a recent successful dispatch/push yoke-ci run whose
+head commit shares HEAD's tree object id (fail-open otherwise; merge commits
+that rewrite the tree still run the matrix). Branch protection on main
+requires only `signature-check` (CLA); Yoke-owned gates — the QA CI run
+conclusion and the merge engine's all-check-runs poll — authorize the suite.
+Local verification stays change-scoped:
 
 - **While implementing** — run the impacted selection over the branch diff:
 
@@ -52,9 +55,10 @@ Why: the local machine runs one heavy gate at a time behind the
 admission slot, where the suite has been measured at 35–55 minutes under
 fleet contention; CI runs the same suite across four duration-balanced
 shards with disposable Postgres containers and freshly provisioned
-capacity, and then re-runs it post-merge regardless. Two items gating at
-once both route to CI and run there in parallel — the admission slot is a
-local-machine resource and never serializes CI runs.
+capacity, and then re-runs it post-merge unless same-tree reuse applies.
+Two items gating at once both route to CI and run there in parallel —
+the admission slot is a local-machine resource and never serializes CI
+runs.
 
 `worktree_run` stays the local executor for the same Command method and
 remains the fallback for offline or local-only operation. Choosing it is

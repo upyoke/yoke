@@ -30,9 +30,13 @@ def test_yoke_ci_has_no_runner_consuming_aggregate_tail() -> None:
     assert "\n  test:\n" not in workflow
     assert "name: test\n" not in workflow
     assert "repo_contracts:" in workflow
-    assert "needs: repo_contracts" in workflow
+    assert "needs: [repo_contracts, reuse_coverage]" in workflow
     assert "test_shard:" in workflow
     assert "  container:" in workflow
+    assert "reuse_coverage:" in workflow
+    assert "REUSE_WINDOW_HOURS:" in workflow
+    assert "yoke_core.tools.yoke_ci_tree_reuse" in workflow
+    assert "yoke_core.tools.ci_repo_contracts" in workflow
 
 
 def test_declared_required_contexts_match_workflow_jobs() -> None:
@@ -40,6 +44,7 @@ def test_declared_required_contexts_match_workflow_jobs() -> None:
 
     assert "signature-check" in job_names
     assert "repo-contracts" in job_names
+    assert "reuse-coverage" in job_names
     assert "test-shard" in job_names
     assert "container" in job_names
     for context in EXPECTED_CHECKS:

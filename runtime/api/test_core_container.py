@@ -321,7 +321,10 @@ def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
     assert "\n  test:\n" not in workflow
     assert "  container:" in workflow
     container = workflow.split("  container:", 1)[1]
-    assert "needs:" not in container
+    # Main-push reuse may gate container on reuse_coverage; that is not an
+    # aggregate that waits on the shard matrix.
+    assert "needs: [reuse_coverage]" in container
+    assert "needs: test_shard" not in container
 
 
 def test_ci_disk_reclaim_receives_explicit_runner_authority() -> None:

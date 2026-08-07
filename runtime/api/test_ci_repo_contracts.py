@@ -20,7 +20,8 @@ def test_yoke_ci_gates_shards_on_repo_contracts() -> None:
     assert "repo_contracts:" in workflow
     assert "name: repo-contracts" in workflow
     assert "yoke_core.tools.ci_repo_contracts" in workflow
-    assert "needs: repo_contracts" in workflow
+    assert "needs: [repo_contracts, reuse_coverage]" in workflow
+    assert "yoke_core.tools.ci_repo_contracts" in workflow
     # Aggregate that waited on shards must stay gone.
     assert "needs: test_shard" not in workflow
 
