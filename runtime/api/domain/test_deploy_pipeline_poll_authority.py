@@ -27,11 +27,20 @@ def test_an_explicit_relay_env_is_named(monkeypatch):
 
 
 def test_the_relay_derived_from_an_admin_env_is_named(monkeypatch):
-    """The pipeline's normal shape: an operator selects the db-admin env and
-    the relay is derived from its sibling, so the label has to follow."""
+    """Owner-only env derives its peer plane, not the same-base sibling."""
     _clear(monkeypatch)
     monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
-    assert "'prod'" in poll_authority.authority_label()
+    label = poll_authority.authority_label()
+    assert "'stage'" in label
+    assert "peer" in label
+
+
+def test_resolve_status_relay_env_prefers_explicit_over_peer(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
+    monkeypatch.setenv(poll_authority.GITHUB_ACTIONS_RELAY_ENV, "prod")
+    env, source = poll_authority.resolve_status_relay_env()
+    assert (env, source) == ("prod", poll_authority.GITHUB_ACTIONS_RELAY_ENV)
 
 
 def test_local_app_authority_is_named_as_attended(monkeypatch):
@@ -96,10 +105,8 @@ def test_the_stall_message_names_the_dependency_and_the_way_out():
     """An operator reading this should not have to ask anything else."""
     message = poll_authority.stall_message("30968749771", 12)
     assert "12 consecutive" in message
-    # The dependency that makes the failure self-sustaining.
-    assert "control plane" in message
-    assert "cannot observe itself" in message
-    # The independent surface that answers while the relay cannot.
-    assert "gh run view 30968749771" in message
-    # And that the deploy has not given up.
+    assert "peer control plane" in message
+    assert "fail independently" in message
+    assert "GitHub Actions UI" in message
+    assert "30968749771" in message
     assert "stage budget" in message

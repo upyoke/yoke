@@ -9,10 +9,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
-)
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 
@@ -31,16 +27,15 @@ def _github_actions(
     sd: Optional[str] = None,
     timeout: int = 60,
 ) -> subprocess.CompletedProcess:
-    # HTTPS deploy clients relay through the typed Yoke function boundary so
-    # GitHub App private-key authority remains inside the control plane. Local
-    # source-dev/operator bootstraps use the same typed adapter with a narrow
-    # local-only dispatcher, preserving intent/idempotency semantics while the
-    # hosted relay is being introduced or repaired.
+    # HTTPS deploy clients relay through a peer control plane so GitHub App
+    # private-key authority stays off the runner and off the plane under
+    # deploy. Local source-dev/operator bootstraps use the same typed adapter
+    # with a narrow local-only dispatcher.
     del sd
-    explicit_relay_env = os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
     local_authority = os.environ.get(
         GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, ""
     ).strip()
+    explicit_relay_env = os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
     if explicit_relay_env and local_authority:
         return subprocess.CompletedProcess(
             args=list(args),
@@ -62,20 +57,9 @@ def _github_actions(
                 "selecting the attended local App authority\n"
             ),
         )
-    relay_env = explicit_relay_env
-    relay_source = GITHUB_ACTIONS_RELAY_ENV
-    active_env = os.environ.get(ENV_OVERRIDE, "").strip()
-    if not relay_env and not local_authority and active_env.endswith(
-        DB_ADMIN_ENV_SUFFIX
-    ):
-        # A deployment pipeline needs two kinds of authority at once: the
-        # owner-only DB connection for run state and the sibling HTTPS
-        # control plane for GitHub App operations. Selecting ``prod-db-admin``
-        # is already an explicit operator choice, so derive its safe ``prod``
-        # relay instead of requiring a second environment variable that is
-        # easy to omit. The HTTPS check below still fails closed.
-        relay_env = active_env[: -len(DB_ADMIN_ENV_SUFFIX)]
-        relay_source = "YOKE_ENV sibling relay"
+    relay_env, relay_source = poll_authority.resolve_status_relay_env()
+    if local_authority:
+        relay_env, relay_source = None, ""
 
     https = None
     if relay_env:
@@ -123,14 +107,20 @@ def _github_actions(
             timeout=timeout,
         )
     if not local_authority:
+        peers = ", ".join(
+            f"{base}→{peer}"
+            for base, peer in sorted(poll_authority.HOSTED_STATUS_PEERS.items())
+        )
         return subprocess.CompletedProcess(
             args=list(args),
             returncode=4,
             stdout="",
             stderr=(
                 "Error: no GitHub Actions authority selected; set "
-                f"{GITHUB_ACTIONS_RELAY_ENV}=<https-env> for normal deploys "
-                f"or {GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1 for an attended "
+                f"{GITHUB_ACTIONS_RELAY_ENV}=<peer-https-env> for a plane "
+                "that fails independently of the deploy target "
+                f"(known peers: {peers}), or "
+                f"{GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1 for an attended "
                 "control-plane bootstrap\n"
             ),
         )
