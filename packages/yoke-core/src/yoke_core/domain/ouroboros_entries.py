@@ -19,15 +19,23 @@ from yoke_core.domain.ouroboros_entry_corrections import (
 from yoke_core.domain.project_identity import resolve_project_id
 
 __all__ = [
+    "DEFAULT_ENTRY_LIST_LIMIT",
     "ENTRY_LIST_COLUMNS",
+    "MAX_ENTRY_LIST_LIMIT",
     "cmd_insert_entry",
     "cmd_list_entries",
     "cmd_mark_archived",
     "cmd_mark_reviewed",
+    "count_entry_rows",
     "get_entry_row",
     "list_entry_rows",
 ]
 
+
+# Bound the shared reader so https relay payloads stay under the size limit.
+# Newest-first paging uses the same default when callers omit --limit.
+DEFAULT_ENTRY_LIST_LIMIT = 50
+MAX_ENTRY_LIST_LIMIT = 500
 
 # Result names for the entry-list projection, in SELECT order.
 ENTRY_LIST_COLUMNS = (
@@ -90,14 +98,14 @@ def cmd_insert_entry(
     return str(row[0])
 
 
-def list_entry_rows(
+def _entry_list_filters(
     conn,
-    unreviewed: bool = False,
-    project: Optional[str] = None,
-    category_prefix: Optional[str] = None,
-    limit: Optional[int] = None,
-) -> list[dict]:
-    """Typed entry rows; shared by the CLI renderer and ouroboros.entry.list."""
+    *,
+    unreviewed: bool,
+    project: Optional[str],
+    category_prefix: Optional[str],
+) -> tuple[str, list[object]]:
+    """Shared WHERE clause + params for list and count projections."""
     p = _p(conn)
     conditions: list[str] = []
     params: list[object] = []
@@ -110,15 +118,52 @@ def list_entry_rows(
     if category_prefix:
         conditions.append(f"o.category LIKE {p}")
         params.append(f"{category_prefix}%")
-    limit_clause = ""
-    if limit is not None:
-        if limit <= 0:
-            raise ValueError("limit must be positive")
-        limit_clause = f" LIMIT {p}"
-        params.append(limit)
-
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    order_by = "DESC" if limit is not None else "ASC"
+    return where, params
+
+
+def _bounded_limit(limit: Optional[int]) -> int:
+    if limit is None:
+        return DEFAULT_ENTRY_LIST_LIMIT
+    if limit <= 0:
+        raise ValueError("limit must be positive")
+    if limit > MAX_ENTRY_LIST_LIMIT:
+        raise ValueError(
+            f"limit must be <= {MAX_ENTRY_LIST_LIMIT}"
+        )
+    return limit
+
+
+def _bounded_offset(offset: int) -> int:
+    if offset < 0:
+        raise ValueError("offset must be >= 0")
+    return offset
+
+
+def list_entry_rows(
+    conn,
+    unreviewed: bool = False,
+    project: Optional[str] = None,
+    category_prefix: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> list[dict]:
+    """Typed entry rows; shared by the CLI renderer and ouroboros.entry.list.
+
+    Always newest-first and bounded (default
+    :data:`DEFAULT_ENTRY_LIST_LIMIT`) so the https relay cannot exceed its
+    response size ceiling on a large unreviewed queue.
+    """
+    p = _p(conn)
+    where, params = _entry_list_filters(
+        conn,
+        unreviewed=unreviewed,
+        project=project,
+        category_prefix=category_prefix,
+    )
+    bound = _bounded_limit(limit)
+    skip = _bounded_offset(offset)
+    params.extend([bound, skip])
     rows = query_rows(
         conn,
         "SELECT o.id, o.timestamp, o.agent, COALESCE(o.context,''), "
@@ -126,7 +171,7 @@ def list_entry_rows(
         "COALESCE(p.slug,'') "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
-        f"{where} ORDER BY o.id {order_by}{limit_clause}",
+        f"{where} ORDER BY o.id DESC LIMIT {p} OFFSET {p}",
         tuple(params),
     )
     entries = [
@@ -149,17 +194,40 @@ def list_entry_rows(
     return entries
 
 
+def count_entry_rows(
+    conn,
+    unreviewed: bool = False,
+    project: Optional[str] = None,
+    category_prefix: Optional[str] = None,
+) -> int:
+    """Matching row count for the same filters as :func:`list_entry_rows`."""
+    where, params = _entry_list_filters(
+        conn,
+        unreviewed=unreviewed,
+        project=project,
+        category_prefix=category_prefix,
+    )
+    total = query_scalar(
+        conn,
+        "SELECT COUNT(*) FROM ouroboros_entries o "
+        f"{where}",
+        tuple(params),
+    )
+    return int(total or 0)
+
+
 def cmd_list_entries(
     conn,
     unreviewed: bool = False,
     project: Optional[str] = None,
     category_prefix: Optional[str] = None,
     limit: Optional[int] = None,
+    offset: int = 0,
 ) -> str:
     return "\n".join(
         _format_row([row[name] for name in ENTRY_LIST_COLUMNS])
         for row in list_entry_rows(
-            conn, unreviewed, project, category_prefix, limit,
+            conn, unreviewed, project, category_prefix, limit, offset,
         )
     )
 
