@@ -25,9 +25,13 @@ from __future__ import annotations
 
 from typing import Dict, List, Mapping
 
-PROCESS_STRATEGIZE = "STRATEGIZE"
-PROCESS_FEED = "FEED"
-PROCESS_DOCTOR = "DOCTOR"
+from yoke_contracts.work_processes import (
+    PROCESS_DOCTOR,
+    PROCESS_FEED,
+    PROCESS_STRATEGIZE,
+    is_known_process,
+    list_processes,
+)
 
 
 # Map a NextAction action-value to the registered process key consumed
@@ -64,15 +68,6 @@ PROCESS_REGISTRY: Mapping[str, Dict[str, object]] = {
 
 class UnknownProcessError(KeyError):
     """Raised when a caller references a process key not in the registry."""
-
-
-def list_processes() -> List[str]:
-    """Return the opening canon of registered process keys."""
-    return list(PROCESS_REGISTRY.keys())
-
-
-def is_known_process(process_key: str) -> bool:
-    return process_key in PROCESS_REGISTRY
 
 
 def _require(process_key: str) -> Dict[str, object]:

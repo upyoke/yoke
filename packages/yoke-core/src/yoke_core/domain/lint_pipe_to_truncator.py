@@ -27,13 +27,13 @@ registry, suppression token audit-only (does NOT unblock in deny mode).
 from __future__ import annotations
 
 import json
-import re
 import shlex
 import sys
 from typing import List, Optional, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-pipe-to-truncator"
@@ -61,10 +61,6 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 )
 
 _TRUNCATORS = frozenset({"tail", "head"})
-
-# Command separators that end a pipeline: ;  &&  ||  newline. A single `|`
-# stays inside the segment (it is the pipe this lint inspects).
-_SEGMENT_SPLIT = re.compile(r"(?:;|&&|\|\||\n)")
 
 # Instant metadata mode on the watcher wrappers — three lines, no live run.
 _INSTANT_EXEMPTIONS = ("--print-streaming-pair",)
@@ -144,11 +140,19 @@ def _stage_is_truncator(stage: str) -> bool:
 
 
 def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
-    """Return ``(long_command_label, truncator_stage)`` on a hit, else ``None``."""
-    for segment in _SEGMENT_SPLIT.split(command):
-        if any(marker in segment for marker in _INSTANT_EXEMPTIONS):
+    """Return ``(long_command_label, truncator_stage)`` on a hit, else ``None``.
+
+    Pipeline boundaries come from quote-aware statement/pipe grouping so a
+    long-command token inside a quoted pattern or evidence string is not a
+    live stage — only unquoted ``|`` joins a long command to a truncator.
+    """
+    for stages in iter_pipeline_groups(command):
+        if any(
+            marker in stage
+            for stage in stages
+            for marker in _INSTANT_EXEMPTIONS
+        ):
             continue
-        stages = segment.split("|")
         if len(stages) < 2:
             continue
         for idx, stage in enumerate(stages[:-1]):
