@@ -88,6 +88,7 @@ class DeploymentFlowReconcileProjectResponse(BaseModel):
     unchanged: List[str]
     retired: List[str]
     retire_absent: List[str]
+    retire_foreign: List[str]
     retire_unchanged: List[str]
     default_flow: Optional[str] = None
     default_flow_declared: bool

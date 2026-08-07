@@ -78,6 +78,9 @@ files and prints the item; it does not execute it.
 ## Invariants
 
 - Treat the stored instruction as the complete requested scope.
+- Obey the `# Workflow Execution Instructions` operator block at the top of
+  fetched item content; it layers on top of, and never replaces, the item's
+  own stored instruction and spec.
 - Acquire the item work claim as the first action once the item reference
   exists, and hold it through the Dash. A successful standalone merge or
   terminal transition may already release the claim and remove the lane —

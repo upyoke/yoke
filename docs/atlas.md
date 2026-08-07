@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-07T17:37:58Z_
+_Audit generated_at: 2026-08-07T17:58:26Z_
 
 ## 1. Summary
 
-- Function ids registered: **370**
+- Function ids registered: **375**
 - Internal dispatch-only functions without CLI adapters: **75**
-- `yoke` CLI subcommands: **295** (295 carry usable `--help`)
-- Operation tracker: **273 wrapped**, 5 tool_cli, 114 permanent, 0 pending
-- Skill-body recipes: 270 total (216 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **300** (300 carry usable `--help`)
+- Operation tracker: **278 wrapped**, 5 tool_cli, 114 permanent, 0 pending
+- Skill-body recipes: 274 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **273** (operation tracker confirms 273 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **278** (operation tracker confirms 278 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -253,6 +253,11 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **273** (operation track
 | test_machine | `yoke test-machine get` | `test_machine.get` | ok |
 | test_machine | `yoke test-machine settings-replace` | `test_machine.settings_replace` | ok |
 | test_machine | `yoke test-machine verify` | `test_machine.verify` | ok |
+| workflow | `yoke workflow execution-instruction create` | `workflow.execution_instruction.create` | ok |
+| workflow | `yoke workflow execution-instruction delete` | `workflow.execution_instruction.delete` | ok |
+| workflow | `yoke workflow execution-instruction list` | `workflow.execution_instruction.list` | ok |
+| workflow | `yoke workflow execution-instruction set-scope` | `workflow.execution_instruction.set_scope` | ok |
+| workflow | `yoke workflow execution-instruction update` | `workflow.execution_instruction.update` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain advance` | `workflow_item.epic_dispatch_chain.advance` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain get` | `workflow_item.epic_dispatch_chain.get` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain list` | `workflow_item.epic_dispatch_chain.list` | ok |

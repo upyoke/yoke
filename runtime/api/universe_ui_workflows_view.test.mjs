@@ -26,7 +26,10 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   );
   assert.deepEqual(
     panelTitles(root),
-    ["Stages", "Execution posture", "Mechanics", "Version history"],
+    [
+      "Stages", "Execution posture", "Mechanics",
+      "Execution instructions", "Version history",
+    ],
   );
   assert.deepEqual(classText(root, "workflow-tab"), ["Rally"]);
   assert.deepEqual(classText(root, "workflow-stage-label"), [

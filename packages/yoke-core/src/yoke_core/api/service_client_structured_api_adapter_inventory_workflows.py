@@ -88,6 +88,37 @@ WORKFLOW_ADAPTERS = [
         ),
         notes="Publishes a new immutable version with bounded approval defaults.",
     ),
+    AdapterEntry(
+        function_id="workflow.execution_instruction.create",
+        cli_invocation=(
+            "yoke workflow execution-instruction create --title T "
+            "(--content C | --stdin) [--ordering N] [--status S] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="workflow.execution_instruction.update",
+        cli_invocation=(
+            "yoke workflow execution-instruction update ID [--title T] "
+            "[--content C | --stdin] [--ordering N] [--status S] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="workflow.execution_instruction.set_scope",
+        cli_invocation=(
+            "yoke workflow execution-instruction set-scope ID "
+            "[--workflow W ...] [--all-projects] [--project-id N ...] [--json]"
+        ),
+        notes="Replaces the instruction's workflow and project bindings.",
+    ),
+    read_entry(
+        function_id="workflow.execution_instruction.list",
+        cli_invocation="yoke workflow execution-instruction list [--json]",
+        notes="Every instruction with its workflow/project scope.",
+    ),
+    AdapterEntry(
+        function_id="workflow.execution_instruction.delete",
+        cli_invocation="yoke workflow execution-instruction delete ID [--json]",
+    ),
 ]
 
 __all__ = ["WORKFLOW_ADAPTERS"]

@@ -159,7 +159,9 @@ def test_live_retirement_disables_predecessors_and_preserves_runs(test_db) -> No
     )
 
 
-def test_retirement_cannot_disable_another_projects_flow(test_db) -> None:
+def test_foreign_project_retire_if_present_skips_without_disabling(
+    test_db,
+) -> None:
     _seed_project(test_db)
     test_db.execute(
         "INSERT INTO deployment_flows "
@@ -180,9 +182,12 @@ def test_retirement_cannot_disable_another_projects_flow(test_db) -> None:
     document = _document()
     document["retire_if_present"] = ["yoke-internal"]
 
-    with pytest.raises(ValueError, match="belongs to another project"):
-        reconcile_project_flows(test_db, "acme", document)
+    result = reconcile_project_flows(test_db, "acme", document)
 
+    assert result["created"] == ["acme-production", "acme-internal"]
+    assert result["retired"] == []
+    assert result["retire_absent"] == []
+    assert result["retire_foreign"] == ["yoke-internal"]
     assert (
         test_db.execute(
             "SELECT status FROM deployment_flows WHERE id='yoke-internal'"
@@ -191,10 +196,9 @@ def test_retirement_cannot_disable_another_projects_flow(test_db) -> None:
     )
     assert (
         test_db.execute(
-            "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
-            (resolve_project_id(test_db, "acme"),),
+            "SELECT project_id FROM deployment_flows WHERE id='yoke-internal'"
         ).fetchone()[0]
-        == 0
+        == resolve_project_id(test_db, "yoke")
     )
 
 

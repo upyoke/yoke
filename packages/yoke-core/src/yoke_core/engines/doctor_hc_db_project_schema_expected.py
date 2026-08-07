@@ -126,6 +126,9 @@ _EXPECTED_SCHEMA_STR = (
     "|test_machine_verifications:project_id/INTEGER,status/TEXT,checked_at/TEXT,receipt_json/TEXT,error_code/TEXT,updated_at/TEXT"
     "|web_sessions:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,created_at/TEXT,expires_at/TEXT,revoked_at/TEXT,last_used_at/TEXT"
     "|work_claims:id/INTEGER,session_id/TEXT,target_kind/TEXT,item_id/INTEGER,epic_id/INTEGER,task_num/INTEGER,process_key/TEXT,conflict_group/TEXT,claim_type/TEXT,claimed_at/TEXT,last_heartbeat/TEXT,released_at/TEXT,release_reason/TEXT,reason/TEXT,reason_intent/TEXT,release_reason_intent/TEXT"
+    "|workflow_execution_instruction_projects:instruction_id/INTEGER,project_id/INTEGER"
+    "|workflow_execution_instruction_workflows:instruction_id/INTEGER,workflow_id/TEXT"
+    "|workflow_execution_instructions:id/INTEGER,title/TEXT,content/TEXT,applies_to_all_projects/INTEGER,ordering/INTEGER,status/TEXT,updated_by_actor_id/INTEGER,created_at/TEXT,updated_at/TEXT"
     "|workflow_versions:id/INTEGER,workflow_id/TEXT,version/INTEGER,definition_schema_version/INTEGER,definition_json/TEXT,definition_digest/TEXT,published_at/TEXT,published_by_actor_id/INTEGER,immutable_at/TEXT,derived_from_canon_version/INTEGER"
     "|workflows:id/TEXT,name/TEXT,description/TEXT,source/TEXT,status/TEXT,current_version_id/INTEGER,created_at/TEXT,updated_at/TEXT"
 )

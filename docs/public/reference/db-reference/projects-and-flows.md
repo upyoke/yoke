@@ -222,7 +222,8 @@ validates and materializes the declared rows plus the optional `default_flow`.
 Reconciliation is additive: omitted rows are preserved, and a definition
 referenced by a run is immutable. A declaration may name predecessor IDs in
 `retire_if_present`; matching rows owned by that project are disabled, absent
-rows are not created, and run history remains intact. Change lifecycle state with
+rows and same-id rows owned by another project are skipped (receipt labels
+`retire_absent` and `retire_foreign`), and run history remains intact. Change lifecycle state with
 `yoke deployment-flows set-status <flow-id> active|disabled`; disabling prevents
 new assignments and runs while preserving the definition and every historical
 run.

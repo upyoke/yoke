@@ -29,6 +29,10 @@ class ItemDetailGetRequest(BaseModel):
 
 class ItemDetailGetResponse(BaseModel):
     item: dict[str, Any]
+    # Operator execution instructions resolved from the item's pinned
+    # workflow and project — a separate field, never spliced into item
+    # content, so structured-field writes cannot round-trip it back.
+    execution_instructions: list[dict[str, Any]]
 
 
 def _error(code: str, message: str, jsonpath: str | None = None) -> HandlerOutcome:
@@ -90,8 +94,13 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
         item = get_item_detail(int(request.target.item_id))
     except LookupError as exc:
         return _error("not_found", str(exc))
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.workflow_execution_instructions import resolve_for_item
+
+    with connect() as conn:
+        instructions = resolve_for_item(conn, int(request.target.item_id))
     return HandlerOutcome(
-        result_payload={"item": item},
+        result_payload={"item": item, "execution_instructions": instructions},
         primary_success=True,
     )
 

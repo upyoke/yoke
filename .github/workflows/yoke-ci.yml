@@ -309,7 +309,17 @@ jobs:
           echo "YOKE_ENGINE_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: Build Yoke core image
+        # Retry with backoff: the build starts by pulling base images from
+        # Docker Hub, and a transient registry network failure should cost a
+        # retry, not the gate. Deterministic build failures still fail after
+        # the last attempt.
         run: |
-          docker build \
-            --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
-            --tag yoke-core:${{ github.sha }} .
+          for delay in 15 60 0; do
+            docker build \
+              --build-arg "YOKE_ENGINE_VERSION=$YOKE_ENGINE_VERSION" \
+              --tag yoke-core:${{ github.sha }} . && exit 0
+            if [ "$delay" = 0 ]; then break; fi
+            echo "docker build failed; retrying in ${delay}s" >&2
+            sleep "$delay"
+          done
+          exit 1

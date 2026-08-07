@@ -41,10 +41,12 @@ class TestOuroborosEntryList:
         )
         assert outcome.primary_success
         entries = outcome.result_payload["entries"]
-        assert [e["body"] for e in entries] == ["first", "second"]
+        assert [e["body"] for e in entries] == ["second", "first"]
         assert all(isinstance(e["id"], int) for e in entries)
         assert entries[0]["agent"] == "tester"
         assert entries[0]["category"] == "observation"
+        assert outcome.result_payload["limit"] == 50
+        assert outcome.result_payload["offset"] == 0
 
     def test_unreviewed_filter(self, test_db):
         reviewed_id = _seed_entry(
@@ -58,6 +60,39 @@ class TestOuroborosEntryList:
         )
         assert outcome.primary_success
         assert [e["body"] for e in outcome.result_payload["entries"]] == ["open"]
+
+    def test_count_mode_returns_total_without_bodies(self, test_db):
+        _seed_entry(test_db, timestamp="2026-01-01T00:00:00Z", body="a")
+        _seed_entry(test_db, timestamp="2026-01-02T00:00:00Z", body="b")
+        outcome = ouroboros_reads.handle_ouroboros_entry_list(
+            _request("ouroboros.entry.list", {"count": True})
+        )
+        assert outcome.primary_success
+        assert outcome.result_payload["count"] == 2
+        assert outcome.result_payload["entries"] == []
+
+    def test_offset_pages_newest_first(self, test_db):
+        for index, body in enumerate(("a", "b", "c")):
+            _seed_entry(
+                test_db,
+                timestamp=f"2026-01-0{index + 1}T00:00:00Z",
+                body=body,
+            )
+        first = ouroboros_reads.handle_ouroboros_entry_list(
+            _request("ouroboros.entry.list", {"limit": 2})
+        )
+        second = ouroboros_reads.handle_ouroboros_entry_list(
+            _request("ouroboros.entry.list", {"limit": 2, "offset": 2})
+        )
+        assert [e["body"] for e in first.result_payload["entries"]] == ["c", "b"]
+        assert [e["body"] for e in second.result_payload["entries"]] == ["a"]
+
+    def test_rejects_limit_above_cap(self, test_db):
+        outcome = ouroboros_reads.handle_ouroboros_entry_list(
+            _request("ouroboros.entry.list", {"limit": 10_000})
+        )
+        assert not outcome.primary_success
+        assert outcome.error.code == "payload_invalid"
 
     def test_unknown_project_is_payload_invalid(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_list(

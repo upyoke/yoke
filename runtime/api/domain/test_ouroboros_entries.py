@@ -132,3 +132,52 @@ def test_list_entry_rows_honors_limit(tmp_db: str) -> None:
         )
 
     assert [row["body"] for row in rows] == ["body 2", "body 1"]
+
+
+def test_list_entry_rows_defaults_to_newest_bound(tmp_db: str) -> None:
+    from yoke_core.domain.ouroboros_entries import DEFAULT_ENTRY_LIST_LIMIT
+
+    with connect(tmp_db) as conn:
+        for index in range(DEFAULT_ENTRY_LIST_LIMIT + 3):
+            cmd_insert_entry(
+                conn,
+                timestamp=f"2026-05-26T12:{index:02d}:00Z",
+                agent="engineer",
+                context=None,
+                category="observation",
+                body=f"body {index}",
+            )
+        rows = list_entry_rows(conn)
+        page = list_entry_rows(conn, offset=DEFAULT_ENTRY_LIST_LIMIT)
+
+    assert len(rows) == DEFAULT_ENTRY_LIST_LIMIT
+    assert rows[0]["body"] == f"body {DEFAULT_ENTRY_LIST_LIMIT + 2}"
+    assert [row["body"] for row in page] == [
+        "body 2", "body 1", "body 0",
+    ]
+
+
+def test_count_entry_rows_matches_filters(tmp_db: str) -> None:
+    from yoke_core.domain.ouroboros_entries import count_entry_rows
+
+    with connect(tmp_db) as conn:
+        cmd_insert_entry(
+            conn,
+            timestamp="2026-05-26T13:00:00Z",
+            agent="engineer",
+            context=None,
+            category="field-note-failed",
+            body="fn",
+            source="field_note",
+        )
+        cmd_insert_entry(
+            conn,
+            timestamp="2026-05-26T13:01:00Z",
+            agent="engineer",
+            context=None,
+            category="observation",
+            body="plain",
+        )
+        total = count_entry_rows(conn, category_prefix="field-note-")
+
+    assert total == 1

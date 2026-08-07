@@ -22,6 +22,9 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
           flows: [],
         });
       }
+      if (request.function === "workflow.execution_instruction.list") {
+        return ok({ instructions: [] });
+      }
       if (request.function === "workflows.version.get") {
         const current = workflows.find(
           (row) => row.id === request.payload.workflow_id,
