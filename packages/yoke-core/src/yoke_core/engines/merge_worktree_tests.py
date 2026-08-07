@@ -13,6 +13,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -146,15 +147,18 @@ def _is_unknown_workflow_transition(message: str) -> bool:
 
 def _registered_verification_command(
     ctx: MergeContext,
-) -> Optional[Tuple[str, str]]:
-    """Return ``(scope, command)`` for the integrated candidate tree.
+) -> Optional[Tuple[str, str, list]]:
+    """Return ``(scope, command, covering_runs)`` for the candidate tree.
 
     The transport-aware internal function resolves the owning project's
     registered ``full``/``quick`` Command case server-side and materializes
-    any QA plan attached to the post-rebase transition. Every dispatcher,
-    materialization, or response-shape failure is merge-blocking. Only an
-    ad-hoc, non-project merge with no item identity may use the legacy local
-    runner detection below.
+    any QA plan attached to the post-rebase transition. ``covering_runs``
+    lists passing QA evidence (run id + covered head sha) that may waive a
+    same-tree re-execution; a server predating that field yields an empty
+    list so the suite runs. Every dispatcher, materialization, or
+    response-shape failure is merge-blocking. Only an ad-hoc, non-project
+    merge with no item identity may use the legacy local runner detection
+    below.
     """
     item_id_raw = getattr(ctx, "item_id", None)
     try:
@@ -194,7 +198,8 @@ def _registered_verification_command(
                     "integration verification resolver returned no executable "
                     "registered full or quick command"
                 )
-            return scope, command
+            covering = result.get("covering_runs")
+            return scope, command, covering if isinstance(covering, list) else []
         last_code = (resp.error.code if resp.error else "unknown") or "unknown"
         last_message = (resp.error.message if resp.error else "") or ""
         if not _is_unknown_workflow_transition(last_message):
@@ -222,7 +227,13 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         _print(f"Error: {exc}", err=True)
         return (1, "test command unavailable")
     if registered is not None:
-        scope, command = registered
+        scope, command, covering_runs = registered
+        receipt = merge_worktree_tree_coverage.covering_run_receipt(
+            cwd, covering_runs,
+        )
+        if receipt is not None:
+            _print(receipt)
+            return None
         _print(
             "[phase:tests] executing registered project verification "
             f"({scope}) in candidate worktree"

@@ -106,6 +106,7 @@ def test_success_returns_registered_command(
     assert mod._registered_verification_command(ctx) == (
         scope,
         "python3 verify_tree.py",
+        [],
     )
     assert [call["function_id"] for call in calls] == [
         "items.detail.get",
@@ -142,6 +143,7 @@ def test_unknown_release_stage_falls_back_to_reviewing_implementation(
     assert mod._registered_verification_command(ctx) == (
         "quick",
         "python3 verify_tree.py",
+        [],
     )
     assert [c["payload"].get("transition_id") for c in calls[1:]] == [
         "release",
