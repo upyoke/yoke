@@ -5,14 +5,18 @@ Covers the S4 expansion: ``/dev/null`` / ``/dev/stderr`` /
 artifact tree, and the ``~/.codex/sessions/`` plus
 ``~/.codex/archived_sessions/`` Codex transcript trees (added so the
 cross-harness transcript audit can walk Codex rollouts from any
-worktree). Each free-path case must allow regardless of the session's
-claim set; ``/etc/passwd`` and similar real repo-tree paths must still
-deny when the session has an active claim.
+worktree). Also covers watcher-minted capture paths under the live
+machine scratch root's ``watcher-captures/`` subtree. Each free-path
+case must allow regardless of the session's claim set; ``/etc/passwd``
+and similar real repo-tree paths must still deny when the session has
+an active claim.
 """
 
 from __future__ import annotations
 
 import os
+import shutil
+from pathlib import Path
 
 import pytest
 
@@ -24,7 +28,12 @@ from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.lint_session_cwd_validate import (
     FREE_PATH_PREFIXES,
+    is_yoke_watcher_capture_path,
     validate_targets,
+)
+from yoke_core.domain.project_scratch_dir import (
+    dispatch_inputs_dir,
+    mint_watcher_capture_pair,
 )
 
 
@@ -213,6 +222,53 @@ class TestCodexHarnessInternalAllowed:
             targets=[target],
         )
         assert verdict.allow
+
+
+class TestWatcherMintedCapturePairAllowed:
+    """Printed ``--print-streaming-pair`` paths must pass write authority."""
+
+    def test_minted_pair_targets_allowed(
+        self, conn, session_with_claim, monkeypatch, tmp_path
+    ) -> None:
+        # Scratch must sit outside /tmp and /var/folders so the allowlist
+        # under test is the watcher-captures rule, not OS temp free-paths.
+        scratch = Path.home() / ".yoke" / "test-scratch-watcher-authority"
+        if scratch.exists():
+            shutil.rmtree(scratch)
+        scratch.mkdir(parents=True)
+        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(scratch))
+        try:
+            raw, progress = mint_watcher_capture_pair("pytest")
+            assert str(raw).startswith(str(scratch.resolve()))
+            assert is_yoke_watcher_capture_path(str(raw))
+            for target in (str(raw), str(progress)):
+                verdict = validate_targets(
+                    conn,
+                    session_id=session_with_claim,
+                    targets=[target],
+                )
+                assert verdict.allow, (
+                    f"expected minted watcher capture {target} to pass "
+                    f"write-authority via watcher-captures free-path"
+                )
+            dispatch_target = str(
+                dispatch_inputs_dir(
+                    item_id=100,
+                    session_id="s1",
+                    attempt=1,
+                    create=False,
+                )
+                / "prompt.md"
+            )
+            assert not is_yoke_watcher_capture_path(dispatch_target)
+            denied = validate_targets(
+                conn,
+                session_id=session_with_claim,
+                targets=[dispatch_target],
+            )
+            assert not denied.allow
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
 
 
 class TestNegativeRegression:

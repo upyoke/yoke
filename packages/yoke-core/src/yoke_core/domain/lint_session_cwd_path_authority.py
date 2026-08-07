@@ -31,8 +31,11 @@ def _harness_internal_prefixes() -> tuple[str, ...]:
     return tuple(out)
 
 
-# Free-path allowlist: scratch dirs, discard devices, and harness
-# transcript stores no Yoke path claim should own.
+# Static free-path allowlist: OS temp dirs, discard devices, and harness
+# transcript stores no Yoke path claim should own. Watcher-minted capture
+# paths under the live machine scratch root are allowlisted separately by
+# :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs`` and other
+# scratch subtrees keep their own authority rules.
 FREE_PATH_PREFIXES = (
     _abs("tmp"),
     _abs("private", "tmp"),
@@ -59,6 +62,20 @@ TOOL_DIR_PREFIXES = (
 )
 
 
+def is_yoke_watcher_capture_path(target: str) -> bool:
+    """True when ``target`` is under machine scratch ``watcher-captures/``."""
+    try:
+        from yoke_core.domain.project_scratch_dir import global_scratch_root
+
+        resolved = resolve_for_display(target)
+        root = str(global_scratch_root().resolve())
+    except Exception:
+        return False
+    if not (resolved == root or resolved.startswith(root + os.sep)):
+        return False
+    return "watcher-captures" in Path(resolved).parts
+
+
 def is_under_tool_dir(
     target: str,
     *,
@@ -82,10 +99,13 @@ def is_free_path(
     expanded = os.path.expanduser(target)
     if expanded != target:
         candidates.add(resolve_for_display(expanded))
+    active = FREE_PATH_PREFIXES if prefixes is None else prefixes
     for cand in candidates:
-        for prefix in prefixes if prefixes is not None else FREE_PATH_PREFIXES:
+        for prefix in active:
             if cand == prefix or cand.startswith(prefix + os.sep):
                 return True
+        if prefixes is None and is_yoke_watcher_capture_path(cand):
+            return True
     return False
 
 
@@ -157,5 +177,6 @@ __all__ = [
     "is_inside",
     "is_inside_control_plane",
     "is_under_tool_dir",
+    "is_yoke_watcher_capture_path",
     "resolve_for_display",
 ]
