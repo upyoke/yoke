@@ -36,7 +36,7 @@ def register(registry) -> None:
         _cw.ReleaseRequest, _cw.ReleaseResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_work",
-        target_kinds=["claim", "item", "epic_task"],
+        target_kinds=["claim", "item", "epic_task", "global"],
         side_effects=["work_claims_update_released_at"],
         emitted_event_names=["WorkClaimReleased"],
         guardrails=["actor_owns_claim"],

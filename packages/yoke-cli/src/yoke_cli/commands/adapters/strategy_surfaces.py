@@ -9,11 +9,14 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_project_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
 )
 from yoke_cli.commands.adapters.strategy import strategy_target
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain.work_processes import is_known_process, list_processes
 
 
 def _global(
@@ -184,11 +187,69 @@ def strategy_claim_acquire(args: List[str]) -> int:
 
 
 def strategy_claim_release(args: List[str]) -> int:
-    return _item(
-        args, tokens="strategy claim release",
+    """Release a Blitz document claim (ITEM) or a process claim (KEY).
+
+    Process keys (STRATEGIZE / FEED / DOCTOR) route to
+    ``claims.work.release`` so era closeout can run
+    ``yoke strategy claim release STRATEGIZE`` without a claim id.
+    """
+    usage = (
+        "yoke strategy claim release (ITEM | PROCESS_KEY) "
+        "[--reason TEXT] [--project P] [--json]\n"
+        "  ITEM releases the Blitz document claim on that item.\n"
+        "  PROCESS_KEY (STRATEGIZE, FEED, DOCTOR) releases this "
+        "session's process claim via claims.work.release.\n"
+        "  Equivalent process form: yoke claims work release "
+        "--process KEY --reason TEXT"
+    )
+    parser = argparse.ArgumentParser(
+        prog="yoke strategy claim release", description=usage,
+    )
+    parser.add_argument("item")
+    parser.add_argument("--project")
+    parser.add_argument("--reason")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, usage)
+    if parsed is None:
+        return 2
+
+    raw = str(parsed.item).strip()
+    key = raw.upper()
+    if is_known_process(key):
+        project = parsed.project or client_project_context(None) or "yoke"
+        return dispatch_and_emit(
+            function_id="claims.work.release",
+            target=TargetRef(kind="global", project_id=project),
+            payload={
+                "reason": parsed.reason or "released",
+                "process_key": key,
+                "project": project,
+            },
+            session_id=parsed.session_id,
+            json_mode=parsed.json_mode,
+        )
+    # Non-item-shaped tokens (e.g. CURRENT-PLAN) get a process-key hint
+    # instead of the opaque item_ref_unresolved dispatcher error.
+    looks_like_item = raw.isdigit() or (
+        "-" in raw and raw.rsplit("-", 1)[-1].isdigit()
+    )
+    if not looks_like_item:
+        known = ", ".join(list_processes())
+        print(
+            f"unknown process key {raw!r}; known keys: [{known}]. "
+            "Pass a PREFIX-N item ref to release a Blitz document claim, "
+            "or: yoke claims work release --process KEY --reason TEXT",
+            flush=True,
+        )
+        return 2
+
+    return dispatch_and_emit(
         function_id="strategy.claim.release",
-        configure=lambda parser: parser.add_argument("--reason"),
-        payload=lambda parsed: {"reason": parsed.reason},
+        target=item_target("item", parsed.item, parsed.project),
+        payload={"reason": parsed.reason},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -211,7 +272,10 @@ USAGE_BY_FUNCTION_ID = {
     "strategy.execution.get": "yoke strategy execution get ITEM --project P",
     "strategy.execution.link": "yoke strategy execution link ITEM --slug SLUG --project P",
     "strategy.claim.acquire": "yoke strategy claim acquire ITEM --project P",
-    "strategy.claim.release": "yoke strategy claim release ITEM [--reason TEXT] --project P",
+    "strategy.claim.release": (
+        "yoke strategy claim release (ITEM | PROCESS_KEY) "
+        "[--reason TEXT] --project P"
+    ),
     "strategy.claim.break_glass_release": "yoke strategy claim break-glass-release ITEM --reason TEXT --project P",
 }
 

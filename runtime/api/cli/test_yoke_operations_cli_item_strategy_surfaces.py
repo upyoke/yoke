@@ -218,7 +218,49 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
 
 
 def test_strategy_claim_release_usage_advertises_optional_reason() -> None:
-    expected = "yoke strategy claim release ITEM [--reason TEXT] --project P"
+    expected = (
+        "yoke strategy claim release (ITEM | PROCESS_KEY) "
+        "[--reason TEXT] --project P"
+    )
     assert USAGE_BY_FUNCTION_ID["strategy.claim.release"] == expected
     inventory = {entry.function_id: entry.cli_invocation for entry in STRATEGY_ADAPTERS}
     assert inventory["strategy.claim.release"] == expected
+
+
+def test_strategy_claim_release_process_key_routes_to_work_release() -> None:
+    result, req = _run(
+        "strategy",
+        "claim",
+        "release",
+        "STRATEGIZE",
+        "--reason",
+        "era closeout",
+        "--project",
+        "yoke",
+    )
+    assert result == 0
+    assert req.function == "claims.work.release"
+    assert req.target.kind == "global"
+    assert req.payload == {
+        "reason": "era closeout",
+        "process_key": "STRATEGIZE",
+        "project": "yoke",
+    }
+
+
+def test_strategy_claim_release_unknown_process_lists_known_keys() -> None:
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "item-strategy-test"}),
+        patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+        redirect_stdout(io.StringIO()) as out,
+        redirect_stderr(io.StringIO()),
+    ):
+        result = cli_main(
+            ["strategy", "claim", "release", "CURRENT-PLAN", "--project", "yoke"]
+        )
+    assert result == 2
+    combined = out.getvalue()
+    assert "CURRENT-PLAN" in combined
+    assert "STRATEGIZE" in combined
+    assert "FEED" in combined
+    assert "DOCTOR" in combined
