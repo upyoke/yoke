@@ -126,7 +126,7 @@ class TestLifecycleDoc:
         assert "next skill" in text
 
     def test_routes_to_canonical_routing_docs(self, text):
-        assert "session-offer-contract.md" in text
+        assert "session-offer.md" in text
         assert "charge-frontier.md" in text
 
 

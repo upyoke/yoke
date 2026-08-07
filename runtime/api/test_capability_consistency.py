@@ -95,7 +95,7 @@ def harness_bootstrap_md() -> str:
 
 @pytest.fixture(scope="module")
 def lifecycle_md() -> str:
-    return _read(YOKE_DOCS / "lifecycle.md")
+    return _read(YOKE_DOCS / "reference" / "lifecycle.md")
 
 
 @pytest.fixture(scope="module")

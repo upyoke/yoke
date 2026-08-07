@@ -8,7 +8,7 @@ progress, claims, and QA attachments.
 ```bash
 yoke items get PREFIX-N
 yoke items get PREFIX-N body
-yoke items progress_log.append   # via function / CLI section helpers
+yoke items progress-log append PREFIX-N --headline TEXT --content TEXT
 ```
 
 Writes go through structured fields and registered functions — not raw body

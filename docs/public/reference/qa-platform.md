@@ -9,7 +9,7 @@ surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
 `qa.browser_context.get`, and `qa.case_execution.begin`). The public
-`yoke qa ...` commands (see `yoke qa --help`) are the retained
+`yoke qa ...` commands (for example `yoke qa requirement list`) are the retained
 operator/debug adapters that dispatch the matching function ids. See
 [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope
 and, for the operator-readable Atlas of registered
