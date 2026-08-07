@@ -57,6 +57,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py",
         "yoke_core.domain.migration_apply",
     ): ("source_dev_admin", "CLI adapter delegates migration rehearsal"),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
+        "yoke_core.engines.doctor_https_compose",
+    ): (
+        "client_local_diagnostics",
+        "https doctor re-runs source-checkout HCs against this machine's tree",
+    ),
 }
 
 __all__ = ["CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS"]

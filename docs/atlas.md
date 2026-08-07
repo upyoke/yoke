@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-06T00:50:46Z_
+_Audit generated_at: 2026-08-07T12:03:12Z_
 
 ## 1. Summary
 
 - Function ids registered: **369**
 - Internal dispatch-only functions without CLI adapters: **74**
-- `yoke` CLI subcommands: **294** (294 carry usable `--help`)
-- Operation tracker: **272 wrapped**, 5 tool_cli, 114 permanent, 0 pending
+- `yoke` CLI subcommands: **295** (295 carry usable `--help`)
+- Operation tracker: **273 wrapped**, 5 tool_cli, 114 permanent, 0 pending
 - Skill-body recipes: 270 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **272** (operation tracker confirms 272 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **273** (operation tracker confirms 273 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -28,6 +28,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **272** (operation track
 | claims | `yoke claims path coordination-decision-build` | `claims.path.coordination_decision_build` | ok |
 | claims | `yoke claims path get` | `claims.path.get` | ok |
 | claims | `yoke claims path list` | `claims.path.list` | ok |
+| claims | `yoke claims path override` | `claims.path.override` | ok |
 | claims | `yoke claims path register` | `claims.path.register` | ok |
 | claims | `yoke claims path required-gate` | `claims.path.required_gate` | ok |
 | claims | `yoke claims path widen` | `claims.path.widen` | ok |
@@ -457,8 +458,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 26 |
-| agent | 24 |
+| agent | 20 |
+| cursor | 17 |
+| codex | 12 |
+| claude-code | 1 |
 
 ## 8. Contradictions
 
