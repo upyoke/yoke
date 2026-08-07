@@ -47,9 +47,10 @@ yoke projects capability-settings merge --project <project> \
 
 `probe_url_path` selects the scalar URL from the mapped environment's settings.
 `served_pin_response_path` selects the scalar pin from that probe's JSON body.
-The target vocabulary and environment id still come only from
-`environment_by_target`, and the desired value still comes only from
-`desired_pin_path`.
+`--environment` accepts a key from `environment_by_target`, the mapped
+environment id, or that environment's own `name`. The desired value still
+comes only from `desired_pin_path`. An unknown token fails with USAGE that
+lists the accepted keys (map keys, mapped ids, and mapped environment names).
 
 ```bash
 yoke release-pin verify --project <project> --environment <target>
