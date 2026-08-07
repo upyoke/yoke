@@ -10,10 +10,10 @@ inventory: ``status="permanent"``, ``reason="tool_shaped"``).
 Transport honesty:
 
 * ``git pre-commit`` runs the product-safe local gate via
-  ``yoke_harness`` (staged git content + file reads). When ``yoke_core``
-  is available (Yoke source checkout), it also quietly refreshes and
-  stages ``docs/atlas.md`` if staged inventory inputs make it stale.
-  Exit 1 blocks the commit.
+  ``yoke_harness`` (staged git content + file reads). On a Yoke source
+  checkout it also spawns the optional Atlas currency refresher as a
+  subprocess (never imports ``yoke_core``) so stale ``docs/atlas.md`` is
+  staged into the same commit. Exit 1 blocks the commit.
 * ``git post-commit`` never takes local DB authority. It delegates to the
   product-safe ``yoke project snapshot sync --hook --head-only``
   scanner/dispatcher path and preserves the exit-0 degrade shape so a
@@ -22,7 +22,6 @@ Transport honesty:
 
 from __future__ import annotations
 
-import importlib
 import os
 import pathlib
 import subprocess
@@ -47,7 +46,8 @@ inputs make docs/atlas.md stale. Exit 1 blocks the commit; bypass with
 Invoked by the `.git/hooks/pre-commit` shim that `yoke project
 install` writes (both delivery strategies). Extra arguments from git are
 accepted and ignored. Product-safe checks: yoke_harness.git_hooks.pre_commit;
-Atlas refresh: yoke_core.tools.atlas_pre_commit_refresh (optional)."""
+Atlas refresh runs as `python3 -m yoke_core.tools.atlas_pre_commit_refresh`
+when the source module is present."""
 
 _POST_COMMIT_HELP = """\
 usage: yoke git post-commit
@@ -67,17 +67,11 @@ def _wants_help(args: List[str]) -> bool:
 
 
 def _refresh_atlas_currency_or_skip() -> None:
-    """Quietly refresh ``docs/atlas.md`` when currency inputs are staged.
+    """Spawn the Atlas refresher when this tree looks like Yoke source.
 
-    Optional: external projects without ``yoke_core`` skip silently.
-    Loaded dynamically so the CLI package keeps its engine-import boundary.
+    Never imports ``yoke_core`` — hook-local surfaces must stay product-
+    wheel safe. Missing module / non-source trees skip silently.
     """
-    try:
-        refresh = importlib.import_module(
-            "yoke_core.tools.atlas_pre_commit_refresh"
-        )
-    except ImportError:
-        return
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -93,10 +87,43 @@ def _refresh_atlas_currency_or_skip() -> None:
     if not root_text:
         return
     root = pathlib.Path(root_text)
-    staged = refresh.staged_name_only(root)
-    if not staged:
+    module_path = (
+        root / "packages" / "yoke-core" / "src" / "yoke_core" / "tools"
+        / "atlas_pre_commit_refresh.py"
+    )
+    if not module_path.is_file():
         return
-    refresh.stage_atlas_if_refreshed(root, staged_paths=staged)
+    if not (root / "docs" / "atlas.md").is_file():
+        return
+    env = os.environ.copy()
+    core_src = str(root / "packages" / "yoke-core" / "src")
+    cli_src = str(root / "packages" / "yoke-cli" / "src")
+    contracts_src = str(root / "packages" / "yoke-contracts" / "src")
+    harness_src = str(root / "packages" / "yoke-harness" / "src")
+    prior = env.get("PYTHONPATH", "")
+    parts = [core_src, cli_src, contracts_src, harness_src, str(root)]
+    if prior:
+        parts.append(prior)
+    env["PYTHONPATH"] = os.pathsep.join(parts)
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "yoke_core.tools.atlas_pre_commit_refresh",
+                "--target-root",
+                str(root),
+                "--stage-if-stale",
+            ],
+            cwd=str(root),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except Exception:
+        return
 
 
 def git_pre_commit(args: List[str]) -> int:

@@ -8,13 +8,6 @@ from __future__ import annotations
 
 CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     (
-        "packages/yoke-cli/src/yoke_cli/commands/git_hook.py",
-        "yoke_core.tools.atlas_pre_commit_refresh",
-    ): (
-        "source_dev_admin",
-        "pre-commit Atlas currency refresh on Yoke source checkouts",
-    ),
-    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.project_github_auth",
     ): (

@@ -3,11 +3,17 @@
 When staged paths touch Atlas currency inputs and ``docs/atlas.md`` is
 stale, rebuild and write it under ``target_root``. A no-op (unrelated
 staged set, or already current) returns ``None`` and prints nothing.
+
+Invoked from ``yoke git pre-commit`` as
+``python3 -m yoke_core.tools.atlas_pre_commit_refresh`` so the product
+CLI package never imports ``yoke_core`` (hook-local boundary).
 """
 
 from __future__ import annotations
 
+import argparse
 import subprocess
+import sys
 from pathlib import Path
 from typing import Sequence
 
@@ -77,7 +83,40 @@ def staged_name_only(target_root: Path) -> list[str]:
     return [line for line in result.stdout.splitlines() if line]
 
 
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI entry for the pre-commit subprocess path. Always exits 0."""
+    parser = argparse.ArgumentParser(
+        prog="atlas_pre_commit_refresh",
+        description="Quietly refresh and stage docs/atlas.md when stale.",
+    )
+    parser.add_argument(
+        "--target-root",
+        required=True,
+        help="Repository root that owns docs/atlas.md.",
+    )
+    parser.add_argument(
+        "--stage-if-stale",
+        action="store_true",
+        help="git-add docs/atlas.md when a refresh writes new content.",
+    )
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    root = Path(args.target_root).resolve()
+    staged = staged_name_only(root)
+    if not staged:
+        return 0
+    if args.stage_if_stale:
+        stage_atlas_if_refreshed(root, staged_paths=staged)
+    else:
+        refresh_if_stale(root, staged_paths=staged)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+
 __all__ = [
+    "main",
     "refresh_if_stale",
     "stage_atlas_if_refreshed",
     "staged_name_only",

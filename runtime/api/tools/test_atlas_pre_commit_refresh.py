@@ -182,14 +182,51 @@ class TestCliPreCommitAtlasRefresh:
         assert hook.git_pre_commit([]) == 0
         assert called == [True]
 
-    def test_missing_yoke_core_skips_quietly(self, monkeypatch, capsys) -> None:
+    def test_missing_source_module_skips_quietly(
+        self, tmp_path, monkeypatch, capsys,
+    ) -> None:
         from yoke_cli.commands import git_hook as hook
 
-        def boom(_name: str):
-            raise ImportError("simulated missing yoke_core")
-
-        monkeypatch.setattr(hook.importlib, "import_module", boom)
+        monkeypatch.setattr(
+            hook.subprocess,
+            "run",
+            lambda *a, **k: type(
+                "R", (), {"returncode": 0, "stdout": str(tmp_path) + "\n"},
+            )(),
+        )
         hook._refresh_atlas_currency_or_skip()
         captured = capsys.readouterr()
         assert captured.out == ""
         assert captured.err == ""
+
+    def test_spawns_module_when_source_present(
+        self, tmp_path, monkeypatch,
+    ) -> None:
+        from yoke_cli.commands import git_hook as hook
+
+        module = (
+            tmp_path / "packages" / "yoke-core" / "src" / "yoke_core"
+            / "tools" / "atlas_pre_commit_refresh.py"
+        )
+        module.parent.mkdir(parents=True)
+        module.write_text("# stub\n", encoding="utf-8")
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "atlas.md").write_text("# atlas\n", encoding="utf-8")
+        calls: list[list[str]] = []
+
+        def fake_run(argv, **kwargs):
+            if argv[:2] == ["git", "rev-parse"]:
+                return type(
+                    "R", (), {"returncode": 0, "stdout": str(tmp_path) + "\n"},
+                )()
+            calls.append(list(argv))
+            return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+        monkeypatch.setattr(hook.subprocess, "run", fake_run)
+        hook._refresh_atlas_currency_or_skip()
+        assert calls
+        assert calls[0][1:3] == [
+            "-m", "yoke_core.tools.atlas_pre_commit_refresh",
+        ]
+        assert "--stage-if-stale" in calls[0]
+        assert "--target-root" in calls[0]
