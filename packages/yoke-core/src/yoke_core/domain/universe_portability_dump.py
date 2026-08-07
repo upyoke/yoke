@@ -106,10 +106,32 @@ def dump_universe(
         if workers[0].is_alive():
             raise subprocess.TimeoutExpired([executable], timeout_s)
     except subprocess.TimeoutExpired as exc:
+        # Attribute the stall before terminate() destroys the evidence: a
+        # still-running pg_dump points at the server or the network, while an
+        # exited pg_dump with a live pump thread points at the archive write.
+        phase = (
+            "the archive write stalled after pg_dump exited"
+            if process.poll() is not None
+            else "pg_dump was still running"
+        )
+        elapsed = int(time.monotonic() - (deadline - timeout_s))
         terminate(process)
         archive_output.cleanup()
+        # The kill closes the stderr pipe, so the diagnostic reader reaches
+        # EOF; wait for it briefly so the logged tail is complete rather than
+        # whatever the race left behind.
+        workers[1].join(timeout=2)
+        _log.error(
+            "universe export timed out after %ss (%s; %ss elapsed);"
+            " redacted stderr tail:\n%s",
+            timeout_s,
+            phase,
+            elapsed,
+            _redacted_stderr_tail(stderr_tail, client_env),
+        )
         raise UniversePortabilityError(
             f"universe export timed out after {timeout_s}s"
+            f" ({phase}; {elapsed}s elapsed)"
         ) from exc
     finally:
         terminate(process)
@@ -125,14 +147,10 @@ def dump_universe(
         ) from error
     if process.returncode != 0:
         archive_output.cleanup()
-        diagnostic = bytes(stderr_tail).decode("utf-8", errors="replace")
-        password = client_env.get("PGPASSWORD", "")
-        if password:
-            diagnostic = diagnostic.replace(password, "<redacted-secret>")
         _log.error(
             "portable universe export failed rc=%s; redacted stderr tail:\n%s",
             process.returncode,
-            "\n".join(diagnostic.strip().splitlines()[-12:]) or "<no stderr>",
+            _redacted_stderr_tail(stderr_tail, client_env),
         )
         raise UniversePortabilityError(
             "universe export failed; see the server log for the redacted"
@@ -152,6 +170,18 @@ def dump_universe(
     except universe_archive_output.PrivateArchiveOutputError as exc:
         archive_output.cleanup()
         raise UniversePortabilityError(str(exc)) from exc
+
+
+def _redacted_stderr_tail(
+    stderr_tail: bytearray,
+    client_env: dict[str, str],
+) -> str:
+    """The last stderr lines with the connection password scrubbed."""
+    diagnostic = bytes(stderr_tail).decode("utf-8", errors="replace")
+    password = client_env.get("PGPASSWORD", "")
+    if password:
+        diagnostic = diagnostic.replace(password, "<redacted-secret>")
+    return "\n".join(diagnostic.strip().splitlines()[-12:]) or "<no stderr>"
 
 
 def archive_pump(

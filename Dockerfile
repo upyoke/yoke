@@ -1,4 +1,7 @@
-# syntax=docker/dockerfile:1.7
+# No `# syntax=` frontend pin: this file uses only builtin-frontend features,
+# and an external frontend directive makes every build fetch that image from
+# Docker Hub first — one more registry round-trip that can fail the whole
+# build on a transient network error before any real work starts.
 
 FROM python:3.13-slim AS builder
 
