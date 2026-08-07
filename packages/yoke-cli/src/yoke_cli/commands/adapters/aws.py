@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import subprocess
 import sys
-from typing import List
+from typing import Any, Dict, List, Optional
 
-from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands._helpers import ensure_handlers_loaded, parse_or_usage_error
 from yoke_cli.commands.adapters.dev import DEFAULT_PROJECT_ID, PROJECT_ID_ENV
+from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
+from yoke_contracts.api.function_call import TargetRef
 
 AWS_EXEC_USAGE = (
     "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>"
@@ -17,6 +20,7 @@ AWS_EXEC_USAGE = (
 AWS_ADMIN_LINK_USAGE = (
     "yoke aws admin-link [--project PROJECT] [--region REGION]"
 )
+_AWS_ADMIN_CAPABILITY = "aws-admin"
 
 
 def aws_admin_link(args: List[str]) -> int:
@@ -92,14 +96,16 @@ def aws_exec(args: List[str]) -> int:
 
     project = parsed.project or _default_project()
     try:
-        deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
-        region = parsed.region or deploy_remote.aws_capability_region(project)
+        region = parsed.region or _aws_admin_region(project)
         if not region:
             raise AwsExecAdapterError(
                 f"project '{project}' aws-admin capability settings declare "
                 "no region; set settings.region or pass --region"
             )
-        env = deploy_remote.aws_capability_env(project, region)
+        # Machine-local secrets + relayed settings: works on https without a
+        # local Postgres open (same shape as yoke pulumi exec / yoke vps).
+        deploy_remote = importlib.import_module("yoke_core.domain.deploy_remote")
+        env = deploy_remote.aws_machine_capability_env(project, region)
     except Exception as exc:
         print(f"error: aws-admin capability resolution failed: {exc}", file=sys.stderr)
         return 1
@@ -110,6 +116,35 @@ def aws_exec(args: List[str]) -> int:
         print("error: aws CLI executable not found on PATH", file=sys.stderr)
         return 127
     return int(completed.returncode)
+
+
+def _aws_admin_region(project: str, *, session_id: Optional[str] = None) -> Optional[str]:
+    """Read aws-admin settings.region through the active control-plane transport."""
+    ensure_handlers_loaded()
+    response = call_dispatcher(
+        function_id="projects.capability_settings.get",
+        target=TargetRef(kind="global"),
+        payload={"project": project, "cap_type": _AWS_ADMIN_CAPABILITY},
+        actor=build_actor(session_id=session_id),
+    )
+    if not response.success:
+        message = (
+            response.error.message
+            if response.error is not None
+            else "capability settings read failed"
+        )
+        raise AwsExecAdapterError(message)
+    result: Dict[str, Any] = response.result or {}
+    settings_json = result.get("settings_json")
+    if settings_json is None:
+        return None
+    parsed = json.loads(str(settings_json))
+    if not isinstance(parsed, dict):
+        raise AwsExecAdapterError(
+            f"project '{project}' aws-admin capability settings must be a JSON object"
+        )
+    region = str(parsed.get("region") or "").strip()
+    return region or None
 
 
 def _default_project() -> str:
