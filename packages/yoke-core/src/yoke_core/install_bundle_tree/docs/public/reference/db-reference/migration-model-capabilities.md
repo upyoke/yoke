@@ -96,10 +96,10 @@ digest mismatch is fatal before the current fast path, restore-point creation,
 or mutation. A legacy NULL is reported as `adoption_required`, not silently
 filled and not treated as a boot mismatch. Per new applied entry the ledger
 records membership, raw-byte SHA256, and the declared serving floor in the
-same transaction. Decision records:
-[`project-migration-ledger-contract.md`](../../../docs/archive/decisions/project-migration-ledger-contract.md)
+same transaction. Decision records (Yoke source tree):
+`docs/archive/decisions/project-migration-ledger-contract.md`
 (membership vs threshold) and
-[`project-migration-rollback-safety.md`](../../../docs/archive/decisions/project-migration-rollback-safety.md)
+`docs/archive/decisions/project-migration-rollback-safety.md`
 (why the floor is required). `HC-project-migration-ledger-contract` reports
 whether a declaring project satisfies the contract; unreadable is a finding,
 never a PASS.
@@ -305,9 +305,9 @@ rejected.
 ## Webapp Pack Configuration
 
 The Webapp Scaffold Pack's
-[`settings-reference.json`](../../packs/webapp-scaffold/versions/1.1.2/settings-reference.json)
-carries a top-level `migration_model_defaults` block describing what an
-installed webapp project can declare:
+`packs/webapp-scaffold/versions/1.1.2/settings-reference.json`
+(Yoke source tree) carries a top-level `migration_model_defaults` block
+describing what an installed webapp project can declare:
 
 ```json
 {

@@ -87,8 +87,8 @@ Three failure shapes surface stale registrations:
 
 ## Skill-side resolution
 
-Operator-facing workflow for path-claim overlap denial lives in
-[`.agents/skills/yoke/idea/path-claim-blocking.md`](../../.agents/skills/yoke/idea/path-claim-blocking.md).
+Operator-facing workflow for path-claim overlap denial lives in the Yoke
+source-tree skill doc `.agents/skills/yoke/idea/path-claim-blocking.md`.
 Section 0 names this auto-classification so operators understand why
 some overlaps that would have required `coordination_only` edges now
 resolve silently.
