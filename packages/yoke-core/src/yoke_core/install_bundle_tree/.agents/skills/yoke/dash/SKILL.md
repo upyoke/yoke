@@ -89,6 +89,12 @@ files and prints the item; it does not execute it.
   `/yoke refine` on acquire; release is conditional on what close-out
   already did.
 - Perform all writes in the registered item worktree, never in main.
+- An item belonging to another project prepares its lane in THAT
+  project's checkout: worktree preparation resolves the item's project
+  machine mapping (`yoke project register <checkout> --project-id <id>`
+  adds a missing one) and refuses rather than borrowing the session's
+  repo. The work claim covers the recorded lane; repair a wrong-repo
+  lane with `yoke item-worktrees path-record`.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
   multi-slice work, halt and discuss escalation with the operator. Escalation

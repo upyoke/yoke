@@ -151,3 +151,45 @@ def test_real_absolute_path_still_extracts():
     assert extract_command_targets(cmd) == [
         "/Users/dev/yoke/.worktrees/YOK-1/source.py"
     ]
+
+
+class TestYokePayloadPathSegments:
+    """``yoke`` registration adapters carry path ARGUMENTS as payload."""
+
+    def test_item_worktrees_path_record_extracts_nothing(self):
+        cmd = (
+            "yoke item-worktrees path-record PLAT-10 --worktree-id 2644 "
+            "--branch PLAT-10 --path /Users/dev/platform/.worktrees/PLAT-10"
+        )
+        assert extract_command_targets(cmd) == []
+
+    def test_project_register_extracts_nothing(self):
+        cmd = "yoke project register /Users/dev/platform --project-id 3"
+        assert extract_command_targets(cmd) == []
+
+    def test_global_value_flag_does_not_hide_the_subcommand(self):
+        cmd = (
+            "yoke --env prod-db-admin item-worktrees path-record YOK-1 "
+            "--worktree-id 5 --branch YOK-1 --path /Users/dev/other/.worktrees/YOK-1"
+        )
+        assert extract_command_targets(cmd) == []
+
+    def test_file_writing_yoke_commands_keep_extraction(self):
+        assert extract_command_targets(
+            "yoke strategy render --target-root /Users/dev/yoke"
+        ) == ["/Users/dev/yoke"]
+        assert "/tmp/capture.raw.log" in extract_command_targets(
+            "yoke watch pytest --raw-capture /tmp/capture.raw.log -- -q"
+        )
+
+    def test_project_refresh_is_not_exempt(self):
+        assert extract_command_targets(
+            "yoke project refresh /Users/dev/platform --project-id 3"
+        ) == ["/Users/dev/platform"]
+
+    def test_exemption_survives_command_chaining(self):
+        cmd = (
+            "cd /tmp && yoke item-worktrees path-record YOK-9 "
+            "--worktree-id 1 --branch YOK-9 --path /Users/dev/repo/.worktrees/YOK-9"
+        )
+        assert extract_command_targets(cmd) == ["/tmp"]

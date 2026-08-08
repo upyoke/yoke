@@ -108,31 +108,11 @@ def run_preflight(
     branch, recorded_lane_path = resolve_item_branch_and_lane(item_id)
     out = WorktreePreflightOutcome(item_id=item_id, branch=branch)
 
-    if repo_root is None:
-        from yoke_core.domain.worktree_paths import (
-            _resolve_repo_root_from_cwd,
-        )
-
-        if project:
-            from yoke_core.domain.project_checkout_locations import (
-                checkout_for_project_slug,
-            )
-
-            checkout = checkout_for_project_slug(project)
-            repo_root = str(checkout) if checkout is not None else ""
-        else:
-            repo_root = _resolve_repo_root_from_cwd()
-    repo_root = _normalize_repo_root(repo_root or "") or ""
-    if not repo_root:
-        out.ok = False
-        out.block_kind = BLOCK_INPUT
-        out.narrative = "Could not resolve repo root for preflight."
-        return out
-
-    # Step 0 — items.blocked refusal. Fires before claim
-    # acquisition so an operator-blocked item never silently grabs the work
-    # claim only to be refused later. The pre-commit worktree-status guard
-    # is unchanged because blocked is a routing hold, not a filesystem hold.
+    # Step 0 — item detail: the blocked refusal fires before claim
+    # acquisition, and the item's own project owns lane repo resolution —
+    # a cross-repo item's lane belongs in ITS project's checkout, never
+    # in whichever repo the session happens to be standing.
+    item: Dict[str, Any] = {}
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
@@ -159,8 +139,26 @@ def run_preflight(
                 item_ref=item_ref,
             )
             return out
-    except Exception:  # noqa: BLE001 - degrade if the blocked read is unavailable
-        pass
+    except Exception:  # noqa: BLE001 - degrade if the detail read is unavailable
+        item = {}
+
+    from yoke_core.domain.worktree_preflight_repo_resolution import (
+        resolve_preflight_repo_root,
+    )
+
+    repo_root, resolution_error = resolve_preflight_repo_root(
+        item=item,
+        project_flag=project,
+        repo_root_override=repo_root,
+    )
+    repo_root = _normalize_repo_root(repo_root or "") or ""
+    if not repo_root:
+        out.ok = False
+        out.block_kind = BLOCK_INPUT
+        out.narrative = (
+            resolution_error or "Could not resolve repo root for preflight."
+        )
+        return out
 
     # Step 1 — work claim.
     ok, claim_msg = claim_work(item_id)

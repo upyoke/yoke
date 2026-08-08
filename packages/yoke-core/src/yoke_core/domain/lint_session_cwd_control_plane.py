@@ -238,7 +238,13 @@ SCOPE_MISMATCH_TEMPLATE = (
     "Allowed targets:\n"
     "{allowed_block}"
     "Remediation: Acquire a claim on the intended worktree, correct the "
-    "target path, or use a control-plane path."
+    "target path, or use a control-plane path.\n"
+    "Cross-repo item (the target is another project's repo): worktree "
+    "preparation resolves the ITEM's project checkout from the machine "
+    "mapping — register a missing mapping with `yoke project register "
+    "<checkout> --project-id <id>`, or repair a wrong-repo lane with "
+    "`yoke item-worktrees path-record` — the claim then covers the "
+    "recorded lane."
 )
 
 

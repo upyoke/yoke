@@ -91,6 +91,50 @@ _SEARCH_COMMANDS = frozenset({
     "grep", "egrep", "fgrep", "rg", "ripgrep", "ag", "ack",
 })
 
+# ``yoke`` control-plane registration adapters take path-shaped ARGUMENTS
+# that are function payload — a row naming a path — not filesystem write
+# targets; the engine validates its own mutations against claim authority.
+# Denying them created an unrecoverable loop: repairing a wrong-repo lane
+# registration requires naming the correct lane path, but the claim cannot
+# cover that path until the registration lands. Only the named
+# registration/repair shapes are exempt — file-writing yoke commands
+# (watch captures, renders with ``--target-root``) keep full extraction.
+_YOKE_PAYLOAD_PATH_SUBCOMMANDS = (
+    ("item-worktrees",),
+    ("project", "register"),
+)
+
+# Yoke global flags that consume a value token; the value must not be
+# mistaken for the subcommand when matching the exempt shapes above.
+_YOKE_VALUE_FLAGS = frozenset({"--env", "--config", "--session-id"})
+
+
+def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
+    """True when the segment is an exempt ``yoke`` registration adapter."""
+    if command_base != "yoke":
+        return False
+    positionals: List[str] = []
+    seen_command = False
+    i = 0
+    while i < len(tokens) and len(positionals) < 2:
+        tok = tokens[i]
+        if tok in _YOKE_VALUE_FLAGS:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        if not seen_command:
+            seen_command = True
+            i += 1
+            continue
+        positionals.append(tok)
+        i += 1
+    return any(
+        tuple(positionals[: len(shape)]) == shape
+        for shape in _YOKE_PAYLOAD_PATH_SUBCOMMANDS
+    )
+
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 
 _REDIRECT_OPERATORS = frozenset({
@@ -139,6 +183,8 @@ def _extract_segment_targets(tokens: List[str]) -> List[str]:
         return []
 
     command_base = _segment_command_base(tokens)
+    if _is_yoke_payload_path_segment(command_base, tokens):
+        return []
     is_search = command_base in _SEARCH_COMMANDS
     sed_script_index = _sed_script_positional_index(command_base, tokens)
 
