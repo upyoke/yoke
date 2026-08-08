@@ -1,12 +1,14 @@
 """HC-shipped-doctrine-path-portability: shipped doctrine cites reachable paths.
 
-``yoke project install`` ships two doctrine surfaces into every managed
-project verbatim: the managed block of each repo-root doctrine file, and the
-Claude session rules tree. A repo path named inside either surface only means
-something to its reader if the install bundle puts a file there. Citing a Yoke
-source path the bundle does not ship — an ``docs/archive/`` decision record, an
-in-tree tool module — reads as a dangling reference in every managed project,
-which is how project-specific material re-enters the shipped block unnoticed.
+``yoke project install`` ships two kinds of surface into every managed project
+verbatim: the managed block of each repo-root doctrine file (the shared
+doctrine plus the per-harness shells), and the Claude session rules tree. A
+repo path named inside any of them only means something to its reader if the
+install bundle puts a file there. Citing a Yoke source path the bundle does not
+ship — a ``docs/archive/`` decision record, a harness-build reference under
+``docs/``, an in-tree tool module — reads as a dangling reference in every
+managed project, which is how project-specific material re-enters the shipped
+block unnoticed.
 
 A cited path gets one of three answers:
 
@@ -29,6 +31,7 @@ import re
 from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
+from yoke_contracts.cursor_permissions import CURSOR_CONFIG_RELS
 from yoke_contracts.packs import PACK_RECEIPT_REL
 from yoke_contracts.project_contract.managed_block import extract_block_body
 from yoke_core.domain.file_line_check_helpers import run_git
@@ -58,10 +61,6 @@ from yoke_core.engines.doctor_report import (
 
 _HC_NAME = "HC-shipped-doctrine-path-portability"
 _HC_DESC = "Shipped doctrine cites only paths a managed project has"
-
-# The repo-root file whose managed block carries the shared doctrine every
-# managed project installs into its own AGENTS.md / CLAUDE.md.
-_DOCTRINE_SOURCE = "AGENTS.md"
 
 # Where the bundle writes each source dir in an installed project. A cited
 # path under one of these prefixes is rendered from the paired source dir, so
@@ -102,6 +101,11 @@ def _exact_installed_paths() -> Set[str]:
     }
     # Created in the target project by `yoke pack install`, not by the bundle.
     paths.add(PACK_RECEIPT_REL)
+    # Cursor's command-approval and network-sandbox files. The bundle carries
+    # no content for them — their origins name the installing machine's own
+    # control plane — but `bundle_apply` merges Yoke's region into each during
+    # a managed install, so an installed project does have them.
+    paths.update(CURSOR_CONFIG_RELS)
     paths.update(INSTALL_BUNDLE_SOURCE_FILES)
     # The doctrine block installs into AGENTS.md and its auto-load twin.
     paths.add("CLAUDE.md")
@@ -113,19 +117,15 @@ def _exact_installed_paths() -> Set[str]:
 
 
 def _shipped_surfaces(root: Path) -> List[Tuple[str, str]]:
-    """``(label, text)`` for each shared-doctrine surface shipped verbatim.
-
-    The doctrine block and the session rules are the two surfaces that teach
-    project-agnostic rules. ``CODEX.md`` / ``CURSOR.md`` carry harness shells
-    rather than shared doctrine and are audited on their own track, so they
-    are outside this scan.
-    """
+    """``(label, text)`` for every managed-markdown block plus the session rules."""
     surfaces: List[Tuple[str, str]] = []
-    doctrine = root / _DOCTRINE_SOURCE
-    if doctrine.is_file():
-        body = extract_block_body(doctrine.read_text(encoding="utf-8", errors="replace"))
+    for name in INSTALL_BUNDLE_SOURCE_FILES:
+        source = root / name
+        if not source.is_file():
+            continue
+        body = extract_block_body(source.read_text(encoding="utf-8", errors="replace"))
         if body:
-            surfaces.append((f"{_DOCTRINE_SOURCE} (managed block)", body))
+            surfaces.append((f"{name} (managed block)", body))
     rules = root / CLAUDE_RULES_SOURCE
     if rules.is_dir():
         for path in sorted(

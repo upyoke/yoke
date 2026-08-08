@@ -9,7 +9,7 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 ## Bootstrap
 
-Cursor loads `AGENTS.md` automatically. The session-start hook (wired in `.cursor/hooks.json`) injects the Yoke orientation and the generated `main_agent` packet block through the `sessionStart` hook's `additional_context` output — the same compact `core` + `claims` schema/API spine other supported harness sessions receive. Substrate capability truth (hooks, identity, cwd binding, adapter render format, supported commands, parity limits) is documented as `harness_contract` in [`docs/harness-bootstrap.md`](docs/harness-bootstrap.md); the measured substrate mapping lives in [`docs/harness-cursor-assessment.md`](docs/harness-cursor-assessment.md).
+Cursor loads `AGENTS.md` automatically. The session-start hook (wired in `.cursor/hooks.json`) injects the Yoke orientation and the generated `main_agent` packet block through the `sessionStart` hook's `additional_context` output — the same compact `core` + `claims` schema/API spine other supported harness sessions receive. Substrate capability truth (hooks, identity, cwd binding, adapter render format, supported commands, parity limits) is documented as the `harness_contract` manifest, which the Cursor adapter carries alongside this shell.
 
 `.cursor/hooks.json` is the primary project-policy hook owner in Cursor. Cursor may also list compatible entries discovered in the regular `.claude/settings.json` file when third-party config import is enabled; with matched Cursor process/payload provenance they defer only to a valid matching native owner and otherwise remain the compatibility path. For stop/sessionEnd the order is native project hook, machine-local backstop, then Claude compatibility, so one owner dispatches even after a worktree is deleted or a project config is missing. Project refresh and source-dev setup materialize both Cursor-scanned files and migrate legacy in-repo symlinks.
 
@@ -83,10 +83,18 @@ Both files are regular files, never symlinks (Cursor refuses project config path
 
 The canonical lifecycle guide is [.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). For a live item, read `yoke workflows item get PREFIX-N` then `yoke workflows version get WORKFLOW VERSION`; the pinned definition is the source of truth for which executor owns the current stage. Routing for `/yoke do` lives in [.yoke/docs/reference/session-offer.md](.yoke/docs/reference/session-offer.md) and [.yoke/docs/reference/charge-frontier.md](.yoke/docs/reference/charge-frontier.md). Yoke core derives Cursor's supported-path set server-side from the shared registry plus any limitations declared in the Cursor manifest; the adapter does not self-report capabilities.
 
-## Related docs
+<!-- END YOKE MANAGED BLOCK -->
 
-- [Cursor Harness Integration Assessment](docs/harness-cursor-assessment.md) -- measured substrate mapping
+# Yoke Repo Internals (Cursor)
+<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Cursor shell `yoke project install` ships; the harness-build references below are yoke-source-dev material. -->
+
+## Harness contract references (yoke source dev)
+
+These describe how Yoke's harness adapters are built, measured, and compared.
+They live in `docs/`, which the install bundle does not ship, so they stay out
+of the managed block above:
+
+- [Cursor Harness Integration Assessment](docs/harness-cursor-assessment.md) -- measured substrate mapping for Cursor
 - [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
 - [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
 - [Hook Parity Map](docs/hook-parity-map.md) -- hook classification across harnesses
-<!-- END YOKE MANAGED BLOCK -->
