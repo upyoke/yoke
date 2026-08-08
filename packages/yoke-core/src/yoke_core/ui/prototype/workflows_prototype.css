@@ -1,0 +1,340 @@
+/* Prototype-only styling for the components the redesign adds. Everything
+   else is the product's own stylesheets, unchanged, so what is reviewed here
+   is the design and not a second look. */
+
+.universe-app-root .wp-panel-note {
+  max-width: 82ch;
+  margin: 0 0 12px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* Policy grid: wider cells than the old posture grid, because each one now
+   carries its meaning, its lever and its enforcement instead of a token. */
+.universe-app-root .wp-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+  gap: 9px;
+}
+
+.universe-app-root .wp-policy-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+}
+
+/* A derived description reads as a note, not a setting: no fill, no lock. */
+.universe-app-root .wp-policy-cell.wp-derived {
+  border-style: dashed;
+  background: transparent;
+}
+
+.universe-app-root .wp-policy-cell .workflow-posture-value {
+  margin-top: 1px;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+}
+
+.universe-app-root .wp-policy-cell .workflow-posture-value.wp-predates {
+  color: var(--yoke-muted);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.universe-app-root .wp-derived-tag {
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: var(--yoke-idle);
+  background: var(--yoke-idle-bg);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+}
+
+.universe-app-root .wp-policy-axes {
+  color: var(--yoke-ink-2);
+  font-family: var(--yoke-font-mono);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.universe-app-root .wp-policy-lever,
+.universe-app-root .wp-policy-enforced {
+  color: var(--yoke-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* The lever and its enforcement sink to the bottom of the cell, so the
+   grid reads across a row instead of drifting with each value's length. */
+.universe-app-root .wp-policy-lever {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.universe-app-root .wp-policy-enforced {
+  padding-top: 4px;
+  border-top: 1px dashed var(--yoke-border);
+}
+
+.universe-app-root .wp-policy-cell .workflow-button.compact {
+  align-self: flex-start;
+  margin-top: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* Execution instructions, inline. The content is the row: no title to keep
+   in sync with the prose, and nothing to click through to. */
+.universe-app-root .wp-instruction-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .wp-instruction-row:last-of-type {
+  border-bottom: 0;
+}
+
+.universe-app-root .wp-instruction-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.universe-app-root .wp-instruction-reach {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .wp-instruction-head .workflow-button {
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 11px;
+}
+
+.universe-app-root .wp-instruction-content {
+  max-width: 84ch;
+  margin: 0;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.universe-app-root .wp-new-instruction {
+  margin-top: 13px;
+}
+
+.universe-app-root .wp-instruction-input {
+  width: 100%;
+  min-height: 88px;
+  padding: 9px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  background: var(--yoke-bg);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.universe-app-root .workflow-field-label {
+  margin: 13px 0 5px;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .wp-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 9px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .workflow-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.universe-app-root .wp-checkbox-all {
+  padding-right: 14px;
+  border-right: 1px solid var(--yoke-border);
+  font-weight: 600;
+}
+
+/* A disabled member keeps its checked state visible: "all" covering it is
+   not the same fact as it being unselected. */
+.universe-app-root .wp-checkbox-group.all-selected .wp-checkbox-member {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .wp-editor-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.universe-app-root .wp-editor-actions .wp-delete {
+  margin-left: auto;
+  color: var(--yoke-crit);
+}
+
+/* Version history. Each row is a paragraph of history, so it needs vertical
+   room the old one-line timeline did not. */
+.universe-app-root .wp-version-timeline {
+  display: grid;
+}
+
+.universe-app-root .wp-version-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .wp-version-row:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .wp-version-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.universe-app-root .wp-version-badge.current {
+  padding: 1px 6px;
+  border-radius: 5px;
+  color: white;
+  background: var(--yoke-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .wp-version-facts {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .wp-version-rollback {
+  margin-top: 4px;
+  color: var(--yoke-accent, var(--yoke-muted));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.universe-app-root .wp-version-delta {
+  margin-top: 6px;
+}
+
+.universe-app-root .wp-version-delta-none {
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .workflow-diff-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 15px;
+}
+
+.universe-app-root .workflow-diff-change {
+  color: var(--yoke-ink-2);
+  font-family: var(--yoke-font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.universe-app-root .wp-version-controls {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.universe-app-root .wp-version-inspection {
+  display: grid;
+  gap: 9px;
+  margin-top: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-bg);
+  grid-column: 2 / -1;
+}
+
+/* Auto-follow sits above the list: it is the standing decision the history
+   below is the consequence of. */
+.universe-app-root .wp-follow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 13px;
+  padding: 11px 13px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .wp-follow-state {
+  flex: 0 0 auto;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.universe-app-root .wp-follow-note {
+  min-width: 240px;
+  flex: 1;
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.universe-app-root .wp-notice {
+  margin: 13px 0 0;
+  padding: 9px 12px;
+  border: 1px solid var(--yoke-accent);
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  background: var(--yoke-accent-weak);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .universe-app-root .wp-version-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .universe-app-root .wp-version-controls,
+  .universe-app-root .wp-version-inspection {
+    grid-column: 2;
+  }
+}

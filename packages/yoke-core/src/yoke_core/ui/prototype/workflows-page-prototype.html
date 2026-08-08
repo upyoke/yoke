@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Yoke — workflows page prototype</title>
+  <link rel="stylesheet" href="../static/theme.css">
+  <link rel="stylesheet" href="../static/shell.css">
+  <link rel="stylesheet" href="../static/app.css">
+  <link rel="stylesheet" href="../static/workflows.css">
+  <link rel="stylesheet" href="../static/workflow_controls.css">
+  <link rel="stylesheet" href="../static/workflow_canon_status.css">
+  <link rel="stylesheet" href="../static/workflow_mechanics.css">
+  <link rel="stylesheet" href="./workflows_prototype.css">
+  <style>
+    /* Prototype chrome only, never the product: the bar exists so nobody can
+       mistake this page for the app. */
+    .prototype-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-sizing: border-box;
+      height: 34px;
+      padding: 0 16px;
+      border-bottom: 1px solid #2a2e37;
+      color: #e7e9ee;
+      background: #111318;
+      font-family: var(--yoke-font-sans);
+      font-size: 12px;
+    }
+    .prototype-bar .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--yoke-warn);
+    }
+    .prototype-bar b { font-weight: 600; }
+    .prototype-bar span { opacity: .75; }
+    /* The product's frame owns its own scrolling inside a content column this
+       page does not mount, so the prototype owns the scroll instead. */
+    .universe-app-root {
+      height: calc(100dvh - 34px);
+      overflow-y: auto;
+    }
+    .prototype-page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 22px 30px 60px;
+    }
+  </style>
+</head>
+<body class="local-universe-page">
+  <div class="prototype-bar">
+    <span class="dot"></span>
+    <b>Workflows page prototype</b>
+    <span>sample data · nothing is saved · not the product</span>
+  </div>
+  <div class="universe-app-root">
+    <div class="prototype-page">
+      <div id="prototype-root"></div>
+    </div>
+  </div>
+  <script type="module">
+    import { render } from "./workflows_prototype_app.js";
+    render(document);
+  </script>
+</body>
+</html>
