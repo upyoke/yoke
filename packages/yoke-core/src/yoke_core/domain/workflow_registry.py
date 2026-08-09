@@ -235,13 +235,26 @@ def _workflow_canon_status(version_row: Mapping[str, Any]) -> dict:
     definition sitting on the newest generation needs nothing; one whose
     baseline has been overtaken needs a merge, not an overwrite, and saying so
     requires the recorded baseline rather than a guess.
+
+    The stored ``follow`` setting and the last automatic adoption ride along,
+    because both are facts about this same relationship: a reader deciding what
+    to show about an update needs to know whether the next one arrives by
+    itself. Neither appears where there is no canon to stand against, since a
+    following setting for a workflow nothing publishes describes nothing.
     """
     workflow_id = str(version_row["workflow_id"])
     generations = canon_generations(workflow_id)
     if str(version_row["source"]) != "built_in" or not generations:
         return {"state": "not_applicable"}
     newest = generations[-1]
-    status = {"latest_canon_version": newest.canon_version}
+    adopted_from = version_row.get("canon_adopted_from_version")
+    status = {
+        "latest_canon_version": newest.canon_version,
+        "follow": str(version_row.get("canon_follow") or "auto"),
+        "adopted_from_version": (
+            None if adopted_from is None else int(adopted_from)
+        ),
+    }
     current = recognize(workflow_id, str(version_row["definition_digest"]))
     if current is not None:
         status["current_canon_version"] = current.canon_version
@@ -272,7 +285,8 @@ def list_current_workflows(conn: Any) -> list[dict]:
         "w.current_version_id, v.version, v.definition_schema_version, "
         "v.definition_json, v.definition_digest, v.published_at, "
         "v.published_by_actor_id, v.immutable_at, "
-        "v.derived_from_canon_version "
+        "v.derived_from_canon_version, "
+        "w.canon_follow, w.canon_adopted_from_version "
         "FROM workflows w "
         "JOIN workflow_versions v ON v.id = w.current_version_id "
         "ORDER BY w.name, w.id"

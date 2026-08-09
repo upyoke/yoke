@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.builtin_workflow_canon import (
+    canon_generations,
+    recognize,
+)
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
@@ -16,6 +20,25 @@ from yoke_core.domain.workflow_registry_rows import (
     workflow_row,
 )
 from yoke_core.domain.workflow_registry_sql import marker
+
+
+def _holds_newest_canon(target: Any) -> bool:
+    """Whether *target* holds the newest generation Yoke has published.
+
+    A universe sitting on that generation has nothing for boot convergence to
+    move it onto, so following may stay on. Every other selection -- an older
+    generation, a local edit, a workflow with no canon to compare against -- is
+    a definition convergence would move off on the next boot.
+    """
+    workflow_id = str(target["workflow_id"])
+    generations = canon_generations(workflow_id)
+    if not generations:
+        return False
+    held = recognize(workflow_id, str(target["definition_digest"]))
+    return (
+        held is not None
+        and held.canon_version == generations[-1].canon_version
+    )
 
 
 def set_current_workflow_version(
@@ -58,9 +81,20 @@ def set_current_workflow_version(
         raise WorkflowRegistryError(
             f"unknown workflow version {workflow_id}@{version}"
         )
+    # Selecting anything but the newest published generation stops this
+    # workflow following it. Otherwise the next boot would move it straight
+    # back and a rollback would last only until the next restart. Following is
+    # never turned back ON here: re-enabling an automatic behavior an operator
+    # switched off is their call, not a side effect of picking a version. The
+    # adoption notice clears either way, because it described a move this
+    # selection supersedes.
+    stop_following = (
+        "" if _holds_newest_canon(target) else "canon_follow = 'manual', "
+    )
     conn.execute(
-        f"UPDATE workflows SET current_version_id = {bind}, "
-        f"updated_at = {bind} WHERE id = {bind}",
+        f"UPDATE workflows SET current_version_id = {bind}, {stop_following}"
+        f"canon_adopted_from_version = NULL, updated_at = {bind} "
+        f"WHERE id = {bind}",
         (int(target["id"]), iso8601_now(), workflow_id),
     )
     conn.commit()

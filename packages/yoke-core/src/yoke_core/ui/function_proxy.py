@@ -97,6 +97,8 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "workflow.execution_instruction.set_scope",
     "workflow.execution_instruction.delete",
     "workflows.canon_update.apply",
+    "workflows.canon_update.apply_all",
+    "workflows.canon_follow.set",
     "overview.module.dismiss",
     "overview.module.restore",
     "workflows.current.set",

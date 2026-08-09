@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import workflows_definition as _wd
 from yoke_core.domain.handlers import workflows_version_list as _wvl
 from yoke_core.domain.handlers import workflows_versioning as _wv
 from yoke_core.domain.handlers import (
+    workflows_canon_follow as _wcf,
     workflows_canon_update as _wcu,
 )
 
@@ -106,6 +107,34 @@ def register(registry) -> None:
         side_effects=["workflow_version_published"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["immutable_version_append"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.canon_update.apply_all",
+        _wcu.handle_workflows_canon_update_apply_all,
+        _wcu.WorkflowCanonUpdateApplyAllRequest,
+        _wcu.WorkflowCanonUpdateApplyAllResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_canon_update",
+        target_kinds=["global"],
+        side_effects=["workflow_version_published"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_append"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.canon_follow.set",
+        _wcf.handle_workflows_canon_follow_set,
+        _wcf.WorkflowCanonFollowSetRequest,
+        _wcf.WorkflowCanonFollowSetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_canon_follow",
+        target_kinds=["global"],
+        side_effects=["workflows_canon_follow_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
         adapter_status="internal",
         claim_required_kind=None,
     )

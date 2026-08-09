@@ -63,8 +63,12 @@ class TestRegistrationShape:
             # Taking a published workflow update is an operator decision made
             # in the browser, next to the diff that explains it. It publishes
             # a version like its siblings above, and refuses rather than
-            # resolving when the merge conflicts with local edits.
+            # resolving when the merge conflicts with local edits. Taking
+            # every pending update at once, and turning automatic adoption
+            # back on, are the same decision at a different grain.
             "workflows.canon_update.apply",
+            "workflows.canon_update.apply_all",
+            "workflows.canon_follow.set",
             # Execution instructions are operator-authored in the browser,
             # next to the workflow roster they scope over.
             "workflow.execution_instruction.create",

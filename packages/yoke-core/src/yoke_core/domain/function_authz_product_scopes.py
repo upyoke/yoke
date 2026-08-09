@@ -83,8 +83,12 @@ PRODUCT_AUTHZ_BY_ID = {
     # test-machine execution remain scoped to their project.
     "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Taking a published update publishes a workflow version, so it
-    # carries the same authority as selecting or editing one.
+    # carries the same authority as selecting or editing one. Taking
+    # several at once, and deciding whether the next one arrives without
+    # being asked, are the same authority over the same definitions.
     "workflows.canon_update.apply": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "workflows.canon_update.apply_all": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "workflows.canon_follow.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.policy_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.mechanics.get": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflows.testing_default.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
