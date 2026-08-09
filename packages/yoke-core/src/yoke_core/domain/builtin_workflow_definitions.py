@@ -17,6 +17,7 @@ from yoke_core.domain.builtin_direct_workflow_definitions import (
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_SKILL_IDS,
+    TASK_PRODUCING_PLANNING_SKILL_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
 )
 from yoke_core.domain.workflow_definition_codec import definition_digest
@@ -90,6 +91,7 @@ __all__ = [
     "BUILTIN_WORKFLOW_IDS",
     "ENTRY_SURFACE_IDS",
     "REGISTERED_WORKFLOW_SKILL_IDS",
+    "TASK_PRODUCING_PLANNING_SKILL_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "builtin_workflow_definition",
     "builtin_workflow_definitions",

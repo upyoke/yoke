@@ -38,6 +38,10 @@ IMPLEMENTATION_WORKFLOW_SKILL_IDS = frozenset(
         "dash",
     }
 )
+#: Skills whose planning phase writes ``epic_tasks`` rows. A definition may only
+#: declare ``generated_children="epic_tasks"`` when it binds one of these, or it
+#: promises decomposition no skill in its own lifecycle ever produces.
+TASK_PRODUCING_PLANNING_SKILL_IDS = frozenset({"shepherd"})
 ENTRY_SURFACE_IDS = frozenset(
     {
         "cli",

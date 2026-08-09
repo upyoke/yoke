@@ -6,6 +6,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
+    TASK_PRODUCING_PLANNING_SKILL_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_FILE_BUDGET_REQUIRED,
@@ -171,6 +172,37 @@ def _validate_approval_defaults(
             )
 
 
+def _validate_generated_children_producer(
+    definition: Mapping[str, Any],
+    policies: Mapping[str, Any],
+) -> None:
+    """Refuse promised decomposition no skill in this lifecycle produces.
+
+    ``generated_children="epic_tasks"`` is a claim that this workflow's own
+    planning phase writes ``epic_tasks`` rows. Only a task-producing planning
+    skill does, so a definition declaring the policy without binding one
+    validates today and then never populates anything -- readers downstream
+    treat the empty task set as a finished decomposition rather than an absent
+    one. Keyed on the bound skills rather than the workflow id, so the rule
+    stays true of a workflow nobody has authored yet.
+    """
+    if policies["generated_children"] != "epic_tasks":
+        return
+    bound = {
+        str(binding.get("skill_id"))
+        for binding in require_sequence(
+            definition.get("skill_bindings"), "skill_bindings"
+        )
+        if isinstance(binding, Mapping)
+    }
+    if not bound & TASK_PRODUCING_PLANNING_SKILL_IDS:
+        raise WorkflowDefinitionError(
+            "policies.generated_children=epic_tasks requires a skill binding "
+            "that produces tasks: "
+            f"{sorted(TASK_PRODUCING_PLANNING_SKILL_IDS)}"
+        )
+
+
 def _validate_policies(definition: Mapping[str, Any]) -> None:
     policies = require_mapping(definition.get("policies"), "policies")
     forbidden = set(policies) & _CORE_INVARIANT_KEYS
@@ -216,6 +248,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
         raise WorkflowDefinitionError(
             "required_per_task policies require generated_children=epic_tasks"
         )
+    _validate_generated_children_producer(definition, policies)
     if "approval_defaults" in policies:
         _validate_approval_defaults(definition, policies)
 
