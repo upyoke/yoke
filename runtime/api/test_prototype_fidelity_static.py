@@ -46,6 +46,10 @@ def test_workflow_and_intake_styles_keep_prototype_geometry() -> None:
         "workflows.css",
         "workflow_controls.css",
         "workflow_mechanics.css",
+        # The posture grid's own stylesheet: its rules left workflows.css when
+        # they outgrew the authored-file limit, and the geometry they carry is
+        # still part of the workflows page's prototype fidelity.
+        "workflow_posture.css",
     )
     for fragment in (
         "margin: -2px 0 0",

@@ -321,7 +321,6 @@ def test_every_nav_destination_is_routable_and_scoped():
         "delivery",
         "qa",
         "workflows",
-        "instructions",
         "capabilities",
         "events",
         "doctor",
@@ -337,6 +336,9 @@ def test_every_nav_destination_is_routable_and_scoped():
     ):
         assert f'id: "{destination}"' in page_module, destination
     assert 'id: "board"' not in page_module
+    # Execution instructions are edited inside the workflows page; a nav
+    # entry of their own would lead to a screen that no longer exists.
+    assert 'id: "instructions"' not in page_module
     # Host-fed screens sit in the same flat nav arc as every other view, and
     # the flag ties each entry's visibility to a host-supplied section.
     for host_fed in ("members", "billing"):
