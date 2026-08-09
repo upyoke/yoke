@@ -249,7 +249,13 @@ test("the editable path-claims default publishes a new immutable version", async
     },
   );
   assert.ok(classText(root, "workflow-posture-value").includes("on by default"));
-  assert.ok(classText(root, "workflow-posture-value").includes("one"));
+  // Every workflow reads its lane policy the same way; Dash had a private
+  // shorthand that matched no policy value.
+  assert.ok(
+    classText(root, "workflow-posture-value").includes(
+      "one implementation lane",
+    ),
+  );
   assert.ok(classText(root, "workflow-detail-row-description").includes(
     "Run /yoke dash in a supported harness like Claude Code or Codex — " +
     "it runs the whole item: survey, worktree, execute, verify, merge, evidence.",

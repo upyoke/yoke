@@ -29,6 +29,18 @@ function renderInspection(documentNode, row, result, makeCurrent) {
     ));
   }
   if (makeCurrent) {
+    // Selecting an older version stops the workflow taking published updates
+    // on its own, because otherwise the next boot would move it forward again
+    // and the choice would last until the next restart. Said before the click,
+    // not discovered after it.
+    inspection.appendChild(el(
+      documentNode,
+      "p",
+      "workflow-version-consequence",
+      "Making this current stops automatic updates for this workflow, so a " +
+        "restart cannot move it forward again. Turn them back on when you " +
+        "want the newest Yoke version.",
+    ));
     const makeCurrentButton = button(
       documentNode, "Make current", "workflow-button compact",
     );
@@ -134,6 +146,29 @@ function provenanceNote(documentNode, workflow, version) {
 }
 
 
+function pinnedNote(documentNode, version, current) {
+  // What separates a version worth keeping from one that is merely readable:
+  // whether live work is pinned to it. Zero is said out loud on a non-current
+  // version, because "no items" is the fact that makes it safe to ignore, and
+  // leaving it blank reads as unknown.
+  // Null means the count could not be determined, which is not the same as
+  // zero: saying "no items pin this" would be a claim the read never made.
+  if (version.pinned_item_count == null) return null;
+  const count = Number(version.pinned_item_count);
+  if (!Number.isFinite(count)) return null;
+  if (!count && current) return null;
+  return el(
+    documentNode,
+    "div",
+    "workflow-version-pinned",
+    count === 0
+      ? "No items pin this version."
+      : `${count} item${count === 1 ? "" : "s"} pin${
+        count === 1 ? "s" : ""
+      } this version.`,
+  );
+}
+
 function versionRow(documentNode, workflow, version, actions) {
   const current = Number(version.version) ===
     Number(workflow.current_version);
@@ -160,6 +195,8 @@ function versionRow(documentNode, workflow, version, actions) {
         : "New items pin this version."
       : "Readable and eligible to become current again.",
   ));
+  const pinned = pinnedNote(documentNode, version, current);
+  if (pinned) summary.appendChild(pinned);
   const provenance = provenanceNote(documentNode, workflow, version);
   if (provenance) {
     summary.appendChild(provenance);

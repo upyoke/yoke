@@ -67,8 +67,8 @@ test("workflow posture follows the selected immutable version", async (t) => {
     t, workflowsClient([historical]),
   );
   assert.equal(
-    byClass(oldView.root, "workflow-posture-label").some(
-      (node) => node.children.at(-1)?.textContent === "File Budget",
+    byClass(oldView.root, "workflow-posture-name").some(
+      (node) => node.textContent === "File Budget",
     ),
     false,
   );
@@ -78,8 +78,8 @@ test("workflow posture follows the selected immutable version", async (t) => {
     t, workflowsClient([prototypeWorkflow("dash")]),
   );
   assert.equal(
-    byClass(currentView.root, "workflow-posture-label").some(
-      (node) => node.children.at(-1)?.textContent === "File Budget",
+    byClass(currentView.root, "workflow-posture-name").some(
+      (node) => node.textContent === "File Budget",
     ),
     true,
   );

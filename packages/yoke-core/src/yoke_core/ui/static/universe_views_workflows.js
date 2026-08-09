@@ -7,7 +7,8 @@ import {
   workflowPanel,
 } from "./workflow_view_primitives.js";
 import { renderStages } from "./workflow_view_lifecycle.js";
-import { renderMechanics, renderPosture } from "./workflow_view_policy.js";
+import { renderMechanics } from "./workflow_view_mechanics.js";
+import { renderPosture } from "./workflow_view_policy.js";
 import { renderVersionHistory } from "./workflow_view_versions.js";
 import {
   emptyMechanicsData, loadWorkflowMechanicsData,

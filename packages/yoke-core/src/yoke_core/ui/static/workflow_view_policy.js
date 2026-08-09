@@ -1,55 +1,127 @@
 import { el } from "./universe_view_support.js";
 import {
-  approvalSummary,
-  deliverySummary,
-  testingSummary,
-} from "./workflow_mechanics_data.js";
-import {
   readablePolicyValue,
-  setWorkflowInlineContent,
-  stageDisplayLabel,
   workflowPanel,
 } from "./workflow_view_primitives.js";
 
-const MECHANIC_DESTINATION_LABELS = {
-  qa: "QA",
-  inbox: "Inbox",
-  delivery: "Delivery",
-  strategy: "Strategy",
-};
+/** What a workflow may never set, whatever its definition says. */
+const UNIVERSAL_INVARIANTS = [
+  ["Database changes", "governed migrations on every change"],
+];
 
-function testingMechanicSummary(mechanics, workflow) {
-  return testingSummary(mechanics, workflow);
-}
+/**
+ * Every setting this grid shows, in one list, whether or not the definition
+ * declares it.
+ *
+ * A row that disappears when its value is uninteresting teaches the operator
+ * that the setting does not exist, which is the opposite of what an absent
+ * value means: absent means the engine's default applies. Each entry names
+ * the fallback the engine itself uses, so an undeclared setting reports that
+ * default and says it is one.
+ *
+ * Not showing a setting the definition's own schema version never had is a
+ * different thing entirely, and stays: the grid describes the version being
+ * viewed, so a row for a field that generation could not express would be
+ * inventing one. ``sinceSchema`` draws that line; nothing here is hidden for
+ * having an uninteresting value.
+ */
+const POLICY_ROWS = [
+  ["Ownership", "ownership", null, 1],
+  ["Child items", "generated_children", null, 1],
+  ["File Budget", "file_budget", "optional", 2],
+  ["Path survey", "path_survey", "required", 1],
+  ["Path claims", "path_claims", "optional", 1],
+  ["Worktrees", "worktrees", null, 1],
+];
 
-function deliveryMechanicSummary(mechanics, workflow) {
-  return deliverySummary(mechanics, workflow);
-}
+/** Settings an item may tighten on its own, when the workflow allows it. */
+const PER_ITEM_TUNABLE = ["path_claims", "path_survey"];
 
-function postureRows(workflow) {
-  const policies = workflow.definition?.policies || {};
-  const pathSurvey = policies.path_survey ?? (
-    ["blitz", "dash"].includes(String(workflow.id)) ? "required" : undefined
-  );
-  const rows = [
-    ["Ownership", "ownership", policies.ownership],
-    ["File Budget", "file_budget", policies.file_budget],
-    ["Path claims", "path_claims", policies.path_claims],
-    ["Path survey", "path_survey", pathSurvey],
-    ["Worktrees", "worktrees", policies.worktrees],
-  ].filter((row) => row[2] !== undefined);
-  if (
-    policies.generated_children === "none" &&
-    ["optional_item_attachment", "item_attachments"].includes(policies.qa)
-  ) {
-    rows.push([
-      "Child items", "generated_children", policies.generated_children,
-    ]);
+/**
+ * Which tier a row belongs to, and therefore where it sorts and what marks it.
+ *
+ * Locked-for-everyone and locked-by-this-workflow are different facts about a
+ * setting, and one padlock for both says neither. Ordering the grid by how
+ * changeable a row is puts the fixed ground first and everything an operator
+ * can act on last.
+ */
+const TIER_INVARIANT = 0;
+const TIER_WORKFLOW_FIXED = 1;
+const TIER_PER_ITEM = 2;
+
+function policyValue(policies, key, fallback) {
+  const declared = policies[key];
+  if (declared !== undefined && declared !== null) {
+    return { value: declared, declared: true };
   }
-  return rows;
+  return { value: fallback, declared: false };
 }
 
-function postureCell(documentNode, label, value, edit = null) {
+function tunableHere(workflow, key, value) {
+  const allowlist =
+    workflow.definition?.policies?.item_posture_allowlist || [];
+  return PER_ITEM_TUNABLE.includes(key) &&
+    allowlist.includes(key) &&
+    ["optional", "required"].includes(value);
+}
+
+export function postureRows(workflow) {
+  const definition = workflow.definition || {};
+  const policies = definition.policies || {};
+  const schema = Number(definition.schema_version || 1);
+  const rows = POLICY_ROWS
+    .map(([label, key, fallback, sinceSchema]) => {
+      const { value, declared } = policyValue(policies, key, fallback);
+      const tunable = tunableHere(workflow, key, value);
+      return {
+        label,
+        key,
+        value,
+        declared,
+        tunable,
+        // Declaring the field proves this definition has it, whatever it says
+        // its schema version is; the version only answers for the fields it
+        // left out.
+        expressible: declared || schema >= sinceSchema,
+        tier: tunable ? TIER_PER_ITEM : TIER_WORKFLOW_FIXED,
+      };
+    })
+    .filter((row) =>
+      row.expressible && row.value !== undefined && row.value !== null);
+  for (const [label, value] of UNIVERSAL_INVARIANTS) {
+    rows.push({
+      label,
+      key: null,
+      value,
+      declared: true,
+      tunable: false,
+      tier: TIER_INVARIANT,
+    });
+  }
+  // Stable within a tier: the declaration order above is deliberate, so only
+  // the tier reorders anything.
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) =>
+      left.row.tier - right.row.tier || left.index - right.index)
+    .map((entry) => entry.row);
+}
+
+function lockPill(documentNode, row, workflowName) {
+  const invariant = row.tier === TIER_INVARIANT;
+  const pill = el(
+    documentNode,
+    "span",
+    `workflow-lock-pill ${invariant ? "universal" : "workflow"}`,
+    `🔒 ${invariant ? "Always" : workflowName}`,
+  );
+  pill.title = invariant
+    ? "No workflow can change this"
+    : `Fixed by every ${workflowName}`;
+  return pill;
+}
+
+function postureCell(documentNode, row, workflowName, edit) {
   const cell = el(
     documentNode,
     "div",
@@ -57,19 +129,18 @@ function postureCell(documentNode, label, value, edit = null) {
   );
   const copy = el(documentNode, "div", "workflow-posture-copy");
   const heading = el(documentNode, "div", "workflow-posture-label");
-  if (!edit) {
-    heading.appendChild(el(documentNode, "span", "workflow-lock", "🔒"));
-  }
-  heading.appendChild(el(documentNode, "span", null, label));
+  heading.appendChild(el(
+    documentNode, "span", "workflow-posture-name", row.label,
+  ));
+  if (!edit) heading.appendChild(lockPill(documentNode, row, workflowName));
   copy.appendChild(heading);
   copy.appendChild(el(
-    documentNode, "div", "workflow-posture-value", value,
+    documentNode, "div", "workflow-posture-value", postureValueText(row),
   ));
   cell.appendChild(copy);
   if (edit) {
     const control = el(
-      documentNode, "button", "workflow-button compact",
-      edit.label,
+      documentNode, "button", "workflow-button compact", edit.label,
     );
     control.type = "button";
     control.addEventListener("click", edit.action);
@@ -78,203 +149,40 @@ function postureCell(documentNode, label, value, edit = null) {
   return cell;
 }
 
+function postureValueText(row) {
+  const readable = row.key
+    ? readablePolicyValue(row.key, row.value)
+    : row.value;
+  if (row.tunable) {
+    const on = row.value === "required";
+    return `${on ? "on" : "off"} by default`;
+  }
+  // An undeclared setting says so rather than presenting the engine fallback
+  // as this workflow's own choice.
+  return row.declared ? readable : `${readable} (default)`;
+}
+
 export function renderPosture(documentNode, workflow, actions = {}) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "workflow-posture-grid");
-  for (const [label, policy, value] of postureRows(workflow)) {
-    const policyEditable = ["path_claims", "path_survey"].includes(policy) &&
-      (workflow.definition?.policies?.item_posture_allowlist || [])
-        .includes(policy) &&
-      ["optional", "required"].includes(value);
-    const policyOn = value === "required";
-    const editAction = policy === "path_claims"
+  const workflowName = workflow.name || workflow.id;
+  for (const row of postureRows(workflow)) {
+    const editAction = row.key === "path_claims"
       ? actions.editPathClaims
       : actions.editPathSurvey;
+    const on = row.value === "required";
     grid.appendChild(postureCell(
       documentNode,
-      label,
-      policyEditable
-        ? `${policyOn ? "on" : "off"} by default`
-        : workflow.id === "dash" && policy === "worktrees"
-          ? "one"
-          : readablePolicyValue(policy, value),
-      policyEditable && editAction
+      row,
+      workflowName,
+      row.tunable && editAction
         ? {
-          label: policyOn ? "Turn off" : "Turn on",
-          action: () => editAction(!policyOn),
+          label: on ? "Turn off" : "Turn on",
+          action: () => editAction(!on),
         }
         : null,
     ));
   }
-  grid.appendChild(postureCell(
-    documentNode,
-    "Database changes",
-    "governed migrations on every change",
-  ));
   body.appendChild(grid);
-  return panel;
-}
-
-const SKILL_SUMMARIES_BY_BINDING = {
-  "dash:dash": [
-    "Run ",
-    { kind: "code", text: "/yoke dash" },
-    " in a supported harness like Claude Code or Codex — it runs the whole " +
-      "item: survey, worktree, execute, verify, merge, evidence.",
-  ],
-  "blitz:refine>blitz": [
-    "Run ",
-    { kind: "code", text: "/yoke refine" },
-    " then ",
-    { kind: "code", text: "/yoke blitz" },
-    " in a supported harness like Claude Code or Codex — blitz executes the " +
-      "linked document directly, in continuous slices; nothing is copied.",
-  ],
-  "issue:refine>advance>polish>usher": [
-    "Run ",
-    { kind: "code", text: "/yoke refine" },
-    ", ",
-    { kind: "code", text: "advance" },
-    ", ",
-    { kind: "code", text: "polish" },
-    ", ",
-    { kind: "code", text: "usher" },
-    " in a supported harness like Claude Code or Codex.",
-  ],
-  "epic:refine>shepherd>refine>conduct>polish>usher": [
-    "Run ",
-    { kind: "code", text: "/yoke refine" },
-    ", ",
-    { kind: "code", text: "shepherd" },
-    ", ",
-    { kind: "code", text: "conduct" },
-    ", ",
-    { kind: "code", text: "polish" },
-    ", ",
-    { kind: "code", text: "usher" },
-    " in a supported harness like Claude Code or Codex.",
-  ],
-};
-
-function skillSummary(workflow) {
-  const definition = workflow.definition || {};
-  const skills = (definition.skill_bindings || [])
-    .map((binding) => binding.skill_id);
-  if (!skills.length) return "No registered skill.";
-  const servedBindingKey = `${workflow.id}:${skills.join(">")}`;
-  if (SKILL_SUMMARIES_BY_BINDING[servedBindingKey]) {
-    return SKILL_SUMMARIES_BY_BINDING[servedBindingKey];
-  }
-  return [
-    "Run ",
-    ...skills.flatMap((value, index) => [
-      ...(index ? [" → "] : []),
-      { kind: "code", text: `/yoke ${value}` },
-    ]),
-    " in a supported harness.",
-  ];
-}
-
-function mechanicRow(
-  documentNode, title, description, route, action = null,
-) {
-  const row = el(documentNode, "div", "workflow-detail-row");
-  const content = el(documentNode, "div", "workflow-detail-content");
-  content.appendChild(el(
-    documentNode, "div", "workflow-detail-row-title", title,
-  ));
-  const descriptionNode = el(
-    documentNode, "div", "workflow-detail-row-description",
-  );
-  setWorkflowInlineContent(documentNode, descriptionNode, description);
-  content.appendChild(descriptionNode);
-  row.appendChild(content);
-  if (route) {
-    const destination = MECHANIC_DESTINATION_LABELS[route] || title;
-    const link = el(
-      documentNode, "a", "workflow-home-link", `${destination} →`,
-    );
-    link.href = `#/${route}`;
-    row.appendChild(link);
-  }
-  if (action) {
-    const control = el(
-      documentNode, "button", "workflow-button compact",
-      action.label,
-    );
-    control.type = "button";
-    control.addEventListener("click", action.run);
-    row.appendChild(control);
-  }
-  return row;
-}
-
-function approvalSummaryWithStageLabels(mechanics, workflow) {
-  let summary = approvalSummary(mechanics, workflow);
-  for (const stage of workflow.definition?.stages || []) {
-    summary = summary.replaceAll(
-      `${stage.id} →`,
-      `${stageDisplayLabel(stage)} →`,
-    );
-  }
-  return summary;
-}
-
-export function renderMechanics(documentNode, workflow, actions = {}) {
-  const definition = workflow.definition || {};
-  const policies = definition.policies || {};
-  const mechanics = actions.mechanics || {
-    testingDefaults: [],
-    deliveryDefaults: [],
-    approvers: [],
-  };
-  const workflowName = workflow.name || workflow.id;
-  const { panel, body } = workflowPanel(documentNode, "Mechanics");
-  const rows = el(documentNode, "div", "workflow-detail-stack");
-  rows.appendChild(mechanicRow(
-    documentNode,
-    "Skill",
-    skillSummary(workflow),
-    workflow.id === "blitz" ? "strategy" : null,
-  ));
-  rows.appendChild(mechanicRow(
-    documentNode,
-    "Testing",
-    testingMechanicSummary(mechanics, workflow),
-    "qa",
-    actions.editTesting
-      ? {
-        label: `Edit ${workflowName} defaults for each project`,
-        run: actions.editTesting,
-      }
-      : null,
-  ));
-  rows.appendChild(mechanicRow(
-    documentNode,
-    "Approvals",
-    approvalSummaryWithStageLabels(mechanics, workflow),
-    "inbox",
-    actions.editApprovals
-      ? {
-        label:
-          `${Object.keys(policies.approval_defaults || {}).length
-            ? "Edit" : "Set"} universe defaults for ${workflowName}`,
-        run: actions.editApprovals,
-      }
-      : null,
-  ));
-  rows.appendChild(mechanicRow(
-    documentNode,
-    "Delivery",
-    deliveryMechanicSummary(mechanics, workflow),
-    "delivery",
-    actions.editDelivery
-      ? {
-        label: `Edit ${workflowName} defaults for each project`,
-        run: actions.editDelivery,
-      }
-      : null,
-  ));
-  body.appendChild(rows);
   return panel;
 }

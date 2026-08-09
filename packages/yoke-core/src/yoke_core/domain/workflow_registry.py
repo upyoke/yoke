@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.builtin_workflow_canon import (
-    canon_generations,
-    recognize,
+from yoke_core.domain.builtin_workflow_canon import recognize
+from yoke_core.domain.workflow_canon_reporting import (
+    version_provenance,
+    workflow_canon_status,
 )
 from yoke_core.domain.builtin_workflow_version_convergence import (
     converge_builtin_workflows as _converge_builtin_workflows,
@@ -28,6 +29,7 @@ from yoke_core.domain.workflow_registry_rows import (
     version_row as _version_row,
     workflow_row as _workflow_row,
 )
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_registry_sql import (
     marker as _marker,
     row_dict as _row_dict,
@@ -203,79 +205,26 @@ def publish_workflow_version(
     }
 
 
-def _version_provenance(version_row) -> dict:
-    """Where a stored version's content came from, as the dashboard shows it.
+def _pinned_item_counts(conn: Any) -> Optional[dict[int, int]]:
+    """How many items pin each version, or ``None`` when that is unknowable.
 
-    A universe's version numbers are its own sequence positions, so the number
-    alone says nothing about which published generation a row holds. Matching
-    the digest against the canon answers that, and the caller compares
-    ``canon_version`` with the local number to see that a universe adopted a
-    generation on its own schedule -- normal, and not drift.
-
-    Only built-in workflows have a canon. A workflow authored in this universe
-    is local by definition, not by failing to be recognized.
+    Counted in one grouped pass rather than per version row. This is a registry
+    read, so it still answers where the backlog table is absent -- a
+    registry-only fixture, or a universe mid-build -- and there the honest
+    answer is that the count is unknown. Returning zero would render as "no
+    items pin this version", which is a different and false claim.
     """
-    generation = recognize(
-        str(version_row["workflow_id"]), str(version_row["definition_digest"])
+    if not _table_exists(conn, "items"):
+        return None
+    cursor = conn.execute(
+        "SELECT workflow_version_id, COUNT(*) AS pinned FROM items "
+        "WHERE workflow_version_id IS NOT NULL "
+        "GROUP BY workflow_version_id"
     )
-    if generation is not None:
-        return {"kind": "canon", "canon_version": generation.canon_version}
-    baseline = version_row.get("derived_from_canon_version")
     return {
-        "kind": "local",
-        "derived_from_canon_version": None if baseline is None else int(baseline),
+        int(row["workflow_version_id"]): int(row["pinned"])
+        for row in _rows_dict(cursor)
     }
-
-
-def _workflow_canon_status(version_row: Mapping[str, Any]) -> dict:
-    """Where this universe's current definition stands against the canon.
-
-    Four states, along two independent questions: is this definition Yoke's or
-    this universe's own, and has Yoke published anything since. A customized
-    definition sitting on the newest generation needs nothing; one whose
-    baseline has been overtaken needs a merge, not an overwrite, and saying so
-    requires the recorded baseline rather than a guess.
-
-    The stored ``follow`` setting and the last automatic adoption ride along,
-    because both are facts about this same relationship: a reader deciding what
-    to show about an update needs to know whether the next one arrives by
-    itself. Neither appears where there is no canon to stand against, since a
-    following setting for a workflow nothing publishes describes nothing.
-    """
-    workflow_id = str(version_row["workflow_id"])
-    generations = canon_generations(workflow_id)
-    if str(version_row["source"]) != "built_in" or not generations:
-        return {"state": "not_applicable"}
-    newest = generations[-1]
-    adopted_from = version_row.get("canon_adopted_from_version")
-    status = {
-        "latest_canon_version": newest.canon_version,
-        "follow": str(version_row.get("canon_follow") or "auto"),
-        "adopted_from_version": (
-            None if adopted_from is None else int(adopted_from)
-        ),
-    }
-    current = recognize(workflow_id, str(version_row["definition_digest"]))
-    if current is not None:
-        status["current_canon_version"] = current.canon_version
-        status["state"] = (
-            "up_to_date"
-            if current.canon_version == newest.canon_version
-            else "update_available"
-        )
-        return status
-    baseline = version_row.get("derived_from_canon_version")
-    baseline = None if baseline is None else int(baseline)
-    status["derived_from_canon_version"] = baseline
-    # An unknown baseline reports as plain customization. Claiming an update
-    # is available would assert a relationship to the canon that was never
-    # recorded, and the whole point of the baseline is to stop guessing it.
-    status["state"] = (
-        "customized_update_available"
-        if baseline is not None and baseline < newest.canon_version
-        else "customized"
-    )
-    return status
 
 
 def list_current_workflows(conn: Any) -> list[dict]:
@@ -299,6 +248,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
         "ORDER BY workflow_id, version"
     )
     version_rows = _rows_dict(version_cursor)
+    pinned_by_version = _pinned_item_counts(conn)
     versions_by_workflow: dict[str, list[dict]] = {}
     for version_row in version_rows:
         versions_by_workflow.setdefault(
@@ -310,7 +260,11 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "published_at": version_row["published_at"],
             "published_by_actor_id": version_row["published_by_actor_id"],
             "immutable_at": version_row["immutable_at"],
-            "provenance": _version_provenance(version_row),
+            "provenance": version_provenance(version_row),
+            "pinned_item_count": (
+                None if pinned_by_version is None
+                else pinned_by_version.get(int(version_row["id"]), 0)
+            ),
         })
     result: list[dict] = []
     for row in rows:
@@ -331,7 +285,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "immutable_at": row["immutable_at"],
             "definition": _decode_definition(row["definition_json"]),
             "versions": versions_by_workflow.get(str(row["id"]), []),
-            "canon_status": _workflow_canon_status({**row, "workflow_id": row["id"]}),
+            "canon_status": workflow_canon_status({**row, "workflow_id": row["id"]}),
         })
     return result
 

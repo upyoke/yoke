@@ -43,24 +43,39 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   assert.deepEqual(classText(root, "workflow-detail-row-title"), [
     "CLI", "Harness", "Skill", "Testing", "Approvals", "Delivery",
   ]);
-  assert.deepEqual(
-    byClass(root, "workflow-posture-label").map(
-      (node) => node.children.at(-1)?.textContent,
-    ),
-    [
-      "Ownership", "File Budget", "Path claims", "Worktrees",
-      "Database changes",
-    ],
-  );
+  // Every setting, always, ordered by how changeable it is: what no workflow
+  // can set, then what this workflow fixes, then what an item may tune.
+  assert.deepEqual(classText(root, "workflow-posture-name"), [
+    "Database changes",
+    "Ownership",
+    "Child items",
+    "File Budget",
+    "Path survey",
+    "Path claims",
+    "Worktrees",
+  ]);
+  assert.deepEqual(classText(root, "workflow-lock-pill"), [
+    "🔒 Always",
+    "🔒 Rally",
+    "🔒 Rally",
+    "🔒 Rally",
+    "🔒 Rally",
+    "🔒 Rally",
+    "🔒 Rally",
+  ]);
   assert.deepEqual(classText(root, "workflow-home-link"), [
     "QA →", "Inbox →", "Delivery →",
   ]);
   assert.deepEqual(classText(root, "workflow-posture-value"), [
+    "governed migrations on every change",
     "one active item claim",
+    "never generated",
     "required",
+    // Undeclared by this definition, so it reports the engine's fallback and
+    // says it is one rather than vanishing from the grid.
+    "on (default)",
     "required",
     "one implementation lane",
-    "governed migrations on every change",
   ]);
   assert.deepEqual(classText(root, "workflow-version-title"), [
     "v3 · current", "v1",
