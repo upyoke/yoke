@@ -73,14 +73,6 @@ _POLICY_VALUES = {
             "worker_lanes_optional_integration",
         }
     ),
-    "parallelism": frozenset(
-        {
-            "inside_item",
-            "task_graph",
-            "maximum_safe_slices",
-            "none",
-        }
-    ),
     "generated_children": frozenset({"none", "epic_tasks"}),
     "qa": frozenset(
         {
@@ -105,6 +97,17 @@ _POLICY_VALUES = {
         }
     ),
 }
+#: Policy keys that no longer mean anything, accepted so that a definition
+#: stored before they were retired still validates.
+#:
+#: Retiring a policy cannot rewrite the immutable rows that carry it, and the
+#: bounded policy-default publication reads a stored definition, edits one key,
+#: and publishes the result -- so refusing the retired key there would break
+#: every operator edit on a universe still sitting on an older generation.
+#: Nothing reads these, no new definition needs them, and taking a canon update
+#: drops them: the merge sees Yoke removed the key and the universe left it
+#: alone, so an inert key clears itself on the next update.
+_RETIRED_POLICY_KEYS = frozenset({"parallelism"})
 _APPROVAL_DEFAULT_KEYS = frozenset({"roles", "actors"})
 _APPROVAL_ROLES = frozenset({"owner", "operator", "admin"})
 _ITEM_POSTURE_VALUES = frozenset(
@@ -215,7 +218,11 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
     if schema_version == 1:
         policy_values.pop("file_budget")
     required = (set(policy_values) - {"path_survey"}) | {"item_posture_allowlist"}
-    allowed = required | {"path_survey", "approval_defaults"}
+    allowed = (
+        required
+        | {"path_survey", "approval_defaults"}
+        | _RETIRED_POLICY_KEYS
+    )
     missing = required - set(policies)
     extra = set(policies) - allowed
     if missing or extra:

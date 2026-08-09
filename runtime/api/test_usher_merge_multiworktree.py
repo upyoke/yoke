@@ -87,7 +87,6 @@ class TestMergeMdEpicDelegation:
             "yoke workflows version get",
             "_usher_generated_children",
             "_usher_worktree_policy",
-            "_usher_parallelism",
             "skill_bindings",
         ):
             assert required in text

@@ -26,7 +26,6 @@ function dashFixture() {
       file_budget: "optional",
       path_claims: "optional",
       worktrees: "single_implementation_lane",
-      parallelism: "none",
       generated_children: "none",
       qa: "optional_item_attachment",
       approvals: "none",

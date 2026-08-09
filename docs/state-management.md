@@ -34,8 +34,8 @@ definition is the authority for:
 - allowed `entry_surfaces`;
 - `skill_bindings`, interpreted as half-open
   `from_stage_id <= current_stage < through_stage_id` intervals; and
-- policies for artifacts, worktrees, generated children, parallelism, path
-  claims, approvals, and delivery.
+- policies for artifacts, worktrees, generated children, path claims,
+  approvals, and delivery.
 
 Do not infer a lifecycle or an item type from the workflow id.
 Selecting a different current version affects future items only; moving an

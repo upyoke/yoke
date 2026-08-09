@@ -124,8 +124,8 @@ Extract the numeric part from the argument (strip `PREFIX-` prefix, leading zero
 
 Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
 exact pin and exports `_status`, `_pinned_definition_json`,
-`_generated_children`, `_worktree_policy`, `_parallelism_policy`, and
-`_current_skill`. Do not continue unless the read succeeds.
+`_generated_children`, `_worktree_policy`, and `_current_skill`. Do not continue
+unless the read succeeds.
 
 When the requested advance target is `implementation`, map it to the canonical status `implementing` for lifecycle comparisons. `implementation` is the advance-target name (the sub-skill path); `implementing` is the DB status. Keep using `implementation` as the advance target in operator-facing examples and routed `/yoke do` invocations.
 

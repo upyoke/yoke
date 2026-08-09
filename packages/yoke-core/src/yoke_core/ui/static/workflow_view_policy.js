@@ -38,9 +38,6 @@ function postureRows(workflow) {
     ["Path survey", "path_survey", pathSurvey],
     ["Worktrees", "worktrees", policies.worktrees],
   ].filter((row) => row[2] !== undefined);
-  if (policies.parallelism !== "none") {
-    rows.push(["Parallelism", "parallelism", policies.parallelism]);
-  }
   if (
     policies.generated_children === "none" &&
     ["optional_item_attachment", "item_attachments"].includes(policies.qa)

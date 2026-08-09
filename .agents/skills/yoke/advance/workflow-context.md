@@ -28,8 +28,6 @@ _generated_children=$(printf '%s' "$_pinned_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["generated_children"])')
 _worktree_policy=$(printf '%s' "$_pinned_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["worktrees"])')
-_parallelism_policy=$(printf '%s' "$_pinned_definition_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["parallelism"])')
 _current_skill=$(printf '%s' "$_pinned_definition_json" | python3 -c '
 import json,sys
 status=sys.argv[1]

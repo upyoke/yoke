@@ -78,7 +78,6 @@ export function workflowFixture({
         file_budget: "required",
         path_claims: "required",
         worktrees: "single_implementation_lane",
-        parallelism: "inside_item",
         generated_children: "none",
         qa: "project_transition_defaults",
         approvals: "definition_transitions",

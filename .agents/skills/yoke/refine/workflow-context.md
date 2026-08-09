@@ -73,7 +73,6 @@ print(json.dumps({
     "artifact_scope": "generated_task_plan" if task_plan else "item_artifact",
     "generated_children": policies["generated_children"],
     "worktrees": policies["worktrees"],
-    "parallelism": policies["parallelism"],
     "next_skill": next_skill,
 }))
 ' "$ITEM_STATUS") || {

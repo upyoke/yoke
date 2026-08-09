@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS workflows (
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')),
   canon_follow TEXT NOT NULL DEFAULT 'auto'
     CHECK(canon_follow IN ('auto','manual')),
+  canon_adopted_from_version INTEGER,
   current_version_id INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

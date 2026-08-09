@@ -19,7 +19,6 @@ const BLITZ_POLICIES = {
   file_budget: "optional",
   path_claims: "optional",
   worktrees: "worker_lanes_optional_integration",
-  parallelism: "maximum_safe_slices",
   generated_children: "none",
   delivery: "continuous",
 };

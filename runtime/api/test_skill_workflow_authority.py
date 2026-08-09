@@ -36,7 +36,6 @@ def test_plan_mode_comes_from_pinned_policy() -> None:
         "yoke workflows version get",
         "generated_children=none",
         "generated_children=epic_tasks",
-        "parallelism=task_graph",
         "half-open",
     ):
         assert required in text
@@ -81,7 +80,6 @@ def test_usher_merge_selection_uses_pinned_lane_policy() -> None:
         "yoke workflows version get",
         "_usher_generated_children",
         "_usher_worktree_policy",
-        "_usher_parallelism",
         "_usher_current_skill",
     ):
         assert required in text
@@ -102,4 +100,3 @@ def test_conduct_dispatch_has_no_unreachable_item_branch_or_retired_teaching() -
     ):
         assert forbidden not in text
     assert "generated_children=epic_tasks" in text
-    assert "parallelism=task_graph" in text

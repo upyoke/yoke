@@ -296,8 +296,8 @@ target stages always come from the binding:
 | `usher` | Merge and deliver a `release_stage` workflow |
 | `dash`, `blitz` | Execute their definition-bound direct-work segments |
 
-Worktree shape also comes from `policies.worktrees`,
-`policies.parallelism`, and `policies.generated_children`. A single-lane
+Worktree shape also comes from `policies.worktrees` and
+`policies.generated_children`. A single-lane
 skill keeps implementation and review in one claimed worktree; a
 task-graph skill provisions the registered worker/integration lanes.
 

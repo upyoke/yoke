@@ -118,7 +118,6 @@ policies=definition["policies"]
 segment=stages[start:stop + 1]
 supported=(
     policies["generated_children"] == "epic_tasks"
-    and policies["parallelism"] == "task_graph"
     and segment == ["refined-idea", "planning", "plan-drafted"]
 )
 location="before" if position < start else ("after" if position >= stop else "active")

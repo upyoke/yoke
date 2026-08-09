@@ -38,10 +38,6 @@ export function detailItem(workflowId) {
       : workflowId === "blitz"
         ? "worker_lanes_optional_integration"
         : "single_implementation_lane",
-    parallelism: workflowId === "epic"
-      ? "task_graph"
-      : workflowId === "blitz" ? "maximum_safe_slices"
-        : workflowId === "issue" ? "inside_item" : "none",
     generated_children: workflowId === "epic" ? "epic_tasks" : "none",
     delivery: "after_merge_action",
   };

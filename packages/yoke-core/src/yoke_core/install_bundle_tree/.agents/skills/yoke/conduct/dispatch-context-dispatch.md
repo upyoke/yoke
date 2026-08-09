@@ -11,8 +11,8 @@ Extracted from `dispatch-context.md`. Covers Engineer dispatch orchestration (5g
 Record the attempt baseline and dispatch the Engineer.
 
 **Task fan-out variable contract:** Conduct's pinned skill binding requires the
-`generated_children=epic_tasks`, `worktrees=worker_and_integration_lanes`, and
-`parallelism=task_graph` policies at entry. `N` / `_epic_id` therefore remains
+`generated_children=epic_tasks` and `worktrees=worker_and_integration_lanes`
+policies at entry. `N` / `_epic_id` therefore remains
 the parent backlog item and each parallel member is an epic task from
 `_task_ids`. Before any per-task command below, hydrate the unsuffixed lane
 variables from the task's suffixed state:

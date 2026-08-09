@@ -31,7 +31,7 @@ and interpret:
 
 - ordered `stages` plus half-open `skill_bindings` for the current owner;
 - `policies.generated_children` for decomposition storage;
-- `policies.worktrees` and `policies.parallelism` for lane planning;
+- `policies.worktrees` for lane planning;
 - stage gate ids for simulation requirements.
 
 Skill names remain valid guards because this sub-skill is an implementation
@@ -89,15 +89,13 @@ _plan_definition_json=$(yoke workflows version get \
 
 Interpret the current skill with the runtime interval
 `from_stage_id <= current < through_stage_id`. Extract
-`generated_children`, `worktrees`, and `parallelism` from `definition.policies`.
+`generated_children` and `worktrees` from `definition.policies`.
 
 Select mode:
 
 - `generated_children=none` → `_plan_mode=item_plan`.
-- `generated_children=epic_tasks` and `parallelism=task_graph` →
-  `_plan_mode=task_graph`.
-- Any other child/parallelism combination → halt as unsupported; do not guess
-  a storage shape.
+- `generated_children=epic_tasks` → `_plan_mode=task_graph`.
+- Any other value → halt as unsupported; do not guess a storage shape.
 
 Apply the skill guard:
 
@@ -182,7 +180,7 @@ Output contract:
 - `item_plan`: one `## Technical Plan` covering approach, decisions, edge
   cases, and test strategy. No child rows or worktree plan.
 - `task_graph`: `## Technical Plan`, one complete body per generated task, and
-  `## Worktree Plan` consistent with the served lane and parallelism policies.
+  `## Worktree Plan` consistent with the served lane policy.
 
 Capture any delimited Architect Ouroboros entries with
 `yoke ouroboros entry insert --agent architect --context "plan {item-id}" ...`.

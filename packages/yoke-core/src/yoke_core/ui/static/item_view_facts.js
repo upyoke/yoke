@@ -152,7 +152,6 @@ const POSTURE_LABELS = {
   path_claims: "Path claims",
   path_survey: "Path survey",
   worktrees: "Worktrees",
-  parallelism: "Parallelism",
   generated_children: "Child items",
 };
 
@@ -166,7 +165,7 @@ export function posturePanel(documentNode, item) {
       "generated_children", "file_budget", "path_survey", "path_claims",
       "worktrees",
     ]
-    : ["file_budget", "path_survey", "path_claims", "worktrees", "parallelism"];
+    : ["file_budget", "path_survey", "path_claims", "worktrees"];
   const keys = preferredKeys.filter(
     (key) => effectivePolicies[key] !== undefined,
   );

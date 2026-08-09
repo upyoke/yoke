@@ -67,7 +67,6 @@ class TestLifecycleRoutingSection:
 
     def test_section_uses_policies_not_item_type(self, section_body: str) -> None:
         assert "`policies.worktrees`" in section_body
-        assert "`policies.parallelism`" in section_body
         assert "`policies.generated_children`" in section_body
         assert "not from a workflow-id branch" in section_body
         assert "Issue command family" not in section_body

@@ -150,8 +150,7 @@ Without `--workflow`, classify the eligible definitions by policy:
   `generated_children=none`, `worktrees=single_implementation_lane`, and an
   `advance` skill binding.
 - Recommend the unique task-graph workflow with
-  `generated_children=epic_tasks` and `parallelism=task_graph` only when the
-  work clearly needs:
+  `generated_children=epic_tasks` only when the work clearly needs:
 - Multiple parallel worktrees
 - A spec plus task decomposition
 - More than ~2 hours of focused work

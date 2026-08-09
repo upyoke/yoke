@@ -35,12 +35,6 @@ const POLICY_VALUE_COPY = {
     worker_lanes_optional_integration:
       "worker lanes + optional integration",
   },
-  parallelism: {
-    inside_item: "inside the item only",
-    task_graph: "task graph",
-    maximum_safe_slices: "maximum safe slices",
-    none: "none",
-  },
   generated_children: {
     none: "never generated",
     epic_tasks: "epic tasks",

@@ -121,7 +121,6 @@ export function hostedFrameEpicWorkflow() {
       ...DELIVERY_POLICIES,
       path_claims: "required_per_task",
       worktrees: "worker_and_integration_lanes",
-      parallelism: "task_graph",
       generated_children: "epic_tasks",
       qa: "project_and_task_attachments",
     },

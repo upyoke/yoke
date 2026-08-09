@@ -83,13 +83,13 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   );
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
-    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
+    ["File Budget", "Path claims", "Worktrees", "Migrations"],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
     [
       "required per task", "required per task",
-      "worker + integration lanes", "task graph", "governed",
+      "worker + integration lanes", "governed",
     ],
   );
 });
@@ -197,10 +197,7 @@ for (const workflowId of ["issue", "dash"]) {
           "Child items", "File Budget", "Path survey", "Path claims",
           "Worktrees", "Migrations",
         ]
-        : [
-          "File Budget", "Path claims", "Worktrees",
-          "Parallelism", "Migrations",
-        ],
+        : ["File Budget", "Path claims", "Worktrees", "Migrations"],
     );
     assert.deepEqual(
       byClass(root, "item-posture-value").map((node) => node.textContent),
@@ -209,8 +206,7 @@ for (const workflowId of ["issue", "dash"]) {
           "never generated", "optional", "on", "optional", "one", "governed",
         ]
         : [
-          "required", "required", "one implementation lane",
-          "inside the item only", "governed",
+          "required", "required", "one implementation lane", "governed",
         ],
     );
     assert.deepEqual(
@@ -270,13 +266,12 @@ test("legacy item facts use central effective policies when raw File Budget is a
   assert.match(rendered, /Path claims\s+none/);
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
-    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
+    ["File Budget", "Path claims", "Worktrees", "Migrations"],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
     [
-      "required", "required", "one implementation lane",
-      "inside the item only", "governed",
+      "required", "required", "one implementation lane", "governed",
     ],
   );
 });

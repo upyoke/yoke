@@ -48,8 +48,6 @@ _usher_generated_children=$(printf '%s' "$_usher_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["generated_children"])')
 _usher_worktree_policy=$(printf '%s' "$_usher_definition_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["worktrees"])')
-_usher_parallelism=$(printf '%s' "$_usher_definition_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["parallelism"])')
 _usher_current_skill=$(printf '%s' "$_usher_definition_json" | python3 -c '
 import json,sys
 status=sys.argv[1]
@@ -191,10 +189,10 @@ Select the merge engine from the pinned child/lane policies:
 
 ```bash
 if [ "$_usher_generated_children" = "epic_tasks" ] \
- && [ "$_usher_worktree_policy" = "worker_and_integration_lanes" ] \
- && [ "$_usher_parallelism" = "task_graph" ]; then
- # The task-graph policy may have multiple lanes. /yoke merge handles every
- # lane in dependency-safe order and owns the parent-item bookkeeping.
+ && [ "$_usher_worktree_policy" = "worker_and_integration_lanes" ]; then
+ # Generated tasks across worker lanes may leave multiple lanes to merge.
+ # /yoke merge handles every lane in dependency-safe order and owns the
+ # parent-item bookkeeping.
  # Do not call merge-worktree directly on the parent ref; that covers one lane.
  /yoke merge {N}
 elif [ "$_usher_generated_children" = "none" ] \
@@ -205,7 +203,7 @@ elif [ "$_usher_generated_children" = "none" ] \
  # lifecycle status to the deploy phase below, which owns it here.
  yoke watch merge merge-item -- PREFIX-{N} --skip-status
 else
- echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy parallelism=$_usher_parallelism"
+ echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy"
  exit 1
 fi
 ```

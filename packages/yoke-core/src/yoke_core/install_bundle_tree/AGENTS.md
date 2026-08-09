@@ -270,7 +270,7 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 ## Lifecycle & Routing
 - Canonical human guide: `.yoke/docs/reference/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns ordered stages, transitions, target-stage gates, policies, entry surfaces, and registered skill bindings.
 - Never route by a remembered workflow name or copied progression. Read `yoke workflows item get PREFIX-N`, then `yoke workflows version get WORKFLOW VERSION`; the binding whose half-open interval contains the live stage selects `/yoke <skill_id>`.
-- A binding's `through_stage_id` is a fresh command/claim handoff. Worktree and generated-task shape come from `policies.worktrees`, `policies.parallelism`, and `policies.generated_children`, not from a workflow-id branch.
+- A binding's `through_stage_id` is a fresh command/claim handoff. Worktree and generated-task shape come from `policies.worktrees` and `policies.generated_children`, not from a workflow-id branch.
 - `/yoke do` routing (session offer, `NextAction`, chainability, `supported_paths`) is owned by `.yoke/docs/reference/session-offer.md` and `.yoke/docs/reference/charge-frontier.md`. Yoke core derives harness capabilities server-side from the harness manifest — harnesses do not self-report `YOKE_SUPPORTED_PATHS`.
 
 ## Worktree Discipline
