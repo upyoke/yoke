@@ -94,7 +94,12 @@ files and prints the item; it does not execute it.
   machine mapping (`yoke project register <checkout> --project-id <id>`
   adds a missing one) and refuses rather than borrowing the session's
   repo. The work claim covers the recorded lane; repair a wrong-repo
-  lane with `yoke item-worktrees path-record`.
+  lane with `yoke item-worktrees path-record`. One item never gets a
+  second lane in another repo. Work the instruction turns out to
+  mandate in a second project needs its own companion item filed
+  there and linked by an `item_dependencies` edge — a scope judgment
+  the operator owns, so follow **Escalate** below rather than writing
+  into that repo from here.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
   multi-slice work, halt and discuss escalation with the operator. Escalation

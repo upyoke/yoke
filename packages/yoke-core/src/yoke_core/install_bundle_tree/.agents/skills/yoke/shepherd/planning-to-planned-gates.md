@@ -28,7 +28,7 @@ Would another project reasonably want this reusable capability change when it up
 
 Also validate supporting fields:
 - `project-owned` -> should include `**Reason:**`
-- `pack-update` -> should include `**Pack scope:**` and follow the `project=yoke` Pattern B rule in `AGENTS.md`.
+- `pack-update` -> should include `**Pack scope:**` and follow the cross-project companion-item rule in `AGENTS.md` (`## Project Scoping`): the Pack publish lands in the Pack-owning project's item, and applying it lands in a linked companion item filed in the consuming project.
 
 ## Gate 1 (Advisory): Vague Or Untestable Acceptance Criteria
 

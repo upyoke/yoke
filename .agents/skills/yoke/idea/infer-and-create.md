@@ -194,7 +194,7 @@ If no `PREFIX-N` references are found, skip silently.
 If `_project` is NOT `yoke`, every project-side work item must declare whether the change belongs only to that project or also to a reusable Pack. Infer from title/body:
 
 - **`project-owned`** — The result is specific to this project; customized Pack files remain project-owned and need no central exception record.
-- **`pack-update`** — The general capability should ship as a new Pack version and then be previewed/applied in the target project. Cross-repo delivery follows the `project=yoke` Pattern B rule in `AGENTS.md`.
+- **`pack-update`** — The general capability should ship as a new Pack version and then be previewed/applied in the target project. Cross-repo delivery follows the companion-item rule in `AGENTS.md` (`## Project Scoping`): the Pack version ships from the Pack-owning project's item, and applying it lands in a linked companion item in this project.
 
 Decision test: "Would another project reasonably want this reusable capability change when it updates the same Pack?"
 - Yes -> `pack-update`
@@ -218,28 +218,28 @@ Inferred fields:
 
 ## 3. Cross-Project Detection (Hard Block)
 
-Before proceeding, check if the title/body implies work touching files in more than one project repo. If detected, STOP -- do not create a single work item spanning multiple projects.
+Before proceeding, check if the title/body implies work touching files in more than one project repo. If detected, STOP -- do not create a single work item spanning multiple projects. Each project's share becomes its own work item in that project, and the items are linked as companion items by an `item_dependencies` edge (`AGENTS.md`, `## Project Scoping`). One session may later claim both items and execute both lanes; a single item never gets a lane in a second repo.
 
-### Pattern A: Split into two work items
+### Independent work per project
 
-- Signals: distinct independent work items per project
-- Action: Propose splitting into two work items with a hard-block dependency between them
+- Signals: distinct, separately deliverable work items per project
+- Action: Propose splitting into companion items -- one per project -- with a hard-block dependency between them
 - Gate message:
  ```text
  GATE [hard-block]: Cross-project work detected.
  This idea touches both {project-A} and {project-B}.
- Remediation: Split into two work items -- one per project.
+ Remediation: File one work item per project, linked as companion items.
  Create both work items with a hard-block dependency? (Yes / No)
  ```
 - If yes, create both work items by repeating this phase and the body phase for each
 - If no, let the user clarify scope
 
-### Pattern B: Single multi-repo work item under `yoke`
+### Coordinated work led by one project
 
-- Signals: publish-a-Pack-update then install/deploy/verify it, or similar coordinated Yoke-led work
-- Action: File under `project=yoke`, note multi-repo scope in the body
+- Signals: publish-a-Pack-update then install/deploy/verify it, or similar work where one project's change must land before the other project can consume it
+- Action: File the leading item in the project that owns the change plus a companion item in the consuming project, linked so the consuming item is the dependent side
 - Proceed without asking
-- Add a note in the body: "Multi-repo scope: Pack publish/install/deploy/verify tasks will be defined during shepherd."
+- Name the companion item in each body and say what the dependent side waits on
 
 If the work is clearly single-project, skip this step.
 

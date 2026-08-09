@@ -9,7 +9,7 @@ The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the sha
 
 ## Bootstrap
 
-Codex loads its Yoke orientation automatically from the auto-loaded rules files (`AGENTS.md` shared doctrine + this `CODEX.md` shell) plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as `harness_contract` in [`docs/harness-bootstrap.md`](docs/harness-bootstrap.md). `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
+Codex loads its Yoke orientation automatically from the auto-loaded rules files (`AGENTS.md` shared doctrine + this `CODEX.md` shell) plus the session-start hook, which injects the same orientation and the generated `main_agent` packet block other supported harness sessions receive. That gives Codex's main session the same compact `core` + `claims` schema/API spine the Bash-capable subagents see. Substrate capability truth (hooks, env / session identity, cwd binding, adapter render format, supported commands, parity limits) is documented separately as the `harness_contract` manifest, which the Codex adapter carries alongside this shell. `harness_contract` is the manifest layer; `main_agent` and `*_agent` are the LLM-facing packet layer — the two never overlap.
 
 ### Repo-local skill discovery
 
@@ -54,9 +54,9 @@ Work requiring paths outside this shared delivery-path set still falls back with
 
 ### Limitations
 
-The Codex manifest is the source of truth for substrate limitations and currently declares none on entrypoints or downstream paths. The full Tier 1 operator surface listed in [`docs/harness-bootstrap.md`](docs/harness-bootstrap.md) §2 — including `/yoke conduct`, `/yoke freeze`, `/yoke thaw`, `/yoke resync`, `/yoke curate`, `/yoke wrapup`, `/yoke feed`, `/yoke strategize`, and `/yoke charge` — is part of Codex's safe surface. Conduct dispatches the same `yoke-engineer`, `yoke-tester`, `yoke-architect`, and `yoke-simulator` agent bodies as Claude, rendered into Codex custom agents from the canonical agent bodies. The shared dispatch descriptor emits the same task envelope for both harnesses, so phase files name agents through descriptors rather than a Claude-only `subagent_type`. Result ingestion is parseable on both sides, and tool-call telemetry flows into the same event stream.
+The Codex manifest is the source of truth for substrate limitations and currently declares none on entrypoints or downstream paths. The full operator surface — including `/yoke conduct`, `/yoke freeze`, `/yoke thaw`, `/yoke resync`, `/yoke curate`, `/yoke wrapup`, `/yoke feed`, `/yoke strategize`, and `/yoke charge` — is part of Codex's safe surface. Conduct dispatches the same `yoke-engineer`, `yoke-tester`, `yoke-architect`, and `yoke-simulator` agent bodies as Claude, rendered into Codex custom agents from the canonical agent bodies. The shared dispatch descriptor emits the same task envelope for both harnesses, so phase files name agents through descriptors rather than a Claude-only `subagent_type`. Result ingestion is parseable on both sides, and tool-call telemetry flows into the same event stream.
 
-The remaining named substrate gap is on the telemetry edge: Codex does not emit a dedicated `PostToolUseFailure` event for non-Bash tools (Write/Edit/Read). Bash failures on Codex are recovered inside the `PostToolUse` handler via exit-code parsing, hard-failure text matching, and last-resort transcript reconciliation against `tool_use_id` ↔ rollout `call_id`. See [`docs/hook-parity-map.md`](docs/hook-parity-map.md) for the tier-by-tier breakdown.
+The remaining named substrate gap is on the telemetry edge: Codex does not emit a dedicated `PostToolUseFailure` event for non-Bash tools (Write/Edit/Read). Bash failures on Codex are recovered inside the `PostToolUse` handler via exit-code parsing, hard-failure text matching, and last-resort transcript reconciliation against `tool_use_id` ↔ rollout `call_id`.
 
 Future shared-registry additions inherit to Codex unless a real substrate limitation is declared in the manifest.
 
@@ -107,12 +107,20 @@ Routing for `/yoke do` (session offer, `NextAction` directives, chainability, su
 - [Lifecycle & Command Boundaries](.yoke/docs/reference/lifecycle.md) -- canonical human lifecycle guide
 - [Session-Offer Contract](.yoke/docs/reference/session-offer.md) -- `/yoke do` request/response shape
 - [Charge Frontier](.yoke/docs/reference/charge-frontier.md) -- frontier computation and status-to-adapter map
-- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
-- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
 <!-- END YOKE MANAGED BLOCK -->
 
 # Yoke Repo Internals (Codex)
 <!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Codex shell `yoke project install` ships; the wrappers and source paths below are yoke-source-dev plumbing. -->
+
+## Harness contract references (yoke source dev)
+
+These describe how Yoke's harness adapters are built and compared. They live in
+`docs/`, which the install bundle does not ship, so they stay out of the managed
+block above:
+
+- [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations; §2 lists the full Tier 1 operator surface
+- [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
+- [Hook Parity Map](docs/hook-parity-map.md) -- tier-by-tier hook classification across harnesses, including the Codex `PostToolUseFailure` gap
 
 ## Bootstrap render (yoke source dev)
 

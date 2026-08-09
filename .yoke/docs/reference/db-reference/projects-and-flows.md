@@ -229,7 +229,7 @@ new assignments and runs while preserving the definition and every historical
 run.
 
 Schema initialization creates the registry but never seeds a project's delivery
-topology. Every project—including the Yoke and Platform repositories—owns its
+topology. Every project—without exception—owns its
 flow IDs, stage names, workflow filenames, retirements, and optional default in
 `.yoke/deployment-flows.json`. Existing rows remain readable when a declaration
 omits or retires them, so historical runs keep resolving without teaching new
