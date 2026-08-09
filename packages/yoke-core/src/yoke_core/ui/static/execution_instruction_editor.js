@@ -33,53 +33,49 @@ export function openExecutionInstructionEditor({
 }) {
   const existing = instruction.id != null;
   const state = {
-    title: instruction.title || "",
     content: instruction.content || "",
-    ordering: instruction.ordering ?? 0,
-    active: (instruction.status || "active") === "active",
+    appliesToAllWorkflows: Boolean(instruction.applies_to_all_workflows),
     workflowIds: new Set(instruction.workflow_ids || []),
     appliesToAllProjects: Boolean(instruction.applies_to_all_projects),
     projectIds: new Set((instruction.project_ids || []).map(Number)),
   };
   const { panel, body } = workflowPanel(
     documentNode,
-    existing ? `Edit instruction — ${instruction.title}` : "New instruction",
+    existing ? "Edit instruction" : "New instruction",
   );
   panel.classList.add("instruction-editor");
 
-  body.appendChild(fieldLabel(documentNode, "Title"));
-  const title = textField(
-    documentNode, "input", "instruction-title-input", state.title,
-    (value) => { state.title = value; },
-  );
-  title.type = "text";
-  body.appendChild(title);
-
-  body.appendChild(fieldLabel(documentNode, "Content"));
+  // The prose is the instruction. There is no title to keep in step with it and
+  // no ordering to maintain: scope decides who sees it, breadth decides the
+  // order, and an instruction that should not apply is unscoped or deleted.
+  body.appendChild(fieldLabel(documentNode, "Instruction"));
   body.appendChild(textField(
     documentNode, "textarea", "instruction-content-input", state.content,
     (value) => { state.content = value; },
   ));
 
-  body.appendChild(fieldLabel(documentNode, "Ordering"));
-  const ordering = textField(
-    documentNode, "input", "instruction-ordering-input", state.ordering,
-    (value) => { state.ordering = value; },
-  );
-  ordering.type = "number";
-  body.appendChild(ordering);
-
-  body.appendChild(checkboxRow(
-    documentNode, state.active, "Active", "instruction-status-toggle",
-    (event) => { state.active = event.target.checked; },
-  ).row);
-
   body.appendChild(fieldLabel(documentNode, "Workflows"));
   const workflowGroup = el(
     documentNode, "div", "instruction-checkbox-group instruction-workflows",
   );
+  const workflowInputs = [];
+  const syncWorkflowInputs = () => {
+    for (const input of workflowInputs) {
+      input.disabled = state.appliesToAllWorkflows;
+    }
+  };
+  workflowGroup.appendChild(checkboxRow(
+    documentNode,
+    state.appliesToAllWorkflows,
+    "All workflows",
+    "instruction-all-workflows",
+    (event) => {
+      state.appliesToAllWorkflows = event.target.checked;
+      syncWorkflowInputs();
+    },
+  ).row);
   for (const workflow of workflows) {
-    workflowGroup.appendChild(checkboxRow(
+    const member = checkboxRow(
       documentNode,
       state.workflowIds.has(workflow.id),
       workflow.name || workflow.id,
@@ -88,13 +84,16 @@ export function openExecutionInstructionEditor({
         if (event.target.checked) state.workflowIds.add(workflow.id);
         else state.workflowIds.delete(workflow.id);
       },
-    ).row);
+    );
+    workflowInputs.push(member.input);
+    workflowGroup.appendChild(member.row);
   }
   if (!workflows.length) {
     workflowGroup.appendChild(el(
       documentNode, "p", "workflow-field-help", "No workflows declared.",
     ));
   }
+  syncWorkflowInputs();
   body.appendChild(workflowGroup);
 
   body.appendChild(fieldLabel(documentNode, "Projects"));
@@ -164,10 +163,8 @@ export function openExecutionInstructionEditor({
     error.hidden = true;
     try {
       await save({
-        title: state.title,
         content: state.content,
-        ordering: Number(state.ordering) || 0,
-        status: state.active ? "active" : "disabled",
+        appliesToAllWorkflows: state.appliesToAllWorkflows,
         workflowIds: [...state.workflowIds],
         appliesToAllProjects: state.appliesToAllProjects,
         projectIds: [...state.projectIds],

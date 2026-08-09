@@ -78,7 +78,7 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
 
     created = crud.handle_instruction_create(_request(
         "workflow.execution_instruction.create",
-        {"title": "Always run doctor", "content": "Run doctor first."},
+        {"content": "Run doctor first."},
     ))
     assert created.primary_success
     instruction_id = created.result_payload["instruction_id"]
@@ -100,10 +100,11 @@ def test_crud_handlers_write_rows_and_emit_audited_events(monkeypatch):
     rows = listed.result_payload["instructions"]
     assert [row["workflow_ids"] for row in rows] == [["dash"]]
     assert rows[0]["applies_to_all_projects"] is True
+    assert rows[0]["applies_to_all_workflows"] is False
 
     updated = crud.handle_instruction_update(_request(
         "workflow.execution_instruction.update",
-        {"instruction_id": instruction_id, "status": "disabled"},
+        {"instruction_id": instruction_id, "content": "Rewritten."},
     ))
     assert updated.primary_success
 
@@ -139,7 +140,7 @@ def test_missing_instruction_and_empty_content_fail_closed(monkeypatch):
 
     blank = crud.handle_instruction_create(_request(
         "workflow.execution_instruction.create",
-        {"title": "  ", "content": "x"},
+        {"content": "   "},
     ))
     assert not blank.primary_success
     assert blank.error.code == "empty_content_refused"
@@ -149,7 +150,7 @@ def _seed_resolved_instruction(conn) -> int:
     from yoke_core.domain import workflow_execution_instructions as domain
 
     instruction_id = domain.create_instruction(
-        conn, title="Obey the gate", content="Run the QA gate.",
+        conn, content="Run the QA gate.",
     )
     domain.set_instruction_scope(
         conn, instruction_id, workflow_ids=["dash"],

@@ -310,7 +310,7 @@ test("empty registry and empty version history keep explicit product states", as
     t, workflowsClient([noVersions]),
   );
   assert.deepEqual(classText(mounted.root, "empty"), [
-    "No active execution instructions apply to this workflow.",
+    "No execution instructions apply to this workflow.",
     "No published versions.",
   ]);
   mounted.mounted.unmount();

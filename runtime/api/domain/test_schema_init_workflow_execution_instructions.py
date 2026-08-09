@@ -24,8 +24,8 @@ def test_fresh_init_creates_execution_instruction_tables(tmp_path: Path) -> None
                 _get_columns(conn, WORKFLOW_EXECUTION_INSTRUCTIONS_TABLE)
             )
             assert {
-                "id", "title", "content", "applies_to_all_projects",
-                "ordering", "status", "updated_by_actor_id",
+                "id", "content", "applies_to_all_workflows",
+                "applies_to_all_projects", "updated_by_actor_id",
                 "created_at", "updated_at",
             } <= cols
         finally:

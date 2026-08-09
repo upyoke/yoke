@@ -23,6 +23,14 @@ import {
 } from "./workflow_path_posture_dialogs.js";
 import { clearWorkflowDialog, linkWorkflowPanel } from "./workflow_accessibility.js";
 import { workflowInstructionsPanel } from "./workflow_instructions_panel.js";
+
+// Every editor action is invoked for the workflow in view, so it is bound here
+// once instead of at each panel. Absent stays absent: a panel decides whether
+// to render a control from whether it got one.
+function bound(action, workflow) {
+  return action ? (...args) => action(workflow, ...args) : null;
+}
+
 function renderSelectedWorkflow(
   documentNode,
   content,
@@ -51,31 +59,21 @@ function renderSelectedWorkflow(
       },
     ),
     renderPosture(documentNode, workflow, {
-      editPathClaims: actions.editPathClaims
-        ? (enabled) => actions.editPathClaims(workflow, enabled)
-        : null,
-      editPathSurvey: actions.editPathSurvey
-        ? (enabled) => actions.editPathSurvey(workflow, enabled)
-        : null,
+      editPathClaims: bound(actions.editPathClaims, workflow),
+      editPathSurvey: bound(actions.editPathSurvey, workflow),
     }),
     renderMechanics(documentNode, workflow, {
       mechanics: actions.mechanics,
-      editTesting: actions.editTesting
-        ? () => actions.editTesting(workflow)
-        : null,
-      editApprovals: actions.editApprovals
-        ? () => actions.editApprovals(workflow)
-        : null,
-      editDelivery: actions.editDelivery
-        ? () => actions.editDelivery(workflow)
-        : null,
+      editTesting: bound(actions.editTesting, workflow),
+      editApprovals: bound(actions.editApprovals, workflow),
+      editDelivery: bound(actions.editDelivery, workflow),
     }),
-    workflowInstructionsPanel(documentNode, workflow, actions.client),
+    workflowInstructionsPanel(
+      documentNode, workflow, actions.client, actions.instructionScope || {},
+    ),
     renderVersionHistory(documentNode, workflow, {
       client: actions.client,
-      makeCurrent: actions.makeCurrent
-        ? (version) => actions.makeCurrent(workflow, version)
-        : null,
+      makeCurrent: bound(actions.makeCurrent, workflow),
       takeUpdate: actions.takeUpdate,
     }),
   );
@@ -167,8 +165,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   };
   const saveProjectDefault = async (kind, workflow, edit) => {
     const valueKey = kind === "testing" ? "plan_id" : "flow_id";
-    const value = kind === "testing"
-      ? Number(edit.value) : edit.value;
+    const value = kind === "testing" ? Number(edit.value) : edit.value;
     await mutation(`workflows.${kind}_default.set`, {
       project: edit.project,
       workflow_id: workflow.id,
@@ -286,6 +283,9 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
         editDelivery: mechanicsData.editable ? openDeliveryDialog : null,
         makeCurrent: mechanicsData.editable ? openCurrentDialog : null,
         takeUpdate: mechanicsData.editable ? takeCanonUpdate : null,
+        // Instruction scope spans every workflow and project, so editing one
+        // here still needs both rosters.
+        instructionScope: { workflows, projects: context.projects() },
       },
     );
   };

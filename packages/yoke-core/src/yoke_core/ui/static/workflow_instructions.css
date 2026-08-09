@@ -1,0 +1,48 @@
+/* Execution instructions as the workflows page shows them: the rows that
+   reach the workflow in view, and the editor that opens in their place. */
+.universe-app-root .instruction-editor .instruction-content-input {
+  min-height: 160px;
+  font-family: var(--yoke-font-mono);
+  font-size: 12.5px;
+  resize: vertical;
+}
+.universe-app-root .instruction-checkbox-group {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 4px;
+}
+.universe-app-root .instruction-checkbox-group
+  .workflow-checkbox:has(input:disabled) {
+  opacity: .55;
+}
+.universe-app-root .instruction-editor-error {
+  margin: 10px 0 0;
+  color: var(--yoke-crit);
+  font-size: 12.5px;
+}
+.universe-app-root .instruction-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.universe-app-root .workflow-instruction-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .workflow-instruction-row:last-child {
+  border-bottom: 0;
+}
+.universe-app-root .workflow-instruction-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 550;
+}
+.universe-app-root .workflow-instruction-reach {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 12px;
+}

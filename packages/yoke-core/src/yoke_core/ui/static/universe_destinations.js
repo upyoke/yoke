@@ -80,13 +80,6 @@ export const NAV = [
       "The versioned definitions every work item follows — lifecycle, posture, gates, testing and delivery.",
   },
   {
-    id: "instructions", icon: "✎", label: "Execution Instructions",
-    scope: SCOPE_NONE,
-    summary:
-      "Operator-authored instructions injected into execution, scoped by " +
-      "workflow and project.",
-  },
-  {
     id: "capabilities", icon: "⚿", label: "Capabilities", scope: SCOPE_MULTI,
     summary:
       "The configured providers, declared models, and test resources Yoke can use on your behalf.",

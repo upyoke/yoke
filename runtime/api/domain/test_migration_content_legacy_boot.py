@@ -14,6 +14,8 @@ from yoke_core.domain.migration_yoke_ledger import (
     yoke_migration_content_schema_is_prepared,
 )
 
+CONTENT_IDENTITY_ENTRY = "0006_migration_content_identity"
+
 
 def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
     conn = sqlite3.connect(":memory:")
@@ -22,7 +24,15 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
         "migration_name TEXT PRIMARY KEY, applied_at TEXT NOT NULL, "
         "applied_by TEXT, minimum_serving_version TEXT)"
     )
-    history = ordered_entries(history_dir(migration_history_package))
+    # This test is about one entry: the content-identity one. Naming it rather
+    # than taking whatever is newest keeps a later append from re-pointing the
+    # subject at an unrelated entry.
+    full_history = ordered_entries(history_dir(migration_history_package))
+    subject = next(
+        index for index, entry in enumerate(full_history)
+        if entry.name == CONTENT_IDENTITY_ENTRY
+    )
+    history = full_history[:subject + 1]
     for entry in history[:-1]:
         conn.execute(
             "INSERT INTO applied_migrations "
@@ -45,7 +55,6 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
         external_restore_point="snapshot:legacy-yoke",
     )
 
-    assert history[-1].name == "0006_migration_content_identity"
     assert outcome.applied == (history[-1].name,)
     assert yoke_migration_content_schema_is_prepared(conn)
     rows = conn.execute(

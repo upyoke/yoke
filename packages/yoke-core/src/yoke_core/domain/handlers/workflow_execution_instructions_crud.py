@@ -26,22 +26,17 @@ INSTRUCTION_DELETED_EVENT = "WorkflowExecutionInstructionDeleted"
 
 
 class InstructionCreateRequest(BaseModel):
-    title: str = Field(..., min_length=1)
     content: str = Field(..., min_length=1)
-    ordering: int = 0
-    status: str = Field("active", pattern="^(active|disabled)$")
 
 
 class InstructionUpdateRequest(BaseModel):
     instruction_id: int = Field(..., gt=0)
-    title: str | None = None
-    content: str | None = None
-    ordering: int | None = None
-    status: str | None = Field(None, pattern="^(active|disabled)$")
+    content: str = Field(..., min_length=1)
 
 
 class InstructionSetScopeRequest(BaseModel):
     instruction_id: int = Field(..., gt=0)
+    applies_to_all_workflows: bool = False
     workflow_ids: list[str] = Field(default_factory=list)
     applies_to_all_projects: bool = False
     project_ids: list[int] = Field(default_factory=list)
@@ -107,10 +102,7 @@ def handle_instruction_create(request: FunctionCallRequest) -> HandlerOutcome:
         try:
             instruction_id = _instructions.create_instruction(
                 conn,
-                title=payload.title,
                 content=payload.content,
-                ordering=payload.ordering,
-                status=payload.status,
                 actor_id=_numeric_actor_id(request.actor.actor_id),
             )
         except _instructions.EmptyExecutionInstructionError as exc:
@@ -119,7 +111,7 @@ def handle_instruction_create(request: FunctionCallRequest) -> HandlerOutcome:
     _emit(
         INSTRUCTION_CREATED_EVENT,
         request,
-        {"instruction_id": instruction_id, "title": payload.title},
+        {"instruction_id": instruction_id},
     )
     return HandlerOutcome(
         result_payload={"instruction_id": instruction_id}, primary_success=True
@@ -137,10 +129,7 @@ def handle_instruction_update(request: FunctionCallRequest) -> HandlerOutcome:
             _instructions.update_instruction(
                 conn,
                 payload.instruction_id,
-                title=payload.title,
                 content=payload.content,
-                ordering=payload.ordering,
-                status=payload.status,
                 actor_id=_numeric_actor_id(request.actor.actor_id),
             )
         except _instructions.UnknownExecutionInstructionError as exc:
@@ -170,6 +159,7 @@ def handle_instruction_set_scope(request: FunctionCallRequest) -> HandlerOutcome
             _instructions.set_instruction_scope(
                 conn,
                 payload.instruction_id,
+                applies_to_all_workflows=payload.applies_to_all_workflows,
                 workflow_ids=payload.workflow_ids,
                 applies_to_all_projects=payload.applies_to_all_projects,
                 project_ids=payload.project_ids,
@@ -183,6 +173,7 @@ def handle_instruction_set_scope(request: FunctionCallRequest) -> HandlerOutcome
         request,
         {
             "instruction_id": payload.instruction_id,
+            "applies_to_all_workflows": payload.applies_to_all_workflows,
             "workflow_ids": payload.workflow_ids,
             "applies_to_all_projects": payload.applies_to_all_projects,
             "project_ids": payload.project_ids,

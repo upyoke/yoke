@@ -91,22 +91,23 @@ WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="workflow.execution_instruction.create",
         cli_invocation=(
-            "yoke workflow execution-instruction create --title T "
-            "(--content C | --stdin) [--ordering N] [--status S] [--json]"
+            "yoke workflow execution-instruction create "
+            "(--content C | --stdin) [--json]"
         ),
     ),
     AdapterEntry(
         function_id="workflow.execution_instruction.update",
         cli_invocation=(
-            "yoke workflow execution-instruction update ID [--title T] "
-            "[--content C | --stdin] [--ordering N] [--status S] [--json]"
+            "yoke workflow execution-instruction update ID "
+            "(--content C | --stdin) [--json]"
         ),
     ),
     AdapterEntry(
         function_id="workflow.execution_instruction.set_scope",
         cli_invocation=(
             "yoke workflow execution-instruction set-scope ID "
-            "[--workflow W ...] [--all-projects] [--project-id N ...] [--json]"
+            "[--all-workflows] [--workflow W ...] "
+            "[--all-projects] [--project-id N ...] [--json]"
         ),
         notes="Replaces the instruction's workflow and project bindings.",
     ),

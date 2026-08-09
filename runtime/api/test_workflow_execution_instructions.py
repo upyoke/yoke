@@ -37,21 +37,20 @@ def _connection() -> sqlite3.Connection:
 def _seed(
     conn: sqlite3.Connection,
     *,
-    title: str,
-    workflow_ids: list[str],
+    label: str,
+    workflow_ids: list[str] | None = None,
+    all_workflows: bool = False,
     all_projects: bool = False,
     project_ids: list[int] | None = None,
-    ordering: int = 0,
-    status: str = "active",
 ) -> int:
     instruction_id = instructions.create_instruction(
-        conn, title=title, content=f"{title} content", ordering=ordering,
-        status=status,
+        conn, content=f"{label} content",
     )
     instructions.set_instruction_scope(
         conn,
         instruction_id,
-        workflow_ids=workflow_ids,
+        applies_to_all_workflows=all_workflows,
+        workflow_ids=workflow_ids or [],
         applies_to_all_projects=all_projects,
         project_ids=project_ids or [],
     )
@@ -61,46 +60,47 @@ def _seed(
 def test_resolution_orders_general_to_specific_with_deterministic_ties():
     conn = _connection()
     project_scoped = _seed(
-        conn, title="Project scoped", workflow_ids=["dash"],
-        project_ids=[1], ordering=0,
+        conn, label="Project scoped", workflow_ids=["dash"], project_ids=[1],
     )
-    all_late = _seed(
-        conn, title="All projects late", workflow_ids=["dash", "issue"],
-        all_projects=True, ordering=5,
+    all_projects_first = _seed(
+        conn, label="All projects", workflow_ids=["dash", "issue"],
+        all_projects=True,
     )
-    all_early = _seed(
-        conn, title="All projects early", workflow_ids=["dash"],
-        all_projects=True, ordering=5,
+    all_projects_second = _seed(
+        conn, label="All projects again", workflow_ids=["dash"],
+        all_projects=True,
+    )
+    every_workflow = _seed(
+        conn, label="Every workflow", all_workflows=True, all_projects=True,
     )
 
     resolved = instructions.resolve_execution_instructions(
         conn, workflow_id="dash", project_id=1
     )
 
-    # All-projects rows precede project-scoped rows regardless of ordering;
-    # equal (group, ordering) falls back to id.
+    # Broadest first: every-workflow, then all-projects, then the narrowest.
+    # Within a group the row id is the tiebreak, which needs no maintenance.
     assert [row["id"] for row in resolved] == [
-        all_late, all_early, project_scoped,
+        every_workflow, all_projects_first, all_projects_second, project_scoped,
     ]
-    assert resolved[0]["applies_to_all_projects"] is True
+    assert resolved[0]["applies_to_all_workflows"] is True
     assert resolved[-1]["applies_to_all_projects"] is False
 
 
-def test_resolution_filters_by_workflow_project_and_status():
+def test_resolution_filters_by_workflow_and_project_scope():
     conn = _connection()
     _seed(
-        conn, title="Wrong workflow", workflow_ids=["issue"],
+        conn, label="Wrong workflow", workflow_ids=["issue"],
         all_projects=True,
     )
     _seed(
-        conn, title="Wrong project", workflow_ids=["dash"], project_ids=[2],
+        conn, label="Wrong project", workflow_ids=["dash"], project_ids=[2],
     )
-    _seed(
-        conn, title="Disabled", workflow_ids=["dash"], all_projects=True,
-        status="disabled",
-    )
+    # No workflow scope at all: reaches nothing, which is how an instruction
+    # is taken out of use now that there is no status to disagree with scope.
+    _seed(conn, label="Unscoped", all_projects=True)
     visible = _seed(
-        conn, title="Visible", workflow_ids=["dash"], project_ids=[1],
+        conn, label="Visible", workflow_ids=["dash"], project_ids=[1],
     )
 
     resolved = instructions.resolve_execution_instructions(
@@ -113,9 +113,9 @@ def test_resolution_filters_by_workflow_project_and_status():
 def test_resolve_for_item_reads_the_pinned_workflow_and_project():
     conn = _connection()
     matched = _seed(
-        conn, title="Dash on yoke", workflow_ids=["dash"], project_ids=[1],
+        conn, label="Dash on yoke", workflow_ids=["dash"], project_ids=[1],
     )
-    _seed(conn, title="Acme only", workflow_ids=["dash"], project_ids=[2])
+    _seed(conn, label="Acme only", workflow_ids=["dash"], project_ids=[2])
 
     resolved = instructions.resolve_for_item(conn, 5)
 
@@ -126,7 +126,7 @@ def test_resolve_for_item_reads_the_pinned_workflow_and_project():
 def test_all_projects_predicate_covers_projects_without_junction_rows():
     conn = _connection()
     covering = _seed(
-        conn, title="Everywhere", workflow_ids=["dash"], all_projects=True,
+        conn, label="Everywhere", workflow_ids=["dash"], all_projects=True,
     )
     # A project created after the instruction has no junction rows, yet the
     # stored predicate covers it with zero backfill.
@@ -142,7 +142,7 @@ def test_all_projects_predicate_covers_projects_without_junction_rows():
 def test_set_scope_replaces_bindings_and_list_reports_them():
     conn = _connection()
     instruction_id = _seed(
-        conn, title="Scoped", workflow_ids=["dash", "issue"],
+        conn, label="Scoped", workflow_ids=["dash", "issue"],
         project_ids=[1, 2],
     )
     instructions.set_instruction_scope(
@@ -159,29 +159,28 @@ def test_set_scope_replaces_bindings_and_list_reports_them():
     assert row["applies_to_all_projects"] is True
 
 
-def test_update_guards_blank_fields_and_unknown_ids():
+def test_update_guards_blank_content_and_unknown_ids():
     conn = _connection()
-    instruction_id = _seed(conn, title="Guarded", workflow_ids=["dash"])
+    instruction_id = _seed(conn, label="Guarded", workflow_ids=["dash"])
 
     with pytest.raises(instructions.EmptyExecutionInstructionError):
         instructions.update_instruction(conn, instruction_id, content="  ")
     with pytest.raises(instructions.UnknownExecutionInstructionError):
-        instructions.update_instruction(conn, 999, title="Nope")
+        instructions.update_instruction(conn, 999, content="Nope")
     with pytest.raises(instructions.EmptyExecutionInstructionError):
-        instructions.create_instruction(conn, title=" ", content="x")
+        instructions.create_instruction(conn, content=" ")
 
     instructions.update_instruction(
-        conn, instruction_id, title="Renamed", status="disabled",
+        conn, instruction_id, content="Rewritten prose",
     )
     row = instructions.list_instructions(conn)[0]
-    assert row["title"] == "Renamed"
-    assert row["status"] == "disabled"
+    assert row["content"] == "Rewritten prose"
 
 
 def test_delete_removes_the_row_and_its_scope_bindings():
     conn = _connection()
     instruction_id = _seed(
-        conn, title="Doomed", workflow_ids=["dash"], project_ids=[1],
+        conn, label="Doomed", workflow_ids=["dash"], project_ids=[1],
     )
 
     instructions.delete_instruction(conn, instruction_id)

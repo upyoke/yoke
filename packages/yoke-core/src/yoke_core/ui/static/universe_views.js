@@ -16,9 +16,6 @@ import {
 } from "./universe_views_delivery_inventory.js";
 import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
-import {
-  renderExecutionInstructionsView,
-} from "./universe_views_execution_instructions.js";
 import { renderFrontierView } from "./universe_views_frontier.js";
 import { renderGithubView } from "./universe_views_github.js";
 import { renderInboxView } from "./universe_views_inbox.js";
@@ -106,7 +103,6 @@ export const VIEW_RENDERERS = {
   project: renderProjectView,
   packs: renderPacksView,
   workflows: renderWorkflowsView,
-  instructions: renderExecutionInstructionsView,
   github: renderGithubView,
   organization: renderOrganizationView,
 };

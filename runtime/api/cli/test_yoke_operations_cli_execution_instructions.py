@@ -16,18 +16,19 @@ def test_empty_match_set_renders_no_block() -> None:
     assert render_execution_instruction_block([]) == ""
 
 
-def test_block_is_labeled_with_one_subheader_per_instruction() -> None:
+def test_the_block_is_the_prose_under_one_header() -> None:
+    """No per-instruction subheader: the prose is the whole instruction, and a
+    title would have been a second summary the agent had to reconcile."""
     block = render_execution_instruction_block([
-        {"title": "Run doctor first", "content": "Always run doctor.\n"},
-        {"title": "Mind the gate", "content": "QA gate is mandatory."},
+        {"content": "Always run doctor.\n"},
+        {"content": "QA gate is mandatory."},
     ])
 
     lines = block.splitlines()
     assert lines[0] == EXECUTION_INSTRUCTION_BLOCK_HEADER
-    assert "## Run doctor first" in lines
-    assert "## Mind the gate" in lines
     assert "Always run doctor." in lines
     assert "QA gate is mandatory." in lines
+    assert not [line for line in lines[1:] if line.startswith("#")]
     assert block.endswith("\n")
 
 
