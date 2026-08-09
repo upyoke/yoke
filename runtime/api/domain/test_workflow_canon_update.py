@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_definition_builders import (
+    with_generated_epic_tasks,
+)
+
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -187,7 +191,7 @@ def test_a_conflicting_update_is_refused_rather_than_picking_a_side(test_db):
         **generations[-1].definition["policies"],
         "file_budget": "required_per_task",
     }
-    edited["policies"]["generated_children"] = "epic_tasks"
+    with_generated_epic_tasks(edited)
     published = publish_workflow_version(
         test_db, workflow_id="issue", definition=edited,
     )

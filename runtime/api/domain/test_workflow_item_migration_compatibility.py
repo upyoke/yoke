@@ -14,6 +14,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_plan_management import create_plan
+from yoke_core.domain.workflow_definition_builders import with_generated_epic_tasks
 from yoke_core.domain.workflow_definition_codec import WorkflowRegistryError
 from yoke_core.domain.workflow_item_versioning import (
     migrate_item_workflow_pin,
@@ -33,7 +34,7 @@ def _mutate_target(definition: dict, case: str) -> None:
         policies["ownership"] = "exclusive_session_work_claim"
     elif case == "path_claim":
         policies["path_claims"] = "required_per_task"
-        policies["generated_children"] = "epic_tasks"
+        with_generated_epic_tasks(definition)
     elif case == "worktree":
         policies["worktrees"] = "worker_and_integration_lanes"
     elif case == "approval":

@@ -118,6 +118,29 @@ def _ensure_current_version(
     )
 
 
+def _adopts_automatically(
+    workflow: Mapping[str, Any],
+    selected: Mapping[str, Any],
+    desired: Mapping[str, Any],
+) -> bool:
+    """Whether this boot may move the workflow onto the code-owned version.
+
+    Three things must hold. There has to be somewhere to move to, so a universe
+    already on the desired version is left untouched rather than rewritten. The
+    workflow must be following, which a local publication turns off. And the
+    version being left has to be one the canon recognizes -- an edited
+    definition is customization, and taking a new generation over the top of it
+    would discard an operator's work without asking.
+    """
+    if int(selected["id"]) == int(desired["id"]):
+        return False
+    if str(workflow.get("canon_follow") or "auto") != "auto":
+        return False
+    return recognize(
+        str(workflow["id"]), str(selected["definition_digest"])
+    ) is not None
+
+
 def unrecognized_builtin_versions(conn: Any) -> list[dict]:
     """Stored built-in rows whose content the canon does not recognize.
 
@@ -222,6 +245,22 @@ def converge_builtin_workflows(
                 f"UPDATE workflows SET current_version_id = {bind}, "
                 f"updated_at = {bind} WHERE id = {bind}",
                 (int(desired["id"]), now, workflow_id),
+            )
+        elif _adopts_automatically(current, selected, desired):
+            # A universe running an unmodified published generation has nothing
+            # to decide about the next one, so it takes it and is told after the
+            # fact. A universe that edited its definition is left alone: there an
+            # update is a merge, and no automatic resolution is correct.
+            conn.execute(
+                f"UPDATE workflows SET current_version_id = {bind}, "
+                f"canon_adopted_from_version = {bind}, updated_at = {bind} "
+                f"WHERE id = {bind}",
+                (
+                    int(desired["id"]),
+                    int(selected["version"]),
+                    now,
+                    workflow_id,
+                ),
             )
     conn.commit()
 

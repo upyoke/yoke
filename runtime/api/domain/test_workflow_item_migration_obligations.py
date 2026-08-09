@@ -18,6 +18,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
 from yoke_core.domain.workflow_definition_builders import (
+    with_generated_epic_tasks,
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
@@ -74,7 +75,7 @@ def _publish_policy_pair(
         or target_definition["policies"]["path_claims"]
         == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
     ):
-        target_definition["policies"]["generated_children"] = "epic_tasks"
+        with_generated_epic_tasks(target_definition)
     if target_worktrees is not None:
         target_definition["policies"]["worktrees"] = target_worktrees
     target = publish_workflow_version(

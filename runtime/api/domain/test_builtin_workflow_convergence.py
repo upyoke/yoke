@@ -4,8 +4,12 @@ Convergence registers the built-in workflows and makes the current definition
 available at the universe's own next version number. It never rewrites a
 stored row, never renumbers one, never deletes one, and never refuses to boot
 over a definition it does not recognize -- that refusal took the fleet down
-twice. What it will not do either is decide what a universe runs: selecting a
-version is a separate, deliberate act.
+twice.
+
+What it does decide is narrow: a workflow still on a recognized generation, with
+following left on, is moved onto the appended one and told afterwards. Anything
+customized, or whose following a local publication turned off, keeps the version
+it has -- there an update is a merge, and convergence makes no merge unattended.
 """
 
 from __future__ import annotations
@@ -110,9 +114,13 @@ def test_convergence_appends_the_current_definition_without_rewriting(
         [version["version"] for version in row["versions"]] == [1, 2]
         for row in workflows
     )
-    # Convergence makes the definition available; it does not decide what a
-    # universe runs. What was selected stays selected.
-    assert {row["current_version"] for row in workflows} == {1}
+    # Convergence decides what an UNMODIFIED FOLLOWER runs, and nothing else:
+    # every workflow here is on a recognized generation with following left at
+    # its default, so each is moved onto the appended one and told afterwards.
+    # The cases it declines to move -- a customized definition, a workflow whose
+    # following was turned off by a local publication -- are proven in
+    # test_workflow_canon_auto_follow.py.
+    assert {row["current_version"] for row in workflows} == {2}
     # Both rows are published generations, recognized by content rather than
     # by sitting at the number the code expected.
     assert all(

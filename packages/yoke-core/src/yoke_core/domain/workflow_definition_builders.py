@@ -52,6 +52,40 @@ ENTRY_SURFACE_IDS = frozenset(
 )
 
 
+def with_generated_epic_tasks(definition: Dict[str, Any]) -> Dict[str, Any]:
+    """Declare epic-task generation together with the skill that writes them.
+
+    The two facts are one decision: a definition that generates tasks must bind
+    a skill whose planning phase produces them, or it promises decomposition
+    nothing performs. Callers that only mean "make this generate tasks" get the
+    producing binding as part of the same edit rather than discovering the
+    refusal afterwards. Bindings union their coverage, so adding one spanning
+    the whole lifecycle never invalidates the coverage the definition already
+    had.
+    """
+    # Replaces the two containers rather than mutating them, because callers
+    # routinely hold a shallow copy of a shared fixture: appending to the
+    # original list would edit that fixture for everyone who reads it later,
+    # which shows up as an unrelated definition mysteriously failing to be
+    # recognized. Only the mapping the caller owns is written through.
+    policies = dict(definition["policies"])
+    policies["generated_children"] = "epic_tasks"
+    definition["policies"] = policies
+    bindings = [dict(binding) for binding in definition["skill_bindings"]]
+    bound = {str(binding["skill_id"]) for binding in bindings}
+    if not bound & TASK_PRODUCING_PLANNING_SKILL_IDS:
+        stage_ids = [str(stage["id"]) for stage in definition["stages"]]
+        bindings.append(
+            {
+                "skill_id": sorted(TASK_PRODUCING_PLANNING_SKILL_IDS)[0],
+                "from_stage_id": stage_ids[0],
+                "through_stage_id": stage_ids[-1],
+            }
+        )
+    definition["skill_bindings"] = bindings
+    return definition
+
+
 def gate_ref(gate_id: str, mode: Optional[str] = None) -> Dict[str, str]:
     """Build one definition-owned reference to the closed gate catalog."""
     ref = {"id": gate_id}
@@ -144,6 +178,8 @@ __all__ = [
     "ENTRY_SURFACE_IDS",
     "IMPLEMENTATION_WORKFLOW_SKILL_IDS",
     "REGISTERED_WORKFLOW_SKILL_IDS",
+    "TASK_PRODUCING_PLANNING_SKILL_IDS",
+    "with_generated_epic_tasks",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "WORKFLOW_FILE_BUDGET_OPTIONAL",
     "WORKFLOW_FILE_BUDGET_REQUIRED",

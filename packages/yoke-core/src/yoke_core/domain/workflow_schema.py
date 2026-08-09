@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS workflows (
   description TEXT NOT NULL,
   source TEXT NOT NULL CHECK(source IN ('built_in','pack','project')),
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','disabled')),
+  canon_follow TEXT NOT NULL DEFAULT 'auto'
+    CHECK(canon_follow IN ('auto','manual')),
   current_version_id INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -163,6 +165,28 @@ def ensure_workflow_schema(conn: Any) -> None:
         conn,
         "workflow_versions",
         "derived_from_canon_version",
+        "INTEGER",
+    )
+    # Whether this workflow takes newly published generations on its own.
+    # Defaults to auto because a universe running an unmodified generation has
+    # nothing to decide; the adoption step still refuses unless the current
+    # version is recognized, so a customized workflow keeps its review even
+    # while the column says auto, and a local publication flips it to manual.
+    _add_column_if_not_exists(
+        conn,
+        "workflows",
+        "canon_follow",
+        "TEXT NOT NULL DEFAULT 'auto'",
+    )
+    # The version an automatic adoption moved off, so the notice can say what
+    # changed rather than only what is current. NULL means no adoption has
+    # happened -- which is also how a universe that was born on its current
+    # version reads, and the two must not be confused: "adopted v1" would be a
+    # lie told to every fresh install.
+    _add_column_if_not_exists(
+        conn,
+        "workflows",
+        "canon_adopted_from_version",
         "INTEGER",
     )
     _add_column_if_not_exists(

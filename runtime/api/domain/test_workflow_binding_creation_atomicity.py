@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_core.domain.workflow_definition_builders import (
+    with_generated_epic_tasks,
+)
+
 from copy import deepcopy
 import threading
 from typing import Any
@@ -312,7 +316,7 @@ def test_item_path_claim_rejects_task_scoped_current_pin(test_db: Any) -> None:
 
     def per_task(definition: dict[str, Any]) -> None:
         definition["policies"]["path_claims"] = "required_per_task"
-        definition["policies"]["generated_children"] = "epic_tasks"
+        with_generated_epic_tasks(definition)
 
     target = _publish(
         test_db,

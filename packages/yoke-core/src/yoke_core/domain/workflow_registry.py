@@ -184,8 +184,13 @@ def publish_workflow_version(
         published_by_actor_id=published_by_actor_id,
         derived_from_canon_version=_baseline_for_edit_of(current),
     )
+    # Publishing here stops this workflow following the published canon, because
+    # from now on taking a new generation is a merge against local work rather
+    # than a move onto it, and nothing may make that call unattended. The stale
+    # adoption notice clears with it: it described a move this edit supersedes.
     conn.execute(
         f"UPDATE workflows SET current_version_id = {marker}, "
+        f"canon_follow = 'manual', canon_adopted_from_version = NULL, "
         f"updated_at = {marker} WHERE id = {marker}",
         (int(published["id"]), iso8601_now(), workflow_id),
     )

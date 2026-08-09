@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.builtin_workflow_canon import canon_generations
+from yoke_core.domain.workflow_definition_builders import (
+    with_generated_epic_tasks,
+)
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )
@@ -59,7 +62,9 @@ def publish_issue_completion_stage(
     definition["stage_mapping"] = {
         previous_stage_id: previous_stage_id for previous_stage_id in previous_stage_ids
     }
-    if generated_children is not None:
+    if generated_children == "epic_tasks":
+        with_generated_epic_tasks(definition)
+    elif generated_children is not None:
         definition["policies"]["generated_children"] = generated_children
     return publish_workflow_version(
         conn,
