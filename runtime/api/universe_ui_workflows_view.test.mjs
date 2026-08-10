@@ -50,13 +50,11 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "Ownership",
     "Child items",
     "File Budget",
-    "Path survey",
-    "Path claims",
     "Worktrees",
+    "Preventing overlapping work",
   ]);
   assert.deepEqual(classText(root, "workflow-lock-pill"), [
     "🔒 Always",
-    "🔒 Rally",
     "🔒 Rally",
     "🔒 Rally",
     "🔒 Rally",
@@ -71,11 +69,8 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "one active item claim",
     "never generated",
     "required",
-    // Undeclared by this definition, so it reports the engine's fallback and
-    // says it is one rather than vanishing from the grid.
-    "on (default)",
-    "required",
     "one implementation lane",
+    "Path claims",
   ]);
   assert.deepEqual(classText(root, "workflow-version-title"), [
     "v3 · current", "v1",

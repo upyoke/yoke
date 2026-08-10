@@ -14,6 +14,8 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
+    WORKFLOW_PATH_SURVEY_OPTIONAL,
+    WORKFLOW_PATH_SURVEY_REQUIRED,
 )
 from yoke_core.domain.workflow_definition_graph_validation import (
     validate_skill_bindings,
@@ -64,7 +66,7 @@ _POLICY_VALUES = {
         }
     ),
     "path_survey": frozenset(
-        {WORKFLOW_PATH_CLAIMS_REQUIRED, WORKFLOW_PATH_CLAIMS_OPTIONAL}
+        {WORKFLOW_PATH_SURVEY_REQUIRED, WORKFLOW_PATH_SURVEY_OPTIONAL}
     ),
     "worktrees": frozenset(
         {
@@ -218,11 +220,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
     if schema_version == 1:
         policy_values.pop("file_budget")
     required = (set(policy_values) - {"path_survey"}) | {"item_posture_allowlist"}
-    allowed = (
-        required
-        | {"path_survey", "approval_defaults"}
-        | _RETIRED_POLICY_KEYS
-    )
+    allowed = required | {"path_survey", "approval_defaults"} | _RETIRED_POLICY_KEYS
     missing = required - set(policies)
     extra = set(policies) - allowed
     if missing or extra:
@@ -234,6 +232,16 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             raise WorkflowDefinitionError(
                 f"policies.{key} has unknown value {policies[key]!r}"
             )
+    if policies.get("path_survey") == WORKFLOW_PATH_SURVEY_REQUIRED and policies[
+        "path_claims"
+    ] in {
+        WORKFLOW_PATH_CLAIMS_REQUIRED,
+        WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
+    }:
+        raise WorkflowDefinitionError(
+            "policies.path_survey=required cannot be combined with required "
+            "policies.path_claims"
+        )
     posture = require_sequence(
         policies["item_posture_allowlist"],
         "policies.item_posture_allowlist",
