@@ -166,23 +166,31 @@ def test_version_read_and_current_selection_use_optimistic_version(test_db):
 
 def test_editable_path_claim_default_publishes_an_immutable_version(test_db):
     current = current_workflow_version(test_db, "dash")
-    result = publish_workflow_policy_defaults(
+    survey = publish_workflow_policy_defaults(
         test_db,
         workflow_id="dash",
         expected_current_version=current,
+        path_survey_default=False,
+        published_by_actor_id=1,
+    )
+    result = publish_workflow_policy_defaults(
+        test_db,
+        workflow_id="dash",
+        expected_current_version=survey["version"],
         path_claims_default=True,
         published_by_actor_id=1,
     )
-    assert result["version"] == current + 1
+    assert result["version"] == current + 2
     assert result["path_claims_default"] is True
     previous = get_workflow_version(
         test_db, workflow_id="dash", version=current
     )
     published = get_workflow_version(
-        test_db, workflow_id="dash", version=current + 1
+        test_db, workflow_id="dash", version=result["version"]
     )
     assert previous["definition"]["policies"]["path_claims"] == "optional"
     assert published["definition"]["policies"]["path_claims"] == "required"
+    assert published["definition"]["policies"]["path_survey"] == "optional"
     assert published["current"] is True
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):

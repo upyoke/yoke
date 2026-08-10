@@ -15,6 +15,20 @@ ITEM_WORKTREE_SCHEMA_TESTS = (
     "runtime/api/test_item_page_reads.py",
 )
 
+WORKFLOW_DEFINITION_VALIDATION_TESTS = (
+    "runtime/api/domain/handlers/test_workflows_versioning_handler.py",
+    "runtime/api/domain/test_builtin_workflow_canon.py",
+    "runtime/api/domain/test_builtin_workflow_definitions.py",
+    "runtime/api/domain/test_workflow_coordination_policy_validation.py",
+    "runtime/api/domain/test_workflow_file_budget_policy.py",
+    "runtime/api/domain/test_workflow_generated_children_coherence.py",
+    "runtime/api/domain/test_workflow_mechanics_defaults.py",
+    "runtime/api/domain/test_workflow_path_survey_policy.py",
+    "runtime/api/domain/test_workflow_registry.py",
+    "runtime/api/domain/test_workflow_retired_policy_keys.py",
+    "runtime/api/test_universe_ui_server_mutations.py",
+)
+
 PATH_CONTRACT_TESTS = (
     (
         frozenset(
@@ -24,6 +38,19 @@ PATH_CONTRACT_TESTS = (
             }
         ),
         ITEM_WORKTREE_SCHEMA_TESTS,
+    ),
+    (
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/domain/"
+                "workflow_definition_graph_validation.py",
+                "packages/yoke-core/src/yoke_core/domain/"
+                "workflow_definition_validation.py",
+                "packages/yoke-core/src/yoke_core/domain/"
+                "workflow_definition_validation_support.py",
+            }
+        ),
+        WORKFLOW_DEFINITION_VALIDATION_TESTS,
     ),
 )
 
@@ -39,4 +66,8 @@ def contract_tests_for(changed: Sequence[str]) -> set[str]:
     }
 
 
-__all__ = ["ITEM_WORKTREE_SCHEMA_TESTS", "contract_tests_for"]
+__all__ = [
+    "ITEM_WORKTREE_SCHEMA_TESTS",
+    "WORKFLOW_DEFINITION_VALIDATION_TESTS",
+    "contract_tests_for",
+]
