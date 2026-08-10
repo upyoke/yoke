@@ -80,6 +80,10 @@ class RehearsalPlan:
     pending_names: Callable[[Any, Sequence[str]], Tuple[str, ...]]
     converge: Callable[[Any, str], None]
     live_ownership_validator: Callable[[Any], str | None] | None = None
+    #: Load one shipped history entry by ledger name so applied-history
+    #: invariants can run after convergence. Absent means the caller opts
+    #: out of that proof (tests that only exercise dump/ownership paths).
+    load_module: Callable[[str], Any] | None = None
 
 
 @contextmanager
@@ -250,18 +254,34 @@ def _converge_copy(
     plan: RehearsalPlan,
 ) -> Verdict:
     from yoke_core.domain import db_backend
+    from yoke_core.domain.migration_fleet_applied_invariants import (
+        applied_shipped_names,
+        verify_applied_history_invariants,
+    )
 
-    conn = db_backend.connect_psycopg(postgres_cluster.dsn(spec, copy_name))
+    copy_dsn = postgres_cluster.dsn(spec, copy_name)
+    conn = db_backend.connect_psycopg(copy_dsn)
     try:
         pending = plan.pending_names(conn, plan.history)
         with _restore_point_named(dump):
             try:
-                plan.converge(conn, postgres_cluster.dsn(spec, copy_name))
+                plan.converge(conn, copy_dsn)
             except BaseException as exc:  # noqa: BLE001 — a verdict, not a crash
                 conn.rollback()
                 return Verdict(database, False, str(exc).strip(), pending)
+        applied = applied_shipped_names(plan.history, plan.pending_names, conn)
+        failure = (
+            None
+            if plan.load_module is None
+            else verify_applied_history_invariants(
+                conn, applied, load_module=plan.load_module, redact=copy_dsn
+            )
+        )
+        if failure is not None:
+            conn.rollback()
+            return Verdict(database, False, failure, pending, applied)
         conn.commit()
-        return Verdict(database, True, "converged", pending, pending)
+        return Verdict(database, True, "converged", pending, applied)
     finally:
         conn.close()
 
