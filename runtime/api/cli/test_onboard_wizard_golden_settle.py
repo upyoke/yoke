@@ -13,23 +13,32 @@ import asyncio
 from runtime.api.cli import onboard_wizard_golden_capture as capture
 
 
-class _WholeCellScreen:
-    """A screen already sitting on a cell, so the capture path has nothing to snap."""
+class _QuietScreen:
+    """A screen with nothing to hold still: on a cell, unscrollable, composed."""
 
     scroll_x = 0
     scroll_y = 0
+    is_scrollable = False
+
+    def __init__(self) -> None:
+        self.compositions = 0
 
     def query(self, _selector: str) -> tuple[()]:
         return ()
+
+    def _refresh_layout(self) -> None:
+        self.compositions += 1
 
 
 class _App:
     """Stands in for the wizard app, returning a scripted frame sequence."""
 
+    focused = None
+
     def __init__(self, frames: list[str]) -> None:
         self._frames = frames
         self.exports = 0
-        self.screen = _WholeCellScreen()
+        self.screen = _QuietScreen()
 
     def export_screenshot(self, *, title: str) -> str:
         self.exports += 1
@@ -84,3 +93,37 @@ def test_gives_up_bounded_rather_than_hanging() -> None:
     assert pilot.scheduled_animation_waits == 1
     assert pilot.pauses == capture._SETTLE_ATTEMPTS
     assert result == f"frame-{capture._SETTLE_ATTEMPTS}"
+
+
+def test_every_attempt_composes_the_frame_it_exports() -> None:
+    # Holding the frame still is per-attempt, not once up front: a screen whose
+    # focus or layout lands on a later attempt is re-aimed and recomposed
+    # before that attempt's export, rather than exported as it was found.
+    _result, app, _pilot = _settle(["half-drawn", "final", "final"])
+
+    assert app.screen.compositions == app.exports == 3
+
+
+def test_drains_scheduled_ui_work_before_comparing() -> None:
+    # Two immediate exports can agree on the same intermediate frame, so the
+    # scheduled-animation drain has to happen before the first one is taken.
+    class App(_App):
+        settled = False
+
+        def export_screenshot(self, *, title: str) -> str:
+            self.exports += 1
+            return f"{title}:{'settled' if self.settled else 'intermediate'}"
+
+    app = App([])
+
+    class Pilot(_Pilot):
+        async def wait_for_scheduled_animations(self) -> None:
+            await super().wait_for_scheduled_animations()
+            app.settled = True
+
+    pilot = Pilot()
+
+    captured = asyncio.run(capture._stable_screenshot(pilot, app, "preview"))
+
+    assert captured == "preview:settled"
+    assert pilot.scheduled_animation_waits == 1

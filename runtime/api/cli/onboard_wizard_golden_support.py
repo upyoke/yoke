@@ -242,7 +242,9 @@ def render(app: OnboardWizardApp,
 
     ``drive`` is awaited inside the pilot context after the front screen mounts;
     it sets up ``app.result`` state and calls the real flow method that renders
-    the target view, then the harness pauses so the deferred body swap settles.
+    the target view, then the harness waits out the work that view depends on so
+    the deferred body swap settles before :mod:`onboard_wizard_golden_capture`
+    holds the frame still and exports it.
     """
 
     async def scenario() -> str:
@@ -251,20 +253,13 @@ def render(app: OnboardWizardApp,
             await app.workers.wait_for_complete()
             await pilot.pause()
             await drive(app, pilot)
+            # A drive that routes through a checking screen hands its work to a
+            # thread, and a pause does not wait for one. Waiting for the worker
+            # is what makes the screen under test the screen that gets captured,
+            # rather than whichever screen a fixed number of pauses left up.
+            await app.workers.wait_for_complete()
             await pilot.pause()
             await pilot.pause()
-            # A body swap focuses its interactive control. Textual schedules
-            # the corresponding scroll separately, so make that final viewport
-            # state explicit before taking an exact-byte screenshot.
-            focused = app.focused
-            if focused is not None:
-                body = app.query_one("#onboard-body")
-                body.scroll_to_widget(
-                    focused,
-                    animate=False,
-                    immediate=True,
-                )
-                await pilot.pause()
             return await _stable_screenshot(pilot, app, title)
 
     with golden_color_env():
