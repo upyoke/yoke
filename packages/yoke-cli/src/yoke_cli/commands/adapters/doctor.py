@@ -25,18 +25,11 @@ from yoke_cli.config.onboard_destinations import is_hosted_url
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
-    build_actor,
-    call_dispatcher,
     dispatch_and_emit,
-    emit_response,
     parse_or_usage_error,
 )
 from yoke_cli.transport.https import resolve_https_connection, TransportError
-from yoke_contracts.api.function_call import (
-    FunctionCallResponse,
-    FunctionError,
-    TargetRef,
-)
+from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
@@ -175,140 +168,12 @@ def _dispatch_chunked(
     session_id: str | None,
     json_mode: bool,
 ) -> int:
-    from yoke_cli.commands.adapters.doctor_https_compose import (
-        false_na_source_slugs,
-        machine_has_checkout_for,
-        merge_relayed_with_local,
-        recount,
-        run_local_source_checks,
-    )
+    from yoke_cli.commands.adapters.doctor_https_run import dispatch_chunked
 
-    response = _collect_chunked(
+    return dispatch_chunked(
         payload=payload,
         session_id=session_id,
-    )
-    if not response.success:
-        return emit_response(response, json_mode=json_mode)
-
-    result = dict(response.result or {})
-    results = list(result.get("results") or [])
-    project = str(result.get("project") or payload.get("project") or "")
-    if machine_has_checkout_for(project):
-        redo = false_na_source_slugs(results)
-        if redo:
-            local_rows = run_local_source_checks(
-                project=project,
-                quick=bool(payload.get("quick")),
-                full=bool(payload.get("full")),
-                fix=bool(payload.get("fix")),
-                only=payload.get("only"),
-                slugs=redo,
-            )
-            results = merge_relayed_with_local(results, local_rows)
-            counts = recount(results)
-            result.update(counts)
-            result["results"] = results
-            # Client held the checkout — report the merged runtime as local
-            # for the source half while preserving relayed CP evidence.
-            result["runtime"] = result.get("runtime") or payload.get("runtime")
-            result["composed"] = "local_source+relayed_control_plane"
-
-    final_response = FunctionCallResponse(
-        success=True,
-        function=response.function,
-        version=response.version,
-        request_id=response.request_id,
-        result=result,
-        event_ids=response.event_ids,
-        warnings=response.warnings,
-    )
-    return emit_response(final_response, json_mode=json_mode)
-
-
-def _collect_chunked(
-    *,
-    payload: Dict[str, Any],
-    session_id: str | None,
-) -> FunctionCallResponse:
-    actor = build_actor(session_id=session_id)
-    target = TargetRef(kind="global")
-    cursor = None
-    results: list[dict[str, Any]] = []
-    event_ids: list[str] = []
-    warnings = []
-    fail_count = 0
-    warn_count = 0
-    pass_count = 0
-    na_count = 0
-    final_runtime = payload.get("runtime") or DESTINATION_LOCAL
-    final_scope = None
-    final_project = payload.get("project") or "yoke"
-    last_response: FunctionCallResponse | None = None
-
-    while True:
-        chunk_payload = dict(payload)
-        chunk_payload["max_checks"] = DOCTOR_CHUNK_MAX_CHECKS
-        if payload.get("quick") and not any(
-            payload.get(key) for key in ("full", "only", "fix", "db_path")
-        ):
-            chunk_payload["project_safe_quick"] = True
-        if cursor:
-            chunk_payload["cursor_after"] = cursor
-        response = call_dispatcher(
-            function_id="doctor.run.run",
-            target=target,
-            payload=chunk_payload,
-            actor=actor,
-            timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
-        )
-        last_response = response
-        event_ids.extend(response.event_ids)
-        warnings.extend(response.warnings)
-        if not response.success:
-            return response
-
-        result = response.result or {}
-        results.extend(result.get("results") or [])
-        fail_count += int(result.get("fail_count") or 0)
-        warn_count += int(result.get("warn_count") or 0)
-        pass_count += int(result.get("pass_count") or 0)
-        na_count += int(result.get("na_count") or 0)
-        final_scope = result.get("scope") or final_scope
-        final_project = result.get("project") or final_project
-        final_runtime = result.get("runtime") or final_runtime
-        next_cursor = result.get("cursor")
-        if result.get("done", True):
-            break
-        if not next_cursor or next_cursor == cursor:
-            return response.model_copy(
-                update={
-                    "success": False,
-                    "error": FunctionError(
-                        code="doctor_cursor_stalled",
-                        message=(
-                            "doctor chunk response did not advance its cursor"
-                        ),
-                    ),
-                }
-            )
-        cursor = str(next_cursor)
-
-    assert last_response is not None
-    return FunctionCallResponse(
-        success=True,
-        function=last_response.function,
-        version=last_response.version,
-        request_id=last_response.request_id,
-        result={
-            "results": results,
-            "scope": final_scope or "quick",
-            "project": final_project,
-            "runtime": final_runtime,
-            "fail_count": fail_count,
-            "warn_count": warn_count,
-            "pass_count": pass_count,
-            "na_count": na_count,
-        },
-        event_ids=event_ids,
-        warnings=warnings,
+        json_mode=json_mode,
+        chunk_max_checks=DOCTOR_CHUNK_MAX_CHECKS,
+        timeout_s=DOCTOR_RUN_READ_TIMEOUT_S,
     )
