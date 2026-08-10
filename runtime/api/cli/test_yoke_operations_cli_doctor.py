@@ -281,7 +281,7 @@ class TestDoctorRun:
             return_value=True,
         ):
             with patch(
-                "yoke_cli.commands.adapters.doctor.call_dispatcher",
+                "yoke_cli.commands.adapters.doctor_https_run.call_dispatcher",
                 side_effect=fake_call_dispatcher,
             ):
                 with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
