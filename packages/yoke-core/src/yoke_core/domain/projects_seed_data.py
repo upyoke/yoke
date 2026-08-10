@@ -210,6 +210,7 @@ def seed_all(conn, db_path: Optional[str]) -> None:
     """
     from yoke_core.domain.projects_seed_ci_workflow import (
         seed_ci_workflow_capability_template,
+        seed_merge_queue_capability_template,
     )
     from yoke_core.domain.project_policy_capabilities import (
         ensure_default_policy_capabilities,
@@ -217,6 +218,7 @@ def seed_all(conn, db_path: Optional[str]) -> None:
 
     seed_capability_templates(conn)
     seed_ci_workflow_capability_template(conn)
+    seed_merge_queue_capability_template(conn)
     ensure_default_policy_capabilities(conn)
     conn.commit()
     seed_project_structure_tables(conn, db_path)

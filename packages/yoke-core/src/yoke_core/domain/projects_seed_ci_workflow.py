@@ -1,11 +1,18 @@
-"""CI workflow capability template seed.
+"""CI workflow and merge-queue capability template seeds.
 
-Owner: ``yoke_core.domain.projects_seed_data`` calls this helper as part
+Owner: ``yoke_core.domain.projects_seed_data`` calls these helpers as part
 of the ``seed_all`` pipeline.
 
-Capability shape: ``type = "ci_workflow_file"`` — single per-project row
-whose ``settings`` JSON carries ``{"workflow_file": "<filename>"}``.
-Only the TEMPLATE is seeded here; per-project rows are operator/onboarding
+Capability shapes:
+
+* ``type = "ci_workflow_file"`` — single per-project row whose ``settings``
+  JSON carries ``{"workflow_file": "<filename>"}``.
+* ``type = "merge_queue"`` — presence-only declaration that the project's
+  item branches land through the GitHub merge queue (PR + merge-when-ready;
+  the queue runs the CI workflow's ``merge_group`` gate on the combined
+  head). Projects without the row keep the standalone merge engine.
+
+Only the TEMPLATES are seeded here; per-project rows are operator/onboarding
 data written through the capability settings surfaces.
 
 The Doctor HC ``HC-projects-ci-workflow-configured``
@@ -54,12 +61,29 @@ CI_WORKFLOW_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
 )
 
 
-def seed_ci_workflow_capability_template(conn) -> None:
-    """Insert the capability template row (idempotent)."""
+MERGE_QUEUE_CAPABILITY_TYPE = "merge_queue"
+
+
+MERGE_QUEUE_CAPABILITY_TEMPLATE: tuple[str, str, str, str, str] = (
+    MERGE_QUEUE_CAPABILITY_TYPE,
+    "Merge Queue",
+    (
+        "Item branches for this project land through the GitHub merge "
+        "queue: the merge boundary opens/reuses a PR, enters it with "
+        "merge-when-ready after admission control, and the queue runs "
+        "one merge_group CI gate per train of queued PRs. Requires the "
+        "CI workflow to carry a merge_group trigger and a branch ruleset "
+        "requiring that check. Absent this capability, the standalone "
+        "merge engine remains the merge boundary."
+    ),
+    "[]",
+    json.dumps([CI_WORKFLOW_CAPABILITY_TYPE, "github"]),
+)
+
+
+def _insert_template(conn, template: tuple[str, str, str, str, str]) -> None:
     p = _placeholder(conn)
-    tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires = (
-        CI_WORKFLOW_CAPABILITY_TEMPLATE
-    )
+    tmpl_id, tmpl_name, tmpl_desc, tmpl_config, tmpl_requires = template
     conn.execute(
         "INSERT INTO capability_templates "
         "(id, name, description, required_config, requires, created_at) "
@@ -69,3 +93,13 @@ def seed_ci_workflow_capability_template(conn) -> None:
          iso8601_now()),
     )
     conn.commit()
+
+
+def seed_ci_workflow_capability_template(conn) -> None:
+    """Insert the CI workflow capability template row (idempotent)."""
+    _insert_template(conn, CI_WORKFLOW_CAPABILITY_TEMPLATE)
+
+
+def seed_merge_queue_capability_template(conn) -> None:
+    """Insert the merge-queue capability template row (idempotent)."""
+    _insert_template(conn, MERGE_QUEUE_CAPABILITY_TEMPLATE)
