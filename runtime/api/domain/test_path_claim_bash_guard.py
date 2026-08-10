@@ -250,6 +250,49 @@ class TestHookOrdering:
             assert cwd_idx < edit_idx
 
 
+class TestFreePathRelativeRedirect:
+    """Relative redirects from free-path cwd must not claim-gate as repo paths."""
+
+    def test_relative_redirect_from_tmp_scratchpad_allows(self, tmp_path):
+        scratch = tmp_path / "scratchpad"
+        scratch.mkdir()
+        # Claim has no worktree — the misfire named worktree-unresolved.
+        claim = _claim_dict(worktree_path="")
+        verdict = evaluate_payload(
+            _payload(
+                command="yoke items get YOK-2090 spec > spec-YOK-2090.md",
+                cwd=str(scratch),
+            ),
+            claim=claim,
+        )
+        assert verdict.outcome == "allow"
+
+    def test_absolute_redirect_under_scratchpad_cwd_allows(self, tmp_path):
+        scratch = tmp_path / "scratchpad"
+        scratch.mkdir()
+        claim = _claim_dict(worktree_path="")
+        target = scratch / "spec-YOK-2090.md"
+        verdict = evaluate_payload(
+            _payload(
+                command=f"yoke items get YOK-2090 spec > {target}",
+                cwd=str(scratch),
+            ),
+            claim=claim,
+        )
+        assert verdict.outcome == "allow"
+
+    def test_relative_repo_path_from_worktree_still_gates(self, tmp_path):
+        worktree = tmp_path / "YOK-1577"
+        worktree.mkdir()
+        claim = _claim_dict(worktree_path=str(worktree))
+        verdict = evaluate_payload(
+            _payload(command="rm docs/oof.md", cwd=str(worktree)),
+            claim=claim,
+        )
+        assert verdict.outcome == "deny"
+        assert verdict.failure_mode == "out-of-claim"
+
+
 class TestEventRegistrySeed:
     def test_event_names_registered_in_seed(self):
         from yoke_core.domain.event_registry_seed_path_claim_session_cwd import (
