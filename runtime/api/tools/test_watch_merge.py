@@ -130,6 +130,36 @@ class TestSubcommandResolution:
         assert module == "yoke_core.engines.done_transition"
         assert rest == [PRIMARY_ITEM]
 
+    def test_merge_item_runs_the_same_entrypoint_as_the_plain_command(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The wrapper and `yoke merge item` must enter at the same place.
+
+        That entrypoint binds this machine's GitHub user authority before
+        loading the merge engine. Entering below it merges without that
+        authority, which on a machine whose App credentials live
+        server-side refuses the merge outright.
+        """
+        from types import SimpleNamespace
+
+        from yoke_cli.commands import merge_item
+
+        module, rest = watch_merge._resolve_subcommand(
+            ["merge-item", PRIMARY_ITEM]
+        )
+        assert rest == [PRIMARY_ITEM]
+
+        recorded: list[list[str]] = []
+        monkeypatch.setattr(
+            merge_item.subprocess,
+            "run",
+            lambda command, **kwargs: recorded.append(list(command))
+            or SimpleNamespace(returncode=0),
+        )
+        merge_item.merge_item([PRIMARY_ITEM])
+
+        assert recorded and recorded[0][1:3] == ["-m", module]
+
     def test_unknown_subcommand_raises_systemexit(self) -> None:
         with pytest.raises(SystemExit):
             watch_merge._resolve_subcommand(["bogus-cmd"])
