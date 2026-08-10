@@ -15,6 +15,10 @@ registry entries are normalized before write/compare — the build version
 (``{{VERSION}}``), the Rich element-id prefix (an adler32 of the rendered
 glyphs), and style declarations with no visible element — so the gate asserts
 exact layout + copy + color + glyphs, not process-global registry state.
+
+Animations are resolved instantly here rather than interpolated against the
+wall clock; :mod:`onboard_wizard_golden_capture` holds the rest of the frame
+still, and explains what a moving one costs.
 """
 
 from __future__ import annotations
@@ -27,6 +31,7 @@ import re
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from runtime.api.cli.onboard_wizard_golden_capture import _stable_screenshot
 from yoke_cli.config import github_publish
 from yoke_cli.config import onboard_project
 from yoke_cli.config import path_doctor
@@ -212,7 +217,7 @@ def make_app(*, post_install: bool = False, env_name: str = "prod",
              apply_report: Callable[[dict[str, Any]], Any] | None = None,
              ) -> OnboardWizardApp:
     with golden_color_env():
-        return OnboardWizardApp(
+        app = OnboardWizardApp(
             defaults=WizardDefaults(
                 config_path="/tmp/cfg.json",
                 env_name=env_name,
@@ -222,36 +227,12 @@ def make_app(*, post_install: bool = False, env_name: str = "prod",
             ),
             apply_report=apply_report or (lambda _kw: {"plan": {"steps": []}}),
         )
-
-
-# A fixed number of pauses cannot prove the UI stopped changing — it only
-# spends a fixed budget hoping it did. Under CI load one more frame can still
-# be pending, and the export then captures a half-settled screen: an extra
-# style rule for an element rendered without its final colour, and clip
-# dimensions from a viewport that had not finished scrolling. Capturing until
-# two consecutive exports agree makes "settled" an observation rather than a
-# guess, so the gate fails on real drift instead of on runner speed.
-_SETTLE_ATTEMPTS = 8
-
-
-async def _stable_screenshot(pilot: Any, app: OnboardWizardApp, title: str) -> str:
-    """Export the screen once it stops changing between consecutive frames."""
-    # A quiet message queue is not sufficient when Textual still has scheduled
-    # UI work: two immediate exports can agree on the same intermediate
-    # scrollbar style. Drain scheduled animations and their follow-up screen
-    # messages before treating repeated SVG bytes as evidence of stability.
-    await pilot.wait_for_scheduled_animations()
-    previous = app.export_screenshot(title=title)
-    for _ in range(_SETTLE_ATTEMPTS):
-        await pilot.pause()
-        current = app.export_screenshot(title=title)
-        if current == previous:
-            return current
-        previous = current
-    # Still moving after the budget: return the newest frame and let the
-    # golden comparison report the difference rather than silently passing a
-    # frame nobody looked at.
-    return previous
+    # Animations interpolate against the wall clock, so an animated scroll is
+    # the one thing on these screens whose value depends on how busy the
+    # machine is. Resolving them instantly to their final value keeps the
+    # export a function of the wizard's state instead of the runner's speed.
+    app.animation_level = "none"
+    return app
 
 
 def render(app: OnboardWizardApp,

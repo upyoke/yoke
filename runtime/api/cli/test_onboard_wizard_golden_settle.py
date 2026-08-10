@@ -10,7 +10,17 @@ from __future__ import annotations
 
 import asyncio
 
-from runtime.api.cli import onboard_wizard_golden_support as support
+from runtime.api.cli import onboard_wizard_golden_capture as capture
+
+
+class _WholeCellScreen:
+    """A screen already sitting on a cell, so the capture path has nothing to snap."""
+
+    scroll_x = 0
+    scroll_y = 0
+
+    def query(self, _selector: str) -> tuple[()]:
+        return ()
 
 
 class _App:
@@ -19,6 +29,7 @@ class _App:
     def __init__(self, frames: list[str]) -> None:
         self._frames = frames
         self.exports = 0
+        self.screen = _WholeCellScreen()
 
     def export_screenshot(self, *, title: str) -> str:
         self.exports += 1
@@ -40,7 +51,7 @@ class _Pilot:
 
 def _settle(frames: list[str]) -> tuple[str, _App, _Pilot]:
     app, pilot = _App(frames), _Pilot()
-    result = asyncio.run(support._stable_screenshot(pilot, app, "t"))
+    result = asyncio.run(capture._stable_screenshot(pilot, app, "t"))
     return result, app, pilot
 
 
@@ -71,5 +82,5 @@ def test_gives_up_bounded_rather_than_hanging() -> None:
     result, _app, pilot = _settle(never_settles)
 
     assert pilot.scheduled_animation_waits == 1
-    assert pilot.pauses == support._SETTLE_ATTEMPTS
-    assert result == f"frame-{support._SETTLE_ATTEMPTS}"
+    assert pilot.pauses == capture._SETTLE_ATTEMPTS
+    assert result == f"frame-{capture._SETTLE_ATTEMPTS}"
