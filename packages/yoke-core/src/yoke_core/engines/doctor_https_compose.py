@@ -30,16 +30,24 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 _NO_CHECKOUT_DETAIL = "this runner has no checkout for it"
 
 
-def machine_has_checkout_for(project: str) -> bool:
-    """True when this machine maps *project* (id or slug) to a checkout."""
+def checkout_root_for_project(project: str) -> Optional[Path]:
+    """Machine-local checkout for *project* (id or slug), if one is mapped."""
     text = str(project or "").strip()
     if not text:
-        return False
+        return None
     if text.isdigit():
         root = checkout_for_project_id(int(text))
     else:
         root = checkout_for_project_slug(text)
-    return bool(root and Path(root).is_dir())
+    if root is None:
+        return None
+    path = Path(root)
+    return path if path.is_dir() else None
+
+
+def machine_has_checkout_for(project: str) -> bool:
+    """True when this machine maps *project* (id or slug) to a checkout."""
+    return checkout_root_for_project(project) is not None
 
 
 def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
@@ -97,7 +105,7 @@ def run_local_source_checks(
     if conn is None:
         # FS-oriented checks often ignore conn; DB-touching ones fail isolated
         # and record FAIL — convert those to honest N/A below.
-        conn = _UnavailableControlPlane()
+        conn = UnavailableControlPlane()
     try:
         for hc in HEALTH_CHECKS:
             if hc.slug not in wanted:
@@ -188,7 +196,7 @@ def recount(results: Sequence[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
-class _UnavailableControlPlane:
+class UnavailableControlPlane:
     """Stand-in connection when the client has a checkout but no local DB."""
 
     def execute(self, *_args: Any, **_kwargs: Any) -> Any:
@@ -223,6 +231,8 @@ def resolve_operator_project(project: str) -> str:
 
 
 __all__ = [
+    "UnavailableControlPlane",
+    "checkout_root_for_project",
     "false_na_source_slugs",
     "machine_has_checkout_for",
     "merge_relayed_with_local",
