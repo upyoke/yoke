@@ -43,13 +43,47 @@ def _ci_conclusion(exit_code: int, output: str) -> str:
     match = _CONCLUSION_PATTERN.search(output.casefold())
     if match:
         conclusion = match.group("conclusion")
-        return conclusion if conclusion in {
-            "cancelled", "failure", "neutral", "skipped", "stale",
-            "startup_failure", "success", "timed_out",
-        } else "failure"
+        return (
+            conclusion
+            if conclusion
+            in {
+                "cancelled",
+                "failure",
+                "neutral",
+                "skipped",
+                "stale",
+                "startup_failure",
+                "success",
+                "timed_out",
+            }
+            else "failure"
+        )
     if "timed out" in output.casefold():
         return "timed_out"
     return "error"
+
+
+def _project_ci_workflow_file(project: str) -> str:
+    """Read the declared CI workflow through the connected control plane."""
+    response = call_dispatcher(
+        function_id="projects.capability_settings.get",
+        target=TargetRef(kind="global"),
+        payload={"project": project, "cap_type": "ci_workflow_file"},
+    )
+    if not response.success:
+        code = (response.error.code if response.error else "unknown") or "unknown"
+        if code == "not_found":
+            return ""
+        message = (response.error.message if response.error else "") or "read failed"
+        raise RuntimeError(f"CI workflow capability read failed ({code}): {message}")
+    raw = str((response.result or {}).get("settings_json") or "{}")
+    try:
+        settings = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("CI workflow capability returned invalid JSON") from exc
+    if not isinstance(settings, dict):
+        raise RuntimeError("CI workflow capability must be a JSON object")
+    return str(settings.get("workflow_file") or "").strip()
 
 
 def _should_route_ci(ctx: MergeContext) -> bool:
@@ -60,9 +94,7 @@ def _should_route_ci(ctx: MergeContext) -> bool:
     project = getattr(ctx, "project", None)
     if not project:
         return False
-    from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
-
-    return bool(project_ci_workflow_file(str(project)))
+    return bool(_project_ci_workflow_file(str(project)))
 
 
 def _fetch_ci_head_sha(*, project: str, repo: str, ci_run_id: str) -> str:
@@ -128,9 +160,7 @@ def run_ci_verification(
     _print = mw._print
     cwd = Path(ctx.worktree_path)
     project = str(ctx.project or "")
-    from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
-
-    workflow = project_ci_workflow_file(project)
+    workflow = _project_ci_workflow_file(project)
     if not workflow:
         _print(
             "Error: CI verification selected but project has no declared "
@@ -180,19 +210,15 @@ def run_ci_verification(
                 timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
             )
         ci_head = _fetch_ci_head_sha(
-            project=project, repo=repo, ci_run_id=ci_run_id,
+            project=project,
+            repo=repo,
+            ci_run_id=ci_run_id,
         )
         if not ci_head:
-            raise QaCaseExecutionError(
-                f"CI run {ci_run_id} did not report a head_sha"
-            )
+            raise QaCaseExecutionError(f"CI run {ci_run_id} did not report a head_sha")
         candidate_tree = merge_worktree_tree_coverage._tree_object_id(cwd, "HEAD")
         ci_tree = merge_worktree_tree_coverage._tree_object_id(cwd, ci_head)
-        if (
-            candidate_tree is None
-            or ci_tree is None
-            or candidate_tree != ci_tree
-        ):
+        if candidate_tree is None or ci_tree is None or candidate_tree != ci_tree:
             raise QaCaseExecutionError(
                 f"CI head sha {ci_head} does not resolve to the candidate "
                 f"tree (candidate={candidate_tree}, ci={ci_tree})"

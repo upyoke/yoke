@@ -27,7 +27,8 @@ def _ctx(tmp_path, *, project="yoke", item_id="42", local_verification=False):
 
 def _stub_lane(monkeypatch, *, dispatch, await_result):
     monkeypatch.setattr(
-        "yoke_core.domain.project_renderer_settings.project_ci_workflow_file",
+        merge_worktree_tests_ci,
+        "_project_ci_workflow_file",
         lambda _p: "ci.yml",
     )
     monkeypatch.setattr(
@@ -99,7 +100,9 @@ def test_run_ci_verification_success_records_pass(
     )
 
     result = merge_worktree_tests_ci.run_ci_verification(
-        _ctx(tmp_path), scope="full", command="python3 verify_tree.py",
+        _ctx(tmp_path),
+        scope="full",
+        command="python3 verify_tree.py",
     )
     assert result is None
     assert push_calls, "candidate must be pushed before dispatch"
@@ -138,7 +141,9 @@ def test_run_ci_verification_red_blocks(
         lambda *a, **k: 902,
     )
     assert merge_worktree_tests_ci.run_ci_verification(
-        _ctx(tmp_path), scope="quick", command="python3 verify_tree.py",
+        _ctx(tmp_path),
+        scope="quick",
+        command="python3 verify_tree.py",
     ) == (1, "tests failed")
 
 
@@ -167,7 +172,9 @@ def test_run_ci_verification_unreachable_named_failure_no_local_fallback(
         lambda *a, **k: recorded.append(k) or 903,
     )
     assert merge_worktree_tests_ci.run_ci_verification(
-        _ctx(tmp_path), scope="full", command="python3 verify_tree.py",
+        _ctx(tmp_path),
+        scope="full",
+        command="python3 verify_tree.py",
     ) == (1, "ci unreachable")
     assert recorded and recorded[0]["verdict"] == "error"
 
@@ -201,5 +208,7 @@ def test_run_ci_verification_head_sha_mismatch_blocks(
         lambda *a, **k: 904,
     )
     assert merge_worktree_tests_ci.run_ci_verification(
-        _ctx(tmp_path), scope="full", command="python3 verify_tree.py",
+        _ctx(tmp_path),
+        scope="full",
+        command="python3 verify_tree.py",
     ) == (1, "ci unreachable")

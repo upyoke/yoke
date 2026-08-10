@@ -11,16 +11,16 @@ import { renderMechanics } from "./workflow_view_mechanics.js";
 import { renderPosture } from "./workflow_view_policy.js";
 import { renderVersionHistory } from "./workflow_view_versions.js";
 import {
+  createWorkflowCanonActions,
+} from "./workflow_view_canon_controls.js";
+import {
   emptyMechanicsData, loadWorkflowMechanicsData,
 } from "./workflow_mechanics_data.js";
 import {
   openApprovalEditor,
   openProjectDefaultEditor,
 } from "./workflow_mechanics_dialogs.js";
-import {
-  renderPathClaimsDialog,
-  renderPathSurveyDialog,
-} from "./workflow_path_posture_dialogs.js";
+import { renderCoordinationDialog } from "./workflow_coordination_dialog.js";
 import { clearWorkflowDialog, linkWorkflowPanel } from "./workflow_accessibility.js";
 import { workflowInstructionsPanel } from "./workflow_instructions_panel.js";
 
@@ -59,8 +59,7 @@ function renderSelectedWorkflow(
       },
     ),
     renderPosture(documentNode, workflow, {
-      editPathClaims: bound(actions.editPathClaims, workflow),
-      editPathSurvey: bound(actions.editPathSurvey, workflow),
+      editCoordination: bound(actions.editCoordination, workflow),
     }),
     renderMechanics(documentNode, workflow, {
       mechanics: actions.mechanics,
@@ -74,7 +73,10 @@ function renderSelectedWorkflow(
     renderVersionHistory(documentNode, workflow, {
       client: actions.client,
       makeCurrent: bound(actions.makeCurrent, workflow),
-      takeUpdate: actions.takeUpdate,
+      takeUpdate: actions.canon?.takeUpdate,
+      canon: actions.canon,
+      workflows: actions.workflows,
+      versionDefinitionCache: actions.versionDefinitionCache,
     }),
   );
 }
@@ -117,6 +119,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   let selectedWorkflowId = null;
   let mechanicsData = emptyMechanicsData();
   const stageSelections = new Map();
+  const versionDefinitionCache = new Map();
   let dialog = null;
   const mutation = async (functionId, payload) => {
     const callResult = await callFunction(
@@ -130,14 +133,10 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
     return callResult.envelope.result || {};
   };
   const closeDialog = () => { dialog = null; clearWorkflowDialog(dialogHost); };
-  const renderPathDialog = (renderer, workflow, enabled) =>
-    renderer(
-      documentNode, dialogHost, workflow, enabled, closeDialog, mutation, load,
-    );
-  const openPathClaimsDialog = (workflow, enabled) =>
-    renderPathDialog(renderPathClaimsDialog, workflow, enabled);
-  const openPathSurveyDialog = (workflow, enabled) =>
-    renderPathDialog(renderPathSurveyDialog, workflow, enabled);
+  const canonActions = createWorkflowCanonActions(mutation, () => load());
+  const openCoordinationDialog = (workflow) => renderCoordinationDialog(
+    documentNode, dialogHost, workflow, closeDialog, mutation, load,
+  );
   const openCurrentDialog = (workflow, version) => {
     const name = workflow.name || workflow.id;
     dialog = {
@@ -220,33 +219,6 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       },
     });
   };
-  // Applying re-reads rather than trusting the client's copy of the merge:
-  // the server merges again under the current version it is told to expect,
-  // so a definition that moved between preview and apply is refused instead
-  // of silently overwritten.
-  const takeCanonUpdate = async (workflow) => {
-    let applied;
-    try {
-      applied = await callFunction(
-        context.client,
-        "workflows.canon_update.apply",
-        {
-          workflow_id: workflow.id,
-          expected_current_version: workflow.current_version,
-        },
-      );
-    } catch (failure) {
-      return { error: String(failure) };
-    }
-    if (applied.status !== 200 || !applied.envelope.success) {
-      return {
-        error: applied.envelope?.error?.message || "Could not take the update.",
-      };
-    }
-    await load();
-    return {};
-  };
-
   const render = () => {
     if (!workflows.length) return;
     const selected = workflows.find(
@@ -276,13 +248,14 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
       {
         client: context.client,
         mechanics: mechanicsData,
-        editPathClaims: openPathClaimsDialog,
-        editPathSurvey: openPathSurveyDialog,
+        editCoordination: openCoordinationDialog,
         editTesting: mechanicsData.editable ? openTestingDialog : null,
         editApprovals: mechanicsData.editable ? openApprovalsDialog : null,
         editDelivery: mechanicsData.editable ? openDeliveryDialog : null,
         makeCurrent: mechanicsData.editable ? openCurrentDialog : null,
-        takeUpdate: mechanicsData.editable ? takeCanonUpdate : null,
+        canon: mechanicsData.editable ? canonActions : null,
+        workflows,
+        versionDefinitionCache,
         // Instruction scope spans every workflow and project, so editing one
         // here still needs both rosters.
         instructionScope: { workflows, projects: context.projects() },

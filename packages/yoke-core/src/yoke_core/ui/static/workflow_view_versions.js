@@ -2,7 +2,12 @@ import { el } from "./universe_view_support.js";
 import { callFunction } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
 import { renderCanonDiff } from "./workflow_view_canon_diff.js";
+import { renderCanonControls } from "./workflow_view_canon_controls.js";
 import { button, workflowPanel } from "./workflow_view_primitives.js";
+import {
+  renderVersionDelta,
+  renderVersionPolicyGrid,
+} from "./workflow_view_version_delta.js";
 
 function inspectionNode(row) {
   return Array.from(row.children).find(
@@ -28,6 +33,7 @@ function renderInspection(documentNode, row, result, makeCurrent) {
       documentNode, "p", "workflow-version-stages", stages,
     ));
   }
+  inspection.appendChild(renderVersionPolicyGrid(documentNode, result));
   if (makeCurrent) {
     // Selecting an older version stops the workflow taking published updates
     // on its own, because otherwise the next boot would move it forward again
@@ -38,8 +44,8 @@ function renderInspection(documentNode, row, result, makeCurrent) {
       "p",
       "workflow-version-consequence",
       "Making this current stops automatic updates for this workflow, so a " +
-        "restart cannot move it forward again. Turn them back on when you " +
-        "want the newest Yoke version.",
+        "restart cannot move it forward again. Use the Yoke workflow updates " +
+        "control above when you want published versions to arrive again.",
     ));
     const makeCurrentButton = button(
       documentNode, "Make current", "workflow-button compact",
@@ -169,7 +175,7 @@ function pinnedNote(documentNode, version, current) {
   );
 }
 
-function versionRow(documentNode, workflow, version, actions) {
+function versionRow(documentNode, workflow, version, previous, actions) {
   const current = Number(version.version) ===
     Number(workflow.current_version);
   const row = el(documentNode, "div", "workflow-version-row");
@@ -201,24 +207,28 @@ function versionRow(documentNode, workflow, version, actions) {
   if (provenance) {
     summary.appendChild(provenance);
   }
+  summary.appendChild(renderVersionDelta(
+    documentNode, workflow, version, previous, actions,
+  ));
   row.appendChild(summary);
-  if (current) {
-    const published = el(
-      documentNode,
-      "time",
-      "workflow-version-when",
-      relativeAge(version.published_at),
-    );
-    if (version.published_at) {
-      published.setAttribute("datetime", version.published_at);
-      published.setAttribute("title", version.published_at);
-    }
-    row.appendChild(published);
-  } else {
-    row.appendChild(inspectButton(
+  const rowActions = el(documentNode, "div", "workflow-version-actions");
+  const published = el(
+    documentNode,
+    "time",
+    "workflow-version-when",
+    relativeAge(version.published_at),
+  );
+  if (version.published_at) {
+    published.setAttribute("datetime", version.published_at);
+    published.setAttribute("title", version.published_at);
+  }
+  rowActions.appendChild(published);
+  if (!current) {
+    rowActions.appendChild(inspectButton(
       documentNode, row, workflow, version, actions,
     ));
   }
+  row.appendChild(rowActions);
   return row;
 }
 
@@ -278,10 +288,18 @@ function canonStatusLine(documentNode, workflow) {
 
 
 export function renderVersionHistory(documentNode, workflow, actions) {
-  const versions = [...(workflow.versions || [])].sort(
-    (left, right) => Number(right.version) - Number(left.version),
+  const ascending = [...(workflow.versions || [])].sort(
+    (left, right) => Number(left.version) - Number(right.version),
   );
+  const previousByVersion = new Map(ascending.map(
+    (version, index) => [Number(version.version), ascending[index - 1]],
+  ));
+  const versions = [...ascending].reverse();
   const { panel, body } = workflowPanel(documentNode, "Version history");
+  const controls = renderCanonControls(
+    documentNode, workflow, actions.workflows || [workflow], actions.canon,
+  );
+  if (controls) body.appendChild(controls);
   const status = canonStatusLine(documentNode, workflow);
   if (status) {
     body.appendChild(status);
@@ -295,19 +313,16 @@ export function renderVersionHistory(documentNode, workflow, actions) {
   const timeline = el(documentNode, "div", "workflow-version-timeline");
   for (const version of versions) {
     timeline.appendChild(versionRow(
-      documentNode, workflow, version, actions,
+      documentNode,
+      workflow,
+      version,
+      previousByVersion.get(Number(version.version)),
+      actions,
     ));
   }
   if (!versions.length) {
     timeline.appendChild(el(
       documentNode, "p", "empty", "No published versions.",
-    ));
-  } else if (versions.length === 1) {
-    timeline.appendChild(el(
-      documentNode,
-      "p",
-      "workflow-first-version",
-      "First published version.",
     ));
   }
   body.appendChild(timeline);

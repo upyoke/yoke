@@ -15,6 +15,7 @@ from typing import Sequence
 
 from yoke_core.tools._impacted_contract_tests import (
     ITEM_WORKTREE_SCHEMA_TESTS,
+    SCHEMA_CONVERGE_CONTRACT_TESTS,
     contract_tests_for,
 )
 from yoke_core.tools._impacted_import_index import (
@@ -95,6 +96,7 @@ ALWAYS_RUN_TESTS = (
     "runtime/api/test_service_client_structured_api_adapter.py",
     "runtime/api/tools/test_atlas_currency_contract.py",
 )
+
 
 def changed_paths(repo_root: Path, base: str) -> tuple[str, ...]:
     """Repo-relative paths differing from *base*, including uncommitted work."""
@@ -320,6 +322,7 @@ __all__ = [
     "ImportIndex",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
+    "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "Selection",
     "SHARED_TEST_FIXTURE_PATHS",
     "TEST_ANCHORS",

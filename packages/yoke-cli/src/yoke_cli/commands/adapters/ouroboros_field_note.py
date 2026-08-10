@@ -23,6 +23,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.field_note_text import (
+    CATEGORY_PREFIX,
     EVIDENCE_MAX_CHARS,
     HELP_BODY,
     KIND_VALUES,
@@ -44,8 +45,6 @@ __all__ = [
 # ouroboros.field_note.list / ouroboros.field_note.get
 # ---------------------------------------------------------------------------
 
-_FIELD_NOTE_CATEGORY_PREFIX = "field-note-"
-
 OUROBOROS_FIELD_NOTE_LIST_USAGE = (
     "yoke ouroboros field-note list [--unreviewed] [--project P] "
     "[--limit N] [--offset N] [--count] [--session-id S] [--json]"
@@ -58,22 +57,30 @@ def ouroboros_field_note_list(args: List[str]) -> int:
         description=OUROBOROS_FIELD_NOTE_LIST_USAGE,
     )
     parser.add_argument(
-        "--unreviewed", action="store_true",
+        "--unreviewed",
+        action="store_true",
         help="Only field-notes not yet reviewed or archived.",
     )
     parser.add_argument(
-        "--project", default=None, help="Filter by project slug or id.",
+        "--project",
+        default=None,
+        help="Filter by project slug or id.",
     )
     parser.add_argument(
-        "--limit", type=int, default=None,
+        "--limit",
+        type=int,
+        default=None,
         help="Maximum rows to return (default 50, max 500).",
     )
     parser.add_argument(
-        "--offset", type=int, default=None,
+        "--offset",
+        type=int,
+        default=None,
         help="Rows to skip before the page (default 0).",
     )
     parser.add_argument(
-        "--count", action="store_true",
+        "--count",
+        action="store_true",
         help="Return the matching row count instead of entry bodies.",
     )
     add_session_arg(parser)
@@ -81,7 +88,7 @@ def ouroboros_field_note_list(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, OUROBOROS_FIELD_NOTE_LIST_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {"category_prefix": _FIELD_NOTE_CATEGORY_PREFIX}
+    payload: Dict[str, Any] = {"category_prefix": CATEGORY_PREFIX}
     if parsed.unreviewed:
         payload["unreviewed"] = True
     if parsed.project:
@@ -126,7 +133,7 @@ def ouroboros_field_note_get(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={
             "entry_id": entry_id,
-            "category_prefix": _FIELD_NOTE_CATEGORY_PREFIX,
+            "category_prefix": CATEGORY_PREFIX,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
@@ -157,12 +164,16 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--kind", required=True, choices=KIND_VALUES,
+        "--kind",
+        required=True,
+        choices=KIND_VALUES,
         help="Field-note signal — failed, new, unclear, or observation.",
     )
     evidence_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        evidence_group, "--evidence", "--evidence-file",
+        evidence_group,
+        "--evidence",
+        "--evidence-file",
         dest="evidence",
         help_text=(
             f"Non-empty evidence text (≤{EVIDENCE_MAX_CHARS} chars). "
@@ -170,7 +181,10 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--corrects", dest="corrects", type=int, default=None,
+        "--corrects",
+        dest="corrects",
+        type=int,
+        default=None,
         help=(
             "Entry id this note corrects. The two are linked and the "
             "corrected note is superseded — it leaves the unreviewed queue "
@@ -180,7 +194,9 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
-        "--correlation-id", dest="correlation_id", default=None,
+        "--correlation-id",
+        dest="correlation_id",
+        default=None,
         help="Optional correlation id (polish-run id, doctor-run id, etc.).",
     )
     add_session_arg(parser)
@@ -191,7 +207,9 @@ def ouroboros_field_note_append(args: List[str]) -> int:
 
     try:
         evidence = resolve_text_file(
-            parsed.evidence, parsed.evidence_file, "--evidence-file",
+            parsed.evidence,
+            parsed.evidence_file,
+            "--evidence-file",
         )
     except ValueError as exc:
         return usage_error(str(exc))
