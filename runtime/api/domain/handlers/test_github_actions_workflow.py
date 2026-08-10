@@ -104,6 +104,7 @@ class TestWorkflowFindRun:
                         "status": "in_progress",
                         "conclusion": None,
                         "html_url": "https://github.test/actions/runs/12",
+                        "head_sha": "abc123",
                     },
                 ]
             }
@@ -117,6 +118,7 @@ class TestWorkflowFindRun:
             "workflow": "platform-release-bridge.yml",
             "branch": "stage",
             "event": "workflow_dispatch",
+            "status": "completed",
             "exclude_run_id": "11",
         })
 
@@ -129,6 +131,7 @@ class TestWorkflowFindRun:
             "status": "in_progress",
             "conclusion": None,
             "html_url": "https://github.test/actions/runs/12",
+            "head_sha": "abc123",
         }
         assert calls == [
             (
@@ -138,6 +141,7 @@ class TestWorkflowFindRun:
                     "per_page": "10",
                     "branch": "stage",
                     "event": "workflow_dispatch",
+                    "status": "completed",
                 },
                 "ghs_test_token",
             )

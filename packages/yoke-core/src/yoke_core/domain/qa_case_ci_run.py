@@ -5,10 +5,10 @@ runs on every pull request and every push to the integration branch. On a
 developer machine that suite competes with every other session for one
 machine-wide admission slot and one CPU complement; on CI it fans out
 across duration-balanced shards with disposable databases and freshly
-provisioned capacity. This executor moves the gate there: push the lane
-branch, dispatch the project's declared workflow against it with a
-correlation id, wait for the run, and record the run's conclusion as the
-case verdict. The lane and workflow plumbing lives in
+provisioned capacity. This executor moves the gate there: push the lane,
+reuse a completed pull-request run for its exact commit when one exists,
+otherwise dispatch the project's declared workflow, and record the run's
+conclusion as the case verdict. The lane and workflow plumbing lives in
 :mod:`yoke_core.domain.qa_case_ci_lane`.
 
 Recorded evidence names the run URL and the exact head sha the run
@@ -159,7 +159,7 @@ def execute_ci_case(
     allow_tree_mismatch: bool = False,
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
-    """Push the lane, run the project's CI workflow, record the verdict."""
+    """Push the lane, reuse or run its CI workflow, and record the verdict."""
     checkout = _resolve_checkout(
         case, checkout_path, allow_tree_mismatch=allow_tree_mismatch,
     )
@@ -193,23 +193,40 @@ def execute_ci_case(
     )
     tree = verification_tree_binding.TreeIdentity(str(checkout), head_sha)
     ci_run_id = ""
+    run_url = ""
+    reused_pull_request_run = False
+    known_conclusion = ""
     try:
         qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
         with qa_case_ci_lane.github_actions_authority():
-            ci_run_id = qa_case_ci_lane.dispatch_workflow(
-                project=project,
-                repo=repo,
-                workflow=workflow,
-                branch=branch,
-                # Keyed on the tree under test: a retry after a lost response
-                # recovers the same run, while a new commit is a new gate.
-                request_id=f"qa-case:{int(case['requirement_id'])}:{head_sha}",
-                timeout_seconds=budget,
+            covering_run = qa_case_ci_lane.find_completed_pull_request_run(
+                project=project, repo=repo, workflow=workflow,
+                head_sha=head_sha, timeout_seconds=budget,
             )
-            exit_code, poll_output = qa_case_ci_lane.await_workflow(
-                project=project, repo=repo, run_id=ci_run_id,
-                timeout_seconds=budget,
-            )
+            if (
+                covering_run is not None
+                and covering_run.status == "completed"
+                and covering_run.head_sha == head_sha
+                and covering_run.conclusion
+            ):
+                reused_pull_request_run = True
+                ci_run_id = covering_run.run_id
+                run_url = covering_run.html_url
+                known_conclusion = covering_run.conclusion
+                exit_code = 0 if known_conclusion == "success" else 1
+                poll_output = f"reused pull_request run: {known_conclusion}"
+            else:
+                ci_run_id = qa_case_ci_lane.dispatch_workflow(
+                    project=project, repo=repo, workflow=workflow, branch=branch,
+                    request_id=(
+                        f"qa-case:{int(case['requirement_id'])}:{head_sha}"
+                    ),
+                    timeout_seconds=budget,
+                )
+                exit_code, poll_output = qa_case_ci_lane.await_workflow(
+                    project=project, repo=repo, run_id=ci_run_id,
+                    timeout_seconds=budget,
+                )
     except Exception as exc:
         duration_ms = int((time.monotonic() - started) * 1000)
         raw_result = json.dumps(
@@ -233,12 +250,12 @@ def execute_ci_case(
             f"CI execution errored; recorded QA run #{run_id}: {exc}"
         ) from exc
     duration_ms = int((time.monotonic() - started) * 1000)
-    conclusion = _ci_conclusion(exit_code, poll_output)
+    conclusion = known_conclusion or _ci_conclusion(exit_code, poll_output)
     verdict, failure_class = (
         ("pass", "") if conclusion == "success"
         else _failure_verdict(conclusion)
     )
-    run_url = f"https://github.com/{repo}/actions/runs/{ci_run_id}"
+    run_url = run_url or f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     raw_result = json.dumps(
         {
             "repo": repo,
@@ -248,6 +265,7 @@ def execute_ci_case(
             "run_url": run_url,
             "exit_code": exit_code,
             "ci_conclusion": conclusion,
+            "reused_pull_request_run": reused_pull_request_run,
             "failure_class": failure_class or None,
             "verification_tree": tree.as_payload(),
         },
@@ -280,6 +298,7 @@ def execute_ci_case(
         "ci_run_id": ci_run_id,
         "run_url": run_url,
         "ci_conclusion": conclusion,
+        "reused_pull_request_run": reused_pull_request_run,
         "failure_class": failure_class or None,
         "verification_tree": tree.as_payload(),
     }

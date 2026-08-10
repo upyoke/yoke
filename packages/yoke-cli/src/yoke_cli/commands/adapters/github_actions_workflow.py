@@ -38,7 +38,7 @@ GITHUB_ACTIONS_TRIGGER_ONCE_USAGE = (
 )
 GITHUB_ACTIONS_FIND_RUN_USAGE = (
     "yoke github-actions find-run <repo-slug> <workflow-file> <commit-sha> "
-    "--project P [--session-id S] [--json]"
+    "[--event EVENT] [--status STATUS] --project P [--session-id S] [--json]"
 )
 GITHUB_ACTIONS_POLL_USAGE = (
     "yoke github-actions poll <repo-slug> <run-id> "
@@ -250,6 +250,8 @@ def github_actions_find_run(args: List[str]) -> int:
     parser.add_argument("repo")
     parser.add_argument("workflow")
     parser.add_argument("commit_sha")
+    parser.add_argument("--event")
+    parser.add_argument("--status")
     parser.add_argument("--project", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -265,6 +267,8 @@ def github_actions_find_run(args: List[str]) -> int:
             "workflow": parsed.workflow,
             "head_sha": parsed.commit_sha,
             "project": parsed.project,
+            **({"event": parsed.event} if parsed.event else {}),
+            **({"status": parsed.status} if parsed.status else {}),
         },
         session_id=parsed.session_id,
     )
@@ -276,7 +280,6 @@ def github_actions_find_run(args: List[str]) -> int:
     else:
         print(response.result.get("run_id") if found else "not_found")
     return 0 if found else 1
-
 
 def github_actions_poll(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github-actions poll")
