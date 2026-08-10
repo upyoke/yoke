@@ -317,11 +317,6 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 # Yoke Repo Internals
 <!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic doctrine `yoke project install` ships; this section is yoke's own companion content and stays out of the markers. -->
 
-## Yoke+Platform System Scope — Hard Rule
-- **Default full-system scope.** Unless the item says otherwise, treat yoke and platform (repos, deployment procedures, release train) as one interconnected system. Design and build so the work holds across modes (local, self-hosted, hosted), environments, repos, databases, and tenants.
-- **Project-universal machinery.** Global yoke/platform surfaces must stay project-agnostic for yoke itself, platform, and external projects. Do not bake yoke-or-platform-only assumptions into shared machinery; keep internal-only material out of anything external projects consume.
-- **Cross-repo when scoped.** When an item explicitly spans both repos or the cross-repo release/deploy train, implement, verify, merge, and deploy across yoke and platform in that same effort. Do not invent cross-repo scope; do not refuse it when the item names it.
-
 ## CLA signatures branch — Hard Rule
 - **`origin/cla-signatures` is permanent governance state, not a leftover lane.** This Fair Source repo (LICENSE / fair.io) requires contributors to sign the CLA before external PRs merge. The CLA Assistant workflow (`.github/workflows/cla.yml`) writes those signatures to `signatures/version1/cla.json` **on the `cla-signatures` branch** — that branch is the durable signature ledger the required `signature-check` status reads. Never delete, force-push, reset, or prune it during branch/worktree cleanup (divergence from `main` / no merge-base is expected). Leave it unprotected so the workflow can append signatures. Operator setup notes live in the workflow header; this rule is the agent-facing do-not-clean backstop.
 
