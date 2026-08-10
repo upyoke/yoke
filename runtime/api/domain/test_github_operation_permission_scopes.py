@@ -50,6 +50,12 @@ _PRIVILEGED_SCOPE_ALLOWLIST = frozenset({
         "hc_branch_protection_required_check",
         "GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS",
     ),
+    (
+        "packages/yoke-core/src/yoke_core/engines/"
+        "doctor_hc_merge_queue.py",
+        "hc_merge_queue_binding",
+        "GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS",
+    ),
 })
 _DIRECT_MINTER_ALLOWLIST = frozenset({
     (

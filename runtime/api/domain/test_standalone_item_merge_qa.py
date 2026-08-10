@@ -66,7 +66,7 @@ def test_merge_refuses_before_invoking_git(
         merge_cli, "_resolve_checkout", lambda *a: (tmp_path, "main"),
     )
     merger = mock.Mock()
-    monkeypatch.setattr(merge_cli, "merge_standalone_branch", merger)
+    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 1
     assert message in capsys.readouterr().err
@@ -86,7 +86,7 @@ def test_exact_commit_pass_reaches_the_merge_boundary(tmp_path: Path, monkeypatc
         warnings=(),
     )
     merger = mock.Mock(return_value=outcome)
-    monkeypatch.setattr(merge_cli, "merge_standalone_branch", merger)
+    monkeypatch.setattr(merge_cli, "route_standalone_landing", merger)
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
 
     assert merge_cli.run(["YOK-10", "--skip-status"]) == 0
