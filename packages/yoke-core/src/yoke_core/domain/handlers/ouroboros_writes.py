@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.ouroboros_entry_review import MAX_FIELD_NOTE_REVIEW_BATCH
 
 
 class OuroborosEntryInsertRequest(BaseModel):
@@ -26,8 +27,20 @@ class OuroborosEntryInsertResponse(BaseModel):
     entry_id: str
 
 
-class OuroborosEntryIdRequest(BaseModel):
-    entry_id: int
+class OuroborosEntryReviewRequest(BaseModel):
+    entry_id: Optional[int] = None
+    field_notes_before: Optional[str] = None
+    limit: int = Field(
+        default=MAX_FIELD_NOTE_REVIEW_BATCH,
+        ge=1,
+        le=MAX_FIELD_NOTE_REVIEW_BATCH,
+    )
+
+
+class OuroborosEntryReviewResponse(BaseModel):
+    message: str
+    reviewed_count: int
+    remaining_count: Optional[int] = None
 
 
 class OuroborosEntryLifecycleResponse(BaseModel):
@@ -60,9 +73,7 @@ def handle_ouroboros_entry_insert(
     if not payload.agent.strip():
         return _bad_request("agent must be non-empty", jsonpath="$.payload.agent")
     if not payload.category.strip():
-        return _bad_request(
-            "category must be non-empty", jsonpath="$.payload.category"
-        )
+        return _bad_request("category must be non-empty", jsonpath="$.payload.category")
     if not payload.observation.strip():
         return _bad_request(
             "observation must be non-empty", jsonpath="$.payload.observation"
@@ -92,24 +103,52 @@ def handle_ouroboros_entry_mark_reviewed(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     try:
-        payload = OuroborosEntryIdRequest.model_validate(request.payload or {})
+        payload = OuroborosEntryReviewRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
+    if (payload.entry_id is None) == (payload.field_notes_before is None):
+        return _bad_request("pass exactly one of entry_id or field_notes_before")
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.ouroboros_entries import cmd_mark_reviewed
+    from yoke_core.domain.ouroboros_entry_review import (
+        mark_field_notes_reviewed_before,
+    )
 
     try:
         with connect() as conn:
-            message = cmd_mark_reviewed(conn, payload.entry_id)
+            if payload.entry_id is not None:
+                message = cmd_mark_reviewed(conn, payload.entry_id)
+                result = OuroborosEntryReviewResponse(
+                    message=message,
+                    reviewed_count=1,
+                )
+            else:
+                batch = mark_field_notes_reviewed_before(
+                    conn,
+                    before=payload.field_notes_before or "",
+                    limit=payload.limit,
+                )
+                message = (
+                    f"Marked {batch.reviewed_count} field-notes created before "
+                    f"{payload.field_notes_before} as reviewed"
+                )
+                if batch.reviewed_at:
+                    message += f" at {batch.reviewed_at}"
+                message += f"; {batch.remaining_count} remain"
+                result = OuroborosEntryReviewResponse(
+                    message=message,
+                    reviewed_count=batch.reviewed_count,
+                    remaining_count=batch.remaining_count,
+                )
     except LookupError as exc:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(code="not_found", message=str(exc)),
         )
+    except ValueError as exc:
+        return _bad_request(str(exc))
     return HandlerOutcome(
-        result_payload=OuroborosEntryLifecycleResponse(
-            message=message,
-        ).model_dump(),
+        result_payload=result.model_dump(),
         primary_success=True,
     )
 
@@ -159,8 +198,8 @@ REGISTRATIONS: List[Dict[str, Any]] = [
     {
         "function_id": "ouroboros.entry.mark_reviewed",
         "handler": handle_ouroboros_entry_mark_reviewed,
-        "request_model": OuroborosEntryIdRequest,
-        "response_model": OuroborosEntryLifecycleResponse,
+        "request_model": OuroborosEntryReviewRequest,
+        "response_model": OuroborosEntryReviewResponse,
         "side_effects": ["db_write"],
     },
     {

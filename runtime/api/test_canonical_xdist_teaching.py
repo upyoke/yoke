@@ -35,8 +35,8 @@ def test_readiness_repair_verification_defers_to_project_command() -> None:
     next_heading = tail.find("\n## ", 1)
     verification = tail if next_heading == -1 else tail[:next_heading]
 
-    assert "yoke readiness check {N}" in verification
-    assert "yoke readiness repair-stale-count --item {N}" in verification
+    assert "yoke readiness check PREFIX-N" in verification
+    assert "yoke readiness repair-stale-count --item PREFIX-N" in verification
     assert "your project's registered verification command" in verification
     assert "rather than hardcoding a test-file list" in verification
 

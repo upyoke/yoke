@@ -157,6 +157,91 @@ def test_ouroboros_entry_insert_handler_writes_row(tmp_db: str) -> None:
     )
 
 
+def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
+    inserted = ouroboros_writes.handle_ouroboros_entry_insert(
+        _request(
+            "ouroboros.entry.insert",
+            {
+                "agent": "tester",
+                "category": "field-note-failed",
+                "observation": "single review target",
+            },
+        )
+    )
+    entry_id = int(inserted.result_payload["entry_id"])
+
+    reviewed = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request("ouroboros.entry.mark_reviewed", {"entry_id": entry_id})
+    )
+
+    assert reviewed.primary_success is True
+    assert reviewed.result_payload["reviewed_count"] == 1
+    assert reviewed.result_payload["remaining_count"] is None
+    with connect(tmp_db) as conn:
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT reviewed_at FROM ouroboros_entries WHERE id = {p}",
+            (entry_id,),
+        ).fetchone()
+    assert row[0] is not None
+
+
+def test_field_note_review_batch_is_bounded_and_cutoff_scoped(tmp_db: str) -> None:
+    seeds = (
+        ("field-note-failed", "2026-07-28T00:00:00Z"),
+        ("field-note-observation", "2026-07-29T00:00:00Z"),
+        ("observation", "2026-07-30T00:00:00Z"),
+        ("field-note-new", "2026-08-01T00:00:00Z"),
+    )
+    entry_ids: list[int] = []
+    with connect(tmp_db) as conn:
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        for category, created_at in seeds:
+            row = conn.execute(
+                "INSERT INTO ouroboros_entries "
+                "(timestamp, agent, category, body, created_at) "
+                f"VALUES ({p}, {p}, {p}, {p}, {p}) RETURNING id",
+                (created_at, "tester", category, category, created_at),
+            ).fetchone()
+            entry_ids.append(int(row[0]))
+        conn.commit()
+
+    payload = {"field_notes_before": "2026-08-01", "limit": 1}
+    first = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request("ouroboros.entry.mark_reviewed", payload)
+    )
+    second = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request("ouroboros.entry.mark_reviewed", payload)
+    )
+
+    assert first.primary_success is True
+    assert first.result_payload["reviewed_count"] == 1
+    assert first.result_payload["remaining_count"] == 1
+    assert second.result_payload["reviewed_count"] == 1
+    assert second.result_payload["remaining_count"] == 0
+    with connect(tmp_db) as conn:
+        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        rows = conn.execute(
+            "SELECT reviewed_at FROM ouroboros_entries "
+            f"WHERE id IN ({', '.join(p for _id in entry_ids)}) ORDER BY id",
+            tuple(entry_ids),
+        ).fetchall()
+    assert [row[0] is not None for row in rows] == [True, True, False, False]
+
+
+def test_field_note_review_batch_requires_iso_date(tmp_db: str) -> None:
+    outcome = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request(
+            "ouroboros.entry.mark_reviewed",
+            {"field_notes_before": "August 1, 2026"},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error.code == "payload_invalid"
+    assert "YYYY-MM-DD" in outcome.error.message
+
+
 def test_strategy_checkpoint_record_and_latest(tmp_db: str) -> None:
     with connect(tmp_db) as conn:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
