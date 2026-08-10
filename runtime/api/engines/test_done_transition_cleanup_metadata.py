@@ -31,7 +31,8 @@ class TestCleanupMetadata:
             _cleanup_stale_branches=False,
             _update_item_direct=update,
         ):
-            assert done_transition.run(78) == 0
+            # Incomplete lane/remote cleanup must refuse happy-path done.
+            assert done_transition.run(78) == 1
 
         assert not any(
             call.args[1:3] == ("worktree", "null")

@@ -98,7 +98,9 @@ class TestEmptyBranchGuard:
                 done_transition, "_verify_recovery_evidence", return_value=True
             ),
             mock.patch.object(done_transition, "_check_empty_branch") as mock_empty,
-            mock.patch.object(done_transition, "_cleanup_stale_branches"),
+            mock.patch.object(
+                done_transition, "_cleanup_stale_branches", return_value=True
+            ),
             mock.patch.object(
                 done_transition, "_verify_cwd_after_merge", return_value=repo_root
             ),
