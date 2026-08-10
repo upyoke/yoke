@@ -331,7 +331,7 @@ check once more after critique-driven updates and before the status mutation
 in step 9:
 
 ```bash
-yoke readiness check {N}
+yoke readiness check PREFIX-N
 ```
 
 The exit condition is the same as idea's policy-aware path closure:

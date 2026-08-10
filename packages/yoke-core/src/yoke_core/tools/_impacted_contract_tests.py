@@ -29,6 +29,10 @@ WORKFLOW_DEFINITION_VALIDATION_TESTS = (
     "runtime/api/test_universe_ui_server_mutations.py",
 )
 
+SCHEMA_CONVERGE_CONTRACT_TESTS = (
+    "runtime/api/cli/test_yoke_schema_converge_command.py",
+)
+
 PATH_CONTRACT_TESTS = (
     (
         frozenset(
@@ -52,6 +56,10 @@ PATH_CONTRACT_TESTS = (
         ),
         WORKFLOW_DEFINITION_VALIDATION_TESTS,
     ),
+    (
+        frozenset({"packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"}),
+        SCHEMA_CONVERGE_CONTRACT_TESTS,
+    ),
 )
 
 
@@ -68,6 +76,7 @@ def contract_tests_for(changed: Sequence[str]) -> set[str]:
 
 __all__ = [
     "ITEM_WORKTREE_SCHEMA_TESTS",
+    "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "WORKFLOW_DEFINITION_VALIDATION_TESTS",
     "contract_tests_for",
 ]

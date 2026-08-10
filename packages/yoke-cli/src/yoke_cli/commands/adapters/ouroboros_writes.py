@@ -22,7 +22,9 @@ OUROBOROS_ENTRY_INSERT_USAGE = (
     "[--context TEXT] [--timestamp TS] [--project P] [--session-id S] [--json]"
 )
 OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
-    "yoke ouroboros entry mark-reviewed ENTRY_ID [--session-id S] [--json]"
+    "yoke ouroboros entry mark-reviewed "
+    "(ENTRY_ID | --field-notes-before YYYY-MM-DD) [--limit N] "
+    "[--session-id S] [--json]"
 )
 OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
     "yoke ouroboros entry mark-archived (--all-reviewed | ENTRY_ID) "
@@ -103,14 +105,37 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
         prog="yoke ouroboros entry mark-reviewed",
         description=OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
     )
-    parser.add_argument("entry_id", type=int)
+    parser.add_argument("entry_id", nargs="?", type=int)
+    parser.add_argument(
+        "--field-notes-before",
+        help="Review unreviewed field-notes created before this ISO date.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum field-notes to review in this bounded call.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
+        parser,
+        args,
+        OUROBOROS_ENTRY_MARK_REVIEWED_USAGE,
     )
     if parsed is None:
         return 2
+    if (parsed.entry_id is None) == (parsed.field_notes_before is None):
+        return usage_error("pass exactly one of ENTRY_ID or --field-notes-before")
+    if parsed.entry_id is not None and parsed.limit is not None:
+        return usage_error("--limit requires --field-notes-before")
+
+    payload: Dict[str, Any] = {}
+    if parsed.entry_id is not None:
+        payload["entry_id"] = parsed.entry_id
+    else:
+        payload["field_notes_before"] = parsed.field_notes_before
+        if parsed.limit is not None:
+            payload["limit"] = parsed.limit
 
     def _human_writer(response, stdout, stderr) -> None:
         print((response.result or {}).get("message", ""), file=stdout)
@@ -118,7 +143,7 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="ouroboros.entry.mark_reviewed",
         target=TargetRef(kind="global"),
-        payload={"entry_id": parsed.entry_id},
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
@@ -135,7 +160,9 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,
+        parser,
+        args,
+        OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE,
     )
     if parsed is None:
         return 2

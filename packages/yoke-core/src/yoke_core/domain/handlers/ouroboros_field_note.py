@@ -50,7 +50,11 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_contracts.field_note_text import EVIDENCE_MAX_CHARS, KIND_VALUES
+from yoke_contracts.field_note_text import (
+    CATEGORY_PREFIX,
+    EVIDENCE_MAX_CHARS,
+    KIND_VALUES,
+)
 
 
 FIELD_NOTE_EVENT_NAME = "OuroborosFieldNoteAppended"
@@ -116,7 +120,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
 
     evidence_preview = payload.evidence[:EVIDENCE_PREVIEW_CHARS]
     timestamp = iso8601_now()
-    category = f"field-note-{payload.kind}"
+    category = f"{CATEGORY_PREFIX}{payload.kind}"
     session_id = request.actor.session_id
 
     # Durable write FIRST. If it raises, surface emit_failed and skip the event.

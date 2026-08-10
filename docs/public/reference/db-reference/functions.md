@@ -254,6 +254,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 | `claims.coordination_lease.release` | `"self_only"` | same handler |
 | `claims.coordination_lease.list` | `None` (read) | same handler |
 | `db_claim.amend` | `"item"` | `yoke_core.domain.handlers.db_claim.amend` — writes the `db_mutation_profile` and `db_compatibility_attestation` columns atomically through the unified payload described in [items-and-epics.md § DB Claim](items-and-epics.md). |
+| `db_claim.prose_check` | `None` (read) | `yoke_core.domain.handlers.db_claim.handle_prose_check` — prose-vs-claim detector for a stored item; https-relayable. CLI: `yoke db-claim prose-check PREFIX-N`. Idea intake prefers the local stdin mode `yoke db-claim prose-check --stdin` (no DB) via the same adapter. |
 
 ### `ephemeral_env.*` — ephemeral environment lifecycle updates
 
