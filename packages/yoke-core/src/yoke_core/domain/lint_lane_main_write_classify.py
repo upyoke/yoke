@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 
 from yoke_core.domain.file_line_check import classify_path
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, SUPPRESSION_TOKEN
@@ -31,9 +32,22 @@ _UNTRACKED_GENERATED_VIEW_PATTERNS = (
     re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),
 )
 
-_BASH_WRITE_VERB_RE = re.compile(
-    r"(?:^|[;&|]\s*|\s)(?:touch|mkdir|cp|mv|install|tee|truncate|sponge|patch)\b"
-)
+# Segment *command bases* that write the filesystem. Matched only as the
+# leading command of a shell segment — never as a subcommand token — so
+# ``yoke sessions touch`` is not a ``touch`` write.
+_WRITE_COMMAND_BASES = frozenset({
+    "touch", "mkdir", "cp", "mv", "install", "tee", "truncate", "sponge", "patch",
+})
+
+_GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
+
+_SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
+
+_REDIRECT_OPERATORS = frozenset({
+    ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
+})
+
+_HEREDOC_RE = re.compile(r"<<[-]?")
 
 
 def command_has_suppression_token(text: str) -> bool:
@@ -146,7 +160,100 @@ def item_label(claim: ClaimedWorktree) -> str:
     return ref
 
 
+def _safe_split(command: str) -> List[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return []
+
+
+def _strip_env_prefixes(tokens: List[str]) -> List[str]:
+    out = list(tokens)
+    while out and "=" in out[0] and not out[0].startswith("-"):
+        head = out[0].split("=", 1)[0]
+        if head and head.replace("_", "").isalnum() and head[0].isalpha():
+            out = out[1:]
+            continue
+        break
+    return out
+
+
+def _split_command_segments(tokens: List[str]) -> List[List[str]]:
+    segments: List[List[str]] = []
+    current: List[str] = []
+    for tok in tokens:
+        if tok in _SEGMENT_SEPARATORS:
+            if current:
+                segments.append(current)
+            current = []
+            continue
+        current.append(tok)
+    if current:
+        segments.append(current)
+    return segments
+
+
+def _segment_command_base(tokens: List[str]) -> str:
+    stripped = _strip_env_prefixes(tokens)
+    for tok in stripped:
+        if not tok.startswith("-"):
+            return tok.rsplit("/", 1)[-1]
+    return ""
+
+
+def _bash_has_redirect_or_heredoc(command: str) -> bool:
+    if _HEREDOC_RE.search(command or ""):
+        return True
+    tokens = _safe_split(command)
+    return any(tok in _REDIRECT_OPERATORS for tok in tokens)
+
+
+def _bash_has_write_verb(command: str) -> bool:
+    """True when a segment's leading command is a filesystem write verb."""
+    for segment in _split_command_segments(_safe_split(command)):
+        base = _segment_command_base(segment)
+        if base in _WRITE_COMMAND_BASES:
+            return True
+        if base == "git":
+            for tok in _strip_env_prefixes(segment)[1:]:
+                if tok.startswith("-"):
+                    continue
+                if tok in _GIT_MUTATING_SUBS:
+                    return True
+                break
+    return False
+
+
+def is_yoke_adapter_command(command: str) -> bool:
+    """True when every shell segment is a ``yoke`` CLI adapter invocation."""
+    if not command or not command.strip():
+        return False
+    segments = _split_command_segments(_safe_split(command))
+    if not segments:
+        return False
+    return all(_segment_command_base(seg) == "yoke" for seg in segments)
+
+
+def lane_path_exists_on_disk(claim: ClaimedWorktree) -> bool:
+    """True when the claim's recorded lane directory is present locally."""
+    raw = (claim.worktree_path or "").strip()
+    if not raw:
+        return False
+    try:
+        return Path(raw).is_dir()
+    except OSError:
+        return False
+
+
 def is_write_operation(tool_name: str, payload: dict) -> bool:
+    """True only for direct filesystem write shapes into a path target.
+
+    Registered ``yoke <subcommand>`` adapters are control-plane calls and
+    never count as tracked-source writes unless the shell body itself
+    carries a redirect/heredoc. Path-shaped arguments alone (``ls /repo``)
+    are not writes — only Edit/Write tools, write-verb command bases, and
+    shell redirects/heredocs qualify.
+    """
     if is_write_tool_name(tool_name):
         return True
     if tool_name != "Bash":
@@ -156,15 +263,9 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
         return False
     if match_read_only_signature(command):
         return False
-    if extract_payload_targets(payload):
-        return True
-    return _bash_has_write_verb(command)
-
-
-def _bash_has_write_verb(command: str) -> bool:
-    if _BASH_WRITE_VERB_RE.search(command):
-        return True
-    return bool(re.search(r"(?:^|[;&|]\s*|\s)git\s+(?:commit|add|mv|rm)\b", command))
+    if is_yoke_adapter_command(command):
+        return _bash_has_redirect_or_heredoc(command)
+    return _bash_has_redirect_or_heredoc(command) or _bash_has_write_verb(command)
 
 
 def collect_main_write_targets(
@@ -175,12 +276,18 @@ def collect_main_write_targets(
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
 ) -> list[tuple[str, ClaimedWorktree]]:
-    """Return ``(main_target, claim)`` pairs that should be refused."""
+    """Return ``(main_target, claim)`` pairs that should be refused.
+
+    Cwd alone is never a write target. Fallback to cwd only when a real
+    Bash write shape has no extractable path (relative ``touch file``).
+    """
     if not is_write_operation(tool_name, payload):
         return []
 
     raw_targets = list(extract_payload_targets(payload))
-    if not raw_targets and fallback_cwd.strip():
+    if not raw_targets and tool_name == "Bash" and fallback_cwd.strip():
+        # Genuine write verb / redirect with no absolute extractable path
+        # (relative targets): the write lands under the harness cwd.
         raw_targets = [fallback_cwd]
 
     hits: list[tuple[str, ClaimedWorktree]] = []
@@ -210,8 +317,10 @@ __all__ = [
     "command_has_suppression_token",
     "is_write_operation",
     "is_write_tool_name",
+    "is_yoke_adapter_command",
     "item_label",
     "lane_equivalent_path",
+    "lane_path_exists_on_disk",
     "matching_claim_for_main_target",
     "payload_has_escape_token",
     "_is_scratch_free_path",

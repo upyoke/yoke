@@ -102,4 +102,27 @@ def emit_denied(
     )
 
 
-__all__ = ["emit_denied", "emit_escape_used"]
+def emit_stranded_lane_advisory(
+    *,
+    session_id: str,
+    lane_path: str,
+    item_id: int,
+    item_label: str,
+) -> None:
+    """Record that a held lane claim has no on-disk worktree (do not deny)."""
+    _emit(
+        name="LaneMainWriteStrandedLane",
+        outcome="advisory",
+        context={
+            "lane_path": lane_path,
+            "item_id": int(item_id),
+            "item_label": item_label,
+            "failure_class": "stranded_lane",
+        },
+        session_id=session_id,
+        item_id=int(item_id),
+        severity="INFO",
+    )
+
+
+__all__ = ["emit_denied", "emit_escape_used", "emit_stranded_lane_advisory"]

@@ -117,6 +117,52 @@ class TestEscape:
         emit_escape.assert_called_once()
 
 
+class TestRegisteredAdapters:
+    def test_yoke_sessions_touch_allows_without_escape(self, conn, repo):
+        _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Bash",
+            "cwd": str(repo),
+            "tool_input": {"command": "yoke sessions touch --mode usher"},
+        })
+        assert verdict.allow is True
+        assert verdict.escape_used is False
+
+    def test_yoke_deployment_runs_allows_without_escape(self, conn, repo):
+        _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Bash",
+            "cwd": str(repo),
+            "tool_input": {
+                "command": "yoke deployment-runs start-for-item YOK-2094",
+            },
+        })
+        assert verdict.allow is True
+        assert verdict.escape_used is False
+
+
+class TestStrandedLane:
+    def test_missing_lane_path_advises_and_allows(self, conn, repo):
+        wt = _seed_lane(conn, repo)
+        target = repo / "runtime/api/foo.py"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Simulate post-cleanup stranding: claim still held, lane gone.
+        wt.rmdir()
+        with mock.patch.object(
+            lint_lane_main_write, "emit_stranded_lane_advisory",
+        ) as emit_advisory:
+            verdict = lint_lane_main_write.evaluate_pre_tool_use({
+                "session_id": "sid-lane",
+                "tool_name": "Write",
+                "tool_input": {"file_path": str(target)},
+            })
+        assert verdict.allow is True
+        emit_advisory.assert_called_once()
+        assert emit_advisory.call_args.kwargs["lane_path"] == str(wt)
+
+
 class TestUnaffectedCases:
     def test_write_inside_lane_allows(self, conn, repo):
         wt = _seed_lane(conn, repo)

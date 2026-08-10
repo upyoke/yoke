@@ -47,9 +47,20 @@ def format_denial(
     return append_field_note_footer(body, rule_id=RULE_ID)
 
 
+def format_stranded_advisory(*, item_label: str, lane_path: str) -> str:
+    """Advisory when a held lane claim's worktree is gone from disk."""
+    return (
+        f"ADVISORY: implementation-lane claim {item_label} is held but its "
+        f"recorded worktree is missing on disk ({lane_path}). "
+        "lane-main-write is not armed — a gone lane cannot be the write "
+        "target. Release or re-prepare the lane if the claim is stale."
+    )
+
+
 __all__ = [
     "ESCAPE_TOKEN",
     "RULE_ID",
     "SUPPRESSION_TOKEN",
     "format_denial",
+    "format_stranded_advisory",
 ]
