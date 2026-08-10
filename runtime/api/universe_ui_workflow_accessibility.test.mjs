@@ -70,12 +70,13 @@ test("workflow mutation dialogs trap focus and restore their opener", async (t) 
       ownership: "exclusive_session_work_claim",
       file_budget: "optional",
       path_claims: "optional",
+      path_survey: "optional",
       worktrees: "single_implementation_lane",
       generated_children: "none",
       qa: "optional_item_attachment",
       approvals: "none",
       delivery: "after_merge_action",
-      item_posture_allowlist: ["path_claims"],
+      item_posture_allowlist: ["path_claims", "path_survey"],
     },
   });
   const client = workflowsClient([dash]);
@@ -88,20 +89,23 @@ test("workflow mutation dialogs trap focus and restore their opener", async (t) 
   };
   const { documentNode, root, mounted } = await mountWorkflows(t, client);
   const trigger = allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Turn on",
+    (node) => node.tagName === "BUTTON" && node.textContent === "Change",
   );
   trigger.focus();
   trigger.dispatchEvent(new Event("click"));
+  byClass(root, "workflow-coordination-option")[2]
+    .dispatchEvent(new Event("click"));
 
   const cancel = allNodes(root).find(
     (node) => node.tagName === "BUTTON" && node.textContent === "Cancel",
   );
+  const firstOption = byClass(root, "workflow-coordination-option")[0];
   const confirm = byClass(root, "primary")[0];
   assert.equal(documentNode.activeElement, cancel);
   documentNode.defaultView.dispatchEvent(keyEvent("Tab"));
   assert.equal(documentNode.activeElement, confirm);
   documentNode.defaultView.dispatchEvent(keyEvent("Tab"));
-  assert.equal(documentNode.activeElement, cancel);
+  assert.equal(documentNode.activeElement, firstOption);
   documentNode.defaultView.dispatchEvent(keyEvent("Tab", { shiftKey: true }));
   assert.equal(documentNode.activeElement, confirm);
 

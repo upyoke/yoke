@@ -7,6 +7,7 @@ from unittest import mock
 
 from yoke_core.engines import merge_worktree
 from yoke_core.engines import merge_worktree_post_local
+from yoke_core.engines.remote_branch_cleanup import RemoteBranchDeleteResult
 
 
 TEST_ITEM_ID = 42
@@ -45,6 +46,14 @@ def _patch_post_steps():
     )
     stack.enter_context(
         mock.patch.object(merge_worktree_post_local, "_ensure_target_branch")
+    )
+    stack.enter_context(
+        mock.patch(
+            "yoke_core.engines.remote_branch_cleanup.delete_remote_branch_if_merged",
+            return_value=RemoteBranchDeleteResult(
+                "absent", "remote branch is absent"
+            ),
+        )
     )
     return stack
 
@@ -118,6 +127,14 @@ def test_lane_removal_runs_after_every_step_that_reads_from_it(tmp_path):
         stack.enter_context(
             mock.patch.object(
                 merge_worktree_post_local, "_chdir_out_of_doomed_worktree"
+            )
+        )
+        stack.enter_context(
+            mock.patch(
+                "yoke_core.engines.remote_branch_cleanup.delete_remote_branch_if_merged",
+                return_value=RemoteBranchDeleteResult(
+                    "absent", "remote branch is absent"
+                ),
             )
         )
         run_git = stack.enter_context(mock.patch.object(merge_worktree, "_run_git"))

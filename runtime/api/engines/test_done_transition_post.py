@@ -249,7 +249,7 @@ def _patch_run_internals(repo_root, **overrides):
         ("_check_merge_guard", True),
         ("_verify_recovery_evidence", True),
         ("_check_empty_branch", None),
-        ("_cleanup_stale_branches", None),
+        ("_cleanup_stale_branches", True),
         ("_verify_cwd_after_merge", repo_root),
         ("_schema_gate", None),
         ("_check_deployment_flow_guard", None),

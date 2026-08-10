@@ -256,11 +256,6 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   dialog.setAttribute("aria-modal", "true");
   dialog.setAttribute("aria-label", spec.title);
   const heading = el(documentNode, "div", "workflow-dialog-heading");
-  if (/^Turn (?:on|off) path (?:claims|survey)/.test(spec.title)) {
-    heading.appendChild(el(
-      documentNode, "span", "workflow-dialog-lock", "🔒",
-    ));
-  }
   heading.appendChild(el(
     documentNode, "h2", "workflow-dialog-title", spec.title,
   ));

@@ -220,20 +220,40 @@ def _prune_verdict(
     return resp.result or {}
 
 
+def _delete_remote_before_local(
+    *,
+    run_git: Callable[..., Any],
+    emit: Callable[..., Any],
+    repo_root: str,
+    branch: str,
+    target: str,
+) -> bool:
+    """Prove and delete ``origin/<branch>`` before discarding local refs."""
+    from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
+
+    result = delete_remote_branch_if_merged(
+        run_git=lambda command: run_git(command, cwd=repo_root, capture=True),
+        branch=branch,
+        target_branch=target,
+    )
+    if result.status == "deleted":
+        emit(f"Deleted merged remote branch: origin/{branch}")
+    elif result.status == "preserved":
+        emit(f"Preserving remote branch origin/{branch}: {result.reason}")
+    return result.cleanup_complete
+
+
 def prune_managed_worktrees(
     *,
     parent: Any,
     repo_root: str,
     target: str,
 ) -> None:
-    """Remove only clean, unclaimed, terminal work already merged to target.
+    """Prune clean, unclaimed, terminal lanes after remote-first delete.
 
-    The DB authority verdict (unique terminal owner + no active authority)
-    routes through the transport-aware ``merge.prune.authority_verdict``
-    relay so pruning runs over an https control plane as well as a local
-    Postgres connection; every git deletion stays local. A relay whose DB
-    authority is unreachable fails closed: pruning is skipped and nothing
-    is removed.
+    Authority verdicts relay via ``merge.prune.authority_verdict``; git stays
+    local. Unreachable DB authority skips pruning. Incomplete remote cleanup
+    preserves the local retry lane.
     """
     run_git = parent._run_git
     emit = parent._print
@@ -267,6 +287,11 @@ def prune_managed_worktrees(
             continue
         if not _merged(run_git, repo_root, entry.branch, base):
             emit(f"Preserving unmerged worktree branch: {entry.branch}")
+            continue
+        if not _delete_remote_before_local(
+            run_git=run_git, emit=emit, repo_root=repo_root,
+            branch=entry.branch, target=target,
+        ):
             continue
         removed = run_git(
             ["worktree", "remove", str(entry.path)],
@@ -302,6 +327,11 @@ def prune_managed_worktrees(
         if not verdict.get("prunable"):
             continue
         if not _merged(run_git, repo_root, branch, base):
+            continue
+        if not _delete_remote_before_local(
+            run_git=run_git, emit=emit, repo_root=repo_root,
+            branch=branch, target=target,
+        ):
             continue
         deleted = run_git(["branch", "-d", branch], cwd=repo_root, capture=True)
         if deleted.returncode == 0:

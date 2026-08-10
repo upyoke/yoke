@@ -25,6 +25,7 @@ function dashFixture() {
       ownership: "exclusive_session_work_claim",
       file_budget: "optional",
       path_claims: "optional",
+      path_survey: "required",
       worktrees: "single_implementation_lane",
       generated_children: "none",
       qa: "optional_item_attachment",
@@ -32,7 +33,7 @@ function dashFixture() {
       approval_defaults: {},
       delivery: "after_merge_action",
       item_posture_allowlist: [
-        "verification", "file_budget", "path_claims",
+        "verification", "file_budget", "path_claims", "path_survey",
         "approval_on_done", "deployment",
       ],
     },
@@ -344,6 +345,6 @@ test("registry policy controls do not depend on the mechanics read", async (t) =
     buttonByText(root, "Edit Dash defaults for each project"),
     undefined,
   );
-  assert.ok(buttonByText(root, "Turn on"));
+  assert.ok(buttonByText(root, "Change"));
   mounted.unmount();
 });

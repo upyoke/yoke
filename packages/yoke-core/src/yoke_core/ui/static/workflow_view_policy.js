@@ -25,7 +25,7 @@ const UNIVERSAL_INVARIANTS = [
  * inventing one. ``sinceSchema`` draws that line; nothing here is hidden for
  * having an uninteresting value.
  */
-const POLICY_ROWS = [
+export const POSTURE_POLICY_ROWS = [
   ["Ownership", "ownership", null, 1],
   ["Child items", "generated_children", null, 1],
   ["File Budget", "file_budget", "optional", 2],
@@ -34,8 +34,11 @@ const POLICY_ROWS = [
   ["Worktrees", "worktrees", null, 1],
 ];
 
-/** Settings an item may tighten on its own, when the workflow allows it. */
-const PER_ITEM_TUNABLE = ["path_claims", "path_survey"];
+export const COORDINATION_LEVELS = [
+  { id: "none", label: "No prevention" },
+  { id: "survey", label: "Path survey" },
+  { id: "claims", label: "Path claims" },
+];
 
 /**
  * Which tier a row belongs to, and therefore where it sorts and what marks it.
@@ -57,37 +60,56 @@ function policyValue(policies, key, fallback) {
   return { value: fallback, declared: false };
 }
 
-function tunableHere(workflow, key, value) {
-  const allowlist =
-    workflow.definition?.policies?.item_posture_allowlist || [];
-  return PER_ITEM_TUNABLE.includes(key) &&
-    allowlist.includes(key) &&
-    ["optional", "required"].includes(value);
+export function definitionPostureRows(definition = {}) {
+  const policies = definition.policies || {};
+  const schema = Number(definition.schema_version || 1);
+  return POSTURE_POLICY_ROWS.map(([label, key, fallback, sinceSchema]) => {
+    const { value, declared } = policyValue(policies, key, fallback);
+    return {
+      label,
+      key,
+      value,
+      declared,
+      expressible: declared || schema >= sinceSchema,
+      tier: TIER_WORKFLOW_FIXED,
+    };
+  });
+}
+
+export function coordinationLevel(policies = {}) {
+  if (["required", "required_per_task"].includes(policies.path_claims)) {
+    return "claims";
+  }
+  return (policies.path_survey ?? "required") === "required"
+    ? "survey"
+    : "none";
+}
+
+function coordinationRow(workflow) {
+  const policies = workflow.definition?.policies || {};
+  const allowlist = new Set(policies.item_posture_allowlist || []);
+  const tunable = allowlist.has("path_claims") &&
+    allowlist.has("path_survey") &&
+    ["optional", "required"].includes(policies.path_claims) &&
+    ["optional", "required"].includes(policies.path_survey ?? "required");
+  return {
+    label: "Preventing overlapping work",
+    key: "coordination",
+    value: coordinationLevel(policies),
+    declared: true,
+    tunable,
+    expressible: true,
+    tier: tunable ? TIER_PER_ITEM : TIER_WORKFLOW_FIXED,
+  };
 }
 
 export function postureRows(workflow) {
   const definition = workflow.definition || {};
-  const policies = definition.policies || {};
-  const schema = Number(definition.schema_version || 1);
-  const rows = POLICY_ROWS
-    .map(([label, key, fallback, sinceSchema]) => {
-      const { value, declared } = policyValue(policies, key, fallback);
-      const tunable = tunableHere(workflow, key, value);
-      return {
-        label,
-        key,
-        value,
-        declared,
-        tunable,
-        // Declaring the field proves this definition has it, whatever it says
-        // its schema version is; the version only answers for the fields it
-        // left out.
-        expressible: declared || schema >= sinceSchema,
-        tier: tunable ? TIER_PER_ITEM : TIER_WORKFLOW_FIXED,
-      };
-    })
+  const rows = definitionPostureRows(definition)
+    .filter((row) => !["path_claims", "path_survey"].includes(row.key))
     .filter((row) =>
       row.expressible && row.value !== undefined && row.value !== null);
+  rows.push(coordinationRow(workflow));
   for (const [label, value] of UNIVERSAL_INVARIANTS) {
     rows.push({
       label,
@@ -150,6 +172,11 @@ function postureCell(documentNode, row, workflowName, edit) {
 }
 
 function postureValueText(row) {
+  if (row.key === "coordination") {
+    return COORDINATION_LEVELS.find(
+      (level) => level.id === row.value,
+    )?.label || row.value;
+  }
   const readable = row.key
     ? readablePolicyValue(row.key, row.value)
     : row.value;
@@ -167,18 +194,17 @@ export function renderPosture(documentNode, workflow, actions = {}) {
   const grid = el(documentNode, "div", "workflow-posture-grid");
   const workflowName = workflow.name || workflow.id;
   for (const row of postureRows(workflow)) {
-    const editAction = row.key === "path_claims"
-      ? actions.editPathClaims
-      : actions.editPathSurvey;
-    const on = row.value === "required";
+    const editAction = row.key === "coordination"
+      ? actions.editCoordination
+      : null;
     grid.appendChild(postureCell(
       documentNode,
       row,
       workflowName,
       row.tunable && editAction
         ? {
-          label: on ? "Turn off" : "Turn on",
-          action: () => editAction(!on),
+          label: "Change",
+          action: editAction,
         }
         : null,
     ));

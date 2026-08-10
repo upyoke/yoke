@@ -1,5 +1,8 @@
 import { el, callFunction } from "./universe_view_support.js";
-import { button } from "./workflow_view_primitives.js";
+import {
+  button,
+  readablePolicyValue,
+} from "./workflow_view_primitives.js";
 
 // What actually differs between two workflow definitions, in the vocabulary
 // the operator already reads on this page -- stages, gates, policies, entry
@@ -26,6 +29,25 @@ function listDifference(before, after) {
   };
 }
 
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]),
+  );
+}
+
+function sameValue(left, right) {
+  return JSON.stringify(canonicalValue(left)) ===
+    JSON.stringify(canonicalValue(right));
+}
+
+function gateMap(stage) {
+  return new Map(
+    (stage?.gates || []).map((gate) => [String(gate.id), gate]),
+  );
+}
+
 function stageChanges(mine, theirs) {
   const changes = [];
   const before = stageMap(mine);
@@ -33,6 +55,12 @@ function stageChanges(mine, theirs) {
   const stages = listDifference([...before.keys()], [...after.keys()]);
   for (const id of stages.added) changes.push(`stage added: ${id}`);
   for (const id of stages.removed) changes.push(`stage removed: ${id}`);
+  if (!stages.added.length && !stages.removed.length && !sameValue(
+    [...before.keys()], [...after.keys()],
+  )) {
+    changes.push(`stage order: ${[...before.keys()].join(" → ")} → ` +
+      [...after.keys()].join(" → "));
+  }
   for (const [id, stage] of before) {
     const other = after.get(id);
     if (!other) continue;
@@ -46,6 +74,20 @@ function stageChanges(mine, theirs) {
     for (const gate of gates.removed) {
       changes.push(`${id}: gate removed: ${gate}`);
     }
+    const beforeGates = gateMap(stage);
+    const afterGates = gateMap(other);
+    for (const [gateId, gate] of beforeGates) {
+      if (afterGates.has(gateId) && !sameValue(gate, afterGates.get(gateId))) {
+        changes.push(`${id}: gate changed: ${gateId}`);
+      }
+    }
+    const stageDetails = (value) => {
+      const { id: _id, label: _label, gates: _gates, ...details } = value;
+      return details;
+    };
+    if (!sameValue(stageDetails(stage), stageDetails(other))) {
+      changes.push(`${id}: stage details changed`);
+    }
   }
   return changes;
 }
@@ -55,12 +97,26 @@ function policyChanges(mine, theirs) {
   const before = mine?.policies || {};
   const after = theirs?.policies || {};
   for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-    const left = JSON.stringify(before[key]);
-    const right = JSON.stringify(after[key]);
-    if (left === right) continue;
-    if (left === undefined) changes.push(`policy added: ${key} = ${right}`);
-    else if (right === undefined) changes.push(`policy removed: ${key}`);
-    else changes.push(`policy ${key}: ${left} → ${right}`);
+    const leftValue = before[key];
+    const rightValue = after[key];
+    if (sameValue(leftValue, rightValue)) continue;
+    const label = key.replaceAll("_", " ");
+    const describe = (value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        const count = Object.keys(value).length;
+        return count ? count + " configured" : "none configured";
+      }
+      return readablePolicyValue(key, value);
+    };
+    if (leftValue === undefined) {
+      changes.push(`policy added: ${label} = ${describe(rightValue)}`);
+    } else if (rightValue === undefined) {
+      changes.push(`policy removed: ${label}`);
+    } else {
+      changes.push(
+        `policy ${label}: ${describe(leftValue)} → ${describe(rightValue)}`,
+      );
+    }
   }
   return changes;
 }

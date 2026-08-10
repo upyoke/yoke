@@ -89,20 +89,25 @@ Merge preflight automatically prunes only worktrees registered beneath the
 repository's managed `.worktrees/` or `.claude/worktrees/` roots. A candidate
 must have one exact terminal DB owner, no active work claim or harness session,
 a clean status including ignored and untracked files, and a branch tip that is
-an ancestor of the freshly fetched target. Removal uses normal `git worktree
-remove`, followed by normal `git branch -d` only after worktree removal
-succeeds.
+an ancestor of the freshly fetched target. For each lane it first proves and
+deletes the exact remote ref (or proves it already absent) via the shared
+`delete_remote_branch_if_merged` helper; only then does removal use normal
+`git worktree remove`, followed by normal `git branch -d`. Incomplete remote
+cleanup preserves the local worktree and branch for a later safe retry.
 
-Done-transition uses the same fail-closed evidence for its current item lane.
-It also proves an exact remote ref is an ancestor of the refreshed target
-before deleting that remote ref. If worktree, local-ref, or remote-ref cleanup
-is refused, the item's worktree metadata remains intact so ownership is not
-lost and a later safe sweep can retry.
+Done-transition uses the same fail-closed, remote-first evidence for its
+current item lane and the same shared helper — never a duplicate remote-delete
+path. Local `git branch -d` proves ancestry against the refreshed
+`origin/<base>` ref, not upstream tracking. If remote-ref, worktree, or
+local-ref cleanup is refused, the item's worktree metadata remains intact so
+ownership is not lost and a later safe sweep can retry; the done runner does
+not complete happy-path close-out while that cleanup is incomplete.
 
 Unregistered directories, ambiguous owners, dirty or ignored content,
 unavailable claim/DB state, non-ancestor branches, and removal refusals are
 preserved and reported. Automatic cleanup never uses filesystem `rm -rf`,
-forced worktree removal, or forced branch deletion.
+forced worktree removal, or forced branch deletion. `--keep-remote` remains
+the only intentional skip of remote delete (ephemeral environments).
 
 ## Keep Non-Ancestor Evidence Branches
 

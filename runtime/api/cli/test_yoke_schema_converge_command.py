@@ -121,6 +121,7 @@ def test_schema_converge_failure_redacts_exception_message() -> None:
     assert out.getvalue() == ""
     assert secret not in err.getvalue()
     assert json.loads(err.getvalue()) == {
+        "detail": "<redacted-dsn>",
         "error": "schema_convergence_failed",
         "error_type": "RuntimeError",
         "ok": False,
@@ -164,6 +165,7 @@ def test_schema_converge_redacts_strict_catalog_reseed_failure() -> None:
     assert out.getvalue() == ""
     assert secret not in err.getvalue()
     assert json.loads(err.getvalue()) == {
+        "detail": "<redacted-dsn>",
         "error": "schema_convergence_failed",
         "error_type": "RuntimeError",
         "ok": False,

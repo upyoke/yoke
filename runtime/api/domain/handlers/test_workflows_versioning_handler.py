@@ -91,20 +91,34 @@ def test_version_get_and_policy_default_publish(test_db):
     assert policies["path_claims"] == "optional"
     assert policies.get("approval_defaults", {}) == {}
 
-    published = handle_workflows_policy_defaults_publish(
+    survey = handle_workflows_policy_defaults_publish(
         _request(
             "workflows.policy_defaults.publish",
             target=TargetRef(kind="global"),
             payload={
                 "workflow_id": "dash",
                 "expected_current_version": converged,
+                "path_survey_default": False,
+            },
+            actor_id="1",
+        )
+    )
+    assert survey.primary_success
+
+    published = handle_workflows_policy_defaults_publish(
+        _request(
+            "workflows.policy_defaults.publish",
+            target=TargetRef(kind="global"),
+            payload={
+                "workflow_id": "dash",
+                "expected_current_version": survey.result_payload["version"],
                 "path_claims_default": True,
             },
             actor_id="1",
         )
     )
     assert published.primary_success
-    assert published.result_payload["version"] == converged + 1
+    assert published.result_payload["version"] == converged + 2
     assert published.result_payload["path_claims_default"] is True
 
 

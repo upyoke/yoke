@@ -113,6 +113,8 @@ def test_task_scoped_axis_requires_generated_tasks(axis):
     definition["policies"][axis] = "required_per_task"
     if axis == "file_budget":
         definition["policies"]["item_posture_allowlist"].remove("file_budget")
+    else:
+        definition["policies"]["path_survey"] = "optional"
 
     with pytest.raises(WorkflowDefinitionError, match="generated_children"):
         validate_workflow_definition(definition)

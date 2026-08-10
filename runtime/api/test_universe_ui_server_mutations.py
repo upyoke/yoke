@@ -265,18 +265,29 @@ class TestProxyMutations:
             granted_by_actor_id=operator,
         )
         test_db.commit()
-        response = _call(ui_client, {
+        survey_response = _call(ui_client, {
             "function": "workflows.policy_defaults.publish",
             "payload": {
                 "workflow_id": "dash",
                 "expected_current_version": converged,
+                "path_survey_default": False,
+            },
+        })
+        assert survey_response.status_code == 200
+        survey_envelope = survey_response.json()
+        assert survey_envelope["success"] is True, survey_envelope
+        response = _call(ui_client, {
+            "function": "workflows.policy_defaults.publish",
+            "payload": {
+                "workflow_id": "dash",
+                "expected_current_version": survey_envelope["result"]["version"],
                 "path_claims_default": True,
             },
         })
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True, envelope
-        expected_version = converged + 1
+        expected_version = converged + 2
         assert envelope["result"]["version"] == expected_version
         row = test_db.execute(
             "SELECT published_by_actor_id FROM workflow_versions "
