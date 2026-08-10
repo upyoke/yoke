@@ -60,6 +60,23 @@ def migration_content_ownership_detail(conn: Any) -> str | None:
     )
 
 
+def load_module(name: str) -> Any:
+    """Import one shipped history entry by ledger name."""
+    from yoke_core.domain import migrations as history_package
+    from yoke_core.domain.migration_history import (
+        history_dir,
+        load_migration_module,
+        ordered_entries,
+    )
+
+    entries = {
+        entry.name: entry
+        for entry in ordered_entries(history_dir(history_package))
+    }
+    entry = entries[name]
+    return load_migration_module(entry.path, entry.name)
+
+
 def rehearsal_plan() -> RehearsalPlan:
     """Bind the generic rehearsal kernel to Yoke project authority."""
     return RehearsalPlan(
@@ -67,6 +84,7 @@ def rehearsal_plan() -> RehearsalPlan:
         pending_names=pending_names,
         converge=converge,
         live_ownership_validator=migration_content_ownership_detail,
+        load_module=load_module,
     )
 
 
@@ -75,6 +93,7 @@ __all__ = [
     "TENANT_DATABASE_PATTERN",
     "converge",
     "history_names",
+    "load_module",
     "migration_content_ownership_detail",
     "pending_names",
     "rehearsal_plan",
