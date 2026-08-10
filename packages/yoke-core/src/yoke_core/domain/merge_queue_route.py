@@ -250,14 +250,26 @@ def land_item_through_merge_queue(
     pr_num, pr_err = _ensure_pr(ctx, item_ref)
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
-    entry = enter_merge_queue(ctx, pr_num)
-    if not entry.success:
-        return QueueLandingOutcome(
-            ok=False,
-            exit_code=1,
-            pr_num=pr_num,
-            error=entry.error_detail or "queue entry refused",
-        )
+    # Convergent re-entry: skip queue entry when the PR already merged or
+    # is already armed — GitHub refuses re-enabling merge-when-ready.
+    pre_state, pre_err = read_pr_landing_state(ctx, pr_num)
+    if pre_err:
+        warnings.append(pre_err)
+    already_armed = bool(
+        pre_state is not None
+        and not pre_state.merged
+        and not pre_state.closed
+        and pre_state.auto_merge_active
+    )
+    if pre_state is None or not (pre_state.merged or already_armed):
+        entry = enter_merge_queue(ctx, pr_num)
+        if not entry.success:
+            return QueueLandingOutcome(
+                ok=False,
+                exit_code=1,
+                pr_num=pr_num,
+                error=entry.error_detail or "queue entry refused",
+            )
 
     deadline = monotonic() + deadline_seconds
     merged = False

@@ -62,13 +62,13 @@ def _wire_happy_path(monkeypatch, *, members=(), landing_states=None):
     states = list(landing_states or [
         PrLandingState(merged=True, closed=True, auto_merge_active=False),
     ])
+    # Exhausted scripts keep serving their final state: the pre-entry
+    # convergence check consumes one read before the poll loop starts.
+    states_last = [states[-1]]
 
     def landing(ctx, pr_num):
         return (states.pop(0) if states else states_last[0]), None
 
-    states_last = [PrLandingState(
-        merged=True, closed=True, auto_merge_active=False
-    )]
     monkeypatch.setattr(route_mod, "read_pr_landing_state", landing)
     monkeypatch.setattr(route_mod, "stamp_merged_at", lambda item_id: None)
     receipt = BatchReceipt(
@@ -250,3 +250,37 @@ def test_migration_carrier_shapes_resolve_from_profile(monkeypatch):
     assert not outcome.ok
     assert "migration-carrier-limit" in outcome.error
 
+
+
+def test_reentry_with_merged_pr_skips_queue_entry(monkeypatch):
+    _wire_happy_path(monkeypatch)
+
+    def forbidden_entry(ctx, pr_num):
+        raise AssertionError("must not re-enter an already-merged PR")
+
+    monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden_entry)
+    outcome = route_mod.land_item_through_merge_queue(
+        _ctx(), item_id=1, item_ref="YOK-200",
+        dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
+    )
+    assert outcome.ok
+
+
+def test_reentry_with_armed_pr_skips_entry_and_polls(monkeypatch):
+    _wire_happy_path(
+        monkeypatch,
+        landing_states=[
+            PrLandingState(merged=False, closed=False, auto_merge_active=True),
+            PrLandingState(merged=True, closed=True, auto_merge_active=False),
+        ],
+    )
+
+    def forbidden_entry(ctx, pr_num):
+        raise AssertionError("must not re-arm merge-when-ready")
+
+    monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden_entry)
+    outcome = route_mod.land_item_through_merge_queue(
+        _ctx(), item_id=1, item_ref="YOK-200",
+        dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
+    )
+    assert outcome.ok
