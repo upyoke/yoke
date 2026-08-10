@@ -155,7 +155,11 @@ def _prose_check_stdin(
     json_mode: bool,
 ) -> int:
     """Local detector over stdin prose — https-safe, no control-plane DB."""
-    from yoke_core.domain.db_claim_prose_check import check
+    import importlib
+
+    check = importlib.import_module(
+        "yoke_core.domain.db_claim_prose_check"
+    ).check
 
     prose = sys.stdin.read()
     outcome = check(prose, profile_raw=None, item_ref=item_ref)
