@@ -28,7 +28,7 @@ When enabled, the pre-handoff readiness check at idea exit and refine entry
 validates this section through the registered readiness surface:
 
 ```bash
-yoke readiness check <item_id>
+yoke readiness check PREFIX-N
 ```
 
 It returns structured JSON with `verdict=pass|block|skipped`,

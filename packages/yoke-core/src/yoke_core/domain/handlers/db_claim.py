@@ -1,18 +1,20 @@
-"""Yoke function handler for ``db_claim.amend``.
+"""Yoke function handlers for ``db_claim.*``.
 
-Operation:
+Operations:
 
 - ``db_claim.amend`` — apply a unified DB-claim amendment atomically.
+- ``db_claim.prose_check`` — prose-vs-claim detector over a stored item
+  (https-relayable read; replaces local-only ``python3 -m … check-item``).
 
-Reuse: thin wrapper over :func:`yoke_core.domain.db_claim.amend`. All
-validation (profile + attestation cross-field requirements, reserved
-keys, atomic write) lives in the domain module; this handler only
-translates envelope <-> domain types and back.
+Reuse: thin wrappers over :func:`yoke_core.domain.db_claim.amend` and
+:func:`yoke_core.domain.db_claim_prose_check.check_item`. All validation
+and detection live in the domain modules; these handlers only translate
+envelope <-> domain types and back.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -102,8 +104,59 @@ def handle_amend(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+class ProseCheckRequest(BaseModel):
+    """Empty payload — the item target carries the identity."""
+
+
+class ProseCheckResponse(BaseModel):
+    item_id: int
+    blocks: bool
+    triggers: List[str] = Field(default_factory=list)
+    has_declared_claim: bool = False
+    negative_claim_detected: bool = False
+    reviewed_negative_claim_detected: bool = False
+    matched_snippets: List[str] = Field(default_factory=list)
+    recovery: str = ""
+
+
+def handle_prose_check(request: FunctionCallRequest) -> HandlerOutcome:
+    """Run the prose-vs-claim detector for ``request.target.item_id``."""
+    try:
+        ProseCheckRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _err("payload_invalid", f"prose_check payload invalid: {exc}")
+
+    item_id = request.target.item_id
+    if item_id is None:
+        return _err(
+            "target_invalid",
+            "db_claim.prose_check requires target.kind='item' with item_id set",
+        )
+
+    from yoke_core.domain.db_claim_prose_check import check_item
+
+    outcome = check_item(int(item_id))
+    return HandlerOutcome(
+        result_payload={
+            "item_id": int(item_id),
+            "blocks": bool(outcome.blocks),
+            "triggers": list(outcome.triggers),
+            "has_declared_claim": bool(outcome.has_declared_claim),
+            "negative_claim_detected": bool(outcome.negative_claim_detected),
+            "reviewed_negative_claim_detected": bool(
+                outcome.reviewed_negative_claim_detected
+            ),
+            "matched_snippets": list(outcome.matched_snippets),
+            "recovery": outcome.recovery,
+        },
+    )
+
+
 __all__ = [
     "AmendRequest",
     "AmendResponse",
+    "ProseCheckRequest",
+    "ProseCheckResponse",
     "handle_amend",
+    "handle_prose_check",
 ]
