@@ -27,13 +27,50 @@ def _resolved(scope, command, covering_runs=()):
 
 def test_should_route_ci_respects_local_override(monkeypatch):
     monkeypatch.setattr(
-        "yoke_core.domain.project_renderer_settings.project_ci_workflow_file",
+        merge_worktree_tests_ci,
+        "_project_ci_workflow_file",
         lambda _p: "ci.yml",
     )
     ctx = _ctx("/tmp", local_verification=True)
     assert merge_worktree_tests_ci._should_route_ci(ctx) is False
     ctx.args.local_verification = False
     assert merge_worktree_tests_ci._should_route_ci(ctx) is True
+
+
+def test_ci_workflow_read_uses_connected_capability_surface(monkeypatch):
+    seen = []
+
+    def fake_dispatch(**kwargs):
+        seen.append(kwargs)
+        return SimpleNamespace(
+            success=True,
+            result={"settings_json": '{"workflow_file":"ci.yml"}'},
+            error=None,
+        )
+
+    monkeypatch.setattr(merge_worktree_tests_ci, "call_dispatcher", fake_dispatch)
+
+    assert merge_worktree_tests_ci._project_ci_workflow_file("yoke") == "ci.yml"
+    assert seen[0]["function_id"] == "projects.capability_settings.get"
+    assert seen[0]["target"].kind == "global"
+    assert seen[0]["payload"] == {
+        "project": "yoke",
+        "cap_type": "ci_workflow_file",
+    }
+
+
+def test_ci_workflow_read_treats_missing_capability_as_undeclared(monkeypatch):
+    monkeypatch.setattr(
+        merge_worktree_tests_ci,
+        "call_dispatcher",
+        lambda **_kwargs: SimpleNamespace(
+            success=False,
+            result=None,
+            error=SimpleNamespace(code="not_found", message="missing"),
+        ),
+    )
+
+    assert merge_worktree_tests_ci._project_ci_workflow_file("yoke") == ""
 
 
 def test_run_tests_routes_to_ci_when_declared(
@@ -89,9 +126,9 @@ def test_run_tests_keeps_local_when_override(
         "_run_streaming",
         lambda command, **kwargs: (seen.append(command), (0, "ok"))[1],
     )
-    assert merge_worktree_tests.run_tests(
-        _ctx(tmp_path, local_verification=True)
-    ) is None
+    assert (
+        merge_worktree_tests.run_tests(_ctx(tmp_path, local_verification=True)) is None
+    )
     assert seen == [["/bin/sh", "-c", "python3 verify_tree.py"]]
 
 

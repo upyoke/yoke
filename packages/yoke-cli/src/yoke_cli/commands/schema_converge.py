@@ -6,11 +6,14 @@ import argparse
 import importlib
 import json
 import os
+import re
 import sys
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import machine_config
+from yoke_cli.transport.json_error_safety import safe_diagnostic_text
+from yoke_contracts.control_plane_locality import PG_DSN_ENV, PG_DSN_FILE_ENV
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 
 
@@ -18,7 +21,26 @@ AdapterFn = Callable[[List[str]], int]
 
 SCHEMA_CONVERGE_USAGE = "yoke schema converge [--json]"
 
-_DIRECT_AUTHORITY_ENV_VARS = ("YOKE_PG_DSN", "YOKE_PG_DSN_FILE")
+_DIRECT_AUTHORITY_ENV_VARS = (PG_DSN_ENV, PG_DSN_FILE_ENV)
+
+_POSTGRES_URI_PATTERN = re.compile(
+    r"\bpostgres(?:ql)?(?:\+[a-z0-9_.-]+)?://[^\s\"'<>]+",
+    re.IGNORECASE,
+)
+_LIBPQ_VALUE_PATTERN = r'(?:"[^"]*"|\'[^\']*\'|[^\s,;]+)'
+_LIBPQ_ASSIGNMENT_PATTERN = (
+    r"(?:host|hostaddr|port|dbname|user|password|passfile|service|sslmode)"
+    rf"\s*=\s*{_LIBPQ_VALUE_PATTERN}"
+)
+_LIBPQ_DSN_PATTERN = re.compile(
+    rf"\b{_LIBPQ_ASSIGNMENT_PATTERN}(?:\s+{_LIBPQ_ASSIGNMENT_PATTERN})+",
+    re.IGNORECASE,
+)
+_SECRET_FIELD_PATTERN = re.compile(
+    r"\b(?P<name>password|passwd|pwd|dsn)(?P<separator>\s*[:=]\s*)"
+    r"(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)",
+    re.IGNORECASE,
+)
 
 _SCHEMA_CONVERGE_HELP = """\
 Run the same boot-coupled schema convergence used at API startup.
@@ -35,9 +57,35 @@ and a direct DSN override cannot be combined; the command fails closed rather
 than risk converging a different database than the operator selected."""
 
 
-def _failure(*, json_mode: bool, error_type: str) -> int:
-    """Emit a secret-safe failure without echoing a DSN-bearing exception."""
+def _safe_failure_detail(error: BaseException | str) -> str:
+    """Keep actionable exception context while removing database credentials."""
+    detail = str(error).strip()
+    for sensitive_value in (
+        os.environ.get(PG_DSN_ENV, ""),
+        os.environ.get("PGPASSWORD", ""),
+        os.environ.get("POSTGRES_PASSWORD", ""),
+    ):
+        if sensitive_value:
+            detail = detail.replace(sensitive_value, "<redacted>")
+    detail = _POSTGRES_URI_PATTERN.sub("<redacted-dsn>", detail)
+    detail = _LIBPQ_DSN_PATTERN.sub("<redacted-dsn>", detail)
+    detail = _SECRET_FIELD_PATTERN.sub(
+        lambda match: f"{match.group('name')}{match.group('separator')}<redacted>",
+        detail,
+    )
+    return safe_diagnostic_text(detail)
+
+
+def _failure(
+    *,
+    json_mode: bool,
+    error_type: str,
+    error: BaseException | str,
+) -> int:
+    """Emit a structured failure with credential-safe diagnostic detail."""
+    detail = _safe_failure_detail(error) or error_type
     payload = {
+        "detail": detail,
         "error": "schema_convergence_failed",
         "error_type": error_type,
         "ok": False,
@@ -46,9 +94,10 @@ def _failure(*, json_mode: bool, error_type: str) -> int:
     if json_mode:
         print(json.dumps(payload, sort_keys=True), file=sys.stderr)
     else:
+        detail_suffix = f": {detail}" if detail else ""
         print(
             "yoke schema converge failed "
-            f"({error_type}); inspect the selected source-dev/admin "
+            f"({error_type}){detail_suffix}; inspect the selected source-dev/admin "
             "environment with `yoke status --json`.",
             file=sys.stderr,
         )
@@ -94,9 +143,9 @@ def _authority_receipt() -> tuple[dict[str, str | None], list[str]]:
     if environment and direct_variables:
         return {"environment": environment}, direct_variables
     if direct_variables:
-        if "YOKE_PG_DSN" in direct_variables:
+        if PG_DSN_ENV in direct_variables:
             source = "direct_dsn"
-        elif "YOKE_PG_DSN_FILE" in direct_variables:
+        elif PG_DSN_FILE_ENV in direct_variables:
             source = "direct_dsn_file"
         else:
             source = "managed_secret"
@@ -133,6 +182,7 @@ def schema_converge(args: List[str]) -> int:
         return _failure(
             json_mode=parsed.json_mode,
             error_type=type(exc).__name__,
+            error=exc,
         )
     if direct_conflicts:
         return _authority_conflict(
@@ -143,8 +193,12 @@ def schema_converge(args: List[str]) -> int:
 
     try:
         entrypoint = importlib.import_module("yoke_core.api.server_entrypoint")
-    except ImportError:
-        return _failure(json_mode=parsed.json_mode, error_type="ImportError")
+    except ImportError as exc:
+        return _failure(
+            json_mode=parsed.json_mode,
+            error_type="ImportError",
+            error=exc,
+        )
 
     ensure_core_schema = getattr(entrypoint, "ensure_core_schema", None)
     ensure_permission_catalog = getattr(
@@ -153,7 +207,11 @@ def schema_converge(args: List[str]) -> int:
         None,
     )
     if not callable(ensure_core_schema) or not callable(ensure_permission_catalog):
-        return _failure(json_mode=parsed.json_mode, error_type="MissingEntrypoint")
+        return _failure(
+            json_mode=parsed.json_mode,
+            error_type="MissingEntrypoint",
+            error="required schema-convergence entrypoint is unavailable",
+        )
 
     try:
         ensure_core_schema()
@@ -165,11 +223,13 @@ def schema_converge(args: List[str]) -> int:
             return _failure(
                 json_mode=parsed.json_mode,
                 error_type="PermissionCatalogSeedError",
+                error="role/permission catalog reconciliation returned failure",
             )
     except Exception as exc:  # noqa: BLE001 - CLI boundary redacts details
         return _failure(
             json_mode=parsed.json_mode,
             error_type=type(exc).__name__,
+            error=exc,
         )
 
     payload = {

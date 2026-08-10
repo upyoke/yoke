@@ -25,6 +25,11 @@ from yoke_core.domain.path_claim_active_claim_lookup import (
     _pick_chain_for_target,
 )
 from yoke_core.domain.path_claim_target_context import ClaimContext, Failure
+from yoke_core.domain.path_claim_target_domain import (
+    domain_root_for_absolute_target,
+    is_free_path_basename_redirect,
+    outside_claim_domain,
+)
 
 
 # Failure mode constants — both guards reference these.
@@ -83,17 +88,6 @@ def _make_repo_relative(target_path: str, cwd: str) -> str:
     return rel.replace(os.sep, "/")
 
 
-def _path_is_under(path: Path, root: str) -> bool:
-    if not root:
-        return False
-    try:
-        resolved_root = Path(root).expanduser().resolve()
-        path.relative_to(resolved_root)
-        return True
-    except (OSError, ValueError):
-        return False
-
-
 def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> str:
     """Return the worktree root that binds ``target_path`` under ``ctx``.
 
@@ -115,47 +109,6 @@ def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> st
                 return abs_path
         return ""
     return ctx.worktree_path or ""
-
-
-def _domain_root_for_absolute_target(
-    *,
-    target_path: str,
-    cwd: str,
-    ctx: ClaimContext,
-    effective_worktree: str = "",
-) -> Optional[str]:
-    if not os.path.isabs(target_path):
-        return None
-    try:
-        resolved = Path(target_path).expanduser().resolve()
-    except OSError:
-        return None
-    wt_root = effective_worktree or ctx.worktree_path
-    for root in (wt_root, ctx.project_repo_path):
-        if root and _path_is_under(resolved, root):
-            return root
-    if cwd and _path_is_under(resolved, cwd):
-        return cwd
-    return None
-
-
-def _outside_claim_domain(
-    *,
-    target_path: str,
-    cwd: str,
-    ctx: ClaimContext,
-    effective_worktree: str = "",
-) -> bool:
-    if not os.path.isabs(target_path):
-        return False
-    if _domain_root_for_absolute_target(
-        target_path=target_path,
-        cwd=cwd,
-        ctx=ctx,
-        effective_worktree=effective_worktree,
-    ):
-        return False
-    return True
 
 
 def _path_within_coverage(
@@ -205,12 +158,20 @@ def evaluate_target(
 
     effective_wt = _effective_worktree_for(target_path, cwd, ctx)
 
-    if _outside_claim_domain(
+    if is_free_path_basename_redirect(
+        target_path=target_path,
+        cwd=cwd,
+        ctx=ctx,
+        effective_worktree=effective_wt,
+    ):
+        return None
+
+    if outside_claim_domain(
         target_path=target_path, cwd=cwd, ctx=ctx, effective_worktree=effective_wt
     ):
         return None
 
-    rel_root = _domain_root_for_absolute_target(
+    rel_root = domain_root_for_absolute_target(
         target_path=target_path,
         cwd=cwd,
         ctx=ctx,

@@ -28,6 +28,7 @@ from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
+from yoke_cli.commands.registry_db_claim import DB_CLAIM_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import (
     SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
@@ -113,7 +114,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "path_claims.conflicts.list",
         _adapters.path_claims_conflicts_list,
     ),
-    ("db-claim", "amend"): ("db_claim.amend", _adapters.db_claim_amend),
     ("db", "read"): ("db.read.run", _adapters.db_read),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
     ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
@@ -228,6 +228,7 @@ SUBCOMMAND_REGISTRY.update(SESSIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPIC_OPS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(DEPLOYMENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPHEMERAL_ENV_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(DB_CLAIM_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-09T21:54:47Z_
+_Audit generated_at: 2026-08-10T13:34:48Z_
 
 ## 1. Summary
 
-- Function ids registered: **377**
+- Function ids registered: **378**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **300** (300 carry usable `--help`)
-- Operation tracker: **278 wrapped**, 5 tool_cli, 114 permanent, 0 pending
-- Skill-body recipes: 274 total (216 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **301** (301 carry usable `--help`)
+- Operation tracker: **279 wrapped**, 5 tool_cli, 114 permanent, 0 pending
+- Skill-body recipes: 274 total (213 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **278** (operation tracker confirms 278 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **279** (operation tracker confirms 279 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -42,6 +42,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **278** (operation track
 | conduct | `yoke conduct epic-task update-status` | `conduct.epic_task.update_status` | ok |
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
+| db_claim | `yoke db-claim prose-check` | `db_claim.prose_check` | ok |
 | decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
 | deployment_flows | `yoke deployment-flows describe` | `deployment_flows.describe` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
@@ -463,9 +464,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 25 |
-| cursor | 22 |
-| agent | 3 |
+| claude-code | 28 |
+| codex | 15 |
+| cursor | 5 |
+| agent | 2 |
 
 ## 8. Contradictions
 

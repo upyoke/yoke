@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests
+from yoke_core.tools._impacted_contract_tests import (
+    WORKFLOW_DEFINITION_VALIDATION_TESTS,
+)
 from yoke_core.tools.impacted_tests import (
     ImportIndex,
     Selection,
@@ -240,6 +243,44 @@ def test_item_worktree_schema_change_runs_fixture_consumers(tmp_path):
     assert set(impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS) <= set(selection.files)
 
 
+def test_workflow_validation_change_keeps_bounded_contracts(tmp_path):
+    root = _tiny_repo(tmp_path)
+    changed = (
+        "packages/yoke-core/src/yoke_core/domain/"
+        "workflow_definition_validation.py"
+    )
+    tooling = (
+        "packages/yoke-core/src/yoke_core/tools/"
+        "_impacted_contract_tests.py"
+    )
+    _write(root, changed, "VALUE = 1\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in WORKFLOW_DEFINITION_VALIDATION_TESTS:
+        _write(root, test_path, "def test_validation_contract(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(WORKFLOW_DEFINITION_VALIDATION_TESTS) <= set(selection.files)
+
+
+def test_schema_converge_change_keeps_cli_contract_when_selection_is_deferred(
+    tmp_path,
+):
+    root = _tiny_repo(tmp_path)
+    changed = "packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(root, changed, "def schema_converge(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS:
+        _write(root, test_path, "def test_schema_converge(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS) <= set(selection.files)
+
+
 def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
     """A linked worktree lives under ``.worktrees/``, which is skip-listed.
 
@@ -273,6 +314,8 @@ def test_always_run_tests_exist_in_this_repo():
     required = (
         *impacted_tests.ALWAYS_RUN_TESTS,
         *impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS,
+        *impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS,
+        *WORKFLOW_DEFINITION_VALIDATION_TESTS,
     )
     for rel in required:
         assert (repo_root / rel).is_file(), rel
