@@ -9,6 +9,7 @@ from pathlib import Path
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
+from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
 
 
 def _parent():
@@ -87,65 +88,23 @@ def _branch_merged(project_repo: Path, branch: str, base_ref: str) -> bool:
     return result.returncode == 0
 
 
-def _delete_remote_if_merged(
-    project_repo: Path, branch: str, base_ref: str
+def _delete_remote_for_lane(
+    project_repo: Path, branch: str, base_branch: str
 ) -> bool:
-    """Delete an exact remote ref only after refreshed ancestry proof."""
-    listed = _parent()._run_git(
-        ["-C", str(project_repo), "ls-remote", "--heads", "origin", branch],
-        capture=True,
+    """Prove and delete one remote via the shared leased helper."""
+    result = delete_remote_branch_if_merged(
+        run_git=lambda command: _parent()._run_git(
+            ["-C", str(project_repo), *command],
+            capture=True,
+        ),
+        branch=branch,
+        target_branch=base_branch,
     )
-    if listed.returncode != 0:
-        print(f"  Preserving remote branch: could not inspect origin/{branch}.")
-        return False
-    exact_ref = f"refs/heads/{branch}"
-    advertised_refs = {
-        fields[1]: fields[0]
-        for line in (listed.stdout or "").splitlines()
-        if len(fields := line.split("\t", 1)) == 2
-    }
-    if exact_ref not in advertised_refs:
-        return True
-    fetched = _parent()._run_git(
-        [
-            "-C",
-            str(project_repo),
-            "fetch",
-            "origin",
-            f"+refs/heads/{branch}:refs/remotes/origin/{branch}",
-        ],
-        capture=True,
-    )
-    remote_ref = f"origin/{branch}"
-    if fetched.returncode != 0 or not _branch_merged(
-        project_repo, remote_ref, base_ref
-    ):
-        print(f"  Preserving unmerged or unverifiable remote branch: {remote_ref}")
-        return False
-    resolved = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", remote_ref],
-        capture=True,
-    )
-    expected_sha = (resolved.stdout or "").strip()
-    if resolved.returncode != 0 or expected_sha != advertised_refs[exact_ref]:
-        print(f"  Preserving remote branch after concurrent update: {remote_ref}")
-        return False
-    deleted = _parent()._run_git(
-        [
-            "-C",
-            str(project_repo),
-            "push",
-            f"--force-with-lease={exact_ref}:{expected_sha}",
-            "origin",
-            f":{exact_ref}",
-        ],
-        capture=True,
-    )
-    if deleted.returncode != 0:
-        print(f"  Preserving metadata after remote delete refusal: {remote_ref}")
-        return False
-    print(f"  Deleted merged remote branch: {remote_ref}")
-    return True
+    if result.status == "deleted":
+        print(f"  Deleted merged remote branch: origin/{branch}")
+    elif result.status == "preserved":
+        print(f"  Preserving remote branch origin/{branch}: {result.reason}")
+    return result.cleanup_complete
 
 
 def _cleanup_stale_branches(
@@ -157,8 +116,11 @@ def _cleanup_stale_branches(
     """Remove only the current clean, registered, fully merged lane.
 
     Returns whether the active lane can safely be released after the item
-    reaches done. Any ambiguity leaves the filesystem, refs, and lane intact so the
-    terminal-item pruner can retry after ownership or dirtiness is resolved.
+    reaches done. Remote delete runs first via the shared helper; any
+    incomplete remote cleanup leaves the filesystem, refs, and lane intact so
+    the terminal-item pruner can retry after ownership or dirtiness is
+    resolved. Local ``git branch -d`` proves ancestry against
+    ``origin/<base>`` (already refreshed), not upstream tracking.
     """
     print("\n=== Step 4a: Safe worktree/branch cleanup ===")
     if _has_foreign_claim(item_id):
@@ -202,6 +164,10 @@ def _cleanup_stale_branches(
     base_ref = f"origin/{base_branch}"
     wt_dir = project_repo / ".worktrees" / canonical
 
+    for branch in sorted(expected):
+        if not _delete_remote_for_lane(project_repo, branch, base_branch):
+            return False
+
     if wt_dir.exists():
         registered = _registered_branch(project_repo, wt_dir)
         if registered not in expected:
@@ -242,10 +208,6 @@ def _cleanup_stale_branches(
             print(f"  Preserving local branch after delete refusal: {branch}")
             return False
         print(f"  Deleted merged local branch: {branch}")
-
-    for branch in sorted(expected):
-        if not _delete_remote_if_merged(project_repo, branch, base_ref):
-            return False
 
     if lane_branch.startswith("trial/") and not _cleanup_trial_branches(
         project_repo, item_id=item_id

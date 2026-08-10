@@ -77,9 +77,11 @@ def _remove_lane(ctx: MergeContext) -> None:
     step that still needs the lane — and every close-out step that follows this
     one in the caller — must therefore run before this returns.
 
-    Cleanup happens only when the worktree holds no tracked, untracked, or
-    ignored material: a local merge proves the branch commits are retained by
-    the target, but it does not prove filesystem-only work is safe to discard.
+    Remote delete (unless ``--keep-remote``) runs before local discard so a
+    failed remote cleanup preserves the retry lane. Local cleanup happens only
+    when the worktree holds no tracked, untracked, or ignored material: a local
+    merge proves the branch commits are retained by the target, but it does not
+    prove filesystem-only work is safe to discard.
     """
     mw = _parent()
     _print = mw._print
@@ -87,6 +89,36 @@ def _remove_lane(ctx: MergeContext) -> None:
 
     if ctx.worktree_path == ctx.repo_root:
         return
+
+    if ctx.args.keep_remote:
+        _print(f"Skipping remote branch deletion (--keep-remote): {ctx.args.branch}")
+    else:
+        from yoke_core.engines.remote_branch_cleanup import (
+            delete_remote_branch_if_merged,
+        )
+
+        remote_result = delete_remote_branch_if_merged(
+            run_git=lambda command: _run_git(
+                command, cwd=ctx.repo_root, capture=True
+            ),
+            branch=ctx.args.branch,
+            target_branch=ctx.args.target,
+        )
+        if remote_result.status == "deleted":
+            _print(f"Deleted remote branch: {ctx.args.branch}")
+        elif remote_result.status == "preserved":
+            _print(
+                f"WARNING: Preserving remote branch {ctx.args.branch}: "
+                f"{remote_result.reason}",
+                err=True,
+            )
+        if not remote_result.cleanup_complete:
+            _print(
+                "WARNING: Preserving local worktree and branch so remote "
+                "cleanup can be retried safely.",
+                err=True,
+            )
+            return
 
     _chdir_out_of_doomed_worktree(ctx)
     from yoke_core.engines.merge_worktree_cleanliness import (

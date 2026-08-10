@@ -252,12 +252,10 @@ def run(
     if merge_ran:
         result.merge_ran = True
 
-    _cleanup_stale_branches(
-        item_id,
-        lane_branch,
-        project_repo,
-        base_branch,
-    )
+    if not _cleanup_stale_branches(item_id, lane_branch, project_repo, base_branch):
+        print("Error: lane/remote cleanup incomplete.", file=sys.stderr)
+        print(f"RESULT_FILE={result_file}")
+        return result.fail(result_file, 1, "4a")
     result.add_step("4a")
 
     cwd = _verify_cwd_after_merge(merge_ran, merge_output, project_repo)
