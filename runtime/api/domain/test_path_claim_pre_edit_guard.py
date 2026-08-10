@@ -177,7 +177,10 @@ class TestWrongCwd:
         (main_repo / "runtime/api/domain").mkdir(parents=True)
         target = main_repo / "runtime/api/domain/foo.py"
         target.write_text("# placeholder\n")
-        claim = _claim_dict(worktree_path=str(worktree))
+        claim = _claim_dict(
+            worktree_path=str(worktree),
+            project_repo_path=str(main_repo),
+        )
         record = _record(
             changed_paths=(str(target),),
             cwd=str(main_repo),  # cwd is main, but claim is in worktree
