@@ -43,6 +43,7 @@ class WorkflowFindRunRequest(BaseModel):
     head_sha: Optional[str] = None
     branch: Optional[str] = None
     event: Optional[str] = None
+    status: Optional[str] = None
     exclude_run_id: Optional[str] = None
 
     @model_validator(mode="after")
@@ -58,6 +59,7 @@ class WorkflowFindRunResponse(BaseModel):
     status: Optional[str] = None
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
+    head_sha: Optional[str] = None
 
 
 class RunJobsCountRequest(BaseModel):
@@ -107,6 +109,7 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         ("head_sha", payload.head_sha),
         ("branch", payload.branch),
         ("event", payload.event),
+        ("status", payload.status),
     ):
         if str(value or "").strip():
             query[key] = str(value)
@@ -134,6 +137,7 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
             status=str(run.get("status") or "") or None,
             conclusion=str(run.get("conclusion") or "") or None,
             html_url=str(run.get("html_url") or "") or None,
+            head_sha=str(run.get("head_sha") or "") or None,
         )
     return HandlerOutcome(
         result_payload=response.model_dump(),

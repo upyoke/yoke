@@ -251,6 +251,7 @@ def test_find_run_prints_found_run_id() -> None:
         "upyoke/platform",
         "deploy.yml",
         "abc123",
+        "--event", "pull_request", "--status", "completed",
         "--project",
         "platform",
         result={"found": True, "run_id": 77},
@@ -264,6 +265,8 @@ def test_find_run_prints_found_run_id() -> None:
         "workflow": "deploy.yml",
         "head_sha": "abc123",
         "project": "platform",
+        "event": "pull_request",
+        "status": "completed",
     }
 
 

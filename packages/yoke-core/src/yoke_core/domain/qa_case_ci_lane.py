@@ -14,6 +14,8 @@ response is recovered by its GitHub-visible marker rather than reposted.
 from __future__ import annotations
 
 import contextlib
+from dataclasses import dataclass
+import json
 import os
 import re
 import subprocess
@@ -33,6 +35,17 @@ POLL_LABEL = "verification-ci-gate"
 _GITHUB_REMOTE = re.compile(
     r"github\.com[:/](?P<owner>[^/]+)/(?P<name>[^/]+?)(?:\.git)?/?$"
 )
+
+
+@dataclass(frozen=True)
+class WorkflowRun:
+    """Completed GitHub workflow run eligible to cover a QA case."""
+
+    run_id: str
+    status: str
+    conclusion: str
+    html_url: str
+    head_sha: str
 
 
 def _git(
@@ -145,6 +158,56 @@ def workflow_file(case: dict) -> str:
     return workflow
 
 
+def find_completed_pull_request_run(
+    *,
+    project: str,
+    repo: str,
+    workflow: str,
+    head_sha: str,
+    timeout_seconds: int,
+) -> WorkflowRun | None:
+    """Return the completed PR run for the exact source commit, if any."""
+    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
+
+    result = _github_actions(
+        "find-run", repo, workflow, head_sha,
+        "--event", "pull_request", "--status", "completed", "--json",
+        project=project, sd=None, timeout=timeout_seconds,
+    )
+    try:
+        response = json.loads(result.stdout)
+    except (TypeError, json.JSONDecodeError) as exc:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise QaCaseExecutionError(
+            f"could not query completed pull-request runs for {workflow} "
+            f"on {repo}@{head_sha[:12]}: {detail or 'invalid response'}"
+        ) from exc
+    payload = response.get("result") if isinstance(response, dict) else None
+    if result.returncode == 1 and isinstance(payload, dict):
+        if not payload.get("found"):
+            return None
+    if result.returncode != 0 or not isinstance(payload, dict):
+        detail = (result.stderr or result.stdout or "").strip()
+        raise QaCaseExecutionError(
+            f"could not query completed pull-request runs for {workflow} "
+            f"on {repo}@{head_sha[:12]}: {detail or 'lookup failed'}"
+        )
+    if not payload.get("found"):
+        return None
+    run_id = str(payload.get("run_id") or "").strip()
+    if not run_id:
+        raise QaCaseExecutionError(
+            "completed pull-request workflow lookup returned no run id"
+        )
+    return WorkflowRun(
+        run_id=run_id,
+        status=str(payload.get("status") or "").strip(),
+        conclusion=str(payload.get("conclusion") or "").strip(),
+        html_url=str(payload.get("html_url") or "").strip(),
+        head_sha=str(payload.get("head_sha") or "").strip(),
+    )
+
+
 @contextlib.contextmanager
 def github_actions_authority() -> Iterator[None]:
     """Point GitHub Actions calls at the active control plane.
@@ -240,10 +303,12 @@ __all__ = [
     "await_workflow",
     "checked_out_branch",
     "dispatch_workflow",
+    "find_completed_pull_request_run",
     "github_actions_authority",
     "lane_branch",
     "push_lane",
     "ref_sha",
     "repo_slug",
     "workflow_file",
+    "WorkflowRun",
 ]

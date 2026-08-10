@@ -76,6 +76,9 @@ def wired(tmp_path, monkeypatch):
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
     monkeypatch.setattr(
+        qa_case_ci_lane, "find_completed_pull_request_run", lambda **k: None,
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.qa_artifacts.artifact_file_path",
         lambda *a, **k: artifact,
     )
@@ -90,7 +93,7 @@ def _run(checkout, *, dispatch, await_result, case=None, **kwargs):
             )
 
 
-def test_successful_run_records_a_pass_with_run_url_and_head_sha(wired):
+def test_no_pull_request_run_dispatches_and_records_the_result(wired):
     checkout, recorder, artifact = wired
 
     result = _run(
@@ -116,6 +119,58 @@ def test_successful_run_records_a_pass_with_run_url_and_head_sha(wired):
     assert evidence["workflow"] == "ci.yml"
     assert evidence["verification_tree"]["head_sha"] == "a" * 40
     assert recorder.payload("qa.run.complete")["verdict"] == "pass"
+
+
+@pytest.mark.parametrize(
+    ("conclusion", "verdict"), [("success", "pass"), ("failure", "fail")],
+)
+def test_completed_exact_pull_request_run_is_reused_without_dispatch(
+    wired, conclusion, verdict,
+):
+    checkout, recorder, _ = wired
+    covering = qa_case_ci_lane.WorkflowRun(
+        "77", "completed", conclusion,
+        "https://github.test/actions/runs/77", "a" * 40,
+    )
+    dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
+    await_result = mock.Mock(side_effect=AssertionError("must not await"))
+
+    with mock.patch.object(
+        qa_case_ci_lane, "find_completed_pull_request_run",
+        return_value=covering,
+    ):
+        result = _run(
+            checkout, dispatch=dispatch, await_result=await_result,
+        )
+
+    assert result["verdict"] == verdict
+    assert result["run_url"] == covering.html_url
+    assert result["reused_pull_request_run"] is True
+    evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    assert evidence["verification_tree"]["head_sha"] == "a" * 40
+    dispatch.assert_not_called()
+    await_result.assert_not_called()
+
+
+def test_pull_request_run_for_a_different_sha_dispatches(wired):
+    checkout, _, _ = wired
+    covering = qa_case_ci_lane.WorkflowRun(
+        "77", "completed", "success",
+        "https://github.test/actions/runs/77", "b" * 40,
+    )
+    dispatch = mock.Mock(return_value="42")
+    with mock.patch.object(
+        qa_case_ci_lane, "find_completed_pull_request_run",
+        return_value=covering,
+    ):
+        result = _run(
+            checkout, dispatch=dispatch,
+            await_result=lambda **kwargs: (0, "success"),
+        )
+
+    dispatch.assert_called_once()
+    assert result["ci_run_id"] == "42"
+    assert result["reused_pull_request_run"] is False
 
 
 def test_failed_run_records_a_fail(wired):

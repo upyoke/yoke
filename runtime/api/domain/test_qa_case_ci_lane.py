@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -190,3 +191,53 @@ def test_dispatch_reports_a_refused_trigger(monkeypatch):
             project="yoke", repo="acme/widgets", workflow="ci.yml",
             branch="PRJ-9", request_id="qa-case:7:abc", timeout_seconds=1,
         )
+
+
+def test_completed_pull_request_lookup_uses_exact_run_filters(monkeypatch):
+    seen: dict = {}
+
+    def _fake_github_actions(*args, **kwargs):
+        seen.update(args=args, kwargs=kwargs)
+        body = {
+            "result": {
+                "found": True,
+                "run_id": "77",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://github.test/actions/runs/77",
+                "head_sha": "a" * 40,
+            }
+        }
+        return subprocess.CompletedProcess(list(args), 0, json.dumps(body), "")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        _fake_github_actions,
+    )
+    run = lane.find_completed_pull_request_run(
+        project="yoke", repo="acme/widgets", workflow="ci.yml",
+        head_sha="a" * 40, timeout_seconds=60,
+    )
+
+    assert run == lane.WorkflowRun(
+        "77", "completed", "success",
+        "https://github.test/actions/runs/77", "a" * 40,
+    )
+    assert seen["args"] == (
+        "find-run", "acme/widgets", "ci.yml", "a" * 40,
+        "--event", "pull_request", "--status", "completed", "--json",
+    )
+
+
+def test_completed_pull_request_lookup_returns_none_when_absent(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        lambda *a, **k: subprocess.CompletedProcess(
+            list(a), 1, json.dumps({"result": {"found": False}}), "",
+        ),
+    )
+
+    assert lane.find_completed_pull_request_run(
+        project="yoke", repo="acme/widgets", workflow="ci.yml",
+        head_sha="a" * 40, timeout_seconds=60,
+    ) is None
