@@ -35,7 +35,9 @@ from yoke_core.domain.merge_queue_batch_receipt import (
     observe_batch,
     record_batch_evidence,
 )
-from yoke_core.domain.standalone_item_merge import stamp_merged_at
+from yoke_core.domain.standalone_item_merge import (
+    stamp_merged_at,
+)
 from yoke_core.engines.merge_worktree_pr_queue import (
     enter_merge_queue,
     read_pr_landing_state,

@@ -18,7 +18,9 @@ from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain.standalone_item_merge import merge_standalone_branch
+from yoke_core.domain.merge_queue_route_selection import (
+    route_standalone_landing,
+)
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 
 # Workflows whose terminal transition is gated on an execution-evidence
@@ -250,13 +252,14 @@ def run(argv: List[str]) -> int:
     if qa_error:
         return _fail(f"{item_ref}: {qa_error}", as_json=as_json)
 
-    outcome = merge_standalone_branch(
+    outcome = route_standalone_landing(
         item_id=item_id,
         branch=branch,
         commit_sha=commit_sha,
         target=target,
         repo_root=str(repo_root),
         project=str((item.get("project") or {}).get("slug") or "yoke"),
+        item_ref=item_ref,
         local_merge=not args.pr,
     )
     if not outcome.ok:

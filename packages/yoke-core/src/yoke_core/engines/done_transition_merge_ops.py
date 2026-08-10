@@ -83,18 +83,21 @@ def _do_merge(
 
     # A branch with no epic lane is a standalone item merge, and every one of
     # those routes through the same boundary so the merge lock, telemetry, and
-    # merged_at stamp land the same way regardless of caller.
+    # merged_at stamp land the same way regardless of caller. The boundary
+    # itself is selected per project: a merge-queue capability lands the
+    # branch through the queue, everything else keeps the local engine.
     if not task_parent_ref:
-        from yoke_core.domain.standalone_item_merge import (
-            merge_standalone_branch,
+        from yoke_core.domain.merge_queue_route_selection import (
+            route_standalone_landing,
         )
 
-        outcome = merge_standalone_branch(
+        outcome = route_standalone_landing(
             item_id=item_id,
             branch=actual_branch,
             target=base_branch,
             repo_root=str(project_repo),
             project=item_project,
+            item_ref=item_ref or "",
             local_merge=False,
         )
         for warning in outcome.warnings:
