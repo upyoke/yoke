@@ -3,12 +3,13 @@ name: yoke-ci
 # Dispatched runs embed the caller's correlation id in run-name for lost-
 # response recovery. FACTORY workflow: read-only GITHUB_TOKEN; never set
 # YOKE_LINUX_RUNS_ON on a public fork (that routes strangers onto private
-# runners). Branch protection requires only CLA signature-check; yoke-ci
-# authorizes via QA conclusion + merge-engine check-run poll. Shards use
-# hand-launched postgres:16 (fsync off) + pytest-split/xdist; no aggregate
-# tail. repo-contracts is the fast-fail tree-only gate before shards;
-# main-push may also short-circuit via reuse-coverage when a recent
-# successful dispatch/push run already covered the identical tree oid.
+# runners). merge_group runs are the merge queue's one integration gate
+# per train of queued PRs; the queue ruleset requires this check on its
+# gh-readonly-queue/* refs. Non-queue merges authorize via QA conclusion
+# + merge-engine check-run poll; CLA signature-check stays required. Shards
+# use hand-launched postgres:16 (fsync off) + pytest-split/xdist; no
+# aggregate tail. repo-contracts is the fast-fail tree-only gate before
+# shards; main-push may skip via reuse-coverage on an identical tree oid.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
@@ -17,6 +18,7 @@ run-name: >-
 on:
   pull_request:
     branches: [main]
+  merge_group:
   push:
     branches: [main]
     # paths-ignore is push-only: a skipped required PR check stays pending.
@@ -27,9 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       yoke_dispatch_id:
-        description: >-
-          Correlation id from the dispatching control plane; echoed into
-          run-name for lost-response recovery. Empty for hand triggers.
+        description: Correlation id echoed into run-name; empty for hand triggers.
         required: false
         default: ""
 
