@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -10,6 +11,9 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     QueueMember,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+
+
+LANE_SHA = "1" * 40
 
 
 def _ctx(branch="YOK-200") -> MergeContext:
@@ -70,18 +74,22 @@ def _wire_happy_path(monkeypatch, *, members=(), landing_states=None):
         return (states.pop(0) if states else states_last[0]), None
 
     monkeypatch.setattr(route_mod, "read_pr_landing_state", landing)
-    monkeypatch.setattr(route_mod, "stamp_merged_at", lambda item_id: None)
+    monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
     receipt = BatchReceipt(
         pr_num="42", merge_sha="m" * 40, members=("YOK-200",),
         head_sha="h" * 40, run_url="https://runs/1",
     )
     monkeypatch.setattr(
-        route_mod, "observe_batch",
+        close_out_mod, "observe_batch",
         lambda ctx, *, pr_num, member_snapshot: (receipt, None),
     )
     monkeypatch.setattr(
-        route_mod, "record_batch_evidence",
+        close_out_mod, "record_batch_evidence",
         lambda item_id, receipt, **_kw: None,
+    )
+    monkeypatch.setattr(
+        close_out_mod.receipts, "record",
+        lambda item_id, receipt, **_kw: "",
     )
     return receipt
 
@@ -92,6 +100,7 @@ def test_happy_path_lands_and_records(monkeypatch):
         _ctx(),
         item_id=1,
         item_ref="YOK-200",
+        commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}),
         sleep=lambda _s: None,
     )
@@ -126,6 +135,7 @@ def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
         _ctx(),
         item_id=1,
         item_ref="YOK-200",
+        commit_sha=LANE_SHA,
         dispatch=_dispatch_for(shapes),
         sleep=lambda _s: None,
     )
@@ -141,7 +151,7 @@ def test_queue_unreadable_is_named_error(monkeypatch):
         lambda ctx, base_branch="main": (None, "no merge queue on 'main'"),
     )
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({}), sleep=lambda _s: None,
     )
     assert not outcome.ok
@@ -157,7 +167,7 @@ def test_ejection_surfaces_recoverable_named_error(monkeypatch):
         ],
     )
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
     )
     assert not outcome.ok
@@ -173,7 +183,7 @@ def test_closed_unmerged_is_terminal(monkeypatch):
         ],
     )
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
     )
     assert not outcome.ok
@@ -195,7 +205,7 @@ def test_deadline_expiry_is_recoverable(monkeypatch):
         return clock["now"]
 
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}),
         sleep=lambda _s: None,
         monotonic=monotonic,
@@ -225,7 +235,7 @@ def test_serial_dependency_refuses_against_queued_member(monkeypatch):
         "YOK-150": {"claims": []},
     }
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for(shapes), sleep=lambda _s: None,
     )
     assert not outcome.ok
@@ -244,7 +254,7 @@ def test_migration_carrier_shapes_resolve_from_profile(monkeypatch):
         "YOK-150": {"profile": '{"state":"declared"}'},
     }
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for(shapes), sleep=lambda _s: None,
     )
     assert not outcome.ok
@@ -260,7 +270,7 @@ def test_reentry_with_merged_pr_skips_queue_entry(monkeypatch):
 
     monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden_entry)
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
     )
     assert outcome.ok
@@ -280,7 +290,7 @@ def test_reentry_with_armed_pr_skips_entry_and_polls(monkeypatch):
 
     monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden_entry)
     outcome = route_mod.land_item_through_merge_queue(
-        _ctx(), item_id=1, item_ref="YOK-200",
+        _ctx(), item_id=1, item_ref="YOK-200", commit_sha=LANE_SHA,
         dispatch=_dispatch_for({"YOK-200": {}}), sleep=lambda _s: None,
     )
     assert outcome.ok

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.qa_merging_identity import (
+    accepted_merging_shas,
+    recorded_head_sha,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -57,28 +61,12 @@ def _run_detail(row: Any) -> str:
     )
 
 
-def _json_object(raw: Any) -> dict[str, Any]:
-    try:
-        value = json.loads(str(raw or "{}"))
-    except (TypeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
-def recorded_head_sha(raw_result: Any) -> str:
-    """Return the exact commit a QA run says it verified."""
-    payload = _json_object(raw_result)
-    for key in ("verification_tree", "code_identity"):
-        identity = payload.get(key)
-        if isinstance(identity, dict) and identity.get("head_sha"):
-            return str(identity["head_sha"]).strip()
-        if isinstance(identity, dict) and identity.get("sha"):
-            return str(identity["sha"]).strip()
-    return ""
+def _render_shas(shas: Sequence[str]) -> str:
+    return ", ".join(sha[:12] for sha in shas) if shas else "<missing>"
 
 
 def _issue_for_requirement(
-    requirement: dict[str, Any], *, expected_sha: str,
+    requirement: dict[str, Any], *, accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
     command = f"yoke qa case run --requirement-id {requirement_id}"
@@ -103,12 +91,12 @@ def _issue_for_requirement(
             command,
         )
     run_sha = str(requirement.get("recorded_head_sha") or "").strip()
-    if run_sha != expected_sha:
+    if run_sha not in set(accepted_shas) or not run_sha:
         return BlockingRequirementIssue(
             requirement_id,
             "stale-sha",
             f"passing run #{run_id} recorded SHA {run_sha or '<missing>'}; "
-            f"merging SHA is {expected_sha or '<missing>'}",
+            f"the merge verified {_render_shas(accepted_shas)}",
             command,
         )
     return None
@@ -117,7 +105,7 @@ def _issue_for_requirement(
 def blocking_requirement_issues(
     requirements: list[dict[str, Any]],
     *,
-    expected_sha: str,
+    accepted_shas: Sequence[str],
     item_ref: str,
     require_any: bool,
 ) -> list[BlockingRequirementIssue]:
@@ -140,7 +128,7 @@ def blocking_requirement_issues(
         issue
         for requirement in blocking
         if (issue := _issue_for_requirement(
-            requirement, expected_sha=expected_sha,
+            requirement, accepted_shas=accepted_shas,
         )) is not None
     ]
 
@@ -167,33 +155,6 @@ def requirement_issue_errors(
         for issue in issues
     )
     return errors
-
-
-def _expected_item_sha(conn: Any, item_id: int) -> str:
-    """Resolve the commit carried by Dash evidence or recorded lane history."""
-    from yoke_core.domain.dash_execution import (
-        DASH_EVIDENCE_SECTION,
-        read_json_section,
-    )
-
-    evidence = read_json_section(conn, item_id=item_id, section=DASH_EVIDENCE_SECTION)
-    if evidence and evidence.get("commit_sha"):
-        return str(evidence["commit_sha"]).strip()
-    from yoke_core.domain.schema_common import _column_exists
-
-    if not (
-        _table_exists(conn, "item_worktrees")
-        and _column_exists(conn, "item_worktrees", "commit_sha")
-    ):
-        return ""
-    placeholder = _placeholder(conn)
-    row = conn.execute(
-        "SELECT commit_sha FROM item_worktrees "
-        f"WHERE item_id = {placeholder} AND commit_sha IS NOT NULL "
-        "ORDER BY CASE WHEN state = 'active' THEN 0 ELSE 1 END, id DESC LIMIT 1",
-        (int(item_id),),
-    ).fetchone()
-    return str(_row_value(row, "commit_sha", 0) or "").strip() if row else ""
 
 
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
@@ -322,7 +283,7 @@ def terminal_transition_result(
     item_ref = render_item_ref(conn, item_id)
     issues = blocking_requirement_issues(
         _blocking_requirement_rows(conn, item_id),
-        expected_sha=_expected_item_sha(conn, item_id),
+        accepted_shas=accepted_merging_shas(conn, item_id),
         item_ref=item_ref,
         require_any=True,
     )
@@ -339,7 +300,6 @@ __all__ = [
     "UnsettledQaRecord",
     "blocking_requirement_issues",
     "find_unsettled_records",
-    "recorded_head_sha",
     "requirement_issue_errors",
     "settlement_errors",
     "terminal_transition_result",

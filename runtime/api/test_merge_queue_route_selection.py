@@ -90,23 +90,31 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
         selection_mod, "project_declares_merge_queue",
         lambda project, dispatch=None: (True, None),
     )
-    monkeypatch.setattr(
-        selection_mod, "land_item_through_merge_queue",
-        lambda ctx, **kwargs: QueueLandingOutcome(
-            ok=True, exit_code=0, pr_num="42", merge_sha="m" * 40,
+    seen: dict = {}
+
+    def land(ctx, **kwargs):
+        seen.update(kwargs)
+        return QueueLandingOutcome(
+            ok=True, exit_code=0, pr_num="42",
+            commit_sha=kwargs["commit_sha"], merge_sha="m" * 40,
             warnings=("observed",),
-        ),
-    )
+        )
+
+    monkeypatch.setattr(selection_mod, "land_item_through_merge_queue", land)
 
     def forbidden(**_kw):
         raise AssertionError("standalone engine must not run when declared")
 
     monkeypatch.setattr(selection_mod, "merge_standalone_branch", forbidden)
     outcome = selection_mod.route_standalone_landing(
-        item_id=1, branch="YOK-200", target="main",
+        item_id=1, branch="YOK-200", target="main", commit_sha="c" * 40,
         repo_root="/tmp/repo", project="yoke", item_ref="YOK-200",
     )
     assert isinstance(outcome, StandaloneMergeOutcome)
     assert outcome.ok
     assert outcome.merge_sha == "m" * 40
     assert outcome.warnings == ("observed",)
+    # The lane head has to survive the adaptation: evidence records it and the
+    # terminal ancestry check reads it, so dropping it strands the close-out.
+    assert seen["commit_sha"] == "c" * 40
+    assert outcome.commit_sha == "c" * 40

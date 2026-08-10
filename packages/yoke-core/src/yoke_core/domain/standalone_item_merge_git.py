@@ -49,6 +49,23 @@ def is_ancestor(repo_root: str, commit: str, target: str) -> bool:
     ).returncode == 0
 
 
+def is_landed(repo_root: str, commit: str, target: str) -> bool:
+    """Whether ``commit`` has reached ``target`` locally or at the remote.
+
+    A queue-routed merge lands entirely on GitHub, so the local base branch
+    legitimately does not contain the commit until it is fetched; refusing on
+    the local answer alone strands a merge that already happened.
+    """
+    if not commit:
+        return False
+    if is_ancestor(repo_root, commit, target):
+        return True
+    if not has_remote(repo_root):
+        return False
+    _git(repo_root, "fetch", "origin", target)
+    return is_ancestor(repo_root, commit, f"origin/{target}")
+
+
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     """Files the branch changed relative to where it left the base branch.
 
@@ -86,5 +103,6 @@ __all__ = [
     "head_of",
     "has_remote",
     "is_ancestor",
+    "is_landed",
     "publish",
 ]

@@ -12,6 +12,7 @@ from yoke_core.engines.remote_branch_cleanup import (
     delete_remote_branch_if_merged,
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_core.domain.worktree_import_reseat import reseat_loaded_packages
 
 
 def _parent():
@@ -185,6 +186,14 @@ def _post_merge_cleanup(
         )
     elif ctx.worktree_path != ctx.repo_root:
         _chdir_out_of_doomed_worktree(ctx)
+        # The close-out this merge still owes — GitHub sync, board rebuild,
+        # the terminal transition — issues lazy imports after this point. When
+        # the process loaded its own packages out of the lane, those imports
+        # resolve against a directory that is about to stop existing, so they
+        # are repointed at the surviving checkout while it is still possible.
+        reseat_loaded_packages(
+            doomed_root=ctx.worktree_path, surviving_root=ctx.repo_root,
+        )
         from yoke_core.engines.merge_worktree_cleanliness import (
             clean_after_disposable_cache_removal,
         )

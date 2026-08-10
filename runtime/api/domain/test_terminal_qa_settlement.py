@@ -5,11 +5,13 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.backlog import (
+    insert_event,
     insert_item,
     insert_item_worktree,
     insert_qa_requirement,
     insert_qa_run,
 )
+from yoke_core.domain.standalone_item_merge_receipt import RECEIPT_EVENT_NAME
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
@@ -156,7 +158,7 @@ def test_terminal_transition_refuses_pass_from_an_earlier_commit(test_db):
     )
     result = _terminal_result(test_db)
     assert "recorded SHA " + "a" * 40 in result["error"]
-    assert "merging SHA is " + "b" * 40 in result["error"]
+    assert "the merge verified " + "b" * 12 in result["error"]
 
 
 def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
@@ -169,3 +171,81 @@ def test_terminal_transition_accepts_pass_for_merging_commit(test_db):
         completed_at="2026-01-01T00:00:01Z",
     )
     assert _terminal_result(test_db) == {"success": True}
+
+
+def _tree_result(sha: str) -> str:
+    return '{"verification_tree":{"head_sha":"' + sha + '"}}'
+
+
+def _seed_merge_receipt(test_db, *, landing_sha: str, merge_sha: str) -> None:
+    """Record the receipt a merge boundary writes as the branch lands."""
+    insert_event(
+        test_db,
+        event_id=f"evt-receipt-{landing_sha[:8]}",
+        event_name=RECEIPT_EVENT_NAME,
+        item_id="10",
+        envelope=(
+            '{"context": {"branch": "YOK-10", "target": "main", '
+            f'"commit_sha": "{landing_sha}", "merge_sha": "{merge_sha}"}}}}'
+        ),
+    )
+
+
+def test_terminal_transition_accepts_the_head_the_merge_gate_verified(test_db):
+    """A queue-landed item has no lane-local commit of what landed.
+
+    The merge happens entirely on GitHub, so nothing ever records the
+    integrated head on the lane; the passing merge-gate CI evidence is the
+    only thing that names it, and the gate has to accept it.
+    """
+    insert_item(test_db, id=10, status="release")
+    integrated = "c" * 40
+    gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=gate_requirement, verdict="pass",
+        executor_type="ci_run", raw_result=_tree_result(integrated),
+        completed_at="2026-01-01T00:00:01Z",
+    )
+
+    assert _terminal_result(test_db) == {"success": True}
+
+
+def test_terminal_transition_accepts_lane_and_integrated_heads_together(test_db):
+    """One merge legitimately proves two trees.
+
+    The item's own case ran against the lane head that entered the merge; the
+    train's combined head is a commit that case could never have run against.
+    Both are what this merge verified, so both requirements settle.
+    """
+    insert_item(test_db, id=10, status="release")
+    lane, integrated = "d" * 40, "e" * 40
+    _seed_merge_receipt(test_db, landing_sha=lane, merge_sha="f" * 40)
+    item_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=item_requirement, verdict="pass",
+        raw_result=_tree_result(lane), completed_at="2026-01-01T00:00:01Z",
+    )
+    gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=gate_requirement, verdict="pass",
+        executor_type="ci_run", raw_result=_tree_result(integrated),
+        completed_at="2026-01-01T00:00:02Z",
+    )
+
+    assert _terminal_result(test_db) == {"success": True}
+
+
+def test_terminal_transition_still_refuses_a_head_no_merge_recorded(test_db):
+    """Accepting several recorded heads must not accept an unrecorded one."""
+    insert_item(test_db, id=10, status="release")
+    _seed_merge_receipt(test_db, landing_sha="d" * 40, merge_sha="f" * 40)
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db, qa_requirement_id=requirement_id, verdict="pass",
+        raw_result=_tree_result("a" * 40), completed_at="2026-01-01T00:00:01Z",
+    )
+
+    result = _terminal_result(test_db)
+
+    assert result["error_code"] == "GATE_QA_TERMINAL_VERDICT"
+    assert "recorded SHA " + "a" * 40 in result["error"]

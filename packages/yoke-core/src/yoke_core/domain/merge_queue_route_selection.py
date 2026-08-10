@@ -120,6 +120,7 @@ def route_standalone_landing(
         ),
         item_id=item_id,
         item_ref=item_ref or branch,
+        commit_sha=commit_sha,
         target=target,
         dispatch=dispatch,
     )
@@ -127,6 +128,10 @@ def route_standalone_landing(
         ok=outcome.ok,
         exit_code=outcome.exit_code,
         already_merged=False,
+        # The lane head is what the item's own verification covered and what
+        # its evidence record is answerable for; the queue's merge commit
+        # belongs to the base branch, exactly as in the local engine's result.
+        commit_sha=outcome.commit_sha,
         merge_sha=outcome.merge_sha,
         pushed=outcome.ok,
         error=outcome.error,

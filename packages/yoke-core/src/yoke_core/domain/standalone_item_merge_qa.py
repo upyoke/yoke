@@ -8,9 +8,9 @@ from typing import Any
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_terminal_settlement import (
     blocking_requirement_issues,
-    recorded_head_sha,
     requirement_issue_errors,
 )
 
@@ -70,7 +70,7 @@ def preflight(
     )
     issues = blocking_requirement_issues(
         requirements,
-        expected_sha=commit_sha,
+        accepted_shas=(commit_sha,),
         item_ref=item_ref,
         require_any=require_any,
     )

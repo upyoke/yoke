@@ -170,6 +170,13 @@ def _update_item_direct(
     mutated. The request session is the ambient session resolved by the
     dispatcher. Returns an exit-code-like int (0 on a completed write, 1 on a
     write exception) so callers keep the existing ``returncode`` checks.
+
+    A gate the write itself refused arrives as a SUCCESSFUL relay carrying
+    ``status_write_success=false``, because the handler's transport succeeded
+    even though nothing moved. Reading only the transport result is how a
+    refused done transition printed its old and new status and exited 0 while
+    the row stayed put, so the refused write is reported here as the failure
+    it is — which is also what engages the caller's retry-and-verify path.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -191,9 +198,17 @@ def _update_item_direct(
             "rebuild_board": rebuild_board,
         },
     )
-    if resp.success:
+    result = resp.result or {}
+    if resp.success and result.get("status_write_success", True):
         return 0
-    message = resp.error.message if resp.error else "unknown error"
+    if resp.success:
+        message = str(
+            result.get("status_write_error")
+            or result.get("status_write_error_code")
+            or "the write was refused without a reported reason"
+        )
+    else:
+        message = resp.error.message if resp.error else "unknown error"
     from yoke_contracts.item_ref import format_item_ref
 
     ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
@@ -246,97 +261,13 @@ def _query_item_field(item_id: int, field_name: str) -> str:
     return str((resp.result or {}).get("value") or "")
 
 
-def _reseat_package_paths(
-    launched_from: Path,
-    repo_root: Path,
-    *,
-    package_prefix: str,
-) -> list[str]:
-    """Reseat ``__path__`` on loaded packages whose entries point under
-    ``launched_from``, repointing each entry to the matching ``repo_root``
-    subtree.
-
-    Defends the lazy-submodule import path against the runner-launched-
-    from-worktree-that-gets-deleted-mid-execution failure mode: the
-    package object's ``__path__`` is set at first import and is sticky;
-    after the worktree is deleted, subsequent submodule loads search the
-    cached worktree-bound entries and fail with ``ImportError``. Updating
-    the cached ``__path__`` here makes those lazy imports resolve through
-    the main checkout instead.
-
-    Returns the list of qualified module names that were reseated (for
-    test introspection); production callers ignore the return value.
-    """
-    reseated: list[str] = []
-    try:
-        launched_resolved = launched_from.resolve()
-    except (OSError, ValueError):
-        return reseated
-    try:
-        repo_resolved = repo_root.resolve()
-    except (OSError, ValueError):
-        return reseated
-    if launched_resolved == repo_resolved:
-        return reseated
-    for name, module in list(sys.modules.items()):
-        if not (
-            name == package_prefix or name.startswith(package_prefix + ".")
-        ):
-            continue
-        paths = getattr(module, "__path__", None)
-        if not paths:
-            continue
-        try:
-            old_paths = list(paths)
-        except TypeError:
-            continue
-        new_paths: list[str] = []
-        changed = False
-        for entry in old_paths:
-            try:
-                p = Path(entry).resolve()
-            except (OSError, ValueError):
-                new_paths.append(entry)
-                continue
-            try:
-                rel = p.relative_to(launched_resolved)
-            except ValueError:
-                new_paths.append(entry)
-                continue
-            new_entry_path = repo_resolved / rel
-            # Safety: skip reseat when the destination does not exist as
-            # a directory. Production guarantees the main checkout's
-            # subtree exists; tests with mocked repo_root values would
-            # otherwise corrupt sys.modules for subsequent imports.
-            if not new_entry_path.is_dir():
-                new_paths.append(entry)
-                continue
-            new_entry = str(new_entry_path)
-            new_paths.append(new_entry)
-            if new_entry != entry:
-                changed = True
-        if changed:
-            try:
-                module.__path__ = new_paths
-                reseated.append(name)
-            except (AttributeError, TypeError):
-                continue
-    return reseated
-
-
 def _reseat_runtime_paths(repo_root: Path | str) -> list[str]:
-    """Runner-facing reseat helper. Auto-detects ``launched_from`` from the
-    loaded ``runtime`` package's first ``__path__`` entry and reseats every
-    ``runtime.*`` package whose paths still point under the launching
-    directory at the corresponding ``repo_root`` subtree."""
-    import runtime as _runtime
-    pkg_path = getattr(_runtime, "__path__", None)
-    if not pkg_path:
-        return []
-    try:
-        launched_from = Path(list(pkg_path)[0]).resolve().parent
-    except (OSError, ValueError, IndexError):
-        return []
-    return _reseat_package_paths(
-        launched_from, Path(repo_root), package_prefix="runtime",
-    )
+    """Runner-facing reseat helper.
+
+    The runner may have been launched from a worktree the merge it is about to
+    finish will delete, so every package it loaded from there is repointed at
+    ``repo_root`` before that happens.
+    """
+    from yoke_core.domain.worktree_import_reseat import reseat_off_launch_directory
+
+    return reseat_off_launch_directory(repo_root)

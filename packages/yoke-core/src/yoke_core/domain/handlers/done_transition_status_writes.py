@@ -52,6 +52,8 @@ class ItemStatusSetRequest(BaseModel):
 class ItemStatusSetResponse(BaseModel):
     applied: bool
     status_write_success: bool
+    status_write_error: str = ""
+    status_write_error_code: str = ""
 
 
 class EpicTaskStatusSetRequest(BaseModel):
@@ -94,6 +96,12 @@ def handle_item_status_set(request: FunctionCallRequest) -> HandlerOutcome:
     did. ``primary_success`` mirrors the former direct applier's return-code
     contract: True whenever ``execute_update`` returns (even on an inner gate
     failure), and only False on a genuine write exception.
+
+    A refused inner gate therefore travels in the result payload rather than
+    as a transport error, and the refusal TEXT travels with it: the engine
+    that reads this runs client-side over an https relay, where the gate's own
+    narrative goes to server stdout and is lost. Without it the caller can see
+    that the status did not move but cannot say why.
     """
     import sys
 
@@ -136,6 +144,8 @@ def handle_item_status_set(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "applied": True,
             "status_write_success": bool(result.get("success", False)),
+            "status_write_error": str(result.get("error") or ""),
+            "status_write_error_code": str(result.get("error_code") or ""),
         },
         primary_success=True,
     )

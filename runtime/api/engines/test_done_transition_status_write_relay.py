@@ -109,6 +109,41 @@ class TestItemDirectRelay:
         assert rc == 1
         _assert_env_untouched()
 
+    def test_refused_write_is_a_failure_not_a_successful_relay(
+        self, monkeypatch, capsys,
+    ):
+        """A gate the write refused arrives as a SUCCESSFUL relay.
+
+        Reading only the transport result is how a refused done transition
+        printed its status change and exited 0 while the row never moved.
+        """
+        _patch_adapter(
+            monkeypatch,
+            lambda **k: _resp(k["function_id"], {
+                "applied": True,
+                "status_write_success": False,
+                "status_write_error": "Error: blocking QA requirement is stale",
+                "status_write_error_code": "GATE_QA_TERMINAL_VERDICT",
+            }),
+        )
+
+        rc = dt._update_item_direct(44, "status", "done", item_ref=TEST_ITEM_REF)
+
+        assert rc == 1
+        # The refusal narrative goes to server stdout over an https relay, so
+        # the payload text is the only thing the operator can be shown.
+        assert "blocking QA requirement is stale" in capsys.readouterr().err
+
+    def test_refusal_without_reported_text_is_still_a_failure(self, monkeypatch):
+        _patch_adapter(
+            monkeypatch,
+            lambda **k: _resp(k["function_id"], {
+                "applied": True, "status_write_success": False,
+            }),
+        )
+
+        assert dt._update_item_direct(44, "status", "done") == 1
+
 
 class TestTaskDirectRelay:
     def test_update_task_status_direct_relays_typed_payload(self, monkeypatch):
@@ -179,6 +214,39 @@ class TestSetterEndToEndRelay:
         assert payload["done_nonce_verified"] is True
         assert payload["no_github"] is True
         _assert_env_untouched()
+
+    def test_refused_done_write_reports_failure_after_retrying(
+        self, monkeypatch, capsys,
+    ):
+        """The retry-and-verify path must engage, then report the truth.
+
+        The engine's exit code is what the operator and the calling skill
+        branch on; announcing ``-> done`` and exiting 0 over a row that stayed
+        put strands the item with no signal that anything went wrong.
+        """
+        statuses = []
+
+        def fake(**kwargs):
+            fid = kwargs["function_id"]
+            if fid == "done_transition.item_field":
+                statuses.append(kwargs["payload"]["field"])
+                return _resp(fid, {"value": "release"})
+            return _resp(fid, {
+                "applied": True,
+                "status_write_success": False,
+                "status_write_error": "Error: merging SHA is unproven",
+            })
+
+        _patch_adapter(monkeypatch, fake)
+        monkeypatch.setattr("time.sleep", lambda _s: None)
+
+        settled = dt._update_status_to_done(
+            42, skip_qa=False, max_retries=2, item_ref=TEST_ITEM_REF,
+        )
+
+        assert settled is False
+        assert statuses == ["status", "status"]
+        assert "merging SHA is unproven" in capsys.readouterr().err
 
     def test_cascade_relays_done_cascade_bypass_without_env(self, monkeypatch):
         listing = "|".join(["epic", "0", "1", "t", "", "", "", "implementing"]) + "\n"

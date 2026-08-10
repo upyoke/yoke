@@ -11,7 +11,7 @@ from yoke_core.domain.qa_execution_proof import (
     qa_proof_summary,
     qa_run_outcome,
 )
-from yoke_core.domain.qa_terminal_settlement import recorded_head_sha
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 

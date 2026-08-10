@@ -30,14 +30,8 @@ from yoke_core.domain.merge_queue_admission import (
     TrainContext,
     evaluate_admission,
 )
-from yoke_core.domain.merge_queue_batch_receipt import (
-    BatchReceipt,
-    observe_batch,
-    record_batch_evidence,
-)
-from yoke_core.domain.standalone_item_merge import (
-    stamp_merged_at,
-)
+from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
+from yoke_core.domain.merge_queue_close_out import record_landing
 from yoke_core.engines.merge_worktree_pr_queue import (
     enter_merge_queue,
     read_pr_landing_state,
@@ -69,6 +63,7 @@ class QueueLandingOutcome:
     ok: bool
     exit_code: int
     pr_num: str = ""
+    commit_sha: str = ""
     merge_sha: str = ""
     batch: Optional[BatchReceipt] = None
     error: str = ""
@@ -211,6 +206,7 @@ def land_item_through_merge_queue(
     *,
     item_id: int,
     item_ref: str,
+    commit_sha: str,
     target: str = "main",
     dispatch: Callable[..., Any] = call_dispatcher,
     sleep: Callable[[float], None] = time.sleep,
@@ -318,25 +314,21 @@ def land_item_through_merge_queue(
             warnings=tuple(warnings),
         )
 
-    stamp_error = stamp_merged_at(item_id)
-    if stamp_error:
-        warnings.append(f"merged_at not recorded: {stamp_error}")
-    snapshot = tuple(dict.fromkeys((*member_refs, item_ref)))
-    receipt, receipt_warn = observe_batch(
-        ctx, pr_num=pr_num, member_snapshot=snapshot
+    close_out = record_landing(
+        ctx,
+        item_id=item_id,
+        commit_sha=commit_sha,
+        pr_num=pr_num,
+        member_snapshot=tuple(dict.fromkeys((*member_refs, item_ref))),
     )
-    if receipt_warn:
-        warnings.append(receipt_warn)
-    if receipt is not None:
-        record_error = record_batch_evidence(item_id, receipt)
-        if record_error:
-            warnings.append(f"batch evidence not recorded: {record_error}")
+    warnings.extend(close_out.warnings)
     return QueueLandingOutcome(
         ok=True,
         exit_code=0,
         pr_num=pr_num,
-        merge_sha=(receipt.merge_sha if receipt else ""),
-        batch=receipt,
+        commit_sha=commit_sha,
+        merge_sha=close_out.merge_sha,
+        batch=close_out.batch,
         warnings=tuple(warnings),
     )
 

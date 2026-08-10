@@ -160,10 +160,17 @@ def _transition_to_done(
     repo_root: Path,
     target: str,
     commit_sha: str,
+    merge_sha: str = "",
 ) -> str:
     from yoke_core.domain import standalone_item_merge_git as git
 
-    if not git.is_ancestor(str(repo_root), commit_sha, target):
+    # Either identity proves the landing: a queue or squash merge can rewrite
+    # the lane head, leaving only the merge commit reachable from the target.
+    landed = any(
+        git.is_landed(str(repo_root), sha, target)
+        for sha in (commit_sha, merge_sha) if sha
+    )
+    if not landed:
         return (
             f"terminal transition refused: recorded merge commit {commit_sha} "
             f"is not reachable from '{target}'"
@@ -313,6 +320,7 @@ def run(argv: List[str]) -> int:
     if not args.skip_status:
         transition_error = _transition_to_done(
             item_id, status, repo_root, target, outcome.commit_sha,
+            outcome.merge_sha,
         )
         if transition_error:
             envelope["ok"] = False

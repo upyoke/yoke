@@ -95,6 +95,44 @@ class TestItemStatusSet:
         assert outcome.result_payload["applied"] is True
         assert _item_field(tmp_db, 44, "status") == "release"
 
+    def test_refused_write_reports_why_in_the_result_payload(
+        self, tmp_db, monkeypatch,
+    ):
+        """The gate's own narrative is lost over an https relay.
+
+        A refused inner gate prints server-side and returns a successful
+        transport, so unless the reason travels in the payload the caller can
+        see that the status did not move but cannot say why.
+        """
+        _seed_item(
+            tmp_db, id=45, workflow_id="issue", status="implemented", project="yoke"
+        )
+        refusal = {
+            "success": False,
+            "error": "Error: blocking QA requirement lacks a verdict",
+            "error_code": "GATE_QA_TERMINAL_VERDICT",
+        }
+        with _patch_externals(), monkeypatch.context() as m:
+            m.setenv("YOKE_DB", tmp_db)
+            from yoke_core.domain import backlog
+
+            m.setattr(backlog, "execute_update", lambda *a, **k: refusal)
+            outcome = writes.handle_item_status_set(
+                _item_req(
+                    "done_transition.item_status_set",
+                    item_id=45,
+                    payload={"field": "status", "value": "done"},
+                )
+            )
+
+        assert outcome.primary_success is True
+        assert outcome.result_payload["status_write_success"] is False
+        assert outcome.result_payload["status_write_error"] == refusal["error"]
+        assert (
+            outcome.result_payload["status_write_error_code"]
+            == "GATE_QA_TERMINAL_VERDICT"
+        )
+
     def test_missing_item_target_is_invalid(self):
         outcome = writes.handle_item_status_set(
             FunctionCallRequest(
