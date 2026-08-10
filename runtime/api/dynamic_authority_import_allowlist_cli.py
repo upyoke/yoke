@@ -64,6 +64,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_diagnostics",
         "https doctor re-runs source-checkout HCs against this machine's tree",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
+        "yoke_core.engines.doctor_https_only",
+    ): (
+        "client_local_diagnostics",
+        "https doctor honors caller-checkout project-local --only slugs",
+    ),
 }
 
 __all__ = ["CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS"]
