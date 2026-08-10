@@ -51,8 +51,10 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
 # Admission refusals and queue ejections are retry-later outcomes, the
-# same recoverable class as the standalone engine's held merge lock.
-RECOVERABLE_QUEUE_EXIT_CODE = 7
+# same recoverable class as the standalone engine's held merge lock
+# (exit 6). Exit 9 is free at the done-transition boundary, whose codes
+# 0-4, 7 (deployment flow guard), 8 (empty branch), and 99 are taken.
+RECOVERABLE_QUEUE_EXIT_CODE = 9
 
 DEFAULT_POLL_SECONDS = 30.0
 DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0

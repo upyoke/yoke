@@ -308,6 +308,10 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 - **A push is not release authority.** Merge the item, then let its selected
   hosted deployment flow own the exact commit, immutable artifacts, Stage
   proof, and any Production promotion. A branch push does not deploy.
+- **Queue-declared projects land through the merge queue.** With the
+  `merge_queue` capability, item branches merge via PR + merge-when-ready:
+  admission control composes trains, one `merge_group` gate proves the
+  combined head, and members record batch receipts as covering evidence.
 
 ## Interaction Style
 - **Prefer inline chat for summaries, checkpoints, and design iteration.** Present analysis, checkpoint confirmations, and collaborative design discussions as regular conversational output. Do not default to structured chooser UIs for collaborative discussion — freeform replies are more natural for iterative work. Reserve structured question tools for genuinely short binary/ternary decisions with no surrounding context to present.
