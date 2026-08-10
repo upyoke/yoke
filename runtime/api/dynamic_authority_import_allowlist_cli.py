@@ -71,6 +71,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_diagnostics",
         "https doctor honors caller-checkout project-local --only slugs",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/db_claim.py",
+        "yoke_core.domain.db_claim_prose_check",
+    ): (
+        "client_local_diagnostics",
+        "stdin prose-vs-claim detection needs no control-plane DB",
+    ),
 }
 
 __all__ = ["CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS"]

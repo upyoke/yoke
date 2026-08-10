@@ -167,12 +167,20 @@ After the body has been written and verified (step 8 complete), classify and per
 
 **Why bucket discipline matters:** The prose-vs-claim gate honors any `DbClaimAmended` event with `state="none"` and `validation_result="pass"` as cleared evidence regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta work items from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
 
-1. Run the prose-vs-claim detector against the freshly written spec/body:
+1. Run the prose-vs-claim detector against the freshly written spec.
+   Prefer the stdin mode — it runs locally through the installed ``yoke``
+   CLI (no ambient ``yoke_core`` import, no local DB) and works on https
+   control planes. Do **not** call
+   ``python3 -m yoke_core.domain.db_claim_prose_check check-item``:
 
    ```bash
-   _prose_check=$(python3 -m yoke_core.domain.db_claim_prose_check check-item "PREFIX-{N}")
-   _prose_blocks=$(printf '%s' "$_prose_check" | python3 -c "import json,sys; print('1' if json.load(sys.stdin).get('blocks') else '0')")
+   _prose_check=$(yoke items get "PREFIX-{N}" spec | yoke db-claim prose-check --stdin --item-ref "PREFIX-{N}" --json)
+   _prose_blocks=$(printf '%s' "$_prose_check" | python3 -c "import json,sys; r=json.load(sys.stdin); print('1' if (r.get('result') or {}).get('blocks') else '0')")
    ```
+
+   After the control plane serves ``db_claim.prose_check``, the item-targeted
+   form ``yoke db-claim prose-check PREFIX-{N} --json`` also works and
+   composes against the stored claim profile.
 
 2. **No triggers detected (`_prose_blocks=0`):** explicitly stamp the
    negative-default claim through the canonical workflow so the item
@@ -334,7 +342,7 @@ The draft claim acquired in `infer-and-create.md` 5b **stays held** until
 readiness passes. Run the check before any release:
 
 ```bash
-yoke readiness check {id-number}
+yoke readiness check PREFIX-{N}
 ```
 
 * **`verdict=pass`** — readiness passed; proceed to section 10c and release the draft claim, then display the creation confirmation.
