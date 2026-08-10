@@ -19,7 +19,8 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+    GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+    GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import gh_rest_transport
 from yoke_core.domain.db_backend import connection_is_postgres
@@ -151,10 +152,17 @@ def hc_merge_queue_binding(
         return
 
     try:
+        # Least privilege: branch rules and workflow contents are both
+        # read-visible surfaces — metadata:read answers the ruleset
+        # question and contents:read reads the workflow file. No
+        # administration scope is involved.
         auth = resolve_project_github_auth(
             project,
             db_path=args.db_path,
-            required_permissions=GITHUB_ADMINISTRATION_READ_PERMISSION_LEVELS,
+            required_permissions={
+                **GITHUB_METADATA_READ_PERMISSION_LEVELS,
+                **GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
+            },
         )
     except ProjectGithubAuthError as err:
         rec.record(
