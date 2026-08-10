@@ -228,8 +228,8 @@ the prior unrecoverable branch).
 ## Verification
 
 ```bash
-yoke readiness check {N}
-yoke readiness repair-stale-count --item {N}
+yoke readiness check PREFIX-N
+yoke readiness repair-stale-count --item PREFIX-N
 uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
 ```
 

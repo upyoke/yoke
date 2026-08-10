@@ -189,6 +189,7 @@ class TestAccessors:
     def test_is_wrapped_true_for_wrapped(self) -> None:
         assert inv.is_wrapped("yoke items get") is True
         assert inv.is_wrapped("yoke db-claim amend") is True
+        assert inv.is_wrapped("yoke db-claim prose-check") is True
 
     def test_is_wrapped_false_for_permanent(self) -> None:
         assert inv.is_wrapped(

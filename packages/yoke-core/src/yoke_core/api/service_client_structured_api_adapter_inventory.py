@@ -54,11 +54,8 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_workflows imp
 CLI_ADAPTERS: List[AdapterEntry] = [
     *EPIC_ADAPTERS,
     *DIRECT_WORKFLOW_ADAPTERS,
-    AdapterEntry(
-        function_id="db_claim.amend",
-        cli_invocation="python3 -m yoke_core.api.service_client db-claim-amend",
-        notes="unified DB-claim amendment workflow",
-    ),
+    AdapterEntry("db_claim.amend", "python3 -m yoke_core.api.service_client db-claim-amend", notes="unified DB-claim amendment"),
+    AdapterEntry("db_claim.prose_check", "yoke db-claim prose-check (PREFIX-N | --stdin)", notes="prose-vs-claim; --stdin local"),
     *SESSION_ADAPTERS,
     *ITEMS_ADAPTERS,
     AdapterEntry(
