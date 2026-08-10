@@ -180,3 +180,125 @@ class TestUnreachableSource:
 
         assert not verdict.passed
         assert "could not" in verdict.detail
+
+
+class _OkModule:
+    def invariants(self, _conn: Any) -> None:
+        return None
+
+
+class _FailModule:
+    def __init__(self, message: str) -> None:
+        self._message = message
+
+    def invariants(self, _conn: Any) -> None:
+        raise RuntimeError(self._message)
+
+
+class _ConvergeConn:
+    """Minimal connection for post-converge applied-history verification."""
+
+    def __init__(self) -> None:
+        self.committed = False
+        self.rolled_back = False
+        self.closed = False
+
+    def rollback(self) -> None:
+        self.rolled_back = True
+
+    def commit(self) -> None:
+        self.committed = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class TestAppliedHistoryInvariants:
+    def test_ledger_present_invariant_failure_names_entry_and_redacts(
+        self,
+    ) -> None:
+        from yoke_core.domain.migration_fleet_applied_invariants import (
+            verify_applied_history_invariants,
+        )
+
+        secret = "host=db password=hunter2 dbname=copy"
+        detail = verify_applied_history_invariants(
+            object(),
+            HISTORY,
+            load_module=lambda name: (
+                _FailModule(f"broke against {secret}")
+                if name == "0002_second"
+                else _OkModule()
+            ),
+            redact=secret,
+        )
+
+        assert detail is not None
+        assert detail.startswith("0002_second invariants failed --")
+        assert "hunter2" not in detail
+        assert "<dsn>" in detail
+
+    def test_fully_valid_current_database_passes_after_converge(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        from yoke_core.domain import db_backend
+
+        conn = _ConvergeConn()
+        monkeypatch.setattr(db_backend, "connect_psycopg", lambda _dsn: conn)
+        dump = tmp_path / "tenant.dump"
+        dump.write_bytes(b"x")
+        plan = RehearsalPlan(
+            HISTORY,
+            pending_names=lambda _conn, _history: (),
+            converge=lambda _conn, _dsn: None,
+            load_module=lambda _name: _OkModule(),
+        )
+
+        verdict = migration_fleet_preflight._converge_copy(
+            local_universe.cluster_spec(root=tmp_path),
+            "tenant_1",
+            "migration_rehearsal_tenant_1",
+            dump,
+            plan,
+        )
+
+        assert verdict.passed
+        assert verdict.pending_before == ()
+        assert verdict.applied == HISTORY
+        assert conn.committed
+        assert not conn.rolled_back
+
+    def test_converge_copy_fails_when_ledger_present_invariant_raises(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        from yoke_core.domain import db_backend
+
+        conn = _ConvergeConn()
+        monkeypatch.setattr(db_backend, "connect_psycopg", lambda _dsn: conn)
+        dump = tmp_path / "tenant.dump"
+        dump.write_bytes(b"x")
+        plan = RehearsalPlan(
+            HISTORY,
+            pending_names=lambda _conn, _history: (),
+            converge=lambda _conn, _dsn: None,
+            load_module=lambda name: (
+                _FailModule("serializer drift")
+                if name == "0001_first"
+                else _OkModule()
+            ),
+        )
+
+        verdict = migration_fleet_preflight._converge_copy(
+            local_universe.cluster_spec(root=tmp_path),
+            "tenant_1",
+            "migration_rehearsal_tenant_1",
+            dump,
+            plan,
+        )
+
+        assert not verdict.passed
+        assert verdict.detail.startswith("0001_first invariants failed --")
+        assert "serializer drift" in verdict.detail
+        assert verdict.applied == HISTORY
+        assert conn.rolled_back
+        assert not conn.committed

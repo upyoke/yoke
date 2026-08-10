@@ -70,6 +70,11 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     ): (
         "client_local_diagnostics",
         "stdin prose-vs-claim detection needs no control-plane DB",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
+        "yoke_core.engines.doctor_https_only",
+    ): (
+        "client_local_diagnostics",
+        "https doctor honors caller-checkout project-local --only slugs",
     ),
 }
 
