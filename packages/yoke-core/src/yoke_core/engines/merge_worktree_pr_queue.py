@@ -77,7 +77,7 @@ class QueueMember:
     head_ref: str
 
 
-def _resolve_auth_detail(
+def resolve_auth_detail(
     ctx: MergeContext, required_permissions: Any
 ) -> tuple[Optional[ProjectGithubAuth], Optional[str]]:
     try:
@@ -147,7 +147,7 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
     back as ``success=False`` with the named reason; callers must surface
     it rather than falling back to a direct merge.
     """
-    auth, auth_err = _resolve_auth_detail(ctx, PR_WRITE)
+    auth, auth_err = resolve_auth_detail(ctx, PR_WRITE)
     if auth_err or auth is None:
         return QueueEntryResult(
             success=False, pr_num=pr_num, error_detail=auth_err
@@ -169,6 +169,44 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
     return QueueEntryResult(success=True, pr_num=pr_num)
 
 
+@dataclass(frozen=True)
+class PrLandingState:
+    """Merged/closed facts for one PR, read for queue-outcome polling."""
+
+    merged: bool
+    closed: bool
+    auto_merge_active: bool
+
+
+def read_pr_landing_state(
+    ctx: MergeContext, pr_num: str
+) -> tuple[Optional[PrLandingState], Optional[str]]:
+    """Read whether ``pr_num`` merged, closed, or left the queue."""
+    auth, auth_err = resolve_auth_detail(ctx, PR_READ)
+    if auth_err or auth is None:
+        return None, auth_err
+    owner, repo = split_repo(auth.repo)
+    try:
+        response = request_with_retry(
+            RestRequest(
+                method="GET",
+                path=f"/repos/{owner}/{repo}/pulls/{pr_num}",
+            ),
+            token=auth.token,
+        )
+    except RestTransportError as exc:
+        return None, f"github pr read failure: {exc}"
+    body = response.body if isinstance(response.body, dict) else {}
+    return (
+        PrLandingState(
+            merged=bool(body.get("merged")),
+            closed=str(body.get("state") or "") == "closed",
+            auto_merge_active=body.get("auto_merge") is not None,
+        ),
+        None,
+    )
+
+
 def read_queue_members(
     ctx: MergeContext, *, base_branch: str = "main"
 ) -> tuple[Optional[list[QueueMember]], Optional[str]]:
@@ -179,7 +217,7 @@ def read_queue_members(
     queue or the read fails; callers treat that as a named refusal, not
     an empty queue.
     """
-    auth, auth_err = _resolve_auth_detail(ctx, PR_READ)
+    auth, auth_err = resolve_auth_detail(ctx, PR_READ)
     if auth_err or auth is None:
         return None, auth_err
     owner, name = split_repo(auth.repo)
@@ -210,8 +248,10 @@ def read_queue_members(
 
 
 __all__ = [
+    "PrLandingState",
     "QueueEntryResult",
     "QueueMember",
     "enter_merge_queue",
+    "read_pr_landing_state",
     "read_queue_members",
 ]

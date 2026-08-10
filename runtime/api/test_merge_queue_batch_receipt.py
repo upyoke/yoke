@@ -1,0 +1,114 @@
+"""Batch receipt observation and covering-evidence recording."""
+
+from types import SimpleNamespace
+
+from yoke_core.domain import merge_queue_batch_receipt as receipt_mod
+from yoke_core.domain.gh_rest_transport_models import RestResponse
+from yoke_core.domain.json_helper import loads_text
+from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
+from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
+
+
+def _ctx() -> MergeContext:
+    return MergeContext(args=MergeArgs(branch="YOK-300"), project="yoke")
+
+
+def _auth():
+    return SimpleNamespace(token="tok", repo="upyoke/yoke")
+
+
+def _response(body) -> RestResponse:
+    return RestResponse(status=200, headers={}, body=body)
+
+
+def _wire_transport(monkeypatch, *, runs):
+    monkeypatch.setattr(
+        receipt_mod, "resolve_auth_detail",
+        lambda ctx, perms: (_auth(), None),
+    )
+
+    def fake_request(req, *, token, **_kw):
+        if "/pulls/" in req.path:
+            return _response({"merge_commit_sha": "m" * 40})
+        assert req.path.endswith("/actions/runs")
+        assert req.query["event"] == "merge_group"
+        return _response({"workflow_runs": runs})
+
+    monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
+
+
+def test_observe_batch_matches_queue_ref_marker(monkeypatch):
+    _wire_transport(monkeypatch, runs=[
+        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+         "head_sha": "a" * 40, "html_url": "https://runs/7",
+         "conclusion": "success"},
+        {"head_branch": "gh-readonly-queue/main/pr-42-def",
+         "head_sha": "b" * 40, "html_url": "https://runs/42",
+         "conclusion": "success"},
+    ])
+    receipt, warn = receipt_mod.observe_batch(
+        _ctx(), pr_num="42", member_snapshot=("YOK-300", "YOK-301"),
+    )
+    assert warn is None
+    assert receipt.head_sha == "b" * 40
+    assert receipt.run_url == "https://runs/42"
+    assert receipt.merge_sha == "m" * 40
+    assert receipt.members == ("YOK-300", "YOK-301")
+
+
+def test_observe_batch_falls_back_to_newest_success_with_warning(monkeypatch):
+    _wire_transport(monkeypatch, runs=[
+        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+         "head_sha": "a" * 40, "html_url": "https://runs/7",
+         "conclusion": "success"},
+    ])
+    receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
+    assert receipt.head_sha == "a" * 40
+    assert "recency" in warn
+
+
+def test_observe_batch_without_runs_keeps_merge_identity(monkeypatch):
+    _wire_transport(monkeypatch, runs=[])
+    receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
+    assert receipt.head_sha == ""
+    assert receipt.merge_sha == "m" * 40
+    assert "no merge_group workflow run" in warn
+
+
+def test_record_batch_evidence_payload_shape():
+    captured = {}
+
+    def dispatch(*, function_id, target, payload, **_kw):
+        captured["function_id"] = function_id
+        captured["payload"] = payload
+        return SimpleNamespace(success=True, result={}, error=None)
+
+    receipt = BatchReceipt(
+        pr_num="42", merge_sha="m" * 40,
+        members=("YOK-300", "YOK-301"),
+        head_sha="h" * 40, run_url="https://runs/42",
+    )
+    error = receipt_mod.record_batch_evidence(9, receipt, dispatch=dispatch)
+    assert error is None
+    assert captured["function_id"] == "merge.tests.record_post_rebase_ci_run"
+    payload = captured["payload"]
+    assert payload["verdict"] == "pass"
+    assert payload["executor_type"] == "ci_run"
+    raw = loads_text(payload["raw_result"])
+    assert raw["verification_tree"]["head_sha"] == "h" * 40
+    batch = raw["merge_queue_batch"]
+    assert batch["members"] == ["YOK-300", "YOK-301"]
+    assert batch["combined_head_sha"] == "h" * 40
+    assert batch["run_url"] == "https://runs/42"
+
+
+def test_record_batch_evidence_surfaces_dispatch_error():
+    def dispatch(**_kw):
+        return SimpleNamespace(
+            success=False, result=None,
+            error=SimpleNamespace(message="claim gate refused"),
+        )
+
+    receipt = BatchReceipt(pr_num="42")
+    error = receipt_mod.record_batch_evidence(9, receipt, dispatch=dispatch)
+    assert error == "claim gate refused"
