@@ -136,6 +136,9 @@ def _resolve_requirement(item_id: int, transition_id: str):
         target=TargetRef(kind="item", item_id=item_id),
         payload={"transition_id": transition_id},
         announce=lambda message: _parent()._print(message),
+        # This module's own binding, resolved per call, so the transport
+        # seam every merge test substitutes stays the single one.
+        dispatch=call_dispatcher,
     )
 
 
@@ -216,7 +219,7 @@ def _registered_verification_command(
             return scope, command, covering if isinstance(covering, list) else []
         last_code = (resp.error.code if resp.error else "unknown") or "unknown"
         last_message = (resp.error.message if resp.error else "") or ""
-        last_recovery = (resp.error.recovery_hint if resp.error else "") or ""
+        last_recovery = getattr(resp.error, "recovery_hint", "") or ""
         if not _is_unknown_workflow_transition(last_message):
             break
     # The recovery hint is the actionable half of a skew or authority

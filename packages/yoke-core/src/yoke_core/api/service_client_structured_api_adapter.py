@@ -89,13 +89,17 @@ def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
         )
 
         config = machine_config.load_config()
-        # The active env's own admin sibling first: rerunning against a
-        # different local universe answers about rows the caller never
-        # asked about.
-        sibling = same_universe_db_admin_env(config, machine_config.active_env())
         local_envs = local_postgres_envs(config)
     except Exception:
         return ""
+    try:
+        # The active env's own admin sibling first: rerunning against a
+        # different local universe answers about rows the caller never
+        # asked about. An unresolvable active env only costs the preference,
+        # never the hint.
+        sibling = same_universe_db_admin_env(config, machine_config.active_env())
+    except Exception:  # noqa: BLE001 - no resolvable pairing is not a failure
+        sibling = ""
     if not sibling and not local_envs:
         return ""
     env = sibling or local_envs[0]
