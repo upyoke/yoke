@@ -6,6 +6,12 @@ integrated candidate to the item lane, dispatches that workflow, waits for
 the conclusion, asserts the CI-reported head matches the candidate tree,
 and records a ``qa_runs`` row so a later same-tree attempt can skip.
 
+Dispatching, polling, and reading the run's head all reach GitHub through
+the control plane that holds the project's App authority. None of them
+resolve credentials on this machine: the App private key lives server-side,
+so a client that tries to mint its own token fails on exactly the machines
+whose control plane is remote.
+
 Routing frees the local machine and the machine-wide admission slot; wall
 clock while holding the merge lock is comparable to a local run (CI is
 often a few minutes longer). Pass ``--local-verification`` for deliberate
@@ -97,18 +103,41 @@ def _should_route_ci(ctx: MergeContext) -> bool:
     return bool(_project_ci_workflow_file(str(project)))
 
 
-def _fetch_ci_head_sha(*, project: str, repo: str, ci_run_id: str) -> str:
-    from yoke_contracts.github_app_installation_permissions import (
-        GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-    )
-    from yoke_core.domain.github_actions_rest import workflow_run_head_sha
-    from yoke_core.domain.project_github_auth import resolve_project_github_auth
+def _covered_head_sha(
+    *,
+    project: str,
+    repo: str,
+    ci_run_id: str,
+    candidate_sha: str,
+    worktree: Path,
+) -> str:
+    """The commit the CI run tested, proven to carry the candidate tree.
 
-    auth = resolve_project_github_auth(
-        project,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    The run is read back through the relay rather than trusting the branch
+    we pushed, because between push and dispatch the ref can move. When the
+    control plane answers without a head sha — an engine older than that
+    field — the check degrades by name to the commit we published, which is
+    the binding the dispatch itself carried.
+    """
+    mw = _parent()
+    ci_head = qa_case_ci_lane.run_head_sha(
+        project=project, repo=repo, run_id=ci_run_id,
     )
-    return workflow_run_head_sha(repo, ci_run_id, token=auth.token)
+    if not ci_head:
+        mw._print(
+            "[phase:tests] control plane reports no head sha for CI run "
+            f"{ci_run_id}; binding the verdict to the published candidate "
+            f"{candidate_sha[:12]} instead of the run's reported head"
+        )
+        return candidate_sha
+    candidate_tree = merge_worktree_tree_coverage._tree_object_id(worktree, "HEAD")
+    ci_tree = merge_worktree_tree_coverage._tree_object_id(worktree, ci_head)
+    if candidate_tree is None or ci_tree is None or candidate_tree != ci_tree:
+        raise QaCaseExecutionError(
+            f"CI head sha {ci_head} does not resolve to the candidate "
+            f"tree (candidate={candidate_tree}, ci={ci_tree})"
+        )
+    return ci_head
 
 
 def _record_ci_run(
@@ -194,6 +223,10 @@ def run_ci_verification(
     try:
         repo = qa_case_ci_lane.repo_slug(cwd)
         qa_case_ci_lane.push_lane(cwd, branch, source_ref="HEAD")
+        # Every GitHub call the gate makes stays inside this block: dispatch,
+        # polling, and the head-sha read all need the same server-held App
+        # authority, and one of them resolving credentials on its own is how
+        # the gate broke on a machine whose control plane is remote.
         with qa_case_ci_lane.github_actions_authority():
             ci_run_id = qa_case_ci_lane.dispatch_workflow(
                 project=project,
@@ -209,19 +242,12 @@ def run_ci_verification(
                 run_id=ci_run_id,
                 timeout_seconds=DEFAULT_MERGE_CI_TIMEOUT_SECONDS,
             )
-        ci_head = _fetch_ci_head_sha(
-            project=project,
-            repo=repo,
-            ci_run_id=ci_run_id,
-        )
-        if not ci_head:
-            raise QaCaseExecutionError(f"CI run {ci_run_id} did not report a head_sha")
-        candidate_tree = merge_worktree_tree_coverage._tree_object_id(cwd, "HEAD")
-        ci_tree = merge_worktree_tree_coverage._tree_object_id(cwd, ci_head)
-        if candidate_tree is None or ci_tree is None or candidate_tree != ci_tree:
-            raise QaCaseExecutionError(
-                f"CI head sha {ci_head} does not resolve to the candidate "
-                f"tree (candidate={candidate_tree}, ci={ci_tree})"
+            ci_head = _covered_head_sha(
+                project=project,
+                repo=repo,
+                ci_run_id=ci_run_id,
+                candidate_sha=tree.head_sha,
+                worktree=cwd,
             )
         covered = verification_tree_binding.TreeIdentity(str(cwd), ci_head)
     except Exception as exc:

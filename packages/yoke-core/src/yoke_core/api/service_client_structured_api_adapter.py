@@ -83,22 +83,34 @@ def _function_not_registered_hint(function_id: str) -> str:
 def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
     try:
         from yoke_core.domain import machine_config
-        from yoke_contracts.machine_config.schema import local_postgres_envs
+        from yoke_contracts.machine_config.schema import (
+            local_postgres_envs,
+            same_universe_db_admin_env,
+        )
 
-        local_envs = local_postgres_envs(machine_config.load_config())
+        config = machine_config.load_config()
+        # The active env's own admin sibling first: rerunning against a
+        # different local universe answers about rows the caller never
+        # asked about.
+        sibling = same_universe_db_admin_env(config, machine_config.active_env())
+        local_envs = local_postgres_envs(config)
     except Exception:
         return ""
-    if not local_envs:
+    if not sibling and not local_envs:
         return ""
-    env = local_envs[0]
+    env = sibling or local_envs[0]
     if cli_invocation.startswith("yoke "):
         recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
     else:
         recipe = f"YOKE_ENV={env} {cli_invocation}"
+    inventory = (
+        f" (configured local-postgres envs: {', '.join(local_envs)})"
+        if local_envs
+        else ""
+    )
     return (
         "For dogfooding newly merged local code against the Postgres "
-        f"authority, rerun with `{recipe}` "
-        f"(configured local-postgres envs: {', '.join(local_envs)})."
+        f"authority, rerun with `{recipe}`{inventory}."
     )
 
 

@@ -9,24 +9,28 @@ Dispatch and await reuse the deployment layer's machinery
 :mod:`yoke_core.domain.deploy_pipeline_reporting`), which already owns
 correlation-id dispatch with bounded ambiguity recovery — a lost dispatch
 response is recovered by its GitHub-visible marker rather than reposted.
+
+Which control plane relays those calls is a separate question, answered by
+:mod:`yoke_core.domain.qa_case_ci_authority` and re-exported here so the
+lane stays one import for its callers.
 """
 
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass
 import json
-import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Iterator
 
 from yoke_contracts.github_workflow_dispatch import (
-    GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
 )
 
+from yoke_core.domain.qa_case_ci_authority import (
+    GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV as GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
+    github_actions_authority as github_actions_authority,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Stage label passed to the shared poller; it names this gate in poll output.
@@ -208,45 +212,6 @@ def find_completed_pull_request_run(
     )
 
 
-@contextlib.contextmanager
-def github_actions_authority() -> Iterator[None]:
-    """Point GitHub Actions calls at the active control plane.
-
-    The deployment layer selects its GitHub App authority from an explicit
-    relay environment variable, because a deploy may hold an owner-only
-    database connection while needing the sibling HTTPS plane for GitHub.
-    A QA case is already running against whatever control plane the
-    session is connected to, so when that connection is HTTPS it *is* the
-    relay, and requiring a second variable would only be a way to forget
-    one. An explicit selection always wins.
-    """
-    from yoke_core.domain.deploy_pipeline_reporting import (
-        GITHUB_ACTIONS_RELAY_ENV,
-    )
-
-    preselected = (
-        os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
-        or os.environ.get(GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, "").strip()
-    )
-    if preselected:
-        yield
-        return
-    try:
-        from yoke_cli.transport.https import resolve_https_connection
-
-        https = resolve_https_connection()
-    except Exception:
-        https = None
-    if https is None:
-        yield
-        return
-    os.environ[GITHUB_ACTIONS_RELAY_ENV] = https.env
-    try:
-        yield
-    finally:
-        os.environ.pop(GITHUB_ACTIONS_RELAY_ENV, None)
-
-
 def dispatch_workflow(
     *,
     project: str,
@@ -287,6 +252,47 @@ def dispatch_workflow(
     return run_id
 
 
+def run_head_sha(*, project: str, repo: str, run_id: str) -> str:
+    """The commit a workflow run checked out, read through the same relay.
+
+    Reading this back is what turns "a run concluded" into "the tree under
+    test concluded", so it has to reach GitHub the way dispatch and polling
+    already do — through the control plane holding the App credentials.
+    Resolving a token on this machine instead would require private-key
+    material that only exists server-side.
+
+    Returns ``""`` when the relay answers without the field, which is what
+    a control plane older than the field looks like; the caller names that
+    degradation rather than treating it as a failure.
+    """
+    import json
+
+    from yoke_core.domain.deploy_pipeline_reporting import _github_actions
+
+    result = _github_actions(
+        "poll", repo, run_id, "--json", project=project,
+    )
+    try:
+        envelope = json.loads(result.stdout or "{}")
+    except ValueError as exc:
+        raise QaCaseExecutionError(
+            f"could not read run {run_id} on {repo}: unparseable relay "
+            f"response ({exc})"
+        ) from exc
+    if not isinstance(envelope, dict) or not envelope.get("success"):
+        detail = (result.stderr or result.stdout or "").strip()
+        raise QaCaseExecutionError(
+            f"could not read run {run_id} on {repo}: "
+            f"{detail or 'relay reported no result'}"
+        )
+    payload = envelope.get("result")
+    if not isinstance(payload, dict):
+        raise QaCaseExecutionError(
+            f"run read for {run_id} on {repo} returned no result object"
+        )
+    return str(payload.get("head_sha") or "").strip()
+
+
 def await_workflow(
     *, project: str, repo: str, run_id: str, timeout_seconds: int,
 ) -> tuple[int, str]:
@@ -305,6 +311,7 @@ __all__ = [
     "dispatch_workflow",
     "find_completed_pull_request_run",
     "github_actions_authority",
+    "run_head_sha",
     "lane_branch",
     "push_lane",
     "ref_sha",

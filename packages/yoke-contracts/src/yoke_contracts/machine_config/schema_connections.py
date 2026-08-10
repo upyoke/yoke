@@ -5,10 +5,16 @@ from __future__ import annotations
 import os
 from typing import Any, Mapping
 
-from yoke_contracts.machine_config.schema_transport import POSTGRES_TRANSPORTS
+from yoke_contracts.machine_config.schema_transport import (
+    POSTGRES_TRANSPORTS,
+    TRANSPORT_HTTPS,
+)
 
 ENV_OVERRIDE = "YOKE_ENV"
 PROD_FLAG_KEY = "prod"
+#: Label suffix pairing a direct-Postgres admin connection with the https
+#: connection serving the same universe (``prod`` <-> ``prod-db-admin``).
+DB_ADMIN_ENV_SUFFIX = "-db-admin"
 
 
 class MachineConfigContractError(RuntimeError):
@@ -58,11 +64,142 @@ def local_postgres_envs(
     )
 
 
+def _connection(payload: Mapping[str, Any] | None, env: str) -> Mapping[str, Any]:
+    if not isinstance(payload, Mapping) or not env:
+        return {}
+    connections = payload.get("connections")
+    if not isinstance(connections, Mapping):
+        return {}
+    entry = connections.get(env)
+    return entry if isinstance(entry, Mapping) else {}
+
+
+def _transport(payload: Mapping[str, Any] | None, env: str) -> str:
+    return str(_connection(payload, env).get("transport") or "").strip()
+
+
+def same_universe_db_admin_env(payload: Mapping[str, Any] | None, env: str) -> str:
+    """The direct-Postgres env administering the same universe as *env*.
+
+    A machine whose control plane is https reaches its rows through the
+    server; an operation that genuinely needs a database on this machine
+    has exactly one correct target, and it is not "whichever local-postgres
+    connection happens to sort first". The connections that answer for the
+    same universe are paired by label — ``prod`` is administered by
+    ``prod-db-admin`` — so a recovery recipe naming any other local env
+    sends the operator to a database that does not contain their work.
+
+    Returns ``""`` when no such sibling is configured, including for an env
+    that is already the admin side of a pair.
+    """
+    env = str(env or "").strip()
+    if not env or env.endswith(DB_ADMIN_ENV_SUFFIX):
+        return ""
+    sibling = f"{env}{DB_ADMIN_ENV_SUFFIX}"
+    if _transport(payload, sibling) in POSTGRES_TRANSPORTS:
+        return sibling
+    return ""
+
+
+def same_universe_https_env(payload: Mapping[str, Any] | None, env: str) -> str:
+    """The https env whose universe *env* administers directly.
+
+    The inverse pairing of :func:`same_universe_db_admin_env`. A client
+    holding an owner-only database connection still has to reach
+    server-held authority — GitHub App credentials, for one — through an
+    https plane, and the plane that owns those credentials for its rows is
+    the one this connection administers, not an independently deployed
+    peer. Returns ``""`` when *env* is not an admin label or its https
+    counterpart is not configured.
+    """
+    env = str(env or "").strip()
+    if not env.endswith(DB_ADMIN_ENV_SUFFIX):
+        return ""
+    base = env[: -len(DB_ADMIN_ENV_SUFFIX)]
+    return base if _transport(payload, base) == TRANSPORT_HTTPS else ""
+
+
+def env_override_teaching(
+    payload: Mapping[str, Any] | None,
+    *,
+    selected_env: str,
+    transport: str,
+    command: str | None = None,
+) -> str:
+    """Setup-error text for a local-postgres-only operation under a non-local
+    selected env: why it failed, the configured local-postgres envs, and the
+    one-line override recipe.
+    """
+    envs = local_postgres_envs(payload)
+    # The sibling that administers the SELECTED env's own universe outranks
+    # the configured inventory: a recipe naming another machine-local
+    # database sends the operator somewhere their rows do not exist.
+    sibling = same_universe_db_admin_env(payload, selected_env)
+    why = (
+        f"connected env {selected_env!r} (transport {transport}) has no local "
+        "Postgres; this operation requires a local-postgres env."
+    )
+    if not sibling and not envs:
+        return (
+            f"{why} No local-postgres env is configured on this machine; add "
+            "one under connections in ~/.yoke/config.json "
+            "(see `yoke config example`)."
+        )
+    recipe_env = sibling or envs[0]
+    recipe_cmd = command if command is not None else _invocation_recipe()
+    universe = (
+        f" {recipe_env!r} administers the same universe as {selected_env!r}."
+        if sibling
+        else ""
+    )
+    inventory = (
+        f"configured local-postgres envs: {', '.join(envs)}; " if envs else ""
+    )
+    return (
+        f"{why}{universe} Run: {ENV_OVERRIDE}={recipe_env} {recipe_cmd} "
+        f"({inventory}`yoke` subcommands also accept --env {recipe_env})."
+    )
+
+
+def _invocation_recipe(
+    argv: list[str] | None = None,
+    main_spec_name: str | None = None,
+    interpreter: str | None = None,
+) -> str:
+    """Reconstruct the current invocation for the override recipe line.
+
+    A module-form recipe names the interpreter that is running right now
+    rather than a bare ``python3``: the failing process reached its imports
+    through this interpreter, and the ambient one on ``PATH`` frequently
+    cannot import the packages the recipe would re-enter.
+    """
+    import shlex
+    import sys
+    from pathlib import Path
+
+    args = list(sys.argv) if argv is None else list(argv)
+    if main_spec_name is None:
+        spec = getattr(sys.modules.get("__main__"), "__spec__", None)
+        main_spec_name = getattr(spec, "name", "") or ""
+    module = main_spec_name.removesuffix(".__main__")
+    if module and module != "__main__":
+        python = interpreter or sys.executable or "python3"
+        prefix = f"{shlex.quote(python)} -m {module}"
+    else:
+        prefix = Path(args[0]).name if args and args[0] else "<command>"
+    tail = " ".join(shlex.quote(arg) for arg in args[1:])
+    return f"{prefix} {tail}".strip()
+
+
 __all__ = [
+    "DB_ADMIN_ENV_SUFFIX",
     "ENV_OVERRIDE",
     "MachineConfigContractError",
     "PROD_FLAG_KEY",
     "connection_is_prod",
+    "env_override_teaching",
     "local_postgres_envs",
+    "same_universe_db_admin_env",
+    "same_universe_https_env",
     "selected_env",
 ]

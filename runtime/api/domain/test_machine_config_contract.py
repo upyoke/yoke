@@ -5,6 +5,7 @@ import json
 import pytest
 
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config import schema_connections
 
 
 def test_canonical_example_is_valid_machine_config() -> None:
@@ -167,19 +168,89 @@ def test_env_override_teaching_without_local_env_teaches_config() -> None:
 
 
 def test_invocation_recipe_reconstructs_module_and_script_shapes() -> None:
-    module_form = contract._invocation_recipe(
+    module_form = schema_connections._invocation_recipe(
         argv=["/x/db_router.py", "query", "SELECT 1"],
         main_spec_name="yoke_core.cli.db_router",
+        interpreter="/venv/bin/python3",
     )
-    assert module_form == "python3 -m yoke_core.cli.db_router query 'SELECT 1'"
-
-    package_form = contract._invocation_recipe(
-        argv=["/x/__main__.py"], main_spec_name="some.pkg.__main__",
+    assert module_form == (
+        "/venv/bin/python3 -m yoke_core.cli.db_router query 'SELECT 1'"
     )
-    assert package_form == "python3 -m some.pkg"
 
-    script_form = contract._invocation_recipe(
+    package_form = schema_connections._invocation_recipe(
+        argv=["/x/__main__.py"],
+        main_spec_name="some.pkg.__main__",
+        interpreter="/venv/bin/python3",
+    )
+    assert package_form == "/venv/bin/python3 -m some.pkg"
+
+    script_form = schema_connections._invocation_recipe(
         argv=["/usr/local/bin/yoke", "status"],
         main_spec_name="",
     )
     assert script_form == "yoke status"
+
+
+def test_invocation_recipe_names_the_running_interpreter_not_ambient_python(
+) -> None:
+    """A module recipe must be runnable by whoever reads it.
+
+    The process that hit the error reached its imports through
+    ``sys.executable``; ``python3`` on PATH is frequently a different
+    interpreter that cannot import the module the recipe re-enters.
+    """
+    import sys
+
+    recipe = schema_connections._invocation_recipe(
+        argv=["/x/runtime.py", "YOK-1"],
+        main_spec_name="yoke_cli.commands.merge_item_local_runtime",
+    )
+
+    assert recipe.startswith(sys.executable)
+    assert not recipe.startswith("python3 ")
+
+
+def test_env_override_teaching_prefers_the_selected_universe_admin_sibling(
+) -> None:
+    """The recipe must name the env holding the caller's own rows.
+
+    A machine can configure several local-postgres connections that reach
+    completely different universes. Naming whichever sorts first sends the
+    operator to a database where their item does not exist.
+    """
+    payload = contract.canonical_example_payload()
+    payload["connections"]["prod-db-admin"] = {
+        "transport": "local-postgres",
+        contract.PROD_FLAG_KEY: True,
+        "credential_source": {"kind": "env", "name": "YOKE_PROD_DSN"},
+    }
+    payload["active_env"] = "prod"
+
+    text = contract.env_override_teaching(
+        payload, selected_env="prod", transport="https", command="yoke merge item X",
+    )
+
+    assert f"{contract.ENV_OVERRIDE}=prod-db-admin yoke merge item X" in text
+    assert "administers the same universe as 'prod'" in text
+    # The alphabetically-first non-prod local env must not win over the pair.
+    assert f"{contract.ENV_OVERRIDE}=source-dev-admin" not in text
+
+
+def test_same_universe_env_pairing_is_symmetric_and_conservative() -> None:
+    payload = {
+        "connections": {
+            "prod": {"transport": "https"},
+            "prod-db-admin": {"transport": "local-postgres"},
+            "stage": {"transport": "https"},
+        }
+    }
+
+    assert contract.same_universe_db_admin_env(payload, "prod") == "prod-db-admin"
+    assert contract.same_universe_https_env(payload, "prod-db-admin") == "prod"
+    # An env whose counterpart is not configured pairs with nothing.
+    assert contract.same_universe_db_admin_env(payload, "stage") == ""
+    assert contract.same_universe_https_env(payload, "sandbox-db-admin") == ""
+    # An admin label is never its own admin sibling, and a plain env is
+    # never mistaken for one.
+    assert contract.same_universe_db_admin_env(payload, "prod-db-admin") == ""
+    assert contract.same_universe_https_env(payload, "prod") == ""

@@ -38,9 +38,29 @@ both peers is outside this mitigation; the poll still names the GitHub
 Actions UI as the operator surface that answers without either plane.
 
 Same-base sibling derivation (`*-db-admin` → same base HTTPS env) is the
-obsolete circular path and is removed. An owner-only env without a known
-peer must set `YOKE_GITHUB_ACTIONS_RELAY_ENV` explicitly to an independent
-HTTPS plane, or use attended local App authority for bootstrap.
+obsolete circular path for a deploy and is removed from the default
+derivation. An owner-only env without a known peer must set
+`YOKE_GITHUB_ACTIONS_RELAY_ENV` explicitly to an independent HTTPS plane,
+or use attended local App authority for bootstrap.
+
+## Scope: this independence rule is about deploying, not about GitHub
+
+The circularity being mitigated is a run asking a service about a workflow
+while replacing that same service. A caller that replaces nothing has no
+such circle, and inheriting the peer default costs it twice: the peer is a
+separately deployed universe that holds neither the project's rows nor an
+App authorization for its repository, so the call fails on authorization
+rather than on availability.
+
+Verification gates are that kind of caller — the QA case CI executor and
+the merge boundary's post-rebase tests phase. Both select the plane whose
+rows they are already working in: the connection itself when it is https,
+and otherwise the https plane that an owner-only `*-db-admin` connection
+administers. They set `YOKE_GITHUB_ACTIONS_RELAY_ENV` to that plane, which
+is the explicit selection this decision already requires of an owner-only
+env — the gate computes the value instead of asking an operator to
+remember it. Deploy keeps the peer rule unchanged, and an explicit
+operator selection still outranks both.
 
 ## Create coverage
 

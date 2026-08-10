@@ -13,6 +13,7 @@ from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain import control_plane_function_degradation
 from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -122,6 +123,22 @@ _POST_REBASE_TRANSITION_FALLBACKS = (
 )
 
 
+def _resolve_requirement(item_id: int, transition_id: str):
+    """Ask for the post-rebase verification command, degrading on skew.
+
+    A wave whose own branch adds this function leaves the deployed plane
+    behind the client that is merging it, so the resolver continues through
+    the paired direct-Postgres connection instead of demanding the release
+    that cannot happen until this merge lands.
+    """
+    return control_plane_function_degradation.dispatch_through_paired_admin_on_skew(
+        function_id="merge.tests.post_rebase_requirement",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={"transition_id": transition_id},
+        announce=lambda message: _parent()._print(message),
+    )
+
+
 def _post_rebase_transition_candidates(item_id: int) -> list[str]:
     """Ordered transition ids to try for post-rebase plan materialization."""
     ordered = [POST_REBASE_TRANSITION_ID, *_POST_REBASE_TRANSITION_FALLBACKS]
@@ -178,13 +195,10 @@ def _registered_verification_command(
 
     last_code = "unknown"
     last_message = ""
+    last_recovery = ""
     for transition_id in _post_rebase_transition_candidates(item_id):
         try:
-            resp = call_dispatcher(
-                function_id="merge.tests.post_rebase_requirement",
-                target=TargetRef(kind="item", item_id=item_id),
-                payload={"transition_id": transition_id},
-            )
+            resp = _resolve_requirement(item_id, transition_id)
         except Exception as exc:  # noqa: BLE001 - resolver failure blocks merge.
             raise RuntimeError(
                 f"integration verification dispatcher failed: {exc}"
@@ -202,10 +216,19 @@ def _registered_verification_command(
             return scope, command, covering if isinstance(covering, list) else []
         last_code = (resp.error.code if resp.error else "unknown") or "unknown"
         last_message = (resp.error.message if resp.error else "") or ""
+        last_recovery = (resp.error.recovery_hint if resp.error else "") or ""
         if not _is_unknown_workflow_transition(last_message):
             break
+    # The recovery hint is the actionable half of a skew or authority
+    # refusal; dropping it is what turned a fixable condition into an
+    # opaque "test command unavailable".
+    detail = (
+        f"{last_message} {last_recovery}".strip()
+        if last_recovery
+        else last_message
+    )
     raise RuntimeError(
-        f"integration verification resolution failed ({last_code}): {last_message}"
+        f"integration verification resolution failed ({last_code}): {detail}"
     )
 
 

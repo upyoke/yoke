@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend, machine_config, yoke_connected_env
-from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.machine_config import schema_connections
 
 
 def _https_active_binding(tmp_path: Path, *, with_local_env: bool = True) -> Path:
@@ -62,7 +62,7 @@ def test_resolve_postgres_dsn_teaches_env_override(https_active, monkeypatch):
     # pinned example is a genuinely local-postgres-only surface (direct
     # SQL); wrapped `yoke` commands relay over https instead.
     monkeypatch.setattr(
-        contract, "_invocation_recipe",
+        schema_connections, "_invocation_recipe",
         lambda *a, **k: 'python3 -m yoke_core.cli.db_router query "SELECT 1"',
     )
 
@@ -106,7 +106,7 @@ def test_db_backend_surfaces_teaching_without_dsn_setup_framing(
     """resolve_pg_dsn must NOT bury the recipe under the generic
     'YOKE_PG_DSN ... must be set for postgres authority' wrapper."""
     recipe = 'python3 -m yoke_core.cli.db_router query "SELECT 1"'
-    monkeypatch.setattr(contract, "_invocation_recipe",
+    monkeypatch.setattr(schema_connections, "_invocation_recipe",
                         lambda *a, **k: recipe)
 
     with pytest.raises(RuntimeError) as e:
