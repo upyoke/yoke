@@ -13,9 +13,9 @@ between two cells exports identical text beside a thumb that has crossed into
 the next cell. And every frame is assembled from a single layout pass: the
 viewport is put where focus already is, each scrollbar's cached geometry is
 restated from the container it belongs to, and the screen is recomposed before
-the export — so the thumb and the text can never come from two different passes,
-and the gate fails on where a scroll stopped or on what the wizard drew rather
-than on either.
+the export. So the thumb and the text can never come from two different passes,
+and the gate fails on what the wizard drew rather than on where a scroll came to
+rest or on which pass drew the thumb.
 
 :mod:`onboard_wizard_golden_support` owns the other half — normalization, the
 host-independent stub data, and the catalog<->golden parity scan.
