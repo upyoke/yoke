@@ -105,13 +105,10 @@ def test_export_survives_a_scroll_resting_between_cells(_stub_source_branch) -> 
             await app.workers.wait_for_complete()
             await pilot.pause()
             app._goto_finish()
+            await app.workers.wait_for_complete()
             await pilot.pause()
             await pilot.pause()
             body = app.query_one("#onboard-body")
-            focused = app.focused
-            if focused is not None:
-                body.scroll_to_widget(focused, animate=False, immediate=True)
-                await pilot.pause()
             settled = await _stable_screenshot(pilot, app, title)
 
             # Leave the scroll part-way through a cell, the state an animated
