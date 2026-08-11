@@ -35,8 +35,10 @@ from yoke_core.engines.merge_worktree_pr_rest import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-def _list_branch_prs(ctx: MergeContext, *, state: str) -> list[dict[str, Any]]:
-    """Pull requests whose head is the branch, most recently updated first."""
+def _list_branch_prs(
+    ctx: MergeContext, *, query: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Pull requests whose head is the branch, under the caller's filters."""
     try:
         auth = resolve_auth(ctx, required_permissions=PR_READ)
     except AuthResolutionFailed:
@@ -45,12 +47,7 @@ def _list_branch_prs(ctx: MergeContext, *, state: str) -> list[dict[str, Any]]:
     req = RestRequest(
         method="GET",
         path=f"/repos/{owner}/{repo}/pulls",
-        query={
-            "head": f"{owner}:{ctx.args.branch}",
-            "state": state,
-            "sort": "updated",
-            "direction": "desc",
-        },
+        query={"head": f"{owner}:{ctx.args.branch}", **query},
     )
     try:
         resp = request_with_retry(req, token=auth.token)
@@ -73,8 +70,12 @@ def _identify(row: dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
 def find_existing_pr(
     ctx: MergeContext,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """The branch's open pull request, or ``(None, None)``."""
-    rows = _list_branch_prs(ctx, state="open")
+    """The branch's open pull request, or ``(None, None)``.
+
+    No ordering is requested because GitHub allows only one open pull
+    request per head and base, so the listing holds at most one row.
+    """
+    rows = _list_branch_prs(ctx, query={"state": "open"})
     return _identify(rows[0]) if rows else (None, None)
 
 
@@ -85,9 +86,14 @@ def find_branch_pull_request(
 
     A merged pull request answers here where :func:`find_existing_pr` sees
     nothing, which is what lets a landing re-entered after the queue merged
-    converge on that pull request instead of trying to open another.
+    converge on that pull request instead of trying to open another. Any
+    state means the listing can hold several, so it asks for the most
+    recently updated first and falls back to that row.
     """
-    rows = _list_branch_prs(ctx, state="all")
+    rows = _list_branch_prs(
+        ctx,
+        query={"state": "all", "sort": "updated", "direction": "desc"},
+    )
     if not rows:
         return None, None
     still_open = [row for row in rows if str(row.get("state") or "") == "open"]

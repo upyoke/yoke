@@ -40,8 +40,10 @@ def test_find_existing_pr_asks_only_for_open_pull_requests(monkeypatch):
     ])
     url, num = discovery_mod.find_existing_pr(_ctx())
     assert (url, num) == ("https://gh/42", "42")
-    assert received[0].query["state"] == "open"
-    assert received[0].query["head"] == "upyoke:YOK-200"
+    # GitHub allows one open pull request per head and base, so this asks
+    # for no ordering — and canned-response fixtures key on the exact
+    # query, so widening it silently misses them.
+    assert received[0].query == {"head": "upyoke:YOK-200", "state": "open"}
 
 
 def test_find_branch_pull_request_sees_a_merged_one(monkeypatch):
@@ -51,6 +53,8 @@ def test_find_branch_pull_request_sees_a_merged_one(monkeypatch):
     url, num = discovery_mod.find_branch_pull_request(_ctx())
     assert (url, num) == ("https://gh/183", "183")
     assert received[0].query["state"] == "all"
+    assert received[0].query["sort"] == "updated"
+    assert received[0].query["direction"] == "desc"
 
 
 def test_find_branch_pull_request_prefers_the_open_one(monkeypatch):
