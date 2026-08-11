@@ -54,10 +54,30 @@ def test_bounded_field_note_review_dispatches_cutoff_and_limit() -> None:
     }
 
 
+def test_bounded_all_category_review_dispatches_cutoff_and_limit() -> None:
+    rc = _run_with_dispatch(
+        _stub_dispatch_ok,
+        "ouroboros",
+        "entry",
+        "mark-reviewed",
+        "--before",
+        "2026-08-01",
+        "--limit",
+        "7",
+    )
+
+    assert rc == 0
+    request = _CAPTURED_REQUESTS[-1]
+    assert request.function == "ouroboros.entry.mark_reviewed"
+    assert request.target.kind == "global"
+    assert request.payload == {"before": "2026-08-01", "limit": 7}
+
+
 @pytest.mark.parametrize(
     "args",
     (
         ("31555", "--field-notes-before", "2026-08-01"),
+        ("--before", "2026-08-01", "--field-notes-before", "2026-08-01"),
         ("31555", "--limit", "7"),
         (),
     ),

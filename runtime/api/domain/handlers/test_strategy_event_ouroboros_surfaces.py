@@ -186,11 +186,12 @@ def test_single_entry_review_preserves_existing_close_out(tmp_db: str) -> None:
     assert row[0] is not None
 
 
-def test_field_note_review_batch_is_bounded_and_cutoff_scoped(tmp_db: str) -> None:
+def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str) -> None:
     seeds = (
         ("field-note-failed", "2026-07-28T00:00:00Z"),
         ("field-note-observation", "2026-07-29T00:00:00Z"),
         ("observation", "2026-07-30T00:00:00Z"),
+        ("friction", "2026-07-31T00:00:00Z"),
         ("field-note-new", "2026-08-01T00:00:00Z"),
     )
     entry_ids: list[int] = []
@@ -226,7 +227,27 @@ def test_field_note_review_batch_is_bounded_and_cutoff_scoped(tmp_db: str) -> No
             f"WHERE id IN ({', '.join(p for _id in entry_ids)}) ORDER BY id",
             tuple(entry_ids),
         ).fetchall()
-    assert [row[0] is not None for row in rows] == [True, True, False, False]
+    assert [row[0] is not None for row in rows] == [True, True, False, False, False]
+
+    payload = {"before": "2026-08-01", "limit": 1}
+    first = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request("ouroboros.entry.mark_reviewed", payload)
+    )
+    second = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
+        _request("ouroboros.entry.mark_reviewed", payload)
+    )
+
+    assert first.result_payload["reviewed_count"] == 1
+    assert first.result_payload["remaining_count"] == 1
+    assert second.result_payload["reviewed_count"] == 1
+    assert second.result_payload["remaining_count"] == 0
+    with connect(tmp_db) as conn:
+        rows = conn.execute(
+            "SELECT reviewed_at FROM ouroboros_entries "
+            f"WHERE id IN ({', '.join(p for _id in entry_ids)}) ORDER BY id",
+            tuple(entry_ids),
+        ).fetchall()
+    assert [row[0] is not None for row in rows] == [True, True, True, True, False]
 
 
 def test_field_note_review_batch_requires_iso_date(tmp_db: str) -> None:

@@ -9,7 +9,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.function_authz_scope import ACTOR_SESSION, PROJECT, classify
-from yoke_core.domain.ouroboros_entry_review import MAX_FIELD_NOTE_REVIEW_BATCH
+from yoke_core.domain.ouroboros_entry_review import MAX_ENTRY_REVIEW_BATCH
 from yoke_core.domain.yoke_function_permissions import (
     check_dispatch_permission,
     permission_key_for,
@@ -32,7 +32,7 @@ def test_review_close_out_does_not_require_a_target_project() -> None:
         {"entry_id": 31555},
         {
             "field_notes_before": "2026-08-01",
-            "limit": MAX_FIELD_NOTE_REVIEW_BATCH,
+            "limit": MAX_ENTRY_REVIEW_BATCH,
         },
     ):
         permission = check_dispatch_permission(None, entry, _review_request(payload))

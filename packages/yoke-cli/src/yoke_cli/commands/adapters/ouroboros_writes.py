@@ -23,7 +23,8 @@ OUROBOROS_ENTRY_INSERT_USAGE = (
 )
 OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
     "yoke ouroboros entry mark-reviewed "
-    "(ENTRY_ID | --field-notes-before YYYY-MM-DD) [--limit N] "
+    "(ENTRY_ID | --before YYYY-MM-DD | --field-notes-before YYYY-MM-DD) "
+    "[--limit N] "
     "[--session-id S] [--json]"
 )
 OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
@@ -107,13 +108,17 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     )
     parser.add_argument("entry_id", nargs="?", type=int)
     parser.add_argument(
+        "--before",
+        help="Review unreviewed entries in any category created before this ISO date.",
+    )
+    parser.add_argument(
         "--field-notes-before",
         help="Review unreviewed field-notes created before this ISO date.",
     )
     parser.add_argument(
         "--limit",
         type=int,
-        help="Maximum field-notes to review in this bounded call.",
+        help="Maximum entries to review in this bounded call.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -124,14 +129,21 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
-    if (parsed.entry_id is None) == (parsed.field_notes_before is None):
-        return usage_error("pass exactly one of ENTRY_ID or --field-notes-before")
+    selectors = (parsed.entry_id, parsed.before, parsed.field_notes_before)
+    if sum(selector is not None for selector in selectors) != 1:
+        return usage_error(
+            "pass exactly one of ENTRY_ID, --before, or --field-notes-before"
+        )
     if parsed.entry_id is not None and parsed.limit is not None:
-        return usage_error("--limit requires --field-notes-before")
+        return usage_error("--limit requires --before or --field-notes-before")
 
     payload: Dict[str, Any] = {}
     if parsed.entry_id is not None:
         payload["entry_id"] = parsed.entry_id
+    elif parsed.before is not None:
+        payload["before"] = parsed.before
+        if parsed.limit is not None:
+            payload["limit"] = parsed.limit
     else:
         payload["field_notes_before"] = parsed.field_notes_before
         if parsed.limit is not None:
