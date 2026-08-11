@@ -10,6 +10,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
+from yoke_core.engines.merge_worktree_cleanliness import (
+    clean_after_disposable_cache_removal,
+)
 
 
 _ITEM_TERMINAL = frozenset({"done", "cancelled"})
@@ -146,7 +149,10 @@ def item_cleanup_authority_blocks_prune(conn: Any, item_id: int) -> bool:
     return _has_active_authority(conn, _Owner("item", int(item_id)), None)
 
 
-def _worktrees(run_git: Callable[..., Any], repo_root: str) -> list[_Worktree] | None:
+def registered_worktrees(
+    run_git: Callable[..., Any], repo_root: str
+) -> list[_Worktree] | None:
+    """Every worktree git has registered, or ``None`` when it cannot say."""
     result = run_git(
         ["worktree", "list", "--porcelain"], cwd=repo_root, capture=True
     )
@@ -167,17 +173,10 @@ def _worktrees(run_git: Callable[..., Any], repo_root: str) -> list[_Worktree] |
     return entries
 
 
-def _is_managed_path(path: Path, repo_root: Path) -> bool:
+def is_managed_worktree_path(path: Path, repo_root: Path) -> bool:
+    """Whether ``path`` sits under a root Yoke creates lanes in."""
     roots = (repo_root / ".worktrees", repo_root / ".claude" / "worktrees")
     return any(path != root and path.is_relative_to(root) for root in roots)
-
-
-def _clean(run_git: Callable[..., Any], worktree: _Worktree) -> bool:
-    from yoke_core.engines.merge_worktree_cleanliness import (
-        clean_after_disposable_cache_removal,
-    )
-
-    return clean_after_disposable_cache_removal(run_git, worktree.path)
 
 
 def _merged(
@@ -263,7 +262,7 @@ def prune_managed_worktrees(
     if fetched.returncode != 0:
         emit(f"Skipping automatic worktree pruning: could not refresh {base}")
         return
-    entries = _worktrees(run_git, repo_root)
+    entries = registered_worktrees(run_git, repo_root)
     if entries is None:
         emit("Skipping automatic worktree pruning: worktree registry unavailable")
         return
@@ -271,7 +270,7 @@ def prune_managed_worktrees(
     state = {"unavailable": False}
     checked_out = {entry.branch for entry in entries}
     for entry in entries:
-        if not _is_managed_path(entry.path, root):
+        if not is_managed_worktree_path(entry.path, root):
             continue
         verdict = _prune_verdict(entry.branch, entry.path, state)
         if state["unavailable"]:
@@ -282,7 +281,7 @@ def prune_managed_worktrees(
             if verdict.get("reason") == "active_authority":
                 emit(f"Preserving actively claimed worktree: {entry.path}")
             continue
-        if not _clean(run_git, entry):
+        if not clean_after_disposable_cache_removal(run_git, entry.path):
             emit(f"Preserving dirty or unverifiable worktree: {entry.path}")
             continue
         if not _merged(run_git, repo_root, entry.branch, base):
@@ -339,6 +338,8 @@ def prune_managed_worktrees(
 
 
 __all__ = [
+    "is_managed_worktree_path",
     "item_cleanup_authority_blocks_prune",
     "prune_managed_worktrees",
+    "registered_worktrees",
 ]

@@ -115,8 +115,12 @@ def route_standalone_landing(
             local_merge=local_merge,
         )
     outcome = land_item_through_merge_queue(
+        # The repository root rides along because the landing has a lane to
+        # retire on this machine once the queue merges it on GitHub.
         MergeContext(
-            args=MergeArgs(branch=branch, target=target), project=project
+            args=MergeArgs(branch=branch, target=target),
+            repo_root=repo_root,
+            project=project,
         ),
         item_id=item_id,
         item_ref=item_ref or branch,

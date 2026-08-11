@@ -40,7 +40,7 @@ def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
     def forbidden(*_a, **_kw):
         raise AssertionError("PR machinery must not run on refusal")
 
-    monkeypatch.setattr(route_mod, "find_branch_pull_request", forbidden)
+    monkeypatch.setattr(route_mod, "find_landable_pull_request", forbidden)
     shapes = {
         "YOK-200": {"claims": [
             {"state": "active", "target_ids": [5]},

@@ -79,7 +79,8 @@ def wire_happy_path(
         verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, None)
     )
     monkeypatch.setattr(
-        route_mod, "find_branch_pull_request", lambda _ctx: ("url", "42")
+        route_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": ("url", "42", ""),
     )
     monkeypatch.setattr(
         route_mod, "enter_merge_queue",

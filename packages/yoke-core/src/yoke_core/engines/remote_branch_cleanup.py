@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 
 RemoteBranchDeleteStatus = Literal["absent", "deleted", "preserved"]
+
+# A merge is visible to the process that made it before the remote advertises
+# it to everyone else, so the first ancestry read can miss a merge that has
+# already happened. One short pause and one re-read close that window; a branch
+# that is still not contained after it is genuinely unmerged.
+ANCESTRY_RECHECK_DELAY_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
@@ -26,11 +33,28 @@ def _preserved(reason: str) -> RemoteBranchDeleteResult:
     return RemoteBranchDeleteResult("preserved", reason)
 
 
+def _refreshed_target_tip(
+    run_git: Callable[[list[str]], Any],
+    *,
+    target_ref: str,
+    remote_target: str,
+) -> str:
+    """Fetch the target branch again and resolve its tip, or ``""``."""
+    fetched = run_git(["fetch", "origin", f"+{target_ref}:{remote_target}"])
+    if fetched.returncode != 0:
+        return ""
+    resolved = run_git(["rev-parse", "--verify", f"{remote_target}^{{commit}}"])
+    if resolved.returncode != 0:
+        return ""
+    return (resolved.stdout or "").strip()
+
+
 def delete_remote_branch_if_merged(
     *,
     run_git: Callable[[list[str]], Any],
     branch: str,
     target_branch: str,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> RemoteBranchDeleteResult:
     """Delete one exact remote branch after refreshed, leased proof.
 
@@ -39,6 +63,10 @@ def delete_remote_branch_if_merged(
     fetched and resolved to the same commit, that commit is retained by a
     freshly fetched target branch, and the remote still advertises the expected
     commit when the leased delete executes.
+
+    An ancestry miss is re-read once after a short pause before it is believed,
+    because a merge pushed moments earlier is not yet advertised to this
+    checkout and losing that race preserves a lane that is already landed.
     """
     if branch == target_branch:
         return _preserved("cleanup branch is the target branch")
@@ -100,6 +128,16 @@ def delete_remote_branch_if_merged(
     ancestry = run_git(
         ["merge-base", "--is-ancestor", resolved_sha, target_sha]
     )
+    if ancestry.returncode != 0:
+        sleep(ANCESTRY_RECHECK_DELAY_SECONDS)
+        target_sha = _refreshed_target_tip(
+            run_git, target_ref=target_ref, remote_target=remote_target
+        )
+        if not target_sha:
+            return _preserved("refreshed target branch could not be resolved")
+        ancestry = run_git(
+            ["merge-base", "--is-ancestor", resolved_sha, target_sha]
+        )
     if ancestry.returncode != 0:
         return _preserved("remote branch is not merged into the target branch")
 

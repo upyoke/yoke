@@ -36,6 +36,21 @@ the merge SHA and the file listing — and records them where the gate looks.
 The done-transition engine must likewise surface, not swallow, a refused
 status write, so a landed item never strands without saying why.
 
+Lane retirement has the same shape. The local engine removes the worktree it
+merged from as its own last step; a queue landing has no such step, so its
+close-out retires the lane explicitly — remote branch first, then the worktree,
+the control-plane row, and the local branch — proving containment against a
+freshly fetched `origin/<target>` rather than against the local target, which
+still lags a merge this checkout never made. Without it every landed member
+leaves a directory and two branches behind.
+
+Convergence is bounded by what merged. Re-entry finds a branch's pull request
+in any state, so a lane that committed again after its pull request merged
+still matches it by name; the landing therefore converges only on a merged
+pull request whose head is the lane head, and opens a fresh one otherwise.
+Converging anyway writes a receipt binding the new head to the old merge
+commit — evidence for work that never reached `main`.
+
 ## Rollback
 
 Disable or delete the `merge-queue-main` ruleset and remove the project's

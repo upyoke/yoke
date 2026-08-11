@@ -20,6 +20,12 @@ need not be the one this checkout holds. So the files come from the pull
 request, which is what GitHub merged. An item whose evidence record carries
 no touched files cannot close out either.
 
+Retiring the lane is part of the same bookkeeping. The local engine removes
+the worktree it merged from as its last step; a queue landing has no such step
+of its own, so it prunes here — and without it every landed member leaves its
+directory, its local branch, and its remote branch behind for an operator to
+sweep by hand.
+
 Nothing here unwinds a landed merge. Each step degrades to a warning, because
 the merge has already happened and refusing the bookkeeping would not undo it.
 """
@@ -36,6 +42,7 @@ from yoke_core.domain.merge_queue_batch_receipt import (
     record_batch_evidence,
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
+from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -97,6 +104,18 @@ def record_landing(
     )
     if receipt_note:
         warnings.append(receipt_note)
+
+    # A context carrying no repository root belongs to a caller with no local
+    # checkout to prune, so there is no lane here to leave behind.
+    if ctx.repo_root:
+        warnings.extend(
+            prune_landed_lane(
+                repo_root=ctx.repo_root,
+                branch=ctx.args.branch,
+                target=ctx.args.target,
+                item_id=item_id,
+            )
+        )
     return QueueCloseOut(
         merge_sha=merge_sha,
         touched_files=touched_files,

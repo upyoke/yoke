@@ -10,6 +10,13 @@ Keeping both here makes the difference explicit at the call site: reaching
 for the open-only read where convergence is needed is what makes a retry
 create a second pull request for a branch with nothing left to merge.
 
+Seeing merged pull requests carries its own hazard, which is why the landing
+read compares heads. A lane that committed again after its pull request
+merged still matches that pull request by branch name, and converging on it
+would bind the new head to the old merge commit — evidence naming work that
+never landed. The listing already carries each row's head, so the comparison
+costs nothing beyond the read the caller was making anyway.
+
 Every read fails soft, returning ``(None, None)``; the caller decides what an
 absent answer means.
 """
@@ -79,25 +86,49 @@ def find_existing_pr(
     return _identify(rows[0]) if rows else (None, None)
 
 
-def find_branch_pull_request(
-    ctx: MergeContext,
-) -> Tuple[Optional[str], Optional[str]]:
-    """The branch's pull request in any state, preferring one still open.
+def _head_sha(row: dict[str, Any]) -> str:
+    """The commit the pull request's head branch pointed at."""
+    head = row.get("head")
+    return str((head or {}).get("sha") or "").strip() if isinstance(head, dict) else ""
+
+
+def find_landable_pull_request(
+    ctx: MergeContext, *, lane_head: str = "",
+) -> Tuple[Optional[str], Optional[str], str]:
+    """The pull request this landing may use, and why it may not use one.
 
     A merged pull request answers here where :func:`find_existing_pr` sees
     nothing, which is what lets a landing re-entered after the queue merged
     converge on that pull request instead of trying to open another. Any
     state means the listing can hold several, so it asks for the most
     recently updated first and falls back to that row.
+
+    Convergence on a merged pull request is allowed only when it covers
+    ``lane_head``: a lane carrying commits beyond what merged has not landed,
+    and the third element names that refusal so the caller opens a fresh
+    landing rather than recording the old merge commit as this head's.
     """
     rows = _list_branch_prs(
         ctx,
         query={"state": "all", "sort": "updated", "direction": "desc"},
     )
     if not rows:
-        return None, None
+        return None, None, ""
     still_open = [row for row in rows if str(row.get("state") or "") == "open"]
-    return _identify((still_open or rows)[0])
+    if still_open:
+        url, number = _identify(still_open[0])
+        return url, number, ""
+    newest = rows[0]
+    merged_head = _head_sha(newest)
+    if lane_head and newest.get("merged_at") and merged_head != lane_head:
+        _, number = _identify(newest)
+        return None, None, (
+            f"pull request {number or '?'} merged head "
+            f"{merged_head[:12] or 'unknown'}, not the lane head "
+            f"{lane_head[:12]}"
+        )
+    url, number = _identify(newest)
+    return url, number, ""
 
 
-__all__ = ["find_branch_pull_request", "find_existing_pr"]
+__all__ = ["find_existing_pr", "find_landable_pull_request"]

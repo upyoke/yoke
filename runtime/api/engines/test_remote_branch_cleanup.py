@@ -101,6 +101,89 @@ def test_ambiguous_remote_advertisement_is_preserved_without_delete():
     assert not any(command[0] == "push" for command in commands)
 
 
+def _cleanup_with(responses, *, slept: list[float] | None = None):
+    """Drive one cleanup through a scripted git; return (result, commands)."""
+    commands: list[list[str]] = []
+    scripted = iter(responses)
+
+    def run_git(command):
+        commands.append(command)
+        return next(scripted)
+
+    result = delete_remote_branch_if_merged(
+        run_git=run_git,
+        branch=TEST_ITEM_REF,
+        target_branch="main",
+        sleep=(slept.append if slept is not None else lambda _s: None),
+    )
+    return result, commands
+
+
+def _up_to_first_ancestry(ancestry_returncode: int):
+    """Every response through the first ancestry read, which can miss."""
+    return [
+        _completed(),
+        _completed(),
+        _completed(stdout=f"branch-sha\trefs/heads/{TEST_ITEM_REF}\n"),
+        _completed(),
+        _completed(),
+        _completed(stdout="branch-sha\n"),
+        _completed(stdout="target-sha\n"),
+        _completed(returncode=ancestry_returncode),
+    ]
+
+
+def test_ancestry_miss_is_rechecked_once_against_a_refreshed_target():
+    """A merge pushed moments ago is not advertised here yet.
+
+    Believing the first read preserves a lane that has already landed, which
+    is the state an operator later sweeps by hand.
+    """
+    slept: list[float] = []
+    result, commands = _cleanup_with(
+        [
+            *_up_to_first_ancestry(1),
+            _completed(),                          # refetch the target
+            _completed(stdout="target-sha-2\n"),   # its newer tip
+            _completed(),                          # ancestry, now containing
+            _completed(),                          # leased delete
+        ],
+        slept=slept,
+    )
+
+    assert result.status == "deleted"
+    assert slept and slept[0] > 0
+    assert commands.count(
+        ["fetch", "origin", "+refs/heads/main:refs/remotes/origin/main"]
+    ) == 2
+    assert ["merge-base", "--is-ancestor", "branch-sha", "target-sha-2"] in commands
+    assert commands[-1][0] == "push"
+
+
+def test_branch_still_unmerged_after_the_recheck_is_preserved():
+    """One retry closes the visibility window; it does not force a delete."""
+    result, commands = _cleanup_with([
+        *_up_to_first_ancestry(1),
+        _completed(),
+        _completed(stdout="target-sha-2\n"),
+        _completed(returncode=1),
+    ])
+
+    assert result.status == "preserved"
+    assert result.reason == "remote branch is not merged into the target branch"
+    assert not any(command[0] == "push" for command in commands)
+
+
+def test_unresolvable_refreshed_target_is_named_rather_than_assumed():
+    result, _commands = _cleanup_with([
+        *_up_to_first_ancestry(1),
+        _completed(returncode=1),
+    ])
+
+    assert result.status == "preserved"
+    assert result.reason == "refreshed target branch could not be resolved"
+
+
 def _git(path: Path, *args: str, check: bool = True):
     return subprocess.run(
         ["git", "-C", str(path), *args],
