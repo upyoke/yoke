@@ -87,7 +87,7 @@ Authoritative source:
 
 | Permission | Access | Only if you… |
 | --- | --- | --- |
-| **Administration** | write | …let Yoke create a repo for you, create a deploy environment, or run a runner fleet |
+| **Administration** | write | …let Yoke create a repo for you, create a deploy environment, apply merge-queue declarations, or run a runner fleet |
 | **Webhooks** (`repository_hooks`) | write | …run your own self-hosted GitHub Actions runner fleet |
 
 A contract test actively enforces that Administration and Webhooks stay out of
@@ -167,15 +167,18 @@ read.
 
 ### Privileged (opt-in)
 
-**Administration: write** — Only when you opt into heavier setup, on three
+**Administration: write** — Only when you opt into heavier setup, on four
 write paths: creating a brand-new repository for you during onboarding (**off
 by default**, gated behind an explicit allow flag; otherwise Yoke blocks with
 manual instructions), creating the deployment **environment** on your
-repository for automated deploys (silently skipped if not granted), and
-standing up a self-hosted runner fleet. If you attach a repository you already
-have, you never need this. Two other Administration touches — reading branch
-protection, reading runner status — are Administration: **read**, and both
-degrade to a warning when Administration is absent.
+repository for automated deploys (silently skipped if not granted), standing
+up a self-hosted runner fleet, and applying the declared merge-queue ruleset
+plus ``allow_auto_merge`` from ``.yoke/merge-queue.json`` via
+``yoke github merge-queue apply`` (fails closed when Administration is
+absent). If you attach a repository you already have and never retune the
+queue from Yoke, you never need this. Two other Administration touches —
+reading branch protection, reading runner status — are Administration:
+**read**, and both degrade to a warning when Administration is absent.
 
 **Webhooks (`repository_hooks`): write** — Only if you run your own GitHub
 Actions runner fleet. Your infrastructure code (Pulumi) creates a repository

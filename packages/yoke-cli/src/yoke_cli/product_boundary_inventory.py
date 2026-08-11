@@ -293,9 +293,7 @@ def _config(command: str, disposition: str) -> str:
 
 
 def _capability(command: str, disposition: str) -> str:
-    if command.startswith("yoke github pr ") or command.startswith(
-        "yoke github-actions "
-    ):
+    if command.startswith(("yoke github pr ", "yoke github merge-queue ", "yoke github-actions ")):
         return "project GitHub App auth"
     if command in _PROJECT_INSTALL:
         return "project install bundle endpoint"

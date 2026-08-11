@@ -135,6 +135,17 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
         notes="Audited post-window repo-variable retirement through bound GitHub App authority.",
     ),
+    AdapterEntry(
+        function_id="github.merge_queue.apply",
+        cli_invocation=(
+            "yoke github merge-queue apply --project P "
+            "[--declaration PATH] [--preview]"
+        ),
+        notes=(
+            "Idempotently apply .yoke/merge-queue.json (ruleset + "
+            "allow_auto_merge); requires Administration: write."
+        ),
+    ),
 )
 
 

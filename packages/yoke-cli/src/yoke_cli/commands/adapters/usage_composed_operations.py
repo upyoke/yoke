@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters.ephemeral_env import EPHEMERAL_ENV_CREATE_USAGE
 from yoke_cli.commands.adapters.projects_infrastructure import (
     PROJECTS_INFRASTRUCTURE_LIST_USAGE,
 )
+from yoke_cli.commands.adapters.github_merge_queue import (
+    GITHUB_MERGE_QUEUE_APPLY_USAGE,
+)
 from yoke_cli.commands.adapters.usage_github_actions import (
     USAGE_BY_FUNCTION_ID as GITHUB_ACTIONS_USAGE_BY_ID,
 )
@@ -21,6 +24,7 @@ from yoke_cli.commands.adapters.usage_github_actions import (
 
 USAGE_BY_FUNCTION_ID = {
     **GITHUB_ACTIONS_USAGE_BY_ID,
+    "github.merge_queue.apply": GITHUB_MERGE_QUEUE_APPLY_USAGE,
     "deployment_flows.reconcile_project": (
         DEPLOYMENT_FLOWS_RECONCILE_PROJECT_USAGE
     ),

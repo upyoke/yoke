@@ -2,7 +2,6 @@
 
 from types import SimpleNamespace
 
-from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.project_github_auth import ProjectGithubAuthError
 from yoke_core.engines import doctor_hc_merge_queue as hc_mod
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -37,20 +36,134 @@ def _auth():
     return SimpleNamespace(token="tok", repo="upyoke/yoke")
 
 
-def _run(monkeypatch, *, conn, rules_body, workflow_text="on:\n  merge_group:\n"):
+def _live_rules(*, grouping="HEADGREEN"):
+    return [
+        {
+            "type": "merge_queue",
+            "parameters": {
+                "merge_method": "MERGE",
+                "grouping_strategy": grouping,
+                "min_entries_to_merge": 1,
+                "min_entries_to_merge_wait_minutes": 5,
+                "max_entries_to_build": 5,
+                "max_entries_to_merge": 5,
+                "check_response_timeout_minutes": 60,
+            },
+            "ruleset_id": 99,
+        },
+        {
+            "type": "required_status_checks",
+            "parameters": {
+                "strict_required_status_checks_policy": False,
+                "do_not_enforce_on_create": False,
+                "required_status_checks": [
+                    {"context": "repo-contracts"},
+                    {"context": "container"},
+                ],
+            },
+            "ruleset_id": 99,
+        },
+    ]
+
+
+def _declared():
+    return {
+        "schema": 1,
+        "ruleset": {
+            "name": "merge-queue-main",
+            "target": "branch",
+            "enforcement": "active",
+            "conditions": {
+                "ref_name": {
+                    "include": ["refs/heads/main"],
+                    "exclude": [],
+                }
+            },
+            "bypass_actors": [
+                {
+                    "actor_id": 5,
+                    "actor_type": "RepositoryRole",
+                    "bypass_mode": "always",
+                }
+            ],
+            "rules": [
+                {
+                    "type": "merge_queue",
+                    "parameters": {
+                        "merge_method": "MERGE",
+                        "grouping_strategy": "HEADGREEN",
+                        "min_entries_to_merge": 1,
+                        "min_entries_to_merge_wait_minutes": 5,
+                        "max_entries_to_build": 5,
+                        "max_entries_to_merge": 5,
+                        "check_response_timeout_minutes": 60,
+                    },
+                },
+                {
+                    "type": "required_status_checks",
+                    "parameters": {
+                        "strict_required_status_checks_policy": False,
+                        "do_not_enforce_on_create": False,
+                        "required_status_checks": [
+                            {"context": "repo-contracts"},
+                            {"context": "container"},
+                        ],
+                    },
+                },
+            ],
+        },
+        "repository": {"allow_auto_merge": True},
+    }
+
+
+def _run(
+    monkeypatch,
+    *,
+    conn,
+    rules_body,
+    declaration=None,
+    allow_auto_merge=True,
+    bypass_actors=None,
+):
     monkeypatch.setattr(
         hc_mod, "resolve_project_github_auth",
         lambda project, db_path=None, required_permissions=None: _auth(),
     )
-
-    def fake_request(req, *, token, **_kw):
-        if "/rules/branches/" in req.path:
-            return RestResponse(status=200, headers={}, body=rules_body)
-        if "/contents/" in req.path:
-            return RestResponse(status=200, headers={}, body=workflow_text)
-        raise AssertionError(f"unexpected path {req.path}")
-
-    monkeypatch.setattr(hc_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(
+        hc_mod, "_workflow_has_merge_group_trigger",
+        lambda conn, token, owner, repo, project_id: (True, "yoke-ci.yml"),
+    )
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "fetch_branch_rules",
+        lambda *a, **k: list(rules_body),
+    )
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "fetch_repository",
+        lambda *a, **k: {"allow_auto_merge": allow_auto_merge},
+    )
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "get_ruleset",
+        lambda *a, **k: {
+            "id": 99,
+            "bypass_actors": bypass_actors if bypass_actors is not None else [
+                {
+                    "actor_id": 5,
+                    "actor_type": "RepositoryRole",
+                    "bypass_mode": "always",
+                }
+            ],
+        },
+    )
+    if declaration is None:
+        monkeypatch.setattr(
+            hc_mod, "_load_checkout_declaration",
+            lambda conn, args: (None, "no declaration at merge-queue.json"),
+        )
+    else:
+        monkeypatch.setattr(
+            hc_mod, "_load_checkout_declaration",
+            lambda conn, args: (declaration, ".yoke/merge-queue.json"),
+        )
     rec = RecordCollector()
     hc_mod.hc_merge_queue_binding(conn, DoctorArgs(project="yoke"), rec)
     return rec.results[-1]
@@ -67,17 +180,10 @@ def test_undeclared_capability_skips(monkeypatch):
 
 
 def test_declared_with_rule_and_trigger_passes(monkeypatch):
-    monkeypatch.setattr(
-        hc_mod, "declared_workflow_for_test", None, raising=False
-    )
-    monkeypatch.setattr(
-        hc_mod, "_workflow_has_merge_group_trigger",
-        lambda conn, token, owner, repo, project_id: (True, "yoke-ci.yml"),
-    )
     result = _run(
         monkeypatch,
         conn=_FakeConn(),
-        rules_body=[{"type": "merge_queue"}],
+        rules_body=_live_rules(),
     )
     assert result.result == "PASS"
     assert "merge_queue rule active" in result.detail
@@ -85,10 +191,6 @@ def test_declared_with_rule_and_trigger_passes(monkeypatch):
 
 
 def test_declared_without_rule_fails(monkeypatch):
-    monkeypatch.setattr(
-        hc_mod, "_workflow_has_merge_group_trigger",
-        lambda conn, token, owner, repo, project_id: (True, "yoke-ci.yml"),
-    )
     result = _run(
         monkeypatch,
         conn=_FakeConn(),
@@ -100,14 +202,26 @@ def test_declared_without_rule_fails(monkeypatch):
 
 def test_missing_trigger_fails(monkeypatch):
     monkeypatch.setattr(
+        hc_mod, "resolve_project_github_auth",
+        lambda project, db_path=None, required_permissions=None: _auth(),
+    )
+    monkeypatch.setattr(
         hc_mod, "_workflow_has_merge_group_trigger",
         lambda conn, token, owner, repo, project_id: (False, "yoke-ci.yml"),
     )
-    result = _run(
-        monkeypatch,
-        conn=_FakeConn(),
-        rules_body=[{"type": "merge_queue"}],
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "fetch_branch_rules",
+        lambda *a, **k: _live_rules(),
     )
+    monkeypatch.setattr(
+        hc_mod, "_load_checkout_declaration",
+        lambda conn, args: (None, "no declaration"),
+    )
+    rec = RecordCollector()
+    hc_mod.hc_merge_queue_binding(
+        _FakeConn(), DoctorArgs(project="yoke"), rec
+    )
+    result = rec.results[-1]
     assert result.result == "FAIL"
     assert "no merge_group trigger" in result.detail
 
@@ -126,3 +240,38 @@ def test_auth_unavailable_skips(monkeypatch):
     result = rec.results[-1]
     assert result.result == "SKIP"
     assert "auth unavailable" in result.detail
+
+
+def test_parameter_drift_fails_when_declaration_present(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(grouping="ALLGREEN"),
+        declaration=_declared(),
+    )
+    assert result.result == "FAIL"
+    assert "merge_queue parameters drifted" in result.detail
+
+
+def test_declaration_match_passes(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(),
+        declaration=_declared(),
+        allow_auto_merge=True,
+    )
+    assert result.result == "PASS"
+    assert "matches .yoke/merge-queue.json" in result.detail
+
+
+def test_allow_auto_merge_drift_fails(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(),
+        declaration=_declared(),
+        allow_auto_merge=False,
+    )
+    assert result.result == "FAIL"
+    assert "allow_auto_merge drifted" in result.detail
