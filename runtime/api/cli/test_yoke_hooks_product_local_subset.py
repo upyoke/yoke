@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 
 from yoke_harness.hooks import local_subset
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.local_policy_common import DENY, PolicyResult
+from yoke_contracts.hook_runner.session_cwd import (
+    CLIENT_SCRATCH_ROOT_KEY,
+    CLIENT_SCRATCH_ROOT_SCHEMA,
+)
 
 
 def _deadline() -> HookDeadline:
@@ -109,3 +114,30 @@ def test_product_local_subset_denies_in_cursor_wire_shape(
     assert envelope["permission"] == "deny"
     assert envelope["agent_message"] == "blocked by local policy"
     assert envelope["user_message"] == "blocked by local policy"
+
+
+def test_relay_subset_reports_effective_client_scratch_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client_root = str(Path.home() / ".yoke" / "tmp")
+    monkeypatch.setattr(local_subset, "_local_modules", lambda *_a, **_k: [])
+    monkeypatch.setenv(
+        local_subset.machine_config.SCRATCH_ROOT_ENV,
+        client_root,
+    )
+
+    result = local_subset.evaluate_local_subset(
+        "PreToolUse",
+        '{"tool_name": "Bash", "tool_input": {"command": "true"}}',
+        "codex",
+        None,
+        _deadline(),
+        defer_main_commit=True,
+    )
+
+    assert result.payload_extra == {
+        CLIENT_SCRATCH_ROOT_KEY: {
+            "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
+            "root": client_root,
+        }
+    }

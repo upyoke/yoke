@@ -9,9 +9,11 @@ the https relay evaluates one chain split across the two sides:
   text and/or the control-plane DB — both available server-side — so it
   runs remotely as-is. The request's ``agent_type`` reaches payload-keyed
   detection (``lint_subagent_background``) via ``RunControls.payload_extra``.
-- **client-evidenced authority**: ``lint_main_commit`` receives client Git
-  facts in ``RunControls.payload_extra`` and then runs server-side so strategy
-  docs and active-worktree authority stay DB-backed.
+- **client-evidenced authority**: policies remain server-side for DB authority
+  while receiving the minimum client-local facts in
+  ``RunControls.payload_extra``. ``lint_main_commit`` receives Git facts;
+  ``lint_session_cwd`` receives the effective scratch root so it can recognize
+  only the calling session's watcher captures on the client filesystem.
 - **local-state** (``LOCAL_STATE_POLICIES``): the policy's verdict requires
   client-local evidence the server does not have. The relay client always
   evaluates its product-owned subset (``yoke_harness.hooks.local_subset``)

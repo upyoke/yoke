@@ -4,7 +4,7 @@ The session-cwd policy's authority is a session's **active work_claims**:
 the session may write under any worktree it holds a claim on, under the
 main control plane (the project repo root excluding ``.worktrees/``),
 or under the free-path allowlist (``/tmp``, ``/var/folders/...``, and
-the live machine scratch root from ``project_scratch_dir``).
+the local or client-evidenced machine scratch root).
 
 This module owns the validator surface; the slim policy glue lives in
 :mod:`lint_session_cwd`. The lint reads claims directly through
@@ -104,6 +104,7 @@ def validate_targets(
     session_id: str,
     targets: Sequence[str],
     fallback_cwd: str = "",
+    watcher_capture_root: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -113,6 +114,8 @@ def validate_targets(
     gets checked. ``fallback_cwd`` may be empty when the caller wants
     the no-target case to allow unconditionally (Edit/Read/Write always
     carry an explicit file_path target).
+    ``watcher_capture_root`` is the client-evidenced root on relayed calls;
+    local evaluation resolves the root directly.
     """
     claims = (
         claimed_worktrees(conn, session_id=session_id) if session_id else []
@@ -170,7 +173,13 @@ def validate_targets(
                     item_status=status,
                 )
             continue
-        if _is_target_authorised(raw, claims=claims, repo_roots=repo_roots):
+        if _is_target_authorised(
+            raw,
+            claims=claims,
+            repo_roots=repo_roots,
+            session_id=session_id,
+            watcher_capture_root=watcher_capture_root,
+        ):
             continue
         return ValidationVerdict(
             allow=False,
@@ -194,8 +203,14 @@ def _is_target_authorised(
     *,
     claims: Sequence[ClaimedWorktree],
     repo_roots: Sequence[str],
+    session_id: str,
+    watcher_capture_root: str,
 ) -> bool:
-    if _is_free_path(target):
+    if _is_free_path(
+        target,
+        session_id=session_id,
+        watcher_capture_root=watcher_capture_root,
+    ):
         return True
     if _is_under_tool_dir(target):
         return True
@@ -216,12 +231,21 @@ def _is_target_authorised(
     return False
 
 
-def _is_free_path(target: str) -> bool:
+def _is_free_path(
+    target: str,
+    *,
+    session_id: str,
+    watcher_capture_root: str,
+) -> bool:
     # FREE_PATH_PREFIXES stays monkeypatchable for tests; watcher-captures
     # under the live machine scratch root are a separate allowlist entry.
     if _path_is_free_path(target, prefixes=FREE_PATH_PREFIXES):
         return True
-    return is_yoke_watcher_capture_path(target)
+    return is_yoke_watcher_capture_path(
+        target,
+        scratch_root=watcher_capture_root or None,
+        session_id=session_id,
+    )
 
 
 def _is_under_tool_dir(target: str) -> bool:
