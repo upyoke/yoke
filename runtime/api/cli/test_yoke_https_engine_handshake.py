@@ -113,6 +113,26 @@ class TestEngineVersionSkewWarning:
         )
         assert capsys.readouterr().err == ""
 
+    def test_source_checkout_behind_origin_warns(self, monkeypatch, capsys):
+        from yoke_cli.transport import source_build_skew as skew
+
+        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
+        monkeypatch.setattr(yoke_handshake, "local_handshake_version", lambda: "")
+        monkeypatch.setattr(
+            skew, "compare_to_server_build",
+            lambda *_a: skew.BuildComparison(skew.EQUAL),
+        )
+        monkeypatch.setattr(
+            skew, "compare_main_to_origin",
+            lambda *_a: skew.OriginComparison(skew.BEHIND, "main", 2),
+        )
+
+        self._relay_with_header(
+            monkeypatch, {yoke_handshake.ENGINE_VERSION_HEADER: "2.0.0"}
+        )
+
+        assert "checkout is 2 commit(s) behind origin/main" in capsys.readouterr().err
+
     def test_error_response_headers_also_feed_the_handshake(
         self, monkeypatch, capsys,
     ):
