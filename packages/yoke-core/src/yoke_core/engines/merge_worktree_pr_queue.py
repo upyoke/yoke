@@ -10,7 +10,10 @@ the named reason instead of silently merging another way.
 
 Membership reads power train-composition admission: queue entries map
 back to items by head branch name, which the merge boundary names after
-the item ref.
+the item ref. The train run read answers what the queue's own
+``merge_group`` gate concluded about the combined head, so a landing can
+record it as covering evidence and name it in a refusal instead of
+asserting a verdict it never read.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS as ACTIONS_READ,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
 )
@@ -51,6 +55,7 @@ query($owner: String!, $name: String!, $branch: String!) {
     mergeQueue(branch: $branch) {
       entries(first: 50) {
         nodes {
+          state
           pullRequest { number headRefName }
         }
       }
@@ -58,6 +63,10 @@ query($owner: String!, $name: String!, $branch: String!) {
   }
 }
 """
+
+# Every branch the queue builds a train on is named under this prefix, and
+# each carries a ``pr-<number>-`` marker naming its members.
+_QUEUE_REF_PREFIX = "gh-readonly-queue/"
 
 
 @dataclass(frozen=True)
@@ -71,10 +80,17 @@ class QueueEntryResult:
 
 @dataclass(frozen=True)
 class QueueMember:
-    """One queued PR, mapped back to its item by head branch name."""
+    """One queued PR, mapped back to its item by head branch name.
+
+    ``state`` is the queue's own word for what the entry is doing —
+    ``AWAITING_CHECKS`` while the train validates, ``MERGEABLE`` once it
+    passes — and is the fact that distinguishes a PR the queue is still
+    driving from one it has dropped.
+    """
 
     pr_num: str
     head_ref: str
+    state: str = ""
 
 
 def resolve_auth_detail(
@@ -243,15 +259,90 @@ def read_queue_members(
         head = str(pr.get("headRefName") or "")
         if number is None or not head:
             continue
-        members.append(QueueMember(pr_num=str(number), head_ref=head))
+        members.append(QueueMember(
+            pr_num=str(number),
+            head_ref=head,
+            state=str((node or {}).get("state") or ""),
+        ))
     return members, None
+
+
+@dataclass(frozen=True)
+class TrainRun:
+    """The ``merge_group`` workflow run validating one train's combined head."""
+
+    status: str = ""
+    conclusion: str = ""
+    head_sha: str = ""
+    url: str = ""
+    matched_by_marker: bool = False
+
+
+def read_train_run(
+    ctx: MergeContext, pr_num: str
+) -> tuple[Optional[TrainRun], Optional[str]]:
+    """The merge_group run covering ``pr_num``'s train.
+
+    Matched by the queue ref's ``pr-<number>-`` marker. A train that has
+    already rotated out of the recent-run window falls back to the newest
+    successful merge_group run, reported as ``matched_by_marker=False`` so a
+    caller can say the identity was inferred. Returns ``(None, reason)`` when
+    the run cannot be read at all; no caller blocks on that.
+    """
+    auth, auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
+    if auth_err or auth is None:
+        return None, f"merge_group run lookup unavailable: {auth_err}"
+    owner, repo = split_repo(auth.repo)
+    try:
+        response = request_with_retry(
+            RestRequest(
+                method="GET",
+                path=f"/repos/{owner}/{repo}/actions/runs",
+                query={"event": "merge_group", "per_page": "30"},
+            ),
+            token=auth.token,
+        )
+    except RestTransportError as exc:
+        return None, f"merge_group run lookup failed: {exc}"
+    body = response.body if isinstance(response.body, dict) else {}
+    marker = f"pr-{pr_num}-"
+    matched: Optional[dict[str, Any]] = None
+    newest_success: Optional[dict[str, Any]] = None
+    for run in body.get("workflow_runs") or []:
+        if not isinstance(run, dict):
+            continue
+        head_branch = str(run.get("head_branch") or "")
+        if not head_branch.startswith(_QUEUE_REF_PREFIX):
+            continue
+        if marker in head_branch:
+            matched = run
+            break
+        if newest_success is None and run.get("conclusion") == "success":
+            newest_success = run
+    chosen = matched or newest_success
+    if chosen is None:
+        return None, "no merge_group workflow run found for the landed train"
+    return (
+        TrainRun(
+            status=str(chosen.get("status") or ""),
+            conclusion=str(chosen.get("conclusion") or ""),
+            head_sha=str(chosen.get("head_sha") or ""),
+            url=str(chosen.get("html_url") or ""),
+            matched_by_marker=matched is not None,
+        ),
+        None if matched is not None else (
+            "merge_group run matched by recency, not by queue ref marker"
+        ),
+    )
 
 
 __all__ = [
     "PrLandingState",
     "QueueEntryResult",
     "QueueMember",
+    "TrainRun",
     "enter_merge_queue",
     "read_pr_landing_state",
     "read_queue_members",
+    "read_train_run",
 ]
