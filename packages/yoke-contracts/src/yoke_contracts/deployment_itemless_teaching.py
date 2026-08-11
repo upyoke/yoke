@@ -23,6 +23,11 @@ Itemless environment release (project-generic):
     --project-repo-path /path/to/checkout \\
     --source-ref origin/main)
   yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RUN_ID"
+
+Retry a failed or cancelled run without following a moving branch:
+  RETRY_ID=$(yoke --env CONTROL-PLANE-db-admin deployment-runs create \
+    PROJECT FLOW --target-env "$TARGET_ENV" --retry-of FAILED_RUN_ID)
+  yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RETRY_ID"
 """
 
 RESOLVE_TARGET_ENV_DESCRIPTION = (
@@ -35,8 +40,8 @@ RESOLVE_TARGET_ENV_DESCRIPTION = (
 CREATE_DESCRIPTION = (
     "Create a zero-member environment deployment run. Item-bound "
     "delivery uses `yoke usher` / runs start-for-item instead. "
-    "Requires an owner-only local-postgres connection (`*-db-admin` or "
-    "`local`), not the HTTPS product plane — run records must stay "
+    "Requires the configured same-universe owner-only local-postgres "
+    "connection, not the HTTPS product plane — run records must stay "
     "writable when that plane is the deploy target. Creation does not "
     "execute: the run stays 'created' until an operator drives it through "
     "the same owning control-plane db-admin connection with "

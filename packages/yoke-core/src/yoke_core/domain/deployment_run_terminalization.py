@@ -8,7 +8,7 @@ it and why.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
@@ -33,7 +33,7 @@ class RunTerminalization:
     final_status: str
     reason: str
     terminalized_at: str
-    terminalized_by_actor_id: int
+    terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
 
@@ -52,7 +52,7 @@ def _append_event(
     final_status: str,
     current_stage: str,
     reason: str,
-    actor_id: int,
+    actor_id: Optional[int],
     session_id: str,
     terminalized_at: str,
 ) -> str:
@@ -65,7 +65,7 @@ def _append_event(
         severity="STATUS",
         outcome="completed",
         project=project,
-        agent=str(actor_id),
+        agent=str(actor_id) if actor_id is not None else session_id,
         context={
             "run_id": run_id,
             "prior_status": prior_status,
@@ -92,7 +92,7 @@ def terminalize_run(
     *,
     disposition: str,
     reason: str,
-    actor_id: int,
+    actor_id: Optional[int],
     session_id: str,
 ) -> RunTerminalization:
     """Close one active run and append its audit event atomically."""
