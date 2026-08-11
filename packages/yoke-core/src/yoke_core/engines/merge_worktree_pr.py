@@ -11,7 +11,6 @@ from yoke_core.engines.merge_worktree_pr_merge import (
 )
 from yoke_core.engines.merge_worktree_pr_setup import (
     _current_origin_target_sha,
-    _ensure_target_pushed,
 )
 from yoke_core.engines.merge_worktree_ci import (
     _classify_test_results,
