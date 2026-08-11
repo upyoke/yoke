@@ -2,28 +2,35 @@
 
 Split from :mod:`yoke_core.domain.yoke_function_permissions` (which owns the
 scope routing) to keep each module under the authored-file line cap. These
-helpers turn a request's payload/target hints into the concrete project or org
-the permission check runs against. There is NO fallback: a project-scoped op
-that cannot name its target resolves to ``None`` and is denied upstream (never
-silently aimed at the yoke project).
+helpers turn a request's payload/target hints — and, when those are absent,
+the target row's own project — into the concrete project or org the
+permission check runs against. A project-scoped op that still cannot name
+its target resolves to ``None`` and is denied upstream (never silently
+aimed at the yoke project).
 """
 
 from __future__ import annotations
 
 from typing import Any, Collection
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.function_org_context_resolution import resolve_org_context
+from yoke_core.domain.function_target_row_project import (
+    resolve_authorized_project_id,
+    resolve_deployment_run_project,
+    resolve_ephemeral_env_project,
+    resolve_item_project,
+    resolve_ouroboros_entry_project,
+    resolve_path_claim_project,
+    resolve_qa_requirement_project,
+    resolve_work_claim_project,
+    slug_for_project_id,
+)
 from yoke_core.domain.project_identity import (
     AmbiguousProjectRefError,
     resolve_project_id,
 )
 from yoke_contracts.api.function_call import FunctionCallRequest
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def resolve_project_context(
@@ -35,7 +42,11 @@ def resolve_project_context(
 ) -> tuple[int, str] | None:
     """Resolve the real target project for a PROJECT-scoped op (or None)."""
     if entry.function_id == "ephemeral_env.update":
-        return _resolve_ephemeral_env_project_context(conn, request)
+        try:
+            env_id = int(request.payload.get("env_id"))
+        except (TypeError, ValueError):
+            return None
+        return resolve_ephemeral_env_project(conn, env_id)
     if entry.function_id.startswith("github_actions."):
         return _resolve_github_actions_project_context(
             conn,
@@ -49,13 +60,20 @@ def resolve_project_context(
             visible_project_ids=visible_project_ids,
         )
     if request.target.claim_id is not None:
-        claim_context = _resolve_work_claim_project_context(
+        claim_context = resolve_work_claim_project(
             conn,
             int(request.target.claim_id),
             visible_project_ids=visible_project_ids,
         )
         if claim_context is not None:
             return claim_context
+    if request.target.path_claim_id is not None:
+        path_claim_context = resolve_path_claim_project(
+            conn,
+            int(request.target.path_claim_id),
+        )
+        if path_claim_context is not None:
+            return path_claim_context
     process_context = _resolve_process_target_project_context(
         conn,
         request,
@@ -65,7 +83,7 @@ def resolve_project_context(
         return process_context
     target = request.target
     if target.deployment_run_id is not None:
-        deployment_project = _resolve_deployment_run_project_context(
+        deployment_project = resolve_deployment_run_project(
             conn,
             str(target.deployment_run_id),
         )
@@ -73,7 +91,7 @@ def resolve_project_context(
             return None
         if target.project_id:
             try:
-                hinted_project_id = _resolve_authorized_project_id(
+                hinted_project_id = resolve_authorized_project_id(
                     conn,
                     str(target.project_id),
                     visible_project_ids,
@@ -90,7 +108,7 @@ def resolve_project_context(
     )
     if explicit:
         try:
-            project_id = _resolve_authorized_project_id(
+            project_id = resolve_authorized_project_id(
                 conn,
                 str(explicit),
                 visible_project_ids,
@@ -99,81 +117,31 @@ def resolve_project_context(
             raise
         except LookupError:
             return None
-        return project_id, _slug_for_project_id(conn, project_id)
+        return project_id, slug_for_project_id(conn, project_id)
     item_id = target.item_id or target.epic_id
     if item_id is not None:
-        p = _p(conn)
-        row = conn.execute(
-            "SELECT p.id, p.slug "
-            "FROM items i "
-            "JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id = {p}",
-            (int(item_id),),
-        ).fetchone()
-        if row is not None:
-            return int(row[0]), str(row[1])
+        item_project = resolve_item_project(conn, int(item_id))
+        if item_project is not None:
+            return item_project
     if target.qa_requirement_id is not None:
-        qa_project = _resolve_qa_requirement_project_context(
+        qa_project = resolve_qa_requirement_project(
             conn,
             int(target.qa_requirement_id),
         )
         if qa_project is not None:
             return qa_project
-    # No project hint resolved. Authority is the actor's identity, not a default
-    # project — a project-scoped op that cannot name its target is denied
-    # upstream (no "fall back to yoke" guess).
+    entry_id = request.payload.get("entry_id")
+    if entry_id is not None:
+        try:
+            entry_project = resolve_ouroboros_entry_project(conn, int(entry_id))
+        except (TypeError, ValueError):
+            entry_project = None
+        if entry_project is not None:
+            return entry_project
+    # No project hint or target-row project resolved. Authority is the actor's
+    # identity, not a default project — a project-scoped op that cannot name
+    # its target is denied upstream (no "fall back to yoke" guess).
     return None
-
-
-def _resolve_work_claim_project_context(
-    conn: Any,
-    claim_id: int,
-    *,
-    visible_project_ids: Collection[int] | None = None,
-) -> tuple[int, str] | None:
-    """Resolve project authority from a server-held work-claim row.
-
-    Exact claim release requests intentionally carry only ``work_claims.id``;
-    the client must not pre-read tenant state just to manufacture an authz
-    hint. Item and epic-task claims resolve through their owning item. Process
-    claims encode their registered per-project conflict group as
-    ``<group>:<project>``.
-    """
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT target_kind, item_id, epic_id, conflict_group "
-        f"FROM work_claims WHERE id = {p}",
-        (claim_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    target_kind = str(row[0])
-    if target_kind in {"item", "epic_task"}:
-        item_id = row[1] if target_kind == "item" else row[2]
-        project_row = conn.execute(
-            "SELECT p.id, p.slug FROM items i "
-            "JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id = {p}",
-            (int(item_id),),
-        ).fetchone()
-        if project_row is None:
-            return None
-        return int(project_row[0]), str(project_row[1])
-    if target_kind != "process":
-        return None
-    conflict_group = str(row[3] or "")
-    _, separator, project_ref = conflict_group.rpartition(":")
-    if not separator or not project_ref:
-        return None
-    try:
-        project_id = _resolve_authorized_project_id(
-            conn,
-            project_ref,
-            visible_project_ids,
-        )
-    except (AmbiguousProjectRefError, LookupError):
-        return None
-    return project_id, _slug_for_project_id(conn, project_id)
 
 
 # Functions whose target project lives in payload ``slug``, ``project``, or
@@ -220,7 +188,7 @@ def _resolve_github_actions_project_context(
     if not payload_ref:
         return None
     try:
-        project_id = _resolve_authorized_project_id(
+        project_id = resolve_authorized_project_id(
             conn,
             payload_ref,
             visible_project_ids,
@@ -232,7 +200,7 @@ def _resolve_github_actions_project_context(
         raise
     except LookupError:
         return None
-    return project_id, _slug_for_project_id(conn, project_id)
+    return project_id, slug_for_project_id(conn, project_id)
 
 
 def _resolve_process_target_project_context(
@@ -259,7 +227,7 @@ def _resolve_process_target_project_context(
     if not ref:
         return None
     try:
-        project_id = _resolve_authorized_project_id(
+        project_id = resolve_authorized_project_id(
             conn,
             str(ref),
             visible_project_ids,
@@ -268,7 +236,7 @@ def _resolve_process_target_project_context(
         raise
     except LookupError:
         return None
-    return project_id, _slug_for_project_id(conn, project_id)
+    return project_id, slug_for_project_id(conn, project_id)
 
 
 def _resolve_named_project_context(
@@ -292,7 +260,7 @@ def _resolve_named_project_context(
     if not ref:
         return None
     try:
-        project_id = _resolve_authorized_project_id(
+        project_id = resolve_authorized_project_id(
             conn,
             str(ref),
             visible_project_ids,
@@ -304,99 +272,7 @@ def _resolve_named_project_context(
         raise
     except LookupError:
         return None
-    return project_id, _slug_for_project_id(conn, project_id)
-
-
-def _resolve_authorized_project_id(
-    conn: Any,
-    ref: str,
-    visible_project_ids: Collection[int] | None,
-) -> int:
-    if visible_project_ids is None or str(ref).isdigit():
-        return resolve_project_id(conn, ref)
-    try:
-        return resolve_project_id(
-            conn,
-            ref,
-            visible_project_ids=visible_project_ids,
-        )
-    except AmbiguousProjectRefError:
-        raise
-    except LookupError:
-        return resolve_project_id(conn, ref)
-
-
-def _resolve_qa_requirement_project_context(
-    conn: Any,
-    qa_requirement_id: int,
-) -> tuple[int, str] | None:
-    p = _p(conn)
-    try:
-        row = conn.execute(
-            "SELECT p.id, p.slug "
-            "FROM qa_requirements q "
-            "LEFT JOIN items i ON i.id = COALESCE(q.item_id, q.epic_id) "
-            "LEFT JOIN deployment_runs dr ON dr.id = q.deployment_run_id "
-            "JOIN projects p ON p.id = COALESCE(i.project_id, dr.project_id) "
-            f"WHERE q.id = {p}",
-            (qa_requirement_id,),
-        ).fetchone()
-    except db_backend.database_error_types():
-        return None
-    if row is None:
-        return None
-    return int(row[0]), str(row[1])
-
-
-def _resolve_deployment_run_project_context(
-    conn: Any,
-    deployment_run_id: str,
-) -> tuple[int, str] | None:
-    p = _p(conn)
-    try:
-        row = conn.execute(
-            "SELECT p.id, p.slug FROM deployment_runs dr "
-            "JOIN projects p ON p.id = dr.project_id "
-            f"WHERE dr.id = {p}",
-            (deployment_run_id,),
-        ).fetchone()
-    except db_backend.database_error_types():
-        return None
-    if row is None:
-        return None
-    return int(row[0]), str(row[1])
-
-
-def _resolve_ephemeral_env_project_context(
-    conn: Any,
-    request: FunctionCallRequest,
-) -> tuple[int, str] | None:
-    try:
-        env_id = int(request.payload.get("env_id"))
-    except (TypeError, ValueError):
-        return None
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT p.id, p.slug "
-        "FROM ephemeral_environments ee "
-        "JOIN projects p ON p.id = ee.project_id "
-        f"WHERE ee.id = {p}",
-        (env_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    return int(row[0]), str(row[1])
-
-
-def _slug_for_project_id(conn: Any, project_id: int) -> str:
-    p = _p(conn)
-    row = conn.execute(
-        f"SELECT slug FROM projects WHERE id = {p}",
-        (project_id,),
-    ).fetchone()
-    if row is None:
-        return str(project_id)
-    return str(row[0])
+    return project_id, slug_for_project_id(conn, project_id)
 
 
 __all__ = [

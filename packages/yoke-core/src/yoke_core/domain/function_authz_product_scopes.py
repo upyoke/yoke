@@ -33,7 +33,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
     "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
-    # Promotion materializes a Dash in payload.project.
+    # Promotion materializes a Dash in the note's project (payload.project overrides).
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Merge / done-transition engine-internal writes. Each mutates one
     # project's tenant data (path snapshot, item deployed_to/merged_at,
