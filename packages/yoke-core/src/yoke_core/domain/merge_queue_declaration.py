@@ -12,8 +12,10 @@ import json
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
-DECLARATION_RELATIVE_PATH = ".yoke/merge-queue.json"
-DECLARATION_SCHEMA = 1
+from yoke_contracts.project_contract.merge_queue import (
+    DECLARATION_RELATIVE_PATH,
+    DECLARATION_SCHEMA,
+)
 
 _RULESET_BODY_KEYS = (
     "name",
@@ -46,30 +48,39 @@ def load_declaration(path: Path) -> dict[str, Any]:
         raise MergeQueueDeclarationError(
             f"invalid JSON in {path}: {exc}"
         ) from exc
+    return validate_declaration(payload, source=str(path))
+
+
+def validate_declaration(
+    payload: Any,
+    *,
+    source: str = "merge-queue declaration",
+) -> dict[str, Any]:
+    """Validate declaration content already transported by a caller."""
     if not isinstance(payload, dict):
-        raise MergeQueueDeclarationError(f"{path} must be a JSON object")
+        raise MergeQueueDeclarationError(f"{source} must be a JSON object")
     schema = payload.get("schema")
     if schema != DECLARATION_SCHEMA:
         raise MergeQueueDeclarationError(
-            f"{path} schema must be {DECLARATION_SCHEMA}, got {schema!r}"
+            f"{source} schema must be {DECLARATION_SCHEMA}, got {schema!r}"
         )
     ruleset = payload.get("ruleset")
     if not isinstance(ruleset, dict) or not ruleset.get("name"):
-        raise MergeQueueDeclarationError(f"{path} requires ruleset.name")
+        raise MergeQueueDeclarationError(f"{source} requires ruleset.name")
     if not isinstance(ruleset.get("rules"), list) or not ruleset["rules"]:
         raise MergeQueueDeclarationError(
-            f"{path} requires a non-empty ruleset.rules list"
+            f"{source} requires a non-empty ruleset.rules list"
         )
     repository = payload.get("repository")
     if not isinstance(repository, dict):
         raise MergeQueueDeclarationError(
-            f"{path} requires a repository object"
+            f"{source} requires a repository object"
         )
     if "allow_auto_merge" not in repository:
         raise MergeQueueDeclarationError(
-            f"{path} requires repository.allow_auto_merge"
+            f"{source} requires repository.allow_auto_merge"
         )
-    return payload
+    return dict(payload)
 
 
 def _rule_by_type(
@@ -214,4 +225,5 @@ __all__ = [
     "diff_declared_against_live",
     "load_declaration",
     "ruleset_apply_body",
+    "validate_declaration",
 ]

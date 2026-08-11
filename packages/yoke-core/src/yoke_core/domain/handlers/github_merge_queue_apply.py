@@ -1,9 +1,10 @@
 """Handler for ``github.merge_queue.apply`` — converge declared merge-queue config.
 
-Reads ``.yoke/merge-queue.json`` (or an explicit path) and idempotently
-PUTs the ruleset plus ``allow_auto_merge`` onto the project's bound
-GitHub repository. Requires Administration: write on the App (privileged
-opt-in), matching environment create.
+Accepts transported declaration content, or reads the project checkout for
+an in-process caller that omitted it, and idempotently PUTs the ruleset plus
+``allow_auto_merge`` onto the project's bound GitHub repository. Requires
+Administration: write on the App (privileged opt-in), matching environment
+create.
 """
 
 from __future__ import annotations
@@ -34,11 +35,11 @@ class MergeQueueApplyRequest(BaseModel):
         min_length=1,
         description="Project owning the GitHub repo binding.",
     )
-    declaration_path: Optional[str] = Field(
+    declaration: Optional[Dict[str, Any]] = Field(
         None,
         description=(
-            "Optional absolute/relative path to the declared JSON. "
-            "Defaults to <checkout>/.yoke/merge-queue.json."
+            "Parsed declaration content transported by the client. "
+            "In-process callers may omit it to use the project checkout."
         ),
     )
     preview: bool = Field(
@@ -93,6 +94,7 @@ def handle_merge_queue_apply(request: FunctionCallRequest) -> HandlerOutcome:
         DECLARATION_RELATIVE_PATH,
         MergeQueueDeclarationError,
         load_declaration,
+        validate_declaration,
     )
     from yoke_core.domain.merge_queue_declaration_apply import (
         apply_declaration,
@@ -101,21 +103,26 @@ def handle_merge_queue_apply(request: FunctionCallRequest) -> HandlerOutcome:
         checkout_for_project_slug,
     )
 
-    if payload.declaration_path:
-        path = Path(payload.declaration_path)
+    if payload.declaration is not None:
+        try:
+            declared = validate_declaration(
+                payload.declaration,
+                source="merge-queue declaration payload",
+            )
+        except MergeQueueDeclarationError as exc:
+            return _bad_request(str(exc))
     else:
         checkout = checkout_for_project_slug(payload.project)
         if checkout is None:
             return _bad_request(
                 f"no local checkout mapped for project {payload.project!r}; "
-                f"pass --declaration or register the checkout"
+                "transport declaration content or register the checkout"
             )
         path = Path(checkout) / DECLARATION_RELATIVE_PATH
-
-    try:
-        declared = load_declaration(path)
-    except MergeQueueDeclarationError as exc:
-        return _bad_request(str(exc))
+        try:
+            declared = load_declaration(path)
+        except MergeQueueDeclarationError as exc:
+            return _bad_request(str(exc))
 
     owner, repo = gh_rest_transport.split_repo(resolved.repo)
     try:
