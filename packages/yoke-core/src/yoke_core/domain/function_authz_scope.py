@@ -148,6 +148,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "github.merge_queue.apply": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "github.release.create_next_tag": AuthzSpec(
         PROJECT,
         PERM_GITHUB_RELEASE_CREATE,

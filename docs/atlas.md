@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-10T13:34:48Z_
+_Audit generated_at: 2026-08-11T13:10:12Z_
 
 ## 1. Summary
 
-- Function ids registered: **378**
+- Function ids registered: **379**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **301** (301 carry usable `--help`)
-- Operation tracker: **279 wrapped**, 5 tool_cli, 114 permanent, 0 pending
+- `yoke` CLI subcommands: **302** (302 carry usable `--help`)
+- Operation tracker: **280 wrapped**, 5 tool_cli, 114 permanent, 0 pending
 - Skill-body recipes: 274 total (213 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **279** (operation tracker confirms 279 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **280** (operation tracker confirms 280 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -79,6 +79,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **279** (operation track
 | events | `yoke events query` | `events.query.run` | ok |
 | events | `yoke events tail` | `events.tail.run` | ok |
 | frontier | `yoke frontier list` | `frontier.list` | ok |
+| github | `yoke github merge-queue apply` | `github.merge_queue.apply` | ok |
 | github | `yoke github pr create` | `github.pr.create` | ok |
 | github | `yoke github release create-next-tag` | `github.release.create_next_tag` | ok |
 | github_actions | `yoke github-actions check-ci` | `github_actions.check_ci` | ok |
@@ -464,10 +465,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 28 |
+| claude-code | 32 |
 | codex | 15 |
-| cursor | 5 |
-| agent | 2 |
+| cursor | 3 |
 
 ## 8. Contradictions
 

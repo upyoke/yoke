@@ -24,6 +24,7 @@ from yoke_cli.commands.registry_github_actions import (
     GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY,
     GITHUB_ACTIONS_SUBCOMMAND_REGISTRY,
 )
+from yoke_cli.commands.registry_github import GITHUB_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
@@ -189,11 +190,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "strategy.seed_defaults.run",
         _adapters.strategy_seed_defaults,
     ),
-    ("github", "pr", "create"): ("github.pr.create", _adapters.github_pr_create),
-    ("github", "release", "create-next-tag"): (
-        "github.release.create_next_tag",
-        _adapters.github_release_create_next_tag,
-    ),
     ("scratch", "dispatch-inputs"): (
         "scratch.dispatch_inputs",
         _adapters.scratch_dispatch_inputs,
@@ -232,6 +228,7 @@ SUBCOMMAND_REGISTRY.update(DB_CLAIM_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(GITHUB_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(WORKFLOW_SUBCOMMAND_REGISTRY)

@@ -2,18 +2,25 @@
 
 ## Decision
 
-Yoke item branches land on `main` through the GitHub merge queue. A branch
-ruleset on `main` carries two rules: `merge_queue` (merge method MERGE,
-ALLGREEN grouping, 5-minute batching window, trains capped at 5 entries) and
-`required_status_checks` naming every yoke-ci check (`repo-contracts`,
-`container`, and the eight `test-shard` matrix checks). The same required
-checks gate both queue entry (each PR's own CI is its entry ticket) and the
-train (`merge_group` runs one combined-head CI per batch).
+Yoke item branches land on `main` through the GitHub merge queue. The
+desired ruleset and repository settings live in
+[`.yoke/merge-queue.json`](../../../.yoke/merge-queue.json) — that file is
+the operator-edited source of truth. Apply it with
+`yoke github merge-queue apply --project yoke` (Administration: write on
+the App). Doctor `HC-merge-queue-binding` diffs the live ruleset parameters
+and `allow_auto_merge` against the declaration so grouping flips, dropped
+required checks, widened bypass, or a disabled auto-merge turn red.
 
-Repository admins carry an always-bypass so operator pushes to `main`
-(done-transition bookkeeping commits, break-glass fixes) and the pre-queue
-merge engine keep working; the bypass is an operator escape hatch, not an
-agent merge path.
+The declared ruleset carries a `merge_queue` rule (merge method MERGE,
+HEADGREEN grouping, 5-minute batching window, trains capped at 5 entries,
+60-minute check timeout) and `required_status_checks` naming every yoke-ci
+check that gates both queue entry and the train (`repo-contracts`,
+`container`, and the eight `test-shard` matrix checks). Repository admins
+carry an always-bypass so operator pushes to `main` and break-glass fixes
+keep working; the bypass is an operator escape hatch, not an agent merge
+path. Classic branch protection still requires `signature-check` (CLA);
+that surface stays under `HC-branch-protection-required-check`, not the
+merge-queue declaration.
 
 ## Why
 
@@ -23,6 +30,11 @@ of them wasted re-proving trees that a neighbor's merge had already
 invalidated. A queue amortizes that: every branch proves itself once on its
 own tree, and one `merge_group` run proves the combined result for the whole
 train, with GitHub ejecting only the culprit on a red train.
+
+Hand-applied GitHub switches drifted within an hour of the first activation
+record (ALLGREEN → HEADGREEN). Encoding the shape in-repo closes that gap:
+retune by editing the declaration and re-applying; drift without a re-apply
+fails the doctor.
 
 ## Coupled fixes
 
@@ -42,3 +54,5 @@ Disable or delete the `merge-queue-main` ruleset and remove the project's
 `merge_queue` capability declaration; route selection then returns to the
 standalone merge engine. Do neither halfway: a declared capability with no
 active `merge_queue` branch rule refuses to merge rather than falling back.
+Clear the declaration file only after the live ruleset is gone, or doctor
+will report parameter drift against a missing live rule.

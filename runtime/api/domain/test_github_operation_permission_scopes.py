@@ -45,6 +45,12 @@ _PRIVILEGED_SCOPE_ALLOWLIST = frozenset({
         "RUNNERS_STATUS_PERMISSION_LEVELS",
     ),
     (
+        "packages/yoke-core/src/yoke_core/domain/handlers/"
+        "github_merge_queue_apply.py",
+        "handle_merge_queue_apply",
+        "GITHUB_ADMINISTRATION_WRITE_PERMISSION_LEVELS",
+    ),
+    (
         "packages/yoke-core/src/yoke_core/engines/"
         "doctor_hc_branch_protection.py",
         "hc_branch_protection_required_check",
