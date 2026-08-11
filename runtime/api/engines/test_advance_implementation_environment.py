@@ -42,7 +42,8 @@ def test_env_phase_provisions_capable_project_chain(monkeypatch, tmp_path):
 
     with (
         mock.patch(
-            "yoke_core.domain.projects_crud.cmd_has_capability",
+            "yoke_core.engines.advance_implementation_environment."
+            "_has_ephemeral_capability",
             return_value=True,
         ),
         mock.patch.object(
@@ -107,7 +108,8 @@ def test_env_phase_policy_invalid_for_malformed_capability(tmp_path):
 
     with (
         mock.patch(
-            "yoke_core.domain.projects_crud.cmd_has_capability",
+            "yoke_core.engines.advance_implementation_environment."
+            "_has_ephemeral_capability",
             return_value=True,
         ),
         mock.patch.object(env_mod, "load_ephemeral_policy", _raise),
@@ -128,7 +130,8 @@ def test_env_phase_skipped_for_flow_triggered_project(tmp_path):
     pushes: List[Any] = []
     with (
         mock.patch(
-            "yoke_core.domain.projects_crud.cmd_has_capability",
+            "yoke_core.engines.advance_implementation_environment."
+            "_has_ephemeral_capability",
             return_value=True,
         ),
         mock.patch.object(
@@ -158,7 +161,8 @@ def test_env_phase_push_failure_short_circuits_before_env_row(tmp_path):
     create_calls: List[Any] = []
     with (
         mock.patch(
-            "yoke_core.domain.projects_crud.cmd_has_capability",
+            "yoke_core.engines.advance_implementation_environment."
+            "_has_ephemeral_capability",
             return_value=True,
         ),
         mock.patch.object(
@@ -189,7 +193,8 @@ def test_env_phase_push_failure_short_circuits_before_env_row(tmp_path):
 
 def test_env_phase_skipped_for_no_capability_project():
     with mock.patch(
-        "yoke_core.domain.projects_crud.cmd_has_capability",
+        "yoke_core.engines.advance_implementation_environment."
+        "_has_ephemeral_capability",
         return_value=False,
     ):
         outcome, ctx = env_mod.run(
@@ -204,7 +209,8 @@ def test_env_phase_skipped_for_no_capability_project():
 
 def test_env_phase_skipped_for_no_project():
     with mock.patch(
-        "yoke_core.domain.projects_crud.cmd_has_capability",
+        "yoke_core.engines.advance_implementation_environment."
+        "_has_ephemeral_capability",
         return_value=True,
     ) as cap_check:
         outcome, _ctx = env_mod.run(
@@ -215,3 +221,57 @@ def test_env_phase_skipped_for_no_project():
         )
     assert outcome == "skipped:no-project"
     cap_check.assert_not_called()
+
+
+def test_env_phase_https_no_capability_never_opens_local_connection(monkeypatch):
+    from yoke_cli.transport import dispatcher as dispatcher_mod
+    from yoke_cli.transport import https as https_mod
+    from yoke_cli.transport.https import HttpsConnection
+    from yoke_contracts.api.function_call import FunctionCallResponse
+
+    connection = HttpsConnection(
+        api_url="https://api.example", token="token", env="prod",
+    )
+    requests = []
+    monkeypatch.setattr(
+        https_mod, "resolve_https_connection", lambda: connection,
+    )
+
+    def relay(request, resolved_connection, **_kwargs):
+        requests.append((request, resolved_connection))
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version="v1",
+            request_id=request.request_id,
+            result={
+                "project": "yoke",
+                "cap_type": "ephemeral-env",
+                "has": False,
+            },
+        )
+
+    def forbid_local_dispatch(*_args, **_kwargs):
+        raise AssertionError("environment phase opened a local connection")
+
+    monkeypatch.setattr(https_mod, "relay_https", relay)
+    monkeypatch.setattr(
+        dispatcher_mod, "_call_local", forbid_local_dispatch,
+    )
+
+    outcome, ctx = env_mod.run(
+        item={"id": 42, "project": "yoke"},
+        branch="YOK-42",
+        session_id="s1",
+        repo_root="/tmp",
+    )
+
+    assert outcome == "skipped:no-capability"
+    assert ctx == {"project": "yoke"}
+    assert len(requests) == 1
+    request, resolved_connection = requests[0]
+    assert request.function == "projects.capability.has"
+    assert request.payload == {
+        "project": "yoke", "cap_type": "ephemeral-env",
+    }
+    assert resolved_connection is connection

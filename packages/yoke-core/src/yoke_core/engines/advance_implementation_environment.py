@@ -71,6 +71,17 @@ def _item_label(conn, item: Dict[str, Any]) -> str:
         return str(item_id)
 
 
+def _has_ephemeral_capability(project: str) -> bool:
+    """Read capability presence through the connected control plane."""
+    from yoke_core.domain.control_plane_transport import relay
+
+    result = relay(
+        "projects.capability.has",
+        {"project": project, "cap_type": "ephemeral-env"},
+    )
+    return bool(result.get("has"))
+
+
 def run(
     *,
     item: Dict[str, Any],
@@ -89,8 +100,7 @@ def run(
     if not project:
         return "skipped:no-project", {}
 
-    from yoke_core.domain.projects_crud import cmd_has_capability
-    if not cmd_has_capability(project, "ephemeral-env"):
+    if not _has_ephemeral_capability(project):
         return "skipped:no-capability", {"project": project}
 
     try:
