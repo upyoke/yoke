@@ -193,7 +193,6 @@ def test_field_note_promote_authorizes_from_note_project_without_flag(conn):
 
 
 def test_explicit_project_still_overrides_note_row(conn):
-    yoke = resolve_project_id(conn, "yoke")
     external = resolve_project_id(conn, "externalwebapp")
     actor_id = _project_owner(conn, external)
     entry_id = int(
