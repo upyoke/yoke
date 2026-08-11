@@ -106,14 +106,22 @@ def _warn_on_source_checkout_skew(
 
     from yoke_cli.transport import source_build_skew
 
+    checkout = str(Path.cwd())
     comparison = source_build_skew.compare_to_server_build(
-        str(Path.cwd()), f"v{raw_server_version}"
+        checkout, f"v{raw_server_version}"
     )
-    if not comparison.differs:
+    origin = source_build_skew.compare_main_to_origin(checkout)
+    details = []
+    if comparison.differs:
+        details.append(source_build_skew.describe(comparison))
+    if origin.behind:
+        details.append(source_build_skew.describe_origin(origin))
+    if not details:
         return
     _skew_warned = True
-    detail = redact_text(source_build_skew.describe(comparison), sensitive_values)
-    print(f"yoke: {detail[:300]}", file=sys.stderr)
+    for detail in details:
+        safe = redact_text(detail, sensitive_values)
+        print(f"yoke: {safe[:300]}", file=sys.stderr)
 
 
 __all__ = [

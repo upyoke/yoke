@@ -28,6 +28,7 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
+from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
@@ -102,6 +103,10 @@ def _complete(
     )
     if receipt_note:
         notes.append(receipt_note)
+    if git.has_remote(repo_root):
+        sync_warning = fast_forward_main_checkout(repo_root, target)
+        if sync_warning:
+            notes.append(sync_warning)
     return StandaloneMergeOutcome(
         ok=True,
         exit_code=0,

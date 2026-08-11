@@ -51,6 +51,9 @@ def _wire(
     monkeypatch.setattr(
         close_out_mod, "prune_landed_lane", lambda **_kw: ()
     )
+    monkeypatch.setattr(
+        close_out_mod, "fast_forward_main_checkout", lambda *_a: ""
+    )
     return recorded
 
 
@@ -214,6 +217,27 @@ def test_a_landing_with_no_local_checkout_prunes_nothing(monkeypatch):
 
     assert pruned == []
     assert outcome.warnings == ()
+
+
+def test_landing_fast_forwards_main_after_pruning(monkeypatch):
+    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    _wire(monkeypatch, batch=batch)
+    order: list[str] = []
+    monkeypatch.setattr(
+        close_out_mod, "prune_landed_lane",
+        lambda **_kw: order.append("prune") or (),
+    )
+    monkeypatch.setattr(
+        close_out_mod, "fast_forward_main_checkout",
+        lambda root, target: order.append(f"sync:{root}:{target}") or "",
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx("/tmp/repo"), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.warnings == ()
+    assert order == ["prune", "sync:/tmp/repo:main"]
 
 
 def test_bookkeeping_failures_degrade_to_warnings(monkeypatch):

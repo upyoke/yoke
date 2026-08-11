@@ -43,6 +43,7 @@ from yoke_core.domain.merge_queue_batch_receipt import (
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
+from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -116,6 +117,9 @@ def record_landing(
                 item_id=item_id,
             )
         )
+        sync_warning = fast_forward_main_checkout(ctx.repo_root, ctx.args.target)
+        if sync_warning:
+            warnings.append(sync_warning)
     return QueueCloseOut(
         merge_sha=merge_sha,
         touched_files=touched_files,
