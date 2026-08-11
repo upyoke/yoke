@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.project_contract.merge_queue import (
+    DECLARATION_RELATIVE_PATH,
+)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
+from yoke_cli.config.checkout_context import resolve_repo_root_from_cwd
 
 
 GITHUB_MERGE_QUEUE_APPLY_USAGE = (
@@ -61,7 +67,22 @@ def github_merge_queue_apply(args: List[str]) -> int:
         "preview": parsed.preview,
     }
     if parsed.declaration:
-        payload["declaration_path"] = parsed.declaration
+        declaration_path = Path(parsed.declaration).expanduser()
+    else:
+        checkout = resolve_repo_root_from_cwd()
+        if checkout is None:
+            return usage_error(
+                "cannot resolve the local checkout; pass --declaration PATH"
+            )
+        declaration_path = Path(checkout) / DECLARATION_RELATIVE_PATH
+    try:
+        declaration_text = declaration_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return usage_error(f"unreadable {declaration_path}: {exc}")
+    try:
+        payload["declaration"] = json.loads(declaration_text)
+    except json.JSONDecodeError as exc:
+        return usage_error(f"invalid JSON in {declaration_path}: {exc}")
 
     def _human_writer(response, stdout, stderr) -> None:
         del stderr
