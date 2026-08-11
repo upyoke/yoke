@@ -93,7 +93,7 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
     seen: dict = {}
 
     def land(ctx, **kwargs):
-        seen.update(kwargs)
+        seen.update(kwargs, ctx=ctx)
         return QueueLandingOutcome(
             ok=True, exit_code=0, pr_num="42",
             commit_sha=kwargs["commit_sha"], merge_sha="m" * 40,
@@ -119,6 +119,9 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
     # terminal ancestry check reads it, so dropping it strands the close-out.
     assert seen["commit_sha"] == "c" * 40
     assert outcome.commit_sha == "c" * 40
+    # The landing retires the lane on this machine after the queue merges the
+    # branch on GitHub, which it can only do knowing where the checkout is.
+    assert seen["ctx"].repo_root == "/tmp/repo"
     # Same reason the lane head has to survive: the shared outcome shape is
     # what the caller hands to the evidence writer, which refuses an empty
     # touched-file set and strands the landed item.

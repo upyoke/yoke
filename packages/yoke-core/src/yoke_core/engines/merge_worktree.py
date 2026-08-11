@@ -24,6 +24,9 @@ from yoke_core.engines._merge_worktree_runtime import (  # noqa: F401
     _print,
     _already_merged_message,
 )
+from yoke_core.engines.merge_boundary_ceremony import (  # noqa: F401
+    refuse_bare_standalone_merge,
+)
 from yoke_core.engines.merge_worktree_events import (  # noqa: F401
     _emit_merge_event,
     _fail_merge_rest,
@@ -130,6 +133,13 @@ def parse_args(argv: list[str]) -> MergeArgs:
 def main(argv: Optional[list[str]] = None) -> int:
     raw = argv if argv is not None else sys.argv[1:]
     args = parse_args(raw)
+    # Only the command line reaches here; the boundary that owns a standalone
+    # item's evidence and terminal transition drives ``run`` in-process.
+    if args.standalone:
+        refusal = refuse_bare_standalone_merge(args.branch)
+        if refusal:
+            sys.stderr.write(f"{refusal}\n")
+            return 1
     return run(args)
 
 

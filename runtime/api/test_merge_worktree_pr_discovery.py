@@ -8,6 +8,9 @@ from yoke_core.engines import merge_worktree_pr_discovery as discovery_mod
 from yoke_core.engines import merge_worktree_pr_rest as rest_mod
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
+LANE_SHA = "1" * 40
+MERGED_SHA = "2" * 40
+
 
 def _ctx() -> MergeContext:
     return MergeContext(
@@ -46,29 +49,72 @@ def test_find_existing_pr_asks_only_for_open_pull_requests(monkeypatch):
     assert received[0].query == {"head": "upyoke:YOK-200", "state": "open"}
 
 
-def test_find_branch_pull_request_sees_a_merged_one(monkeypatch):
+def test_landable_lookup_sees_a_merged_one(monkeypatch):
     received = _wire_listing(monkeypatch, [
         {"number": 183, "html_url": "https://gh/183", "state": "closed"},
     ])
-    url, num = discovery_mod.find_branch_pull_request(_ctx())
-    assert (url, num) == ("https://gh/183", "183")
+    url, num, refusal = discovery_mod.find_landable_pull_request(_ctx())
+    assert (url, num, refusal) == ("https://gh/183", "183", "")
     assert received[0].query["state"] == "all"
     assert received[0].query["sort"] == "updated"
     assert received[0].query["direction"] == "desc"
 
 
-def test_find_branch_pull_request_prefers_the_open_one(monkeypatch):
+def test_landable_lookup_prefers_the_open_one(monkeypatch):
     _wire_listing(monkeypatch, [
         {"number": 183, "html_url": "https://gh/183", "state": "closed"},
         {"number": 190, "html_url": "https://gh/190", "state": "open"},
     ])
-    _, num = discovery_mod.find_branch_pull_request(_ctx())
-    assert num == "190"
+    _, num, refusal = discovery_mod.find_landable_pull_request(_ctx())
+    assert (num, refusal) == ("190", "")
 
 
-def test_find_branch_pull_request_without_any_is_empty(monkeypatch):
+def test_landable_lookup_without_any_is_empty(monkeypatch):
     _wire_listing(monkeypatch, [])
-    assert discovery_mod.find_branch_pull_request(_ctx()) == (None, None)
+    assert discovery_mod.find_landable_pull_request(_ctx()) == (None, None, "")
+
+
+def test_merged_pull_request_covering_the_lane_head_is_landable(monkeypatch):
+    """The lane committed nothing since; this merge is the landing."""
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": LANE_SHA},
+    }])
+    _, num, refusal = discovery_mod.find_landable_pull_request(
+        _ctx(), lane_head=LANE_SHA,
+    )
+    assert (num, refusal) == ("183", "")
+
+
+def test_merged_pull_request_behind_the_lane_head_is_declined(monkeypatch):
+    """One commit past the merged head means this lane has not landed.
+
+    Converging here would bind the new head to the old merge commit and
+    record evidence for work that never reached the base branch.
+    """
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
+    }])
+    url, num, refusal = discovery_mod.find_landable_pull_request(
+        _ctx(), lane_head=LANE_SHA,
+    )
+    assert (url, num) == (None, None)
+    assert "183" in refusal
+    assert MERGED_SHA[:12] in refusal
+    assert LANE_SHA[:12] in refusal
+
+
+def test_closed_unmerged_pull_request_is_still_returned(monkeypatch):
+    """Only a merged pull request claims to have landed the lane."""
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "head": {"sha": MERGED_SHA},
+    }])
+    _, num, refusal = discovery_mod.find_landable_pull_request(
+        _ctx(), lane_head=LANE_SHA,
+    )
+    assert (num, refusal) == ("183", "")
 
 
 def _wire_create_refusal(monkeypatch, message):

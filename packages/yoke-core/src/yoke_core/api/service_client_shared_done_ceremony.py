@@ -5,6 +5,12 @@ nonce that proves the caller went through ``/yoke usher``, the
 recovery prompt that lets an operator re-run the full done ceremony
 from a TTY, and the in-process done-transition driver invoked when
 recovery is confirmed.
+
+The nonce itself is the general shape, not a done-transition detail: any
+boundary whose sanctioned path runs in-process can refuse a bare command-line
+invocation by requiring one, and :func:`consume_one_shot_nonce` is what those
+boundaries share so there is one mechanism to reason about rather than a
+family of look-alikes.
 """
 
 from __future__ import annotations
@@ -12,7 +18,6 @@ from __future__ import annotations
 import contextlib
 import io
 import os
-import sys
 from pathlib import Path
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
@@ -24,21 +29,35 @@ def _update_requests_done(update_args: list[str]) -> bool:
     return any(arg == "status=done" for arg in update_args)
 
 
+DONE_NONCE_ENV = "YOKE_DONE_NONCE"
+
+
+def consume_one_shot_nonce(env_var: str) -> bool:
+    """Spend the ceremony nonce named by ``env_var``; false when absent.
+
+    One-shot by construction: the file is removed on the way through, so a
+    nonce proves one invocation rather than authorizing an environment.
+    """
+    nonce_file = os.environ.get(env_var, "")
+    if not nonce_file or not os.path.isfile(nonce_file):
+        return False
+    try:
+        nonce_content = Path(nonce_file).read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    if not nonce_content:
+        return False
+    try:
+        os.remove(nonce_file)
+    except OSError:
+        pass
+    return True
+
+
 def _consume_done_nonce(item_id: int) -> tuple[bool, str]:
     """Consume the one-shot done nonce required for status=done writes."""
-    nonce_file = os.environ.get("YOKE_DONE_NONCE", "")
-    if nonce_file and os.path.isfile(nonce_file):
-        try:
-            nonce_content = Path(nonce_file).read_text(encoding="utf-8").strip()
-        except OSError:
-            nonce_content = ""
-        if nonce_content:
-            try:
-                os.remove(nonce_file)
-            except OSError:
-                pass
-            return True, ""
-
+    if consume_one_shot_nonce(DONE_NONCE_ENV):
+        return True, ""
     return (
         False,
         (

@@ -20,7 +20,12 @@ from runtime.api.merge_queue_landing_test_helpers import (
 
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember, TrainRun
+from yoke_core.domain.merge_queue_close_out import QueueCloseOut
+from yoke_core.engines.merge_worktree_pr_queue import (
+    QueueEntryResult,
+    QueueMember,
+    TrainRun,
+)
 from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
 
 
@@ -141,9 +146,10 @@ def test_recoverable_create_refusals_rediscover_the_pull_request(
     monkeypatch, refusal,
 ):
     wire_happy_path(monkeypatch)
-    found = [(None, None), ("url", "42")]
+    found = [(None, None, ""), ("url", "42", "")]
     monkeypatch.setattr(
-        route_mod, "find_branch_pull_request", lambda _ctx: found.pop(0)
+        route_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": found.pop(0),
     )
     monkeypatch.setattr(
         route_mod, "create_pr",
@@ -156,10 +162,81 @@ def test_recoverable_create_refusals_rediscover_the_pull_request(
     assert outcome.pr_num == "42"
 
 
+def test_lane_beyond_the_merged_pull_request_lands_freshly(monkeypatch):
+    """A declined stale pull request routes to a landing of its own.
+
+    The lane picked up commits after its pull request merged, so the merge
+    commit that pull request produced answers for none of them. Everything
+    the landing records has to name the new pull request instead.
+    """
+    wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
+    monkeypatch.setattr(
+        route_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": (None, None, "pull request 42 merged head"),
+    )
+    monkeypatch.setattr(
+        route_mod, "create_pr",
+        lambda _ctx, **_kw: PrCreateResult(pr_url="https://gh/99", pr_num="99"),
+    )
+    entered: list[str] = []
+    monkeypatch.setattr(
+        route_mod, "enter_merge_queue",
+        lambda _ctx, pr_num: entered.append(pr_num) or QueueEntryResult(
+            success=True, pr_num=pr_num,
+        ),
+    )
+    landed: list[str] = []
+    monkeypatch.setattr(
+        route_mod, "record_landing",
+        lambda _ctx, **kw: landed.append(kw["pr_num"]) or QueueCloseOut(
+            merge_sha="n" * 40, touched_files=("a.py",),
+        ),
+    )
+
+    outcome = land()
+
+    assert outcome.ok
+    assert outcome.pr_num == "99"
+    assert not outcome.already_merged
+    assert entered == ["99"]
+    assert landed == ["99"]
+
+
+def test_lane_beyond_the_merged_pull_request_records_nothing_when_stuck(
+    monkeypatch,
+):
+    """Nothing is recorded when the fresh landing cannot open its own."""
+    wire_happy_path(monkeypatch)
+    monkeypatch.setattr(
+        route_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": (
+            None, None, "pull request 42 merged head aaaa, not the lane head bbbb",
+        ),
+    )
+    monkeypatch.setattr(
+        route_mod, "create_pr",
+        lambda _ctx, **_kw: PrCreateResult(
+            pr_url="", pr_num="", no_commits=True,
+        ),
+    )
+
+    def forbidden(*_a, **_kw):
+        raise AssertionError("a refused convergence must record nothing")
+
+    monkeypatch.setattr(route_mod, "record_landing", forbidden)
+
+    outcome = land()
+
+    assert not outcome.ok
+    assert "carries commits beyond the pull request that merged it" in outcome.error
+    assert "not the lane head bbbb" in outcome.error
+
+
 def test_no_commits_without_any_pull_request_is_named(monkeypatch):
     wire_happy_path(monkeypatch)
     monkeypatch.setattr(
-        route_mod, "find_branch_pull_request", lambda _ctx: (None, None)
+        route_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": (None, None, ""),
     )
     monkeypatch.setattr(
         route_mod, "create_pr",

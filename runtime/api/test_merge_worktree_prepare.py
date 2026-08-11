@@ -22,6 +22,7 @@ from runtime.api.test_merge_worktree_full import (
     merge_env as _shared_merge_env,
     run_merge,
 )
+from yoke_core.engines.merge_boundary_ceremony import MERGE_CEREMONY_NONCE_ENV
 
 
 @pytest.fixture(name="merge_env")
@@ -95,6 +96,22 @@ class TestBodyDiff:
 # ===========================================================================
 # Tests: Pre-flight checks
 # ===========================================================================
+class TestStandaloneBoundaryCeremony:
+    """The command line reaches only half a standalone item's boundary."""
+
+    def test_standalone_without_a_ceremony_nonce_never_merges(
+        self, merge_env: MergeEnv,
+    ) -> None:
+        """The refusal fires before preflight, naming the real entrypoint."""
+        result = run_merge(
+            merge_env, extra_env={MERGE_CEREMONY_NONCE_ENV: ""},
+        )
+        assert result.exit_code == 1
+        assert "missing merge-boundary ceremony nonce" in result.stderr
+        assert "yoke merge item" in result.stderr
+        assert "Running pre-flight checks" not in result.stdout
+
+
 class TestPreflight:
     """Pre-flight validation."""
 

@@ -68,6 +68,16 @@ branch belongs to an item, not an epic, and the caller accepts that*. That is
 `MergeArgs.standalone`. An argument is inspectable, testable, and cannot leak
 into an unrelated subprocess the way an exported variable can.
 
+The engine's own command line still accepts that permission as a flag, and a
+run reached that way is only half the boundary: it lands the branch, prints
+`Successfully merged`, and leaves the item without evidence, without a GitHub
+sync, and short of its terminal transition. Because every sanctioned caller
+drives the engine in-process, the flag on the command line is refused unless a
+one-shot ceremony nonce is spent — the same mechanism that guards a bare
+`status=done` write, sharing its implementation rather than resembling it. The
+refusal names `yoke merge item` and `/yoke usher`; an operator who means to run
+the engine alone spends a nonce.
+
 ### Why the status flip stays with the caller
 
 The terminal transition is the only place a workflow's gates run. Moving it
