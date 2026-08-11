@@ -77,6 +77,10 @@ _UNRESOLVED_BUDGET_VALUES = frozenset({
     "unknown",
     "unresolved",
 })
+_UNRESOLVED_PROSE = re.compile(
+    r"^\s*UNRESOLVED(\s+[—-].*)?\s*$",
+    re.IGNORECASE,
+)
 
 
 def is_path_token(candidate: str) -> bool:
@@ -162,6 +166,28 @@ def has_resolved_file_budget(spec_text: str) -> bool:
     return False
 
 
+def has_unresolved_file_budget(spec_text: str) -> bool:
+    """Whether File Budget declares the documented UNRESOLVED deferral.
+
+    Recognizes the idea-skill prose shape (``UNRESOLVED — …``) and the
+    list form (``- N/A — unresolved`` / tbd / todo / unknown / none).
+    Empty or missing sections are not unresolved deferrals. Resolved
+    budgets return False.
+    """
+    if has_resolved_file_budget(spec_text):
+        return False
+    section = extract_file_budget_section(spec_text)
+    if section is None:
+        return False
+    for line in section.splitlines():
+        if _UNRESOLVED_PROSE.match(line):
+            return True
+        match = _NO_REPO_SCOPE.match(line)
+        if match and match.group(1).strip().casefold() in _UNRESOLVED_BUDGET_VALUES:
+            return True
+    return False
+
+
 def extract_file_budget_paths_set(spec_text: str) -> Set[str]:
     """Set-shaped convenience for callers that compare against claim sets."""
     return set(extract_file_budget_paths(spec_text))
@@ -172,5 +198,6 @@ __all__ = [
     "extract_file_budget_section",
     "extract_file_budget_paths_set",
     "has_resolved_file_budget",
+    "has_unresolved_file_budget",
     "is_path_token",
 ]

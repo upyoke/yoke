@@ -125,7 +125,7 @@ readiness repair landed.
 ## Refine entry recipe
 
 ```bash
-_readiness_json=$(yoke readiness check "$ITEM_NUM" 2>/dev/null) || true
+_readiness_json=$(yoke readiness check "$ITEM_REF" 2>/dev/null) || true
 _class=$(printf '%s' "$_readiness_json" | python3 -c "
 import json, sys
 data = json.loads(sys.stdin.read() or '{}')
@@ -136,13 +136,13 @@ case "$_class" in
     : # readiness clean; continue refine
     ;;
   pure_stale_count)
-    _repair_json=$(yoke readiness repair-stale-count --item "$ITEM_NUM" 2>&1)
+    _repair_json=$(yoke readiness repair-stale-count --item "$ITEM_REF" 2>&1)
     _repair_rc=$?
     if [ "$_repair_rc" -ne 0 ]; then
       printf '%s\n' "$_repair_json"
-      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
+      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
       yoke claims work release \
-        --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
+        --item "$ITEM_REF" --reason "readiness-check-blocked" \
         >/dev/null 2>&1 || true
       exit 1
     fi
@@ -150,7 +150,7 @@ case "$_class" in
     ;;
   mixed_stale_count)
     yoke readiness repair-claim-coverage \
-      --item "$ITEM_NUM" || {
+      --item "$ITEM_REF" || {
       # Helper refused (mixed widen+narrow, zero/multiple exclusive claims,
       # or non-recoverable code mixed in). Continue into refine for repair;
       # step 4b's path-claim re-check + step 5/6 critique cover the
@@ -160,9 +160,9 @@ case "$_class" in
     ;;
   unrecoverable)
     printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
     yoke claims work release \
-      --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
+      --item "$ITEM_REF" --reason "readiness-check-blocked" \
       >/dev/null 2>&1 || true
     exit 1
     ;;

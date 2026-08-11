@@ -246,7 +246,9 @@ class TestRefineRecoverableReadinessRepair:
         assert "--add-paths" in skill
         assert "--reason" in skill
         assert "--item PREFIX-N" in skill
-        assert '--item "$ITEM_NUM"' in repair
+        # CLI item args use ITEM_REF (PREFIX-N), never ITEM_NUM (global DB id).
+        assert '--item "$ITEM_REF"' in repair
+        assert '--item "$ITEM_NUM"' not in repair
         # Step 4b's narrow remediation must name the explicit keep/drop
         # flag pair, not the bare `--paths` form. `--keep-paths` is the
         # safe default for File Budget reconciliation; `--drop-paths`
