@@ -33,6 +33,7 @@ from runtime.api.merge_worktree_test_mocks import (
     MOCK_GH_SCRIPT,
     MOCK_GH_TARGET_MOVED_DURING_CI as MOCK_GH_TARGET_MOVED_DURING_CI,
 )
+from runtime.api.merge_worktree_test_entrypoint import merge_subprocess_env
 from runtime.api.merge_worktree_test_db import (
     _create_epic_tasks_db as _create_epic_tasks_db,
     _insert_canonical_integration_simulation as _insert_canonical_integration_simulation,
@@ -190,8 +191,7 @@ def run_merge(
     if standalone:
         cmd.append("--standalone")
 
-    merge_env = env.env(extra=extra_env)
-    merge_env["PYTHONPATH"] = SOURCE_PYTHONPATH
+    merge_env = merge_subprocess_env(env.env(extra=extra_env), tmpdir=env.tmpdir, standalone=standalone)
 
     result = subprocess.run(
         cmd,

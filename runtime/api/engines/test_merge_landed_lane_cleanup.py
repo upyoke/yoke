@@ -14,7 +14,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.engines import merge_landed_lane_cleanup as cleanup_mod
 from yoke_core.engines.merge_landed_lane_cleanup import (
     prune_landed_lane,
     release_lane_row,
@@ -179,7 +178,10 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
         calls.append((function_id, target.item_id, payload))
         return SimpleNamespace(success=True, result={}, error=None)
 
-    monkeypatch.setattr(cleanup_mod, "call_dispatcher", dispatch)
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        dispatch,
+    )
 
     preserved = prune_landed_lane(
         repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
@@ -195,7 +197,7 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
 def test_row_release_failure_warns_without_unwinding_the_merge(monkeypatch):
     """The merge already landed; a refused row release cannot undo it."""
     monkeypatch.setattr(
-        cleanup_mod, "call_dispatcher",
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         lambda **_kw: SimpleNamespace(
             success=False, result=None,
             error=SimpleNamespace(message="control plane down"),
