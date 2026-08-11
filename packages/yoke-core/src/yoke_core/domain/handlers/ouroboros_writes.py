@@ -11,7 +11,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.ouroboros_entry_review import MAX_FIELD_NOTE_REVIEW_BATCH
+from yoke_contracts.field_note_text import CATEGORY_PREFIX
+from yoke_core.domain.ouroboros_entry_review import MAX_ENTRY_REVIEW_BATCH
 
 
 class OuroborosEntryInsertRequest(BaseModel):
@@ -29,11 +30,12 @@ class OuroborosEntryInsertResponse(BaseModel):
 
 class OuroborosEntryReviewRequest(BaseModel):
     entry_id: Optional[int] = None
+    before: Optional[str] = None
     field_notes_before: Optional[str] = None
     limit: int = Field(
-        default=MAX_FIELD_NOTE_REVIEW_BATCH,
+        default=MAX_ENTRY_REVIEW_BATCH,
         ge=1,
-        le=MAX_FIELD_NOTE_REVIEW_BATCH,
+        le=MAX_ENTRY_REVIEW_BATCH,
     )
 
 
@@ -106,12 +108,15 @@ def handle_ouroboros_entry_mark_reviewed(
         payload = OuroborosEntryReviewRequest.model_validate(request.payload or {})
     except Exception as exc:
         return _bad_request(f"payload invalid: {exc}")
-    if (payload.entry_id is None) == (payload.field_notes_before is None):
-        return _bad_request("pass exactly one of entry_id or field_notes_before")
+    selectors = (payload.entry_id, payload.before, payload.field_notes_before)
+    if sum(selector is not None for selector in selectors) != 1:
+        return _bad_request(
+            "pass exactly one of entry_id, before, or field_notes_before"
+        )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.ouroboros_entries import cmd_mark_reviewed
     from yoke_core.domain.ouroboros_entry_review import (
-        mark_field_notes_reviewed_before,
+        mark_entries_reviewed_before,
     )
 
     try:
@@ -123,14 +128,18 @@ def handle_ouroboros_entry_mark_reviewed(
                     reviewed_count=1,
                 )
             else:
-                batch = mark_field_notes_reviewed_before(
+                cutoff = payload.before or payload.field_notes_before or ""
+                field_notes_only = payload.field_notes_before is not None
+                batch = mark_entries_reviewed_before(
                     conn,
-                    before=payload.field_notes_before or "",
+                    before=cutoff,
+                    category_prefix=CATEGORY_PREFIX if field_notes_only else None,
                     limit=payload.limit,
                 )
+                subject = "field-notes" if field_notes_only else "entries"
                 message = (
-                    f"Marked {batch.reviewed_count} field-notes created before "
-                    f"{payload.field_notes_before} as reviewed"
+                    f"Marked {batch.reviewed_count} {subject} created before "
+                    f"{cutoff} as reviewed"
                 )
                 if batch.reviewed_at:
                     message += f" at {batch.reviewed_at}"
