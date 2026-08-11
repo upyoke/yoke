@@ -22,21 +22,47 @@ def test_https_product_plane_is_refused():
         token="t",
         env="prod",
     )
-    with mock.patch(
-        "yoke_cli.transport.https.resolve_https_connection",
-        return_value=https,
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=https,
+        ),
+        mock.patch.object(
+            owner, "_same_universe_admin_env", return_value="prod-db-admin",
+        ),
     ):
         error = owner.https_product_plane_create_error("deployment-runs create")
     assert error is not None
     assert "prod-db-admin" in error
     assert "HTTPS product plane" in error
     assert "deployment-runs create" in error
+    assert " or local" not in error
+
+
+def test_https_gate_does_not_invent_an_unresolvable_alternative():
+    https = HttpsConnection(
+        api_url="https://example.test", token="t", env="prod",
+    )
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            return_value=https,
+        ),
+        mock.patch.object(owner, "_same_universe_admin_env", return_value=""),
+    ):
+        error = owner.https_product_plane_create_error("create")
+    assert "configure a same-universe" in error
+    assert "prod-db-admin" not in error
+    assert " or local" not in error
 
 
 def test_broken_https_connection_names_the_repair():
-    with mock.patch(
-        "yoke_cli.transport.https.resolve_https_connection",
-        side_effect=TransportError("token missing"),
+    with (
+        mock.patch(
+            "yoke_cli.transport.https.resolve_https_connection",
+            side_effect=TransportError("token missing"),
+        ),
+        mock.patch.object(owner, "_same_universe_admin_env", return_value=""),
     ):
         error = owner.https_product_plane_create_error("start-for-item")
     assert error is not None

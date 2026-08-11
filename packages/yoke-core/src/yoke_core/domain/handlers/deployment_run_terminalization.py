@@ -23,7 +23,7 @@ class DeploymentRunTerminalizeResponse(BaseModel):
     final_status: str
     reason: str
     terminalized_at: str
-    terminalized_by_actor_id: int
+    terminalized_by_actor_id: Optional[int]
     terminalized_by_session_id: str
     event_id: str
 
@@ -55,9 +55,8 @@ def handle_deployment_run_terminalize(
             "reason must be at most 2000 characters",
             jsonpath="$.payload.reason",
         )
-    actor_id = request.actor.actor_id
-    if actor_id is None or not str(actor_id).isdigit():
-        return error("permission_denied", "a numeric actor_id is required")
+    raw_actor_id = request.actor.actor_id
+    actor_id = int(raw_actor_id) if str(raw_actor_id or "").isdigit() else None
 
     from yoke_core.domain.deployment_run_terminalization import (
         RunTerminalizationRejected,
@@ -69,7 +68,7 @@ def handle_deployment_run_terminalize(
             resolved_run_id,
             disposition=disposition,
             reason=reason,
-            actor_id=int(actor_id),
+            actor_id=actor_id,
             session_id=request.actor.session_id,
         )
     except LookupError as exc:

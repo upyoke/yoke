@@ -274,6 +274,35 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "run_create_rejected")
 
+    def test_run_create_reuses_the_retry_source_lineage(self):
+        source = (
+            "run-old|yoke|yoke-hosted-production|production|" + "a" * 40
+            + "|failed|release|2026-06-15T00:00:00Z||"
+            "2026-06-15T01:00:00Z|operator"
+        )
+        created = source.replace("run-old", "run-new").replace(
+            "|failed|", "|created|",
+        )
+        with (
+            patch(
+                "yoke_core.domain.deployment_runs_crud_query.cmd_get",
+                side_effect=[source, created],
+            ),
+            patch(
+                "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
+                return_value="run-new",
+            ) as create,
+        ):
+            outcome = deployment_runs.handle_deployment_run_create(_request(
+                function="deployment_runs.create",
+                payload={
+                    "project": "yoke", "flow": "yoke-hosted-production",
+                    "retry_of": "run-old",
+                },
+            ))
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(create.call_args.kwargs["release_lineage"], "a" * 40)
+
     def test_run_create_requires_project_and_flow(self):
         outcome = deployment_runs.handle_deployment_run_create(
             _request(

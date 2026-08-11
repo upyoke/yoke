@@ -16,6 +16,7 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
 from yoke_cli.commands.adapters.deployment_owner_authority import (
     https_product_plane_create_error,
@@ -65,7 +66,7 @@ def _execute_authority() -> str:
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
     "yoke deployment-runs create PROJECT FLOW [--target-env ENV] "
-    "[--project-repo-path PATH --source-ref REF] "
+    "[--project-repo-path PATH --source-ref REF | --retry-of RUN-ID] "
     "[--created-by WHO] [--allow-pin-regression] [--session-id S] [--json]"
 )
 
@@ -95,6 +96,14 @@ def deployment_runs_create(args: List[str]) -> int:
         help="Commit-ish to bind when --project-repo-path is supplied.",
     )
     parser.add_argument(
+        "--retry-of",
+        default=None,
+        help=(
+            "Reuse the immutable release lineage pinned on a failed or "
+            "cancelled deployment run."
+        ),
+    )
+    parser.add_argument(
         "--allow-pin-regression",
         action="store_true",
         help=(
@@ -107,6 +116,12 @@ def deployment_runs_create(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DEPLOYMENT_RUNS_CREATE_USAGE)
     if parsed is None:
         return 2
+    if parsed.retry_of and parsed.project_repo_path:
+        return usage_error(
+            "--retry-of cannot be combined with --project-repo-path"
+        )
+    if parsed.retry_of and "--source-ref" in args:
+        return usage_error("--retry-of cannot be combined with --source-ref")
     owner_error = https_product_plane_create_error("deployment-runs create")
     if owner_error is not None:
         print(f"Error: {owner_error}", file=sys.stderr)
@@ -129,6 +144,8 @@ def deployment_runs_create(args: List[str]) -> int:
         "flow": parsed.flow,
         "created_by": parsed.created_by,
     }
+    if parsed.retry_of is not None:
+        payload["retry_of"] = parsed.retry_of
     if parsed.project_repo_path is not None:
         try:
             payload["release_lineage"] = resolve_commit_lineage(

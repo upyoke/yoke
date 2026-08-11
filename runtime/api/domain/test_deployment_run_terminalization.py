@@ -54,7 +54,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         "run-terminalize-proof",
         disposition="cancelled",
         reason="External workflow no longer exists",
-        actor_id=1,
+        actor_id=None,
         session_id="terminalization-session",
     )
 
@@ -73,7 +73,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
     ).fetchone()
     assert event[0] == "backend"
     assert event[1] == "STATUS"
-    assert int(event[2]) == 1
+    assert event[2] is None
     envelope = event[3] if isinstance(event[3], dict) else json.loads(event[3])
     assert envelope["event_name"] == "DeploymentRunTerminalized"
     assert envelope["context"] == {
@@ -83,7 +83,7 @@ def test_terminalization_updates_run_and_appends_permanent_audit(
         "current_stage": "hosted-release",
         "reason": "External workflow no longer exists",
         "terminalized_at": result.terminalized_at,
-        "terminalized_by_actor_id": 1,
+        "terminalized_by_actor_id": None,
         "terminalized_by_session_id": "terminalization-session",
     }
 

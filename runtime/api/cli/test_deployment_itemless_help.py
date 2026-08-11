@@ -28,6 +28,8 @@ def _assert_itemless_recipe(text: str) -> None:
     assert "Verify TARGET_ENV is the deploy destination" in text
     assert "--project-repo-path /path/to/checkout" in text
     assert "--source-ref origin/main" in text
+    assert "--retry-of FAILED_RUN_ID" in text
+    assert "without following a moving branch" in text
     assert "watch deploy --" in text
     assert "CONTROL-PLANE-db-admin" in text
     # Shared constant must be the single source for the recipe body.
