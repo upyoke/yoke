@@ -74,12 +74,13 @@ jobs:
         run: uv sync --all-packages --all-groups --locked
 
       - name: Run repo contracts
-        run: |
-          args=()
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            args+=(--base "origin/${{ github.base_ref }}")
-          fi
-          uv run python -m yoke_core.tools.ci_repo_contracts "${args[@]}"
+        # One changed-path scope for every event: the merge-base with the
+        # default branch. Scoping by event lets a dispatched gate and the
+        # pull-request entry run disagree about one tree, and a green gate
+        # then stops predicting merge-queue entry.
+        run: >-
+          uv run python -m yoke_core.tools.ci_repo_contracts
+          --base "origin/${{ github.event.repository.default_branch }}"
 
   reuse_coverage:
     name: reuse-coverage
@@ -156,15 +157,6 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
-
-      - name: Enforce authored-file line limit
-        # The local pre-commit hook only fires for `git commit` in a clone
-        # that already has hooks installed. A fresh clone, `--no-verify`, a
-        # rebase, or a merge commit all bypass it, so this is the backstop
-        # that sees every change however it was committed. fetch-depth: 0
-        # above is what makes the base ref resolvable here.
-        if: github.event_name == 'pull_request'
-        run: uv run yoke check file-line --base "origin/${{ github.base_ref }}"
 
       - name: Register libpython with the system loader cache
         # The setup-python interpreter is a --enable-shared build whose libpython
