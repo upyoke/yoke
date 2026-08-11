@@ -9,6 +9,10 @@ child/lane policies.
 MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_REF="{arg}"
 ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF" --json 2>/dev/null) || ITEM_PIN_JSON=""
+# ITEM_REF — public PREFIX-N for every yoke CLI item argument.
+# ITEM_NUM — global DB items.id for function-call payloads and
+#            `yoke epic-tasks list --epic`. Never pass ITEM_NUM to a
+#            CLI that expects PREFIX-N or a project-local number.
 ITEM_NUM=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])' 2>/dev/null) || ITEM_NUM=""
 ITEM_WORKFLOW_ID=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \

@@ -22,7 +22,10 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from yoke_core.domain.file_budget_paths import extract_file_budget_paths_set
+from yoke_core.domain.file_budget_paths import (
+    extract_file_budget_paths_set,
+    has_unresolved_file_budget,
+)
 from yoke_core.domain.attestation_rehearsal_dryrun import verify_attestation_rehearsal_commands
 from yoke_core.domain import db_backend
 from yoke_core.domain.idea_readiness_check_architecture import verify_architecture_impact_resolved
@@ -35,6 +38,11 @@ from yoke_core.domain.idea_readiness_check_refs import (
 from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root_for_item
 from yoke_core.domain.idea_readiness_symlink_advisory import collect_symlink_advisories
 _extract_file_budget_paths = extract_file_budget_paths_set
+
+# Idea exit and refine entry both run readiness while status is still
+# ``idea``. Refine exit re-runs after the flip to ``refining-idea``, so
+# the UNRESOLVED File Budget deferral is accepted only at ``idea``.
+_IDEA_STATUS_ALLOWS_UNRESOLVED_BUDGET = "idea"
 
 
 def _p(conn) -> str:
@@ -57,6 +65,27 @@ def _read_spec_for_item(conn: Any, item_id: int) -> str:
     if row is None or row[0] is None:
         return ""
     return str(row[0])
+
+
+def _read_status_for_item(conn: Any, item_id: int) -> str:
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT status FROM items WHERE id = {p}", (item_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return ""
+    return str(row[0])
+
+
+def _missing_file_budget_allowed(
+    conn: Any, item_id: int, spec_text: str,
+) -> bool:
+    """Accept the documented UNRESOLVED File Budget only while at idea."""
+    return (
+        _read_status_for_item(conn, item_id)
+        == _IDEA_STATUS_ALLOWS_UNRESOLVED_BUDGET
+        and has_unresolved_file_budget(spec_text)
+    )
 
 
 def verify_function_owners(
@@ -184,7 +213,10 @@ def run_all_checks(
     )
 
     budget_gate = evaluate_file_budget(conn, item_id)
-    if budget_gate["verdict"] != "pass":
+    if (
+        budget_gate["verdict"] != "pass"
+        and not _missing_file_budget_allowed(conn, item_id, spec_text)
+    ):
         issues.append(Issue(
             code="MISSING_FILE_BUDGET",
             message=str(budget_gate["reason"]),
