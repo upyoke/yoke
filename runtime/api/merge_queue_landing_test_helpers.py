@@ -110,6 +110,10 @@ def wire_happy_path(
         lambda item_id, receipt, **_kw: None,
     )
     monkeypatch.setattr(
+        close_out_mod, "read_pr_changed_files",
+        lambda _ctx, pr_num: (("a.py",), None),
+    )
+    monkeypatch.setattr(
         close_out_mod.receipts, "record",
         lambda item_id, receipt, **_kw: "",
     )

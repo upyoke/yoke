@@ -26,14 +26,15 @@ train, with GitHub ejecting only the culprit on a red train.
 
 ## Coupled fixes
 
-The terminal done-gate binds QA evidence to the item's merging commit. A
-queue merge commit is created by GitHub and never exists as a lane-local
-commit, so the merge boundary must record the merged SHA where the gate can
-read it (Execution Evidence), and the done-transition engine must surface —
-not swallow — a refused status write. Both fixes ride the close-out
-stranding item; until they land, a queue-merged item is settled by recording
-the merged SHA in its Execution Evidence section and re-running
-done-transition.
+The terminal done-gate binds QA evidence to the item's merging commit, and
+the same evidence record names the files the landing changed. A queue merge
+produces neither of those locally: GitHub creates the merge commit, so no
+lane-local commit carries it, and the head the queue merged need not be the
+one the checkout holds, so a local diff is not authoritative for what
+landed. The member's close-out therefore reads both from the pull request —
+the merge SHA and the file listing — and records them where the gate looks.
+The done-transition engine must likewise surface, not swallow, a refused
+status write, so a landed item never strands without saying why.
 
 ## Rollback
 

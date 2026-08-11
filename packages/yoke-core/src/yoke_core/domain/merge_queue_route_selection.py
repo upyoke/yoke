@@ -133,6 +133,10 @@ def route_standalone_landing(
         # belongs to the base branch, exactly as in the local engine's result.
         commit_sha=outcome.commit_sha,
         merge_sha=outcome.merge_sha,
+        # Resolved from the landed pull request rather than from a local
+        # diff, but it is the same fact the local engine reports and the
+        # same fact the item's evidence record is refused without.
+        touched_files=outcome.touched_files,
         pushed=outcome.ok,
         error=outcome.error,
         warnings=outcome.warnings,

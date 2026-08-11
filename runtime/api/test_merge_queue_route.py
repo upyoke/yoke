@@ -24,6 +24,9 @@ def test_happy_path_lands_and_records(monkeypatch):
     assert outcome.batch == receipt
     assert outcome.merge_sha == receipt.merge_sha
     assert not outcome.already_merged
+    # Carried out of the close-out because the caller writes it straight
+    # into the item's execution evidence, which is refused without it.
+    assert outcome.touched_files == ("a.py",)
 
 
 def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
