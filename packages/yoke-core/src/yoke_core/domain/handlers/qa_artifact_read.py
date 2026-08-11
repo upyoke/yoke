@@ -60,12 +60,14 @@ def _local_result(row, handle: dict) -> dict:
     from yoke_core.domain.qa_artifacts import (
         artifact_directory,
         case_artifact_subject,
+        is_sanctioned_artifact_path,
     )
 
     checkout = checkout_for_project_id(int(row["project_id"]))
+    subject = case_artifact_subject(dict(row))
     scratch = artifact_directory(
         str(row["project"]),
-        case_artifact_subject(dict(row)),
+        subject,
         int(row["run_id"]),
         create=False,
     )
@@ -79,7 +81,15 @@ def _local_result(row, handle: dict) -> dict:
         else (checkout / raw_path if checkout is not None else raw_path)
     )
     machine = _machine_label(row["metadata"])
-    if not path.is_absolute() or not _inside(path, roots):
+    canonical_scratch_path = is_sanctioned_artifact_path(
+        path,
+        str(row["project"]),
+        subject,
+        int(row["run_id"]),
+    )
+    if not path.is_absolute() or not (
+        _inside(path, roots) or canonical_scratch_path
+    ):
         return {
             "disposition": "evidence_on_machine",
             "machine": machine,

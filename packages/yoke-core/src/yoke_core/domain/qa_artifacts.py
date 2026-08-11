@@ -63,6 +63,41 @@ def artifact_file_path(
     )
 
 
+def is_sanctioned_artifact_path(
+    path: str | Path,
+    project: str,
+    subject_id: int | str,
+    run_id: int,
+) -> bool:
+    """Return whether *path* is in this QA run's canonical artifact tree.
+
+    Artifact handles outlive the process that captured them, while the
+    scratch path intentionally includes that process's session and run
+    identity. Validate the recorded path's complete canonical shape instead
+    of rebuilding only the current process's artifact directory.
+    """
+
+    candidate = Path(path).expanduser().resolve(strict=False)
+    project_root = (
+        project_scratch_dir.global_scratch_root()
+        / safe_segment(project)
+    ).resolve(strict=False)
+    try:
+        relative = candidate.relative_to(project_root)
+    except ValueError:
+        return False
+    parts = relative.parts
+    return (
+        len(parts) == 9
+        and parts[0] == "sessions"
+        and parts[2] == "runs"
+        and parts[4] == "storage"
+        and parts[5] == QA_ARTIFACT_STORAGE_KIND
+        and parts[6] == safe_segment(str(subject_id))
+        and parts[7] == str(int(run_id))
+    )
+
+
 def case_artifact_subject(case: dict[str, Any]) -> int | str:
     """Return a collision-safe storage segment for one QA case subject."""
     item_id = case.get("item_id")

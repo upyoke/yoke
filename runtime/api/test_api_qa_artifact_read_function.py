@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
@@ -17,10 +18,12 @@ from runtime.api.qa_artifact_read_test_support import (
     seed_deployment_artifact,
     seed_s3_configuration,
 )
+from yoke_core.domain import project_scratch_dir
 from yoke_core.domain.handlers.qa_artifact_read import (
     handle_qa_artifact_read,
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+from yoke_core.domain.qa_artifacts import artifact_file_path
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
 
 
@@ -80,6 +83,58 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
     assert outcome.result_payload["disposition"] == "evidence_on_machine"
     assert outcome.result_payload["machine"] == "Test Mac"
     assert "content_base64" not in outcome.result_payload
+
+
+def test_failed_ci_artifact_round_trips_across_scratch_runs(
+    tmp_path, monkeypatch,
+) -> None:
+    monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv("YOKE_SESSION_ID", "capture-session")
+    monkeypatch.setenv("YOKE_RUN_ID", "capture-run")
+    with test_database() as conn:
+        artifact_id = seed_artifact(
+            conn,
+            handle={"backend": "local", "path": "pending"},
+        )
+        row = conn.execute(
+            "SELECT a.qa_run_id FROM qa_artifacts a WHERE a.id=%s",
+            (artifact_id,),
+        ).fetchone()
+        run_id = int(row["qa_run_id"])
+        evidence = artifact_file_path(
+            "yoke", 42, run_id, "ci-run-output.txt",
+        )
+        evidence.write_bytes(b"failed CI output")
+        conn.execute(
+            "UPDATE qa_runs SET executor_type='ci_run', verdict='fail' "
+            "WHERE id=%s",
+            (run_id,),
+        )
+        conn.execute(
+            "UPDATE qa_artifacts SET artifact_handle=%s WHERE id=%s",
+            (
+                json.dumps({"backend": "local", "path": str(evidence)}),
+                artifact_id,
+            ),
+        )
+        conn.commit()
+
+        monkeypatch.setenv("YOKE_RUN_ID", "reader-run")
+        with patch(
+            "yoke_core.domain.project_checkout_locations."
+            "checkout_for_project_id",
+            return_value=tmp_path / "checkout",
+        ):
+            outcome = handle_qa_artifact_read(
+                artifact_read_request(10, artifact_id)
+            )
+
+    assert outcome.primary_success, outcome.error
+    assert outcome.result_payload["disposition"] == "ready"
+    assert (
+        base64.b64decode(outcome.result_payload["content_base64"])
+        == b"failed CI output"
+    )
 
 
 def test_deployment_run_local_evidence_is_read_from_its_subject_root(
