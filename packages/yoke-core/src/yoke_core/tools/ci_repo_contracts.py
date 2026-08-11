@@ -6,11 +6,19 @@ about a minute instead of spinning the eight-shard suite. Each named
 contract prints PASS/FAIL; failures also land in ``$GITHUB_STEP_SUMMARY``
 when that file is set. The shard suite keeps its own copies of these
 assertions as defense in depth.
+
+Every delta contract reads one changed-path scope, resolved once from the
+merge-base of HEAD and the integration ref and deliberately independent of
+which event started the run. A dispatched run checks out the branch tip and
+a pull-request run checks out the merge commit; both share the same fork
+point, so both must reach one verdict on one tree. Resolving the scope per
+event is what lets a recorded-green gate stop predicting merge-queue entry.
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import os
 from pathlib import Path
 import subprocess
@@ -18,7 +26,19 @@ import sys
 from typing import Callable, List, Optional, Sequence, Tuple
 
 
-ContractFn = Callable[[Path, Optional[str]], Tuple[bool, str]]
+@dataclass(frozen=True)
+class ChangedPathScope:
+    """The one diff every delta contract reads."""
+
+    base_sha: str
+    paths: Tuple[str, ...]
+
+    @property
+    def python_paths(self) -> List[str]:
+        return [path for path in self.paths if path.endswith(".py")]
+
+
+ContractFn = Callable[[Path, ChangedPathScope], Tuple[bool, str]]
 
 
 def _append_summary(lines: Sequence[str]) -> None:
@@ -29,48 +49,48 @@ def _append_summary(lines: Sequence[str]) -> None:
         handle.write("\n".join(lines) + "\n")
 
 
-def _changed_python_paths(repo_root: Path, base: str) -> List[str]:
+def _git(repo_root: Path, *args: str) -> str:
     completed = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo_root),
-            "diff",
-            "--name-only",
-            "--diff-filter=ACMR",
-            f"{base}...HEAD",
-            "--",
-            "*.py",
-        ],
+        ["git", "-C", str(repo_root), *args],
         check=False,
         capture_output=True,
         text=True,
     )
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "").strip()
-        raise RuntimeError(f"git diff failed: {detail or 'unknown error'}")
-    return [line for line in completed.stdout.splitlines() if line.endswith(".py")]
+        raise RuntimeError(f"git {' '.join(args)} failed: {detail or 'unknown error'}")
+    return completed.stdout
+
+
+def resolve_changed_path_scope(
+    repo_root: Path, integration_ref: str,
+) -> ChangedPathScope:
+    """Diff HEAD against its merge-base with *integration_ref*."""
+    base_sha = _git(repo_root, "merge-base", "HEAD", integration_ref).strip()
+    diff = _git(
+        repo_root, "diff", "--name-only", "--diff-filter=ACMR", base_sha, "HEAD",
+    )
+    return ChangedPathScope(
+        base_sha=base_sha,
+        paths=tuple(line for line in diff.splitlines() if line),
+    )
 
 
 def check_authored_file_limit(
-    repo_root: Path, base: Optional[str],
+    repo_root: Path, scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
-    if not base:
-        return True, "skipped (no --base; PR-only delta check)"
     from yoke_harness.git_hooks import file_line_check as flc
 
-    verdict = flc.changed_files_check(repo_root=repo_root, base=base, staged=False)
-    if verdict.ok:
-        return True, verdict.summary
-    return False, verdict.summary
+    verdict = flc.changed_files_check(
+        repo_root=repo_root, base=scope.base_sha, staged=False,
+    )
+    return verdict.ok, verdict.summary
 
 
 def check_changed_path_ruff(
-    repo_root: Path, base: Optional[str],
+    repo_root: Path, scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
-    if not base:
-        return True, "skipped (no --base; PR-only delta check)"
-    paths = _changed_python_paths(repo_root, base)
+    paths = scope.python_paths
     if not paths:
         return True, "no changed Python paths"
     completed = subprocess.run(
@@ -87,7 +107,7 @@ def check_changed_path_ruff(
 
 
 def check_atlas_currency(
-    repo_root: Path, _base: Optional[str],
+    repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.tools.atlas_integrity_audit import build_report
     from yoke_core.tools.atlas_render_docs import is_stale, render
@@ -103,7 +123,7 @@ def check_atlas_currency(
 
 
 def check_install_bundle_tree(
-    repo_root: Path, _base: Optional[str],
+    repo_root: Path, _scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
     from yoke_core.domain import install_bundle_tree_sync
 
@@ -123,15 +143,24 @@ CONTRACTS: Tuple[Tuple[str, ContractFn], ...] = (
 )
 
 
-def run_contracts(
-    repo_root: Path, *, base: Optional[str] = None,
-) -> int:
-    """Execute every contract; return 0 only when all pass."""
+def run_contracts(repo_root: Path, *, base: str) -> int:
+    """Execute every contract against one scope; return 0 only when all pass."""
     summary_lines = ["## Repo contracts", ""]
+    try:
+        scope = resolve_changed_path_scope(repo_root, base)
+    except (OSError, RuntimeError) as exc:
+        # An unresolvable scope is a failure, never a silent skip: a contract
+        # that reports PASS because it saw no files is indistinguishable from
+        # one that ran, and that is the divergence this front exists to close.
+        detail = f"changed-path scope against {base} unresolvable: {exc}"
+        summary_lines.append(f"**Failed contracts:** {detail}")
+        print(f"repo-contracts FAILED: {detail}", file=sys.stderr, flush=True)
+        _append_summary(summary_lines)
+        return 1
     failures: List[str] = []
     for name, fn in CONTRACTS:
         try:
-            ok, detail = fn(repo_root, base)
+            ok, detail = fn(repo_root, scope)
         except Exception as exc:  # noqa: BLE001 - surface any contract crash
             ok = False
             detail = f"{type(exc).__name__}: {exc}"
@@ -178,8 +207,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument(
         "--base",
-        default=None,
-        help="Git base ref for delta checks (authored-file + changed-path ruff).",
+        required=True,
+        help=(
+            "Integration ref (e.g. origin/main). Every delta contract reads "
+            "one diff taken from its merge-base with HEAD."
+        ),
     )
     parser.add_argument("--repo", default=None, help="Checkout root (default: cwd).")
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -192,10 +224,12 @@ if __name__ == "__main__":
 
 __all__ = [
     "CONTRACTS",
+    "ChangedPathScope",
     "check_atlas_currency",
     "check_authored_file_limit",
     "check_changed_path_ruff",
     "check_install_bundle_tree",
     "main",
+    "resolve_changed_path_scope",
     "run_contracts",
 ]
