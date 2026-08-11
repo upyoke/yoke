@@ -79,8 +79,7 @@ def test_run_ci_verification_success_records_pass(
         lambda *a, **k: push_calls.append((a, k)),
     )
     monkeypatch.setattr(
-        merge_worktree_tests_ci,
-        "_fetch_ci_head_sha",
+        "yoke_core.domain.qa_case_ci_lane.run_head_sha",
         lambda **kwargs: head,
     )
     monkeypatch.setattr(
@@ -127,8 +126,7 @@ def test_run_ci_verification_red_blocks(
         await_result=lambda **kwargs: (1, "failed:failure"),
     )
     monkeypatch.setattr(
-        merge_worktree_tests_ci,
-        "_fetch_ci_head_sha",
+        "yoke_core.domain.qa_case_ci_lane.run_head_sha",
         lambda **kwargs: head,
     )
     monkeypatch.setattr(
@@ -194,8 +192,7 @@ def test_run_ci_verification_head_sha_mismatch_blocks(
         await_result=lambda **kwargs: (0, "success"),
     )
     monkeypatch.setattr(
-        merge_worktree_tests_ci,
-        "_fetch_ci_head_sha",
+        "yoke_core.domain.qa_case_ci_lane.run_head_sha",
         lambda **kwargs: "f" * 40,
     )
     monkeypatch.setattr(

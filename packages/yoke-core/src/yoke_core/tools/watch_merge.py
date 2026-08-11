@@ -52,10 +52,16 @@ KIND = "merge"
 # command as typed.
 DEFAULT_PROG = "watch_merge"
 
-# Maps wrapper sub-command names to the underlying engine module.
+# Maps wrapper sub-command names to the module that owns the run. Each
+# must be the same entrypoint the plain command uses, not the engine that
+# entrypoint eventually calls: `yoke merge item` reaches the standalone
+# merge through a runtime that first binds this machine's GitHub user
+# authority, and a wrapper that skipped straight to the engine merged
+# without it — visibly, as a credential refusal on any machine whose App
+# authority lives server-side.
 SUBCOMMAND_MODULES: dict[str, str] = {
     "done-transition": "yoke_core.engines.done_transition",
-    "merge-item": "yoke_core.domain.standalone_item_merge_cli",
+    "merge-item": "yoke_cli.commands.merge_item_local_runtime",
     "merge-worktree": "yoke_core.engines.merge_worktree",
 }
 

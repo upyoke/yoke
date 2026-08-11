@@ -6,7 +6,6 @@ names the machine-global default. Per-command routing (``--env`` /
 (decision record: ``docs/archive/decisions/machine-config-env-connections.md``).
 """
 from __future__ import annotations
-from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.schema_projects import (
@@ -49,16 +48,19 @@ from yoke_contracts.machine_config.schema_github import (
     github_config as github_config, has_github_config, normalize_github_payload, validate_github_config,
 )
 from yoke_contracts.machine_config.schema_connections import (
+    DB_ADMIN_ENV_SUFFIX as DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE as ENV_OVERRIDE,
     MachineConfigContractError as MachineConfigContractError,
     PROD_FLAG_KEY,
     connection_is_prod as connection_is_prod,
-    local_postgres_envs,
+    env_override_teaching as env_override_teaching,
+    local_postgres_envs as local_postgres_envs,
+    same_universe_db_admin_env as same_universe_db_admin_env,
+    same_universe_https_env as same_universe_https_env,
     selected_env as selected_env,
 )
 
 SCHEMA_VERSION = 1
-DB_ADMIN_ENV_SUFFIX = "-db-admin"
 DEFAULT_CONFIG_NAME = "config.json"
 DEFAULT_BOARD_PATH = ".yoke/BOARD.md"
 DEFAULT_CACHE_DIR_NAME = "cache"
@@ -276,58 +278,6 @@ def _validate_tunnel(
             path=f"{prefix}.postgres.tunnel",
             hint=f"Declare all of: {', '.join(TUNNEL_REQUIRED_KEYS)}.")]
     return []
-
-
-def env_override_teaching(
-    payload: Mapping[str, Any] | None,
-    *,
-    selected_env: str,
-    transport: str,
-    command: str | None = None,
-) -> str:
-    """Setup-error text for a local-postgres-only operation under a non-local
-    selected env: why it failed, the configured local-postgres envs, and the
-    one-line override recipe.
-    """
-    envs = local_postgres_envs(payload)
-    why = (
-        f"connected env {selected_env!r} (transport {transport}) has no local "
-        "Postgres; this operation requires a local-postgres env."
-    )
-    if not envs:
-        return (
-            f"{why} No local-postgres env is configured on this machine; add "
-            "one under connections in ~/.yoke/config.json "
-            "(see `yoke config example`)."
-        )
-    recipe_env = envs[0]
-    recipe_cmd = command if command is not None else _invocation_recipe()
-    return (
-        f"{why} Run: {ENV_OVERRIDE}={recipe_env} {recipe_cmd} "
-        f"(configured local-postgres envs: {', '.join(envs)}; `yoke` "
-        f"subcommands also accept --env {recipe_env})."
-    )
-
-
-def _invocation_recipe(
-    argv: list[str] | None = None,
-    main_spec_name: str | None = None,
-) -> str:
-    """Reconstruct the current invocation for the override recipe line."""
-    import shlex
-    import sys
-
-    args = list(sys.argv) if argv is None else list(argv)
-    if main_spec_name is None:
-        spec = getattr(sys.modules.get("__main__"), "__spec__", None)
-        main_spec_name = getattr(spec, "name", "") or ""
-    module = main_spec_name.removesuffix(".__main__")
-    if module and module != "__main__":
-        prefix = f"python3 -m {module}"
-    else:
-        prefix = Path(args[0]).name if args and args[0] else "<command>"
-    tail = " ".join(shlex.quote(arg) for arg in args[1:])
-    return f"{prefix} {tail}".strip()
 
 
 def _validate_credential_source(

@@ -42,6 +42,11 @@ class RunGetResponse(BaseModel):
     status: Optional[str] = None
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
+    #: The commit the run checked out. A caller that dispatched against a
+    #: branch needs this to prove the conclusion belongs to the tree it
+    #: meant to test, and it can only be read where the App credentials
+    #: live.
+    head_sha: Optional[str] = None
     message: str
 
 
@@ -70,6 +75,7 @@ def _classify(payload: RunGetRequest, data: Dict[str, Any]) -> RunGetResponse:
         status=status or None,
         conclusion=conclusion,
         html_url=html_url,
+        head_sha=str(data.get("head_sha") or "").strip() or None,
         message=message,
     )
 

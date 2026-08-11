@@ -152,6 +152,102 @@ def test_authority_leaves_an_explicit_selection_alone(monkeypatch):
     assert os.environ[GITHUB_ACTIONS_RELAY_ENV] == "stage"
 
 
+def test_authority_under_a_db_admin_connection_uses_its_own_https_plane(
+    monkeypatch,
+):
+    """A direct-Postgres connection asks the plane it administers.
+
+    The deploy layer's fallback would pick an independently deployed peer,
+    which holds neither this project's rows nor its App authorization.
+    """
+    from yoke_core.domain.deploy_pipeline_reporting import (
+        GITHUB_ACTIONS_RELAY_ENV,
+    )
+
+    monkeypatch.delenv(GITHUB_ACTIONS_RELAY_ENV, raising=False)
+    monkeypatch.delenv(lane.GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, raising=False)
+    monkeypatch.setattr(
+        "yoke_cli.transport.https.resolve_https_connection",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.load_config",
+        lambda *a, **k: {
+            "connections": {
+                "prod": {"transport": "https"},
+                "prod-db-admin": {"transport": "local-postgres"},
+                "stage": {"transport": "https"},
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.active_env",
+        lambda *a, **k: "prod-db-admin",
+    )
+
+    with lane.github_actions_authority():
+        assert os.environ[GITHUB_ACTIONS_RELAY_ENV] == "prod"
+    assert GITHUB_ACTIONS_RELAY_ENV not in os.environ
+
+
+def test_run_head_sha_reads_through_the_relay(monkeypatch):
+    """The head-sha read reaches GitHub the way dispatch and polling do."""
+    import json
+
+    seen: dict = {}
+
+    def _fake_github_actions(*args, **kwargs):
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        body = json.dumps({"success": True, "result": {"head_sha": "a" * 40}})
+        return subprocess.CompletedProcess(list(args), 0, body, "")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        _fake_github_actions,
+    )
+
+    assert lane.run_head_sha(
+        project="yoke", repo="acme/widgets", run_id="55",
+    ) == "a" * 40
+    assert seen["args"] == ("poll", "acme/widgets", "55", "--json")
+    assert seen["kwargs"]["project"] == "yoke"
+
+
+def test_run_head_sha_reports_a_control_plane_without_the_field(monkeypatch):
+    """A plane predating the field answers empty, not with an error."""
+    import json
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        lambda *a, **k: subprocess.CompletedProcess(
+            list(a), 0,
+            json.dumps({"success": True, "result": {"state": "success"}}),
+            "",
+        ),
+    )
+
+    assert lane.run_head_sha(
+        project="yoke", repo="acme/widgets", run_id="55",
+    ) == ""
+
+
+def test_run_head_sha_raises_when_the_relay_refuses(monkeypatch):
+    import json
+
+    monkeypatch.setattr(
+        "yoke_core.domain.deploy_pipeline_reporting._github_actions",
+        lambda *a, **k: subprocess.CompletedProcess(
+            list(a), 4,
+            json.dumps({"success": False}),
+            "no GitHub Actions authority selected",
+        ),
+    )
+
+    with pytest.raises(QaCaseExecutionError, match="no GitHub Actions authority"):
+        lane.run_head_sha(project="yoke", repo="acme/widgets", run_id="55")
+
+
 def test_dispatch_passes_the_correlation_input_and_returns_the_run_id(monkeypatch):
     seen: dict = {}
 
