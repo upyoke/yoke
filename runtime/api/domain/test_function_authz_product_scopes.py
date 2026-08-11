@@ -69,3 +69,32 @@ def test_field_note_promotion_requires_write_access_to_payload_project(conn):
     )
     assert denied.error is not None
     assert denied.project_id == yoke
+
+
+def test_field_note_promotion_falls_back_to_note_project_without_flag(conn):
+    from yoke_core.domain.ouroboros_entries import cmd_insert_entry
+
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _project_owner(conn, yoke)
+    entry_id = int(
+        cmd_insert_entry(
+            conn,
+            timestamp="2026-08-10T18:03:05Z",
+            agent="test",
+            context=None,
+            category="field-note-observation",
+            body="note carries project",
+            project="yoke",
+        )
+    )
+    allowed = check_dispatch_permission(
+        conn,
+        _entry("ouroboros.field_note.promote"),
+        _payload_request(
+            actor_id,
+            "ouroboros.field_note.promote",
+            {"entry_id": entry_id, "title": "From note project"},
+        ),
+    )
+    assert allowed.error is None
+    assert allowed.project_id == yoke
