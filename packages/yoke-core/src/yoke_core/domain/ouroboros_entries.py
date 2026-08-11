@@ -73,7 +73,6 @@ def cmd_insert_entry(
     category: str,
     body: str,
     project: Optional[str] = None,
-    source: str = "operator",
 ) -> str:
     p = _p(conn)
     project_id = resolve_project_id(conn, project) if project else None

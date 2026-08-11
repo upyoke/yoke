@@ -1,7 +1,8 @@
 """Tests for the Ouroboros entry writer.
 
-Any ``source`` string is accepted and body content is written through to the
-durable row without lexical lint inspection.
+Body content is written through to the durable row without lexical lint
+inspection. Provenance is carried by the ``category`` prefix, not by a
+separate writer argument.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
         yield db_path
 
 
-def test_cmd_insert_entry_accepts_field_note_source(tmp_db: str) -> None:
+def test_cmd_insert_entry_writes_field_note_category(tmp_db: str) -> None:
     with connect(tmp_db) as conn:
         row_id = cmd_insert_entry(
             conn,
@@ -39,7 +40,6 @@ def test_cmd_insert_entry_accepts_field_note_source(tmp_db: str) -> None:
             context=None,
             category="field-note-observation",
             body="bug: stale doc reference",
-            source="field_note",
         )
 
     assert row_id.isdigit(), f"expected numeric row id, got {row_id!r}"
@@ -68,7 +68,6 @@ def test_cmd_insert_entry_accepts_diagnostic_language(
             context=None,
             category="observation",
             body="bug: this is broken",
-            source="operator",
         )
 
     assert row_id.isdigit()
@@ -100,7 +99,6 @@ def test_list_entry_rows_filters_by_category_prefix(tmp_db: str) -> None:
             context=None,
             category="field-note-failed",
             body="field-note body",
-            source="field_note",
         )
         cmd_insert_entry(
             conn,
@@ -125,7 +123,6 @@ def test_list_entry_rows_honors_limit(tmp_db: str) -> None:
                 context=None,
                 category="field-note-observation",
                 body=f"body {index}",
-                source="field_note",
             )
         rows = list_entry_rows(
             conn, category_prefix="field-note-", limit=2,
@@ -168,7 +165,6 @@ def test_count_entry_rows_matches_filters(tmp_db: str) -> None:
             context=None,
             category="field-note-failed",
             body="fn",
-            source="field_note",
         )
         cmd_insert_entry(
             conn,

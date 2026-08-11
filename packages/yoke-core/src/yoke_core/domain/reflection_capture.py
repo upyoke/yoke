@@ -127,7 +127,6 @@ def persist_entries(
                     category=entry.category,
                     body=entry.body,
                     project=project,
-                    source="reflection_capture",
                 )
                 if ret == "Duplicate entry skipped":
                     result.entries_skipped += 1
