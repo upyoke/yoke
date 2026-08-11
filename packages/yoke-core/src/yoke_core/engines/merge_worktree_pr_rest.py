@@ -48,6 +48,11 @@ class PrCreateResult:
     pr_url: str
     pr_num: str
     already_exists: bool = False
+    # GitHub refuses a pull request whose head adds nothing to the base. For
+    # a branch that was about to be merged, that refusal says the branch has
+    # already landed, so callers converge on the landed state rather than
+    # reporting the refusal as a failed merge.
+    no_commits: bool = False
     error_detail: Optional[str] = None  # populated on hard failure only
 
 
@@ -130,7 +135,7 @@ def validate_github_auth_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[st
 
 
 # ---------------------------------------------------------------------------
-# PR create / discover
+# PR create
 # ---------------------------------------------------------------------------
 
 
@@ -143,9 +148,11 @@ def create_pr(
     """Create a pull request via REST.
 
     Returns :class:`PrCreateResult` with ``pr_url``/``pr_num`` populated on
-    success, or ``already_exists=True`` when GitHub returns 422 with the
-    documented "A pull request already exists" message. Hard failures
-    return with ``error_detail`` populated and ``pr_url``/``pr_num`` empty.
+    success, ``already_exists=True`` when GitHub returns 422 with the
+    documented "A pull request already exists" message, or
+    ``no_commits=True`` when it returns 422 because the head adds nothing to
+    the base. Hard failures return with ``error_detail`` populated and
+    ``pr_url``/``pr_num`` empty.
     """
     auth = resolve_auth(ctx, required_permissions=PR_WRITE)
     owner, repo = gh_rest_transport.split_repo(auth.repo)
@@ -170,6 +177,8 @@ def create_pr(
             or "pull request already exists" in lowered
         ):
             return PrCreateResult(pr_url="", pr_num="", already_exists=True)
+        if "no commits between" in lowered:
+            return PrCreateResult(pr_url="", pr_num="", no_commits=True)
         return PrCreateResult(
             pr_url="", pr_num="",
             error_detail=f"pr create rejected (HTTP {exc.status}): {exc}",
@@ -193,43 +202,6 @@ def create_pr(
             ),
         )
     return PrCreateResult(pr_url=url, pr_num=pr_num)
-
-
-def find_existing_pr(
-    ctx: MergeContext,
-) -> Tuple[Optional[str], Optional[str]]:
-    """Look up an existing open PR for ``ctx.args.branch`` via REST.
-
-    Returns ``(pr_url, pr_num)`` on success, ``(None, None)`` when no open
-    PR exists or discovery itself fails.
-    """
-    try:
-        auth = resolve_auth(ctx, required_permissions=PR_READ)
-    except AuthResolutionFailed:
-        return None, None
-    owner, repo = gh_rest_transport.split_repo(auth.repo)
-    req = RestRequest(
-        method="GET",
-        path=f"/repos/{owner}/{repo}/pulls",
-        query={"head": f"{owner}:{ctx.args.branch}", "state": "open"},
-    )
-    try:
-        resp = request_with_retry(req, token=auth.token)
-    except RestTransportError:
-        return None, None
-
-    items = resp.body if isinstance(resp.body, list) else []
-    if not items:
-        return None, None
-    first = items[0]
-    if not isinstance(first, dict):
-        return None, None
-    url = str(first.get("html_url") or first.get("url") or "").strip()
-    number = first.get("number")
-    num_str = str(number).strip() if number is not None else ""
-    if not url or not num_str:
-        return None, None
-    return url, num_str
 
 
 # ---------------------------------------------------------------------------
@@ -342,7 +314,6 @@ __all__ = (
     "RestTransportError",
     "RestUnprocessableError",
     "create_pr",
-    "find_existing_pr",
     "get_pr_merge_state",
     "merge_pr",
     "resolve_auth",

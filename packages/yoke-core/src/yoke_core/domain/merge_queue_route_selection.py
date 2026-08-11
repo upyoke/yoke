@@ -127,7 +127,7 @@ def route_standalone_landing(
     return StandaloneMergeOutcome(
         ok=outcome.ok,
         exit_code=outcome.exit_code,
-        already_merged=False,
+        already_merged=outcome.already_merged,
         # The lane head is what the item's own verification covered and what
         # its evidence record is answerable for; the queue's merge commit
         # belongs to the base branch, exactly as in the local engine's result.

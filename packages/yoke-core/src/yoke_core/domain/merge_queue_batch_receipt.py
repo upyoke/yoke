@@ -20,7 +20,6 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ACTIONS_READ_PERMISSION_LEVELS as ACTIONS_READ,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
 )
 
@@ -32,11 +31,11 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
+from yoke_core.engines.merge_worktree_pr_queue import (
+    read_train_run,
+    resolve_auth_detail,
+)
 from yoke_core.engines.merge_worktree_prepare import MergeContext
-
-
-_QUEUE_REF_PREFIX = "gh-readonly-queue/"
 
 
 @dataclass(frozen=True)
@@ -86,67 +85,16 @@ def observe_batch(
     except RestTransportError as exc:
         return None, f"pull request read failed: {exc}"
 
-    run_auth, run_auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
-    if run_auth_err or run_auth is None:
-        return (
-            BatchReceipt(
-                pr_num=pr_num, merge_sha=merge_sha, members=member_snapshot
-            ),
-            f"merge_group run lookup unavailable: {run_auth_err}",
-        )
-    try:
-        runs_response = request_with_retry(
-            RestRequest(
-                method="GET",
-                path=f"/repos/{owner}/{repo}/actions/runs",
-                query={"event": "merge_group", "per_page": "30"},
-            ),
-            token=run_auth.token,
-        )
-    except RestTransportError as exc:
-        return (
-            BatchReceipt(
-                pr_num=pr_num, merge_sha=merge_sha, members=member_snapshot
-            ),
-            f"merge_group run lookup failed: {exc}",
-        )
-    body = (
-        runs_response.body if isinstance(runs_response.body, dict) else {}
-    )
-    runs = body.get("workflow_runs") or []
-    marker = f"pr-{pr_num}-"
-    matched: Optional[dict[str, Any]] = None
-    newest_success: Optional[dict[str, Any]] = None
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        head_branch = str(run.get("head_branch") or "")
-        if not head_branch.startswith(_QUEUE_REF_PREFIX):
-            continue
-        if marker in head_branch:
-            matched = run
-            break
-        if newest_success is None and run.get("conclusion") == "success":
-            newest_success = run
-    chosen = matched or newest_success
-    if chosen is None:
-        return (
-            BatchReceipt(
-                pr_num=pr_num, merge_sha=merge_sha, members=member_snapshot
-            ),
-            "no merge_group workflow run found for the landed train",
-        )
+    run, run_note = read_train_run(ctx, pr_num)
     return (
         BatchReceipt(
             pr_num=pr_num,
             merge_sha=merge_sha,
             members=member_snapshot,
-            head_sha=str(chosen.get("head_sha") or ""),
-            run_url=str(chosen.get("html_url") or ""),
+            head_sha=run.head_sha if run is not None else "",
+            run_url=run.url if run is not None else "",
         ),
-        None if matched is not None else (
-            "merge_group run matched by recency, not by queue ref marker"
-        ),
+        run_note,
     )
 
 

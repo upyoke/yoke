@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import _post_merge_cleanup
-from yoke_core.engines.merge_worktree_pr_rest import (
-    create_pr,
-    find_existing_pr,
-)
+from yoke_core.engines.merge_worktree_pr_discovery import find_existing_pr
+from yoke_core.engines.merge_worktree_pr_rest import create_pr
 from yoke_core.engines.merge_worktree_pr_merge import (
     run_pr_merge_with_retry_guard,
 )
 from yoke_core.engines.merge_worktree_pr_setup import (
     _current_origin_target_sha,
-    _ensure_target_pushed,
 )
 from yoke_core.engines.merge_worktree_ci import (
     _classify_test_results,

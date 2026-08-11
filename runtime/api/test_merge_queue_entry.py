@@ -75,7 +75,8 @@ def test_read_queue_members_maps_entries(monkeypatch):
         queue_mod, "resolve_auth", lambda *_a, **_kw: _auth()
     )
     body = {"data": {"repository": {"mergeQueue": {"entries": {"nodes": [
-        {"pullRequest": {"number": 11, "headRefName": "YOK-101"}},
+        {"state": "AWAITING_CHECKS",
+         "pullRequest": {"number": 11, "headRefName": "YOK-101"}},
         {"pullRequest": {"number": 12, "headRefName": "YOK-102"}},
         {"pullRequest": None},
     ]}}}}}
@@ -85,8 +86,8 @@ def test_read_queue_members_maps_entries(monkeypatch):
     )
     members, err = queue_mod.read_queue_members(_ctx())
     assert err is None
-    assert [(m.pr_num, m.head_ref) for m in members] == [
-        ("11", "YOK-101"), ("12", "YOK-102"),
+    assert [(m.pr_num, m.head_ref, m.state) for m in members] == [
+        ("11", "YOK-101", "AWAITING_CHECKS"), ("12", "YOK-102", ""),
     ]
 
 
@@ -117,3 +118,48 @@ def test_read_queue_members_empty_queue_is_empty_list(monkeypatch):
     members, err = queue_mod.read_queue_members(_ctx())
     assert err is None
     assert members == []
+
+
+def _wire_runs(monkeypatch, runs):
+    monkeypatch.setattr(
+        queue_mod, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+    )
+    monkeypatch.setattr(
+        queue_mod, "request_with_retry",
+        lambda req, *, token, **_kw: _response({"workflow_runs": runs}),
+    )
+
+
+def test_read_train_run_matches_the_queue_ref_marker(monkeypatch):
+    _wire_runs(monkeypatch, [
+        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+         "conclusion": "success", "status": "completed",
+         "head_sha": "a" * 40, "html_url": "https://runs/7"},
+        {"head_branch": "gh-readonly-queue/main/pr-42-def",
+         "conclusion": "failure", "status": "completed",
+         "head_sha": "b" * 40, "html_url": "https://runs/42"},
+    ])
+    run, note = queue_mod.read_train_run(_ctx(), "42")
+    assert note is None
+    assert run.conclusion == "failure"
+    assert run.head_sha == "b" * 40
+    assert run.url == "https://runs/42"
+    assert run.matched_by_marker
+
+
+def test_read_train_run_recency_fallback_is_named(monkeypatch):
+    _wire_runs(monkeypatch, [
+        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+         "conclusion": "success", "status": "completed",
+         "head_sha": "a" * 40, "html_url": "https://runs/7"},
+    ])
+    run, note = queue_mod.read_train_run(_ctx(), "42")
+    assert not run.matched_by_marker
+    assert "recency" in note
+
+
+def test_read_train_run_without_any_run_is_named(monkeypatch):
+    _wire_runs(monkeypatch, [])
+    run, note = queue_mod.read_train_run(_ctx(), "42")
+    assert run is None
+    assert "no merge_group workflow run" in note
