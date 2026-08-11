@@ -75,6 +75,7 @@ class QueueLandingOutcome:
     pr_num: str = ""
     commit_sha: str = ""
     merge_sha: str = ""
+    touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
     already_merged: bool = False
     error: str = ""
@@ -248,6 +249,7 @@ def land_item_through_merge_queue(
         pr_num=pr_num,
         commit_sha=commit_sha,
         merge_sha=close_out.merge_sha,
+        touched_files=close_out.touched_files,
         batch=close_out.batch,
         already_merged=already_merged,
         warnings=tuple(warnings),

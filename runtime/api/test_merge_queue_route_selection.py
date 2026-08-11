@@ -97,6 +97,7 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
         return QueueLandingOutcome(
             ok=True, exit_code=0, pr_num="42",
             commit_sha=kwargs["commit_sha"], merge_sha="m" * 40,
+            touched_files=("a.py", "docs/b.md"),
             warnings=("observed",),
         )
 
@@ -118,3 +119,7 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
     # terminal ancestry check reads it, so dropping it strands the close-out.
     assert seen["commit_sha"] == "c" * 40
     assert outcome.commit_sha == "c" * 40
+    # Same reason the lane head has to survive: the shared outcome shape is
+    # what the caller hands to the evidence writer, which refuses an empty
+    # touched-file set and strands the landed item.
+    assert outcome.touched_files == ("a.py", "docs/b.md")

@@ -105,7 +105,7 @@ def resolve_auth_detail(
         return None, detail
 
 
-def _graphql(
+def graphql_with_auth(
     auth: ProjectGithubAuth,
     *,
     query: str,
@@ -173,7 +173,7 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
         return QueueEntryResult(
             success=False, pr_num=pr_num, error_detail=node_err
         )
-    _, mutation_err = _graphql(
+    _, mutation_err = graphql_with_auth(
         auth,
         query=_ENABLE_AUTO_MERGE_MUTATION,
         variables={"pullRequestId": node_id},
@@ -237,7 +237,7 @@ def read_queue_members(
     if auth_err or auth is None:
         return None, auth_err
     owner, name = split_repo(auth.repo)
-    data, err = _graphql(
+    data, err = graphql_with_auth(
         auth,
         query=_MERGE_QUEUE_ENTRIES_QUERY,
         variables={"owner": owner, "name": name, "branch": base_branch},
@@ -342,6 +342,7 @@ __all__ = [
     "QueueMember",
     "TrainRun",
     "enter_merge_queue",
+    "graphql_with_auth",
     "read_pr_landing_state",
     "read_queue_members",
     "read_train_run",

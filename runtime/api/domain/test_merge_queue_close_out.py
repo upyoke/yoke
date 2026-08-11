@@ -18,7 +18,14 @@ def _ctx() -> MergeContext:
     )
 
 
-def _wire(monkeypatch, *, batch=None, batch_warning=None):
+def _wire(
+    monkeypatch,
+    *,
+    batch=None,
+    batch_warning=None,
+    touched=("runtime/api/thing.py",),
+    files_error=None,
+):
     recorded: dict = {}
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
     monkeypatch.setattr(
@@ -28,6 +35,10 @@ def _wire(monkeypatch, *, batch=None, batch_warning=None):
     monkeypatch.setattr(
         close_out_mod, "record_batch_evidence",
         lambda item_id, receipt, **_kw: None,
+    )
+    monkeypatch.setattr(
+        close_out_mod, "read_pr_changed_files",
+        lambda ctx, pr_num: (touched, files_error),
     )
 
     def record(item_id, receipt: MergeReceipt, *, project: str) -> str:
@@ -62,7 +73,62 @@ def test_landing_records_the_merge_receipt_the_terminal_gate_reads(monkeypatch):
     assert recorded["receipt"] == MergeReceipt(
         branch="YOK-200", target="main",
         commit_sha=LANE_SHA, merge_sha=MERGE_SHA,
+        touched_files=("runtime/api/thing.py",),
     )
+
+
+def test_landing_carries_the_file_set_the_evidence_record_needs(monkeypatch):
+    """Nothing local can diff a queue landing, so the pull request answers.
+
+    The item's execution evidence is refused without touched files, so a
+    landing that resolves none lands the merge and then strands the item.
+    """
+    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    recorded = _wire(
+        monkeypatch, batch=batch, touched=("a.py", "docs/b.md"),
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.touched_files == ("a.py", "docs/b.md")
+    assert outcome.warnings == ()
+    assert recorded["receipt"].touched_files == ("a.py", "docs/b.md")
+
+
+def test_unresolvable_file_set_warns_without_unwinding_the_landing(monkeypatch):
+    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    _wire(
+        monkeypatch, batch=batch, touched=None,
+        files_error="github pr read failure: 503",
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.merge_sha == MERGE_SHA
+    assert outcome.touched_files == ()
+    assert (
+        "touched files not resolved: github pr read failure: 503"
+        in outcome.warnings
+    )
+
+
+def test_empty_file_listing_is_reported_rather_than_recorded_silently(
+    monkeypatch,
+):
+    """A merged pull request that changed nothing is a fact worth naming."""
+    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
+    _wire(monkeypatch, batch=batch, touched=())
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.touched_files == ()
+    assert "pull request 42 reports no changed files" in outcome.warnings
 
 
 def test_unresolved_batch_still_records_the_lane_head(monkeypatch):

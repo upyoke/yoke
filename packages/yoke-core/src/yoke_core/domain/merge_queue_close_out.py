@@ -3,14 +3,22 @@
 The queue validates a whole train's combined head server-side, so a member's
 close-out is bookkeeping rather than work: stamp when it landed, record the
 shared verification receipt as covering evidence, and record the merge receipt
-that names the two commits this landing is answerable for — the lane head that
-entered the queue and the merge commit the queue produced.
+that names what this landing is answerable for — the lane head that entered
+the queue, the merge commit the queue produced, and the files the branch
+changed.
 
 That receipt is what lets the item reach its terminal transition at all. The
 terminal QA gate compares each blocking run against the heads the merge
 boundary recorded, and a queue merge happens entirely on GitHub: no local
 commit ever carries it, so without the receipt the gate has nothing to compare
 against and every queue-landed item strands.
+
+The file set has the same shape of problem and is read the same way. A local
+merge diffs the lane against the base it landed on; a queue landing has no
+such diff here, because the merge is on GitHub and the head the queue merged
+need not be the one this checkout holds. So the files come from the pull
+request, which is what GitHub merged. An item whose evidence record carries
+no touched files cannot close out either.
 
 Nothing here unwinds a landed merge. Each step degrades to a warning, because
 the merge has already happened and refusing the bookkeeping would not undo it.
@@ -28,6 +36,7 @@ from yoke_core.domain.merge_queue_batch_receipt import (
     record_batch_evidence,
 )
 from yoke_core.domain.standalone_item_merge import stamp_merged_at
+from yoke_core.engines.merge_worktree_pr_files import read_pr_changed_files
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -36,6 +45,7 @@ class QueueCloseOut:
     """The bookkeeping one landed queue member produced."""
 
     merge_sha: str = ""
+    touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
     warnings: tuple[str, ...] = field(default=())
 
@@ -65,6 +75,15 @@ def record_landing(
         if evidence_error:
             warnings.append(f"batch evidence not recorded: {evidence_error}")
 
+    touched, files_error = read_pr_changed_files(ctx, pr_num)
+    if files_error:
+        warnings.append(f"touched files not resolved: {files_error}")
+    elif not touched:
+        warnings.append(
+            f"pull request {pr_num} reports no changed files"
+        )
+    touched_files = tuple(touched or ())
+
     receipt_note = receipts.record(
         item_id,
         receipts.MergeReceipt(
@@ -72,13 +91,17 @@ def record_landing(
             target=ctx.args.target,
             commit_sha=commit_sha,
             merge_sha=merge_sha,
+            touched_files=touched_files,
         ),
         project=ctx.project,
     )
     if receipt_note:
         warnings.append(receipt_note)
     return QueueCloseOut(
-        merge_sha=merge_sha, batch=batch, warnings=tuple(warnings)
+        merge_sha=merge_sha,
+        touched_files=touched_files,
+        batch=batch,
+        warnings=tuple(warnings),
     )
 
 

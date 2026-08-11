@@ -12,8 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -81,6 +83,59 @@ def test_transition_still_refuses_a_commit_no_branch_carries(monkeypatch):
     )
 
     assert "is not reachable from 'main'" in error
+
+
+def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
+    """A landed merge must not strand at the evidence write.
+
+    The queue route returned no touched files, so the evidence writer
+    refused every queue-landed item after its branch had already merged.
+    The file set travels back with the landing outcome for exactly this
+    call, whichever boundary produced it.
+    """
+    item = {
+        "id": 7,
+        "public_ref": "ITEM-1",
+        "status": "reviewing-implementation",
+        "workflow": {"id": "dash"},
+        "project": {"slug": "yoke"},
+        "worktrees": [{"path": "/repo/.worktrees/ITEM-1", "branch": "ITEM-1"}],
+    }
+    monkeypatch.setattr(
+        merge_cli, "_resolve_item", lambda ref, project: (item, ""),
+    )
+    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(
+        merge_cli, "_resolve_checkout",
+        lambda item, target: (Path("/repo"), "main"),
+    )
+    monkeypatch.setattr(
+        merge_cli, "qa_preflight",
+        lambda item, *, item_ref, repo_root, branch: (LANE_SHA, ""),
+    )
+    monkeypatch.setattr(
+        merge_cli, "route_standalone_landing",
+        lambda **_kw: StandaloneMergeOutcome(
+            ok=True, exit_code=0, already_merged=False,
+            commit_sha=LANE_SHA, merge_sha=MERGE_SHA,
+            touched_files=("a.py", "docs/b.md"), pushed=True,
+        ),
+    )
+    monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
+    monkeypatch.setattr(git, "is_landed", lambda *_args: True)
+    calls = _transition_calls(monkeypatch)
+
+    exit_code = merge_cli.run(
+        ["ITEM-1", "--result", "landed", "--verification", "merge_group green"],
+    )
+
+    assert exit_code == 0
+    payloads = dict(calls)
+    evidence = payloads["direct_workflow.dash.evidence"]
+    assert evidence["touched_files"] == ["a.py", "docs/b.md"]
+    assert evidence["commit_sha"] == LANE_SHA
+    assert evidence["merge_sha"] == MERGE_SHA
+    assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
 
 
 def test_is_landed_consults_the_remote_before_refusing(monkeypatch):
