@@ -65,6 +65,7 @@ from yoke_core.domain.lint_session_cwd_validate import (
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_contracts.hook_runner.session_cwd import client_scratch_root
 
 
 _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
@@ -108,7 +109,11 @@ def _open_conn():
     return db_helpers.connect()
 
 
-def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
+def evaluate_pre_tool_use(
+    payload: Mapping[str, Any],
+    *,
+    watcher_capture_root: str = "",
+) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
     session_id = _extract_session_id(payload)
     targets = extract_payload_targets(payload)
@@ -121,6 +126,7 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
                 session_id=session_id,
                 targets=targets,
                 fallback_cwd=fallback_cwd,
+                watcher_capture_root=watcher_capture_root,
             )
     except Exception as exc:
         emit_fail_open(
@@ -241,7 +247,12 @@ def evaluate(record: HookContext) -> HookDecision:
     payload = record.payload if isinstance(record.payload, dict) else {}
     if record.event_name == "PreToolUse":
         try:
-            verdict = evaluate_pre_tool_use(payload)
+            verdict = evaluate_pre_tool_use(
+                payload,
+                watcher_capture_root=(
+                    client_scratch_root(payload) if record.remote else ""
+                ),
+            )
         except Exception as exc:
             emit_fail_open(
                 session_id=str(payload.get("session_id") or ""),

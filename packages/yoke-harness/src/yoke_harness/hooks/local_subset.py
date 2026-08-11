@@ -11,6 +11,8 @@ from yoke_contracts.hook_runner.hook_ordering import (
     ordered_pipeline_for,
 )
 from yoke_contracts.hook_runner import lint_policy
+from yoke_contracts.hook_runner.session_cwd import client_scratch_root_fact
+from yoke_contracts.machine_config import runtime as machine_config
 
 from yoke_harness.hooks.deadline import HookDeadline
 from yoke_harness.hooks.main_commit_client import collect_git_commit_facts
@@ -65,6 +67,15 @@ def _parse_payload(stdin_data: str) -> dict:
     except (json.JSONDecodeError, TypeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _client_scratch_root_fact() -> dict[str, object]:
+    """Collect the local root the authority cannot resolve over HTTPS."""
+
+    try:
+        return client_scratch_root_fact(machine_config.effective_temp_root())
+    except Exception:
+        return {}
 
 
 def _matcher(event_name: str, payload: dict) -> Optional[str]:
@@ -146,9 +157,10 @@ def evaluate_local_subset(
     if lint_config_snapshot:
         payload[lint_policy.SNAPSHOT_PAYLOAD_KEY] = lint_config_snapshot
     matcher = _matcher(event_name, payload)
-    payload_extra = (
-        collect_git_commit_facts(payload) if defer_main_commit else {}
-    )
+    payload_extra: dict[str, object] = {}
+    if defer_main_commit:
+        payload_extra.update(_client_scratch_root_fact())
+        payload_extra.update(collect_git_commit_facts(payload))
     contexts: list[str] = []
     for module_id in _local_modules(
         event_name, matcher, defer_main_commit=defer_main_commit,

@@ -237,6 +237,7 @@ class TestWatcherMintedCapturePairAllowed:
             shutil.rmtree(scratch)
         scratch.mkdir(parents=True)
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(scratch))
+        monkeypatch.setenv("YOKE_SESSION_ID", session_with_claim)
         try:
             raw, progress = mint_watcher_capture_pair("pytest")
             assert str(raw).startswith(str(scratch.resolve()))

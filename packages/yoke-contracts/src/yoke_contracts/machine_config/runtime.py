@@ -22,6 +22,7 @@ DEFAULT_CONFIG_NAME = contract.DEFAULT_CONFIG_NAME
 DEFAULT_BOARD_PATH = contract.DEFAULT_BOARD_PATH
 DEFAULT_CACHE_DIR_NAME = contract.DEFAULT_CACHE_DIR_NAME
 DEFAULT_TEMP_ROOT = contract.DEFAULT_TEMP_ROOT
+SCRATCH_ROOT_ENV = "YOKE_SCRATCH_ROOT"
 
 
 class MachineConfigError(RuntimeError):
@@ -139,6 +140,13 @@ def temp_root(path: str | Path | None = None) -> str:
     return str(_machine_path(raw))
 
 
+def effective_temp_root(path: str | Path | None = None) -> str:
+    """Return the environment override or configured machine temp root."""
+
+    override = os.environ.get(SCRATCH_ROOT_ENV, "").strip()
+    return str(_machine_path(override)) if override else temp_root(path)
+
+
 def project_entry(repo_root: str | Path, path: str | Path | None = None) -> dict[str, Any]:
     """Return the machine-config entry for a checkout, or ``{}``.
 
@@ -247,6 +255,7 @@ __all__ = [
     "DEFAULT_TEMP_ROOT",
     "HOME_ENV",
     "MachineConfigError",
+    "SCRATCH_ROOT_ENV",
     "active_connection",
     "active_env",
     "board_art_path",
@@ -254,6 +263,7 @@ __all__ = [
     "cache_dir",
     "board_scope",
     "config_path",
+    "effective_temp_root",
     "load_config",
     "normalized_config",
     "project_entry",

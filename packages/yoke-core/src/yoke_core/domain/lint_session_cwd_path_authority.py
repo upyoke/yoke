@@ -62,18 +62,34 @@ TOOL_DIR_PREFIXES = (
 )
 
 
-def is_yoke_watcher_capture_path(target: str) -> bool:
-    """True when ``target`` is under machine scratch ``watcher-captures/``."""
+def is_yoke_watcher_capture_path(
+    target: str,
+    *,
+    scratch_root: str | None = None,
+    session_id: str = "",
+) -> bool:
+    """True for a watcher capture under the selected machine/session root."""
     try:
         from yoke_core.domain.project_scratch_dir import global_scratch_root
 
-        resolved = resolve_for_display(target)
-        root = str(global_scratch_root().resolve())
+        resolved = Path(resolve_for_display(target))
+        root = (
+            Path(scratch_root).expanduser().resolve()
+            if scratch_root
+            else global_scratch_root().resolve()
+        )
+        if not root.is_absolute() or root == Path(root.anchor):
+            return False
+        parts = resolved.relative_to(root).parts
     except Exception:
         return False
-    if not (resolved == root or resolved.startswith(root + os.sep)):
+    if len(parts) < 7:
         return False
-    return "watcher-captures" in Path(resolved).parts
+    if parts[1] != "sessions" or parts[3] != "runs":
+        return False
+    if parts[5] != "watcher-captures" or not parts[6:]:
+        return False
+    return not session_id or parts[2] == session_id
 
 
 def is_under_tool_dir(
