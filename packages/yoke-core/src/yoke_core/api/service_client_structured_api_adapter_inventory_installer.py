@@ -21,6 +21,11 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke status [--json]",
         notes="Reports machine config, resolver, board, and runtime health.",
     ),
+    _read_entry(
+        function_id="config.status.run",
+        cli_invocation="yoke config status [--json]",
+        notes="Alias of status.run for the guessed config-status discovery shape.",
+    ),
     AdapterEntry(
         function_id="env.use.run",
         cli_invocation="yoke env use ENV",

@@ -33,8 +33,7 @@ from yoke_cli.commands.adapters.claims_path_override import (
     CLAIMS_PATH_OVERRIDE_USAGE,
 )
 from yoke_cli.commands.adapters.config import (
-    CONFIG_EXAMPLE_USAGE,
-    STATUS_USAGE,
+    CONFIG_EXAMPLE_USAGE, CONFIG_STATUS_USAGE, STATUS_USAGE,
 )
 from yoke_cli.commands.adapters.dev import (
     DEV_PATH_SNAPSHOT_PREWARM_USAGE,
@@ -318,6 +317,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "scratch.dispatch_inputs": SCRATCH_DISPATCH_INPUTS_USAGE,
     "config.example.run": CONFIG_EXAMPLE_USAGE,
     "config.stamp_project_env.run": STAMP_PROJECT_ENV_USAGE,
+    "config.status.run": CONFIG_STATUS_USAGE,
     "status.run": STATUS_USAGE,
     "dev.setup.run": DEV_SETUP_USAGE,
     "dev.path_snapshot_prewarm.run": DEV_PATH_SNAPSHOT_PREWARM_USAGE,

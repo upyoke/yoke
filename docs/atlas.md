@@ -2,11 +2,11 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-12T13:52:30Z_
+_Audit generated_at: 2026-08-12T14:15:18Z_
 
 ## 1. Summary
 
-- Function ids registered: **379**
+- Function ids registered: **380**
 - Internal dispatch-only functions without CLI adapters: **77**
 - `yoke` CLI subcommands: **303** (303 carry usable `--help`)
 - Operation tracker: **280 wrapped**, 5 tool_cli, 115 permanent, 0 pending
@@ -335,6 +335,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | claims.work | `python3 -m yoke_core.api.service_client claim-release` | operator_break_glass | — |
 | config | `yoke config example` | tool_shaped | — |
 | config | `yoke config stamp-project-env` | tool_shaped | — |
+| config | `yoke config status` | tool_shaped | — |
 | connection | `yoke connection remove` | tool_shaped | — |
 | connection | `yoke connection set` | tool_shaped | — |
 | core.local | `yoke core build` | tool_shaped | — |
@@ -410,7 +411,6 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | sessions | `yoke sessions init` | tool_shaped | — |
 | source_authority.export | `yoke source-authority export` | tool_shaped | — |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped | — |
-| status | `yoke config status` | tool_shaped | — |
 | status | `yoke status` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped | — |
@@ -466,9 +466,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 32 |
-| claude-code | 17 |
-| cursor | 1 |
+| codex | 42 |
+| claude-code | 6 |
+| cursor | 2 |
 
 ## 8. Contradictions
 

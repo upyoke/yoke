@@ -15,6 +15,9 @@ from yoke_contracts.machine_config import schema as machine_config_contract
 
 CONFIG_EXAMPLE_USAGE = "yoke config example"
 STATUS_USAGE = "yoke status [--config PATH] [--repo-root PATH] [--env NAME] [--json]"
+CONFIG_STATUS_USAGE = (
+    "yoke config status [--config PATH] [--repo-root PATH] [--env NAME] [--json]"
+)
 ENV_LIST_USAGE = "yoke env list [--config PATH] [--json]"
 
 
@@ -88,6 +91,7 @@ def status(args: List[str]) -> int:
 
 __all__ = [
     "CONFIG_EXAMPLE_USAGE",
+    "CONFIG_STATUS_USAGE",
     "ENV_LIST_USAGE",
     "STATUS_USAGE",
     "config_example",

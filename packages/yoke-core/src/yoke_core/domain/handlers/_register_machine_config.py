@@ -37,21 +37,22 @@ def register(registry) -> None:
         claim_required_kind=None,
         ambient_session_required=False,
     )
-    registry.register(
-        "status.run",
-        machine_config.handle_status,
-        machine_config.StatusRequest,
-        machine_config.StatusResponse,
-        stability="beta",
-        owner_module=__name__,
-        target_kinds=["system"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-        ambient_session_required=False,
-    )
+    for function_id in ("status.run", "config.status.run"):
+        registry.register(
+            function_id,
+            machine_config.handle_status,
+            machine_config.StatusRequest,
+            machine_config.StatusResponse,
+            stability="beta",
+            owner_module=__name__,
+            target_kinds=["system"],
+            side_effects=[],
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=[],
+            adapter_status="live",
+            claim_required_kind=None,
+            ambient_session_required=False,
+        )
 
 
 def _register_writers(registry) -> None:
