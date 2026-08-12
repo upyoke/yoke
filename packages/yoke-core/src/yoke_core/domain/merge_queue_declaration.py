@@ -42,13 +42,22 @@ def load_declaration(path: Path) -> dict[str, Any]:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise MergeQueueDeclarationError(f"unreadable {path}: {exc}") from exc
+    return parse_declaration(raw, source=str(path))
+
+
+def parse_declaration(
+    raw: str,
+    *,
+    source: str = "merge-queue declaration",
+) -> dict[str, Any]:
+    """Parse and validate declaration text carried by any transport."""
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise MergeQueueDeclarationError(
-            f"invalid JSON in {path}: {exc}"
+            f"invalid JSON in {source}: {exc}"
         ) from exc
-    return validate_declaration(payload, source=str(path))
+    return validate_declaration(payload, source=source)
 
 
 def validate_declaration(
@@ -224,6 +233,7 @@ __all__ = [
     "declaration_path",
     "diff_declared_against_live",
     "load_declaration",
+    "parse_declaration",
     "ruleset_apply_body",
     "validate_declaration",
 ]

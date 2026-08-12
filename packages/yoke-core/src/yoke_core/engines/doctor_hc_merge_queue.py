@@ -4,10 +4,13 @@ HC-merge-queue-binding verifies that a project declaring the
 ``merge_queue`` capability actually has the binding the queue route
 depends on: a branch ruleset requiring the merge queue on the default
 branch, and a CI workflow carrying the ``merge_group`` trigger the
-queue's integration gate runs through. When ``.yoke/merge-queue.json``
-is present in the project checkout, it also diffs live merge_queue
+queue's integration gate runs through. It also diffs live merge_queue
 parameters, required checks, ``allow_auto_merge``, and (when readable)
-bypass actors against that declaration so parameter drift turns red.
+bypass actors against ``.yoke/merge-queue.json`` so parameter drift
+turns red. The declaration comes from the project checkout when this
+host has one — it sees uncommitted edits — and otherwise from the
+repository itself at the default branch head, so a hosted runner with
+no checkout performs the same parameter diff.
 
 SKIPs cleanly when the project does not declare the capability, when
 GitHub auth is unavailable on this host, or when the CI workflow
@@ -29,15 +32,15 @@ from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
-    RestRequest,
     RestTransportError,
-    request_with_retry,
 )
 from yoke_core.domain.merge_queue_declaration import (
+    DECLARATION_RELATIVE_PATH,
     MergeQueueDeclarationError,
     declaration_path,
     diff_declared_against_live,
     load_declaration,
+    parse_declaration,
 )
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
@@ -89,7 +92,7 @@ def _declares_merge_queue(conn, project_id: int) -> bool:
 
 
 def _workflow_has_merge_group_trigger(
-    conn, token: str, owner: str, repo: str, project_id: int
+    conn, token: str, owner: str, repo: str, project_id: int, ref: str,
 ) -> Tuple[Optional[bool], str]:
     """Check the declared CI workflow for a merge_group trigger."""
     from yoke_core.domain.qa_command_plan_registration import (
@@ -100,27 +103,24 @@ def _workflow_has_merge_group_trigger(
     if not workflow_file:
         return None, "no ci_workflow_file capability declared"
     try:
-        response = request_with_retry(
-            RestRequest(
-                method="GET",
-                path=(
-                    f"/repos/{owner}/{repo}/contents/"
-                    f".github/workflows/{workflow_file}"
-                ),
-                accept="application/vnd.github.raw+json",
-            ),
+        text = mq_rest.fetch_file_text(
+            owner,
+            repo,
+            f".github/workflows/{workflow_file}",
+            ref=ref,
             token=token,
         )
     except RestTransportError as exc:
         return None, f"workflow read failed: {exc}"
-    text = response.body if isinstance(response.body, str) else ""
+    if text is None:
+        return None, f"no {workflow_file} at {owner}/{repo}@{ref}"
     return ("merge_group" in text), workflow_file
 
 
-def _load_checkout_declaration(
+def _checkout_declaration(
     conn, args: DoctorArgs,
 ) -> Tuple[Optional[dict], str]:
-    """Return (declared, detail). ``declared`` is None when absent/unusable."""
+    """Return (declared, detail) from this host's project checkout."""
     try:
         checkout = resolve_context(conn, args).source_checkout
     except Exception as exc:  # noqa: BLE001 — doctor must not crash
@@ -134,6 +134,40 @@ def _load_checkout_declaration(
         return load_declaration(path), str(path)
     except MergeQueueDeclarationError as exc:
         return None, f"declaration unreadable: {exc}"
+
+
+def _repo_declaration(
+    owner: str, repo: str, ref: str, token: str,
+) -> Tuple[Optional[dict], str]:
+    """Return (declared, detail) read from the repository at ``ref``."""
+    source = f"{owner}/{repo}@{ref}:{DECLARATION_RELATIVE_PATH}"
+    try:
+        raw = mq_rest.fetch_file_text(
+            owner, repo, DECLARATION_RELATIVE_PATH, ref=ref, token=token,
+        )
+    except RestTransportError as exc:
+        return None, f"declaration unreadable: {source}: {exc}"
+    if raw is None:
+        return None, f"no declaration at {source}"
+    try:
+        return parse_declaration(raw, source=source), source
+    except MergeQueueDeclarationError as exc:
+        return None, f"declaration unreadable: {exc}"
+
+
+def _resolve_declaration(
+    conn, args: DoctorArgs, owner: str, repo: str, ref: str, token: str,
+) -> Tuple[Optional[dict], str]:
+    """Prefer the local checkout; fall back to the repository at ``ref``.
+
+    The checkout read wins where it exists because it sees uncommitted
+    edits an operator is mid-way through applying; the repository read
+    keeps the parameter diff running on hosts that hold no checkout.
+    """
+    declared, detail = _checkout_declaration(conn, args)
+    if declared is not None or "declaration unreadable" in detail:
+        return declared, detail
+    return _repo_declaration(owner, repo, ref, token)
 
 
 def hc_merge_queue_binding(
@@ -198,7 +232,7 @@ def hc_merge_queue_binding(
         for rule in live_rules
     )
     trigger, trigger_detail = _workflow_has_merge_group_trigger(
-        conn, auth.token, owner, repo, project_id
+        conn, auth.token, owner, repo, project_id, default_branch
     )
 
     problems = []
@@ -213,7 +247,9 @@ def hc_merge_queue_binding(
             "the queue's integration gate would never run"
         )
 
-    declared, decl_detail = _load_checkout_declaration(conn, args)
+    declared, decl_detail = _resolve_declaration(
+        conn, args, owner, repo, default_branch, auth.token
+    )
     if declared is not None:
         live_auto = None
         repo_readable = True
@@ -270,12 +306,9 @@ def hc_merge_queue_binding(
     else:
         detail += f"; merge_group trigger present in {trigger_detail}"
     if declared is not None:
-        detail += f"; matches {DECLARATION_SHORT}"
+        detail += f"; matches {DECLARATION_RELATIVE_PATH} ({decl_detail})"
     else:
         detail += f" ({decl_detail}; parameter drift not checked)"
     rec.record(CHECK_ID, CHECK_NAME, "PASS", detail)
-
-
-DECLARATION_SHORT = ".yoke/merge-queue.json"
 
 __all__ = ["CHECK_ID", "CHECK_NAME", "hc_merge_queue_binding"]
