@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
 
@@ -22,13 +23,15 @@ MERGE_SHA = "2" * 40
 
 
 def _transition_calls(monkeypatch) -> list:
+    """Capture every close-out call, whichever module makes it."""
     calls: list = []
 
-    def dispatch(*, function_id, target, payload, **_kw):
+    def dispatch(*, function_id, target, payload=None, **_kw):
         calls.append((function_id, payload))
         return SimpleNamespace(success=True, result={}, error=None)
 
     monkeypatch.setattr(merge_cli, "call_dispatcher", dispatch)
+    monkeypatch.setattr(merge_evidence, "call_dispatcher", dispatch)
     return calls
 
 

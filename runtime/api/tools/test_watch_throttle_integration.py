@@ -245,6 +245,14 @@ class TestMergeClassifier:
                 LineClass.PROGRESS,
             ),
             ("[phase:smoke-prep] starting", LineClass.PROGRESS),
+            # The queue landing's per-poll observation is the only motion a
+            # 45-minute queue wait produces, so it must not read as noise.
+            (
+                "Queue landing: pull request 42: merged=false, state=open, "
+                "merge-when-ready=armed, queue-entry=absent, "
+                "train-run=not found (elapsed: 90s)",
+                LineClass.PROGRESS,
+            ),
             ("ordinary diagnostic detail", LineClass.NOISE),
             ("Title: Some title", LineClass.NOISE),
         ],

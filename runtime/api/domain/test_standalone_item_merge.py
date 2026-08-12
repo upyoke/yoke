@@ -253,7 +253,7 @@ class TestCloseOutOrdering:
             lambda *_a: pytest.fail("status must be left alone"),
         )
         monkeypatch.setattr(
-            sim_cli, "_record_evidence",
+            sim_cli.evidence, "record",
             lambda **_k: pytest.fail("evidence must be left alone"),
         )
         monkeypatch.setattr(
@@ -287,7 +287,7 @@ class TestCloseOutOrdering:
         monkeypatch.setattr(
             sim_cli, "_resolve_checkout", lambda item, target: (repo, "main"),
         )
-        monkeypatch.setattr(sim_cli, "_record_evidence", lambda **_k: "")
+        monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
             sim_cli, "_transition_to_done",
             lambda *_a: "deployment run has not succeeded",

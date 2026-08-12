@@ -56,6 +56,47 @@ def test_armed_and_unmerged_is_pending_without_confirming(monkeypatch):
     assert len(reads) == 1
 
 
+def test_a_pending_observation_names_what_it_is_waiting_on(monkeypatch):
+    reads = _wire(
+        monkeypatch,
+        states=[ARMED],
+        entries=(QueueMember(pr_num="42", head_ref="YOK-200",
+                             state="AWAITING_CHECKS"),),
+        train=TrainRun(status="in_progress", url="https://runs/9"),
+    )
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "queue-entry=AWAITING_CHECKS" in verdict.narrative
+    assert "train-run=in_progress (https://runs/9)" in verdict.narrative
+    # Naming the wait costs the queue and train reads, not a second
+    # pull-request read: the confirm delay stays a terminal-verdict cost.
+    assert len(reads) == 1
+
+
+def test_a_pull_request_the_queue_never_took_up_is_visible_while_pending(
+    monkeypatch,
+):
+    """The doomed wait: armed and open, but nothing is driving it."""
+    _wire(monkeypatch, states=[ARMED], entries=(), train=None)
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "queue-entry=absent" in verdict.narrative
+    assert "train-run=not found" in verdict.narrative
+
+
+def test_a_merged_observation_reports_the_merge(monkeypatch):
+    _wire(monkeypatch, states=[MERGED])
+    assert "merged=true" in _classify().narrative
+
+
+def test_an_unreadable_pull_request_says_so_rather_than_nothing(monkeypatch):
+    monkeypatch.setattr(
+        verdict_mod, "read_pr_landing_state",
+        lambda _ctx, pr_num: (None, "github pr read failure"),
+    )
+    assert "unreadable" in _classify().narrative
+
+
 def test_cleared_arming_is_confirmed_before_any_verdict(monkeypatch):
     reads = _wire(monkeypatch, states=[UNARMED, MERGED])
     assert _classify().kind == verdict_mod.LANDED

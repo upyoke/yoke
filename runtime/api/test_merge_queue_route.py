@@ -94,12 +94,41 @@ def test_queue_unreadable_is_named_error(monkeypatch):
     assert "no merge queue" in outcome.error
 
 
-def test_deadline_expiry_is_recoverable(monkeypatch):
+def test_every_poll_observation_is_announced(monkeypatch):
+    """The wait is the longest step, so each observation reaches stdout's
+    sibling stream rather than sitting silently in the process."""
+    wire_happy_path(
+        monkeypatch,
+        landing_states=[ARMED, ARMED, MERGED],
+        queue_entries=(QueueMember(pr_num="42", head_ref="YOK-200",
+                                   state="AWAITING_CHECKS"),),
+    )
+    announced: list[str] = []
+    outcome = land(emit=announced.append)
+    assert outcome.ok
+    assert all(
+        line.startswith(route_mod.POLL_LINE_PREFIX) for line in announced
+    )
+    assert "queue-entry=AWAITING_CHECKS" in announced[0]
+    assert "elapsed:" in announced[0]
+    assert "merged=true" in announced[-1]
+
+
+def test_deadline_expiry_is_recoverable_and_names_the_last_observation(
+    monkeypatch,
+):
     wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
-    outcome = land(monotonic=stalled_clock(), deadline_seconds=120.0)
+    outcome = land(
+        monotonic=stalled_clock(), deadline_seconds=120.0,
+        emit=lambda _line: None,
+    )
     assert not outcome.ok
     assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
     assert "did not merge within" in outcome.error
+    # The refusal repeats what the poll kept seeing, so an operator reading
+    # only the final error still learns why the landing never moved.
+    assert "last observed" in outcome.error
+    assert "queue-entry=absent" in outcome.error
 
 
 def test_poll_keeps_the_session_live_so_the_claim_survives(monkeypatch):

@@ -15,8 +15,9 @@ Class assignments:
   transitions (``Merging branch:``, ``Worktree:``,
   ``Branch already merged``, ``Resuming from step``, ``Pre-flight:``,
   ``Merge already completed``) → ``SUMMARY``.
-- Step headers (``Step N``) and merge-time test substream lines
-  (``[tests] ...``, ``[phase:tests] ...``, generic ``[phase:...] ...``)
+- Step headers (``Step N``), merge-time test substream lines
+  (``[tests] ...``, ``[phase:tests] ...``, generic ``[phase:...] ...``),
+  and the queue landing's per-poll observations (``Queue landing: ...``)
   → ``PROGRESS`` (time-window throttled).
 
 Every other line is ``NOISE`` (raw capture only).
@@ -90,6 +91,11 @@ MERGE_SUMMARY_PREFIXES: tuple[str, ...] = (
     "YOKE_REPO_ROOT=",
 )
 MERGE_STEP_RE = re.compile(r"^Step \d")
+# The queue-routed landing announces every poll observation under this
+# prefix (``yoke_core.domain.merge_queue_route.POLL_LINE_PREFIX``). These
+# are the only motion a 45-minute queue wait produces, so they must reach
+# the operator rather than settling in the raw capture.
+MERGE_QUEUE_POLL_RE = re.compile(r"^Queue landing: ")
 # Merge-time test substream and phase-prefixed lines emitted by
 # yoke_core.engines.merge_worktree_tests.
 MERGE_TEST_SUBSTREAM_RE = re.compile(r"^\[(tests|phase:[^\]]+)\]")
@@ -120,7 +126,7 @@ def classify_merge_line(line: str) -> Classification:
     for prefix in MERGE_SUMMARY_PREFIXES:
         if line.startswith(prefix):
             return Classification(LineClass.SUMMARY)
-    if MERGE_STEP_RE.search(line):
+    if MERGE_STEP_RE.search(line) or MERGE_QUEUE_POLL_RE.search(line):
         return Classification(LineClass.PROGRESS)
     payload = _test_substream_payload(line)
     if payload is not None:
@@ -149,6 +155,7 @@ def _build_merge_progress_pattern() -> re.Pattern[str]:
     parts.extend("^" + re.escape(p) for p in MERGE_URGENT_PREFIXES)
     parts.extend("^" + re.escape(p) for p in MERGE_SUMMARY_PREFIXES)
     parts.append(MERGE_STEP_RE.pattern)
+    parts.append(MERGE_QUEUE_POLL_RE.pattern)
     parts.append(MERGE_TEST_SUBSTREAM_RE.pattern)
     return re.compile("|".join(parts))
 

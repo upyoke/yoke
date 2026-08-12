@@ -143,16 +143,27 @@ def timeout_message(
     item_ref: str,
     resume_command: str,
     dispatch: Callable[..., Any],
+    last_observed: str = "",
 ) -> str:
-    """The operator-facing text for one poll-budget timeout."""
+    """The operator-facing text for one poll-budget timeout.
+
+    ``last_observed`` is the poll's final reading of the pull request. It
+    is what separates a wait worth resuming from one that could never have
+    merged, so the message states it rather than sending the operator to
+    GitHub to find out whether re-running is the right move at all.
+    """
     clause = claim_state_clause(
         item_id=item_id, item_ref=item_ref, dispatch=dispatch,
     )
+    observed = (
+        f"last observed {last_observed}. " if last_observed
+        else "The poll read nothing conclusive. "
+    )
     return (
         f"pull request {pr_num} did not merge within "
-        f"{int(deadline_seconds)}s; the queue may still merge it, and "
-        "re-running the landing converges on the merge if it does. Inspect "
-        f"the queue position and train checks, then {clause}: "
+        f"{int(deadline_seconds)}s; {observed}The queue may still merge it, "
+        "and re-running the landing converges on the merge if it does. "
+        f"Address what that reading reports, then {clause}: "
         f"{resume_command or GENERIC_RESUME}"
     )
 

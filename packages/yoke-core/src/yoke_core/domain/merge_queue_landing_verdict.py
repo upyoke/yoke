@@ -16,9 +16,13 @@ So nothing here is terminal on one read:
 * only a pull request that is unmerged, open, unarmed, and absent from the
   queue after that confirmation has genuinely stopped.
 
-A terminal verdict names every fact it saw, including what the train's own
+Every verdict names the facts it saw, including what the train's own
 ``merge_group`` run concluded — asserting failed train checks without
-reading them is what sent an operator to inspect a green run.
+reading them is what sent an operator to inspect a green run. A pending
+verdict carries that same description so a caller polling the queue can
+say what it is waiting on: a pull request the queue never picked up looks
+exactly like one mid-train until the readings are named, and an operator
+who cannot see the difference finds out at the deadline.
 """
 
 from __future__ import annotations
@@ -86,6 +90,29 @@ def describe(
     )
 
 
+def _observe(
+    ctx: MergeContext,
+    pr_num: str,
+    state: PrLandingState,
+    target: str,
+    warnings: list[str],
+) -> tuple[str, Optional[QueueMember], bool]:
+    """Read the queue slot and train run behind ``state`` and describe them.
+
+    Every reading it takes is one a terminal verdict takes anyway; taking
+    them on a pending observation too is what lets the poll narrate the
+    wait instead of reporting motion it never confirmed.
+    """
+    entry, entry_error = _queue_entry(ctx, pr_num, target)
+    if entry_error:
+        warnings.append(entry_error)
+    train, train_note = read_train_run(ctx, pr_num)
+    if train_note:
+        warnings.append(train_note)
+    narrative = describe(pr_num, state, entry, entry_error is None, train)
+    return narrative, entry, entry_error is None
+
+
 def _queue_entry(
     ctx: MergeContext, pr_num: str, target: str
 ) -> tuple[Optional[QueueMember], Optional[str]]:
@@ -113,11 +140,24 @@ def classify_landing(
     if error:
         warnings.append(error)
     if state is None:
-        return LandingVerdict(PENDING, warnings=tuple(warnings))
+        return LandingVerdict(
+            PENDING,
+            narrative=f"pull request {pr_num}: unreadable this observation",
+            warnings=tuple(warnings),
+        )
     if state.merged:
-        return LandingVerdict(LANDED, warnings=tuple(warnings))
+        return LandingVerdict(
+            LANDED,
+            narrative=f"pull request {pr_num}: merged=true",
+            warnings=tuple(warnings),
+        )
     if state.auto_merge_active and not state.closed:
-        return LandingVerdict(PENDING, warnings=tuple(warnings))
+        narrative, _entry, _readable = _observe(
+            ctx, pr_num, state, target, warnings
+        )
+        return LandingVerdict(
+            PENDING, narrative=narrative, warnings=tuple(warnings)
+        )
 
     # Unmerged and either closed or unarmed. Both are also what a merge in
     # flight looks like, so the reading is confirmed before it is believed.
@@ -126,26 +166,31 @@ def classify_landing(
     if confirm_error:
         warnings.append(confirm_error)
     if confirmed is None:
-        return LandingVerdict(PENDING, warnings=tuple(warnings))
+        return LandingVerdict(
+            PENDING,
+            narrative=f"pull request {pr_num}: unreadable this observation",
+            warnings=tuple(warnings),
+        )
     if confirmed.merged:
-        return LandingVerdict(LANDED, warnings=tuple(warnings))
+        return LandingVerdict(
+            LANDED,
+            narrative=f"pull request {pr_num}: merged=true",
+            warnings=tuple(warnings),
+        )
 
-    entry, entry_error = _queue_entry(ctx, pr_num, target)
-    if entry_error:
-        warnings.append(entry_error)
+    narrative, entry, entry_readable = _observe(
+        ctx, pr_num, confirmed, target, warnings
+    )
     if not confirmed.closed:
         # An unreadable queue cannot prove the entry is gone, and an entry
         # that is still there means the train is still working on it.
-        if entry_error or entry is not None or confirmed.auto_merge_active:
-            return LandingVerdict(PENDING, warnings=tuple(warnings))
-    train, train_note = read_train_run(ctx, pr_num)
-    if train_note:
-        warnings.append(train_note)
+        if not entry_readable or entry is not None or confirmed.auto_merge_active:
+            return LandingVerdict(
+                PENDING, narrative=narrative, warnings=tuple(warnings)
+            )
     return LandingVerdict(
         CLOSED_UNMERGED if confirmed.closed else STALLED,
-        narrative=describe(
-            pr_num, confirmed, entry, entry_error is None, train
-        ),
+        narrative=narrative,
         warnings=tuple(warnings),
     )
 
