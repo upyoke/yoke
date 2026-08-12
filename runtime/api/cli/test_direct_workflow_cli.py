@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_cli.commands import direct_workflow_worktree
-from yoke_cli.commands.adapters import blitz, dash
+from yoke_cli.commands.adapters import blitz, dash, lane_tree
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
@@ -123,7 +123,8 @@ def test_dash_evidence_adapter_records_actual_files_and_posture(monkeypatch):
 
 def test_dash_survey_reports_client_local_headroom(monkeypatch):
     captured = _capture(monkeypatch, dash)
-    monkeypatch.setattr(dash, "survey_path_sizes", lambda paths: [{
+    monkeypatch.setattr(dash, "item_lane_tree", lambda *a, **k: lane_tree.LaneTree())
+    monkeypatch.setattr(dash, "survey_path_sizes", lambda paths, **_: [{
         "path": paths[0],
         "current_line_count": 351,
         "remaining_headroom": -1,
@@ -145,41 +146,11 @@ def test_dash_survey_reports_client_local_headroom(monkeypatch):
     }]
 
 
-def test_dash_evidence_adapter_resolves_the_verification_tree(monkeypatch):
-    # Without overrides the adapter names the tree it is standing in, so
-    # the recorded evidence always identifies what was verified.
-    captured = _capture(monkeypatch, dash)
-    from yoke_core.domain import verification_tree_binding
-
-    monkeypatch.setattr(
-        verification_tree_binding,
-        "resolve_tree_identity",
-        lambda start=None: verification_tree_binding.TreeIdentity(
-            root="/resolved/lane", head_sha="feed1234",
-        ),
-    )
-
-    assert dash.dash_evidence([
-        "YOK-9",
-        "--result",
-        "Updated footer",
-        "--verification",
-        "UI test passed",
-        "--commit-sha",
-        "abc1234",
-        "--merge-sha",
-        "def5678",
-        "--no-changes",
-    ]) == 0
-
-    assert captured["payload"]["tree_root"] == "/resolved/lane"
-    assert captured["payload"]["tree_head_sha"] == "feed1234"
-
-
 def test_dash_evidence_adapter_refuses_an_unidentifiable_tree(monkeypatch):
     _capture(monkeypatch, dash)
     from yoke_core.domain import verification_tree_binding
 
+    monkeypatch.setattr(dash, "item_lane_tree", lambda *a, **k: lane_tree.LaneTree())
     monkeypatch.setattr(
         verification_tree_binding,
         "resolve_tree_identity",

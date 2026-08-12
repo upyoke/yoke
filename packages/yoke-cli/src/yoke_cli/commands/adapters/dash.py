@@ -16,6 +16,7 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_contracts.api.function_call import TargetRef
 from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
+from yoke_cli.commands.adapters.lane_tree import item_lane_tree, verification_tree
 
 DASH_FILE_USAGE = (
     "yoke dash TITLE INSTRUCTION [--project P] [--priority P] "
@@ -119,8 +120,14 @@ def dash_survey(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DASH_SURVEY_USAGE)
     if parsed is None:
         return 2
+    # Size the item's lane, not whatever checkout this command runs from:
+    # the survey is the pre-implementation sizing gate, and main answers
+    # with pre-change counts and zero for files the lane just added.
+    lane = item_lane_tree(parsed.item, parsed.project, parsed.session_id)
     try:
-        path_sizes = survey_path_sizes(parsed.paths)
+        path_sizes = survey_path_sizes(
+            parsed.paths, tree_root=lane.path if lane.live else None,
+        )
     except RuntimeError as exc:
         return usage_error(str(exc))
 
@@ -161,38 +168,6 @@ def dash_survey(args: List[str]) -> int:
     )
 
 
-def _verification_tree(
-    root_override: str, head_override: str,
-) -> tuple[str, str]:
-    """Resolve the tree this evidence describes, honouring overrides.
-
-    Both halves come from the local checkout, so the client answers them
-    rather than the dispatcher — a hosted server has no worktree to
-    inspect. The engine-side resolver is reached through the sanctioned
-    dynamic-import lane, for the same reason session orientation is: the
-    client cannot take static authority over engine modules before the
-    transport decision. Absent engine, or a directory with no git
-    metadata, leaves the halves empty and the caller asks for them
-    explicitly.
-    """
-    import importlib
-
-    root = str(root_override).strip()
-    head = str(head_override).strip()
-    if root and head:
-        return root, head
-    try:
-        module = importlib.import_module(
-            "yoke_core.domain.verification_tree_binding"
-        )
-        identity = module.resolve_tree_identity()
-    except Exception:
-        identity = None
-    if identity is None:
-        return root, head
-    return root or identity.root, head or identity.head_sha
-
-
 def _posture_checks(values: List[str]) -> Dict[str, str]:
     checks: Dict[str, str] = {}
     for value in values:
@@ -218,14 +193,14 @@ def dash_evidence(args: List[str]) -> int:
     parser.add_argument(
         "--tree-root",
         default="",
-        help="Verification tree root. Defaults to this directory's git "
-        "worktree root.",
+        help="Verification tree root. Defaults to the item's recorded "
+        "implementation lane.",
     )
     parser.add_argument(
         "--tree-head-sha",
         default="",
-        help="HEAD sha of the verification tree. Defaults to the resolved "
-        "tree's HEAD.",
+        help="HEAD sha of the verification tree. Defaults to --commit-sha, "
+        "the lane head this evidence records.",
     )
     add_session_arg(parser)
     add_json_arg(parser)
@@ -236,14 +211,23 @@ def dash_evidence(args: List[str]) -> int:
         checks = _posture_checks(parsed.posture_check)
     except ValueError as exc:
         return usage_error(str(exc))
-    tree_root, tree_head_sha = _verification_tree(
-        parsed.tree_root, parsed.tree_head_sha,
+    # A caller who named both halves has already answered; skip the lookup.
+    lane_path = ""
+    if not (parsed.tree_root and parsed.tree_head_sha):
+        lane_path = item_lane_tree(
+            parsed.item, parsed.project, parsed.session_id,
+        ).path
+    tree_root, tree_head_sha = verification_tree(
+        parsed.tree_root,
+        parsed.tree_head_sha,
+        lane_path=lane_path,
+        commit_sha=parsed.commit_sha,
     )
     if not tree_root or not tree_head_sha:
         return usage_error(
-            "could not resolve the verification tree from this directory; "
-            "run from the tree the verification covered, or pass "
-            "--tree-root and --tree-head-sha."
+            "could not resolve the verification tree: this item has no "
+            "recorded implementation lane and this directory is not a git "
+            "worktree; pass --tree-root and --tree-head-sha."
         )
     return dispatch_and_emit(
         function_id="direct_workflow.dash.evidence",
