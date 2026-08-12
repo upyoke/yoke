@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "defaultHostedHrefPrefix": "/universe/",
+  "entrypoints": [
+    {
+      "asset": "theme.css",
+      "hostedHref": "/brand/theme.css"
+    },
+    {
+      "asset": "shell.css"
+    },
+    {
+      "asset": "app.css"
+    },
+    {
+      "asset": "activation.css"
+    },
+    {
+      "asset": "workflows.css"
+    },
+    {
+      "asset": "workflow_posture.css"
+    },
+    {
+      "asset": "workflow_controls.css"
+    },
+    {
+      "asset": "workflow_canon_status.css"
+    },
+    {
+      "asset": "workflow_mechanics.css"
+    },
+    {
+      "asset": "test_machine.css"
+    },
+    {
+      "asset": "qa.css"
+    },
+    {
+      "asset": "inbox.css"
+    },
+    {
+      "asset": "items.css"
+    },
+    {
+      "asset": "strategy.css"
+    },
+    {
+      "asset": "workflow_instructions.css"
+    }
+  ]
+}
