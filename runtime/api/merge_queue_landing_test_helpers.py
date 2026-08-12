@@ -25,6 +25,10 @@ from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
 
+#: The claim a landing holds throughout its poll, which is what the
+#: timeout message reports when the poll budget runs out.
+HELD_BY_THIS_SESSION = {"claim_id": 77, "session_id": "sess-1"}
+
 ARMED = PrLandingState(merged=False, closed=False, auto_merge_active=True)
 UNARMED = PrLandingState(merged=False, closed=False, auto_merge_active=False)
 MERGED = PrLandingState(merged=True, closed=True, auto_merge_active=False)
@@ -39,10 +43,18 @@ def ok_response(result):
     return SimpleNamespace(success=True, result=result, error=None)
 
 
-def dispatch_for(shapes):
-    """Dispatch fake serving claims/profile/dependency reads per item ref."""
+def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
+    """Dispatch fake serving claims/profile/dependency reads per item ref.
 
-    def dispatch(*, function_id, target, payload, **_kw):
+    ``holder`` answers the work-claim lookup the timeout message makes;
+    it is keyed by item id rather than ref, so it is served before the
+    per-ref shapes are consulted. Pass ``None`` for an item whose claim
+    has been released.
+    """
+
+    def dispatch(*, function_id, target, payload=None, **_kw):
+        if function_id == "claims.work.holder_get":
+            return ok_response({"holder": holder})
         ref = target.item_ref
         shape = shapes.get(ref) or {}
         if function_id == "claims.path.list":
@@ -138,6 +150,7 @@ def land(**overrides):
 __all__ = [
     "ARMED",
     "CLOSED",
+    "HELD_BY_THIS_SESSION",
     "LANE_SHA",
     "MERGED",
     "UNARMED",

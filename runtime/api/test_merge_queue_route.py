@@ -2,6 +2,7 @@
 
 from runtime.api.merge_queue_landing_test_helpers import (
     ARMED,
+    HELD_BY_THIS_SESSION,
     MERGED,
     UNARMED,
     dispatch_for,
@@ -9,8 +10,31 @@ from runtime.api.merge_queue_landing_test_helpers import (
     wire_happy_path,
 )
 
+from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+
+
+class StubPump:
+    """A liveness pump that records rather than touching a live session."""
+
+    def __init__(self):
+        self.ticks = 0
+
+    def tick(self):
+        self.ticks += 1
+        return True
+
+
+def stalled_clock(step=40.0):
+    """A monotonic that walks past any deadline the caller sets."""
+    now = {"t": 0.0}
+
+    def monotonic():
+        now["t"] += step
+        return now["t"]
+
+    return monotonic
 
 
 def test_happy_path_lands_and_records(monkeypatch):
@@ -69,16 +93,38 @@ def test_queue_unreadable_is_named_error(monkeypatch):
 
 def test_deadline_expiry_is_recoverable(monkeypatch):
     wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
-    clock = {"now": 0.0}
-
-    def monotonic():
-        clock["now"] += 40.0
-        return clock["now"]
-
-    outcome = land(monotonic=monotonic, deadline_seconds=120.0)
+    outcome = land(monotonic=stalled_clock(), deadline_seconds=120.0)
     assert not outcome.ok
     assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
     assert "did not merge within" in outcome.error
+
+
+def test_poll_keeps_the_session_live_so_the_claim_survives(monkeypatch):
+    """The wait is silent, so the poll itself is the activity signal.
+
+    Without this the stale sweep reclaims the session mid-poll and
+    releases the item claim the close-out and any retry depend on.
+    """
+    wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
+    pump = StubPump()
+    land(monotonic=stalled_clock(), deadline_seconds=120.0, liveness=pump)
+    assert pump.ticks >= 2
+
+
+def test_timeout_reports_the_held_claim_and_the_resume_command(monkeypatch):
+    """The printed retry has to run as-is from the state it describes."""
+    wire_happy_path(monkeypatch, landing_states=[ARMED] * 100)
+    monkeypatch.setattr(timeout_mod, "_ambient_session_id", lambda: "sess-1")
+    resume = "yoke merge item YOK-200 --result r --verification v"
+    outcome = land(
+        monotonic=stalled_clock(),
+        deadline_seconds=120.0,
+        liveness=StubPump(),
+        resume_command=resume,
+        dispatch=dispatch_for({"YOK-200": {}}, holder=HELD_BY_THIS_SESSION),
+    )
+    assert "still held (claim 77)" in outcome.error
+    assert outcome.error.endswith(resume)
 
 
 def test_serial_dependency_refuses_against_queued_member(monkeypatch):

@@ -43,12 +43,14 @@ from yoke_core.domain.merge_queue_admission_shape import (
 )
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
+from yoke_core.domain.merge_queue_landing_timeout import timeout_message
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
     LANDED,
     STALLED,
     classify_landing,
 )
+from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.engines.merge_worktree_pr_discovery import (
     find_landable_pull_request,
 )
@@ -151,6 +153,8 @@ def land_item_through_merge_queue(
     monotonic: Callable[[], float] = time.monotonic,
     poll_seconds: float = DEFAULT_POLL_SECONDS,
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
+    resume_command: str = "",
+    liveness: Optional[SessionLivenessPump] = None,
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
@@ -206,9 +210,16 @@ def land_item_through_merge_queue(
                 error=entry.error_detail or "queue entry refused",
             )
 
+    # Waiting on the queue is work, but it is silent work: nothing this
+    # loop does reaches the session's activity signals, so the stale sweep
+    # would reclaim the session mid-poll and release the item claim the
+    # close-out below — and any retry — depends on. The pump says the
+    # session is still here for exactly as long as this process waits.
     deadline = monotonic() + deadline_seconds
+    pump = liveness if liveness is not None else SessionLivenessPump()
     merged = False
     while monotonic() < deadline:
+        pump.tick()
         landing = classify_landing(
             ctx, pr_num=pr_num, target=target, sleep=sleep,
         )
@@ -244,14 +255,20 @@ def land_item_through_merge_queue(
             )
         sleep(poll_seconds)
     if not merged:
+        # A poll-budget timeout is resumable, not terminal: the claim is
+        # still held, so the message reports that and prints the command
+        # that runs from there without an undocumented re-acquire.
         return QueueLandingOutcome(
             ok=False,
             exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
             pr_num=pr_num,
-            error=(
-                f"pull request {pr_num} did not merge within "
-                f"{int(deadline_seconds)}s; inspect the queue position and "
-                "train checks, then re-run the landing to resume polling"
+            error=timeout_message(
+                pr_num=pr_num,
+                deadline_seconds=deadline_seconds,
+                item_id=item_id,
+                item_ref=item_ref,
+                resume_command=resume_command,
+                dispatch=dispatch,
             ),
             warnings=tuple(warnings),
         )
