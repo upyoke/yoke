@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import machine_config
 from yoke_contracts import github_app_snapshot
 from yoke_contracts.machine_config import schema as contract
@@ -13,6 +14,10 @@ from yoke_contracts.machine_config.schema_github_access import (
 )
 
 _HUMAN_LIST_LIMIT = 20
+_BINDING_LABELS = (
+    ("user_authorization", "user authorization (merge path)"),
+    ("app_installation", "App installation"),
+)
 
 
 def not_configured(
@@ -28,6 +33,14 @@ def not_configured(
         "access": _empty_access(),
         "permissions": {
             "ok": None, "usable": None, "mode": "github_app_installation",
+        },
+        "bindings": {
+            name: {
+                "verdict": merge_path_binding.VERDICT_BROKEN,
+                "message": "machine GitHub App authorization is not configured",
+                "hint": "Run `yoke github connect` against the active Yoke service.",
+            }
+            for name, _label in _BINDING_LABELS
         },
         "issues": [issue(
             "error", "github_not_configured",
@@ -46,6 +59,7 @@ def connected(
     live_check_ok: bool | None,
     permissions: Mapping[str, Any],
     issues: list[dict[str, Any]],
+    bindings: Mapping[str, Mapping[str, str]],
 ) -> dict[str, Any]:
     auth = github.get("authorization")
     auth = auth if isinstance(auth, Mapping) else {}
@@ -76,6 +90,10 @@ def connected(
             normalized["private"] = item["private"]
         repositories.append(normalized)
     ok = not any(item.get("severity") == "error" for item in issues)
+    proven = all(
+        binding.get("verdict") == merge_path_binding.VERDICT_OK
+        for binding in bindings.values()
+    )
     try:
         login = github_app_snapshot.user_login(auth.get("login"))
     except github_app_snapshot.GitHubAppSnapshotError:
@@ -90,7 +108,7 @@ def connected(
         **_base(config_path, str(github.get("api_url") or "")),
         "web_url": str(github.get("web_url") or contract.DEFAULT_GITHUB_WEB_URL),
         "ok": ok,
-        "ready": bool(ok and installations and permissions.get("usable") is True),
+        "ready": bool(ok and proven),
         "operation": "github.status",
         "configured": True,
         "state": "connected" if installations else "pending_installation",
@@ -118,6 +136,7 @@ def connected(
             "installations": installations,
         },
         "permissions": dict(permissions),
+        "bindings": {name: dict(value) for name, value in bindings.items()},
         "issues": issues,
     }
 
@@ -131,6 +150,20 @@ def render_human(report: Mapping[str, Any]) -> str:
         f"  ok: {str(report.get('ok')).lower()}",
         f"  ready: {str(report.get('ready')).lower()}",
     ]
+    bindings = report.get("bindings")
+    if isinstance(bindings, Mapping):
+        lines.append("  bindings:")
+        for name, label in _BINDING_LABELS:
+            binding = bindings.get(name)
+            if not isinstance(binding, Mapping):
+                continue
+            lines.append(f"    {label}: {binding.get('verdict')}")
+            if binding.get("verdict") == merge_path_binding.VERDICT_OK:
+                continue
+            if binding.get("message"):
+                lines.append(f"      {binding['message']}")
+            if binding.get("hint"):
+                lines.append(f"      hint: {binding['hint']}")
     identity = report.get("identity")
     if isinstance(identity, Mapping) and identity.get("login"):
         lines.append(f"  login: {identity.get('login')}")

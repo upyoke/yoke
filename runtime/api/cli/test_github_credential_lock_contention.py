@@ -19,6 +19,7 @@ from yoke_cli.commands import merge_item_local_runtime
 from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import github_machine_operation
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import github_user_tokens
 from yoke_contracts.github_auth_transience import is_transient_auth_failure
 
@@ -164,12 +165,12 @@ def test_merge_child_separates_retry_guidance_from_reconnect_guidance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        merge_item_local_runtime.machine_config,
+        merge_path_binding.machine_config,
         "github_config",
         lambda *args, **kwargs: {"api_url": "https://api.github.com"},
     )
     monkeypatch.setattr(
-        merge_item_local_runtime.github_app_public_profile,
+        merge_path_binding.github_app_public_profile,
         "selected_https_service_api_url",
         lambda *args, **kwargs: None,
     )
