@@ -220,3 +220,61 @@ def test_explicit_project_still_overrides_note_row(conn):
     allowed = check_dispatch_permission(conn, entry, request)
     assert allowed.error is None
     assert allowed.project_id == external
+
+
+def test_mark_archived_authorizes_from_entry_row_without_flag(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _project_owner(conn, yoke)
+    entry_id = int(
+        cmd_insert_entry(
+            conn,
+            timestamp="2026-08-12T13:00:00Z",
+            agent="test",
+            context=None,
+            category="friction",
+            body="archive me by row project",
+            project="yoke",
+        )
+    )
+    entry = _entry("ouroboros.entry.mark_archived", side_effects=True)
+    request = FunctionCallRequest(
+        function="ouroboros.entry.mark_archived",
+        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"entry_id": entry_id},
+    )
+    allowed = check_dispatch_permission(conn, entry, request)
+    assert allowed.error is None
+    assert allowed.project_id == yoke
+
+
+def test_mark_archived_all_reviewed_authorizes_from_explicit_project(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _project_owner(conn, yoke)
+    entry = _entry("ouroboros.entry.mark_archived", side_effects=True)
+    request = FunctionCallRequest(
+        function="ouroboros.entry.mark_archived",
+        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"all_reviewed": True, "project": "yoke"},
+    )
+    allowed = check_dispatch_permission(conn, entry, request)
+    assert allowed.error is None
+    assert allowed.project_id == yoke
+
+
+def test_mark_archived_all_reviewed_without_project_is_denied(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _project_owner(conn, yoke)
+    entry = _entry("ouroboros.entry.mark_archived", side_effects=True)
+    request = FunctionCallRequest(
+        function="ouroboros.entry.mark_archived",
+        actor=ActorContext(actor_id=str(actor_id), session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"all_reviewed": True},
+    )
+    denied = check_dispatch_permission(conn, entry, request)
+    assert denied.error is not None
+    assert "could not resolve a target project" in (
+        denied.error.error.message if denied.error.error else ""
+    )

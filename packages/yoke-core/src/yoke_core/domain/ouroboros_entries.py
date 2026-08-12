@@ -279,22 +279,29 @@ def cmd_mark_reviewed(conn, entry_id: int) -> str:
 
 
 def cmd_mark_archived(
-    conn, entry_id: Optional[int] = None, all_reviewed: bool = False
+    conn,
+    entry_id: Optional[int] = None,
+    all_reviewed: bool = False,
+    project: Optional[str] = None,
 ) -> str:
     p = _p(conn)
     ts = iso8601_now()
     if all_reviewed:
+        where = "reviewed_at IS NOT NULL AND archived_at IS NULL"
+        params: list[object] = []
+        if project:
+            where += f" AND project_id={p}"
+            params.append(resolve_project_id(conn, project))
         count = query_scalar(
             conn,
-            "SELECT COUNT(*) FROM ouroboros_entries "
-            "WHERE reviewed_at IS NOT NULL AND archived_at IS NULL",
+            f"SELECT COUNT(*) FROM ouroboros_entries WHERE {where}",
+            tuple(params),
         )
         if not count:
             return "0"
         conn.execute(
-            f"UPDATE ouroboros_entries SET archived_at={p} "
-            "WHERE reviewed_at IS NOT NULL AND archived_at IS NULL",
-            (ts,),
+            f"UPDATE ouroboros_entries SET archived_at={p} WHERE {where}",
+            (ts, *params),
         )
         conn.commit()
         return str(count)

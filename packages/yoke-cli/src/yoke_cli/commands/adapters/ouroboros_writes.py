@@ -7,7 +7,9 @@ from typing import Any, Dict, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
+    add_project_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     parse_or_usage_error,
     usage_error,
@@ -29,7 +31,7 @@ OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
 )
 OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
     "yoke ouroboros entry mark-archived (--all-reviewed | ENTRY_ID) "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 __all__ = [
     "ouroboros_entry_insert",
@@ -169,6 +171,7 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
     )
     parser.add_argument("entry_id", nargs="?", type=int)
     parser.add_argument("--all-reviewed", action="store_true")
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -185,6 +188,17 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
     payload = {"all_reviewed": bool(parsed.all_reviewed)}
     if parsed.entry_id is not None:
         payload["entry_id"] = parsed.entry_id
+    # Project-scoped authz needs a named project on --all-reviewed (no
+    # entry row to fall back to). Prefer --project, else checkout context.
+    # Single-id archive may omit it and resolve from the entry row.
+    project = client_project_context(parsed.project)
+    if project:
+        payload["project"] = project
+    elif parsed.all_reviewed:
+        return usage_error(
+            "project context required for --all-reviewed: pass --project P, "
+            "set YOKE_PROJECT, or run from a registered checkout"
+        )
 
     def _human_writer(response, stdout, stderr) -> None:
         print((response.result or {}).get("message", ""), file=stdout)
