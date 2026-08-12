@@ -23,6 +23,12 @@ so the landing converges only on a merged pull request covering the lane head
 and opens a fresh one otherwise — binding new commits to an old merge commit
 would record evidence for work that never landed.
 
+The poll narrates itself. Each observation is announced with what it
+saw — queue slot, arming, and the train run's own conclusion — because a
+pull request the queue is not driving waits exactly as silently as one
+mid-train, and silence is what let a landing burn its whole deadline on a
+pull request whose required check had already failed.
+
 No lock wraps any of this: the expensive gate runs inside GitHub, and
 the Yoke-side close-out is one short bookkeeping step per member.
 Every refusal is named — an unreachable or unconfigured queue is an
@@ -31,6 +37,7 @@ error the caller surfaces, never a silent downgrade to a local merge.
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
@@ -72,6 +79,21 @@ RECOVERABLE_QUEUE_EXIT_CODE = 9
 DEFAULT_POLL_SECONDS = 30.0
 DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0
 
+# Every poll observation is announced under this prefix. The wait is the
+# landing's longest step by far, and a pull request the queue never took up
+# reads exactly like one mid-train unless each observation says what it saw;
+# the watcher wrapper classifies these lines as progress by this prefix.
+POLL_LINE_PREFIX = "Queue landing:"
+
+
+def _emit_to_stderr(line: str) -> None:
+    """Announce one poll observation without disturbing stdout.
+
+    The caller's result envelope is stdout's; progress belongs on stderr,
+    where the merge watcher already reads it.
+    """
+    print(line, file=sys.stderr, flush=True)
+
 
 @dataclass(frozen=True)
 class QueueLandingOutcome:
@@ -103,6 +125,7 @@ def land_item_through_merge_queue(
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
     resume_command: str = "",
     liveness: Optional[SessionLivenessPump] = None,
+    emit: Callable[[str], None] = _emit_to_stderr,
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
@@ -167,15 +190,27 @@ def land_item_through_merge_queue(
     # would reclaim the session mid-poll and release the item claim the
     # close-out below — and any retry — depends on. The pump says the
     # session is still here for exactly as long as this process waits.
-    deadline = monotonic() + deadline_seconds
+    # One clock read per poll, reused for the deadline test and for the
+    # elapsed each observation reports: reading it twice would make how long
+    # the loop runs depend on how much it narrates.
+    started = monotonic()
+    deadline = started + deadline_seconds
     pump = liveness if liveness is not None else SessionLivenessPump()
     merged = False
-    while monotonic() < deadline:
+    last_seen = ""
+    now = started
+    while now < deadline:
         pump.tick()
         landing = classify_landing(
             ctx, pr_num=pr_num, target=target, sleep=sleep,
         )
         warnings.extend(landing.warnings)
+        if landing.narrative:
+            last_seen = landing.narrative
+            emit(
+                f"{POLL_LINE_PREFIX} {landing.narrative} "
+                f"(elapsed: {int(now - started)}s)"
+            )
         if landing.kind == LANDED:
             merged = True
             break
@@ -206,6 +241,7 @@ def land_item_through_merge_queue(
                 warnings=tuple(warnings),
             )
         sleep(poll_seconds)
+        now = monotonic()
     if not merged:
         # A poll-budget timeout is resumable, not terminal: the claim is
         # still held, so the message reports that and prints the command
@@ -221,6 +257,7 @@ def land_item_through_merge_queue(
                 item_ref=item_ref,
                 resume_command=resume_command,
                 dispatch=dispatch,
+                last_observed=last_seen,
             ),
             warnings=tuple(warnings),
         )
@@ -249,6 +286,7 @@ def land_item_through_merge_queue(
 __all__ = [
     "DEFAULT_DEADLINE_SECONDS",
     "DEFAULT_POLL_SECONDS",
+    "POLL_LINE_PREFIX",
     "RECOVERABLE_QUEUE_EXIT_CODE",
     "QueueLandingOutcome",
     "land_item_through_merge_queue",

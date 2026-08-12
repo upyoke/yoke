@@ -95,6 +95,15 @@ class TestMergeFilterCoverage:
     def test_merge_worktree_signal_lines(self, line: str) -> None:
         assert filter_match(watch_merge.MERGE_PROGRESS_PATTERN, line)
 
+    def test_queue_landing_poll_observations_are_signal(self) -> None:
+        """A queue wait emits nothing else; the union pattern must carry it."""
+        assert filter_match(
+            watch_merge.MERGE_PROGRESS_PATTERN,
+            "Queue landing: pull request 42: merged=false, state=open, "
+            "merge-when-ready=armed, queue-entry=absent, "
+            "train-run=not found (elapsed: 90s)",
+        )
+
     @pytest.mark.parametrize("noise", NOISE_LINES)
     def test_noise_lines_do_not_match(self, noise: str) -> None:
         assert not filter_match(watch_merge.MERGE_PROGRESS_PATTERN, noise)

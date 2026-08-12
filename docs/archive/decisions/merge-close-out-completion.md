@@ -64,6 +64,25 @@ reported as a failure.**
    retry-and-verify path and makes the engine exit non-zero with the real
    reason instead of announcing a transition that did not happen.
 
+### The mirror case: a completion reported as a failure
+
+Mechanism 3 has an inverse that showed up later. The merge result envelope
+answered `evidence_recorded` from the return of one write attempt, so a relayed
+evidence write that failed and then succeeded reported `false` beside a record
+that existed; and because the terminal transition releases the item's work
+claim, re-entering the landing afterwards hit the claim precondition and refused
+with "no active claim" on an item already merged, closed out, and `done`. Both
+sent an operator to repair state that was already correct.
+
+So the envelope reports the record's own state
+(`yoke_core.domain.standalone_item_merge_evidence`). A refused write is
+confirmed against the persisted record, and forgiven only when that record
+carries this merge's identity — a row from an earlier landing answers for that
+landing, not this one. A claim refusal on an item that is terminal *and* holds
+an evidence record converges on a completed envelope built from the record's own
+facts, and carries no `published` or `target` key, because neither is a fact the
+record holds. An item short of terminal still refuses: it has work left.
+
 ## Why not the alternatives
 
 **Cleanup last.** Moving the worktree removal after the terminal transition is
@@ -92,5 +111,7 @@ already landed, on every member of every train.
   head or the integrated head, and no others.
 - A refused done transition exits non-zero and prints why, over both
   transports.
+- A merge whose close-out completed reports as completed, whether the reporting
+  process is the one that finished it or a later re-entry.
 - The reseat helper is a general defense: any operation that deletes a tree the
   process may be importing from can call it before doing so.

@@ -19,6 +19,7 @@ from typing import Any, List, Optional
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import merge_queue_landing_timeout as _timeout
+from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
@@ -122,38 +123,6 @@ def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
     return project_repo, target or "main"
 
 
-def _record_evidence(
-    *,
-    item_id: int,
-    outcome: Any,
-    result_summary: str,
-    verification_summary: str,
-    verification_status: str,
-    no_changes: bool,
-    tree_root: str,
-) -> str:
-    response = call_dispatcher(
-        function_id="direct_workflow.dash.evidence",
-        target=TargetRef(kind="item", item_id=item_id),
-        payload={
-            "result_summary": result_summary,
-            "verification_summary": verification_summary,
-            "verification_status": verification_status,
-            "commit_sha": outcome.commit_sha,
-            "merge_sha": outcome.merge_sha,
-            "touched_files": list(outcome.touched_files),
-            "no_changes": no_changes,
-            # The lane's own tip is what verification covered; the merge
-            # commit belongs to the base branch, not to the tree tested.
-            "tree_root": tree_root,
-            "tree_head_sha": outcome.commit_sha,
-        },
-    )
-    if response.success:
-        return ""
-    return _relay_error(response, "evidence write failed")
-
-
 def _transition_to_done(
     item_id: int,
     source_status: str,
@@ -244,15 +213,23 @@ def run(argv: List[str]) -> int:
             as_json=as_json,
         )
 
+    branch = _lane_branch(item, item_ref)
     claim_error = _session_holds_claim(item_id, str(args.session_id))
     if claim_error:
+        # A claim released by a close-out that already completed is not a
+        # refusal to report; the item's own record says the work landed.
+        closed_out = evidence.closed_out_envelope(
+            item, item_ref=item_ref, branch=branch, claim_note=claim_error,
+        )
+        if closed_out is not None:
+            print(json.dumps(closed_out, indent=2, sort_keys=True))
+            return 0
         return _fail(f"{item_ref}: {claim_error}", as_json=as_json)
 
     try:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
-    branch = _lane_branch(item, item_ref)
     commit_sha, qa_error = qa_preflight(
         item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )
@@ -296,7 +273,7 @@ def run(argv: List[str]) -> int:
     }
 
     if needs_evidence:
-        evidence_error = _record_evidence(
+        write_error = evidence.record(
             item_id=item_id,
             outcome=outcome,
             result_summary=str(args.result),
@@ -305,11 +282,21 @@ def run(argv: List[str]) -> int:
             no_changes=bool(args.no_changes),
             tree_root=_lane_worktree_path(item) or str(repo_root),
         )
-        if evidence_error:
+        # A refused attempt may still have landed the row — a relayed write
+        # that succeeds on retry reports the failed try. The record's own
+        # state answers for this merge, not the attempt's return.
+        if write_error and not evidence.recorded_covers_merge(
+            item_id, outcome.merge_sha,
+        ):
             envelope["ok"] = False
-            envelope["error"] = f"merge landed, evidence refused: {evidence_error}"
+            envelope["error"] = f"merge landed, evidence refused: {write_error}"
             print(json.dumps(envelope, indent=2, sort_keys=True))
             return 1
+        if write_error:
+            envelope["warnings"].append(
+                f"evidence write reported '{write_error}', but the record "
+                "covers this merge; close-out continued"
+            )
         envelope["evidence_recorded"] = True
 
     from yoke_core.domain.standalone_item_merge import sync_item_to_github

@@ -34,7 +34,7 @@ def dispatch_holder(holder, *, success=True, message=""):
     return dispatch
 
 
-def message(holder_dispatch, *, resume=RESUME):
+def message(holder_dispatch, *, resume=RESUME, last_observed=""):
     return timeout_mod.timeout_message(
         pr_num="42",
         deadline_seconds=2700.0,
@@ -42,6 +42,7 @@ def message(holder_dispatch, *, resume=RESUME):
         item_ref="YOK-200",
         resume_command=resume,
         dispatch=holder_dispatch,
+        last_observed=last_observed,
     )
 
 
@@ -84,6 +85,26 @@ def test_message_keeps_the_landing_resumable_and_names_the_budget():
     text = message(dispatch_holder(HELD_BY_THIS_SESSION))
     assert "did not merge within 2700s" in text
     assert "may still merge it" in text
+
+
+def test_the_final_reading_is_stated_so_a_doomed_wait_is_not_re_run():
+    """Whether resuming is even the right move depends on this reading."""
+    text = message(
+        dispatch_holder(HELD_BY_THIS_SESSION),
+        last_observed=(
+            "pull request 42: merged=false, state=open, "
+            "merge-when-ready=armed, queue-entry=absent, train-run=failure"
+        ),
+    )
+    assert "last observed" in text
+    assert "queue-entry=absent" in text
+    assert "train-run=failure" in text
+    assert text.endswith(RESUME)
+
+
+def test_a_poll_that_read_nothing_conclusive_says_that_rather_than_nothing():
+    text = message(dispatch_holder(HELD_BY_THIS_SESSION))
+    assert "read nothing conclusive" in text
 
 
 def test_missing_caller_command_falls_back_rather_than_inventing_one():
