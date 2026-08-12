@@ -79,12 +79,26 @@ def status(
             expected_app_id=int(github["app_id"]),
             expected_app_slug=str(github["app_slug"]),
         )
+    except github_local_user_access.TransientGitHubLocalUserAccessError as exc:
+        return _with_helper_issue(state.connected_report(
+            config_path=config_path, github=github, progress=[], checked=True,
+            token_issue=reports.issue(
+                "error",
+                "github_user_token_read_busy",
+                str(exc),
+                "The stored authorization still stands. Retry `yoke github "
+                "status` once the other local GitHub operation finishes.",
+            ),
+        ), helper_refresh_failed)
     except github_local_user_access.GitHubLocalUserAccessError:
         return _with_helper_issue(state.connected_report(
             config_path=config_path, github=github, progress=[], checked=True,
-            token_error=(
+            token_issue=reports.issue(
+                "error",
+                "github_user_token_unavailable",
                 "GitHub App user authorization could not provide a valid access "
-                "token"
+                "token",
+                "Run `yoke github connect` to authorize again.",
             ),
         ), helper_refresh_failed)
     except github_app_user_api.GitHubAppUserApiError as exc:

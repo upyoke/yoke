@@ -9,6 +9,10 @@ import threading
 
 from yoke_cli.config import github_git_credential_document
 from yoke_cli.config import github_git_credential_file
+from yoke_contracts.github_auth_transience import (
+    GITHUB_AUTH_RETRY_RECIPE,
+    TransientGitHubAuthError,
+)
 
 
 _LOCAL = threading.local()
@@ -16,6 +20,12 @@ _LOCAL = threading.local()
 
 class GitHubMachineOperationError(RuntimeError):
     """The canonical machine GitHub operation lock is unavailable."""
+
+
+class GitHubMachineOperationBusy(
+    GitHubMachineOperationError, TransientGitHubAuthError
+):
+    """Another local Yoke GitHub operation held the machine lock throughout."""
 
 
 @contextmanager
@@ -44,6 +54,11 @@ def operation_lock(config_path: str | Path | None = None):
                 yield
             finally:
                 _LOCAL.depth = 0
+    except github_git_credential_file.CredentialFileBusy as exc:
+        raise GitHubMachineOperationBusy(
+            "another local Yoke GitHub operation is holding the machine "
+            f"operation lock; {GITHUB_AUTH_RETRY_RECIPE}"
+        ) from exc
     except github_git_credential_file.CredentialFileError as exc:
         raise GitHubMachineOperationError(
             "machine GitHub App operation lock is unavailable"
@@ -60,9 +75,7 @@ def serialized_operation(error_type: type[Exception]):
                 with operation_lock(selected_path):
                     return operation(*args, **kwargs)
             except GitHubMachineOperationError as exc:
-                raise error_type(
-                    "machine GitHub App operation lock is unavailable"
-                ) from exc
+                raise error_type(str(exc)) from exc
 
         return wrapped
 
@@ -70,6 +83,7 @@ def serialized_operation(error_type: type[Exception]):
 
 
 __all__ = [
+    "GitHubMachineOperationBusy",
     "GitHubMachineOperationError",
     "operation_lock",
     "serialized_operation",

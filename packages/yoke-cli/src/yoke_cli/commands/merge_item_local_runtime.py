@@ -17,6 +17,10 @@ from typing import Callable, Iterator, List, Optional
 from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_local_user_access
 from yoke_cli.config import machine_config
+from yoke_contracts.github_auth_transience import (
+    GITHUB_AUTH_RETRY_RECIPE,
+    TransientGitHubAuthError,
+)
 from yoke_contracts.github_origin import (
     GitHubApiEndpoint,
     GitHubApiOriginError,
@@ -29,10 +33,21 @@ LOCAL_AUTH_RECOVERY = (
     "Yoke connection; run `yoke github status`, then reconnect GitHub with "
     "`yoke github connect`"
 )
+LOCAL_AUTH_RETRY_RECOVERY = (
+    "machine GitHub App user authorization could not be read right now "
+    "(another local operation holds it, or GitHub could not be reached); the "
+    f"stored authorization still stands, so {GITHUB_AUTH_RETRY_RECIPE}"
+)
 
 
 class LocalMergeGithubAuthorityError(RuntimeError):
     """The local merge process cannot bind sanctioned GitHub user authority."""
+
+
+class TransientLocalMergeGithubAuthorityError(
+    LocalMergeGithubAuthorityError, TransientGitHubAuthError
+):
+    """Machine user authority was unreadable transiently, not absent."""
 
 
 def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
@@ -71,6 +86,10 @@ def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
                 service_api_url=service_api_url,
                 local_connection_selected=local_connection_selected,
             ).access_token
+        except github_local_user_access.TransientGitHubLocalUserAccessError as exc:
+            raise TransientLocalMergeGithubAuthorityError(
+                LOCAL_AUTH_RETRY_RECOVERY
+            ) from exc
         except github_local_user_access.GitHubLocalUserAccessError as exc:
             raise LocalMergeGithubAuthorityError(LOCAL_AUTH_RECOVERY) from exc
         value = str(token or "").strip()
@@ -111,14 +130,16 @@ def run(argv: List[str]) -> int:
 def main(argv: Optional[List[str]] = None) -> int:
     try:
         return run(list(sys.argv[1:] if argv is None else argv))
-    except LocalMergeGithubAuthorityError:
-        print(f"Error: {LOCAL_AUTH_RECOVERY}", file=sys.stderr)
+    except LocalMergeGithubAuthorityError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
 
 
 __all__ = [
     "LOCAL_AUTH_RECOVERY",
+    "LOCAL_AUTH_RETRY_RECOVERY",
     "LocalMergeGithubAuthorityError",
+    "TransientLocalMergeGithubAuthorityError",
     "machine_github_user_authority",
     "main",
     "run",

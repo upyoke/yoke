@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import time
 from typing import Any, Callable, Iterator, Mapping
 
+from yoke_contracts.github_auth_transience import (
+    GITHUB_AUTH_READ_ATTEMPTS,
+    GITHUB_AUTH_RETRY_RECIPE,
+    is_transient_auth_failure,
+    retry_backoff_seconds,
+)
 from yoke_contracts.github_origin import (
     GitHubApiEndpoint,
     GitHubApiOriginError,
@@ -35,6 +42,7 @@ from yoke_core.domain.project_github_auth_models import (
     ProjectGithubState,
     TokenMintFailed,
     TokenMinter,
+    UserAuthorizationTransient,
     UserAuthorizationUnavailable,
 )
 
@@ -63,7 +71,11 @@ def bind_local_github_user_token_provider(
         LOCAL_USER_TOKEN_PROVIDER.reset(reset_token)
 
 
-def resolve_local_user_token(state: ProjectGithubState) -> str | None:
+def resolve_local_user_token(
+    state: ProjectGithubState,
+    *,
+    sleep: Callable[[float], Any] = time.sleep,
+) -> str | None:
     provider = LOCAL_USER_TOKEN_PROVIDER.get()
     if provider is None:
         return None
@@ -81,20 +93,49 @@ def resolve_local_user_token(state: ProjectGithubState) -> str | None:
             "local GitHub authorization does not match the bound repository's "
             "GitHub API origin; reconnect using the matching GitHub deployment",
         )
-    try:
-        token = str(provider() or "").strip()
-    except Exception as exc:
-        raise UserAuthorizationUnavailable(
-            state.project_slug,
-            "local GitHub App user authorization is unavailable; reconnect "
-            "GitHub on this machine",
-        ) from exc
+    token = _read_user_token_with_retry(state, provider, sleep=sleep)
     if not token:
         raise UserAuthorizationUnavailable(
             state.project_slug,
             "local GitHub App user authorization returned an empty access token",
         )
     return token
+
+
+def _read_user_token_with_retry(
+    state: ProjectGithubState,
+    provider: Callable[[], str],
+    *,
+    sleep: Callable[[float], Any],
+) -> str:
+    """Read the bound machine token, waiting out retry-shaped failures.
+
+    Only a verifiably absent or invalid authorization earns the reconnect
+    verdict. Lock contention, an unreachable GitHub, and a single unauthorized
+    refresh are read failures against an authorization that still stands, so
+    they retry first and surface as retryable when the attempts run out.
+    """
+
+    attempt = 0
+    while True:
+        try:
+            return str(provider() or "").strip()
+        except Exception as exc:
+            if not is_transient_auth_failure(exc):
+                raise UserAuthorizationUnavailable(
+                    state.project_slug,
+                    "local GitHub App user authorization is unavailable; "
+                    "reconnect GitHub on this machine",
+                ) from exc
+            attempt += 1
+            if attempt >= GITHUB_AUTH_READ_ATTEMPTS:
+                raise UserAuthorizationTransient(
+                    state.project_slug,
+                    "local GitHub App user authorization could not be read "
+                    f"after {GITHUB_AUTH_READ_ATTEMPTS} attempts; the stored "
+                    f"authorization still stands, so {GITHUB_AUTH_RETRY_RECIPE}",
+                ) from exc
+            sleep(retry_backoff_seconds(attempt - 1))
 
 
 def read_app_credentials(

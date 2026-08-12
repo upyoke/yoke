@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfig
 from yoke_core.domain.github_app_installation_tokens import InstallationTokenCache
 from yoke_core.domain.project_github_auth_models import (
@@ -27,6 +28,7 @@ from yoke_core.domain.project_github_auth_models import (
     TokenMintFailed,
     TokenMinter,
     TransportFailure,
+    UserAuthorizationTransient,
     UserAuthorizationUnavailable,
 )
 from yoke_core.domain.project_github_auth_state import read_github_state
@@ -186,6 +188,10 @@ _HINT_BY_CODE: Mapping[str, str] = {
     "user_authorization_unavailable": (
         "reconnect GitHub on this machine, then retry project {project}"
     ),
+    "user_authorization_transient": (
+        "the machine GitHub authorization is busy or temporarily unreachable; "
+        f"{GITHUB_AUTH_RETRY_RECIPE} for project {{project}}"
+    ),
     "invalid_token": "reconnect GitHub App access for project {project}",
     "transport_failure": "retry once network access is restored for project {project}",
 }
@@ -213,6 +219,7 @@ __all__ = [
     "ProjectGithubAuthError",
     "TokenMintFailed",
     "TransportFailure",
+    "UserAuthorizationTransient",
     "UserAuthorizationUnavailable",
     "bind_local_github_user_token_provider",
     "repair_command_hint",

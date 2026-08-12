@@ -20,6 +20,12 @@ _AUTHORIZATION_REPAIR_CODES = frozenset({
     "github_user_token_unavailable",
     "github_live_check_failed",
 })
+# A busy or unreachable read left the stored authorization intact, so the
+# screen offers another attempt instead of a reconnect.
+_RETRYABLE_CHECK_CODES = frozenset({
+    "github_live_check_failed",
+    "github_user_token_read_busy",
+})
 
 
 def url_lines(report: dict[str, Any]) -> list[str]:
@@ -66,7 +72,7 @@ def needs_installation_repair(report: dict[str, Any]) -> bool:
 def retryable_live_check(report: dict[str, Any]) -> bool:
     authorization = report.get("authorization")
     return bool(
-        "github_live_check_failed" in issue_codes(report)
+        issue_codes(report) & _RETRYABLE_CHECK_CODES
         and isinstance(authorization, dict)
         and authorization.get("present") is True
         and authorization.get("status") == "authorized"
