@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import (
+    qa_case_budget,
     qa_case_command_stream,
     qa_case_execution,
     qa_case_execution_cli,
@@ -106,12 +107,18 @@ def test_timed_out_record_names_the_queue_wait_it_was_not_charged(
     result, captured = _execute(tmp_path, _timed_out(tmp_path, output))
 
     summary = result["timeout_summary"]
-    assert "timed out after 17s of execution" in summary
+    assert "execution budget 17s" in summary
     assert "932s" in summary
+    assert "compute" in summary
     assert "not failing tests" in summary
+    assert (
+        "yoke qa case run --requirement-id 41 --timeout-seconds 34" in summary
+    )
     # The durable record carries it too, not just the returned dict.
     record = json.loads(captured["qa.run.complete"]["raw_result"])
     assert record["timeout_summary"] == summary
+    assert record["execution_budget_seconds"] == 17
+    assert record["execution_budget_source"] == "explicit_override"
     assert summary in record["output_tail"]
 
 
@@ -120,7 +127,7 @@ def test_timed_out_record_omits_a_queue_wait_that_never_happened(
 ) -> None:
     result, _ = _execute(tmp_path, _timed_out(tmp_path, "10 workers\n"))
 
-    assert result["timeout_summary"].startswith("timed out after 17s of execution;")
+    assert result["timeout_summary"].startswith("execution budget 17s")
 
 
 def test_passing_run_records_no_timeout_summary(tmp_path: Path) -> None:
@@ -144,7 +151,10 @@ def test_cli_restates_a_timeout_alongside_the_failing_verdict(
     capsys,
     monkeypatch,
 ) -> None:
-    summary = test_gate_timeout.timeout_summary(1200, 932.0)
+    summary = test_gate_timeout.timeout_summary(
+        qa_case_budget.DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
+        932.0,
+    )
     monkeypatch.setattr(
         qa_case_execution_cli,
         "execute_case",

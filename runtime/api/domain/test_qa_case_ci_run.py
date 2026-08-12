@@ -114,6 +114,10 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
     added = recorder.payload("qa.run.add")
     assert added["executor_type"] == "ci_run"
     evidence = json.loads(added["raw_result"])
+    assert evidence["execution_budget_seconds"] == (
+        qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
+    )
+    assert evidence["execution_budget_source"] == "registered_scope:full"
     assert evidence["run_url"] == result["run_url"]
     assert evidence["branch"] == "PRJ-9"
     assert evidence["workflow"] == "ci.yml"
