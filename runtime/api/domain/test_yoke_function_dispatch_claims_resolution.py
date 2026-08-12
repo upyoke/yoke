@@ -12,11 +12,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from pydantic import BaseModel
-
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
 from yoke_contracts.api.function_call import (
-    HandlerOutcome,
     TargetRef,
 )
 from yoke_core.domain.yoke_function_registry import register
