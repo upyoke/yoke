@@ -19,8 +19,17 @@ def _repo_root() -> pathlib.Path | None:
     return pathlib.Path(result.stdout.strip()).resolve()
 
 
-def survey_path_sizes(paths: list[str]) -> list[dict[str, Any]]:
-    """Describe current line pressure for every surveyed project path."""
+def survey_path_sizes(
+    paths: list[str], *, tree_root: str | None = None,
+) -> list[dict[str, Any]]:
+    """Describe current line pressure for every surveyed project path.
+
+    ``tree_root`` names the tree to measure. Callers that know which tree
+    the survey is about — the Dash survey knows its item's lane — pass it,
+    because the ambient checkout answers about main and so reports a lane's
+    grown file at its pre-change size and a lane's new file at zero. Only
+    when no tree is named does this fall back to the working directory.
+    """
     try:
         from yoke_harness.git_hooks import file_line_check
     except ImportError as exc:
@@ -28,7 +37,7 @@ def survey_path_sizes(paths: list[str]) -> list[dict[str, Any]]:
             "Dash survey sizing requires yoke-harness; install/repair the "
             f"product helper package ({exc})."
         ) from exc
-    root = _repo_root()
+    root = pathlib.Path(tree_root) if tree_root else _repo_root()
     if root is None:
         raise RuntimeError("Dash survey sizing requires a local git checkout.")
     policy = file_line_check.resolved_policy(root)

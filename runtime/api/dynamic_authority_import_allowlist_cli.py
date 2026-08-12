@@ -50,9 +50,12 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "compose session orientation from this machine's own git and files",
     ),
     (
-        "packages/yoke-cli/src/yoke_cli/commands/adapters/dash.py",
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/lane_tree.py",
         "yoke_core.domain.verification_tree_binding",
-    ): ("client_local_diagnostics", "name the verification tree from git"),
+    ): (
+        "client_local_diagnostics",
+        "name the verification tree from git when no lane is recorded",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/migration_rehearse.py",
         "yoke_core.domain.migration_apply",
