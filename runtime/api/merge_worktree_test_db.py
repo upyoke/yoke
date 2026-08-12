@@ -211,7 +211,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         CREATE TABLE IF NOT EXISTS qa_runs (
             id INTEGER PRIMARY KEY,
             qa_requirement_id INTEGER NOT NULL,
-            executor_type TEXT,
+            performed_by TEXT,
             qa_kind TEXT,
             verdict TEXT, raw_result TEXT,
             created_at TEXT NOT NULL,

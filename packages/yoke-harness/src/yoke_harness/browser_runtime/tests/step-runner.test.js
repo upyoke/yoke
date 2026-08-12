@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Tests for the scenario step executor — basic actions.
+ * Tests for the scenario step runner — basic actions.
  *
- * Run: node tests/step-executor.test.js
+ * Run: node tests/step-runner.test.js
  *
  * Covers: resolveUrl, navigate, click, fill_form, wait_for, hover, select.
  * Companion files cover assertion checks, body-target text semantics,
@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep, resolveUrl } = require('../src/step-executor');
+const { executeStep, resolveUrl } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -274,7 +274,7 @@ async function testSelectAction() {
 }
 
 async function run() {
-  console.log('=== Step Executor Tests: Basics ===');
+  console.log('=== Step Runner Tests: Basics ===');
   await setup();
   try {
     await testResolveUrl();

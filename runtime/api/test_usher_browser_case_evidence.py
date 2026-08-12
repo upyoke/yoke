@@ -42,4 +42,4 @@ def test_usher_drops_retired_browser_execution_recipes() -> None:
 
     assert "yoke qa browser run" not in text
     assert "--success-policy" not in text
-    assert "--executor-type browser_substrate" not in text
+    assert "--performed-by browser_substrate" not in text

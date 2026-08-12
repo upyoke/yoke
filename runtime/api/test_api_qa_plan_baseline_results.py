@@ -86,7 +86,7 @@ def test_plan_detail_requires_every_case_baseline_proof_to_satisfy_union() -> No
         for requirement_id, verdict, outcome, happened_at, filename in run_specs:
             run = conn.execute(
                 "INSERT INTO qa_runs("
-                "qa_requirement_id, executor_type, qa_kind, verdict, "
+                "qa_requirement_id, performed_by, qa_kind, verdict, "
                 "case_outcome, created_at"
                 ") VALUES (%s, 'worktree_run', 'command', %s, %s, %s) "
                 "RETURNING id",

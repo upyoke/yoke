@@ -238,7 +238,7 @@ def create_core_tables(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS qa_runs (
           id INTEGER PRIMARY KEY,
           qa_requirement_id INTEGER NOT NULL,
-          executor_type TEXT NOT NULL,
+          performed_by TEXT NOT NULL,
           qa_kind TEXT NOT NULL,
           verdict TEXT CHECK(verdict IN ('pass','fail','inconclusive','error')),
           execution_status TEXT CHECK(execution_status IN ('captured','capture_failed') OR execution_status IS NULL),

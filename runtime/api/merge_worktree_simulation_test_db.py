@@ -31,7 +31,7 @@ def _insert_canonical_integration_simulation(db_path: Path) -> None:
         _sql(
             conn,
             """
-        INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+        INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
         VALUES (?, 'agent', 'simulation', 'pass',
                 '{"body":"## Result: CLEAN","phase":"integration"}',
                 '2026-04-20T00:00:00Z');
@@ -63,7 +63,7 @@ def _insert_plain_text_integration_simulation(db_path: Path) -> None:
         _sql(
             conn,
             """
-        INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+        INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
         VALUES (?, 'agent', 'simulation', 'pass',
                 'All 6 epic tasks completed and verified',
                 '2026-04-20T00:00:00Z');

@@ -35,7 +35,7 @@ from yoke_core.domain.qa_constants import (
 _REMEDIATION_LINES = (
     "",
     "  Remediation:",
-    "  Re-run each named materialized case through the shared executor:",
+    "  Re-run each named materialized case through the shared runner:",
     "       yoke qa case run --requirement-id <REQ_ID> --base-url <URL> \\",
     "         --expected-branch <BRANCH> --expected-sha <SHA>",
     "  For substrate diagnosis only, capture the URL without recording a",
@@ -65,12 +65,12 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
             AND prv.capture_run_id = {capture}.id
             AND prv.verdict = 'pass'
             AND prb.state = 'completed'
-            AND review_run.executor_type = 'agent'
+            AND review_run.performed_by = 'agent'
             AND review_run.verdict = 'pass'
         )
     """
     return f"""
-        {capture}.executor_type = 'browser_substrate'
+        {capture}.performed_by = 'browser_substrate'
         AND (
           (NOT {agent_case} AND {capture}.verdict = 'pass')
           OR (

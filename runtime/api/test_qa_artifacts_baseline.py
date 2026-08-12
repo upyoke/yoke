@@ -32,7 +32,7 @@ class TestArtifacts:
     def test_add_artifact(self, db_path: str, req_id: int) -> None:
         run_id = qa.cmd_run_add(
             db_path=db_path, requirement_id=req_id,
-            executor_type="agent", qa_kind="unit_test",
+            performed_by="agent", qa_kind="unit_test",
         )
         art_id = qa.cmd_artifact_add(
             db_path=db_path,
@@ -56,7 +56,7 @@ class TestArtifacts:
     def test_artifact_list_all(self, db_path: str, req_id: int) -> None:
         run_id = qa.cmd_run_add(
             db_path=db_path, requirement_id=req_id,
-            executor_type="agent", qa_kind="unit_test",
+            performed_by="agent", qa_kind="unit_test",
         )
         qa.cmd_artifact_add(db_path=db_path, run_id=run_id, artifact_type="a")
         qa.cmd_artifact_add(db_path=db_path, run_id=run_id, artifact_type="b")
@@ -67,7 +67,7 @@ class TestArtifacts:
     def test_artifact_list_filter_by_run(self, db_path: str, req_id: int) -> None:
         run_id = qa.cmd_run_add(
             db_path=db_path, requirement_id=req_id,
-            executor_type="agent", qa_kind="unit_test",
+            performed_by="agent", qa_kind="unit_test",
         )
         qa.cmd_artifact_add(db_path=db_path, run_id=run_id, artifact_type="a")
         qa.cmd_artifact_add(db_path=db_path, artifact_type="b")  # no run

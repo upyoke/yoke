@@ -45,7 +45,7 @@ class CaseRerunResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     requirement_id: int
-    executor_id: str
+    runner_id: str
     verdict: Optional[str] = None
     case_outcome: Optional[str] = None
 

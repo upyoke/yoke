@@ -115,7 +115,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         cmd_run_add(
             db_path=db_path,
             requirement_id=args.requirement_id,
-            executor_type=args.executor_type,
+            performed_by=args.performed_by,
             qa_kind=args.qa_kind,
             verdict=args.verdict,
             execution_status=args.execution_status,

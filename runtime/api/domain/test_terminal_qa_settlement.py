@@ -61,7 +61,7 @@ def test_terminal_transition_refuses_pending_run_despite_bypass_flags(test_db):
     )
     test_db.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, executor_type, qa_kind, raw_result, created_at) "
+        "(qa_requirement_id, performed_by, qa_kind, raw_result, created_at) "
         "VALUES (%s, 'worktree_run', 'command', %s, %s)",
         (requirement_id, '{"timed_out": true}', "2026-01-01T00:00:00Z"),
     )
@@ -106,7 +106,7 @@ def test_terminal_transition_allows_settled_or_waived_records(test_db):
     )
     test_db.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, executor_type, qa_kind, created_at) "
+        "(qa_requirement_id, performed_by, qa_kind, created_at) "
         "VALUES (%s, 'worktree_run', 'command', %s)",
         (waived_requirement, "2026-01-01T00:00:00Z"),
     )
@@ -203,7 +203,7 @@ def test_terminal_transition_accepts_the_head_the_merge_gate_verified(test_db):
     gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
         test_db, qa_requirement_id=gate_requirement, verdict="pass",
-        executor_type="ci_run", raw_result=_tree_result(integrated),
+        performed_by="ci_run", raw_result=_tree_result(integrated),
         completed_at="2026-01-01T00:00:01Z",
     )
 
@@ -228,7 +228,7 @@ def test_terminal_transition_accepts_lane_and_integrated_heads_together(test_db)
     gate_requirement = _row_id(insert_qa_requirement(test_db, item_id=10))
     insert_qa_run(
         test_db, qa_requirement_id=gate_requirement, verdict="pass",
-        executor_type="ci_run", raw_result=_tree_result(integrated),
+        performed_by="ci_run", raw_result=_tree_result(integrated),
         completed_at="2026-01-01T00:00:02Z",
     )
 

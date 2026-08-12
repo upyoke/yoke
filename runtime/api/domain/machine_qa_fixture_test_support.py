@@ -1,4 +1,4 @@
-"""In-memory host adapter for Machine QA fixture executor tests."""
+"""In-memory host adapter for Machine QA fixture runner tests."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Callable
 
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 from yoke_core.domain.machine_qa_fixture_operations import (
-    MachineQaFixtureOperationExecutor,
+    MachineQaFixtureOperationRunner,
 )
 
 
@@ -98,9 +98,9 @@ class FakeRemote:
             self.contents[target] = self.contents[source]
 
 
-def fixture_executor(remote: FakeRemote) -> MachineQaFixtureOperationExecutor:
-    """Create an executor against the deterministic in-memory adapter."""
-    return MachineQaFixtureOperationExecutor(
+def fixture_runner(remote: FakeRemote) -> MachineQaFixtureOperationRunner:
+    """Create a runner against the deterministic in-memory adapter."""
+    return MachineQaFixtureOperationRunner(
         run_remote=remote.run,
         upload_text=remote.upload,
         home="/Users/tester",
@@ -115,4 +115,4 @@ def operation(operation_id: str, **parameters: object) -> dict[str, object]:
     return {"id": operation_id, "parameters": parameters}
 
 
-__all__ = ["FakeRemote", "fixture_executor", "operation"]
+__all__ = ["FakeRemote", "fixture_runner", "operation"]

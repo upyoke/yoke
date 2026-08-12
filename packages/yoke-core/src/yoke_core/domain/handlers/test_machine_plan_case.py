@@ -57,7 +57,7 @@ def _owned_case(
         requirement_id=parsed.requirement_id,
         allow_replay=replay,
     )
-    if case.get("executor_id") != "host_control":
+    if case.get("runner_id") != "host_control":
         raise ValueError("the ordered plan case is not a host-control case")
     _assert_current_snapshot(conn, case)
     return execution, case

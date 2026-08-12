@@ -134,7 +134,7 @@ def qa_requirement_add(args: List[str]) -> int:
         "--capability-requirements",
         dest="capability_requirements",
         default=None,
-        help="Capability slug the executor needs.",
+        help="Capability slug the runner needs.",
     )
     parser.add_argument(
         "--suite-id", dest="suite_id", default=None, help="Optional suite id."

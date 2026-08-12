@@ -26,7 +26,7 @@ class TestRunComplete:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
         )
         result = qa.cmd_run_complete(db_path=db_path, run_id=run_id, verdict="pass")
@@ -44,7 +44,7 @@ class TestRunComplete:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
         )
         qa.cmd_run_complete(
@@ -72,21 +72,21 @@ class TestRunComplete:
 
 class TestRunListGet:
     def test_run_list_all(self, db_path: str, req_id: int) -> None:
-        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, executor_type="a")
-        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, executor_type="b")
+        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, performed_by="a")
+        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, performed_by="b")
         assert len(qa.cmd_run_list(db_path=db_path)) == 2
 
     def test_run_list_filter(self, db_path: str, req_id: int) -> None:
-        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, executor_type="a")
+        qa.cmd_run_add(db_path=db_path, requirement_id=req_id, performed_by="a")
         second_id = add_bound_requirement(
             db_path=db_path, item_id=99, qa_kind="z", qa_phase="verification"
         )
-        qa.cmd_run_add(db_path=db_path, requirement_id=second_id, executor_type="b")
+        qa.cmd_run_add(db_path=db_path, requirement_id=second_id, performed_by="b")
         assert len(qa.cmd_run_list(db_path=db_path, requirement_id=req_id)) == 1
 
     def test_run_get(self, db_path: str, req_id: int) -> None:
         run_id = qa.cmd_run_add(
-            db_path=db_path, requirement_id=req_id, executor_type="a"
+            db_path=db_path, requirement_id=req_id, performed_by="a"
         )
         assert qa.cmd_run_get(run_id, db_path=db_path).startswith(str(run_id))
 

@@ -5,7 +5,7 @@ runs on every pull request and every push to the integration branch. On a
 developer machine that suite competes with every other session for one
 machine-wide admission slot and one CPU complement; on CI it fans out
 across duration-balanced shards with disposable databases and freshly
-provisioned capacity. This executor moves the gate there: push the lane,
+provisioned capacity. This runner moves the gate there: push the lane,
 reuse a completed pull-request run for its exact commit when one exists,
 otherwise dispatch the project's declared workflow, and record the run's
 conclusion as the case verdict. The lane and workflow plumbing lives in
@@ -23,10 +23,10 @@ covered, so a green is attributable to one tree exactly as a local
 ``worktree_run`` verdict is (see
 :mod:`yoke_core.domain.verification_tree_binding`).
 
-``worktree_run`` remains the local executor for the same Command method
+``worktree_run`` remains the local runner for the same Command method
 and stays the fallback for offline or local-only operation. Selecting it
 is a plan-case choice, never a silent runtime downgrade: when CI cannot
-be reached this executor fails with a named reason rather than quietly
+be reached this runner fails with a named reason rather than quietly
 running the suite on the machine it exists to keep free.
 """
 
@@ -48,7 +48,7 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
-#: Executor id recorded on runs this module produces.
+#: Runner id recorded on runs this module produces.
 EXECUTOR_ID = "ci_run"
 
 #: Wall-clock ceiling for one dispatched CI run. A sharded suite finishes
@@ -81,7 +81,7 @@ def _record_run(
     run = call_qa(
         "qa.run.add",
         {
-            "executor_type": EXECUTOR_ID,
+            "performed_by": EXECUTOR_ID,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
@@ -138,7 +138,7 @@ def _resolve_checkout(
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
     # CI verifies a pushed commit on a remote runner. The checkout is only a
     # Git transport, so local claim-tree binding does not apply to this
-    # executor; the recorded source SHA is the binding authority instead.
+    # runner; the recorded source SHA is the binding authority instead.
     return checkout
 
 
@@ -178,7 +178,7 @@ def execute_ci_case(
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
         explicit_override=timeout_seconds,
-        executor_default=DEFAULT_CI_RUN_TIMEOUT_SECONDS,
+        runner_default=DEFAULT_CI_RUN_TIMEOUT_SECONDS,
     )
     budget = selected_budget.seconds
     started = time.monotonic()
@@ -318,7 +318,7 @@ def execute_ci_case(
         "requirement_id": int(case["requirement_id"]),
         "run_id": qa_run_id,
         "artifact_id": artifact_id,
-        "executor_id": EXECUTOR_ID,
+        "runner_id": EXECUTOR_ID,
         "verdict": verdict,
         "case_outcome": (
             "passed" if verdict == "pass" else

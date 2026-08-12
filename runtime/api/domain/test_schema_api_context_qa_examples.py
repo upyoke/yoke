@@ -38,7 +38,7 @@ def test_qa_packet_lists_live_qa_requirements_columns() -> None:
         "baseline_position",
         "method_id",
         "method_name",
-        "executor_id",
+        "runner_id",
         "required_capability_kind",
         "verdict_path",
         "host_baseline",
@@ -100,7 +100,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
 
 
 @pytest.mark.parametrize("role", ("engineer_agent", "tester_agent"))
-def test_qa_executor_packets_require_transition_bound_creation(role: str) -> None:
+def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
     body = sac.render_role_packet(role)
     assert (
         "yoke qa requirement add "
@@ -133,7 +133,7 @@ def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
     assert "Add a QA run verdict — agent × ac_verification (inline raw_result)" in body
     assert (
         "yoke qa run add "
-        "--requirement-id R --executor-type agent "
+        "--requirement-id R --performed-by agent "
         "--qa-kind ac_verification --verdict pass "
     ) in body
     assert "`--qa-kind` defaults to the requirement's kind" in body
@@ -160,7 +160,7 @@ def test_qa_packet_carries_ordered_plan_run_example() -> None:
         "yoke qa plan run --item PREFIX-N --transition TRANSITION "
         "--base-url https://preview.example"
     ) in body
-    assert "server-authorized execution before any local executor runs" in body
+    assert "server-authorized execution before any local runner runs" in body
     assert "immutable roster, digest, durable cursor" in body
     assert "Waiting runs resume from the same cursor" in body
     assert "completion or abort releases the lease" in body
@@ -172,7 +172,7 @@ def test_qa_packet_drops_retired_browser_execution_teaching() -> None:
         "browser_smoke",
         "browser_diff",
         "yoke qa browser run",
-        "--executor-type browser_substrate",
+        "--performed-by browser_substrate",
         '--success-policy \'{"steps"',
     ):
         assert retired not in body

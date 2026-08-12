@@ -41,7 +41,7 @@ Local verification stays change-scoped:
 
 A project that declares its required-status-check workflow gets its
 `quick` and `full` registered scopes bound to the `command-ci` method
-(`ci_run` executor). `yoke qa case run --requirement-id <id>` then:
+(`ci_run` runner). `yoke qa case run --requirement-id <id>` then:
 
 1. pushes the item's lane branch to `origin` — item branches otherwise
    stay local until merge, so the gate has to publish before it can run;
@@ -99,7 +99,7 @@ Two items gating at once both route to CI and run there in parallel —
 the admission slot is a local-machine resource and never serializes CI
 runs.
 
-`worktree_run` stays the local executor for the same Command method and
+`worktree_run` stays the local runner for the same Command method and
 remains the fallback for offline or local-only operation. Choosing it is
 a plan-case decision, not a silent runtime downgrade: a CI case whose
 workflow cannot be reached fails with a named reason rather than quietly

@@ -44,7 +44,7 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | Snapshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/snapshot.js` | Accessibility tree extraction with ref annotation |
 | Screenshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/screenshot.js` | Annotated screenshots with numbered ref badges |
 | Diff engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/diff.js` | Pixel-level image comparison via pixelmatch |
-| Step executor | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-executor.js` | Scenario step execution |
+| Step runner | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-runner.js` | Scenario step execution |
 | Snapshot routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
 | Exec routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
 | `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
@@ -142,7 +142,7 @@ The ref system assigns integer IDs to interactive and semantically significant D
 - **Ref map format:** `{ "1": "role=button[name='Submit']", "2": "#email-input", ... }`
 - **Agent usage:** Agents say "click ref 7" or "assert ref 12 is visible" instead of constructing CSS selectors
 
-## Step Executor
+## Step Runner
 
 Executes a single scenario step.
 

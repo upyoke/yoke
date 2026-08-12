@@ -4,9 +4,9 @@ import sqlite3
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
-    fixture_executor,
+    fixture_runner,
 )
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     EVIDENCE_SOURCE_PATH,
     HOMEBREW_PATH,
@@ -102,7 +102,7 @@ class FakeHostControl:
     def write_text(self, path: str, content: str) -> None:
         self.files[path] = content
 
-    def create_fixture_operation_executor(self):
+    def create_fixture_operation_runner(self):
         remote = FakeRemote()
         remote.existing.add("/Users/tester/.yoke/secrets/stage.token")
 
@@ -119,7 +119,7 @@ class FakeHostControl:
 
         remote.on_successful_command = project_product_state
         self.fixture_remotes.append(remote)
-        return fixture_executor(remote)
+        return fixture_runner(remote)
 
     def reset_installer_test_host(self) -> HostActionResult:
         self.full_reset_calls += 1
@@ -252,7 +252,7 @@ def make_conn() -> sqlite3.Connection:
             source_kind TEXT NOT NULL,
             source_ref TEXT,
             project_id INTEGER,
-            executor_id TEXT NOT NULL,
+            runner_id TEXT NOT NULL,
             required_capability_kind TEXT,
             verdict_path TEXT NOT NULL,
             verdict_contract TEXT NOT NULL,

@@ -39,7 +39,7 @@ def _command_case(key: str, position: int) -> dict:
     }
 
 
-def test_materialized_case_context_carries_immutable_executor_snapshot() -> None:
+def test_materialized_case_context_carries_immutable_runner_snapshot() -> None:
     with test_database() as conn:
         insert_item(
             conn,
@@ -86,7 +86,7 @@ def test_materialized_case_context_carries_immutable_executor_snapshot() -> None
         )
         conn.execute(
             "UPDATE qa_methods SET name='Mutated method', "
-            "executor_id='browser_substrate', verdict_path='agent' "
+            "runner_id='browser_substrate', verdict_path='agent' "
             "WHERE id='command'"
         )
         context = get_case_execution_context(
@@ -95,13 +95,13 @@ def test_materialized_case_context_carries_immutable_executor_snapshot() -> None
         )
         snapshot = conn.execute(
             "SELECT case_position, baseline_position, method_name, "
-            "executor_id, verdict_path FROM qa_requirements WHERE id=%s",
+            "runner_id, verdict_path FROM qa_requirements WHERE id=%s",
             (requirement_id,),
         ).fetchone()
 
     assert context["method_id"] == "command"
     assert context["method_name"] == "Command"
-    assert context["executor_id"] == "worktree_run"
+    assert context["runner_id"] == "worktree_run"
     assert context["verdict_path"] == "automatic"
     assert context["case_key"] == "backend"
     assert context["instructions"] == "Run backend tests."
@@ -185,7 +185,7 @@ def test_stage_order_survives_catalog_reordering_and_baseline_edits() -> None:
             (int(first["id"]),),
         )
         conn.execute(
-            "UPDATE qa_methods SET executor_id='host_control' WHERE id='browser-check'"
+            "UPDATE qa_methods SET runner_id='host_control' WHERE id='browser-check'"
         )
         after = qa_plan_execution.ordered_plan_requirements(
             conn,
@@ -220,7 +220,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             "case_position": 1,
             "baseline_position": 1,
             "host_baseline": None,
-            "executor_id": "worktree_run",
+            "runner_id": "worktree_run",
         },
         {
             "requirement_id": 12,
@@ -229,7 +229,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             "case_position": 2,
             "baseline_position": 1,
             "host_baseline": None,
-            "executor_id": "browser_substrate",
+            "runner_id": "browser_substrate",
         },
         {
             "requirement_id": 13,
@@ -238,7 +238,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             "case_position": 1,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         },
         {
             "requirement_id": 14,
@@ -247,7 +247,7 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
             "case_position": 2,
             "baseline_position": 1,
             "host_baseline": None,
-            "executor_id": "worktree_run",
+            "runner_id": "worktree_run",
         },
     ]
     outcomes = {

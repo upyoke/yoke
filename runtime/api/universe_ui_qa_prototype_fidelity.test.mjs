@@ -62,11 +62,11 @@ test("all six method details retain the prototype contract anatomy", async () =>
     const { host, text } = await methodDetail(method);
     assert.match(text, new RegExp(expectedGloss[method.id].replace("+", "\\+")));
     assert.equal(
-      byClass(host, "qa-executor-contract")[0].children[1].textContent,
+      byClass(host, "qa-runner-contract")[0].children[1].textContent,
       `· ${expectedGloss[method.id]}`,
     );
     for (const label of [
-      "Executor", "Capability", "Verdict", "Evidence", "Concurrency", "Source",
+      "Runner", "Capability", "Verdict", "Evidence", "Concurrency", "Source",
     ]) {
       assert.match(text, new RegExp(label));
     }
@@ -114,7 +114,7 @@ test("case-state explanations preserve queued, waiting, and review semantics", (
   );
 
   assert.match(review.children[0].title, /does not yet have a conclusive verdict/i);
-  assert.match(review.children[0].title, /executor records/);
+  assert.match(review.children[0].title, /runner records/);
   assert.doesNotMatch(review.children[0].title, /human decision was requested/i);
   assert.match(queued.children[0].title, /has not started/);
   assert.match(waiting.children[0].title, /required capability or serial lease/);

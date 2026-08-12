@@ -280,14 +280,14 @@ class TestPostRebaseRequirement:
             from yoke_core.domain import db_backend
 
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-            for req_id, executor_id, config in requirements:
+            for req_id, runner_id, config in requirements:
                 conn.execute(
                     "INSERT INTO qa_requirements "
-                    "(id, item_id, qa_kind, qa_phase, executor_id, "
+                    "(id, item_id, qa_kind, qa_phase, runner_id, "
                     "method_config, created_at) VALUES "
                     f"({','.join([marker] * 7)})",
                     (req_id, item_id, "plan_case", "verification",
-                     executor_id, config, "2026-01-01T00:00:00Z"),
+                     runner_id, config, "2026-01-01T00:00:00Z"),
                 )
             evidence = '{"verification_tree": {"head_sha": "%s"}}'
             runs = [
@@ -300,7 +300,7 @@ class TestPostRebaseRequirement:
             for run_id, req_id, verdict, raw in runs:
                 conn.execute(
                     "INSERT INTO qa_runs (id, qa_requirement_id, "
-                    "executor_type, qa_kind, verdict, raw_result, created_at)"
+                    "performed_by, qa_kind, verdict, raw_result, created_at)"
                     f" VALUES ({','.join([marker] * 7)})",
                     (run_id, req_id, "command", "plan_case", verdict, raw,
                      "2026-01-01T00:00:00Z"),
@@ -320,7 +320,7 @@ class TestPostRebaseRequirement:
         assert sorted(c["run_id"] for c in covering) == [1, 2]
         by_run = {c["run_id"]: c for c in covering}
         assert by_run[1] == {
-            "run_id": 1, "head_sha": "a" * 40, "executor_id": "ci_run",
+            "run_id": 1, "head_sha": "a" * 40, "runner_id": "ci_run",
         }
         assert by_run[2]["head_sha"] == "b" * 40
         ops.PostRebaseRequirementResponse(**outcome.result_payload)

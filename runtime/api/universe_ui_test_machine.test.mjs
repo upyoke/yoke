@@ -80,7 +80,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
   assert.match(rendered, /Credential references/);
   assert.doesNotMatch(rendered, /top-secret/);
   assert.equal(byClass(main, "test-machine-check").length, 3);
-  assert.match(rendered, /SSH \+ executor materialization/);
+  assert.match(rendered, /SSH \+ runner materialization/);
   assert.match(rendered, /sample artifact discarded after verification/);
   assert.match(rendered, /Host baselines reached \+ verified/);
   assert.match(
@@ -243,11 +243,11 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
     /capability secret set --project yoke --cap-type test-machine/,
   );
   assert.match(rendered, /--key ssh_private_key --value-stdin/);
-  assert.match(rendered, /executor subprocess only/);
+  assert.match(rendered, /runner subprocess only/);
   assert.doesNotMatch(rendered, /sudo_password/);
   assert.doesNotMatch(rendered, /screen_control_token/);
   assert.match(rendered, /stored/);
-  assert.match(rendered, /registered executor operations/);
+  assert.match(rendered, /registered runner operations/);
   assert.equal(byClass(main, "test-machine-command").length, 1);
   assert.equal(
     byClass(byClass(main, "test-machine-command")[0], "good").length,

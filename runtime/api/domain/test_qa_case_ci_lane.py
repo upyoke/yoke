@@ -1,4 +1,4 @@
-"""Lane resolution and workflow plumbing for the CI-run QA executor."""
+"""Lane resolution and workflow plumbing for the CI-run QA runner."""
 
 from __future__ import annotations
 

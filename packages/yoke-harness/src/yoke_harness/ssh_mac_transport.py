@@ -122,7 +122,7 @@ class SshMacTransport:
                 "transport": "ssh",
                 "host": self._host,
                 "user": self._user,
-                "executor_materialized": result.returncode == 0,
+                "runner_materialized": result.returncode == 0,
             },
         )
 

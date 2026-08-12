@@ -96,7 +96,7 @@ def test_record_batch_evidence_payload_shape():
     assert captured["function_id"] == "merge.tests.record_post_rebase_ci_run"
     payload = captured["payload"]
     assert payload["verdict"] == "pass"
-    assert payload["executor_type"] == "ci_run"
+    assert payload["performed_by"] == "ci_run"
     raw = loads_text(payload["raw_result"])
     assert raw["verification_tree"]["head_sha"] == "h" * 40
     batch = raw["merge_queue_batch"]

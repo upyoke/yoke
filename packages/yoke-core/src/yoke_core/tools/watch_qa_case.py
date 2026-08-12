@@ -75,7 +75,7 @@ QA_CASE_URGENT_RE = re.compile(
 QA_CASE_PROGRESS_RE = re.compile(r"^\s*Workflow status:\s*\S+")
 # The restated outcome line, then the machine-readable envelope the gate
 # prints last. The envelope is matched by its verdict key rather than its
-# first key, which is only ``artifact_id`` for the executors that produce
+# first key, which is only ``artifact_id`` for the runners that produce
 # artifacts.
 QA_CASE_SUMMARY_RE = re.compile(
     r"(^#\s*qa case run:|^\{.*\"verdict\":)",

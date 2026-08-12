@@ -89,7 +89,7 @@ def _review_execution(conn, item_id: int):
     capture_run_id = int(
         conn.execute(
             "INSERT INTO qa_runs("
-            "qa_requirement_id,executor_type,qa_kind,case_outcome,raw_result,"
+            "qa_requirement_id,performed_by,qa_kind,case_outcome,raw_result,"
             "started_at,completed_at,created_at"
             ") VALUES(%s,'host_control','plan_case','needs_review',%s,%s,%s,%s) "
             "RETURNING id",
@@ -131,7 +131,7 @@ def _review_execution(conn, item_id: int):
         requirement_id=requirement_id,
         result={
             "requirement_id": requirement_id,
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "verdict": None,
             "case_outcome": "needs_review",
             "run_id": capture_run_id,
@@ -172,7 +172,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                 "instructions": "Inspect the final review frame.",
                 "expected_outcome": "The frame summarizes the selected project.",
                 "capture_run_id": capture_run_id,
-                "capture_executor": "host_control",
+                "capture_runner": "host_control",
                 "capture_degraded_reason": None,
                 "transcript": {
                     "evidence": {
@@ -220,7 +220,7 @@ def test_bundle_uses_this_execution_capture_not_latest_requirement_run() -> None
         later_run_id = int(
             conn.execute(
                 "INSERT INTO qa_runs("
-                "qa_requirement_id,executor_type,qa_kind,case_outcome,raw_result,"
+                "qa_requirement_id,performed_by,qa_kind,case_outcome,raw_result,"
                 "started_at,completed_at,created_at"
                 ") VALUES(%s,'host_control','plan_case','needs_review',%s,%s,%s,%s) "
                 "RETURNING id",
@@ -280,10 +280,10 @@ def test_agent_verdict_is_per_case_and_only_inconclusive_escalates(
         assert result["state"] == expected_state
         assert execution["state"] == "completed"
         run = conn.execute(
-            "SELECT executor_type,verdict,raw_result FROM qa_runs WHERE id=%s",
+            "SELECT performed_by,verdict,raw_result FROM qa_runs WHERE id=%s",
             (result["verdicts"][0]["review_run_id"],),
         ).fetchone()
-        assert (run["executor_type"], run["verdict"]) == ("agent", verdict)
+        assert (run["performed_by"], run["verdict"]) == ("agent", verdict)
         assert "rationale" in json.loads(run["raw_result"])
         plan_id = int(
             conn.execute(

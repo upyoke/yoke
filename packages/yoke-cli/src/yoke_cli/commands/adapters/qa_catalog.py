@@ -89,7 +89,7 @@ def _configure_method_register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--description", required=True)
     parser.add_argument(
-        "--executor",
+        "--runner",
         required=True,
         choices=(
             "worktree_run",
@@ -114,7 +114,7 @@ def _configure_method_register(parser: argparse.ArgumentParser) -> None:
 def qa_method_register(args: List[str]) -> int:
     usage = (
         "yoke qa project-method register --project P --slug SLUG --name NAME "
-        "--description TEXT --executor worktree_run|browser_substrate "
+        "--description TEXT --runner worktree_run|browser_substrate "
         "--verdict-path automatic|agent --verdict-contract TEXT "
         "--evidence-contract TEXT [--concurrency-mode parallel|serial] "
         "[--success-policy-params JSON] [--json]"
@@ -128,7 +128,7 @@ def qa_method_register(args: List[str]) -> int:
             "slug": parsed.slug,
             "name": parsed.name,
             "description": parsed.description,
-            "executor_id": parsed.executor,
+            "runner_id": parsed.runner,
             "verdict_path": parsed.verdict_path,
             "verdict_contract": parsed.verdict_contract,
             "evidence_contract": parsed.evidence_contract,

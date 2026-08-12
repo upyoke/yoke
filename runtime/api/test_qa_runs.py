@@ -1,5 +1,5 @@
 """``qa.cmd_run_add`` / ``_complete`` / ``_list`` / ``_get`` —
-run creation guards, executor restrictions, completion semantics, and reads."""
+run creation guards, runner restrictions, completion semantics, and reads."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ class TestQaKindAutoDerive:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
         )
         assert isinstance(run_id, int)
         conn = connect_test_db(db_path)
@@ -64,7 +64,7 @@ class TestQaKindAutoDerive:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="ac_verification",  # req_id stores 'unit_test'
             )
         assert exc.value.code == 2
@@ -85,7 +85,7 @@ class TestQaKindAutoDerive:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=rid,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="review",
         )
         assert isinstance(run_id, int)
@@ -96,7 +96,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
         )
         assert isinstance(run_id, int)
@@ -114,7 +114,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
             verdict="pass",
         )
@@ -134,7 +134,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
             verdict="inconclusive",
         )
@@ -170,7 +170,7 @@ class TestRunAdd:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=rid,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="plan_case",
             )
         assert exc.value.code == 2
@@ -187,7 +187,7 @@ class TestRunAdd:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=rid,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="ac_verification",
             )
         assert exc.value.code == 2
@@ -196,7 +196,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
             verdict="pass",
             score=0.95,
@@ -225,7 +225,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=rid,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="review",
             verdict="pass",
         )
@@ -246,7 +246,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             qa_kind="unit_test",
             verdict="pass",
             artifact_path=str(screenshot),
@@ -274,7 +274,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="unit_test",
             verdict="pass",
         )

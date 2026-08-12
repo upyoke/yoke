@@ -89,7 +89,7 @@ def repo_slug(checkout: Path) -> str:
     if match is None:
         raise QaCaseExecutionError(
             f"origin remote {url!r} is not a GitHub repository; the CI "
-            "executor dispatches a GitHub Actions workflow"
+            "runner dispatches a GitHub Actions workflow"
         )
     return f"{match['owner']}/{match['name']}"
 
@@ -105,7 +105,7 @@ def lane_branch(case: dict, checkout: Path) -> str:
     )
     if branch == "HEAD":
         raise QaCaseExecutionError(
-            f"checkout {checkout} is in detached HEAD; the CI executor "
+            f"checkout {checkout} is in detached HEAD; the CI runner "
             "dispatches a workflow against a named branch"
         )
     return branch

@@ -50,7 +50,7 @@ def test_baseline_group_interrupt_aborts_issued_contract(
         execute_materialized_machine_baseline_group(
             {
                 "requirement_id": 41,
-                "executor_id": "host_control",
+                "runner_id": "host_control",
                 "method_id": "machine-state-check",
                 "project": "yoke",
                 "plan_id": 999,

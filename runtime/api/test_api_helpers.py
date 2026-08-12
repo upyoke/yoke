@@ -141,7 +141,7 @@ QA_RUNS_SCHEMA = """
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER NOT NULL,
-    executor_type TEXT,
+    performed_by TEXT,
     verdict TEXT,
     raw_result TEXT,
     created_at TEXT NOT NULL

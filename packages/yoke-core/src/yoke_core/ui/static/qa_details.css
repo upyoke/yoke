@@ -34,13 +34,13 @@
   font-size: 12px;
 }
 
-.qa-executor-contract {
+.qa-runner-contract {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
 }
 
-.qa-executor-contract small {
+.qa-runner-contract small {
   color: var(--yoke-muted);
 }
 

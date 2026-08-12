@@ -1,4 +1,4 @@
-"""Shared wiring for the CI-run executor's tests.
+"""Shared wiring for the CI-run runner's tests.
 
 The dispatch-path tests and the queue project's entry-run tests stub the
 same boundaries — the ``qa.*`` recorder, the tree identity, the lane's git
@@ -36,7 +36,7 @@ def ci_case(**overrides) -> dict:
         "plan_id": 5,
         "case_key": "full",
         "method_id": "command-ci",
-        "executor_id": "ci_run",
+        "runner_id": "ci_run",
         "method_config": {
             "command": "python3 -m pytest tests/",
             "ci_workflow": "ci.yml",
@@ -51,7 +51,7 @@ def ci_case(**overrides) -> dict:
 
 
 class Recorder:
-    """Captures the qa.* function calls the executor dispatches."""
+    """Captures the qa.* function calls the runner dispatches."""
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, int, dict]] = []
@@ -80,7 +80,7 @@ def completed_run(head_sha: str, conclusion: str = "success"):
 
 
 def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
-    """Stub every boundary the executor crosses; return its wiring."""
+    """Stub every boundary the runner crosses; return its wiring."""
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     artifact = tmp_path / "ci-run-output.txt"

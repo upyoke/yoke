@@ -29,7 +29,7 @@ def resolve_command_case_budget(
     method_config: Mapping[str, Any],
     *,
     explicit_override: Optional[int] = None,
-    executor_default: int = DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
+    runner_default: int = DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
 ) -> CommandCaseBudget:
     """Resolve override, case declaration, registered class, then fallback."""
     if explicit_override is not None:
@@ -42,7 +42,7 @@ def resolve_command_case_budget(
     scope = str(method_config.get("registered_scope") or "").strip()
     if scope == "full":
         return CommandCaseBudget(
-            max(FULL_SUITE_COMMAND_CASE_BUDGET_SECONDS, int(executor_default)),
+            max(FULL_SUITE_COMMAND_CASE_BUDGET_SECONDS, int(runner_default)),
             "registered_scope:full",
         )
     if scope == "quick":
@@ -50,7 +50,7 @@ def resolve_command_case_budget(
             DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
             "registered_scope:quick",
         )
-    return CommandCaseBudget(int(executor_default), "executor_default")
+    return CommandCaseBudget(int(runner_default), "runner_default")
 
 
 __all__ = [

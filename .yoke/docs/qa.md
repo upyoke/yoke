@@ -19,7 +19,7 @@ yoke qa case run --requirement-id <id>
 ```
 
 When the project binds CI for quick/full scopes, commit and let the case
-executor push the lane branch; the verdict names the CI run URL and head sha.
+runner push the lane branch; the verdict names the CI run URL and head sha.
 
 ## Local iteration
 

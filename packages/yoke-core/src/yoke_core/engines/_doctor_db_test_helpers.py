@@ -160,7 +160,7 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY,
             qa_requirement_id INTEGER,
-            executor_type TEXT,
+            performed_by TEXT,
             verdict TEXT,
             raw_result TEXT
         );

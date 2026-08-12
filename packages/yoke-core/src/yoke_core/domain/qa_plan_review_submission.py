@@ -84,7 +84,7 @@ def _record_verdict(
     )
     run = conn.execute(
         "INSERT INTO qa_runs("
-        "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
+        "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
         "raw_result,started_at,completed_at,created_at"
         f") VALUES({', '.join([p] * 9)}) RETURNING id",
         (

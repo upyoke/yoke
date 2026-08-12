@@ -36,7 +36,7 @@ def _case(bound_claim_id: int | None) -> dict:
         "plan_id": 5,
         "case_key": "registered",
         "method_id": "command",
-        "executor_id": "worktree_run",
+        "runner_id": "worktree_run",
         "method_config": {"command": "printf 'case-output'"},
         "project_id": 1,
         "project": "yoke",

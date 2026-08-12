@@ -64,7 +64,7 @@ def _seed(
     )
     if with_run:
         conn.execute(
-            "INSERT INTO qa_runs (id, qa_requirement_id, executor_type, "
+            "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, "
             "qa_kind, created_at) "
             "VALUES (77, 10, 'browser_substrate', 'plan_case', "
             "'2026-06-12T00:00:00Z')",
@@ -212,7 +212,7 @@ class TestPresignDenials(unittest.TestCase):
                 method_id="browser-check",
             )
             conn.execute(
-                "INSERT INTO qa_runs (id, qa_requirement_id, executor_type, "
+                "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, "
                 "qa_kind, created_at) VALUES (88, 11, 'browser_substrate', "
                 "'plan_case', '2026-06-12T00:00:00Z')",
             )

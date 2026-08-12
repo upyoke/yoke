@@ -76,7 +76,7 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=["qa_methods_upsert"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["project_scope_required", "registered_executor_only"],
+        guardrails=["project_scope_required", "registered_runner_only"],
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,

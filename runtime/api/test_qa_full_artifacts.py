@@ -73,7 +73,7 @@ class TestArtifactAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
@@ -113,7 +113,7 @@ class TestArtifactList:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
@@ -139,14 +139,14 @@ class TestArtifactList:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
         other_run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=other_req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
@@ -188,7 +188,7 @@ class TestArtifactList:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )

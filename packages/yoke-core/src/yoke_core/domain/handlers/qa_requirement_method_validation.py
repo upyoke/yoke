@@ -28,7 +28,7 @@ def validate_method_requirement(
     p = _p(conn)
     method = query_one(
         conn,
-        "SELECT name, executor_id, verdict_path, required_capability_kind, "
+        "SELECT name, runner_id, verdict_path, required_capability_kind, "
         "config_contract_id "
         f"FROM qa_methods WHERE id={p}",
         (str(method_id),),
@@ -70,7 +70,7 @@ def validate_method_requirement(
         sort_keys=True,
     )
     row["method_name"] = str(method["name"])
-    row["executor_id"] = str(method["executor_id"])
+    row["runner_id"] = str(method["runner_id"])
     row["required_capability_kind"] = capability
     row["verdict_path"] = str(method["verdict_path"])
     return None

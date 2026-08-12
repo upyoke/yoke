@@ -118,7 +118,7 @@ def insert_review_row(conn, req_id: int, verdict: str, body: str, ts: str) -> No
     )
     conn.execute(
         """INSERT INTO qa_runs
-           (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+           (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
            VALUES (%s, 'agent', 'implementation_review', %s, %s, %s)""",
         (req_id, verdict, '{"body":"' + body + '"}', ts),
     )

@@ -5,7 +5,7 @@ landing pull request, and takes the conclusion of the run GitHub mints for
 it — so the suite executes once for entry instead of once for a dispatched
 gate and again for entry. This file covers each step on its own; the
 sibling ``test_qa_case_ci_run_queue_gate`` drives them through the
-executor.
+runner.
 """
 
 from __future__ import annotations

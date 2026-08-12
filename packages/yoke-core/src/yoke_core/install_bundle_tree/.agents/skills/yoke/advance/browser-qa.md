@@ -69,7 +69,7 @@ Normal transition execution remains plan-level; do not replace the ordered
 plan run with a manually assembled series of case runs.
 
 - Exit `0` / `pass`: continue.
-- `fail` or executor error: block, fix the defect or environment, then rerun
+- `fail` or runner error: block, fix the defect or environment, then rerun
   the same requirement.
 - Exit `12` / `awaiting_agent_review`: immediately dispatch the returned typed
   `review_bundle.dispatch` through the harness subagent facility. Supply the

@@ -103,7 +103,7 @@ def test_rematerialization_refreshes_snapshot_and_retains_run_history() -> None:
         initial = materialize_for_item(conn, item_id=42, transition_id="release")
         original_id = initial["created_requirement_ids"][0]
         conn.execute(
-            "INSERT INTO qa_runs(qa_requirement_id, executor_type, qa_kind, "
+            "INSERT INTO qa_runs(qa_requirement_id, performed_by, qa_kind, "
             "verdict, case_outcome, raw_result, created_at) VALUES "
             "(%s, 'worktree_run', 'command', 'fail', 'failed', %s, %s)",
             (
@@ -165,7 +165,7 @@ def test_activity_folds_requirement_run_and_artifacts_into_case_outcome() -> Non
         requirement_id = materialized["created_requirement_ids"][0]
         run = conn.execute(
             "INSERT INTO qa_runs("
-            "qa_requirement_id, executor_type, qa_kind, verdict, "
+            "qa_requirement_id, performed_by, qa_kind, verdict, "
             "case_outcome, raw_result, created_at"
             ") VALUES (%s, 'worktree_run', 'command', 'pass', "
             "'passed', %s, '2026-07-26T12:00:00Z') RETURNING id",
@@ -241,7 +241,7 @@ def test_activity_summary_counts_the_full_day_before_limiting_recent_rows() -> N
         ):
             conn.execute(
                 "INSERT INTO qa_runs("
-                "qa_requirement_id, executor_type, qa_kind, verdict, "
+                "qa_requirement_id, performed_by, qa_kind, verdict, "
                 "case_outcome, created_at"
                 ") VALUES (%s, 'worktree_run', 'command', %s, %s, %s)",
                 (requirement_id, verdict, case_outcome, happened_at),

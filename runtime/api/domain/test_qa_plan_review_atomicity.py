@@ -85,7 +85,7 @@ def test_request_failure_rolls_back_entire_review_submission(monkeypatch) -> Non
         assert (
             conn.execute(
                 "SELECT COUNT(*) FROM qa_runs "
-                "WHERE qa_requirement_id=%s AND executor_type='agent'",
+                "WHERE qa_requirement_id=%s AND performed_by='agent'",
                 (requirement_id,),
             ).fetchone()[0]
             == 0

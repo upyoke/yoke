@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Tests for the scenario step executor — body-target text semantics.
+ * Tests for the scenario step runner — body-target text semantics.
  *
- * Run: node tests/step-executor-body-text.test.js
+ * Run: node tests/step-runner-body-text.test.js
  *
  * Covers visible-text + hydration-aware semantics for ``target: "body"``
  * with ``check: "text_contains"`` and ``check: "text_equals"``. Companion
@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep } = require('../src/step-executor');
+const { executeStep } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -232,7 +232,7 @@ async function testTextContainsBodyCaseInsensitive() {
 }
 
 async function run() {
-  console.log('=== Step Executor Tests: Body-Target Text ===');
+  console.log('=== Step Runner Tests: Body-Target Text ===');
   await setup();
   try {
     await testTextContainsBodyExcludesScriptContent();

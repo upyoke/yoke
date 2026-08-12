@@ -180,7 +180,7 @@ function qaClient() {
       if (request.function === "qa.case.rerun") {
         return ok({
           requirement_id: request.target.qa_requirement_id,
-          executor_id: "worktree_run",
+          runner_id: "worktree_run",
           verdict: "pass",
           case_outcome: "passed",
         });

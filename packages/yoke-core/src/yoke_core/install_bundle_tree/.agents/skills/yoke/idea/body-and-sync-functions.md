@@ -318,7 +318,7 @@ takes `target={kind: "epic_task", epic_id: N}` with empty payload.
   "function": "qa.run.record_verdict",
   "actor": {"actor_id": "tester", "session_id": "<session>"},
   "target": {"kind": "qa_requirement", "qa_requirement_id": 17},
-  "payload": {"executor_type": "agent", "qa_kind": "ac_verification", "verdict": "pass", "raw_result": "<evidence>"}
+  "payload": {"performed_by": "agent", "qa_kind": "ac_verification", "verdict": "pass", "raw_result": "<evidence>"}
 }
 ```
 

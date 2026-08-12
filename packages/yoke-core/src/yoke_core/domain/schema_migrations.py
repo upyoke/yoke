@@ -185,7 +185,7 @@ def _migrate_qa_execution_status(conn: Any) -> None:
                   -- deliberate case-sensitive match against internal success_policy token
                   AND qr_ac.success_policy LIKE {p}
                   AND run_ac.verdict = 'pass'
-                  AND run_ac.executor_type = 'browser_substrate'
+                  AND run_ac.performed_by = 'browser_substrate'
               )
           )
         """,

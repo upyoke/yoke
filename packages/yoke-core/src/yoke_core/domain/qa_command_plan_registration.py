@@ -45,9 +45,9 @@ COMMAND_SCOPE_POLICIES = {
     },
 }
 
-#: Local executor: runs the command in the item's worktree.
+#: Local runner: runs the command in the item's worktree.
 LOCAL_COMMAND_METHOD_ID = "command"
-#: CI executor: dispatches the project's declared workflow for the lane.
+#: CI runner: dispatches the project's declared workflow for the lane.
 CI_COMMAND_METHOD_ID = "command-ci"
 
 
@@ -61,7 +61,7 @@ def declared_ci_workflow(conn: Any, project_id: int) -> str:
     A project that names its required-status-check workflow is telling
     Yoke where its suite already runs; registration routes the repository
     verification scopes there instead of onto the developer machine. A
-    project with no declaration keeps the local executor.
+    project with no declaration keeps the local runner.
     """
     marker = _p(conn)
     raw = query_scalar(
@@ -116,7 +116,7 @@ def _plan_for_scope(
         )
         conn.commit()
     method_config: dict[str, Any] = {
-        # Retained whichever executor runs: it is what the local
+        # Retained whichever runner runs: it is what the local
         # `command` fallback executes, and it documents the verification
         # the CI workflow is expected to be running.
         "command": command,
@@ -243,7 +243,7 @@ def _registered_scope_bindings(conn: Any) -> list[dict]:
 
 
 def converge_registered_command_plans(conn: Any) -> list[dict]:
-    """Rebind registered verification scopes onto the executor code selects.
+    """Rebind registered verification scopes onto the runner code selects.
 
     Where a project's verification command *runs* is executable
     configuration, not birth-only data: it follows from code plus the
@@ -255,7 +255,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
 
     Only bindings that actually disagree with what code would choose today
     are rewritten, so a converged boot writes nothing, and a project that
-    drops its declaration rebinds back to the local executor.
+    drops its declaration rebinds back to the local runner.
     """
     converged: list[dict] = []
     for row in _registered_scope_bindings(conn):

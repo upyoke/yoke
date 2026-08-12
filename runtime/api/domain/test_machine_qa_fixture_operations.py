@@ -6,7 +6,7 @@ import json
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
-    fixture_executor as _executor,
+    fixture_runner as _runner,
     operation as _operation,
 )
 from yoke_core.domain.machine_qa_fixture_constants import (
@@ -19,8 +19,8 @@ from yoke_core.domain.machine_qa_fixture_constants import (
 
 def test_fake_service_uses_a_closed_profile_and_idempotent_cleanup() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
-    result = executor.execute_setup_operations(
+    runner = _runner(remote)
+    result = runner.execute_setup_operations(
         [
             _operation(
                 "fixture.yoke-api-start",
@@ -47,24 +47,24 @@ def test_fake_service_uses_a_closed_profile_and_idempotent_cleanup() -> None:
     assert all("python3" not in command for command in commands)
     assert any(
         command.startswith("/bin/zsh -fc ")
-        and executor.path_state.yoke_bin in command
+        and runner.path_state.yoke_bin in command
         and "service_manager.py start" in command
         for command in commands
     )
 
-    first_close = executor.close()
+    first_close = runner.close()
     assert first_close.ok
     command_count = len(remote.commands)
     upload_count = len(remote.uploads)
-    assert executor.close().ok
+    assert runner.close().ok
     assert len(remote.commands) == command_count
     assert len(remote.uploads) == upload_count
 
 
 def test_cleanup_failure_remains_retryable_without_restarting_service() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
-    assert executor.execute_setup_operations(
+    runner = _runner(remote)
+    assert runner.execute_setup_operations(
         [
             _operation(
                 "fixture.yoke-api-start",
@@ -76,13 +76,13 @@ def test_cleanup_failure_remains_retryable_without_restarting_service() -> None:
         ]
     ).ok
     remote.fail_once_contains = "service_manager.py stop"
-    first = executor.close()
+    first = runner.close()
     assert not first.ok
     assert first.error_code == "fixture_cleanup_failed"
-    second = executor.close()
+    second = runner.close()
     assert second.ok
     count = len(remote.commands)
-    assert executor.close().ok
+    assert runner.close().ok
     assert len(remote.commands) == count
 
 
@@ -90,8 +90,8 @@ def test_temporary_invalid_token_is_restored_and_never_enters_evidence() -> None
     remote = FakeRemote()
     stored = "/Users/tester/.yoke/secrets/stage.token"
     remote.existing.add(stored)
-    executor = _executor(remote)
-    result = executor.execute_setup_operations(
+    runner = _runner(remote)
+    result = runner.execute_setup_operations(
         [
             _operation(
                 "machine.token-file-prepare",
@@ -107,7 +107,7 @@ def test_temporary_invalid_token_is_restored_and_never_enters_evidence() -> None
     assert invalid_value not in serialized_evidence
     assert all(invalid_value not in command for command, _timeout in remote.commands)
     assert any(invalid_value in content for content in remote.uploads.values())
-    closed = executor.close()
+    closed = runner.close()
     assert closed.ok
     assert closed.evidence == {
         "operations": [{"id": "machine.token-file-prepare", "outcome": "passed"}]
@@ -128,19 +128,19 @@ def test_auth_clear_restores_opaque_config_and_secret_tree_after_retry() -> None
     remote.directories.update({"/Users/tester/.yoke", secrets_path})
     remote.existing.update(originals)
     remote.contents.update(originals)
-    executor = _executor(remote)
+    runner = _runner(remote)
 
-    setup = executor.execute_setup_operations([_operation("machine.yoke-auth-clear")])
+    setup = runner.execute_setup_operations([_operation("machine.yoke-auth-clear")])
     assert setup.ok
     assert not remote.existing.intersection(originals)
 
     remote.fail_once_contains = "auth-0/config.json /Users/tester/.yoke/config.json"
-    first_close = executor.close()
+    first_close = runner.close()
     assert not first_close.ok
     assert first_close.evidence == {
         "operations": [{"id": "machine.yoke-auth-clear", "outcome": "failed"}]
     }
-    second_close = executor.close()
+    second_close = runner.close()
     assert second_close.ok
     assert second_close.evidence == {
         "operations": [{"id": "machine.yoke-auth-clear", "outcome": "passed"}]
@@ -154,12 +154,12 @@ def test_auth_clear_restores_opaque_config_and_secret_tree_after_retry() -> None
         assert secret_value not in serialized_evidence
         assert all(secret_value not in command for command, _timeout in remote.commands)
     command_text = "\n".join(command for command, _timeout in remote.commands)
-    uv_path = executor.path_state.tool_paths[executor.path_state.tools.index("uv")]
+    uv_path = runner.path_state.tool_paths[runner.path_state.tools.index("uv")]
     for campaign_reset_target in (
         "/Users/tester/code",
         uv_path,
         "/Users/tester/yoke-smoke-tokens",
-        executor.path_state.supported_startup_files[0],
+        runner.path_state.supported_startup_files[0],
         "YOKE_MAC_WIPE_OK",
     ):
         assert campaign_reset_target not in command_text
@@ -167,8 +167,8 @@ def test_auth_clear_restores_opaque_config_and_secret_tree_after_retry() -> None
 
 def test_post_state_assertion_discards_remote_output_from_evidence() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
-    result = executor.execute_post_state_assertions(
+    runner = _runner(remote)
+    result = runner.execute_post_state_assertions(
         [
             _operation(
                 "source-dev.checkout-state-assert",
@@ -196,15 +196,15 @@ def test_post_state_assertion_discards_remote_output_from_evidence() -> None:
     assertion_command = remote.commands[-1][0]
     assert "python3" not in assertion_command
     assert assertion_command.startswith("/bin/zsh -fc ")
-    assert executor.path_state.yoke_bin in assertion_command
+    assert runner.path_state.yoke_bin in assertion_command
     assert "source_checkout_assertion.py" in assertion_command
 
 
 def test_path_rerun_assertion_uses_installed_launcher_interpreter() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
+    runner = _runner(remote)
 
-    result = executor.execute_setup_operations(
+    result = runner.execute_setup_operations(
         [
             _operation(
                 "machine.path-idempotence-prepare",
@@ -222,14 +222,14 @@ def test_path_rerun_assertion_uses_installed_launcher_interpreter() -> None:
     commands = [command for command, _timeout in remote.commands]
     assert all("python3" not in command for command in commands)
     assert commands[-1].startswith("/bin/zsh -fc ")
-    assert executor.path_state.yoke_bin in commands[-1]
+    assert runner.path_state.yoke_bin in commands[-1]
     assert "startup_marker_assertion.py" in commands[-1]
 
 
 def test_terminal_size_is_deferred_until_a_native_session_exists() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
-    result = executor.execute_setup_operations(
+    runner = _runner(remote)
+    result = runner.execute_setup_operations(
         [_operation("terminal.size-prepare", columns=80, rows=24)]
     )
 

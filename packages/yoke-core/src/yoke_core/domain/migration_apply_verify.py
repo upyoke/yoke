@@ -136,7 +136,7 @@ def run_baseline_verify(
 
 
 # Retained for the internal rehearsal/live runners while portable fleet
-# executors use the descriptive public name.
+# runners use the descriptive public name.
 _run_baseline_verify = run_baseline_verify
 
 

@@ -31,7 +31,7 @@ from yoke_core.domain.machine_qa_execution import (
 from yoke_core.domain.machine_qa_execution_protocol import (
     MachineQaProtocolLeaseHeld,
 )
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
 
@@ -80,7 +80,7 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     assert waiting.case_outcome == "waiting"
     assert waiting.verdict == "waiting"
     assert waiting.evidence == {
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "machine": "mac-mini-lab",
         "case_started": False,
         "lease": {
@@ -223,7 +223,7 @@ def test_waiting_case_cli_returns_retryable_exit_with_structured_result(
 
     result = {
         "requirement_id": 41,
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "verdict": None,
         "case_outcome": "waiting",
         "lease_context": {
@@ -291,7 +291,7 @@ def test_baseline_group_client_dispatches_begin_then_submit_for_anchor(
     result = execute_materialized_machine_baseline_group(
         {
             "requirement_id": 41,
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "method_id": "machine-state-check",
             "project": "yoke",
             "plan_id": 999,

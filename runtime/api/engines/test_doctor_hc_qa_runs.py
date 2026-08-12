@@ -16,7 +16,7 @@ _SCHEMA = """
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER NOT NULL,
-    executor_type TEXT NOT NULL,
+    performed_by TEXT NOT NULL,
     qa_kind TEXT NOT NULL,
     verdict TEXT,
     raw_result TEXT,
@@ -43,7 +43,7 @@ def conn():
 def _insert_run(conn, *, run_id, verdict, raw_result):
     conn.execute(
         "INSERT INTO qa_runs "
-        "(id, qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at) "
+        "(id, qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at) "
         "VALUES (%s, 1, 'agent', 'simulation', %s, %s, '2026-04-25T00:00:00Z')",
         (run_id, verdict, raw_result),
     )

@@ -75,7 +75,7 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
         "topic": "qa",
         "validator": "yoke_core.domain.qa_requirement_ops",
         "fields": [
-            ("(JSON array of capability tokens the executor must advertise)", "list[str]", "[]"),
+            ("(JSON array of capability tokens the runner must advertise)", "list[str]", "[]"),
         ],
     },
     ("qa_requirements", "success_policy"): {

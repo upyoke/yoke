@@ -45,7 +45,7 @@ def _case_result(
         conn,
         "SELECT q.id AS requirement_id, q.host_baseline, "
         "q.deployment_run_id, q.waived_at, "
-        "r.id AS run_id, r.executor_type, r.verdict, r.execution_status, "
+        "r.id AS run_id, r.performed_by, r.verdict, r.execution_status, "
         "r.case_outcome, r.raw_result, "
         "r.capture_degraded_reason, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
@@ -116,7 +116,7 @@ def _prior_agent_run(
     return query_one(
         conn,
         "SELECT id,verdict,raw_result FROM qa_runs "
-        f"WHERE qa_requirement_id={marker} AND executor_type='agent' "
+        f"WHERE qa_requirement_id={marker} AND performed_by='agent' "
         f"AND id<{marker} ORDER BY id DESC LIMIT 1",
         (requirement_id, before_run_id),
     )
@@ -127,13 +127,13 @@ def _review_state(
     requirement_id: int,
     run: Any,
 ) -> dict[str, Any]:
-    executor = str(run["executor_type"] or "")
+    performed_by = str(run["performed_by"] or "")
     raw = _decode(run["raw_result"], {})
     rationale = raw.get("rationale") if isinstance(raw, dict) else None
     capture_run_id = raw.get("capture_run_id") if isinstance(raw, dict) else None
-    agent_verdict = run["verdict"] if executor == "agent" else None
-    agent_run_id = int(run["run_id"]) if executor == "agent" else None
-    if executor == "human_review" and run["run_id"] is not None:
+    agent_verdict = run["verdict"] if performed_by == "agent" else None
+    agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
+    if performed_by == "human_review" and run["run_id"] is not None:
         agent = _prior_agent_run(
             conn,
             requirement_id,
@@ -146,7 +146,7 @@ def _review_state(
             agent_verdict = agent["verdict"]
             rationale = agent_raw.get("rationale")
     request = None
-    if executor in {"agent", "human_review"} and _table_exists(
+    if performed_by in {"agent", "human_review"} and _table_exists(
         conn, "decision_requests"
     ):
         marker = _placeholder(conn)
@@ -177,15 +177,15 @@ def _review_state(
                 "resolution_note": request_row["resolution_note"],
                 "resolved_at": request_row["resolved_at"],
             }
-    if executor == "human_review":
+    if performed_by == "human_review":
         state = "human_review_resolved"
-    elif executor == "agent" and run["verdict"] == "inconclusive":
+    elif performed_by == "agent" and run["verdict"] == "inconclusive":
         state = (
             "human_review_requested"
             if request is not None and request["status"] == "pending"
             else "agent_inconclusive"
         )
-    elif executor == "agent":
+    elif performed_by == "agent":
         state = "agent_reviewed"
     elif run["case_outcome"] == "needs_review" or run["execution_status"] == "captured":
         state = "awaiting_agent_review"
@@ -193,11 +193,11 @@ def _review_state(
         state = "not_applicable"
     return {
         "state": state,
-        "capture_executor": (
-            executor if executor in {"browser_substrate", "host_control"} else None
+        "capture_runner": (
+            performed_by if performed_by in {"browser_substrate", "host_control"} else None
         ),
-        "review_executor": (
-            executor if executor in {"agent", "human_review"} else None
+        "review_runner": (
+            performed_by if performed_by in {"agent", "human_review"} else None
         ),
         "agent_verdict": agent_verdict,
         "rationale": rationale,
@@ -246,7 +246,7 @@ def get_plan(
             )
     case_rows = query_rows(
         conn,
-        "SELECT c.*, m.name AS method_name, m.executor_id, "
+        "SELECT c.*, m.name AS method_name, m.runner_id, "
         "m.required_capability_kind, m.verdict_path "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
         f"WHERE c.plan_id={marker} ORDER BY c.position",
@@ -279,7 +279,7 @@ def get_plan(
             "position": int(case["position"]),
             "method_id": str(case["method_id"]),
             "method_name": str(case["method_name"]),
-            "executor_id": str(case["executor_id"]),
+            "runner_id": str(case["runner_id"]),
             "required_capability_kind": capability_kind,
             "capability_state": capability_context["state"],
             "capability_context": capability_context,

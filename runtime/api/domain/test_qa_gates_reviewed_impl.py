@@ -71,7 +71,7 @@ class TestCheckReviewedImplementationGate:
             method_id="browser-check",
         )
         # Only agent-executed run — should fail
-        _add_run(qa_db, req_id, "pass", executor_type="agent")
+        _add_run(qa_db, req_id, "pass", performed_by="agent")
         target = GateTarget.parse("42")
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
@@ -84,7 +84,7 @@ class TestCheckReviewedImplementationGate:
             qa_kind="plan_case",
             method_id="browser-inspection",
         )
-        _add_run(qa_db, req_id, "pass", executor_type="agent")
+        _add_run(qa_db, req_id, "pass", performed_by="agent")
         target = GateTarget.parse("42")
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
@@ -106,7 +106,7 @@ class TestCheckReviewedImplementationGate:
             qa_kind="plan_case",
             method_id="browser-check",
         )
-        run_id = _add_run(qa_db, req_id, "pass", executor_type="browser_substrate")
+        run_id = _add_run(qa_db, req_id, "pass", performed_by="browser_substrate")
         # Create artifact with real file
         art_file = tmp_path / "screenshot.png"
         art_file.write_bytes(b"PNG")
@@ -129,7 +129,7 @@ class TestCheckReviewedImplementationGate:
             qa_db,
             req_id,
             None,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             execution_status="captured",
             case_outcome="needs_review",
         )
@@ -140,7 +140,7 @@ class TestCheckReviewedImplementationGate:
             qa_db,
             req_id,
             "pass",
-            executor_type="agent",
+            performed_by="agent",
         )
         _link_agent_review(
             qa_db,
@@ -165,7 +165,7 @@ class TestCheckReviewedImplementationGate:
             qa_kind="plan_case",
             method_id="browser-check",
         )
-        run_id = _add_run(qa_db, req_id, "pass", executor_type="browser_substrate")
+        run_id = _add_run(qa_db, req_id, "pass", performed_by="browser_substrate")
         _add_artifact(
             qa_db, run_id,
             s3_handle("proj-prod-artifacts", "qa-artifacts/testproj/42/7/shot.png"),
@@ -199,7 +199,7 @@ class TestCheckReviewedImplementationGate:
             qa_db,
             req_id,
             "pass",
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             created_at="2024-01-01T00:00:00Z",
             raw_result=f'{{"code_identity":{{"branch":"{TEST_ITEM_REF}","sha":"fresh123"}}}}',
         )

@@ -111,7 +111,7 @@ def _newest_passing_ci_head(conn: Any, item_id: int) -> str:
     row = conn.execute(
         "SELECT r.raw_result FROM qa_runs r "
         "JOIN qa_requirements q ON q.id = r.qa_requirement_id "
-        f"WHERE q.item_id = {placeholder} AND r.executor_type = 'ci_run' "
+        f"WHERE q.item_id = {placeholder} AND r.performed_by = 'ci_run' "
         "AND r.verdict = 'pass' ORDER BY r.id DESC LIMIT 1",
         (int(item_id),),
     ).fetchone()

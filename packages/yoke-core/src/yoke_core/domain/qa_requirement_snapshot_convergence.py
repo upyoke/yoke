@@ -19,7 +19,7 @@ SNAPSHOT_COLUMN_DEFINITIONS = (
     ("entry_surface", "TEXT"),
     ("required_completion", "TEXT"),
     ("method_name", "TEXT"),
-    ("executor_id", "TEXT"),
+    ("runner_id", "TEXT"),
     ("required_capability_kind", "TEXT"),
     ("verdict_path", "TEXT"),
 )
@@ -71,7 +71,7 @@ def _baseline_position(
 def _snapshot_complete(row: Any) -> bool:
     method_complete = all(
         str(row[column] or "").strip()
-        for column in ("method_name", "executor_id", "verdict_path")
+        for column in ("method_name", "runner_id", "verdict_path")
     )
     if not method_complete:
         return False
@@ -85,13 +85,13 @@ def _backfill_rows(conn: Any) -> None:
         "SELECT q.id, q.plan_id, q.plan_case_key, q.method_id, "
         "q.host_baseline, q.case_position, q.baseline_position, "
         "q.entry_surface, q.required_completion, q.method_name, "
-        "q.executor_id, q.required_capability_kind, q.verdict_path, "
+        "q.runner_id, q.required_capability_kind, q.verdict_path, "
         "c.position AS catalog_case_position, "
         "c.host_baselines AS catalog_host_baselines, "
         "c.entry_surface AS catalog_entry_surface, "
         "c.required_completion AS catalog_required_completion, "
         "m.name AS catalog_method_name, "
-        "m.executor_id AS catalog_executor_id, "
+        "m.runner_id AS catalog_runner_id, "
         "m.required_capability_kind AS catalog_capability_kind, "
         "m.verdict_path AS catalog_verdict_path "
         "FROM qa_requirements q "
@@ -141,7 +141,7 @@ def _backfill_rows(conn: Any) -> None:
             "UPDATE qa_requirements SET "
             f"case_position={marker}, baseline_position={marker}, "
             f"entry_surface={marker}, required_completion={marker}, "
-            f"method_name={marker}, executor_id={marker}, "
+            f"method_name={marker}, runner_id={marker}, "
             f"required_capability_kind={marker}, verdict_path={marker} "
             f"WHERE id={marker}",
             (
@@ -150,7 +150,7 @@ def _backfill_rows(conn: Any) -> None:
                 entry_surface,
                 required_completion,
                 str(row["catalog_method_name"]),
-                str(row["catalog_executor_id"]),
+                str(row["catalog_runner_id"]),
                 row["catalog_capability_kind"],
                 str(row["catalog_verdict_path"]),
                 requirement_id,
@@ -172,7 +172,7 @@ def converge_requirement_execution_snapshots(conn: Any) -> None:
 
 
 def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
-    """Require every method-backed row to carry its immutable executor fields."""
+    """Require every method-backed row to carry its immutable runner fields."""
     missing_columns = [
         column
         for column in SNAPSHOT_COLUMNS
@@ -187,7 +187,7 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
             "SELECT COUNT(*) FROM qa_requirements "
             "WHERE method_id IS NOT NULL AND ("
             "method_name IS NULL OR method_name='' OR "
-            "executor_id IS NULL OR executor_id='' OR "
+            "runner_id IS NULL OR runner_id='' OR "
             "verdict_path IS NULL OR verdict_path='' OR "
             "(plan_id IS NOT NULL AND ("
             "case_position IS NULL OR case_position < 1 OR "

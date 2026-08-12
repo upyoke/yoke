@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_fixture_credential_operations import (
     MachineQaFixtureCredentialOperations,
 )
@@ -32,7 +32,7 @@ from yoke_core.domain.machine_qa_fixture_validation import (
 )
 
 
-class MachineQaFixtureOperationExecutor(
+class MachineQaFixtureOperationRunner(
     MachineQaFixtureCredentialOperations,
     MachineQaFixtureMachineOperations,
     MachineQaFixtureRepositoryOperations,
@@ -54,7 +54,7 @@ class MachineQaFixtureOperationExecutor(
     ) -> HostActionResult:
         """Validate the whole setup batch, then execute it in order."""
         if not self._accepting:
-            raise MachineQaFixtureOperationError("fixture executor is already closing")
+            raise MachineQaFixtureOperationError("fixture runner is already closing")
         normalized = validate_setup_operations(operations)
         return self._execute_batch(normalized, self._setup_handlers())
 
@@ -64,7 +64,7 @@ class MachineQaFixtureOperationExecutor(
     ) -> HostActionResult:
         """Validate and run registered post-state assertions in order."""
         if not self._accepting:
-            raise MachineQaFixtureOperationError("fixture executor is already closing")
+            raise MachineQaFixtureOperationError("fixture runner is already closing")
         normalized = validate_post_state_assertions(operations)
         return self._execute_batch(normalized, self._post_handlers())
 
@@ -121,7 +121,7 @@ class MachineQaFixtureOperationExecutor(
 
 __all__ = [
     "MachineQaFixtureOperationError",
-    "MachineQaFixtureOperationExecutor",
+    "MachineQaFixtureOperationRunner",
     "RemoteCommandResult",
     "RemoteRunner",
     "RemoteTextUploader",

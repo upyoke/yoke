@@ -12,7 +12,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     is_machine_local_capability_secret,
 )
 from yoke_core.domain.host_baseline_operations import run_host_baseline
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,
     register_host_control_factory,
 )
@@ -40,7 +40,7 @@ from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_con
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.2"
+    assert version == "1.0.3"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -48,7 +48,7 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     }
     assert MACHINE_METHODS == frozenset(row["id"] for row in methods)
     assert {row["config_contract_id"] for row in methods} == MACHINE_METHODS
-    assert {row["executor_id"] for row in methods} == {"host_control"}
+    assert {row["runner_id"] for row in methods} == {"host_control"}
     assert {row["required_capability_kind"] for row in methods} == {"test-machine"}
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
     assert all(
@@ -56,7 +56,7 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
         and row["display_group"]
         and row["config_contract_id"]
         and row["proof_kind"]
-        and row["executor_gloss"]
+        and row["runner_gloss"]
         for row in methods
     )
     assert {row["id"]: row["description"] for row in methods} == {

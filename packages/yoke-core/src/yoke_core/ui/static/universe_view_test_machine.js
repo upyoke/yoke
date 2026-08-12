@@ -120,7 +120,7 @@ function renderDetail(context, main, detail, reload) {
     " — registered operations on ",
   );
   baselineExplanation.appendChild(el(
-    documentNode, "span", "mono", detail.executor_id,
+    documentNode, "span", "mono", detail.runner_id,
   ));
   baselineExplanation.appendChild(el(
     documentNode,

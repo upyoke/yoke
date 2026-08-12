@@ -33,7 +33,7 @@ export function secretPanel(documentNode, detail) {
       documentNode,
       "small",
       "secret-note",
-      secretNotes[secret.key] || "executor-only credential",
+      secretNotes[secret.key] || "runner-only credential",
     ));
     row.appendChild(copy);
     const pill = statePill(documentNode, secret.stored ? "stored" : "missing");
@@ -50,7 +50,7 @@ function semanticReceiptRows(detail) {
   const connection = byName.get("connection");
   if (connection) {
     rows.push({
-      title: "SSH + executor materialization",
+      title: "SSH + runner materialization",
       detail: connection.ok
         ? "secret-free receipt"
         : connection.verified_property || "connection verification failed",

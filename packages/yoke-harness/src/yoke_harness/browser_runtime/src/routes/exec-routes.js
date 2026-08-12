@@ -10,7 +10,7 @@
  *   module.exports = function(app, browserManager) { ... }
  */
 
-const { executeStep } = require('../step-executor');
+const { executeStep } = require('../step-runner');
 
 /**
  * @param {import('express').Application} app

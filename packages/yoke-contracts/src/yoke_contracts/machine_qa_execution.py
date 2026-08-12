@@ -38,7 +38,7 @@ class MachineQaCaseContract(BaseModel):
     case_key: str
     method_id: str
     method_name: str
-    executor_id: Literal["host_control"]
+    runner_id: Literal["host_control"]
     required_capability_kind: str | None
     verdict_path: str
     qa_kind: str
@@ -92,7 +92,7 @@ class MachineQaCaseContract(BaseModel):
 
 
 class HostControlExecutionContract(BaseModel):
-    """A complete, secret-free operation the local executor may perform."""
+    """A complete, secret-free operation the local runner may perform."""
 
     model_config = ConfigDict(extra="forbid")
 

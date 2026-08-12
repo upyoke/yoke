@@ -38,7 +38,7 @@ class TestHappyPath:
     def test_ac6_successful_run_records_qa_run_with_browser_substrate(
         self, tmp_path: Path, db_path: str
     ) -> None:
-        """Happy path records qa_run with executor_type='browser_substrate'."""
+        """Happy path records qa_run with performed_by='browser_substrate'."""
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
             db_path, 100, "browser-check",
@@ -73,7 +73,7 @@ class TestHappyPath:
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         row = conn.execute(
-            "SELECT executor_type, verdict, execution_status FROM qa_runs "
+            "SELECT performed_by, verdict, execution_status FROM qa_runs "
             f"WHERE qa_requirement_id = {p}",
             (req_id,),
         ).fetchone()
@@ -191,7 +191,7 @@ class TestHappyPath:
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         qa_row = conn.execute(
-            "SELECT executor_type, verdict, execution_status FROM qa_runs "
+            "SELECT performed_by, verdict, execution_status FROM qa_runs "
             f"WHERE qa_requirement_id = {p}",
             (req_id,),
         ).fetchone()

@@ -93,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     rna = sub.add_parser("run-add")
     rna.add_argument("--requirement-id", type=int, required=True)
-    rna.add_argument("--executor-type", required=True)
+    rna.add_argument("--performed-by", required=True)
     rna.add_argument(
         "--qa-kind",
         help=(

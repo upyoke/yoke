@@ -147,7 +147,7 @@ def register(registry) -> None:
         guardrails=[
             "project_permission",
             "materialized_case_reread",
-            "registered_executor",
+            "registered_runner",
         ],
         adapter_status="internal",
         claim_required_kind=None,

@@ -1,4 +1,4 @@
-"""The CI-run executor: verdict from the run, evidence naming the tree.
+"""The CI-run runner: verdict from the run, evidence naming the tree.
 
 Every case here is a project that does NOT route through the merge queue,
 so this file is also the regression that the dispatch path is unchanged by
@@ -24,7 +24,7 @@ from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 
 @pytest.fixture()
 def wired(tmp_path, monkeypatch):
-    """Stub every boundary the executor crosses, and hand back the recorder."""
+    """Stub every boundary the runner crosses, and hand back the recorder."""
     return wire_ci_case(tmp_path, monkeypatch)
 
 
@@ -47,7 +47,7 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
 
     assert result["verdict"] == "pass"
     assert result["case_outcome"] == "passed"
-    assert result["executor_id"] == "ci_run"
+    assert result["runner_id"] == "ci_run"
     assert result["ci_run_id"] == "9182736"
     assert result["run_url"] == (
         "https://github.com/acme/widgets/actions/runs/9182736"
@@ -55,7 +55,7 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
     assert result["verification_tree"]["head_sha"] == "a" * 40
 
     added = recorder.payload("qa.run.add")
-    assert added["executor_type"] == "ci_run"
+    assert added["performed_by"] == "ci_run"
     evidence = json.loads(added["raw_result"])
     assert evidence["execution_budget_seconds"] == (
         qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
@@ -198,7 +198,7 @@ def test_a_case_without_a_declared_workflow_fails_before_pushing(wired):
     assert recorder.calls == []
 
 
-def test_ci_executor_ignores_local_tree_binding(wired, monkeypatch):
+def test_ci_runner_ignores_local_tree_binding(wired, monkeypatch):
     checkout, recorder, artifact = wired
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.evaluate_run",
@@ -262,13 +262,13 @@ def test_released_lane_uses_the_recorded_commit_without_tree_binding(
     assert result["verification_tree"]["head_sha"] == "b" * 40
 
 
-def test_shared_case_execution_routes_ci_run_to_this_executor():
+def test_shared_case_execution_routes_ci_run_to_this_runner():
     with mock.patch.object(
         qa_case_ci_run, "execute_ci_case", return_value={"verdict": "pass"},
-    ) as executor:
+    ) as runner:
         result = qa_case_execution.execute_case_context(
             _case(), checkout_path="/tmp/tree",
         )
 
     assert result == {"verdict": "pass"}
-    assert executor.call_args.kwargs["checkout_path"] == "/tmp/tree"
+    assert runner.call_args.kwargs["checkout_path"] == "/tmp/tree"

@@ -202,7 +202,7 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "qa_requirements",
         "qa_runs",
         "qa_requirement_id",
-        "executor_type",
+        "performed_by",
         "yoke qa requirement list",
         "yoke qa gate-summary",
     ),

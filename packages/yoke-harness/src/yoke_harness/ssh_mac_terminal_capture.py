@@ -139,7 +139,7 @@ def close_terminal_window(
     *,
     window_id: int | None,
 ) -> None:
-    """Best-effort cleanup for one Terminal window opened by this executor."""
+    """Best-effort cleanup for one Terminal window opened by this runner."""
     if window_id is None:
         return
     apple = "\n".join(

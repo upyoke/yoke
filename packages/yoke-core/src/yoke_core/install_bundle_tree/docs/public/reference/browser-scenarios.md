@@ -41,7 +41,7 @@ override it.
 ```
 
 The step vocabulary matches
-the browser step executor implementation.
+the browser step runner implementation.
 There is no translation layer.
 
 ## Action reference
@@ -75,7 +75,7 @@ they include that field.
 | `count_gte` | `min_count` | At least the requested number of targets exist. |
 | `count_eq` | `expected` | Exactly the requested number of targets exist. |
 
-The executor rejects aliases such as `url` for `route`, `selector` for
+The runner rejects aliases such as `url` for `route`, `selector` for
 `target`, and `wait` for `delay` or `wait_for`.
 
 ## Authoring
@@ -110,7 +110,7 @@ The method validator rejects missing steps, empty actions, and an empty
 ## Execution
 
 Materialize plan cases at their declared transition, then run each requirement
-through the shared case executor:
+through the shared case runner:
 
 ```bash
 yoke qa plan materialize \
@@ -129,7 +129,7 @@ yoke qa case run \
 `browser-inspection` captures evidence and returns an inconclusive/review
 outcome until a reviewer resolves it.
 
-The executor writes the run and evidence on the materialized Browser
+The runner writes the run and evidence on the materialized Browser
 requirement. Do not create a second requirement or run to mirror that result.
 When an inspection flow needs the low-level completion surface, it uses:
 

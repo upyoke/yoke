@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     cleanup_staged_files,

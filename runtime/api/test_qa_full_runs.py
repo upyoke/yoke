@@ -1,6 +1,6 @@
 """run-add/complete/list/get — QA run lifecycle.
 
-Covers ``cmd_run_add`` (including executor guards for browser and
+Covers ``cmd_run_add`` (including runner guards for browser and
 screenshot kinds and the epic-task review env-var gate),
 ``cmd_run_complete`` finalisation, listing with optional requirement
 filters, and single-run retrieval.
@@ -43,7 +43,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
@@ -71,7 +71,7 @@ class TestRunAdd:
                 "run-add",
                 "--requirement-id",
                 str(req_id),
-                "--executor-type",
+                "--performed-by",
                 "pytest",
                 "--qa-kind",
                 "smoke",
@@ -98,7 +98,7 @@ class TestRunAdd:
                     "run-add",
                     "--requirement-id",
                     "1",
-                    "--executor-type",
+                    "--performed-by",
                     "pytest",
                     "--raw-result",
                     "inline",
@@ -119,7 +119,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
         )
         conn = _conn(db_path)
@@ -141,7 +141,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
             score=0.98,
@@ -155,8 +155,8 @@ class TestRunAdd:
         assert abs(row["score"] - 0.98) < 0.01
         assert abs(row["confidence"] - 0.95) < 0.01
 
-    def test_agent_executor_rejected_for_browser_method(self, db_path, capsys):
-        """Agent executor is not allowed for Browser method cases."""
+    def test_agent_runner_rejected_for_browser_method(self, db_path, capsys):
+        """Agent runner is not allowed for Browser method cases."""
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -178,12 +178,12 @@ class TestRunAdd:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="plan_case",
             )
 
-    def test_agent_executor_rejected_for_screenshot_evidence(self, db_path, capsys):
-        """agent executor not allowed for ac_verification with screenshot evidence."""
+    def test_agent_runner_rejected_for_screenshot_evidence(self, db_path, capsys):
+        """agent runner not allowed for ac_verification with screenshot evidence."""
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
@@ -196,7 +196,7 @@ class TestRunAdd:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="ac_verification",
             )
 
@@ -218,7 +218,7 @@ class TestRunAdd:
                 qa.cmd_run_add(
                     db_path=db_path,
                     requirement_id=req_id,
-                    executor_type="agent",
+                    performed_by="agent",
                     qa_kind="implementation_review",
                 )
         finally:
@@ -242,7 +242,7 @@ class TestRunAdd:
             run_id = qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="implementation_review",
                 verdict="pass",
             )
@@ -285,7 +285,7 @@ class TestRunAdd:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             qa_kind="plan_case",
             verdict="pass",
             artifact_path=str(screenshot),

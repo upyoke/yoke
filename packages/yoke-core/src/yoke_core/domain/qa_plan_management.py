@@ -230,7 +230,7 @@ def _validated_plan_cases(
     marker = _placeholder(conn)
     method_ids = list(dict.fromkeys(case["method_id"] for case in cases))
     cursor = conn.execute(
-        "SELECT id, executor_id, verdict_path, project_id, config_contract_id "
+        "SELECT id, runner_id, verdict_path, project_id, config_contract_id "
         "FROM qa_methods WHERE id IN (" + ", ".join([marker] * len(method_ids)) + ")",
         tuple(method_ids),
     )

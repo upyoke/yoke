@@ -9,7 +9,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
     FakeExecution,
-    FakeFixtureExecutor,
+    FakeFixtureRunner,
     action_result,
     baseline_configs,
     case_contract,
@@ -310,7 +310,7 @@ def test_plan_case_contract_uses_the_same_single_case_lifecycle(
     monkeypatch,
 ) -> None:
     events: list[str] = []
-    fixture = FakeFixtureExecutor(events)
+    fixture = FakeFixtureRunner(events)
     execution = FakeExecution(fixture, events)
     case = case_contract().model_copy(
         update={"case_position": 1, "baseline_position": 1}

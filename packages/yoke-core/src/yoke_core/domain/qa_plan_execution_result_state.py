@@ -75,16 +75,16 @@ def validated_baseline_group_results(
     anchor: dict[str, Any],
     requirements: list[dict[str, Any]],
 ) -> tuple[dict[int, dict[str, Any]], bool | None]:
-    """Validate a host baseline executor result against the durable roster."""
+    """Validate a host baseline runner result against the durable roster."""
     anchor_id = int(anchor["requirement_id"])
     if int(group.get("anchor_requirement_id") or 0) != anchor_id:
         raise QaPlanExecutionError(
-            "baseline-group executor returned the wrong anchor requirement"
+            "baseline-group runner returned the wrong anchor requirement"
         )
     expected_ids = [
         int(case["requirement_id"])
         for case in requirements
-        if case.get("executor_id") == "host_control"
+        if case.get("runner_id") == "host_control"
         and int(case["plan_id"]) == int(anchor["plan_id"])
         and case.get("host_baseline") == anchor.get("host_baseline")
     ]
@@ -95,18 +95,18 @@ def validated_baseline_group_results(
         or {int(value) for value in raw_ids} != set(expected_ids)
     ):
         raise QaPlanExecutionError(
-            "baseline-group executor returned membership outside the durable roster"
+            "baseline-group runner returned membership outside the durable roster"
         )
     cache: dict[int, dict[str, Any]] = {}
     remember_baseline_group_results(cache, group.get("results"))
     if set(cache) != set(expected_ids):
         raise QaPlanExecutionError(
-            "baseline-group executor omitted a durable roster result"
+            "baseline-group runner omitted a durable roster result"
         )
     baseline_ok = group.get("baseline_ok")
     if baseline_ok is not None and not isinstance(baseline_ok, bool):
         raise QaPlanExecutionError(
-            "baseline-group executor returned an invalid baseline outcome"
+            "baseline-group runner returned an invalid baseline outcome"
         )
     if baseline_ok is None and any(
         result.get("case_outcome") != "waiting" for result in cache.values()

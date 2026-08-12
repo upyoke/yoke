@@ -241,7 +241,7 @@ When your dispatch prompt includes a **"Browser Scenario Execution"** block,
 select unsatisfied `browser-check` and `browser-inspection` method cases,
 preserve their immutable `method_config`, and run each requirement through
 `yoke qa case run` with the dispatched URL, expected branch, and expected HEAD
-SHA. Treat exit code `2` as a hard-stop prerequisite or executor failure, and
+SHA. Treat exit code `2` as a hard-stop prerequisite or runner failure, and
 report runner JSON plus artifact paths.
 
 ## Path-Claim Awareness (no-write contract)

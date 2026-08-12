@@ -30,7 +30,7 @@ def _p(conn) -> str:
 
 
 class QaRunRecordVerdictRequest(BaseModel):
-    executor_type: str
+    performed_by: str
     verdict: str
     raw_result: Optional[str] = None
     duration_ms: Optional[int] = None
@@ -59,14 +59,14 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             "qa.run.record_verdict requires target.qa_requirement_id",
         )
     payload = request.payload or {}
-    executor_type = payload.get("executor_type")
+    performed_by = payload.get("performed_by")
     verdict = payload.get("verdict")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
-    if not isinstance(executor_type, str) or not executor_type:
+    if not isinstance(performed_by, str) or not performed_by:
         return _error(
-            "payload_invalid", "executor_type is required",
-            jsonpath="$.payload.executor_type",
+            "payload_invalid", "performed_by is required",
+            jsonpath="$.payload.performed_by",
         )
     if verdict not in VALID_VERDICTS:
         return _error(
@@ -87,27 +87,27 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             return _error("not_found", f"requirement {req_id} not found")
         qa_kind = str(row["qa_kind"])
         if (
-            executor_type == "agent"
+            performed_by == "agent"
             and is_browser_method_requirement(row["method_id"])
         ):
             return _error(
                 "policy_violation",
-                "executor_type 'agent' is not allowed for Browser methods "
+                "performed_by 'agent' is not allowed for Browser methods "
                 "-- use browser_substrate",
-                jsonpath="$.payload.executor_type",
+                jsonpath="$.payload.performed_by",
             )
 
         now_iso = iso8601_now()
         p = _p(conn)
         cur = conn.execute(
             "INSERT INTO qa_runs "
-            "(qa_requirement_id, executor_type, qa_kind, verdict, "
+            "(qa_requirement_id, performed_by, qa_kind, verdict, "
             "case_outcome, raw_result, duration_ms, started_at, "
             "completed_at, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
-                int(req_id), executor_type, qa_kind, verdict,
+                int(req_id), performed_by, qa_kind, verdict,
                 case_outcome_for_verdict(verdict), raw_result,
                 duration_ms, now_iso, now_iso, now_iso,
             ),

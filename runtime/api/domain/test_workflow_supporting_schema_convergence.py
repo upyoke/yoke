@@ -43,7 +43,7 @@ def test_boot_converges_supporting_schema_and_code_owned_seeds(
         ("qa_requirements", "entry_surface"),
         ("qa_requirements", "required_completion"),
         ("qa_requirements", "method_name"),
-        ("qa_requirements", "executor_id"),
+        ("qa_requirements", "runner_id"),
         ("qa_requirements", "required_capability_kind"),
         ("qa_requirements", "verdict_path"),
         ("qa_requirements", "workflow_transition_id"),

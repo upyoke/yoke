@@ -8,7 +8,7 @@ USAGE_BY_FUNCTION_ID = {
     "qa.method.get": "yoke qa method get METHOD --project P",
     "qa.project_method.register": (
         "yoke qa project-method register --project P --slug SLUG --name NAME "
-        "--description TEXT --executor worktree_run "
+        "--description TEXT --runner worktree_run "
         "--verdict-path automatic --verdict-contract TEXT "
         "--evidence-contract TEXT"
     ),

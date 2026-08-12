@@ -4,7 +4,7 @@ import {
   capabilityRoute,
   capabilityStateNode,
   detailHead,
-  executorContractNode,
+  runnerContractNode,
   keyValuePanel,
   oneProjectCall,
   outcomeNode,
@@ -65,8 +65,8 @@ function capabilityContract(context, method, project) {
 
 function methodContractRows(context, method, project) {
   const rows = [
-    ["Executor", executorContractNode(
-      context.document, method.executor_id, method.executor_gloss,
+    ["Runner", runnerContractNode(
+      context.document, method.runner_id, method.runner_gloss,
     )],
     ["Capability", capabilityContract(context, method, project)],
     ["Verdict", `${method.verdict_path} — ${method.verdict_contract}`],

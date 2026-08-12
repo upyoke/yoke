@@ -20,7 +20,7 @@ from yoke_core.domain.machine_qa_local_execution import (
 def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
     case = {
         "requirement_id": 41,
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "method_id": "machine-state-check",
         "project": "yoke",
         "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
@@ -39,7 +39,7 @@ def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
         success=True,
         result={
             "requirement_id": 41,
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "verdict": "pass",
         },
         error=None,
@@ -90,7 +90,7 @@ def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
 def test_machine_leaf_local_failure_dispatches_abort() -> None:
     case = {
         "requirement_id": 41,
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "method_id": "machine-state-check",
         "project": "yoke",
         "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
@@ -154,7 +154,7 @@ def test_machine_leaf_local_failure_dispatches_abort() -> None:
     }
 
 
-def test_machine_leaf_refuses_non_machine_executor() -> None:
+def test_machine_leaf_refuses_non_machine_runner() -> None:
     with mock.patch(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
     ) as dispatch:
@@ -165,7 +165,7 @@ def test_machine_leaf_refuses_non_machine_executor() -> None:
             execute_materialized_machine_case(
                 {
                     "requirement_id": 41,
-                    "executor_id": "worktree_run",
+                    "runner_id": "worktree_run",
                     "method_id": "command",
                 }
             )

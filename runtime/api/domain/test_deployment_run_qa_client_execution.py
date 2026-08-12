@@ -53,7 +53,7 @@ def test_client_materializes_before_server_authorized_run_execution() -> None:
                         "case_position": 1,
                         "baseline_position": 1,
                         "host_baseline": None,
-                        "executor_id": "worktree_run",
+                        "runner_id": "worktree_run",
                     }
                 ],
                 "results": [],
@@ -71,7 +71,7 @@ def test_client_materializes_before_server_authorized_run_execution() -> None:
             "execute_case_context",
             return_value={
                 "requirement_id": 71,
-                "executor_id": "worktree_run",
+                "runner_id": "worktree_run",
                 "verdict": "pass",
                 "case_outcome": "passed",
             },

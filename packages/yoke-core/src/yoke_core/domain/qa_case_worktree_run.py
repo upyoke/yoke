@@ -2,7 +2,7 @@
 
 The sibling of :mod:`yoke_core.domain.qa_case_ci_run`: same Command
 method contract, executed on this machine instead of on the project's CI
-workflow. This is the executor for a project that declares no CI
+workflow. This is the runner for a project that declares no CI
 workflow, and the deliberate fallback for offline or local-only
 operation.
 
@@ -31,7 +31,7 @@ from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
-#: Surface name carried by this executor's tree-binding refusal.
+#: Surface name carried by this runner's tree-binding refusal.
 _TREE_BINDING_SURFACE = "qa case run"
 
 
@@ -154,7 +154,7 @@ def execute_worktree_case(
     run = record_leg(
         "qa.run.add",
         {
-            "executor_type": "worktree_run",
+            "performed_by": "worktree_run",
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
@@ -206,7 +206,7 @@ def execute_worktree_case(
         "requirement_id": int(case["requirement_id"]),
         "run_id": run_id,
         "artifact_id": int(artifact["qa_artifact_id"]),
-        "executor_id": "worktree_run",
+        "runner_id": "worktree_run",
         "verdict": verdict,
         "case_outcome": "passed" if verdict == "pass" else "failed",
         "exit_code": exit_code,

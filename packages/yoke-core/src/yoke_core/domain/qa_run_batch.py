@@ -44,7 +44,7 @@ def cmd_run_add_batch(
     """Insert multiple qa_run rows in one transaction. Returns list of new IDs.
 
     The JSON file must contain an array of objects with the same fields as
-    run-add: requirement_id, executor_type, qa_kind, verdict, score,
+    run-add: requirement_id, performed_by, qa_kind, verdict, score,
     confidence, raw_result, duration_ms, artifact_path.
 
     Rolls back the entire batch if any row fails validation.
@@ -78,8 +78,8 @@ def cmd_run_add_batch(
         if not row.get("requirement_id"):
             print(f"Error: row {idx} missing required field 'requirement_id'", file=sys.stderr)
             sys.exit(2)
-        if not row.get("executor_type"):
-            print(f"Error: row {idx} missing required field 'executor_type'", file=sys.stderr)
+        if not row.get("performed_by"):
+            print(f"Error: row {idx} missing required field 'performed_by'", file=sys.stderr)
             sys.exit(2)
 
         if row.get("qa_kind"):
@@ -120,11 +120,11 @@ def cmd_run_add_batch(
                     )
                     sys.exit(2)
             if (
-                row["executor_type"] == "agent"
+                row["performed_by"] == "agent"
                 and is_browser_method_requirement(requirement["method_id"])
             ):
                 print(
-                    f"Error: row {idx}: executor_type 'agent' is not "
+                    f"Error: row {idx}: performed_by 'agent' is not "
                     "allowed for Browser method cases -- use browser_substrate",
                     file=sys.stderr,
                 )
@@ -132,7 +132,7 @@ def cmd_run_add_batch(
 
         # Pre-validate screenshot evidence and epic review constraints using DB lookups
         for idx, row in enumerate(payload):
-            if row["executor_type"] == "agent" and row["qa_kind"] == "ac_verification":
+            if row["performed_by"] == "agent" and row["qa_kind"] == "ac_verification":
                 req_policy = query_scalar(
                     conn,
                     "SELECT success_policy FROM qa_requirements WHERE id = %s",
@@ -140,7 +140,7 @@ def cmd_run_add_batch(
                 )
                 if req_policy and "requires_screenshot_evidence" in str(req_policy):
                     print(
-                        f"Error: row {idx}: executor_type 'agent' not allowed for ac_verification "
+                        f"Error: row {idx}: performed_by 'agent' not allowed for ac_verification "
                         "with [requires_screenshot_evidence]",
                         file=sys.stderr,
                     )
@@ -173,13 +173,13 @@ def cmd_run_add_batch(
             completed_at_value = None if verdict is None else now_iso
 
             sql = """INSERT INTO qa_runs
-                      (qa_requirement_id, executor_type, qa_kind, verdict,
+                      (qa_requirement_id, performed_by, qa_kind, verdict,
                        score, confidence, raw_result, duration_ms,
                        started_at, completed_at, created_at)
                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
             cur = conn.execute(sql, (
                 row["requirement_id"],
-                row["executor_type"],
+                row["performed_by"],
                 row["qa_kind"],
                 verdict,
                 row.get("score"),

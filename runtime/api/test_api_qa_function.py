@@ -112,7 +112,7 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         req = _request(
             "qa.run.record_verdict",
             TargetRef(kind="qa_requirement", qa_requirement_id=7),
-            payload={"executor_type": "agent", "verdict": "maybe"},
+            payload={"performed_by": "agent", "verdict": "maybe"},
         )
         outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertFalse(outcome.primary_success)
@@ -135,7 +135,7 @@ class TestQaRunRecordVerdict(unittest.TestCase):
                 req = _request(
                     "qa.run.record_verdict",
                     TargetRef(kind="qa_requirement", qa_requirement_id=7),
-                    payload={"executor_type": "agent", "verdict": "pass"},
+                    payload={"performed_by": "agent", "verdict": "pass"},
                 )
                 outcome = qa_run.handle_qa_run_record_verdict(req)
         self.assertFalse(outcome.primary_success)
@@ -174,7 +174,7 @@ class TestQaRunRecordVerdict(unittest.TestCase):
                         "qa.run.record_verdict",
                         TargetRef(kind="qa_requirement", qa_requirement_id=7),
                         payload={
-                            "executor_type": "agent",
+                            "performed_by": "agent",
                             "verdict": "pass",
                             "raw_result": "all good",
                         },
@@ -303,7 +303,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 function="qa.run.record_verdict",
                 actor=ActorContext(actor_id="op", session_id="held-session"),
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                payload={"executor_type": "agent", "verdict": "pass"},
+                payload={"performed_by": "agent", "verdict": "pass"},
             )
             response = self._dispatch_with_stubs(
                 request, "held-session",
@@ -335,7 +335,7 @@ class TestQaRequirementClaimDispatch(unittest.TestCase):
                 function="qa.run.record_verdict",
                 actor=ActorContext(actor_id="op", session_id="held-session"),
                 target=TargetRef(kind="qa_requirement", qa_requirement_id=9999),
-                payload={"executor_type": "agent", "verdict": "pass"},
+                payload={"performed_by": "agent", "verdict": "pass"},
             )
             response = self._dispatch_with_stubs(
                 request, "held-session",

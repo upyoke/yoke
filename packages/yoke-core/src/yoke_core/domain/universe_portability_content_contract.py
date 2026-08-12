@@ -55,7 +55,7 @@ ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
             "baseline_position",
             "case_position",
             "entry_surface",
-            "executor_id",
+            "runner_id",
             "expected_outcome",
             "host_baseline",
             "instructions",

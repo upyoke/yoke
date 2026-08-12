@@ -204,7 +204,7 @@ yoke events anomalies --min-severity WARN
 yoke qa requirement add --item PREFIX-N --qa-kind implementation_review --qa-phase verification --workflow-transition reviewed-implementation
 yoke qa requirement list --item PREFIX-N
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
-yoke qa run add --requirement-id 1 --executor-type agent --qa-kind implementation_review --verdict pass
+yoke qa run add --requirement-id 1 --performed-by agent --qa-kind implementation_review --verdict pass
 yoke qa run list --requirement-id 1
 yoke qa artifact add --requirement-id 1 --run-id 1 --artifact-type screenshot --artifact-handle '{"backend":"local","path":"/tmp/img.png"}'
 

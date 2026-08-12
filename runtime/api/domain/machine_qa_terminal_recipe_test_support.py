@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import subprocess
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 
 
 def completed(

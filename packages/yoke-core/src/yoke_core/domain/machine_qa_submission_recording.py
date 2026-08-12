@@ -129,8 +129,8 @@ def validate_case_submission(
     elif result.error_code is not None:
         raise ValueError("successful Machine QA result cannot name an error code")
     evidence = result.evidence
-    if evidence.get("executor_id") != "host_control":
-        raise ValueError("Machine QA evidence names the wrong executor")
+    if evidence.get("runner_id") != "host_control":
+        raise ValueError("Machine QA evidence names the wrong runner")
     if evidence.get("machine") != resource_name:
         raise ValueError("Machine QA evidence names the wrong test machine")
     if result.case_outcome == "blocked_on_precondition":
@@ -202,7 +202,7 @@ def recorded_case_submission(
     rows = conn.execute(
         "SELECT id,verdict,case_outcome,capture_degraded_reason,raw_result "
         "FROM qa_runs "
-        f"WHERE qa_requirement_id={marker} AND executor_type='host_control' "
+        f"WHERE qa_requirement_id={marker} AND performed_by='host_control' "
         "AND completed_at IS NOT NULL ORDER BY id",
         (int(requirement_id),),
     ).fetchall()
@@ -223,7 +223,7 @@ def recorded_case_submission(
         )
         return {
             "requirement_id": int(requirement_id),
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "verdict": row["verdict"],
             "case_outcome": row["case_outcome"],
             "run_id": int(row["id"]),

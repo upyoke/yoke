@@ -48,7 +48,7 @@ def run(args: List[str]) -> int:
         prog="yoke qa case run",
         description=(
             "Execute one materialized test-plan case through its declared "
-            "registered executor."
+            "registered runner."
         ),
     )
     parser.add_argument("--requirement-id", type=int, required=True)

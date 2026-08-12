@@ -18,7 +18,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     _seed_qa_artifact,
     _seed_qa_requirement,
     _seed_qa_run,
-    tmp_db,  # noqa: F401 — re-exported fixture
+    tmp_db,  # noqa: F401,F811 — re-exported fixture
 )
 from yoke_core.domain import backlog
 from yoke_core.domain.qa_gates import LatestCodeRef
@@ -27,7 +27,7 @@ from yoke_core.domain.qa_gates import LatestCodeRef
 class TestExecuteUpdate:
     """ExecuteUpdate sub-scenarios: QA gates."""
 
-    def test_implemented_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):
+    def test_implemented_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="reviewed-implementation")
         _seed_qa_requirement(
             tmp_db,
@@ -52,7 +52,7 @@ class TestExecuteUpdate:
         assert result["error_code"] == "GATE_QA_IMPLEMENTED"
         assert _item_field(tmp_db, 10, "status") == "reviewed-implementation"
 
-    def test_release_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):
+    def test_release_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="implemented")
         _seed_qa_requirement(
             tmp_db,
@@ -77,7 +77,7 @@ class TestExecuteUpdate:
         assert result["error_code"] == "GATE_QA_RELEASE"
         assert _item_field(tmp_db, 10, "status") == "implemented"
 
-    def test_implemented_blocks_browser_pass_without_artifact(self, tmp_db):
+    def test_implemented_blocks_browser_pass_without_artifact(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="reviewed-implementation")
         req_id = _seed_qa_requirement(
             tmp_db,
@@ -88,7 +88,7 @@ class TestExecuteUpdate:
         _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
         )
         out = io.StringIO()
@@ -109,7 +109,7 @@ class TestExecuteUpdate:
         assert "substrate evidence" in result["error"]
         assert _item_field(tmp_db, 10, "status") == "reviewed-implementation"
 
-    def test_done_blocks_unsatisfied_blocking_requirements(self, tmp_db):
+    def test_done_blocks_unsatisfied_blocking_requirements(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="release")
         _seed_qa_requirement(
             tmp_db,
@@ -135,7 +135,7 @@ class TestExecuteUpdate:
         assert result["error_code"] == "GATE_QA_DONE"
         assert _item_field(tmp_db, 10, "status") == "release"
 
-    def test_reviewed_implementation_blocks_browser_pass_without_artifact(self, tmp_db):
+    def test_reviewed_implementation_blocks_browser_pass_without_artifact(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="reviewing-implementation")
         req_id = _seed_qa_requirement(
             tmp_db,
@@ -146,7 +146,7 @@ class TestExecuteUpdate:
         _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
         )
         out = io.StringIO()
@@ -167,7 +167,7 @@ class TestExecuteUpdate:
         assert "substrate evidence" in result["error"]
         assert _item_field(tmp_db, 10, "status") == "reviewing-implementation"
 
-    def test_release_blocks_browser_pass_against_stale_sha(self, tmp_db, tmp_path):
+    def test_release_blocks_browser_pass_against_stale_sha(self, tmp_db, tmp_path):  # noqa: F811
         _seed_item(tmp_db, id=10, status="implemented", project="testproj")
         req_id = _seed_qa_requirement(
             tmp_db,
@@ -178,7 +178,7 @@ class TestExecuteUpdate:
         run_id = _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
             raw_result='{"code_identity":{"branch":"YOK-10","sha":"oldsha"}}',
             created_at="2024-01-01T00:00:00Z",

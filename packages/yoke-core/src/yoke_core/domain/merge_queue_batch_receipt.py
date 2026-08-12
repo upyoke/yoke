@@ -125,7 +125,7 @@ def record_batch_evidence(
             "workflow": workflow,
             "verdict": "pass",
             "raw_result": raw_result,
-            "executor_type": "ci_run",
+            "performed_by": "ci_run",
         },
     )
     if getattr(response, "success", False):

@@ -12,7 +12,7 @@ knows how to do is reachable only when the pull-request run comes *first*.
 So for those projects the gate opens the pull request itself and waits for
 the run that opening it produces: rebase the lane onto the base branch,
 push, open (or converge on) the landing pull request, and hand that entry
-run back to the executor as the run whose conclusion is the verdict. The
+run back to the runner as the run whose conclusion is the verdict. The
 landing step later finds the same pull request open and green and simply
 enqueues it. Per-item cost becomes one entry suite plus the train's
 amortized share.

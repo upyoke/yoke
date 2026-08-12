@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import path_doctor
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
 from yoke_core.domain.ssh_mac_full_reset_contract import (
@@ -168,7 +168,7 @@ def test_ssh_host_facts_drive_xdg_launcher_reset_and_entry_placeholder(
     assert control._resolve_entry_surface("{yoke_bin} status") == (
         "'/Users/tester/Library/Yoke Bin/yoke' status"
     )
-    fixture = control.create_fixture_operation_executor()
+    fixture = control.create_fixture_operation_runner()
     assert fixture._yoke_bin() == f"{xdg_bin_home}/yoke"
     result = control.reset_installer_test_host()
 

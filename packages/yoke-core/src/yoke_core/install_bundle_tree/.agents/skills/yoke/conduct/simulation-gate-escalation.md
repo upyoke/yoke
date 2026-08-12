@@ -33,7 +33,7 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
  - Otherwise record a passing run:
  ```bash
  yoke qa run add \
- --requirement-id {_req_id} --executor-type "agent" --qa-kind "{_qa_kind}" \
+ --requirement-id {_req_id} --performed-by "agent" --qa-kind "{_qa_kind}" \
  --verdict "pass" \
  --raw-result "Satisfied from conduct evidence: all ${_task_count} epic tasks passed + integration simulation CLEAN"
  ```

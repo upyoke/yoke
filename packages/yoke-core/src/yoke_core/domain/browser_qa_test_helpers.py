@@ -126,7 +126,7 @@ class _FakeRunRecorder:
         p = _placeholder(conn)
         cur = conn.execute(
             f"""
-            INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+            INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
             VALUES ({p}, 'browser_substrate', {p}, {p}, {p}, {p})
             RETURNING id
             """,

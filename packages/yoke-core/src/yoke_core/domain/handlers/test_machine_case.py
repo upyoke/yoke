@@ -34,7 +34,7 @@ class TestMachineCaseExecuteRequest(BaseModel):
 
 class TestMachineCaseExecuteResponse(BaseModel):
     requirement_id: int
-    executor_id: str
+    runner_id: str
     verdict: str | None
     case_outcome: str
     run_id: int
@@ -62,7 +62,7 @@ def _is_machine_case(case: dict[str, Any]) -> bool:
     from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
 
     return (
-        case["executor_id"] == "host_control" and case["method_id"] in MACHINE_METHODS
+        case["runner_id"] == "host_control" and case["method_id"] in MACHINE_METHODS
     )
 
 
@@ -84,7 +84,7 @@ def _waiting_result(held: Any) -> MachineCaseResult:
         case_outcome="waiting",
         verdict="waiting",
         evidence={
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "machine": held.machine,
             "case_started": False,
             "lease": {

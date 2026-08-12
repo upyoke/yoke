@@ -36,7 +36,7 @@ class TestReviewGet:
         insert_qa_run(
             test_db,
             qa_requirement_id=req["id"],
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="implementation_review",
             verdict="pass",
             raw_result=raw_result,
@@ -60,7 +60,7 @@ class TestReviewGet:
         insert_qa_run(
             test_db,
             qa_requirement_id=req["id"],
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="implementation_review",
             verdict="fail",
             raw_result=raw_result,
@@ -169,7 +169,7 @@ class TestSimulationGet:
         insert_qa_run(
             test_db,
             qa_requirement_id=req["id"],
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="simulation",
             verdict="pass",
             raw_result=raw_result,
@@ -202,7 +202,7 @@ class TestSimulationGet:
         insert_qa_run(
             test_db,
             qa_requirement_id=req["id"],
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="simulation",
             verdict="fail",
             raw_result=raw_result,

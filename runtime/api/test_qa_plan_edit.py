@@ -138,7 +138,7 @@ def test_v1_policy_and_project_method_scope_are_enforced() -> None:
             slug="external-command",
             name="External command",
             description="Only the external project may use this method.",
-            executor_id="worktree_run",
+            runner_id="worktree_run",
             verdict_path="automatic",
             verdict_contract="Exit zero.",
             evidence_contract="Captured output.",

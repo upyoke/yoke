@@ -7,7 +7,7 @@ import shlex
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_core.domain.ssh_mac_terminal_capture import (
     RunRemote,

@@ -1,4 +1,4 @@
-"""Tree binding for the ``worktree_run`` QA executor.
+"""Tree binding for the ``worktree_run`` QA runner.
 
 The case runner resolves its own checkout — a case whose lane branch has
 no live worktree falls back to the project checkout, which can be the
@@ -32,7 +32,7 @@ def _case() -> dict:
         "plan_id": 5,
         "case_key": "registered",
         "method_id": "command",
-        "executor_id": "worktree_run",
+        "runner_id": "worktree_run",
         "method_config": {"command": "printf 'ran'"},
         "project_id": 1,
         "project": "yoke",

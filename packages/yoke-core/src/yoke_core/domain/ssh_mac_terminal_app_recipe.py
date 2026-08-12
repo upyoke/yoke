@@ -9,7 +9,7 @@ import time
 from typing import Any
 from uuid import uuid4
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
 )

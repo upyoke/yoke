@@ -33,7 +33,7 @@ _REQUIRED_ADD_RECIPE = (
 
 
 @pytest.mark.parametrize("relative_path", _EXECUTOR_PACKET_PATHS)
-def test_executor_packet_creation_recipes_are_transition_bound(
+def test_runner_packet_creation_recipes_are_transition_bound(
     relative_path: str,
 ) -> None:
     body = (REPO_ROOT / relative_path).read_text(encoding="utf-8")

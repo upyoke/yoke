@@ -171,7 +171,7 @@ def list_methods(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "description": str(row["description"]),
                 "source_kind": str(row["source_kind"]),
                 "source_ref": row["source_ref"],
-                "executor_id": str(row["executor_id"]),
+                "runner_id": str(row["runner_id"]),
                 "required_capability_kind": capability_kind,
                 "verdict_path": str(row["verdict_path"]),
                 "verdict_contract": str(row["verdict_contract"]),

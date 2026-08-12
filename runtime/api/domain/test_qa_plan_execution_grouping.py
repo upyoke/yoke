@@ -29,7 +29,7 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
             "case_position": 1,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         },
         {
             "requirement_id": 102,
@@ -39,7 +39,7 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
             "case_position": 2,
             "baseline_position": 1,
             "host_baseline": None,
-            "executor_id": "worktree_run",
+            "runner_id": "worktree_run",
         },
         {
             "requirement_id": 103,
@@ -49,7 +49,7 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
             "case_position": 3,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         },
         {
             "requirement_id": 104,
@@ -59,7 +59,7 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
             "case_position": 4,
             "baseline_position": 1,
             "host_baseline": None,
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         },
     ]
     fresh_results = [
@@ -194,7 +194,7 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
             "case_position": position,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         }
         for position, requirement_id in enumerate((151, 152), start=1)
     ]
@@ -277,7 +277,7 @@ def test_client_runner_resumes_from_durable_baseline_group_results() -> None:
             "case_position": position,
             "baseline_position": 1,
             "host_baseline": "fresh-host",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
         }
         for position, requirement_id in enumerate((201, 202), start=1)
     ]

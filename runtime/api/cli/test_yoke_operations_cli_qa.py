@@ -171,7 +171,7 @@ class TestQaRunRecordVerdict:
             "record-verdict",
             "--requirement-id",
             "55",
-            "--executor-type",
+            "--performed-by",
             "pytest",
             "--verdict",
             "pass",
@@ -181,7 +181,7 @@ class TestQaRunRecordVerdict:
         assert req.function == "qa.run.record_verdict"
         assert req.target.kind == "qa_requirement"
         assert req.target.qa_requirement_id == 55
-        assert req.payload == {"executor_type": "pytest", "verdict": "pass"}
+        assert req.payload == {"performed_by": "pytest", "verdict": "pass"}
 
     def test_dispatches_with_optional_fields(self) -> None:
         rc = _run(
@@ -191,7 +191,7 @@ class TestQaRunRecordVerdict:
             "record-verdict",
             "--requirement-id",
             "55",
-            "--executor-type",
+            "--performed-by",
             "pytest",
             "--verdict",
             "fail",
@@ -203,7 +203,7 @@ class TestQaRunRecordVerdict:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload == {
-            "executor_type": "pytest",
+            "performed_by": "pytest",
             "verdict": "fail",
             "raw_result": "trace...",
             "duration_ms": 1200,
@@ -217,7 +217,7 @@ class TestQaRunRecordVerdict:
             "record-verdict",
             "--requirement-id",
             "55",
-            "--executor-type",
+            "--performed-by",
             "pytest",
         )
         assert rc == 2
@@ -230,7 +230,7 @@ class TestQaRunRecordVerdict:
             "record-verdict",
             "--requirement-id",
             "55",
-            "--executor-type",
+            "--performed-by",
             "pytest",
             "--verdict",
             "pass",

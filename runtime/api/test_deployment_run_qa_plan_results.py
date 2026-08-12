@@ -57,7 +57,7 @@ def test_plan_and_activity_reads_attribute_named_deployment_run_proof() -> None:
         )
         conn.execute(
             "INSERT INTO qa_runs("
-            "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
+            "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
             "created_at"
             ") VALUES (%s,'worktree_run','command','pass','passed',"
             "'2026-07-28T12:00:00Z')",
@@ -65,7 +65,7 @@ def test_plan_and_activity_reads_attribute_named_deployment_run_proof() -> None:
         )
         conn.execute(
             "INSERT INTO qa_runs("
-            "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
+            "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
             "created_at"
             ") VALUES (%s,'worktree_run','command','fail','failed',"
             "'2026-07-28T13:00:00Z')",

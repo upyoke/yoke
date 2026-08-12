@@ -91,7 +91,7 @@ def test_record_creates_ci_requirement_and_covering_pass(db):
     assert any(
         r["run_id"] == run_id
         and r["head_sha"] == head_sha
-        and r["executor_id"] == "ci_run"
+        and r["runner_id"] == "ci_run"
         for r in runs
     )
 

@@ -9,7 +9,7 @@ from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import _pipe_row
 
 _RUN_SELECT = (
-    "id, qa_requirement_id, executor_type, qa_kind, COALESCE(verdict,''), "
+    "id, qa_requirement_id, performed_by, qa_kind, COALESCE(verdict,''), "
     "COALESCE(CAST(score AS TEXT),''), COALESCE(CAST(confidence AS TEXT),''), "
     "COALESCE(raw_result,''), COALESCE(CAST(duration_ms AS TEXT),''), "
     "COALESCE(started_at,''), COALESCE(completed_at,''), created_at"

@@ -8,7 +8,7 @@ export const detail = {
   project: "yoke",
   kind: "test-machine",
   display_name: "Test Mac",
-  executor_id: "host_control",
+  runner_id: "host_control",
   settings: {
     resource_name: "mac-mini-lab",
     host: "test-mac.local",

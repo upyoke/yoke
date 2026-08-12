@@ -34,7 +34,7 @@ Free-form text describing the kind of QA being performed.
 
 New qa_kinds can be added without schema changes. The column is free-form text, not a CHECK-constrained enum.
 
-### Layer 2: executor_type -- How is it run?
+### Layer 2: performed_by -- How is it run?
 
 | Value | Description |
 |-------|-------------|
@@ -104,7 +104,7 @@ Records individual QA executions against a requirement. Multiple runs per requir
 ```sql
 id INTEGER PRIMARY KEY
 qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
-executor_type TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
+performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
 qa_kind TEXT NOT NULL -- denormalized from requirement for query convenience
 verdict TEXT -- CHECK: pass | fail | inconclusive | error (nullable: started but not completed)
 score REAL -- nullable numeric score

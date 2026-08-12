@@ -235,7 +235,7 @@ def _latest_browser_run(conn, requirement_id: int):
         FROM qa_runs
         WHERE qa_requirement_id = %s
           AND verdict = 'pass'
-          AND executor_type <> 'agent'
+          AND performed_by <> 'agent'
         ORDER BY created_at DESC, id DESC
         LIMIT 1
         """,
@@ -273,7 +273,7 @@ def _collect_stale_browser_requirements(
             SELECT 1 FROM qa_runs qr
             WHERE qr.qa_requirement_id = r.id
               AND qr.verdict = 'pass'
-              AND qr.executor_type <> 'agent'
+              AND qr.performed_by <> 'agent'
           )
         """,
         (*params, *phase_params),

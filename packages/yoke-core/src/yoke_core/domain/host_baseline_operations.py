@@ -8,7 +8,7 @@ from typing import Callable
 from yoke_cli.config import path_doctor
 from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
-from yoke_core.domain.host_control_executor import HostControl
+from yoke_core.domain.host_control_runner import HostControl
 from yoke_core.domain.installer_campaign_recipe_operations import (
     installed_yoke,
     prepared_path,
@@ -66,7 +66,7 @@ def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
             error_code=reset.error_code,
         )
     try:
-        fixture = control.create_fixture_operation_executor()
+        fixture = control.create_fixture_operation_runner()
         setup = fixture.execute_setup_operations(
             [
                 installed_yoke(evidence_name=name),

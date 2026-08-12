@@ -6,7 +6,7 @@ its harnesses.
 
 ## Methods
 
-A method is the registered contract for one kind of proof: executor, optional
+A method is the registered contract for one kind of proof: runner, optional
 capability kind, verdict path, evidence contract, and success policy. The
 built-in roster is:
 
@@ -17,7 +17,7 @@ built-in roster is:
 
 The `machine-qa` Pack adds **Terminal check**, **Terminal inspection**, and
 **Machine state check**. Those methods share the registered `host_control`
-executor and a serial `test-machine` capability.
+runner and a serial `test-machine` capability.
 
 Inspect the roster and a method contract with:
 
@@ -27,7 +27,7 @@ yoke qa method get <method-id> --project <project>
 ```
 
 Built-in, Pack-registered, and project-local sources remain distinct. A method
-selects registered code; case instructions never become an executor.
+selects registered code; case instructions never become a runner.
 
 ## Test plans
 
@@ -178,7 +178,7 @@ or required macOS permission, run `yoke test-machine verify`; the capability
 is not ready until connectivity and terminal-control checks pass.
 
 Secret values never belong in settings JSON, workflow definitions, item
-bodies, prompts, logs, captures, or artifacts. The executor receives resolved
+bodies, prompts, logs, captures, or artifacts. The runner receives resolved
 secrets only for its subprocess and must redact them from evidence.
 
 The registered `fresh-host` baseline performs the complete installer reset as
@@ -243,7 +243,7 @@ untouched.
 
 The check lives at the pytest startup layer, in the repo root
 `conftest.py`, so the shape of the invocation does not matter: the
-watcher wrapper, `run_tests`, the `worktree_run` QA case executor, a bare
+watcher wrapper, `run_tests`, the `worktree_run` QA case runner, a bare
 `python3 -m pytest`, and an IDE run button all inherit it. The three
 entry points above still judge the tree first, so their refusal arrives
 before pytest starts at all; each hands the child process a marker so the
