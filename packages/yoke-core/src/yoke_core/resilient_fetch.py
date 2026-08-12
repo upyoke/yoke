@@ -1,4 +1,4 @@
-"""Verified external-artifact downloads with one bounded retry contract."""
+"""Bootstrap-safe external-artifact downloads with bounded retries."""
 
 from __future__ import annotations
 

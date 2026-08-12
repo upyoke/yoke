@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
-from yoke_core.domain.resilient_fetch import (
+from yoke_core.resilient_fetch import (
     FetchError,
     FetchResult,
     fetch_bytes,

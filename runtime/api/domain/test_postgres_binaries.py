@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import postgres_binaries as pb
-from yoke_core.domain import resilient_fetch
+from yoke_core import resilient_fetch
 
 
 @pytest.fixture(autouse=True)

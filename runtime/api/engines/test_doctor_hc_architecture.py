@@ -64,7 +64,7 @@ def _seed_model(conn: Any, project_id: int = 1) -> None:
                 "guarded_imports": ["sqlite3.connect"],
             },
             "external_artifact_fetch": {
-                "approved_modules": ["yoke_core.domain.resilient_fetch"],
+                "approved_modules": ["yoke_core.resilient_fetch"],
                 "guarded_imports": ["urllib.request.urlopen"],
             },
         },
