@@ -199,6 +199,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "config.stamp_project_env.run",
         _adapters.config_stamp_project_env,
     ),
+    ("config", "status"): ("status.run", _adapters.status),
     ("status",): ("status.run", _adapters.status),
     ("onboard", "checklist", "init"): (
         "onboard.checklist.init",

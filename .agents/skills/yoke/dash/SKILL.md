@@ -34,7 +34,7 @@ function-call envelope:
 | `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
 | `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
-| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke deployment-runs start-for-item ITEM ...` |
+| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM ...` |
 | `direct_workflow.dash.evidence` | `result_summary`, `verification_summary`, `verification_status`, `commit_sha`, `merge_sha`, `touched_files`, and `no_changes` | `yoke direct-workflow dash evidence ITEM ...` |
 | `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
 | `direct_workflow.dash.escalate` | `issue_title`, `findings`, and optional `priority` | `yoke direct-workflow dash escalate ITEM ...` |
@@ -170,9 +170,14 @@ The 350-line authored-file limit remains on in all combinations.
 
 ### 2. Infer and survey the touch set
 
-Read the repository just far enough to name the files or directories the
-instruction is likely to touch. Prefer file paths; use a directory only
-when the instruction genuinely spans that directory.
+Discover this project's source and test roots before grepping — read them
+from the project rules file, or derive tracked top-level roots with
+`git ls-files | cut -d/ -f1 | sort -u`. Never assume a top-level
+`yoke_core/` or bare `tests/` layout; Yoke source lives under
+`packages/yoke-core/src` (and sibling package roots). Then read only far
+enough to name the files or directories the instruction is likely to
+touch. Prefer file paths; use a directory only when the instruction
+genuinely spans that directory.
 
 Record the survey:
 
@@ -285,7 +290,8 @@ verdict names the CI run URL and the exact head sha it covered.
 Then execute each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for
-  `reviewing-implementation`, execute each requirement with
+  `reviewing-implementation`, read each row with
+  `yoke qa requirement get --requirement-id <id>`, execute with
   `yoke qa case run --requirement-id <id>`, and retain passing runs.
 - `verification.kind=ad_hoc` — author the concrete selected-method case from
   the stored instruction and actual target, then execute the returned
@@ -298,6 +304,7 @@ Then execute each selected posture knob through its shared authority:
     --instructions "<instruction applied to the actual target>" \
     --expected-outcome "<observable passing result>" \
     --method-config '<method-specific JSON>'
+  yoke qa requirement get --requirement-id <requirement-id>
   yoke qa case run --requirement-id <requirement-id>
   ```
 
@@ -341,10 +348,12 @@ yoke merge item ITEM --skip-status --json
 ```
 
 Start item-bound delivery for the returned `merge_sha`, run it through the
-project executor, and wait for `succeeded`:
+project executor, and wait for `succeeded`. Create requires the same-universe
+owner-only local-postgres env (not the HTTPS product plane) — the same
+`*-db-admin` connection execute uses:
 
 ```text
-yoke deployment-runs start-for-item ITEM \
+yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 

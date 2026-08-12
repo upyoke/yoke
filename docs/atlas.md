@@ -2,15 +2,15 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-11T13:10:12Z_
+_Audit generated_at: 2026-08-12T13:52:30Z_
 
 ## 1. Summary
 
 - Function ids registered: **379**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **302** (302 carry usable `--help`)
-- Operation tracker: **280 wrapped**, 5 tool_cli, 114 permanent, 0 pending
-- Skill-body recipes: 274 total (213 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **303** (303 carry usable `--help`)
+- Operation tracker: **280 wrapped**, 5 tool_cli, 115 permanent, 0 pending
+- Skill-body recipes: 275 total (213 template-skipped, 1 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
@@ -410,6 +410,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | sessions | `yoke sessions init` | tool_shaped | — |
 | source_authority.export | `yoke source-authority export` | tool_shaped | — |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped | — |
+| status | `yoke config status` | tool_shaped | — |
 | status | `yoke status` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs check` | tool_shaped | — |
 | tools.atlas | `python3 -m yoke_core.tools.atlas_render_docs render` | tool_shaped | — |
@@ -465,9 +466,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 32 |
-| codex | 15 |
-| cursor | 3 |
+| codex | 32 |
+| claude-code | 17 |
+| cursor | 1 |
 
 ## 8. Contradictions
 
@@ -478,7 +479,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 9. Next-slice recommendation
 
-_No outstanding follow-ups — the harness has nothing to recommend._
+- **1 skill-body recipes fail smoke dispatch** _(category: teaching_drift)_
 
 ## 10. Curl floor — the envelope shape under every family
 
