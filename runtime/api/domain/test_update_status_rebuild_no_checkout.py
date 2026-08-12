@@ -1,5 +1,6 @@
-"""The epic-task lineage's board rebuild silently skips without a checkout
-and is best-effort: a rebuild failure never fails the transition.
+"""The epic-task lineage's board rebuild skips with an advisory when there is
+no checkout on a local client, stays silent on hosted/self-host, and is
+best-effort: a rebuild failure never fails the transition.
 """
 
 from __future__ import annotations
@@ -8,14 +9,30 @@ import io
 
 import pytest
 
+from yoke_core.domain import rebuild_board as rb
 from yoke_core.domain import update_status_helpers as ush
 
 
-def test_rebuild_board_skips_silently(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rebuild_board_skips_with_advisory(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise():
         raise RuntimeError("Cannot determine repo root")
 
     monkeypatch.setattr(ush, "_repo_root", _raise)
+    monkeypatch.setattr(rb, "no_checkout_board_skip_is_expected", lambda: False)
+    out = io.StringIO()
+    ush._rebuild_board(out)  # must NOT raise
+    assert "Skipping board rebuild" in out.getvalue()
+    assert "no-checkout" in out.getvalue()
+
+
+def test_rebuild_board_silent_when_no_checkout_expected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _raise():
+        raise RuntimeError("Cannot determine repo root")
+
+    monkeypatch.setattr(ush, "_repo_root", _raise)
+    monkeypatch.setattr(rb, "no_checkout_board_skip_is_expected", lambda: True)
     out = io.StringIO()
     ush._rebuild_board(out)  # must NOT raise
     assert out.getvalue() == ""
@@ -26,12 +43,12 @@ def test_rebuild_failure_is_nonfatal(
 ) -> None:
     # The board is a generated view: a rebuild failure must NOT fail the
     # status transition — it is swallowed (best-effort), never propagated.
-    import yoke_core.domain.rebuild_board as rb
+    import yoke_core.domain.rebuild_board as rb_mod
 
     monkeypatch.setattr(ush, "_repo_root", lambda: tmp_path)
 
     def _boom(*a, **k):
         raise ValueError("rebuild kaboom")
 
-    monkeypatch.setattr(rb, "rebuild", _boom)
+    monkeypatch.setattr(rb_mod, "rebuild", _boom)
     ush._rebuild_board(io.StringIO())  # must NOT raise

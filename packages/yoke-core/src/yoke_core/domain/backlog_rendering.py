@@ -39,12 +39,13 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
     the canonical DB (which is under ``repo_root``); both pass the
     guard and rebuild normally.
     """
+    from yoke_core.domain import rebuild_board as _rebuild_board_mod
+
     try:
         repo_root = _yoke_root().parent
-    except RuntimeError:
-        # No checkout (a server-side https create has no repo / local BOARD.md);
-        # the board is a client-local view the in-checkout client rebuilds, so
-        # skip rather than fail the create after the item was inserted + synced.
+    except RuntimeError as exc:
+        # No checkout: hosted/self-host skip silently; local rootless still warns.
+        _rebuild_board_mod.emit_no_checkout_board_skip(exc, out)
         return
     yoke_db = os.environ.get("YOKE_DB")
     if yoke_db:
@@ -59,8 +60,6 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
                 file=out,
             )
             return
-
-    from yoke_core.domain import rebuild_board as _rebuild_board_mod
 
     _rebuild_board_mod.rebuild(repo_arg=str(repo_root))
 
