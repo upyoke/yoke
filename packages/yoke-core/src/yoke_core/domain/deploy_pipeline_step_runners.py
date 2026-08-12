@@ -14,12 +14,14 @@ from yoke_core.domain.deploy_pipeline_github_workflow import (
 from yoke_core.domain.deploy_cli_manifest_gate import (
     verify_deployed_cli_manifest,
 )
+from yoke_core.domain.deploy_pipeline_events import emit_run_event
 from yoke_core.tools import step_runners as _step_runners
 
 __all__ = [
     "_dispatch_step_runner",
     "_dispatch_ephemeral_verify",
     "_dispatch_github_actions_workflow",
+    "_dispatch_warm_up",
 ]
 
 # Health-check warmup: poll through the container swap window so the gate
@@ -70,6 +72,13 @@ def _dispatch_step_runner(
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
             "",
+        )
+    if step_runner == "warm-up":
+        return _dispatch_warm_up(
+            config,
+            run_id=run_id,
+            member_items=member_items,
+            project=project,
         )
     if step_runner == "environment-activate":
         from yoke_core.domain.deploy_environment_activate import (
@@ -238,6 +247,54 @@ def _dispatch_health_check(
         if manifest_gate.checked and not manifest_gate.ok:
             return 1
     return 0
+
+
+def _dispatch_warm_up(
+    config: Dict[str, Any],
+    *,
+    run_id: str,
+    member_items: List[str],
+    project: str,
+) -> tuple[int, str]:
+    """Pay the rolled environment's cold start before the run reports success.
+
+    The health probe proves the box is alive; this proves it answers real
+    work. A passing call records what was warmed and how long the cold
+    start took on the run itself, so the receipt carries the latency the
+    pipeline absorbed. A failing call returns the real error, so the stage
+    fails with it instead of leaving a cold box marked deployed.
+    """
+    from yoke_core.domain.deploy_warm_up import (
+        DEFAULT_WARM_UP_FUNCTION,
+        DEFAULT_WARM_UP_TIMEOUT_S,
+        warm_up_environment,
+    )
+
+    outcome = warm_up_environment(
+        str(config.get("connection_env", "") or ""),
+        function_id=str(
+            config.get("function", "") or DEFAULT_WARM_UP_FUNCTION
+        ),
+        timeout_s=float(
+            config.get("timeout_s", 0) or DEFAULT_WARM_UP_TIMEOUT_S
+        ),
+    )
+    print(f"exec-warm-up: {outcome.detail}")
+    if not outcome.ok:
+        return 1, outcome.detail
+    emit_run_event(
+        "DeploymentRunWarmedUp",
+        "completed",
+        {
+            "run_id": run_id,
+            "connection_env": outcome.connection_env,
+            "function": outcome.function_id,
+            "latency_ms": outcome.latency_ms,
+        },
+        member_items=member_items,
+        project=project,
+    )
+    return 0, ""
 
 
 def _dispatch_ephemeral_verify(

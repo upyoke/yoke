@@ -81,6 +81,7 @@ The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline di
 | step runner | `environment-activate` | Ensures the target environment host is running and reachable | 0=ready, 1=failure |
 | step runner | `core-container-deploy` | Builds/pushes/reuses the pinned Yoke core image and converges the target host | 0=deployed, 1=failure |
 | step runner | `health-check` | HTTP GET; Yoke core env checks require x-request-id echo | 0=healthy, 1=failure |
+| step runner | `warm-up` | One heavy relayed function call so the pipeline pays the rolled box's cold start | 0=warm, 1=failure |
 | step runner | `ephemeral-deploy` / `ephemeral-teardown` / `ephemeral-verify` | Manages preview environments | 0=pass, 1=failure |
 | step runner | `human-approval` | Halts pipeline for human approval | Pipeline exits 2 |
 | step runner | `github-actions-workflow` | Triggers and polls GitHub Actions workflow | 0=success, 1=failed |
@@ -93,6 +94,17 @@ The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline di
 - `completed` + `failure` → poll returns exit 1, `deploy_stage = '{stage-name}-failed'`, halt
 
 **Yoke core health-check:** Env-resolved Yoke core health checks prove three things before the release is healthy: public `/v1/health` responds, the response echoes the request id, and the response `build` matches the image tag the pipeline deployed. After that passes, the health stage fetches the target HTTPS env's `/v1/cli/manifest` and compares it to this checkout's local CLI manifest. A release fails if the deployed API is missing a local wrapped subcommand such as `strategy.doc.create`; the fix is to deploy/update the Yoke API, not to bypass the HTTPS path.
+
+**Warm-up:** A rolled box answers its health probe long before it can answer
+real work — the first heavy relayed call pays the whole server cold start
+(engine imports, connection pool, caches) and can outlast the client's relay
+ceiling, failing at the caller while the box is healthy and warm steady-state
+latency is a second or two. The `warm-up` stage makes that first call from the
+pipeline, over the same HTTPS relay a client uses, against the
+`connection_env` the stage names. It defaults to `board.data.get` with a 180s
+timeout, records the call and its measured latency on the run as
+`DeploymentRunWarmedUp`, and fails the stage with the real error rather than
+letting a run report success over a cold box.
 
 ## Current `release_stage` Usher State Machine
 

@@ -226,7 +226,7 @@ materializes those definitions into the Yoke control plane. Examples:
 | `project-production-hotfix` | Urgent prod fix | migration_apply → merged → production-deploy → smoke → complete |
 | `project-production-release` | Standard feature | migration_apply → merged → production-deploy → smoke → complete |
 
-Stage executor types: `auto`, `health-check`, `script`, `human-approval`, `github-actions-workflow`. All stage failures halt for v1; re-run `/yoke usher YOK-N` to resume.
+Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. All stage failures halt for v1; re-run `/yoke usher YOK-N` to resume.
 
 ---
 

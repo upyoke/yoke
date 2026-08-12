@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 
 VALID_STEP_RUNNERS = frozenset({
-    "auto", "health-check", "environment-activate", "core-container-deploy",
-    "ephemeral-deploy", "ephemeral-teardown", "ephemeral-verify",
-    "human-approval", "github-actions-workflow",
+    "auto", "health-check", "warm-up", "environment-activate",
+    "core-container-deploy", "ephemeral-deploy", "ephemeral-teardown",
+    "ephemeral-verify", "human-approval", "github-actions-workflow",
 })
 
 def validate_stages(stages_json: str) -> None:

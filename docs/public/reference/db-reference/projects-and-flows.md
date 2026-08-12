@@ -209,9 +209,22 @@ status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'dis
 UNIQUE(project, name)
 ```
 
-Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
+Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
 
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
+
+**`warm-up` step runner:** Issues one heavy relayed function call against the
+environment the run just rolled, so the pipeline pays the server cold start
+(engine imports, connection pool, caches) instead of whoever calls first — a
+cold start can outlast the client's relay ceiling and fail at the caller while
+the box is healthy. Stage fields: `connection_env` (required; the client
+connection that serves the rolled environment), `function` (defaults to
+`board.data.get`, a read that exercises the whole server path and needs no
+arguments), and `timeout_s` (defaults to 180). The stage passes only when the
+call answers, and records the function, connection, and measured latency on
+the run as `DeploymentRunWarmedUp`; a failure fails the stage with the real
+transport or function error rather than marking a cold box deployed. Python
+owner: `yoke_core.domain.deploy_warm_up`.
 
 **`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
