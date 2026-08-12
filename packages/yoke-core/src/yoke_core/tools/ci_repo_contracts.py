@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -87,6 +88,26 @@ def check_authored_file_limit(
     return verdict.ok, verdict.summary
 
 
+def _ruff_failure_detail(stdout: str, stderr: str) -> str:
+    """Format the first diagnostic as ``path:line:col: CODE message``."""
+    raw = (stdout or "").strip()
+    try:
+        diagnostics = json.loads(raw) if raw else []
+    except json.JSONDecodeError:
+        diagnostics = []
+    if isinstance(diagnostics, list) and diagnostics:
+        first = diagnostics[0]
+        location = first.get("location") or {}
+        path = first.get("filename") or "?"
+        row = location.get("row")
+        col = location.get("column")
+        code = first.get("code") or "?"
+        message = first.get("message") or ""
+        return f"{path}:{row}:{col}: {code} {message}".strip()
+    fallback = (stdout or stderr or "ruff failed").strip()
+    return fallback.splitlines()[0] if fallback else "ruff failed"
+
+
 def check_changed_path_ruff(
     repo_root: Path, scope: ChangedPathScope,
 ) -> Tuple[bool, str]:
@@ -94,7 +115,15 @@ def check_changed_path_ruff(
     if not paths:
         return True, "no changed Python paths"
     completed = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", *paths],
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--output-format",
+            "json",
+            *paths,
+        ],
         cwd=str(repo_root),
         check=False,
         capture_output=True,
@@ -102,8 +131,7 @@ def check_changed_path_ruff(
     )
     if completed.returncode == 0:
         return True, f"ruff clean on {len(paths)} path(s)"
-    detail = (completed.stdout or completed.stderr or "ruff failed").strip()
-    return False, detail.splitlines()[0] if detail else "ruff failed"
+    return False, _ruff_failure_detail(completed.stdout or "", completed.stderr or "")
 
 
 def check_atlas_currency(

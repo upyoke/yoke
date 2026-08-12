@@ -111,6 +111,8 @@ def test_changed_path_ruff_flags_a_defect_in_an_edited_file(
 
     assert ok is False
     assert "F401" in detail
+    assert "edited.py" in detail
+    assert ":1:" in detail
 
 
 def test_changed_path_ruff_clean_when_no_python_diff(tmp_path: Path) -> None:
