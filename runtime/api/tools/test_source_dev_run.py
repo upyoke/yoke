@@ -116,5 +116,5 @@ def test_command_is_first_class_local_cli_surface():
     row = rows["yoke dev run"]
     assert row.disposition == product_boundary_inventory.CLIENT_LOCAL_HELPER
     assert [(edge.target, edge.classification) for edge in row.import_edges] == [
-        ("yoke_core.tools.source_dev_run", "unclassified_dynamic_authority_import"),
+        ("yoke_core.tools.source_dev_run", "source_dev_admin"),
     ]
