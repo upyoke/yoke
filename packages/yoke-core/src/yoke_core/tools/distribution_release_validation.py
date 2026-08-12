@@ -10,6 +10,7 @@ from urllib.parse import unquote
 from yoke_core.tools import (
     package_index,
     product_release_version,
+    universe_asset_artifact,
     wheel_record_validation,
     wheel_sibling_pins,
 )
@@ -84,6 +85,7 @@ def validate_wheel_records_match(
             raise ValueError(
                 f"{filename} release record does not match wheel metadata"
             )
+    universe_asset_artifact.validate_universe_asset_contract(wheels_dir)
 
 
 def validate_sibling_pins(

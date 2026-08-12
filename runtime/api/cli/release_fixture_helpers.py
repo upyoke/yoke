@@ -7,6 +7,8 @@ import hashlib
 import zipfile
 from pathlib import Path
 
+from yoke_contracts.universe_asset_contract import UNIVERSE_ASSETS
+
 from yoke_core.tools import (
     migration_history_release_artifact,
     package_index,
@@ -48,6 +50,12 @@ def sample_release(
         if name == "yoke-core":
             files["yoke_core/domain/migrations/0001_test_entry.py"] = (
                 b"def apply(conn):\n    pass\n"
+            )
+            files.update(
+                {
+                    asset.artifact_member: asset.marker.encode("utf-8")
+                    for asset in UNIVERSE_ASSETS
+                }
             )
         record_arcname = f"{dist_info}/RECORD"
         record_lines = [
