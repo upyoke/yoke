@@ -62,6 +62,11 @@ QA_TABLES: dict[str, dict] = {
             "(values like `ac_verification` / `implementation_review`) — "
             "there is no `kind` and no `requirement_type` column; "
             "requirement provenance is `requirement_source` (`explicit` / "
+            "The runner a case selects is `runner_id` (values `worktree_run` / "
+            "`ci_run` / `browser_substrate` / `host_control`); it is NOT named "
+            "`executor_id`, and plain `executor` on this table is a stale guess — "
+            "that word now names harness identity only, on "
+            "`harness_sessions.executor`. "
             "`ac_derived` / ...). Materialized executable cases instead "
             "carry immutable case ordering, runner, entry-surface, "
             "completion, instructions, expected-outcome, and method-config "
@@ -98,6 +103,11 @@ QA_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Recorded results. Join to qa_requirements via "
+            "Who or what produced the run is `performed_by` (free text: `agent`, "
+            "`human`, `pytest`, `github-actions`, `ci_run`, `browser_substrate`, "
+            "...); it is NOT named `executor_type` and is NOT a closed runner "
+            "enum. The `--performed-by` flag on `yoke qa run add` and "
+            "`yoke qa run record-verdict` writes it. "
             "qa_requirement_id. Requirements whose method_id is "
             "`browser-check` or `browser-inspection` require "
             "performed_by=browser_substrate; agent runs are rejected for "
