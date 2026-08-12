@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Callable
 
 from yoke_core.domain.deploy_core_container_remote_errors import (
+    RemoteConvergenceError,
     fail_remote_step as _fail,
 )
 from yoke_core.domain.deploy_environment_settings import DeployEnvironment
-from yoke_core.domain.deploy_remote import CommandRunner, run_remote
+from yoke_core.domain.deploy_remote import (
+    CommandRunner,
+    push_remote_file,
+    run_remote,
+)
+from yoke_core.resilient_fetch import FetchError, fetch_bytes
 
 
 _RUNTIME_PROBE = (
@@ -48,22 +55,59 @@ _DOCKER_REPAIR = (
 )
 
 _AWS_CLI_PROBE = "command -v aws >/dev/null 2>&1"
+_AWS_CLI_ARCHIVE = "/tmp/awscliv2.zip.b64"
+_AWS_CLI_MAX_BYTES = 200 * 1024 * 1024
+_AWS_CLI_URL = "https://awscli.amazonaws.com/awscli-exe-linux-{arch}.zip"
+_AWS_ARCHITECTURES = {"amd64": "x86_64", "arm64": "aarch64"}
 
 _AWS_CLI_INSTALL = (
-    "AWSCLI_ARCH=aarch64"
-    ' && if [ "$(dpkg --print-architecture)" = "amd64" ]; then'
-    " AWSCLI_ARCH=x86_64; fi"
-    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
-    ' && curl -fsSL "https://awscli.amazonaws.com/'
-    'awscli-exe-linux-${AWSCLI_ARCH}.zip" -o /tmp/awscliv2.zip'
+    "rm -rf /tmp/aws /tmp/awscliv2.zip"
+    f" && base64 -d {_AWS_CLI_ARCHIVE} > /tmp/awscliv2.zip"
+    f" && rm -f {_AWS_CLI_ARCHIVE}"
     " && unzip -q /tmp/awscliv2.zip -d /tmp"
     " && if [ -d /usr/local/aws-cli ]; then"
     " sudo /tmp/aws/install --bin-dir /usr/local/bin"
     " --install-dir /usr/local/aws-cli --update;"
     " else sudo /tmp/aws/install --bin-dir /usr/local/bin"
     " --install-dir /usr/local/aws-cli; fi"
-    " && rm -rf /tmp/aws /tmp/awscliv2.zip"
+    f" && rm -rf /tmp/aws /tmp/awscliv2.zip {_AWS_CLI_ARCHIVE}"
 )
+
+
+def _stage_aws_cli_archive(
+    runner: CommandRunner,
+    env: DeployEnvironment,
+    emit: Callable[[str], None],
+) -> None:
+    arch_result = run_remote(runner, env, "dpkg --print-architecture", timeout=30)
+    if not arch_result.ok:
+        _fail("AWS CLI architecture probe", arch_result)
+    system_arch = arch_result.stdout.strip()
+    archive_arch = _AWS_ARCHITECTURES.get(system_arch)
+    if archive_arch is None:
+        raise RemoteConvergenceError(
+            f"[core-deploy] unsupported AWS CLI architecture: {system_arch or 'empty'}"
+        )
+    url = _AWS_CLI_URL.format(arch=archive_arch)
+    try:
+        fetched = fetch_bytes(url, max_bytes=_AWS_CLI_MAX_BYTES)
+    except FetchError as exc:
+        raise RemoteConvergenceError(f"[core-deploy] {exc}") from exc
+    pushed = push_remote_file(
+        runner,
+        env,
+        content=base64.b64encode(fetched.body).decode("ascii"),
+        remote_path=_AWS_CLI_ARCHIVE,
+        mode="600",
+        sudo=False,
+        timeout=600,
+    )
+    if not pushed.ok:
+        _fail("AWS CLI archive staging", pushed)
+    emit(
+        "  [core-deploy] AWS CLI archive verified after "
+        f"{fetched.attempts} attempt(s)"
+    )
 
 
 def ensure_runtime_packages(
@@ -89,6 +133,7 @@ def ensure_runtime_packages(
         aws_probe = run_remote(runner, env, _AWS_CLI_PROBE, timeout=30)
         if not aws_probe.ok:
             emit("  [core-deploy] installing AWS CLI v2")
+            _stage_aws_cli_archive(runner, env, emit)
             aws_install = run_remote(runner, env, _AWS_CLI_INSTALL, timeout=600)
             if not aws_install.ok:
                 _fail("AWS CLI v2 install", aws_install)

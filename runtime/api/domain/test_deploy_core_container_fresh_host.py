@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
+from yoke_core.domain import deploy_core_container_runtime_packages as runtime_packages
 from yoke_core.domain.deploy_core_container_runtime_packages import (
     _AWS_CLI_INSTALL,
     _BASE_RUNTIME_INSTALL,
@@ -47,6 +49,18 @@ def _remote_commands(runner: FakeRunner) -> list[str]:
     return [call["argv"][-1] for call in runner.calls]
 
 
+@pytest.fixture(autouse=True)
+def _verified_aws_archive(monkeypatch):
+    calls = []
+
+    def fetch(url, **kwargs):
+        calls.append((url, kwargs))
+        return SimpleNamespace(body=b"aws-cli-archive", attempts=3)
+
+    monkeypatch.setattr(runtime_packages, "fetch_bytes", fetch)
+    return calls
+
+
 @pytest.mark.parametrize(
     "command",
     (_BASE_RUNTIME_INSTALL, _DOCKER_REPAIR, _AWS_CLI_INSTALL),
@@ -59,7 +73,9 @@ def test_runtime_repair_commands_are_valid_posix_shell(command: str) -> None:
     assert parsed.returncode == 0, parsed.stderr
 
 
-def test_fresh_host_installs_aws_cli_v2_outside_apt() -> None:
+def test_fresh_host_installs_aws_cli_v2_outside_apt(
+    _verified_aws_archive,
+) -> None:
     runner = FakeRunner(
         [
             CommandResult(1, "", "runtime missing"),
@@ -67,6 +83,8 @@ def test_fresh_host_installs_aws_cli_v2_outside_apt() -> None:
             CommandResult(1, "", "docker missing"),
             CommandResult(0, "", ""),
             CommandResult(1, "", "aws missing"),
+            CommandResult(0, "amd64\n", ""),
+            CommandResult(0, "", ""),
             CommandResult(0, "", ""),
             CommandResult(0, "", ""),
             CommandResult(0, "", ""),
@@ -75,9 +93,9 @@ def test_fresh_host_installs_aws_cli_v2_outside_apt() -> None:
 
     ensure_runtime_packages(runner, _env(), emit=lambda _line: None)
 
-    probe, base, docker_probe, docker_repair, aws_probe, aws_install, verify, enable = (
-        _remote_commands(runner)
-    )
+    commands = _remote_commands(runner)
+    (probe, base, docker_probe, docker_repair, aws_probe, arch_probe,
+     stage, aws_install, verify, enable) = commands
     assert "command -v aws" in probe
     apt_packages = base.split("apt-get install -y -q ", 1)[1].split()
     assert "awscli" not in apt_packages
@@ -96,13 +114,15 @@ def test_fresh_host_installs_aws_cli_v2_outside_apt() -> None:
     assert "docker-compose-plugin" in docker_repair
     assert "existing Docker provider is not managed by apt" in docker_repair
     assert "command -v aws" in aws_probe
-    assert "AWSCLI_ARCH=aarch64" in aws_install
-    assert '"$(dpkg --print-architecture)" = "amd64"' in aws_install
-    assert "AWSCLI_ARCH=x86_64" in aws_install
-    assert (
-        "https://awscli.amazonaws.com/awscli-exe-linux-${AWSCLI_ARCH}.zip"
-        in aws_install
-    )
+    assert arch_probe == "dpkg --print-architecture"
+    assert "python3 -c" in stage
+    assert runner.calls[6]["input_text"] == "YXdzLWNsaS1hcmNoaXZl"
+    assert _verified_aws_archive == [(
+        "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip",
+        {"max_bytes": 200 * 1024 * 1024},
+    )]
+    assert "curl" not in aws_install
+    assert "base64 -d /tmp/awscliv2.zip.b64" in aws_install
     assert "unzip -q /tmp/awscliv2.zip -d /tmp" in aws_install
     assert "--install-dir /usr/local/aws-cli --update" in aws_install
     assert "--install-dir /usr/local/aws-cli; fi" in aws_install
@@ -118,6 +138,8 @@ def test_existing_docker_ce_is_adopted_when_only_aws_cli_is_missing() -> None:
             CommandResult(0, "", ""),
             CommandResult(0, "", ""),
             CommandResult(1, "", "aws missing"),
+            CommandResult(0, "arm64\n", ""),
+            CommandResult(0, "", ""),
             CommandResult(0, "", ""),
             CommandResult(0, "", ""),
             CommandResult(0, "", ""),
@@ -127,10 +149,37 @@ def test_existing_docker_ce_is_adopted_when_only_aws_cli_is_missing() -> None:
     ensure_runtime_packages(runner, _env(), emit=lambda _line: None)
 
     commands = _remote_commands(runner)
-    assert len(commands) == 7
+    assert len(commands) == 9
     assert _DOCKER_REPAIR not in commands
     assert _AWS_CLI_INSTALL in commands
     assert all("docker.io docker-compose-v2" not in command for command in commands)
+
+
+def test_aws_cli_gateway_failure_names_url_and_attempts(monkeypatch) -> None:
+    runner = FakeRunner([
+        CommandResult(1, "", "aws missing"),
+        CommandResult(0, "", ""),
+        CommandResult(0, "", ""),
+        CommandResult(1, "", "aws missing"),
+        CommandResult(0, "amd64\n", ""),
+    ])
+    url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+
+    def fail_fetch(*_args, **_kwargs):
+        raise runtime_packages.FetchError(
+            f"fetch failed for {url} after 3 attempt(s): disconnected",
+            url=url,
+            attempts=3,
+            retryable=True,
+        )
+
+    monkeypatch.setattr(runtime_packages, "fetch_bytes", fail_fetch)
+
+    with pytest.raises(RemoteConvergenceError) as raised:
+        ensure_runtime_packages(runner, _env(), emit=lambda _line: None)
+
+    assert url in str(raised.value)
+    assert "3 attempt" in str(raised.value)
 
 
 def test_runtime_install_failure_keeps_stdout_dependency_detail() -> None:
