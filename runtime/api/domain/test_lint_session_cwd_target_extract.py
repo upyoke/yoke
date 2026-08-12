@@ -7,7 +7,56 @@ tests so the integration file stays under the repo's file-line cap.
 
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
+    extract_payload_targets,
+    extract_payload_write_targets,
 )
+
+
+def test_shell_write_targets_ignore_read_operands():
+    fixture = "/" + "fixture/input.txt"
+    destination = "/" + "checkout/output.txt"
+    commands = (
+        f"cat {fixture} && cp source {destination}",
+        f"cat {fixture} && mv source {destination}",
+        f"cat {fixture} | tee {destination}",
+    )
+
+    for command in commands:
+        payload = {"tool_name": "Bash", "tool_input": {"command": command}}
+        assert extract_payload_write_targets(payload) == [destination]
+
+
+def test_apply_patch_extracts_directives_without_fixture_literals():
+    lane_root = "/" + "claimed/lane"
+    fixture_root = "/" + "repo"
+    body = (
+        "*** Begin Patch\n"
+        f"*** Update File: {lane_root}/source.py\n"
+        "@@\n"
+        f"+fixture_root = {fixture_root!r}\n"
+        "*** End Patch"
+    )
+    payload = {"tool_name": "apply_patch", "tool_input": {"command": body}}
+
+    assert extract_payload_targets(payload) == [f"{lane_root}/source.py"]
+    assert extract_payload_write_targets(payload) == [f"{lane_root}/source.py"]
+
+
+def test_python_heredoc_extracts_only_the_write_destination():
+    target = "/" + "checkout/runtime/output.py"
+    fixture = "/" + "example/fixture"
+    command = (
+        "python3 - <<'PY'\n"
+        "from pathlib import Path\n"
+        f"target = Path({target!r})\n"
+        f"fixture = {fixture!r}\n"
+        "target.write_text(fixture)\n"
+        "PY"
+    )
+
+    assert extract_payload_write_targets({
+        "tool_name": "Bash", "tool_input": {"command": command},
+    }) == [target]
 
 
 def test_heredoc_body_does_not_leak_targets():
