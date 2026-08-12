@@ -1,11 +1,13 @@
-"""Item-project repo-root resolution for the worktree preflight.
+"""Item-project repo-root resolution shared by the surfaces that act on it.
 
 A work item's implementation lane belongs in the checkout of the ITEM's
 project, not the checkout the session happens to be standing in. Deriving
 the lane repo from the harness cwd created wrong-repo lanes for cross-repo
-items: a platform item prepared from a yoke-workspace session landed its
-worktree in the yoke checkout, registered it as the item lane, and every
-later surface inherited the wrong authority.
+items: an item prepared from another project's session landed its worktree
+in that session's checkout, registered it as the item lane, and every later
+surface inherited the wrong authority. The worktree preflight resolves the
+lane repo here, and the standalone merge boundary resolves the same repo the
+same way, so a lane always merges where it was prepared.
 
 Resolution order:
 
@@ -66,11 +68,10 @@ def resolve_preflight_repo_root(
     if item_slug:
         return "", (
             f"project {item_slug!r} has no machine-local checkout mapping, "
-            "and deriving the lane from the session's own repo would put "
-            "this item's worktree in the wrong repository. Register the "
-            "mapping first:\n"
+            "and falling back to the session's own repo would act on the "
+            "wrong repository. Register the mapping first:\n"
             f"    yoke project register <checkout-path> --project-id <id>\n"
-            "then re-run worktree preparation."
+            "then re-run this operation."
         )
     return _cwd_fallback()
 

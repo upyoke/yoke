@@ -92,32 +92,31 @@ def _lane_worktree_path(item: dict) -> str:
 
 
 def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
+    """Resolve the checkout and base branch the ITEM's branch lands in.
+
+    The lane was prepared in the checkout the item's project maps to, so the
+    merge reads the same mapping through the shared preflight resolver.
+    Deriving it from the session's own repo instead merged — or refused —
+    against whichever repository the harness happened to stand in.
+    """
+    from yoke_core.domain.worktree_preflight_repo_resolution import (
+        resolve_preflight_repo_root,
+    )
     from yoke_core.engines.done_transition_gates import (
         _get_base_branch,
         _resolve_default_branch,
-        _resolve_repo_root,
     )
 
-    project_slug = str((item.get("project") or {}).get("slug") or "yoke")
-    repo_root = _resolve_repo_root()
-    project_repo = repo_root
-    default_branch = ""
-    if project_slug != "yoke":
-        from yoke_core.domain.project_checkout_locations import (
-            checkout_for_project_slug,
-        )
-
-        checkout = checkout_for_project_slug(project_slug)
-        if checkout is None or not Path(checkout).is_dir():
-            raise RuntimeError(
-                f"project '{project_slug}' has no machine-local checkout mapping"
-            )
-        project_repo = Path(checkout)
-        if project_repo.resolve() == repo_root.resolve():
-            raise RuntimeError(
-                f"project '{project_slug}' maps to the Yoke checkout"
-            )
-        default_branch = _resolve_default_branch(project_slug)
+    repo_root, error = resolve_preflight_repo_root(
+        item=item, project_flag=None, repo_root_override=None,
+    )
+    if error:
+        raise RuntimeError(error)
+    project_repo = Path(repo_root)
+    project_slug = str((item.get("project") or {}).get("slug") or "")
+    default_branch = (
+        _resolve_default_branch(project_slug) if project_slug else ""
+    )
     target = target_override or _get_base_branch(default_branch, project_repo)
     return project_repo, target or "main"
 
