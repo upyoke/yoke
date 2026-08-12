@@ -161,8 +161,7 @@ def build_choreography_remediation(adapter_key: str, function_id: str) -> str:
         lane_renderer = (
             "\n\nLane-source renderer validation has an explicit source-dev/admin "
             "shape that uses the checked-out implementation and targets the lane:\n"
-            "  uv run --frozen python3 -m yoke_core.domain.agents_render "
-            "render --target-root <worktree>\n"
+            "  yoke dev run -- yoke agents render --target-root .\n"
             "Run it bare; the renderer reports its own result without a pipe."
         )
     return (

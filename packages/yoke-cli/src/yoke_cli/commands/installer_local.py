@@ -19,6 +19,7 @@ from yoke_cli.commands.adapters.path_doctor import (
     path_group,
     path_verify,
 )
+from yoke_cli.commands.adapters.source_dev_run import source_dev_run
 from yoke_cli.commands.adapters.runner_fleet import runner_fleet_exec
 from yoke_cli.commands.adapters.pulumi import pulumi_exec
 from yoke_cli.commands.adapters.vps import vps_start, vps_status, vps_stop
@@ -43,6 +44,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("github", "disconnect"): github_disconnect,
     ("github", "status"): github_status,
     ("dev", "setup"): dev_setup,
+    ("dev", "run"): source_dev_run,
     ("dev", "db-admin", "setup"): dev_db_admin_setup,
     ("dev", "path-snapshot-prewarm"): dev_path_snapshot_prewarm,
     ("onboard",): onboard,
@@ -76,6 +78,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",
     "yoke github status": "yoke github status [--offline] [--json]",
     "yoke dev setup": "yoke dev setup [CHECKOUT]",
+    "yoke dev run": "yoke dev run -- <command>",
     "yoke dev db-admin setup": (
         "yoke dev db-admin setup <env> "
         "[--control-plane-env CONNECTION_ENV] [--yes]"

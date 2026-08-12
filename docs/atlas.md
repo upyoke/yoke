@@ -308,6 +308,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | family | yoke form | reason |
 |---|---|---|
 | tools.release_pin | `yoke release-pin verify` | tool_shaped |
+| tools.source_dev_run | `yoke dev run` | tool_shaped |
 | tools.watch | `yoke watch doctor` | tool_shaped |
 | tools.watch | `yoke watch merge` | tool_shaped |
 | tools.watch | `yoke watch pytest` | tool_shaped |
