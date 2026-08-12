@@ -85,6 +85,7 @@ def route_standalone_landing(
     commit_sha: str = "",
     item_ref: str = "",
     local_merge: bool = True,
+    resume_command: str = "",
     dispatch: Callable[..., Any] = call_dispatcher,
 ) -> StandaloneMergeOutcome:
     """Select the merge boundary for one standalone item branch.
@@ -93,6 +94,11 @@ def route_standalone_landing(
     queue; every other project keeps the standalone engine unchanged. A
     failing capability probe refuses rather than silently choosing the
     local engine for a project that may have declared the queue.
+
+    ``resume_command`` is what the caller ran, quoted back verbatim when a
+    queue landing runs out of poll budget. Only the caller knows it, and a
+    resumable outcome that prints a command the operator can paste is the
+    difference between resuming and reconstructing.
     """
     declared, probe_error = project_declares_merge_queue(
         project, dispatch=dispatch
@@ -126,6 +132,7 @@ def route_standalone_landing(
         item_ref=item_ref or branch,
         commit_sha=commit_sha,
         target=target,
+        resume_command=resume_command,
         dispatch=dispatch,
     )
     return StandaloneMergeOutcome(

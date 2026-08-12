@@ -18,6 +18,7 @@ from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain import merge_queue_landing_timeout as _timeout
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
@@ -267,6 +268,7 @@ def run(argv: List[str]) -> int:
         project=str((item.get("project") or {}).get("slug") or "yoke"),
         item_ref=item_ref,
         local_merge=not args.pr,
+        resume_command=_timeout.merge_item_resume_command(item_ref, args),
     )
     if not outcome.ok:
         return _fail(
