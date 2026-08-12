@@ -26,6 +26,7 @@ from yoke_contracts.server_mode import SERVER_MODE_ENV, SERVER_MODE_SELF_HOST
 from yoke_core.domain import machine_config, rebuild_board_outcome as outcome, schema
 from yoke_core.domain.rebuild_board_file_write import write_live_text
 from yoke_core.domain.rebuild_board_render import (
+    BoardDataFetchError as BoardDataFetchError,
     build_board_file_text,
 )
 from yoke_core.domain.lock_helper import acquire_lock, release_lock
