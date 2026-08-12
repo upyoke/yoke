@@ -8,6 +8,13 @@ from __future__ import annotations
 
 CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/source_dev_run.py",
+        "yoke_core.tools.source_dev_run",
+    ): (
+        "source_dev_admin",
+        "bind arbitrary development commands to the session's claimed lane",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.project_github_auth",
     ): (

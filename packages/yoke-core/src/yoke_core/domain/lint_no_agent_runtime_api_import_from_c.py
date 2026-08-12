@@ -65,6 +65,18 @@ _FORBIDDEN_IMPORT_RE = re.compile(
 _PYTHON_TOKEN_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
 
 
+def _is_claimed_lane_source_run(command: str) -> bool:
+    """True for the registered wrapper that owns direct source imports."""
+    try:
+        tokens = shlex.split(command, posix=True)
+    except ValueError:
+        return False
+    return len(tokens) >= 4 and (
+        os.path.basename(tokens[0]) == "yoke"
+        and tokens[1:4] == ["dev", "run", "--"]
+    )
+
+
 def _extract_command(payload: dict) -> str:
     for k in ("tool_input", "toolInput", "input"):
         ti = payload.get(k)
@@ -194,6 +206,8 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return None
     command = _extract_command(payload)
     if not command:
+        return None
+    if _is_claimed_lane_source_run(command):
         return None
     hit = False
     for body in _iter_python_c_bodies(command):

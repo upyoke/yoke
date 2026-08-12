@@ -11,6 +11,7 @@ import sys
 from typing import Iterator, List, Optional
 
 from yoke_core.domain.worktree_preflight import run_preflight
+from yoke_core.tools._source_pythonpath import SOURCE_RUN_RECIPE
 
 
 @contextmanager
@@ -180,7 +181,10 @@ def run(args: List[str]) -> int:
             actual_cwd=os.getcwd(),
             prepare_path_claims=claim_preparer,
         )
-    print(json.dumps(outcome.to_envelope(), indent=2, sort_keys=True))
+    envelope = outcome.to_envelope()
+    if outcome.ok:
+        envelope["source_dev_recipe"] = SOURCE_RUN_RECIPE
+    print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0 if outcome.ok else 1
 
 

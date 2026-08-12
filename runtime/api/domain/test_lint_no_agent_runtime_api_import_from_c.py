@@ -119,6 +119,11 @@ class TestFalsePositiveGuards(unittest.TestCase):
         self.assertIsNone(_eval('python3 /tmp/script.py'))
         self.assertIsNone(_eval('python3 runtime/api/tools/foo.py'))
 
+    def test_claimed_lane_source_runner_owns_direct_imports(self):
+        self.assertIsNone(_eval(
+            'yoke dev run -- python3 -c "import runtime,yoke_core"'
+        ))
+
     def test_unrelated_command_allowed(self):
         self.assertIsNone(_eval('git status'))
         self.assertIsNone(_eval('ls -la /tmp'))
