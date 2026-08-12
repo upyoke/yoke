@@ -8,11 +8,13 @@ import urllib.error
 
 from yoke_cli.transport import https as yoke_transport
 from yoke_cli.transport import https_engine_handshake as yoke_handshake
+from yoke_cli.transport.dispatcher import emit_response
 from yoke_cli.transport.https import HttpsConnection, relay_https
 from yoke_cli.transport.https_engine_handshake import ServerHandshake
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
+    FunctionCallResponse,
     TargetRef,
 )
 
@@ -55,7 +57,9 @@ class _FakeResponse:
 class TestEngineVersionSkewWarning:
     _CONN = HttpsConnection(api_url="https://api.example", token="tok-123")
 
-    def _relay_with_header(self, monkeypatch, headers: dict) -> None:
+    def _relay_with_header(
+        self, monkeypatch, headers: dict
+    ) -> FunctionCallResponse:
         def fake_urlopen(req, timeout=None):
             resp = _FakeResponse(_ok_envelope())
             resp.headers = dict(headers)
@@ -66,6 +70,7 @@ class TestEngineVersionSkewWarning:
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is True
+        return response
 
     def test_mismatch_warns_exactly_once_per_process(
         self, monkeypatch, capsys,
@@ -82,6 +87,25 @@ class TestEngineVersionSkewWarning:
         err = capsys.readouterr().err
         assert err.count("server engine version 2.0.0") == 1
         assert "1.0.0" in err
+
+    def test_json_emission_keeps_skew_advisory_off_stdout(
+        self, monkeypatch, capsys,
+    ):
+        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
+        monkeypatch.setattr(
+            yoke_handshake, "local_handshake_version", lambda: "1.0.0"
+        )
+
+        response = self._relay_with_header(
+            monkeypatch,
+            {yoke_handshake.ENGINE_VERSION_HEADER: "2.0.0"},
+        )
+        assert emit_response(response, json_mode=True) == 0
+
+        captured = capsys.readouterr()
+        assert json.loads(captured.out)["success"] is True
+        assert captured.out.count("\n") == 1
+        assert "server engine version 2.0.0" in captured.err
 
     def test_matching_versions_stay_silent(self, monkeypatch, capsys):
         monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
