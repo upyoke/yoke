@@ -4,7 +4,9 @@
   "retire_if_present": [
     "yoke-hosted-production",
     "yoke-hosted-production-hotfix",
-    "yoke-hosted-stage"
+    "yoke-hosted-stage",
+    "yoke-hosted-production-hotfix-no-ci-gate",
+    "yoke-hosted-stage-no-ci-gate"
   ],
   "flows": [
     {
@@ -27,9 +29,9 @@
       "status": "active"
     },
     {
-      "id": "yoke-hosted-production-hotfix-no-ci-gate",
-      "name": "Production Hotfix (No CI Gate)",
-      "description": "Dispatch an annotated Yoke hotfix through the Platform production train without waiting for repository CI",
+      "id": "yoke-hosted-production-hotfix-warm-gated",
+      "name": "Production Hotfix (Warm-Gated, No CI Gate)",
+      "description": "Dispatch an annotated Yoke hotfix through the Platform production train without waiting for repository CI, then warm the rolled production box before reporting success",
       "stages": [
         {
           "name": "merged",
@@ -51,6 +53,11 @@
           "wait_for_ci": false
         },
         {
+          "name": "warm-up",
+          "step_runner": "warm-up",
+          "connection_env": "prod"
+        },
+        {
           "name": "complete",
           "step_runner": "auto"
         }
@@ -61,9 +68,9 @@
       "status": "active"
     },
     {
-      "id": "yoke-hosted-stage-no-ci-gate",
-      "name": "Stage (No CI Gate)",
-      "description": "Dispatch an annotated Yoke version through the Platform stage train without waiting for repository CI",
+      "id": "yoke-hosted-stage-warm-gated",
+      "name": "Stage (Warm-Gated, No CI Gate)",
+      "description": "Dispatch an annotated Yoke version through the Platform stage train without waiting for repository CI, then warm the rolled stage box before reporting success",
       "stages": [
         {
           "name": "merged",
@@ -83,6 +90,11 @@
           },
           "reconcile_by_head_sha": false,
           "wait_for_ci": false
+        },
+        {
+          "name": "warm-up",
+          "step_runner": "warm-up",
+          "connection_env": "stage"
         },
         {
           "name": "complete",

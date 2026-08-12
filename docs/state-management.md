@@ -165,7 +165,7 @@ Run mechanics, halt states, step runner types, and ephemeral environments live i
 - **Halt states** — `needs-capability`, `awaiting-approval`, GitHub-protection-rule integration.
 - **Capability self-invention** — exit-code-2 protocol, template registration, operator resume.
 - **Human approval gate** — `/yoke approve` flow.
-- **Step runner dispatch** — `auto`, `script`, `health-check`, `human-approval`, `github-actions-workflow`.
+- **Step runner dispatch** — `auto`, `health-check`, `warm-up`, `human-approval`, `github-actions-workflow`.
 - **Usher state machine** — full state diagram.
 - **No-flow fast path** — the `implemented → done` shortcut for a compatible
   `release_stage` definition.
