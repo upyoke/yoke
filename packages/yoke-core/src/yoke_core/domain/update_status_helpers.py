@@ -256,15 +256,15 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
 
     Best-effort: the board is a generated client-local view, so a rebuild
     failure (no checkout, schema/data hiccup, lock contention) is non-fatal
-    to the status transition — it never propagates. A server-side https
-    update has no client-local board to rebuild, so no checkout is a silent
-    no-op rather than an actionable warning.
+    to the status transition — it never propagates. Hosted/self-host skip
+    silently; a local rootless client still gets the no-checkout advisory.
     """
     from yoke_core.domain import rebuild_board as _rebuild_board_mod
 
     try:
         repo_root = _repo_root()
-    except (RuntimeError, FileNotFoundError):
+    except (RuntimeError, FileNotFoundError) as exc:
+        _rebuild_board_mod.emit_no_checkout_board_skip(exc, out)
         return
     try:
         _rebuild_board_mod.rebuild(repo_arg=str(repo_root))
