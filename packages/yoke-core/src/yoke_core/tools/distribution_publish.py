@@ -17,11 +17,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
-from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
 
 from yoke_core.domain import json_helper
+from yoke_core.domain.resilient_fetch import FetchError, fetch_bytes
 from yoke_core.tools import (
     distribution_channel,
     distribution_release_validation,
@@ -144,19 +143,13 @@ def verify_urls(checks: Sequence[UrlCheck], *, timeout: float = 20.0) -> None:
     failures: list[str] = []
     for check in checks:
         try:
-            headers, body = _get_url(check.url, timeout=timeout)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+            headers, _body = _get_url(
+                check.url, timeout=timeout,
+                expected_sha256=check.sha256, expected_size=check.size,
+            )
+        except FetchError as exc:
             failures.append(f"{check.url}: {exc}")
             continue
-        actual = hashlib.sha256(body).hexdigest()
-        if check.sha256 is not None and actual != check.sha256:
-            failures.append(
-                f"{check.url}: sha256 {actual} does not match {check.sha256}"
-            )
-        if check.size is not None and len(body) != check.size:
-            failures.append(
-                f"{check.url}: size {len(body)} does not match {check.size}"
-            )
         cache_control = headers.get("Cache-Control", "")
         if (
             check.cache_control_contains is not None
@@ -248,10 +241,15 @@ def _quote_url_path(url: str) -> str:
     return distribution_channel.quote_url_path(url)
 
 
-def _get_url(url: str, *, timeout: float) -> tuple[Mapping[str, str], bytes]:
-    request = Request(url, headers={"User-Agent": "yoke-distribution-smoke"})
-    with urlopen(request, timeout=timeout) as response:
-        return response.headers, response.read()
+def _get_url(
+    url: str, *, timeout: float, expected_sha256: str | None = None,
+    expected_size: int | None = None,
+) -> tuple[Mapping[str, str], bytes]:
+    result = fetch_bytes(
+        url, timeout=timeout, headers={"User-Agent": "yoke-distribution-smoke"},
+        expected_sha256=expected_sha256, expected_size=expected_size,
+    )
+    return result.headers, result.body
 
 
 def _sha256(path: Path) -> str:

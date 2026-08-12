@@ -37,7 +37,7 @@ executes every declared check against its disposable Postgres control plane.
 It also asserts the source-checkout applicability that keeps these checks out
 of runtimes where their project tree is unavailable.
 
-The complete module-symbol audit covers all 48 check modules and 230
+The complete module-symbol audit covers every check module and its
 attribute references on imported modules. Ruff's undefined-name/import scan
 found no additional issues; the attribute audit found and corrected the lone
 invalid reference, `json_helper.loads` in the migration-ledger contract check.

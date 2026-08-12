@@ -217,7 +217,7 @@ Domains group canonical Yoke concerns by glob-matched path roots — at least `c
 
 ### Cross-cutting entrypoints
 
-Cross-cutting concerns enter through sanctioned interfaces, not ambient reach-around imports. The payload's `cross_cutting_entrypoints` registry names the approved gateway modules per concern — commonly `db_path`, `backlog_mutation`, `session_identity`, `events`, `path_authority`, and `live_operation_ownership`. Read the approved gateways for each concern from your project's model payload rather than this prose.
+Cross-cutting concerns enter through sanctioned interfaces, not ambient reach-around imports. The payload's `cross_cutting_entrypoints` registry names the approved gateway modules per concern — commonly `db_path`, `backlog_mutation`, `session_identity`, `events`, `path_authority`, `live_operation_ownership`, and `external_artifact_fetch`. Read the approved gateways for each concern from your project's model payload rather than this prose.
 
 The `guarded_imports` field on each entrypoint names symbols whose direct import outside the approved list fires `HC-architecture-cross-cutting-entrypoint`. Consult the entrypoint metadata rather than copying gateway symbols into prose.
 

@@ -22,7 +22,40 @@ from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
     send_recipe_keys,
+    stage_recipe_files,
 )
+
+
+def test_registered_recipe_url_uses_shared_fetch_gateway(monkeypatch) -> None:
+    calls: list[tuple[str, int]] = []
+    uploads: list[tuple[str, bytes]] = []
+
+    def fetch(url: str, *, timeout: int):
+        calls.append((url, timeout))
+        return SimpleNamespace(body=b"installer")
+
+    def upload(path: str, body: bytes) -> bool:
+        uploads.append((path, body))
+        return True
+
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_mac_terminal_recipe_support.fetch_bytes", fetch,
+    )
+    result = stage_recipe_files(
+        [{
+            "source_url": "https://api.upyoke.com/install",
+            "remote_path": "/tmp/install",
+        }],
+        upload_bytes=upload,
+    )
+
+    assert result == (
+        True,
+        [{"remote_path": "/tmp/install", "source_kind": "registered_url"}],
+        (),
+    )
+    assert calls == [("https://api.upyoke.com/install", 60)]
+    assert uploads == [("/tmp/install", b"installer")]
 
 
 def test_interactive_recipe_rejects_a_known_unexpected_exit_code(

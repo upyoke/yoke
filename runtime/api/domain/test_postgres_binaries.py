@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import tarfile
+import urllib.error
 from pathlib import Path
 
 import pytest
 
 from yoke_core.domain import postgres_binaries as pb
+from yoke_core.domain import resilient_fetch
 
 
 @pytest.fixture(autouse=True)
@@ -116,7 +118,7 @@ def test_fetch_binaries_rejects_checksum_mismatch(tmp_path):
         corrupt_checksum=True,
     )
 
-    with pytest.raises(pb.PostgresBinariesError, match="checksum mismatch"):
+    with pytest.raises(pb.PostgresBinariesError, match="sha256 .* does not match"):
         pb.fetch_binaries("9.9.9", "aarch64-apple-darwin", base_url=base_url)
     assert pb.installed_bin_dir("9.9.9") is None
 
@@ -133,3 +135,101 @@ def test_ensure_binaries_fetches_once_then_reuses(tmp_path, monkeypatch):
     second = pb.ensure_binaries("9.9.9", base_url=base_url)
 
     assert first == second == pb.version_dir("9.9.9") / "bin"
+
+
+class _DownloadResponse:
+    def __init__(self, body: bytes, *, content_length: int) -> None:
+        self.body = body
+        self.headers = {"Content-Length": str(content_length)}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def read(self, limit=None) -> bytes:
+        return self.body if limit is None else self.body[:limit]
+
+
+def test_download_retries_twice_and_returns_attempt_evidence(tmp_path, monkeypatch):
+    url = "https://artifacts.example.test/postgres.tar.gz"
+    body = b"complete tarball"
+    effects = iter([
+        urllib.error.URLError("connection dropped"),
+        TimeoutError("timed out"),
+        _DownloadResponse(body, content_length=len(body)),
+    ])
+    attempts = []
+
+    def opener(request, *, timeout):
+        attempts.append((request.full_url, timeout))
+        effect = next(effects)
+        if isinstance(effect, BaseException):
+            raise effect
+        return effect
+
+    sleeps = []
+    monkeypatch.setattr(resilient_fetch, "urlopen", opener)
+    monkeypatch.setattr(resilient_fetch, "sleep", sleeps.append)
+
+    result = pb._download(
+        url,
+        tmp_path / "postgres.tar.gz",
+        expected_sha256=hashlib.sha256(body).hexdigest(),
+    )
+
+    assert result.attempts == 3
+    assert len(attempts) == 3
+    assert sleeps == [15.0, 60.0]
+
+
+def test_download_permanent_failure_names_url_and_attempts(tmp_path, monkeypatch):
+    url = "https://artifacts.example.test/missing.tar.gz"
+    missing = urllib.error.HTTPError(url, 404, "missing", {}, None)
+    calls = []
+
+    def opener(*_args, **_kwargs):
+        calls.append(1)
+        raise missing
+
+    monkeypatch.setattr(resilient_fetch, "urlopen", opener)
+    monkeypatch.setattr(
+        resilient_fetch,
+        "sleep",
+        lambda _seconds: pytest.fail("permanent failures must not back off"),
+    )
+
+    with pytest.raises(pb.PostgresBinariesError) as raised:
+        pb._download(
+            url, tmp_path / "missing.tar.gz", expected_sha256="0" * 64
+        )
+
+    assert url in str(raised.value)
+    assert "1 attempt" in str(raised.value)
+    assert calls == [1]
+
+
+def test_download_rejects_truncated_tarball_before_publish(tmp_path, monkeypatch):
+    url = "https://artifacts.example.test/truncated.tar.gz"
+    body = b"truncated"
+    monkeypatch.setattr(
+        resilient_fetch,
+        "urlopen",
+        lambda *_args, **_kwargs: _DownloadResponse(body, content_length=500),
+    )
+    monkeypatch.setattr(
+        resilient_fetch,
+        "sleep",
+        lambda _seconds: pytest.fail("verification failures must not back off"),
+    )
+    destination = tmp_path / "truncated.tar.gz"
+
+    with pytest.raises(pb.PostgresBinariesError, match="Content-Length 500"):
+        pb._download(
+            url,
+            destination,
+            expected_sha256=hashlib.sha256(body).hexdigest(),
+        )
+
+    assert not destination.exists()
