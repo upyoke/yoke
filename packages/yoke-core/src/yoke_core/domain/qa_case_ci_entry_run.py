@@ -179,7 +179,16 @@ def open_landing_pull_request(
     The pull request is named for the lane branch because the case context
     carries no public item reference; the landing looks it up by head branch
     either way, so the two callers converge on the same pull request.
+
+    Pull-request REST runs from this machine rather than through the
+    Actions relay, so it needs this machine's own GitHub App user
+    authorization — the same authority the merge boundary binds around the
+    identical call. Control-plane App credentials are deliberately absent
+    here; asking for them is what an unbound call falls through to.
     """
+    from yoke_cli.commands.merge_item_local_runtime import (
+        machine_github_user_authority,
+    )
     from yoke_core.domain.merge_queue_landing_pull_request import (
         ensure_landing_pull_request,
     )
@@ -187,7 +196,10 @@ def open_landing_pull_request(
     ctx = _merge_context(
         checkout, branch=branch, target=target, project=project,
     )
-    pr_num, error = ensure_landing_pull_request(ctx, branch, lane_head=lane_head)
+    with machine_github_user_authority():
+        pr_num, error = ensure_landing_pull_request(
+            ctx, branch, lane_head=lane_head,
+        )
     if error:
         raise QaCaseExecutionError(
             f"could not open the landing pull request for {branch!r}: {error}"

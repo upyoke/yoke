@@ -24,6 +24,9 @@ from yoke_core.domain.verification_tree_binding import (
     TreeIdentity,
 )
 
+#: The lane head the stubbed tree identity resolves to.
+LANE_HEAD = "a" * 40
+
 
 def ci_case(**overrides) -> dict:
     """A materialized ``ci_run`` case with a live lane on ``PRJ-9``."""
@@ -68,6 +71,14 @@ class Recorder:
         raise AssertionError(f"{function_id} was never dispatched")
 
 
+def completed_run(head_sha: str, conclusion: str = "success"):
+    """A concluded pull-request run for *head_sha*."""
+    return qa_case_ci_lane.WorkflowRun(
+        "77", "completed", conclusion,
+        "https://github.test/actions/runs/77", head_sha,
+    )
+
+
 def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     """Stub every boundary the executor crosses; return its wiring."""
     checkout = tmp_path / "checkout"
@@ -81,7 +92,7 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     )
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.resolve_tree_identity",
-        lambda tree: TreeIdentity(root=str(tree), head_sha="a" * 40),
+        lambda tree: TreeIdentity(root=str(tree), head_sha=LANE_HEAD),
     )
     monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
@@ -98,4 +109,10 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     return checkout, recorder, artifact
 
 
-__all__ = ["Recorder", "ci_case", "wire_ci_case"]
+__all__ = [
+    "LANE_HEAD",
+    "Recorder",
+    "ci_case",
+    "completed_run",
+    "wire_ci_case",
+]
