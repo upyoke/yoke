@@ -31,7 +31,7 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.test_backlog import (
     _conn,
     _patch_externals,
-    tmp_db,  # noqa: F401 — re-exported fixture
+    tmp_db,  # noqa: F401,F811 — re-exported fixture
 )
 
 
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS migration_audit (
 
 
 @pytest.fixture
-def regression_db(tmp_db: str, tmp_path: Path):
+def regression_db(tmp_db: str, tmp_path: Path):  # noqa: F811
     """``tmp_db`` plus the governed-mutation tables and a Yoke seed.
 
     Returns a dict with ``db_path``, ``checkout_path``, and ``project`` so

@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,

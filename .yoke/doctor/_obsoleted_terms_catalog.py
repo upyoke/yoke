@@ -253,15 +253,24 @@ _MIGRATION_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
 #: workflow-definition canon plus its tests carry a *different* retired
 #: ``executor_id`` — the skill-binding vocabulary an earlier entry replaced —
 #: which one column-name pattern cannot tell apart from the QA one.
+#: The agent packet warns the next agent off the retired spellings by
+#: name — teaching that cannot be done without writing them down.
+_QA_PACKET_TEACHING_PATHS: tuple[str, ...] = (
+    "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_qa.py",
+)
+
 _QA_RUNNER_RENAME_SUBJECT_PATHS: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/domain/migrations/",
+    "runtime/api/domain/test_migration_qa_runner_identity_columns.py",
     "runtime/api/domain/test_builtin_workflow_version_reconvergence.py",
     "runtime/api/domain/test_workflow_and_deployment_stage_vocabulary_migration.py",
 )
 
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
-    _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
-    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
+    + _QA_PACKET_TEACHING_PATHS,
+    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS
+    + _QA_PACKET_TEACHING_PATHS,
     _RETIRED_QA_EXECUTOR_GLOSS_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
     _RETIRED_QA_EXECUTOR_CLI_PATTERN: (
         # The lifecycle DB-command lint reproduces the retired

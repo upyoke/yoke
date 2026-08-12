@@ -10,12 +10,13 @@ from __future__ import annotations
 from unittest import mock
 from unittest.mock import patch
 
-import pytest
 
 from runtime.api.conftest import insert_item
 from yoke_core.domain import epic
-from runtime.api.test_epic_cascade_dispatch import db_with_chain  # noqa: F401
-from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401
+from runtime.api.test_epic_cascade_dispatch import (  # noqa: F401
+    db_with_chain,
+)
+from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401,F811
 
 
 class TestProceedTriageAndHandoff:
@@ -37,7 +38,7 @@ class TestProceedTriageAndHandoff:
         def close(self):
             pass
 
-    def _seed_simulation_requirement(self, db, item_id: int = 42) -> int:
+    def _seed_simulation_requirement(self, db, item_id: int = 42) -> int:  # noqa: F811
         """Insert a simulation requirement with a GAPS FOUND run (mimics persist_and_verify)."""
         p = epic._placeholder(db)
         db.execute(
@@ -60,7 +61,7 @@ class TestProceedTriageAndHandoff:
         db.commit()
         return 100
 
-    def test_proceed_success_records_triage_and_hands_off(self, db):
+    def test_proceed_success_records_triage_and_hands_off(self, db):  # noqa: F811
         """PROCEED path auto-advances parent and releases claim."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
@@ -88,7 +89,7 @@ class TestProceedTriageAndHandoff:
         # Handoff was called
         handoff.assert_called_once_with(42, session_id="sess-1")
 
-    def test_proceed_missing_requirement_returns_1(self, db):
+    def test_proceed_missing_requirement_returns_1(self, db):  # noqa: F811
         """No simulation requirement → hard failure, no handoff attempted."""
         insert_item(db, id=42, status="reviewing-implementation")
         # No simulation requirement seeded
@@ -100,7 +101,7 @@ class TestProceedTriageAndHandoff:
         assert rc == 1
         handoff.assert_not_called()
 
-    def test_proceed_handoff_failure_returns_2(self, db):
+    def test_proceed_handoff_failure_returns_2(self, db):  # noqa: F811
         """Handoff failure → hard failure, no false success."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
@@ -115,7 +116,7 @@ class TestProceedTriageAndHandoff:
         assert rc == 2
         handoff.assert_called_once_with(42, session_id="sess-1")
 
-    def test_proceed_no_filed_items(self, db):
+    def test_proceed_no_filed_items(self, db):  # noqa: F811
         """PROCEED with zero gaps to file still records triage and hands off."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
@@ -131,7 +132,7 @@ class TestProceedTriageAndHandoff:
         call_kwargs = run_add.call_args[1]
         assert '"none"' in call_kwargs["raw_result"]
 
-    def test_proceed_rerun_after_success_is_idempotent_noop(self, db):
+    def test_proceed_rerun_after_success_is_idempotent_noop(self, db):  # noqa: F811
         """P-2: rerunning after a clean handoff no-ops without duplicate writes."""
         insert_item(db, id=42, status="reviewed-implementation")
 
