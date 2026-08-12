@@ -171,3 +171,53 @@ class TestReleaseFailureModes:
         # Happy path emits nothing new — only WorkReleased.
         assert _RELEASED_EVENT in events
         assert _FAILED_EVENT not in events
+
+
+class TestReleaseNewestActiveClaim:
+    """Release-by-item must select the newest active row, not a stale one."""
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 730)
+
+    def test_release_by_item_targets_newest_active_and_names_claim_id(self, conn):
+        owner_sid = "newest-active-sess"
+        item_id = 730
+        _register(conn, session_id=owner_sid)
+        conn.execute(
+            "INSERT INTO work_claims (session_id, target_kind, item_id, claim_type, "
+            "claimed_at, last_heartbeat, released_at, release_reason, reason) "
+            "VALUES (%s, 'item', %s, 'exclusive', "
+            "'2026-08-10T12:00:00Z', '2026-08-10T12:00:00Z', "
+            "'2026-08-10T12:30:00Z', 'released', 'draft-in-progress')",
+            (owner_sid, item_id),
+        )
+        conn.commit()
+        older_id = int(
+            conn.execute(
+                "SELECT id FROM work_claims WHERE session_id=%s AND item_id=%s "
+                "AND released_at IS NOT NULL ORDER BY id ASC LIMIT 1",
+                (owner_sid, item_id),
+            ).fetchone()[0]
+        )
+        active = claim_work(conn, session_id=owner_sid, item_id=_sun(item_id))
+        newer_id = int(active["id"])
+        assert newer_id > older_id
+
+        result = release_item_claim_for_execution(
+            conn, owner_sid, _sun(item_id), "handoff-to-polish",
+        )
+
+        assert result["released"] is True
+        assert result["claim_id"] == newer_id
+        older = conn.execute(
+            "SELECT released_at, release_reason FROM work_claims WHERE id=%s",
+            (older_id,),
+        ).fetchone()
+        newer = conn.execute(
+            "SELECT released_at FROM work_claims WHERE id=%s",
+            (newer_id,),
+        ).fetchone()
+        assert older["released_at"] == "2026-08-10T12:30:00Z"
+        assert older["release_reason"] == "released"
+        assert newer["released_at"] is not None

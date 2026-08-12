@@ -12,11 +12,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from pydantic import BaseModel
-
 from yoke_core.domain import yoke_function_dispatch_claims as claims_module
 from yoke_contracts.api.function_call import (
-    HandlerOutcome,
     TargetRef,
 )
 from yoke_core.domain.yoke_function_registry import register
@@ -173,6 +170,26 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             claims_module._session_claim_id_for_target(target, "sid-e"),
             claim_id,
         )
+
+    def test_item_target_prefers_newest_active_over_older_released(self):
+        """Release-by-item must not resolve a stale released row.
+
+        Specimen shape: older released claim + newer active claim on the
+        same item/session — lookup returns the newest active id only.
+        """
+        older = self._seed(
+            session_id="sid-e",
+            target_kind="item",
+            item_id=42,
+            released_at="2026-08-10T13:00:00Z",
+        )
+        newer = self._seed(
+            session_id="sid-e", target_kind="item", item_id=42,
+        )
+        target = TargetRef(kind="item", item_id=42)
+        resolved = claims_module._session_claim_id_for_target(target, "sid-e")
+        self.assertEqual(resolved, newer)
+        self.assertNotEqual(resolved, older)
 
     def test_process_key_resolves_session_claim(self):
         claim_id = self._seed(
