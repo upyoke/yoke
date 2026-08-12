@@ -18,6 +18,7 @@ from yoke_cli.config.github_machine_credential_lifecycle import (
 )
 from yoke_cli.config import github_machine_installations
 from yoke_cli.config import github_machine_report as reports
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_cli.config import machine_config, writer
 from yoke_contracts import github_app_tokens, github_origin
 from yoke_contracts.machine_config import schema as contract
@@ -123,6 +124,19 @@ def connected_report(
         live_check_ok=live_check_ok,
         permissions=permissions,
         issues=issues,
+        bindings={
+            "user_authorization": merge_path_binding.user_authorization_binding(
+                checked=checked,
+                token_issue=token_issue,
+                authorization_revoked=auth_report.get("status") != "authorized",
+            ),
+            "app_installation": merge_path_binding.app_installation_binding(
+                checked=checked,
+                live_access_ok=live_check_ok is True,
+                installation_count=len(installations),
+                permissions_usable=permissions["usable"],
+            ),
+        },
     )
     try:
         endpoint_pair = github_origin.validate_github_endpoint_pair(

@@ -24,6 +24,11 @@ yoke github status
 
 Optional during `yoke onboard` Account/GitHub steps.
 
+Status reports one verdict per binding: user authorization for the merge path
+(`ok` / `busy` / `broken`, proven through the same connection and token read a
+local merge uses) and App installation access (`ok` / `broken`). `ready` is
+true only when both are `ok`; see `yoke github status --help`.
+
 ## Sync modes
 
 Projects can run backlog-only (DB is authority, no issue sync) or sync with

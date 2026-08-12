@@ -9,6 +9,7 @@ import pytest
 
 from yoke_cli.commands import merge_item
 from yoke_cli.commands import merge_item_local_runtime as local_runtime
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
 from yoke_contracts.github_app_installation_permissions import (
     REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
 )
@@ -45,14 +46,14 @@ def _state(api_url: str = "https://api.github.com") -> ProjectGithubState:
 
 def _configure_https_machine(monkeypatch, *, api_url: str) -> None:
     monkeypatch.setattr(
-        local_runtime.machine_config,
+        merge_path_binding.machine_config,
         "github_config",
-        lambda: {"api_url": api_url},
+        lambda _config_path=None: {"api_url": api_url},
     )
     monkeypatch.setattr(
-        local_runtime.github_app_public_profile,
+        merge_path_binding.github_app_public_profile,
         "selected_https_service_api_url",
-        lambda: "https://api.stage.upyoke.test",
+        lambda _config_path=None: "https://api.stage.upyoke.test",
     )
 
 
@@ -184,7 +185,11 @@ def test_missing_machine_authorization_teaches_reconnect_without_service_key(
     monkeypatch,
 ) -> None:
     _configure_https_machine(monkeypatch, api_url="https://api.github.com")
-    monkeypatch.setattr(local_runtime.machine_config, "github_config", lambda: {})
+    monkeypatch.setattr(
+        merge_path_binding.machine_config,
+        "github_config",
+        lambda _config_path=None: {},
+    )
     monkeypatch.setattr(
         project_auth, "read_github_state", lambda *_args, **_kw: _state()
     )

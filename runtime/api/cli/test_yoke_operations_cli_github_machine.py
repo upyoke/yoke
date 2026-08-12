@@ -313,7 +313,12 @@ def test_github_status_reads_app_config_offline(
     }]
     assert payload["permissions"]["ok"] is True
     assert payload["permissions"]["mode"] == "github_app_installation"
-    assert payload["ready"] is True
+    # An offline read proves neither binding, so it never claims readiness.
+    assert payload["ready"] is False
+    assert {
+        name: binding["verdict"]
+        for name, binding in payload["bindings"].items()
+    } == {"user_authorization": "unproven", "app_installation": "unproven"}
     assert payload["access"]["snapshot_source"] == "cached"
     assert payload["access"]["repo_listing_ok"] is None
 

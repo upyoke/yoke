@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Mapping
 from yoke_cli.config import (
     github_app_public_profile,
     github_machine,
+    github_merge_path_binding,
     github_response_safety,
 )
 from yoke_cli.commands._helpers import (
@@ -194,7 +195,17 @@ def github_disconnect(args: List[str]) -> int:
 
 
 def github_status(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke github status")
+    parser = argparse.ArgumentParser(
+        prog="yoke github status",
+        description=(
+            "Report this machine's GitHub App bindings. The live check pins "
+            "the same Yoke connection a local merge authorizes through and "
+            "reads a user token the same way, then reports one verdict per "
+            "binding: user authorization for the merge path (ok/busy/broken) "
+            "and App installation access (ok/broken). `ready` is true only "
+            "when both are proven ok, so --offline never reports ready."
+        ),
+    )
     parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument(
         "--offline",
@@ -209,6 +220,7 @@ def github_status(args: List[str]) -> int:
         report = github_machine.status(
             config_path=parsed.config_path,
             check=not parsed.offline,
+            **github_merge_path_binding.status_connection_scope(parsed.config_path),
         )
     except github_machine.GitHubMachineError as exc:
         print(f"error: {exc}", file=sys.stderr)

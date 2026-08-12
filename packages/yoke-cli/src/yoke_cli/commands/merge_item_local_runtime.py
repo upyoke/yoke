@@ -14,30 +14,10 @@ import importlib
 import sys
 from typing import Callable, Iterator, List, Optional
 
-from yoke_cli.config import github_app_public_profile
 from yoke_cli.config import github_local_user_access
-from yoke_cli.config import machine_config
-from yoke_contracts.github_auth_transience import (
-    GITHUB_AUTH_RETRY_RECIPE,
-    TransientGitHubAuthError,
-)
-from yoke_contracts.github_origin import (
-    GitHubApiEndpoint,
-    GitHubApiOriginError,
-    validate_github_api_endpoint,
-)
-
-
-LOCAL_AUTH_RECOVERY = (
-    "machine GitHub App user authorization is unavailable for the active "
-    "Yoke connection; run `yoke github status`, then reconnect GitHub with "
-    "`yoke github connect`"
-)
-LOCAL_AUTH_RETRY_RECOVERY = (
-    "machine GitHub App user authorization could not be read right now "
-    "(another local operation holds it, or GitHub could not be reached); the "
-    f"stored authorization still stands, so {GITHUB_AUTH_RETRY_RECIPE}"
-)
+from yoke_cli.config import github_merge_path_binding as merge_path_binding
+from yoke_contracts.github_auth_transience import TransientGitHubAuthError
+from yoke_contracts.github_origin import GitHubApiEndpoint
 
 
 class LocalMergeGithubAuthorityError(RuntimeError):
@@ -58,46 +38,34 @@ def _machine_authority() -> tuple[GitHubApiEndpoint, Callable[[], str]]:
     can fall through to service-side App credentials.
     """
 
-    selection_invalid = False
-    try:
-        github = machine_config.github_config()
-        if not github:
-            selection_invalid = True
-        endpoint = validate_github_api_endpoint(
-            str(github.get("api_url") or "") if github else None
-        )
-    except (GitHubApiOriginError, machine_config.MachineConfigError):
-        endpoint = validate_github_api_endpoint(None)
-        selection_invalid = True
-
-    try:
-        service_api_url = github_app_public_profile.selected_https_service_api_url()
-        local_connection_selected = service_api_url is None
-    except github_app_public_profile.GitHubAppPublicProfileError:
-        service_api_url = None
-        local_connection_selected = False
-        selection_invalid = True
+    selection = merge_path_binding.resolve_selection()
 
     def access_token() -> str:
-        if selection_invalid:
-            raise LocalMergeGithubAuthorityError(LOCAL_AUTH_RECOVERY)
+        if not selection.resolved:
+            raise LocalMergeGithubAuthorityError(
+                merge_path_binding.RECONNECT_RECOVERY
+            )
         try:
             token = github_local_user_access.access_token(
-                service_api_url=service_api_url,
-                local_connection_selected=local_connection_selected,
+                service_api_url=selection.service_api_url,
+                local_connection_selected=selection.local_connection_selected,
             ).access_token
         except github_local_user_access.TransientGitHubLocalUserAccessError as exc:
             raise TransientLocalMergeGithubAuthorityError(
-                LOCAL_AUTH_RETRY_RECOVERY
+                merge_path_binding.RETRY_RECOVERY
             ) from exc
         except github_local_user_access.GitHubLocalUserAccessError as exc:
-            raise LocalMergeGithubAuthorityError(LOCAL_AUTH_RECOVERY) from exc
+            raise LocalMergeGithubAuthorityError(
+                merge_path_binding.RECONNECT_RECOVERY
+            ) from exc
         value = str(token or "").strip()
         if not value:
-            raise LocalMergeGithubAuthorityError(LOCAL_AUTH_RECOVERY)
+            raise LocalMergeGithubAuthorityError(
+                merge_path_binding.RECONNECT_RECOVERY
+            )
         return value
 
-    return endpoint, access_token
+    return selection.endpoint, access_token
 
 
 @contextmanager
@@ -136,8 +104,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 __all__ = [
-    "LOCAL_AUTH_RECOVERY",
-    "LOCAL_AUTH_RETRY_RECOVERY",
     "LocalMergeGithubAuthorityError",
     "TransientLocalMergeGithubAuthorityError",
     "machine_github_user_authority",

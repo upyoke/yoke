@@ -48,6 +48,10 @@ def test_status_marks_live_failure_as_cached_and_not_ready(
     assert report["ready"] is False
     assert report["identity"]["checked"] is True
     assert report["identity"]["ok"] is False
+    # The token read failed, so the merge path is broken and the App access
+    # snapshot is only cached rather than disproven.
+    assert report["bindings"]["user_authorization"]["verdict"] == "broken"
+    assert report["bindings"]["app_installation"]["verdict"] == "unproven"
     assert report["access"]["snapshot_source"] == "cached"
     assert report["access"]["repo_listing_ok"] is False
     assert report["access"]["org_listing_ok"] is False

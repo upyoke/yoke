@@ -57,6 +57,7 @@ def test_json_access_exposes_only_public_repository_metadata() -> None:
         live_check_ok=True,
         permissions={"usable": True},
         issues=[],
+        bindings={"user_authorization": {"verdict": "ok", "message": "proven"}},
     )
 
     assert report["access"]["repos"] == ["octo-org/app"]
