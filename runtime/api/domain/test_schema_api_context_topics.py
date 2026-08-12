@@ -264,6 +264,19 @@ def test_qa_topic_events_recipe_matches_supported_filter_shape() -> None:
     assert "--limit" in body
 
 
+def test_events_table_packet_teaches_text_item_id() -> None:
+    """events.item_id is TEXT (bare-numeric text); packet must not
+    teach an unquoted integer comparison that Postgres rejects."""
+
+    from yoke_core.domain.schema_api_context_tables import CANONICAL_TABLES
+
+    notes = CANONICAL_TABLES["events"]["notes"]
+    assert ("item_id", "TEXT") in CANONICAL_TABLES["events"]["columns"]
+    assert "item_id` is TEXT" in notes or "item_id is TEXT" in notes
+    assert "WHERE item_id = '<id>'" in notes
+    assert "WHERE item_id = <id>" not in notes
+
+
 def test_role_keys_use_layer_explicit_agent_suffix() -> None:
     """Every role key in ROLE_TOPICS ends in
     ``_agent`` so the LLM-facing packet layer is unambiguous and cannot

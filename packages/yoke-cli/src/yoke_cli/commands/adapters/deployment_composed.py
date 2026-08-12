@@ -32,8 +32,9 @@ DEPLOYMENT_FLOWS_DESCRIBE_USAGE = (
     "[--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE = (
-    "yoke deployment-runs start-for-item ITEM [--project P] [--flow F] "
-    "[--target-env ENV] [--release-lineage LINEAGE] [--created-by WHO] "
+    "yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM "
+    "[--project P] [--flow F] [--target-env ENV] "
+    "[--release-lineage LINEAGE] [--created-by WHO] "
     "[--session-id S] [--json]"
 )
 
@@ -131,7 +132,11 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Compose target-env resolution, run creation, item membership, "
-            "and composition validation for one item."
+            "and composition validation for one item. Requires the "
+            "same-universe owner-only local-postgres env "
+            "(`yoke --env <control-plane>-db-admin ...`); the HTTPS product "
+            "plane refuses create so run rows stay writable when that plane "
+            "is the deploy target."
         ),
     )
     parser.add_argument("item")
