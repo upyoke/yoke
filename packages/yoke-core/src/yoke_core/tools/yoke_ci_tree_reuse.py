@@ -1,10 +1,21 @@
-"""Main-push same-tree reuse probe for the yoke-ci workflow.
+"""Same-tree reuse probe for the yoke-ci workflow.
 
-After a fast-forward merge, the push-to-main yoke-ci run often re-executes
-the suite against a tree a dispatch (or earlier push) run already proved.
-This probe resolves HEAD's tree object id, walks recent successful yoke-ci
-runs, and reports reuse when a covering run's head commit resolves to the
-same tree id.
+Two runs re-prove trees that were already proved. After a fast-forward
+merge the push-to-main run re-executes the suite against the tree a
+dispatch or pull-request run already covered; and a merge queue train
+carrying one rebased item builds a candidate whose tree is byte-identical
+to that item's entry tree, so the train run repeats the entry run exactly.
+This probe resolves the checked-out tree's object id, walks recent
+successful yoke-ci runs, and reports reuse when a covering run's head
+commit resolves to the same tree id.
+
+A ``pull_request`` run covers by the same rule everything else does, and
+soundly: the run's recorded head sha is the pull request's head commit,
+whose tree equals the candidate tree only when the base was already an
+ancestor of it — which is exactly when the run tested that tree rather
+than a merge of it. A batch train, or a train built after the base moved,
+produces a tree no single run covers and runs the full suite, which is
+when the integration proof is real.
 
 Fail open on every uncertainty: API errors, missing shas, unresolvable
 trees, empty result sets, or covering runs older than the window all mean
@@ -31,7 +42,7 @@ from urllib.request import Request, urlopen
 
 DEFAULT_WINDOW_HOURS = 24
 DEFAULT_WORKFLOW_FILE = "yoke-ci.yml"
-ALLOWED_EVENTS = frozenset({"workflow_dispatch", "push"})
+ALLOWED_EVENTS = frozenset({"workflow_dispatch", "push", "pull_request"})
 _HTTP_TIMEOUT_S = 30
 
 

@@ -19,6 +19,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
 )
 
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
+from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_close_out import QueueCloseOut
 from yoke_core.engines.merge_worktree_pr_queue import (
@@ -127,6 +128,34 @@ def test_reentry_with_armed_pr_skips_entry_and_polls(monkeypatch):
     assert land().ok
 
 
+def test_the_landing_enqueues_the_pull_request_the_gate_opened(monkeypatch):
+    """The gate leaves an open, green, unarmed pull request at the lane head.
+
+    The landing must arm that one rather than opening a second — a second
+    pull request for the same head is what would put two entry runs and two
+    queue members behind one item.
+    """
+    wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
+
+    def forbidden(*_a, **_kw):
+        raise AssertionError("the gate's pull request must be reused")
+
+    monkeypatch.setattr(landing_pr_mod, "create_pr", forbidden)
+    entered: list[str] = []
+    monkeypatch.setattr(
+        route_mod, "enter_merge_queue",
+        lambda _ctx, pr_num: entered.append(pr_num) or QueueEntryResult(
+            success=True,
+        ),
+    )
+
+    outcome = land()
+
+    assert outcome.ok
+    assert outcome.pr_num == "42"
+    assert entered == ["42"]
+
+
 def test_reentry_after_the_queue_merged_never_opens_a_second_pr(monkeypatch):
     """The lookup sees merged pull requests, so no create is attempted."""
     wire_happy_path(monkeypatch)
@@ -134,7 +163,7 @@ def test_reentry_after_the_queue_merged_never_opens_a_second_pr(monkeypatch):
     def forbidden(*_a, **_kw):
         raise AssertionError("a merged PR must not be recreated or re-entered")
 
-    monkeypatch.setattr(route_mod, "create_pr", forbidden)
+    monkeypatch.setattr(landing_pr_mod, "create_pr", forbidden)
     monkeypatch.setattr(route_mod, "enter_merge_queue", forbidden)
     outcome = land()
     assert outcome.ok
@@ -148,11 +177,11 @@ def test_recoverable_create_refusals_rediscover_the_pull_request(
     wire_happy_path(monkeypatch)
     found = [(None, None, ""), ("url", "42", "")]
     monkeypatch.setattr(
-        route_mod, "find_landable_pull_request",
+        landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": found.pop(0),
     )
     monkeypatch.setattr(
-        route_mod, "create_pr",
+        landing_pr_mod, "create_pr",
         lambda _ctx, **_kw: PrCreateResult(
             pr_url="", pr_num="", **{refusal: True},
         ),
@@ -171,11 +200,11 @@ def test_lane_beyond_the_merged_pull_request_lands_freshly(monkeypatch):
     """
     wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
     monkeypatch.setattr(
-        route_mod, "find_landable_pull_request",
+        landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": (None, None, "pull request 42 merged head"),
     )
     monkeypatch.setattr(
-        route_mod, "create_pr",
+        landing_pr_mod, "create_pr",
         lambda _ctx, **_kw: PrCreateResult(pr_url="https://gh/99", pr_num="99"),
     )
     entered: list[str] = []
@@ -208,13 +237,13 @@ def test_lane_beyond_the_merged_pull_request_records_nothing_when_stuck(
     """Nothing is recorded when the fresh landing cannot open its own."""
     wire_happy_path(monkeypatch)
     monkeypatch.setattr(
-        route_mod, "find_landable_pull_request",
+        landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": (
             None, None, "pull request 42 merged head aaaa, not the lane head bbbb",
         ),
     )
     monkeypatch.setattr(
-        route_mod, "create_pr",
+        landing_pr_mod, "create_pr",
         lambda _ctx, **_kw: PrCreateResult(
             pr_url="", pr_num="", no_commits=True,
         ),
@@ -235,11 +264,11 @@ def test_lane_beyond_the_merged_pull_request_records_nothing_when_stuck(
 def test_no_commits_without_any_pull_request_is_named(monkeypatch):
     wire_happy_path(monkeypatch)
     monkeypatch.setattr(
-        route_mod, "find_landable_pull_request",
+        landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": (None, None, ""),
     )
     monkeypatch.setattr(
-        route_mod, "create_pr",
+        landing_pr_mod, "create_pr",
         lambda _ctx, **_kw: PrCreateResult(
             pr_url="", pr_num="", no_commits=True,
         ),

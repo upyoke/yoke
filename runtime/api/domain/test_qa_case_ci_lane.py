@@ -289,7 +289,13 @@ def test_dispatch_reports_a_refused_trigger(monkeypatch):
         )
 
 
-def test_completed_pull_request_lookup_uses_exact_run_filters(monkeypatch):
+@pytest.mark.parametrize(
+    ("status", "state_filter"),
+    [("completed", ("--status", "completed")), ("", ())],
+)
+def test_pull_request_lookup_uses_exact_run_filters(
+    monkeypatch, status, state_filter,
+):
     seen: dict = {}
 
     def _fake_github_actions(*args, **kwargs):
@@ -310,9 +316,9 @@ def test_completed_pull_request_lookup_uses_exact_run_filters(monkeypatch):
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         _fake_github_actions,
     )
-    run = lane.find_completed_pull_request_run(
+    run = lane.find_pull_request_run(
         project="yoke", repo="acme/widgets", workflow="ci.yml",
-        head_sha="a" * 40, timeout_seconds=60,
+        head_sha="a" * 40, timeout_seconds=60, status=status,
     )
 
     assert run == lane.WorkflowRun(
@@ -321,11 +327,11 @@ def test_completed_pull_request_lookup_uses_exact_run_filters(monkeypatch):
     )
     assert seen["args"] == (
         "find-run", "acme/widgets", "ci.yml", "a" * 40,
-        "--event", "pull_request", "--status", "completed", "--json",
+        "--event", "pull_request", *state_filter, "--json",
     )
 
 
-def test_completed_pull_request_lookup_returns_none_when_absent(monkeypatch):
+def test_pull_request_lookup_returns_none_when_absent(monkeypatch):
     monkeypatch.setattr(
         "yoke_core.domain.deploy_pipeline_reporting._github_actions",
         lambda *a, **k: subprocess.CompletedProcess(
@@ -333,7 +339,7 @@ def test_completed_pull_request_lookup_returns_none_when_absent(monkeypatch):
         ),
     )
 
-    assert lane.find_completed_pull_request_run(
+    assert lane.find_pull_request_run(
         project="yoke", repo="acme/widgets", workflow="ci.yml",
         head_sha="a" * 40, timeout_seconds=60,
     ) is None

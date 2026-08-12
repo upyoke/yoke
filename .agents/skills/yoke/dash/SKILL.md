@@ -297,6 +297,15 @@ Dash branches otherwise stay local until merge, so an unpublished commit
 is a gate that verifies the wrong tree or none at all. The recorded
 verdict names the CI run URL and the exact head sha it covered.
 
+A project also declaring the merge-queue capability verifies
+pull-request-first: the executor rebases the lane onto the base branch,
+opens the landing pull request, and records that pull request's own entry
+run as the verdict, so one suite covers the gate and queue entry both.
+Expect the pull request to be visible from verification onward — step 7
+enqueues that one rather than opening another. A rebase conflict stops
+the gate before anything is published; resolve it on the lane and re-run,
+which invalidates nothing because no evidence exists yet.
+
 Then execute each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for

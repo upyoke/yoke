@@ -43,6 +43,9 @@ from yoke_core.domain.merge_queue_admission_shape import (
 )
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
+from yoke_core.domain.merge_queue_landing_pull_request import (
+    ensure_landing_pull_request,
+)
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
@@ -51,15 +54,11 @@ from yoke_core.domain.merge_queue_landing_verdict import (
     classify_landing,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
-from yoke_core.engines.merge_worktree_pr_discovery import (
-    find_landable_pull_request,
-)
 from yoke_core.engines.merge_worktree_pr_queue import (
     enter_merge_queue,
     read_pr_landing_state,
     read_queue_members,
 )
-from yoke_core.engines.merge_worktree_pr_rest import create_pr
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -88,57 +87,6 @@ class QueueLandingOutcome:
     already_merged: bool = False
     error: str = ""
     warnings: tuple[str, ...] = field(default=())
-
-
-def _ensure_pr(
-    ctx: MergeContext, item_ref: str, *, lane_head: str = "",
-) -> tuple[str, Optional[str]]:
-    """Find the pull request this landing may use, or open one.
-
-    The lookup deliberately sees merged and closed pull requests: a landing
-    re-entered after the queue merged has to converge on the pull request
-    that merged, and opening a second one for a branch with nothing left
-    against the base is the refusal that convergence exists to prevent.
-    GitHub answering that refusal anyway means a pull request exists that
-    the listing did not show, so the lookup runs once more before failing.
-
-    A merged pull request that does not cover ``lane_head`` is not this
-    landing's, so the lookup declines it and a fresh one is opened for the
-    commits that have not landed. That refusal survives the re-lookup below:
-    finding the same stale pull request again means the fresh landing has no
-    pull request of its own, which is a named failure rather than a silent
-    convergence on the wrong merge commit.
-    """
-    _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
-    if pr_num:
-        return pr_num, None
-    created = create_pr(
-        ctx,
-        title=f"{item_ref}: merge queue landing",
-        body=(
-            f"Item branch for {item_ref}; lands through the merge queue's "
-            "merge_group integration gate."
-        ),
-    )
-    if created.pr_num:
-        return created.pr_num, None
-    if created.already_exists or created.no_commits:
-        _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
-        if pr_num:
-            return pr_num, None
-    if stale:
-        return "", (
-            f"branch {ctx.args.branch!r} carries commits beyond the pull "
-            f"request that merged it ({stale}); open a pull request for the "
-            "new commits, or reset the lane to what already landed"
-        )
-    if created.no_commits:
-        return "", (
-            f"branch {ctx.args.branch!r} has no commits against "
-            f"{ctx.args.target!r} and no pull request records it landing; "
-            "confirm where the branch merged before re-running the landing"
-        )
-    return "", created.error_detail or "pull request create failed"
 
 
 def land_item_through_merge_queue(
@@ -185,7 +133,11 @@ def land_item_through_merge_queue(
             error=verdict.narrative(),
         )
 
-    pr_num, pr_err = _ensure_pr(ctx, item_ref, lane_head=commit_sha)
+    # The verification gate already opened this pull request for a project
+    # routed through the queue, so this call normally converges on it.
+    pr_num, pr_err = ensure_landing_pull_request(
+        ctx, item_ref, lane_head=commit_sha,
+    )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
     # Convergent re-entry: skip queue entry when the PR already merged or

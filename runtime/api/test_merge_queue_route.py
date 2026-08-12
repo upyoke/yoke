@@ -10,6 +10,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
     wire_happy_path,
 )
 
+from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.engines.merge_worktree_pr_queue import QueueMember
@@ -64,7 +65,9 @@ def test_admission_refusal_is_recoverable_and_skips_pr(monkeypatch):
     def forbidden(*_a, **_kw):
         raise AssertionError("PR machinery must not run on refusal")
 
-    monkeypatch.setattr(route_mod, "find_landable_pull_request", forbidden)
+    monkeypatch.setattr(
+        landing_pr_mod, "find_landable_pull_request", forbidden,
+    )
     shapes = {
         "YOK-200": {"claims": [
             {"state": "active", "target_ids": [5]},
