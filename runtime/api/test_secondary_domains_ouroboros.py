@@ -49,6 +49,33 @@ class TestOuroboros:
         result = cmd_mark_archived(test_db, all_reviewed=True)
         assert result == "2"
 
+    def test_mark_archived_all_reviewed_scopes_to_project(self, test_db):
+        from yoke_core.domain.ouroboros import (
+            cmd_insert_entry,
+            cmd_mark_archived,
+            cmd_mark_reviewed,
+        )
+        yoke = cmd_insert_entry(
+            test_db, "t1", "a", None, "cat", "yoke-body", project="yoke"
+        )
+        other = cmd_insert_entry(
+            test_db,
+            "t2",
+            "a",
+            None,
+            "cat",
+            "other-body",
+            project="externalwebapp",
+        )
+        cmd_mark_reviewed(test_db, int(yoke))
+        cmd_mark_reviewed(test_db, int(other))
+        result = cmd_mark_archived(test_db, all_reviewed=True, project="yoke")
+        assert result == "1"
+        leftover = cmd_mark_archived(
+            test_db, all_reviewed=True, project="externalwebapp"
+        )
+        assert leftover == "1"
+
     def test_list_entries_unreviewed(self, test_db):
         from yoke_core.domain.ouroboros import (
             cmd_insert_entry,

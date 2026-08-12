@@ -52,6 +52,9 @@ class OuroborosEntryLifecycleResponse(BaseModel):
 class OuroborosEntryArchiveRequest(BaseModel):
     entry_id: Optional[int] = None
     all_reviewed: bool = False
+    # Optional project slug/id. Required for --all-reviewed over https
+    # (authz resolves it); single-id archive may omit and use the entry row.
+    project: Optional[str] = None
 
 
 def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -180,6 +183,7 @@ def handle_ouroboros_entry_mark_archived(
                 conn,
                 entry_id=payload.entry_id,
                 all_reviewed=payload.all_reviewed,
+                project=payload.project,
             )
     except LookupError as exc:
         return HandlerOutcome(
