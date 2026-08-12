@@ -23,6 +23,7 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import qa_case_command_stream
+from yoke_core.domain import qa_case_budget
 from yoke_core.domain import qa_constants
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
@@ -48,8 +49,11 @@ def execute_worktree_case(
     command = str(config.get("command") or "").strip()
     if not command:
         raise QaCaseExecutionError("Command case requires method_config.command")
-    configured = config.get("timeout_seconds", 1200)
-    timeout = int(timeout_seconds if timeout_seconds is not None else configured)
+    budget = qa_case_budget.resolve_command_case_budget(
+        config,
+        explicit_override=timeout_seconds,
+    )
+    timeout = budget.seconds
     if timeout < 1 or timeout > qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS:
         raise QaCaseExecutionError(
             "Command case timeout_seconds must be between 1 and "
@@ -107,10 +111,19 @@ def execute_worktree_case(
     verdict = "pass" if exit_code == 0 else "fail"
     # A timeout and a broken branch both land on ``fail``, and a queued gate's
     # capture ends mid-suite with no failures in it. Say which one this was.
+    slot_wait_seconds = test_gate_timeout.announced_slot_wait_seconds(
+        streamed.output
+    )
+    elapsed_compute_seconds = max(
+        0.0,
+        duration_ms / 1000 - (slot_wait_seconds or 0.0),
+    )
     timeout_summary = (
         test_gate_timeout.timeout_summary(
             timeout,
-            test_gate_timeout.announced_slot_wait_seconds(streamed.output),
+            slot_wait_seconds,
+            elapsed_compute_seconds=elapsed_compute_seconds,
+            requirement_id=int(case["requirement_id"]),
         )
         if streamed.timed_out
         else ""
@@ -132,6 +145,7 @@ def execute_worktree_case(
         "timed_out": streamed.timed_out,
         "output_tail": output[-16000:],
         "verification_tree": tree.as_payload() if tree else None,
+        **budget.as_record(),
     }
     if timeout_summary:
         record["timeout_summary"] = timeout_summary
@@ -200,6 +214,7 @@ def execute_worktree_case(
         "output_capture": str(streamed.capture_path),
         "timed_out": streamed.timed_out,
         "timeout_summary": timeout_summary,
+        **budget.as_record(),
         "verification_tree": tree.as_payload() if tree else None,
     }
 

@@ -33,7 +33,7 @@ from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
 
-from yoke_core.domain import qa_case_ci_lane, verification_tree_binding
+from yoke_core.domain import qa_case_budget, qa_case_ci_lane, verification_tree_binding
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Executor id recorded on runs this module produces.
@@ -44,7 +44,7 @@ EXECUTOR_ID = "ci_run"
 #: run reports a timeout instead of waiting forever. The budget belongs to
 #: the CI run, not to the local process timeout a ``worktree_run`` case
 #: would apply to its own command.
-DEFAULT_CI_RUN_TIMEOUT_SECONDS = 5400
+DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
 
 _CONCLUSION_PATTERN = re.compile(r"failed:\s*(?P<conclusion>[a-z_]+)")
 
@@ -163,12 +163,12 @@ def execute_ci_case(
     checkout = _resolve_checkout(
         case, checkout_path, allow_tree_mismatch=allow_tree_mismatch,
     )
-    configured = case["method_config"].get("timeout_seconds")
-    budget = int(
-        timeout_seconds
-        if timeout_seconds is not None
-        else (configured or DEFAULT_CI_RUN_TIMEOUT_SECONDS)
+    selected_budget = qa_case_budget.resolve_command_case_budget(
+        case["method_config"],
+        explicit_override=timeout_seconds,
+        executor_default=DEFAULT_CI_RUN_TIMEOUT_SECONDS,
     )
+    budget = selected_budget.seconds
     started = time.monotonic()
     workflow = qa_case_ci_lane.workflow_file(case)
     project = str(case["project"])
@@ -239,6 +239,7 @@ def execute_ci_case(
                 "failure_class": "infrastructure_transient",
                 "error": str(exc),
                 "verification_tree": tree.as_payload(),
+                **selected_budget.as_record(),
             },
             sort_keys=True,
         )
@@ -268,6 +269,7 @@ def execute_ci_case(
             "reused_pull_request_run": reused_pull_request_run,
             "failure_class": failure_class or None,
             "verification_tree": tree.as_payload(),
+            **selected_budget.as_record(),
         },
         sort_keys=True,
     )
@@ -300,6 +302,7 @@ def execute_ci_case(
         "ci_conclusion": conclusion,
         "reused_pull_request_run": reused_pull_request_run,
         "failure_class": failure_class or None,
+        **selected_budget.as_record(),
         "verification_tree": tree.as_payload(),
     }
 

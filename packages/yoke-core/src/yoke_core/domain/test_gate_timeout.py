@@ -7,6 +7,8 @@ import re
 import shlex
 from collections.abc import MutableMapping
 
+from yoke_core.domain.qa_constants import MAX_CASE_COMMAND_TIMEOUT_SECONDS
+
 
 WATCH_PYTEST_MODULE = "yoke_core.tools.watch_pytest"
 WATCH_EXECUTION_TIMEOUT_ENV = "YOKE_WATCH_EXECUTION_TIMEOUT_SECONDS"
@@ -98,17 +100,43 @@ def announced_slot_wait_seconds(output: str) -> float | None:
     return float(match.group(1)) if match is not None else None
 
 
-def timeout_summary(timeout_seconds: int, slot_wait_seconds: float | None) -> str:
+def timeout_summary(
+    timeout_seconds: int,
+    slot_wait_seconds: float | None,
+    *,
+    elapsed_compute_seconds: float | None = None,
+    requirement_id: int | None = None,
+) -> str:
     """State plainly that a run hit its budget rather than failing tests.
 
     A timed-out run records the same ``fail`` verdict a broken branch does,
     and a queued gate's capture ends mid-suite with no failures in it. This
     sentence is what separates the two for whoever reads the record.
     """
-    summary = f"timed out after {timeout_seconds}s of execution"
+    compute = (
+        float(timeout_seconds)
+        if elapsed_compute_seconds is None
+        else max(0.0, elapsed_compute_seconds)
+    )
+    summary = (
+        f"execution budget {timeout_seconds}s was exhausted after "
+        f"{compute:.0f}s of compute"
+    )
     if slot_wait_seconds is not None:
         summary += (
             f", having first waited {slot_wait_seconds:.0f}s for a machine-wide "
             "test-gate slot that is not charged to the budget"
         )
-    return summary + "; the run was reaped at the deadline, not failing tests"
+    retry_budget = min(
+        timeout_seconds * 2,
+        MAX_CASE_COMMAND_TIMEOUT_SECONDS,
+    )
+    retry = "yoke qa case run"
+    if requirement_id is not None:
+        retry += f" --requirement-id {requirement_id}"
+    retry += f" --timeout-seconds {retry_budget}"
+    return (
+        summary
+        + "; the run was reaped at the deadline, not failing tests; "
+        + f"retry with `{retry}`"
+    )
