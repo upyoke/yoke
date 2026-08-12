@@ -41,6 +41,7 @@ from yoke_core.domain.worktree_provision import (
     project_field as _project_field,
     provision_worktree as _provision_worktree,
     provision_worktree_harness_enablement as _provision_worktree_harness_enablement,
+    provision_worktree_test_environment as _provision_worktree_test_environment,
 )
 
 
@@ -282,6 +283,24 @@ def create_worktree(
             worktrees=tuple(plan.worktrees),
             failed_branch=primary.branch,
         )
+
+    # A lane is ready when its tests can run in it. This runs for reused
+    # lanes as well as new ones, so a lane prepared before this step
+    # existed — or one whose environment drifted from the lockfile — is
+    # repaired on the next preparation rather than failing at the first
+    # test command.
+    for entry in plan.worktrees:
+        environment_error = _provision_worktree_test_environment(entry.path)
+        if environment_error:
+            return CreateWorktreeResult(
+                path=entry.path,
+                branch=entry.branch,
+                created=any_created,
+                error=environment_error,
+                worktrees=tuple(plan.worktrees),
+                failed_branch=entry.branch,
+            )
+
     return CreateWorktreeResult(
         path=primary.path,
         branch=primary.branch,
