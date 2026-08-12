@@ -174,6 +174,26 @@ class TestSessionClaimIdForTarget(unittest.TestCase):
             claim_id,
         )
 
+    def test_item_target_prefers_newest_active_over_older_released(self):
+        """Release-by-item must not resolve a stale released row.
+
+        Specimen shape: older released claim + newer active claim on the
+        same item/session — lookup returns the newest active id only.
+        """
+        older = self._seed(
+            session_id="sid-e",
+            target_kind="item",
+            item_id=42,
+            released_at="2026-08-10T13:00:00Z",
+        )
+        newer = self._seed(
+            session_id="sid-e", target_kind="item", item_id=42,
+        )
+        target = TargetRef(kind="item", item_id=42)
+        resolved = claims_module._session_claim_id_for_target(target, "sid-e")
+        self.assertEqual(resolved, newer)
+        self.assertNotEqual(resolved, older)
+
     def test_process_key_resolves_session_claim(self):
         claim_id = self._seed(
             session_id="sid-e",
