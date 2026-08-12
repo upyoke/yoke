@@ -15,11 +15,11 @@ class MachineCaseDispatchError(RuntimeError):
 
 def _require_machine_case(case: Mapping[str, Any]) -> int:
     requirement_id = int(case.get("requirement_id") or 0)
-    executor_id = str(case.get("executor_id") or "")
+    runner_id = str(case.get("runner_id") or "")
     method_id = str(case.get("method_id") or "")
     if requirement_id < 1:
         raise MachineCaseDispatchError("Machine QA requires requirement_id")
-    if executor_id != "host_control" or method_id not in MACHINE_METHODS:
+    if runner_id != "host_control" or method_id not in MACHINE_METHODS:
         raise MachineCaseDispatchError(
             f"case {requirement_id} is not a registered Machine QA case"
         )

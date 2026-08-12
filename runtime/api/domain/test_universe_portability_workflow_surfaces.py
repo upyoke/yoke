@@ -79,7 +79,7 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
             "baseline_position",
             "method_id",
             "method_name",
-            "executor_id",
+            "runner_id",
             "required_capability_kind",
             "verdict_path",
             "host_baseline",
@@ -133,7 +133,7 @@ def test_user_content_counts_detects_nonempty_universe():
         )
         conn.execute(
             "INSERT INTO qa_methods ("
-            "id, name, description, source_kind, project_id, executor_id, "
+            "id, name, description, source_kind, project_id, runner_id, "
             "verdict_path, verdict_contract, evidence_contract, created_at, "
             "updated_at"
             ") VALUES ("

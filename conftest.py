@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parent
 # ---------------------------------------------------------------------------
 #
 # The floor under every pytest entry point. The watcher wrapper, the
-# generic runner, and the QA case executor each judge the tree before they
+# generic runner, and the QA case runner each judge the tree before they
 # start pytest -- but a raw ``python3 -m pytest``, an IDE run button, or a
 # future entry point never passes through any of them, and a run rooted in
 # a checkout the session does not hold reports a green for code nobody

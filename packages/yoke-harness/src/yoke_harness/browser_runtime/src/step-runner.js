@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Scenario step executor.
+ * Scenario step runner.
  *
  * Maps scenario step schema objects to Playwright API calls.
  *

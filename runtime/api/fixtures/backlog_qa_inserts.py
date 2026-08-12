@@ -56,7 +56,7 @@ def insert_qa_run(
     conn: Any,
     *,
     qa_requirement_id: int = 1,
-    executor_type: str = "pytest",
+    performed_by: str = "pytest",
     qa_kind: str = "smoke",
     verdict: str = "pass",
     raw_result: Optional[str] = None,
@@ -67,7 +67,7 @@ def insert_qa_run(
     """Insert a row into ``qa_runs`` and return it."""
     cols = {
         "qa_requirement_id": qa_requirement_id,
-        "executor_type": executor_type,
+        "performed_by": performed_by,
         "qa_kind": qa_kind,
         "verdict": verdict,
         "raw_result": raw_result,

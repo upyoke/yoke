@@ -243,7 +243,7 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
         "display_name": capability_type_definition(TEST_MACHINE_CAPABILITY)[
             "display_label"
         ],
-        "executor_id": HOST_CONTROL_EXECUTOR_ID,
+        "runner_id": HOST_CONTROL_EXECUTOR_ID,
         "settings": settings,
         "settings_token": settings_token,
         "features": list(TEST_MACHINE_FEATURES),

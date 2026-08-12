@@ -9,7 +9,7 @@ plane reads and writes use registered function calls, so execution works from
 the Yoke checkout and from a connected project checkout.
 
 See [Browser Automation Substrate](../browser-substrate.md) for daemon, ref,
-and step-executor primitives, and
+and step-runner primitives, and
 [Browser Scenario Schema](../../.yoke/docs/reference/browser-scenarios.md) for the
 case configuration contract.
 
@@ -33,7 +33,7 @@ omit them to bypass freshness validation.
 
 `qa.case_execution.begin` authorizes and returns the immutable materialized
 case snapshot before any local Browser work. The runner selects Browser
-execution from its registered executor and invokes the substrate for only the
+execution from its registered runner and invokes the substrate for only the
 named requirement.
 
 Browser cases use one of two method IDs:
@@ -71,7 +71,7 @@ parallel run or self-report Browser evidence as an agent verdict.
 |------|---------|
 | `0` | Execution completed without a fail/error verdict. A Browser inspection can still be `inconclusive` and awaiting review. |
 | `1` | The case verdict is `fail`. |
-| `2` | A prerequisite, case-contract, freshness, or executor error prevented valid completion. |
+| `2` | A prerequisite, case-contract, freshness, or runner error prevented valid completion. |
 
 A successful `browser-check` is immediately satisfied. A successful
 `browser-inspection` capture remains unresolved until its generated review

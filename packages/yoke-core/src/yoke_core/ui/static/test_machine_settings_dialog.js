@@ -5,7 +5,7 @@ import {
 } from "./universe_view_support.js";
 
 export const machineSecretNotes = {
-  ssh_private_key: "executor subprocess only",
+  ssh_private_key: "runner subprocess only",
 };
 
 export function orderedMachineSecrets(secrets) {
@@ -82,7 +82,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
       documentNode,
       "small",
       null,
-      machineSecretNotes[secret.key] || "executor-only credential",
+      machineSecretNotes[secret.key] || "runner-only credential",
     ));
     row.appendChild(el(
       documentNode,
@@ -98,7 +98,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "Host baselines stay read-only here: fresh-host and shell-preconfigured are registered executor operations, not user-authored instructions.",
+    "Host baselines stay read-only here: fresh-host and shell-preconfigured are registered runner operations, not user-authored instructions.",
   ));
   const error = el(
     documentNode, "p", "test-machine-settings-error error",

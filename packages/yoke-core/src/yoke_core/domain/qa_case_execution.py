@@ -1,12 +1,12 @@
-"""Dispatch a materialized plan case to the executor its method names.
+"""Dispatch a materialized plan case to the runner its method names.
 
-The per-executor implementations live beside this module —
+The per-runner implementations live beside this module —
 :mod:`yoke_core.domain.qa_case_worktree_run` (local command),
 :mod:`yoke_core.domain.qa_case_ci_run` (the project's CI workflow),
 :mod:`yoke_core.domain.browser_qa`, and
 :mod:`yoke_core.domain.machine_qa_case_execution`. What stays here is
 what they share: the authorized case context, the qa.* function-call
-boundary, and the checkout an executor runs against.
+boundary, and the checkout a runner runs against.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from yoke_core.domain import qa_start_bound_authority
 
 
 class QaCaseExecutionError(RuntimeError):
-    """A case contract is invalid or its executor cannot be run locally."""
+    """A case contract is invalid or its runner cannot be run locally."""
 
 
 def _dispatch(
@@ -56,7 +56,7 @@ def recording_leg(
     *,
     actor: Optional[ActorContext] = None,
 ) -> Callable[[str, dict], dict]:
-    """Return the dispatcher an executor's run/artifact legs share.
+    """Return the dispatcher a runner's run/artifact legs share.
 
     Binds the requirement the run belongs to, the calling actor, and the
     authority the run pinned at ``qa.case_execution.begin``. That last
@@ -134,7 +134,7 @@ def _browser_result(
     )
     return {
         "requirement_id": int(case["requirement_id"]),
-        "executor_id": "browser_substrate",
+        "runner_id": "browser_substrate",
         **json.loads(result.to_json()),
     }
 
@@ -151,8 +151,8 @@ def execute_case_context(
     actor: Optional[ActorContext] = None,
 ) -> dict:
     """Execute a server-authorized immutable case context locally."""
-    executor_id = str(case["executor_id"])
-    if executor_id == "worktree_run":
+    runner_id = str(case["runner_id"])
+    if runner_id == "worktree_run":
         from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
         return execute_worktree_case(
@@ -160,7 +160,7 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch, actor=actor,
         )
-    if executor_id == "ci_run":
+    if runner_id == "ci_run":
         from yoke_core.domain.qa_case_ci_run import execute_ci_case
 
         return execute_ci_case(
@@ -168,7 +168,7 @@ def execute_case_context(
             checkout_path=checkout_path,
             allow_tree_mismatch=allow_tree_mismatch, actor=actor,
         )
-    if executor_id == "browser_substrate":
+    if runner_id == "browser_substrate":
         return _browser_result(
             case,
             base_url=base_url,
@@ -176,14 +176,14 @@ def execute_case_context(
             expected_sha=expected_sha,
             actor=actor,
         )
-    if executor_id == "host_control":
+    if runner_id == "host_control":
         from yoke_core.domain.machine_qa_case_execution import (
             execute_materialized_machine_case,
         )
 
         return execute_materialized_machine_case(case, actor=actor)
     raise QaCaseExecutionError(
-        f"executor {executor_id!r} is not supported by shared case execution"
+        f"runner {runner_id!r} is not supported by shared case execution"
     )
 
 

@@ -1,6 +1,6 @@
 """``yoke qa ...`` browser-family flag adapters.
 
-Function ids used by the per-requirement Browser method executor. Execution
+Function ids used by the per-requirement Browser method runner. Execution
 enters through ``yoke qa case run --requirement-id``; there is no aggregate
 Browser run command:
 
@@ -66,7 +66,7 @@ def qa_browser_context_get(args: List[str]) -> int:
 
 
 QA_RUN_ADD_USAGE = (
-    "yoke qa run add --requirement-id N --executor-type TYPE "
+    "yoke qa run add --requirement-id N --performed-by TYPE "
     "[--qa-kind KIND] [--verdict V] [--execution-status S] "
     "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
 )
@@ -79,8 +79,8 @@ def qa_run_add(args: List[str]) -> int:
     parser.add_argument("--requirement-id", dest="requirement_id",
                         type=int, required=True,
                         help="Target qa_requirements.id.")
-    parser.add_argument("--executor-type", dest="executor_type", required=True,
-                        help="Executor that runs the QA check.")
+    parser.add_argument("--performed-by", dest="performed_by", required=True,
+                        help="Runner that runs the QA check.")
     parser.add_argument("--qa-kind", dest="qa_kind", default=None,
                         help="Must match the requirement's stored kind.")
     parser.add_argument("--verdict", default=None,
@@ -97,7 +97,7 @@ def qa_run_add(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, QA_RUN_ADD_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {"executor_type": parsed.executor_type}
+    payload: Dict[str, Any] = {"performed_by": parsed.performed_by}
     for key in ("qa_kind", "verdict", "execution_status", "raw_result"):
         value = getattr(parsed, key)
         if value is not None:

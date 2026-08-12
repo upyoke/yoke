@@ -119,7 +119,7 @@ def insert_requirement(
         "item_id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
         "requirement_source, success_policy, capability_requirements, "
         "plan_id, plan_case_key, case_position, baseline_position, "
-        "method_id, method_name, executor_id, required_capability_kind, "
+        "method_id, method_name, runner_id, required_capability_kind, "
         "verdict_path, host_baseline, entry_surface, required_completion, "
         "workflow_transition_id, instructions, expected_outcome, "
         "method_config, execution_target_json, execution_target_digest, created_at"
@@ -142,7 +142,7 @@ def insert_requirement(
             int(baseline_position),
             str(case["method_id"]),
             str(case["method_name"]),
-            str(case["executor_id"]),
+            str(case["runner_id"]),
             case["required_capability_kind"],
             str(case["verdict_path"]),
             baseline,
@@ -198,7 +198,7 @@ def refresh_requirement(
         f"success_policy={marker}, capability_requirements={marker}, "
         f"plan_id={marker}, plan_case_key={marker}, case_position={marker}, "
         f"baseline_position={marker}, method_id={marker}, method_name={marker}, "
-        f"executor_id={marker}, required_capability_kind={marker}, "
+        f"runner_id={marker}, required_capability_kind={marker}, "
         f"verdict_path={marker}, host_baseline={marker}, entry_surface={marker}, "
         f"required_completion={marker}, workflow_transition_id={marker}, "
         f"instructions={marker}, expected_outcome={marker}, method_config={marker}, "
@@ -217,7 +217,7 @@ def refresh_requirement(
             int(baseline_position),
             str(case["method_id"]),
             str(case["method_name"]),
-            str(case["executor_id"]),
+            str(case["runner_id"]),
             case["required_capability_kind"],
             str(case["verdict_path"]),
             baseline,

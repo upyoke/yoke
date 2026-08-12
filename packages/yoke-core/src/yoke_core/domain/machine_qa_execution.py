@@ -18,7 +18,7 @@ from yoke_core.domain.host_baseline_operations import (
     HostBaselineResult,
     run_host_baseline,
 )
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     HostActionResult,
     HostControl,
     TestMachineMaterial,
@@ -61,7 +61,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
             case_outcome="waiting",
             verdict="waiting",
             evidence={
-                "executor_id": "host_control",
+                "runner_id": "host_control",
                 "machine": self.machine,
                 "case_started": False,
                 "lease": {
@@ -123,7 +123,7 @@ class MachineQaLease:
                 verdict="blocked",
                 error_code=self.baseline.error_code,
                 evidence={
-                    "executor_id": "host_control",
+                    "runner_id": "host_control",
                     "machine": self.material.settings["resource_name"],
                     "baseline": self.baseline.name,
                     "baseline_evidence": baseline_evidence,
@@ -144,7 +144,7 @@ class MachineQaLease:
                 verdict="blocked",
                 error_code=str(blocker["code"]),
                 evidence={
-                    "executor_id": "host_control",
+                    "runner_id": "host_control",
                     "machine": self.material.settings["resource_name"],
                     "baseline": self.baseline.name if self.baseline else None,
                     "case_started": False,
@@ -180,7 +180,7 @@ class MachineQaLease:
             tuple(self.material.secrets.values()),
         )
         evidence = {
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "machine": self.material.settings["resource_name"],
             "method_id": method_id,
             "baseline": self.baseline.name if self.baseline else None,

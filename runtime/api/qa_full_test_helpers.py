@@ -70,7 +70,7 @@ def _apply_qa_full_schema() -> None:
 
     Applies ``_QA_SUPPORT_SCHEMA`` (projects/items/epic_tasks seeds) then
     ``qa.cmd_init``, one native statement at a time through the canonical
-    schema-script executor.
+    schema-script runner.
     """
     from yoke_core.domain import db_backend
 

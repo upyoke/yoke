@@ -42,7 +42,7 @@ class ProjectMethodRegisterRequest(BaseModel):
     slug: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
-    executor_id: str = Field(..., min_length=1)
+    runner_id: str = Field(..., min_length=1)
     verdict_path: str = Field(..., min_length=1)
     verdict_contract: str = Field(..., min_length=1)
     evidence_contract: str = Field(..., min_length=1)
@@ -54,7 +54,7 @@ class ProjectMethodRegisterResponse(BaseModel):
     id: str
     project: str
     project_id: int
-    executor_id: str
+    runner_id: str
     verdict_path: str
 
 

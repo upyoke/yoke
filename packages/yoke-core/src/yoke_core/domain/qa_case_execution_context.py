@@ -35,7 +35,7 @@ def get_case_execution_context(
     *,
     requirement_id: int,
 ) -> dict[str, Any]:
-    """Return the client-local executor contract for a method-backed case."""
+    """Return the client-local runner contract for a method-backed case."""
     marker = _p(conn)
     row = query_one(
         conn,
@@ -44,7 +44,7 @@ def get_case_execution_context(
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.workflow_transition_id, q.entry_surface, "
-        "q.required_completion, q.method_name, q.executor_id, "
+        "q.required_completion, q.method_name, q.runner_id, "
         "q.required_capability_kind, q.verdict_path, "
         "q.execution_target_json, q.execution_target_digest, "
         f"{recorded_item_worktree_value_sql('i.id', 'branch')} AS lane_branch, "
@@ -70,13 +70,13 @@ def get_case_execution_context(
     plan_id = int(row["plan_id"]) if row["plan_id"] is not None else None
     method_snapshot = {
         "method_name": row["method_name"],
-        "executor_id": row["executor_id"],
+        "runner_id": row["runner_id"],
         "required_capability_kind": row["required_capability_kind"],
         "verdict_path": row["verdict_path"],
     }
     if not all(
         str(method_snapshot[key] or "").strip()
-        for key in ("method_name", "executor_id", "verdict_path")
+        for key in ("method_name", "runner_id", "verdict_path")
     ):
         if plan_id is not None:
             raise QaCaseExecutionError(
@@ -85,7 +85,7 @@ def get_case_execution_context(
             )
         method = query_one(
             conn,
-            "SELECT name AS method_name, executor_id, "
+            "SELECT name AS method_name, runner_id, "
             "required_capability_kind, verdict_path FROM qa_methods "
             f"WHERE id={marker}",
             (str(row["method_id"]),),
@@ -108,7 +108,7 @@ def get_case_execution_context(
         "case_key": case_key,
         "method_id": str(row["method_id"]),
         "method_name": str(method_snapshot["method_name"]),
-        "executor_id": str(method_snapshot["executor_id"]),
+        "runner_id": str(method_snapshot["runner_id"]),
         "required_capability_kind": method_snapshot["required_capability_kind"],
         "verdict_path": str(method_snapshot["verdict_path"]),
         "qa_kind": str(row["qa_kind"]),
@@ -123,7 +123,7 @@ def get_case_execution_context(
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
     }
-    if str(method_snapshot["executor_id"]) == "ci_run":
+    if str(method_snapshot["runner_id"]) == "ci_run":
         context["lane_commit_sha"] = row["lane_commit_sha"]
     if (
         "lane_commit_sha" in context

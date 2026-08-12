@@ -12,7 +12,7 @@ INSERT_SQL = (
     "target_env, blocking_mode, requirement_source, success_policy, "
     "capability_requirements, suite_id, method_id, instructions, "
     "expected_outcome, method_config, workflow_transition_id, method_name, "
-    "executor_id, required_capability_kind, verdict_path, created_at) "
+    "runner_id, required_capability_kind, verdict_path, created_at) "
     "VALUES ({p}, NULL, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, "
     "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
     "RETURNING id"
@@ -45,7 +45,7 @@ def insert_params(
         ),
         row.get("workflow_transition_id"),
         row.get("method_name"),
-        row.get("executor_id"),
+        row.get("runner_id"),
         row.get("required_capability_kind"),
         row.get("verdict_path"),
         now_iso,

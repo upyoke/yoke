@@ -91,7 +91,7 @@ def cmd_run_add(
     *,
     db_path: Optional[str] = None,
     requirement_id: int,
-    executor_type: str,
+    performed_by: str,
     qa_kind: Optional[str] = None,
     verdict: Optional[str] = None,
     execution_status: Optional[str] = None,
@@ -106,8 +106,8 @@ def cmd_run_add(
     if not requirement_id:
         print("Error: --requirement-id is required", file=sys.stderr)
         sys.exit(2)
-    if not executor_type:
-        print("Error: --executor-type is required", file=sys.stderr)
+    if not performed_by:
+        print("Error: --performed-by is required", file=sys.stderr)
         sys.exit(2)
     qa_kind = _resolve_qa_kind(db_path, requirement_id, qa_kind)
 
@@ -118,16 +118,16 @@ def cmd_run_add(
             "SELECT method_id FROM qa_requirements WHERE id = %s",
             (requirement_id,),
         )
-        if executor_type == "agent" and is_browser_method_requirement(method_id):
+        if performed_by == "agent" and is_browser_method_requirement(method_id):
             print(
-                "Error: executor_type 'agent' is not allowed for Browser "
+                "Error: performed_by 'agent' is not allowed for Browser "
                 "method cases -- use browser_substrate",
                 file=sys.stderr,
             )
             sys.exit(2)
 
-        # Reject agent executor for ac_verification with screenshot evidence
-        if executor_type == "agent" and qa_kind == "ac_verification":
+        # Reject agent-performed ac_verification with screenshot evidence
+        if performed_by == "agent" and qa_kind == "ac_verification":
             req_policy = query_scalar(
                 conn,
                 "SELECT success_policy FROM qa_requirements WHERE id = %s",
@@ -135,7 +135,7 @@ def cmd_run_add(
             )
             if req_policy and "requires_screenshot_evidence" in str(req_policy):
                 print(
-                    "Error: executor_type 'agent' is not allowed for ac_verification "
+                    "Error: performed_by 'agent' is not allowed for ac_verification "
                     "with [requires_screenshot_evidence] -- use browser_substrate",
                     file=sys.stderr,
                 )
@@ -169,7 +169,7 @@ def cmd_run_add(
         )
 
         sql = """INSERT INTO qa_runs
-                  (qa_requirement_id, executor_type, qa_kind, verdict,
+                  (qa_requirement_id, performed_by, qa_kind, verdict,
                    execution_status, case_outcome, score, confidence, raw_result,
                    duration_ms, started_at, completed_at, created_at)
                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
@@ -177,7 +177,7 @@ def cmd_run_add(
             sql,
             (
                 requirement_id,
-                executor_type,
+                performed_by,
                 qa_kind,
                 verdict,
                 execution_status,
@@ -283,7 +283,7 @@ def cmd_run_complete(
         # Verify the run exists
         row = query_one(
             conn,
-            "SELECT qa_requirement_id, executor_type, qa_kind FROM qa_runs WHERE id = %s",
+            "SELECT qa_requirement_id, performed_by, qa_kind FROM qa_runs WHERE id = %s",
             (run_id,),
         )
         if row is None:

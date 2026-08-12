@@ -21,7 +21,7 @@ yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select unsatisfied, non-waived plan-materialized requirements for that
-transition. Execute each `Command` case through its registered executor:
+transition. Execute each `Command` case through its registered runner:
 
 ```bash
 yoke qa case run --requirement-id <requirement-id>

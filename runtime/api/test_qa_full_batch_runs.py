@@ -63,14 +63,14 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req1,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "All tests pass",
             },
             {
                 "requirement_id": req2,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "Verified in output",
@@ -100,7 +100,7 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req_id,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "OK",
@@ -120,7 +120,7 @@ class TestRunAddBatch:
         json_file = str(tmp_path / "obj.json")
         with open(json_file, "w") as f:
             json.dump(
-                {"requirement_id": 1, "executor_type": "agent", "qa_kind": "smoke"}, f
+                {"requirement_id": 1, "performed_by": "agent", "qa_kind": "smoke"}, f
             )
 
         with pytest.raises(SystemExit) as exc:
@@ -138,7 +138,7 @@ class TestRunAddBatch:
 
     def test_rejects_missing_required_field(self, db_path, tmp_path):
         payload = [
-            {"executor_type": "agent", "qa_kind": "smoke"},  # missing requirement_id
+            {"performed_by": "agent", "qa_kind": "smoke"},  # missing requirement_id
         ]
         json_file = str(tmp_path / "missing.json")
         with open(json_file, "w") as f:
@@ -163,14 +163,14 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req_id,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "All tests pass",
             },
             {
                 "requirement_id": req_id,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "not_a_real_verdict",
                 "raw_result": "Should fail",
@@ -197,14 +197,14 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req1,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "All tests pass",
             },
             {
                 "requirement_id": req2,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "Verified in output",
@@ -243,7 +243,7 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req_id,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "plan_case",
                 "verdict": "pass",
             },
@@ -262,7 +262,7 @@ class TestRunAddBatch:
         payload = [
             {
                 "requirement_id": req_id,
-                "executor_type": "agent",
+                "performed_by": "agent",
                 "qa_kind": "ac_verification",
                 "verdict": "pass",
                 "raw_result": "Screenshot OK",

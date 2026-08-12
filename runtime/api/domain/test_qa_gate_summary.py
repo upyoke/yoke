@@ -93,12 +93,12 @@ def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
 
 
 def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
-    """Pass + non-agent executor + artifact satisfies the gate."""
+    """Pass + non-agent runner + artifact satisfies the gate."""
     rid = add_requirement(
         qa_db, qa_kind="plan_case", method_id="browser-inspection",
     )
     run_id = add_run(
-        qa_db, rid, executor_type="browser_substrate", qa_kind="plan_case",
+        qa_db, rid, performed_by="browser_substrate", qa_kind="plan_case",
     )
     add_artifact(qa_db, run_id)
     summary = render_gate_summary(
@@ -111,7 +111,7 @@ def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
     latest = req["latest_run"]
     assert latest is not None
     assert latest["verdict"] == "pass"
-    assert latest["executor_type"] == "browser_substrate"
+    assert latest["performed_by"] == "browser_substrate"
     assert latest["id"] == run_id
 
 
@@ -120,7 +120,7 @@ def test_browser_with_agent_only_run_unsatisfied(qa_db):
     rid = add_requirement(
         qa_db, qa_kind="plan_case", method_id="browser-check",
     )
-    add_run(qa_db, rid, executor_type="agent", qa_kind="plan_case")
+    add_run(qa_db, rid, performed_by="agent", qa_kind="plan_case")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -135,7 +135,7 @@ def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
         qa_db, qa_kind="plan_case", method_id="browser-check",
     )
     add_run(
-        qa_db, rid, executor_type="browser_substrate", qa_kind="plan_case",
+        qa_db, rid, performed_by="browser_substrate", qa_kind="plan_case",
     )
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
@@ -148,7 +148,7 @@ def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
 def test_e2e_with_passing_run_satisfied(qa_db):
     """E2e satisfies on any passing run (no substrate-only rule)."""
     rid = add_requirement(qa_db, qa_kind="e2e")
-    add_run(qa_db, rid, executor_type="ci", qa_kind="e2e")
+    add_run(qa_db, rid, performed_by="ci", qa_kind="e2e")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -159,7 +159,7 @@ def test_e2e_with_passing_run_satisfied(qa_db):
 def test_e2e_without_passing_run_unsatisfied(qa_db):
     """Unsatisfied e2e shows up in counts and per-row flag."""
     rid = add_requirement(qa_db, qa_kind="e2e")
-    add_run(qa_db, rid, executor_type="ci", qa_kind="e2e", verdict="fail")
+    add_run(qa_db, rid, performed_by="ci", qa_kind="e2e", verdict="fail")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -231,7 +231,7 @@ def test_target_implemented_includes_all_blocking_phases(qa_db):
 
 def test_summary_render_does_not_mutate_qa_tables(qa_db):
     rid = add_requirement(qa_db, qa_kind="ac_verification")
-    add_run(qa_db, rid, executor_type="agent", qa_kind="ac_verification")
+    add_run(qa_db, rid, performed_by="agent", qa_kind="ac_verification")
     pre_req = row_count(qa_db, "qa_requirements")
     pre_run = row_count(qa_db, "qa_runs")
     pre_art = row_count(qa_db, "qa_artifacts")
@@ -247,7 +247,7 @@ def test_epic_task_target(qa_db):
     rid = add_requirement(
         qa_db, item_id=None, epic_id=833, task_num=5, qa_kind="ac_verification",
     )
-    add_run(qa_db, rid, executor_type="agent", qa_kind="ac_verification")
+    add_run(qa_db, rid, performed_by="agent", qa_kind="ac_verification")
     summary = render_gate_summary(
         GateTarget(epic_id=833, task_num=5), qa_db,
         transition_name="reviewed-implementation",

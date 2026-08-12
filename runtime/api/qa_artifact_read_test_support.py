@@ -56,7 +56,7 @@ def seed_artifact(
     )
     run = conn.execute(
         "INSERT INTO qa_runs("
-        "qa_requirement_id, executor_type, qa_kind, verdict, created_at"
+        "qa_requirement_id, performed_by, qa_kind, verdict, created_at"
         ") VALUES (10, 'worktree_run', 'command', 'pass', "
         "'2026-07-26T12:00:00Z') RETURNING id",
     ).fetchone()
@@ -118,7 +118,7 @@ def seed_deployment_artifact(conn, *, handle: dict) -> int:
     )
     run = conn.execute(
         "INSERT INTO qa_runs("
-        "qa_requirement_id, executor_type, qa_kind, verdict, created_at"
+        "qa_requirement_id, performed_by, qa_kind, verdict, created_at"
         ") VALUES (%s, 'worktree_run', 'command', 'pass', "
         "'2026-07-28T12:00:00Z') RETURNING id",
         (int(requirement["id"]),),

@@ -77,7 +77,7 @@ def _materialize_two_cases(conn, *, item_id: int) -> list[int]:
 def _result(requirement_id: int) -> dict:
     return {
         "requirement_id": requirement_id,
-        "executor_id": "worktree_run",
+        "runner_id": "worktree_run",
         "verdict": "pass",
         "case_outcome": "passed",
     }

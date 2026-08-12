@@ -1,4 +1,4 @@
-"""Remote paths reserved for the Machine QA fixture executor."""
+"""Remote paths reserved for the Machine QA fixture runner."""
 
 FIXTURE_ROOT = "/tmp/yoke-machine-qa-fixtures"
 FAKE_API_SERVER_PATH = f"{FIXTURE_ROOT}/fake_yoke_api.py"

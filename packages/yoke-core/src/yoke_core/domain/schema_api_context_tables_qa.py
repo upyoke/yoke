@@ -35,7 +35,7 @@ QA_TABLES: dict[str, dict] = {
             ("baseline_position", "INTEGER"),
             ("method_id", "TEXT"),
             ("method_name", "TEXT"),
-            ("executor_id", "TEXT"),
+            ("runner_id", "TEXT"),
             ("required_capability_kind", "TEXT"),
             ("verdict_path", "TEXT"),
             ("host_baseline", "TEXT"),
@@ -63,7 +63,7 @@ QA_TABLES: dict[str, dict] = {
             "there is no `kind` and no `requirement_type` column; "
             "requirement provenance is `requirement_source` (`explicit` / "
             "`ac_derived` / ...). Materialized executable cases instead "
-            "carry immutable case ordering, executor, entry-surface, "
+            "carry immutable case ordering, runner, entry-surface, "
             "completion, instructions, expected-outcome, and method-config "
             "snapshots plus one environment/tenant/project execution target. "
             "The target digest prevents endpoint or environment substitution "
@@ -84,7 +84,7 @@ QA_TABLES: dict[str, dict] = {
         "columns": [
             ("id", "INTEGER"),
             ("qa_requirement_id", "INTEGER"),
-            ("executor_type", "TEXT"),
+            ("performed_by", "TEXT"),
             ("qa_kind", "TEXT"),
             ("verdict", "TEXT"),
             ("score", "REAL"),
@@ -100,7 +100,7 @@ QA_TABLES: dict[str, dict] = {
             "Recorded results. Join to qa_requirements via "
             "qa_requirement_id. Requirements whose method_id is "
             "`browser-check` or `browser-inspection` require "
-            "executor_type=browser_substrate; agent runs are rejected for "
+            "performed_by=browser_substrate; agent runs are rejected for "
             "those methods. Tester review "
             "verdicts (`yoke workflow-item epic-task review-insert`) "
             "ALSO land here — verdict + "

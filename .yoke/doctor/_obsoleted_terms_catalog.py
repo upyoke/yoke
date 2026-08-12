@@ -100,6 +100,17 @@ _RETIRED_QA_AUTO_FUNCTION_PATTERN = r"\bqa\.requirement\.auto_create_for_item\b"
 _RETIRED_QA_AUTO_CLI_PATTERN = r"\byoke\s+qa\s+requirement\s+auto-create-for-item\b"
 _RETIRED_WORK_ITEM_SYNONYM_PATTERN = r"\b" + "tick" + r"ets?\b"
 
+# The QA catalog's own word for what carries a case out. ``executor`` now
+# names harness identity and nothing else, so the QA columns that borrowed it
+# carry runner vocabulary instead: qa_methods/qa_requirements ``runner_id``,
+# qa_methods ``runner_gloss``, and qa_runs ``performed_by``. Split so the
+# scanner reports which retired surface a file still names.
+_RETIRED_QA_EXECUTOR_ID_PATTERN = r"\b" + "executor" + r"_id\b"
+_RETIRED_QA_EXECUTOR_TYPE_PATTERN = r"\b" + "executor" + r"_type\b"
+_RETIRED_QA_EXECUTOR_GLOSS_PATTERN = r"\b" + "executor" + r"_gloss\b"
+_RETIRED_QA_EXECUTOR_CLI_PATTERN = r"--" + "executor" + r"-type\b"
+_RETIRED_HOST_CONTROL_EXECUTOR_PATTERN = r"\bhost_control_" + "executor" + r"\b"
+
 _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN = (
     r"yoke_core\.domain\.(?:migration_auto_retire|migration_install_topology"
     r"|migration_retire_record|migration_apply_manifest|migration_source_checkout"
@@ -147,6 +158,11 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_QA_AUTO_FUNCTION_PATTERN,
     _RETIRED_QA_AUTO_CLI_PATTERN,
     _RETIRED_WORK_ITEM_SYNONYM_PATTERN,
+    _RETIRED_QA_EXECUTOR_ID_PATTERN,
+    _RETIRED_QA_EXECUTOR_TYPE_PATTERN,
+    _RETIRED_QA_EXECUTOR_GLOSS_PATTERN,
+    _RETIRED_QA_EXECUTOR_CLI_PATTERN,
+    _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN,
     # Migrations became permanent ordered history applied by the boot
     # converge. Everything that existed only to compensate for their being
     # ephemeral -- auto-retire, install topology, retire records, the
@@ -194,6 +210,21 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_QA_AUTO_FUNCTION_PATTERN: "retired QA auto-requirement function",
     _RETIRED_QA_AUTO_CLI_PATTERN: "retired QA auto-requirement command",
     _RETIRED_WORK_ITEM_SYNONYM_PATTERN: "retired work-item synonym",
+    _RETIRED_QA_EXECUTOR_ID_PATTERN: (
+        "qa_methods/qa_requirements executor_id (retired QA column — renamed to runner_id)"
+    ),
+    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: (
+        "qa_runs executor_type (retired QA column — renamed to performed_by)"
+    ),
+    _RETIRED_QA_EXECUTOR_GLOSS_PATTERN: (
+        "qa_methods executor_gloss (retired QA column — renamed to runner_gloss)"
+    ),
+    _RETIRED_QA_EXECUTOR_CLI_PATTERN: (
+        "--executor-type (retired QA run flag — renamed to --performed-by)"
+    ),
+    _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: (
+        "host_control_executor (retired module — renamed to host_control_runner)"
+    ),
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
 }
@@ -217,7 +248,29 @@ _MIGRATION_RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
     "docs/event-catalog.md",
 )
 
+#: Surfaces that keep the retired QA spelling on purpose. The history entry
+#: that renames the columns names them as its subject, and the immutable
+#: workflow-definition canon plus its tests carry a *different* retired
+#: ``executor_id`` — the skill-binding vocabulary an earlier entry replaced —
+#: which one column-name pattern cannot tell apart from the QA one.
+_QA_RUNNER_RENAME_SUBJECT_PATHS: tuple[str, ...] = (
+    "packages/yoke-core/src/yoke_core/domain/migrations/",
+    "runtime/api/domain/test_builtin_workflow_version_reconvergence.py",
+    "runtime/api/domain/test_workflow_and_deployment_stage_vocabulary_migration.py",
+)
+
 _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
+    _RETIRED_QA_EXECUTOR_ID_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_QA_EXECUTOR_TYPE_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_QA_EXECUTOR_GLOSS_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
+    _RETIRED_QA_EXECUTOR_CLI_PATTERN: (
+        # The lifecycle DB-command lint reproduces the retired
+        # ``qa-db.sh run-add`` invocation verbatim so it can still
+        # recognise that legacy shape in tracked content; the flag
+        # spelling is part of the shape it detects.
+        "packages/yoke-core/src/yoke_core/domain/lint_db_rules_lifecycle.py",
+    ),
+    _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,

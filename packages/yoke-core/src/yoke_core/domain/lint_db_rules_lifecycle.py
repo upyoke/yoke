@@ -123,7 +123,7 @@ if "qa-db.sh" in command and "browser_substrate" in command and "# lint:no-brows
                     "BLOCKED: Do not record browser_substrate runs directly via qa-db.sh.\n"
                     "Browser QA runs must come from the canonical orchestrator:\n"
                     "  python3 -m yoke_core.domain.browser_qa --item-id N ...\n"
-                    "Direct qa-db.sh run-add calls with executor_type=browser_substrate can\n"
+                    "Direct qa-db.sh run-add calls with performed_by=browser_substrate can\n"
                     "fabricate passing runs that bypass the QA gate.\n"
                     "Add %s# lint:no-browser-run-check%s comment to suppress if called from "
                     "yoke_core.domain.browser_qa or a test harness."

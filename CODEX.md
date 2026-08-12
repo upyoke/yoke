@@ -94,7 +94,7 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 The canonical lifecycle guide is
 [.yoke/docs/reference/lifecycle.md](.yoke/docs/reference/lifecycle.md). It explains how immutable
 workflow versions own stages, transitions, target-stage gates, policies, and
-registered executor bindings. For a live item, read
+registered runner bindings. For a live item, read
 `yoke workflows item get PREFIX-N` and then
 `yoke workflows version get WORKFLOW VERSION`; the pinned definition, not the
 guide or a workflow-name branch, is the source of truth for which executor

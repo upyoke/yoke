@@ -1,4 +1,4 @@
-"""Python backstop for the Browser method executor substrate.
+"""Python backstop for the Browser method runner substrate.
 
 The original Python port of the shell suite lived in this file alongside every
 scenario class. It now hosts only requirement/base_url plumbing and

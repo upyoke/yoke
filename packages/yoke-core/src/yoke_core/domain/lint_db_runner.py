@@ -1,4 +1,4 @@
-"""Runner/executor for the neutral Bash DB-command policy engine.
+"""Runner for the neutral Bash DB-command policy engine.
 
 ``lint-sqlite-cmd`` is retained as the legacy stable telemetry/check id; this
 module is the implementation-facing name. It executes

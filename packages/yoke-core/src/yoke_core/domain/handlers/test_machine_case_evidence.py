@@ -65,7 +65,7 @@ def record_machine_case_result(
     )
     row = conn.execute(
         "INSERT INTO qa_runs("
-        "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
+        "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"
         "capture_degraded_reason,raw_result,duration_ms,started_at,"
         "completed_at,created_at"
         f") VALUES({', '.join([marker] * 11)}) RETURNING id",
@@ -171,7 +171,7 @@ def record_machine_case_result(
     )
     return {
         "requirement_id": int(case["requirement_id"]),
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "verdict": verdict,
         "case_outcome": result.case_outcome,
         "run_id": run_id,

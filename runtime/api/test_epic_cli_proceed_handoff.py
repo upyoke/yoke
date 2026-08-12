@@ -52,7 +52,7 @@ class TestProceedTriageAndHandoff:
         )
         db.execute(
             """INSERT INTO qa_runs
-               (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+               (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
                VALUES (100, 'agent', 'simulation', 'fail',
                        '{"body":"SIMULATION: GAPS FOUND","phase":"integration"}',
                        '2026-01-01T00:00:00Z')"""

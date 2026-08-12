@@ -32,7 +32,7 @@ _BROWSER_EXECUTOR_TYPE = "browser_substrate"
 def _is_screenshot_step(step: Dict[str, Any]) -> bool:
     """Return True if the step is expected to produce a screenshot artifact.
 
-    Yoke uses the executor vocabulary from ``docs/browser-scenario-schema``:
+    Yoke uses the runner vocabulary from ``docs/browser-scenario-schema``:
     artifact-producing screenshot steps are ``action="screenshot"`` with
     ``capture=true``. Non-capturing screenshot steps succeed without artifacts
     and must not count toward screenshot evidence completeness.
@@ -105,7 +105,7 @@ def _record_run(
 ) -> Optional[int]:
     """Record a qa_run via ``qa.run.add``. Returns the run id or None."""
     payload: Dict[str, Any] = {
-        "executor_type": _BROWSER_EXECUTOR_TYPE,
+        "performed_by": _BROWSER_EXECUTOR_TYPE,
         "qa_kind": qa_kind,
     }
     if verdict is not None:

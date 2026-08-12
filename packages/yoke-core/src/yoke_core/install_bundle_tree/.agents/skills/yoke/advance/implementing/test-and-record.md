@@ -215,7 +215,7 @@ After completing implementation and running tests and verification, record a `qa
 # Record a passing run:
 yoke qa run add \
  --requirement-id {req-id} \
- --executor-type "agent" \
+ --performed-by "agent" \
  --qa-kind "ac_verification" \
  --verdict "pass" \
  --raw-result "{brief evidence — e.g., 'All 12 tests pass', 'Config verified in output'}"

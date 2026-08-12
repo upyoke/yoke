@@ -160,7 +160,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
                                      qa_phase="verification",
                                      success_policy='{"type":"deterministic","phase":"integration"}')
         insert_qa_run(test_db, qa_requirement_id=req["id"],
-                      executor_type="agent", qa_kind="simulation", verdict="pass")
+                      performed_by="agent", qa_kind="simulation", verdict="pass")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         assert _result(rec).result == "PASS"
 
@@ -181,7 +181,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
                                      qa_phase="verification",
                                      success_policy='{"type":"deterministic","phase":"plan"}')
         insert_qa_run(test_db, qa_requirement_id=req["id"],
-                      executor_type="agent", qa_kind="simulation", verdict="pass")
+                      performed_by="agent", qa_kind="simulation", verdict="pass")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -235,7 +235,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
                 )
                 insert_qa_run(
                     test_db, qa_requirement_id=req["id"],
-                    executor_type="agent", qa_kind="simulation", verdict="pass",
+                    performed_by="agent", qa_kind="simulation", verdict="pass",
                 )
         start = time.monotonic()
         _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)

@@ -165,7 +165,7 @@ def _record_ci_run(
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
-            "executor_type": "ci_run",
+            "performed_by": "ci_run",
         },
     )
     if not resp.success:

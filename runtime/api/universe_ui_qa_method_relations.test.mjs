@@ -22,7 +22,7 @@ const method = {
   description: "Runs a command in the item worktree.",
   source_kind: "built_in",
   source_ref: null,
-  executor_id: "worktree_run",
+  runner_id: "worktree_run",
   required_capability_kind: null,
   verdict_path: "automatic",
   verdict_contract: "exit 0 = pass",
@@ -300,7 +300,7 @@ test("test-machine method plan subtitles show counts and bounded case names", as
       .filter((_, index) => index % 2 === 0)
       .map((node) => node.textContent),
     [
-      "Executor",
+      "Runner",
       "Capability",
       "Verdict",
       "Evidence",

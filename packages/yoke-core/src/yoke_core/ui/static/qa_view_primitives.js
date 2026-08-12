@@ -26,7 +26,7 @@ const LEGACY_CAPABILITY_LABELS = {
 const OUTCOME_EXPLANATIONS = {
   needs_review:
     "The recorded evidence does not yet have a conclusive verdict. Review " +
-    "and Inbox state are shown only when their executor records exist.",
+    "and Inbox state are shown only when their runner records exist.",
   queued: "This materialized case is queued and has not started yet.",
   waiting:
     "This case is waiting for its required capability or serial lease.",
@@ -94,20 +94,20 @@ export function sourceNode(
   return host;
 }
 
-export function executorContractNode(
+export function runnerContractNode(
   documentNode,
-  executorId,
-  executorGloss = "registered executor",
+  runnerId,
+  runnerGloss = "registered runner",
 ) {
-  const node = el(documentNode, "span", "qa-executor-contract");
+  const node = el(documentNode, "span", "qa-runner-contract");
   node.appendChild(el(
-    documentNode, "strong", "mono", executorId || "—",
+    documentNode, "strong", "mono", runnerId || "—",
   ));
   node.appendChild(el(
     documentNode,
     "small",
     null,
-    `· ${executorGloss}`,
+    `· ${runnerGloss}`,
   ));
   return node;
 }
@@ -199,7 +199,7 @@ export function terminalContractRows(documentNode) {
     "span",
     null,
     "declared per case — some checkpoints exist only on one exit path; " +
-      "the executor distinguishes ",
+      "the runner distinguishes ",
   ));
   completion.appendChild(el(
     documentNode, "em", null, "checkpoint not reached",

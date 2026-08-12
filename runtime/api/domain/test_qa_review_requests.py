@@ -56,7 +56,7 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
     requirement_id = test_db.execute(
         "INSERT INTO qa_requirements "
         "(item_id, plan_id, plan_case_key, method_id, method_name, "
-        "executor_id, required_capability_kind, verdict_path, qa_kind, "
+        "runner_id, required_capability_kind, verdict_path, qa_kind, "
         "qa_phase, blocking_mode, created_at) "
         "VALUES (%s, %s, 'checkout-flow', 'browser-inspection', "
         "'Browser inspection', 'browser_substrate', 'browser-control', "
@@ -66,7 +66,7 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
     ).fetchone()[0]
     run_id = test_db.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, executor_type, qa_kind, verdict, "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, "
         "started_at, completed_at, created_at) "
         "VALUES (%s, 'browser_substrate', 'manual_acceptance', "
         "'inconclusive', '2026-07-26T00:00:00Z', "
@@ -102,7 +102,7 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
         note="Evidence demonstrates the expected behavior.",
     )
     verdicts = test_db.execute(
-        "SELECT executor_type, verdict FROM qa_runs "
+        "SELECT performed_by, verdict FROM qa_runs "
         "WHERE qa_requirement_id=%s ORDER BY id",
         (requirement_id,),
     ).fetchall()

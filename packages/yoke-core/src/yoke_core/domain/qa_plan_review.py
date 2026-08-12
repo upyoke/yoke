@@ -37,11 +37,11 @@ def _capture_run(
     p = marker(conn)
     return query_one(
         conn,
-        "SELECT id,executor_type,qa_kind,verdict,execution_status,"
+        "SELECT id,performed_by,qa_kind,verdict,execution_status,"
         "case_outcome,capture_degraded_reason,raw_result,completed_at "
         "FROM qa_runs "
         f"WHERE id={p} AND qa_requirement_id={p} "
-        "AND executor_type IN ('browser_substrate','host_control') "
+        "AND performed_by IN ('browser_substrate','host_control') "
         "AND completed_at IS NOT NULL",
         (int(capture_run_id), int(requirement_id)),
     )
@@ -105,7 +105,7 @@ def _review_case(
         "instructions": str(case.get("instructions") or ""),
         "expected_outcome": str(case.get("expected_outcome") or ""),
         "capture_run_id": int(capture["id"]),
-        "capture_executor": str(capture["executor_type"]),
+        "capture_runner": str(capture["performed_by"]),
         "capture_degraded_reason": capture["capture_degraded_reason"],
         "transcript": _json_object(capture["raw_result"]),
         "artifacts": _artifacts(conn, int(capture["id"])),
@@ -117,15 +117,15 @@ def _execution_capture_run_id(
     case: Mapping[str, Any],
     result: Mapping[str, Any],
 ) -> int:
-    executor_id = str(case.get("executor_id") or "")
+    runner_id = str(case.get("runner_id") or "")
     key = {
         "browser_substrate": "qa_run_id",
         "host_control": "run_id",
-    }.get(executor_id)
+    }.get(runner_id)
     if key is None:
         raise QaPlanReviewError(
             f"agent-verdict case {case['requirement_id']} uses unsupported "
-            f"capture executor {executor_id!r}"
+            f"capture runner {runner_id!r}"
         )
     try:
         run_id = int(result.get(key) or 0)

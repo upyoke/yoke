@@ -17,7 +17,7 @@ from yoke_core.domain.coordination_leases import (
     release_lease,
     row_to_lease,
 )
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     TestMachineContract,
     load_test_machine_contract,
 )

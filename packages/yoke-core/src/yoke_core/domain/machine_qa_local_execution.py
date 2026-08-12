@@ -13,7 +13,7 @@ from yoke_harness.test_machine_verification import (
 )
 
 from yoke_core.domain.coordination_leases import Lease
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     resolve_contract_host_control,
 )
 from yoke_core.domain.machine_qa_execution import MachineQaLease

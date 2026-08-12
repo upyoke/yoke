@@ -257,7 +257,7 @@ def simulation_upsert(
     try:
         _qa_run_add(
             requirement_id=int(req_id),
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="simulation",
             verdict=verdict,
             raw_result=raw_result,

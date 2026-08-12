@@ -20,7 +20,7 @@ from yoke_core.domain.handlers.test_machine_plan_case import (
     handle_plan_case_begin,
     handle_plan_case_submit,
 )
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,
     register_host_control_factory,
 )

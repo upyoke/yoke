@@ -22,7 +22,7 @@ from yoke_core.domain.handlers.test_machine_case import (
 from yoke_core.domain.handlers.test_machine_execution_abort import (
     handle_baseline_group_abort,
 )
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     clear_host_control_factory,
     register_host_control_factory,
 )

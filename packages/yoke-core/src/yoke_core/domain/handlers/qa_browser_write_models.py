@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 
 class QaRunAddRequest(BaseModel):
-    executor_type: str
+    performed_by: str
     qa_kind: Optional[str] = None
     verdict: Optional[str] = None
     execution_status: Optional[str] = None

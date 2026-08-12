@@ -70,7 +70,7 @@ def execute_plan_machine_case(
     if begun.get("state") == "waiting":
         return {
             "requirement_id": requirement_id,
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "verdict": "waiting",
             "case_outcome": "waiting",
         }

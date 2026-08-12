@@ -19,7 +19,7 @@ _METHOD_KEYS = frozenset(
         "id",
         "name",
         "description",
-        "executor_id",
+        "runner_id",
         "required_capability_kind",
         "verdict_path",
         "verdict_contract",
@@ -34,7 +34,7 @@ _METHOD_METADATA_KEYS = frozenset(
         "display_group",
         "config_contract_id",
         "proof_kind",
-        "executor_gloss",
+        "runner_gloss",
     }
 )
 _LEGACY_METHOD_METADATA = {
@@ -112,7 +112,7 @@ def _method(raw: Any, *, schema: int) -> dict[str, Any]:
     ):
         if not row[key]:
             raise MachineQaPackError(f"machine-qa method {row['id']} lacks {key}")
-    if row["executor_id"] != "host_control":
+    if row["runner_id"] != "host_control":
         raise MachineQaPackError(
             f"machine-qa method {row['id']} must select host_control"
         )
@@ -150,7 +150,7 @@ def _method(raw: Any, *, schema: int) -> dict[str, Any]:
                         "display_group",
                         "config_contract_id",
                         "proof_kind",
-                        "executor_gloss",
+                        "runner_gloss",
                     ),
                     metadata,
                 )
@@ -205,7 +205,7 @@ def sync_machine_qa_pack_methods(
         "source_kind",
         "source_ref",
         "project_id",
-        "executor_id",
+        "runner_id",
         "required_capability_kind",
         "verdict_path",
         "verdict_contract",
@@ -218,7 +218,7 @@ def sync_machine_qa_pack_methods(
         "display_group",
         "config_contract_id",
         "proof_kind",
-        "executor_gloss",
+        "runner_gloss",
         "created_at",
         "updated_at",
     )
@@ -242,7 +242,7 @@ def sync_machine_qa_pack_methods(
                 "pack",
                 MACHINE_QA_PACK,
                 None,
-                method["executor_id"],
+                method["runner_id"],
                 method["required_capability_kind"],
                 method["verdict_path"],
                 method["verdict_contract"],
@@ -255,7 +255,7 @@ def sync_machine_qa_pack_methods(
                 method["display_group"],
                 method["config_contract_id"],
                 method["proof_kind"],
-                method["executor_gloss"],
+                method["runner_gloss"],
                 now,
                 now,
             ),

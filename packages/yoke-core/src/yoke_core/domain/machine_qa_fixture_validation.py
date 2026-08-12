@@ -28,9 +28,9 @@ SETUP_VALIDATORS: dict[str, Validator] = {
     **REPOSITORY_SETUP_VALIDATORS,
 }
 if frozenset(SETUP_VALIDATORS) != REGISTERED_SETUP_OPERATION_IDS:
-    raise RuntimeError("fixture executor setup registry drifted")
+    raise RuntimeError("fixture runner setup registry drifted")
 if frozenset(POST_VALIDATORS) != REGISTERED_POST_STATE_ASSERTION_IDS:
-    raise RuntimeError("fixture executor assertion registry drifted")
+    raise RuntimeError("fixture runner assertion registry drifted")
 
 
 def _validate_operations(

@@ -8,7 +8,7 @@ import time
 from typing import Any, Callable, Mapping, Sequence
 from urllib.request import urlopen
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     REGISTERED_STAGE_URLS,
 )

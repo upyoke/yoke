@@ -129,17 +129,17 @@ def maybe_ensure_qa_review_request(
         return None
     p = _p(conn)
     run = conn.execute(
-        f"SELECT executor_type FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
+        f"SELECT performed_by FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
         (int(run_id), int(requirement_id)),
     ).fetchone()
-    executor_type = (
-        run["executor_type"]
+    performed_by = (
+        run["performed_by"]
         if run is not None and hasattr(run, "keys")
         else run[0]
         if run is not None
         else None
     )
-    if str(executor_type or "") != "agent":
+    if str(performed_by or "") != "agent":
         return None
     request, _ = ensure_qa_review_request(
         conn,
@@ -180,7 +180,7 @@ def apply_qa_review_resolution(
     verdict = "pass" if action == "approve" else "fail"
     conn.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, executor_type, qa_kind, verdict, raw_result, "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
         "started_at, completed_at, created_at) "
         f"VALUES ({p}, 'human_review', {p}, {p}, {p}, {p}, {p}, {p})",
         (

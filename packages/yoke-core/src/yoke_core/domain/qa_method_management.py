@@ -1,4 +1,4 @@
-"""Project-local QA method authoring over the registered executor roster."""
+"""Project-local QA method authoring over the registered runner roster."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.qa_method_definitions import method_metadata_for_executor
+from yoke_core.domain.qa_method_definitions import method_metadata_for_runner
 
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -26,7 +26,7 @@ _EXECUTOR_CONTRACTS = {
 
 
 class QaMethodError(ValueError):
-    """A project-local method exceeds the registered executor contract."""
+    """A project-local method exceeds the registered runner contract."""
 
 
 def _p(conn: Any) -> str:
@@ -40,14 +40,14 @@ def register_project_method(
     slug: str,
     name: str,
     description: str,
-    executor_id: str,
+    runner_id: str,
     verdict_path: str,
     verdict_contract: str,
     evidence_contract: str,
     concurrency_mode: str = "parallel",
     success_policy_params: Optional[dict] = None,
 ) -> dict:
-    """Register a project-owned method without admitting arbitrary executors."""
+    """Register a project-owned method without admitting arbitrary runners."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise QaMethodError(f"project {project!r} not found")
@@ -55,14 +55,14 @@ def register_project_method(
         raise QaMethodError(
             "method slug must contain lowercase words separated by hyphens"
         )
-    contract = _EXECUTOR_CONTRACTS.get(executor_id)
+    contract = _EXECUTOR_CONTRACTS.get(runner_id)
     if contract is None:
         raise QaMethodError(
-            f"executor {executor_id!r} is not registered for project methods"
+            f"runner {runner_id!r} is not registered for project methods"
         )
     if verdict_path not in contract["verdict_paths"]:
         raise QaMethodError(
-            f"executor {executor_id!r} does not support verdict path {verdict_path!r}"
+            f"runner {runner_id!r} does not support verdict path {verdict_path!r}"
         )
     if concurrency_mode not in {"parallel", "serial"}:
         raise QaMethodError("concurrency_mode must be parallel or serial")
@@ -85,7 +85,7 @@ def register_project_method(
     if existing is not None and int(existing["project_id"] or 0) != int(identity.id):
         raise QaMethodError(f"QA method {method_id!r} is already registered")
     stamp = iso8601_now()
-    metadata = method_metadata_for_executor(executor_id, verdict_path)
+    metadata = method_metadata_for_runner(runner_id, verdict_path)
     columns = (
         "id",
         "name",
@@ -93,7 +93,7 @@ def register_project_method(
         "source_kind",
         "source_ref",
         "project_id",
-        "executor_id",
+        "runner_id",
         "required_capability_kind",
         "verdict_path",
         "verdict_contract",
@@ -106,7 +106,7 @@ def register_project_method(
         "display_group",
         "config_contract_id",
         "proof_kind",
-        "executor_gloss",
+        "runner_gloss",
         "created_at",
         "updated_at",
     )
@@ -115,7 +115,7 @@ def register_project_method(
         f"VALUES ({', '.join([marker] * len(columns))}) "
         "ON CONFLICT(id) DO UPDATE SET "
         "name=EXCLUDED.name, description=EXCLUDED.description, "
-        "executor_id=EXCLUDED.executor_id, "
+        "runner_id=EXCLUDED.runner_id, "
         "required_capability_kind=EXCLUDED.required_capability_kind, "
         "verdict_path=EXCLUDED.verdict_path, "
         "verdict_contract=EXCLUDED.verdict_contract, "
@@ -127,7 +127,7 @@ def register_project_method(
         "display_group=EXCLUDED.display_group, "
         "config_contract_id=EXCLUDED.config_contract_id, "
         "proof_kind=EXCLUDED.proof_kind, "
-        "executor_gloss=EXCLUDED.executor_gloss, "
+        "runner_gloss=EXCLUDED.runner_gloss, "
         "updated_at=EXCLUDED.updated_at",
         (
             method_id,
@@ -136,7 +136,7 @@ def register_project_method(
             "project",
             identity.slug,
             int(identity.id),
-            executor_id,
+            runner_id,
             contract["capability"],
             verdict_path,
             verdict_contract.strip(),
@@ -149,7 +149,7 @@ def register_project_method(
             metadata["display_group"],
             metadata["config_contract_id"],
             metadata["proof_kind"],
-            metadata["executor_gloss"],
+            metadata["runner_gloss"],
             stamp,
             stamp,
         ),
@@ -159,7 +159,7 @@ def register_project_method(
         "id": method_id,
         "project": identity.slug,
         "project_id": int(identity.id),
-        "executor_id": executor_id,
+        "runner_id": runner_id,
         "verdict_path": verdict_path,
     }
 

@@ -24,7 +24,7 @@ CASE = {
     "case_position": 1,
     "baseline_position": 1,
     "host_baseline": None,
-    "executor_id": "worktree_run",
+    "runner_id": "worktree_run",
 }
 
 
@@ -43,7 +43,7 @@ def _begin_result() -> dict:
     }
 
 
-def test_begin_denial_prevents_every_local_executor_side_effect() -> None:
+def test_begin_denial_prevents_every_local_runner_side_effect() -> None:
     with (
         mock.patch.object(
             qa_plan_execution,
@@ -92,7 +92,7 @@ def test_advance_failure_aborts_and_never_reports_the_case_complete() -> None:
             "execute_case_context",
             return_value={
                 "requirement_id": 11,
-                "executor_id": "worktree_run",
+                "runner_id": "worktree_run",
                 "verdict": "pass",
                 "case_outcome": "passed",
             },

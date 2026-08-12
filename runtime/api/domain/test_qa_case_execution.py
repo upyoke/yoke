@@ -27,14 +27,14 @@ from yoke_core.domain.qa_plan_attachments import (
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 
 
-def _case(method_id: str, executor_id: str, config: dict) -> dict:
+def _case(method_id: str, runner_id: str, config: dict) -> dict:
     return {
         "requirement_id": 41,
         "item_id": 9,
         "plan_id": 5,
         "case_key": "registered",
         "method_id": method_id,
-        "executor_id": executor_id,
+        "runner_id": runner_id,
         "method_config": config,
         "project_id": 1,
         "project": "yoke",
@@ -126,7 +126,7 @@ def test_ad_hoc_method_case_uses_the_same_execution_context() -> None:
     assert context["plan_id"] is None
     assert context["case_key"].startswith("ad-hoc-")
     assert context["method_id"] == "browser-inspection"
-    assert context["executor_id"] == "browser_substrate"
+    assert context["runner_id"] == "browser_substrate"
 
 
 def test_ci_context_keeps_the_merged_commit_after_lane_release() -> None:
@@ -223,7 +223,7 @@ def test_command_case_records_verdict_and_output_artifact(
         "qa.run.complete",
     ]
     assert all(call[3] == actor for call in calls)
-    assert calls[0][2]["executor_type"] == "worktree_run"
+    assert calls[0][2]["performed_by"] == "worktree_run"
     assert "verdict" not in calls[0][2]
     assert calls[2][2]["verdict"] == "pass"
     handle = calls[1][2]["artifact_handle"]
@@ -297,7 +297,7 @@ def test_doorman_rerun_composes_case_writes_without_a_harness_claim(
                 )
             )
         run = conn.execute(
-            "SELECT executor_type, verdict, case_outcome "
+            "SELECT performed_by, verdict, case_outcome "
             "FROM qa_runs WHERE qa_requirement_id = %s",
             (requirement_id,),
         ).fetchone()

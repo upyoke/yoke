@@ -90,7 +90,7 @@ def _covering_runs(
 
     rows = query_rows(
         conn,
-        "SELECT r.id AS run_id, r.raw_result, q.executor_id, q.method_config "
+        "SELECT r.id AS run_id, r.raw_result, q.runner_id, q.method_config "
         "FROM qa_runs r JOIN qa_requirements q ON q.id = r.qa_requirement_id "
         f"WHERE q.item_id={marker} AND r.verdict='pass'",
         (item_id,),
@@ -107,8 +107,8 @@ def _covering_runs(
         )
         if not head_sha:
             continue
-        executor_id = str(row["executor_id"] or "")
-        if executor_id == "worktree_run":
+        runner_id = str(row["runner_id"] or "")
+        if runner_id == "worktree_run":
             config = _loads_or_none(row["method_config"] or "")
             if not isinstance(config, dict):
                 continue
@@ -116,13 +116,13 @@ def _covering_runs(
                 continue
             if str(config.get("registered_scope") or "") != scope:
                 continue
-        elif executor_id != "ci_run":
+        elif runner_id != "ci_run":
             continue
         covering.append(
             {
                 "run_id": int(row["run_id"]),
                 "head_sha": head_sha,
-                "executor_id": executor_id,
+                "runner_id": runner_id,
             }
         )
     return covering

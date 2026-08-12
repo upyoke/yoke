@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_execution import (
     MachineCaseResult,
     MachineQaLease,
@@ -15,7 +15,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
     MachineQaCaseContract,
 )
 from yoke_core.domain.machine_qa_fixture_operations import (
-    MachineQaFixtureOperationExecutor,
+    MachineQaFixtureOperationRunner,
 )
 from yoke_core.domain.machine_qa_method_contracts import (
     validate_machine_method_config,
@@ -34,7 +34,7 @@ def _empty_result(*, ok: bool, error_code: str | None = None) -> HostActionResul
 
 
 def _operation_outcomes(result: HostActionResult) -> list[dict[str, str]]:
-    """Project executor evidence to operation identifiers and outcomes only."""
+    """Project runner evidence to operation identifiers and outcomes only."""
     raw = result.evidence.get("operations")
     if not isinstance(raw, list):
         return []
@@ -50,7 +50,7 @@ def _operation_outcomes(result: HostActionResult) -> list[dict[str, str]]:
 
 
 def _close_with_retry(
-    fixture: MachineQaFixtureOperationExecutor,
+    fixture: MachineQaFixtureOperationRunner,
 ) -> list[HostActionResult]:
     attempts = []
     for _attempt in range(_MAX_CLEANUP_ATTEMPTS):
@@ -101,7 +101,7 @@ def _failed_case(
     primary_failed: bool = False,
 ) -> MachineCaseResult:
     evidence: dict[str, Any] = {
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "machine": execution.material.settings["resource_name"],
         "method_id": case.method_id,
         "baseline": execution.baseline.name if execution.baseline else None,
@@ -145,7 +145,7 @@ def execute_case_with_fixture_lifecycle(
         )
 
     try:
-        fixture = execution.control.create_fixture_operation_executor()
+        fixture = execution.control.create_fixture_operation_runner()
     except Exception:
         lifecycle = {
             "setup": {"outcome": "failed", "operations": []},
@@ -155,7 +155,7 @@ def execute_case_with_fixture_lifecycle(
         return _failed_case(
             execution,
             case,
-            error_code="fixture_executor_unavailable",
+            error_code="fixture_runner_unavailable",
             lifecycle=lifecycle,
         )
 

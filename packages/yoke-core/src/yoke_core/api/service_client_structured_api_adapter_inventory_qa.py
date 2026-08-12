@@ -51,7 +51,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.project_method.register",
-        "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --executor worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT",
+        "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --runner worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT",
     ),
     _read_entry(
         function_id="qa.plan.list", cli_invocation="yoke qa plan list --project P"
@@ -109,7 +109,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         "qa.run.record_verdict",
         "yoke qa run record-verdict --requirement-id N "
-        "--executor-type TYPE --verdict VERDICT "
+        "--performed-by WHO --verdict VERDICT "
         "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]",
     ),
     # Public QA reads, item-attached creation, and gate-entry summary.
@@ -167,7 +167,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke qa browser-context get --item PREFIX-N --requirement-id N --project P",
     ),
     AdapterEntry(
-        "qa.run.add", "yoke qa run add --requirement-id N --executor-type TYPE"
+        "qa.run.add", "yoke qa run add --requirement-id N --performed-by WHO"
     ),
     AdapterEntry(
         "qa.run.complete",

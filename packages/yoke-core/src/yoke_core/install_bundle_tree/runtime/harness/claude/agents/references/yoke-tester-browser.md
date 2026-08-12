@@ -61,7 +61,7 @@ report.
 | `browser-check` with `verdict=pass` | Continue. |
 | `verdict=fail` or exit `1` | Report the failed case and product or environment evidence. |
 | `browser-inspection` with `verdict=inconclusive` | Report the generated review request; the requirement remains unresolved pending approval, rejection, or waiver. |
-| `verdict=error` or exit `2` | Hard-stop on the prerequisite or executor failure and report it to the operator. |
+| `verdict=error` or exit `2` | Hard-stop on the prerequisite or runner failure and report it to the operator. |
 
 Re-running the same requirement creates a new evidence run. It does not mutate
 the case snapshot.

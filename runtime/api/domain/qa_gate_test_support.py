@@ -78,7 +78,7 @@ def add_simulation(
     )
     req_id = int(cur.fetchone()[0])
     conn.execute(
-        "INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at) VALUES (%s, 'simulation_engine', 'simulation', %s, %s, %s)",
+        "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at) VALUES (%s, 'simulation_engine', 'simulation', %s, %s, %s)",
         (req_id, verdict, raw_result, "2026-04-20T00:00:00Z"),
     )
     conn.commit()

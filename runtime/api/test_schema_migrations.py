@@ -125,7 +125,7 @@ class TestQaExecutionStatusMigration:
         item_id: int,
         qa_kind: str,
         verdict: str | None,
-        executor_type: str = "browser_substrate",
+        performed_by: str = "browser_substrate",
         qa_phase: str = "verification",
         success_policy: str = "",
     ) -> int:
@@ -138,9 +138,9 @@ class TestQaExecutionStatusMigration:
         )
         req_id = cur.fetchone()[0]
         conn.execute(
-            "INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, created_at) "
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (req_id, executor_type, qa_kind, verdict, "2026-01-01T00:00:00Z"),
+            (req_id, performed_by, qa_kind, verdict, "2026-01-01T00:00:00Z"),
         )
         return req_id
 
@@ -224,7 +224,7 @@ class TestQaExecutionStatusMigration:
             req_id = cur.fetchone()[0]
             with pytest.raises(db_backend.integrity_error_types()):
                 conn.execute(
-                    "INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, execution_status, created_at) "
+                    "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, execution_status, created_at) "
                     "VALUES (%s, 'browser_substrate', 'browser_smoke', 'bogus', '2026-01-01T00:00:00Z')",
                     (req_id,),
                 )
@@ -261,7 +261,7 @@ class TestQaExecutionStatusMigration:
                 item_id=11,
                 qa_kind="ac_verification",
                 verdict="pass",
-                executor_type="agent",
+                performed_by="agent",
             )
             run_id = conn.execute(
                 "SELECT id FROM qa_runs WHERE qa_requirement_id = %s",

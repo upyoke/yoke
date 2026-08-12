@@ -13,13 +13,13 @@ from yoke_harness.ssh_mac_transport import (
 )
 
 from yoke_core.domain import machine_config
-from yoke_core.domain.host_control_executor import (
+from yoke_core.domain.host_control_runner import (
     HostActionResult,
     TestMachineMaterial,
     register_host_control_factory,
 )
 from yoke_core.domain.machine_qa_fixture_operations import (
-    MachineQaFixtureOperationExecutor,
+    MachineQaFixtureOperationRunner,
 )
 from yoke_core.domain.ssh_mac_terminal_legacy import (
     execute_legacy_terminal_case,
@@ -58,11 +58,11 @@ class SshMacHostControl(SshMacTransport):
         if not self._upload_bytes(path, content.encode("utf-8")):
             raise RuntimeError("host_control file write failed")
 
-    def create_fixture_operation_executor(
+    def create_fixture_operation_runner(
         self,
-    ) -> MachineQaFixtureOperationExecutor:
+    ) -> MachineQaFixtureOperationRunner:
         """Bind the closed fixture registry to this controlled SSH host."""
-        return MachineQaFixtureOperationExecutor(
+        return MachineQaFixtureOperationRunner(
             run_remote=self._run,
             upload_text=self.write_text,
             home=self.home,

@@ -39,13 +39,13 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
         "terminal-inspection",
         "machine-state-check",
     ]
-    assert command["executor_id"] == "worktree_run"
+    assert command["runner_id"] == "worktree_run"
     assert command["required_capability_kind"] is None
     assert command["verdict_path"] == "automatic"
     assert command["capability_state"] == "available"
     # Same Command contract, executed on the project's CI workflow rather
     # than on this machine.
-    assert command_ci["executor_id"] == "ci_run"
+    assert command_ci["runner_id"] == "ci_run"
     assert command_ci["required_capability_kind"] is None
     assert command_ci["verdict_path"] == "automatic"
     inspection = next(

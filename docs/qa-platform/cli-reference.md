@@ -60,12 +60,12 @@ yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_
 
 # Record or complete QA runs
 yoke qa run add \
- --requirement-id 1 --executor-type agent --qa-kind implementation_review \
+ --requirement-id 1 --performed-by agent --qa-kind implementation_review \
  --verdict pass --raw-result "Tester review passed"
 yoke qa run complete \
  --requirement-id 1 --run-id 10 --verdict pass --execution-status completed
 yoke qa run record-verdict \
- --requirement-id 1 --executor-type agent --verdict pass
+ --requirement-id 1 --performed-by agent --verdict pass
 
 # List runs for a requirement
 yoke qa run list --requirement-id 1
@@ -96,16 +96,16 @@ run owns its delivery context.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
-| `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [runner opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
-| `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |
+| `yoke qa case run` | `--requirement-id N [runner opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
-| `yoke qa run add` | `--requirement-id N --executor-type T [--qa-kind K] [--verdict V] [opts]` | Insert a started or completed run |
+| `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert a started or completed run |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
-| `yoke qa run record-verdict` | `--requirement-id N --executor-type T --verdict V [opts]` | Record a one-shot verdict |
+| `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [opts]` | Record a one-shot verdict |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T --artifact-handle JSON [opts]` | Insert artifact evidence |
@@ -114,7 +114,7 @@ run owns its delivery context.
 Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
 and 2 for usage errors. The client-local case runners use 0 for pass, 1 for
 failed or review-needed evidence, 2 for execution/usage errors, and 3 when a
-leased executor is waiting and the same ordered invocation should be retried.
+leased runner is waiting and the same ordered invocation should be retried.
 Both runners require an ambient session and the active item claim. The plan
 runner obtains authorization before any checkout, subprocess, Browser, or host
 side effect, pins the complete roster and digest server-side, and advances one

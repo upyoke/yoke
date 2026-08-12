@@ -69,7 +69,7 @@ def _format_run(row: Optional[Any]) -> Optional[Dict[str, Any]]:
     return {
         "id": int(row["id"]),
         "verdict": str(verdict) if verdict else None,
-        "executor_type": str(row["executor_type"]),
+        "performed_by": str(row["performed_by"]),
         "created_at": str(row["created_at"]) if row["created_at"] else None,
     }
 
@@ -139,11 +139,11 @@ def render_gate_summary(
             substrate_row = query_one(
                 conn,
                 """
-                SELECT qr.id, qr.verdict, qr.executor_type, qr.created_at
+                SELECT qr.id, qr.verdict, qr.performed_by, qr.created_at
                 FROM qa_runs qr
                 WHERE qr.qa_requirement_id = %s
                   AND qr.verdict = 'pass'
-                  AND qr.executor_type <> 'agent'
+                  AND qr.performed_by <> 'agent'
                   AND EXISTS (
                     SELECT 1 FROM qa_artifacts qa
                     WHERE qa.qa_run_id = qr.id
@@ -155,7 +155,7 @@ def render_gate_summary(
             pass_row = query_one(
                 conn,
                 """
-                SELECT id, verdict, executor_type, created_at
+                SELECT id, verdict, performed_by, created_at
                 FROM qa_runs
                 WHERE qa_requirement_id = %s
                   AND verdict = 'pass'
@@ -166,7 +166,7 @@ def render_gate_summary(
             latest_row = query_one(
                 conn,
                 """
-                SELECT id, verdict, executor_type, created_at
+                SELECT id, verdict, performed_by, created_at
                 FROM qa_runs
                 WHERE qa_requirement_id = %s
                 ORDER BY created_at DESC, id DESC LIMIT 1
@@ -241,7 +241,7 @@ def _format_text(summary: Dict[str, Any]) -> str:
         if latest:
             lines.append(
                 f"        latest run #{latest['id']}: verdict={latest['verdict']} "
-                f"executor={latest['executor_type']} at {latest['created_at']}"
+                f"runner={latest['performed_by']} at {latest['created_at']}"
             )
     return "\n".join(lines)
 

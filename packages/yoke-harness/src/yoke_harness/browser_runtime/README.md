@@ -37,7 +37,7 @@ to refuse automatic npm/browser installation and report the missing dependency.
 - `src/snapshot.js`: accessibility tree extraction with ref annotation
 - `src/screenshot.js`: annotated screenshots
 - `src/diff.js`: pixel comparison
-- `src/step-executor.js`: browser scenario step execution
+- `src/step-runner.js`: browser scenario step execution
 - `src/routes/*.js`: snapshot and step execution HTTP routes
 
 The daemon writes `~/.yoke/browser-runtime/.daemon-state.json` with the local

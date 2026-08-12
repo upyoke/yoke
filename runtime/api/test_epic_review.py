@@ -188,7 +188,7 @@ class TestReviewGet:
         )
         db_with_task.execute(
             """INSERT INTO qa_runs
-               (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+               (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
                VALUES (%s, 'agent', 'implementation_review', 'pass', '{"body":"Good work"}', '2025-01-01T00:00:00Z')""",
             (req_id,),
         )
@@ -252,7 +252,7 @@ class TestReviewAndSimulationWrites:
         assert result == "Inserted review: 42/1 verdict=PASS"
         add_run.assert_called_once_with(
             requirement_id=7,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="implementation_review",
             verdict="pass",
             raw_result='{"body": "Looks good"}',
@@ -290,7 +290,7 @@ class TestReviewAndSimulationWrites:
         )
         add_run.assert_called_once_with(
             requirement_id=23,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="simulation",
             verdict="pass",
             raw_result='{"body":"SIMULATION: CLEAN","phase":"plan"}',
@@ -308,7 +308,7 @@ class TestReviewAndSimulationWrites:
         )
         db.execute(
             """INSERT INTO qa_runs
-               (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+               (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
                VALUES (11, 'agent', 'simulation', 'fail', '{"body":"old","phase":"integration"}',
                        '2026-01-01T00:00:00Z')"""
         )
@@ -332,7 +332,7 @@ class TestReviewAndSimulationWrites:
         add_req.assert_not_called()
         add_run.assert_called_once_with(
             requirement_id=11,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="simulation",
             verdict="fail",
             raw_result='{"body":"## Result: GAPS FOUND","phase":"integration"}',

@@ -125,7 +125,7 @@ _REST_DDL = """
 
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY, qa_requirement_id INTEGER,
-            executor_type TEXT, qa_kind TEXT, verdict TEXT,
+            performed_by TEXT, qa_kind TEXT, verdict TEXT,
             score REAL, confidence REAL, raw_result TEXT,
             duration_ms INTEGER, started_at TEXT, completed_at TEXT,
             created_at TEXT

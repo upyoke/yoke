@@ -34,7 +34,7 @@ CREATE TABLE qa_requirements (
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER,
-    executor_type TEXT,
+    performed_by TEXT,
     qa_kind TEXT,
     verdict TEXT,
     raw_result TEXT,
@@ -123,7 +123,7 @@ def _add_run(db_path: str, req_id: int, *, verdict: str) -> int:
     conn = connect_test_db(db_path)
     cur = conn.execute(
         "INSERT INTO qa_runs "
-        "(qa_requirement_id, executor_type, qa_kind, verdict, created_at) "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, created_at) "
         "VALUES (%s, 'agent', 'simulation', %s, %s) RETURNING id",
         (req_id, verdict, "2026-04-25T00:00:00Z"),
     )

@@ -25,7 +25,7 @@ class TestRunComplete:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
         )
         capsys.readouterr()
@@ -46,7 +46,7 @@ class TestRunComplete:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
         )
         capsys.readouterr()
@@ -70,7 +70,7 @@ class TestRunComplete:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
         )
         capsys.readouterr()
@@ -99,7 +99,7 @@ class TestRunList:
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
-                executor_type="pytest",
+                performed_by="pytest",
                 qa_kind="smoke",
                 verdict=verdict,
             )
@@ -116,14 +116,14 @@ class TestRunList:
         qa.cmd_run_add(
             db_path=db_path,
             requirement_id=r1,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )
         qa.cmd_run_add(
             db_path=db_path,
             requirement_id=r2,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="e2e",
             verdict="pass",
         )
@@ -143,7 +143,7 @@ class TestRunGet:
         run_id = qa.cmd_run_add(
             db_path=db_path,
             requirement_id=req_id,
-            executor_type="pytest",
+            performed_by="pytest",
             qa_kind="smoke",
             verdict="pass",
         )

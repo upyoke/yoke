@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Target resolution and visible-text helpers shared by the step-executor
+ * Target resolution and visible-text helpers shared by the step-runner
  * dispatcher and the per-action sibling modules.
  *
  * Exports (CommonJS):

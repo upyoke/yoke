@@ -119,7 +119,7 @@ db_router qa requirement-waive {requirement-id} "Rationale text" --source agent
 db_router qa requirement-waive {requirement-id} "Rationale text" --source operator --force
 
 # Record a passing non-review QA run (NOT for simulation — use yoke workflow-item epic-task simulation-upsert instead):
-yoke qa run add --requirement-id {req-id} --executor-type "agent" --qa-kind "ac_verification" --verdict "pass" --raw-result "Brief evidence"
+yoke qa run add --requirement-id {req-id} --performed-by "agent" --qa-kind "ac_verification" --verdict "pass" --raw-result "Brief evidence"
 
 # List requirements for an item:
 yoke qa requirement list --item "PREFIX-{N}"
@@ -128,4 +128,4 @@ yoke qa requirement list --item "PREFIX-{N}"
 yoke qa run list --requirement-id {req-id}
 ```
 
-**Required flags for `yoke qa run add`:** `--requirement-id`, `--executor-type`. Optional: `--qa-kind` (defaults to the requirement's stored kind; mismatch is a hard error), `--verdict`, `--execution-status`, `--raw-result`, `--duration-ms`. Multi-line evidence or score/confidence fields stay on the retained operator-debug `db_router qa run-add` fallback.
+**Required flags for `yoke qa run add`:** `--requirement-id`, `--performed-by`. Optional: `--qa-kind` (defaults to the requirement's stored kind; mismatch is a hard error), `--verdict`, `--execution-status`, `--raw-result`, `--duration-ms`. Multi-line evidence or score/confidence fields stay on the retained operator-debug `db_router qa run-add` fallback.

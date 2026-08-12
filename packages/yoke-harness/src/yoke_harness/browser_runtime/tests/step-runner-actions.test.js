@@ -1,20 +1,20 @@
 'use strict';
 
 /**
- * Tests for the scenario step executor — screenshot, timeout, errors, delay.
+ * Tests for the scenario step runner — screenshot, timeout, errors, delay.
  *
- * Run: node tests/step-executor-actions.test.js
+ * Run: node tests/step-runner-actions.test.js
  *
  * Covers: screenshot action, default timeout behavior, missing/unknown
  * action error handling, and the canonical ``delay`` action variants.
- * Stale-schema rejection lives in ``step-executor-stale-schema.test.js``.
+ * Stale-schema rejection lives in ``step-runner-stale-schema.test.js``.
  */
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep } = require('../src/step-executor');
+const { executeStep } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -109,7 +109,7 @@ async function testTimeoutDefault() {
 
   // AC-9: Default timeout is 5000ms. We verify by checking that a wait_for
   // on a non-existent element takes at least ~5 seconds.
-  // Instead of waiting 5s, we just verify the step executor handles the
+  // Instead of waiting 5s, we just verify the step runner handles the
   // timeout_ms override correctly.
   const result = await executeStep(page, {
     route: '',
@@ -258,7 +258,7 @@ async function testDelayThenScreenshotCapturesDelayedContent() {
 }
 
 async function run() {
-  console.log('=== Step Executor Tests: Actions ===');
+  console.log('=== Step Runner Tests: Actions ===');
   await setup();
   try {
     await testScreenshotAction();

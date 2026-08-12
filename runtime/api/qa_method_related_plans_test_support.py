@@ -80,7 +80,7 @@ def _run(
     return insert_qa_run(
         conn,
         qa_requirement_id=requirement_id,
-        executor_type="test_executor",
+        performed_by="test_runner",
         qa_kind="plan_case",
         verdict=verdict,
         case_outcome=case_outcome,

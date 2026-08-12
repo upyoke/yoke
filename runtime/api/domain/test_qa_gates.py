@@ -113,7 +113,7 @@ class TestCheckDoneGate:
             qa_kind="plan_case",
             method_id="browser-check",
         )
-        run_id = _add_run(qa_db, req_id, "pass", executor_type="browser_substrate")
+        run_id = _add_run(qa_db, req_id, "pass", performed_by="browser_substrate")
         _add_artifact(
             qa_db,
             run_id,
@@ -135,7 +135,7 @@ class TestCheckDoneGate:
             qa_db,
             req_id,
             "pass",
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             created_at="2024-01-01T00:00:00Z",
             raw_result=raw,
         )

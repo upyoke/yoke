@@ -69,7 +69,7 @@ def run(args: List[str]) -> int:
         prog="yoke qa plan run",
         description=(
             "Execute a materialized transition's cases in immutable "
-            "plan/case/baseline order through their registered executors."
+            "plan/case/baseline order through their registered runners."
         ),
     )
     subject = parser.add_mutually_exclusive_group(required=True)

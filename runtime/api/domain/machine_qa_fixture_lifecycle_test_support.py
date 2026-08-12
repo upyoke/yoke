@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.machine_qa_execution_contract import MachineQaCaseContract
 from runtime.api.domain.qa_plan_execution_test_support import (
@@ -36,7 +36,7 @@ def action_result(
     )
 
 
-class FakeFixtureExecutor:
+class FakeFixtureRunner:
     def __init__(
         self,
         events: list[str],
@@ -86,7 +86,7 @@ class FakeExecution:
 
     def __init__(
         self,
-        fixture: FakeFixtureExecutor,
+        fixture: FakeFixtureRunner,
         events: list[str],
         *,
         primary: MachineCaseResult | None = None,
@@ -96,7 +96,7 @@ class FakeExecution:
         self.fixture = fixture
         self.fixture_create_calls = 0
         self.control = SimpleNamespace(
-            create_fixture_operation_executor=self._create_fixture_operation_executor
+            create_fixture_operation_runner=self._create_fixture_operation_runner
         )
         self.material = SimpleNamespace(
             settings={"resource_name": "test-mac"},
@@ -113,7 +113,7 @@ class FakeExecution:
         self.execute_calls = 0
         self.execute_kwargs: list[dict[str, Any]] = []
 
-    def _create_fixture_operation_executor(self) -> FakeFixtureExecutor:
+    def _create_fixture_operation_runner(self) -> FakeFixtureRunner:
         self.fixture_create_calls += 1
         return self.fixture
 
@@ -191,7 +191,7 @@ def case_contract(
             "case_key": "fixture-lifecycle",
             "method_id": "terminal-check",
             "method_name": "Terminal check",
-            "executor_id": "host_control",
+            "runner_id": "host_control",
             "required_capability_kind": "test-machine",
             "verdict_path": "automated",
             "qa_kind": "acceptance",
@@ -235,7 +235,7 @@ def run_lifecycle(
     case: MachineQaCaseContract | None = None,
 ):
     events: list[str] = []
-    fixture = FakeFixtureExecutor(
+    fixture = FakeFixtureRunner(
         events,
         setup=setup,
         post_state=post_state,
@@ -257,7 +257,7 @@ def run_lifecycle(
 
 __all__ = [
     "FakeExecution",
-    "FakeFixtureExecutor",
+    "FakeFixtureRunner",
     "action_result",
     "baseline_configs",
     "case_contract",

@@ -63,7 +63,7 @@ Records individual QA executions against a requirement. Multiple runs per requir
 ```sql
 id INTEGER PRIMARY KEY
 qa_requirement_id INTEGER NOT NULL -- FK to qa_requirements(id)
-executor_type TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
+performed_by TEXT NOT NULL -- how it ran: agent, shell, playwright, manual, github-actions, remote-browser
 qa_kind TEXT NOT NULL -- what was tested (denormalized from requirement for query convenience)
 verdict TEXT -- CHECK: pass | fail | inconclusive | error (nullable until inspection writes it)
 execution_status TEXT -- CHECK: captured | capture_failed (nullable for non-browser runs)

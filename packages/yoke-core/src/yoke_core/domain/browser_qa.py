@@ -1,4 +1,4 @@
-"""Low-level Browser method-case executor substrate.
+"""Low-level Browser method-case runner substrate.
 
 The user-facing entry is ``yoke qa case run --requirement-id R``. The shared
 case runner calls :func:`execute_scenario` for exactly one materialized
@@ -21,7 +21,7 @@ Implementation is split across sibling modules under
 
 This file keeps the load-bearing ``import time`` (used by tests via
 ``mock.patch("...browser_qa.time.sleep")``) and re-exports of the low-level
-helpers the case executor exercises.
+helpers the case runner exercises.
 """
 
 from __future__ import annotations

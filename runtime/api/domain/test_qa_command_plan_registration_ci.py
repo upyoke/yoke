@@ -49,7 +49,7 @@ def _case(conn, plan_id: int) -> dict:
     }
 
 
-def test_project_without_a_declared_workflow_keeps_the_local_executor() -> None:
+def test_project_without_a_declared_workflow_keeps_the_local_runner() -> None:
     with test_database() as conn:
         result = ensure_registered_command_plan(
             conn, project_id=1, project="yoke", scope="full",

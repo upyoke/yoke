@@ -41,7 +41,7 @@ def test_ordered_roster_accepts_default_sqlite_tuple_rows() -> None:
             "id INTEGER PRIMARY KEY,item_id INTEGER,workflow_transition_id TEXT,"
             "plan_id INTEGER,plan_case_key TEXT,case_position INTEGER,"
             "baseline_position INTEGER,host_baseline TEXT,method_id TEXT,"
-            "executor_id TEXT,waived_at TEXT)"
+            "runner_id TEXT,waived_at TEXT)"
         )
         conn.execute(
             "INSERT INTO qa_requirements VALUES "
@@ -66,6 +66,6 @@ def test_ordered_roster_accepts_default_sqlite_tuple_rows() -> None:
             "baseline_position": 1,
             "host_baseline": None,
             "method_id": "command",
-            "executor_id": "worktree_run",
+            "runner_id": "worktree_run",
         }
     ]

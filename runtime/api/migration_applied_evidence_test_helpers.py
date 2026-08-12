@@ -173,7 +173,7 @@ def _seed_governed_item(
         req_id = cur.fetchone()[0]
         conn.execute(
             "INSERT INTO qa_runs "
-            "(qa_requirement_id, executor_type, qa_kind, verdict, "
+            "(qa_requirement_id, performed_by, qa_kind, verdict, "
             " created_at) "
             "VALUES (%s, 'pytest', 'ac_verification', 'pass', %s)",
             (req_id, "2026-04-23T00:00:00Z"),

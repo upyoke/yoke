@@ -174,7 +174,7 @@ class TestWriteSeam:
         assert calls[0]["function_id"] == "qa.run.add"
         assert calls[0]["target"].qa_requirement_id == 10
         assert calls[0]["payload"] == {
-            "executor_type": "browser_substrate",
+            "performed_by": "browser_substrate",
             "qa_kind": "plan_case",
             "raw_result": "{}",
         }

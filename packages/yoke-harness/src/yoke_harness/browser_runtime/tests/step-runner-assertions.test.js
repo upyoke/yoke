@@ -1,20 +1,20 @@
 'use strict';
 
 /**
- * Tests for the scenario step executor — assert action checks.
+ * Tests for the scenario step runner — assert action checks.
  *
- * Run: node tests/step-executor-assertions.test.js
+ * Run: node tests/step-runner-assertions.test.js
  *
  * Covers: assert with check ∈ {visible, hidden, text_contains, count_gte}
  * for non-body targets. Body-target visible-text + hydration semantics
- * live in ``step-executor-body-text.test.js``.
+ * live in ``step-runner-body-text.test.js``.
  */
 
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep } = require('../src/step-executor');
+const { executeStep } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -195,7 +195,7 @@ async function testAssertCountGte() {
 }
 
 async function run() {
-  console.log('=== Step Executor Tests: Assertions ===');
+  console.log('=== Step Runner Tests: Assertions ===');
   await setup();
   try {
     await testAssertVisible();

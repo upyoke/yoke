@@ -198,7 +198,7 @@ def _seed_qa_run(
     *,
     requirement_id,
     verdict="pass",
-    executor_type="browser_substrate",
+    performed_by="browser_substrate",
     raw_result=None,
     created_at=None,
 ):
@@ -208,10 +208,10 @@ def _seed_qa_run(
     p = _p(conn)
     cur = conn.execute(
         f"""
-        INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
+        INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, verdict, raw_result, created_at)
         VALUES ({p}, {p}, 'plan_case', {p}, {p}, {p}) RETURNING id
         """,
-        (requirement_id, executor_type, verdict, raw_result, ts),
+        (requirement_id, performed_by, verdict, raw_result, ts),
     )
     run_id = cur.fetchone()[0]
     conn.commit()

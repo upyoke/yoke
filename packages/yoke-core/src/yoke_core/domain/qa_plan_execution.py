@@ -49,7 +49,7 @@ def ordered_plan_requirements(
     cursor = conn.execute(
         "SELECT id AS requirement_id, plan_id, plan_case_key AS case_key, "
         "case_position, baseline_position, host_baseline, method_id, "
-        "executor_id FROM qa_requirements "
+        "runner_id FROM qa_requirements "
         f"WHERE {where} "
         "AND plan_id IS NOT NULL AND waived_at IS NULL "
         "ORDER BY plan_id, case_position, baseline_position, id",
@@ -73,7 +73,7 @@ def ordered_plan_requirements(
         if (
             row["case_position"] is None
             or row["baseline_position"] is None
-            or not str(row["executor_id"] or "").strip()
+            or not str(row["runner_id"] or "").strip()
         ):
             raise QaPlanExecutionError(
                 f"materialized QA case {requirement_id} has an incomplete "
@@ -194,7 +194,7 @@ def execute_plan(
                 payload={"execution_id": execution_id},
                 actor=resolved_actor,
             )
-            if requirement.get("executor_id") == "host_control":
+            if requirement.get("runner_id") == "host_control":
                 if requirement.get("host_baseline"):
                     if requirement_id not in baseline_group_results:
                         from yoke_core.domain.machine_qa_case_execution import (
@@ -248,7 +248,7 @@ def execute_plan(
                 advance_result = True
             if int(result.get("requirement_id") or 0) != requirement_id:
                 raise QaPlanExecutionError(
-                    f"case executor returned the wrong requirement for {requirement_id}"
+                    f"case runner returned the wrong requirement for {requirement_id}"
                 )
             normalized = {**order, **result}
             durable_result = (

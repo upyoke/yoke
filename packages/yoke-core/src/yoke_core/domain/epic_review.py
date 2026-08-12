@@ -118,7 +118,7 @@ def review_insert(
     try:
         _qa_run_add(
             requirement_id=req_id,
-            executor_type="agent",
+            performed_by="agent",
             qa_kind="implementation_review",
             verdict=lower_verdict,
             raw_result=raw_result,
@@ -290,7 +290,7 @@ def proceed_triage_and_handoff(
         try:
             _qa_run_add(
                 requirement_id=int(req_id),
-                executor_type="agent",
+                performed_by="agent",
                 qa_kind="simulation",
                 verdict="pass",
                 raw_result=raw_result,

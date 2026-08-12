@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Tests for the scenario step executor — stale-schema rejection.
+ * Tests for the scenario step runner — stale-schema rejection.
  *
- * Run: node tests/step-executor-stale-schema.test.js
+ * Run: node tests/step-runner-stale-schema.test.js
  *
  * Covers stale-schema rejection: legacy ``action: "wait"``, legacy ``url``
  * field on navigate, legacy ``selector`` field on click, and the
@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
-const { executeStep } = require('../src/step-executor');
+const { executeStep } = require('../src/step-runner');
 
 let testCount = 0;
 let passCount = 0;
@@ -150,7 +150,7 @@ async function testLegacyFieldsRejectedEvenAlongsideCanonical() {
 }
 
 async function run() {
-  console.log('=== Step Executor Tests: Stale Schema Rejection ===');
+  console.log('=== Step Runner Tests: Stale Schema Rejection ===');
   await setup();
   try {
     await testLegacyWaitActionRejected();

@@ -53,7 +53,7 @@ def materialize_deployment_plan(
     execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
     cases = query_rows(
         conn,
-        "SELECT c.*, m.name AS method_name, m.executor_id, "
+        "SELECT c.*, m.name AS method_name, m.runner_id, "
         "m.required_capability_kind, m.verdict_path "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
         f"WHERE c.plan_id={marker} ORDER BY c.position",

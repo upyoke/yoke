@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.coordination_leases import Lease
-from yoke_core.domain.host_control_executor import TestMachineMaterial
+from yoke_core.domain.host_control_runner import TestMachineMaterial
 from yoke_core.domain.machine_qa_execution import MachineQaLease
 
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
@@ -47,7 +47,7 @@ def _execute_assertion(execution: MachineQaLease):
     )
 
 
-def test_failed_reset_blocks_case_and_executor_evidence_is_redacted() -> None:
+def test_failed_reset_blocks_case_and_runner_evidence_is_redacted() -> None:
     control = FakeHostControl(refuse_full_reset=True)
     execution = _execution(control)
 

@@ -99,7 +99,7 @@ def test_restore_backfills_requirement_snapshots_from_an_older_archive(tmp_path)
             with psycopg.connect(target_dsn) as target:
                 assert target.execute(
                     "SELECT case_position, baseline_position, method_name, "
-                    "executor_id, required_capability_kind, verdict_path "
+                    "runner_id, required_capability_kind, verdict_path "
                     "FROM qa_requirements WHERE id = %s",
                     (requirement_id,),
                 ).fetchone() == (
@@ -126,7 +126,7 @@ def test_restore_acceptance_rejects_invalid_requirement_snapshot() -> None:
             "INSERT INTO qa_requirements("
             "item_id, qa_kind, qa_phase, blocking_mode, requirement_source, "
             "plan_id, plan_case_key, case_position, baseline_position, "
-            "method_id, method_name, executor_id, verdict_path, "
+            "method_id, method_name, runner_id, verdict_path, "
             "workflow_transition_id, instructions, expected_outcome, "
             "method_config, created_at"
             ") VALUES (%s, 'plan_case', 'verification', 'blocking', "

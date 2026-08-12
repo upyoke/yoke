@@ -88,7 +88,7 @@ class TestExecuteUpdate:
         _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
         )
         out = io.StringIO()
@@ -146,7 +146,7 @@ class TestExecuteUpdate:
         _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
         )
         out = io.StringIO()
@@ -178,7 +178,7 @@ class TestExecuteUpdate:
         run_id = _seed_qa_run(
             tmp_db,
             requirement_id=req_id,
-            executor_type="browser_substrate",
+            performed_by="browser_substrate",
             verdict="pass",
             raw_result='{"code_identity":{"branch":"YOK-10","sha":"oldsha"}}',
             created_at="2024-01-01T00:00:00Z",

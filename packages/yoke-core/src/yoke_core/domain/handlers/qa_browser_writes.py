@@ -49,17 +49,17 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             "qa.run.add requires target.qa_requirement_id",
         )
     payload = request.payload or {}
-    executor_type = payload.get("executor_type")
+    performed_by = payload.get("performed_by")
     qa_kind = payload.get("qa_kind")
     verdict = payload.get("verdict")
     execution_status = payload.get("execution_status")
     raw_result = payload.get("raw_result")
     duration_ms = payload.get("duration_ms")
-    if not isinstance(executor_type, str) or not executor_type:
+    if not isinstance(performed_by, str) or not performed_by:
         return _error(
             "payload_invalid",
-            "executor_type is required",
-            jsonpath="$.payload.executor_type",
+            "performed_by is required",
+            jsonpath="$.payload.performed_by",
         )
 
     conn = connect()
@@ -81,14 +81,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 jsonpath="$.payload.qa_kind",
             )
         if (
-            executor_type == "agent"
+            performed_by == "agent"
             and is_browser_method_requirement(row["method_id"])
         ):
             return _error(
                 "policy_violation",
-                "executor_type 'agent' is not allowed for Browser methods "
+                "performed_by 'agent' is not allowed for Browser methods "
                 "-- use browser_substrate",
-                jsonpath="$.payload.executor_type",
+                jsonpath="$.payload.performed_by",
             )
 
         now_iso = iso8601_now()
@@ -97,14 +97,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         )
         cur = conn.execute(
             "INSERT INTO qa_runs "
-            "(qa_requirement_id, executor_type, qa_kind, verdict, "
+            "(qa_requirement_id, performed_by, qa_kind, verdict, "
             "execution_status, case_outcome, raw_result, duration_ms, "
             "started_at, completed_at, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
                 int(req_id),
-                executor_type,
+                performed_by,
                 stored_kind,
                 verdict,
                 execution_status,

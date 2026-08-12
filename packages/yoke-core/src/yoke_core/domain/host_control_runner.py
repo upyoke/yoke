@@ -24,7 +24,7 @@ from yoke_core.domain.test_machine_capability import (
 
 if TYPE_CHECKING:
     from yoke_core.domain.machine_qa_fixture_operations import (
-        MachineQaFixtureOperationExecutor,
+        MachineQaFixtureOperationRunner,
     )
 
 
@@ -43,9 +43,9 @@ class HostControl(Protocol):
 
     def write_text(self, path: str, content: str) -> None: ...
 
-    def create_fixture_operation_executor(
+    def create_fixture_operation_runner(
         self,
-    ) -> "MachineQaFixtureOperationExecutor": ...
+    ) -> "MachineQaFixtureOperationRunner": ...
 
     def reset_installer_test_host(self) -> HostActionResult: ...
 
@@ -234,7 +234,7 @@ def resolve_contract_host_control(
     """Materialize a server-issued contract on the credential-owning machine."""
     if _factory is None:
         raise TestMachineCapabilityError(
-            "host_control executor is not registered on this machine"
+            "host_control runner is not registered on this machine"
         )
     material = materialize_test_machine_contract(contract)
     return _factory(material), material

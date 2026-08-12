@@ -1,4 +1,4 @@
-"""Executor-wide secret redaction for locally submitted Machine QA results."""
+"""Runner-wide secret redaction for locally submitted Machine QA results."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
             case_outcome="passed",
             verdict="pass",
             evidence={
-                "executor_id": "host_control",
+                "runner_id": "host_control",
                 "fixture_report": f"prepared with {secret}",
             },
         ),
@@ -45,7 +45,7 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
         "case_key": "secret-redaction",
         "method_id": "machine-state-check",
         "method_name": "Machine state check",
-        "executor_id": "host_control",
+        "runner_id": "host_control",
         "required_capability_kind": "test-machine",
         "verdict_path": "automatic",
         "qa_kind": "machine",

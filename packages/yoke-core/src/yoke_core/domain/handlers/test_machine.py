@@ -43,7 +43,7 @@ class TestMachineResponse(BaseModel):
     project: str
     kind: str
     display_name: str
-    executor_id: str
+    runner_id: str
     settings: dict[str, str]
     settings_token: str
     features: list[str]

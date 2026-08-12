@@ -40,7 +40,7 @@ CREATE TABLE qa_requirements (
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY,
     qa_requirement_id INTEGER,
-    executor_type TEXT,
+    performed_by TEXT,
     qa_kind TEXT,
     verdict TEXT,
     execution_status TEXT,
@@ -151,7 +151,7 @@ def add_run(
     req_id: int,
     *,
     verdict: str = "pass",
-    executor_type: str = "agent",
+    performed_by: str = "agent",
     qa_kind: str = "ac_verification",
     created_at: str = "2026-05-07T01:00:00Z",
 ) -> int:
@@ -160,11 +160,11 @@ def add_run(
         cursor = conn.execute(
             """
             INSERT INTO qa_runs
-              (qa_requirement_id, executor_type, qa_kind, verdict, created_at)
+              (qa_requirement_id, performed_by, qa_kind, verdict, created_at)
             VALUES (%s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (req_id, executor_type, qa_kind, verdict, created_at),
+            (req_id, performed_by, qa_kind, verdict, created_at),
         )
         rid = int(cursor.fetchone()[0])
         conn.commit()

@@ -12,7 +12,7 @@ from yoke_cli.config.path_doctor import (
     resolve_path_state_contract,
 )
 
-from yoke_core.domain.host_control_executor import HostActionResult
+from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_fixture_constants import (
     CAMPAIGN_WORKSPACE_PATHS,
     EMPTY_TOKEN_PATH,
@@ -38,7 +38,7 @@ class RemoteCommandResult(Protocol):
 
 
 class RemoteRunner(Protocol):
-    """Run one executor-authored shell command on the controlled host."""
+    """Run one runner-authored shell command on the controlled host."""
 
     def __call__(
         self,
@@ -49,14 +49,14 @@ class RemoteRunner(Protocol):
 
 
 class RemoteTextUploader(Protocol):
-    """Write executor-authored text to one controlled-host path."""
+    """Write runner-authored text to one controlled-host path."""
 
     def __call__(self, path: str, content: str) -> None: ...
 
 
 @dataclass(frozen=True)
 class ServiceCleanup:
-    """Identity needed to stop one executor-owned remote service."""
+    """Identity needed to stop one runner-owned remote service."""
 
     identity_path: str
     identity: str
@@ -89,7 +89,7 @@ class RemoteFixtureFailure(RuntimeError):
 
 
 def shell_command(*argv: object) -> str:
-    """Build one safely quoted executor-authored remote command."""
+    """Build one safely quoted runner-authored remote command."""
     return shlex.join([str(value) for value in argv])
 
 
@@ -119,7 +119,7 @@ class MachineQaFixtureRuntime:
             or ".." in selected_home.parts
         ):
             raise MachineQaFixtureOperationError(
-                "fixture executor requires a bounded absolute host home"
+                "fixture runner requires a bounded absolute host home"
             )
         self._run_remote = run_remote
         self._upload_remote = upload_text
@@ -274,7 +274,7 @@ class MachineQaFixtureRuntime:
             )
         )
         if not allowed:
-            raise RuntimeError("executor selected an unowned upload path")
+            raise RuntimeError("runner selected an unowned upload path")
 
     def _delete(self, *paths: str) -> None:
         resolved = [self._resolve_path(path) for path in paths]
@@ -309,7 +309,7 @@ class MachineQaFixtureRuntime:
             and not within_campaign
             and not path_is_within(path, FIXTURE_ROOT)
         ):
-            raise RuntimeError("executor selected an unowned destructive path")
+            raise RuntimeError("runner selected an unowned destructive path")
 
     def _yoke_bin(self) -> str:
         return self.path_state.yoke_bin

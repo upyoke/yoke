@@ -6,7 +6,7 @@ import pytest
 
 from runtime.api.domain.machine_qa_fixture_test_support import (
     FakeRemote,
-    fixture_executor as _executor,
+    fixture_runner as _runner,
     operation as _operation,
 )
 from yoke_cli.config import path_doctor
@@ -16,7 +16,7 @@ from yoke_core.domain.machine_qa_fixture_constants import (
 )
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationError,
-    MachineQaFixtureOperationExecutor,
+    MachineQaFixtureOperationRunner,
 )
 from yoke_core.domain.machine_qa_fixture_validation import (
     POST_VALIDATORS,
@@ -29,17 +29,17 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
 
 
 def test_operation_registry_has_validation_and_execution_coverage() -> None:
-    executor = _executor(FakeRemote())
+    runner = _runner(FakeRemote())
 
     assert frozenset(SETUP_VALIDATORS) == REGISTERED_SETUP_OPERATION_IDS
     assert frozenset(POST_VALIDATORS) == REGISTERED_POST_STATE_ASSERTION_IDS
-    assert frozenset(executor._setup_handlers()) == REGISTERED_SETUP_OPERATION_IDS
-    assert frozenset(executor._post_handlers()) == REGISTERED_POST_STATE_ASSERTION_IDS
+    assert frozenset(runner._setup_handlers()) == REGISTERED_SETUP_OPERATION_IDS
+    assert frozenset(runner._post_handlers()) == REGISTERED_POST_STATE_ASSERTION_IDS
 
 
-def test_workspace_reset_stays_inside_executor_owned_paths() -> None:
-    executor = _executor(FakeRemote())
-    result = executor.execute_setup_operations(
+def test_workspace_reset_stays_inside_runner_owned_paths() -> None:
+    runner = _runner(FakeRemote())
+    result = runner.execute_setup_operations(
         [
             _operation(
                 "installer-campaign.workspace-reset",
@@ -49,10 +49,10 @@ def test_workspace_reset_stays_inside_executor_owned_paths() -> None:
     )
 
     assert result.ok
-    assert executor.close().ok
+    assert runner.close().ok
 
 
-def test_fixture_executor_rejects_launcher_outside_bounded_home() -> None:
+def test_fixture_runner_rejects_launcher_outside_bounded_home() -> None:
     remote = FakeRemote()
     path_state = path_doctor.resolve_path_state_contract(
         env={
@@ -66,7 +66,7 @@ def test_fixture_executor_rejects_launcher_outside_bounded_home() -> None:
         MachineQaFixtureOperationError,
         match="launcher escapes",
     ):
-        MachineQaFixtureOperationExecutor(
+        MachineQaFixtureOperationRunner(
             run_remote=remote.run,
             upload_text=remote.upload,
             home="/Users/tester",
@@ -103,31 +103,31 @@ def test_validation_refuses_unregistered_code_and_destructive_targets(
     operation,
 ) -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
+    runner = _runner(remote)
     with pytest.raises(MachineQaFixtureOperationError):
-        executor.execute_setup_operations([operation])
+        runner.execute_setup_operations([operation])
     assert remote.commands == []
     assert remote.uploads == {}
 
 
 def test_whole_batch_is_validated_before_the_first_mutation() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
+    runner = _runner(remote)
     valid = _operation(
         "installer-campaign.workspace-reset",
         paths=list(CAMPAIGN_WORKSPACE_PATHS),
     )
     invalid = _operation("fixture.unknown")
     with pytest.raises(MachineQaFixtureOperationError):
-        executor.execute_setup_operations([valid, invalid])
+        runner.execute_setup_operations([valid, invalid])
     assert remote.commands == []
 
 
 def test_current_release_accepts_environment_bound_distribution_values() -> None:
     remote = FakeRemote()
-    executor = _executor(remote)
+    runner = _runner(remote)
 
-    result = executor.execute_setup_operations(
+    result = runner.execute_setup_operations(
         [
             _operation(
                 "installer.current-release-prepare",
@@ -156,10 +156,10 @@ def test_current_release_rejects_unsafe_distribution_values(
     base_url: str,
     channel: str,
 ) -> None:
-    executor = _executor(FakeRemote())
+    runner = _runner(FakeRemote())
 
     with pytest.raises(MachineQaFixtureOperationError):
-        executor.execute_setup_operations(
+        runner.execute_setup_operations(
             [
                 _operation(
                     "installer.current-release-prepare",

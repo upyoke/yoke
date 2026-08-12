@@ -5,7 +5,7 @@ The merge engine holds a merge lock, not an item claim, so it cannot call
 the merge-internal twin: ensure a covering-eligible ``ci_run`` requirement
 on the item, insert a ``qa_runs`` row whose ``raw_result`` carries
 ``verification_tree.head_sha``, and emit ``QARunCompleted``. Covering-run
-readers already accept ``executor_id='ci_run'`` pass evidence, so a later
+readers already accept ``runner_id='ci_run'`` pass evidence, so a later
 same-tree merge skips instead of re-dispatching.
 """
 
@@ -32,7 +32,7 @@ class RecordPostRebaseCiRunRequest(BaseModel):
     verdict: str
     raw_result: str
     duration_ms: Optional[int] = None
-    executor_type: str = "ci_run"
+    performed_by: str = "ci_run"
 
 
 class RecordPostRebaseCiRunResponse(BaseModel):
@@ -81,7 +81,7 @@ def _ensure_merge_gate_ci_requirement(
     rows = query_rows(
         conn,
         "SELECT id, method_config FROM qa_requirements "
-        f"WHERE item_id={marker} AND executor_id='ci_run' "
+        f"WHERE item_id={marker} AND runner_id='ci_run' "
         "AND waived_at IS NULL ORDER BY id ASC",
         (int(item_id),),
     )
@@ -102,7 +102,7 @@ def _ensure_merge_gate_ci_requirement(
     cur = conn.execute(
         "INSERT INTO qa_requirements ("
         "item_id, qa_kind, qa_phase, blocking_mode, requirement_source, "
-        "method_id, method_name, executor_id, instructions, expected_outcome, "
+        "method_id, method_name, runner_id, instructions, expected_outcome, "
         "method_config, created_at"
         f") VALUES ({', '.join([marker] * 12)}) RETURNING id",
         (
@@ -180,13 +180,13 @@ def handle_record_post_rebase_ci_run(request: FunctionCallRequest) -> HandlerOut
             marker = _marker(conn)
             cur = conn.execute(
                 "INSERT INTO qa_runs ("
-                "qa_requirement_id, executor_type, qa_kind, verdict, "
+                "qa_requirement_id, performed_by, qa_kind, verdict, "
                 "case_outcome, raw_result, duration_ms, started_at, "
                 "completed_at, created_at"
                 f") VALUES ({', '.join([marker] * 10)}) RETURNING id",
                 (
                     requirement_id,
-                    body.executor_type or "ci_run",
+                    body.performed_by or "ci_run",
                     qa_kind,
                     body.verdict,
                     case_outcome_for_verdict(body.verdict),

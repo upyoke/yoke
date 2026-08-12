@@ -96,7 +96,7 @@ class TestQaArtifactAdd(unittest.TestCase):
                     _request(
                         "qa.run.add",
                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                        payload={"executor_type": "browser_substrate"},
+                        payload={"performed_by": "browser_substrate"},
                     ),
                 )
             run_id = int(run_outcome.result_payload["qa_run_id"])

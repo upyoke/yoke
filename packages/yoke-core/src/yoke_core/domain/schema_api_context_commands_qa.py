@@ -132,7 +132,7 @@ QA_COMMANDS: list[dict] = [
         "purpose": "Add a QA run verdict — agent × ac_verification (inline raw_result)",
         "recipe": (
             "yoke qa run add "
-            "--requirement-id R --executor-type agent "
+            "--requirement-id R --performed-by agent "
             "--qa-kind ac_verification --verdict pass "
             "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
         ),
@@ -155,7 +155,7 @@ QA_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Begins or resumes a server-authorized execution before any "
-            "local executor runs. Stage pins the immutable roster, digest, "
+            "local runner runs. Stage pins the immutable roster, digest, "
             "durable cursor, actor/session owner, and any machine lease; "
             "each canonical result advances that cursor. After capture, "
             "agent-verdict cases produce one immutable review bundle and "
@@ -164,7 +164,7 @@ QA_COMMANDS: list[dict] = [
             "complete verdict batch. Only agent inconclusive creates human "
             "Inbox work. Waiting runs resume from the same cursor, while "
             "completion or abort releases the lease. Hosted services never "
-            "resolve local executor credentials."
+            "resolve local runner credentials."
         ),
     },
     {

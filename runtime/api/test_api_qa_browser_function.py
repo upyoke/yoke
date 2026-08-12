@@ -1,8 +1,8 @@
 """Unit tests for the Browser method-case function family.
 
 ``qa.browser_context.get`` + ``qa.run.add`` + ``qa.run.complete`` +
-``qa.artifact.add`` — the DB legs of the per-requirement case executor.
-Handlers run against the isolated Postgres fixture (the executor-side seam test
+``qa.artifact.add`` — the DB legs of the per-requirement case runner.
+Handlers run against the isolated Postgres fixture (the runner-side seam test
 asserting the dispatcher wiring lives in
 ``runtime/api/domain/test_browser_qa_transport.py``).
 """
@@ -183,7 +183,7 @@ class TestQaRunAdd(unittest.TestCase):
     def test_rejects_missing_target(self):
         outcome = qa_browser_writes.handle_qa_run_add(
             _request("qa.run.add", TargetRef(kind="global"),
-                     payload={"executor_type": "browser_substrate"}),
+                     payload={"performed_by": "browser_substrate"}),
         )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
@@ -194,7 +194,7 @@ class TestQaRunAdd(unittest.TestCase):
             outcome = qa_browser_writes.handle_qa_run_add(
                 _request("qa.run.add",
                          TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                         payload={"executor_type": "agent"}),
+                         payload={"performed_by": "agent"}),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "policy_violation")
@@ -205,7 +205,7 @@ class TestQaRunAdd(unittest.TestCase):
             outcome = qa_browser_writes.handle_qa_run_add(
                 _request("qa.run.add",
                          TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                         payload={"executor_type": "browser_substrate",
+                         payload={"performed_by": "browser_substrate",
                                   "qa_kind": "ac_verification"}),
             )
         self.assertFalse(outcome.primary_success)
@@ -221,7 +221,7 @@ class TestQaRunAdd(unittest.TestCase):
                     _request(
                         "qa.run.add",
                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                        payload={"executor_type": "browser_substrate",
+                        payload={"performed_by": "browser_substrate",
                                  "qa_kind": "plan_case",
                                  "raw_result": "{}"},
                     ),
@@ -229,7 +229,7 @@ class TestQaRunAdd(unittest.TestCase):
             self.assertTrue(outcome.primary_success, outcome.error)
             run_id = outcome.result_payload["qa_run_id"]
             row = conn.execute(
-                "SELECT executor_type, qa_kind, verdict, completed_at "
+                "SELECT performed_by, qa_kind, verdict, completed_at "
                 "FROM qa_runs WHERE id = %s",
                 (run_id,),
             ).fetchone()
@@ -249,7 +249,7 @@ class TestQaRunComplete(unittest.TestCase):
                 _request(
                     "qa.run.add",
                     TargetRef(kind="qa_requirement", qa_requirement_id=10),
-                    payload={"executor_type": "browser_substrate"},
+                    payload={"performed_by": "browser_substrate"},
                 ),
             )
         return int(outcome.result_payload["qa_run_id"])

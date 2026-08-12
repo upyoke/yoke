@@ -108,7 +108,7 @@ def cmd_record_stage_result(
     run_add_args = [
         "qa", "run-add",
         "--requirement-id", str(req_id),
-        "--executor-type", "github-actions",
+        "--performed-by", "github-actions",
         "--qa-kind", qa_kind,
         "--verdict", run_verdict,
         "--raw-result", enriched_result,
