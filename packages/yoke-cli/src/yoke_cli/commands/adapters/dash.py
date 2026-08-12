@@ -128,6 +128,10 @@ def dash_survey(args: List[str]) -> int:
         result = response.result or {}
         if result.get("clear"):
             print(f"survey-clear|{result.get('fingerprint') or ''}", file=stdout)
+        print(
+            f"survey-touch-path-update|{result.get('touch_path_update') or ''}",
+            file=stdout,
+        )
         for size in result.get("path_sizes") or []:
             print(
                 "survey-size|"

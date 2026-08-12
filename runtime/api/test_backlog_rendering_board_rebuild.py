@@ -22,5 +22,4 @@ def test_rebuild_board_skips_without_repo_root(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(br, "_yoke_root", _raise)
     out = io.StringIO()
     br._rebuild_board(out)  # must NOT raise
-    assert "Skipping board rebuild" in out.getvalue()
-    assert "no-checkout" in out.getvalue()
+    assert out.getvalue() == ""

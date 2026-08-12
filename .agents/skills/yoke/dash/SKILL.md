@@ -70,7 +70,9 @@ for the contract.
 
 - `/yoke dash "instruction"` — author a concise title, file the Dash, and
   execute it in this session.
-- `/yoke dash PREFIX-N` — execute the already-filed Dash.
+- `/yoke dash PREFIX-N` or `/yoke dash N` — execute the already-filed Dash.
+  A bare number resolves as the current project's public item sequence. Do not
+  invent or guess a prefix; pass the operator's token through unchanged.
 
 `yoke dash "title" "instruction"` is the non-harness filing adapter. It
 files and prints the item; it does not execute it.
@@ -180,6 +182,10 @@ Record the survey:
 yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
 ```
 
+Every survey call replaces the entire stored touch set; it never widens the
+previous set. Repeat every still-required path on every call. The receipt names
+this as `touch_path_update="replace"` and echoes the complete stored set.
+
 The response's `path_sizes` carries `current_line_count`,
 `remaining_headroom`, `at_or_over_limit`, `limit`, and `classification` for
 every path. Treat an at/over-limit path as a pre-implementation split or
@@ -198,6 +204,9 @@ the stored instruction and survey define scope without either artifact.
 For every reported contact:
 
 - yield to active or planned registered claims;
+- when a directory survey was only a discovery aid, narrow it to the complete
+  concrete file set before preparation, repeating every required file in the
+  replacement survey;
 - coordinate with the owning item or wait when the scope is still small;
 - when effective path claims are enabled, keep the inferred set complete;
   worktree preparation registers or widens the real claim from this survey;
@@ -214,6 +223,12 @@ Prepare the ordinary item lane:
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash
 ```
+
+No environment override is required. Validation-surface provisioning is a
+best-effort local lane convenience, not a Dash preparation gate; an HTTPS
+control plane has no local capability database to inspect and skips that step
+silently. Governed migration rehearsal remains the validation authority when
+the instruction changes a database model.
 
 Use the returned absolute `worktree_path` for every read, edit, test, and
 git command. Keep the Cursor agent rooted on the main project checkout —

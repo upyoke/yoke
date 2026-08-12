@@ -1,5 +1,5 @@
-"""The epic-task lineage's board rebuild skips with an advisory when there is
-no checkout, and is best-effort: a rebuild failure never fails the transition.
+"""The epic-task lineage's board rebuild silently skips without a checkout
+and is best-effort: a rebuild failure never fails the transition.
 """
 
 from __future__ import annotations
@@ -11,15 +11,14 @@ import pytest
 from yoke_core.domain import update_status_helpers as ush
 
 
-def test_rebuild_board_skips_with_advisory(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rebuild_board_skips_silently(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise():
         raise RuntimeError("Cannot determine repo root")
 
     monkeypatch.setattr(ush, "_repo_root", _raise)
     out = io.StringIO()
     ush._rebuild_board(out)  # must NOT raise
-    assert "Skipping board rebuild" in out.getvalue()
-    assert "no-checkout" in out.getvalue()
+    assert out.getvalue() == ""
 
 
 def test_rebuild_failure_is_nonfatal(
