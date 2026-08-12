@@ -1,5 +1,6 @@
 """Merge-queue binding health check verdicts."""
 
+import json
 from types import SimpleNamespace
 
 from yoke_core.domain.project_github_auth import ProjectGithubAuthError
@@ -122,16 +123,26 @@ def _run(
     conn,
     rules_body,
     declaration=None,
+    repo_declaration=None,
+    repo_text=None,
     allow_auto_merge=True,
     bypass_actors=None,
 ):
+    if repo_text is None and repo_declaration is not None:
+        repo_text = json.dumps(repo_declaration)
     monkeypatch.setattr(
         hc_mod, "resolve_project_github_auth",
         lambda project, db_path=None, required_permissions=None: _auth(),
     )
     monkeypatch.setattr(
         hc_mod, "_workflow_has_merge_group_trigger",
-        lambda conn, token, owner, repo, project_id: (True, "yoke-ci.yml"),
+        lambda conn, token, owner, repo, project_id, ref: (
+            True, "yoke-ci.yml"
+        ),
+    )
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "fetch_file_text",
+        lambda owner, repo, file_path, *, ref, token: repo_text,
     )
     monkeypatch.setattr(
         hc_mod.mq_rest, "fetch_branch_rules",
@@ -156,12 +167,14 @@ def _run(
     )
     if declaration is None:
         monkeypatch.setattr(
-            hc_mod, "_load_checkout_declaration",
-            lambda conn, args: (None, "no declaration at merge-queue.json"),
+            hc_mod, "_checkout_declaration",
+            lambda conn, args: (
+                None, "no source checkout mapped for project"
+            ),
         )
     else:
         monkeypatch.setattr(
-            hc_mod, "_load_checkout_declaration",
+            hc_mod, "_checkout_declaration",
             lambda conn, args: (declaration, ".yoke/merge-queue.json"),
         )
     rec = RecordCollector()
@@ -188,6 +201,7 @@ def test_declared_with_rule_and_trigger_passes(monkeypatch):
     assert result.result == "PASS"
     assert "merge_queue rule active" in result.detail
     assert "yoke-ci.yml" in result.detail
+    assert "parameter drift not checked" in result.detail
 
 
 def test_declared_without_rule_fails(monkeypatch):
@@ -207,15 +221,21 @@ def test_missing_trigger_fails(monkeypatch):
     )
     monkeypatch.setattr(
         hc_mod, "_workflow_has_merge_group_trigger",
-        lambda conn, token, owner, repo, project_id: (False, "yoke-ci.yml"),
+        lambda conn, token, owner, repo, project_id, ref: (
+            False, "yoke-ci.yml"
+        ),
     )
     monkeypatch.setattr(
         hc_mod.mq_rest, "fetch_branch_rules",
         lambda *a, **k: _live_rules(),
     )
     monkeypatch.setattr(
-        hc_mod, "_load_checkout_declaration",
+        hc_mod, "_checkout_declaration",
         lambda conn, args: (None, "no declaration"),
+    )
+    monkeypatch.setattr(
+        hc_mod.mq_rest, "fetch_file_text",
+        lambda owner, repo, file_path, *, ref, token: None,
     )
     rec = RecordCollector()
     hc_mod.hc_merge_queue_binding(
@@ -263,6 +283,56 @@ def test_declaration_match_passes(monkeypatch):
     )
     assert result.result == "PASS"
     assert "matches .yoke/merge-queue.json" in result.detail
+
+
+def test_repo_declaration_diffs_parameters_without_checkout(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(grouping="ALLGREEN"),
+        repo_declaration=_declared(),
+    )
+    assert result.result == "FAIL"
+    assert "merge_queue parameters drifted" in result.detail
+
+
+def test_repo_declaration_match_passes_without_checkout(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(),
+        repo_declaration=_declared(),
+    )
+    assert result.result == "PASS"
+    assert "matches .yoke/merge-queue.json" in result.detail
+    assert "upyoke/yoke@main:.yoke/merge-queue.json" in result.detail
+
+
+def test_malformed_repo_declaration_fails(monkeypatch):
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(),
+        repo_text="{not json",
+    )
+    assert result.result == "FAIL"
+    assert "declaration unreadable" in result.detail
+
+
+def test_checkout_declaration_wins_over_repo(monkeypatch):
+    stale = _declared()
+    stale["ruleset"]["rules"][0]["parameters"]["grouping_strategy"] = (
+        "ALLGREEN"
+    )
+    result = _run(
+        monkeypatch,
+        conn=_FakeConn(),
+        rules_body=_live_rules(),
+        declaration=_declared(),
+        repo_declaration=stale,
+    )
+    assert result.result == "PASS"
+    assert ".yoke/merge-queue.json" in result.detail
 
 
 def test_allow_auto_merge_drift_fails(monkeypatch):

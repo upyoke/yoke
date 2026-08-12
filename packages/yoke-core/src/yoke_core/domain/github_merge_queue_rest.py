@@ -10,9 +10,36 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_core.domain.gh_rest_transport import (
+    RestNotFoundError,
     RestRequest,
     request_with_retry,
 )
+
+
+def fetch_file_text(
+    owner: str, repo: str, file_path: str, *, ref: str, token: str,
+) -> Optional[str]:
+    """Return raw text of ``file_path`` at ``ref``, or None when absent.
+
+    Lets a runner with no source checkout read a repository-declared file
+    (the merge-queue declaration, a workflow) straight from GitHub.
+    """
+    try:
+        response = request_with_retry(
+            RestRequest(
+                method="GET",
+                path=(
+                    f"/repos/{owner}/{repo}/contents/"
+                    f"{file_path.lstrip('/')}"
+                ),
+                query={"ref": ref},
+                accept="application/vnd.github.raw+json",
+            ),
+            token=token,
+        )
+    except RestNotFoundError:
+        return None
+    return response.body if isinstance(response.body, str) else None
 
 
 def fetch_branch_rules(
@@ -134,6 +161,7 @@ def find_ruleset_id_by_name(
 __all__ = [
     "create_ruleset",
     "fetch_branch_rules",
+    "fetch_file_text",
     "fetch_repository",
     "find_ruleset_id_by_name",
     "get_ruleset",

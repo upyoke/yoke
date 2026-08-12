@@ -9,7 +9,11 @@ the operator-edited source of truth. Apply it with
 `yoke github merge-queue apply --project yoke` (Administration: write on
 the App). Doctor `HC-merge-queue-binding` diffs the live ruleset parameters
 and `allow_auto_merge` against the declaration so grouping flips, dropped
-required checks, widened bypass, or a disabled auto-merge turn red.
+required checks, widened bypass, or a disabled auto-merge turn red. The
+check reads the declaration from the project checkout when the host has
+one — so an operator sees uncommitted retunes — and otherwise fetches it
+from the repository at the default branch head, which is what lets a
+hosted runner holding no checkout run the same parameter diff.
 
 The declared ruleset carries a `merge_queue` rule (merge method MERGE,
 HEADGREEN grouping, 5-minute batching window, trains capped at 5 entries,
