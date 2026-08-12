@@ -172,12 +172,11 @@ The 350-line authored-file limit remains on in all combinations.
 
 Discover this project's source and test roots before grepping — read them
 from the project rules file, or derive tracked top-level roots with
-`git ls-files | cut -d/ -f1 | sort -u`. Never assume a top-level
-`yoke_core/` or bare `tests/` layout; Yoke source lives under
-`packages/yoke-core/src` (and sibling package roots). Then read only far
-enough to name the files or directories the instruction is likely to
-touch. Prefer file paths; use a directory only when the instruction
-genuinely spans that directory.
+`git ls-files | cut -d/ -f1 | sort -u`. Never assume another project's
+directory layout (a top-level package directory or a bare test tree that
+does not exist here). Then read only far enough to name the files or
+directories the instruction is likely to touch. Prefer file paths; use a
+directory only when the instruction genuinely spans that directory.
 
 Record the survey:
 
