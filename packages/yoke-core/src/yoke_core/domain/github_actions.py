@@ -27,7 +27,6 @@ from yoke_contracts.github_app_installation_permissions import (
 from yoke_core.domain.gh_rest_transport import RestTransportError
 from yoke_core.domain.github_actions_cli import build_parser as _build_parser
 from yoke_core.domain.github_actions_rest import (
-    adaptive_wait_interval,
     latest_workflow_run,
     resolve_token,
     rest_get,
@@ -38,6 +37,7 @@ from yoke_core.domain.github_actions_run_monitoring import (
     check_ci_command,
     failed_log_command,
 )
+from yoke_core.domain.github_poll_schedule import next_read_delay
 
 
 def cmd_trigger(
@@ -144,7 +144,6 @@ def cmd_wait_run(
     )
 
     start = time.monotonic()
-    attempt = 0
     timeout_sec = max(0, timeout_sec)
 
     while True:
@@ -159,13 +158,13 @@ def cmd_wait_run(
             print(f"timeout:{message}")
             sys.exit(3)
 
-        sleep_sec = min(adaptive_wait_interval(attempt), max(1, timeout_sec - elapsed))
         print(
             f"  Run status: {message} (elapsed: {elapsed}s, timeout: {timeout_sec}s)",
             file=sys.stderr,
         )
-        time.sleep(sleep_sec)
-        attempt += 1
+        # A run waited on by id has no known duration floor, so the only
+        # thing shaping this wait is the minimum interval itself.
+        time.sleep(next_read_delay(elapsed))
 
 
 def cmd_find_run(

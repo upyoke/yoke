@@ -131,6 +131,24 @@ def test_deadline_expiry_is_recoverable_and_names_the_last_observation(
     assert "queue-entry=absent" in outcome.error
 
 
+def test_landing_reads_on_the_train_schedule(monkeypatch):
+    """The poll skips the stretch where the train cannot have concluded."""
+    wire_happy_path(monkeypatch, landing_states=[ARMED] * 6 + [MERGED])
+    clock = {"now": 0.0}
+    sleeps: list[float] = []
+
+    def sleep(seconds):
+        clock["now"] += seconds
+        sleeps.append(seconds)
+
+    outcome = land(
+        sleep=sleep, monotonic=lambda: clock["now"], liveness=StubPump(),
+    )
+    assert outcome.ok
+    # Reads at 0s, 60s, 120s, 180s, 480s, 540s — nothing in between.
+    assert sleeps == [60.0, 60.0, 60.0, 300.0, 60.0]
+
+
 def test_poll_keeps_the_session_live_so_the_claim_survives(monkeypatch):
     """The wait is silent, so the poll itself is the activity signal.
 

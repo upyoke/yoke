@@ -112,7 +112,7 @@ class TestCheckCi:
             )
 
         assert exc_info.value.code == 0
-        assert sleeps == [15]
+        assert sleeps == [60.0]
         output = capsys.readouterr()
         assert "has not appeared yet" in output.err
         assert "passed|42|" in output.out
@@ -137,7 +137,7 @@ class TestCheckCi:
             )
 
         assert exc_info.value.code == 0
-        assert sleeps == [15]
+        assert sleeps == [60.0]
         assert capsys.readouterr().out.strip() == "no_runs"
 
     def test_malformed_response_fails_closed(

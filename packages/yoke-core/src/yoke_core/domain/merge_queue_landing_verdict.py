@@ -30,6 +30,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
+from yoke_core.domain.github_poll_schedule import (
+    MINIMUM_POLL_INTERVAL_SECONDS,
+)
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueMember,
@@ -48,9 +51,10 @@ STALLED = "stalled"
 PENDING = "pending"
 
 # How long to wait before the read that separates a merge in flight from a
-# pull request the queue has stopped driving. Short enough to keep a genuine
-# refusal prompt, long enough to outlast the merge's own read window.
-DEFAULT_CONFIRM_SECONDS = 15.0
+# pull request the queue has stopped driving. It outlasts the merge's own
+# read window, and it is a second read of the same pull request, so it keeps
+# the same floor every other read of a run's state keeps.
+DEFAULT_CONFIRM_SECONDS = MINIMUM_POLL_INTERVAL_SECONDS
 
 
 @dataclass(frozen=True)

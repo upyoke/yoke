@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
+from yoke_core.domain.github_poll_schedule import (
+    STEADY_SCHEDULE,
+    PollSchedule,
+    next_read_delay,
+)
 
 
 GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
@@ -214,24 +219,22 @@ def _poll_github_actions(
     github_repo: str,
     run_id: str,
     timeout_sec: int,
-    stage_name: str = "",
     *,
     project: str,
     sd: Optional[str] = None,
+    schedule: PollSchedule = STEADY_SCHEDULE,
 ) -> Tuple[int, str]:
     """Poll a GitHub Actions run to completion.
 
     Returns (exit_code, output).  0=success, 1=failed.
+
+    Reads follow *schedule*, which defaults to the plain minimum-interval
+    cadence a deploy stage wants: a stage can conclude at any moment, so
+    there is no stretch of it worth skipping. A caller waiting on a run
+    with a known duration floor — the CI suite behind the verification
+    gate — passes that run's schedule instead.
     """
     start = time.time()
-
-    # Adaptive polling intervals
-    initial = 5
-    if any(stage_name.startswith(p) for p in ("smoke", "verify", "health", "check")):
-        max_interval = 10
-    else:
-        max_interval = 30
-    interval = initial
     transport_retries = 0
     unclassified_retries = 0
     # Named on every run, not only when it breaks: an operator reading a
@@ -248,6 +251,10 @@ def _poll_github_actions(
         )
         output = r.stdout.strip()
         stderr = (r.stderr or "").strip()
+        # One schedule for every reason to read again: a run that has not
+        # concluded and a relay that could not be reached are both answered
+        # by the same next scheduled read.
+        interval = next_read_delay(time.time() - start, schedule)
 
         if r.returncode == 0:
             return 0, output
@@ -257,9 +264,11 @@ def _poll_github_actions(
             # manual log archaeology.
             return 1, _compose_poll_diagnostic(output, stderr)
         if r.returncode in (2, 3):
-            print(f"  Workflow status: {output} (elapsed: {elapsed}s, next poll: {interval}s)")
+            print(
+                f"  Workflow status: {output} (elapsed: {elapsed}s, "
+                f"next poll: {int(interval)}s)"
+            )
             time.sleep(interval)
-            interval = min(interval * 2, max_interval)
             transport_retries = 0
             unclassified_retries = 0
         elif r.returncode == 4:
@@ -276,7 +285,6 @@ def _poll_github_actions(
                     poll_authority.stall_message(run_id, transport_retries)
                 )
             time.sleep(interval)
-            interval = min(interval * 2, max_interval)
         else:
             unclassified_retries += 1
             if unclassified_retries >= POLL_UNCLASSIFIED_RETRY_LIMIT:
@@ -292,7 +300,6 @@ def _poll_github_actions(
                 f"{stderr or output}"
             )
             time.sleep(interval)
-            interval = min(interval * 2, max_interval)
 
 
 def _compose_poll_diagnostic(stdout: str, stderr: str) -> str:

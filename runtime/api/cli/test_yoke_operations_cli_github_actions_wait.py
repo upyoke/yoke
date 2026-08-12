@@ -67,8 +67,8 @@ def _run_wait(*argv: str, stub, clock=None):
 
 
 def test_wait_for_no_runs_waits_for_run_to_appear() -> None:
-    from yoke_core.domain.github_actions_run_monitoring import (
-        CHECK_CI_POLL_INTERVAL_SEC,
+    from yoke_core.domain.github_poll_schedule import (
+        MINIMUM_POLL_INTERVAL_SECONDS,
     )
 
     # no_runs (run not yet registered) -> running -> passed: the gate WAITS for
@@ -77,11 +77,11 @@ def test_wait_for_no_runs_waits_for_run_to_appear() -> None:
         "github-actions", "check-ci", "o/r", "ci.yml", "--wait",
         "--project", "yoke",
         stub=_stub_states(["no_runs", "running", "passed"]),
-        clock=[0, 10, 20],
+        clock=[0, 60, 120],
     )
     assert rc == 0
     assert len(_CAPTURED_REQUESTS) == 3
-    assert sleeps == [CHECK_CI_POLL_INTERVAL_SEC] * 2
+    assert sleeps == [MINIMUM_POLL_INTERVAL_SECONDS] * 2
 
 
 def test_wait_accepts_no_runs_after_appearance_window() -> None:

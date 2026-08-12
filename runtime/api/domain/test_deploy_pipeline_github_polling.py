@@ -34,7 +34,7 @@ class TestPollGithubActionsTransient:
         ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
             code, output = deploy_pipeline_reporting._poll_github_actions(
                 "owner/repo", "12345", timeout_sec=300,
-                stage_name="prod-deploy", project="externalwebapp",
+                project="externalwebapp",
             )
         assert code == 0
         assert "completed: success" in output
@@ -51,7 +51,7 @@ class TestPollGithubActionsTransient:
         ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
             code, output = deploy_pipeline_reporting._poll_github_actions(
                 "owner/repo", "12345", timeout_sec=300,
-                stage_name="prod-deploy", project="externalwebapp",
+                project="externalwebapp",
             )
         assert code == 1
         assert "unexpected exit code 7" in output
@@ -70,7 +70,7 @@ class TestPollGithubActionsTransient:
         ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
             code, output = deploy_pipeline_reporting._poll_github_actions(
                 "owner/repo", "12345", timeout_sec=300,
-                stage_name="prod-deploy", project="externalwebapp",
+                project="externalwebapp",
             )
         assert code == 0
         assert "completed: success" in output
@@ -88,7 +88,7 @@ class TestPollGithubActionsTransient:
         ):
             code, output = deploy_pipeline_reporting._poll_github_actions(
                 "owner/repo", "12345", timeout_sec=300,
-                stage_name="prod-deploy", project="externalwebapp",
+                project="externalwebapp",
             )
         assert code == 1
         assert "completed: failure" in output
@@ -105,7 +105,7 @@ class TestPollGithubActionsTransient:
         ), mock.patch.object(deploy_pipeline_reporting.time, "sleep"):
             code, output = deploy_pipeline_reporting._poll_github_actions(
                 "owner/repo", "12345", timeout_sec=300,
-                stage_name="prod-deploy", project="externalwebapp",
+                project="externalwebapp",
             )
         assert code == 0
         assert "completed: success" in output

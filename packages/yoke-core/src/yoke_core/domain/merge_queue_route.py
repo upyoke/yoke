@@ -9,6 +9,11 @@ train's combined head server-side, then the member's close-out — the
 and GitHub sync stay caller-owned, exactly as they are for the
 standalone engine, so both routes drive the same downstream gates.
 
+That poll follows the train's own timing profile
+(:mod:`yoke_core.domain.github_poll_schedule`): it reads while a landing
+can still fail fast, then stays silent through the stretch where a suite on
+a ten-minute floor cannot have concluded anything to read.
+
 Every step is re-enterable against a landing that already happened,
 because the queue merges on GitHub whether or not the process watching it
 survives: the pull request is looked up in any state, queue entry is
@@ -43,6 +48,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.github_poll_schedule import (
+    CI_SUITE_SCHEDULE,
+    PollSchedule,
+    next_read_delay,
+)
 from yoke_core.domain.merge_queue_admission import evaluate_admission
 from yoke_core.domain.merge_queue_admission_shape import (
     candidate_shape,
@@ -76,7 +86,6 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 # taken.
 RECOVERABLE_QUEUE_EXIT_CODE = 9
 
-DEFAULT_POLL_SECONDS = 30.0
 DEFAULT_DEADLINE_SECONDS = 45.0 * 60.0
 
 # Every poll observation is announced under this prefix. The wait is the
@@ -121,7 +130,7 @@ def land_item_through_merge_queue(
     dispatch: Callable[..., Any] = call_dispatcher,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
-    poll_seconds: float = DEFAULT_POLL_SECONDS,
+    schedule: PollSchedule = CI_SUITE_SCHEDULE,
     deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
     resume_command: str = "",
     liveness: Optional[SessionLivenessPump] = None,
@@ -190,9 +199,10 @@ def land_item_through_merge_queue(
     # would reclaim the session mid-poll and release the item claim the
     # close-out below — and any retry — depends on. The pump says the
     # session is still here for exactly as long as this process waits.
-    # One clock read per poll, reused for the deadline test and for the
-    # elapsed each observation reports: reading it twice would make how long
-    # the loop runs depend on how much it narrates.
+    # One clock read per poll, reused for the deadline test, for the elapsed
+    # each observation reports, and for where in the schedule the next read
+    # belongs: reading it twice would make how long the loop runs depend on
+    # how much it narrates.
     started = monotonic()
     deadline = started + deadline_seconds
     pump = liveness if liveness is not None else SessionLivenessPump()
@@ -240,7 +250,7 @@ def land_item_through_merge_queue(
                 ),
                 warnings=tuple(warnings),
             )
-        sleep(poll_seconds)
+        sleep(next_read_delay(now - started, schedule))
         now = monotonic()
     if not merged:
         # A poll-budget timeout is resumable, not terminal: the claim is
@@ -285,7 +295,6 @@ def land_item_through_merge_queue(
 
 __all__ = [
     "DEFAULT_DEADLINE_SECONDS",
-    "DEFAULT_POLL_SECONDS",
     "POLL_LINE_PREFIX",
     "RECOVERABLE_QUEUE_EXIT_CODE",
     "QueueLandingOutcome",

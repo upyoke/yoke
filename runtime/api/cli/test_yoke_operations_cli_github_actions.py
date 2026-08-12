@@ -140,14 +140,14 @@ class TestCheckCi:
         assert _CAPTURED_REQUESTS[-1].payload["head_sha"] == "deadbeef"
 
     def test_wait_polls_client_side_until_completed(self) -> None:
-        from yoke_core.domain.github_actions_run_monitoring import (
-            CHECK_CI_POLL_INTERVAL_SEC,
+        from yoke_core.domain.github_poll_schedule import (
+            MINIMUM_POLL_INTERVAL_SECONDS,
         )
 
         rc, sleeps, _out = self._run_wait(
             "github-actions", "check-ci", "o/r", "ci.yml", "--wait", "--project", "yoke",
             stub=self._stub_states(["running", "running", "passed"]),
-            clock=[0, 10, 20],
+            clock=[0, 60, 120],
         )
         assert rc == 0
         assert len(_CAPTURED_REQUESTS) == 3
@@ -155,7 +155,7 @@ class TestCheckCi:
         for req in _CAPTURED_REQUESTS:
             assert "wait" not in req.payload
             assert "timeout_sec" not in req.payload
-        assert sleeps == [CHECK_CI_POLL_INTERVAL_SEC] * 2
+        assert sleeps == [MINIMUM_POLL_INTERVAL_SECONDS] * 2
 
     def test_wait_budget_exhaustion_synthesizes_timeout_state(self) -> None:
         rc, sleeps, out = self._run_wait(

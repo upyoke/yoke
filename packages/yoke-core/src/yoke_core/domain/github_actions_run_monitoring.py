@@ -10,6 +10,11 @@ from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestTransportError,
 )
+from yoke_core.domain.github_poll_schedule import (
+    CI_SUITE_SCHEDULE,
+    next_read_delay,
+)
+
 GetLatestRun = Callable[[], Optional[Dict[str, Any]]]
 CheckAuth = Callable[[], None]
 Sleep = Callable[[float], None]
@@ -19,7 +24,8 @@ FetchFailedLog = Callable[[str, str], Dict[str, str]]
 # the ``yoke github-actions check-ci`` flag adapter's CLIENT-side wait
 # loop. The ``github_actions.check_ci`` handler itself is single-shot
 # because a server-side wait loop exceeds the https relay read timeout.
-CHECK_CI_POLL_INTERVAL_SEC = 15
+# What both forms wait on is the project's CI suite, so both read it on
+# that suite's schedule (:data:`CI_SUITE_SCHEDULE`).
 CHECK_CI_DEFAULT_TIMEOUT_SEC = 600
 # How long ``--wait`` keeps polling a ``no_runs`` branch before accepting it.
 # A just-pushed branch can briefly report ``no_runs`` while GitHub registers
@@ -31,7 +37,6 @@ CHECK_CI_APPEARANCE_TIMEOUT_SEC = 90
 __all__ = [
     "CHECK_CI_APPEARANCE_TIMEOUT_SEC",
     "CHECK_CI_DEFAULT_TIMEOUT_SEC",
-    "CHECK_CI_POLL_INTERVAL_SEC",
     "check_ci_command",
     "failed_log_command",
 ]
@@ -52,7 +57,6 @@ def check_ci_command(
     """Check CI status on a branch and exit with the legacy CLI code."""
     check_auth()
     start = now()
-    interval = CHECK_CI_POLL_INTERVAL_SEC
 
     while True:
         run = get_latest_run()
@@ -68,16 +72,13 @@ def check_ci_command(
             if elapsed >= appearance_timeout:
                 print("no_runs")
                 sys.exit(0)
-            sleep_sec = min(
-                interval, max(1, appearance_timeout - elapsed),
-            )
             print(
                 "  CI run has not appeared yet "
                 f"(elapsed: {elapsed}s, appearance timeout: "
                 f"{appearance_timeout}s)",
                 file=sys.stderr,
             )
-            sleep(sleep_sec)
+            sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
             continue
 
         ci_status = str(run.get("status") or "")
@@ -101,7 +102,7 @@ def check_ci_command(
             sys.exit(3)
 
         print(f"  CI status: {ci_status} (elapsed: {elapsed}s, timeout: {timeout_sec}s)", file=sys.stderr)
-        sleep(interval)
+        sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
 
 
 def failed_log_command(
