@@ -71,7 +71,7 @@ def extract_command_targets(command: str) -> List[str]:
     after the opener (``cat <<EOF > /tmp/out``) — survives and is
     available to the positional walk below.
     """
-    sanitized = _strip_heredoc_body_lines(command)
+    sanitized = strip_heredoc_body_lines(command)
     tokens = _safe_split(sanitized)
     if not tokens:
         return []
@@ -137,7 +137,7 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 
-_REDIRECT_OPERATORS = frozenset({
+REDIRECT_OPERATORS = frozenset({
     ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
 })
 
@@ -178,7 +178,7 @@ def _sed_script_positional_index(command_base: str, tokens: List[str]) -> int:
 
 def _extract_segment_targets(tokens: List[str]) -> List[str]:
     """Extract target paths from a single command segment."""
-    tokens = _strip_env_prefixes(tokens)
+    tokens = strip_env_prefixes(tokens)
     if not tokens:
         return []
 
@@ -196,7 +196,7 @@ def _extract_segment_targets(tokens: List[str]) -> List[str]:
     n = len(tokens)
     while i < n:
         tok = tokens[i]
-        if tok in _REDIRECT_OPERATORS:
+        if tok in REDIRECT_OPERATORS:
             if i + 1 < n and _is_path_like_positional(tokens[i + 1]):
                 out.append(tokens[i + 1])
             i += 2
@@ -251,12 +251,15 @@ _HEREDOC_OPENER_RE = re.compile(
 )
 
 
-def _strip_heredoc_body_lines(command: str) -> str:
-    """Drop heredoc body lines (and the closing-tag line) from ``command``."""
+def _partition_heredocs(command: str) -> Tuple[str, List[Tuple[str, str]]]:
+    """Return shell syntax plus ``(opener, body)`` heredoc sections."""
     lines = command.splitlines()
     out: List[str] = []
+    sections: List[Tuple[str, str]] = []
     pending_tag: Optional[str] = None
     dash_form: bool = False
+    opener = ""
+    body: List[str] = []
     for line in lines:
         if pending_tag is None:
             out.append(line)
@@ -264,12 +267,40 @@ def _strip_heredoc_body_lines(command: str) -> str:
             if tag is not None:
                 pending_tag = tag
                 dash_form = dash
+                opener = line
+                body = []
             continue
         candidate = line.lstrip("\t") if dash_form else line
         if candidate.strip() == pending_tag:
+            sections.append((opener, "\n".join(body)))
             pending_tag = None
             dash_form = False
-    return "\n".join(out)
+            opener = ""
+            body = []
+            continue
+        body.append(line.lstrip("\t") if dash_form else line)
+    if pending_tag is not None:
+        sections.append((opener, "\n".join(body)))
+    return "\n".join(out), sections
+
+
+def strip_heredoc_body_lines(command: str) -> str:
+    """Drop heredoc body lines (and closing-tag lines) from ``command``."""
+    return _partition_heredocs(command)[0]
+
+
+def extract_heredoc_sections(command: str) -> List[Tuple[str, str]]:
+    """Return heredoc opener/body pairs without interpreting body text."""
+    return _partition_heredocs(command)[1]
+
+
+def strip_heredoc_syntax(command: str) -> str:
+    """Drop heredoc bodies and opener operators, preserving other commands."""
+    shell, sections = _partition_heredocs(command)
+    for opener, _body in sections:
+        cleaned = _HEREDOC_OPENER_RE.sub("", opener, count=1)
+        shell = shell.replace(opener, cleaned, 1)
+    return shell
 
 
 def _scan_heredoc_opener(line: str) -> Tuple[Optional[str], bool]:
@@ -280,7 +311,7 @@ def _scan_heredoc_opener(line: str) -> Tuple[Optional[str], bool]:
     return tag, bool(match.group("dash"))
 
 
-def _strip_env_prefixes(tokens: List[str]) -> List[str]:
+def strip_env_prefixes(tokens: List[str]) -> List[str]:
     """Drop leading ``FOO=bar`` env-assignment tokens prepended to a command."""
     out = list(tokens)
     while out and "=" in out[0] and not out[0].startswith("-"):
@@ -295,5 +326,10 @@ def _strip_env_prefixes(tokens: List[str]) -> List[str]:
 __all__ = [
     "FLAG_BINARY",
     "FLAG_EQUALS_PREFIXES",
+    "REDIRECT_OPERATORS",
     "extract_command_targets",
+    "extract_heredoc_sections",
+    "strip_heredoc_body_lines",
+    "strip_env_prefixes",
+    "strip_heredoc_syntax",
 ]

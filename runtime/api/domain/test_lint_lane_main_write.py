@@ -54,6 +54,16 @@ def _seed_lane(conn, repo, *, session_id="sid-lane", item_id=2013, status="imple
     return wt
 
 
+def _python_heredoc_write(target: Path) -> str:
+    return (
+        "python3 - <<'PY'\n"
+        "from pathlib import Path\n"
+        f"target = Path({str(target)!r})\n"
+        "target.write_text('changed')\n"
+        "PY"
+    )
+
+
 class TestNoLane:
     def test_session_without_claims_allows_main_write(self, conn, repo):
         target = repo / "runtime/api/foo.py"
@@ -93,6 +103,21 @@ class TestMainWriteRefused:
                 "tool_name": "Bash",
                 "cwd": str(repo),
                 "tool_input": {"command": f"echo hi > {target}"},
+            })
+        assert verdict.allow is False
+        assert str(target) in verdict.reason
+
+    def test_python_heredoc_write_to_main_denies(self, conn, repo):
+        _seed_lane(conn, repo)
+        relative_target = Path("runtime/api/foo.py")
+        target = repo / relative_target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with mock.patch.object(lint_lane_main_write, "emit_denied", return_value=None):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use({
+                "session_id": "sid-lane",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": _python_heredoc_write(relative_target)},
             })
         assert verdict.allow is False
         assert str(target) in verdict.reason
@@ -172,6 +197,19 @@ class TestUnaffectedCases:
             "session_id": "sid-lane",
             "tool_name": "Write",
             "tool_input": {"file_path": str(target)},
+        })
+        assert verdict.allow is True
+
+    def test_python_heredoc_write_inside_lane_allows(self, conn, repo):
+        wt = _seed_lane(conn, repo)
+        relative_target = Path("runtime/api/foo.py")
+        target = wt / relative_target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Bash",
+            "cwd": str(wt),
+            "tool_input": {"command": _python_heredoc_write(relative_target)},
         })
         assert verdict.allow is True
 

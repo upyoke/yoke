@@ -21,8 +21,13 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
 )
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
+    SHELL_WRITE_COMMAND_BASES,
     extract_payload_command,
-    extract_payload_targets,
+    extract_payload_write_targets,
+    payload_has_embedded_python_write,
+)
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    REDIRECT_OPERATORS,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -32,20 +37,8 @@ _UNTRACKED_GENERATED_VIEW_PATTERNS = (
     re.compile(r"(?:^|/)\.yoke/BOARD\.md(?:\.ts)?$"),
 )
 
-# Segment *command bases* that write the filesystem. Matched only as the
-# leading command of a shell segment — never as a subcommand token — so
-# ``yoke sessions touch`` is not a ``touch`` write.
-_WRITE_COMMAND_BASES = frozenset({
-    "touch", "mkdir", "cp", "mv", "install", "tee", "truncate", "sponge", "patch",
-})
-
 _GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
-
 _SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
-
-_REDIRECT_OPERATORS = frozenset({
-    ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
-})
 
 _HEREDOC_RE = re.compile(r"<<[-]?")
 
@@ -205,14 +198,14 @@ def _bash_has_redirect_or_heredoc(command: str) -> bool:
     if _HEREDOC_RE.search(command or ""):
         return True
     tokens = _safe_split(command)
-    return any(tok in _REDIRECT_OPERATORS for tok in tokens)
+    return any(tok in REDIRECT_OPERATORS for tok in tokens)
 
 
 def _bash_has_write_verb(command: str) -> bool:
     """True when a segment's leading command is a filesystem write verb."""
     for segment in _split_command_segments(_safe_split(command)):
         base = _segment_command_base(segment)
-        if base in _WRITE_COMMAND_BASES:
+        if base in SHELL_WRITE_COMMAND_BASES:
             return True
         if base == "git":
             for tok in _strip_env_prefixes(segment)[1:]:
@@ -263,6 +256,8 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
         return False
     if match_read_only_signature(command):
         return False
+    if payload_has_embedded_python_write(payload):
+        return True
     if is_yoke_adapter_command(command):
         return _bash_has_redirect_or_heredoc(command)
     return _bash_has_redirect_or_heredoc(command) or _bash_has_write_verb(command)
@@ -284,7 +279,7 @@ def collect_main_write_targets(
     if not is_write_operation(tool_name, payload):
         return []
 
-    raw_targets = list(extract_payload_targets(payload))
+    raw_targets = list(extract_payload_write_targets(payload))
     if not raw_targets and tool_name == "Bash" and fallback_cwd.strip():
         # Genuine write verb / redirect with no absolute extractable path
         # (relative targets): the write lands under the harness cwd.
@@ -295,15 +290,18 @@ def collect_main_write_targets(
     for raw in raw_targets:
         if not isinstance(raw, str) or not raw.strip():
             continue
-        if _is_scratch_free_path(raw, claims, repo_roots):
+        target = raw
+        if not os.path.isabs(target) and fallback_cwd.strip():
+            target = os.path.join(fallback_cwd, target)
+        if _is_scratch_free_path(target, claims, repo_roots):
             continue
-        claim = matching_claim_for_main_target(raw, claims, repo_roots)
+        claim = matching_claim_for_main_target(target, claims, repo_roots)
         if claim is None:
             continue
         root = repo_root_from_worktree_path(claim.worktree_path) or ""
-        if root and is_generated_view_write(raw, root):
+        if root and is_generated_view_write(target, root):
             continue
-        display = resolve_for_display(raw)
+        display = resolve_for_display(target)
         if display in seen:
             continue
         seen.add(display)

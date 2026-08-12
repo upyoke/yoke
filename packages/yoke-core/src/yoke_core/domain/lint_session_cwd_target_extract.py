@@ -11,6 +11,7 @@ Extracted shapes:
 
 * **Edit / Read / Write:** ``tool_input.file_path`` is the canonical
   target.
+* **apply_patch:** parse only patch directive paths, never diff content.
 * **Bash:** parse the command body and surface any of:
     - ``-C <path>`` (git, make, etc.)
     - ``--rootdir <path>`` / ``--rootdir=<path>`` (pytest)
@@ -20,30 +21,77 @@ Extracted shapes:
     - absolute-path positional arguments
 * **No extractable target:** the caller falls back to the harness cwd.
 
-This is intentionally narrow. Broad "every absolute path in the
-command" extraction would surface system binaries (``/usr/bin/python3``)
-and conflate command paths with target paths; the spec body names the
-specific shapes above so per-flag extraction stays explicit.
+Write-only consumers use :func:`extract_payload_write_targets`, which
+narrows bodies to paths occupying real write positions. Fixture strings
+and read operands are not write targets.
 """
 
 from __future__ import annotations
 
-from typing import Any, List, Mapping
+import re
+import shlex
+from pathlib import PurePath
+from typing import Any, List, Mapping, Tuple
 
+from yoke_core.domain.lint_python_write_target_extract import (
+    analyze_python_heredoc_writes,
+)
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_BINARY,
     FLAG_EQUALS_PREFIXES,
+    REDIRECT_OPERATORS,
     extract_command_targets,
+    strip_env_prefixes,
+    strip_heredoc_syntax,
 )
+from yoke_core.domain.observe_apply_patch_parser import parse_patch
+from yoke_core.domain.path_claim_bash_splitter import split_pipeline
+
+
+APPLY_PATCH_TOOL_NAMES = frozenset({"apply_patch", "ApplyPatch"})
+_ALL_POSITIONAL_WRITE_COMMANDS = frozenset({
+    "touch", "mkdir", "tee", "truncate", "sponge",
+})
+_LAST_POSITIONAL_WRITE_COMMANDS = frozenset({"cp", "mv", "install"})
+SHELL_WRITE_COMMAND_BASES = (
+    _ALL_POSITIONAL_WRITE_COMMANDS | _LAST_POSITIONAL_WRITE_COMMANDS | {"patch"}
+)
+_GLUED_REDIRECT_RE = re.compile(r"^(?:[012]?>>?|&>>?)(.+)$")
+
+
+def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
+    value = payload.get("tool_input") or payload.get("toolInput") or {}
+    return value if isinstance(value, Mapping) else {}
+
+
+def _payload_tool_name(payload: Mapping[str, Any]) -> str:
+    for key in ("tool_name", "toolName", "event_name"):
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def _is_apply_patch_payload(payload: Mapping[str, Any]) -> bool:
+    return _payload_tool_name(payload) in APPLY_PATCH_TOOL_NAMES
+
+
+def _dedupe_paths(paths: List[str]) -> List[str]:
+    seen: set[str] = set()
+    out: List[str] = []
+    for raw in paths:
+        key = raw.strip()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(raw)
+    return out
 
 
 def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
     """Return the list of target paths for a PreToolUse payload."""
     if not isinstance(payload, Mapping):
         return []
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    if not isinstance(tool_input, Mapping):
-        tool_input = {}
+    tool_input = _tool_input(payload)
 
     out: List[str] = []
 
@@ -53,16 +101,89 @@ def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
 
     command = extract_payload_command(payload)
     if command:
-        out.extend(extract_command_targets(command))
+        if _is_apply_patch_payload(payload):
+            out.extend(parse_patch(command).all_paths())
+        else:
+            out.extend(extract_command_targets(command))
 
-    seen: set[str] = set()
-    deduped: List[str] = []
-    for raw in out:
-        key = raw.strip()
-        if key and key not in seen:
-            seen.add(key)
-            deduped.append(raw)
-    return deduped
+    return _dedupe_paths(out)
+
+
+def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:
+    """Return only paths occupying real write positions in a tool payload."""
+    if not isinstance(payload, Mapping):
+        return []
+    tool_input = _tool_input(payload)
+    out: List[str] = []
+
+    file_path = tool_input.get("file_path")
+    if isinstance(file_path, str) and file_path.strip():
+        out.append(file_path)
+
+    command = extract_payload_command(payload)
+    if not command:
+        return _dedupe_paths(out)
+    if _is_apply_patch_payload(payload):
+        out.extend(parse_patch(command).all_paths())
+    else:
+        out.extend(_extract_shell_write_targets(command))
+        out.extend(analyze_python_heredoc_writes(command).targets)
+    return _dedupe_paths(out)
+
+
+def payload_has_embedded_python_write(payload: Mapping[str, Any]) -> bool:
+    """True when a Bash payload executes an embedded Python write call."""
+    if not isinstance(payload, Mapping) or _is_apply_patch_payload(payload):
+        return False
+    command = extract_payload_command(payload)
+    return bool(command) and analyze_python_heredoc_writes(command).detected
+
+
+def _extract_shell_write_targets(command: str) -> List[str]:
+    out: List[str] = []
+    for segment in split_pipeline(strip_heredoc_syntax(command)):
+        try:
+            tokens = strip_env_prefixes(shlex.split(segment))
+        except ValueError:
+            continue
+        if not tokens:
+            continue
+        clean, redirects = _split_redirect_targets(tokens)
+        out.extend(redirects)
+        if not clean:
+            continue
+        command_base = PurePath(clean[0]).name
+        if command_base == "git":
+            out.extend(extract_command_targets(segment))
+            continue
+        args = clean[1:]
+        positionals = [arg for arg in args if arg != "-" and not arg.startswith("-")]
+        if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
+            out.append(positionals[-1])
+        elif command_base in _ALL_POSITIONAL_WRITE_COMMANDS:
+            out.extend(positionals)
+    return _dedupe_paths(out)
+
+
+def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
+    clean: List[str] = []
+    targets: List[str] = []
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        if token in REDIRECT_OPERATORS:
+            if i + 1 < len(tokens):
+                targets += [tokens[i + 1]]
+            i += 2
+            continue
+        glued = _GLUED_REDIRECT_RE.match(token)
+        if glued:
+            targets += [glued.group(1)]
+            i += 1
+            continue
+        clean += [token]
+        i += 1
+    return clean, targets
 
 
 def extract_payload_command(payload: Mapping[str, Any]) -> str:
@@ -75,10 +196,14 @@ def extract_payload_command(payload: Mapping[str, Any]) -> str:
     """
     if not isinstance(payload, Mapping):
         return ""
-    tool_input = payload.get("tool_input") or payload.get("toolInput") or {}
-    if not isinstance(tool_input, Mapping):
-        tool_input = {}
+    tool_input = _tool_input(payload)
     command = tool_input.get("command") or tool_input.get("cmd")
+    if not isinstance(command, str) and _is_apply_patch_payload(payload):
+        for key in ("input", "patch", "diff"):
+            value = tool_input.get(key)
+            if isinstance(value, str) and value.strip():
+                command = value
+                break
     if not isinstance(command, str):
         command = payload.get("command")
     if isinstance(command, str) and command.strip():
@@ -89,7 +214,10 @@ def extract_payload_command(payload: Mapping[str, Any]) -> str:
 __all__ = [
     "FLAG_BINARY",
     "FLAG_EQUALS_PREFIXES",
+    "SHELL_WRITE_COMMAND_BASES",
     "extract_command_targets",
     "extract_payload_command",
     "extract_payload_targets",
+    "extract_payload_write_targets",
+    "payload_has_embedded_python_write",
 ]

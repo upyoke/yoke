@@ -71,6 +71,29 @@ class TestNoClaims:
 
 
 class TestClaimedWorktreeAuthorized:
+    def test_apply_patch_ignores_fixture_paths_in_diff_content(self, conn, repo):
+        _register_checkout(repo)
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
+        seed_item_claim(conn, "sid-1", item_id=1691)
+        target = repo / ".worktrees" / "YOK-1691" / "source.py"
+        target.parent.mkdir(parents=True)
+        fixture = "/" + "repo"
+        body = (
+            "*** Begin Patch\n"
+            f"*** Update File: {target}\n"
+            "@@\n"
+            f"+fixture = {fixture!r}\n"
+            "*** End Patch"
+        )
+
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-1",
+            "tool_name": "apply_patch",
+            "tool_input": {"command": body},
+        })
+
+        assert verdict.allow is True
+
     def test_target_inside_claimed_worktree_allows(self, conn, repo):
         _register_checkout(repo)
         seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
