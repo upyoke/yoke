@@ -5,15 +5,35 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+import urllib.error
 
 from yoke_cli.config import github_app_public_profile
+from yoke_cli.config import github_git_credential_file
 from yoke_cli.config import github_user_tokens
 from yoke_cli.config import machine_config
 from yoke_cli.config import github_machine_operation
+from yoke_contracts.github_auth_transience import (
+    GITHUB_AUTH_RETRY_RECIPE,
+    TransientGitHubAuthError,
+    auth_failure_chain,
+)
 
 
 class GitHubLocalUserAccessError(RuntimeError):
     """The saved machine App profile cannot provide local GitHub access."""
+
+
+class TransientGitHubLocalUserAccessError(
+    GitHubLocalUserAccessError, TransientGitHubAuthError
+):
+    """A local access read failed transiently; the authorization still stands."""
+
+
+# A single unauthorized refresh response is retry-shaped: a sibling process may
+# have rotated the refresh token between this reader's document read and its
+# exchange. A genuinely revoked authorization answers with an OAuth error
+# payload instead, which stays permanent.
+_TRANSIENT_HTTP_STATUS = frozenset({401, 408, 429})
 
 
 def access_token(
@@ -55,7 +75,35 @@ def access_token(
         github_machine_operation.GitHubMachineOperationError,
         machine_config.MachineConfigError,
     ) as exc:
+        if is_transient_access_failure(exc):
+            raise TransientGitHubLocalUserAccessError(
+                f"{exc}; {GITHUB_AUTH_RETRY_RECIPE}"
+            ) from exc
         raise GitHubLocalUserAccessError(str(exc)) from exc
 
 
-__all__ = ["GitHubLocalUserAccessError", "access_token"]
+def is_transient_access_failure(error: BaseException) -> bool:
+    """Report whether an access failure describes contention rather than absence."""
+
+    for cause in auth_failure_chain(error):
+        if isinstance(
+            cause,
+            (
+                TransientGitHubAuthError,
+                github_git_credential_file.CredentialFileBusy,
+            ),
+        ):
+            return True
+        if isinstance(cause, urllib.error.HTTPError):
+            return cause.code in _TRANSIENT_HTTP_STATUS or cause.code >= 500
+        if isinstance(cause, (urllib.error.URLError, TimeoutError, ConnectionError)):
+            return True
+    return False
+
+
+__all__ = [
+    "GitHubLocalUserAccessError",
+    "TransientGitHubLocalUserAccessError",
+    "access_token",
+    "is_transient_access_failure",
+]

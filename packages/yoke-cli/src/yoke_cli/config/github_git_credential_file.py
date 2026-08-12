@@ -9,14 +9,26 @@ import os
 from pathlib import Path
 import stat
 import tempfile
+import time
 from typing import Any, Iterator, Mapping
 
 
 MAX_CREDENTIAL_DOCUMENT_BYTES = 64 * 1024
+# Waiters queue politely for the credential lock instead of blocking forever:
+# every holder does bounded work (one refresh exchange at most), so a wait this
+# long means the machine is contended, which is a retryable answer a caller can
+# report rather than a hang a caller cannot.
+CREDENTIAL_LOCK_WAIT_SECONDS = 20.0
+_LOCK_POLL_SECONDS = 0.05
+_LOCK_POLL_MAX_SECONDS = 0.5
 
 
 class CredentialFileError(RuntimeError):
     """A credential document or its containing directory is unsafe."""
+
+
+class CredentialFileBusy(CredentialFileError):
+    """Another process held the credential lock for the whole wait."""
 
 
 def read_json_document(
@@ -170,7 +182,13 @@ def restore_quarantined_json_document(
 
 
 @contextmanager
-def exclusive_lock(path: str | Path) -> Iterator[None]:
+def exclusive_lock(
+    path: str | Path,
+    *,
+    wait_seconds: float = CREDENTIAL_LOCK_WAIT_SECONDS,
+    sleep: Any = time.sleep,
+    monotonic: Any = time.monotonic,
+) -> Iterator[None]:
     selected = Path(path).expanduser()
     lock_path = selected.with_name(selected.name + ".lock")
     try:
@@ -186,7 +204,13 @@ def exclusive_lock(path: str | Path) -> Iterator[None]:
         try:
             os.fchmod(descriptor, 0o600)
             _assert_owner_only_file(os.fstat(descriptor), lock_path)
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            _wait_for_exclusive_lock(
+                descriptor,
+                lock_path,
+                wait_seconds=wait_seconds,
+                sleep=sleep,
+                monotonic=monotonic,
+            )
         except OSError as exc:
             raise CredentialFileError(
                 f"GitHub App credential lock could not be acquired: {lock_path}"
@@ -213,6 +237,34 @@ def exclusive_lock(path: str | Path) -> Iterator[None]:
                 raise CredentialFileError(
                     "GitHub App credential lock could not be closed"
                 ) from exc
+
+
+def _wait_for_exclusive_lock(
+    descriptor: int,
+    lock_path: Path,
+    *,
+    wait_seconds: float,
+    sleep: Any,
+    monotonic: Any,
+) -> None:
+    """Take the lock, waiting a bounded turn while another process holds it."""
+
+    deadline = monotonic() + max(float(wait_seconds), 0.0)
+    delay = _LOCK_POLL_SECONDS
+    while True:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            pass
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise CredentialFileBusy(
+                "GitHub App credential lock is held by another local Yoke "
+                f"operation after waiting {float(wait_seconds):g}s: {lock_path}"
+            )
+        sleep(min(delay, remaining))
+        delay = min(delay * 2, _LOCK_POLL_MAX_SECONDS)
 
 
 def _assert_secure_parent(
@@ -265,6 +317,8 @@ def _fsync_directory(path: Path) -> None:
 
 
 __all__ = [
+    "CREDENTIAL_LOCK_WAIT_SECONDS",
+    "CredentialFileBusy",
     "CredentialFileError",
     "MAX_CREDENTIAL_DOCUMENT_BYTES",
     "delete_json_document",

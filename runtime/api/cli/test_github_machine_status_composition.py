@@ -13,6 +13,7 @@ from runtime.api.cli.test_github_app_machine_security import (
     _profile_opener,
     _refresh_opener,
 )
+from yoke_cli.config import github_git_credential_file as credential_file
 from yoke_cli.config import github_git_credentials, github_machine
 
 
@@ -62,6 +63,31 @@ def test_status_keeps_helper_warning_when_token_refresh_fails(
     config, _credential = _configured_machine(tmp_path, monkeypatch)
     _fail_helper_refresh(monkeypatch)
 
+    def refused(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url, 400, "Bad Request", hdrs=None, fp=None,
+        )
+
+    report = github_machine.status(
+        config_path=config,
+        service_api_url="https://api.upyoke.com",
+        profile_opener=_profile_opener,
+        token_opener=refused,
+    )
+
+    assert {item["code"] for item in report["issues"]} >= {
+        "github_user_token_unavailable",
+        "github_git_helper_upgrade_pending",
+    }
+
+
+def test_status_reports_an_unreachable_refresh_as_retryable_not_a_reconnect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config, _credential = _configured_machine(tmp_path, monkeypatch)
+    config.chmod(0o600)
+
     def unavailable(request, timeout):
         raise urllib.error.HTTPError(
             request.full_url, 503, "Unavailable", hdrs=None, fp=None,
@@ -73,11 +99,30 @@ def test_status_keeps_helper_warning_when_token_refresh_fails(
         profile_opener=_profile_opener,
         token_opener=unavailable,
     )
+    issues = {item["code"]: item for item in report["issues"]}
 
-    assert {item["code"] for item in report["issues"]} >= {
-        "github_user_token_unavailable",
-        "github_git_helper_upgrade_pending",
-    }
+    assert report["ok"] is False
+    assert "github_user_token_read_busy" in issues
+    assert "github_user_token_unavailable" not in issues
+    assert "yoke github connect" not in issues["github_user_token_read_busy"]["hint"]
+
+
+def test_status_answers_a_contended_machine_lock_with_a_diagnosis(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config, _credential = _configured_machine(tmp_path, monkeypatch)
+
+    def busy(*args, **kwargs):
+        raise credential_file.CredentialFileBusy("held by another operation")
+
+    monkeypatch.setattr(credential_file, "exclusive_lock", busy)
+
+    with pytest.raises(github_machine.GitHubMachineError) as raised:
+        github_machine.status(config_path=config, check=False)
+
+    assert "holding the machine operation lock" in str(raised.value)
+    assert "reconnect" not in str(raised.value).lower()
 
 
 def test_offline_status_does_not_republish_the_helper_bundle(

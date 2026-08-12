@@ -57,6 +57,12 @@ class UserAuthorizationUnavailable(ProjectGithubAuthError):
     code = "user_authorization_unavailable"
 
 
+class UserAuthorizationTransient(ProjectGithubAuthError):
+    """The stored authorization stands; reading it kept failing transiently."""
+
+    code = "user_authorization_transient"
+
+
 class InvalidToken(ProjectGithubAuthError):
     code = "invalid_token"
 
@@ -114,5 +120,6 @@ __all__ = [
     "TokenMintFailed",
     "TokenMinter",
     "TransportFailure",
+    "UserAuthorizationTransient",
     "UserAuthorizationUnavailable",
 ]

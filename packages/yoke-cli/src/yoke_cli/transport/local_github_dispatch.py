@@ -12,6 +12,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
+from yoke_contracts.github_auth_transience import GITHUB_AUTH_RETRY_RECIPE
 from yoke_contracts.github_origin import (
     GitHubApiOriginError,
     validate_github_api_endpoint,
@@ -98,6 +99,13 @@ def call_with_machine_github_authorization(
                 api_url=endpoint,
             ):
                 return local_dispatch(request)
+    except github_machine_operation.GitHubMachineOperationBusy as exc:
+        return _error(
+            request,
+            "github_machine_operation_busy",
+            str(exc),
+            f"The stored authorization still stands; {GITHUB_AUTH_RETRY_RECIPE}.",
+        )
     except github_machine_operation.GitHubMachineOperationError:
         return _error(
             request,

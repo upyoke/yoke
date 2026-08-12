@@ -36,7 +36,7 @@ def connected_report(
     progress: list[dict[str, Any]],
     checked: bool,
     discovery_error: Exception | None = None,
-    token_error: str | None = None,
+    token_issue: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     validation = _public_validation_issues(
         contract.validate_github_config({"github": github})
@@ -47,15 +47,8 @@ def connected_report(
     )
     auth_report = github_credentials.authorization_status(authorization)
     issues = [*validation, *auth_report.pop("issues")]
-    if token_error:
-        issues.append(
-            reports.issue(
-                "error",
-                "github_user_token_unavailable",
-                token_error,
-                "Run `yoke github connect` to authorize again.",
-            )
-        )
+    if token_issue:
+        issues.append(dict(token_issue))
     if discovery_error:
         issues.append(
             reports.issue(
@@ -83,7 +76,7 @@ def connected_report(
             )
         )
     permissions = github_machine_installations.permission_report(installations)
-    if not discovery_error and not token_error and not installations:
+    if not discovery_error and not token_issue and not installations:
         issues.append(
             reports.issue(
                 "warning",
@@ -121,7 +114,7 @@ def connected_report(
                 "Repair or add an App installation, then run `yoke github status`.",
             )
         )
-    live_check_ok = None if not checked else not (discovery_error or token_error)
+    live_check_ok = None if not checked else not (discovery_error or token_issue)
     report = reports.connected(
         config_path,
         report_github,
@@ -151,7 +144,7 @@ def connected_report(
             report.get("ok")
             and not installations
             and not discovery_error
-            and not token_error
+            and not token_issue
         ):
             install_url = report.get("install_url")
             if install_url:
