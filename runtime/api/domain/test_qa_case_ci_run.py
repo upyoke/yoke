@@ -1,4 +1,4 @@
-"""The CI-run executor: verdict from the run, evidence naming the tree.
+"""The CI-run runner: verdict from the run, evidence naming the tree.
 
 Every case here is a project that does NOT route through the merge queue,
 so this file is also the regression that the dispatch path is unchanged by
@@ -24,7 +24,7 @@ from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 
 @pytest.fixture()
 def wired(tmp_path, monkeypatch):
-    """Stub every boundary the executor crosses, and hand back the recorder."""
+    """Stub every boundary the runner crosses, and hand back the recorder."""
     return wire_ci_case(tmp_path, monkeypatch)
 
 

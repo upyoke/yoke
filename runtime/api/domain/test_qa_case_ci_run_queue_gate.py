@@ -1,4 +1,4 @@
-"""The CI-run executor on a queue project: the entry run is the verdict.
+"""The CI-run runner on a queue project: the entry run is the verdict.
 
 Sibling of ``test_qa_case_ci_entry_run``, which covers the same gate's
 pieces in isolation; this file drives them through
@@ -33,7 +33,7 @@ POST_REBASE_HEAD = "c" * 40
 
 @pytest.fixture()
 def wired(tmp_path, monkeypatch):
-    """The executor's boundaries, with the lane live on its own branch."""
+    """The runner's boundaries, with the lane live on its own branch."""
     checkout, recorder, artifact = wire_ci_case(tmp_path, monkeypatch)
     monkeypatch.setattr(
         qa_case_ci_lane, "checked_out_branch", lambda _c: "PRJ-9",

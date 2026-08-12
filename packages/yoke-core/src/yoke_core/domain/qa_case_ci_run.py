@@ -178,7 +178,7 @@ def execute_ci_case(
     selected_budget = qa_case_budget.resolve_command_case_budget(
         case["method_config"],
         explicit_override=timeout_seconds,
-        executor_default=DEFAULT_CI_RUN_TIMEOUT_SECONDS,
+        runner_default=DEFAULT_CI_RUN_TIMEOUT_SECONDS,
     )
     budget = selected_budget.seconds
     started = time.monotonic()
