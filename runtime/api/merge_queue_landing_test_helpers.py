@@ -13,6 +13,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from yoke_core.domain import merge_queue_close_out as close_out_mod
+from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
@@ -91,7 +92,7 @@ def wire_happy_path(
         verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, None)
     )
     monkeypatch.setattr(
-        route_mod, "find_landable_pull_request",
+        landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": ("url", "42", ""),
     )
     monkeypatch.setattr(

@@ -11,6 +11,13 @@ otherwise dispatch the project's declared workflow, and record the run's
 conclusion as the case verdict. The lane and workflow plumbing lives in
 :mod:`yoke_core.domain.qa_case_ci_lane`.
 
+A project landing through the merge queue reaches that reuse path by
+construction rather than by luck: it rebases and opens its landing pull
+request here, so the entry run GitHub mints *is* the gate run
+(:mod:`yoke_core.domain.qa_case_ci_entry_run`). Dispatch stays the fallback
+for every other project, and for a queue project whose pull request
+produced no run.
+
 Recorded evidence names the run URL and the exact head sha the run
 covered, so a green is attributable to one tree exactly as a local
 ``worktree_run`` verdict is (see
@@ -33,7 +40,12 @@ from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
 
-from yoke_core.domain import qa_case_budget, qa_case_ci_lane, verification_tree_binding
+from yoke_core.domain import (
+    qa_case_budget,
+    qa_case_ci_entry_run,
+    qa_case_ci_lane,
+    verification_tree_binding,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Executor id recorded on runs this module produces.
@@ -174,10 +186,17 @@ def execute_ci_case(
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
-    tree = verification_tree_binding.resolve_tree_identity(checkout)
     try:
         checked_out_branch = qa_case_ci_lane.checked_out_branch(checkout)
     except QaCaseExecutionError:
+        checked_out_branch = ""
+    # Rebase before the head sha is resolved: the rebase is what it names.
+    entry_run_base = qa_case_ci_entry_run.prepare_entry_run_lane(
+        checkout, project=project, branch=branch,
+        lane_is_checked_out=checked_out_branch == branch,
+    )
+    tree = verification_tree_binding.resolve_tree_identity(checkout)
+    if not checked_out_branch:
         checked_out_branch = branch if tree else "HEAD"
     source_ref = (
         "HEAD" if checked_out_branch == branch
@@ -199,10 +218,20 @@ def execute_ci_case(
     try:
         qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
         with qa_case_ci_lane.github_actions_authority():
-            covering_run = qa_case_ci_lane.find_completed_pull_request_run(
-                project=project, repo=repo, workflow=workflow,
-                head_sha=head_sha, timeout_seconds=budget,
-            )
+            if entry_run_base is not None:
+                qa_case_ci_entry_run.open_landing_pull_request(
+                    checkout, project=project, branch=branch,
+                    target=entry_run_base, lane_head=head_sha,
+                )
+                covering_run = qa_case_ci_entry_run.await_entry_run(
+                    project=project, repo=repo, workflow=workflow,
+                    head_sha=head_sha, timeout_seconds=budget,
+                )
+            else:
+                covering_run = qa_case_ci_lane.find_pull_request_run(
+                    project=project, repo=repo, workflow=workflow,
+                    head_sha=head_sha, timeout_seconds=budget,
+                )
             if (
                 covering_run is not None
                 and covering_run.status == "completed"

@@ -1,4 +1,4 @@
-"""Unit coverage for the yoke-ci main-push same-tree reuse probe."""
+"""Unit coverage for the yoke-ci same-tree reuse probe."""
 
 from __future__ import annotations
 
@@ -213,6 +213,91 @@ def test_main_writes_github_output(
     assert "skip_suite=true" in text
     assert "covering_run_id=44" in text
     assert "identical_tree" in summary.read_text(encoding="utf-8")
+
+
+def test_merge_group_candidate_reuses_its_entry_run(tmp_path: Path) -> None:
+    """A solo train rebased onto the base builds the entry run's own tree."""
+    repo = _init_repo(tmp_path)
+    _git(repo, "checkout", "-b", "PRJ-9")
+    (repo / "b.txt").write_text("two\n", encoding="utf-8")
+    _git(repo, "add", "b.txt")
+    _git(repo, "commit", "-m", "lane")
+    lane_head = _git(repo, "rev-parse", "HEAD")
+    # The queue builds its candidate by merging the lane into the base it is
+    # already sitting on, which fast-forwards to the very same tree.
+    _git(repo, "checkout", "main")
+    _git(repo, "merge", "--ff-only", "PRJ-9")
+    candidate_tree = _git(repo, "rev-parse", "HEAD^{tree}")
+    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
+    runs = {
+        "workflow_runs": [
+            {
+                "id": 1077,
+                "event": "pull_request",
+                "head_sha": lane_head,
+                "created_at": "2026-08-07T17:50:00Z",
+                "html_url": "https://example.test/runs/1077",
+            }
+        ]
+    }
+
+    decision = probe.decide_reuse(
+        worktree=repo,
+        api_url="https://api.github.com",
+        repository="upyoke/yoke",
+        token="token",
+        current_run_id=1078,
+        window_hours=24,
+        now=now,
+        opener=lambda request, timeout=0: _FakeResponse(runs),
+    )
+
+    assert decision.skip_suite is True
+    assert decision.candidate_tree == candidate_tree
+    assert decision.covering_run_id == 1077
+    assert decision.reason == "identical_tree"
+
+
+def test_a_batch_train_tree_no_run_covers_runs_the_suite(tmp_path: Path) -> None:
+    """Two lanes combine into a tree neither entry run ever tested."""
+    repo = _init_repo(tmp_path)
+    base = _git(repo, "rev-parse", "HEAD")
+    heads = []
+    for name, filename in (("PRJ-9", "b.txt"), ("PRJ-10", "c.txt")):
+        _git(repo, "checkout", "-b", name, base)
+        (repo / filename).write_text(name, encoding="utf-8")
+        _git(repo, "add", filename)
+        _git(repo, "commit", "-m", name)
+        heads.append(_git(repo, "rev-parse", "HEAD"))
+    _git(repo, "checkout", "main")
+    _git(repo, "merge", "--no-ff", "PRJ-9", "PRJ-10", "-m", "train")
+    now = datetime(2026, 8, 7, 18, 0, tzinfo=timezone.utc)
+    runs = {
+        "workflow_runs": [
+            {
+                "id": 1100 + index,
+                "event": "pull_request",
+                "head_sha": head,
+                "created_at": "2026-08-07T17:50:00Z",
+                "html_url": f"https://example.test/runs/{1100 + index}",
+            }
+            for index, head in enumerate(heads)
+        ]
+    }
+
+    decision = probe.decide_reuse(
+        worktree=repo,
+        api_url="https://api.github.com",
+        repository="upyoke/yoke",
+        token="token",
+        current_run_id=1200,
+        window_hours=24,
+        now=now,
+        opener=lambda request, timeout=0: _FakeResponse(runs),
+    )
+
+    assert decision.skip_suite is False
+    assert decision.reason == "no_matching_tree"
 
 
 def test_commit_tree_via_api_reads_tree_sha() -> None:

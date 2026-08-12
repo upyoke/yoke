@@ -1,4 +1,9 @@
-"""The CI-run executor: verdict from the run, evidence naming the tree."""
+"""The CI-run executor: verdict from the run, evidence naming the tree.
+
+Every case here is a project that does NOT route through the merge queue,
+so this file is also the regression that the dispatch path is unchanged by
+the entry-run gate its sibling ``test_qa_case_ci_entry_run`` covers.
+"""
 
 from __future__ import annotations
 
@@ -7,82 +12,20 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run, qa_case_execution
-from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.domain.verification_tree_binding import (
-    TreeBindingVerdict,
-    TreeIdentity,
+from runtime.api.domain.qa_case_ci_test_helpers import (
+    ci_case as _case,
+    wire_ci_case,
 )
 
-
-def _case(**overrides) -> dict:
-    case = {
-        "requirement_id": 41,
-        "item_id": 9,
-        "plan_id": 5,
-        "case_key": "full",
-        "method_id": "command-ci",
-        "executor_id": "ci_run",
-        "method_config": {
-            "command": "python3 -m pytest tests/",
-            "ci_workflow": "ci.yml",
-            "registered_scope": "full",
-        },
-        "project_id": 1,
-        "project": "yoke",
-        "lane_branch": "PRJ-9",
-    }
-    case.update(overrides)
-    return case
-
-
-class _Recorder:
-    """Captures the qa.* function calls the executor dispatches."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, int, dict]] = []
-
-    def __call__(self, function_id, requirement_id, payload, *, actor=None):
-        self.calls.append((function_id, requirement_id, payload))
-        if function_id == "qa.run.add":
-            return {"qa_run_id": 77}
-        if function_id == "qa.artifact.add":
-            return {"qa_artifact_id": 88}
-        return {}
-
-    def payload(self, function_id: str) -> dict:
-        for name, _, payload in self.calls:
-            if name == function_id:
-                return payload
-        raise AssertionError(f"{function_id} was never dispatched")
+from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run, qa_case_execution
+from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+from yoke_core.domain.verification_tree_binding import TreeBindingVerdict
 
 
 @pytest.fixture()
 def wired(tmp_path, monkeypatch):
     """Stub every boundary the executor crosses, and hand back the recorder."""
-    checkout = tmp_path / "checkout"
-    checkout.mkdir()
-    artifact = tmp_path / "ci-run-output.txt"
-    recorder = _Recorder()
-    monkeypatch.setattr(qa_case_execution, "_dispatch", recorder)
-    monkeypatch.setattr(
-        "yoke_core.domain.verification_tree_binding.evaluate_run",
-        lambda **kwargs: TreeBindingVerdict(),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.verification_tree_binding.resolve_tree_identity",
-        lambda tree: TreeIdentity(root=str(tree), head_sha="a" * 40),
-    )
-    monkeypatch.setattr(qa_case_ci_lane, "repo_slug", lambda _c: "acme/widgets")
-    monkeypatch.setattr(qa_case_ci_lane, "push_lane", lambda *a, **k: None)
-    monkeypatch.setattr(
-        qa_case_ci_lane, "find_completed_pull_request_run", lambda **k: None,
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.qa_artifacts.artifact_file_path",
-        lambda *a, **k: artifact,
-    )
-    return checkout, recorder, artifact
+    return wire_ci_case(tmp_path, monkeypatch)
 
 
 def _run(checkout, *, dispatch, await_result, case=None, **kwargs):
@@ -140,7 +83,7 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
     await_result = mock.Mock(side_effect=AssertionError("must not await"))
 
     with mock.patch.object(
-        qa_case_ci_lane, "find_completed_pull_request_run",
+        qa_case_ci_lane, "find_pull_request_run",
         return_value=covering,
     ):
         result = _run(
@@ -164,7 +107,7 @@ def test_pull_request_run_for_a_different_sha_dispatches(wired):
     )
     dispatch = mock.Mock(return_value="42")
     with mock.patch.object(
-        qa_case_ci_lane, "find_completed_pull_request_run",
+        qa_case_ci_lane, "find_pull_request_run",
         return_value=covering,
     ):
         result = _run(

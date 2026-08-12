@@ -52,6 +52,44 @@ A project that declares its required-status-check workflow gets its
 3. waits for the run and records its conclusion as the verdict, with the
    run URL and the exact head sha as evidence.
 
+A completed `pull_request` run for that exact commit is reused instead of
+step 2, because it already proved the same tree.
+
+## Queue projects verify pull-request-first
+
+Reuse by luck is worth little: GitHub's required checks take the latest
+check run per name, so a dispatch green never satisfies queue entry, and
+the entry run GitHub mints when the landing pull request opens re-proves
+the same tree the dispatch just proved. Ordering fixes it. For a project
+declaring the `merge_queue` capability, the gate runs steps 1-3 as:
+
+1. **rebase** the lane onto `origin/<default branch>`, after the merge
+   engine's own safety-stash gate has classified any uncommitted work.
+   This is the only free moment to rebase — no gate evidence exists yet,
+   so nothing is invalidated — and it makes the entry-run tree
+   approximately the tree the queue's train will build;
+2. **push**, then **open the landing pull request** (or converge on the
+   one already open) through the same `ensure_landing_pull_request` the
+   landing itself uses, so the landing enqueues this pull request rather
+   than opening a second;
+3. **wait for the pull-request entry run** and record its conclusion as
+   the verdict. Dispatch stays the fallback for a commit that produced no
+   entry run, or a run whose head sha does not match.
+
+The merge queue's `merge_group` train run then applies the same tree-oid
+reuse probe as a main push: a solo item rebased onto the base builds a
+candidate tree byte-identical to its entry tree, so the train self-skips
+and reports through the coverage receipt. A batch, or a train built after
+the base moved, is a tree no single run covered and runs the full suite —
+which is exactly when the integration proof is real.
+
+The floor this reaches: a solo item costs one suite end to end; a batch of
+N costs N entry suites plus one shared train.
+
+Two honest trades. The pull request becomes visible on GitHub during
+review and polish rather than at merge, and a polish-phase push
+re-triggers entry CI — which it would have re-gated anyway.
+
 Why: the local machine runs one heavy gate at a time behind the
 admission slot, where the suite has been measured at 35–55 minutes under
 fleet contention; CI runs the same suite across four duration-balanced

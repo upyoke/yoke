@@ -162,20 +162,28 @@ def workflow_file(case: dict) -> str:
     return workflow
 
 
-def find_completed_pull_request_run(
+def find_pull_request_run(
     *,
     project: str,
     repo: str,
     workflow: str,
     head_sha: str,
     timeout_seconds: int,
+    status: str = "completed",
 ) -> WorkflowRun | None:
-    """Return the completed PR run for the exact source commit, if any."""
+    """Return the PR run for the exact source commit, if any.
+
+    ``status`` narrows the lookup to runs in that state; passing ``""``
+    asks for the newest run whatever it is doing, which is what a gate
+    that just opened the pull request needs — the entry run it is waiting
+    for has not concluded yet.
+    """
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
+    status_args = ("--status", status) if status else ()
     result = _github_actions(
         "find-run", repo, workflow, head_sha,
-        "--event", "pull_request", "--status", "completed", "--json",
+        "--event", "pull_request", *status_args, "--json",
         project=project, sd=None, timeout=timeout_seconds,
     )
     try:
@@ -183,7 +191,7 @@ def find_completed_pull_request_run(
     except (TypeError, json.JSONDecodeError) as exc:
         detail = (result.stderr or result.stdout or "").strip()
         raise QaCaseExecutionError(
-            f"could not query completed pull-request runs for {workflow} "
+            f"could not query pull-request runs for {workflow} "
             f"on {repo}@{head_sha[:12]}: {detail or 'invalid response'}"
         ) from exc
     payload = response.get("result") if isinstance(response, dict) else None
@@ -193,7 +201,7 @@ def find_completed_pull_request_run(
     if result.returncode != 0 or not isinstance(payload, dict):
         detail = (result.stderr or result.stdout or "").strip()
         raise QaCaseExecutionError(
-            f"could not query completed pull-request runs for {workflow} "
+            f"could not query pull-request runs for {workflow} "
             f"on {repo}@{head_sha[:12]}: {detail or 'lookup failed'}"
         )
     if not payload.get("found"):
@@ -201,7 +209,7 @@ def find_completed_pull_request_run(
     run_id = str(payload.get("run_id") or "").strip()
     if not run_id:
         raise QaCaseExecutionError(
-            "completed pull-request workflow lookup returned no run id"
+            "pull-request workflow lookup returned no run id"
         )
     return WorkflowRun(
         run_id=run_id,
@@ -309,7 +317,7 @@ __all__ = [
     "await_workflow",
     "checked_out_branch",
     "dispatch_workflow",
-    "find_completed_pull_request_run",
+    "find_pull_request_run",
     "github_actions_authority",
     "run_head_sha",
     "lane_branch",

@@ -9,7 +9,8 @@ name: yoke-ci
 # + merge-engine check-run poll; CLA signature-check stays required. Shards
 # use hand-launched postgres:16 (fsync off) + pytest-split/xdist; no
 # aggregate tail. repo-contracts is the fast-fail tree-only gate before
-# shards; main-push may skip via reuse-coverage on an identical tree oid.
+# shards; main-push and merge_group may skip via reuse-coverage when a
+# green run already covered the identical tree oid.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
@@ -38,7 +39,7 @@ concurrency:
   cancel-in-progress: true
 
 # Read-only token everywhere; fork PRs must never see an elevated token.
-# reuse-coverage elevates actions:read at job scope only (main push).
+# reuse-coverage elevates actions:read at job scope only.
 permissions:
   contents: read
 
@@ -84,7 +85,12 @@ jobs:
 
   reuse_coverage:
     name: reuse-coverage
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # A main push re-proves the tree that produced it; a train carrying one
+    # rebased item builds the tree its entry run proved. Skipped jobs report
+    # skipped, not absent, so required contexts stay satisfied.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'merge_group'
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     permissions:
       contents: read
