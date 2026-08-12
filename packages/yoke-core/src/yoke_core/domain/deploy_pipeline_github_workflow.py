@@ -31,8 +31,8 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     workflow_dispatch_request_id as _workflow_dispatch_request_id,
     workflow_inputs as _workflow_inputs,
 )
+from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
     _github_actions,
     _poll_github_actions,
     _resolve_script_dir,

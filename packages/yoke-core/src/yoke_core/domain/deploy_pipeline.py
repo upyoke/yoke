@@ -26,8 +26,8 @@ from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
     resolve_flow_gate_branch,
 )
+from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
     _flow_db,
     _parse_stages,
     _project_db,

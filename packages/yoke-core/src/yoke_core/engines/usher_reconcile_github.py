@@ -9,8 +9,8 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
     _flow_db,
     _github_actions,
     _run_cmd,

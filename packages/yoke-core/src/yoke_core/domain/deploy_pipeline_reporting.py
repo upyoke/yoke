@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
-from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.github_poll_schedule import (
     STEADY_SCHEDULE,
     PollSchedule,
