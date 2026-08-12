@@ -79,6 +79,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.github_actions_run_monitoring",
     ): ("source_dev_admin", "local GitHub Actions wait helper"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/github_actions_wait.py",
+        "yoke_core.domain.github_poll_schedule",
+    ): (
+        "source_dev_admin",
+        "one read schedule for this wait and the engine's own wait loops",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/misc.py",
         "yoke_core.domain.project_scratch_dir",
     ): ("source_dev_admin", "local scratch resolver helper"),
