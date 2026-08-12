@@ -17,6 +17,10 @@ Watchers maintain two distinct output artifacts:
 Each command-shaped wrapper (``watch_pytest``, ``watch_merge``, ...)
 ships only its line classifier — see
 :mod:`yoke_core.tools._watch_throttle` for the class taxonomy.
+
+Watched children inherit ``PYTHONUNBUFFERED=1``. Python otherwise block-
+buffers stdout when the watcher replaces its terminal with a pipe, hiding
+progress until the child exits.
 """
 
 from __future__ import annotations
@@ -45,7 +49,7 @@ from yoke_core.tools._watch_throttle import (
     load_throttle_policy,
 )
 from yoke_core.tools.watch_child_drain import (
-    QUIET_HEARTBEAT_SECONDS_ENV,
+    QUIET_HEARTBEAT_SECONDS_ENV,  # noqa: F401 - watcher test/config surface
     drain_watched_child,
 )
 
@@ -64,6 +68,14 @@ PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 
 
 Classifier = Callable[[str], Classification]
+
+
+def _unbuffered_child_environment(
+    env: dict[str, str] | None,
+) -> dict[str, str]:
+    """Return an isolated child environment with immediate Python output."""
+    source = os.environ if env is None else env
+    return {**source, "PYTHONUNBUFFERED": "1"}
 
 
 def mint_capture_paths(kind: str) -> tuple[Path, Path]:
@@ -212,7 +224,7 @@ def run_watcher(
                 bufsize=1,
                 text=True,
                 cwd=cwd,
-                env=env,
+                env=_unbuffered_child_environment(env),
             )
         except (FileNotFoundError, OSError) as exc:
             err_line = f"# watch_{kind} launch_error: {exc}\n"

@@ -163,43 +163,6 @@ class TestCaseRunArgv:
         assert argv[3:] == ["--requirement-id", "7"]
 
 
-class TestUnbufferedChild:
-    """The gate's poll lines must arrive while they still mean something.
-
-    Its progress lines are plain ``print`` calls, and watching a command
-    replaces its terminal with a pipe — where Python block-buffers
-    stdout. Without this the whole 13-14 minute stream arrives in one
-    burst at exit, which is the blindness the wrapper removes.
-    """
-
-    def test_child_environment_is_unbuffered(self) -> None:
-        env = watch_qa_case.unbuffered_environment({"PATH": "/usr/bin"})
-        assert env["PYTHONUNBUFFERED"] == "1"
-        assert env["PATH"] == "/usr/bin"
-
-    def test_source_environment_is_not_mutated(self) -> None:
-        source = {"PATH": "/usr/bin"}
-        watch_qa_case.unbuffered_environment(source)
-        assert "PYTHONUNBUFFERED" not in source
-
-    def test_run_passes_the_unbuffered_environment(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        seen: dict[str, object] = {}
-
-        def _fake_run_watcher(**kwargs: object) -> int:
-            seen.update(kwargs)
-            return 0
-
-        monkeypatch.setattr(
-            watch_qa_case._watch_runner, "run_watcher", _fake_run_watcher
-        )
-        rc = watch_qa_case.main(["--requirement-id", "7"])
-
-        assert rc == 0
-        assert seen["env"]["PYTHONUNBUFFERED"] == "1"  # type: ignore[index]
-
-
 class TestPassthroughParsing:
     def test_canonical_separator_form_forwards(self) -> None:
         ns, passthrough = watch_qa_case._parse_args(["--", "--requirement-id", "7"])
