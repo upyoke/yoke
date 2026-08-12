@@ -64,6 +64,7 @@ IN_SCOPE_WRITERS = (
     "packages/yoke-core/src/yoke_core/domain/agents_render.py",
     "packages/yoke-core/src/yoke_core/domain/install_bundle_tree_sync.py",
     "packages/yoke-core/src/yoke_core/domain/populate_registry_render.py",
+    "packages/yoke-core/src/yoke_core/ui/hosted_stylesheet_entrypoints.py",
     "packages/yoke-core/src/yoke_core/tools/atlas_integrity_audit.py",
     "packages/yoke-core/src/yoke_core/tools/atlas_render_docs.py",
     "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
