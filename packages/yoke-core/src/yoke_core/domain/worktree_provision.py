@@ -160,6 +160,12 @@ def provision_worktree_validation_surfaces(
 
         result = _wvs.provision_validation_surfaces(worktree_path, project)
     except Exception as exc:  # noqa: BLE001 — best-effort
+        from yoke_core.domain.yoke_connected_env import (
+            ConnectedEnvNotLocalPostgres,
+        )
+
+        if isinstance(exc.__cause__, ConnectedEnvNotLocalPostgres):
+            return
         print(
             f"Warning: validation-surface provisioning failed "
             f"(non-fatal): {exc}",

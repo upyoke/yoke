@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,7 @@ class SurveyResponse(BaseModel):
     touch_paths: List[str]
     path_sizes: List[dict[str, Any]]
     recorded: bool
+    touch_path_update: Literal["replace"] = "replace"
 
 
 def _error(code: str, message: str) -> HandlerOutcome:

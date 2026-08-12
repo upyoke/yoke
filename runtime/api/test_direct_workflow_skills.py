@@ -41,6 +41,11 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         'yoke claims work acquire --item ITEM --reason "Dash execution"',
         "Only release when a claim remains, or when",
         'yoke claims work release --item ITEM --reason "Dash completed"',
+        "Every survey call replaces the entire stored touch set",
+        "narrow it to the complete",
+        "concrete file set before preparation",
+        "invent or guess a prefix",
+        "No environment override is required",
         # Merging is a named operation, never a hand-authored git merge.
         "yoke merge item ITEM",
     ):

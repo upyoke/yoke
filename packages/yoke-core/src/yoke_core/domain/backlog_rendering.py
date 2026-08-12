@@ -41,11 +41,10 @@ def _rebuild_board(out: TextIO = sys.stderr) -> None:
     """
     try:
         repo_root = _yoke_root().parent
-    except RuntimeError as exc:
+    except RuntimeError:
         # No checkout (a server-side https create has no repo / local BOARD.md);
         # the board is a client-local view the in-checkout client rebuilds, so
         # skip rather than fail the create after the item was inserted + synced.
-        print(f"[no-checkout] Skipping board rebuild: {exc}", file=out)
         return
     yoke_db = os.environ.get("YOKE_DB")
     if yoke_db:

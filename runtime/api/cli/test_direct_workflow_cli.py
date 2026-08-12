@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import io
+from types import SimpleNamespace
+
 import pytest
 
 from yoke_cli.commands import direct_workflow_worktree
@@ -143,6 +146,13 @@ def test_dash_survey_reports_client_local_headroom(monkeypatch):
         "limit": 350,
         "classification": "authored",
     }]
+    out = io.StringIO()
+    captured["human_writer"](
+        SimpleNamespace(result={"touch_path_update": "replace"}),
+        out,
+        io.StringIO(),
+    )
+    assert "survey-touch-path-update|replace" in out.getvalue()
 
 
 def test_dash_evidence_adapter_resolves_the_verification_tree(monkeypatch):
