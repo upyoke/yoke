@@ -19,7 +19,7 @@ COPY packages ./packages
 
 # Portability runs pg_restore/pg_dump inside the server. Fetch the same
 # checksum-verified PostgreSQL build that local mode pins in product code.
-RUN PYTHONPATH=/build/packages/yoke-contracts/src \
+RUN PYTHONPATH=/build/packages/yoke-contracts/src:/build/packages/yoke-core/src \
         YOKE_MACHINE_HOME=/var/lib/yoke \
         python -c "import runpy; runpy.run_path('/build/packages/yoke-core/src/yoke_core/domain/postgres_binaries.py')['ensure_binaries']()"
 

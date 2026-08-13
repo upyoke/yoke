@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 
@@ -95,19 +96,15 @@ def test_immutable_smoke_skips_simple_index_until_mutable_phase() -> None:
 
 
 def test_distribution_publish_public_smoke_checks_manifest_sizes(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     body = b"wheel-bytes"
+    artifact = tmp_path / "yoke_cli.whl"
+    artifact.write_bytes(body)
     check = distribution_publish.UrlCheck(
-        "https://api.upyoke.com/dist/releases/v1/wheels/yoke_cli.whl",
+        artifact.as_uri(),
         sha256=hashlib.sha256(body).hexdigest(),
         size=len(body) + 1,
-    )
-
-    monkeypatch.setattr(
-        distribution_publish,
-        "_get_url",
-        lambda *_args, **_kwargs: ({}, body),
     )
 
     with pytest.raises(ValueError, match="size 11 does not match 12"):

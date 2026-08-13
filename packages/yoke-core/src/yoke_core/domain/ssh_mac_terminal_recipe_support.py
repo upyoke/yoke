@@ -6,12 +6,12 @@ from pathlib import Path
 import shlex
 import time
 from typing import Any, Callable, Mapping, Sequence
-from urllib.request import urlopen
 
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_recipe_contracts import (
     REGISTERED_STAGE_URLS,
 )
+from yoke_core.resilient_fetch import FetchError, fetch_bytes
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 
 
@@ -63,9 +63,8 @@ def stage_recipe_files(
             if source_url not in REGISTERED_STAGE_URLS:
                 return False, evidence, tuple(sensitive_values)
             try:
-                with urlopen(source_url, timeout=60) as response:
-                    content = response.read()
-            except OSError:
+                content = fetch_bytes(source_url, timeout=60).body
+            except FetchError:
                 return False, evidence, tuple(sensitive_values)
             source_kind = "registered_url"
         if not upload_bytes(remote_path, content):

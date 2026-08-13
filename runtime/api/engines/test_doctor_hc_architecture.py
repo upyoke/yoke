@@ -22,7 +22,7 @@ from typing import Any
 
 import pytest
 
-from yoke_core.domain import path_context, project_structure as ps
+from yoke_core.domain import path_context
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.engines.doctor_hc_architecture import (
     hc_architecture_cross_cutting_entrypoint,
@@ -62,6 +62,10 @@ def _seed_model(conn: Any, project_id: int = 1) -> None:
                     "yoke_core.cli.db_router",
                 ],
                 "guarded_imports": ["sqlite3.connect"],
+            },
+            "external_artifact_fetch": {
+                "approved_modules": ["yoke_core.resilient_fetch"],
+                "guarded_imports": ["urllib.request.urlopen"],
             },
         },
     }
@@ -309,6 +313,24 @@ class TestCrossCuttingEntrypoint:
         rec = RecordCollector()
         hc_architecture_cross_cutting_entrypoint(conn, _args(), rec)
         assert rec.results[-1].result == "PASS"
+
+    def test_unapproved_raw_artifact_fetch_fires(self, conn):
+        _seed_model(conn)
+        tid = mint_target(conn, "yoke", "runtime/api/domain/bare_fetch.py")
+        snap = _make_snapshot(conn)
+        _make_snapshot_entry(
+            conn, snapshot_id=snap, target_id=tid,
+            module_name="yoke_core.domain.bare_fetch", edges=[{
+                "source_module": "yoke_core.domain.bare_fetch",
+                "imported_module": "urllib.request",
+                "imported_name": "urlopen",
+            }],
+        )
+        conn.commit()
+        rec = RecordCollector()
+        hc_architecture_cross_cutting_entrypoint(conn, _args(), rec)
+        assert rec.results[-1].result == "WARN"
+        assert "external_artifact_fetch" in rec.results[-1].detail
 
 
 class TestScanError:

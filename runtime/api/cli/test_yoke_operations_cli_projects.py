@@ -299,12 +299,14 @@ class TestProjectStructurePatchApply:
     def test_dispatches(self) -> None:
         rc = _run(
             _stub_ok, "project-structure", "patch", "apply",
-            "--project", "yoke",
+            "--project", "yoke", "--item", "YOK-2137",
             "--ops-json", '[{"op":"replace","path":"/foo","value":"bar"}]',
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "project_structure.patch.apply"
+        assert req.target.kind == "project_structure"
+        assert req.target.item_ref == "YOK-2137"
         assert req.payload == {
             "project_id": "yoke",
             "ops": [{"op": "replace", "path": "/foo", "value": "bar"}],
@@ -313,7 +315,7 @@ class TestProjectStructurePatchApply:
     def test_with_actor_override(self) -> None:
         rc = _run(
             _stub_ok, "project-structure", "patch", "apply",
-            "--project", "yoke",
+            "--project", "yoke", "--item", "YOK-2137",
             "--ops-json", "[]",
             "--actor", "ops@example.com",
         )
@@ -323,20 +325,20 @@ class TestProjectStructurePatchApply:
     def test_bad_ops_json_returns_two(self) -> None:
         rc = _run(
             _stub_ok, "project-structure", "patch", "apply",
-            "--project", "yoke", "--ops-json", "{not-json",
+            "--project", "yoke", "--item", "YOK-2137", "--ops-json", "{not-json",
         )
         assert rc == 2
 
     def test_non_array_ops_returns_two(self) -> None:
         rc = _run(
             _stub_ok, "project-structure", "patch", "apply",
-            "--project", "yoke", "--ops-json", '{"foo": 1}',
+            "--project", "yoke", "--item", "YOK-2137", "--ops-json", '{"foo": 1}',
         )
         assert rc == 2
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(
             _stub_fail, "project-structure", "patch", "apply",
-            "--project", "yoke", "--ops-json", "[]",
+            "--project", "yoke", "--item", "YOK-2137", "--ops-json", "[]",
         )
         assert rc == 1

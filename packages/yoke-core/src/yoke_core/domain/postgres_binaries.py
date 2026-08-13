@@ -19,16 +19,20 @@ fixture releases).
 
 from __future__ import annotations
 
-import hashlib
 import platform
 import shutil
 import tarfile
 import tempfile
-import urllib.request
 from pathlib import Path
 from typing import Callable, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_core.resilient_fetch import (
+    FetchError,
+    FetchResult,
+    fetch_bytes,
+    fetch_file,
+)
 
 #: The one pinned embedded-engine Postgres version (theseus-rs release tag:
 #: upstream major.minor plus a build suffix).
@@ -43,7 +47,6 @@ RELEASE_BASE_URL = (
 BINARIES_DIR_NAME = "postgres"
 
 _FETCH_TIMEOUT_S = 120
-_CHUNK_BYTES = 1 << 20
 
 #: (sys.platform prefix, platform.machine()) -> release target triple.
 _PLATFORM_TARGETS = {
@@ -130,9 +133,12 @@ def fetch_binaries(
     try:
         tarball = staging / release_asset_name(version, resolved_target)
         emit(f"  [postgres-binaries] fetching {url}")
-        _download(url, tarball)
-        _verify_sha256(url, tarball)
-        emit("  [postgres-binaries] checksum verified; unpacking")
+        published_sha256 = _fetch_published_sha256(url)
+        result = _download(url, tarball, expected_sha256=published_sha256)
+        emit(
+            "  [postgres-binaries] checksum verified after "
+            f"{result.attempts} attempt(s); unpacking"
+        )
         _unpack_release(tarball, staging, dest)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
@@ -145,37 +151,37 @@ def fetch_binaries(
     return bin_dir
 
 
-def _download(url: str, dest: Path) -> None:
+def _download(
+    url: str, dest: Path, *, expected_sha256: str,
+) -> FetchResult:
     try:
-        with urllib.request.urlopen(url, timeout=_FETCH_TIMEOUT_S) as response:
-            with dest.open("wb") as out:
-                shutil.copyfileobj(response, out, _CHUNK_BYTES)
-    except OSError as exc:
-        raise PostgresBinariesError(f"fetch failed for {url}: {exc}") from exc
+        return fetch_file(
+            url,
+            dest,
+            timeout=_FETCH_TIMEOUT_S,
+            expected_sha256=expected_sha256,
+        )
+    except FetchError as exc:
+        raise PostgresBinariesError(str(exc)) from exc
 
 
-def _verify_sha256(url: str, tarball: Path) -> None:
-    """Verify the tarball against its published ``.sha256`` companion."""
+def _fetch_published_sha256(url: str) -> str:
+    """Fetch and parse the release's published ``.sha256`` companion."""
     checksum_url = f"{url}.sha256"
     try:
-        with urllib.request.urlopen(
-            checksum_url, timeout=_FETCH_TIMEOUT_S,
-        ) as response:
-            published = response.read().decode("utf-8").split()[0].strip().lower()
-    except (OSError, IndexError) as exc:
+        result = fetch_bytes(checksum_url, timeout=_FETCH_TIMEOUT_S)
+        published = result.body.decode("utf-8").split()[0].strip().lower()
+    except (FetchError, UnicodeDecodeError, IndexError) as exc:
         raise PostgresBinariesError(
             f"checksum fetch failed for {checksum_url}: {exc}"
         ) from exc
-    digest = hashlib.sha256()
-    with tarball.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(_CHUNK_BYTES), b""):
-            digest.update(chunk)
-    actual = digest.hexdigest()
-    if actual != published:
+    if len(published) != 64 or any(
+        char not in "0123456789abcdef" for char in published
+    ):
         raise PostgresBinariesError(
-            f"checksum mismatch for {tarball.name}: "
-            f"published {published}, fetched content {actual}"
+            f"checksum response for {checksum_url} did not contain sha256"
         )
+    return published
 
 
 def _unpack_release(tarball: Path, staging: Path, dest: Path) -> None:
