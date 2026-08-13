@@ -219,16 +219,16 @@ class TestItemsCreateEndToEnd:
         self, tmp_db, monkeypatch,  # noqa: F811
     ):
         from yoke_core.domain.qa_catalog_schema import (
-            create_qa_catalog_tables,
+            create_qa_catalog_tables, seed_builtin_qa_methods,
         )
         from yoke_core.domain.qa_plan_management import (
-            create_plan,
-            replace_plan_cases,
+            create_plan, replace_plan_cases,
         )
 
         conn = _conn(tmp_db)
         try:
             create_qa_catalog_tables(conn)
+            seed_builtin_qa_methods(conn)
             plan = create_plan(
                 conn,
                 project="yoke",

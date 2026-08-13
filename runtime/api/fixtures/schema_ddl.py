@@ -139,7 +139,10 @@ def apply_fixture_schema(conn: Any) -> None:
     from yoke_core.domain.decision_request_schema import (
         create_decision_request_tables,
     )
-    from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+    from yoke_core.domain.qa_catalog_schema import (
+        create_qa_catalog_tables,
+        seed_builtin_qa_methods,
+    )
     from yoke_core.domain.project_structure import create_project_structure_tables
     from yoke_core.domain.strategy_docs_schema import (
         STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
@@ -182,6 +185,7 @@ def apply_fixture_schema(conn: Any) -> None:
     converge_builtin_workflows(conn)
     create_project_structure_tables(conn)
     create_qa_catalog_tables(conn)
+    seed_builtin_qa_methods(conn)
     ensure_workflow_execution_instructions_schema(conn, commit=False)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)

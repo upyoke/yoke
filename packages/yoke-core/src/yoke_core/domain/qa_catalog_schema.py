@@ -157,7 +157,14 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed_builtin_methods(conn: Any) -> None:
+def seed_builtin_qa_methods(conn: Any) -> None:
+    """Project the methods this build ships into the catalog.
+
+    Deliberately separate from creating the catalog: this writes the column
+    names the current code knows, so it is only correct against a schema the
+    ordered migration history has finished transforming. Callers that want a
+    complete catalog call both, in that order.
+    """
     marker = _placeholder(conn)
     now = iso8601_now()
     columns = (
@@ -235,7 +242,12 @@ def create_qa_catalog_tables(
     *,
     commit: bool = True,
 ) -> None:
-    """Converge the QA catalog, committing unless the caller owns the transaction."""
+    """Converge the QA catalog's tables, columns and indexes.
+
+    Schema only. The methods this build ships are projected separately by
+    :func:`seed_builtin_qa_methods`, which must not run until the ordered
+    history has brought the catalog's columns to their current names.
+    """
     execute_schema_script(conn, QA_CATALOG_TABLES_SQL)
     ensure_qa_method_metadata_columns(conn)
     _add_column_if_not_exists(
@@ -276,7 +288,6 @@ def create_qa_catalog_tables(
         "COALESCE(host_baseline, '')"
         ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
     )
-    _seed_builtin_methods(conn)
     if commit:
         conn.commit()
 
@@ -287,4 +298,5 @@ __all__ = [
     "QA_METHOD_METADATA_COLUMNS",
     "create_qa_catalog_tables",
     "ensure_qa_method_metadata_columns",
+    "seed_builtin_qa_methods",
 ]

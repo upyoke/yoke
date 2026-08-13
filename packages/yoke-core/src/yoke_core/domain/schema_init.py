@@ -28,7 +28,10 @@ from yoke_core.domain.project_onboarding_runs import (
 )
 from yoke_core.domain.project_structure import create_project_structure_tables
 from yoke_core.domain.projects_restart_schema import create_project_registry_tables
-from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+from yoke_core.domain.qa_catalog_schema import (
+    create_qa_catalog_tables,
+    seed_builtin_qa_methods,
+)
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )
@@ -73,6 +76,31 @@ from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
+def project_code_owned_rows(conn) -> None:
+    """Write the rows this build owns into a schema that is already current.
+
+    Runs after the ordered history, never before it, and the difference is not
+    cosmetic. A projection names the columns the current code knows; the
+    history is what brings a database's columns to those names. Run a
+    projection first and a universe still carrying a retired column meets an
+    INSERT naming the current one, which fails — and because boot is
+    fail-hard, that universe stops serving instead of converging.
+
+    Ordered among themselves by what they reference: plan bindings name both
+    workflows and methods, so they come last.
+    """
+    converge_builtin_workflows(conn)
+    seed_builtin_qa_methods(conn)
+    sync_machine_qa_pack_methods(conn)
+    converge_pack_catalog(conn)
+    # Where a registered verification command runs is executable configuration
+    # too: it follows from code plus the project's declared CI-workflow
+    # capability, and registration happens only once, so without this a
+    # project keeps whatever binding it was first given.
+    _converge_registered_command_plans(conn)
+    conn.commit()
+
+
 def _converge_registered_command_plans(conn) -> None:
     """Converge command-plan bindings; never fail a boot over them.
 
@@ -97,18 +125,20 @@ def _converge_registered_command_plans(conn) -> None:
 
 
 def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
-    """Bring a database's schema up to the current code.
+    """Bring a database up to the current code, in two ordered phases.
 
-    Runs every schema-CREATION step — tables, indexes, and strictly additive
-    columns — in FK-dependency order, then inserts any missing code-owned
-    deployment-flow definitions, and finally applies whatever the ordered
-    migration history says this database still owes. Exact recognized built-in
-    predecessors may be disabled after their bindings are terminal, while a
-    code-owned successor becomes the project default. Modified project
-    definitions remain untouched. This runs on every server boot, which is what
-    propagates newly deployed tables, columns, built-in flow definitions, and
-    pending migrations to existing prod / self-host universes on the boot after
-    a deploy (see :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
+    First the schema: every creation step — tables, indexes, and strictly
+    additive columns — in FK-dependency order, then whatever the ordered
+    migration history says this database still owes. Only once the schema is
+    current does :func:`project_code_owned_rows` write the rows the code owns,
+    because a projection can only name columns the history has already
+    delivered. Exact recognized built-in predecessors may be disabled after
+    their bindings are terminal, while a code-owned successor becomes the
+    project default. Modified project definitions remain untouched. This runs
+    on every server boot, which is what propagates newly deployed tables,
+    columns, built-in definitions, and pending migrations to existing prod /
+    self-host universes on the boot after a deploy (see
+    :func:`yoke_core.api.server_entrypoint.ensure_core_schema`).
 
     The creation steps themselves stay strictly non-destructive. Destructive
     change is not absent — it is confined to the history, where it is ordered,
@@ -158,7 +188,6 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     create_pack_projection_tables(conn)
     create_project_structure_tables(conn)
     ensure_workflow_schema(conn)
-    converge_builtin_workflows(conn)
     # Plans attach to projects, workflows and items; requirements snapshot
     # those plans, so the catalog follows all four authorities.
     create_qa_catalog_tables(conn)
@@ -170,12 +199,6 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
-    sync_machine_qa_pack_methods(conn)
-    # Where a registered verification command runs is executable
-    # configuration too: it follows from code plus the project's declared
-    # CI-workflow capability, and registration happens only once, so
-    # without this a project keeps whatever binding it was first given.
-    _converge_registered_command_plans(conn)
     conn.commit()
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
@@ -184,11 +207,6 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
     ensure_strategy_execution_schema(conn)
     apply_additive_schema(conn)
-    converge_pack_catalog(conn)
-    # Built-in deployment flows are executable configuration, not birth-only
-    # sample data. Missing definitions and exact code-owned supersessions
-    # therefore converge with deployed code on every boot while historical
-    # stages and project-authored definitions stay intact.
     converge_flow_catalog(conn)
     # The initial bootstrap creates the view before deployment-run tables land;
     # every subsequent server boot must converge it onto the complete current
@@ -202,6 +220,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
         was_born=was_born,
         backup_target_dsn=backup_target_dsn,
     )
+    project_code_owned_rows(conn)
 
 
 def converge_migration_history(
