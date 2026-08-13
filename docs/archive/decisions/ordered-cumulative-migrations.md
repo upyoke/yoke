@@ -66,6 +66,12 @@ territory while one is in flight. The lease moved onto rehearsal and is HELD
 past the call, because the window it must cover is "from starting a migration
 until it lands", not "while a command runs".
 
+**Schema first, then the rows the code owns.** A converge does two jobs, and
+they are ordered. Bringing the schema up to the code — creation steps, then the
+history — must finish before the build projects the rows it owns, because a
+projection names the columns the current code knows and only the history
+delivers those names. See "A projection that runs before the history" below.
+
 **Boot-apply never touches the control plane.** A booting tenant that depended
 on the control plane would turn a control-plane outage into a fleet-wide boot
 outage. The consequence, stated so nobody later reads it as a bug: the
@@ -204,6 +210,49 @@ connected cluster, restores each onto the local embedded cluster, runs the
 real converge, and reports per database, reading the live databases and
 nothing more. A database it cannot reach reports FAIL — an unreachable check
 that reads as green is worse than no check.
+
+## A projection that runs before the history cannot be rescued by the history
+
+The converge also projects the rows the code itself owns: built-in workflows,
+the built-in and Pack QA methods, the Pack catalog, the registered
+command-plan bindings. For a long time it did that interleaved with creating
+schema, which put most of it before the history ran.
+
+A projection writes the column names the current code knows. The history is
+what brings a database's columns to those names. Ordered the wrong way round, a
+universe still carrying a retired name meets an INSERT naming the current one,
+and because boot is fail-hard it stops serving instead of converging.
+
+`0008_qa_runner_identity_columns` renamed `qa_methods.executor_id` to
+`runner_id`. Both production tenants died on `column "runner_id" of relation
+"qa_methods" does not exist`, seeding built-in methods several steps before the
+history ran. The entry's own fold branch was already correct — it decides per
+table and per column against live state — and was never reached. Reading the
+failure as the entry's is the natural first move and costs a cycle: an entry
+cannot rescue a statement that runs before it.
+
+Nor could the additive lists close the gap, which is the second plausible
+repair. They already carried `qa_requirements.runner_id` and
+`qa_methods.runner_gloss` — which is exactly why this looked handled — and both
+are nullable, so they can be added to a populated table. `qa_methods.runner_id`
+is `NOT NULL` with no default and cannot. Even granting it one, the retired
+`executor_id` is itself `NOT NULL` on a live tenant, so a projection naming
+only the current column would violate *that* instead, on any method id the
+universe has not seen before — precisely the case a new build exists to
+deliver.
+
+So the fix is the order, not the column. Every code-owned row projection runs
+after the history as one phase named for that job
+(`schema_init.project_code_owned_rows`), and creating the QA catalog no longer
+seeds it. That retires the class rather than the instance: the next rename of a
+column some projection happens to name is already safe, and nobody has to
+notice the coupling to keep it that way.
+
+Worth stating on its own, because the same shape will recur wherever a system
+both migrates and seeds: schema convergence and data projection are different
+jobs with a mandatory order between them, and the only thing that ever
+recommended interleaving them was that both were convenient to call from one
+function.
 
 ## Squash policy
 
