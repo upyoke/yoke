@@ -9,12 +9,16 @@ from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
 from yoke_core.domain.qa_review_requests import ensure_qa_review_request
-from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+from yoke_core.domain.qa_catalog_schema import (
+    create_qa_catalog_tables,
+    seed_builtin_qa_methods,
+)
 
 
 def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
     create_decision_request_tables(test_db)
     create_qa_catalog_tables(test_db)
+    seed_builtin_qa_methods(test_db)
     originator = test_db.execute(
         "SELECT id FROM actors ORDER BY id LIMIT 1"
     ).fetchone()[0]

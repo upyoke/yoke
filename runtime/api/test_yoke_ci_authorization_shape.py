@@ -67,40 +67,87 @@ def test_reuse_coverage_runs_on_merge_group_as_well_as_main_push() -> None:
     assert "github.ref == 'refs/heads/main'" in condition
 
 
-def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
-    """A skipped job reports skipped; an absent one leaves the check pending.
-
-    The queue's required contexts are satisfied by jobs the reuse probe
-    turns off through a job-level condition. Removing a job from the graph —
-    or gating one on an event filter the merge_group run never matches —
-    would strand its context instead of concluding it.
-    """
-    workflow = _yoke_ci()
+def _required_contexts() -> tuple[str, ...]:
     declared = json.loads(MERGE_QUEUE.read_text(encoding="utf-8"))
-    contexts = tuple(
+    return tuple(
         str(entry["context"])
         for rule in declared["ruleset"]["rules"]
         if rule["type"] == "required_status_checks"
         for entry in rule["parameters"]["required_status_checks"]
     )
-    gating = {
-        str(job.get("name") or job_id): " ".join(str(job.get("if") or "").split())
+
+
+def _jobs_for_context(workflow: dict, context: str) -> list[dict]:
+    return [
+        job
         for job_id, job in workflow["jobs"].items()
-    }
+        if context_matches_job(context, (str(job.get("name") or job_id),))
+    ]
+
+
+def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
+    """A skipped job reports skipped; an absent one leaves the check pending.
+
+    The queue's required contexts are satisfied by jobs the reuse probe turns
+    off. Removing a job from the graph — or gating one on an event filter the
+    merge_group run never matches — would strand its context instead of
+    concluding it.
+
+    A matrix job is the exception that once stranded a queue entry for good. A
+    skipped matrix job never evaluates its matrix, so it reports one check
+    under the bare job name and none of the per-matrix contexts protection
+    actually requires. Its reuse verdict therefore belongs on its steps, and
+    :func:`test_a_matrix_job_carries_the_reuse_verdict_on_its_steps` is where
+    that half is enforced.
+    """
+    workflow = _yoke_ci()
+    contexts = _required_contexts()
 
     assert len(contexts) == 10
     for context in contexts:
-        matched = [
-            condition for name, condition in gating.items()
-            if context_matches_job(context, (name,))
-        ]
+        matched = _jobs_for_context(workflow, context)
         assert matched, context
-        # Gated only on the reuse verdict (or not at all) — never on an event
-        # filter, which is what would make the check absent rather than skipped.
-        assert all(
-            not condition or "reuse_coverage.outputs.skip_suite" in condition
-            for condition in matched
-        ), context
+        for job in matched:
+            condition = " ".join(str(job.get("if") or "").split())
+            # An event filter is what would make the check absent rather than
+            # skipped; the reuse verdict may gate only a non-matrix job.
+            assert "github.event_name" not in condition, context
+            if "strategy" in job and "matrix" in job.get("strategy", {}):
+                assert "skip_suite" not in condition, context
+            else:
+                assert (
+                    not condition or "skip_suite" in condition
+                ), context
+
+
+def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
+    """Reuse still has to save the work it exists to save.
+
+    Letting the matrix expand is only half the fix. If the suite then ran, a
+    reused tree would pay for the whole thing again, which is the cost the
+    probe exists to avoid — so the steps that ARE that cost stay guarded by
+    the verdict the job itself may no longer carry. The setup steps around
+    them are left running deliberately: they are minutes the reuse path still
+    spends, and buying them back means moving work out of this file, which is
+    already at the authored-file limit.
+    """
+    workflow = _yoke_ci()
+    matrix_jobs = [
+        job
+        for context in _required_contexts()
+        for job in _jobs_for_context(workflow, context)
+        if "matrix" in job.get("strategy", {})
+    ]
+
+    assert matrix_jobs
+    for job in matrix_jobs:
+        assert job["env"]["SUITE_ALREADY_PROVEN"].endswith("skip_suite }}")
+        guarded = {
+            step["name"]
+            for step in job["steps"]
+            if "SUITE_ALREADY_PROVEN != 'true'" in str(step.get("if"))
+        }
+        assert "Run pytest" in guarded, job.get("name")
 
 
 def test_orphan_detection_flags_deleted_aggregate_names() -> None:
