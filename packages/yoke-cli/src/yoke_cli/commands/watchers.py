@@ -39,15 +39,17 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from yoke_contracts.uv_project import (
+    UV_EXECUTABLE,
+    uv_project_root,
+    uv_run_argv,
+)
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS
 
 AdapterFn = Callable[[List[str]], int]
 # Each wrapper's ``main(argv, *, prog=None)``.
 WrapperMain = Callable[..., Any]
 
-UV_EXECUTABLE = "uv"
-LOCKFILE_NAME = "uv.lock"
-PROJECT_FILE_NAME = "pyproject.toml"
 # Generous: the probe is the first `uv run` in a fresh worktree, so it
 # pays for creating the project's virtualenv. Negligible against the
 # multi-minute runs these commands wrap.
@@ -96,30 +98,6 @@ def _wants_help(args: List[str]) -> bool:
     return False
 
 
-def uv_project_root(start: Path) -> Optional[Path]:
-    """Return the nearest ancestor of *start* that is a uv-managed project.
-
-    A directory qualifies when it holds both a ``pyproject.toml`` and a
-    ``uv.lock`` — the pair that makes ``uv run --frozen`` deterministic.
-    Returns ``None`` when no ancestor qualifies, which is the signal to
-    run the wrapper in-process.
-    """
-    try:
-        here = start.resolve()
-    except OSError:
-        return None
-    for candidate in [here, *here.parents]:
-        if (candidate / PROJECT_FILE_NAME).is_file() and (
-            candidate / LOCKFILE_NAME
-        ).is_file():
-            return candidate
-    return None
-
-
-def _uv_run(trailing: List[str]) -> List[str]:
-    return [UV_EXECUTABLE, "run", "--frozen", "python3", *trailing]
-
-
 def project_env_imports(wrapper_module: str) -> bool:
     """True when the surrounding uv project's environment can run *wrapper*.
 
@@ -129,7 +107,7 @@ def project_env_imports(wrapper_module: str) -> bool:
     """
     try:
         completed = subprocess.run(
-            _uv_run(["-c", f"import {wrapper_module}"]),
+            uv_run_argv(["-c", f"import {wrapper_module}"]),
             capture_output=True,
             timeout=PROBE_TIMEOUT_SECONDS,
             check=False,
@@ -153,7 +131,7 @@ def reexec_argv(wrapper_module: str, args: List[str]) -> Optional[List[str]]:
         return None
     if not project_env_imports(wrapper_module):
         return None
-    return _uv_run(["-m", wrapper_module, *args])
+    return uv_run_argv(["-m", wrapper_module, *args])
 
 
 def _wrapper_main(wrapper_module: str) -> WrapperMain:

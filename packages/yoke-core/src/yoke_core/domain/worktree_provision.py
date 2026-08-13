@@ -150,6 +150,29 @@ def provision_worktree_harness_enablement(
             )
 
 
+def provision_worktree_test_environment(worktree_path: str) -> Optional[str]:
+    """Install and prove a lane's test environment; return a blocking error.
+
+    Unlike the best-effort provisioning around it, this one blocks. A lane
+    that cannot run its own tests is not ready, and the alternative — a
+    warning nobody acts on, followed by an unattributable import error at
+    the first test command — is the failure this step exists to end.
+    """
+    from yoke_core.domain.worktree_test_environment import (
+        provision_test_environment,
+    )
+
+    try:
+        report = provision_test_environment(worktree_path)
+    except Exception as exc:  # noqa: BLE001 — a broken lane must name its cause
+        return (
+            f"Lane test environment provisioning failed for {worktree_path}: {exc}"
+        )
+    for action in report.actions:
+        print(f"Lane test environment: {action}", file=sys.stderr)
+    return report.error or None
+
+
 def provision_worktree_validation_surfaces(
     worktree_path: str,
     project: str,
@@ -236,5 +259,6 @@ __all__ = [
     "provision_worktree",
     "provision_worktree_harness_enablement",
     "provision_worktree_hook_trust",
+    "provision_worktree_test_environment",
     "provision_worktree_validation_surfaces",
 ]
