@@ -303,7 +303,6 @@ def test_poll_retries_hosted_transport_failure_instead_of_failing_workflow():
             "upyoke/platform",
             "123",
             300,
-            "prod-deploy",
             project="platform",
         )
 
@@ -333,7 +332,6 @@ def test_poll_preserves_real_workflow_failure_as_terminal():
             "upyoke/platform",
             "123",
             300,
-            "prod-deploy",
             project="platform",
         )
 

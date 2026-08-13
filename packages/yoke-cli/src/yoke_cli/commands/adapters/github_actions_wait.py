@@ -59,13 +59,14 @@ def wait_for_ci_completion(
         # immediately — otherwise the gate fails open, skipping CI it should
         # have waited for. After the window, ``no_runs`` is genuine.
         if state == "no_runs":
-            if int(now() - start) < appearance_budget:
+            waited = int(now() - start)
+            if waited < appearance_budget:
                 print(
                     "  CI status: no run registered yet, waiting up to "
                     f"{appearance_budget}s for the run to appear...",
                     file=sys.stderr,
                 )
-                sleep(_poll_interval_seconds())
+                sleep(_next_read_delay(waited))
                 continue
             return emit_response(response, json_mode=json_mode)
 
@@ -84,7 +85,7 @@ def wait_for_ci_completion(
             f"(elapsed: {elapsed}s, timeout: {timeout_sec}s)",
             file=sys.stderr,
         )
-        sleep(_poll_interval_seconds())
+        sleep(_next_read_delay(elapsed))
 
 
 def _appearance_timeout_seconds() -> int:
@@ -94,11 +95,14 @@ def _appearance_timeout_seconds() -> int:
     return int(module.CHECK_CI_APPEARANCE_TIMEOUT_SEC)
 
 
-def _poll_interval_seconds() -> int:
+def _next_read_delay(elapsed_seconds: int) -> float:
+    """Seconds until this wait's next read of the CI run's status."""
     import importlib
 
-    module = importlib.import_module("yoke_core.domain.github_actions_run_monitoring")
-    return int(module.CHECK_CI_POLL_INTERVAL_SEC)
+    module = importlib.import_module("yoke_core.domain.github_poll_schedule")
+    return float(
+        module.next_read_delay(elapsed_seconds, module.CI_SUITE_SCHEDULE)
+    )
 
 
 __all__ = ["wait_for_ci_completion"]

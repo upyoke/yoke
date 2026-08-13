@@ -33,9 +33,6 @@ from yoke_core.domain.qa_case_ci_authority import (
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
-#: Stage label passed to the shared poller; it names this gate in poll output.
-POLL_LABEL = "verification-ci-gate"
-
 _GITHUB_REMOTE = re.compile(
     r"github\.com[:/](?P<owner>[^/]+)/(?P<name>[^/]+?)(?:\.git)?/?$"
 )
@@ -304,16 +301,21 @@ def run_head_sha(*, project: str, repo: str, run_id: str) -> str:
 def await_workflow(
     *, project: str, repo: str, run_id: str, timeout_seconds: int,
 ) -> tuple[int, str]:
-    """Block until the run concludes; return ``(exit_code, poll_output)``."""
+    """Block until the run concludes; return ``(exit_code, poll_output)``.
+
+    This run is the project's whole suite, so it is read on the schedule
+    that suite's duration floor implies rather than at a flat cadence.
+    """
     from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
+    from yoke_core.domain.github_poll_schedule import CI_SUITE_SCHEDULE
 
     return _poll_github_actions(
-        repo, run_id, timeout_seconds, POLL_LABEL, project=project, sd=None,
+        repo, run_id, timeout_seconds, project=project, sd=None,
+        schedule=CI_SUITE_SCHEDULE,
     )
 
 
 __all__ = [
-    "POLL_LABEL",
     "await_workflow",
     "checked_out_branch",
     "dispatch_workflow",

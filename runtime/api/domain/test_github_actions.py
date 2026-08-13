@@ -86,7 +86,7 @@ class TestWaitRun:
         ]
         sleeps: list[int] = []
         monkeypatch.setattr(github_actions.time, "sleep", lambda secs: sleeps.append(secs))
-        monotonic_values = iter([0.0, 0.0, 5.0])
+        monotonic_values = iter([0.0, 0.0, 60.0])
         monkeypatch.setattr(github_actions.time, "monotonic", lambda: next(monotonic_values))
 
         with _fake_urls(monkeypatch, responses):
@@ -96,7 +96,9 @@ class TestWaitRun:
                 )
             assert exc_info.value.code == 0
 
-        assert sleeps == [5, 10]
+        # A run waited on by id has no known duration floor, so every read
+        # is one minimum interval after the last.
+        assert sleeps == [60.0, 60.0]
 
     def test_failure_exits_1(self, _resolver_ok, monkeypatch):
         with _fake_urls(
@@ -126,7 +128,9 @@ class TestWaitRun:
                 )
             assert exc_info.value.code == 3
 
-        assert sleeps == [5]
+        # The budget is shorter than one interval, so the wait sleeps once
+        # and reports the timeout at its next read rather than reading early.
+        assert sleeps == [60.0]
 
 
 class TestFindRun:

@@ -31,8 +31,8 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     workflow_dispatch_request_id as _workflow_dispatch_request_id,
     workflow_inputs as _workflow_inputs,
 )
+from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
     _github_actions,
     _poll_github_actions,
     _resolve_script_dir,
@@ -237,6 +237,7 @@ def _dispatch_github_actions_workflow(
                 if ga_run_id:
                     break
                 print(f"  Waiting for workflow run to appear... (attempt {attempt}/6)")
+                # Not a status poll: whether a dispatch registered a run yet is an answer that moves in seconds.
                 time.sleep(5)
             if not ga_run_id and reconciliation_errors:
                 diagnostic = (r.stderr or r.stdout or "").strip()
@@ -269,8 +270,7 @@ def _dispatch_github_actions_workflow(
     if ga_run_id and ga_run_id != "not_found":
         print(f"  Workflow run ID: {ga_run_id}")
         rc, output = _poll_github_actions(
-            github_repo, ga_run_id, timeout_sec, name,
-            project=project, sd=sd,
+            github_repo, ga_run_id, timeout_sec, project=project, sd=sd,
         )
         # Carry the poll diagnostic only on failure — success output is noise.
         return rc, (output if rc != 0 else "")

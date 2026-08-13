@@ -119,11 +119,6 @@ def run_state(repo: str, run_id: str, *, token: str) -> Tuple[int, str]:
     return 1, f"unknown:{status}"
 
 
-def adaptive_wait_interval(attempt: int) -> int:
-    """Return the next wait interval in seconds for workflow polling."""
-    return min(30, 5 * max(1, attempt + 1))
-
-
 def latest_run_id(
     repo: str,
     workflow: str,
@@ -212,7 +207,6 @@ def latest_workflow_run(
 
 
 __all__ = [
-    "adaptive_wait_interval",
     "latest_run_id",
     "latest_workflow_run",
     "resolve_token",
