@@ -43,8 +43,11 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
 PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
 
 STANDALONE_MERGE_CLOSE_OUT_TESTS = (
+    "runtime/api/domain/test_landed_merge_receipt_recovery.py",
     "runtime/api/domain/test_standalone_item_merge_close_out.py",
     "runtime/api/domain/test_standalone_item_merge_evidence_truth.py",
+    "runtime/api/domain/test_standalone_item_merge_post_push_close_out.py",
+    "runtime/api/domain/test_standalone_item_merge_qa.py",
 )
 
 PATH_CONTRACT_TESTS = (
