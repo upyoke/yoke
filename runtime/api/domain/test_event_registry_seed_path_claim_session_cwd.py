@@ -72,6 +72,7 @@ class TestSeedRows(unittest.TestCase):
                 "SessionCwdBindingHealthCheckFailed",
                 "LaneMainWriteDenied",
                 "LaneMainWriteEscapeUsed",
+                "LaneMainWriteStrandedLane",
             },
         )
 
@@ -155,6 +156,7 @@ class TestSeedApply(unittest.TestCase):
                 "SessionCwdMismatchDenied",
                 "LaneMainWriteDenied",
                 "LaneMainWriteEscapeUsed",
+                "LaneMainWriteStrandedLane",
             ]
         )
         self.assertEqual(len(rows), len(expected))
@@ -181,6 +183,7 @@ class TestSeedApply(unittest.TestCase):
             "SessionCwdBindingHealthCheckFailed",
             "LaneMainWriteDenied",
             "LaneMainWriteEscapeUsed",
+            "LaneMainWriteStrandedLane",
         ):
             row = rows[name]
             self.assertEqual(row[1], "lifecycle")
@@ -192,6 +195,7 @@ class TestSeedApply(unittest.TestCase):
             rows["SessionCwdMismatchAllowedReadOnly"][5], "INFO"
         )
         self.assertEqual(rows["LaneMainWriteEscapeUsed"][5], "INFO")
+        self.assertEqual(rows["LaneMainWriteStrandedLane"][5], "INFO")
 
     def test_TC_seed_is_idempotent(self):
         seed(db_path=self.db_path)

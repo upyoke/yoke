@@ -57,6 +57,21 @@ SHELL_WRITE_COMMAND_BASES = (
     _ALL_POSITIONAL_WRITE_COMMANDS | _LAST_POSITIONAL_WRITE_COMMANDS | {"patch"}
 )
 _GLUED_REDIRECT_RE = re.compile(r"^(?:[012]?>>?|&>>?)(.+)$")
+_FD_DUP_REDIRECT_TARGET_RE = re.compile(r"^&\d+$")
+
+
+def glued_file_redirect_target(token: str) -> str | None:
+    """Return the file operand of a glued redirect, or ``None``.
+
+    Fd duplications such as ``2>&1`` / ``>&2`` are not filesystem writes.
+    """
+    match = _GLUED_REDIRECT_RE.match(token)
+    if match is None:
+        return None
+    target = match.group(1)
+    if _FD_DUP_REDIRECT_TARGET_RE.match(target):
+        return None
+    return target
 
 
 def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -176,9 +191,9 @@ def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
                 targets += [tokens[i + 1]]
             i += 2
             continue
-        glued = _GLUED_REDIRECT_RE.match(token)
-        if glued:
-            targets += [glued.group(1)]
+        glued = glued_file_redirect_target(token)
+        if glued is not None:
+            targets += [glued]
             i += 1
             continue
         clean += [token]
@@ -219,5 +234,6 @@ __all__ = [
     "extract_payload_command",
     "extract_payload_targets",
     "extract_payload_write_targets",
+    "glued_file_redirect_target",
     "payload_has_embedded_python_write",
 ]

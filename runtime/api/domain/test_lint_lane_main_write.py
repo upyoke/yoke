@@ -173,8 +173,13 @@ class TestStrandedLane:
         wt = _seed_lane(conn, repo)
         target = repo / "runtime/api/foo.py"
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Simulate post-cleanup stranding: claim still held, lane gone.
+        # Genuinely stranded: recorded path gone AND claim heartbeat stale.
         wt.rmdir()
+        conn.execute(
+            "UPDATE work_claims SET last_heartbeat = %s WHERE session_id = %s",
+            ("2000-01-01T00:00:00Z", "sid-lane"),
+        )
+        conn.commit()
         with mock.patch.object(
             lint_lane_main_write, "emit_stranded_lane_advisory",
         ) as emit_advisory:
