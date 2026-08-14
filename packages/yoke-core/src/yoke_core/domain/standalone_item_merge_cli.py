@@ -218,6 +218,7 @@ def run(argv: List[str]) -> int:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
+    recovery_error = ""
     if claim_error or recovery.branch_needs_receipt(str(repo_root), branch):
         receipt, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
@@ -227,12 +228,13 @@ def run(argv: List[str]) -> int:
             project=str((item.get("project") or {}).get("slug") or "yoke"),
             session_id=str(args.session_id),
         )
-        if recovery_error or receipt is None:
+        if receipt is None and claim_error:
             return _fail(
                 f"{item_ref}: {recovery_error or 'claim recovery failed'}",
                 as_json=as_json,
             )
-        item = recovery.with_recorded_head(item, receipt)
+        if receipt is not None:
+            item = recovery.with_recorded_head(item, receipt)
     commit_sha, qa_error = qa_preflight(
         item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )
@@ -251,8 +253,11 @@ def run(argv: List[str]) -> int:
         resume_command=_timeout.merge_item_resume_command(item_ref, args),
     )
     if not outcome.ok:
+        landing_error = outcome.error
+        if recovery_error:
+            landing_error += f"; receipt recovery also failed: {recovery_error}"
         return _fail(
-            f"{item_ref}: {outcome.error}",
+            f"{item_ref}: {landing_error}",
             as_json=as_json,
             exit_code=outcome.exit_code,
             branch=branch,
