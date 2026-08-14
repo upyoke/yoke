@@ -254,16 +254,10 @@ async function testStopEndpoint() {
   assert(!fs.existsSync(stateFile), 'State file removed after stop');
 }
 
-async function testCiFailureProbe() {
-  console.log('\n## Test: CI failure propagation probe');
-  assert(false, 'seeded browser-runtime failure reaches yoke-ci');
-}
-
 async function run() {
   console.log('# Browser Daemon Tests — Core\n');
 
   const tests = [
-    testCiFailureProbe,
     testStateFileShape,
     testStateFilePermissions,
     testBearerAuthRejects,
