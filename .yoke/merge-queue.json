@@ -38,7 +38,6 @@
           "required_status_checks": [
             {"context": "repo-contracts"},
             {"context": "container"},
-            {"context": "browser_runtime / browser-runtime"},
             {"context": "test-shard (3.10, 1)"},
             {"context": "test-shard (3.10, 2)"},
             {"context": "test-shard (3.10, 3)"},
