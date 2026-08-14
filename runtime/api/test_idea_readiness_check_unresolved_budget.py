@@ -48,6 +48,44 @@ class TestUnresolvedFileBudgetDetector:
         assert has_resolved_file_budget(spec) is True
         assert has_unresolved_file_budget(spec) is False
 
+
+_DOC_KNOWN_SHAPE = """## File Budget
+
+- Hard limit: 350 lines per authored file.
+- Design target: <=300 lines per authored file.
+- Expected implementation shape:
+  - `path/to/file_a.py` — current 120 lines; remaining headroom 230;
+    at-or-over-limit: false; responsibility: single responsibility A.
+  - `path/to/file_b.py` — current 0 lines; remaining headroom 350;
+    at-or-over-limit: false; responsibility: single responsibility B.
+"""
+
+_DOC_UNRESOLVED_SHAPE = """## File Budget
+
+UNRESOLVED — this work item creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
+"""
+
+_DOC_NA_SHAPE = """## File Budget
+
+N/A — docs-only updates to README. If implementation discovers authored-code changes while effective File Budget is enabled, refine/advance must add a real File Budget before coding.
+"""
+
+
+class TestDocumentedFileBudgetShapes:
+    """The idea skill's three valid examples must all parse as written."""
+
+    def test_known_shape_is_resolved(self):
+        assert has_resolved_file_budget(_DOC_KNOWN_SHAPE) is True
+        assert has_unresolved_file_budget(_DOC_KNOWN_SHAPE) is False
+
+    def test_unresolved_prose_is_unresolved(self):
+        assert has_unresolved_file_budget(_DOC_UNRESOLVED_SHAPE) is True
+        assert has_resolved_file_budget(_DOC_UNRESOLVED_SHAPE) is False
+
+    def test_na_prose_without_list_dash_is_resolved(self):
+        assert has_resolved_file_budget(_DOC_NA_SHAPE) is True
+        assert has_unresolved_file_budget(_DOC_NA_SHAPE) is False
+
     def test_empty_section_is_neither(self):
         assert has_unresolved_file_budget("## File Budget\n") is False
         assert has_resolved_file_budget("## File Budget\n") is False
@@ -95,6 +133,18 @@ def test_refining_idea_readiness_blocks_unresolved_file_budget(
         issue.code == "MISSING_FILE_BUDGET"
         for issue in run_all_checks(test_db, 4102)
     )
+
+
+def test_idea_readiness_accepts_documented_na_prose_budget(
+    required_budget_item, test_db,
+):
+    required_budget_item(item_id=4104, status="idea", spec=_DOC_NA_SHAPE)
+
+    assert budget_gate(test_db, 4104)["verdict"] == "pass"
+    assert [
+        issue.code for issue in run_all_checks(test_db, 4104)
+        if issue.code == "MISSING_FILE_BUDGET"
+    ] == []
 
 
 def test_idea_readiness_still_blocks_empty_file_budget(

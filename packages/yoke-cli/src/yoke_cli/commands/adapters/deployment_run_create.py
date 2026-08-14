@@ -155,6 +155,7 @@ def deployment_runs_create(args: List[str]) -> int:
         except DeploymentLineageResolutionError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
+    if parsed.retry_of is not None or parsed.project_repo_path is not None:
         guard_error = pin_regression_error(parsed)
         if guard_error is not None:
             print(f"Error: {guard_error}", file=sys.stderr)

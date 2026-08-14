@@ -77,9 +77,66 @@ def access_token(
     ) as exc:
         if is_transient_access_failure(exc):
             raise TransientGitHubLocalUserAccessError(
-                f"{exc}; {GITHUB_AUTH_RETRY_RECIPE}"
+                _transient_access_message(exc)
             ) from exc
         raise GitHubLocalUserAccessError(str(exc)) from exc
+
+
+def _http_error_body(error: urllib.error.HTTPError) -> str:
+    cached = getattr(error, "_yoke_rate_limit_body", None)
+    if isinstance(cached, str):
+        return cached
+    try:
+        raw = error.read()
+    except Exception:
+        raw = b""
+    text = (
+        raw.decode("utf-8", errors="replace")
+        if isinstance(raw, bytes)
+        else str(raw or "")
+    )
+    try:
+        setattr(error, "_yoke_rate_limit_body", text)
+    except Exception:
+        pass
+    return text
+
+
+def _is_rate_limit_http_error(error: urllib.error.HTTPError) -> bool:
+    if error.code != 403:
+        return False
+    from yoke_core.domain.gh_rest_http_errors import is_rate_limit_body
+
+    headers = error.headers or {}
+    remaining = str(headers.get("X-RateLimit-Remaining") or "")
+    body = _http_error_body(error)
+    reason = str(getattr(error, "reason", "") or "")
+    return (
+        remaining == "0"
+        or is_rate_limit_body(body)
+        or is_rate_limit_body(reason)
+    )
+
+
+def _rate_limit_reset_text(error: urllib.error.HTTPError) -> str:
+    headers = error.headers or {}
+    return str(
+        headers.get("X-RateLimit-Reset") or headers.get("Retry-After") or ""
+    )
+
+
+def _transient_access_message(error: BaseException) -> str:
+    for cause in auth_failure_chain(error):
+        if isinstance(cause, urllib.error.HTTPError) and _is_rate_limit_http_error(
+            cause
+        ):
+            reset = _rate_limit_reset_text(cause)
+            reset_note = f"; reset at {reset}" if reset else ""
+            return (
+                f"GitHub rate-limited (HTTP {cause.code}){reset_note}; "
+                f"{GITHUB_AUTH_RETRY_RECIPE}"
+            )
+    return f"{error}; {GITHUB_AUTH_RETRY_RECIPE}"
 
 
 def is_transient_access_failure(error: BaseException) -> bool:
@@ -95,7 +152,11 @@ def is_transient_access_failure(error: BaseException) -> bool:
         ):
             return True
         if isinstance(cause, urllib.error.HTTPError):
-            return cause.code in _TRANSIENT_HTTP_STATUS or cause.code >= 500
+            if cause.code in _TRANSIENT_HTTP_STATUS or cause.code >= 500:
+                return True
+            if _is_rate_limit_http_error(cause):
+                return True
+            return False
         if isinstance(cause, (urllib.error.URLError, TimeoutError, ConnectionError)):
             return True
     return False

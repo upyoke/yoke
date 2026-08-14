@@ -246,3 +246,48 @@ def test_override_bypasses_the_guard(tmp_path) -> None:
         assert pin_regression_error(args) is None
 
     assert calls == []
+
+
+def test_retry_compares_the_source_run_lineage_not_origin_main(tmp_path) -> None:
+    repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
+    stale_sha = _git(repo, "rev-parse", "origin/stale")
+    calls: list[tuple[str, dict]] = []
+
+    def dispatcher(*, function_id, target, payload, actor):
+        del actor
+        calls.append((function_id, payload))
+        if function_id == "deployment_runs.get":
+            assert target.workflow_run_id == "run-old"
+            return FunctionCallResponse(
+                success=True,
+                function=function_id,
+                version="v1",
+                result={"run": {"release_lineage": stale_sha}},
+            )
+        if function_id == "projects.capability_settings.get":
+            return FunctionCallResponse(
+                success=True,
+                function=function_id,
+                version="v1",
+                result={"settings_json": json.dumps(SETTINGS)},
+            )
+        if function_id == "deployment_flows.get":
+            return FunctionCallResponse(
+                success=True,
+                function=function_id,
+                version="v1",
+                result={"value": "production"},
+            )
+        raise AssertionError(f"unexpected function id {function_id!r}")
+
+    with (
+        patch(f"{GUARD}.call_dispatcher", side_effect=dispatcher),
+        patch(f"{GUARD}.ensure_handlers_loaded"),
+    ):
+        args = _guard_args(repo, source_ref="origin/main", retry_of="run-old")
+        message = pin_regression_error(args)
+
+    assert message is not None
+    assert "0.1.1+launch.144" in message
+    assert "0.1.1+launch.145" in message
+    assert any(function_id == "deployment_runs.get" for function_id, _ in calls)

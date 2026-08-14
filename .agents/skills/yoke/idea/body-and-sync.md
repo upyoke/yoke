@@ -170,11 +170,19 @@ After the body has been written and verified (step 8 complete), classify and per
 1. Run the prose-vs-claim detector against the freshly written spec.
    Prefer the stdin mode — it runs locally through the installed ``yoke``
    CLI (no ambient ``yoke_core`` import, no local DB) and works on https
-   control planes. Do **not** call
+   control planes. Check the spec-read exit and content **before** piping
+   into the detector; a failed read must not reach it (empty stdin reports
+   "no triggers" and would stamp ``state="none"`` on unread content). Do
+   **not** call
    ``python3 -m yoke_core.domain.db_claim_prose_check check-item``:
 
    ```bash
-   _prose_check=$(yoke items get "PREFIX-{N}" spec | yoke db-claim prose-check --stdin --item-ref "PREFIX-{N}" --json)
+   _spec=$(yoke items get "PREFIX-{N}" spec)
+   if [ $? -ne 0 ] || [ -z "$_spec" ]; then
+     echo "Error: failed to read spec for PREFIX-{N}; refusing DB-claim default" >&2
+     exit 1
+   fi
+   _prose_check=$(printf '%s' "$_spec" | yoke db-claim prose-check --stdin --item-ref "PREFIX-{N}" --json)
    _prose_blocks=$(printf '%s' "$_prose_check" | python3 -c "import json,sys; r=json.load(sys.stdin); print('1' if (r.get('result') or {}).get('blocks') else '0')")
    ```
 
