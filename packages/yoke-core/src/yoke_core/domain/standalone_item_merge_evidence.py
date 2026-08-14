@@ -105,6 +105,19 @@ def recorded_covers_merge(item_id: int, merge_sha: str) -> bool:
     return str(row.get("merge_sha") or "") == str(merge_sha or "")
 
 
+def authoritative_status_is(item_id: int, expected_status: str) -> bool:
+    """Whether the item record confirms a transport-ambiguous transition."""
+    response = call_dispatcher(
+        function_id="items.detail.get",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={},
+    )
+    if not getattr(response, "success", False):
+        return False
+    item = (getattr(response, "result", None) or {}).get("item") or {}
+    return str(item.get("status") or "") == expected_status
+
+
 def closed_out_envelope(
     item: dict[str, Any],
     *,
@@ -146,6 +159,7 @@ def closed_out_envelope(
 
 __all__ = [
     "CLOSED_OUT_STATUS",
+    "authoritative_status_is",
     "closed_out_envelope",
     "record",
     "recorded",

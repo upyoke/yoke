@@ -46,6 +46,8 @@ from yoke_contracts.machine_config.schema import (
 )
 
 _DEFAULT_TIMEOUT_S = 30.0
+_TRANSPORT_ATTEMPTS = 2
+_RETRYABLE_RESPONSE_ERROR = "HTTPS function relay response exceeded the time limit"
 _NETWORK_ERRORS = (
     urllib.error.URLError,
     TimeoutError,
@@ -147,53 +149,57 @@ def relay_https(
             sensitive_values=sensitive_values,
         )
     body = json.dumps(payload).encode("utf-8")
-    http_request = urllib.request.Request(
-        connection.functions_url,
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {connection.token}",
-        },
-    )
-    try:
-        opened = _open_function_relay(
-            http_request,
-            deadline=deadline,
-            timeout_s=timeout_s,
+    for attempt in range(_TRANSPORT_ATTEMPTS):
+        if attempt:
+            deadline = deadline_after(timeout_s)
+        http_request = urllib.request.Request(
+            connection.functions_url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {connection.token}",
+            },
         )
-        with opened as resp:
-            observe_server_version(
-                getattr(resp, "headers", None), sensitive_values, handshake
+        try:
+            opened = _open_function_relay(
+                http_request,
+                deadline=deadline,
+                timeout_s=timeout_s,
             )
-            raw = read_bounded_response(resp, deadline=deadline)
-    except urllib.error.HTTPError as exc:
-        return _http_error_response(
-            request,
-            connection,
-            exc,
-            deadline=deadline,
-            sensitive_values=sensitive_values,
-            handshake=handshake,
-        )
-    except HttpsResponsePolicyError as exc:
-        return _transport_error_response(
-            request,
-            connection,
-            str(exc),
-            sensitive_values=sensitive_values,
-        )
-    except ResponseOpenDeadlineError:
-        return _transport_error_response(
-            request,
-            connection,
-            "HTTPS function relay response exceeded the time limit",
-            sensitive_values=sensitive_values,
-        )
-    except _NETWORK_ERRORS:
-        return _network_error_response(
-            request, connection, sensitive_values=sensitive_values
-        )
+            with opened as resp:
+                observe_server_version(
+                    getattr(resp, "headers", None), sensitive_values, handshake
+                )
+                raw = read_bounded_response(resp, deadline=deadline)
+        except urllib.error.HTTPError as exc:
+            return _http_error_response(
+                request, connection, exc, deadline=deadline,
+                sensitive_values=sensitive_values, handshake=handshake,
+            )
+        except HttpsResponsePolicyError as exc:
+            if (
+                str(exc) == _RETRYABLE_RESPONSE_ERROR
+                and attempt + 1 < _TRANSPORT_ATTEMPTS
+            ):
+                continue
+            return _transport_error_response(
+                request, connection, str(exc), sensitive_values=sensitive_values,
+            )
+        except ResponseOpenDeadlineError:
+            if attempt + 1 < _TRANSPORT_ATTEMPTS:
+                continue
+            return _transport_error_response(
+                request, connection, _RETRYABLE_RESPONSE_ERROR,
+                sensitive_values=sensitive_values,
+            )
+        except _NETWORK_ERRORS:
+            if attempt + 1 < _TRANSPORT_ATTEMPTS:
+                continue
+            return _network_error_response(
+                request, connection, sensitive_values=sensitive_values
+            )
+        break
     try:
         return parse_typed_response(raw, sensitive_values=sensitive_values)
     except HttpsResponsePolicyError as exc:

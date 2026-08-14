@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import io
 import json
 import urllib.error
@@ -177,6 +178,28 @@ class TestRelayHttps:
         assert captured["body"]["function"] == "events.query.run"
         assert captured["body"]["payload"] == {"limit": 1}
 
+    def test_dropped_response_retries_same_envelope_on_fresh_request(
+        self, monkeypatch,
+    ):
+        requests = []
+
+        def fake_urlopen(req, timeout=None):
+            requests.append(req)
+            if len(requests) == 1:
+                raise http.client.RemoteDisconnected("response dropped")
+            return _FakeResponse(_ok_envelope())
+
+        monkeypatch.setattr(yoke_transport, "open_no_redirect", fake_urlopen)
+
+        response = relay_https(_request(), self._CONN)
+
+        assert response.success is True
+        assert len(requests) == 2
+        assert requests[0] is not requests[1]
+        assert [json.loads(req.data)["request_id"] for req in requests] == [
+            "req-1", "req-1",
+        ]
+
     def test_boundary_denial_envelope_passes_through(self, monkeypatch):
         denial = json.dumps({
             "success": False,
@@ -185,7 +208,10 @@ class TestRelayHttps:
             "error": {"code": "unauthorized", "message": "missing token"},
         }).encode()
 
+        attempts = []
+
         def fake_urlopen(req, timeout=None):
+            attempts.append(req)
             raise urllib.error.HTTPError(
                 req.full_url, 401, "Unauthorized", {}, io.BytesIO(denial)
             )
@@ -196,6 +222,7 @@ class TestRelayHttps:
         response = relay_https(_request(), self._CONN)
         assert response.success is False
         assert response.error.code == "unauthorized"
+        assert len(attempts) == 1
 
     def test_partial_boundary_denial_is_adopted(self, monkeypatch):
         """The auth boundary denies pre-dispatch, so its 401 body lacks
@@ -239,7 +266,10 @@ class TestRelayHttps:
         assert "yoke status" in response.error.recovery_hint
 
     def test_unreachable_host_synthesizes_transport_error(self, monkeypatch):
+        attempts = []
+
         def fake_urlopen(req, timeout=None):
+            attempts.append(req)
             raise urllib.error.URLError("connection refused")
 
         monkeypatch.setattr(
@@ -249,3 +279,4 @@ class TestRelayHttps:
         assert response.success is False
         assert response.error.code == "https_transport_failed"
         assert "could not reach" in response.error.message
+        assert len(attempts) == 2

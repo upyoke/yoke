@@ -20,6 +20,7 @@ import pytest
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_evidence as evidence
+from yoke_core.domain import standalone_item_merge_git as merge_git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 
@@ -182,6 +183,66 @@ class TestEvidenceWriteRetry:
         )
         assert not evidence.recorded_covers_merge(7, MERGE_SHA)
         assert evidence.recorded_covers_merge(7, "c" * 40)
+
+
+class TestTerminalTransitionConvergence:
+    @pytest.mark.parametrize(
+        ("recorded_status", "expected_error"),
+        [("done", ""), ("reviewing-implementation", "connection dropped")],
+    )
+    def test_transport_failure_uses_the_authoritative_status(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        recorded_status: str, expected_error: str,
+    ) -> None:
+        calls = []
+
+        def dispatch(*, function_id, **_kwargs):
+            calls.append(function_id)
+            if function_id == "lifecycle.transition.execute":
+                return SimpleNamespace(
+                    success=False,
+                    error=SimpleNamespace(
+                        code="https_transport_failed",
+                        message="connection dropped",
+                    ),
+                )
+            return SimpleNamespace(
+                success=True, error=None,
+                result={"item": {"status": recorded_status}},
+            )
+
+        monkeypatch.setattr(sim_cli, "call_dispatcher", dispatch)
+        monkeypatch.setattr(evidence, "call_dispatcher", dispatch)
+        monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
+
+        error = sim_cli._transition_to_done(
+            7, "reviewing-implementation", tmp_path, "main", "a" * 40,
+        )
+
+        assert error == expected_error
+        assert calls == ["lifecycle.transition.execute", "items.detail.get"]
+
+    def test_server_refusal_surfaces_without_authoritative_retry(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        calls = []
+
+        def dispatch(*, function_id, **_kwargs):
+            calls.append(function_id)
+            return SimpleNamespace(
+                success=False,
+                error=SimpleNamespace(code="transition_refused", message="denied"),
+            )
+
+        monkeypatch.setattr(sim_cli, "call_dispatcher", dispatch)
+        monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
+
+        error = sim_cli._transition_to_done(
+            7, "reviewing-implementation", tmp_path, "main", "a" * 40,
+        )
+
+        assert error == "denied"
+        assert calls == ["lifecycle.transition.execute"]
 
 
 class TestClosedOutConvergence:
