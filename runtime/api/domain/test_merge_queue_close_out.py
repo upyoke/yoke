@@ -49,24 +49,9 @@ def _wire(
 
     monkeypatch.setattr(close_out_mod.receipts, "record", record)
     monkeypatch.setattr(
-        close_out_mod, "prune_landed_lane", lambda **_kw: ()
-    )
-    monkeypatch.setattr(
         close_out_mod, "fast_forward_main_checkout", lambda *_a: ""
     )
     return recorded
-
-
-def _wire_prune(monkeypatch, preserved=()):
-    """Capture the lane prune the close-out drives; return its calls."""
-    calls: list[dict] = []
-
-    def prune(**kwargs):
-        calls.append(kwargs)
-        return tuple(preserved)
-
-    monkeypatch.setattr(close_out_mod, "prune_landed_lane", prune)
-    return calls
 
 
 def test_landing_records_the_merge_receipt_the_terminal_gate_reads(monkeypatch):
@@ -166,42 +151,15 @@ def test_unresolved_batch_still_records_the_lane_head(monkeypatch):
     assert recorded["receipt"].commit_sha == LANE_SHA
 
 
-def test_landing_retires_the_lane_it_just_landed(monkeypatch):
-    """No local step removes a lane the queue merged on GitHub.
-
-    Without this the directory, the local branch, and the remote branch
-    survive every landed member until an operator sweeps them by hand.
-    """
+def test_landing_leaves_lane_retirement_to_terminal_close_out(monkeypatch):
     batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
     _wire(monkeypatch, batch=batch)
-    pruned = _wire_prune(monkeypatch)
 
     outcome = close_out_mod.record_landing(
         _ctx("/repo"), item_id=7, commit_sha=LANE_SHA, pr_num="42",
     )
 
     assert outcome.warnings == ()
-    assert pruned == [{
-        "repo_root": "/repo",
-        "branch": "YOK-200",
-        "target": "main",
-        "item_id": 7,
-    }]
-
-
-def test_a_preserved_lane_is_reported_rather_than_reported_clean(monkeypatch):
-    batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
-    _wire(monkeypatch, batch=batch)
-    _wire_prune(
-        monkeypatch,
-        preserved=("lane YOK-200 preserved: worktree is dirty",),
-    )
-
-    outcome = close_out_mod.record_landing(
-        _ctx("/repo"), item_id=7, commit_sha=LANE_SHA, pr_num="42",
-    )
-
-    assert "lane YOK-200 preserved: worktree is dirty" in outcome.warnings
     assert outcome.merge_sha == MERGE_SHA
 
 
@@ -209,24 +167,17 @@ def test_a_landing_with_no_local_checkout_prunes_nothing(monkeypatch):
     """A caller holding no repository has no lane on disk to retire."""
     batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
     _wire(monkeypatch, batch=batch)
-    pruned = _wire_prune(monkeypatch)
-
     outcome = close_out_mod.record_landing(
         _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
     )
 
-    assert pruned == []
     assert outcome.warnings == ()
 
 
-def test_landing_fast_forwards_main_after_pruning(monkeypatch):
+def test_landing_fast_forwards_main_without_removing_the_lane(monkeypatch):
     batch = BatchReceipt(pr_num="42", merge_sha=MERGE_SHA, head_sha=COMBINED_SHA)
     _wire(monkeypatch, batch=batch)
     order: list[str] = []
-    monkeypatch.setattr(
-        close_out_mod, "prune_landed_lane",
-        lambda **_kw: order.append("prune") or (),
-    )
     monkeypatch.setattr(
         close_out_mod, "fast_forward_main_checkout",
         lambda root, target: order.append(f"sync:{root}:{target}") or "",
@@ -237,7 +188,7 @@ def test_landing_fast_forwards_main_after_pruning(monkeypatch):
     )
 
     assert outcome.warnings == ()
-    assert order == ["prune", "sync:/tmp/repo:main"]
+    assert order == ["sync:/tmp/repo:main"]
 
 
 def test_bookkeeping_failures_degrade_to_warnings(monkeypatch):

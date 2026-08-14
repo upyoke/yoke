@@ -170,7 +170,6 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
         close_out_mod.receipts, "record",
         lambda item_id, receipt, **_kw: recorded.update(receipt=receipt) or "",
     )
-    monkeypatch.setattr(close_out_mod, "prune_landed_lane", lambda **_kw: ())
     monkeypatch.setattr(
         close_out_mod, "fast_forward_main_checkout", lambda *_a: ""
     )

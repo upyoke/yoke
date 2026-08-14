@@ -265,6 +265,16 @@ def dispatch_and_emit(
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
+    cleanup_item = None
+    if function_id == "lifecycle.transition.execute":
+        detail = call_dispatcher(
+            function_id="items.detail.get",
+            target=target,
+            payload={},
+            actor=actor,
+        )
+        if detail.success:
+            cleanup_item = (detail.result or {}).get("item")
     response = call_dispatcher(
         function_id=function_id,
         target=target,
@@ -276,6 +286,19 @@ def dispatch_and_emit(
         options=options,
         preconditions=preconditions,
     )
+    if response.success and cleanup_item is not None:
+        from yoke_core.domain.terminal_lane_cleanup import (
+            cleanup_terminal_item_lanes,
+        )
+
+        warnings = cleanup_terminal_item_lanes(
+            cleanup_item,
+            target_status=str(payload.get("target_status") or ""),
+            session_id=actor.session_id,
+            emit=lambda message, **_kw: print(message, file=sys.stderr),
+        )
+        for warning in warnings:
+            print(f"WARNING: {warning}", file=sys.stderr)
     return emit_response(
         response,
         json_mode=json_mode,

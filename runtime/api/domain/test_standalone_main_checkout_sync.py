@@ -16,7 +16,6 @@ def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
         post_push, "await_post_push_checks",
         lambda *_a: post_push.PostPushVerdict("no_checks"),
     )
-    monkeypatch.setattr(post_push, "prune_landed_lane", lambda **_k: ())
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(
         post_push, "fast_forward_main_checkout",

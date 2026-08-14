@@ -252,12 +252,8 @@ def run(
     if merge_ran:
         result.merge_ran = True
 
-    if not _cleanup_stale_branches(item_id, lane_branch, project_repo, base_branch):
-        print("Error: lane/remote cleanup incomplete.", file=sys.stderr)
-        print(f"RESULT_FILE={result_file}")
-        return result.fail(result_file, 1, "4a")
-    result.add_step("4a")
-
+    from yoke_core.engines.done_transition_cleanup import _has_foreign_claim
+    cleanup_foreign_claim = _has_foreign_claim(item_id)
     cwd = _verify_cwd_after_merge(merge_ran, merge_output, project_repo)
     if cwd is None:
         print(f"RESULT_FILE={result_file}")
@@ -312,6 +308,11 @@ def run(
         return result.fail(result_file, 1)
     result.new_status = "done"
     result.add_step("6")
+    _cleanup_stale_branches(
+        item_id, lane_branch, project_repo, base_branch,
+        authority_block=("another or unknown claim was active" if cleanup_foreign_claim else ""),
+    )
+    result.add_step("4a")
     result.add_step("6a")  # reserved result slot
 
     _finalize_done_local_side_effects(

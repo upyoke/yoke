@@ -1,10 +1,11 @@
-"""Post-push proof and cleanup for a queue-less standalone landing.
+"""Post-push proof for a queue-less standalone landing.
 
 The local merge is already a durable fact when this boundary runs. A remote
 push can therefore only decide whether close-out is safe: green checks (or a
-bounded proof that the project has none) allow lane retirement and the
-caller's done transition; red or still-pending checks preserve both claim and
-lane for a follow-up commit through the same merge command.
+bounded proof that the project has none) allow the caller's evidence and done
+transition; red or still-pending checks preserve both claim and lane for a
+follow-up commit through the same merge command. Physical retirement belongs
+to the later successful terminal boundary.
 """
 
 from __future__ import annotations
@@ -26,7 +27,6 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
 )
 from yoke_core.domain.github_poll_schedule import MINIMUM_POLL_INTERVAL_SECONDS
-from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.merge_worktree_pr_rest import (
     AuthResolutionFailed,
     resolve_auth,
@@ -210,7 +210,7 @@ def complete(
     warnings: Sequence[str] = (),
     resume_command: str = "",
 ):
-    """Publish a landed merge, prove its checks, then retire its lane."""
+    """Publish a landed merge and prove its checks for terminal close-out."""
     from yoke_core.domain.standalone_item_merge import (
         StandaloneMergeOutcome,
         stamp_merged_at,
@@ -255,9 +255,6 @@ def complete(
                 warnings=tuple(notes),
             )
 
-    notes.extend(prune_landed_lane(
-        repo_root=repo_root, branch=branch, target=target, item_id=item_id,
-    ))
     if git.has_remote(repo_root):
         sync_warning = fast_forward_main_checkout(repo_root, target)
         if sync_warning:

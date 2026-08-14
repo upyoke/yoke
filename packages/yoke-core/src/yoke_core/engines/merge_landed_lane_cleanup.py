@@ -21,11 +21,13 @@ wrongly deleted one costs the work.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.engines.merge_worktree_cleanliness import (
+    assess_disposable_cleanup,
     clean_after_disposable_cache_removal,
 )
 from yoke_core.engines.merge_worktree_safe_prune import (
@@ -47,6 +49,17 @@ def _runtime_emit() -> Callable[..., Any]:
     from yoke_core.engines._merge_worktree_runtime import _print
 
     return _print
+
+
+@dataclass(frozen=True)
+class LaneCleanupAssessment:
+    """Read-only proof for whether one landed lane may be retired."""
+
+    safe: bool
+    reason: str = ""
+    worktree_path: Optional[Path] = None
+    base: str = ""
+    has_remote: bool = False
 
 
 def release_lane_row(
@@ -126,6 +139,74 @@ def _remove_empty_parent(path: Path) -> None:
         pass
 
 
+def assess_landed_lane(
+    *,
+    repo_root: str,
+    branch: str,
+    target: str,
+    run_git: Optional[Callable[..., Any]] = None,
+    refresh_target: bool = True,
+    authority_block: str = "",
+) -> LaneCleanupAssessment:
+    """Prove claim authority, cleanliness, and target ancestry without deletion."""
+    git = run_git or _runtime_git()
+    remotes = git(["remote"], cwd=repo_root, capture=True)
+    has_remote = remotes.returncode == 0 and bool(remotes.stdout.strip())
+    base = f"origin/{target}" if has_remote else target
+    worktree_path = _lane_worktree(git, repo_root, branch)
+    lane_name = f"lane {branch}"
+    if worktree_path is not None:
+        lane_name += f" at {worktree_path}"
+    if authority_block:
+        return LaneCleanupAssessment(
+            False,
+            f"{lane_name} preserved: {authority_block}",
+            worktree_path,
+            base,
+            has_remote,
+        )
+    if has_remote and refresh_target:
+        fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
+        if fetched.returncode != 0:
+            return LaneCleanupAssessment(
+                False,
+                f"lane {branch} preserved: could not refresh {base}",
+                worktree_path,
+                base,
+                has_remote,
+            )
+    landed = git(
+        ["merge-base", "--is-ancestor", branch, base],
+        cwd=repo_root,
+        capture=True,
+    )
+    if landed.returncode != 0:
+        return LaneCleanupAssessment(
+            False,
+            f"lane {branch} preserved: branch is not merged into {base}",
+            worktree_path,
+            base,
+            has_remote,
+        )
+    if worktree_path is not None:
+        cleanliness = assess_disposable_cleanup(git, worktree_path)
+        if not cleanliness.safe:
+            return LaneCleanupAssessment(
+                False,
+                f"{lane_name} preserved: worktree is dirty or unverifiable "
+                f"({cleanliness.reason})",
+                worktree_path,
+                base,
+                has_remote,
+            )
+    return LaneCleanupAssessment(
+        True,
+        worktree_path=worktree_path,
+        base=base,
+        has_remote=has_remote,
+    )
+
+
 def prune_landed_lane(
     *,
     repo_root: str,
@@ -134,6 +215,7 @@ def prune_landed_lane(
     item_id: Optional[int | str] = None,
     run_git: Optional[Callable[..., Any]] = None,
     emit: Optional[Callable[..., Any]] = None,
+    authority_block: str = "",
 ) -> tuple[str, ...]:
     """Retire one landed lane; return the reasons anything was preserved.
 
@@ -144,23 +226,17 @@ def prune_landed_lane(
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
-    remotes = git(["remote"], cwd=repo_root, capture=True)
-    has_remote = remotes.returncode == 0 and bool(remotes.stdout.strip())
-    base = f"origin/{target}" if has_remote else target
-
-    if has_remote:
-        fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
-        if fetched.returncode != 0:
-            return (f"lane {branch} preserved: could not refresh {base}",)
-    landed = git(
-        ["merge-base", "--is-ancestor", branch, base],
-        cwd=repo_root,
-        capture=True,
+    assessment = assess_landed_lane(
+        repo_root=repo_root,
+        branch=branch,
+        target=target,
+        run_git=git,
+        authority_block=authority_block,
     )
-    if landed.returncode != 0:
-        return (f"lane {branch} preserved: branch is not merged into {base}",)
+    if not assessment.safe:
+        return (assessment.reason,)
 
-    if has_remote:
+    if assessment.has_remote:
         remote = delete_remote_branch_if_merged(
             run_git=lambda command: git(command, cwd=repo_root, capture=True),
             branch=branch,
@@ -174,7 +250,7 @@ def prune_landed_lane(
                 f"{remote.reason}",
             )
 
-    worktree_path = _lane_worktree(git, repo_root, branch)
+    worktree_path = assessment.worktree_path
     if worktree_path is not None:
         if not clean_after_disposable_cache_removal(git, worktree_path):
             return (
@@ -206,4 +282,9 @@ def prune_landed_lane(
     return ()
 
 
-__all__ = ["prune_landed_lane", "release_lane_row"]
+__all__ = [
+    "LaneCleanupAssessment",
+    "assess_landed_lane",
+    "prune_landed_lane",
+    "release_lane_row",
+]

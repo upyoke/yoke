@@ -157,8 +157,9 @@ def merge_standalone_branch(
 
     Convergent under interruption. Durable pre-merge bookkeeping lets a retry
     recover even when an older engine already removed the lane. Current
-    standalone runs defer lane retirement until the pushed merge commit's CI
-    conclusion is known, preserving the lane whenever close-out fails closed.
+    retain the lane through merge proof, evidence, and status gates. The
+    caller retires it only after the terminal transition succeeds, preserving
+    the lane whenever close-out fails closed.
 
     An engine that raises after the merge has landed is still treated as a
     landed merge rather than losing it, so the item can finish its evidence

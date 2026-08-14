@@ -21,7 +21,6 @@ LANE_SHA = "a" * 40
 
 def _wire_complete(monkeypatch, verdict):
     recorded = []
-    pruned = []
     monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
     monkeypatch.setattr(post_push.git, "publish", lambda *_a: (True, ""))
     monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
@@ -33,14 +32,9 @@ def _wire_complete(monkeypatch, verdict):
     )
     monkeypatch.setattr(post_push, "await_post_push_checks", lambda *_a: verdict)
     monkeypatch.setattr(
-        post_push,
-        "prune_landed_lane",
-        lambda **kwargs: pruned.append(kwargs) or (),
-    )
-    monkeypatch.setattr(
         post_push, "fast_forward_main_checkout", lambda *_a: "",
     )
-    return recorded, pruned
+    return recorded
 
 
 def _complete():
@@ -64,7 +58,7 @@ def test_red_ci_records_the_run_and_preserves_the_lane(monkeypatch) -> None:
         conclusion="failure",
         url="https://runs/failing",
     )
-    recorded, pruned = _wire_complete(
+    recorded = _wire_complete(
         monkeypatch, post_push.PostPushVerdict("failed", runs=(run,)),
     )
 
@@ -74,18 +68,17 @@ def test_red_ci_records_the_run_and_preserves_the_lane(monkeypatch) -> None:
     assert outcome.merge_sha == MERGE_SHA
     assert "https://runs/failing" in outcome.error
     assert "yoke merge item ITEM-7" in outcome.error
-    assert pruned == []
     assert recorded[-1].check_runs == (run.evidence(),)
 
 
-def test_green_ci_records_its_conclusion_before_lane_retirement(monkeypatch) -> None:
+def test_green_ci_records_its_conclusion_without_retiring_the_lane(monkeypatch) -> None:
     run = post_push.CheckRun(
         name="suite",
         status="completed",
         conclusion="success",
         url="https://runs/green",
     )
-    recorded, pruned = _wire_complete(
+    recorded = _wire_complete(
         monkeypatch, post_push.PostPushVerdict("passed", runs=(run,)),
     )
 
@@ -93,18 +86,12 @@ def test_green_ci_records_its_conclusion_before_lane_retirement(monkeypatch) -> 
 
     assert outcome.ok
     assert recorded[-1].check_runs[0]["conclusion"] == "success"
-    assert pruned == [{
-        "repo_root": "/repo",
-        "branch": "ITEM-7",
-        "target": "main",
-        "item_id": 7,
-    }]
 
 
-def test_no_discovered_ci_retires_the_lane_without_a_check_receipt(
+def test_no_discovered_ci_leaves_lane_retirement_to_terminal_close_out(
     monkeypatch,
 ) -> None:
-    recorded, pruned = _wire_complete(
+    recorded = _wire_complete(
         monkeypatch, post_push.PostPushVerdict("no_checks"),
     )
 
@@ -113,7 +100,6 @@ def test_no_discovered_ci_retires_the_lane_without_a_check_receipt(
     assert outcome.ok
     assert len(recorded) == 1
     assert recorded[0].check_runs == ()
-    assert len(pruned) == 1
 
 
 def test_cli_refusal_never_reaches_evidence_or_done_transition(

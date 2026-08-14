@@ -13,6 +13,7 @@ from yoke_core.domain.field_note_dash_promotion import (
 )
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
+from yoke_core.domain.item_terminal_resources import terminal_stage_ids
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _table_exists
@@ -119,6 +120,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
         "item_posture": item_posture,
         "allowed_lane_roles": sorted(policy.allowed_roles),
         "required_lane_roles": sorted(policy.required_roles),
+        "terminal_stage_ids": sorted(terminal_stage_ids(runtime)),
     }
 
 
@@ -135,7 +137,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
                 "i.deployment_flow, i.workflow_posture, "
                 f"{columns}, "
                 "p.id AS project_id, p.slug AS project, p.name AS project_name, "
-                "p.public_item_prefix, i.project_sequence, "
+                "p.default_branch, p.public_item_prefix, i.project_sequence, "
                 "w.name AS workflow_name, v.id AS workflow_version_id, "
                 "v.workflow_id, v.version, v.definition_json, v.definition_digest "
                 "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -175,6 +177,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
                 "id": int(row["project_id"]),
                 "slug": str(row["project"]),
                 "name": str(row["project_name"]),
+                "default_branch": str(row.get("default_branch") or "main"),
             },
             "workflow": _workflow_model(row),
             "claim": claim,
