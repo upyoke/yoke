@@ -14,6 +14,7 @@ from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     request_with_retry,
 )
+from yoke_core.domain.json_helper import dumps_compact
 
 
 def fetch_file_text(
@@ -39,7 +40,20 @@ def fetch_file_text(
         )
     except RestNotFoundError:
         return None
-    return response.body if isinstance(response.body, str) else None
+    return _decoded_body_as_text(response.body)
+
+
+def _decoded_body_as_text(body: Any) -> str:
+    """Return file text from a transport-decoded REST body.
+
+    The shared transport json-loads every body, so a JSON file arrives as
+    a dict, list, bool, number, or JSON ``null`` (Python ``None``) rather
+    than a string. Re-serialize those values so callers parse file text.
+    JSON ``null`` becomes the document ``null`` — it is not a 404.
+    """
+    if isinstance(body, str):
+        return body
+    return dumps_compact(body)
 
 
 def fetch_branch_rules(

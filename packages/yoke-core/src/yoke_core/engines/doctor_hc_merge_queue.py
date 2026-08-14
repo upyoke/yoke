@@ -27,7 +27,11 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
     GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
-from yoke_core.domain import gh_rest_transport, github_merge_queue_rest as mq_rest
+from yoke_core.domain import (
+    gh_rest_transport,
+    github_merge_queue_rest as mq_rest,
+    yaml_helper,
+)
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.gh_rest_transport import (
@@ -114,7 +118,32 @@ def _workflow_has_merge_group_trigger(
         return None, f"workflow read failed: {exc}"
     if text is None:
         return None, f"no {workflow_file} at {owner}/{repo}@{ref}"
-    return ("merge_group" in text), workflow_file
+    try:
+        has_trigger = _on_declares_merge_group(text)
+    except Exception as exc:  # noqa: BLE001 — unreadable workflow is SKIP-ish
+        return None, f"workflow unreadable: {exc}"
+    return has_trigger, workflow_file
+
+
+def _on_declares_merge_group(text: str) -> bool:
+    """True when the workflow ``on`` mapping/list/string names merge_group.
+
+    PyYAML 1.1 loads the unquoted key ``on:`` as boolean ``True``, which is
+    how GitHub Actions workflow files are written.
+    """
+    parsed = yaml_helper.parse_document(text)
+    if not isinstance(parsed, dict):
+        return False
+    on = parsed["on"] if "on" in parsed else parsed.get(True)
+    if isinstance(on, str):
+        return on == "merge_group"
+    if isinstance(on, list):
+        return any(
+            item == "merge_group"
+            or (isinstance(item, dict) and "merge_group" in item)
+            for item in on
+        )
+    return isinstance(on, dict) and "merge_group" in on
 
 
 def _checkout_declaration(

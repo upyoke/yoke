@@ -61,11 +61,15 @@ def dispatch_for(shapes, *, holder=HELD_BY_THIS_SESSION):
         if function_id == "claims.path.list":
             return ok_response({"claims": shape.get("claims", [])})
         if function_id == "items.get.run":
-            return ok_response(
-                {"db_mutation_profile": shape.get("profile", "")}
-            )
+            return ok_response({
+                "item_id": 0,
+                "fields": {"db_mutation_profile": shape.get("profile", "")},
+            })
         if function_id == "shepherd.dependency_list.run":
-            return ok_response({"dependencies": shape.get("dependencies", [])})
+            return ok_response({
+                "item_id": 0,
+                "dependencies": list(shape.get("dependencies") or []),
+            })
         raise AssertionError(f"unexpected function {function_id}")
 
     return dispatch

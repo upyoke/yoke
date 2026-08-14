@@ -74,7 +74,10 @@ def candidate_shape(
     )
     if profile_err:
         return None, profile_err
-    raw_profile = (profile_result or {}).get("db_mutation_profile") or ""
+    fields = (profile_result or {}).get("fields")
+    if not isinstance(fields, dict):
+        fields = {}
+    raw_profile = fields.get("db_mutation_profile") or ""
     carrier = False
     if raw_profile:
         try:
@@ -118,9 +121,7 @@ def train_context(
     for row in (deps_result or {}).get("dependencies") or []:
         if not isinstance(row, dict):
             continue
-        dependent = str(row.get("dependent_item") or "")
-        blocking = str(row.get("blocking_item") or "")
-        other = blocking if dependent == candidate_ref else dependent
+        other = str(row.get("other_item") or "")
         if not other or other == candidate_ref:
             continue
         if str(row.get("gate_point") or "") == "coordination_only":
