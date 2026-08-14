@@ -247,8 +247,9 @@ def _sync_failure_narrative(
     return (
         f"Lane test environment could not be installed in {project}:\n"
         f"{_detail(completed)}\n"
-        "Repair the environment, then re-run preparation:\n"
-        f"  cd {project} && uv sync --frozen"
+        "Fix the dependency declaration or lockfile error shown above, then "
+        "re-run preparation. Lane provisioning requires the project's default "
+        "`uv sync --frozen` selection to install without extra-selection flags."
     )
 
 
@@ -258,9 +259,11 @@ def _proof_failure_narrative(
     return (
         f"Lane test environment is installed but cannot run pytest in {project}:\n"
         f"{_detail(completed)}\n"
-        "Repair the environment, then re-run preparation:\n"
-        f"  cd {project} && uv sync --frozen\n"
-        f"  cd {project} && uv run --frozen python3 -m pytest --collect-only -q\n"
+        "Lane provisioning installs the project's default `uv sync --frozen` "
+        "selection. Pytest and every collection-time import must therefore live "
+        "in a default dependency group installed by that command, not only in "
+        "an optional extra. Repair that declaration, refresh the lockfile, and "
+        "re-run preparation.\n"
         "Once the lane is ready, run tests through the watcher, which binds "
         "this same environment:\n"
         "  yoke watch pytest -- <pytest args>"

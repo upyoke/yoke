@@ -23,6 +23,11 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.qa_command_plan_registration import declared_ci_workflow
+from yoke_core.domain.qa_command_plans import (
+    list_registered_commands_for_project_id,
+)
+from yoke_core.domain.qa_method_config_validation import validate_method_config
 
 
 class RecordPostRebaseCiRunRequest(BaseModel):
@@ -78,6 +83,21 @@ def _ensure_merge_gate_ci_requirement(
 ) -> int:
     """Find or create an item requirement covering CI merge-gate evidence."""
     marker = _marker(conn)
+    item = query_one(
+        conn,
+        f"SELECT project_id FROM items WHERE id={marker}",
+        (int(item_id),),
+    )
+    if item is None:
+        raise LookupError(f"item {item_id} not found")
+    project_id = int(item["project_id"])
+    config = validate_method_config("command-ci", {
+        "command": command or list_registered_commands_for_project_id(
+            conn, project_id,
+        ).get(scope, ""),
+        "registered_scope": scope,
+        "ci_workflow": workflow or declared_ci_workflow(conn, project_id),
+    })
     rows = query_rows(
         conn,
         "SELECT id, method_config FROM qa_requirements "
@@ -86,19 +106,19 @@ def _ensure_merge_gate_ci_requirement(
         (int(item_id),),
     )
     for row in rows:
-        config = _loads_config(row.get("method_config"))
-        registered_scope = str(config.get("registered_scope") or "").strip()
+        stored_config = _loads_config(row.get("method_config"))
+        registered_scope = str(
+            stored_config.get("registered_scope") or ""
+        ).strip()
         if registered_scope and registered_scope != scope:
+            continue
+        try:
+            validate_method_config("command-ci", stored_config)
+        except ValueError:
             continue
         return int(row["id"])
 
     now = iso8601_now()
-    method_config = {
-        "command": command,
-        "registered_scope": scope,
-    }
-    if workflow:
-        method_config["ci_workflow"] = workflow
     cur = conn.execute(
         "INSERT INTO qa_requirements ("
         "item_id, qa_kind, qa_phase, blocking_mode, requirement_source, "
@@ -119,7 +139,7 @@ def _ensure_merge_gate_ci_requirement(
                 f"tree ({scope})."
             ),
             "CI workflow concludes successfully for the candidate head.",
-            json.dumps(method_config, sort_keys=True),
+            json.dumps(config, sort_keys=True),
             now,
         ),
     )

@@ -235,6 +235,46 @@ def test_terminal_transition_accepts_lane_and_integrated_heads_together(test_db)
     assert _terminal_result(test_db) == {"success": True}
 
 
+def test_terminal_transition_accepts_pass_for_recorded_merge_sha(test_db):
+    insert_item(test_db, id=10, status="release")
+    merge_sha = "f" * 40
+    _seed_merge_receipt(test_db, landing_sha="d" * 40, merge_sha=merge_sha)
+    requirement_id = _row_id(insert_qa_requirement(test_db, item_id=10))
+    insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="pass",
+        raw_result=_tree_result(merge_sha),
+        completed_at="2026-01-01T00:00:01Z",
+    )
+
+    assert _terminal_result(test_db) == {"success": True}
+
+
+def test_flow_derived_ci_refusal_names_the_evidence_surface(test_db):
+    insert_item(test_db, id=10, status="release")
+    _seed_merging_sha(test_db, "b" * 40)
+    requirement_id = _row_id(insert_qa_requirement(
+        test_db,
+        item_id=10,
+        requirement_source="flow_derived",
+        method_id="command-ci",
+        method_config='{"command":"","registered_scope":"full"}',
+    ))
+    insert_qa_run(
+        test_db,
+        qa_requirement_id=requirement_id,
+        verdict="pass",
+        raw_result=_tree_result("a" * 40),
+        completed_at="2026-01-01T00:00:01Z",
+    )
+
+    result = _terminal_result(test_db)
+
+    assert "yoke qa run record-verdict --help" in result["error"]
+    assert "yoke qa case run" not in result["error"]
+
+
 def test_terminal_transition_still_refuses_a_head_no_merge_recorded(test_db):
     """Accepting several recorded heads must not accept an unrecorded one."""
     insert_item(test_db, id=10, status="release")
