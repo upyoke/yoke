@@ -29,6 +29,22 @@ runs `npm install` there when dependencies are missing, and installs Chromium
 when Playwright cannot find a browser binary. Set `YOKE_BROWSER_AUTOINSTALL=0`
 to refuse automatic npm/browser installation and report the missing dependency.
 
+## Development Lanes
+
+The product runtime remains on-demand as described above. A source lane that
+changes this directory provisions and runs its Node suite from the lane:
+
+```sh
+npm ci
+npx --no-install playwright install chromium
+npm test
+```
+
+Run those commands from this directory. The local `node_modules/` tree is
+ignored; Chromium uses Playwright's machine cache. The authoritative
+`yoke-ci` browser-runtime job runs the same suite only when this directory
+changes, including pull-request and merge-queue trees.
+
 ## Runtime Files
 
 - `src/daemon.js`: daemon entry point, state file management, idle timer
