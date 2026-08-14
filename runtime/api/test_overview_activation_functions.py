@@ -45,6 +45,10 @@ def _modules_by_key(result):
     return {module["key"]: module for module in result["modules"]}
 
 
+def _targets(harness_module):
+    return {target["key"]: target for target in harness_module["targets"]}
+
+
 def _seed_session(conn, session_id, *, executor="claude-code", display=None,
                   workspace="/tmp/ws", project_id=1, at=None):
     at = at or iso8601_now()
@@ -219,6 +223,26 @@ def test_harness_targets_hit_from_executor_and_surface_values(test_db):
         "claude-code", "codex", "cursor",
     }
     assert harness["connected"]["at"]
+
+
+def test_latch_holds_activated_while_hook_health_regresses(test_db):
+    _seed_session(test_db, "s-cdx", executor="codex", display="codex-desktop")
+    test_db.execute(
+        "UPDATE harness_sessions SET tool_call_count = 4 "
+        "WHERE session_id = 's-cdx'"
+    )
+    test_db.commit()
+    harness = _modules_by_key(_get())["connect_harness"]
+    assert harness["state"] == "activated"
+    assert _targets(harness)["codex"]["hook_health"] == "hooks_live"
+
+    # A glue update re-keys the harness's approval, so the sessions that
+    # follow run hookless. The latch is monotone; health is not.
+    test_db.execute("UPDATE harness_sessions SET tool_call_count = 0")
+    test_db.commit()
+    harness = _modules_by_key(_get())["connect_harness"]
+    assert harness["state"] == "activated"
+    assert _targets(harness)["codex"]["hook_health"] == "hooks_silent"
 
 
 def test_project_rows_carry_most_recent_workspace_or_none(test_db):

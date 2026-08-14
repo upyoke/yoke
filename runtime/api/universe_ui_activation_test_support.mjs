@@ -26,13 +26,21 @@ export function wizardSubmodules(done = {}, machineDetail = null) {
   ];
 }
 
-export function harnessTargets(hits = {}) {
+// `health` / `trustSurfaces` mirror the engine's hook-health sub-signal:
+// null on both means the harness declares no approval gate to report.
+export function harnessTargets(hits = {}, health = {}, trustSurfaces = {}) {
   return [
     ["claude-code", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"],
     ["claude-cli", "Claude CLI"], ["codex-cli", "Codex CLI"],
     ["cursor-cli", "Cursor CLI"],
     ["claude-vscode", "Claude in VS Code"], ["cursor-desktop", "Cursor IDE"],
-  ].map(([key, label]) => ({ key, label, hit: Boolean(hits[key]) }));
+  ].map(([key, label]) => ({
+    key,
+    label,
+    hit: Boolean(hits[key]),
+    hook_health: health[key] || null,
+    trust_surface: trustSurfaces[key] || null,
+  }));
 }
 
 export function activationAnswer({

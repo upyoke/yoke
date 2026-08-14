@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.executor_labels import surface_alias
 
 
 def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
@@ -135,22 +136,32 @@ def _codex_resolve_model(thread_id: Optional[str] = None) -> Optional[str]:
 
 
 def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
-    env_entrypoint = _normalize_entrypoint(
+    """Resolve the surface alias for this thread, the same from every path.
+
+    The env originator is per-subprocess and the transcript's is
+    session-level, so an invocation-context token in the environment yields
+    to the thread's own identity: one physical surface must resolve to one
+    ``executor_display_name`` whether the session registers through a hook,
+    the CLI's ensure-register probe, or session self-repair.
+    """
+    env_entrypoint = surface_alias(_normalize_entrypoint(
         str(
             os.environ.get("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "")
             or os.environ.get("CODEX_ORIGINATOR", "")
         ),
         "",
-    )
+    ))
     if env_entrypoint:
         return env_entrypoint
     thread_id = thread_id or os.environ.get("CODEX_THREAD_ID", "")
     if not thread_id:
         return None
     return (
-        _codex_entrypoint_from_transcript(thread_id)
-        or _cache_field(thread_id, "entrypoint")
-        or _normalize_entrypoint(_cache_field(thread_id, "originator"), "")
+        surface_alias(_codex_entrypoint_from_transcript(thread_id))
+        or surface_alias(_cache_field(thread_id, "entrypoint"))
+        or surface_alias(
+            _normalize_entrypoint(_cache_field(thread_id, "originator"), "")
+        )
     )
 
 

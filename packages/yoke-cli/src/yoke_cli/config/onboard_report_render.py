@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from yoke_cli.config import onboard_project, onboard_reuse_feedback
+from yoke_cli.project_install import hook_trust_report
 from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 _REUSE_GROUP_LABELS = (
@@ -80,6 +81,13 @@ def _append_project_handoff(lines: list[str], project_report: dict[str, Any]) ->
         lines.append(f"  run id: {handoff.get('run_id')}")
         lines.append(f"  next: {handoff.get('agent_command')}")
     _append_clone_resume(lines, project_report)
+    _append_hook_trust(lines, project_report)
+
+
+def _append_hook_trust(lines: list[str], project_report: dict[str, Any]) -> None:
+    """Name the approval each harness re-requires for the glue just written."""
+    for line in hook_trust_report.report_lines(project_report.get("install")):
+        lines.extend(["", f"  {line}"])
 
 
 def _append_clone_resume(lines: list[str], project_report: dict[str, Any]) -> None:

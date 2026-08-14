@@ -1,0 +1,76 @@
+"""Per-harness hook-approval gates and the trust teaching they render.
+
+A harness runs Yoke's hook chain only after the operator approves it for
+that project. Codex records a per-hook ``trusted_hash`` keyed by the hook
+file's path and content; Claude Code and Cursor gate on their own
+per-folder approval. Every one of them fails *silently* when approval is
+missing — the harness simply never runs the hooks, so nothing errors and
+the session looks ordinary while none of its telemetry is written.
+
+Two surfaces in different packages have to agree about that gate:
+
+* the installer and the onboarding wizard, which write the hook glue and
+  must name the approval step whenever they write or update it — any
+  content change re-keys the hash Codex trusted, so an update re-requires
+  approval exactly like a fresh write;
+* the Overview's harness activation module, which reports hook health and
+  needs the remediation to name the harness's own approval surface.
+
+Both read the declarations below instead of branching on a harness id, so
+a harness with no entry has no gate and neither surface invents a step for
+it. Lives in ``yoke-contracts`` because the installer package and the
+engine never import each other, and both render the same wording.
+"""
+
+from __future__ import annotations
+
+from typing import Dict, Mapping, Optional
+
+
+HARNESS_HOOK_APPROVAL: Dict[str, Mapping[str, str]] = {
+    "claude-code": {
+        "trust_surface": "Claude Code's folder-trust prompt",
+        "grant_scope": "per project folder",
+    },
+    "codex": {
+        "trust_surface": "Codex's hook-trust prompt",
+        "grant_scope": (
+            "per project checkout and per hook-file content hash"
+        ),
+    },
+    "cursor": {
+        "trust_surface": "Cursor's hooks approval prompt",
+        "grant_scope": "per project folder",
+    },
+}
+"""Canonical harness id -> its hook-approval gate.
+
+``trust_surface`` names where the operator grants approval; ``grant_scope``
+says what the grant is keyed to, which is what makes an update re-require
+it. A harness absent from this mapping has no approval gate.
+"""
+
+
+def hook_approval(harness_id: str) -> Optional[Mapping[str, str]]:
+    """Return the harness's approval gate, or ``None`` when it has none."""
+    return HARNESS_HOOK_APPROVAL.get(str(harness_id or "").strip().lower())
+
+
+def trust_teaching(harness_id: str) -> Optional[str]:
+    """The one sentence every writer of this harness's glue says after writing.
+
+    ``None`` for a harness with no approval gate, so callers stay free of
+    harness-id branching.
+    """
+    gate = hook_approval(harness_id)
+    if gate is None:
+        return None
+    return (
+        f"Trust this project's hooks in {gate['trust_surface']} — trust is "
+        f"granted {gate['grant_scope']}, so writing or updating the glue "
+        "re-requires it, and untrusted hooks fail silently (no tool "
+        "telemetry, no heartbeats)."
+    )
+
+
+__all__ = ["HARNESS_HOOK_APPROVAL", "hook_approval", "trust_teaching"]

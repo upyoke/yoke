@@ -224,6 +224,45 @@ test("the harness module lights hit targets and names the connection", async (t)
   mounted.unmount();
 });
 
+test("a registered but hookless harness reads warn with its remediation", async (t) => {
+  stubFetch(t);
+  const surface = "Codex's hook-trust prompt";
+  const answer = activationAnswer({
+    states: {
+      finish_installation_wizard: "activated", connect_harness: "activated",
+      run_onboard: "in_progress",
+    },
+    extras: {
+      connect_harness: {
+        targets: harnessTargets(
+          { codex: true, "codex-cli": true },
+          { codex: "hooks_silent", "codex-cli": "hooks_silent" },
+          { codex: surface, "codex-cli": surface },
+        ),
+        projects: [],
+        connected: { executor: "codex", at: new Date().toISOString() },
+      },
+    },
+  });
+  const { root, mounted } = await mountOverview(activationClient(answer));
+
+  const harness = moduleCards(root)[1];
+  const chips = byClass(harness, "activation-target");
+  // Registered, so it is a hit — but never the green a working harness reads.
+  assert.equal(chips[1].textContent, "Codex ⚠");
+  assert.equal(chips[1].attributes.get("data-hit"), "true");
+  assert.equal(chips[1].attributes.get("data-hook-health"), "hooks_silent");
+  const remediation = byClass(harness, "activation-remediation");
+  // One line per approval surface, not one per silent chip.
+  assert.equal(remediation.length, 1);
+  assert.equal(
+    remediation[0].textContent,
+    "Sessions detected but hooks are not firing — trust this project's " +
+    `hooks in ${surface}.`,
+  );
+  mounted.unmount();
+});
+
 test("the in-progress harness module lists project directories", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({

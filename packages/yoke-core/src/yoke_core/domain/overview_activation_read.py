@@ -21,6 +21,12 @@ Latched activation is monotone: once a module's signal has been observed
 satisfied, the fact row keeps it activated even if the signal later
 disappears. Missing optional tables read as "no signal", never an error,
 so the derivation works against a universe born before those surfaces.
+
+The harness module's per-target hook health is deliberately NOT latched —
+it is a live sub-signal derived beside the latch by
+:mod:`yoke_core.domain.overview_harness_hook_health`, because a harness
+whose hook approval was re-keyed stops firing hooks again and the operator
+needs to see that.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.overview_harness_hook_health import harness_targets
 from yoke_core.domain.schema_common import _table_exists
 
 MODULE_FINISH_INSTALLATION_WIZARD = "finish_installation_wizard"
@@ -51,25 +58,6 @@ STATE_ACTIVATED = "activated"
 #: ``actor_ui_preferences.pref_key`` prefix for per-module dismissals.
 DISMISS_PREF_PREFIX = "overview.module.dismissed."
 
-#: Harness target roster: (key, label). Family targets light on a
-#: canonical executor match; Claude/Codex CLI targets light when a matching
-#: session carries no surface alias in ``executor_display_name``; Cursor
-#: CLI/IDE and the Claude VS Code target light on their known surface
-#: aliases (Cursor identity stamps a surface, so bare-session CLI logic
-#: does not apply). Any one session activates the module — targets are
-#: bonus decoration, never blockers.
-HARNESS_TARGETS: Tuple[Tuple[str, str], ...] = (
-    ("claude-code", "Claude Code"),
-    ("codex", "Codex"),
-    ("cursor", "Cursor"),
-    ("claude-cli", "Claude CLI"),
-    ("codex-cli", "Codex CLI"),
-    ("cursor-cli", "Cursor CLI"),
-    ("claude-vscode", "Claude in VS Code"),
-    ("cursor-desktop", "Cursor IDE"),
-)
-
-
 def _exists(conn: Any, sql: str, params: tuple = ()) -> bool:
     row = conn.execute(f"SELECT EXISTS({sql})", params).fetchone()
     return bool(row[0]) if row is not None else False
@@ -84,11 +72,16 @@ def _guarded_exists(conn: Any, table: str, sql: str) -> bool:
 
 def read_signals(conn: Any) -> Dict[str, Any]:
     """Read every engine-owned activation signal in one pass."""
-    executor_pairs = [
-        (str(row[0]), str(row[1] or ""))
+    # One row per distinct identity pair, carrying how many of its sessions
+    # ever recorded a tool call. Only the hook chain stamps that column, so
+    # the count is what separates a live harness from one whose glue was
+    # never approved and therefore never ran.
+    harness_identities = [
+        (str(row[0]), str(row[1] or ""), int(row[2]))
         for row in conn.execute(
-            "SELECT DISTINCT executor, COALESCE(executor_display_name, '') "
-            "FROM harness_sessions"
+            "SELECT executor, COALESCE(executor_display_name, ''), "
+            "COUNT(*) FILTER (WHERE tool_call_count > 0) "
+            "FROM harness_sessions GROUP BY 1, 2"
         ).fetchall()
     ]
     latest = conn.execute(
@@ -117,8 +110,8 @@ def read_signals(conn: Any) -> Dict[str, Any]:
             conn, "project_capabilities",
             "SELECT 1 FROM project_capabilities WHERE type = 'aws-admin'",
         ),
-        "sessions_exist": bool(executor_pairs),
-        "executor_pairs": executor_pairs,
+        "sessions_exist": bool(harness_identities),
+        "harness_identities": harness_identities,
         "connected": (
             {"executor": str(latest[0]), "at": latest[1]}
             if latest is not None else None
@@ -206,28 +199,6 @@ def _wizard_submodules(
     ]
 
 
-def _harness_targets(
-    executor_pairs: List[Tuple[str, str]],
-) -> List[Dict[str, Any]]:
-    executors = {executor for executor, _ in executor_pairs}
-    bare = {executor for executor, display in executor_pairs if not display}
-    displays = {display for _, display in executor_pairs if display}
-    hits = {
-        "claude-code": "claude-code" in executors,
-        "codex": "codex" in executors,
-        "cursor": "cursor" in executors,
-        "claude-cli": "claude-code" in bare,
-        "codex-cli": "codex" in bare,
-        "cursor-cli": "cursor-cli" in displays,
-        "claude-vscode": "claude-vscode" in displays,
-        "cursor-desktop": "cursor-desktop" in displays,
-    }
-    return [
-        {"key": key, "label": label, "hit": hits[key]}
-        for key, label in HARNESS_TARGETS
-    ]
-
-
 def compute_activation(
     conn: Any,
     machine_connected: Optional[bool],
@@ -269,7 +240,7 @@ def compute_activation(
                 row["done"] for row in submodules
             )
         if key == MODULE_CONNECT_HARNESS:
-            module["targets"] = _harness_targets(signals["executor_pairs"])
+            module["targets"] = harness_targets(signals["harness_identities"])
             module["projects"] = signals["project_directories"]
             module["connected"] = signals["connected"]
         modules.append(module)
@@ -282,7 +253,6 @@ def compute_activation(
 
 __all__ = [
     "DISMISS_PREF_PREFIX",
-    "HARNESS_TARGETS",
     "MODULE_CONNECT_HARNESS",
     "MODULE_FINISH_INSTALLATION_WIZARD",
     "MODULE_FIRST_DEPLOY",

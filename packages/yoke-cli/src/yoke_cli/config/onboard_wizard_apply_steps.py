@@ -9,7 +9,7 @@ step: ``apply_progress_body`` is the live screen the worker updates row-by-row,
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Sequence
 
 from rich.markup import escape
 from textual.widgets import Static
@@ -163,7 +163,10 @@ def apply_different_folder_body(
     return widgets
 
 
-def apply_success_body(report_path: str | None) -> list[Static]:
+def apply_success_body(
+    report_path: str | None,
+    hook_trust: Sequence[str] = (),
+) -> list[Static]:
     widgets = [
         Static("✓ Setup complete.", classes="onboard-title"),
         Static("", classes="onboard-spacer"),
@@ -172,6 +175,10 @@ def apply_success_body(report_path: str | None) -> list[Static]:
             classes="onboard-plan-line",
         ),
     ]
+    # The one step the wizard wrote glue for but cannot perform itself.
+    for teaching in hook_trust:
+        widgets.append(Static("", classes="onboard-spacer"))
+        widgets.append(Static(escape(teaching), classes="onboard-plan-line"))
     if report_path:
         widgets.append(Static("", classes="onboard-spacer"))
         widgets.append(
