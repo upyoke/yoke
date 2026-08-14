@@ -15,6 +15,10 @@ import json
 from pathlib import Path
 from typing import Callable, Optional
 
+from yoke_cli.transport.control_plane_payload import (
+    ControlPlanePayloadError,
+    required_field,
+)
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import qa_start_bound_authority
@@ -151,7 +155,10 @@ def execute_case_context(
     actor: Optional[ActorContext] = None,
 ) -> dict:
     """Execute a server-authorized immutable case context locally."""
-    runner_id = str(case["runner_id"])
+    try:
+        runner_id = str(required_field(case, "runner_id"))
+    except ControlPlanePayloadError as exc:
+        raise QaCaseExecutionError(str(exc)) from exc
     if runner_id == "worktree_run":
         from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
 
