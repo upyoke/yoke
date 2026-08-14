@@ -58,12 +58,12 @@ CORE_TABLES: dict[str, dict] = {
             "`workflow_id` for the registered workflow identity. "
             "Project authority is `project_id` joined to `projects.id`; "
             "`project_sequence` is the per-project public item number. "
-            "There is no item-level project slug column. "
             "items.body is a virtual rendered field (use "
             "`items get PREFIX-N body` or read the structured-field columns "
             "directly): spec, design_spec, technical_plan, worktree_plan, "
             "shepherd_log, shepherd_caveats, test_results, deploy_log, "
-            "db_mutation_profile, "
+            "db_mutation_profile (`items.get.run` nests under "
+            "`result.fields`; wrong guess: top-level `db_mutation_profile`), "
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
             "spec_updated_at, spec_updated_by, rework_count, merged_at, "
@@ -160,9 +160,9 @@ CORE_TABLES: dict[str, dict] = {
             "`classification` column on this table. satisfaction is "
             "one of 'status:done', 'status:implemented', 'fact:merged'. "
             "source enum: conduct, feed, idea, migration, operator, "
-            "refine, shepherd. Reader: `yoke shepherd "
-            "dependency-list PREFIX-N` (returns both directions); "
-            "registered shepherd dependency mutation wrappers for writes."
+            "refine, shepherd. Reader `shepherd.dependency_list.run` "
+            "projects `direction`/`other_item` (wrong guess: result keys "
+            "`dependent_item`/`blocking_item` — those are SQL columns)."
         ),
     },
     "events": {

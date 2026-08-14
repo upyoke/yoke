@@ -188,8 +188,8 @@ def test_serial_dependency_refuses_against_queued_member(monkeypatch):
         "YOK-200": {
             "claims": [],
             "dependencies": [{
-                "dependent_item": "YOK-200",
-                "blocking_item": "YOK-150",
+                "direction": "depends-on",
+                "other_item": "YOK-150",
                 "gate_point": "activation",
             }],
         },

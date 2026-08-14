@@ -38,7 +38,11 @@ CORE_COMMANDS: list[dict] = [
             "yoke items get PREFIX-N spec"
         ),
         "notes": (
-            "Multi-field returns one value per line in field order. Valid "
+            "Multi-field returns one value per line in field order. The "
+            "``items.get.run`` JSON result nests stored values under "
+            "``result.fields`` (e.g. ``result.fields.db_mutation_profile``); "
+            "the wrong guess of a top-level ``db_mutation_profile`` on that "
+            "result always reads empty. Valid "
             "fields: architecture_impact, blocked, blocked_reason, body, "
             "created_at, db_compatibility_attestation, "
             "db_mutation_profile, deploy_log, deploy_stage, deployed_to, "
@@ -153,8 +157,11 @@ CORE_COMMANDS: list[dict] = [
         "notes": (
             "Canonical agent shape (function id "
             "``shepherd.dependency_list.run``); works over https. "
-            "Typed rows around item_dependencies — use over raw SQL; "
-            "guessed columns are not the canonical schema."
+            "Typed rows project ``direction`` and ``other_item`` (plus "
+            "gate_point, satisfaction, source, …). The SQL columns "
+            "``dependent_item``/``blocking_item`` are storage, not list "
+            "keys — reading those from the handler result drops every row. "
+            "Use over raw SQL; guessed columns are not the canonical schema."
         ),
     },
     {
