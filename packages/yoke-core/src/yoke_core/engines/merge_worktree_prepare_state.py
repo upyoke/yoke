@@ -10,7 +10,7 @@ from yoke_core.domain.classify_dirty_files import (
     classify_dirty_files,
     is_yoke_managed_pattern,
 )
-from yoke_core.engines.merge_worktree_prepare import MergeContext, _matches_glob
+from yoke_core.engines.merge_worktree_context import MergeContext, _matches_glob
 
 
 def _parent():

@@ -7,6 +7,8 @@ simulation gate, and backlog/body diff visibility.
 Shared fixtures and helpers live in test_merge_worktree_full.py.
 """
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,33 @@ from runtime.api.test_merge_worktree_full import (
     run_merge,
 )
 from yoke_core.engines.merge_boundary_ceremony import MERGE_CEREMONY_NONCE_ENV
+
+
+@pytest.mark.parametrize(
+    "first_module",
+    ["merge_worktree_prepare_state", "merge_worktree_prepare"],
+)
+def test_prepare_modules_import_in_either_order(first_module: str) -> None:
+    """Both public import surfaces initialize in a fresh interpreter."""
+    other_module = (
+        "merge_worktree_prepare"
+        if first_module.endswith("_state")
+        else "merge_worktree_prepare_state"
+    )
+    package = "yoke_core.engines"
+    code = f"""
+import importlib
+importlib.import_module({f'{package}.{first_module}'!r})
+importlib.import_module({f'{package}.{other_module}'!r})
+prepare = importlib.import_module({f'{package}.merge_worktree_prepare'!r})
+state = importlib.import_module({f'{package}.merge_worktree_prepare_state'!r})
+assert all(hasattr(prepare, name) for name in ('MergeArgs', 'MergeContext', 'ConflictInfo', 'validate_args', 'resolve_context', 'preflight_checks', 'check_and_clean_root_dirty_state', 'prune_agent_worktrees', 'extract_generated_files', '_pre_merge_integration', '_stash_classify_gate', '_matches_glob'))
+assert all(hasattr(state, name) for name in ('MergeContext', '_matches_glob', 'check_and_clean_root_dirty_state', 'prune_agent_worktrees', 'extract_generated_files', '_pre_merge_integration', '_stash_classify_gate'))
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 @pytest.fixture(name="merge_env")
