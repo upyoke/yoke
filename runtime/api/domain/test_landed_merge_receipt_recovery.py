@@ -90,10 +90,66 @@ def test_pruned_lane_reconstructs_the_same_receipt_head(
     assert len(recovery_calls) == 1
 
 
+def test_released_only_history_still_recovers_from_the_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Released rows are not a live lane; receipt recovery still applies."""
+    item = {
+        **_landed_item(),
+        "worktrees": [{
+            "branch": "ITEM-1",
+            "state": "released",
+            "commit_sha": "a" * 40,
+        }],
+    }
+    receipt = MergeReceipt(
+        branch="ITEM-1",
+        target="main",
+        commit_sha=LANE_SHA,
+        merge_sha=MERGE_SHA,
+        touched_files=("feature.py",),
+    )
+    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
+    monkeypatch.setattr(
+        merge_cli, "_session_holds_claim",
+        lambda *_a: "no live work claim on this item",
+    )
+    monkeypatch.setattr(
+        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
+    )
+    monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_a: True)
+    monkeypatch.setattr(
+        recovery, "reacquire_landed_claim", lambda **_k: (receipt, ""),
+    )
+    recovered: list[str] = []
+
+    def preflight(recovered_item, **_kwargs):
+        recovered.append(recovered_item["worktrees"][-1]["commit_sha"])
+        return LANE_SHA, ""
+
+    monkeypatch.setattr(merge_cli, "qa_preflight", preflight)
+    monkeypatch.setattr(
+        merge_cli,
+        "route_standalone_landing",
+        lambda **_kwargs: StandaloneMergeOutcome(
+            ok=True, exit_code=0, already_merged=True, commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA, touched_files=("feature.py",), pushed=True,
+        ),
+    )
+    monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda _item_id: None)
+
+    assert merge_cli.run(["ITEM-1", "--skip-status"]) == 0
+    assert recovered == [LANE_SHA]
+
+
 def test_live_branch_does_not_enter_receipt_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (_landed_item(), ""))
+    live = {
+        **_landed_item(),
+        "worktrees": [{"branch": "ITEM-1", "state": "active", "commit_sha": LANE_SHA}],
+    }
+    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (live, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
     monkeypatch.setattr(
         merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),

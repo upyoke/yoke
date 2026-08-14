@@ -9,6 +9,7 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
+from yoke_core.domain import standalone_item_merge_lane as sim_lane
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 
 
@@ -334,7 +335,7 @@ class TestCloseOutOrdering:
 class TestLaneBranchResolution:
     def test_the_registered_lane_branch_wins_over_the_item_ref(self) -> None:
         item = {"worktrees": [{"branch": "renamed-lane"}]}
-        assert sim_cli._lane_branch(item, "ITEM-1") == "renamed-lane"
+        assert sim_lane.lane_branch(item, "ITEM-1") == "renamed-lane"
 
     def test_the_item_ref_is_the_fallback_branch_name(self) -> None:
-        assert sim_cli._lane_branch({"worktrees": []}, "ITEM-1") == "ITEM-1"
+        assert sim_lane.lane_branch({"worktrees": []}, "ITEM-1") == "ITEM-1"

@@ -25,6 +25,12 @@ from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+from yoke_core.domain.standalone_item_merge_lane import (
+    active_lanes,
+    lane_branch,
+    lane_path,
+    lane_resolution_error,
+)
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 
 # Workflows whose terminal transition is gated on an execution-evidence
@@ -59,25 +65,6 @@ def _resolve_item(item_ref: str, project: Optional[str]) -> tuple[Any, str]:
 def _session_holds_claim(item_id: int, session_id: str) -> str:
     """Empty when this session owns the item claim, else why it does not."""
     return recovery.claim_error(item_id, session_id)
-
-
-def _lane_branch(item: dict, item_ref: str) -> str:
-    """The branch the item's implementation lane registered."""
-    for lane in item.get("worktrees") or []:
-        branch = str(lane.get("branch") or "").strip()
-        if branch:
-            return branch
-    recorded = str(item.get("worktree") or "").strip()
-    return recorded if recorded and recorded != "null" else item_ref
-
-
-def _lane_worktree_path(item: dict) -> str:
-    """The recorded path of the item's implementation lane, if any."""
-    for lane in item.get("worktrees") or []:
-        path = str(lane.get("path") or "").strip()
-        if path:
-            return path
-    return ""
 
 
 def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
@@ -200,7 +187,12 @@ def run(argv: List[str]) -> int:
             as_json=as_json,
         )
 
-    branch = _lane_branch(item, item_ref)
+    if len(active_lanes(item)) > 1:
+        return _fail(
+            f"{item_ref}: {lane_resolution_error(item)}", as_json=as_json,
+        )
+
+    branch = lane_branch(item, item_ref)
     claim_error = _session_holds_claim(item_id, str(args.session_id))
     if claim_error:
         # A claim released by a close-out that already completed is not a
@@ -218,8 +210,12 @@ def run(argv: List[str]) -> int:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
-    recovery_error = ""
-    if claim_error or recovery.branch_needs_receipt(str(repo_root), branch):
+    pruned_lane = (
+        not active_lanes(item) and recovery.branch_needs_receipt(
+            str(repo_root), branch,
+        )
+    )
+    if claim_error or pruned_lane:
         receipt, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
             branch=branch,
@@ -228,13 +224,12 @@ def run(argv: List[str]) -> int:
             project=str((item.get("project") or {}).get("slug") or "yoke"),
             session_id=str(args.session_id),
         )
-        if receipt is None and claim_error:
+        if recovery_error or receipt is None:
             return _fail(
                 f"{item_ref}: {recovery_error or 'claim recovery failed'}",
                 as_json=as_json,
             )
-        if receipt is not None:
-            item = recovery.with_recorded_head(item, receipt)
+        item = recovery.with_recorded_head(item, receipt)
     commit_sha, qa_error = qa_preflight(
         item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )
@@ -253,11 +248,8 @@ def run(argv: List[str]) -> int:
         resume_command=_timeout.merge_item_resume_command(item_ref, args),
     )
     if not outcome.ok:
-        landing_error = outcome.error
-        if recovery_error:
-            landing_error += f"; receipt recovery also failed: {recovery_error}"
         return _fail(
-            f"{item_ref}: {landing_error}",
+            f"{item_ref}: {outcome.error}",
             as_json=as_json,
             exit_code=outcome.exit_code,
             branch=branch,
@@ -288,7 +280,7 @@ def run(argv: List[str]) -> int:
             verification_summary=str(args.verification),
             verification_status=str(args.verification_status),
             no_changes=bool(args.no_changes),
-            tree_root=_lane_worktree_path(item) or str(repo_root),
+            tree_root=lane_path(item) or str(repo_root),
         )
         # A refused attempt may still have landed the row — a relayed write
         # that succeeds on retry reports the failed try. The record's own

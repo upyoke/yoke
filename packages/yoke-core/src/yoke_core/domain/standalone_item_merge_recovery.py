@@ -105,13 +105,14 @@ def with_recorded_head(
     item: dict[str, Any],
     receipt: receipts.MergeReceipt,
 ) -> dict[str, Any]:
-    """Present the receipt's verified lane head to merge QA preflight."""
+    """Present the receipt's verified lane head as the unique active lane."""
     return {
         **item,
-        "worktrees": [
-            *(item.get("worktrees") or []),
-            {"commit_sha": receipt.commit_sha},
-        ],
+        "worktrees": [{
+            "state": "active",
+            "branch": receipt.branch,
+            "commit_sha": receipt.commit_sha,
+        }],
     }
 
 
