@@ -242,3 +242,27 @@ class TestYokePayloadPathSegments:
             "--worktree-id 1 --branch YOK-9 --path /Users/dev/repo/.worktrees/YOK-9"
         )
         assert extract_command_targets(cmd) == ["/tmp"]
+
+
+def test_glued_redirect_is_a_write_target():
+    destination = "/" + "checkout/AGENTS.md"
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": f"echo x >{destination}"},
+    }
+    assert extract_payload_write_targets(payload) == [destination]
+
+
+def test_stderr_fd_dup_is_not_a_write_target():
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": "python3 -m pytest /checkout/foo.py 2>&1",
+        },
+    }
+    assert extract_payload_write_targets(payload) == []
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "echo x >/tmp/out 2>&1"},
+    }
+    assert extract_payload_write_targets(payload) == ["/tmp/out"]

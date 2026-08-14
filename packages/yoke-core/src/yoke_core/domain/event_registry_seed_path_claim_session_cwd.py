@@ -12,6 +12,9 @@ one idempotent pass:
 - ``SessionCwdMismatchAllowedReadOnly`` (event_type=``session_cwd``)
 - ``SessionCwdBindingFailOpen`` (event_type=``session_cwd``)
 - ``SessionCwdBindingHealthCheckFailed`` (event_type=``session_cwd``)
+- ``LaneMainWriteDenied`` (event_type=``session_cwd``)
+- ``LaneMainWriteEscapeUsed`` (event_type=``session_cwd``)
+- ``LaneMainWriteStrandedLane`` (event_type=``session_cwd``)
 
 All rows land with ``event_kind=lifecycle``, ``owner_service=cli``,
 ``status=active``, and a one-line description. Re-running the seed is a
@@ -109,6 +112,14 @@ SEED_ROWS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "session_cwd",
         "cli",
         "Recorded deliberate main-checkout write while an implementation lane was held",
+        "INFO",
+    ),
+    (
+        "LaneMainWriteStrandedLane",
+        "lifecycle",
+        "session_cwd",
+        "cli",
+        "PreToolUse noted a stale implementation-lane claim whose recorded worktree is gone",
         "INFO",
     ),
 )

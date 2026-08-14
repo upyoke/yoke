@@ -24,6 +24,7 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     SHELL_WRITE_COMMAND_BASES,
     extract_payload_command,
     extract_payload_write_targets,
+    glued_file_redirect_target,
     payload_has_embedded_python_write,
 )
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
@@ -39,8 +40,6 @@ _UNTRACKED_GENERATED_VIEW_PATTERNS = (
 
 _GIT_MUTATING_SUBS = frozenset({"commit", "add", "mv", "rm"})
 _SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
-
-_HEREDOC_RE = re.compile(r"<<[-]?")
 
 
 def command_has_suppression_token(text: str) -> bool:
@@ -194,11 +193,12 @@ def _segment_command_base(tokens: List[str]) -> str:
     return ""
 
 
-def _bash_has_redirect_or_heredoc(command: str) -> bool:
-    if _HEREDOC_RE.search(command or ""):
-        return True
+def _bash_has_file_redirect(command: str) -> bool:
     tokens = _safe_split(command)
-    return any(tok in REDIRECT_OPERATORS for tok in tokens)
+    return any(
+        tok in REDIRECT_OPERATORS or glued_file_redirect_target(tok)
+        for tok in tokens
+    )
 
 
 def _bash_has_write_verb(command: str) -> bool:
@@ -243,9 +243,10 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
 
     Registered ``yoke <subcommand>`` adapters are control-plane calls and
     never count as tracked-source writes unless the shell body itself
-    carries a redirect/heredoc. Path-shaped arguments alone (``ls /repo``)
-    are not writes — only Edit/Write tools, write-verb command bases, and
-    shell redirects/heredocs qualify.
+    carries a file redirect. Path-shaped arguments alone (``ls /repo``)
+    are not writes — only Edit/Write tools, write-verb command bases,
+    shell file redirects, and embedded Python writes qualify. A heredoc
+    is not itself a write.
     """
     if is_write_tool_name(tool_name):
         return True
@@ -259,8 +260,8 @@ def is_write_operation(tool_name: str, payload: dict) -> bool:
     if payload_has_embedded_python_write(payload):
         return True
     if is_yoke_adapter_command(command):
-        return _bash_has_redirect_or_heredoc(command)
-    return _bash_has_redirect_or_heredoc(command) or _bash_has_write_verb(command)
+        return _bash_has_file_redirect(command)
+    return _bash_has_file_redirect(command) or _bash_has_write_verb(command)
 
 
 def collect_main_write_targets(

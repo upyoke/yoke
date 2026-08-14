@@ -269,6 +269,7 @@ class ProducerLiteralCleanupTest(unittest.TestCase):
         info_names = {
             "SessionCwdMismatchAllowedReadOnly",
             "LaneMainWriteEscapeUsed",
+            "LaneMainWriteStrandedLane",
         }
         for row in SEED_ROWS:
             name, severity = row[0], row[5]

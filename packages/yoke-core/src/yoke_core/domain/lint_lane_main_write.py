@@ -1,14 +1,21 @@
 """PreToolUse hook: refuse source writes to main while a lane is held.
 
-While a session holds an implementation-lane work claim whose worktree
-still exists on disk, tracked source writes to the same project's main
-checkout (the repo root excluding ``.worktrees/``) are refused. The
-guard fires only on direct filesystem write shapes (Edit/Write,
-shell redirects/heredocs, write-verb command bases) — never on
-registered ``yoke <subcommand>`` adapters or cwd-only relationships.
-A held claim whose recorded lane is gone emits an advisory and does
-not arm. Reads, free-path scratch, generated-view writers, sessions
-with no live lane, and pre-implementation authoring on main stay
+While a session holds an implementation-lane work claim recorded in
+``item_worktrees.path``, tracked source writes to the same project's
+main checkout (the repo root excluding ``.worktrees/``) are refused.
+Liveness is that recorded path — the same DB-authority read
+``session_claimed_worktrees`` uses — not a filesystem probe on the
+evaluating machine. An https control plane has no checkout, so
+``Path.is_dir()`` would treat every live lane as missing and fail open.
+
+The guard fires only on direct filesystem write shapes (Edit/Write,
+shell file redirects, write-verb command bases, embedded Python
+writes) — never on registered ``yoke <subcommand>`` adapters, cwd-only
+relationships, or a heredoc that does not write a path. A held claim
+whose recorded lane is gone from disk *and* whose claim heartbeat is
+stale emits an advisory (once per session+item) and does not arm.
+Reads, free-path scratch, generated-view writers, sessions with no
+recorded lane, and pre-implementation authoring on main stay
 unaffected.
 
 Mode resolves from ``.yoke/lint-config`` key ``lint_lane_main_write``
@@ -35,9 +42,11 @@ from yoke_core.domain.lint_lane_main_write_classify import (
     payload_has_escape_token,
 )
 from yoke_core.domain.lint_lane_main_write_emit import (
+    claim_heartbeat_is_stale,
     emit_denied,
     emit_escape_used,
     emit_stranded_lane_advisory,
+    stranded_advisory_already_recorded,
 )
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, format_denial
 from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cwd
@@ -129,32 +138,33 @@ def evaluate_pre_tool_use(payload: Mapping[str, Any]) -> Verdict:
             active_claims = [c for c in claims if _lane_is_active(conn, c)]
             if not active_claims:
                 return Verdict(allow=True)
-            live_claims = [c for c in active_claims if lane_path_exists_on_disk(c)]
-            stranded = [c for c in active_claims if not lane_path_exists_on_disk(c)]
-            for claim in stranded:
-                emit_stranded_lane_advisory(
-                    session_id=session_id,
-                    lane_path=claim.worktree_path,
-                    item_id=claim.item_id,
-                    item_label=item_label(claim),
-                )
-            # A held claim whose lane is gone cannot be the write target —
-            # do not arm the deny path for that residue.
-            if not live_claims:
-                return Verdict(allow=True)
-            repo_roots = tuple(derive_repo_roots(conn, live_claims))
+            repo_roots = tuple(derive_repo_roots(conn, active_claims))
             fallback_cwd = resolve_authority_cwd(payload)
             hits = collect_main_write_targets(
                 tool_name=tool_name,
                 payload=payload_dict,
                 fallback_cwd=fallback_cwd,
-                claims=tuple(live_claims),
+                claims=tuple(active_claims),
                 repo_roots=repo_roots,
             )
+            if not hits:
+                return Verdict(allow=True)
+            attempted_path, claim = hits[0]
+            if (
+                not lane_path_exists_on_disk(claim)
+                and claim_heartbeat_is_stale(conn, session_id, claim)
+            ):
+                if not stranded_advisory_already_recorded(
+                    conn, session_id=session_id, item_id=claim.item_id,
+                ):
+                    emit_stranded_lane_advisory(
+                        session_id=session_id,
+                        lane_path=claim.worktree_path,
+                        item_id=claim.item_id,
+                        item_label=item_label(claim),
+                    )
+                return Verdict(allow=True)
     except Exception:
-        return Verdict(allow=True)
-
-    if not hits:
         return Verdict(allow=True)
 
     attempted_path, claim = hits[0]
