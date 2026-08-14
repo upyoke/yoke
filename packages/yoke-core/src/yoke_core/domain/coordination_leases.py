@@ -1,16 +1,4 @@
-"""Coordination-lease primitive for Yoke.
-
-A ``coordination_leases`` row is an exclusive project-scoped lease keyed on
-``(project_id, lease_key)``. Consumers choose operation-specific key prefixes.
-
-They are not work claims or path claims; they serialize shared-state operations.
-
-This module owns the core acquire/heartbeat/release/read API plus shared
-event-emission helpers. Listing/diagnostic helpers live in
-:mod:`yoke_core.domain.coordination_leases_listing`; the human-only
-operator override lives in :mod:`yoke_core.domain.coordination_leases_operator`.
-Both are re-exported here so existing call sites keep their imports.
-"""
+"""Core acquire, heartbeat, release, and read API for coordination leases."""
 
 from __future__ import annotations
 
@@ -34,6 +22,14 @@ class LeaseError(Exception):
 
 class LeaseHeldError(LeaseError):
     """Raised when an acquire loses to a still-live lease on the same key."""
+
+    def __init__(self, message: str, *, contention: Any = None) -> None:
+        super().__init__(message)
+        self.contention = contention
+
+
+class LeaseStaleHolderError(LeaseHeldError):
+    """Raised when the current holder is beyond its session stale TTL."""
 
 
 class LeaseNotFoundError(LeaseError):
@@ -124,6 +120,16 @@ def get_lease(conn: Any, lease_id: int) -> Lease:
     return row_to_lease(row)
 
 
+def _held_error(conn: Any, lease: Lease) -> LeaseHeldError:
+    from yoke_core.domain.coordination_lease_contention import (
+        describe_lease_contention,
+    )
+
+    contention = describe_lease_contention(conn, lease)
+    error_type = LeaseStaleHolderError if contention.holder_stale else LeaseHeldError
+    return error_type(contention.message, contention=contention)
+
+
 def acquire_lease(
     conn: Any,
     project_id: str | int,
@@ -146,10 +152,7 @@ def acquire_lease(
     numeric_project_id = resolve_project_id(conn, project_id)
     existing = active_lease(conn, numeric_project_id, lease_key)
     if existing is not None:
-        raise LeaseHeldError(
-            f"Lease {numeric_project_id}:{lease_key} already held "
-            f"(session={existing.session_id}, acquired_at={existing.acquired_at})"
-        )
+        raise _held_error(conn, existing)
     use_savepoint = db_backend.connection_is_postgres(conn)
     if use_savepoint:
         conn.execute("SAVEPOINT coordination_lease_acquire")
@@ -165,13 +168,10 @@ def acquire_lease(
             conn.execute("ROLLBACK TO SAVEPOINT coordination_lease_acquire")
             conn.execute("RELEASE SAVEPOINT coordination_lease_acquire")
         current = active_lease(conn, numeric_project_id, lease_key)
-        holder = (
-            f"session={current.session_id}, acquired_at={current.acquired_at}"
-            if current is not None
-            else "unknown holder"
-        )
+        if current is not None:
+            raise _held_error(conn, current) from exc
         raise LeaseHeldError(
-            f"Lease {numeric_project_id}:{lease_key} already held ({holder})"
+            f"Lease {numeric_project_id}:{lease_key} already held (unknown holder)"
         ) from exc
     if use_savepoint:
         conn.execute("RELEASE SAVEPOINT coordination_lease_acquire")
@@ -333,6 +333,7 @@ __all__ = [
     "LeaseHookContextError",
     "LeaseNotFoundError",
     "LeaseReleasedError",
+    "LeaseStaleHolderError",
     "OPERATOR_LEASE_RELEASE_EVENT",
     "SELECT_COLUMNS",
     "acquire_lease",

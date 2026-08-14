@@ -122,6 +122,7 @@ class TestStaleOrOrphan:
         assert result.result == "WARN"
         assert "stale" in result.detail.lower() or "orphan" in result.detail.lower()
         assert "sess-stale" in result.detail
+        assert "yoke coordination-lease release" in result.detail
 
     def test_warn_for_orphan_when_session_ended(self, leases_conn) -> None:
         now = _iso_ago(minutes=0)

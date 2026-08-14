@@ -26,6 +26,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     validate_case_submission,
 )
 from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
+from yoke_core.domain.coordination_lease_contention import waiting_lease_evidence
 
 
 def _owned_case(
@@ -175,7 +176,7 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     case_position=arguments["case_position"],
                     baseline_position=arguments["baseline_position"],
                 )
-        except MachineQaProtocolLeaseHeld:
+        except MachineQaProtocolLeaseHeld as held:
             finish_plan_execution(
                 conn,
                 execution,
@@ -188,6 +189,10 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
                     "state": "waiting",
                     "execution_id": str(execution["id"]),
                     "cursor_ordinal": int(execution["cursor_ordinal"]),
+                    "lease_context": waiting_lease_evidence(
+                        held.lease,
+                        held.contention,
+                    ),
                 },
             )
     except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:

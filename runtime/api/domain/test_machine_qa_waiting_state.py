@@ -13,6 +13,7 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
 )
 from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
 from yoke_core.domain.coordination_leases import Lease
+from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.handlers.test_machine_case import (
     handle_baseline_group_begin,
@@ -45,12 +46,13 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     )
 
     conn = make_conn()
+    now = iso8601_now()
     conn.execute(
         "INSERT INTO coordination_leases("
         "id,project_id,lease_key,session_id,actor_id,"
         "acquired_at,heartbeat_at,released_at"
-        ") VALUES(9,1,'QA_HOST:mac-mini-lab','holder-session','2',"
-        "'2026-07-26T17:00:00Z','2026-07-26T17:01:00Z',NULL)"
+        ") VALUES(9,1,'QA_HOST:mac-mini-lab','holder-session','2',?,?,NULL)",
+        (now, now),
     )
     material = MachineMaterial(
         project_id=1,
@@ -79,18 +81,11 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     waiting = caught.value.waiting_result()
     assert waiting.case_outcome == "waiting"
     assert waiting.verdict == "waiting"
-    assert waiting.evidence == {
-        "runner_id": "host_control",
-        "machine": "mac-mini-lab",
-        "case_started": False,
-        "lease": {
-            "id": 9,
-            "key": "QA_HOST:mac-mini-lab",
-            "holder_session_id": "holder-session",
-            "acquired_at": "2026-07-26T17:00:00Z",
-            "heartbeat_at": "2026-07-26T17:01:00Z",
-        },
-    }
+    lease = waiting.evidence["lease"]
+    assert lease["id"] == 9
+    assert lease["holder_session_id"] == "holder-session"
+    assert lease["heartbeat_age_seconds"] >= 0
+    assert "yoke coordination-lease release" in lease["wait_message"]
 
 
 def test_group_begin_lease_contention_records_nonterminal_waiting_cases(

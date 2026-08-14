@@ -18,7 +18,7 @@ AdapterFn = Callable[[List[str]], int]
 MIGRATION_REHEARSE_USAGE = "yoke migration rehearse PREFIX-N"
 
 
-def _remote_without_admin_authority() -> bool:
+def remote_without_admin_authority() -> bool:
     if local_authority_is_pinned():
         return False
     selected = os.environ.get(ENV_OVERRIDE, "").strip() or None
@@ -44,7 +44,7 @@ def migration_rehearse(args: List[str]) -> int:
         return 2
 
     try:
-        if _remote_without_admin_authority():
+        if remote_without_admin_authority():
             selected = os.environ.get(ENV_OVERRIDE, "").strip() or "active HTTPS"
             print(
                 "yoke migration rehearse refused: "
@@ -81,4 +81,5 @@ __all__ = [
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "migration_rehearse",
+    "remote_without_admin_authority",
 ]

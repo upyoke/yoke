@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
 from yoke_core.api.service_client_shared import _get_db_readwrite
@@ -104,6 +104,7 @@ def cmd_coordination_lease_acquire(args: list[str]) -> int:
 
     from yoke_core.domain.coordination_leases import (
         LeaseHeldError,
+        LeaseStaleHolderError,
         acquire_lease,
     )
 
@@ -114,6 +115,8 @@ def cmd_coordination_lease_acquire(args: list[str]) -> int:
                 conn, parsed.project, parsed.key, parsed.session_id,
                 actor_id=parsed.actor_id,
             )
+        except LeaseStaleHolderError as exc:
+            return _emit_error("STALE_HOLDER", str(exc))
         except LeaseHeldError as exc:
             return _emit_error("HELD", str(exc))
     finally:

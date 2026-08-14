@@ -73,6 +73,7 @@ def execute_plan_machine_case(
             "runner_id": "host_control",
             "verdict": "waiting",
             "case_outcome": "waiting",
+            "lease_context": begun.get("lease_context"),
         }
     execution = begun.get("execution")
     if begun.get("state") != "ready" or not isinstance(execution, dict):

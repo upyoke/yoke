@@ -109,6 +109,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain.coordination_leases import (
         LeaseHeldError,
+        LeaseStaleHolderError,
         acquire_lease,
     )
 
@@ -118,6 +119,8 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
                 conn, body.project_id, body.lease_key,
                 request.actor.session_id, actor_id=body.actor_id,
             )
+        except LeaseStaleHolderError as exc:
+            return _err("lease_stale_holder", str(exc))
         except LeaseHeldError as exc:
             return _err("lease_held", str(exc))
 
@@ -185,7 +188,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     return HandlerOutcome(
-        result_payload={"leases": [_lease_to_dict(l) for l in leases]},
+        result_payload={"leases": [_lease_to_dict(lease) for lease in leases]},
     )
 
 

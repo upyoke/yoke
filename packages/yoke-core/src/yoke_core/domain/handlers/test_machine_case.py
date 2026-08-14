@@ -14,6 +14,7 @@ from yoke_core.domain.handlers.test_machine_case_evidence import (
     record_machine_case_result as _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
+from yoke_core.domain.coordination_lease_contention import waiting_lease_evidence
 from yoke_core.domain.machine_qa_execution_contract import (
     HostControlExecutionContract,
 )
@@ -87,13 +88,7 @@ def _waiting_result(held: Any) -> MachineCaseResult:
             "runner_id": "host_control",
             "machine": held.machine,
             "case_started": False,
-            "lease": {
-                "id": held.lease.id,
-                "key": held.lease.lease_key,
-                "holder_session_id": held.lease.session_id,
-                "acquired_at": held.lease.acquired_at,
-                "heartbeat_at": held.lease.heartbeat_at,
-            },
+            "lease": waiting_lease_evidence(held.lease, held.contention),
         },
     )
 

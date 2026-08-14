@@ -22,6 +22,7 @@ import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from yoke_contracts.coordination_lease_recovery import OPERATOR_RELEASE_USAGE
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -77,8 +78,7 @@ def hc_coordination_leases_stale_or_orphan(
         f"- {len(rows)} active lease(s) look stale or orphaned "
         f"(heartbeat_at older than {_STALE_WINDOW_MIN}m or owning session ended). "
         "Recovery is operator-driven: "
-        "`python3 -m yoke_core.api.service_client coordination-lease-release "
-        "--project P --key K --reason '...'`."
+        f"`{OPERATOR_RELEASE_USAGE}`."
     ]
     for row in rows[:_LIST_PREVIEW]:
         reason = (
