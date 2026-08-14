@@ -157,10 +157,26 @@ def provision_worktree_test_environment(worktree_path: str) -> Optional[str]:
     that cannot run its own tests is not ready, and the alternative — a
     warning nobody acts on, followed by an unattributable import error at
     the first test command — is the failure this step exists to end.
+
+    Bytecode hygiene runs first and on reused lanes as well as new ones:
+    stale ``__pycache__`` is what makes a long-lived lane disagree with a
+    clean checkout of the same commit.
     """
+    from yoke_core.domain.worktree_lane_hygiene import purge_lane_bytecode_caches
     from yoke_core.domain.worktree_test_environment import (
         provision_test_environment,
     )
+
+    try:
+        hygiene = purge_lane_bytecode_caches(worktree_path)
+    except Exception as exc:  # noqa: BLE001 — a dirty cache must name its cause
+        return f"Lane bytecode hygiene failed for {worktree_path}: {exc}"
+    for action in hygiene.actions:
+        print(f"Lane hygiene: {action}", file=sys.stderr)
+    if hygiene.error:
+        return (
+            f"Lane bytecode hygiene failed for {worktree_path}: {hygiene.error}"
+        )
 
     try:
         report = provision_test_environment(worktree_path)
