@@ -92,6 +92,13 @@ Close the run with a retrospective in chat:
 - Reviewed entries are archived immediately via
   `yoke ouroboros entry mark-archived --all-reviewed` — they remain in
   the DB but no longer appear in unreviewed queries.
+- Both writers are project-scoped. A named entry id is authorized by that
+  entry's own project, so a run in one checkout can't close out another
+  project's queue. A selector that names no entry — `--all-reviewed`, or a
+  `--before` / `--field-notes-before` cutoff — runs against the checkout's
+  project (or `--project P`) and refuses without one. Entries that belong to
+  no project are left alone unless the selector adds
+  `--include-unattributed`.
 - Recurring cross-run patterns live in `ouroboros/patterns.md` as institutional memory. Add to it when a cluster genuinely names a new recurring shape — not as a per-run step.
 - Interactive filing goes through `/yoke idea`; this Yoke-owned workflow uses the issue workflow's authorized `harness_skill` entry surface so claims and GitHub sync stay on the product flow.
 - This is part of Ouroboros — Yoke's self-improvement system. The learning loop: agents observe -> log to DB -> curate -> Dash or work item -> fix -> agents observe better.

@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.field_note_text import CATEGORY_PREFIX
 from yoke_core.domain.ouroboros_entry_review import MAX_ENTRY_REVIEW_BATCH
+from yoke_core.domain.ouroboros_entry_write_scope import CrossProjectEntryWrite
 
 
 class OuroborosEntryInsertRequest(BaseModel):
@@ -37,6 +38,10 @@ class OuroborosEntryReviewRequest(BaseModel):
         ge=1,
         le=MAX_ENTRY_REVIEW_BATCH,
     )
+    # Project slug/id. Required for a cutoff selector, which would otherwise
+    # review every project's queue; a single id confines the write instead.
+    project: Optional[str] = None
+    include_unattributed: bool = False
 
 
 class OuroborosEntryReviewResponse(BaseModel):
@@ -52,9 +57,11 @@ class OuroborosEntryLifecycleResponse(BaseModel):
 class OuroborosEntryArchiveRequest(BaseModel):
     entry_id: Optional[int] = None
     all_reviewed: bool = False
-    # Optional project slug/id. Required for --all-reviewed over https
-    # (authz resolves it); single-id archive may omit and use the entry row.
+    # Project slug/id. Required for --all-reviewed, which would otherwise
+    # archive every project's reviewed entries; a single id confines the
+    # write to that entry and refuses another project's row.
     project: Optional[str] = None
+    include_unattributed: bool = False
 
 
 def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome:
@@ -65,6 +72,14 @@ def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome
             message=message,
             jsonpath=jsonpath,
         ),
+    )
+
+
+def _cross_project_denied(exc: CrossProjectEntryWrite) -> HandlerOutcome:
+    """A named project does not own the entry, so the write never runs."""
+    return HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(code="permission_denied", message=str(exc)),
     )
 
 
@@ -125,7 +140,11 @@ def handle_ouroboros_entry_mark_reviewed(
     try:
         with connect() as conn:
             if payload.entry_id is not None:
-                message = cmd_mark_reviewed(conn, payload.entry_id)
+                message = cmd_mark_reviewed(
+                    conn,
+                    payload.entry_id,
+                    project=payload.project,
+                )
                 result = OuroborosEntryReviewResponse(
                     message=message,
                     reviewed_count=1,
@@ -136,8 +155,10 @@ def handle_ouroboros_entry_mark_reviewed(
                 batch = mark_entries_reviewed_before(
                     conn,
                     before=cutoff,
+                    project=payload.project,
                     category_prefix=CATEGORY_PREFIX if field_notes_only else None,
                     limit=payload.limit,
+                    include_unattributed=payload.include_unattributed,
                 )
                 subject = "field-notes" if field_notes_only else "entries"
                 message = (
@@ -157,6 +178,8 @@ def handle_ouroboros_entry_mark_reviewed(
             primary_success=False,
             error=FunctionError(code="not_found", message=str(exc)),
         )
+    except CrossProjectEntryWrite as exc:
+        return _cross_project_denied(exc)
     except ValueError as exc:
         return _bad_request(str(exc))
     return HandlerOutcome(
@@ -184,12 +207,15 @@ def handle_ouroboros_entry_mark_archived(
                 entry_id=payload.entry_id,
                 all_reviewed=payload.all_reviewed,
                 project=payload.project,
+                include_unattributed=payload.include_unattributed,
             )
     except LookupError as exc:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(code="not_found", message=str(exc)),
         )
+    except CrossProjectEntryWrite as exc:
+        return _cross_project_denied(exc)
     except ValueError as exc:
         return _bad_request(str(exc))
     return HandlerOutcome(

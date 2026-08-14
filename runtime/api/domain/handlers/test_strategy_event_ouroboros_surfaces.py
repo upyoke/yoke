@@ -207,7 +207,9 @@ def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str)
             entry_ids.append(int(row[0]))
         conn.commit()
 
-    payload = {"field_notes_before": "2026-08-01", "limit": 1}
+    # Seeded rows carry no project, so each batch names one and opts in.
+    scope = {"project": "yoke", "include_unattributed": True}
+    payload = {"field_notes_before": "2026-08-01", "limit": 1, **scope}
     first = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
         _request("ouroboros.entry.mark_reviewed", payload)
     )
@@ -229,7 +231,7 @@ def test_review_batches_support_all_categories_and_field_note_scope(tmp_db: str)
         ).fetchall()
     assert [row[0] is not None for row in rows] == [True, True, False, False, False]
 
-    payload = {"before": "2026-08-01", "limit": 1}
+    payload = {"before": "2026-08-01", "limit": 1, **scope}
     first = ouroboros_writes.handle_ouroboros_entry_mark_reviewed(
         _request("ouroboros.entry.mark_reviewed", payload)
     )
