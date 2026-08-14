@@ -228,6 +228,12 @@ def test_unreached_change_still_runs_the_contract_floor(tmp_path):
     assert selection.files == _with_floor()
 
 
+def test_repo_cleanliness_contract_is_always_selected(tmp_path):
+    selection = select(["runtime/api/leaf.py"], build_import_index(_tiny_repo(tmp_path)))
+
+    assert set(impacted_tests.REPO_CLEANLINESS_TESTS) <= set(selection.files)
+
+
 def test_item_worktree_schema_change_runs_fixture_consumers(tmp_path):
     root = _tiny_repo(tmp_path)
     changed = "packages/yoke-core/src/yoke_core/domain/item_worktree_schema.py"

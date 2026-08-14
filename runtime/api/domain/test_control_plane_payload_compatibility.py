@@ -26,7 +26,7 @@ def test_required_field_accepts_any_current_payload_contract() -> None:
     )
 
 
-def test_pre_rename_case_payload_names_the_server_and_recovery(
+def test_older_server_case_payload_names_the_server_and_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     server_build = "v0.1.1+launch.209"
@@ -55,7 +55,9 @@ def test_pre_rename_case_payload_names_the_server_and_recovery(
     )
 
     with pytest.raises(qa_case_execution.QaCaseExecutionError) as raised:
-        qa_case_execution.execute_case_context({"executor_id": "worktree_run"})
+        qa_case_execution.execute_case_context(
+            {"method_id": "command", "method_name": "Command"}
+        )
 
     message = str(raised.value)
     assert server_build in message
