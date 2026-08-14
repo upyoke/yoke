@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_leases import release_lease
+from yoke_core.domain.schema_common import _table_exists
 
 
 def release_for_reclaimed_session(
@@ -15,6 +16,8 @@ def release_for_reclaimed_session(
     reason: str = "stale-session-reclaimed",
 ) -> int:
     """Release every active lease held by ``session_id`` without committing."""
+    if not _table_exists(conn, "coordination_leases"):
+        return 0
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     rows = conn.execute(

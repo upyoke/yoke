@@ -65,7 +65,7 @@ class LeaseContention:
             else "Waiting on coordination lease"
         )
         return (
-            f"{lead} {self.lease_key} (project {self.project_id}): held by "
+            f"{lead} {self.lease_key} (project {self.project_id}): already held by "
             f"session {self.holder_session_id} since {self.acquired_at}; "
             f"heartbeat age {_age_label(self.heartbeat_age_seconds)} "
             f"(stale TTL {self.effective_stale_ttl_minutes}m). Human-only "
