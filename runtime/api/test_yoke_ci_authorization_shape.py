@@ -101,6 +101,11 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
     actually requires. Its reuse verdict therefore belongs on its steps, and
     :func:`test_a_matrix_job_carries_the_reuse_verdict_on_its_steps` is where
     that half is enforced.
+
+    A reusable-workflow caller is the same trap under a different name. The
+    required context is ``caller / inner-job``. Skipping the caller reports
+    only the caller id and never the nested name, so the caller stays on the
+    graph and the inner workflow no-ops.
     """
     workflow = _yoke_ci()
     contexts = _required_contexts()
@@ -119,7 +124,9 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
             # An event filter is what would make the check absent rather than
             # skipped; the reuse verdict may gate only a non-matrix job.
             assert "github.event_name" not in condition, context
-            if "strategy" in job and "matrix" in job.get("strategy", {}):
+            if job.get("uses") or (
+                "strategy" in job and "matrix" in job.get("strategy", {})
+            ):
                 assert "skip_suite" not in condition, context
             else:
                 assert (

@@ -308,7 +308,7 @@ jobs:
 
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
-    if: always() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.outputs.skip_suite != 'true'
+    if: always() && needs.repo_contracts.result == 'success'
     uses: ./.github/workflows/browser-runtime-tests.yml
 
   container:
