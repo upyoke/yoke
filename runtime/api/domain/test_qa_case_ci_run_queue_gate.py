@@ -135,6 +135,30 @@ def test_an_entry_run_for_another_sha_falls_back_to_dispatch(wired, monkeypatch)
     assert result["reused_pull_request_run"] is False
 
 
+def test_a_cancelled_entry_run_falls_back_to_dispatch(wired, monkeypatch):
+    """A superseded entry run tested nothing, so it cannot wedge this sha."""
+    checkout, _, _ = wired
+    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
+    monkeypatch.setattr(
+        entry_run, "open_landing_pull_request", lambda *a, **k: "213",
+    )
+    monkeypatch.setattr(
+        entry_run, "await_entry_run",
+        lambda **k: completed_run(LANE_HEAD, "cancelled"),
+    )
+    dispatch = mock.Mock(return_value="42")
+
+    result = _run(
+        checkout, dispatch=dispatch,
+        await_result=lambda **kwargs: (0, "success"),
+    )
+
+    dispatch.assert_called_once()
+    assert result["verdict"] == "pass"
+    assert result["reused_pull_request_run"] is False
+    assert result["verification_tree"]["head_sha"] == LANE_HEAD
+
+
 def test_no_entry_run_at_all_falls_back_to_dispatch(wired, monkeypatch):
     checkout, _, _ = wired
     monkeypatch.setattr(entry_run, "rebase_lane_onto_base", lambda *a, **k: None)
