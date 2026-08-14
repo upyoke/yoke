@@ -110,12 +110,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
     workflow = _yoke_ci()
     contexts = _required_contexts()
 
-    # The browser-runtime context is deliberately absent from the required
-    # set: its job calls a reusable workflow, and a job-level skip leaves the
-    # nested context pending forever instead of reporting skipped (the same
-    # stranding shape as an unexpanded matrix). It returns to the required
-    # set in the same change that moves its reuse verdict onto its steps.
-    assert len(contexts) == 10
+    assert len(contexts) == 11
     for context in contexts:
         matched = _jobs_for_context(workflow, context)
         assert matched, context
