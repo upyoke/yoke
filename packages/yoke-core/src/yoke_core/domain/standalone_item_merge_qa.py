@@ -13,6 +13,10 @@ from yoke_core.domain.qa_terminal_settlement import (
     blocking_requirement_issues,
     requirement_issue_errors,
 )
+from yoke_core.domain.standalone_item_merge_lane import (
+    lane_resolution_error,
+    merge_source_lane,
+)
 
 
 def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
@@ -49,14 +53,14 @@ def preflight(
     item: dict[str, Any], *, item_ref: str, repo_root: Path, branch: str,
 ) -> tuple[str, str]:
     """Return the merging commit and any terminal-QA refusal before landing."""
-    commit_sha = next(
-        (
-            str(lane.get("commit_sha") or "").strip()
-            for lane in item.get("worktrees") or []
-            if str(lane.get("commit_sha") or "").strip()
-        ),
-        "",
-    ) or git.head_of(str(repo_root), branch)
+    source_error = lane_resolution_error(item)
+    if source_error:
+        return "", source_error
+    lane = merge_source_lane(item) or {}
+    commit_sha = (
+        str(lane.get("commit_sha") or "").strip()
+        or git.head_of(str(repo_root), branch)
+    )
     if not commit_sha:
         return "", f"cannot resolve the commit carried by branch {branch!r}"
     requirements = [dict(row) for row in item.get("qa_requirements") or []]
