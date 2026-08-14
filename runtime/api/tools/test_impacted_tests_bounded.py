@@ -107,6 +107,45 @@ def test_bounded_trigger_defers_a_near_total_computable_remainder(
     assert "computable subset selected" in bounded.reason
 
 
+def test_product_cli_change_keeps_boundary_contracts_when_selection_is_deferred(
+    tmp_path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    changed = "packages/yoke-cli/src/yoke_cli/commands/merge_item.py"
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(root, changed, "def merge_item(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS:
+        _write(root, test_path, "def test_product_boundary(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS) <= set(selection.files)
+
+
+def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
+    tmp_path,
+) -> None:
+    root = _tiny_repo(tmp_path)
+    changed = (
+        "packages/yoke-core/src/yoke_core/domain/"
+        "standalone_item_merge_recovery.py"
+    )
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(root, changed, "def recover(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS:
+        _write(root, test_path, "def test_close_out(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS) <= set(
+        selection.files
+    )
+
+
 def test_bounded_selection_leaves_a_bounded_verdict_alone(tmp_path: Path) -> None:
     index = build_import_index(_tiny_repo(tmp_path))
 

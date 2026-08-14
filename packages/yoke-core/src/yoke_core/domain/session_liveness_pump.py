@@ -8,12 +8,11 @@ minutes while the session that started it sits idle waiting, so the sweep
 reclaimed the item claim out from under a run that was still going and the
 finished run could not record its own verdict.
 
-Running the command IS the activity signal that was missing. Every long
-command in Yoke goes through
-:func:`yoke_core.tools._watch_runner.run_watcher`, which ticks this pump
-while it relays the child's output; the pump refreshes the session
-heartbeat — and, through it, the heartbeats of that session's active
-claims — no more often than :data:`HEARTBEAT_INTERVAL_SECONDS`.
+Running the command IS the activity signal that was missing. Watcher loops,
+merge-queue waits, and client-local process adapters all tick this pump while
+work is in flight. The pump refreshes the session heartbeat — and, through it,
+the heartbeats of that session's active claims — no more often than
+:data:`HEARTBEAT_INTERVAL_SECONDS`.
 
 Liveness lasts exactly as long as the process does. Kill the run and the
 refreshes stop, so the session goes stale on the normal schedule rather
@@ -22,8 +21,10 @@ than becoming immortal because something once claimed to be busy.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+import threading
 import time
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
 
 #: How often a running command refreshes its session's heartbeat. Well
 #: inside the shortest stale TTL, so a single dropped refresh is not a
@@ -35,7 +36,9 @@ HEARTBEAT_INTERVAL_SECONDS = 60.0
 def _ambient_session_id() -> str:
     """The session this process belongs to, or empty when it has none."""
     try:
-        from yoke_contracts.session_identity import resolve_ambient_session_id
+        from yoke_core.domain.session_ambient_identity import (
+            resolve_ambient_session_id,
+        )
 
         return str(resolve_ambient_session_id() or "")
     except Exception:  # noqa: BLE001 - no identity is a no-op, never a failure
@@ -79,6 +82,8 @@ class SessionLivenessPump:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._interval = float(interval_seconds)
+        if self._interval <= 0:
+            raise ValueError("interval_seconds must be positive")
         self._clock = clock
         self._session_id = session_id
         self._resolved = session_id is not None
@@ -89,8 +94,8 @@ class SessionLivenessPump:
     def tick(self) -> bool:
         """Refresh the heartbeat when an interval has elapsed, else do nothing.
 
-        Callers tick this once per relayed line, so the common path has to
-        be two float operations and a comparison.
+        Callers tick this at every watcher wake or polling boundary, so the
+        common path has to be two float operations and a comparison.
         """
         now = self._clock()
         if now - self._last_refresh < self._interval:
@@ -100,6 +105,41 @@ class SessionLivenessPump:
         if not session_id:
             return False
         return refresh_session_heartbeat(session_id)
+
+    def wait(
+        self,
+        seconds: float,
+        *,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        """Wait for *seconds* without leaving a heartbeat-sized blind spot."""
+        remaining = max(0.0, float(seconds))
+        while remaining > 0:
+            chunk = min(self._interval, remaining)
+            sleep(chunk)
+            remaining -= chunk
+            self.tick()
+
+    @contextmanager
+    def running(self) -> Iterator[None]:
+        """Refresh in the background for one blocking command scope."""
+        stopped = threading.Event()
+
+        def refresh_until_stopped() -> None:
+            while not stopped.wait(self._interval):
+                self.tick()
+
+        thread = threading.Thread(
+            target=refresh_until_stopped,
+            name="yoke-session-liveness",
+            daemon=True,
+        )
+        thread.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            thread.join()
 
     def _session(self) -> str:
         """Resolve ambient identity once, on the first refresh that is due.

@@ -320,7 +320,9 @@ def test_always_run_tests_exist_in_this_repo():
     required = (
         *impacted_tests.ALWAYS_RUN_TESTS,
         *impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS,
+        *impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS,
         *impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS,
+        *impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS,
         *WORKFLOW_DEFINITION_VALIDATION_TESTS,
     )
     for rel in required:

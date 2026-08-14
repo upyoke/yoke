@@ -33,6 +33,20 @@ SCHEMA_CONVERGE_CONTRACT_TESTS = (
     "runtime/api/cli/test_yoke_schema_converge_command.py",
 )
 
+PRODUCT_CLI_BOUNDARY_TESTS = (
+    "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
+    "runtime/api/cli/test_yoke_product_boundary_hooks.py",
+    "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",
+    "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
+)
+
+PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
+
+STANDALONE_MERGE_CLOSE_OUT_TESTS = (
+    "runtime/api/domain/test_standalone_item_merge_close_out.py",
+    "runtime/api/domain/test_standalone_item_merge_evidence_truth.py",
+)
+
 PATH_CONTRACT_TESTS = (
     (
         frozenset(
@@ -60,23 +74,39 @@ PATH_CONTRACT_TESTS = (
         frozenset({"packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"}),
         SCHEMA_CONVERGE_CONTRACT_TESTS,
     ),
+    (
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/domain/"
+                "standalone_item_merge_cli.py",
+                "packages/yoke-core/src/yoke_core/domain/"
+                "standalone_item_merge_recovery.py",
+            }
+        ),
+        STANDALONE_MERGE_CLOSE_OUT_TESTS,
+    ),
 )
 
 
 def contract_tests_for(changed: Sequence[str]) -> set[str]:
     """Return tests coupled to changed paths outside the import graph."""
     changed_paths = set(changed)
-    return {
+    tests = {
         test
         for paths, tests in PATH_CONTRACT_TESTS
         if paths & changed_paths
         for test in tests
     }
+    if any(path.startswith(PRODUCT_CLI_SOURCE_PREFIX) for path in changed_paths):
+        tests.update(PRODUCT_CLI_BOUNDARY_TESTS)
+    return tests
 
 
 __all__ = [
     "ITEM_WORKTREE_SCHEMA_TESTS",
+    "PRODUCT_CLI_BOUNDARY_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
+    "STANDALONE_MERGE_CLOSE_OUT_TESTS",
     "WORKFLOW_DEFINITION_VALIDATION_TESTS",
     "contract_tests_for",
 ]

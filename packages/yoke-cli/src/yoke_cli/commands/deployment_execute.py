@@ -19,7 +19,6 @@ from yoke_contracts.machine_config.schema import (
     ENV_OVERRIDE,
 )
 
-
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
     "yoke --env CONTROL-PLANE-ENV-db-admin deployment-runs execute RUN-ID "
@@ -64,7 +63,12 @@ def deployment_runs_execute(args: List[str]) -> int:
         return 2
 
     completed = subprocess.run(
-        [sys.executable, "-m", "yoke_core.domain.deploy_pipeline", *args],
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.deploy_pipeline_liveness_cli",
+            *args,
+        ],
         check=False,
     )
     return completed.returncode

@@ -6,6 +6,7 @@ import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
+
 AdapterFn = Callable[[List[str]], int]
 MERGE_ITEM_USAGE = (
     "yoke merge item ITEM --result TEXT --verification TEXT "
