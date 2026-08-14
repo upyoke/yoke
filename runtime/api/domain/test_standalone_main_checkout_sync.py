@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain import standalone_item_merge as merge
+from yoke_core.domain import standalone_item_merge_post_push as post_push
 
 
 def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
@@ -11,9 +12,14 @@ def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
     monkeypatch.setattr(merge.git, "has_remote", lambda *_a: True)
     monkeypatch.setattr(merge, "stamp_merged_at", lambda *_a: None)
     monkeypatch.setattr(merge.receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        post_push, "await_post_push_checks",
+        lambda *_a: post_push.PostPushVerdict("no_checks"),
+    )
+    monkeypatch.setattr(post_push, "prune_landed_lane", lambda **_k: ())
     calls: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        merge, "fast_forward_main_checkout",
+        post_push, "fast_forward_main_checkout",
         lambda root, target: calls.append((root, target)) or "",
     )
 

@@ -122,6 +122,14 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
         "1800",
         "seconds to wait for CI to conclude before the merge gives up",
     ),
+    "standalone_post_push_ci_discovery_timeout": (
+        "90",
+        "seconds to discover checks after a queue-less standalone push",
+    ),
+    "standalone_post_push_ci_timeout": (
+        "900",
+        "seconds to wait for queue-less standalone push checks to conclude",
+    ),
     "merge_lock_ttl_minutes": (
         "30",
         "minutes before a held merge lock is treated as abandoned",

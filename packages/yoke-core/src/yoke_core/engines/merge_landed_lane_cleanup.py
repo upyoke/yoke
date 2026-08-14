@@ -6,14 +6,12 @@ they live — so they retire together. Leaving any one behind strands the next
 reader that resolves a lane by its recorded path, and leaving all of them
 behind is what an operator eventually sweeps by hand.
 
-Two merge boundaries reach this. The local engine removes the directory it
-merged from inline, while it still holds the context, and calls in here only
-for the row. A queue landing has no such inline step: the merge happens on
-GitHub, and the process watching it holds the branch name and nothing else.
-So it prunes the whole lane from here, proving the landing against a freshly
-fetched ``origin/<target>`` first — which is the same proof the local engine
-verifies its own merge with, and the only one that holds for a merge commit
-this checkout never created.
+Two merge boundaries reach this. Queue-less standalone merges defer cleanup
+until the pushed commit's checks conclude, while queue landings merge on
+GitHub and have no inline cleanup step. Both prune the whole lane here. A
+remote-backed lane proves the landing against a freshly fetched
+``origin/<target>``; a local-only repository proves it against its local
+target branch.
 
 Every step fails toward preserving. An unmerged branch, a dirty worktree, an
 ambiguous remote, or a refused deletion leaves the lane in place with the
@@ -146,11 +144,14 @@ def prune_landed_lane(
     """
     git = run_git or _runtime_git()
     say = emit or _runtime_emit()
-    base = f"origin/{target}"
+    remotes = git(["remote"], cwd=repo_root, capture=True)
+    has_remote = remotes.returncode == 0 and bool(remotes.stdout.strip())
+    base = f"origin/{target}" if has_remote else target
 
-    fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
-    if fetched.returncode != 0:
-        return (f"lane {branch} preserved: could not refresh {base}",)
+    if has_remote:
+        fetched = git(["fetch", "origin", target], cwd=repo_root, capture=True)
+        if fetched.returncode != 0:
+            return (f"lane {branch} preserved: could not refresh {base}",)
     landed = git(
         ["merge-base", "--is-ancestor", branch, base],
         cwd=repo_root,
@@ -159,18 +160,19 @@ def prune_landed_lane(
     if landed.returncode != 0:
         return (f"lane {branch} preserved: branch is not merged into {base}",)
 
-    remote = delete_remote_branch_if_merged(
-        run_git=lambda command: git(command, cwd=repo_root, capture=True),
-        branch=branch,
-        target_branch=target,
-    )
-    if remote.status == "deleted":
-        say(f"Deleted merged remote branch: origin/{branch}")
-    if not remote.cleanup_complete:
-        return (
-            f"lane {branch} preserved so remote cleanup can be retried: "
-            f"{remote.reason}",
+    if has_remote:
+        remote = delete_remote_branch_if_merged(
+            run_git=lambda command: git(command, cwd=repo_root, capture=True),
+            branch=branch,
+            target_branch=target,
         )
+        if remote.status == "deleted":
+            say(f"Deleted merged remote branch: origin/{branch}")
+        if not remote.cleanup_complete:
+            return (
+                f"lane {branch} preserved so remote cleanup can be retried: "
+                f"{remote.reason}",
+            )
 
     worktree_path = _lane_worktree(git, repo_root, branch)
     if worktree_path is not None:

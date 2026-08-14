@@ -189,9 +189,11 @@ def do_local_merge(ctx: MergeContext) -> int:
     # Ensure on target branch regardless of regen outcome
     _ensure_target_branch(ctx)
 
-    # Lane removal last: everything above still reads from the worktree, and
-    # so does the caller's close-out. See _remove_lane.
-    _remove_lane(ctx)
+    # A standalone boundary still has to publish and observe the pushed
+    # commit's checks. It retires the lane only after that proof; red or
+    # pending checks deliberately keep the lane available for a follow-up.
+    if not ctx.args.standalone:
+        _remove_lane(ctx)
 
     _print("")
     _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
