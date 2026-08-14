@@ -18,7 +18,11 @@ merge diffs the lane against the base it landed on; a queue landing has no
 such diff here, because the merge is on GitHub and the head the queue merged
 need not be the one this checkout holds. So the files come from the pull
 request, which is what GitHub merged. An item whose evidence record carries
-no touched files cannot close out either.
+no touched files cannot close out either, so an unreadable pull request is
+answered by the second source for the same fact rather than by an empty set:
+the first-parent diff of the merge that carried the lane head into the base
+branch. GitHub being unreachable is not a reason to strand an item behind a
+merge that has already landed.
 
 Retiring the lane is part of the same bookkeeping. The local engine removes
 the worktree it merged from as its last step; a queue landing has no such step
@@ -35,6 +39,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.merge_queue_batch_receipt import (
     BatchReceipt,
@@ -56,6 +61,24 @@ class QueueCloseOut:
     touched_files: tuple[str, ...] = field(default=())
     batch: Optional[BatchReceipt] = None
     warnings: tuple[str, ...] = field(default=())
+
+
+def _files_from_merge_commit(
+    ctx: MergeContext, commit_sha: str
+) -> tuple[str, ...]:
+    """What the merge carrying ``commit_sha`` brought into the base branch.
+
+    The second source for the same fact, and the one that survives GitHub
+    being unreadable. An evidence record carrying no touched files is refused,
+    so a landing whose pull-request read fails would otherwise leave the item
+    stranded behind a merge that already happened — the one outcome no retry
+    undoes. It reads ``origin/<target>`` rather than the local base branch,
+    because the merge happened on GitHub and this checkout need not have it.
+    """
+    git.fetch_target(ctx.repo_root, ctx.args.target)
+    return receipts.touched_files_from_merge_commit(
+        ctx.repo_root, f"origin/{ctx.args.target}", commit_sha,
+    )
 
 
 def record_landing(
@@ -91,6 +114,13 @@ def record_landing(
             f"pull request {pr_num} reports no changed files"
         )
     touched_files = tuple(touched or ())
+    if not touched_files and ctx.repo_root and commit_sha:
+        touched_files = _files_from_merge_commit(ctx, commit_sha)
+        if touched_files:
+            warnings.append(
+                f"touched files read from the merge that landed {commit_sha[:12]} "
+                f"rather than from pull request {pr_num}"
+            )
 
     receipt_note = receipts.record(
         item_id,

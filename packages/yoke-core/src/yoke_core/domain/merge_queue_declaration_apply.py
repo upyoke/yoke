@@ -128,6 +128,15 @@ def apply_declaration(
 
 
 def _branch_from_ruleset(ruleset: Mapping[str, Any]) -> str:
+    """The branch a ruleset's ref condition names.
+
+    The include pattern is a full ref, so the branch is everything past the
+    ``refs/heads/`` boundary. Taking the last slash-separated segment instead
+    truncates any branch whose own name contains a slash, and the rules then
+    read for a branch that does not exist. Patterns GitHub expresses some
+    other way (``~DEFAULT_BRANCH`` and friends) carry no such prefix and pass
+    through as written.
+    """
     conditions = ruleset.get("conditions") or {}
     ref_name = (
         conditions.get("ref_name") if isinstance(conditions, dict) else None
@@ -135,7 +144,7 @@ def _branch_from_ruleset(ruleset: Mapping[str, Any]) -> str:
     if isinstance(ref_name, dict):
         includes = ref_name.get("include") or []
         if includes and isinstance(includes[0], str):
-            return includes[0].rsplit("/", 1)[-1]
+            return includes[0].removeprefix("refs/heads/")
     return "main"
 
 

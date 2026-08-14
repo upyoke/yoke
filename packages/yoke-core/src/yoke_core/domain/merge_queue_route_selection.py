@@ -18,6 +18,8 @@ from typing import Any, Callable, Optional
 from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.merge_queue_route import land_item_through_merge_queue
 from yoke_core.domain.projects_seed_ci_workflow import (
@@ -75,6 +77,44 @@ def project_declares_merge_queue(
         return False, "capability probe returned unparseable rows"
 
 
+def queue_lane_head(
+    *,
+    item_id: int,
+    branch: str,
+    target: str,
+    repo_root: str,
+    project: str,
+    commit_sha: str,
+) -> tuple[str, str]:
+    """The commit a queue landing is answerable for; the reason it has none.
+
+    The local engine derives this for itself and refuses without it. The queue
+    route needs the same answer *before* it reaches a pull request, because
+    the lane head is what declines convergence on a pull request that merged
+    an older head, and what the landing's receipt names as the commit that
+    landed. Handing the queue an empty one disables that guard and records a
+    receipt naming no commit at all.
+
+    Strongest answer first: a head the control plane recorded, then the branch
+    tip the local engine falls back to, then the receipt — which after a
+    landing that already pruned the lane is the only surviving record of what
+    that lane carried, and is what lets a re-entered landing converge.
+    """
+    if commit_sha:
+        return commit_sha, ""
+    head = git.head_of(repo_root, branch)
+    if head:
+        return head, ""
+    recorded = receipts.load(item_id, branch, target, project=project)
+    if recorded is not None and recorded.commit_sha:
+        return recorded.commit_sha, ""
+    return "", (
+        f"queue landing for branch '{branch}' has no lane head: the control "
+        f"plane recorded none, '{branch}' does not resolve in {repo_root}, "
+        f"and no merge receipt records it landing on '{target}'"
+    )
+
+
 def route_standalone_landing(
     *,
     item_id: int,
@@ -120,6 +160,18 @@ def route_standalone_landing(
             project=project,
             local_merge=local_merge,
         )
+    lane_head, head_error = queue_lane_head(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        project=project,
+        commit_sha=commit_sha,
+    )
+    if head_error:
+        return StandaloneMergeOutcome(
+            ok=False, exit_code=1, already_merged=False, error=head_error,
+        )
     outcome = land_item_through_merge_queue(
         # The repository root rides along because the landing has a lane to
         # retire on this machine once the queue merges it on GitHub.
@@ -130,7 +182,7 @@ def route_standalone_landing(
         ),
         item_id=item_id,
         item_ref=item_ref or branch,
-        commit_sha=commit_sha,
+        commit_sha=lane_head,
         target=target,
         resume_command=resume_command,
         dispatch=dispatch,
@@ -154,4 +206,8 @@ def route_standalone_landing(
     )
 
 
-__all__ = ["project_declares_merge_queue", "route_standalone_landing"]
+__all__ = [
+    "project_declares_merge_queue",
+    "queue_lane_head",
+    "route_standalone_landing",
+]

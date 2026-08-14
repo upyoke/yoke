@@ -144,18 +144,19 @@ def test_read_train_run_matches_the_queue_ref_marker(monkeypatch):
     assert run.conclusion == "failure"
     assert run.head_sha == "b" * 40
     assert run.url == "https://runs/42"
-    assert run.matched_by_marker
 
 
-def test_read_train_run_recency_fallback_is_named(monkeypatch):
+def test_read_train_run_never_substitutes_another_trains_run(monkeypatch):
+    """Another train's green is not this pull request's, at any recency."""
     _wire_runs(monkeypatch, [
         {"head_branch": "gh-readonly-queue/main/pr-7-abc",
          "conclusion": "success", "status": "completed",
          "head_sha": "a" * 40, "html_url": "https://runs/7"},
     ])
     run, note = queue_mod.read_train_run(_ctx(), "42")
-    assert not run.matched_by_marker
-    assert "recency" in note
+    assert run is None
+    assert "no merge_group workflow run identified" in note
+    assert "https://runs/7" not in note
 
 
 def test_read_train_run_without_any_run_is_named(monkeypatch):

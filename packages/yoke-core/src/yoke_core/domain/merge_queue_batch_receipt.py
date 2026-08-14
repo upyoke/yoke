@@ -59,10 +59,12 @@ def observe_batch(
 
     ``member_snapshot`` is the queue membership observed at entry time
     (item refs by head branch); it rides into the receipt so the batch
-    stays attributable even when the run match is inexact. Returns
+    stays attributable even when no run is identified. Returns
     ``(receipt, warning)`` — a receipt with an empty ``head_sha`` plus a
-    warning when the run could not be resolved; observation never blocks
-    a landed merge.
+    warning when the run could not be identified; observation never blocks
+    a landed merge. An empty combined head is the honest reading there: the
+    only run this receipt may name is the one carrying the pull request's own
+    queue ref marker.
     """
     auth, auth_err = resolve_auth_detail(ctx, PR_READ)
     if auth_err or auth is None:
