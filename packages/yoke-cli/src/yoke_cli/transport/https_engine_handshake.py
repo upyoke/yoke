@@ -16,6 +16,7 @@ import sys
 from dataclasses import dataclass
 from typing import Optional
 
+from yoke_cli.transport import control_plane_payload, source_build_skew
 from yoke_cli.transport.https_response_policy import redact_text
 from yoke_contracts.engine_version import (
     ENGINE_VERSION_HEADER,
@@ -47,7 +48,20 @@ def observe_server_version(
     raw_server_version = _header_engine_version(headers)
     if handshake is not None:
         handshake.engine_version = raw_server_version
-    _warn_on_engine_version_skew(raw_server_version, sensitive_values)
+    local_version = local_handshake_version() if raw_server_version else ""
+    source_comparison = (
+        _source_checkout_comparison(raw_server_version)
+        if raw_server_version and not local_version
+        else None
+    )
+    server_build = f"v{raw_server_version}" if raw_server_version else ""
+    control_plane_payload.observe_server_build(server_build, source_comparison)
+    _warn_on_engine_version_skew(
+        raw_server_version,
+        sensitive_values,
+        local_version=local_version,
+        source_comparison=source_comparison,
+    )
 
 
 def _header_engine_version(headers) -> str:
@@ -61,19 +75,25 @@ def _header_engine_version(headers) -> str:
 
 
 def _warn_on_engine_version_skew(
-    raw_server_version: str, sensitive_values: tuple[str, ...] = ()
+    raw_server_version: str,
+    sensitive_values: tuple[str, ...] = (),
+    *,
+    local_version: str,
+    source_comparison: Optional[source_build_skew.BuildComparison] = None,
 ) -> None:
     """Print one stderr warning per process when server/client versions skew."""
     global _skew_warned
     if _skew_warned or not raw_server_version:
         return
-    local_version = local_handshake_version()
     if not local_version:
         # A source checkout has no distribution version, which used to end
         # the comparison here. That silenced it in the one environment where
         # drift is continuous rather than occasional — a checkout moves per
         # commit while a release moves per tag. Ask the axis that moves.
-        _warn_on_source_checkout_skew(raw_server_version, sensitive_values)
+        _warn_on_source_checkout_skew(
+            source_comparison,
+            sensitive_values,
+        )
         return
     if local_version == raw_server_version:
         return
@@ -88,8 +108,20 @@ def _warn_on_engine_version_skew(
     )
 
 
+def _source_checkout_comparison(
+    raw_server_version: str,
+) -> source_build_skew.BuildComparison:
+    """Reuse the banner's git comparison for payload compatibility reads."""
+    from pathlib import Path
+
+    return source_build_skew.compare_to_server_build(
+        str(Path.cwd()), f"v{raw_server_version}"
+    )
+
+
 def _warn_on_source_checkout_skew(
-    raw_server_version: str, sensitive_values: tuple[str, ...] = ()
+    comparison: source_build_skew.BuildComparison,
+    sensitive_values: tuple[str, ...] = (),
 ) -> None:
     """Compare a source checkout's HEAD against the server's release commit.
 
@@ -104,12 +136,7 @@ def _warn_on_source_checkout_skew(
     global _skew_warned
     from pathlib import Path
 
-    from yoke_cli.transport import source_build_skew
-
     checkout = str(Path.cwd())
-    comparison = source_build_skew.compare_to_server_build(
-        checkout, f"v{raw_server_version}"
-    )
     origin = source_build_skew.compare_main_to_origin(checkout)
     details = []
     if comparison.differs:

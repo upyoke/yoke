@@ -86,15 +86,18 @@ FALLBACK_RULES = tuple(rule for rule, _paths, _why in _PATH_RULES) + (
     "effectively_full_selection",
 )
 
-#: Fast cross-cutting contract tests appended to every impacted selection.
-#: They exercise CLI registry, operation inventory, adapter parity, and
-#: Atlas currency end-to-end — where a break hides from reachability yet
-#: fails the sweep.
+#: Repo-wide content contracts cannot be discovered through imports.
+REPO_CLEANLINESS_TESTS = (
+    "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
+)
+
+#: Cross-cutting contract tests appended to every impacted selection.
 ALWAYS_RUN_TESTS = (
     "runtime/api/cli/test_adapter_inventory_usage_contract.py",
     "runtime/api/cli/test_yoke_operation_inventory.py",
     "runtime/api/test_service_client_structured_api_adapter.py",
     "runtime/api/tools/test_atlas_currency_contract.py",
+    *REPO_CLEANLINESS_TESTS,
 )
 
 
@@ -322,6 +325,7 @@ __all__ = [
     "ImportIndex",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "MIN_EFFECTIVELY_FULL_FILE_UNIVERSE",
+    "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "Selection",
     "SHARED_TEST_FIXTURE_PATHS",
