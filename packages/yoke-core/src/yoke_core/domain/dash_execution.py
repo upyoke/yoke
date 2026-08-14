@@ -9,6 +9,13 @@ from typing import Any, Mapping, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.item_activity import touch_item_activity
+from yoke_core.domain.progress_log import (
+    PROGRESS_LOG_ORDERING,
+    PROGRESS_LOG_SECTION,
+    format_entry,
+    join_entry,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 DASH_EVIDENCE_SECTION = "Execution Evidence"
@@ -54,12 +61,12 @@ def _require_dash(conn: Any, item_id: int) -> dict[str, Any]:
     return row
 
 
-def _upsert_json_section(
+def _upsert_section(
     conn: Any,
     *,
     item_id: int,
     section: str,
-    payload: Mapping[str, Any],
+    content: str,
     ordering: int,
 ) -> None:
     marker = _p(conn)
@@ -74,14 +81,64 @@ def _upsert_json_section(
         (
             int(item_id),
             section,
-            json.dumps(dict(payload), sort_keys=True, indent=2),
+            content,
             ordering,
             "direct-workflow",
             now,
             now,
         ),
     )
-    conn.commit()
+
+
+def _upsert_json_section(
+    conn: Any,
+    *,
+    item_id: int,
+    section: str,
+    payload: Mapping[str, Any],
+    ordering: int,
+) -> None:
+    _upsert_section(
+        conn,
+        item_id=item_id,
+        section=section,
+        content=json.dumps(dict(payload), sort_keys=True, indent=2),
+        ordering=ordering,
+    )
+
+
+def _append_close_out_progress(
+    conn: Any,
+    *,
+    item_id: int,
+    result_summary: str,
+    merge_sha: str,
+    recorded_at: str,
+) -> None:
+    """Append the landed outcome once, before the item becomes terminal."""
+    marker = f"Merge SHA: `{merge_sha}`"
+    placeholder = _p(conn)
+    row = conn.execute(
+        "SELECT content FROM item_sections "
+        f"WHERE item_id = {placeholder} AND section_name = {placeholder}",
+        (int(item_id), PROGRESS_LOG_SECTION),
+    ).fetchone()
+    existing = str(row[0] or "") if row is not None else ""
+    if marker in existing:
+        return
+    entry = format_entry(
+        timestamp=recorded_at,
+        headline="Landed",
+        body=f"{result_summary}\n\n{marker}",
+    )
+    _upsert_section(
+        conn,
+        item_id=item_id,
+        section=PROGRESS_LOG_SECTION,
+        content=join_entry(existing, entry),
+        ordering=PROGRESS_LOG_ORDERING,
+    )
+    touch_item_activity(conn, item_id=item_id)
 
 
 def record_dash_evidence(
@@ -140,6 +197,7 @@ def record_dash_evidence(
         str(key): str(value).strip().casefold()
         for key, value in dict(posture_checks or {}).items()
     }
+    recorded_at = iso8601_now()
     payload = {
         "schema": 1,
         "item_id": int(item_id),
@@ -155,7 +213,7 @@ def record_dash_evidence(
             "root": clean_tree_root,
             "head_sha": clean_tree_head,
         },
-        "recorded_at": iso8601_now(),
+        "recorded_at": recorded_at,
     }
     _upsert_json_section(
         conn,
@@ -164,6 +222,14 @@ def record_dash_evidence(
         payload=payload,
         ordering=190,
     )
+    _append_close_out_progress(
+        conn,
+        item_id=item_id,
+        result_summary=clean_result,
+        merge_sha=clean_merge,
+        recorded_at=recorded_at,
+    )
+    conn.commit()
     return payload
 
 
@@ -243,6 +309,7 @@ def record_dash_escalation(
         payload=payload,
         ordering=190,
     )
+    conn.commit()
     return payload
 
 
