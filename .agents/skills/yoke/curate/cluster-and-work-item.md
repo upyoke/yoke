@@ -199,6 +199,9 @@ yoke ouroboros entry mark-reviewed {id}
 
 Entries where the operator chose `defer` should not be marked reviewed. A promoted entry is already marked reviewed by its promotion.
 
+The entry's own project authorizes the write, so an id from another
+project is refused rather than closed out under this checkout's project.
+
 ## 6. Archive Reviewed Entries
 
 After marking entries as reviewed, archive all reviewed-but-not-yet-archived entries:
@@ -207,4 +210,7 @@ After marking entries as reviewed, archive all reviewed-but-not-yet-archived ent
 yoke ouroboros entry mark-archived --all-reviewed
 ```
 
-The command returns the count of archived entries.
+The command returns the count of archived entries. It archives this
+checkout's project (pass `--project P` to name another), and refuses to run
+with no project rather than archiving every project's queue. Add
+`--include-unattributed` to also cover entries that belong to no project.

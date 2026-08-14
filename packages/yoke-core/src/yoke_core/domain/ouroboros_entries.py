@@ -16,6 +16,12 @@ from yoke_core.domain.field_note_dash_promotion import (
 from yoke_core.domain.ouroboros_entry_corrections import (
     correction_links_by_entry_ids,
 )
+from yoke_core.domain.ouroboros_entry_write_scope import (
+    project_scope_predicate,
+    require_bulk_scope_project_id,
+    require_entry_writable_by_project,
+    resolve_scope_project_id,
+)
 from yoke_core.domain.project_identity import resolve_project_id
 
 __all__ = [
@@ -261,18 +267,26 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
     return entry
 
 
-def cmd_mark_reviewed(conn, entry_id: int) -> str:
-    p = _p(conn)
-    exists = query_scalar(
-        conn, f"SELECT COUNT(*) FROM ouroboros_entries WHERE id={p}", (entry_id,)
+def _entry_write_where(conn, entry_id: int, project: Optional[str]) -> tuple:
+    """Build the ``WHERE`` confining a write to one named entry."""
+    project_id = resolve_scope_project_id(conn, project)
+    require_entry_writable_by_project(conn, entry_id, project_id)
+    scope_sql, scope_params = project_scope_predicate(
+        conn, project_id, include_unattributed=True,
     )
-    if not exists:
-        raise LookupError(f"entry {entry_id} not found")
+    where = f"id={_p(conn)}"
+    if scope_sql:
+        where += f" AND {scope_sql}"
+    return where, (entry_id, *scope_params)
 
+
+def cmd_mark_reviewed(conn, entry_id: int, project: Optional[str] = None) -> str:
+    p = _p(conn)
+    where, where_params = _entry_write_where(conn, entry_id, project)
     ts = iso8601_now()
     conn.execute(
-        f"UPDATE ouroboros_entries SET reviewed_at={p} WHERE id={p}",
-        (ts, entry_id),
+        f"UPDATE ouroboros_entries SET reviewed_at={p} WHERE {where}",
+        (ts, *where_params),
     )
     conn.commit()
     return f"Marked entry {entry_id} as reviewed at {ts}"
@@ -283,39 +297,37 @@ def cmd_mark_archived(
     entry_id: Optional[int] = None,
     all_reviewed: bool = False,
     project: Optional[str] = None,
+    include_unattributed: bool = False,
 ) -> str:
     p = _p(conn)
     ts = iso8601_now()
     if all_reviewed:
-        where = "reviewed_at IS NOT NULL AND archived_at IS NULL"
-        params: list[object] = []
-        if project:
-            where += f" AND project_id={p}"
-            params.append(resolve_project_id(conn, project))
+        scope_sql, scope_params = project_scope_predicate(
+            conn,
+            require_bulk_scope_project_id(conn, project),
+            include_unattributed=include_unattributed,
+        )
+        where = f"{scope_sql} AND reviewed_at IS NOT NULL AND archived_at IS NULL"
         count = query_scalar(
             conn,
             f"SELECT COUNT(*) FROM ouroboros_entries WHERE {where}",
-            tuple(params),
+            scope_params,
         )
         if not count:
             return "0"
         conn.execute(
             f"UPDATE ouroboros_entries SET archived_at={p} WHERE {where}",
-            (ts, *params),
+            (ts, *scope_params),
         )
         conn.commit()
         return str(count)
 
     if entry_id is None:
         raise ValueError("entry ID required")
-    exists = query_scalar(
-        conn, f"SELECT COUNT(*) FROM ouroboros_entries WHERE id={p}", (entry_id,)
-    )
-    if not exists:
-        raise LookupError(f"entry {entry_id} not found")
+    where, where_params = _entry_write_where(conn, entry_id, project)
     conn.execute(
-        f"UPDATE ouroboros_entries SET archived_at={p} WHERE id={p}",
-        (ts, entry_id),
+        f"UPDATE ouroboros_entries SET archived_at={p} WHERE {where}",
+        (ts, *where_params),
     )
     conn.commit()
     return "1"

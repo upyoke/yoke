@@ -38,9 +38,28 @@ Subcommands:
   insert-entry --body-stdin <timestamp> <agent> <context> <category>
   insert-entry --agent <a> --category <c> [--context <x>] [--timestamp <t>] [--project <p>] --observation <o>
   list-entries [--unreviewed] [--project <p>]
-  mark-reviewed <id>
-  mark-archived [--all-reviewed | <id>]
+  mark-reviewed <id> [--project <p>]
+  mark-archived [--all-reviewed | <id>] [--project <p>] [--include-unattributed]
 """
+
+
+def _split_scope_flags(rest: List[str]) -> tuple[List[str], Optional[str], bool]:
+    """Split project-scope flags out of a subcommand's remaining arguments."""
+    positional: List[str] = []
+    project: Optional[str] = None
+    include_unattributed = False
+    i = 0
+    while i < len(rest):
+        if rest[i] == "--project" and i + 1 < len(rest):
+            project = rest[i + 1]
+            i += 2
+            continue
+        if rest[i] == "--include-unattributed":
+            include_unattributed = True
+        else:
+            positional.append(rest[i])
+        i += 1
+    return positional, project, include_unattributed
 
 
 def _cli_error(msg: str, code: int = 1) -> None:
@@ -175,29 +194,36 @@ def main(argv: Optional[List[str]] = None) -> None:
             _handle_insert_entry(conn, rest)
 
         elif subcmd == "list-entries":
-            unreviewed = "--unreviewed" in rest
-            project = None
-            i = 0
-            while i < len(rest):
-                if rest[i] == "--project" and i + 1 < len(rest):
-                    project = rest[i + 1]
-                    i += 2
-                else:
-                    i += 1
-            result = cmd_list_entries(conn, unreviewed, project)
+            positional, project, _ = _split_scope_flags(rest)
+            result = cmd_list_entries(conn, "--unreviewed" in positional, project)
             if result:
                 print(result)
 
         elif subcmd == "mark-reviewed":
-            if not rest:
-                _cli_usage_error("Usage: ouroboros mark-reviewed <id>")
-            print(cmd_mark_reviewed(conn, int(rest[0])))
+            positional, project, _ = _split_scope_flags(rest)
+            if not positional:
+                _cli_usage_error("Usage: ouroboros mark-reviewed <id> [--project <p>]")
+            print(cmd_mark_reviewed(conn, int(positional[0]), project))
 
         elif subcmd == "mark-archived":
-            if rest and rest[0] == "--all-reviewed":
-                print(cmd_mark_archived(conn, all_reviewed=True))
-            elif rest:
-                print(cmd_mark_archived(conn, entry_id=int(rest[0])))
+            positional, project, unattributed = _split_scope_flags(rest)
+            if positional and positional[0] == "--all-reviewed":
+                print(
+                    cmd_mark_archived(
+                        conn,
+                        all_reviewed=True,
+                        project=project,
+                        include_unattributed=unattributed,
+                    )
+                )
+            elif positional:
+                print(
+                    cmd_mark_archived(
+                        conn,
+                        entry_id=int(positional[0]),
+                        project=project,
+                    )
+                )
             else:
                 _cli_usage_error("Usage: ouroboros mark-archived [--all-reviewed | <id>]")
 

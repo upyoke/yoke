@@ -26,12 +26,22 @@ OUROBOROS_ENTRY_INSERT_USAGE = (
 OUROBOROS_ENTRY_MARK_REVIEWED_USAGE = (
     "yoke ouroboros entry mark-reviewed "
     "(ENTRY_ID | --before YYYY-MM-DD | --field-notes-before YYYY-MM-DD) "
-    "[--limit N] "
-    "[--session-id S] [--json]"
+    "[--limit N] [--include-unattributed] "
+    "[--project P] [--session-id S] [--json]"
 )
 OUROBOROS_ENTRY_MARK_ARCHIVED_USAGE = (
     "yoke ouroboros entry mark-archived (--all-reviewed | ENTRY_ID) "
-    "[--project P] [--session-id S] [--json]"
+    "[--include-unattributed] [--project P] [--session-id S] [--json]"
+)
+# A cutoff or all-reviewed selector always runs against one named project;
+# without one it would sweep every project's queue in a single call.
+_BULK_PROJECT_REQUIRED = (
+    "project context required for a bulk selector: pass --project P, "
+    "set YOKE_PROJECT, or run from a registered checkout"
+)
+_INCLUDE_UNATTRIBUTED_HELP = (
+    "Also cover entries that belong to no project. They are left alone by "
+    "default so one project's run never sweeps the universe-wide backlog."
 )
 __all__ = [
     "ouroboros_entry_insert",
@@ -111,17 +121,26 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
     parser.add_argument("entry_id", nargs="?", type=int)
     parser.add_argument(
         "--before",
-        help="Review unreviewed entries in any category created before this ISO date.",
+        help=(
+            "Review this project's unreviewed entries in any category "
+            "created before this ISO date."
+        ),
     )
     parser.add_argument(
         "--field-notes-before",
-        help="Review unreviewed field-notes created before this ISO date.",
+        help="Review this project's unreviewed field-notes created before this date.",
     )
     parser.add_argument(
         "--limit",
         type=int,
         help="Maximum entries to review in this bounded call.",
     )
+    parser.add_argument(
+        "--include-unattributed",
+        action="store_true",
+        help=_INCLUDE_UNATTRIBUTED_HELP,
+    )
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -138,6 +157,11 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
         )
     if parsed.entry_id is not None and parsed.limit is not None:
         return usage_error("--limit requires --before or --field-notes-before")
+    if parsed.entry_id is not None and parsed.include_unattributed:
+        return usage_error(
+            "--include-unattributed requires --before or --field-notes-before; "
+            "an entry id already names the one entry to review"
+        )
 
     payload: Dict[str, Any] = {}
     if parsed.entry_id is not None:
@@ -150,6 +174,16 @@ def ouroboros_entry_mark_reviewed(args: List[str]) -> int:
         payload["field_notes_before"] = parsed.field_notes_before
         if parsed.limit is not None:
             payload["limit"] = parsed.limit
+    if parsed.include_unattributed:
+        payload["include_unattributed"] = True
+    # The entry row is the write authority; this project only confirms it,
+    # and supplies authority for an entry that belongs to no project. A bulk
+    # selector has no row to read, so it must be named.
+    project = client_project_context(parsed.project)
+    if project:
+        payload["project"] = project
+    elif parsed.entry_id is None:
+        return usage_error(_BULK_PROJECT_REQUIRED)
 
     def _human_writer(response, stdout, stderr) -> None:
         print((response.result or {}).get("message", ""), file=stdout)
@@ -171,6 +205,11 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
     )
     parser.add_argument("entry_id", nargs="?", type=int)
     parser.add_argument("--all-reviewed", action="store_true")
+    parser.add_argument(
+        "--include-unattributed",
+        action="store_true",
+        help=_INCLUDE_UNATTRIBUTED_HELP,
+    )
     add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -185,20 +224,24 @@ def ouroboros_entry_mark_archived(args: List[str]) -> int:
         return usage_error("pass either --all-reviewed or ENTRY_ID, not both")
     if not parsed.all_reviewed and parsed.entry_id is None:
         return usage_error("pass --all-reviewed or ENTRY_ID")
+    if parsed.include_unattributed and not parsed.all_reviewed:
+        return usage_error(
+            "--include-unattributed requires --all-reviewed; an entry id "
+            "already names the one entry to archive"
+        )
     payload = {"all_reviewed": bool(parsed.all_reviewed)}
     if parsed.entry_id is not None:
         payload["entry_id"] = parsed.entry_id
-    # Project-scoped authz needs a named project on --all-reviewed (no
-    # entry row to fall back to). Prefer --project, else checkout context.
-    # Single-id archive may omit it and resolve from the entry row.
+    if parsed.include_unattributed:
+        payload["include_unattributed"] = True
+    # The entry row is the write authority; this project only confirms it,
+    # and supplies authority for an entry that belongs to no project. A bulk
+    # selector has no row to read, so it must be named.
     project = client_project_context(parsed.project)
     if project:
         payload["project"] = project
     elif parsed.all_reviewed:
-        return usage_error(
-            "project context required for --all-reviewed: pass --project P, "
-            "set YOKE_PROJECT, or run from a registered checkout"
-        )
+        return usage_error(_BULK_PROJECT_REQUIRED)
 
     def _human_writer(response, stdout, stderr) -> None:
         print((response.result or {}).get("message", ""), file=stdout)

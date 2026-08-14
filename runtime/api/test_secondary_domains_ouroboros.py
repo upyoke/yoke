@@ -42,11 +42,15 @@ class TestOuroboros:
             cmd_mark_archived,
             cmd_mark_reviewed,
         )
-        r1 = cmd_insert_entry(test_db, "t1", "a", None, "cat", "body-one")
-        r2 = cmd_insert_entry(test_db, "t2", "a", None, "cat", "body-two")
+        r1 = cmd_insert_entry(
+            test_db, "t1", "a", None, "cat", "body-one", project="yoke"
+        )
+        r2 = cmd_insert_entry(
+            test_db, "t2", "a", None, "cat", "body-two", project="yoke"
+        )
         cmd_mark_reviewed(test_db, int(r1))
         cmd_mark_reviewed(test_db, int(r2))
-        result = cmd_mark_archived(test_db, all_reviewed=True)
+        result = cmd_mark_archived(test_db, all_reviewed=True, project="yoke")
         assert result == "2"
 
     def test_mark_archived_all_reviewed_scopes_to_project(self, test_db):

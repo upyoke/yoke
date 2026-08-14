@@ -84,8 +84,9 @@ _BY_ID: dict[str, AuthzSpec] = {
     # The org identity card (slug/name/created_at) is instance identity, not
     # tenant content — readable by any authenticated actor.
     "organizations.get": AuthzSpec(ACTOR_SESSION, None),
-    # Curate close-out writes the universe-wide learning queue.
-    "ouroboros.entry.mark_reviewed": AuthzSpec(ACTOR_SESSION, None),
+    # Note: ouroboros.entry.* writes are deliberately absent here. Review and
+    # archive mutate one project's queue, so they take the PROJECT scope
+    # permission_key_for assigns; a session scope would expose every project.
     # Any authenticated session may refresh this deterministic server-owned
     # relationship map after rendering local agent adapters. No caller-authored
     # path or value crosses the boundary.
