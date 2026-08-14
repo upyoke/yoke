@@ -133,6 +133,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
         "_resolve_checkout",
         lambda item, target: (Path("/repo"), "main"),
     )
+    monkeypatch.setattr(recovery, "branch_needs_receipt", lambda *_args: False)
     monkeypatch.setattr(
         merge_cli,
         "qa_preflight",
