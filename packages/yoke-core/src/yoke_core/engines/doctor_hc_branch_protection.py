@@ -126,6 +126,8 @@ def context_matches_job(context: str, job_names: Sequence[str]) -> bool:
     """True when a required context matches a workflow job name or matrix base."""
     if context in job_names:
         return True
+    if " / " in context:
+        return all(name in job_names for name in context.split(" / "))
     if " (" in context:
         return context.split(" (", 1)[0] in job_names
     return False

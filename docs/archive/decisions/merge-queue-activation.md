@@ -19,12 +19,12 @@ The declared ruleset carries a `merge_queue` rule (merge method MERGE,
 HEADGREEN grouping, 5-minute batching window, trains capped at 5 entries,
 60-minute check timeout) and `required_status_checks` naming every yoke-ci
 check that gates both queue entry and the train (`repo-contracts`,
-`container`, and the eight `test-shard` matrix checks). Repository admins
-carry an always-bypass so operator pushes to `main` and break-glass fixes
-keep working; the bypass is an operator escape hatch, not an agent merge
-path. Classic branch protection still requires `signature-check` (CLA);
-that surface stays under `HC-branch-protection-required-check`, not the
-merge-queue declaration.
+`container`, `browser_runtime / browser-runtime`, and the eight `test-shard`
+matrix checks). Repository admins carry an always-bypass so operator pushes
+to `main` and break-glass fixes keep working; the bypass is an operator escape
+hatch, not an agent merge path. Classic branch protection still requires
+`signature-check` (CLA); that surface stays under
+`HC-branch-protection-required-check`, not the merge-queue declaration.
 
 ## Why
 

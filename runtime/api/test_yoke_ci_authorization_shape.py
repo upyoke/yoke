@@ -54,6 +54,7 @@ def test_declared_required_contexts_match_workflow_jobs() -> None:
     assert "reuse-coverage" in job_names
     assert "test-shard" in job_names
     assert "container" in job_names
+    assert context_matches_job("browser_runtime / browser-runtime", job_names)
     for context in EXPECTED_CHECKS:
         assert context_matches_job(context, job_names), context
     assert orphan_required_contexts(EXPECTED_CHECKS, job_names) == ()
@@ -78,10 +79,11 @@ def _required_contexts() -> tuple[str, ...]:
 
 
 def _jobs_for_context(workflow: dict, context: str) -> list[dict]:
+    caller_context = context.split(" / ", 1)[0]
     return [
         job
         for job_id, job in workflow["jobs"].items()
-        if context_matches_job(context, (str(job.get("name") or job_id),))
+        if context_matches_job(caller_context, (str(job.get("name") or job_id),))
     ]
 
 
@@ -103,7 +105,7 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
     workflow = _yoke_ci()
     contexts = _required_contexts()
 
-    assert len(contexts) == 10
+    assert len(contexts) == 11
     for context in contexts:
         matched = _jobs_for_context(workflow, context)
         assert matched, context

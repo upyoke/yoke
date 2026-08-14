@@ -4,13 +4,8 @@ name: yoke-ci
 # response recovery. FACTORY workflow: read-only GITHUB_TOKEN; never set
 # YOKE_LINUX_RUNS_ON on a public fork (that routes strangers onto private
 # runners). merge_group runs are the merge queue's one integration gate
-# per train of queued PRs; the queue ruleset requires this check on its
-# gh-readonly-queue/* refs. Non-queue merges authorize via QA conclusion
-# + merge-engine check-run poll; CLA signature-check stays required. Shards
-# use hand-launched postgres:16 (fsync off) + pytest-split/xdist; no
-# aggregate tail. repo-contracts is the fast-fail tree-only gate before
-# shards; main-push and merge_group may skip via reuse-coverage when a
-# green run already covered the identical tree oid.
+# per train of queued PRs; its ruleset requires the same named checks.
+# repo-contracts fast-fails; identical trees may reuse recent coverage.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
@@ -310,6 +305,11 @@ jobs:
         # missing/already-gone container from failing the job.
         if: always()
         run: docker rm -f "$PG_CONTAINER" || true
+
+  browser_runtime:
+    needs: [repo_contracts, reuse_coverage]
+    if: always() && needs.repo_contracts.result == 'success' && needs.reuse_coverage.outputs.skip_suite != 'true'
+    uses: ./.github/workflows/browser-runtime-tests.yml
 
   container:
     name: container
