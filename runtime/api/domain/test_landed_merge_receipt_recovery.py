@@ -24,7 +24,11 @@ def _landed_item() -> dict:
         "status": "reviewing-implementation",
         "workflow": {"id": "dash"},
         "project": {"slug": "yoke"},
-        "worktrees": [],
+        "worktrees": [{
+            "branch": "ITEM-1",
+            "path": "/repo/.worktrees/ITEM-1",
+            "state": "released",
+        }],
         "qa_plan_attachments": [],
         "qa_requirements": [],
     }
