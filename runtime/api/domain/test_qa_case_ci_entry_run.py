@@ -38,14 +38,20 @@ def test_a_project_outside_the_queue_keeps_the_dispatch_path(monkeypatch):
     ) is None
 
 
-def test_a_cleaned_up_lane_keeps_the_dispatch_path(monkeypatch):
-    routes = mock.Mock(side_effect=AssertionError("must not probe"))
-    monkeypatch.setattr(entry_run, "routes_through_merge_queue", routes)
+def test_a_recorded_commit_on_a_queue_project_still_takes_the_pr_path(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        entry_run, "routes_through_merge_queue", lambda _p: True,
+    )
+    monkeypatch.setattr(entry_run, "base_branch", lambda _p, _c: "main")
+    rebase = mock.Mock(side_effect=AssertionError("must not rebase"))
+    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
 
     assert entry_run.prepare_entry_run_lane(
         "/tmp/tree", project="yoke", branch="PRJ-9",
         lane_is_checked_out=False,
-    ) is None
+    ) == "main"
 
 
 def test_an_unreadable_capability_probe_keeps_the_dispatch_path(monkeypatch):

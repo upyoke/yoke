@@ -11,6 +11,7 @@ from runtime.api.merge_queue_landing_test_helpers import (
 )
 
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
+from yoke_core.domain import merge_queue_failed_train as failed_train_mod
 from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import session_liveness_pump as liveness_mod
@@ -234,6 +235,24 @@ def test_timeout_reports_the_held_claim_and_the_resume_command(monkeypatch):
     )
     assert "still held (claim 77)" in outcome.error
     assert outcome.error.endswith(resume)
+
+
+def test_unchanged_failed_train_refuses_before_queue_entry(monkeypatch):
+    entered: list[str] = []
+    wire_happy_path(monkeypatch, landing_states=[UNARMED, MERGED])
+    monkeypatch.setattr(
+        route_mod, "unchanged_failed_train_refusal",
+        lambda *_a, **_k: f"{failed_train_mod.FAILED_TRAIN_UNCHANGED}: held",
+    )
+    monkeypatch.setattr(
+        route_mod, "enter_merge_queue",
+        lambda _ctx, pr_num: entered.append(pr_num) or None,
+    )
+    outcome = land()
+    assert not outcome.ok
+    assert outcome.exit_code == 1
+    assert failed_train_mod.FAILED_TRAIN_UNCHANGED in outcome.error
+    assert entered == []
 
 
 def test_serial_dependency_refuses_against_queued_member(monkeypatch):

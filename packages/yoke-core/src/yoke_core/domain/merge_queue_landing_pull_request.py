@@ -24,13 +24,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
+)
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.gh_rest_transport import (
+    RestRequest,
+    RestTransportError,
+    request_with_retry,
+    split_repo,
+)
 from yoke_core.engines.merge_worktree_pr_discovery import (
     find_landable_pull_request,
 )
+from yoke_core.engines.merge_worktree_pr_queue import read_pr_landing_state
 from yoke_core.engines.merge_worktree_pr_rest import (
+    AuthResolutionFailed,
     PrCreateResult,
     create_pr,
+    resolve_auth,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -87,6 +99,48 @@ def _create_failure(ctx: MergeContext, created: PrCreateResult) -> str:
     return detail
 
 
+def reopen_pull_request(
+    ctx: MergeContext, pr_num: str,
+) -> tuple[str, Optional[str]]:
+    """Reopen a closed pull request. Returns ``(pr_num, None)`` on success."""
+    try:
+        auth = resolve_auth(ctx, required_permissions=PR_WRITE)
+    except AuthResolutionFailed as exc:
+        return "", f"could not reopen pull request {pr_num}: {exc}"
+    owner, repo = split_repo(auth.repo)
+    try:
+        response = request_with_retry(
+            RestRequest(
+                method="PATCH",
+                path=f"/repos/{owner}/{repo}/pulls/{pr_num}",
+                body={"state": "open"},
+            ),
+            token=auth.token,
+        )
+    except RestTransportError as exc:
+        return "", f"could not reopen pull request {pr_num}: {exc}"
+    body = response.body if isinstance(response.body, dict) else {}
+    if str(body.get("state") or "") != "open":
+        return "", (
+            f"could not reopen pull request {pr_num}: "
+            f"state={body.get('state')!r}"
+        )
+    return pr_num, None
+
+
+def _usable_existing_pull_request(
+    ctx: MergeContext, pr_num: str,
+) -> tuple[str, Optional[str]]:
+    """Return an open or merged PR, or ``("", reopen_error)`` to replace it."""
+    state, _error = read_pr_landing_state(ctx, pr_num)
+    if state is not None and (state.merged or not state.closed):
+        return pr_num, None
+    reopened, reopen_error = reopen_pull_request(ctx, pr_num)
+    if reopened:
+        return reopened, None
+    return "", reopen_error
+
+
 def ensure_landing_pull_request(
     ctx: MergeContext, item_ref: str, *, lane_head: str = "",
 ) -> tuple[str, Optional[str]]:
@@ -105,10 +159,17 @@ def ensure_landing_pull_request(
     finding the same stale pull request again means the fresh landing has no
     pull request of its own, which is a named failure rather than a silent
     convergence on the wrong merge commit.
+
+    A closed unmerged pull request is reopened when GitHub permits, and
+    replaced by a new one when it does not. The adapter refuses only when
+    neither path can produce an open pull request.
     """
     _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
+    reopen_error = None
     if pr_num:
-        return pr_num, None
+        usable, reopen_error = _usable_existing_pull_request(ctx, pr_num)
+        if usable:
+            return usable, None
     publish_error = _publish_branch_if_absent(ctx, lane_head=lane_head)
     if publish_error:
         return "", publish_error
@@ -125,7 +186,9 @@ def ensure_landing_pull_request(
     if created.already_exists or created.no_commits:
         _, pr_num, stale = find_landable_pull_request(ctx, lane_head=lane_head)
         if pr_num:
-            return pr_num, None
+            usable, _ignored = _usable_existing_pull_request(ctx, pr_num)
+            if usable:
+                return usable, None
     if stale:
         return "", (
             f"branch {ctx.args.branch!r} carries commits beyond the pull "
@@ -138,7 +201,14 @@ def ensure_landing_pull_request(
             f"{ctx.args.target!r} and no pull request records it landing; "
             "confirm where the branch merged before re-running the landing"
         )
-    return "", _create_failure(ctx, created)
+    create_error = _create_failure(ctx, created)
+    if reopen_error:
+        return "", (
+            f"closed unmerged pull request could not be reopened "
+            f"({reopen_error}) and a replacement could not be created "
+            f"({create_error})"
+        )
+    return "", create_error
 
 
-__all__ = ["ensure_landing_pull_request"]
+__all__ = ["ensure_landing_pull_request", "reopen_pull_request"]
