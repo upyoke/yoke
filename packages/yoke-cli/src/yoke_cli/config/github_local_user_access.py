@@ -17,6 +17,7 @@ from yoke_contracts.github_auth_transience import (
     TransientGitHubAuthError,
     auth_failure_chain,
 )
+from yoke_contracts.github_rate_limit import is_rate_limit_body
 
 
 class GitHubLocalUserAccessError(RuntimeError):
@@ -105,8 +106,6 @@ def _http_error_body(error: urllib.error.HTTPError) -> str:
 def _is_rate_limit_http_error(error: urllib.error.HTTPError) -> bool:
     if error.code != 403:
         return False
-    from yoke_core.domain.gh_rest_http_errors import is_rate_limit_body
-
     headers = error.headers or {}
     remaining = str(headers.get("X-RateLimit-Remaining") or "")
     body = _http_error_body(error)

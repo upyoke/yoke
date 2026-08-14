@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from yoke_contracts.github_rate_limit import is_rate_limit_body
 from yoke_core.domain.gh_rest_transport_errors import (
     RateLimitedError,
     RestAuthError,
@@ -12,20 +13,6 @@ from yoke_core.domain.gh_rest_transport_errors import (
     RestTransportError,
     RestUnprocessableError,
 )
-
-
-_RATE_LIMIT_BODY_MARKERS = (
-    "API rate limit exceeded",
-    "secondary rate limit",
-    "abuse detection mechanism",
-)
-
-
-def is_rate_limit_body(body_text: str) -> bool:
-    """Return whether GitHub's 403 body identifies a rate limit."""
-    return bool(body_text) and any(
-        marker in body_text for marker in _RATE_LIMIT_BODY_MARKERS
-    )
 
 
 def classify_http_error(
