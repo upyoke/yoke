@@ -74,6 +74,7 @@ def test_no_pull_request_run_dispatches_and_records_the_result(wired):
 def test_completed_exact_pull_request_run_is_reused_without_dispatch(
     wired, conclusion, verdict,
 ):
+    """Both verdicts bind: a red run is an answer, not a run to retry."""
     checkout, recorder, _ = wired
     covering = qa_case_ci_lane.WorkflowRun(
         "77", "completed", conclusion,
@@ -97,6 +98,35 @@ def test_completed_exact_pull_request_run_is_reused_without_dispatch(
     assert evidence["verification_tree"]["head_sha"] == "a" * 40
     dispatch.assert_not_called()
     await_result.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "conclusion", ["cancelled", "timed_out", "startup_failure"],
+)
+def test_a_run_that_reached_no_verdict_is_not_reused_as_evidence(
+    wired, conclusion,
+):
+    """The gate reaches green at the same commit, without a new commit."""
+    checkout, _, _ = wired
+    stopped = qa_case_ci_lane.WorkflowRun(
+        "77", "completed", conclusion,
+        "https://github.test/actions/runs/77", "a" * 40,
+    )
+    dispatch = mock.Mock(return_value="42")
+
+    with mock.patch.object(
+        qa_case_ci_lane, "find_pull_request_run", return_value=stopped,
+    ):
+        result = _run(
+            checkout, dispatch=dispatch,
+            await_result=lambda **kwargs: (0, "success"),
+        )
+
+    dispatch.assert_called_once()
+    assert result["reused_pull_request_run"] is False
+    assert result["ci_run_id"] == "42"
+    assert result["verdict"] == "pass"
+    assert result["verification_tree"]["head_sha"] == "a" * 40
 
 
 def test_pull_request_run_for_a_different_sha_dispatches(wired):
@@ -162,6 +192,25 @@ def test_the_ci_budget_is_the_default_not_the_local_command_timeout(wired):
         checkout,
         dispatch=lambda **kwargs: seen.update(kwargs) or "1",
         await_result=lambda **kwargs: (0, "success"),
+    )
+
+    assert seen["timeout_seconds"] == (
+        qa_case_ci_run.DEFAULT_CI_RUN_TIMEOUT_SECONDS
+    )
+
+
+def test_a_quick_scope_case_gets_the_ci_runner_budget_not_the_local_one(wired):
+    """A quick suite still has to outlast the queue it waits in."""
+    checkout, _, _ = wired
+    seen: dict = {}
+    case = _case()
+    case["method_config"]["registered_scope"] = "quick"
+
+    _run(
+        checkout,
+        dispatch=lambda **kwargs: seen.update(kwargs) or "1",
+        await_result=lambda **kwargs: (0, "success"),
+        case=case,
     )
 
     assert seen["timeout_seconds"] == (

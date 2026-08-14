@@ -1,4 +1,13 @@
-"""Choose execution budgets for registered Command QA cases."""
+"""Choose execution budgets for registered Command QA cases.
+
+A registered scope names how much work the command is, and each runner
+names how much wall clock its own execution shape costs. The two compose:
+the scope sets a floor, and a runner whose clock is wider raises it. That
+is what keeps the same ``quick`` scope from meaning two different things
+on the two runners — a local command budgets execution alone, while the
+CI runner's budget spans pushing the branch, opening the pull request,
+waiting out the Actions queue, and only then the suite itself.
+"""
 
 from __future__ import annotations
 
@@ -46,8 +55,11 @@ def resolve_command_case_budget(
             "registered_scope:full",
         )
     if scope == "quick":
+        # A quick suite on a congested Actions queue is still queued, not
+        # broken; reaping it there would report infrastructure trouble for
+        # a run that goes on to pass.
         return CommandCaseBudget(
-            DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
+            max(DEFAULT_COMMAND_CASE_BUDGET_SECONDS, int(runner_default)),
             "registered_scope:quick",
         )
     return CommandCaseBudget(int(runner_default), "runner_default")

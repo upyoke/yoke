@@ -6,10 +6,11 @@ developer machine that suite competes with every other session for one
 machine-wide admission slot and one CPU complement; on CI it fans out
 across duration-balanced shards with disposable databases and freshly
 provisioned capacity. This runner moves the gate there: push the lane,
-reuse a completed pull-request run for its exact commit when one exists,
-otherwise dispatch the project's declared workflow, and record the run's
-conclusion as the case verdict. The lane and workflow plumbing lives in
-:mod:`yoke_core.domain.qa_case_ci_lane`.
+reuse a pull-request run that reached a verdict on its exact commit when
+one exists, otherwise dispatch the project's declared workflow, and record
+the run's conclusion as the case verdict. The lane and workflow plumbing
+lives in :mod:`yoke_core.domain.qa_case_ci_lane`, and what a conclusion
+makes a run in :mod:`yoke_core.domain.qa_case_ci_conclusion`.
 
 A project landing through the merge queue reaches that reuse path by
 construction rather than by luck: it rebases and opens its landing pull
@@ -33,7 +34,6 @@ running the suite on the machine it exists to keep free.
 from __future__ import annotations
 
 import json
-import re
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -46,6 +46,11 @@ from yoke_core.domain import (
     qa_case_ci_lane,
     verification_tree_binding,
 )
+from yoke_core.domain.qa_case_ci_conclusion import (
+    BINDING_CONCLUSIONS,
+    conclusion_from_poll,
+    failure_verdict,
+)
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Runner id recorded on runs this module produces.
@@ -57,8 +62,6 @@ EXECUTOR_ID = "ci_run"
 #: the CI run, not to the local process timeout a ``worktree_run`` case
 #: would apply to its own command.
 DEFAULT_CI_RUN_TIMEOUT_SECONDS = qa_case_budget.DEFAULT_CI_RUN_TIMEOUT_SECONDS
-
-_CONCLUSION_PATTERN = re.compile(r"failed:\s*(?P<conclusion>[a-z_]+)")
 
 
 def _record_run(
@@ -142,27 +145,6 @@ def _resolve_checkout(
     return checkout
 
 
-def _ci_conclusion(exit_code: int, output: str) -> str:
-    if exit_code == 0:
-        return "success"
-    match = _CONCLUSION_PATTERN.search(output.casefold())
-    if match:
-        conclusion = match.group("conclusion")
-        return conclusion if conclusion in {
-            "cancelled", "failure", "neutral", "skipped", "stale",
-            "startup_failure", "success", "timed_out",
-        } else "failure"
-    if "timed out" in output.casefold():
-        return "timed_out"
-    return "error"
-
-
-def _failure_verdict(conclusion: str) -> tuple[str, str]:
-    if conclusion == "failure":
-        return "fail", "test_failure"
-    return "error", "infrastructure_transient"
-
-
 def execute_ci_case(
     case: dict,
     *,
@@ -236,7 +218,7 @@ def execute_ci_case(
                 covering_run is not None
                 and covering_run.status == "completed"
                 and covering_run.head_sha == head_sha
-                and covering_run.conclusion
+                and covering_run.conclusion in BINDING_CONCLUSIONS
             ):
                 reused_pull_request_run = True
                 ci_run_id = covering_run.run_id
@@ -280,10 +262,10 @@ def execute_ci_case(
             f"CI execution errored; recorded QA run #{run_id}: {exc}"
         ) from exc
     duration_ms = int((time.monotonic() - started) * 1000)
-    conclusion = known_conclusion or _ci_conclusion(exit_code, poll_output)
+    conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
     verdict, failure_class = (
         ("pass", "") if conclusion == "success"
-        else _failure_verdict(conclusion)
+        else failure_verdict(conclusion)
     )
     run_url = run_url or f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     raw_result = json.dumps(

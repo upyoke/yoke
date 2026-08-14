@@ -52,8 +52,20 @@ A project that declares its required-status-check workflow gets its
 3. waits for the run and records its conclusion as the verdict, with the
    run URL and the exact head sha as evidence.
 
-A completed `pull_request` run for that exact commit is reused instead of
-step 2, because it already proved the same tree.
+A `pull_request` run that reached a verdict on that exact commit —
+`success` or `failure` — is reused instead of step 2, because it already
+proved the same tree. A run that stopped short of one (`cancelled`,
+`timed_out`, `startup_failure`) proved nothing and is not evidence: the
+gate dispatches instead, which is what lets the same commit reach green
+after a run was cancelled. Reusing it would wedge the gate there, because
+every retry finds that same completed run at that same head sha.
+
+The CI budget is wall clock spanning the push, the pull request, the
+Actions queue, and the suite — not execution alone the way a local
+`worktree_run` command's is. Both registered scopes therefore take the
+CI runner's own budget when it is the wider one, so a healthy run that
+queues behind congested Actions is never reaped as infrastructure
+trouble.
 
 ## Queue projects verify pull-request-first
 
@@ -74,7 +86,9 @@ declaring the `merge_queue` capability, the gate runs steps 1-3 as:
    than opening a second;
 3. **wait for the pull-request entry run** and record its conclusion as
    the verdict. Dispatch stays the fallback for a commit that produced no
-   entry run, or a run whose head sha does not match.
+   entry run, a run whose head sha does not match, and a run that
+   concluded without a verdict — an entry run cancelled by the workflow's
+   concurrency group when the next push superseded it, for instance.
 
 The merge queue's `merge_group` train run then applies the same tree-oid
 reuse probe as a main push: a solo item rebased onto the base builds a
