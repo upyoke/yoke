@@ -37,6 +37,8 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
     "runtime/api/cli/test_yoke_product_boundary_hooks.py",
     "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",
+    "runtime/api/cli/test_yoke_product_boundary_import_edges.py",
+    "runtime/api/cli/test_yoke_product_boundary_inventory.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
     "runtime/api/test_installer_package_boundaries.py",
     "tests/import_graph/test_skeletons_importable.py",
@@ -50,6 +52,14 @@ STANDALONE_MERGE_CLOSE_OUT_TESTS = (
     "runtime/api/domain/test_standalone_item_merge_evidence_truth.py",
     "runtime/api/domain/test_standalone_item_merge_post_push_close_out.py",
     "runtime/api/domain/test_standalone_item_merge_qa.py",
+)
+
+DONE_TRANSITION_CLOSE_OUT_TESTS = (
+    "runtime/api/engines/test_done_transition_cleanup_metadata.py",
+    "runtime/api/engines/test_done_transition_cleanup_safety.py",
+    "runtime/api/engines/test_done_transition_gates.py",
+    "runtime/api/engines/test_done_transition_post.py",
+    "runtime/api/engines/test_done_transition_syspath.py",
 )
 
 PATH_CONTRACT_TESTS = (
@@ -90,6 +100,15 @@ PATH_CONTRACT_TESTS = (
         ),
         STANDALONE_MERGE_CLOSE_OUT_TESTS,
     ),
+    (
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py",
+                "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py",
+            }
+        ),
+        DONE_TRANSITION_CLOSE_OUT_TESTS,
+    ),
 )
 
 
@@ -108,6 +127,7 @@ def contract_tests_for(changed: Sequence[str]) -> set[str]:
 
 
 __all__ = [
+    "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",

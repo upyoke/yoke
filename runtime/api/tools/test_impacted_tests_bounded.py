@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests, watch_pytest
+from yoke_core.tools._impacted_contract_tests import DONE_TRANSITION_CLOSE_OUT_TESTS
 from yoke_core.tools.impacted_tests import Selection, build_import_index, select
 
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
@@ -144,6 +145,18 @@ def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
     assert set(impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS) <= set(
         selection.files
     )
+
+
+def test_done_transition_change_keeps_cleanup_contracts(tmp_path) -> None:
+    root = _tiny_repo(tmp_path)
+    changed = "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py"
+    _write(root, changed, "def run(): pass\n")
+    for test_path in DONE_TRANSITION_CLOSE_OUT_TESTS:
+        _write(root, test_path, "def test_close_out(): pass\n")
+
+    selection = select([changed], build_import_index(root), bounded=True)
+
+    assert set(DONE_TRANSITION_CLOSE_OUT_TESTS) <= set(selection.files)
 
 
 def test_bounded_selection_leaves_a_bounded_verdict_alone(tmp_path: Path) -> None:
