@@ -68,6 +68,13 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.migration_apply",
     ): ("source_dev_admin", "CLI adapter delegates migration rehearsal"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/coordination_lease.py",
+        "yoke_core.api.service_client_coordination_leases",
+    ): (
+        "source_dev_admin",
+        "delegate audited lease recovery through the selected local authority",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_https_compose.py",
         "yoke_core.engines.doctor_https_compose",
     ): (
