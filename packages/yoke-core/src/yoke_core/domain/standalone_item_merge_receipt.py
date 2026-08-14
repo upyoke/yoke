@@ -1,14 +1,11 @@
 """Durable bookkeeping for one standalone merge, written before cleanup.
 
-The merge engine's cleanup deletes the branch ref and removes the item's
-worktree lane. Every fact the close-out needs afterwards — the implementation
-commit, the resulting merge commit, and the files the branch changed — is
-derivable from git only while that ref still exists: once the branch is
-contained by the target, ``merge-base`` returns the branch tip itself and the
-diff that used to describe the branch collapses to nothing. So the merge
-boundary records those facts here first, and a run that dies anywhere after
-that point converges on retry by reading the receipt back instead of
-interrogating a checkout the cleanup already rewrote.
+Every fact close-out needs afterwards — implementation and merge commits,
+changed files, and observed post-push checks — belongs in this receipt. Once
+the branch is contained by the target, ``merge-base`` returns the branch tip
+and the diff that described its work collapses to nothing. The boundary
+records the stable facts here so any retry converges without depending on a
+lane that may already have been retired.
 
 The receipt rides the events ledger: durable, relayed over both transports
 through the dispatcher, and needing no storage of its own. Writing it before
@@ -47,6 +44,7 @@ class MergeReceipt:
     commit_sha: str
     merge_sha: str = ""
     touched_files: tuple[str, ...] = field(default=())
+    check_runs: tuple[dict[str, str], ...] = field(default=())
 
 
 def _emit_receipt_event(
@@ -97,6 +95,7 @@ def record(item_id: int, receipt: MergeReceipt, *, project: str) -> str:
                 "commit_sha": receipt.commit_sha,
                 "merge_sha": receipt.merge_sha,
                 "touched_files": list(receipt.touched_files),
+                "check_runs": list(receipt.check_runs),
             },
         )
     except Exception as exc:  # noqa: BLE001 - advisory, never fatal
@@ -148,6 +147,7 @@ def load(
     commit_sha = ""
     merge_sha = ""
     touched: tuple[str, ...] = ()
+    check_runs: tuple[dict[str, str], ...] = ()
     found = False
     for row in (response.result or {}).get("rows") or []:
         context = _context(row if isinstance(row, dict) else {})
@@ -157,6 +157,7 @@ def load(
         commit_sha = commit_sha or str(context.get("commit_sha") or "")
         merge_sha = merge_sha or str(context.get("merge_sha") or "")
         touched = touched or _clean(context.get("touched_files"))
+        check_runs = check_runs or _clean_check_runs(context.get("check_runs"))
     if not found:
         return None
     return MergeReceipt(
@@ -165,6 +166,7 @@ def load(
         commit_sha=commit_sha,
         merge_sha=merge_sha,
         touched_files=touched,
+        check_runs=check_runs,
     )
 
 
@@ -172,6 +174,22 @@ def _clean(paths: Any) -> tuple[str, ...]:
     if not isinstance(paths, (list, tuple)):
         return ()
     return tuple(str(path).strip() for path in paths if str(path).strip())
+
+
+def _clean_check_runs(value: Any) -> tuple[dict[str, str], ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    runs: list[dict[str, str]] = []
+    for raw in value:
+        if not isinstance(raw, dict):
+            continue
+        run = {
+            key: str(raw.get(key) or "").strip()
+            for key in ("name", "status", "conclusion", "url")
+        }
+        if run["name"]:
+            runs.append(run)
+    return tuple(runs)
 
 
 def touched_files_from_merge_commit(

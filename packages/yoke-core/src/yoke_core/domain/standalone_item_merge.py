@@ -26,9 +26,9 @@ from typing import Optional, Sequence
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
-from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
 # Exit code for a merge the engine refused because another session holds the
 # merge lock. Mirrors the engine's own retryable class so callers can
@@ -80,43 +80,14 @@ def _complete(
     already: bool,
     output: str = "",
     warnings: Sequence[str] = (),
+    resume_command: str = "",
 ) -> StandaloneMergeOutcome:
     """Publish, stamp, and record the completed receipt for a landed merge."""
-    merge_sha = git.git_out(repo_root, "rev-parse", target)
-    notes = list(warnings)
-    pushed, push_warning = git.publish(repo_root, target)
-    if push_warning:
-        notes.append(push_warning)
-    stamp_error = stamp_merged_at(item_id)
-    if stamp_error:
-        notes.append(f"merged_at not recorded: {stamp_error}")
-    receipt_note = receipts.record(
-        item_id,
-        receipts.MergeReceipt(
-            branch=branch,
-            target=target,
-            commit_sha=commit_sha,
-            merge_sha=merge_sha,
-            touched_files=touched,
-        ),
-        project=project,
-    )
-    if receipt_note:
-        notes.append(receipt_note)
-    if git.has_remote(repo_root):
-        sync_warning = fast_forward_main_checkout(repo_root, target)
-        if sync_warning:
-            notes.append(sync_warning)
-    return StandaloneMergeOutcome(
-        ok=True,
-        exit_code=0,
-        already_merged=already,
-        commit_sha=commit_sha,
-        merge_sha=merge_sha,
-        touched_files=touched,
-        pushed=pushed,
-        output=output,
-        warnings=tuple(notes),
+    return post_push.complete(
+        item_id=item_id, branch=branch, target=target, repo_root=repo_root,
+        project=project, commit_sha=commit_sha, touched=touched,
+        already=already, output=output, warnings=warnings,
+        resume_command=resume_command,
     )
 
 
@@ -128,6 +99,7 @@ def _converge_from_receipt(
     repo_root: str,
     project: str,
     recorded: Optional[receipts.MergeReceipt],
+    resume_command: str = "",
 ) -> StandaloneMergeOutcome:
     """Finish a merge whose branch ref the engine's cleanup already deleted."""
     if recorded is None or not recorded.commit_sha:
@@ -166,6 +138,7 @@ def _converge_from_receipt(
             observed=(),
         ),
         already=True,
+        resume_command=resume_command,
     )
 
 
@@ -178,22 +151,18 @@ def merge_standalone_branch(
     repo_root: str,
     project: str,
     local_merge: bool = True,
+    resume_command: str = "",
 ) -> StandaloneMergeOutcome:
     """Land one standalone item branch on ``target`` and stamp the item.
 
-    Convergent under interruption. The engine's cleanup deletes the branch ref
-    and removes the lane, which destroys the git state this function would
-    otherwise re-derive its bookkeeping from, so the bookkeeping is recorded as
-    a durable receipt *before* the engine runs. A retry then converges on the
-    same completed state from the receipt: with the ref gone it finishes the
-    close-out outright, and with the branch already contained by ``target`` it
-    resolves the touched files from the recorded merge identity instead of the
-    empty diff git now reports.
+    Convergent under interruption. Durable pre-merge bookkeeping lets a retry
+    recover even when an older engine already removed the lane. Current
+    standalone runs defer lane retirement until the pushed merge commit's CI
+    conclusion is known, preserving the lane whenever close-out fails closed.
 
-    An engine that raises after the merge has landed — the cleanup order that
-    removes the lane the running process imports from — is likewise treated as
-    a landed merge rather than losing it, so the item still gets its evidence
-    and its terminal transition.
+    An engine that raises after the merge has landed is still treated as a
+    landed merge rather than losing it, so the item can finish its evidence
+    and terminal transition on retry.
 
     Merge telemetry (``MergeEngineStarted`` and its outcome) is emitted by the
     engine this delegates to, so a standalone merge is visible in the events
@@ -208,6 +177,7 @@ def merge_standalone_branch(
             repo_root=repo_root,
             project=project,
             recorded=recorded,
+            resume_command=resume_command,
         )
 
     output = ""
@@ -307,6 +277,7 @@ def merge_standalone_branch(
         already=already,
         output=output,
         warnings=warnings,
+        resume_command=resume_command,
     )
 
 

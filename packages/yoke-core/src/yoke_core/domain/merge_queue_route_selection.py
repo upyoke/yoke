@@ -159,6 +159,7 @@ def route_standalone_landing(
             repo_root=repo_root,
             project=project,
             local_merge=local_merge,
+            resume_command=resume_command,
         )
     lane_head, head_error = queue_lane_head(
         item_id=item_id,
