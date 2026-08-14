@@ -149,6 +149,17 @@
   color: var(--yoke-good);
   font-weight: 600;
 }
+/* Registered but hookless — deliberately after the hit rule, which would
+   otherwise paint an unapproved harness the same green as a working one. */
+.universe-app-root .activation-target[data-hook-health="hooks_silent"] {
+  color: var(--yoke-warn);
+  font-weight: 600;
+}
+.universe-app-root .activation-remediation {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--yoke-warn);
+}
 .universe-app-root .activation-restore-line,
 .universe-app-root .activation-unresolved {
   margin: 6px 0 0;

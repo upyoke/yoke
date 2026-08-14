@@ -29,6 +29,7 @@ import {
   WIZARD_MACHINE_ROWS,
   WIZARD_ROWS,
   WIZARD_TAIL_KEYS,
+  hookTrustRemediation,
 } from "./universe_views_overview_activation_copy.js";
 
 // Minimal relative formatter for "connected <x> ago": the app has no shared
@@ -143,6 +144,23 @@ function wizardBody(documentNode, module, mode, body) {
   body.appendChild(wizardChecklist(documentNode, module, mode));
 }
 
+// The engine's hook-health state for "registered, but its hooks never fire".
+const HOOKS_SILENT = "hooks_silent";
+
+// One remediation line per approval surface, not per target: a harness's
+// family and surface chips share one approval, so two silent chips must not
+// repeat the same instruction.
+function silentTrustSurfaces(targets) {
+  const surfaces = [];
+  for (const target of targets || []) {
+    if (target.hook_health !== HOOKS_SILENT || !target.trust_surface) continue;
+    if (!surfaces.includes(target.trust_surface)) {
+      surfaces.push(target.trust_surface);
+    }
+  }
+  return surfaces;
+}
+
 function harnessBody(documentNode, module, body) {
   if (module.state === "activated" && module.connected) {
     const relative = relativeTime(module.connected.at);
@@ -174,14 +192,24 @@ function harnessBody(documentNode, module, body) {
     if (index) {
       targets.appendChild(el(documentNode, "span", "activation-target-sep", " · "));
     }
+    const silent = target.hook_health === HOOKS_SILENT;
     const chip = el(
       documentNode, "span", "activation-target",
-      target.hit ? `${target.label} ✓` : target.label,
+      target.hit ? `${target.label} ${silent ? "⚠" : "✓"}` : target.label,
     );
     chip.setAttribute("data-hit", String(Boolean(target.hit)));
+    if (target.hook_health) {
+      chip.setAttribute("data-hook-health", target.hook_health);
+    }
     targets.appendChild(chip);
   });
   body.appendChild(targets);
+  for (const trustSurface of silentTrustSurfaces(module.targets)) {
+    body.appendChild(el(
+      documentNode, "p", "activation-remediation",
+      hookTrustRemediation(trustSurface),
+    ));
+  }
 }
 
 function renderModule(context, module, position, result, draw, viewState) {

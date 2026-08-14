@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import pytest
 
+from runtime.harness.codex import codex_model
 from runtime.harness.codex.adapter import CAPABILITY as CODEX_CAPABILITY
 from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
 from runtime.harness.hook_helpers_identity import (
@@ -19,6 +20,7 @@ from runtime.harness.hook_helpers_identity import (
     detect_provider,
 )
 from runtime.harness.hook_runner.capability_resolve import resolve_capability
+from yoke_harness.hooks import identity_codex_runtime
 
 
 @pytest.fixture
@@ -135,3 +137,62 @@ def test_rendered_codex_hook_command_pin_round_trips_through_env(
     assert executor == "codex"
     assert provider == "openai"
     assert capability is CODEX_CAPABILITY
+
+
+class TestSurfaceAliasConvergence:
+    """One physical surface resolves one alias, whatever invoked the run.
+
+    Codex Desktop exports ``skill`` as the originator into subprocess env
+    during a skill-invoked run. That names the invocation, not the surface,
+    so the thread's own transcript outranks it — otherwise the same thread
+    registers as ``codex-skill`` from a skill and ``codex-desktop`` from a
+    hook, and only one of those is a surface the board knows.
+    """
+
+    def _stub_transcripts(self, monkeypatch, resolved):
+        """Answer both entrypoint resolvers — the hook path uses the in-tree
+        one, the CLI's ensure-register probe the packaged one, and the two
+        must not disagree about the same thread."""
+        monkeypatch.setattr(
+            codex_model, "resolve_entrypoint_from_transcript",
+            lambda thread_id: resolved,
+        )
+        monkeypatch.setattr(
+            identity_codex_runtime, "_codex_entrypoint_from_transcript",
+            lambda thread_id: resolved,
+        )
+
+    def test_env_invocation_token_yields_to_the_threads_surface(
+        self, clean_env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODEX_ORIGINATOR", "skill")
+        monkeypatch.setenv("CODEX_THREAD_ID", "thread-with-transcript")
+        self._stub_transcripts(monkeypatch, "codex-desktop")
+
+        assert identity_codex_runtime._codex_resolve_entrypoint() == (
+            "codex-desktop"
+        )
+        assert codex_model.resolve_entrypoint() == "codex-desktop"
+        assert detect_executor() == "codex-desktop"
+
+    def test_invocation_token_is_never_minted_as_the_alias(
+        self, clean_env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "skill")
+        monkeypatch.setenv("CODEX_THREAD_ID", "thread-without-transcript")
+        self._stub_transcripts(monkeypatch, None)
+
+        # No resolvable surface: the family name, never "codex-skill".
+        assert identity_codex_runtime._codex_resolve_entrypoint() is None
+        assert codex_model.resolve_entrypoint() is None
+        assert detect_executor() == "codex"
+
+    def test_a_real_surface_token_in_env_still_wins(
+        self, clean_env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODEX_ORIGINATOR", "codex_vscode")
+
+        assert identity_codex_runtime._codex_resolve_entrypoint() == (
+            "codex-vscode"
+        )
+        assert codex_model.resolve_entrypoint() == "codex-vscode"

@@ -24,6 +24,7 @@ from yoke_cli.project_install.files import (
 )
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_contracts.cursor_permissions import CURSOR_PERMISSIONS_MANIFEST_KEY
+from yoke_cli.project_install import hook_trust_report
 from yoke_cli.project_install.validate import _validate_bundle
 
 _MANIFEST_OWNED_KEYS = frozenset(
@@ -131,6 +132,7 @@ def apply_bundle(
     hook_entries: Dict[str, List[Dict[str, Any]]] = {}
     hooks_added: Dict[str, List[Dict[str, Any]]] = {}
     hooks_removed: Dict[str, List[Dict[str, Any]]] = {}
+    hook_trust: List[str] = []
     for hooks_key, settings_rel in sorted(
         hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY.items()
     ):
@@ -151,6 +153,12 @@ def apply_bundle(
         if result["removed"]:
             hooks_removed[settings_rel] = result["removed"]
         hook_entries[settings_rel] = hooks_layer.provided_records(subtree)
+        # A harness re-requires approval whenever the glue it hashed
+        # changes, so a fresh write and an entry-level update owe the
+        # operator the same sentence — and a no-op reconcile owes none.
+        teaching = hook_trust_report.teaching_for_hooks_key(hooks_key)
+        if teaching and (result["added"] or result["removed"]):
+            hook_trust.append(teaching)
 
     # Git hook shims (§2.K guardrail mandate): same pre/post-commit
     # install as source-link mode; skips gracefully without .git/hooks/
@@ -274,6 +282,7 @@ def apply_bundle(
         ),
         "hooks_added": hooks_added,
         "hooks_removed": hooks_removed,
+        hook_trust_report.REPORT_KEY: hook_trust,
         "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
         "git_hook_actions": git_hooks.actions,
         "worktrees_ignore": worktrees_ignore,

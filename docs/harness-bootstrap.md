@@ -247,3 +247,21 @@ wrapped product CLI exists for this harness bootstrap resolver yet.
 Harnesses that need a shell-native resolver should only introduce one when an actual current shell wrapper requires it. Symmetry with existing shell inventories is not enough justification -- the Python surface above is harness-neutral and works for Codex, Claude Code wrappers, and any future thin adapter.
 
 Codex-specific sidecar metadata (`agents/openai.yaml`) is intentionally absent from the Yoke skill tree by default. If Yoke eventually needs hard Codex-only invocation policy or UI metadata, generate those sidecars from a single canonical manifest instead of hand-authoring one file per skill.
+
+## 6. Hook Approval
+
+Installing hook glue does not make it run. Every harness Yoke ships an adapter for gates its hooks behind the operator's approval for that project, and every one of them fails **silently** when approval is missing: the harness runs the session normally and simply never invokes the hooks. Nothing errors, so the failure has to be inferred from what is absent — no tool telemetry, no heartbeats past registration, a board that reads idle while the session is working, and a session id later commands cannot find because the CLI's ensure-register probe wrote the only row that exists.
+
+Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`, with the surface where approval is granted and what the grant is keyed to. A harness absent from that mapping has no gate. Two surfaces read the declaration rather than branching on a harness id:
+
+| Reader | What it does with the declaration |
+|--------|-----------------------------------|
+| `yoke project install` / `yoke onboard` | Records one approval sentence per harness whose glue the run wrote or updated, under the install report's `harness_hook_trust` key, and renders it in the installer JSON and the wizard's completion screen. |
+| The Overview's harness activation module | Reports per-target hook health, and renders the approval surface's name as the remediation for a harness whose sessions carry no hook-written telemetry. |
+
+Two properties of the gate matter more than the mechanics:
+
+- **Approval is per project, not per machine.** A linked worktree lane is its own approval target, because its hook config lives at its own path.
+- **Approval is re-required whenever the glue changes.** Codex keys each `trusted_hash` to the hook file's content, so any Yoke update that rewrites hook entries silently invalidates approval that was previously granted. This is why the install teaching fires on an update exactly as it does on a fresh write, and why activation's hook health is a live sub-signal rather than a latch: a target that was green legitimately returns to orange after an update.
+
+Yoke never grants approval on the operator's behalf, and changing how a harness gates its hooks is the harness's business, not Yoke's. What Yoke owes is naming the step at the moment the glue lands, and telling the truth afterward about whether the hooks are actually firing.

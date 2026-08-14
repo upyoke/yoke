@@ -10,6 +10,10 @@ Resolution order:
 
 Entrypoint resolution is similar, but first checks the live Codex runtime
 environment for an originator string before falling back to transcript/cache.
+Each candidate passes through the shared surface-alias filter, so a token
+that names an invocation context rather than a surface (Codex Desktop
+exports ``skill`` into subprocess env for a skill-invoked run) yields to the
+thread's own identity instead of becoming a second name for one surface.
 
 Can be used as a module or invoked via CLI::
 
@@ -23,6 +27,8 @@ import re
 import sys
 from pathlib import Path
 from typing import Optional
+
+from yoke_contracts.executor_labels import surface_alias
 
 
 def _transcript_candidates(thread_id: str) -> list[Path]:
@@ -200,7 +206,7 @@ def resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
     """Resolve the Codex session entrypoint, if the runtime exposes one."""
     import os
 
-    entrypoint = resolve_entrypoint_from_env()
+    entrypoint = surface_alias(resolve_entrypoint_from_env())
     if entrypoint:
         return entrypoint
 
@@ -210,11 +216,11 @@ def resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
     if not thread_id:
         return None
 
-    entrypoint = resolve_entrypoint_from_transcript(thread_id)
+    entrypoint = surface_alias(resolve_entrypoint_from_transcript(thread_id))
     if entrypoint:
         return entrypoint
 
-    entrypoint = resolve_entrypoint_from_cache(thread_id)
+    entrypoint = surface_alias(resolve_entrypoint_from_cache(thread_id))
     if entrypoint:
         return entrypoint
 

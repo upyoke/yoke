@@ -52,6 +52,8 @@ class ProjectInstallResponse(BaseModel):
     files_pruned: Optional[List[str]] = None
     files_skipped_modified: Optional[List[str]] = None
     hooks_added: Optional[Dict[str, Any]] = None
+    # The harness approval step each written or updated hook file re-requires.
+    harness_hook_trust: Optional[List[str]] = None
     created_settings_files: Optional[List[str]] = None
     # Source-link-strategy fields (absent from copy reports).
     symlinks_created: Optional[int] = None

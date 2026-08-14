@@ -28,7 +28,7 @@ enforces over the board render sources.
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Tuple
+from typing import Dict, FrozenSet, Mapping, Optional, Tuple
 
 
 CANONICAL_HARNESS_IDS: Tuple[str, ...] = ("claude-code", "codex", "cursor")
@@ -84,6 +84,27 @@ def executor_presentation(executor: str) -> Dict[str, str]:
     return dict(presentation)
 
 
+INVOCATION_CONTEXT_ORIGINATORS: FrozenSet[str] = frozenset({"skill"})
+"""Harness-reported tokens naming how a run started, not where it runs.
+
+Codex Desktop exports ``skill`` as the originator into subprocess env for a
+skill-invoked run, so a resolver that mints whatever it finds labels one
+physical surface two ways — ``codex-skill`` when the session registers from
+a skill, ``codex-desktop`` when the same thread registers any other way.
+Only the second is a surface, and only the second is in
+:data:`EXECUTOR_EMOJI`. Every entrypoint resolver drops these tokens through
+:func:`surface_alias`, so one thread resolves one
+``executor_display_name`` whatever path registered it.
+"""
+
+
+def surface_alias(candidate: Optional[str]) -> Optional[str]:
+    """Keep a resolved entrypoint token only when it names a surface."""
+    if not candidate or candidate in INVOCATION_CONTEXT_ORIGINATORS:
+        return None
+    return candidate
+
+
 KNOWN_EXECUTOR_LABELS: Tuple[str, ...] = tuple(EXECUTOR_EMOJI)
 """Every value that may legitimately appear in ``executor_display_name``.
 
@@ -103,7 +124,9 @@ __all__ = [
     "CANONICAL_HARNESS_IDS",
     "EXECUTOR_EMOJI",
     "EXECUTOR_PRESENTATION",
+    "INVOCATION_CONTEXT_ORIGINATORS",
     "KNOWN_EXECUTOR_LABELS",
     "KNOWN_SURFACE_LABELS",
     "executor_presentation",
+    "surface_alias",
 ]
