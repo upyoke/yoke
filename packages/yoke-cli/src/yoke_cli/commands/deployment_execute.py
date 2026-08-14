@@ -10,6 +10,7 @@ environment variables.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
 
@@ -17,8 +18,6 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
-from yoke_core.domain.session_liveness_pump import run_process_with_liveness
-
 
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
@@ -63,9 +62,16 @@ def deployment_runs_execute(args: List[str]) -> int:
         )
         return 2
 
-    return run_process_with_liveness(
-        [sys.executable, "-m", "yoke_core.domain.deploy_pipeline", *args],
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.domain.deploy_pipeline_liveness_cli",
+            *args,
+        ],
+        check=False,
     )
+    return completed.returncode
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

@@ -21,9 +21,10 @@ than becoming immortal because something once claimed to be busy.
 
 from __future__ import annotations
 
-import subprocess
+from contextlib import contextmanager
+import threading
 import time
-from typing import Callable, Optional, Sequence
+from typing import Callable, Iterator, Optional
 
 #: How often a running command refreshes its session's heartbeat. Well
 #: inside the shortest stale TTL, so a single dropped refresh is not a
@@ -81,6 +82,8 @@ class SessionLivenessPump:
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._interval = float(interval_seconds)
+        if self._interval <= 0:
+            raise ValueError("interval_seconds must be positive")
         self._clock = clock
         self._session_id = session_id
         self._resolved = session_id is not None
@@ -117,6 +120,27 @@ class SessionLivenessPump:
             remaining -= chunk
             self.tick()
 
+    @contextmanager
+    def running(self) -> Iterator[None]:
+        """Refresh in the background for one blocking command scope."""
+        stopped = threading.Event()
+
+        def refresh_until_stopped() -> None:
+            while not stopped.wait(self._interval):
+                self.tick()
+
+        thread = threading.Thread(
+            target=refresh_until_stopped,
+            name="yoke-session-liveness",
+            daemon=True,
+        )
+        thread.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            thread.join()
+
     def _session(self) -> str:
         """Resolve ambient identity once, on the first refresh that is due.
 
@@ -131,24 +155,8 @@ class SessionLivenessPump:
         return self._session_id or ""
 
 
-def run_process_with_liveness(
-    argv: Sequence[str],
-    *,
-    liveness: Optional[SessionLivenessPump] = None,
-) -> int:
-    """Run a streaming child while refreshing the owning session."""
-    process = subprocess.Popen(list(argv))
-    pump = liveness if liveness is not None else SessionLivenessPump()
-    while True:
-        try:
-            return int(process.wait(timeout=HEARTBEAT_INTERVAL_SECONDS))
-        except subprocess.TimeoutExpired:
-            pump.tick()
-
-
 __all__ = [
     "HEARTBEAT_INTERVAL_SECONDS",
     "SessionLivenessPump",
     "refresh_session_heartbeat",
-    "run_process_with_liveness",
 ]

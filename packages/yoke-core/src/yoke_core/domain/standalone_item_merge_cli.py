@@ -24,6 +24,7 @@ from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
+from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 
 # Workflows whose terminal transition is gated on an execution-evidence
@@ -327,7 +328,8 @@ def run(argv: List[str]) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    return run(list(sys.argv[1:] if argv is None else argv))
+    with SessionLivenessPump().running():
+        return run(list(sys.argv[1:] if argv is None else argv))
 
 
 __all__ = ["EVIDENCE_WORKFLOWS", "main", "run"]

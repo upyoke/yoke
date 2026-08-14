@@ -7,6 +7,7 @@ the refresh cadence and the failure behavior that make that safe.
 
 from __future__ import annotations
 
+import time
 import unittest
 from unittest.mock import patch
 
@@ -14,7 +15,6 @@ from yoke_core.domain import session_liveness_pump
 from yoke_core.domain.session_liveness_pump import (
     HEARTBEAT_INTERVAL_SECONDS,
     SessionLivenessPump,
-    run_process_with_liveness,
 )
 from yoke_core.domain.sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
 
@@ -154,34 +154,15 @@ class TestWaitCadence(unittest.TestCase):
         )
         self.assertEqual(refresh.call_count, 2)
 
-    def test_a_blocking_child_refreshes_between_wait_intervals(self):
-        class Process:
-            def __init__(self):
-                self.waits = 0
-
-            def wait(self, *, timeout):
-                self.waits += 1
-                if self.waits == 1:
-                    raise session_liveness_pump.subprocess.TimeoutExpired(
-                        ["long-command"], timeout
-                    )
-                return 7
-
-        class Pump:
-            ticks = 0
-
-            def tick(self):
-                self.ticks += 1
-
-        process = Process()
-        pump = Pump()
+    def test_a_blocking_scope_refreshes_in_the_background(self):
+        pump = SessionLivenessPump(session_id="s-1", interval_seconds=0.01)
         with patch.object(
-            session_liveness_pump.subprocess, "Popen", return_value=process
-        ):
-            exit_code = run_process_with_liveness(["long-command"], liveness=pump)
+            session_liveness_pump, "refresh_session_heartbeat", return_value=True
+        ) as refresh:
+            with pump.running():
+                time.sleep(0.03)
 
-        self.assertEqual(exit_code, 7)
-        self.assertEqual(pump.ticks, 1)
+        self.assertGreaterEqual(refresh.call_count, 2)
 
 
 if __name__ == "__main__":  # pragma: no cover - direct module run

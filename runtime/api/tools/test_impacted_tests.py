@@ -287,6 +287,23 @@ def test_schema_converge_change_keeps_cli_contract_when_selection_is_deferred(
     assert set(impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS) <= set(selection.files)
 
 
+def test_product_cli_change_keeps_boundary_contracts_when_selection_is_deferred(
+    tmp_path,
+):
+    root = _tiny_repo(tmp_path)
+    changed = "packages/yoke-cli/src/yoke_cli/commands/merge_item.py"
+    tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
+    _write(root, changed, "def merge_item(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS:
+        _write(root, test_path, "def test_product_boundary(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert set(impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS) <= set(selection.files)
+
+
 def test_index_covers_a_root_nested_under_a_skipped_directory_name(tmp_path):
     """A linked worktree lives under ``.worktrees/``, which is skip-listed.
 
@@ -320,6 +337,7 @@ def test_always_run_tests_exist_in_this_repo():
     required = (
         *impacted_tests.ALWAYS_RUN_TESTS,
         *impacted_tests.ITEM_WORKTREE_SCHEMA_TESTS,
+        *impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS,
         *impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS,
         *WORKFLOW_DEFINITION_VALIDATION_TESTS,
     )
