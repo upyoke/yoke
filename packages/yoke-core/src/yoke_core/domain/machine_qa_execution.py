@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from yoke_core.domain.coordination_leases import (
     Lease,
     LeaseHeldError,
+    LeaseStaleHolderError,
     acquire_lease,
     active_lease,
     release_lease,
@@ -30,6 +31,10 @@ from yoke_core.domain.machine_qa_method_contracts import (
     machine_method_definition,
     validate_machine_method_config,
 )
+from yoke_core.domain.machine_qa_case_result import (
+    MachineCaseResult,
+    MachineQaLeaseHeld,
+)
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
@@ -37,42 +42,6 @@ from yoke_core.domain.test_machine_capability import lease_key
 from yoke_core.domain.test_machine_verification_recording import (
     record_test_machine_verification,
 )
-
-
-@dataclass(frozen=True)
-class MachineCaseResult:
-    case_outcome: str
-    verdict: str
-    evidence: dict[str, Any]
-    capture_degraded_reason: str | None = None
-    error_code: str | None = None
-
-
-class MachineQaLeaseHeld(MachineQaExecutionError):
-    """The test machine is in use and this case must remain waiting."""
-
-    def __init__(self, *, lease: Lease, machine: str) -> None:
-        super().__init__(f"test machine {machine!r} is in use by another execution")
-        self.lease = lease
-        self.machine = machine
-
-    def waiting_result(self) -> MachineCaseResult:
-        return MachineCaseResult(
-            case_outcome="waiting",
-            verdict="waiting",
-            evidence={
-                "runner_id": "host_control",
-                "machine": self.machine,
-                "case_started": False,
-                "lease": {
-                    "id": self.lease.id,
-                    "key": self.lease.lease_key,
-                    "holder_session_id": self.lease.session_id,
-                    "acquired_at": self.lease.acquired_at,
-                    "heartbeat_at": self.lease.heartbeat_at,
-                },
-            },
-        )
 
 
 @dataclass
@@ -252,7 +221,9 @@ def acquire_machine_qa_lease(
             session_id,
             actor_id=actor_id,
         )
-    except LeaseHeldError:
+    except LeaseStaleHolderError as exc:
+        raise MachineQaExecutionError(str(exc)) from None
+    except LeaseHeldError as exc:
         held = active_lease(
             conn,
             material.project_id,
@@ -265,6 +236,7 @@ def acquire_machine_qa_lease(
         raise MachineQaLeaseHeld(
             lease=held,
             machine=resource_name,
+            contention=exc.contention,
         ) from None
     return MachineQaLease(
         conn=conn,

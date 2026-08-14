@@ -27,6 +27,7 @@ class TestMachinePlanCaseBeginResponse(BaseModel):
     execution_id: str
     cursor_ordinal: int
     execution: HostControlExecutionContract | None = None
+    lease_context: dict[str, Any] | None = None
 
 
 class TestMachinePlanCaseSubmitRequest(TestMachinePlanCaseBeginRequest):

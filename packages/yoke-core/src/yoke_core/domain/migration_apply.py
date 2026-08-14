@@ -69,6 +69,7 @@ from yoke_core.domain.migration_apply_contract import (
 from yoke_core.domain.migration_apply_format import (
     format_rehearse,
 )
+from yoke_core.domain.coordination_leases import LeaseHeldError
 from yoke_core.domain.migration_apply_rehearse import rehearse
 
 
@@ -113,7 +114,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             result = rehearse(item_id)
             print(format_rehearse(result))
             return 0 if result.all_succeeded else 1
-    except MigrationApplyError as exc:
+    except (LeaseHeldError, MigrationApplyError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     return 1

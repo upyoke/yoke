@@ -104,6 +104,17 @@ def _session_has_other_model_owner(
     return any(_declared_model(row[1]) == model_name for row in rows)
 
 
+def _historical_item_holders(conn: Any, item_id: int) -> set[str]:
+    """Return every session that held item/task authority for this item."""
+    rows = conn.execute(
+        "SELECT DISTINCT session_id FROM work_claims WHERE "
+        f"(target_kind='item' AND item_id={_p(conn)}) OR "
+        f"(target_kind='epic_task' AND epic_id={_p(conn)})",
+        (int(item_id), int(item_id)),
+    ).fetchall()
+    return {str(row[0]) for row in rows if row[0]}
+
+
 def release_for_terminal_item(
     conn: Any,
     *,
@@ -133,7 +144,10 @@ def release_for_terminal_item(
         lease_key_for(model_name),
         for_update=True,
     )
-    holders = {str(value) for value in holder_session_ids}
+    holders = {
+        *(str(value) for value in holder_session_ids),
+        *_historical_item_holders(conn, int(item_id)),
+    }
     if lease is None or lease.session_id not in holders:
         return None
     if _session_has_other_model_owner(

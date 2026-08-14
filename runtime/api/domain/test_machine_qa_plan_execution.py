@@ -212,11 +212,13 @@ def test_machine_lease_waiting_state_resumes_at_the_same_cursor(
         )
     )
     assert waiting.primary_success, waiting.error
-    assert waiting.result_payload == {
-        "state": "waiting",
-        "execution_id": str(execution["id"]),
-        "cursor_ordinal": 0,
-    }
+    assert waiting.result_payload["state"] == "waiting"
+    assert waiting.result_payload["execution_id"] == str(execution["id"])
+    assert waiting.result_payload["cursor_ordinal"] == 0
+    lease_context = waiting.result_payload["lease_context"]
+    assert lease_context["holder_session_id"] == "another-session"
+    assert "heartbeat age" in lease_context["wait_message"]
+    assert "yoke coordination-lease release" in lease_context["wait_message"]
     stored = lock_plan_execution(test_db, str(execution["id"]))
     assert stored["state"] == "waiting"
     assert stored["machine_lease_id"] is None

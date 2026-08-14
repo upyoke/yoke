@@ -6,6 +6,7 @@ import pytest
 
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_sessions import _register
+from yoke_core.domain import coordination_leases
 from yoke_core.domain.sessions import (
     SessionError,
     claim_work,
@@ -86,6 +87,35 @@ class TestStaleDetection:
             "SELECT release_reason FROM work_claims WHERE session_id='sess-1'"
         ).fetchone()
         assert claim["release_reason"] == "reclaimed"
+
+    def test_reclaim_releases_coordination_lease_with_audit_event(
+        self,
+        conn,
+        monkeypatch,
+    ):
+        _register(conn)
+        lease = coordination_leases.acquire_lease(
+            conn,
+            "yoke",
+            "LIVE_DB_MIGRATION:primary",
+            "sess-1",
+            now="2020-01-01T00:00:00Z",
+        )
+        emitted = []
+        monkeypatch.setattr(
+            "yoke_core.domain.events.emit_event",
+            lambda name, **kwargs: emitted.append((name, kwargs)),
+        )
+
+        reclaim_stale_session(conn, "sess-1")
+
+        released = coordination_leases.get_lease(conn, lease.id)
+        assert released.release_reason == "stale-session-reclaimed"
+        assert any(
+            name == coordination_leases.LEASE_RELEASED_EVENT
+            and call["context"]["release_reason"] == "stale-session-reclaimed"
+            for name, call in emitted
+        )
 
 
 # ---------------------------------------------------------------------------

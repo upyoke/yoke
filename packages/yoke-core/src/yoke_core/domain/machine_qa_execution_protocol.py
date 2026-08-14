@@ -10,6 +10,7 @@ from yoke_core.domain.coordination_leases import (
     SELECT_COLUMNS,
     Lease,
     LeaseHeldError,
+    LeaseStaleHolderError,
     LeaseNotFoundError,
     active_lease,
     acquire_lease,
@@ -17,6 +18,7 @@ from yoke_core.domain.coordination_leases import (
     release_lease,
     row_to_lease,
 )
+from yoke_core.domain.coordination_lease_contention import LeaseContention
 from yoke_core.domain.host_control_runner import (
     TestMachineContract,
     load_test_machine_contract,
@@ -38,10 +40,17 @@ class MachineQaProtocolError(ValueError):
 class MachineQaProtocolLeaseHeld(MachineQaProtocolError):
     """The target host is already leased by another execution."""
 
-    def __init__(self, *, lease: Lease, machine: str) -> None:
+    def __init__(
+        self,
+        *,
+        lease: Lease,
+        machine: str,
+        contention: LeaseContention | None = None,
+    ) -> None:
         super().__init__(f"test machine {machine!r} is in use by another execution")
         self.lease = lease
         self.machine = machine
+        self.contention = contention
 
 
 class _CommitDeferredConnection:
@@ -178,7 +187,9 @@ def begin_host_control_execution(
             session_id,
             actor_id=actor_id,
         )
-    except LeaseHeldError:
+    except LeaseStaleHolderError as exc:
+        raise MachineQaProtocolError(str(exc)) from None
+    except LeaseHeldError as exc:
         held = active_lease(
             conn,
             machine.project_id,
@@ -191,6 +202,7 @@ def begin_host_control_execution(
         raise MachineQaProtocolLeaseHeld(
             lease=held,
             machine=resource_name,
+            contention=exc.contention,
         ) from None
     return _issue(
         machine,

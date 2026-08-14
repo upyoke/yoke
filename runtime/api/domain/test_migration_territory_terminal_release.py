@@ -105,6 +105,23 @@ def test_terminal_status_does_not_release_foreign_holder(test_db):
     assert held is not None and held.session_id == "foreign-owner"
 
 
+def test_terminal_status_uses_historical_owner_after_claim_release(test_db):
+    item_id = 4208
+    lease_id = _seed_owner(test_db, item_id=item_id, session_id="merged-owner")
+    test_db.execute(
+        "UPDATE work_claims SET released_at=%s, release_reason='completed' "
+        "WHERE item_id=%s",
+        (iso8601_now(), item_id),
+    )
+    test_db.commit()
+
+    receipt = _transition(test_db, item_id=item_id, target_status="done")
+    test_db.commit()
+
+    assert receipt.migration_territories_released == 1
+    assert get_lease(test_db, lease_id).release_reason == "item-terminal:done"
+
+
 def test_shared_session_keeps_territory_until_last_model_owner_terminates(test_db):
     first_id, second_id = 4205, 4206
     lease_id = _seed_owner(test_db, item_id=first_id, session_id="shared-owner")

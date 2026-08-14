@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -155,17 +156,11 @@ def _rehearse_inner(
     try:
         ensure_migration_audit_table_for_target(authoritative_db, audit_conn)
         if authoritative_db.kind == "postgres":
-            insert_audit_row = (
-                lambda **kw: pg_insert_migration_audit_row(audit_conn, **kw)
-            )
-            update_audit_state = lambda *a, **kw: pg_update_migration_audit_state(
-                audit_conn, *a, **kw,
-            )
+            insert_audit_row = partial(pg_insert_migration_audit_row, audit_conn)
+            update_audit_state = partial(pg_update_migration_audit_state, audit_conn)
         else:
-            insert_audit_row = lambda **kw: _insert_audit_row(audit_conn, **kw)
-            update_audit_state = lambda *a, **kw: _update_audit_state(
-                audit_conn, *a, **kw,
-            )
+            insert_audit_row = partial(_insert_audit_row, audit_conn)
+            update_audit_state = partial(_update_audit_state, audit_conn)
         # Compute pre-counts against the validation surface up front so
         # each module's baseline verify has a stable baseline.
         val_conn = connect_db_target(validation_target)
@@ -331,7 +326,7 @@ def _rehearse_inner(
     # A rehearsal that failed never entered migration territory, so it must
     # not leave the door locked behind it. A rehearsal that PASSED keeps the
     # lease: the item now owns this model until it lands or an operator
-    # releases it (`yoke leases operator-release`), which is what makes the
+    # releases it (`yoke coordination-lease release`), which makes the
     # lease a visible signal rather than a momentary mutex.
     if not result.all_succeeded:
         result.lease_id = migration_territory_lease.leave(

@@ -68,7 +68,7 @@ def reclaim_stale_session(
     conn: Any,
     session_id: str,
 ) -> Dict[str, Any]:
-    """Release all claims from a stale session and mark it as ended.
+    """Release all claims and leases from a stale session, then end it.
 
     Claims are released with reason 'reclaimed'.  Emits one ``WorkReclaimed``
     event per released claim with populated ``item_id``/``task_num``.
@@ -113,6 +113,9 @@ def reclaim_stale_session(
         )
         if cursor.rowcount:
             released_claim_rows.append(claim_row)
+    from .coordination_lease_reclaim import release_for_reclaimed_session
+
+    release_for_reclaimed_session(conn, session_id)
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (now, session_id),

@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import coordination_leases
+from yoke_core.domain.sessions import register_session
 from runtime.api.domain.test_coordination_leases import _seed_projects
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -64,6 +65,45 @@ class TestActorAttribution:
                     actor_id="other",
                 )
             assert "sess-a" in str(exc.value)
+            assert "heartbeat age" in str(exc.value)
+            assert "yoke coordination-lease release" in str(exc.value)
+        finally:
+            conn.close()
+
+    def test_dead_holder_refuses_wait_with_operator_recipe(self, db_path: str) -> None:
+        conn = _connect(db_path)
+        try:
+            register_session(
+                conn,
+                session_id="sess-dead",
+                executor="codex",
+                provider="openai",
+                model="gpt",
+                workspace="/tmp/yoke-lease-test",
+                project_id=1,
+            )
+            coordination_leases.acquire_lease(
+                conn,
+                "yoke",
+                "LIVE_DB_MIGRATION:primary",
+                "sess-dead",
+                now="2020-01-01T00:00:00Z",
+            )
+            with pytest.raises(
+                coordination_leases.LeaseStaleHolderError,
+                match="wait refused",
+            ) as exc:
+                coordination_leases.acquire_lease(
+                    conn,
+                    "yoke",
+                    "LIVE_DB_MIGRATION:primary",
+                    "sess-waiting",
+                )
+            message = str(exc.value)
+            assert "held by session sess-dead" in message
+            assert "heartbeat age" in message
+            assert "--key LIVE_DB_MIGRATION:primary" in message
+            assert "--reason 'stale holder confirmed'" in message
         finally:
             conn.close()
 

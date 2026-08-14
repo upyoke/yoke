@@ -1,4 +1,4 @@
-"""Shared harness_sessions + work_claims + session_tool_calls fixture DDL.
+"""Shared session, work-claim, tool-call, and coordination-lease fixture DDL.
 
 Split from ``runtime.api.test_sessions`` (350-line authored cap). Both
 ``_create_schema`` and ``_create_ownership_schema`` embed this one
@@ -73,4 +73,20 @@ _SESSIONS_AND_CLAIMS_DDL = """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_work_claims_active_process_conflict
             ON work_claims(conflict_group)
             WHERE released_at IS NULL AND target_kind='process';
+        CREATE TABLE IF NOT EXISTS coordination_leases (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER NOT NULL REFERENCES projects(id),
+            lease_key TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            actor_id TEXT,
+            acquired_at TEXT NOT NULL,
+            heartbeat_at TEXT,
+            released_at TEXT,
+            release_reason TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_coordination_leases_live
+            ON coordination_leases(project_id, lease_key)
+            WHERE released_at IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_coordination_leases_session
+            ON coordination_leases(session_id);
 """
