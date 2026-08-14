@@ -311,18 +311,24 @@ def rehearse_fleet(
     plan: RehearsalPlan,
     spec: ClusterSpec,
     work_dir: Path,
+    emit: Optional[Callable[[str], None]] = None,
 ) -> List[Verdict]:
     """Rehearse the caller-declared databases with its migration plan."""
-    return [
-        rehearse(
+    verdicts: List[Verdict] = []
+    for name in databases:
+        if emit is not None:
+            emit(f"COPY/CONVERGE {name}: starting rehearsal")
+        verdict = rehearse(
             dsn_for(name),
             database=name,
             plan=plan,
             spec=spec,
             work_dir=work_dir,
         )
-        for name in databases
-    ]
+        verdicts.append(verdict)
+        if emit is not None:
+            emit(verdict.line)
+    return verdicts
 
 
 __all__ = [

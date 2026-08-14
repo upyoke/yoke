@@ -55,7 +55,9 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
 
     assert preflight.main(["production", "abc123"]) == 1
 
-    assert "--receipt-env prod" in capsys.readouterr().err
+    refusal = capsys.readouterr().err
+    assert "yoke watch preflight -- prod-db-admin" in refusal
+    assert "--receipt-env prod" in refusal
 
 
 def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
@@ -71,4 +73,6 @@ def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
 
     assert preflight.main(["production", "abc123"]) == 1
 
-    assert "--receipt-env <control-plane-connection>" in capsys.readouterr().err
+    refusal = capsys.readouterr().err
+    assert "yoke watch preflight -- prod-db-admin" in refusal
+    assert "--receipt-env <control-plane-connection>" in refusal

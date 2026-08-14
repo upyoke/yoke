@@ -139,6 +139,7 @@ def test_fleet_rehearsal_uses_only_the_callers_declared_databases(
     tmp_path: Path,
 ) -> None:
     calls = []
+    emitted = []
 
     def fake_rehearse(source_dsn: str, **kwargs: Any) -> Verdict:
         calls.append((source_dsn, kwargs["database"], kwargs["plan"]))
@@ -152,6 +153,7 @@ def test_fleet_rehearsal_uses_only_the_callers_declared_databases(
         plan=REHEARSAL_PLAN,
         spec=local_universe.cluster_spec(root=tmp_path),
         work_dir=tmp_path / "work",
+        emit=emitted.append,
     )
 
     assert [verdict.database for verdict in verdicts] == [
@@ -161,6 +163,12 @@ def test_fleet_rehearsal_uses_only_the_callers_declared_databases(
     assert calls == [
         ("dsn:external_alpha", "external_alpha", REHEARSAL_PLAN),
         ("dsn:external_beta", "external_beta", REHEARSAL_PLAN),
+    ]
+    assert emitted == [
+        "COPY/CONVERGE external_alpha: starting rehearsal",
+        "PASS external_alpha: nothing pending -> converged",
+        "COPY/CONVERGE external_beta: starting rehearsal",
+        "PASS external_beta: nothing pending -> converged",
     ]
 
 

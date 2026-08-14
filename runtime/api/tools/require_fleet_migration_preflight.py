@@ -51,7 +51,7 @@ def _yoke_fleet_rehearse_command(
         shlex.quote(receipt_env) if receipt_env else "<control-plane-connection>"
     )
     return (
-        "python3 -m runtime.api.tools.preflight_fleet_migrations "
+        "yoke watch preflight -- "
         f"{admin_env} --record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )

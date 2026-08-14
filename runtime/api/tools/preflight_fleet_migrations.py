@@ -8,7 +8,7 @@ would. The live databases are only read.
 
 Usage::
 
-    python3 -m runtime.api.tools.preflight_fleet_migrations <env-name> [db ...]
+    yoke watch preflight -- <env-name> [db ...]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
 
 where *env-name* is a configured admin connection (``prod-db-admin`` or
@@ -23,7 +23,10 @@ recorded
 only on a passing run, so a receipt cannot exist for a fleet this did not
 clear.
 
-Exits non-zero when any database fails, so a release step can gate on it.
+The watcher keeps output unbuffered, streams the per-database verdicts and
+receipt, writes the sentinel consumed by ``yoke watch tail``, and preserves
+the preflight exit code. Exits non-zero when any database fails, so a release
+step can gate on it.
 """
 
 from __future__ import annotations
@@ -143,10 +146,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             plan=plan,
             spec=spec,
             work_dir=Path(work),
+            emit=print,
         )
 
-    for verdict in verdicts:
-        print(verdict.line)
     failed = [v for v in verdicts if not v.passed]
     print(f"\n{len(verdicts) - len(failed)} passed, {len(failed)} failed")
     if failed or not record:

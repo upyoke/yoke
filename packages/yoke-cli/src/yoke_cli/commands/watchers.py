@@ -10,8 +10,8 @@ always resolves an interpreter that can import the wrapper, so the
 ``yoke watch`` form is correct by construction.
 
 Where the wrapper runs matters as much as whether it imports. A watcher
-launches a workload — pytest, a merge engine, doctor — that should run in
-the *project's* environment, not in the environment that happens to own
+launches a workload — pytest, a merge engine, a preflight — that should run
+in the *project's* environment, not in the environment that happens to own
 the ``yoke`` console script. So when the invocation directory belongs to
 a uv-managed project (``pyproject.toml`` beside a ``uv.lock``) **and that
 project's environment can import the wrapper**, the adapter re-execs
@@ -74,6 +74,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke watch deploy": (
         "Run a deployment pipeline under the shared raw+progress watcher; "
         "pass the run id and `deployment-runs execute` flags after `--`."
+    ),
+    "yoke watch preflight": (
+        "Run the fleet migration preflight under the shared raw+progress "
+        "watcher; pass bare preflight args after `--`."
     ),
     "yoke watch qa-case": (
         "Run the QA gate under the shared raw+progress watcher; pass bare "
