@@ -91,49 +91,8 @@ def test_explicit_non_https_relay_refuses_local_credential_fallback(monkeypatch)
     assert "refusing local GitHub credential fallback" in result.stderr
 
 
-def test_db_admin_env_derives_its_https_peer_relay(monkeypatch):
+def test_db_admin_env_derives_its_owning_https_plane(monkeypatch):
     monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
-    monkeypatch.delenv(
-        deploy_pipeline_reporting.GITHUB_ACTIONS_RELAY_ENV,
-        raising=False,
-    )
-    with mock.patch(
-        "yoke_cli.transport.https.resolve_https_connection",
-        return_value=mock.sentinel.https_connection,
-    ) as resolve, mock.patch.object(
-        deploy_pipeline_reporting,
-        "_run_cmd",
-        return_value=_completed(),
-    ) as run_cmd:
-        result = deploy_pipeline_reporting._github_actions(
-            "poll",
-            "upyoke/platform",
-            "123",
-            project="platform",
-        )
-
-    assert result.returncode == 0
-    resolve.assert_called_once_with(explicit_env="stage")
-    run_cmd.assert_called_once_with(
-        [
-            sys.executable,
-            "-m",
-            "yoke_cli.main",
-            "--env",
-            "stage",
-            "github-actions",
-            "poll",
-            "upyoke/platform",
-            "123",
-            "--project",
-            "platform",
-        ],
-        timeout=60,
-    )
-
-
-def test_stage_db_admin_env_derives_prod_peer(monkeypatch):
-    monkeypatch.setenv("YOKE_ENV", "stage-db-admin")
     monkeypatch.delenv(
         deploy_pipeline_reporting.GITHUB_ACTIONS_RELAY_ENV,
         raising=False,
@@ -157,6 +116,31 @@ def test_stage_db_admin_env_derives_prod_peer(monkeypatch):
     resolve.assert_called_once_with(explicit_env="prod")
 
 
+def test_stage_db_admin_env_derives_its_owning_plane(monkeypatch):
+    monkeypatch.setenv("YOKE_ENV", "stage-db-admin")
+    monkeypatch.delenv(
+        deploy_pipeline_reporting.GITHUB_ACTIONS_RELAY_ENV,
+        raising=False,
+    )
+    with mock.patch(
+        "yoke_cli.transport.https.resolve_https_connection",
+        return_value=mock.sentinel.https_connection,
+    ) as resolve, mock.patch.object(
+        deploy_pipeline_reporting,
+        "_run_cmd",
+        return_value=_completed(),
+    ):
+        result = deploy_pipeline_reporting._github_actions(
+            "poll",
+            "upyoke/platform",
+            "123",
+            project="platform",
+        )
+
+    assert result.returncode == 0
+    resolve.assert_called_once_with(explicit_env="stage")
+
+
 def test_unknown_db_admin_base_requires_explicit_peer_or_local(monkeypatch):
     monkeypatch.setenv("YOKE_ENV", "lab-db-admin")
     monkeypatch.delenv(
@@ -167,7 +151,10 @@ def test_unknown_db_admin_base_requires_explicit_peer_or_local(monkeypatch):
         deploy_pipeline_reporting.GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV,
         raising=False,
     )
-    with mock.patch.object(deploy_pipeline_reporting, "_run_cmd") as run_cmd:
+    with mock.patch(
+        "yoke_cli.transport.https.resolve_https_connection",
+        return_value=None,
+    ), mock.patch.object(deploy_pipeline_reporting, "_run_cmd") as run_cmd:
         result = deploy_pipeline_reporting._github_actions(
             "poll",
             "upyoke/platform",
@@ -176,8 +163,8 @@ def test_unknown_db_admin_base_requires_explicit_peer_or_local(monkeypatch):
         )
 
     assert result.returncode == 4
-    assert "no GitHub Actions authority selected" in result.stderr
-    assert "peer-https-env" in result.stderr
+    assert "selects 'lab'" in result.stderr
+    assert "refusing local GitHub credential fallback" in result.stderr
     run_cmd.assert_not_called()
 
 

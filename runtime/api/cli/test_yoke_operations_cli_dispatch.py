@@ -249,7 +249,8 @@ class TestEveryTierOneFamilyDispatches:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "events.query.run"
         assert req.target.kind == "global"
-        assert req.payload == {"event_name": "ItemStatusChanged", "limit": 10}
+        assert req.payload["event_name"] == "ItemStatusChanged"
+        assert req.payload["limit"] == 10
 
     def test_events_query_dispatches_item_scoped(self) -> None:
         rc = _run_with_dispatch(

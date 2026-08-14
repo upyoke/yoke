@@ -27,12 +27,13 @@ def test_an_explicit_relay_env_is_named(monkeypatch):
 
 
 def test_the_relay_derived_from_an_admin_env_is_named(monkeypatch):
-    """Owner-only env derives its peer plane, not the same-base sibling."""
+    """Owner-only env derives its own https plane, not a test-environment peer."""
     _clear(monkeypatch)
     monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
     label = poll_authority.authority_label()
-    assert "'stage'" in label
-    assert "peer" in label
+    assert "'prod'" in label
+    assert "owning" in label
+    assert "'stage'" not in label
 
 
 def test_resolve_status_relay_env_prefers_explicit_over_peer(monkeypatch):
@@ -105,8 +106,17 @@ def test_the_stall_message_names_the_dependency_and_the_way_out():
     """An operator reading this should not have to ask anything else."""
     message = poll_authority.stall_message("30968749771", 12)
     assert "12 consecutive" in message
-    assert "peer control plane" in message
-    assert "fail independently" in message
+    assert "own control plane" in message
     assert "GitHub Actions UI" in message
     assert "30968749771" in message
     assert "stage budget" in message
+    assert "peer control plane" not in message
+
+
+def test_prod_admin_never_selects_the_stage_plane(monkeypatch):
+    """Live delivery must not evaluate GitHub authority against stage."""
+    _clear(monkeypatch)
+    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
+    env, source = poll_authority.resolve_status_relay_env()
+    assert env == "prod"
+    assert "owning plane" in source

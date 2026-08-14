@@ -25,6 +25,10 @@ from yoke_core.domain.function_target_row_project import (
     resolve_work_claim_project,
     slug_for_project_id,
 )
+from yoke_core.domain.function_unresolved_project import (
+    ProjectNotRegisteredError,
+    control_plane_label,
+)
 from yoke_core.domain.project_identity import (
     AmbiguousProjectRefError,
     resolve_project_id,
@@ -214,8 +218,10 @@ def _resolve_github_actions_project_context(
             return None
     except AmbiguousProjectRefError:
         raise
-    except LookupError:
-        return None
+    except LookupError as exc:
+        raise ProjectNotRegisteredError(
+            payload_ref, plane=control_plane_label(),
+        ) from exc
     return project_id, slug_for_project_id(conn, project_id)
 
 

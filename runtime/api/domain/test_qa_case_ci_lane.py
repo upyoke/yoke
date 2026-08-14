@@ -157,8 +157,8 @@ def test_authority_under_a_db_admin_connection_uses_its_own_https_plane(
 ):
     """A direct-Postgres connection asks the plane it administers.
 
-    The deploy layer's fallback would pick an independently deployed peer,
-    which holds neither this project's rows nor its App authorization.
+    Deploy and verification share that owning-plane rule so live
+    delivery never depends on an independently deployed test plane.
     """
     from yoke_core.domain.deploy_pipeline_reporting import (
         GITHUB_ACTIONS_RELAY_ENV,

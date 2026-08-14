@@ -19,6 +19,7 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -184,6 +185,10 @@ def _filters_payload(parsed: argparse.Namespace) -> Dict[str, Any]:
             payload[key] = value
     if parsed.project:
         payload["project"] = parsed.project
+    else:
+        ambient = client_project_context()
+        if ambient:
+            payload["project"] = ambient
     if parsed.current_episode:
         payload["current_episode"] = True
     return payload
@@ -194,7 +199,10 @@ def _filters_target(parsed: argparse.Namespace) -> TargetRef:
     # dispatcher resolves it and the handler reads target.item_id.
     if parsed.item is not None:
         return item_target("item", parsed.item, parsed.project)
-    return TargetRef(kind="global")
+    return TargetRef(
+        kind="global",
+        project_id=client_project_context(parsed.project),
+    )
 
 
 def _dispatch_filtered(
@@ -247,7 +255,9 @@ def events_query(args: List[str]) -> int:
     )
 
 
-EVENTS_TAIL_USAGE = "yoke events tail [--limit N] [--session-id S] [--json]"
+EVENTS_TAIL_USAGE = (
+    "yoke events tail [--limit N] [--project P] [--session-id S] [--json]"
+)
 
 
 def events_tail(args: List[str]) -> int:
@@ -258,6 +268,10 @@ def events_tail(args: List[str]) -> int:
         "--limit", default="20",
         help="Most-recent rows returned, 1..1000 (default 20).",
     )
+    parser.add_argument(
+        "--project", default=None,
+        help="Project slug/id (default: the checkout's mapped project).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, EVENTS_TAIL_USAGE)
@@ -267,10 +281,14 @@ def events_tail(args: List[str]) -> int:
         limit = int(parsed.limit)
     except ValueError:
         return usage_error("--limit must be an integer")
+    project = client_project_context(parsed.project)
+    payload: Dict[str, Any] = {"limit": limit}
+    if project:
+        payload["project"] = project
     return dispatch_and_emit(
         function_id="events.tail.run",
-        target=TargetRef(kind="global"),
-        payload={"limit": limit},
+        target=TargetRef(kind="global", project_id=project),
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
