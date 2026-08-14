@@ -275,7 +275,6 @@ class TrainRun:
     conclusion: str = ""
     head_sha: str = ""
     url: str = ""
-    matched_by_marker: bool = False
 
 
 def read_train_run(
@@ -283,11 +282,13 @@ def read_train_run(
 ) -> tuple[Optional[TrainRun], Optional[str]]:
     """The merge_group run covering ``pr_num``'s train.
 
-    Matched by the queue ref's ``pr-<number>-`` marker. A train that has
-    already rotated out of the recent-run window falls back to the newest
-    successful merge_group run, reported as ``matched_by_marker=False`` so a
-    caller can say the identity was inferred. Returns ``(None, reason)`` when
-    the run cannot be read at all; no caller blocks on that.
+    Identified only by the queue ref's ``pr-<number>-`` marker. Every other
+    merge_group run belongs to a different train, so a train that has rotated
+    out of the recent-run window is reported as unidentified rather than
+    substituted: presenting the newest green run as this pull request's is how
+    an ejection report came to show an unrelated train's success as proof of
+    this one. Returns ``(None, reason)`` whenever no run is identified; no
+    caller blocks on that.
     """
     auth, auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
     if auth_err or auth is None:
@@ -306,8 +307,6 @@ def read_train_run(
         return None, f"merge_group run lookup failed: {exc}"
     body = response.body if isinstance(response.body, dict) else {}
     marker = f"pr-{pr_num}-"
-    matched: Optional[dict[str, Any]] = None
-    newest_success: Optional[dict[str, Any]] = None
     for run in body.get("workflow_runs") or []:
         if not isinstance(run, dict):
             continue
@@ -315,24 +314,18 @@ def read_train_run(
         if not head_branch.startswith(_QUEUE_REF_PREFIX):
             continue
         if marker in head_branch:
-            matched = run
-            break
-        if newest_success is None and run.get("conclusion") == "success":
-            newest_success = run
-    chosen = matched or newest_success
-    if chosen is None:
-        return None, "no merge_group workflow run found for the landed train"
-    return (
-        TrainRun(
-            status=str(chosen.get("status") or ""),
-            conclusion=str(chosen.get("conclusion") or ""),
-            head_sha=str(chosen.get("head_sha") or ""),
-            url=str(chosen.get("html_url") or ""),
-            matched_by_marker=matched is not None,
-        ),
-        None if matched is not None else (
-            "merge_group run matched by recency, not by queue ref marker"
-        ),
+            return (
+                TrainRun(
+                    status=str(run.get("status") or ""),
+                    conclusion=str(run.get("conclusion") or ""),
+                    head_sha=str(run.get("head_sha") or ""),
+                    url=str(run.get("html_url") or ""),
+                ),
+                None,
+            )
+    return None, (
+        f"no merge_group workflow run identified for pull request {pr_num}: "
+        f"no recent queue ref carries the marker {marker!r}"
     )
 
 

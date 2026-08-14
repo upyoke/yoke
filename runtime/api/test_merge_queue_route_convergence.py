@@ -36,8 +36,7 @@ def test_stalled_landing_names_every_fact_it_observed(monkeypatch):
         landing_states=[ARMED, UNARMED, UNARMED],
         queue_entries=(),
         train=TrainRun(
-            status="completed", conclusion="failure",
-            url="https://runs/9", matched_by_marker=True,
+            status="completed", conclusion="failure", url="https://runs/9",
         ),
     )
     outcome = land()

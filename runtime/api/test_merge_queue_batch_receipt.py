@@ -59,15 +59,23 @@ def test_observe_batch_matches_queue_ref_marker(monkeypatch):
     assert receipt.members == ("YOK-300", "YOK-301")
 
 
-def test_observe_batch_falls_back_to_newest_success_with_warning(monkeypatch):
+def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
+    """Only the run carrying this pull request's marker names its head.
+
+    The receipt is what covering-evidence readers compare trees by, so a
+    head borrowed from a different train is worse than none: it asserts this
+    member was validated by a run that never contained it.
+    """
     _wire_transport(monkeypatch, runs=[
         {"head_branch": "gh-readonly-queue/main/pr-7-abc",
          "head_sha": "a" * 40, "html_url": "https://runs/7",
          "conclusion": "success"},
     ])
     receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
-    assert receipt.head_sha == "a" * 40
-    assert "recency" in warn
+    assert receipt.head_sha == ""
+    assert receipt.run_url == ""
+    assert receipt.merge_sha == "m" * 40
+    assert "no merge_group workflow run identified" in warn
 
 
 def test_observe_batch_without_runs_keeps_merge_identity(monkeypatch):

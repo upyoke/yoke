@@ -26,6 +26,11 @@ from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
 
+#: Where a landing that retires its own lane believes the checkout is. A
+#: context without one belongs to a caller with no local checkout at all,
+#: which is a different path through the close-out.
+CHECKOUT = "/tmp/repo"
+
 #: The claim a landing holds throughout its poll, which is what the
 #: timeout message reports when the poll budget runs out.
 HELD_BY_THIS_SESSION = {"claim_id": 77, "session_id": "sess-1"}
@@ -36,8 +41,10 @@ MERGED = PrLandingState(merged=True, closed=True, auto_merge_active=False)
 CLOSED = PrLandingState(merged=False, closed=True, auto_merge_active=False)
 
 
-def ctx(branch: str = "YOK-200") -> MergeContext:
-    return MergeContext(args=MergeArgs(branch=branch), project="yoke")
+def ctx(branch: str = "YOK-200", *, repo_root: str = "") -> MergeContext:
+    return MergeContext(
+        args=MergeArgs(branch=branch), repo_root=repo_root, project="yoke"
+    )
 
 
 def ok_response(result):
@@ -150,6 +157,7 @@ def land(**overrides):
 
 __all__ = [
     "ARMED",
+    "CHECKOUT",
     "CLOSED",
     "HELD_BY_THIS_SESSION",
     "LANE_SHA",

@@ -81,7 +81,7 @@ def test_a_pull_request_the_queue_never_took_up_is_visible_while_pending(
     verdict = _classify()
     assert verdict.kind == verdict_mod.PENDING
     assert "queue-entry=absent" in verdict.narrative
-    assert "train-run=not found" in verdict.narrative
+    assert "train-run=not identified" in verdict.narrative
 
 
 def test_a_merged_observation_reports_the_merge(monkeypatch):
@@ -131,7 +131,6 @@ def test_absent_from_the_queue_after_confirmation_is_stalled(monkeypatch):
         states=[UNARMED, UNARMED],
         train=TrainRun(
             status="completed", conclusion="success", url="https://runs/3",
-            matched_by_marker=True,
         ),
     )
     verdict = _classify()
@@ -175,7 +174,7 @@ def test_missing_train_run_is_named_rather_than_asserted(monkeypatch):
         train=None, train_note="no merge_group workflow run found",
     )
     verdict = _classify()
-    assert "train-run=not found" in verdict.narrative
+    assert "train-run=not identified" in verdict.narrative
     assert "no merge_group workflow run found" in verdict.warnings
 
 

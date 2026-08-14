@@ -81,7 +81,11 @@ def describe(
     else:
         slot = entry.state or "present"
     if train is None:
-        run = "not found"
+        # Unidentified, not absent: the reader answers ``None`` both when the
+        # lookup failed and when no queue ref carried this pull request's
+        # marker, and naming either as a concluded run is the substitution
+        # that put an unrelated train's green in an ejection report.
+        run = "not identified"
     else:
         run = train.conclusion or train.status or "unreported"
         if train.url:

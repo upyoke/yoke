@@ -42,11 +42,35 @@ def head_of(repo_root: str, branch: str) -> str:
     return git_out(repo_root, "rev-parse", f"refs/heads/{branch}")
 
 
+def remote_branch_exists(repo_root: str, branch: str) -> bool:
+    """Whether origin advertises ``branch``.
+
+    The exact ref is asked for, so a branch whose name prefixes another
+    cannot answer for it. An unreadable remote answers ``False``, because the
+    caller's response is to publish — which names its own failure if the
+    remote is genuinely unreachable.
+    """
+    return bool(
+        git_out(
+            repo_root, "ls-remote", "--heads", "origin", f"refs/heads/{branch}"
+        )
+    )
+
+
 def is_ancestor(repo_root: str, commit: str, target: str) -> bool:
     """Whether ``target`` already contains ``commit``."""
     return _git(
         repo_root, "merge-base", "--is-ancestor", commit, target
     ).returncode == 0
+
+
+def fetch_target(repo_root: str, target: str) -> None:
+    """Refresh ``origin/<target>`` before anything reads it.
+
+    Best effort: a checkout with no remote, or one that cannot reach it,
+    still answers from the refs it already holds.
+    """
+    _git(repo_root, "fetch", "origin", target)
 
 
 def is_landed(repo_root: str, commit: str, target: str) -> bool:
@@ -62,7 +86,7 @@ def is_landed(repo_root: str, commit: str, target: str) -> bool:
         return True
     if not has_remote(repo_root):
         return False
-    _git(repo_root, "fetch", "origin", target)
+    fetch_target(repo_root, target)
     return is_ancestor(repo_root, commit, f"origin/{target}")
 
 
@@ -99,10 +123,12 @@ def publish(repo_root: str, target: str) -> tuple[bool, str]:
 __all__ = [
     "branch_exists",
     "changed_files",
+    "fetch_target",
     "git_out",
     "head_of",
     "has_remote",
     "is_ancestor",
     "is_landed",
     "publish",
+    "remote_branch_exists",
 ]
