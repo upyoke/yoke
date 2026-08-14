@@ -17,6 +17,7 @@ from yoke_core.tools._impacted_contract_tests import (
     ITEM_WORKTREE_SCHEMA_TESTS,
     PRODUCT_CLI_BOUNDARY_TESTS,
     SCHEMA_CONVERGE_CONTRACT_TESTS,
+    STANDALONE_MERGE_CLOSE_OUT_TESTS,
     contract_tests_for,
 )
 from yoke_core.tools._impacted_import_index import (
@@ -329,6 +330,7 @@ __all__ = [
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
+    "STANDALONE_MERGE_CLOSE_OUT_TESTS",
     "Selection",
     "SHARED_TEST_FIXTURE_PATHS",
     "TEST_ANCHORS",

@@ -42,6 +42,11 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
 
 PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
 
+STANDALONE_MERGE_CLOSE_OUT_TESTS = (
+    "runtime/api/domain/test_standalone_item_merge_close_out.py",
+    "runtime/api/domain/test_standalone_item_merge_evidence_truth.py",
+)
+
 PATH_CONTRACT_TESTS = (
     (
         frozenset(
@@ -69,6 +74,17 @@ PATH_CONTRACT_TESTS = (
         frozenset({"packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"}),
         SCHEMA_CONVERGE_CONTRACT_TESTS,
     ),
+    (
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/domain/"
+                "standalone_item_merge_cli.py",
+                "packages/yoke-core/src/yoke_core/domain/"
+                "standalone_item_merge_recovery.py",
+            }
+        ),
+        STANDALONE_MERGE_CLOSE_OUT_TESTS,
+    ),
 )
 
 
@@ -90,6 +106,7 @@ __all__ = [
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
+    "STANDALONE_MERGE_CLOSE_OUT_TESTS",
     "WORKFLOW_DEFINITION_VALIDATION_TESTS",
     "contract_tests_for",
 ]

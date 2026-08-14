@@ -65,8 +65,8 @@ def reacquire_landed_claim(
     )
     if receipt is None or not receipt.commit_sha:
         return None, (
-            "no durable merge receipt proves a prior landing; refusing "
-            "automatic work-claim recovery"
+            f"{_MISSING_CLAIM}; no durable merge receipt proves a prior "
+            "landing, so automatic work-claim recovery is refused"
         )
     landed = any(
         git.is_landed(repo_root, sha, target)
