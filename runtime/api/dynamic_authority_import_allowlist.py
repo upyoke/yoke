@@ -31,6 +31,13 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "handler registration for local-universe in-process dispatch",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
+        "yoke_core.domain.terminal_lane_cleanup",
+    ): (
+        "client_local_machine_state",
+        "best-effort physical lane cleanup after a remote terminal transition",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/board.py",
         "yoke_core.cli.board_rebuild_timing_events",
     ): ("client_local_diagnostics", "board rebuild timing event adapter"),

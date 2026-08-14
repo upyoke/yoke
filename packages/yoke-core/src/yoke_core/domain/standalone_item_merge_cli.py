@@ -32,6 +32,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
 )
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
+from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
 
 # Workflows whose terminal transition is gated on an execution-evidence
 # record. Other standalone workflows merge through the same boundary but
@@ -325,6 +326,10 @@ def run(argv: List[str]) -> int:
             print(json.dumps(envelope, indent=2, sort_keys=True))
             return 1
         envelope["status"] = "done"
+        envelope["warnings"].extend(cleanup_terminal_item_lanes(
+            item, target_status="done", session_id=str(args.session_id),
+            repo_root=repo_root, target_branch=target,
+        ))
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0

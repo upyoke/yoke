@@ -68,6 +68,8 @@ class TestWorktreeHealth:
             )),
             # git rev-parse --verify <branch> (branch exists)
             _completed(returncode=0, stdout="abc123\n"),
+            _completed(stdout=""),  # git remote
+            _completed(stdout=""),  # git worktree list for assessment
         ]
         conn = _make_conn()
         conn.execute(

@@ -20,6 +20,7 @@ def _connection() -> sqlite3.Connection:
           id INTEGER PRIMARY KEY,
           slug TEXT,
           name TEXT,
+          default_branch TEXT,
           public_item_prefix TEXT
         );
         CREATE TABLE workflows (
@@ -201,7 +202,7 @@ def _connection() -> sqlite3.Connection:
     conn.executescript(WORKFLOW_EXECUTION_INSTRUCTIONS_TABLES_SQL)
     fixture = builtin_workflow_definition("dash")
     definition = fixture["definition"]
-    conn.execute("INSERT INTO projects VALUES (7, 'acme', 'Acme', 'ACM')")
+    conn.execute("INSERT INTO projects VALUES (7, 'acme', 'Acme', 'main', 'ACM')")
     conn.execute("INSERT INTO workflows VALUES ('dash', 'Dash')")
     conn.execute(
         "INSERT INTO workflow_versions VALUES (?, 'dash', ?, ?, ?)",

@@ -131,7 +131,6 @@ class TestMergeBoundary:
         """External projects without a remote still complete the merge."""
         monkeypatch.setattr(sim, "stamp_merged_at", lambda item_id: None)
         monkeypatch.setattr(sim, "_run_merge_engine", lambda **_k: (0, ""))
-        monkeypatch.setattr(sim.post_push, "prune_landed_lane", lambda **_k: ())
         outcome = _merge(repo)
         assert outcome.ok
         assert not outcome.pushed

@@ -20,7 +20,7 @@ def dt_db(tmp_path, monkeypatch):
 
 
 class TestCleanupMetadata:
-    def test_cleanup_refusal_preserves_worktree_authority(self, dt_db):
+    def test_cleanup_refusal_preserves_worktree_authority_after_done(self, dt_db):
         db_path, _ = dt_db
         repo_root = db_path.parent
         _insert_item(db_path, 78, status="implemented", worktree="YOK-78")
@@ -31,8 +31,8 @@ class TestCleanupMetadata:
             _cleanup_stale_branches=False,
             _update_item_direct=update,
         ):
-            # Incomplete lane/remote cleanup must refuse happy-path done.
-            assert done_transition.run(78) == 1
+            # Terminal state commits while physical cleanup preserves the lane.
+            assert done_transition.run(78) == 0
 
         assert not any(
             call.args[1:3] == ("worktree", "null")

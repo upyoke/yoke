@@ -9,6 +9,7 @@ from pathlib import Path
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
+from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
 
 
@@ -46,25 +47,6 @@ def _has_foreign_claim(item_id: int) -> bool:
     return bool(holders and (not caller or holders != {caller}))
 
 
-def _registered_branch(project_repo: Path, worktree_path: Path) -> str | None:
-    listed = _parent()._run_git(
-        ["-C", str(project_repo), "worktree", "list", "--porcelain"],
-        capture=True,
-    )
-    if listed.returncode != 0:
-        return None
-    wanted = worktree_path.resolve()
-    current_path: Path | None = None
-    for line in [*(listed.stdout or "").splitlines(), ""]:
-        if line.startswith("worktree "):
-            current_path = Path(line.removeprefix("worktree ")).resolve()
-        elif line.startswith("branch refs/heads/") and current_path == wanted:
-            return line.removeprefix("branch refs/heads/")
-        elif not line:
-            current_path = None
-    return None
-
-
 def _branch_exists(project_repo: Path, branch: str) -> bool:
     result = _parent()._run_git(
         ["-C", str(project_repo), "rev-parse", "--verify", branch],
@@ -88,9 +70,7 @@ def _branch_merged(project_repo: Path, branch: str, base_ref: str) -> bool:
     return result.returncode == 0
 
 
-def _delete_remote_for_lane(
-    project_repo: Path, branch: str, base_branch: str
-) -> bool:
+def _delete_remote_for_lane(project_repo: Path, branch: str, base_branch: str) -> bool:
     """Prove and delete one remote via the shared leased helper."""
     result = delete_remote_branch_if_merged(
         run_git=lambda command: _parent()._run_git(
@@ -112,19 +92,13 @@ def _cleanup_stale_branches(
     lane_branch: str,
     project_repo: Path,
     base_branch: str = "main",
+    authority_block: str = "",
 ) -> bool:
-    """Remove only the current clean, registered, fully merged lane.
+    """Run the shared proof-gated cleanup after status reaches ``done``."""
+    print("\n=== Terminal lane cleanup ===")
 
-    Returns whether the active lane can safely be released after the item
-    reaches done. Remote delete runs first via the shared helper; any
-    incomplete remote cleanup leaves the filesystem, refs, and lane intact so
-    the terminal-item pruner can retry after ownership or dirtiness is
-    resolved. Local ``git branch -d`` proves ancestry against
-    ``origin/<base>`` (already refreshed), not upstream tracking.
-    """
-    print("\n=== Step 4a: Safe worktree/branch cleanup ===")
-    if _has_foreign_claim(item_id):
-        print("  Preserving merge lane: another or unknown claim is active.")
+    if authority_block:
+        print(f"  Preserving merge lane: {authority_block}.")
         return False
 
     if lane_branch:
@@ -145,81 +119,41 @@ def _cleanup_stale_branches(
             )
             return False
 
-    refreshed = _parent()._run_git(
-        ["-C", str(project_repo), "fetch", "origin", base_branch],
-        capture=True,
-    )
-    if refreshed.returncode != 0:
-        print(f"  Preserving merge lane: could not refresh origin/{base_branch}.")
-        return False
-
-    # The lane lives at .worktrees/<branch>; use the recorded branch
-    # (public ref or legacy name) rather than reconstructing YOK-{internal_id}.
     from yoke_core.domain.worktree_naming import worktree_name_for_item
 
-    canonical = lane_branch or worktree_name_for_item(None, item_id)
-    expected = {canonical}
-    if lane_branch:
-        expected.add(lane_branch)
-    base_ref = f"origin/{base_branch}"
-    wt_dir = project_repo / ".worktrees" / canonical
+    branch = lane_branch or worktree_name_for_item(None, item_id)
+    if not _branch_exists(project_repo, branch):
+        return _delete_remote_for_lane(project_repo, branch, base_branch)
 
-    for branch in sorted(expected):
-        if not _delete_remote_for_lane(project_repo, branch, base_branch):
-            return False
+    def run_git(command, *, cwd=None, capture=True):
+        return _parent()._run_git(["-C", str(project_repo), *command], capture=capture)
 
-    if wt_dir.exists():
-        registered = _registered_branch(project_repo, wt_dir)
-        if registered not in expected:
-            print(f"  Preserving unregistered or mismatched worktree: {wt_dir}")
-            return False
-        from yoke_core.engines.merge_worktree_cleanliness import (
-            clean_after_disposable_cache_removal,
+    try:
+        preserved = prune_landed_lane(
+            repo_root=str(project_repo),
+            branch=branch,
+            target=base_branch,
+            item_id=item_id,
+            run_git=run_git,
+            emit=lambda message, **_kw: print(f"  {message}"),
         )
-
-        if not clean_after_disposable_cache_removal(
-            _parent()._run_git, wt_dir
-        ):
-            print(f"  Preserving dirty or unverifiable worktree: {wt_dir}")
-            return False
-        if not _branch_merged(project_repo, registered, base_ref):
-            print(f"  Preserving unmerged worktree branch: {registered}")
-            return False
-        removed = _parent()._run_git(
-            ["-C", str(project_repo), "worktree", "remove", str(wt_dir)],
-            capture=True,
+    except Exception as exc:  # noqa: BLE001 - terminal state is already committed
+        print(f"  Preserving merge lane after an unexpected cleanup refusal: {exc}")
+        return False
+    for reason in preserved:
+        print(
+            f"  item {item_id}, path {project_repo / '.worktrees' / branch}: {reason}"
         )
-        if removed.returncode != 0:
-            print(f"  Preserving worktree after removal refusal: {wt_dir}")
-            return False
-        print(f"  Removed clean merged worktree: {wt_dir}")
-
-    for branch in sorted(expected):
-        if not _branch_exists(project_repo, branch):
-            continue
-        if not _branch_merged(project_repo, branch, base_ref):
-            print(f"  Preserving unmerged local branch: {branch}")
-            return False
-        deleted = _parent()._run_git(
-            ["-C", str(project_repo), "branch", "-d", branch],
-            capture=True,
-        )
-        if deleted.returncode != 0:
-            print(f"  Preserving local branch after delete refusal: {branch}")
-            return False
-        print(f"  Deleted merged local branch: {branch}")
-
-    if lane_branch.startswith("trial/") and not _cleanup_trial_branches(
-        project_repo, item_id=item_id
+    if (
+        lane_branch.startswith("trial/")
+        and not preserved
+        and not _cleanup_trial_branches(project_repo, item_id=item_id)
     ):
         return False
-    print("Safe cleanup complete.")
-    return True
+    return not preserved
 
 
-def _cleanup_trial_branches(
-    project_repo: Path, item_id: int | None = None
-) -> bool:
+def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> bool:
     """Delete only trial refs whose tips are already retained by ``HEAD``."""
     pattern = f"trial/YOK-{item_id}" if item_id is not None else "trial/*"
     branches = _parent()._run_git(
@@ -256,4 +190,8 @@ def _cleanup_trial_branches(
     return complete
 
 
-__all__ = ["_cleanup_stale_branches", "_cleanup_trial_branches"]
+__all__ = [
+    "_cleanup_stale_branches",
+    "_cleanup_trial_branches",
+    "_has_foreign_claim",
+]

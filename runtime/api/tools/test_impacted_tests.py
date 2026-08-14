@@ -6,6 +6,7 @@ from pathlib import Path
 
 from yoke_core.tools import impacted_tests
 from yoke_core.tools._impacted_contract_tests import (
+    DONE_TRANSITION_CLOSE_OUT_TESTS,
     WORKFLOW_DEFINITION_VALIDATION_TESTS,
 )
 from yoke_core.tools.impacted_tests import (
@@ -323,6 +324,7 @@ def test_always_run_tests_exist_in_this_repo():
         *impacted_tests.PRODUCT_CLI_BOUNDARY_TESTS,
         *impacted_tests.SCHEMA_CONVERGE_CONTRACT_TESTS,
         *impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS,
+        *DONE_TRANSITION_CLOSE_OUT_TESTS,
         *WORKFLOW_DEFINITION_VALIDATION_TESTS,
     )
     for rel in required:

@@ -96,9 +96,9 @@ def queue_lane_head(
     receipt naming no commit at all.
 
     Strongest answer first: a head the control plane recorded, then the branch
-    tip the local engine falls back to, then the receipt — which after a
-    landing that already pruned the lane is the only surviving record of what
-    that lane carried, and is what lets a re-entered landing converge.
+    tip the local engine falls back to, then the receipt — the only surviving
+    record of what that lane carried after terminal close-out removes it, and
+    what lets a re-entered landing converge.
     """
     if commit_sha:
         return commit_sha, ""
