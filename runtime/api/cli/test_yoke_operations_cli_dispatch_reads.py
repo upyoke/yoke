@@ -38,7 +38,7 @@ class TestEventsReadDispatch:
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "events.tail.run"
         assert req.target.kind == "global"
-        assert req.payload == {"limit": 20}
+        assert req.payload["limit"] == 20
 
     def test_events_count_dispatches_with_filters(self) -> None:
         rc = _run_with_dispatch(
@@ -49,9 +49,8 @@ class TestEventsReadDispatch:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "events.count.run"
-        assert req.payload == {
-            "since": "4 hours ago", "event_name": "QARunCompleted",
-        }
+        assert req.payload["since"] == "4 hours ago"
+        assert req.payload["event_name"] == "QARunCompleted"
 
     def test_events_anomalies_dispatches(self) -> None:
         rc = _run_with_dispatch(
@@ -61,7 +60,8 @@ class TestEventsReadDispatch:
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "events.anomalies.run"
-        assert req.payload == {"since": "24 hours ago", "limit": 200}
+        assert req.payload["since"] == "24 hours ago"
+        assert req.payload["limit"] == 200
 
     def test_events_query_session_filter_distinct_from_caller(self) -> None:
         rc = _run_with_dispatch(

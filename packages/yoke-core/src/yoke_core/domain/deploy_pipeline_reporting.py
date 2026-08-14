@@ -31,10 +31,10 @@ def _github_actions(
     sd: Optional[str] = None,
     timeout: int = 60,
 ) -> subprocess.CompletedProcess:
-    # HTTPS deploy clients relay through a peer control plane so GitHub App
-    # private-key authority stays off the runner and off the plane under
-    # deploy. Local source-dev/operator bootstraps use the same typed adapter
-    # with a narrow local-only dispatcher.
+    # HTTPS deploy clients relay through the project's own control plane
+    # so GitHub App private-key authority stays off the runner. Local
+    # source-dev/operator bootstraps use the same typed adapter with a
+    # narrow local-only dispatcher.
     del sd
     local_authority = os.environ.get(
         GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, ""
@@ -111,19 +111,15 @@ def _github_actions(
             timeout=timeout,
         )
     if not local_authority:
-        peers = ", ".join(
-            f"{base}→{peer}"
-            for base, peer in sorted(poll_authority.HOSTED_STATUS_PEERS.items())
-        )
         return subprocess.CompletedProcess(
             args=list(args),
             returncode=4,
             stdout="",
             stderr=(
                 "Error: no GitHub Actions authority selected; set "
-                f"{GITHUB_ACTIONS_RELAY_ENV}=<peer-https-env> for a plane "
-                "that fails independently of the deploy target "
-                f"(known peers: {peers}), or "
+                f"{GITHUB_ACTIONS_RELAY_ENV}=<https-env> for the project's "
+                "own control plane (the https sibling of an owner-only "
+                "*-db-admin connection), or "
                 f"{GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1 for an attended "
                 "control-plane bootstrap\n"
             ),

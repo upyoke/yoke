@@ -28,11 +28,14 @@ from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
 )
+from yoke_core.domain.function_unresolved_project import (
+    ProjectNotRegisteredError,
+    permission_error_response as _error_response,
+)
 from yoke_core.domain.project_identity import AmbiguousProjectRefError
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
-    FunctionError,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -131,10 +134,15 @@ def check_dispatch_permission(
             project_context = resolve_project_context(
                 conn, entry, request, visible_project_ids=visible_ids,
         )
-        except AmbiguousProjectRefError as exc:
+        except (AmbiguousProjectRefError, ProjectNotRegisteredError) as exc:
+            code = (
+                "ambiguous_project"
+                if isinstance(exc, AmbiguousProjectRefError)
+                else "permission_denied"
+            )
             return DispatchPermission(
                 spec.permission_key, None, None,
-                error=_error_response(request, entry, "ambiguous_project", str(exc)),
+                error=_error_response(request, entry, code, str(exc)),
             )
         if project_context is None:
             return DispatchPermission(
@@ -331,24 +339,6 @@ def _numeric_actor_id(value: Any) -> int | None:
     if not text or not text.isdigit():
         return None
     return int(text)
-
-
-def _error_response(
-    request: FunctionCallRequest,
-    entry: RegistryEntry,
-    code: str,
-    message: str,
-) -> FunctionCallResponse:
-    return FunctionCallResponse(
-        success=False,
-        function=entry.function_id,
-        version=entry.version,
-        request_id=request.request_id,
-        result={},
-        warnings=[],
-        error=FunctionError(code=code, message=message),
-        event_ids=[],
-    )
 
 
 __all__ = [

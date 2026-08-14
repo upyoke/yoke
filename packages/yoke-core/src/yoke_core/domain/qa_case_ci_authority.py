@@ -1,16 +1,10 @@
 """Which control plane a verification gate asks about GitHub Actions.
 
 GitHub App private keys live on control-plane hosts, never on the machine
-running a gate, so every Actions call a gate makes is relayed. Choosing
-*which* plane relays it is the whole question this module answers, and it
-is not the answer a deploy needs.
-
-A deploy reads status through an independently deployed peer, because it
-may be replacing the very service it is asking. A verification gate
-replaces nothing, and inheriting that peer costs it twice: the peer is a
-different universe, and it holds no App authorization for this project's
-repository. The plane a gate asks is the one whose rows it is already
-working in.
+running a gate, so every Actions call a gate makes is relayed. Live
+delivery and verification both read GitHub through the project's own
+control plane — the https sibling of an owner-only database connection.
+Stage is a test environment for that live plane, not a topology peer.
 """
 
 from __future__ import annotations
