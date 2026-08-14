@@ -29,17 +29,16 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from yoke_core.domain import item_field_transform
+from yoke_core.domain.progress_log import (
+    PROGRESS_LOG_ORDERING,
+    PROGRESS_LOG_SECTION,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     FunctionWarning,
     HandlerOutcome,
 )
-
-
-PROGRESS_LOG_SECTION = "Progress Log"
-PROGRESS_LOG_ORDERING = 200
-
 
 class AppendRequest(BaseModel):
     headline: str

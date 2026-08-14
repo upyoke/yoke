@@ -22,6 +22,7 @@ from yoke_core.domain.render_body_section import (
     replace_section,
 )
 from yoke_core.domain.item_field_transform_sync import sync_section_body
+from yoke_core.domain.progress_log import format_entry, join_entry
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from yoke_core.domain.item_field_transform import TransformResult
@@ -55,23 +56,6 @@ def _line_count(text: str) -> int:
 def _result(**kwargs) -> "TransformResult":
     from yoke_core.domain.item_field_transform import TransformResult
     return TransformResult(**kwargs)
-
-
-def _format_entry(*, timestamp: str, headline: str, body: str) -> str:
-    """Format a single Progress Log-style entry block."""
-    body_clean = body.rstrip("\n")
-    return f"## {timestamp} entry — {headline.strip()}\n{body_clean}\n"
-
-
-def _join_entry(existing: str, entry: str) -> str:
-    """Append *entry* to *existing* with at least one blank-line separator."""
-    if not existing:
-        return entry
-    if existing.endswith("\n\n"):
-        return existing + entry
-    if existing.endswith("\n"):
-        return existing + "\n" + entry
-    return existing + "\n\n" + entry
 
 
 def _read_field(item_id: int, field: str) -> Optional[str]:
@@ -286,10 +270,10 @@ def section_append(
 
     timestamp = (now_fn or _utc_now)().strftime("%Y-%m-%dT%H:%M:%SZ")
     headline_clean = headline.strip()
-    entry = _format_entry(
+    entry = format_entry(
         timestamp=timestamp, headline=headline_clean, body=content,
     )
-    new_content = _join_entry(existing, entry)
+    new_content = join_entry(existing, entry)
 
     try:
         _sections.upsert_section(
