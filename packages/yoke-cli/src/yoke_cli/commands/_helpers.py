@@ -287,10 +287,9 @@ def dispatch_and_emit(
         preconditions=preconditions,
     )
     if response.success and cleanup_item is not None:
-        from yoke_core.domain.terminal_lane_cleanup import (
-            cleanup_terminal_item_lanes,
-        )
-
+        cleanup_terminal_item_lanes = importlib.import_module(
+            "yoke_core.domain.terminal_lane_cleanup"
+        ).cleanup_terminal_item_lanes
         warnings = cleanup_terminal_item_lanes(
             cleanup_item,
             target_status=str(payload.get("target_status") or ""),

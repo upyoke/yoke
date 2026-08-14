@@ -38,6 +38,8 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_yoke_product_boundary_hooks.py",
     "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",
     "runtime/api/cli/test_yoke_product_boundary_qa_browser.py",
+    "runtime/api/test_installer_package_boundaries.py",
+    "tests/import_graph/test_skeletons_importable.py",
 )
 
 PRODUCT_CLI_SOURCE_PREFIX = "packages/yoke-cli/src/yoke_cli/"
