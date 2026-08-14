@@ -47,6 +47,11 @@ def claim_is_missing(error: str) -> bool:
     return error.startswith(_MISSING_CLAIM)
 
 
+def branch_needs_receipt(repo_root: str, branch: str) -> bool:
+    """Whether close-out must reconstruct the pruned lane from its receipt."""
+    return not git.branch_exists(repo_root, branch)
+
+
 def reacquire_landed_claim(
     *,
     item_id: int,
@@ -111,6 +116,7 @@ def with_recorded_head(
 
 
 __all__ = [
+    "branch_needs_receipt",
     "claim_error",
     "claim_is_missing",
     "reacquire_landed_claim",

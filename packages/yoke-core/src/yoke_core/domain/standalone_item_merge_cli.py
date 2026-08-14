@@ -218,7 +218,10 @@ def run(argv: List[str]) -> int:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
-    if claim_error:
+    pruned_lane = not item.get("worktrees") and recovery.branch_needs_receipt(
+        str(repo_root), branch,
+    )
+    if claim_error or pruned_lane:
         receipt, recovery_error = recovery.reacquire_landed_claim(
             item_id=item_id,
             branch=branch,

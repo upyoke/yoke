@@ -41,7 +41,7 @@ BUILTIN_QA_METHODS = (
         "display_icon": "⌥",
         "display_order": 20,
         "display_group": "Command",
-        "config_contract_id": "command",
+        "config_contract_id": "command-ci",
         "proof_kind": "command",
         "runner_gloss": "runs the project-declared equivalent in CI",
     },

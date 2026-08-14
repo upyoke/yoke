@@ -106,7 +106,7 @@ def test_missing_uv_names_the_install_recipe(
     assert "curl -LsSf https://astral.sh/uv/install.sh | sh" in report.error
 
 
-def test_a_failed_sync_carries_its_output_and_the_repair_recipe(
+def test_a_failed_sync_names_the_default_dependency_contract(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project = _uv_project(tmp_path)
@@ -117,7 +117,8 @@ def test_a_failed_sync_carries_its_output_and_the_repair_recipe(
 
     assert report.ready is False
     assert "no solution found" in report.error
-    assert f"cd {project} && uv sync --frozen" in report.error
+    assert "default `uv sync --frozen` selection" in report.error
+    assert f"cd {project} && uv sync --frozen" not in report.error
 
 
 def test_a_ready_lane_records_its_sync_and_its_collection(
@@ -152,6 +153,8 @@ def test_a_conftest_that_cannot_import_blocks_the_lane(
 
     assert report.ready is False
     assert "a_package_this_lane_never_installed" in report.error
+    assert "default dependency group" in report.error
+    assert "not only in an optional extra" in report.error
     assert "yoke watch pytest -- <pytest args>" in report.error
     assert not (project / env.PROOF_DIRECTORY_NAME).exists()
 

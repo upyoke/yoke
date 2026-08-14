@@ -8,6 +8,9 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.domain.handlers.capabilities_list_test_support import (
+    insert_capability,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -129,3 +132,81 @@ def test_record_requires_item_target(db):
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "target_invalid"
+
+
+def test_flow_derived_requirement_resolves_complete_project_ci_config(db):
+    item_id = 9502
+    conn = connect_test_db(db)
+    try:
+        insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+        insert_capability(
+            conn,
+            "ci_workflow_file",
+            settings=json.dumps({"workflow_file": "ci.yml"}),
+        )
+        from yoke_core.domain.qa_command_plan_registration import (
+            ensure_registered_command_plan,
+        )
+
+        ensure_registered_command_plan(
+            conn,
+            project_id=1,
+            project="yoke",
+            scope="full",
+            command="python3 verify_tree.py",
+        )
+    finally:
+        conn.close()
+
+    outcome = ci.handle_record_post_rebase_ci_run(
+        _item_envelope(
+            "merge.tests.record_post_rebase_ci_run",
+            item_id=item_id,
+            payload={
+                "scope": "full",
+                "verdict": "pass",
+                "raw_result": json.dumps({
+                    "verification_tree": {"head_sha": "b" * 40},
+                }),
+            },
+        )
+    )
+
+    assert outcome.primary_success, outcome.error
+    conn = connect_test_db(db)
+    try:
+        row = conn.execute(
+            "SELECT method_config FROM qa_requirements WHERE id=%s",
+            (outcome.result_payload["requirement_id"],),
+        ).fetchone()
+        config = json.loads(row["method_config"])
+    finally:
+        conn.close()
+    assert config["command"] == "python3 verify_tree.py"
+    assert config["ci_workflow"] == "ci.yml"
+
+
+def test_flow_derived_requirement_refuses_incomplete_ci_config(db):
+    item_id = 9503
+    conn = connect_test_db(db)
+    try:
+        insert_item(conn, id=item_id, source=str(seed_human_actor(conn)))
+    finally:
+        conn.close()
+
+    outcome = ci.handle_record_post_rebase_ci_run(
+        _item_envelope(
+            "merge.tests.record_post_rebase_ci_run",
+            item_id=item_id,
+            payload={
+                "scope": "full",
+                "verdict": "pass",
+                "raw_result": json.dumps({
+                    "verification_tree": {"head_sha": "c" * 40},
+                }),
+            },
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert "method_config.command" in outcome.error.message

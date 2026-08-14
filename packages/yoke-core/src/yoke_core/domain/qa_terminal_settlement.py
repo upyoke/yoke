@@ -34,7 +34,7 @@ class BlockingRequirementIssue:
     requirement_id: str
     state: str
     detail: str
-    command: str
+    recovery: str
 
 
 def _placeholder(conn: Any) -> str:
@@ -65,15 +65,48 @@ def _render_shas(shas: Sequence[str]) -> str:
     return ", ".join(sha[:12] for sha in shas) if shas else "<missing>"
 
 
+def _recovery_instruction(requirement: dict[str, Any]) -> str:
+    requirement_id = str(requirement.get("id") or "<unknown>")
+    case_command = f"yoke qa case run --requirement-id {requirement_id}"
+    method_id = str(requirement.get("method_id") or "")
+    source = str(requirement.get("requirement_source") or "")
+    evidence_instruction = (
+        "Record the existing exact-head CI result for this requirement through "
+        "`yoke qa run record-verdict --help`, with "
+        "verification_tree.head_sha and the CI run id/URL in --raw-result"
+    )
+    if source == "flow_derived":
+        return evidence_instruction
+    if method_id != "command-ci":
+        return f"Run `{case_command}`"
+    from yoke_core.domain.qa_method_config_validation import (
+        QaMethodConfigError,
+        validate_method_config,
+    )
+
+    raw_config = requirement.get("method_config")
+    try:
+        method_config = raw_config if isinstance(raw_config, dict) else json.loads(
+            str(raw_config or "{}")
+        )
+    except (TypeError, ValueError):
+        method_config = {}
+    try:
+        validate_method_config("command-ci", method_config)
+    except QaMethodConfigError:
+        return "The stored CI case is not executable; " + evidence_instruction
+    return f"Run `{case_command}`"
+
+
 def _issue_for_requirement(
     requirement: dict[str, Any], *, accepted_shas: Sequence[str],
 ) -> BlockingRequirementIssue | None:
     requirement_id = str(requirement.get("id") or "<unknown>")
-    command = f"yoke qa case run --requirement-id {requirement_id}"
+    recovery = _recovery_instruction(requirement)
     run_id = requirement.get("run_id")
     if run_id is None:
         return BlockingRequirementIssue(
-            requirement_id, "missing", "no materialized run exists", command,
+            requirement_id, "missing", "no materialized run exists", recovery,
         )
     verdict = str(requirement.get("verdict") or "").strip().lower()
     completed_at = str(requirement.get("completed_at") or "").strip()
@@ -88,7 +121,7 @@ def _issue_for_requirement(
             requirement_id,
             "incomplete",
             f"latest run #{run_id} concluded {actual!r}, not completed success",
-            command,
+            recovery,
         )
     run_sha = str(requirement.get("recorded_head_sha") or "").strip()
     if run_sha not in set(accepted_shas) or not run_sha:
@@ -97,7 +130,7 @@ def _issue_for_requirement(
             "stale-sha",
             f"passing run #{run_id} recorded SHA {run_sha or '<missing>'}; "
             f"the merge verified {_render_shas(accepted_shas)}",
-            command,
+            recovery,
         )
     return None
 
@@ -151,7 +184,7 @@ def requirement_issue_errors(
     ]
     errors.extend(
         f"  - Requirement #{issue.requirement_id} [{issue.state}]: "
-        f"{issue.detail}. Run `{issue.command}`."
+        f"{issue.detail}. {issue.recovery}."
         for issue in issues
     )
     return errors
@@ -160,7 +193,8 @@ def requirement_issue_errors(
 def _blocking_requirement_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     placeholder = _placeholder(conn)
     cursor = conn.execute(
-        "SELECT q.id, q.blocking_mode, q.waived_at, r.id AS run_id, "
+        "SELECT q.id, q.blocking_mode, q.waived_at, q.requirement_source, "
+        "q.method_id, q.method_config, r.id AS run_id, "
         "r.verdict, r.execution_status, r.case_outcome, r.completed_at, "
         "r.raw_result FROM qa_requirements q LEFT JOIN qa_runs r ON r.id = ("
         "SELECT latest.id FROM qa_runs latest "

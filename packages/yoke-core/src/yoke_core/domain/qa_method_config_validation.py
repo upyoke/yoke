@@ -21,7 +21,7 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
         config = dict(raw)
     else:
         raise QaMethodConfigError("method_config must be a JSON object")
-    if config_contract_id == "command":
+    if config_contract_id in {"command", "command-ci"}:
         command = config.get("command")
         if not isinstance(command, str) or not command.strip():
             raise QaMethodConfigError(
@@ -41,6 +41,14 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
             bool,
         ):
             raise QaMethodConfigError("Command requires_base_url must be true or false")
+        if config_contract_id == "command-ci":
+            workflow = config.get("ci_workflow")
+            if not isinstance(workflow, str) or not workflow.strip():
+                raise QaMethodConfigError(
+                    "CI command cases require a non-empty "
+                    "method_config.ci_workflow"
+                )
+            config["ci_workflow"] = workflow.strip()
     elif config_contract_id in {"browser-check", "browser-inspection"}:
         steps = config.get("steps")
         if not isinstance(steps, list) or not steps:
