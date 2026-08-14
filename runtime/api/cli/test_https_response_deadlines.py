@@ -78,12 +78,13 @@ def _assert_relay_deadline(response) -> None:
 
 def test_https_relay_success_body_rejects_slow_trickle(monkeypatch) -> None:
     clock = _MutableClock()
-    response_stream = _SlowTrickleResponse(clock)
+    response_streams = (_SlowTrickleResponse(clock), _SlowTrickleResponse(clock))
+    pending_streams = list(response_streams)
     _bind_clock(monkeypatch, clock)
     monkeypatch.setattr(
         relay_module,
         "open_no_redirect",
-        lambda *_args, **_kwargs: response_stream,
+        lambda *_args, **_kwargs: pending_streams.pop(0),
     )
 
     response = relay_module.relay_https(
@@ -93,8 +94,10 @@ def test_https_relay_success_body_rejects_slow_trickle(monkeypatch) -> None:
     )
 
     _assert_relay_deadline(response)
-    assert response_stream.read_calls == 2
-    assert response_stream.socket_timeouts == pytest.approx([1.0, 0.4])
+    assert pending_streams == []
+    assert [stream.read_calls for stream in response_streams] == [2, 2]
+    for stream in response_streams:
+        assert stream.socket_timeouts == pytest.approx([1.0, 0.4])
 
 
 def test_https_relay_default_opener_uses_bounded_caller_owned_post(
