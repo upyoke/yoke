@@ -60,6 +60,9 @@ from yoke_core.domain.merge_queue_admission_shape import (
 )
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
+from yoke_core.domain.merge_queue_failed_train import (
+    unchanged_failed_train_refusal,
+)
 from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
@@ -186,6 +189,17 @@ def land_item_through_merge_queue(
         and pre_state.auto_merge_active
     )
     if pre_state is None or not (already_merged or already_armed):
+        refusal = unchanged_failed_train_refusal(
+            ctx, pr_num, lane_head=commit_sha, base_branch=target,
+        )
+        if refusal:
+            return QueueLandingOutcome(
+                ok=False,
+                exit_code=1,
+                pr_num=pr_num,
+                error=refusal,
+                warnings=tuple(warnings),
+            )
         entry = enter_merge_queue(ctx, pr_num)
         if not entry.success:
             return QueueLandingOutcome(

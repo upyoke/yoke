@@ -107,6 +107,14 @@ def wire_happy_path(
         lambda _ctx, lane_head="": ("url", "42", ""),
     )
     monkeypatch.setattr(
+        landing_pr_mod, "read_pr_landing_state",
+        lambda _ctx, _pr: (UNARMED, None),
+    )
+    monkeypatch.setattr(
+        route_mod, "unchanged_failed_train_refusal",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
         route_mod, "enter_merge_queue",
         lambda _ctx, pr_num: QueueEntryResult(success=True, pr_num=pr_num),
     )

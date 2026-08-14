@@ -177,6 +177,32 @@ def test_no_entry_run_at_all_falls_back_to_dispatch(wired, monkeypatch):
     assert result["ci_run_id"] == "42"
 
 
+def test_a_recorded_commit_still_opens_the_landing_pull_request(
+    wired, monkeypatch,
+):
+    checkout, _, _ = wired
+    monkeypatch.setattr(qa_case_ci_lane, "checked_out_branch", lambda _c: "main")
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _c, _ref: LANE_HEAD)
+    rebase = mock.Mock(side_effect=AssertionError("must not rebase"))
+    monkeypatch.setattr(entry_run, "rebase_lane_onto_base", rebase)
+    opened = mock.Mock(return_value="213")
+    monkeypatch.setattr(entry_run, "open_landing_pull_request", opened)
+    monkeypatch.setattr(
+        entry_run, "await_entry_run", lambda **k: completed_run(LANE_HEAD),
+    )
+    dispatch = mock.Mock(side_effect=AssertionError("must not dispatch"))
+
+    result = _run(
+        checkout, dispatch=dispatch,
+        await_result=mock.Mock(side_effect=AssertionError("must not await")),
+        case=ci_case(lane_commit_sha=LANE_HEAD),
+    )
+
+    assert result["reused_pull_request_run"] is True
+    opened.assert_called_once()
+    dispatch.assert_not_called()
+
+
 def test_a_rebase_conflict_stops_the_gate_before_anything_is_published(
     wired, monkeypatch,
 ):

@@ -156,18 +156,20 @@ def prepare_entry_run_lane(
     branch: str,
     lane_is_checked_out: bool,
 ) -> Optional[str]:
-    """Rebase a queue project's live lane; return the base branch it now sits on.
+    """Return the base a queue project's landing pull request should target.
 
-    ``None`` means this case keeps the dispatch path: either the project does
-    not land through the queue, or the lane was cleaned up and the case runs
-    from a recorded commit, leaving no branch to replay or publish.
+    A live lane is rebased onto that base first. A recovered or recorded
+    commit still takes the pull-request path so the entry run is the
+    verdict — dispatch is only for projects that do not land through the
+    queue. ``None`` means this case keeps the dispatch path.
     """
-    if not lane_is_checked_out or not routes_through_merge_queue(project):
+    if not routes_through_merge_queue(project):
         return None
     target = base_branch(project, checkout)
-    rebase_lane_onto_base(
-        checkout, branch=branch, target=target, project=project,
-    )
+    if lane_is_checked_out:
+        rebase_lane_onto_base(
+            checkout, branch=branch, target=target, project=project,
+        )
     return target
 
 

@@ -42,7 +42,6 @@ from urllib.request import Request, urlopen
 
 DEFAULT_WINDOW_HOURS = 24
 DEFAULT_WORKFLOW_FILE = "yoke-ci.yml"
-ALLOWED_EVENTS = frozenset({"workflow_dispatch", "push", "pull_request"})
 _HTTP_TIMEOUT_S = 30
 
 
@@ -208,8 +207,6 @@ def decide_reuse(
             continue
         if run_id == current_run_id:
             continue
-        if str(run.get("event") or "").strip() not in ALLOWED_EVENTS:
-            continue
         created = _parse_github_time(str(run.get("created_at") or ""))
         if created is None or created < cutoff:
             continue
@@ -338,7 +335,6 @@ if __name__ == "__main__":
 
 
 __all__ = [
-    "ALLOWED_EVENTS",
     "DEFAULT_WINDOW_HOURS",
     "DEFAULT_WORKFLOW_FILE",
     "ReuseDecision",

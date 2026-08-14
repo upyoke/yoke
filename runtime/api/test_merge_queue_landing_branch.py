@@ -12,8 +12,10 @@ import pytest
 
 from runtime.api.merge_queue_landing_test_helpers import (
     CHECKOUT,
+    CLOSED,
     LANE_SHA,
     MERGED,
+    UNARMED,
     ctx,
     land,
     wire_happy_path,
@@ -169,3 +171,71 @@ def test_a_refused_pull_request_names_the_missing_branch_and_the_push(
     assert "HTTP 422" in error
     assert "not on origin" in error
     assert "push --force-with-lease origin refs/heads/YOK-200" in error
+
+
+def _existing(monkeypatch, *, state, reopened=None, created=None):
+    monkeypatch.setattr(
+        landing_pr_mod, "find_landable_pull_request",
+        lambda _ctx, lane_head="": ("url", "183", ""),
+    )
+    monkeypatch.setattr(
+        landing_pr_mod, "read_pr_landing_state",
+        lambda _ctx, _pr: (state, None),
+    )
+    reopens: list[str] = []
+
+    def reopen(_ctx, pr_num):
+        reopens.append(pr_num)
+        return (pr_num, None) if reopened else ("", "github refused reopen")
+
+    monkeypatch.setattr(landing_pr_mod, "reopen_pull_request", reopen)
+    creates: list[str] = []
+
+    def create(_ctx, *, title, body):
+        creates.append(title)
+        return created or PrCreateResult(pr_url="url", pr_num="247")
+
+    monkeypatch.setattr(landing_pr_mod, "create_pr", create)
+    monkeypatch.setattr(
+        landing_pr_mod.git, "remote_branch_exists", lambda *_a: True,
+    )
+    return reopens, creates
+
+
+def test_a_closed_unmerged_pull_request_is_reopened(monkeypatch):
+    reopens, creates = _existing(monkeypatch, state=CLOSED, reopened=True)
+    assert _ensure() == ("183", None)
+    assert reopens == ["183"]
+    assert creates == []
+
+
+def test_a_closed_unmerged_pull_request_is_replaced_when_reopen_fails(
+    monkeypatch,
+):
+    reopens, creates = _existing(monkeypatch, state=CLOSED, reopened=False)
+    assert _ensure() == ("247", None)
+    assert reopens == ["183"]
+    assert creates == ["YOK-200: merge queue landing"]
+
+
+def test_closed_unmerged_refuses_only_when_reopen_and_replace_both_fail(
+    monkeypatch,
+):
+    _existing(
+        monkeypatch, state=CLOSED, reopened=False,
+        created=PrCreateResult(
+            pr_url="", pr_num="", error_detail="create refused",
+        ),
+    )
+    pr_num, error = _ensure()
+    assert pr_num == ""
+    assert "could not be reopened" in error
+    assert "create refused" in error
+
+
+def test_an_open_or_merged_pull_request_is_left_alone(monkeypatch):
+    for state in (UNARMED, MERGED):
+        reopens, creates = _existing(monkeypatch, state=state)
+        assert _ensure() == ("183", None)
+        assert reopens == []
+        assert creates == []
