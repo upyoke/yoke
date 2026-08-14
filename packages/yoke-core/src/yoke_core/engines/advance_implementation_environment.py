@@ -36,7 +36,7 @@ from typing import Any, Dict, Optional, Tuple
 from yoke_core.domain.ephemeral_substrate import (
     EphemeralPolicyError,
     TRIGGER_GITHUB_PUSH,
-    load_ephemeral_policy,
+    ephemeral_policy_from_capability,
     preview_url,
     slugify_branch,
 )
@@ -80,6 +80,33 @@ def _has_ephemeral_capability(project: str) -> bool:
         {"project": project, "cap_type": "ephemeral-env"},
     )
     return bool(result.get("has"))
+
+
+def load_ephemeral_policy(project: str):
+    """Load policy through the connected control plane, never a bare connect."""
+    import json
+
+    from yoke_core.domain.control_plane_transport import relay
+
+    try:
+        result = relay(
+            "projects.capability_settings.get",
+            {"project": project, "cap_type": "ephemeral-env"},
+        )
+    except RuntimeError as exc:
+        raise EphemeralPolicyError(str(exc)) from exc
+    raw = result.get("settings_json")
+    try:
+        cap = json.loads(raw) if isinstance(raw, str) else (raw or {})
+    except (TypeError, ValueError) as exc:
+        raise EphemeralPolicyError(
+            f"invalid ephemeral-env settings: {exc}"
+        ) from exc
+    if not isinstance(cap, dict):
+        cap = {}
+    return ephemeral_policy_from_capability(
+        project, cap, deploy_namespace=project,
+    )
 
 
 def run(

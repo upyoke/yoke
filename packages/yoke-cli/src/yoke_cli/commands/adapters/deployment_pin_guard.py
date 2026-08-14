@@ -37,10 +37,22 @@ def pin_regression_error(parsed: argparse.Namespace) -> Optional[str]:
         settings = _declared_pin_settings(parsed.project, session_id)
         if settings is None:
             return None
+        source_ref = getattr(parsed, "source_ref", None)
+        repo_path = getattr(parsed, "project_repo_path", None)
+        retry_of = getattr(parsed, "retry_of", None)
+        if retry_of:
+            lineage = _retry_run_lineage(str(retry_of), session_id)
+            if lineage:
+                source_ref = lineage
+            if not repo_path:
+                from yoke_cli.config.checkout_context import (
+                    resolve_repo_root_from_cwd,
+                )
+                repo_path = resolve_repo_root_from_cwd()
         assert_no_pin_regression(
             settings=settings,
-            repo_path=parsed.project_repo_path,
-            source_ref=parsed.source_ref,
+            repo_path=repo_path,
+            source_ref=source_ref,
             target_env=(
                 parsed.target_env or _flow_target_env(parsed.flow, session_id)
             ),
@@ -54,6 +66,25 @@ def pin_regression_error(parsed: argparse.Namespace) -> Optional[str]:
         # of a rollback.
         return None
     return None
+
+
+def _retry_run_lineage(
+    run_id: str, session_id: Optional[str]
+) -> Optional[str]:
+    """The immutable SHA pinned on a retry source run, if the plane has one."""
+    response = call_dispatcher(
+        function_id="deployment_runs.get",
+        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+        payload={},
+        actor=build_actor(session_id=session_id),
+    )
+    if not response.success or not response.result:
+        return None
+    run = response.result.get("run") or {}
+    lineage = run.get("release_lineage")
+    if not isinstance(lineage, str):
+        return None
+    return lineage.strip() or None
 
 
 def _declared_pin_settings(

@@ -47,15 +47,15 @@ _FENCED_BASH_RE = re.compile(
 _EXPECT_ERROR_RE = re.compile(r"#\s*expect_error:\s*(\S+)")
 _YOKE_LINE_RE = re.compile(r"^\s*yoke\s+\S+")
 # Skill bodies use template syntax that the smoke harness cannot
-# dispatch literally — placeholders (``{N}`` / ``{id-number}`` and the
-# ``[CHECKOUT]`` / ``[SUBPATH]`` square-bracket optional/placeholder
-# notation), shell variable interpolation (``$VAR`` / ``$_VAR`` /
+# dispatch literally — placeholders (``{N}`` / ``<requirement-id>``
+# and the ``[CHECKOUT]`` square-bracket notation), shell variable interpolation (``$VAR`` / ``$_VAR`` /
 # ``${VAR}``), the literal ``YOK-N`` doc convention (where ``N`` is just
 # an example letter), and shell composition (redirection, ``||``, ``&&``,
 # pipes). Any of these flags the recipe as ``is_template`` and the harness
 # records it as a successful skip rather than dispatching with garbage.
 _TEMPLATE_INDICATORS_RE = re.compile(
     r"\{[^}]+\}"            # brace placeholder
+    r"|<[^>]+>"              # <placeholder>
     r"|\[[^\]]+\]"          # [PLACEHOLDER] / [optional-arg] notation
     r"|\$[A-Za-z_][\w]*"     # $VAR
     r"|\$\{[^}]+\}"          # ${VAR}

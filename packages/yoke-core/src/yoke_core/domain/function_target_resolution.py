@@ -75,10 +75,18 @@ def resolve_project_context(
         )
         if claim_context is not None:
             return claim_context
-    if request.target.path_claim_id is not None:
+    path_claim_id = request.target.path_claim_id
+    if path_claim_id is None:
+        raw_claim = request.payload.get("path_claim_id")
+        if raw_claim is not None:
+            try:
+                path_claim_id = int(raw_claim)
+            except (TypeError, ValueError):
+                path_claim_id = None
+    if path_claim_id is not None:
         path_claim_context = resolve_path_claim_project(
             conn,
-            int(request.target.path_claim_id),
+            int(path_claim_id),
         )
         if path_claim_context is not None:
             return path_claim_context

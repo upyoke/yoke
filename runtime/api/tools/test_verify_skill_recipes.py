@@ -68,6 +68,18 @@ class TestExtractRecipes:
         _line, _recipe, _expect, is_template = recipes[0]
         assert is_template is True
 
+    def test_angle_bracket_placeholder_is_template(self) -> None:
+        text = (
+            "```bash\n"
+            "yoke qa requirement get --requirement-id <requirement-id>\n"
+            "```\n"
+        )
+        recipes = vsr.extract_recipes(text)
+        assert len(recipes) == 1
+        _line, recipe, _expect, is_template = recipes[0]
+        assert "<requirement-id>" in recipe
+        assert is_template is True
+
     def test_line_continuation_joined(self) -> None:
         text = textwrap.dedent(
             """\

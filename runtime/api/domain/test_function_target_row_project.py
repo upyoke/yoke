@@ -148,6 +148,20 @@ def test_resolve_ouroboros_entry_project_from_note_row(conn):
     assert resolve_ouroboros_entry_project(conn, entry_id) == (yoke, "yoke")
 
 
+def test_claims_path_override_resolves_project_from_payload_claim_id(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    _seed_item(conn, item_id=42, project_id=yoke)
+    _seed_path_claim(conn, claim_id=1048, item_id=42)
+    entry = _entry("claims.path.override", side_effects=True)
+    request = FunctionCallRequest(
+        function="claims.path.override",
+        actor=ActorContext(actor_id="1", session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"path_claim_id": 1048},
+    )
+    assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
+
+
 def test_claims_path_get_authorizes_from_path_claim_row(conn):
     yoke = resolve_project_id(conn, "yoke")
     actor_id = _project_owner(conn, yoke)

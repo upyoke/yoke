@@ -275,3 +275,69 @@ def test_env_phase_https_no_capability_never_opens_local_connection(monkeypatch)
         "project": "yoke", "cap_type": "ephemeral-env",
     }
     assert resolved_connection is connection
+
+
+def test_env_phase_https_loads_policy_through_relay(monkeypatch):
+    import json
+
+    from yoke_cli.transport import dispatcher as dispatcher_mod
+    from yoke_cli.transport import https as https_mod
+    from yoke_cli.transport.https import HttpsConnection
+    from yoke_contracts.api.function_call import FunctionCallResponse
+    from yoke_core.domain import db_helpers
+
+    connection = HttpsConnection(
+        api_url="https://api.example", token="token", env="prod",
+    )
+    requests = []
+    monkeypatch.setattr(
+        https_mod, "resolve_https_connection", lambda: connection,
+    )
+
+    def relay(request, resolved_connection, **_kwargs):
+        requests.append(request.function)
+        if request.function == "projects.capability.has":
+            result = {
+                "project": "yoke",
+                "cap_type": "ephemeral-env",
+                "has": True,
+            }
+        elif request.function == "projects.capability_settings.get":
+            result = {
+                "project": "yoke",
+                "cap_type": "ephemeral-env",
+                "settings_json": json.dumps({
+                    "trigger": "flow",
+                    "flow_id": "yoke-preview",
+                    "preview_domain": "preview.example.com",
+                    "host_env": "production",
+                }),
+            }
+        else:
+            raise AssertionError(f"unexpected {request.function}")
+        return FunctionCallResponse(
+            success=True,
+            function=request.function,
+            version="v1",
+            request_id=request.request_id,
+            result=result,
+        )
+
+    def forbid_local(*_args, **_kwargs):
+        raise AssertionError("environment phase opened a local connection")
+
+    monkeypatch.setattr(https_mod, "relay_https", relay)
+    monkeypatch.setattr(dispatcher_mod, "_call_local", forbid_local)
+    monkeypatch.setattr(db_helpers, "connect", forbid_local)
+
+    outcome, ctx = env_mod.run(
+        item={"id": 42, "project": "yoke"},
+        branch="YOK-42",
+        session_id="s1",
+        repo_root="/tmp",
+    )
+
+    assert outcome == "skipped:flow-triggered"
+    assert ctx["trigger"] == "flow"
+    assert "projects.capability.has" in requests
+    assert "projects.capability_settings.get" in requests

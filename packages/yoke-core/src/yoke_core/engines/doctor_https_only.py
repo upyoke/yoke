@@ -21,6 +21,7 @@ from yoke_core.engines.doctor_https_compose import (
 )
 from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_roster import Roster, record_discovery_failures
 
 
 #: Same alias map the server-side ``validate_only_slugs`` helper accepts.
@@ -123,7 +124,11 @@ def run_local_project_checks(
     if conn is None:
         conn = UnavailableControlPlane()
     try:
-        for hc in discover_project_checks(root).checks:
+        discovery = discover_project_checks(root)
+        record_discovery_failures(
+            Roster(discovery_failures=list(discovery.failures)), rec,
+        )
+        for hc in discovery.checks:
             if hc.slug not in wanted:
                 continue
             pre = len(rec.results)

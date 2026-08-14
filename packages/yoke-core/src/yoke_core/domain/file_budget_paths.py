@@ -67,7 +67,7 @@ _TOP_LEVEL_BUILD_CONFIG_FILES = frozenset({
     "yarn.lock",
 })
 _NO_REPO_SCOPE = re.compile(
-    r"^\s*-\s*N/A\s+[—-]\s+(.+?)\s*$",
+    r"^\s*(?:-\s*)?N/A\s+[—-]\s+(.+?)\s*$",
     re.IGNORECASE,
 )
 _UNRESOLVED_BUDGET_VALUES = frozenset({

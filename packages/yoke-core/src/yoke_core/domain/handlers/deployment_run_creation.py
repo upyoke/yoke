@@ -28,7 +28,7 @@ def _retry_lineage(run_id: str, *, project: str, flow: str) -> str:
             f"retry source {run_id!r} has non-terminal status "
             f"{source['status']!r}"
         )
-    lineage = source["release_lineage"].strip()
+    lineage = (source["release_lineage"] or "").strip()
     if not lineage:
         raise ValueError(
             f"retry source {run_id!r} has no pinned release lineage"
