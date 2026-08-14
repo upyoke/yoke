@@ -1,8 +1,8 @@
 """Watcher wrapper entry points, keyed by wrapper module id.
 
 The ``yoke watch <kind>`` adapters need a wrapper's ``main`` from the
-other side of the CLI-to-engine package boundary. Collecting the four
-here gives that boundary exactly one crossing to classify instead of one
+other side of the CLI-to-engine package boundary. Collecting them here
+gives that boundary exactly one crossing to classify instead of one
 per wrapper, and keeps the adapter free of a second module-id roster.
 """
 
@@ -14,6 +14,7 @@ from yoke_core.tools import (
     watch_deploy,
     watch_doctor,
     watch_merge,
+    watch_preflight,
     watch_pytest,
     watch_qa_case,
     watch_tail,
@@ -29,6 +30,7 @@ WRAPPER_MAINS: dict[str, WrapperMain] = {
         watch_doctor,
         watch_merge,
         watch_deploy,
+        watch_preflight,
         watch_qa_case,
         watch_tail,
     )

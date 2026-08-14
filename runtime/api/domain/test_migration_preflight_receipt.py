@@ -195,7 +195,7 @@ class TestRefusalMessage:
 
     def test_injected_rehearse_command_appears_in_the_refusal(self):
         command = (
-            "python3 -m runtime.api.tools.preflight_fleet_migrations "
+            "yoke watch preflight -- "
             "prod-db-admin --record-receipt --product-sha <sha> "
             "--receipt-env <control-plane-connection>"
         )
@@ -204,7 +204,7 @@ class TestRefusalMessage:
             ["0002_b"],
             rehearse_command=command,
         )
-        assert "preflight_fleet_migrations" in message
+        assert "yoke watch preflight" in message
         assert "--record-receipt" in message
         assert "prod-db-admin" in message
 

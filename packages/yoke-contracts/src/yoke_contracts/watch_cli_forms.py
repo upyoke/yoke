@@ -19,6 +19,7 @@ WATCH_CLI_TOKENS: dict[str, tuple[str, ...]] = {
     "yoke_core.tools.watch_doctor": ("watch", "doctor"),
     "yoke_core.tools.watch_merge": ("watch", "merge"),
     "yoke_core.tools.watch_deploy": ("watch", "deploy"),
+    "yoke_core.tools.watch_preflight": ("watch", "preflight"),
     "yoke_core.tools.watch_qa_case": ("watch", "qa-case"),
     "yoke_core.tools.watch_tail": ("watch", "tail"),
 }
