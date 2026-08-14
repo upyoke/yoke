@@ -145,15 +145,14 @@ def land_item_through_merge_queue(
             ok=False, exit_code=1, error=members_err or "queue unreadable"
         )
     member_refs = tuple(
-        member.head_ref for member in members
+        member.head_ref
+        for member in members
         if member.head_ref and member.head_ref != ctx.args.branch
     )
 
     candidate, candidate_err = candidate_shape(dispatch, item_ref)
     if candidate_err:
-        return QueueLandingOutcome(
-            ok=False, exit_code=1, error=candidate_err
-        )
+        return QueueLandingOutcome(ok=False, exit_code=1, error=candidate_err)
     context, context_err = train_context(dispatch, item_ref, member_refs)
     if context_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=context_err)
@@ -168,7 +167,9 @@ def land_item_through_merge_queue(
     # The verification gate already opened this pull request for a project
     # routed through the queue, so this call normally converges on it.
     pr_num, pr_err = ensure_landing_pull_request(
-        ctx, item_ref, lane_head=commit_sha,
+        ctx,
+        item_ref,
+        lane_head=commit_sha,
     )
     if pr_err:
         return QueueLandingOutcome(ok=False, exit_code=1, error=pr_err)
@@ -212,7 +213,10 @@ def land_item_through_merge_queue(
     while now < deadline:
         pump.tick()
         landing = classify_landing(
-            ctx, pr_num=pr_num, target=target, sleep=sleep,
+            ctx,
+            pr_num=pr_num,
+            target=target,
+            sleep=sleep,
         )
         warnings.extend(landing.warnings)
         if landing.narrative:
@@ -250,7 +254,7 @@ def land_item_through_merge_queue(
                 ),
                 warnings=tuple(warnings),
             )
-        sleep(next_read_delay(now - started, schedule))
+        pump.wait(next_read_delay(now - started, schedule), sleep=sleep)
         now = monotonic()
     if not merged:
         # A poll-budget timeout is resumable, not terminal: the claim is

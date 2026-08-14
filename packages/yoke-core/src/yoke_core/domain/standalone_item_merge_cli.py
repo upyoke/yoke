@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import merge_queue_landing_timeout as _timeout
 from yoke_core.domain import standalone_item_merge_evidence as evidence
+from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
@@ -56,22 +57,7 @@ def _resolve_item(item_ref: str, project: Optional[str]) -> tuple[Any, str]:
 
 def _session_holds_claim(item_id: int, session_id: str) -> str:
     """Empty when this session owns the item claim, else why it does not."""
-    response = call_dispatcher(
-        function_id="claims.work.holder_get",
-        target=TargetRef(kind="item", item_id=item_id),
-    )
-    if not response.success:
-        return _relay_error(response, "work-claim holder lookup failed")
-    holder = (response.result or {}).get("holder") or {}
-    holder_session = str(holder.get("session_id") or "")
-    if not holder_session:
-        return (
-            "no live work claim on this item; acquire one with "
-            "`yoke claims work acquire`"
-        )
-    if session_id and holder_session != session_id:
-        return f"work claim held by another session ({holder_session})"
-    return ""
+    return recovery.claim_error(item_id, session_id)
 
 
 def _lane_branch(item: dict, item_ref: str) -> str:
@@ -224,12 +210,28 @@ def run(argv: List[str]) -> int:
         if closed_out is not None:
             print(json.dumps(closed_out, indent=2, sort_keys=True))
             return 0
-        return _fail(f"{item_ref}: {claim_error}", as_json=as_json)
+        if not recovery.claim_is_missing(claim_error):
+            return _fail(f"{item_ref}: {claim_error}", as_json=as_json)
 
     try:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
+    if claim_error:
+        receipt, recovery_error = recovery.reacquire_landed_claim(
+            item_id=item_id,
+            branch=branch,
+            target=target,
+            repo_root=str(repo_root),
+            project=str((item.get("project") or {}).get("slug") or "yoke"),
+            session_id=str(args.session_id),
+        )
+        if recovery_error or receipt is None:
+            return _fail(
+                f"{item_ref}: {recovery_error or 'claim recovery failed'}",
+                as_json=as_json,
+            )
+        item = recovery.with_recorded_head(item, receipt)
     commit_sha, qa_error = qa_preflight(
         item, item_ref=item_ref, repo_root=repo_root, branch=branch,
     )

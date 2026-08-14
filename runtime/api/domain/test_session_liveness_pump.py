@@ -14,6 +14,7 @@ from yoke_core.domain import session_liveness_pump
 from yoke_core.domain.session_liveness_pump import (
     HEARTBEAT_INTERVAL_SECONDS,
     SessionLivenessPump,
+    run_process_with_liveness,
 )
 from yoke_core.domain.sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
 
@@ -76,6 +77,13 @@ class TestRefreshCadence(unittest.TestCase):
 
 
 class TestIdentityResolution(unittest.TestCase):
+    def test_ambient_identity_uses_the_canonical_no_argument_resolver(self):
+        with patch(
+            "yoke_core.domain.session_ambient_identity.resolve_ambient_session_id",
+            return_value="s-canonical",
+        ):
+            self.assertEqual(session_liveness_pump._ambient_session_id(), "s-canonical")
+
     def test_ambient_identity_is_resolved_only_when_a_refresh_is_due(self):
         clock = _Clock()
         pump = SessionLivenessPump(clock=clock)
@@ -98,9 +106,7 @@ class TestIdentityResolution(unittest.TestCase):
             patch.object(
                 session_liveness_pump, "_ambient_session_id", return_value=""
             ) as ambient,
-            patch.object(
-                session_liveness_pump, "refresh_session_heartbeat"
-            ) as refresh,
+            patch.object(session_liveness_pump, "refresh_session_heartbeat") as refresh,
         ):
             for _ in range(5):
                 clock.advance(HEARTBEAT_INTERVAL_SECONDS)
@@ -120,9 +126,62 @@ class TestRefreshFailureIsNotFatal(unittest.TestCase):
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             _explode,
         ):
-            self.assertFalse(
-                session_liveness_pump.refresh_session_heartbeat("s-1")
-            )
+            self.assertFalse(session_liveness_pump.refresh_session_heartbeat("s-1"))
+
+
+class TestWaitCadence(unittest.TestCase):
+    def test_a_long_wait_is_split_at_the_refresh_interval(self):
+        clock = _Clock()
+        sleeps: list[float] = []
+        pump = SessionLivenessPump(session_id="s-1", clock=clock)
+
+        def sleep(seconds: float) -> None:
+            sleeps.append(seconds)
+            clock.advance(seconds)
+
+        with patch.object(
+            session_liveness_pump, "refresh_session_heartbeat", return_value=True
+        ) as refresh:
+            pump.wait(HEARTBEAT_INTERVAL_SECONDS * 2.5, sleep=sleep)
+
+        self.assertEqual(
+            sleeps,
+            [
+                HEARTBEAT_INTERVAL_SECONDS,
+                HEARTBEAT_INTERVAL_SECONDS,
+                HEARTBEAT_INTERVAL_SECONDS / 2,
+            ],
+        )
+        self.assertEqual(refresh.call_count, 2)
+
+    def test_a_blocking_child_refreshes_between_wait_intervals(self):
+        class Process:
+            def __init__(self):
+                self.waits = 0
+
+            def wait(self, *, timeout):
+                self.waits += 1
+                if self.waits == 1:
+                    raise session_liveness_pump.subprocess.TimeoutExpired(
+                        ["long-command"], timeout
+                    )
+                return 7
+
+        class Pump:
+            ticks = 0
+
+            def tick(self):
+                self.ticks += 1
+
+        process = Process()
+        pump = Pump()
+        with patch.object(
+            session_liveness_pump.subprocess, "Popen", return_value=process
+        ):
+            exit_code = run_process_with_liveness(["long-command"], liveness=pump)
+
+        self.assertEqual(exit_code, 7)
+        self.assertEqual(pump.ticks, 1)
 
 
 if __name__ == "__main__":  # pragma: no cover - direct module run

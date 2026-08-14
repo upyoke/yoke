@@ -306,9 +306,9 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
 
 def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None:
     with patch(
-        "yoke_cli.commands.deployment_execute.subprocess.run",
+        "yoke_cli.commands.deployment_execute.run_process_with_liveness",
     ) as pipeline:
-        pipeline.return_value.returncode = 0
+        pipeline.return_value = 0
         rc, _out, err = _run_capture(
             _stub_ok,
             "--env", "prod-db-admin",
@@ -326,5 +326,4 @@ def test_deployment_run_execute_calls_pipeline_with_selected_admin_env() -> None
             "--from-stage",
             "hosted-release",
         ],
-        check=False,
     )

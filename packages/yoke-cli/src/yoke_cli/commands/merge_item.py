@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
+
+from yoke_core.domain.session_liveness_pump import run_process_with_liveness
 
 AdapterFn = Callable[[List[str]], int]
 MERGE_ITEM_USAGE = (
@@ -15,16 +16,14 @@ MERGE_ITEM_USAGE = (
 
 def merge_item(args: List[str]) -> int:
     """Delegate local merge authority without importing engine internals."""
-    completed = subprocess.run(
+    return run_process_with_liveness(
         [
             sys.executable,
             "-m",
             "yoke_cli.commands.merge_item_local_runtime",
             *args,
         ],
-        check=False,
     )
-    return completed.returncode
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

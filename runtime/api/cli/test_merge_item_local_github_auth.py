@@ -60,24 +60,23 @@ def _configure_https_machine(monkeypatch, *, api_url: str) -> None:
 def test_adapter_launches_authority_binding_child_without_secret_arguments(
     monkeypatch,
 ) -> None:
-    seen: dict[str, object] = {}
-
-    def fake_run(command, **kwargs):
-        seen["command"] = command
-        seen["kwargs"] = kwargs
-        return SimpleNamespace(returncode=7)
-
-    monkeypatch.setattr(merge_item.subprocess, "run", fake_run)
+    commands: list[list[str]] = []
+    monkeypatch.setattr(
+        merge_item,
+        "run_process_with_liveness",
+        lambda command: commands.append(command) or 7,
+    )
 
     assert merge_item.merge_item(["YOK-42", "--skip-status"]) == 7
-    assert seen["command"] == [
-        merge_item.sys.executable,
-        "-m",
-        "yoke_cli.commands.merge_item_local_runtime",
-        "YOK-42",
-        "--skip-status",
+    assert commands == [
+        [
+            merge_item.sys.executable,
+            "-m",
+            "yoke_cli.commands.merge_item_local_runtime",
+            "YOK-42",
+            "--skip-status",
+        ]
     ]
-    assert seen["kwargs"] == {"check": False}
 
 
 def test_https_child_binds_lazy_user_provider_for_entire_merge(
