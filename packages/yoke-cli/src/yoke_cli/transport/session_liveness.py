@@ -1,4 +1,4 @@
-"""Point probe: is one session live, ended, or unknown?
+"""Session liveness probes and keepalive for client-side waits.
 
 The anchor-contention healer (:mod:`yoke_contracts.session_anchor_contention`)
 drops a recorded contender only on a positive answer that its session ended.
@@ -9,13 +9,78 @@ its identity.
 
 Lives in the transport layer so both anchor writers — the engine-side shim
 and the harness hook client — share one implementation.
+
+Client-side polling commands also live outside the engine process.  Their
+single-shot reads can wait longer than the stale-session TTL, so
+:class:`ClientSessionLiveness` periodically dispatches ``sessions.touch``
+through the same connection while the command remains in flight.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+import time
+from typing import Any, Callable, Optional
 
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import ActorContext, TargetRef
+
+
+_Dispatch = Callable[..., Any]
+
+
+def refresh_session_heartbeat(
+    actor: ActorContext,
+    *,
+    dispatch: Optional[_Dispatch] = None,
+) -> bool:
+    """Best-effort ``sessions.touch`` for the actor owning a client wait."""
+    if not actor.session_id:
+        return False
+    try:
+        if dispatch is None:
+            from yoke_cli.transport.dispatcher import call_dispatcher
+
+            dispatch = call_dispatcher
+        response = dispatch(
+            function_id="sessions.touch",
+            target=TargetRef(kind="global"),
+            payload={},
+            actor=actor,
+            intent="long command liveness",
+        )
+    except Exception:  # noqa: BLE001 — liveness cannot replace the real work
+        return False
+    return bool(response.success)
+
+
+class ClientSessionLiveness:
+    """Keep one CLI actor live for the duration of a polling command."""
+
+    def __init__(
+        self,
+        actor: ActorContext,
+        *,
+        interval_seconds: float,
+        dispatch: Optional[_Dispatch] = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._actor = actor
+        self._interval = float(interval_seconds)
+        if self._interval <= 0:
+            raise ValueError("interval_seconds must be positive")
+        self._dispatch = dispatch
+        self._clock = clock
+        self._last_refresh = clock()
+
+    def tick(self) -> bool:
+        """Refresh when the cadence is due; cheap enough for every poll tick."""
+        now = self._clock()
+        if now - self._last_refresh < self._interval:
+            return False
+        self._last_refresh = now
+        return refresh_session_heartbeat(
+            self._actor,
+            dispatch=self._dispatch,
+        )
 
 
 def contender_is_live(session_id: str) -> Optional[bool]:
@@ -56,4 +121,8 @@ def contender_is_live(session_id: str) -> Optional[bool]:
     return None
 
 
-__all__ = ["contender_is_live"]
+__all__ = [
+    "ClientSessionLiveness",
+    "contender_is_live",
+    "refresh_session_heartbeat",
+]

@@ -15,6 +15,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.transport.session_liveness import ClientSessionLiveness
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 
@@ -79,7 +80,12 @@ def wait_for_run_completion(
     actor = build_actor(session_id=session_id)
     start = now()
     transient_errors = 0
+    liveness = ClientSessionLiveness(
+        actor,
+        interval_seconds=RUN_WAIT_POLL_INTERVAL_SEC,
+    )
     while True:
+        liveness.tick()
         response = call_dispatcher(
             function_id="github_actions.wait_run",
             target=TargetRef(kind="global"),
