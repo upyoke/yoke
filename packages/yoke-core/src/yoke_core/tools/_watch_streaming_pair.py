@@ -14,8 +14,28 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence, TextIO
 
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.uv_project import uv_project_root
 from yoke_contracts.watch_cli_forms import cli_form
 from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
+
+
+def _anchor_directory(start: Path | None = None) -> Path:
+    """Return the checkout the pasted pair must ``cd`` into.
+
+    A subdirectory cwd embeds that sticky path in the minted line, and
+    the watch adapter then binds a nested or mixed environment. Prefer
+    the uv-managed project that owns the lockfile; otherwise the git
+    checkout; otherwise the invocation directory.
+    """
+    here = (start or Path.cwd()).resolve()
+    found = uv_project_root(here)
+    if found is not None:
+        return found
+    for candidate in [here, *here.parents]:
+        if (candidate / ".git").exists():
+            return candidate
+    return here
 
 
 def _invocation(wrapper_module: str) -> str:
@@ -28,6 +48,21 @@ def _invocation(wrapper_module: str) -> str:
     return cli_form(wrapper_module) or (
         f"uv run --frozen python3 -m {wrapper_module}"
     )
+
+
+def _with_connection_env(invocation: str) -> str:
+    """Replay the invoking connection env on a pasted command.
+
+    ``yoke --env NAME …`` is the console-script form; module-form
+    wrappers have no global flag, so they inherit ``YOKE_ENV=NAME``.
+    """
+    env = os.environ.get(ENV_OVERRIDE, "").strip()
+    if not env:
+        return invocation
+    quoted = shlex.quote(env)
+    if invocation.startswith("yoke "):
+        return f"yoke --env {quoted} {invocation.removeprefix('yoke ')}"
+    return f"{ENV_OVERRIDE}={quoted} {invocation}"
 
 
 def print_streaming_pair(
@@ -46,7 +81,7 @@ def print_streaming_pair(
     ``watch_tail`` against the progress capture. Harnesses can map the
     first line to their background-command surface and the second line
     to their streaming/progress surface. Both command lines anchor to
-    the invocation cwd.
+    the resolved repo root and replay the invoking connection env.
 
     Wrappers with a ``yoke watch <kind>`` adapter emit that form: the
     console script always resolves an interpreter that can import
@@ -65,10 +100,10 @@ def print_streaming_pair(
     # safe to copy-paste even when a segment contains whitespace.
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
-    # Anchor both emitted commands so execution cannot drift checkouts.
-    cwd_q = shlex.quote(os.getcwd())
+    cwd_q = shlex.quote(str(_anchor_directory()))
     bash_invocation = (
-        f"cd {cwd_q} && {_invocation(wrapper_module)} {option_prefix}"
+        f"cd {cwd_q} && {_with_connection_env(_invocation(wrapper_module))} "
+        f"{option_prefix}"
         f"--raw-capture {raw_q} "
         f"--progress-capture {progress_q} "
         f"-- {cmd_args}"
@@ -96,7 +131,8 @@ def print_streaming_pair(
         "# Auto-exits when the wrapper writes its exit sentinel.\n"
     )
     stream.write(
-        f"cd {cwd_q} && {_invocation(WATCH_TAIL_MODULE)} {progress_q}\n"
+        f"cd {cwd_q} && {_with_connection_env(_invocation(WATCH_TAIL_MODULE))} "
+        f"{progress_q}\n"
     )
     stream.write("\n")
     stream.write(

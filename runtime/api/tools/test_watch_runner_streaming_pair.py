@@ -2,18 +2,27 @@
 
 Pins ``print_streaming_pair``'s output shape: the background invocation,
 the auto-exiting ``watch_tail`` progress leg, the post-completion raw
-inspection line, and the ``cd <mint-cwd>`` prefix that binds both
-pasteable command lines to the emitting checkout.
+inspection line, the ``cd <repo-root>`` prefix that binds both pasteable
+command lines to the emitting checkout, and mint fidelity for the
+invoking connection env.
 """
 
 from __future__ import annotations
 
 import io
-import os
 import shlex
 from pathlib import Path
 
+import pytest
+
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
+from yoke_contracts.uv_project import uv_project_root
 from yoke_core.tools import _watch_runner
+
+
+@pytest.fixture(autouse=True)
+def _isolate_connection_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
 
 
 def _pair_text(
@@ -30,6 +39,10 @@ def _pair_text(
         out=out,
     )
     return out.getvalue()
+
+
+def _command_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if line.startswith("cd ")]
 
 
 def test_emits_background_and_progress_tail_invocations():
@@ -76,15 +89,69 @@ def test_wrapper_without_an_adapter_keeps_the_locked_module_form():
     assert "yoke watch tail /tmp/prog.log" in text
 
 
-def test_command_lines_are_cwd_anchored():
-    """Both pasteable lines carry ``cd <mint-cwd>`` — pasted commands do
-    not reliably inherit the minting cwd, and a wrong-cwd run silently
-    executes against another tree."""
+def test_command_lines_are_repo_root_anchored():
+    """Both pasteable lines carry ``cd <repo-root>``.
+
+    Pasted commands do not reliably inherit the minting cwd, and a
+    subdirectory cwd resolves a nested or mixed environment.
+    """
     text = _pair_text(["runtime/api/"])
-    anchor = f"cd {shlex.quote(os.getcwd())} && "
-    command_lines = [line for line in text.splitlines() if line.startswith("cd ")]
+    root = uv_project_root(Path.cwd()) or Path.cwd().resolve()
+    anchor = f"cd {shlex.quote(str(root))} && "
+    command_lines = _command_lines(text)
     assert len(command_lines) == 2
     assert all(line.startswith(anchor) for line in command_lines)
     # The source-only PYTHONPATH binding stayed retired — it left dev
     # dependencies to whatever python3 resolved.
     assert "PYTHONPATH" not in text
+
+
+def test_subdirectory_cwd_still_anchors_at_repo_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = uv_project_root(Path.cwd())
+    assert root is not None
+    nested = root / "packages"
+    assert nested.is_dir()
+    monkeypatch.chdir(nested)
+    text = _pair_text(["runtime/api/"])
+    anchor = f"cd {shlex.quote(str(root))} && "
+    command_lines = _command_lines(text)
+    assert len(command_lines) == 2
+    assert all(line.startswith(anchor) for line in command_lines)
+    assert str(nested) not in "".join(command_lines)
+
+
+def test_cli_form_carries_invoking_connection_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
+    text = _pair_text(["RUN-ID"], "yoke_core.tools.watch_deploy")
+    command_lines = _command_lines(text)
+    assert len(command_lines) == 2
+    assert all("yoke --env prod-db-admin watch " in line for line in command_lines)
+    assert "yoke --env prod-db-admin watch deploy" in command_lines[0]
+    assert "yoke --env prod-db-admin watch tail" in command_lines[1]
+    assert "yoke watch deploy" not in command_lines[0]
+    assert "yoke watch tail" not in command_lines[1]
+
+
+def test_module_form_carries_invoking_connection_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
+    text = _pair_text(["--item", "PREFIX-1"], "yoke_core.tools.watch_advance")
+    command_lines = _command_lines(text)
+    assert command_lines[0].startswith("cd ")
+    assert (
+        f"{ENV_OVERRIDE}=prod-db-admin uv run --frozen python3 -m "
+        "yoke_core.tools.watch_advance"
+    ) in command_lines[0]
+    assert "yoke --env prod-db-admin watch tail" in command_lines[1]
+
+
+def test_omits_connection_env_when_unset():
+    text = _pair_text(["runtime/api/"])
+    assert "--env " not in text
+    assert f"{ENV_OVERRIDE}=" not in text
+    assert "yoke watch pytest" in text
