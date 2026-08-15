@@ -14,13 +14,27 @@ from typing import Any, Callable, Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 
 
+def _closing_session_id(session_id: str) -> str:
+    return session_id or str(resolve_ambient_session_id() or "")
+
+
 def _foreign_claim_reason(item: dict[str, Any], session_id: str) -> str:
+    """Preserve only when another session still holds the item.
+
+    A live claim belonging to this close-out is not a preserve: the status
+    transaction releases that row, and ``item_cleanup_authority_blocks_prune``
+    would otherwise treat the closer as active authority and leave the lane.
+    Empty ``session_id`` falls back to ambient identity so a flag-less merge
+    CLI still recognizes its own snapshot claim.
+    """
     claim = item.get("claim") or {}
     holder = str(claim.get("session_id") or "")
-    if not holder or (session_id and holder == session_id):
+    closer = _closing_session_id(session_id)
+    if not holder or (closer and holder == closer):
         return ""
     return f"live work claim belongs to session {holder}"
 
