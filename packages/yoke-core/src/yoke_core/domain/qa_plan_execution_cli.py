@@ -17,6 +17,39 @@ from yoke_core.domain.qa_plan_execution import (
 
 AGENT_REVIEW_REQUIRED_EXIT = 12
 
+#: Result fields restated on stderr for a case that did not pass, as
+#: ``label=value`` pairs after the requirement id.
+_REPORTED_CASE_FIELDS = (
+    ("case", "case_key"),
+    ("outcome", "case_outcome"),
+    ("verdict", "verdict"),
+    ("exit_code", "exit_code"),
+    ("error", "error"),
+)
+
+
+def _report_case_failures(result: dict[str, Any]) -> None:
+    """Restate every case that did not pass, one line each, on stderr.
+
+    A plan run ends on a single JSON document covering many cases, and the
+    case that actually stopped the run is one entry inside it. The reader
+    of the terminal gets the same treatment ``yoke qa case run`` gives its
+    single verdict: which requirement, which case, and why — without
+    parsing stdout or re-running the plan to find out.
+    """
+    from yoke_core.domain.qa_plan_execution_result_state import aggregate_state
+
+    for case in result.get("results") or []:
+        if not isinstance(case, dict) or aggregate_state("passed", case) == "passed":
+            continue
+        fields = [f"requirement={case.get('requirement_id')}"]
+        fields.extend(
+            f"{label}={case[key]}"
+            for label, key in _REPORTED_CASE_FIELDS
+            if case.get(key) not in (None, "")
+        )
+        print(f"# qa plan run: {' '.join(fields)}", file=sys.stderr, flush=True)
+
 
 def _review_connection_env() -> str:
     explicit = os.environ.get("YOKE_ENV", "").strip()
@@ -131,6 +164,7 @@ def run(args: List[str]) -> int:
         except QaPlanExecutionError as exc:
             print(f"yoke qa plan run: {exc}", file=sys.stderr)
             return 2
+    _report_case_failures(result)
     print(json.dumps(result, sort_keys=True))
     state = result.get("state")
     if state == "waiting":

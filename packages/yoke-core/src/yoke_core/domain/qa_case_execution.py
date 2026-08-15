@@ -28,6 +28,25 @@ class QaCaseExecutionError(RuntimeError):
     """A case contract is invalid or its runner cannot be run locally."""
 
 
+def required_case_command(case: dict) -> str:
+    """Return the Command case's command, refusing an empty contract.
+
+    Both Command runners answer to the same contract, and a case with
+    nothing to run has no verdict to earn. Refusing here — before a
+    checkout is resolved, a lane is pushed, or a workflow is dispatched —
+    is what keeps an unrunnable registration from ending as a silent exit
+    with no recorded run behind it.
+    """
+    command = str(case["method_config"].get("command") or "").strip()
+    if not command:
+        raise QaCaseExecutionError(
+            "Command cases require a non-empty method_config.command. "
+            "Re-register the project's verification command for this "
+            "scope, or bind this case to a method that declares one."
+        )
+    return command
+
+
 def _dispatch(
     function_id: str,
     requirement_id: int,
@@ -224,4 +243,5 @@ __all__ = [
     "execute_case",
     "execute_case_context",
     "fetch_case_execution_context",
+    "required_case_command",
 ]
