@@ -83,6 +83,27 @@ def require_requirement_id_target(
     )[0]
 
 
+def require_runnable_case(case: Any) -> dict:
+    """Return the case config, refusing one its method could never run.
+
+    Plan-case authoring validates the same contract, so this is the second
+    reader of it — and the one that matters, because materialization is
+    what mints the executable requirement. A row written around authoring
+    would otherwise become a requirement whose only possible outcome is a
+    runner refusing it at gate time.
+    """
+    from yoke_core.domain.qa_method_config_validation import (
+        QaMethodConfigError,
+        validate_method_config,
+    )
+
+    config = json.loads(str(case["method_config"] or "{}"))
+    try:
+        return validate_method_config(str(case["config_contract_id"]), config)
+    except QaMethodConfigError as exc:
+        raise QaPlanError(f"case {str(case['case_key'])!r}: {exc}") from exc
+
+
 def insert_requirement(
     conn: Any,
     *,
@@ -109,7 +130,7 @@ def insert_requirement(
         {
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
-            "method_config": json.loads(str(case["method_config"] or "{}")),
+            "method_config": require_runnable_case(case),
             "entry_surface": case["entry_surface"],
         },
         execution_target,
@@ -186,7 +207,7 @@ def refresh_requirement(
         {
             "instructions": case["instructions"],
             "expected_outcome": case["expected_outcome"],
-            "method_config": json.loads(str(case["method_config"] or "{}")),
+            "method_config": require_runnable_case(case),
             "entry_surface": case["entry_surface"],
         },
         execution_target,
@@ -274,6 +295,7 @@ __all__ = [
     "existing_requirement_id",
     "insert_requirement",
     "refresh_requirement",
+    "require_runnable_case",
     "require_existing_target",
     "require_requirement_id_target",
 ]

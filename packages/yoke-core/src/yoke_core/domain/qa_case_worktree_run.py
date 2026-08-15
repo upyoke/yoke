@@ -46,9 +46,7 @@ def execute_worktree_case(
 ) -> dict:
     """Run the case's command in its worktree and record the verdict."""
     config = case["method_config"]
-    command = str(config.get("command") or "").strip()
-    if not command:
-        raise QaCaseExecutionError("Command case requires method_config.command")
+    command = qa_case_execution.required_case_command(case)
     budget = qa_case_budget.resolve_command_case_budget(
         config,
         explicit_override=timeout_seconds,

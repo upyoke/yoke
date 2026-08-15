@@ -80,7 +80,7 @@ def rematerialize_for_item(
         cases = query_rows(
             conn,
             "SELECT c.*, m.name AS method_name, m.runner_id, "
-            "m.required_capability_kind, m.verdict_path "
+            "m.required_capability_kind, m.verdict_path, m.config_contract_id "
             "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
             f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),

@@ -51,7 +51,10 @@ from yoke_core.domain.qa_case_ci_conclusion import (
     conclusion_from_poll,
     failure_verdict,
 )
-from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+from yoke_core.domain.qa_case_execution import (
+    QaCaseExecutionError,
+    required_case_command,
+)
 
 #: Runner id recorded on runs this module produces.
 EXECUTOR_ID = "ci_run"
@@ -154,6 +157,12 @@ def execute_ci_case(
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Push the lane, reuse or run its CI workflow, and record the verdict."""
+    # Both halves of the contract are judged before anything moves: a case
+    # with no command or no workflow has no runnable path, and saying so
+    # here costs nothing, while saying it after the lane is pushed leaves a
+    # published branch behind an exit that recorded no verdict.
+    required_case_command(case)
+    workflow = qa_case_ci_lane.workflow_file(case)
     checkout = _resolve_checkout(
         case, checkout_path, allow_tree_mismatch=allow_tree_mismatch,
     )
@@ -164,7 +173,6 @@ def execute_ci_case(
     )
     budget = selected_budget.seconds
     started = time.monotonic()
-    workflow = qa_case_ci_lane.workflow_file(case)
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
