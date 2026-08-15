@@ -102,10 +102,10 @@ def apply_key_path_assignments(
 ) -> Dict[str, Any]:
     """Return a copy of ``doc`` with each dot-path assignment applied.
 
-    Intermediate objects are created on demand. Numeric segments address
-    existing list entries; out-of-range entries and scalar intermediates
-    refuse loudly instead of being clobbered. Keys that themselves contain
-    dots cannot be addressed through this surface.
+    Intermediate containers are created on demand. A missing child followed
+    by a numeric segment becomes a list; appending exactly the next list entry
+    is allowed, while sparse indexes and scalar intermediates refuse loudly.
+    Keys that themselves contain dots cannot be addressed through this surface.
     """
     merged = copy.deepcopy(doc)
     for path, value in assignments.items():
@@ -115,20 +115,28 @@ def apply_key_path_assignments(
                 f"Error: invalid key path {path!r}: empty segment"
             )
         node: Any = merged
-        for part in parts[:-1]:
+        for offset, part in enumerate(parts[:-1]):
+            next_part = parts[offset + 1]
             if isinstance(node, dict):
                 child = node.get(part)
                 if child is None:
-                    child = {}
+                    child = [] if next_part.isdigit() else {}
                     node[part] = child
             elif isinstance(node, list):
                 index = _array_index(part, path)
-                if index >= len(node):
+                if index > len(node):
                     raise ValueError(
                         f"Error: cannot set {path!r}: array index {index} "
                         "is out of range"
                     )
-                child = node[index]
+                if index == len(node):
+                    child = [] if next_part.isdigit() else {}
+                    node.append(child)
+                else:
+                    child = node[index]
+                    if child is None:
+                        child = [] if next_part.isdigit() else {}
+                        node[index] = child
             else:
                 raise ValueError(
                     f"Error: cannot set {path!r}: {part!r} holds a "
@@ -139,12 +147,15 @@ def apply_key_path_assignments(
             node[parts[-1]] = value
         elif isinstance(node, list):
             index = _array_index(parts[-1], path)
-            if index >= len(node):
+            if index > len(node):
                 raise ValueError(
                     f"Error: cannot set {path!r}: array index {index} "
                     "is out of range"
                 )
-            node[index] = value
+            if index == len(node):
+                node.append(value)
+            else:
+                node[index] = value
         else:
             raise ValueError(
                 f"Error: cannot set {path!r}: parent holds a "

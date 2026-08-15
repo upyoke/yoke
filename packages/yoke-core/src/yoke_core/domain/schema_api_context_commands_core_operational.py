@@ -182,6 +182,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
+        "purpose": "Apply a structural patch without duplicate or stale hunks",
+        "recipe": (
+            "Use one `*** Update File:` operation per path per patch; "
+            "consolidate every hunk for that path under the same operation."
+        ),
+        "notes": (
+            "Re-read a hook-mutated file before composing a follow-up patch. "
+            "Commit hooks may reformat the lane and invalidate earlier context."
+        ),
+    },
+    {
+        "topic": "core",
         "purpose": "Current session_id / actor_id from a script",
         "recipe": (
             'echo "$YOKE_SESSION_ID" ; '

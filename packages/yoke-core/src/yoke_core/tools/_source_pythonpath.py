@@ -16,6 +16,7 @@ PACKAGE_SRC_RELS: tuple[str, ...] = (
     "packages/yoke-harness/src",
 )
 SOURCE_RUN_RECIPE = "yoke dev run -- <command>"
+PYTEST_RUN_RECIPE = "yoke watch pytest -- <pytest args>"
 
 
 def repo_root(start: Path | None = None) -> Path:
@@ -144,6 +145,7 @@ def import_origins(
 
 __all__ = [
     "PACKAGE_SRC_RELS",
+    "PYTEST_RUN_RECIPE",
     "SOURCE_RUN_RECIPE",
     "import_origins",
     "import_origin_refusal",
