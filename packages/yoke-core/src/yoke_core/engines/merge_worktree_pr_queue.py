@@ -34,6 +34,7 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
 from yoke_core.engines.merge_worktree_pr_rest import (
     AuthResolutionFailed,
     resolve_auth,
@@ -282,13 +283,9 @@ def read_train_run(
 ) -> tuple[Optional[TrainRun], Optional[str]]:
     """The merge_group run covering ``pr_num``'s train.
 
-    Identified only by the queue ref's ``pr-<number>-`` marker. Every other
-    merge_group run belongs to a different train, so a train that has rotated
-    out of the recent-run window is reported as unidentified rather than
-    substituted: presenting the newest green run as this pull request's is how
-    an ejection report came to show an unrelated train's success as proof of
-    this one. Returns ``(None, reason)`` whenever no run is identified; no
-    caller blocks on that.
+    Identified by both the queue ref's ``pr-<number>-`` marker and the
+    project's declared CI workflow. Returns ``(None, reason)`` rather than
+    substituting another workflow or train.
     """
     auth, auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
     if auth_err or auth is None:
@@ -305,10 +302,19 @@ def read_train_run(
         )
     except RestTransportError as exc:
         return None, f"merge_group run lookup failed: {exc}"
+    try:
+        workflow = project_ci_workflow_file(str(ctx.project or ""))
+    except RuntimeError as exc:
+        return None, f"merge_group workflow identity lookup failed: {exc}"
+    if not workflow:
+        return None, "merge_group workflow identity is not declared"
+    workflow_path = f".github/workflows/{workflow}"
     body = response.body if isinstance(response.body, dict) else {}
     marker = f"pr-{pr_num}-"
     for run in body.get("workflow_runs") or []:
         if not isinstance(run, dict):
+            continue
+        if str(run.get("path") or "") != workflow_path:
             continue
         head_branch = str(run.get("head_branch") or "")
         if not head_branch.startswith(_QUEUE_REF_PREFIX):
@@ -325,7 +331,7 @@ def read_train_run(
             )
     return None, (
         f"no merge_group workflow run identified for pull request {pr_num}: "
-        f"no recent queue ref carries the marker {marker!r}"
+        f"no recent {workflow!r} queue ref carries the marker {marker!r}"
     )
 
 

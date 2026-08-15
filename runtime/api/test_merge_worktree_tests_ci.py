@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_core.domain import project_ci_workflow as ci_workflow
 from yoke_core.engines import merge_worktree_tests, merge_worktree_tests_ci
 
 
@@ -28,7 +29,7 @@ def _resolved(scope, command, covering_runs=()):
 def test_should_route_ci_respects_local_override(monkeypatch):
     monkeypatch.setattr(
         merge_worktree_tests_ci,
-        "_project_ci_workflow_file",
+        "project_ci_workflow_file",
         lambda _p: "ci.yml",
     )
     ctx = _ctx("/tmp", local_verification=True)
@@ -48,9 +49,9 @@ def test_ci_workflow_read_uses_connected_capability_surface(monkeypatch):
             error=None,
         )
 
-    monkeypatch.setattr(merge_worktree_tests_ci, "call_dispatcher", fake_dispatch)
+    monkeypatch.setattr(ci_workflow, "call_dispatcher", fake_dispatch)
 
-    assert merge_worktree_tests_ci._project_ci_workflow_file("yoke") == "ci.yml"
+    assert ci_workflow.project_ci_workflow_file("yoke") == "ci.yml"
     assert seen[0]["function_id"] == "projects.capability_settings.get"
     assert seen[0]["target"].kind == "global"
     assert seen[0]["payload"] == {
@@ -61,7 +62,7 @@ def test_ci_workflow_read_uses_connected_capability_surface(monkeypatch):
 
 def test_ci_workflow_read_treats_missing_capability_as_undeclared(monkeypatch):
     monkeypatch.setattr(
-        merge_worktree_tests_ci,
+        ci_workflow,
         "call_dispatcher",
         lambda **_kwargs: SimpleNamespace(
             success=False,
@@ -70,7 +71,7 @@ def test_ci_workflow_read_treats_missing_capability_as_undeclared(monkeypatch):
         ),
     )
 
-    assert merge_worktree_tests_ci._project_ci_workflow_file("yoke") == ""
+    assert ci_workflow.project_ci_workflow_file("yoke") == ""
 
 
 def test_run_tests_routes_to_ci_when_declared(

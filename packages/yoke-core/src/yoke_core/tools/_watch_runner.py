@@ -25,6 +25,7 @@ progress until the child exits.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shlex
@@ -68,6 +69,7 @@ PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 
 
 Classifier = Callable[[str], Classification]
+_JSON_ERROR_FIELD_RE = re.compile(r'^\s*"error"\s*:\s*(.+)\s*$')
 
 
 def _unbuffered_child_environment(
@@ -147,6 +149,24 @@ def _emit_progress(
     progress_f.flush()
     out.write(rendered)
     out.flush()
+
+
+def _terminal_error_from_raw_capture(raw_capture: Path) -> str:
+    """Return the last string-valued JSON error field in a raw capture."""
+    latest = ""
+    with raw_capture.open(encoding="utf-8", errors="replace") as capture:
+        for line in capture:
+            match = _JSON_ERROR_FIELD_RE.match(line)
+            if match is None:
+                continue
+            encoded = match.group(1).rstrip().removesuffix(",")
+            try:
+                value = json.loads(encoded)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(value, str) and value.strip():
+                latest = " ".join(value.split())
+    return latest
 
 
 def run_watcher(
@@ -282,6 +302,15 @@ def run_watcher(
             footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
             _emit_immediate(footer, progress_f=progress_f, out=out)
             return rc
+        if rc:
+            raw_f.flush()
+            terminal_error = _terminal_error_from_raw_capture(raw_capture)
+            if terminal_error:
+                _emit_immediate(
+                    f"# watch_{kind} error: {terminal_error}\n",
+                    progress_f=progress_f,
+                    out=out,
+                )
         # Re-emit the last SUMMARY line as an explicit terminal footer
         # before the exit sentinel. Mid-stream SUMMARY emits go through
         # `_emit_immediate` above, but agents reading the tail of the

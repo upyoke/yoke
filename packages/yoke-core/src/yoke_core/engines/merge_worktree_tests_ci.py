@@ -29,6 +29,7 @@ from typing import Optional, Tuple
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import qa_case_ci_lane, verification_tree_binding
+from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
@@ -69,29 +70,6 @@ def _ci_conclusion(exit_code: int, output: str) -> str:
     return "error"
 
 
-def _project_ci_workflow_file(project: str) -> str:
-    """Read the declared CI workflow through the connected control plane."""
-    response = call_dispatcher(
-        function_id="projects.capability_settings.get",
-        target=TargetRef(kind="global"),
-        payload={"project": project, "cap_type": "ci_workflow_file"},
-    )
-    if not response.success:
-        code = (response.error.code if response.error else "unknown") or "unknown"
-        if code == "not_found":
-            return ""
-        message = (response.error.message if response.error else "") or "read failed"
-        raise RuntimeError(f"CI workflow capability read failed ({code}): {message}")
-    raw = str((response.result or {}).get("settings_json") or "{}")
-    try:
-        settings = json.loads(raw)
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError("CI workflow capability returned invalid JSON") from exc
-    if not isinstance(settings, dict):
-        raise RuntimeError("CI workflow capability must be a JSON object")
-    return str(settings.get("workflow_file") or "").strip()
-
-
 def _should_route_ci(ctx: MergeContext) -> bool:
     """True when CI routing applies (declared workflow, no local override)."""
     args = getattr(ctx, "args", None)
@@ -100,7 +78,7 @@ def _should_route_ci(ctx: MergeContext) -> bool:
     project = getattr(ctx, "project", None)
     if not project:
         return False
-    return bool(_project_ci_workflow_file(str(project)))
+    return bool(project_ci_workflow_file(str(project)))
 
 
 def _covered_head_sha(
@@ -189,7 +167,7 @@ def run_ci_verification(
     _print = mw._print
     cwd = Path(ctx.worktree_path)
     project = str(ctx.project or "")
-    workflow = _project_ci_workflow_file(project)
+    workflow = project_ci_workflow_file(project)
     if not workflow:
         _print(
             "Error: CI verification selected but project has no declared "

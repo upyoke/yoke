@@ -128,14 +128,19 @@ def _wire_runs(monkeypatch, runs):
         queue_mod, "request_with_retry",
         lambda req, *, token, **_kw: _response({"workflow_runs": runs}),
     )
+    monkeypatch.setattr(
+        queue_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+    )
 
 
-def test_read_train_run_matches_the_queue_ref_marker(monkeypatch):
+def test_read_train_run_matches_required_workflow_and_queue_ref_marker(monkeypatch):
     _wire_runs(monkeypatch, [
-        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+        {"path": ".github/workflows/cla.yml",
+         "head_branch": "gh-readonly-queue/main/pr-42-def",
          "conclusion": "success", "status": "completed",
          "head_sha": "a" * 40, "html_url": "https://runs/7"},
-        {"head_branch": "gh-readonly-queue/main/pr-42-def",
+        {"path": ".github/workflows/yoke-ci.yml",
+         "head_branch": "gh-readonly-queue/main/pr-42-def",
          "conclusion": "failure", "status": "completed",
          "head_sha": "b" * 40, "html_url": "https://runs/42"},
     ])
@@ -149,7 +154,8 @@ def test_read_train_run_matches_the_queue_ref_marker(monkeypatch):
 def test_read_train_run_never_substitutes_another_trains_run(monkeypatch):
     """Another train's green is not this pull request's, at any recency."""
     _wire_runs(monkeypatch, [
-        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+        {"path": ".github/workflows/yoke-ci.yml",
+         "head_branch": "gh-readonly-queue/main/pr-7-abc",
          "conclusion": "success", "status": "completed",
          "head_sha": "a" * 40, "html_url": "https://runs/7"},
     ])
