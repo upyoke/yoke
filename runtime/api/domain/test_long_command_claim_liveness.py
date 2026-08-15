@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -12,6 +13,8 @@ from runtime.api.sessions_api_stale_test_helpers import (
     conn,  # noqa: F401 (backend-aware pytest fixture)
 )
 from runtime.api.test_sessions import _insert_claimable_items, _register
+from yoke_cli.transport.session_liveness import ClientSessionLiveness
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import session_liveness_pump
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.sessions import (
@@ -88,6 +91,45 @@ def test_running_command_survives_while_dead_session_is_reclaimed(conn):
         ("running-command",),
     ).fetchone()
     assert live["ended_at"] is None
+    live_claim = conn.execute(
+        "SELECT released_at FROM work_claims WHERE item_id=%s",
+        (810,),
+    ).fetchone()
+    assert live_claim["released_at"] is None
+
+
+def test_client_poll_loop_outlives_the_stale_ttl_without_losing_claim(conn):
+    _register(conn, session_id="client-poll")
+    _register(conn, session_id="abandoned-poll")
+    claim_work(conn, session_id="client-poll", item_id="YOK-810")
+    claim_work(conn, session_id="abandoned-poll", item_id="YOK-811")
+    _age_session(conn, "client-poll")
+    _age_session(conn, "abandoned-poll")
+    clock = Clock()
+    actor = ActorContext(session_id="client-poll")
+
+    def dispatch(**kwargs):
+        assert kwargs["function_id"] == "sessions.touch"
+        heartbeat(conn, kwargs["actor"].session_id)
+        return SimpleNamespace(success=True)
+
+    liveness = ClientSessionLiveness(
+        actor,
+        interval_seconds=60,
+        clock=clock,
+        dispatch=dispatch,
+    )
+    for _ in range(2):
+        clock.now += 60
+        assert liveness.tick()
+
+    result = clean_stale_harness_sessions(
+        conn,
+        stale_threshold_minutes=1,
+        progress_threshold_minutes=90,
+    )
+
+    assert result["total_reclaimed"] == 1
     live_claim = conn.execute(
         "SELECT released_at FROM work_claims WHERE item_id=%s",
         (810,),

@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 
 from yoke_cli.commands._helpers import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
+from yoke_cli.transport.session_liveness import ClientSessionLiveness
 from yoke_contracts.api.function_call import TargetRef
 
 # Module-level aliases so tests monkeypatch the wait loop's clock without
@@ -41,7 +42,12 @@ def wait_for_ci_completion(
     actor = build_actor(session_id=session_id)
     start = now()
     appearance_budget = min(_appearance_timeout_seconds(), timeout_sec)
+    liveness = ClientSessionLiveness(
+        actor,
+        interval_seconds=_next_read_delay(0),
+    )
     while True:
+        liveness.tick()
         response = call_dispatcher(
             function_id="github_actions.check_ci",
             target=TargetRef(kind="global"),
