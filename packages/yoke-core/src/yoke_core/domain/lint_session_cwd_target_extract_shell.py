@@ -74,6 +74,7 @@ _SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 _SEARCH_COMMANDS = frozenset({
     "grep", "egrep", "fgrep", "rg", "ripgrep", "ag", "ack",
 })
+_CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
 
 # ``yoke`` control-plane registration adapters take path-shaped ARGUMENTS
 # that are function payload — a row naming a path — not filesystem write
@@ -183,6 +184,9 @@ def _extract_segment_targets(
     n = len(tokens)
     while i < n:
         tok = tokens[i]
+        if command_base == "curl" and tok in _CURL_NON_PATH_VALUE_FLAGS:
+            i += 2
+            continue
         if tok in REDIRECT_OPERATORS:
             if i + 1 < n:
                 target = path_target_from_token(tokens[i + 1], bindings)

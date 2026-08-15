@@ -19,7 +19,8 @@ Extracted shapes:
     - ``--worktree-path <path>`` / ``--worktree-path=<path>``
     - ``-w <path>`` (custom Yoke flag)
     - absolute-path positional arguments
-* **No extractable target:** the caller falls back to the harness cwd.
+* **Relative targets:** resolve against the call's declared workdir.
+* **No extractable target:** the caller falls back to the effective project cwd.
 
 Write-only consumers use :func:`extract_payload_write_targets`, which
 narrows bodies to paths occupying real write positions. Fixture strings
@@ -31,7 +32,7 @@ from __future__ import annotations
 import re
 import shlex
 from dataclasses import dataclass
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Any, List, Mapping, Tuple
 
 from yoke_core.domain.lint_python_write_target_extract import (
@@ -63,6 +64,7 @@ SHELL_WRITE_COMMAND_BASES = (
 )
 _GLUED_REDIRECT_RE = re.compile(r"^(?:[012]?>>?|&>>?)(.+)$")
 _FD_DUP_REDIRECT_TARGET_RE = re.compile(r"^&\d+$")
+_APP_CONTAINER_ROOT = Path("/app")
 
 
 def glued_file_redirect_target(token: str) -> str | None:
@@ -85,7 +87,7 @@ def _tool_input(payload: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _payload_tool_name(payload: Mapping[str, Any]) -> str:
-    for key in ("tool_name", "toolName", "event_name"):
+    for key in ("tool_name", "toolName", "tool", "event_name"):
         value = payload.get(key)
         if isinstance(value, str) and value:
             return value
@@ -94,6 +96,48 @@ def _payload_tool_name(payload: Mapping[str, Any]) -> str:
 
 def _is_apply_patch_payload(payload: Mapping[str, Any]) -> bool:
     return _payload_tool_name(payload) in APPLY_PATCH_TOOL_NAMES
+
+
+def resolve_payload_cwd(
+    payload: Mapping[str, Any], *, fallback: str = "",
+) -> str:
+    """Return the call's declared cwd, excluding a bare app container root."""
+    if not isinstance(payload, Mapping):
+        return fallback
+    tool_input = _tool_input(payload)
+    for source in (tool_input, payload):
+        for key in ("workdir", "working_directory"):
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+
+    project_candidates = [payload.get("project_dir"), payload.get("workspace")]
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list):
+        project_candidates.extend(roots)
+    project_cwd = next(
+        (
+            value for value in project_candidates
+            if isinstance(value, str) and value.strip()
+            and Path(value).expanduser() != _APP_CONTAINER_ROOT
+        ),
+        "",
+    )
+    raw_cwd = payload.get("cwd")
+    if isinstance(raw_cwd, str) and raw_cwd.strip():
+        return project_cwd if Path(raw_cwd).expanduser() == _APP_CONTAINER_ROOT else raw_cwd
+    return project_cwd or fallback
+
+
+def _resolve_target_paths(paths: List[str], cwd: str) -> List[str]:
+    out: List[str] = []
+    for raw in paths:
+        path = Path(raw.strip()).expanduser()
+        if path.is_absolute():
+            out.append(str(path))
+        elif cwd:
+            out.append(str((Path(cwd).expanduser() / path).resolve()))
+    return out
 
 
 def _dedupe_paths(paths: List[str]) -> List[str]:
@@ -126,7 +170,8 @@ def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
         else:
             out.extend(extract_command_targets(command))
 
-    return _dedupe_paths(out)
+    cwd = resolve_payload_cwd(payload, fallback=str(Path.cwd()))
+    return _dedupe_paths(_resolve_target_paths(out, cwd))
 
 
 @dataclass(frozen=True)
@@ -280,4 +325,5 @@ __all__ = [
     "extract_payload_write_targets",
     "glued_file_redirect_target",
     "payload_has_embedded_python_write",
+    "resolve_payload_cwd",
 ]

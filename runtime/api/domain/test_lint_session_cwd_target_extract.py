@@ -42,6 +42,39 @@ def test_apply_patch_extracts_directives_without_fixture_literals():
     assert extract_payload_write_targets(payload) == [f"{lane_root}/source.py"]
 
 
+def test_relative_apply_patch_target_resolves_from_declared_workdir():
+    body = (
+        "*** Begin Patch\n"
+        "*** Update File: .worktrees/YOK-1/source.py\n"
+        "@@\n"
+        "+changed = True\n"
+        "*** End Patch"
+    )
+    payload = {
+        "tool_name": "apply_patch",
+        "cwd": "/app",
+        "tool_input": {"input": body, "working_directory": "/checkout"},
+    }
+
+    assert extract_payload_targets(payload) == [
+        "/checkout/.worktrees/YOK-1/source.py"
+    ]
+
+
+def test_tool_alias_keeps_patch_content_out_of_target_paths():
+    target = "/checkout/.worktrees/YOK-1/layout.tsx"
+    body = (
+        "*** Begin Patch\n"
+        f"*** Update File: {target}\n"
+        "@@\n"
+        "+<link rel=\"stylesheet\" />\n"
+        "*** End Patch"
+    )
+    payload = {"tool": "apply_patch", "tool_input": {"patch": body}}
+
+    assert extract_payload_targets(payload) == [target]
+
+
 def test_python_heredoc_extracts_only_the_write_destination():
     target = "/" + "checkout/runtime/output.py"
     fixture = "/" + "example/fixture"
@@ -157,6 +190,11 @@ def test_url_versioned_path_does_not_extract():
     """
     cmd = "curl -X POST /v1/items"
     assert extract_command_targets(cmd) == []
+
+
+def test_curl_write_out_format_is_not_a_path_target():
+    command = 'curl -fsS -w "stage app root: %{http_code}\\n" https://example.test'
+    assert extract_command_targets(command) == []
 
 
 def test_glob_pattern_does_not_extract():
