@@ -182,6 +182,22 @@ class TestBashTargetExtraction:
         })
         assert verdict.allow is True
 
+    def test_app_container_cwd_is_not_a_filesystem_target(self, conn, repo):
+        _register_checkout(repo)
+        seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)
+        seed_item_claim(conn, "sid-1", item_id=1691)
+        (repo / ".worktrees" / "YOK-1691").mkdir(parents=True)
+
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-1",
+            "cwd": "/app",
+            "tool_input": {
+                "command": "yoke claims work acquire --item YOK-1691 --reason Dash",
+            },
+        })
+
+        assert verdict.allow is True
+
     def test_bash_cwd_outside_authority_denies(self, conn, repo):
         _register_checkout(repo)
         seed_item(conn, item_id=1691, branch="YOK-1691", repo_path=repo)

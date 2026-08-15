@@ -307,11 +307,12 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
     Bash commands shaped as
     ``[env...] PYTHONPATH=<yoke-main-root> python[3] -m runtime.<X>``
     are treated as Yoke-internal regardless of the launching cwd, so
-    the override substitutes the Yoke main root. Otherwise the
-    payload's own ``cwd`` (or ``os.getcwd()``) is returned unchanged.
+    the override substitutes the Yoke main root. Otherwise the declared
+    call workdir wins, then a usable payload cwd or project root. A bare
+    app-container root is ignored because it is not a filesystem target.
     """
     from yoke_core.domain.lint_session_cwd_target_extract import (
-        extract_payload_command,
+        extract_payload_command, resolve_payload_cwd,
     )
 
     command = extract_payload_command(payload) if isinstance(payload, Mapping) else ""
@@ -319,11 +320,7 @@ def resolve_authority_cwd(payload: Mapping[str, Any]) -> str:
         override = extract_pythonpath_yoke_cwd_override(command)
         if override:
             return override
-    if isinstance(payload, Mapping):
-        raw = payload.get("cwd")
-        if isinstance(raw, str) and raw.strip():
-            return raw
-    return os.getcwd()
+    return resolve_payload_cwd(payload, fallback=os.getcwd())
 
 
 __all__ = [
