@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import re
 import shlex
-from typing import List, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple
+
+from yoke_core.domain.lint_shell_target_tokens import (
+    path_target_from_token,
+    shell_variable_bindings,
+)
 
 
 FLAG_BINARY = frozenset({
@@ -21,40 +26,12 @@ FLAG_EQUALS_PREFIXES = (
     "--worktree-path=",
 )
 
-_POSITIONAL_REGEX_METACHARS = re.compile(r"[?*{]")
-_POSITIONAL_COLON = re.compile(r".+:.+")
-_POSITIONAL_SED_ANCHOR_PREFIX = "/^"
-_POSITIONAL_URL_VERSION = re.compile(r"^/v\d+/")
 
-
-def _is_path_like_positional(token: str) -> bool:
-    """Return True only when ``token`` looks like a real absolute path."""
-    if not token or not token.startswith("/"):
-        return False
-    # Bare filesystem root: never a write target an agent specifies. A lone
-    # ``/`` reaching here is almost always a tokenized shell / Python ``/``
-    # operator (for example ``project_tree / "templates"`` surfacing from an
-    # apply_patch / Write body), not a real path.
-    if token == "/":
-        return False
-    # Unexpanded shell variable (``$_sock``, ``/tmp/$VAR/x``): the lint
-    # inspects the command string statically and cannot resolve the
-    # variable, so it cannot validate the real path. Skip rather than deny on
-    # the literal ``$``-bearing string.
-    if "$" in token:
-        return False
-    if token.startswith(_POSITIONAL_SED_ANCHOR_PREFIX):
-        return False
-    if _POSITIONAL_URL_VERSION.match(token):
-        return False
-    if _POSITIONAL_REGEX_METACHARS.search(token):
-        return False
-    if _POSITIONAL_COLON.match(token):
-        return False
-    return True
-
-
-def extract_command_targets(command: str) -> List[str]:
+def extract_command_targets(
+    command: str,
+    *,
+    bindings: Optional[Mapping[str, str]] = None,
+) -> List[str]:
     """Return the target paths extracted from a Bash command body.
 
     Walks the tokens, surfaces ``-C <path>`` / ``--rootdir <path>`` /
@@ -70,15 +47,22 @@ def extract_command_targets(command: str) -> List[str]:
     the opener's own line — including a redirect target that comes
     after the opener (``cat <<EOF > /tmp/out``) — survives and is
     available to the positional walk below.
+
+    A token naming a shell variable resolves through that variable's own
+    assignment (see :mod:`lint_shell_target_tokens`). Pass ``bindings``
+    when the assignment lives in a wider command body than ``command``
+    — a caller walking one segment at a time would otherwise lose it.
     """
     sanitized = strip_heredoc_body_lines(command)
     tokens = _safe_split(sanitized)
     if not tokens:
         return []
+    if bindings is None:
+        bindings = shell_variable_bindings(command)
 
     out: List[str] = []
     for segment in _split_command_segments(tokens):
-        out.extend(_extract_segment_targets(segment))
+        out.extend(_extract_segment_targets(segment, bindings))
     return out
 
 
@@ -176,7 +160,10 @@ def _sed_script_positional_index(command_base: str, tokens: List[str]) -> int:
     return 0
 
 
-def _extract_segment_targets(tokens: List[str]) -> List[str]:
+def _extract_segment_targets(
+    tokens: List[str],
+    bindings: Mapping[str, str],
+) -> List[str]:
     """Extract target paths from a single command segment."""
     tokens = strip_env_prefixes(tokens)
     if not tokens:
@@ -197,8 +184,10 @@ def _extract_segment_targets(tokens: List[str]) -> List[str]:
     while i < n:
         tok = tokens[i]
         if tok in REDIRECT_OPERATORS:
-            if i + 1 < n and _is_path_like_positional(tokens[i + 1]):
-                out.append(tokens[i + 1])
+            if i + 1 < n:
+                target = path_target_from_token(tokens[i + 1], bindings)
+                if target is not None:
+                    out.append(target)
             i += 2
             continue
         if not is_search:
@@ -225,12 +214,10 @@ def _extract_segment_targets(tokens: List[str]) -> List[str]:
             continue
         if seen_command_name and not tok.startswith("-"):
             positional_index += 1
-            if (
-                not is_search
-                and positional_index != sed_script_index
-                and _is_path_like_positional(tok)
-            ):
-                out.append(tok)
+            if not is_search and positional_index != sed_script_index:
+                target = path_target_from_token(tok, bindings)
+                if target is not None:
+                    out.append(target)
         i += 1
 
     return out
