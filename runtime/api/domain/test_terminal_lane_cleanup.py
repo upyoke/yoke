@@ -134,6 +134,77 @@ def test_cleanup_refusal_is_reported_without_blocking_done(
     assert "dirty worktree preserved" in payload["warnings"][0]
 
 
+def test_close_out_drops_released_claim_before_lane_cleanup(monkeypatch):
+    seen: dict = {}
+    _wire_close_out(monkeypatch, already=False)
+    monkeypatch.setattr(
+        merge_cli,
+        "cleanup_terminal_item_lanes",
+        lambda payload, **_k: seen.update(claim=payload.get("claim")) or (),
+    )
+
+    result = merge_cli.run(
+        [
+            "ITEM-7",
+            "--result",
+            "landed",
+            "--verification",
+            "green",
+            "--session-id",
+            "session-1",
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    assert seen["claim"] is None
+
+
+def test_closing_session_claim_does_not_block_lane_cleanup(monkeypatch, tmp_path):
+    calls: list[dict] = []
+    monkeypatch.setattr(terminal_lane_cleanup.git, "branch_exists", lambda *_a: True)
+
+    def prune(**kwargs):
+        calls.append(kwargs)
+        return ()
+
+    warnings = terminal_lane_cleanup.cleanup_terminal_item_lanes(
+        _item(),
+        target_status="done",
+        session_id="session-1",
+        repo_root=tmp_path,
+        prune=prune,
+    )
+
+    assert calls[0]["authority_block"] == ""
+    assert warnings == ()
+
+
+def test_ambient_closing_session_does_not_block_when_flag_empty(
+    monkeypatch, tmp_path
+):
+    calls: list[dict] = []
+    monkeypatch.setattr(terminal_lane_cleanup.git, "branch_exists", lambda *_a: True)
+    monkeypatch.setattr(
+        terminal_lane_cleanup, "resolve_ambient_session_id", lambda: "session-1"
+    )
+
+    def prune(**kwargs):
+        calls.append(kwargs)
+        return ()
+
+    warnings = terminal_lane_cleanup.cleanup_terminal_item_lanes(
+        _item(),
+        target_status="done",
+        session_id="",
+        repo_root=tmp_path,
+        prune=prune,
+    )
+
+    assert calls[0]["authority_block"] == ""
+    assert warnings == ()
+
+
 def test_foreign_live_claim_is_passed_to_shared_safety_predicate(
     monkeypatch,
     tmp_path,

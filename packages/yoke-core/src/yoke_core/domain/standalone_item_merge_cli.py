@@ -327,7 +327,8 @@ def run(argv: List[str]) -> int:
             return 1
         envelope["status"] = "done"
         envelope["warnings"].extend(cleanup_terminal_item_lanes(
-            item, target_status="done", session_id=str(args.session_id),
+            {**item, "claim": None}, target_status="done",
+            session_id=str(args.session_id),
             repo_root=repo_root, target_branch=target,
         ))
 
