@@ -15,6 +15,7 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.merge_landed_lane_cleanup import (
     assess_landed_lane,
+    assess_worktree_residue,
     prune_landed_lane,
 )
 from yoke_core.engines.merge_worktree_safe_prune import (
@@ -86,21 +87,17 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if branch in ("main", "master") or not wt_path:
             continue
 
-        # Check for dirty worktree
+        # Repository-declared ignored residue is disposable lane state.
         if Path(wt_path).is_dir():
-            dr = _base._run(
-                [
-                    "git",
-                    "-C",
-                    wt_path,
-                    "status",
-                    "--porcelain",
-                    "--ignored=matching",
-                    "--untracked-files=all",
-                ]
+            residue = assess_worktree_residue(
+                _git_for_repo(str(repo_root or Path(wt_path).parents[1])),
+                wt_path,
             )
-            if dr.returncode == 0 and dr.stdout.strip():
-                issues.append(f"- Worktree {branch} at {wt_path} has uncommitted changes (cd {wt_path} && git status)")
+            if not residue.safe:
+                issues.append(
+                    f"- Worktree {branch} at {wt_path} has uncommitted changes "
+                    f"({residue.reason})"
+                )
 
         # Check terminal ownership through the universal registry.
         p = _p(conn)

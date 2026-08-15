@@ -26,10 +26,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_core.engines.merge_worktree_cleanliness import (
-    assess_disposable_cleanup,
-    clean_after_disposable_cache_removal,
-)
 from yoke_core.engines.merge_worktree_safe_prune import (
     is_managed_worktree_path,
     registered_worktrees,
@@ -60,6 +56,51 @@ class LaneCleanupAssessment:
     worktree_path: Optional[Path] = None
     base: str = ""
     has_remote: bool = False
+
+
+@dataclass(frozen=True)
+class WorktreeResidueAssessment:
+    """Whether Git reports only repository-declared ignored residue."""
+
+    safe: bool
+    ignored_only: bool = False
+    reason: str = ""
+
+
+def assess_worktree_residue(
+    run_git: Callable[..., Any], worktree_path: str | Path
+) -> WorktreeResidueAssessment:
+    """Classify tracked, unignored, and ignored worktree content through Git."""
+    root = Path(worktree_path).resolve()
+    current = run_git(
+        [
+            "-C",
+            str(root),
+            "status",
+            "--porcelain=v1",
+            "--ignored=matching",
+            "--untracked-files=all",
+        ],
+        cwd=str(root),
+        capture=True,
+    )
+    if current.returncode != 0:
+        return WorktreeResidueAssessment(False, reason="status unreadable")
+
+    ignored_paths: list[str] = []
+    precious_paths: list[str] = []
+    for line in (current.stdout or "").splitlines():
+        path = line[3:] if len(line) > 3 else line
+        if line.startswith("!! "):
+            ignored_paths.append(path)
+        else:
+            precious_paths.append(path)
+    if precious_paths:
+        return WorktreeResidueAssessment(
+            False,
+            reason="unignored changes present: " + ", ".join(precious_paths),
+        )
+    return WorktreeResidueAssessment(True, ignored_only=bool(ignored_paths))
 
 
 def release_lane_row(
@@ -189,12 +230,12 @@ def assess_landed_lane(
             has_remote,
         )
     if worktree_path is not None:
-        cleanliness = assess_disposable_cleanup(git, worktree_path)
-        if not cleanliness.safe:
+        residue = assess_worktree_residue(git, worktree_path)
+        if not residue.safe:
             return LaneCleanupAssessment(
                 False,
                 f"{lane_name} preserved: worktree is dirty or unverifiable "
-                f"({cleanliness.reason})",
+                f"({residue.reason})",
                 worktree_path,
                 base,
                 has_remote,
@@ -252,13 +293,18 @@ def prune_landed_lane(
 
     worktree_path = assessment.worktree_path
     if worktree_path is not None:
-        if not clean_after_disposable_cache_removal(git, worktree_path):
+        residue = assess_worktree_residue(git, worktree_path)
+        if not residue.safe:
             return (
                 f"lane {branch} preserved: worktree {worktree_path} is dirty "
-                "or unverifiable",
+                f"or unverifiable ({residue.reason})",
             )
+        remove_args = ["worktree", "remove"]
+        if residue.ignored_only:
+            remove_args.append("--force")
+        remove_args.append(str(worktree_path))
         removed = git(
-            ["worktree", "remove", str(worktree_path)],
+            remove_args,
             cwd=repo_root,
             capture=True,
         )
@@ -284,7 +330,9 @@ def prune_landed_lane(
 
 __all__ = [
     "LaneCleanupAssessment",
+    "WorktreeResidueAssessment",
     "assess_landed_lane",
+    "assess_worktree_residue",
     "prune_landed_lane",
     "release_lane_row",
 ]
