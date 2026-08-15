@@ -14,11 +14,13 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_core.tools._impacted_contract_tests import (
+    ALWAYS_RUN_TESTS,
     ITEM_WORKTREE_SCHEMA_TESTS,
     PRODUCT_CLI_BOUNDARY_TESTS,
+    REPO_CLEANLINESS_TESTS,
     SCHEMA_CONVERGE_CONTRACT_TESTS,
     STANDALONE_MERGE_CLOSE_OUT_TESTS,
-    contract_tests_for,
+    contract_selection_for,
 )
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
@@ -86,20 +88,6 @@ FALLBACK_RULES = tuple(rule for rule, _paths, _why in _PATH_RULES) + (
     "unmapped_file_kind",
     "no_importable_module",
     "effectively_full_selection",
-)
-
-#: Repo-wide content contracts cannot be discovered through imports.
-REPO_CLEANLINESS_TESTS = (
-    "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
-)
-
-#: Cross-cutting contract tests appended to every impacted selection.
-ALWAYS_RUN_TESTS = (
-    "runtime/api/cli/test_adapter_inventory_usage_contract.py",
-    "runtime/api/cli/test_yoke_operation_inventory.py",
-    "runtime/api/test_service_client_structured_api_adapter.py",
-    "runtime/api/tools/test_atlas_currency_contract.py",
-    *REPO_CLEANLINESS_TESTS,
 )
 
 
@@ -198,9 +186,6 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
             trigger_paths=tuple(changed),
         )
 
-    tests = tuple(
-        sorted(reached_tests | set(ALWAYS_RUN_TESTS) | contract_tests_for(changed))
-    )
     if not reached_tests:
         return Selection(
             full_sweep=False,
@@ -208,7 +193,7 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
                 "no test reaches the changed modules; "
                 "running the always-run contract tests"
             ),
-            files=tests,
+            files=(),
         )
     return Selection(
         full_sweep=False,
@@ -216,7 +201,7 @@ def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:
             f"{len(reached_tests)} test file(s) reach the changed modules, "
             "plus the always-run contract tests"
         ),
-        files=tests,
+        files=tuple(sorted(reached_tests)),
     )
 
 
@@ -233,7 +218,14 @@ def select(
     partial, rather than a full sweep the final gate will run anyway.
     """
     total_files = sum(is_test_file(path) for path in index.module_of)
+    contracts = contract_selection_for(changed)
     selection = replace(_widened(changed, index), total_files=total_files)
+    if not selection.full_sweep:
+        selection = replace(
+            selection,
+            files=tuple(sorted(set(selection.files) | contracts.tests)),
+            widening_triggers=contracts.widening_triggers,
+        )
     selected_files = sum(path in index.module_of for path in selection.files)
     if not selection.full_sweep and is_effectively_full(selected_files, total_files):
         selection = Selection(
@@ -264,12 +256,11 @@ def select(
             f"{', '.join(selection.trigger_paths)}) — deferring full "
             f"coverage to the final QA gate{subset_note}"
         ),
-        files=tuple(
-            sorted(reached | set(ALWAYS_RUN_TESTS) | contract_tests_for(changed))
-        ),
+        files=tuple(sorted(reached | contracts.tests)),
         total_files=total_files,
         fallback_rule=selection.fallback_rule,
         trigger_paths=selection.trigger_paths,
+        widening_triggers=contracts.widening_triggers,
         bounded_deferral=True,
     )
 
