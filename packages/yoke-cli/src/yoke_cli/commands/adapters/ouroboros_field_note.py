@@ -64,7 +64,10 @@ def ouroboros_field_note_list(args: List[str]) -> int:
     parser.add_argument(
         "--project",
         default=None,
-        help="Filter by project slug or id.",
+        help=(
+            "Filter by project slug or id. Defaults to the checkout "
+            "project (same ladder as field-note append)."
+        ),
     )
     parser.add_argument(
         "--limit",
@@ -91,8 +94,11 @@ def ouroboros_field_note_list(args: List[str]) -> int:
     payload: Dict[str, Any] = {"category_prefix": CATEGORY_PREFIX}
     if parsed.unreviewed:
         payload["unreviewed"] = True
-    if parsed.project:
-        payload["project"] = parsed.project
+    # Same client ladder as append: --project, then YOKE_PROJECT, then the
+    # machine-config checkout map. Unmapped directories omit the hint.
+    project = client_project_context(parsed.project)
+    if project:
+        payload["project"] = project
     if parsed.limit is not None:
         payload["limit"] = parsed.limit
     if parsed.offset is not None:

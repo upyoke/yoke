@@ -19,6 +19,7 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     resolve_item_id_via_dispatch,
     parse_or_usage_error,
@@ -55,7 +56,12 @@ def ouroboros_entry_list(args: List[str]) -> int:
         help="Only entries not yet reviewed or archived.",
     )
     parser.add_argument(
-        "--project", default=None, help="Filter by project slug or id.",
+        "--project",
+        default=None,
+        help=(
+            "Filter by project slug or id. Defaults to the checkout "
+            "project (same ladder as the project-scoped writers)."
+        ),
     )
     parser.add_argument(
         "--limit", type=int, default=None,
@@ -77,8 +83,13 @@ def ouroboros_entry_list(args: List[str]) -> int:
     payload: Dict[str, Any] = {}
     if parsed.unreviewed:
         payload["unreviewed"] = True
-    if parsed.project:
-        payload["project"] = parsed.project
+    # Same client ladder as the project-scoped writers: --project, then
+    # YOKE_PROJECT, then the machine-config checkout map. The server never
+    # sees cwd, so a bare list must carry the checkout project or the
+    # project-scoped permission check denies it.
+    project = client_project_context(parsed.project)
+    if project:
+        payload["project"] = project
     if parsed.limit is not None:
         payload["limit"] = parsed.limit
     if parsed.offset is not None:
