@@ -30,11 +30,16 @@ from __future__ import annotations
 
 import re
 import shlex
+from dataclasses import dataclass
 from pathlib import PurePath
 from typing import Any, List, Mapping, Tuple
 
 from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
+)
+from yoke_core.domain.lint_shell_target_tokens import (
+    resolve_write_operands,
+    shell_variable_bindings,
 )
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_BINARY,
@@ -124,10 +129,27 @@ def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
     return _dedupe_paths(out)
 
 
-def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:
-    """Return only paths occupying real write positions in a tool payload."""
+@dataclass(frozen=True)
+class PayloadWriteTargets:
+    """Write targets in a tool payload, plus what could not be resolved.
+
+    ``unresolved_variable`` reports that the body wrote through a variable
+    reference this layer could not expand. A caller that would otherwise
+    fall back to the harness cwd must not do so on that signal: the write
+    lands wherever the variable points, which is precisely what we failed
+    to determine, so cwd is a manufactured verdict rather than a fallback.
+    """
+
+    targets: List[str]
+    unresolved_variable: bool
+
+
+def analyze_payload_write_targets(
+    payload: Mapping[str, Any],
+) -> PayloadWriteTargets:
+    """Return write-position paths for a payload with resolution detail."""
     if not isinstance(payload, Mapping):
-        return []
+        return PayloadWriteTargets([], False)
     tool_input = _tool_input(payload)
     out: List[str] = []
 
@@ -137,13 +159,20 @@ def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:
 
     command = extract_payload_command(payload)
     if not command:
-        return _dedupe_paths(out)
+        return PayloadWriteTargets(_dedupe_paths(out), False)
     if _is_apply_patch_payload(payload):
         out.extend(parse_patch(command).all_paths())
-    else:
-        out.extend(_extract_shell_write_targets(command))
-        out.extend(analyze_python_heredoc_writes(command).targets)
-    return _dedupe_paths(out)
+        return PayloadWriteTargets(_dedupe_paths(out), False)
+
+    shell_targets, unresolved = _extract_shell_write_targets(command)
+    out.extend(shell_targets)
+    out.extend(analyze_python_heredoc_writes(command).targets)
+    return PayloadWriteTargets(_dedupe_paths(out), unresolved)
+
+
+def extract_payload_write_targets(payload: Mapping[str, Any]) -> List[str]:
+    """Return only paths occupying real write positions in a tool payload."""
+    return analyze_payload_write_targets(payload).targets
 
 
 def payload_has_embedded_python_write(payload: Mapping[str, Any]) -> bool:
@@ -154,8 +183,16 @@ def payload_has_embedded_python_write(payload: Mapping[str, Any]) -> bool:
     return bool(command) and analyze_python_heredoc_writes(command).detected
 
 
-def _extract_shell_write_targets(command: str) -> List[str]:
+def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
+    """Return write-position paths plus whether an expansion went unresolved.
+
+    Variable bindings come from the whole command body, not the segment:
+    the capture-first recipe assigns in one statement and redirects in the
+    next, so a per-segment scan would never see the assignment.
+    """
+    bindings = shell_variable_bindings(command)
     out: List[str] = []
+    unresolved = False
     for segment in split_pipeline(strip_heredoc_syntax(command)):
         try:
             tokens = strip_env_prefixes(shlex.split(segment))
@@ -164,20 +201,25 @@ def _extract_shell_write_targets(command: str) -> List[str]:
         if not tokens:
             continue
         clean, redirects = _split_redirect_targets(tokens)
-        out.extend(redirects)
+        resolved, segment_unresolved = resolve_write_operands(redirects, bindings)
+        out.extend(resolved)
+        unresolved = unresolved or segment_unresolved
         if not clean:
             continue
         command_base = PurePath(clean[0]).name
         if command_base == "git":
-            out.extend(extract_command_targets(segment))
+            out.extend(extract_command_targets(segment, bindings=bindings))
             continue
         args = clean[1:]
         positionals = [arg for arg in args if arg != "-" and not arg.startswith("-")]
         if command_base in _LAST_POSITIONAL_WRITE_COMMANDS and positionals:
-            out.append(positionals[-1])
-        elif command_base in _ALL_POSITIONAL_WRITE_COMMANDS:
-            out.extend(positionals)
-    return _dedupe_paths(out)
+            positionals = positionals[-1:]
+        elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
+            continue
+        resolved, segment_unresolved = resolve_write_operands(positionals, bindings)
+        out.extend(resolved)
+        unresolved = unresolved or segment_unresolved
+    return _dedupe_paths(out), unresolved
 
 
 def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
@@ -230,6 +272,8 @@ __all__ = [
     "FLAG_BINARY",
     "FLAG_EQUALS_PREFIXES",
     "SHELL_WRITE_COMMAND_BASES",
+    "PayloadWriteTargets",
+    "analyze_payload_write_targets",
     "extract_command_targets",
     "extract_payload_command",
     "extract_payload_targets",

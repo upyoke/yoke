@@ -22,8 +22,8 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.lint_session_cwd_target_extract import (
     SHELL_WRITE_COMMAND_BASES,
+    analyze_payload_write_targets,
     extract_payload_command,
-    extract_payload_write_targets,
     glued_file_redirect_target,
     payload_has_embedded_python_write,
 )
@@ -280,10 +280,19 @@ def collect_main_write_targets(
     if not is_write_operation(tool_name, payload):
         return []
 
-    raw_targets = list(extract_payload_write_targets(payload))
-    if not raw_targets and tool_name == "Bash" and fallback_cwd.strip():
+    analysis = analyze_payload_write_targets(payload)
+    raw_targets = list(analysis.targets)
+    if (
+        not raw_targets
+        and not analysis.unresolved_variable
+        and tool_name == "Bash"
+        and fallback_cwd.strip()
+    ):
         # Genuine write verb / redirect with no absolute extractable path
-        # (relative targets): the write lands under the harness cwd.
+        # (relative targets): the write lands under the harness cwd. A body
+        # whose only write operand was an unresolvable variable is excluded
+        # — cwd would answer for a path we already established we cannot
+        # resolve.
         raw_targets = [fallback_cwd]
 
     hits: list[tuple[str, ClaimedWorktree]] = []
