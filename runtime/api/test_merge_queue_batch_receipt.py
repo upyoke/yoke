@@ -38,14 +38,19 @@ def _wire_transport(monkeypatch, *, runs):
 
     monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(
+        queue_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+    )
 
 
-def test_observe_batch_matches_queue_ref_marker(monkeypatch):
+def test_observe_batch_matches_queue_ref_marker_and_required_workflow(monkeypatch):
     _wire_transport(monkeypatch, runs=[
-        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+        {"path": ".github/workflows/cla.yml",
+         "head_branch": "gh-readonly-queue/main/pr-42-def",
          "head_sha": "a" * 40, "html_url": "https://runs/7",
          "conclusion": "success"},
-        {"head_branch": "gh-readonly-queue/main/pr-42-def",
+        {"path": ".github/workflows/yoke-ci.yml",
+         "head_branch": "gh-readonly-queue/main/pr-42-def",
          "head_sha": "b" * 40, "html_url": "https://runs/42",
          "conclusion": "success"},
     ])
@@ -67,7 +72,8 @@ def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
     member was validated by a run that never contained it.
     """
     _wire_transport(monkeypatch, runs=[
-        {"head_branch": "gh-readonly-queue/main/pr-7-abc",
+        {"path": ".github/workflows/yoke-ci.yml",
+         "head_branch": "gh-readonly-queue/main/pr-7-abc",
          "head_sha": "a" * 40, "html_url": "https://runs/7",
          "conclusion": "success"},
     ])

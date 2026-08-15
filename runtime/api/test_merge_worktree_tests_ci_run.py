@@ -28,7 +28,7 @@ def _ctx(tmp_path, *, project="yoke", item_id="42", local_verification=False):
 def _stub_lane(monkeypatch, *, dispatch, await_result):
     monkeypatch.setattr(
         merge_worktree_tests_ci,
-        "_project_ci_workflow_file",
+        "project_ci_workflow_file",
         lambda _p: "ci.yml",
     )
     monkeypatch.setattr(
