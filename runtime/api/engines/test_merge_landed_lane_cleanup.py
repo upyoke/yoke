@@ -58,7 +58,10 @@ def landed_lane(tmp_path: Path):
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
     (repo / "README.md").write_text("base\n", encoding="utf-8")
-    _git(repo, "add", "README.md")
+    nested = repo / "webapp"
+    nested.mkdir()
+    (nested / ".gitignore").write_text("generated/\n", encoding="utf-8")
+    _git(repo, "add", "README.md", "webapp/.gitignore")
     _git(repo, "commit", "-m", "base")
     _git(repo, "remote", "add", "origin", str(origin))
     _git(repo, "push", "-u", "origin", "main")
@@ -166,7 +169,27 @@ def test_dirty_worktree_is_preserved_with_the_reason_named(landed_lane):
 
     assert len(preserved) == 1
     assert "dirty or unverifiable" in preserved[0]
+    assert "scratch.txt" in preserved[0]
     assert landed_lane.worktree.exists()
+
+
+def test_nested_ignore_rules_make_residue_disposable(landed_lane):
+    """A repository-owned nested ignore rule authorizes forced removal."""
+    _land_on_main(landed_lane.repo)
+    generated = landed_lane.worktree / "webapp" / "generated" / "bundle.js"
+    generated.parent.mkdir()
+    generated.write_text("built\n", encoding="utf-8")
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo),
+        branch=BRANCH,
+        target="main",
+        run_git=_run_git,
+        emit=lambda *_a, **_kw: None,
+    )
+
+    assert preserved == ()
+    assert not landed_lane.worktree.exists()
 
 
 def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):

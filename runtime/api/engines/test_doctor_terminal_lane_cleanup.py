@@ -38,7 +38,10 @@ def _terminal_lane(tmp_path: Path) -> tuple[Path, Path]:
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
     (repo / "base.txt").write_text("base\n", encoding="utf-8")
-    _git(repo, "add", "base.txt")
+    nested = repo / "webapp"
+    nested.mkdir()
+    (nested / ".gitignore").write_text("generated/\n", encoding="utf-8")
+    _git(repo, "add", "base.txt", "webapp/.gitignore")
     _git(repo, "commit", "-m", "base")
     lane = repo / ".worktrees" / BRANCH
     _git(repo, "worktree", "add", "-b", BRANCH, str(lane))
@@ -54,6 +57,9 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
     monkeypatch,
 ):
     repo, lane = _terminal_lane(tmp_path)
+    generated = lane / "webapp" / "generated" / "bundle.js"
+    generated.parent.mkdir()
+    generated.write_text("built\n", encoding="utf-8")
     conn = _make_conn()
     _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
     conn.execute(
@@ -86,3 +92,38 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
     assert "Fixed: removed terminal lane" in _result(fixed).detail
     assert not lane.exists()
     assert _git(repo, "branch", "--list", BRANCH).stdout.strip() == ""
+
+
+def test_doctor_fix_preserves_and_names_unignored_content(tmp_path, monkeypatch):
+    repo, lane = _terminal_lane(tmp_path)
+    scratch = lane / "operator-note.txt"
+    scratch.write_text("keep\n", encoding="utf-8")
+    conn = _make_conn()
+    _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
+    conn.execute(
+        "INSERT INTO item_worktrees "
+        "(id, item_id, branch, path, lane_role, state, created_at, updated_at, released_at) "
+        "VALUES (1, 20, %s, %s, 'implementation', 'released', "
+        "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
+        "'2026-01-01T00:00:00Z')",
+        (BRANCH, str(lane)),
+    )
+    conn.commit()
+    monkeypatch.chdir(repo)
+
+    with (
+        patch(
+            "yoke_core.engines.doctor_report._resolve_repo_root",
+            return_value=str(repo),
+        ),
+        patch(
+            "yoke_core.engines.doctor_hc_worktrees_health._authority_block",
+            return_value="",
+        ),
+    ):
+        fixed = _run_hc(hc_worktree_health, conn, fix=True)
+
+    assert _result(fixed).result == "WARN"
+    assert "operator-note.txt" in _result(fixed).detail
+    assert scratch.read_text(encoding="utf-8") == "keep\n"
+    assert lane.exists()
