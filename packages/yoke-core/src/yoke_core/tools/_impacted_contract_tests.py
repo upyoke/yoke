@@ -3,6 +3,28 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+
+REPO_CLEANLINESS_TESTS = (
+    "runtime/api/engines/test_doctor_hc_obsoleted_terms_real_tree.py",
+)
+
+_ALWAYS_RUN_CONTRACTS = (
+    (
+        "core_contract_floor",
+        (
+            "runtime/api/cli/test_adapter_inventory_usage_contract.py",
+            "runtime/api/cli/test_yoke_operation_inventory.py",
+            "runtime/api/test_service_client_structured_api_adapter.py",
+            "runtime/api/tools/test_atlas_currency_contract.py",
+        ),
+    ),
+    ("repo_cleanliness_contract", REPO_CLEANLINESS_TESTS),
+)
+
+ALWAYS_RUN_TESTS = tuple(
+    test for _rule, tests in _ALWAYS_RUN_CONTRACTS for test in tests
+)
 
 ITEM_WORKTREE_SCHEMA_TESTS = (
     "runtime/api/domain/test_workflow_item_update_api.py",
@@ -64,6 +86,7 @@ DONE_TRANSITION_CLOSE_OUT_TESTS = (
 
 PATH_CONTRACT_TESTS = (
     (
+        "item_worktree_schema_contract",
         frozenset(
             {
                 "packages/yoke-core/src/yoke_core/domain/item_worktree_schema.py",
@@ -73,6 +96,7 @@ PATH_CONTRACT_TESTS = (
         ITEM_WORKTREE_SCHEMA_TESTS,
     ),
     (
+        "workflow_definition_validation_contract",
         frozenset(
             {
                 "packages/yoke-core/src/yoke_core/domain/"
@@ -86,14 +110,15 @@ PATH_CONTRACT_TESTS = (
         WORKFLOW_DEFINITION_VALIDATION_TESTS,
     ),
     (
+        "schema_converge_contract",
         frozenset({"packages/yoke-cli/src/yoke_cli/commands/schema_converge.py"}),
         SCHEMA_CONVERGE_CONTRACT_TESTS,
     ),
     (
+        "standalone_merge_close_out_contract",
         frozenset(
             {
-                "packages/yoke-core/src/yoke_core/domain/"
-                "standalone_item_merge_cli.py",
+                "packages/yoke-core/src/yoke_core/domain/standalone_item_merge_cli.py",
                 "packages/yoke-core/src/yoke_core/domain/"
                 "standalone_item_merge_recovery.py",
             }
@@ -101,6 +126,7 @@ PATH_CONTRACT_TESTS = (
         STANDALONE_MERGE_CLOSE_OUT_TESTS,
     ),
     (
+        "done_transition_close_out_contract",
         frozenset(
             {
                 "packages/yoke-core/src/yoke_core/engines/done_transition_cleanup.py",
@@ -112,26 +138,52 @@ PATH_CONTRACT_TESTS = (
 )
 
 
-def contract_tests_for(changed: Sequence[str]) -> set[str]:
-    """Return tests coupled to changed paths outside the import graph."""
-    changed_paths = set(changed)
-    tests = {
-        test
-        for paths, tests in PATH_CONTRACT_TESTS
-        if paths & changed_paths
-        for test in tests
-    }
-    if any(path.startswith(PRODUCT_CLI_SOURCE_PREFIX) for path in changed_paths):
+@dataclass(frozen=True)
+class ContractSelection:
+    """Tests and stable telemetry tokens added outside import reachability."""
+
+    tests: frozenset[str]
+    widening_triggers: tuple[str, ...]
+
+
+def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
+    """Return contract tests plus the rules and paths that selected them."""
+    changed_paths = tuple(dict.fromkeys(changed))
+    if not changed_paths:
+        return ContractSelection(frozenset(), ())
+
+    tests: set[str] = set()
+    widening_triggers: list[str] = []
+    for rule, contract_tests in _ALWAYS_RUN_CONTRACTS:
+        tests.update(contract_tests)
+        widening_triggers.append(f"{rule}:*")
+    for rule, paths, contract_tests in PATH_CONTRACT_TESTS:
+        hits = tuple(path for path in changed_paths if path in paths)
+        if not hits:
+            continue
+        tests.update(contract_tests)
+        widening_triggers.extend(f"{rule}:{path}" for path in hits)
+
+    product_cli_hits = tuple(
+        path for path in changed_paths if path.startswith(PRODUCT_CLI_SOURCE_PREFIX)
+    )
+    if product_cli_hits:
         tests.update(PRODUCT_CLI_BOUNDARY_TESTS)
-    return tests
+        widening_triggers.extend(
+            f"product_cli_boundary_contract:{path}" for path in product_cli_hits
+        )
+    return ContractSelection(frozenset(tests), tuple(widening_triggers))
 
 
 __all__ = [
+    "ALWAYS_RUN_TESTS",
+    "ContractSelection",
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",
+    "REPO_CLEANLINESS_TESTS",
     "SCHEMA_CONVERGE_CONTRACT_TESTS",
     "STANDALONE_MERGE_CLOSE_OUT_TESTS",
     "WORKFLOW_DEFINITION_VALIDATION_TESTS",
-    "contract_tests_for",
+    "contract_selection_for",
 ]

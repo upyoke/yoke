@@ -23,6 +23,7 @@ class Selection:
     total_items: int | None = None
     fallback_rule: str = ""
     trigger_paths: tuple[str, ...] = ()
+    widening_triggers: tuple[str, ...] = ()
     bounded_deferral: bool = False
 
     def pytest_paths(self) -> tuple[str, ...]:
@@ -45,6 +46,8 @@ class Selection:
             scope = "impacted"
         fields = [f"scope={scope}", f"rule={self.fallback_rule or 'none'}"]
         fields.append(f"triggers={','.join(self.trigger_paths) or 'none'}")
+        if self.widening_triggers:
+            fields.append(f"widening={','.join(self.widening_triggers)}")
         fields.append(self.count_summary())
         return "impacted-selection " + " ".join(fields)
 

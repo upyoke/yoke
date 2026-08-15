@@ -185,6 +185,14 @@ repeats both units and fills in the collected item count; a full sweep can
 also report that value as the item denominator, while a partial selection
 keeps the unavailable universe total explicit as `of unknown`.
 
+A bounded selection can also widen without becoming a full sweep when a
+contract floor adds tests that import reachability cannot discover. Those
+lines append `widening=<rule>:<path>` tokens. A `*` path means every change
+activates that floor; a concrete path identifies the source mapping that
+added its companion tests. For example,
+`widening=repo_cleanliness_contract:*` explains why the live-tree retired-term
+scan runs for an otherwise unrelated tracked-content change.
+
 ## When CI disagrees with the local run
 
 Impacted selection makes a falsifiable claim: *this change cannot affect
