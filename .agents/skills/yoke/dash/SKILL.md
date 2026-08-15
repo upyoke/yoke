@@ -174,11 +174,12 @@ The 350-line authored-file limit remains on in all combinations.
 
 Discover this project's source and test roots before grepping — read them
 from the project rules file, or derive tracked top-level roots with
-`git ls-files | cut -d/ -f1 | sort -u`. Never assume another project's
-directory layout (a top-level package directory or a bare test tree that
-does not exist here). Then read only far enough to name the files or
-directories the instruction is likely to touch. Prefer file paths; use a
-directory only when the instruction genuinely spans that directory.
+`git ls-files | cut -d/ -f1 | sort -u`. Enumerate candidates from those
+resolved roots with `rg --files ... | rg '<name-or-symbol>'` before reading;
+never pass optional path globs to zsh, invent a conventional source root, or
+mirror a test filename into an assumed implementation path. Use imports or
+symbols to find the owner. Then read only far enough to name the likely touch
+set. Prefer files; use a directory only when the work genuinely spans it.
 
 Record the survey:
 
@@ -212,6 +213,9 @@ For every reported contact:
   concrete file set before preparation, repeating every required file in the
   replacement survey;
 - coordinate with the owning item or wait when the scope is still small;
+  contact an addressable holder with the harness task-messaging tool
+  (`send_message_to_thread` in Codex). When the holder is not addressable in
+  the current harness, give the operator its session id and wait;
 - when effective path claims are enabled, keep the inferred set complete;
   worktree preparation registers or widens the real claim from this survey;
 - if contact repeats or the required work is no longer instruction-sized,

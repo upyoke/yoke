@@ -44,6 +44,8 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "Every survey call replaces the entire stored touch set",
         "narrow it to the complete",
         "concrete file set before preparation",
+        "rg --files",
+        "send_message_to_thread",
         "invent or guess a prefix",
         "No environment override is required",
         # Merging is a named operation, never a hand-authored git merge.
@@ -54,6 +56,7 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
     # project's merge path" instruction is what sent agents to hand-authored
     # git merges, and must not come back.
     assert "through the project's normal protected merge path" not in content
+    assert "yoke say" not in content
     # Unconditional "finally release after merge" teaching contradicts the
     # terminal transition that already releases the claim and lane.
     assert "Finally release the item work claim:" not in content

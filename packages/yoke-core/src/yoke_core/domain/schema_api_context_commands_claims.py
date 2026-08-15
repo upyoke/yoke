@@ -155,9 +155,11 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
         "recipe": (
             "# 1. Append resume context to the Progress Log section:\n"
-            "printf '%s' \"<resume-context-body>\" | yoke items "
-            "progress-log append PREFIX-N "
-            "--headline 'handoff-to-fresh-session' --stdin\n"
+            "yoke items progress-log append PREFIX-N "
+            "--headline 'handoff-to-fresh-session' "
+            '--content "<resume-context-body>"\n'
+            "# For multiline context, replace --content with "
+            "--content-file PATH.\n"
             "# 2. Release the work claim explicitly:\n"
             "yoke claims work release --item PREFIX-N "
             "--reason session-handoff-fresh-session"
@@ -165,7 +167,8 @@ CLAIMS_COMMANDS: list[dict] = [
         "notes": (
             "Two-step shape: capture resume context with the "
             "append-only Progress Log surface (handler stamps timestamp "
-            "+ merges with existing entries); release the claim "
+            "+ merges with existing entries; accepts `--content` or "
+            "`--content-file`); release the claim "
             "explicitly so the fresh session can acquire (use "
             "`yoke claims work release --item PREFIX-N --reason "
             "session-handoff-fresh-session` for one item or "

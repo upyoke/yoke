@@ -68,6 +68,18 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     assert "no new skill" in body.lower()
 
 
+def test_claims_packet_teaches_live_progress_log_content_flags() -> None:
+    entry = next(
+        command
+        for command in CLAIMS_COMMANDS
+        if command["purpose"].startswith("Controlled handoff")
+    )
+    recipe = str(entry["recipe"])
+    assert '--content "<resume-context-body>"' in recipe
+    assert "--content-file PATH" in recipe
+    assert "--stdin" not in recipe
+
+
 def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> None:
     """The packet's raw diagnostic join stays executable against the schema."""
     entry = next(

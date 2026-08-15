@@ -1,4 +1,4 @@
-"""The worktree receipt teaches the one claimed-lane source recipe."""
+"""The worktree receipt teaches the sanctioned claimed-lane run surfaces."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ import json
 
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import direct_workflow_worktree_preflight as preflight
-from yoke_core.tools._source_pythonpath import SOURCE_RUN_RECIPE
+from yoke_core.tools._source_pythonpath import (
+    PYTEST_RUN_RECIPE,
+    SOURCE_RUN_RECIPE,
+)
 
 
 def _response(function: str, result: dict) -> FunctionCallResponse:
@@ -15,7 +18,7 @@ def _response(function: str, result: dict) -> FunctionCallResponse:
     )
 
 
-def test_successful_prepare_receipt_names_source_command(monkeypatch, capsys):
+def test_successful_prepare_receipt_names_run_surfaces(monkeypatch, capsys):
     def _dispatch(*, function_id, **_kwargs):
         if function_id == "items.detail.get":
             return _response(
@@ -40,4 +43,8 @@ def test_successful_prepare_receipt_names_source_command(monkeypatch, capsys):
 
     assert preflight.run(["YOK-7", "--workflow", "dash"]) == 0
     receipt = json.loads(capsys.readouterr().out)
-    assert receipt["source_dev_recipe"] == SOURCE_RUN_RECIPE
+    assert receipt["run_recipes"] == {
+        "pytest": PYTEST_RUN_RECIPE,
+        "source": SOURCE_RUN_RECIPE,
+    }
+    assert "source_dev_recipe" not in receipt

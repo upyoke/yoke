@@ -11,7 +11,10 @@ import sys
 from typing import Iterator, List, Optional
 
 from yoke_core.domain.worktree_preflight import run_preflight
-from yoke_core.tools._source_pythonpath import SOURCE_RUN_RECIPE
+from yoke_core.tools._source_pythonpath import (
+    PYTEST_RUN_RECIPE,
+    SOURCE_RUN_RECIPE,
+)
 
 
 @contextmanager
@@ -183,7 +186,10 @@ def run(args: List[str]) -> int:
         )
     envelope = outcome.to_envelope()
     if outcome.ok:
-        envelope["source_dev_recipe"] = SOURCE_RUN_RECIPE
+        envelope["run_recipes"] = {
+            "pytest": PYTEST_RUN_RECIPE,
+            "source": SOURCE_RUN_RECIPE,
+        }
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0 if outcome.ok else 1
 

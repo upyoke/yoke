@@ -16,8 +16,8 @@ from the repository at the default branch head, which is what lets a
 hosted runner holding no checkout run the same parameter diff.
 
 The declared ruleset carries a `merge_queue` rule (merge method MERGE,
-HEADGREEN grouping, 5-minute batching window, trains capped at 5 entries,
-60-minute check timeout) and `required_status_checks` naming every yoke-ci
+HEADGREEN grouping, zero batching wait once one entry is ready, trains capped
+at 5 entries, 60-minute check timeout) and `required_status_checks` naming every yoke-ci
 check that gates both queue entry and the train (`repo-contracts`,
 `container`, `browser_runtime / browser-runtime`, and the eight `test-shard`
 matrix checks). Repository admins carry an always-bypass so operator pushes
