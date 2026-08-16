@@ -163,6 +163,14 @@ def test_own_session_is_container_fallback(bare_env: None) -> None:
     assert resolve_container_session_id(data) == MAIN
 
 
+def test_empty_session_id_stamps_container_from_transcript(
+    container_env: None,
+) -> None:
+    data = parse_payload(json.dumps({"hook_event_name": "preToolUse", "cwd": "/ws"}))
+    assert data["session_id"] == MAIN
+    assert data["container_session_id"] == MAIN
+
+
 def test_resolve_session_id_pin_wins(
     container_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:

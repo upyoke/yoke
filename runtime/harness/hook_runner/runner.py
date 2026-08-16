@@ -92,6 +92,13 @@ def _build_context(
         _str_or(tool_input.get("command")) if isinstance(tool_input, dict) else None
     )
     session_id = _str_or(payload.get("session_id"))
+    if not session_id and not remote:
+        from yoke_core.domain.session_ambient_identity import (
+            session_id_from_hook_payload,
+        )
+        session_id = session_id_from_hook_payload(payload) or None
+        if session_id:
+            payload["session_id"] = session_id
     payload_cwd = _str_or(payload.get("cwd"))
     # Remote evaluation must not adopt the SERVER process's cwd as the
     # client's: cwd stays payload-borne (possibly None) when remote.

@@ -54,11 +54,20 @@ def _register_checkout(repo_path, project_id=1):
 
 
 class TestNoSession:
-    def test_payload_without_session_id_allows(self, conn):
+    def test_payload_without_session_id_denies_identity_failure(
+        self, conn, monkeypatch, tmp_path,
+    ):
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+        for name in (
+            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
+            "CURSOR_CONVERSATION_ID",
+        ):
+            monkeypatch.delenv(name, raising=False)
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "cwd": "/some/random/path",
         })
-        assert verdict.allow is True
+        assert verdict.allow is False
+        assert verdict.failure_class == "identity_resolution"
 
 
 class TestNoClaims:
@@ -290,11 +299,12 @@ class TestEvaluateTypedEntrypoint:
 class TestValidatorDirect:
     """Direct tests for :func:`validate_targets` — module-level smoke."""
 
-    def test_no_session_allows(self, conn):
+    def test_no_session_is_identity_failure(self, conn):
         verdict = validate_targets(
             conn, session_id="", targets=("/anywhere",),
         )
-        assert verdict.allow is True
+        assert verdict.allow is False
+        assert verdict.failure_class == "identity_resolution"
 
     def test_no_claims_allows(self, conn):
         verdict = validate_targets(
