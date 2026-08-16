@@ -148,7 +148,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     body = json.loads(request.data.decode("utf-8"))
     assert body["hook_schema"] == 1
     assert body["event_name"] == "PreToolUse"
-    assert json.loads(body["stdin"]) == {**json.loads(raw_stdin), "session_id": "sid-stamped"}
+    assert json.loads(body["stdin"]) == {**json.loads(raw_stdin), "session_id": "sid-stamped", "identity_stamped": True}
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}

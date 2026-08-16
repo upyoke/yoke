@@ -11,21 +11,18 @@ import json
 import sys
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.execution_provenance import (
+from yoke_contracts.execution_provenance import (
     collect_execution_provenance,
     format_provenance_line,
 )
-from yoke_core.domain.session_ambient_identity import (
+from yoke_contracts.payload_session_fold import (
     HOOK_REPLAY_ENV,
     is_conversation_shaped_session_id,
     is_hook_replay,
 )
 from yoke_harness.hooks.identity import (
     is_codex,
-    prune_stale_session_anchors,
-    record_session_anchor,
     resolve_session_id,
-    write_runtime_cache,
 )
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 
@@ -56,13 +53,15 @@ def record_client_anchor(payload: dict, *, session_start: bool = False) -> None:
     if is_hook_replay():
         return
     try:
+        from yoke_harness.hooks import relay as relay_mod
+
         session_id = payload.get("session_id")
         if not isinstance(session_id, str) or not session_id or session_id == "unknown":
             return
         tp = payload.get("transcript_path")
         if session_start:
-            prune_stale_session_anchors()
-        record_session_anchor(
+            relay_mod.prune_stale_session_anchors()
+        relay_mod.record_session_anchor(
             session_id,
             transcript_path=tp if isinstance(tp, str) else "",
         )
@@ -76,9 +75,11 @@ def capture_codex_session(event_name: str, stdin_data: str, executor: str) -> No
     if event_name != SESSION_START_EVENT or not is_codex(executor):
         return
     try:
+        from yoke_harness.hooks import relay as relay_mod
+
         sid = resolve_session_id(stdin_data)
         if sid:
-            write_runtime_cache(sid, stdin_data)
+            relay_mod.write_runtime_cache(sid, stdin_data)
     except Exception:
         return
 

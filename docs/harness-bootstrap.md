@@ -211,7 +211,7 @@ Non-Yoke-owned adapters may still declare `supported_paths` at session-offer tim
 The login-shell `yoke` on PATH must be the canonical shim
 (`$XDG_BIN_HOME/yoke` or `~/.local/bin/yoke`) pointing at the registered
 checkout editable install. `python3 -m yoke_core.tools.install_yoke_launcher`
-writes it. `--repair` and `yoke doctor --fix` (HC-launcher-authority)
+writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority)
 quarantine PATH shadows and never delete them.
 
 Hook and guard verdicts print `{source_sha, install_kind, install_path}`

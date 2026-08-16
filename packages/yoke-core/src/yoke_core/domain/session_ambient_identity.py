@@ -34,20 +34,15 @@ from __future__ import annotations
 import os
 from typing import Any, List, Mapping, Optional
 
+from yoke_contracts.payload_session_fold import (
+    HOOK_REPLAY_ENV,
+    is_conversation_shaped_session_id,
+    is_hook_replay,
+)
 from yoke_contracts.session_identity import (
     AMBIENT_ENV_VARS,
     AMBIENT_RESOLUTION_FAILED,
 )
-
-
-
-HOOK_REPLAY_ENV = "YOKE_HOOK_REPLAY"
-
-
-def is_hook_replay(env: Optional[Mapping[str, str]] = None) -> bool:
-    """True when hook evaluation must suppress identity side effects."""
-    source = os.environ if env is None else env
-    return source.get(HOOK_REPLAY_ENV, "").strip().lower() in {"1", "true", "yes"}
 
 
 def fold_raw_identity(
@@ -87,28 +82,6 @@ def fold_raw_identity(
     if any(isinstance(alias, str) and alias.strip() == raw for alias in aliases):
         return ""
     return raw
-
-
-def is_conversation_shaped_session_id(
-    payload: Mapping[str, Any],
-    *,
-    session_id: Optional[str] = None,
-    env: Optional[Mapping[str, str]] = None,
-) -> bool:
-    """True when ``session_id`` is a conversation alias, not a Yoke session."""
-    from yoke_contracts.cursor_session_map import CURSOR_CONVERSATION_ENV_VAR
-
-    raw = session_id if session_id is not None else payload.get("session_id")
-    if not isinstance(raw, str) or not raw.strip():
-        return False
-    raw = raw.strip()
-    source = os.environ if env is None else env
-    aliases = [
-        payload.get("conversation_id"),
-        payload.get("remapped_conversation_id"),
-        source.get(CURSOR_CONVERSATION_ENV_VAR),
-    ]
-    return any(isinstance(alias, str) and alias.strip() == raw for alias in aliases)
 
 
 def consult_identity_channels(
@@ -246,10 +219,24 @@ def contested_anchor_session_ids() -> List[str]:
         return []
 
 
+def _public_channel(channel: str) -> str:
+    """Agent-facing label that does not teach env-var self-bootstrap."""
+    if not channel.startswith("env:"):
+        return channel
+    name = channel[4:]
+    if name == AMBIENT_ENV_VARS[0]:
+        return "env:session"
+    if name == AMBIENT_ENV_VARS[1]:
+        return "env:claude"
+    if name == AMBIENT_ENV_VARS[2]:
+        return "env:codex"
+    return "env:other"
+
+
 def format_actor_session_missing(function_id: str) -> str:
     """Error text for actor_session_missing naming every consulted channel."""
     named = ", ".join(
-        f"{row['channel']}={row['resolved'] or row['raw'] or 'empty'}"
+        f"{_public_channel(row['channel'])}={row['resolved'] or row['raw'] or 'empty'}"
         for row in consult_identity_channels()
     )
     contested = contested_anchor_session_ids()

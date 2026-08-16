@@ -26,7 +26,7 @@ _ENGINE_SESSION_SLUGS = (
     "session-pre-implementing-activity",
     "session-lane-mismatch",
 )
-_ENGINE_CONFIG_SLUGS = ("project-hook-config-validity",)
+_ENGINE_CONFIG_SLUGS = ("launcher-authority", "project-hook-config-validity")
 
 # Session/harness substrate checks that read this repo's own hook wiring and
 # machine browser runtime, so this project keeps them in ``.yoke/doctor/``.

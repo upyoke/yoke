@@ -79,7 +79,7 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             SLUG, TITLE, "FAIL",
             "Machine launcher is not canonical.\n  " + "\n  ".join(problems)
             + "\n  Repair: python3 -m yoke_core.tools.install_yoke_launcher --repair"
-            + "  (or `yoke doctor --fix`). Shadows are quarantined, never deleted.",
+            + "  (or `yoke doctor run --quick --fix`). Shadows are quarantined, never deleted.",
         )
         return
     rec.record(

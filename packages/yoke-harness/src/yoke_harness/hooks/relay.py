@@ -29,7 +29,10 @@ from yoke_harness.hooks.decision_render import (
 from yoke_harness.hooks.identity import (
     detect_executor,
     is_cursor,
+    prune_stale_session_anchors,
+    record_session_anchor,
     relay_identity_payload,
+    write_runtime_cache,
 )
 from yoke_harness.hooks.identity_stamp import record_then_stamp
 from yoke_harness.hooks.local_subset import (
@@ -197,13 +200,14 @@ def relay_hook_event(
     )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
+    original_stdin = stdin_data
     stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )
 
     ensure_user_lifecycle_hooks_for_executor(executor)
-    _codex_capture(event_name, stdin_data, executor)
+    _codex_capture(event_name, original_stdin, executor)
 
     local = evaluate_local_subset(
         event_name,
@@ -232,7 +236,7 @@ def relay_hook_event(
     payload_extra = dict(local.payload_extra or {})
     if policy_snapshot:
         payload_extra[lint_policy.SNAPSHOT_PAYLOAD_KEY] = policy_snapshot
-    from yoke_core.domain.execution_provenance import collect_execution_provenance
+    from yoke_contracts.execution_provenance import collect_execution_provenance
     body = {
         "hook_schema": _HOOK_WIRE_SCHEMA,
         "event_name": event_name,
@@ -323,5 +327,8 @@ __all__ = [
     "evaluate_hook_event",
     "evaluate_local_subset",
     "merge_allow_stdout",
+    "prune_stale_session_anchors",
+    "record_session_anchor",
     "relay_hook_event",
+    "write_runtime_cache",
 ]
