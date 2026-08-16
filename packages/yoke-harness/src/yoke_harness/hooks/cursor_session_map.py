@@ -18,8 +18,8 @@ from yoke_contracts.cursor_session_map import (
     container_session_id_from_evidence,
     prune_stale_conversation_sessions,
     record_conversation_session as _record_conversation_session,
+    resolve_container_from_subagent_transcript_layout,
 )
-from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.payload_session_fold import fold_conversation_session_id
 from yoke_harness.hooks.identity_runtime import is_cursor
 
@@ -49,13 +49,12 @@ def record_from_hook_payload(
     against evidence naming the container: a wrong pairing is worse than a
     missing one. Never raises — a hook must not fail on bookkeeping.
 
-    Session start is the one event that needs no evidence. Cursor leaves
-    the transcript path empty through a fresh session's first events, so
-    without this the session's FIRST command — the one likeliest to be a
-    ``/yoke`` entrypoint — resolves to nothing. It fires once for the
-    top-level session, which is the same basis on which registration
-    already treats that id as the container; a sub-conversation carries
-    ``parent_conversation_id``, which the evidence rule reads first.
+    The first client hook establishes the container when no evidence
+    names a different parent, worktree remap is empty, the on-disk
+    subagent transcript layout is empty, and the payload is top-level
+    shaped. Cursor leaves the transcript path empty through a fresh
+    session’s first events, so SessionStart-only establish left the
+    first write-shaped Shell unidentified.
 
     A later sessionStart (or any write) that would map a conversation onto
     itself must not erase an existing worktree/subagent fold: Cursor can
@@ -82,18 +81,19 @@ def record_from_hook_payload(
                 raw_container,
                 _map_dir(),
             )
-            if (
-                not container
-                and event_name == SESSION_START_EVENT
-                and raw_container == conversation_id
-            ):
-                # The top-level SessionStart establishes the first identity
-                # map. Every later transcript-derived channel must consume
-                # that map rather than trusting the conversation raw.
-                container = conversation_id
+            if not container:
+                if raw_container == conversation_id:
+                    if _top_level_shaped(payload, conversation_id):
+                        container = conversation_id
+                else:
+                    container = raw_container
         else:
             container = _worktree_remap_container(payload)
-            if not container and event_name == SESSION_START_EVENT:
+            if not container:
+                container = resolve_container_from_subagent_transcript_layout(
+                    conversation_id,
+                )
+            if not container and _top_level_shaped(payload, conversation_id):
                 container = (
                     fold_conversation_session_id(
                         conversation_id,
@@ -119,6 +119,14 @@ def record_from_hook_payload(
             record_conversation_session(alias, container)
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
         return
+
+
+def _top_level_shaped(payload: dict, conversation_id: str) -> bool:
+    """True when this payload is the top-level conversation, not a child."""
+    session_id = payload.get("session_id")
+    if isinstance(session_id, str) and session_id:
+        return session_id == conversation_id
+    return True
 
 
 def _worktree_remap_container(payload: dict) -> str:

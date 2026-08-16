@@ -95,25 +95,26 @@ class TestRecorder:
         )
         assert _mapped(machine_home, CONTAINER) == HOLDER
 
-    def test_unmapped_transcript_container_is_not_recorded(
+    def test_pretooluse_top_level_transcript_self_maps(
         self, machine_home,
     ):
         cursor_session_map.record_from_hook_payload(
             _payload(CONTAINER), "cursor", "PreToolUse",
         )
-        assert _mapped(machine_home, CONTAINER) is None
+        assert _mapped(machine_home, CONTAINER) == CONTAINER
 
     def test_other_harnesses_record_nothing(self, machine_home):
         cursor_session_map.record_from_hook_payload(_payload(), "claude-code")
         assert _mapped(machine_home, SUBAGENT) is None
 
-    def test_nothing_recorded_without_evidence_of_the_container(
+    def test_pretooluse_top_level_without_transcript_self_maps(
         self, machine_home, monkeypatch,
     ):
-        # Own id might be the container or might be a sub-conversation.
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR)
-        cursor_session_map.record_from_hook_payload(_payload(), "cursor")
-        assert _mapped(machine_home, SUBAGENT) is None
+        cursor_session_map.record_from_hook_payload(
+            _payload(CONTAINER), "cursor", "PreToolUse",
+        )
+        assert _mapped(machine_home, CONTAINER) == CONTAINER
 
     def test_session_start_records_itself_without_evidence(
         self, machine_home, monkeypatch,
@@ -153,6 +154,57 @@ class TestRecorder:
             "SessionStart",
         )
         assert _mapped(machine_home, remapped) == CONTAINER
+
+
+    def test_pretooluse_subagent_layout_folds_to_parent(
+        self, machine_home, monkeypatch,
+    ):
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        monkeypatch.setattr(
+            cursor_session_map,
+            "resolve_container_from_subagent_transcript_layout",
+            lambda cid, **_k: CONTAINER if cid == SUBAGENT else "",
+        )
+        cursor_session_map.record_from_hook_payload(
+            _payload(SUBAGENT), "cursor", "PreToolUse",
+        )
+        assert _mapped(machine_home, SUBAGENT) == CONTAINER
+        assert _mapped(machine_home, CONTAINER) is None
+
+    def test_pretooluse_worktree_holder_folds_to_holder(
+        self, machine_home, monkeypatch,
+    ):
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        monkeypatch.setattr(
+            cursor_session_map, "_worktree_remap_container", lambda _p: HOLDER,
+        )
+        cursor_session_map.record_from_hook_payload(
+            {
+                **_payload(CONTAINER),
+                "workspace_roots": ["/repo/.worktrees/YOK-1"],
+            },
+            "cursor",
+            "PreToolUse",
+        )
+        assert _mapped(machine_home, CONTAINER) == HOLDER
+
+    def test_pretooluse_worktree_without_holder_self_maps(
+        self, machine_home, monkeypatch,
+    ):
+        monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        monkeypatch.setattr(
+            cursor_session_map, "_worktree_remap_container", lambda _p: "",
+        )
+        cursor_session_map.record_from_hook_payload(
+            {
+                **_payload(CONTAINER),
+                "workspace_roots": ["/repo/.worktrees/YOK-1"],
+            },
+            "cursor",
+            "PreToolUse",
+        )
+        assert _mapped(machine_home, CONTAINER) == CONTAINER
+
 
 
 class TestClientEntryPoints:

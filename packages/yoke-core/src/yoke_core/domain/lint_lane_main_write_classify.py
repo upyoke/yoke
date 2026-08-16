@@ -24,11 +24,8 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
     SHELL_WRITE_COMMAND_BASES,
     analyze_payload_write_targets,
     extract_payload_command,
-    glued_file_redirect_target,
     payload_has_embedded_python_write,
-)
-from yoke_core.domain.lint_session_cwd_target_extract_shell import (
-    REDIRECT_OPERATORS,
+    _split_redirect_targets,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
@@ -194,11 +191,8 @@ def _segment_command_base(tokens: List[str]) -> str:
 
 
 def _bash_has_file_redirect(command: str) -> bool:
-    tokens = _safe_split(command)
-    return any(
-        tok in REDIRECT_OPERATORS or glued_file_redirect_target(tok)
-        for tok in tokens
-    )
+    _clean, targets = _split_redirect_targets(_safe_split(command))
+    return bool(targets)
 
 
 def _bash_has_write_verb(command: str) -> bool:

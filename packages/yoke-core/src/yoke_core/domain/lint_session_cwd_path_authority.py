@@ -36,12 +36,14 @@ def _harness_internal_prefixes() -> tuple[str, ...]:
 # paths under the live machine scratch root are allowlisted separately by
 # :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs`` and other
 # scratch subtrees keep their own authority rules.
+DEV_FAMILY_PREFIX = _abs("dev")
+
 FREE_PATH_PREFIXES = (
     _abs("tmp"),
     _abs("private", "tmp"),
     _abs("var", "folders"),
     _abs("private", "var", "folders"),
-    _abs("dev"),
+    DEV_FAMILY_PREFIX,
     *_harness_internal_prefixes(),
 )
 
@@ -103,6 +105,11 @@ def is_under_tool_dir(
         if resolved == prefix or resolved.startswith(prefix + os.sep):
             return True
     return False
+
+
+def is_dev_family_path(target: str) -> bool:
+    """True for ``/dev/null`` and the rest of the ``/dev`` discard family."""
+    return is_free_path(target, prefixes=(DEV_FAMILY_PREFIX,))
 
 
 def is_free_path(
@@ -186,9 +193,11 @@ def repo_root_from_worktree_path(worktree_path: str) -> Optional[str]:
 
 
 __all__ = [
+    "DEV_FAMILY_PREFIX",
     "FREE_PATH_PREFIXES",
     "TOOL_DIR_PREFIXES",
     "derive_repo_roots",
+    "is_dev_family_path",
     "is_free_path",
     "is_inside",
     "is_inside_control_plane",

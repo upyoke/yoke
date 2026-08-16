@@ -42,6 +42,7 @@ from yoke_core.domain.lint_shell_target_tokens import (
     resolve_write_operands,
     shell_variable_bindings,
 )
+from yoke_core.domain.lint_session_cwd_path_authority import is_dev_family_path
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
     FLAG_BINARY,
     FLAG_EQUALS_PREFIXES,
@@ -77,6 +78,8 @@ def glued_file_redirect_target(token: str) -> str | None:
         return None
     target = match.group(1)
     if _FD_DUP_REDIRECT_TARGET_RE.match(target):
+        return None
+    if is_dev_family_path(target):
         return None
     return target
 
@@ -274,7 +277,7 @@ def _split_redirect_targets(tokens: List[str]) -> Tuple[List[str], List[str]]:
     while i < len(tokens):
         token = tokens[i]
         if token in REDIRECT_OPERATORS:
-            if i + 1 < len(tokens):
+            if i + 1 < len(tokens) and not is_dev_family_path(tokens[i + 1]):
                 targets += [tokens[i + 1]]
             i += 2
             continue
