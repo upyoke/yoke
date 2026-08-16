@@ -14,6 +14,8 @@ claim's session is verified by the dispatcher before this handler runs.
 Read path:
 ``project_structure.deploy_defaults.get`` exposes the project's default
 deployment flow over the registered function surface.
+``project_structure.get`` exposes ``read_structure`` over the same
+relay so HTTPS clients can read family slices such as ``test_roots``.
 """
 
 from __future__ import annotations
@@ -47,6 +49,18 @@ class ProjectStructureDeployDefaultsGetRequest(BaseModel):
 class ProjectStructureDeployDefaultsGetResponse(BaseModel):
     project_id: str
     deployment_flow: Optional[str] = None
+
+
+class ProjectStructureGetRequest(BaseModel):
+    project_id: str
+    family: Optional[str] = None
+
+
+class ProjectStructureGetResponse(BaseModel):
+    project_id: str
+    family: Optional[str] = None
+    entries: Optional[List[Dict[str, Any]]] = None
+    families: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
 
 def _payload_project_id(payload: Dict[str, Any]) -> Optional[str]:
@@ -140,11 +154,53 @@ def handle_project_structure_deploy_defaults_get(
     )
 
 
+def handle_project_structure_get(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    from yoke_core.domain.project_structure import (
+        UsageError,
+        ValidationError,
+        read_structure,
+    )
+
+    payload = request.payload or {}
+    project_id = _payload_project_id(payload)
+    if project_id is None:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message="project_id is required",
+                jsonpath="$.payload.project_id",
+            ),
+        )
+    family = payload.get("family")
+    if family is not None and (not isinstance(family, str) or not family.strip()):
+        family = None
+    elif isinstance(family, str):
+        family = family.strip()
+    try:
+        result = read_structure(project_id, family=family)
+    except (UsageError, ValidationError) as exc:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="payload_invalid",
+                message=str(exc),
+                jsonpath="$.payload.family",
+            ),
+        )
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
 __all__ = [
     "ProjectStructurePatchApplyRequest",
     "ProjectStructurePatchApplyResponse",
     "ProjectStructureDeployDefaultsGetRequest",
     "ProjectStructureDeployDefaultsGetResponse",
+    "ProjectStructureGetRequest",
+    "ProjectStructureGetResponse",
     "handle_project_structure_patch_apply",
     "handle_project_structure_deploy_defaults_get",
+    "handle_project_structure_get",
 ]

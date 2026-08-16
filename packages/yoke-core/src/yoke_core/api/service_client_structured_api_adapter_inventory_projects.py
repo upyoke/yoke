@@ -48,6 +48,10 @@ PROJECT_ADAPTERS = [
         function_id="projects.infrastructure.list",
         cli_invocation="yoke projects infrastructure list --project NAME",
     ),
+    _read_entry(
+        function_id="project_structure.get",
+        cli_invocation="yoke project-structure get --project NAME [--family F]",
+    ),
     AdapterEntry(
         function_id="projects.site.create",
         cli_invocation=(

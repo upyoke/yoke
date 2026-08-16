@@ -150,7 +150,11 @@ def provision_worktree_harness_enablement(
             )
 
 
-def provision_worktree_test_environment(worktree_path: str) -> Optional[str]:
+def provision_worktree_test_environment(
+    worktree_path: str,
+    *,
+    project: Optional[str] = None,
+) -> Optional[str]:
     """Install and prove a lane's test environment; return a blocking error.
 
     Unlike the best-effort provisioning around it, this one blocks. A lane
@@ -179,7 +183,7 @@ def provision_worktree_test_environment(worktree_path: str) -> Optional[str]:
         )
 
     try:
-        report = provision_test_environment(worktree_path)
+        report = provision_test_environment(worktree_path, project=project)
     except Exception as exc:  # noqa: BLE001 — a broken lane must name its cause
         return (
             f"Lane test environment provisioning failed for {worktree_path}: {exc}"

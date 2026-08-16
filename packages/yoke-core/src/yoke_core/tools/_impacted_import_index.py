@@ -36,9 +36,14 @@ _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
 
 def is_test_file(rel_path: str) -> bool:
+    from yoke_core.tools._source_pythonpath import repo_root
+    from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
+
+    anchors = resolve_test_roots(str(repo_root()))
     name = rel_path.rsplit("/", 1)[-1]
     return (
-        any(rel_path.startswith(anchor) for anchor in TEST_ANCHORS)
+        bool(anchors)
+        and any(rel_path.startswith(anchor) for anchor in anchors)
         and name.startswith("test_")
         and name.endswith(".py")
     )

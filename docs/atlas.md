@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-14T04:35:14Z_
+_Audit generated_at: 2026-08-16T16:19:57Z_
 
 ## 1. Summary
 
-- Function ids registered: **380**
+- Function ids registered: **381**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **303** (303 carry usable `--help`)
-- Operation tracker: **280 wrapped**, 6 tool_cli, 116 permanent, 0 pending
+- `yoke` CLI subcommands: **304** (304 carry usable `--help`)
+- Operation tracker: **281 wrapped**, 6 tool_cli, 116 permanent, 0 pending
 - Skill-body recipes: 275 total (217 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **280** (operation tracker confirms 280 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **281** (operation tracker confirms 281 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -148,6 +148,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **280** (operation track
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
+| project_structure | `yoke project-structure get` | `project_structure.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
 | projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
 | projects | `yoke projects capability has` | `projects.capability.has` | ok |
@@ -468,9 +469,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 23 |
-| claude-code | 19 |
-| cursor | 8 |
+| codex | 28 |
+| cursor | 10 |
+| claude-code | 9 |
+| agent | 3 |
 
 ## 8. Contradictions
 

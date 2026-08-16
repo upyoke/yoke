@@ -163,6 +163,16 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         '{"key":"retention_count_remote","description":"Max remote backups to keep (oldest pruned after upload)","secret":false}]',
         '["aws-admin"]',
     ),
+    (
+        "test_environment",
+        "Test Environment",
+        "uv extras, groups, and nested project path that lane prepare "
+        "and the test wrappers install and run.",
+        '[{"key":"uv_project","description":"Nested uv project path relative to the checkout root","secret":false},'
+        '{"key":"uv_extras","description":"Comma-separated uv extras to install and run with","secret":false},'
+        '{"key":"uv_groups","description":"Comma-separated uv dependency groups to install and run with","secret":false}]',
+        "[]",
+    ),
 ]
 
 

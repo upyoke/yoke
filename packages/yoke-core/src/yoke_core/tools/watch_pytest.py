@@ -36,7 +36,6 @@ import argparse
 import os
 import time
 import sys
-from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
@@ -78,7 +77,9 @@ DEFAULT_PROG = "watch_pytest"
 
 def _pytest_argv(args: Sequence[str]) -> list[str]:
     """Build the underlying pytest invocation."""
-    return [sys.executable, "-m", "pytest", *list(args)]
+    from yoke_core.tools.watch_pytest_project_python import pytest_argv
+
+    return pytest_argv(args)
 
 
 def _parse_args(
@@ -184,30 +185,15 @@ def _extract_wrapper_flag(argv: list[str], flag: str) -> tuple[list[str], bool]:
 
 def _impacted_selection(base: str, *, bounded: bool = False):
     """Selection for the current change, or None when there are no files."""
-    from yoke_core.tools import impacted_tests
+    from yoke_core.tools.watch_pytest_project_python import impacted_selection
 
-    selection = impacted_tests.selection_for(
-        _source_pythonpath.repo_root(Path.cwd()), base, bounded=bounded
-    )
-    scope = "full sweep" if selection.full_sweep else "impacted"
-    print(
-        f"watch_pytest {scope}: {selection.reason}; {selection.count_summary()}",
-        flush=True,
-    )
-    # Structured companion to the prose reason above. Both land in the run's
-    # captures; only this one can be grouped across runs to tell legitimate
-    # core churn from a file kind reachability never modelled.
-    print(f"watch_pytest {selection.telemetry()}", flush=True)
-    return selection if selection.pytest_paths() else None
+    return impacted_selection(base, bounded=bounded)
 
 
 def _selection_footer(selection, collected_items: int | None) -> str:
-    all_files = selection.full_sweep or len(selection.files) == selection.total_files
-    total_items = collected_items if all_files else None
-    counted = replace(
-        selection, selected_items=collected_items, total_items=total_items
-    )
-    return f"# watch_pytest selection-summary: {counted.count_summary()}"
+    from yoke_core.tools.watch_pytest_project_python import selection_footer
+
+    return selection_footer(selection, collected_items)
 
 
 def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
@@ -271,7 +257,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_args = apply_parallel_default(pytest_args, no_parallel=no_parallel)
     source_root = _source_pythonpath.repo_root(Path.cwd())
     pytest_env = apply_postgres_xdist_auto_env(pytest_args)
-    pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
+    from yoke_core.tools.watch_pytest_project_python import pytest_env as bind_env
+
+    pytest_env = bind_env(pytest_env, source_root)
     # Already judged above; the child's startup check inherits that answer.
     pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)
     if (source_root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():

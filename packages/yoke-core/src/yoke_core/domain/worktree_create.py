@@ -290,7 +290,9 @@ def create_worktree(
     # repaired on the next preparation rather than failing at the first
     # test command.
     for entry in plan.worktrees:
-        environment_error = _provision_worktree_test_environment(entry.path)
+        environment_error = _provision_worktree_test_environment(
+            entry.path, project=project_for_install
+        )
         if environment_error:
             return CreateWorktreeResult(
                 path=entry.path,

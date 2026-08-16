@@ -36,7 +36,6 @@ from yoke_contracts.uv_project import (
     PROJECT_FILE_NAME,
     UV_EXECUTABLE,
     is_uv_project,
-    uv_run_argv,
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding
@@ -130,7 +129,17 @@ def runs_pytest(project_dir: Path) -> bool:
     ).is_dir()
 
 
-def provision_test_environment(worktree_path: str) -> TestEnvironmentReport:
+def _declaration_for(worktree_path: Path, project: str | None):
+    from yoke_core.domain.test_environment_declaration import load_declaration
+
+    return load_declaration(project, checkout=worktree_path)
+
+
+def provision_test_environment(
+    worktree_path: str,
+    *,
+    project: str | None = None,
+) -> TestEnvironmentReport:
     """Materialize and prove every uv project's test environment in a lane.
 
     Returns a report whose ``error`` is a blocking narrative: preparation
@@ -138,13 +147,22 @@ def provision_test_environment(worktree_path: str) -> TestEnvironmentReport:
     uv-managed project is nothing this surface owns, and reports ready
     with no actions.
     """
+    from yoke_core.domain.test_environment_declaration import (
+        SANCTIONED_RUN_SURFACE,
+        resolve_uv_projects,
+    )
+
     root = Path(worktree_path)
+    declaration = _declaration_for(root, project)
     try:
-        projects = uv_projects(root)
+        resolved = resolve_uv_projects(root, declaration, discover=uv_projects)
     except OSError as exc:
         return TestEnvironmentReport(
             error=f"Could not scan {root} for uv-managed projects: {exc}"
         )
+    if isinstance(resolved, str):
+        return TestEnvironmentReport(error=resolved)
+    projects = resolved
     if not projects:
         return TestEnvironmentReport()
     if shutil.which(UV_EXECUTABLE) is None:
@@ -157,30 +175,38 @@ def provision_test_environment(worktree_path: str) -> TestEnvironmentReport:
         PROOF_TIMEOUT_CONFIG, DEFAULT_PROOF_TIMEOUT_SECONDS
     )
 
-    actions: List[str] = []
-    for project in projects:
-        label = _label(root, project)
-        synced = _run(
-            [UV_EXECUTABLE, "sync", "--frozen"], project, sync_timeout
-        )
+    extras = ",".join(declaration.extras)
+    groups = ",".join(declaration.groups)
+    actions: List[str] = [
+        (
+            f"selection:uv_project={declaration.uv_project or '.'} "
+            f"extras={extras} groups={groups}"
+        ),
+        f"run:{SANCTIONED_RUN_SURFACE}",
+    ]
+    for project_dir in projects:
+        label = _label(root, project_dir)
+        synced = _run(declaration.sync_argv(), project_dir, sync_timeout)
         if synced.returncode != 0:
             return TestEnvironmentReport(
-                tuple(actions), _sync_failure_narrative(project, synced)
+                tuple(actions),
+                _sync_failure_narrative(project_dir, synced, declaration),
             )
         actions.append(f"environment:synced={label}")
-        if not runs_pytest(project):
+        if not runs_pytest(project_dir):
             continue
-        proved = _collect_trivial_test(project, proof_timeout)
+        proved = _collect_trivial_test(project_dir, proof_timeout, declaration)
         if proved.returncode != 0:
             return TestEnvironmentReport(
-                tuple(actions), _proof_failure_narrative(project, proved)
+                tuple(actions),
+                _proof_failure_narrative(project_dir, proved, declaration),
             )
         actions.append(f"pytest:collected={label}")
     return TestEnvironmentReport(tuple(actions))
 
 
 def _collect_trivial_test(
-    project_dir: Path, timeout: int
+    project_dir: Path, timeout: int, declaration
 ) -> subprocess.CompletedProcess:
     """Collect one trivial test inside *project_dir* using its environment.
 
@@ -191,21 +217,20 @@ def _collect_trivial_test(
     """
     proof_dir = project_dir / PROOF_DIRECTORY_NAME
     proof_file = proof_dir / PROOF_TEST_FILENAME
+    trailing = [
+        "-m",
+        "pytest",
+        "-p",
+        "no:cacheprovider",
+        "--collect-only",
+        "-q",
+        f"{PROOF_DIRECTORY_NAME}/{PROOF_TEST_FILENAME}",
+    ]
     try:
         proof_dir.mkdir(parents=True, exist_ok=True)
         proof_file.write_text(PROOF_TEST_SOURCE, encoding="utf-8")
         return _run(
-            uv_run_argv(
-                [
-                    "-m",
-                    "pytest",
-                    "-p",
-                    "no:cacheprovider",
-                    "--collect-only",
-                    "-q",
-                    f"{PROOF_DIRECTORY_NAME}/{PROOF_TEST_FILENAME}",
-                ]
-            ),
+            declaration.run_python_argv(trailing, cwd=project_dir),
             project_dir,
             timeout,
         )
@@ -242,31 +267,45 @@ def _missing_uv_narrative(projects: Sequence[Path]) -> str:
 
 
 def _sync_failure_narrative(
-    project: Path, completed: subprocess.CompletedProcess
+    project: Path, completed: subprocess.CompletedProcess, declaration
 ) -> str:
+    argv = " ".join(declaration.sync_argv())
+    inspect = ""
+    if declaration.selection_flags():
+        inspect = f" Inspect the declaration with {declaration.capability_get_recipe()}."
     return (
         f"Lane test environment could not be installed in {project}:\n"
         f"{_detail(completed)}\n"
         "Fix the dependency declaration or lockfile error shown above, then "
-        "re-run preparation. Lane provisioning requires the project's default "
-        "`uv sync --frozen` selection to install without extra-selection flags."
+        f"re-run preparation. Lane provisioning ran `{argv}`.{inspect}"
     )
 
 
 def _proof_failure_narrative(
-    project: Path, completed: subprocess.CompletedProcess
+    project: Path, completed: subprocess.CompletedProcess, declaration
 ) -> str:
+    from yoke_core.domain.test_environment_declaration import SANCTIONED_RUN_SURFACE
+
+    argv = " ".join(declaration.sync_argv())
+    if declaration.selection_flags():
+        present = (
+            " Pytest and collection-time imports must be present in that "
+            f"selection. Inspect the declaration with "
+            f"{declaration.capability_get_recipe()}."
+        )
+    else:
+        present = (
+            " Pytest and every collection-time import must be present in "
+            "that default `uv sync --frozen` selection."
+        )
     return (
         f"Lane test environment is installed but cannot run pytest in {project}:\n"
         f"{_detail(completed)}\n"
-        "Lane provisioning installs the project's default `uv sync --frozen` "
-        "selection. Pytest and every collection-time import must therefore live "
-        "in a default dependency group installed by that command, not only in "
-        "an optional extra. Repair that declaration, refresh the lockfile, and "
-        "re-run preparation.\n"
+        f"Lane provisioning installed `{argv}`.{present} Repair that "
+        "declaration, refresh the lockfile, and re-run preparation.\n"
         "Once the lane is ready, run tests through the watcher, which binds "
         "this same environment:\n"
-        "  yoke watch pytest -- <pytest args>"
+        f"  {SANCTIONED_RUN_SURFACE} <pytest args>"
     )
 
 
