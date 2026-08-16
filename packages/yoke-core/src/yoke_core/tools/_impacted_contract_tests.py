@@ -84,7 +84,16 @@ DONE_TRANSITION_CLOSE_OUT_TESTS = (
     "runtime/api/engines/test_done_transition_syspath.py",
 )
 
+CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
+    "runtime/harness/cursor/test_session_dispatch_cursor.py",
+)
+
 PATH_CONTRACT_TESTS = (
+    (
+        "cursor_session_identity_dispatch_contract",
+        frozenset({"runtime/harness/cursor/cursor_hooks_payload.py"}),
+        CURSOR_SESSION_IDENTITY_DISPATCH_TESTS,
+    ),
     (
         "item_worktree_schema_contract",
         frozenset(
@@ -178,6 +187,7 @@ def contract_selection_for(changed: Sequence[str]) -> ContractSelection:
 __all__ = [
     "ALWAYS_RUN_TESTS",
     "ContractSelection",
+    "CURSOR_SESSION_IDENTITY_DISPATCH_TESTS",
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",

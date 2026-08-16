@@ -38,6 +38,7 @@ from typing import Any, Dict
 
 from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
+from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
     fold_payload_session_id,
@@ -169,6 +170,31 @@ def container_session_id_from_evidence(data: Dict[str, Any]) -> str:
     return cursor_session_map.container_session_id_from_evidence(data)
 
 
+def _top_level_session_start_id(data: Dict[str, Any]) -> str:
+    """Return the first top-level Cursor id before its map entry exists."""
+    event = data.get("hook_event_name")
+    session_id = data.get("session_id")
+    conversation_id = data.get("conversation_id")
+    if not all(
+        isinstance(value, str)
+        for value in (
+            event,
+            session_id,
+            conversation_id,
+        )
+    ):
+        return ""
+    session_id = session_id.strip()
+    conversation_id = conversation_id.strip()
+    if (
+        event.casefold() == SESSION_START_EVENT.casefold()
+        and session_id
+        and session_id == conversation_id
+    ):
+        return session_id
+    return ""
+
+
 def resolve_container_session_id(data: Dict[str, Any]) -> str:
     """Resolve the top-level (container) session id for a Cursor hook event.
 
@@ -184,6 +210,15 @@ def resolve_container_session_id(data: Dict[str, Any]) -> str:
     stamped = data.get("container_session_id")
     if isinstance(stamped, str):
         return stamped.strip()
+    # Dispatch helpers also call this resolver on payloads that parsing has
+    # already folded; their derived flags make session_id canonical identity.
+    if (
+        data.get("is_subagent_session") is True
+        or data.get("is_worktree_remap_session") is True
+    ):
+        canonical = data.get("session_id")
+        if isinstance(canonical, str):
+            return canonical.strip()
     try:
         map_dir = (
             machine_config.yoke_home() / cursor_session_map.CURSOR_SESSION_MAP_DIR_NAME
@@ -209,7 +244,7 @@ def resolve_container_session_id(data: Dict[str, Any]) -> str:
         return holder
     folded = fold_payload_session_id(data, map_dir) if map_dir is not None else None
     if folded is not None:
-        return folded
+        return folded or _top_level_session_start_id(data)
     return (
         fold_conversation_session_id(data.get("conversation_id"), map_dir)
         if map_dir is not None

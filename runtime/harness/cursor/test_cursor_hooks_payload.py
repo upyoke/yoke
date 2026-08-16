@@ -41,13 +41,16 @@ def cursor_map(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "machine-home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     record_conversation_session(
-        MAIN, MAIN, home / CURSOR_SESSION_MAP_DIR_NAME,
+        MAIN,
+        MAIN,
+        home / CURSOR_SESSION_MAP_DIR_NAME,
     )
 
 
 @pytest.fixture
 def container_env(
-    cursor_map: None, monkeypatch: pytest.MonkeyPatch,
+    cursor_map: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
     monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", TRANSCRIPT)
@@ -135,7 +138,8 @@ def test_subagent_event_folds_into_container(container_env: None) -> None:
 
 
 def test_nested_subagent_transcript_env_folds(
-    bare_env: None, monkeypatch: pytest.MonkeyPatch,
+    bare_env: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CURSOR_TRANSCRIPT_PATH", SUB_TRANSCRIPT)
     payload = json.dumps(
@@ -249,9 +253,13 @@ def test_parent_conversation_id_wins_without_env(bare_env: None) -> None:
     assert resolve_container_session_id(data) == MAIN
 
 
-def test_own_session_is_container_fallback(bare_env: None) -> None:
-    data = {"session_id": MAIN, "conversation_id": MAIN}
-    assert resolve_container_session_id(data) == MAIN
+def test_top_level_session_start_bootstraps_without_map(bare_env: None) -> None:
+    data = {
+        "hook_event_name": "sessionStart",
+        "session_id": UNKNOWN,
+        "conversation_id": UNKNOWN,
+    }
+    assert resolve_container_session_id(data) == UNKNOWN
 
 
 def test_empty_session_id_stamps_container_from_transcript(
@@ -284,5 +292,8 @@ def test_garbage_and_field_stringification(bare_env: None) -> None:
     assert parse_payload("") == {}
     assert parse_payload("not json") == {}
     assert parse_payload("[1,2]") == {}
-    assert payload_field(json.dumps({"is_background_agent": False}), "is_background_agent") == "false"
+    assert (
+        payload_field(json.dumps({"is_background_agent": False}), "is_background_agent")
+        == "false"
+    )
     assert payload_field(json.dumps({"x": None}), "x") == ""

@@ -1,6 +1,9 @@
 """Regression coverage for contract-selected impacted tests and telemetry."""
 
 from yoke_core.tools import impacted_tests
+from yoke_core.tools._impacted_contract_tests import (
+    CURSOR_SESSION_IDENTITY_DISPATCH_TESTS,
+)
 from yoke_core.tools.impacted_tests import build_import_index, select
 
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _write
@@ -41,3 +44,26 @@ def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
     assert selection.full_sweep is False
     assert cleanliness_test in selection.files
     assert "repo_cleanliness_contract:*" in selection.telemetry()
+
+
+def test_cursor_identity_dispatch_survives_bounded_tooling_deferral(tmp_path):
+    root = _tiny_repo(tmp_path)
+    cursor_payload = "runtime/harness/cursor/cursor_hooks_payload.py"
+    tooling = "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py"
+    dispatch_test = CURSOR_SESSION_IDENTITY_DISPATCH_TESTS[0]
+    _write(root, cursor_payload, "def resolve_container_session_id(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    _write(root, dispatch_test, "def test_session_dispatch(): pass\n")
+
+    selection = select(
+        [cursor_payload, tooling],
+        build_import_index(root),
+        bounded=True,
+    )
+
+    assert selection.bounded_deferral is True
+    assert dispatch_test in selection.files
+    assert (
+        f"cursor_session_identity_dispatch_contract:{cursor_payload}"
+        in selection.telemetry()
+    )
