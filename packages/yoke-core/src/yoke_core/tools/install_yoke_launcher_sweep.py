@@ -102,7 +102,15 @@ def repair_canonical_launcher(
     if target.is_symlink():
         target.unlink()
     refuse_foreign_binary(target, force=force)
-    write_launcher(target, default_home=home or checkout)
+    python = None
+    for root in (home, checkout):
+        if root is None:
+            continue
+        candidate = Path(root) / ".venv" / "bin" / "python3"
+        if candidate.exists():
+            python = candidate.resolve()
+            break
+    write_launcher(target, default_home=home or checkout, python=python)
     if stream is not None:
         stream.write(f"Canonical launcher repaired: {target}\n")
     return target
