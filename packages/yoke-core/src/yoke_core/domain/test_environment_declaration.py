@@ -25,6 +25,8 @@ SANCTIONED_RUN_SURFACE = "yoke watch pytest --"
 class TestEnvironmentDeclaration:
     """Resolved sync/run selection for one project checkout."""
 
+    __test__ = False
+
     project: str
     uv_project: str = ""
     extras: tuple[str, ...] = ()

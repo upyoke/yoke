@@ -193,7 +193,9 @@ def run(
 
     requested = list(paths or default_testpaths(root) or ())
     if not requested:
-        if _source_pythonpath.is_yoke_shaped_tree(root):
+        if _source_pythonpath.is_yoke_shaped_tree(root) or (
+            root / "runtime" / "api"
+        ).is_dir():
             requested = list(DEFAULT_TESTPATHS)
         else:
             print(f"run_tests {UNSUPPORTED_PROJECT_TEST_ROOTS}", file=sys.stderr)
