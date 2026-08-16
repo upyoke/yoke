@@ -19,15 +19,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from yoke_core.tools.impacted_project_test_roots import (
+    YOKE_SEEDED_TEST_ROOTS,
+    current_test_roots,
+)
+
 _PACKAGE_SOURCE_MARKER = "/src/"
 _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
 )
 
-#: Directories pytest is pointed at for a full sweep. A production module can
-#: legitimately begin with ``test_`` (for example, a machine-test domain
-#: handler), so filename shape alone is not enough to make it collectable.
-TEST_ANCHORS = ("runtime/api/", "runtime/harness/", "tests/")
+#: This checkout's own seeded test roots, for callers that describe a Yoke
+#: sweep rather than resolve one. A live checkout answers through
+#: :func:`current_test_roots`, whose declaration may differ per project.
+TEST_ANCHORS = YOKE_SEEDED_TEST_ROOTS
 
 #: A string literal shaped like a dotted module path is treated as a
 #: dependency reference (subprocess ``-m`` targets, patch targets,
@@ -36,9 +41,11 @@ _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
 
 def is_test_file(rel_path: str) -> bool:
+    anchors = current_test_roots()
     name = rel_path.rsplit("/", 1)[-1]
     return (
-        any(rel_path.startswith(anchor) for anchor in TEST_ANCHORS)
+        bool(anchors)
+        and any(rel_path.startswith(anchor) for anchor in anchors)
         and name.startswith("test_")
         and name.endswith(".py")
     )

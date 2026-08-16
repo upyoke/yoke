@@ -18,6 +18,17 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
+    registry.register(
+        "project_structure.get",
+        _ps.handle_project_structure_get,
+        _ps.ProjectStructureGetRequest,
+        _ps.ProjectStructureGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.project_structure",
+        target_kinds=["project_structure"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
 
 
 __all__ = ["register"]

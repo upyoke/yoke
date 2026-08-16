@@ -186,6 +186,7 @@ Seed data: generic capability templates are converged during schema initializati
 - `aws-admin` -- AWS credentials with broad admin access (keys: access_key_id [secret], secret_access_key [secret], region)
 - `aws-route53` -- DNS management via Route53 (keys: hosted_zone_id; requires: aws-admin)
 - `github` -- GitHub App repo binding metadata for issue sync, PRs, Actions, and API access (keys: repo_owner, repo_name, installation_id, repository_id). The verified GitHub deployment API base is stored on `project_github_repo_bindings.api_url` and `github_app_installations.api_url`, not inferred from the repo slug. GitHub App private-key and webhook secret material belongs to the control-plane secret store, not `capability_secrets`.
+- `test_environment` -- uv extras, groups, and nested project path that lane prepare and the test wrappers install and run (keys: uv_project, uv_extras, uv_groups). Test trees stay on Project Structure `test_roots`.
 
 Deployment SSH credentials belong to the separate `ssh` capability. The
 `github` capability has no secret fields; GitHub App private keys and webhook

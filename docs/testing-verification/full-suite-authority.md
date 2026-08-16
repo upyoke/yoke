@@ -4,7 +4,8 @@ How local verification is scoped, why the gate run is the one full
 execution for a tree, and how to read a selection that widened.
 Companion to [`docs/testing-verification.md`](../testing-verification.md).
 
-The full three-anchor suite runs off-machine in CI on both the pull request
+The full suite — the project's Project Structure `test_roots` attachments,
+not a yoke-only path triple — runs off-machine in CI on both the pull request
 and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
 `pull_request` and `push` to `main`). A main-push run may short-circuit when
 `reuse-coverage` finds a recent successful dispatch/push yoke-ci run whose

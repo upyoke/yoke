@@ -17,9 +17,23 @@ import pytest
 from runtime.api.domain.test_worktree_create_multiworktree import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import worktree_test_environment as env
+from yoke_core.domain.test_environment_declaration import (
+    TestEnvironmentDeclaration,
+)
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_provision import provision_worktree_test_environment
 from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+
+
+@pytest.fixture(autouse=True)
+def _empty_declaration(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        env,
+        "load_declaration",
+        lambda project=None, **_kwargs: TestEnvironmentDeclaration(
+            project=project or "yoke"
+        ),
+    )
 
 
 def _uv_project(directory: Path) -> Path:
@@ -117,7 +131,7 @@ def test_a_failed_sync_names_the_default_dependency_contract(
 
     assert report.ready is False
     assert "no solution found" in report.error
-    assert "default `uv sync --frozen` selection" in report.error
+    assert "`uv sync --frozen`" in report.error
     assert f"cd {project} && uv sync --frozen" not in report.error
 
 
@@ -133,7 +147,12 @@ def test_a_ready_lane_records_its_sync_and_its_collection(
     report = env.provision_test_environment(str(lane))
 
     assert report.ready is True, report.error
-    assert report.actions == ("environment:synced=.", "pytest:collected=.")
+    assert report.actions == (
+        "selection:uv_project=. extras= groups=",
+        "run:yoke watch pytest --",
+        "environment:synced=.",
+        "pytest:collected=.",
+    )
     assert not (project / env.PROOF_DIRECTORY_NAME).exists()
 
 
@@ -153,8 +172,9 @@ def test_a_conftest_that_cannot_import_blocks_the_lane(
 
     assert report.ready is False
     assert "a_package_this_lane_never_installed" in report.error
-    assert "default dependency group" in report.error
-    assert "not only in an optional extra" in report.error
+    assert "`uv sync --frozen`" in report.error
+    assert "without extra-selection flags" not in report.error
+    assert "not only in an optional extra" not in report.error
     assert "yoke watch pytest -- <pytest args>" in report.error
     assert not (project / env.PROOF_DIRECTORY_NAME).exists()
 
@@ -190,7 +210,9 @@ def test_the_provisioning_step_reports_actions_and_returns_the_block(
     monkeypatch.setattr(
         env,
         "provision_test_environment",
-        lambda _path: env.TestEnvironmentReport(("environment:synced=.",), "broken lane"),
+        lambda _path, **_kw: env.TestEnvironmentReport(
+            ("environment:synced=.",), "broken lane"
+        ),
     )
 
     assert provision_worktree_test_environment(str(tmp_path)) == "broken lane"
@@ -214,7 +236,9 @@ def test_an_unprovable_lane_blocks_worktree_creation(
     monkeypatch.setattr(
         env,
         "provision_test_environment",
-        lambda _path: env.TestEnvironmentReport((), "lane cannot run pytest"),
+        lambda _path, **_kw: env.TestEnvironmentReport(
+            (), "lane cannot run pytest"
+        ),
     )
 
     result = create_worktree(
@@ -226,3 +250,48 @@ def test_an_unprovable_lane_blocks_worktree_creation(
 
     assert result.error == "lane cannot run pytest"
     assert result.failed_branch == "YOK-99320"
+
+
+def test_declared_extras_are_synced_and_named_on_the_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lane = tmp_path / "lane"
+    project = _uv_project(lane)
+    (project / "conftest.py").write_text("", encoding="utf-8")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    script = bin_dir / "uv"
+    script.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "sync" ]; then\n'
+        f'  echo "$*" >> "{bin_dir / "sync.log"}"\n'
+        "  exit 0\n"
+        "fi\n"
+        'if [ "$1" = "run" ]; then\n'
+        f'  echo "$*" >> "{bin_dir / "run.log"}"\n'
+        '  while [ $# -gt 0 ] && [ "$1" != "python3" ]; do shift; done\n'
+        "  shift\n"
+        f'  exec "{sys.executable}" "$@"\n'
+        "fi\n"
+        "exit 64\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setattr(
+        env,
+        "load_declaration",
+        lambda project=None, **_kwargs: TestEnvironmentDeclaration(
+            project=project or "platform", extras=("engine",)
+        ),
+    )
+
+    report = env.provision_test_environment(str(lane), project="platform")
+
+    assert report.ready is True, report.error
+    assert report.actions[0] == (
+        "selection:uv_project=. extras=engine groups="
+    )
+    assert "run:yoke watch pytest --" in report.actions
+    assert "--extra engine" in (bin_dir / "sync.log").read_text()
+    assert "--extra engine" in (bin_dir / "run.log").read_text()

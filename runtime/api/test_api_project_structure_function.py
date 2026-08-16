@@ -132,5 +132,35 @@ class TestProjectStructureDeployDefaultsGet(unittest.TestCase):
         self.assertIsNone(outcome.result_payload["deployment_flow"])
 
 
+class TestProjectStructureGet(unittest.TestCase):
+    def test_rejects_missing_project_id(self):
+        req = _command_request("project_structure.get", {})
+        outcome = ps_handler.handle_project_structure_get(req)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertEqual(outcome.error.jsonpath, "$.payload.project_id")
+
+    def test_returns_a_family_slice(self):
+        with patch(
+            "yoke_core.domain.project_structure.read_structure",
+            return_value={
+                "project_id": "platform",
+                "family": "test_roots",
+                "entries": [{"attachment": "services/platform-svc/tests/"}],
+            },
+        ):
+            req = _command_request(
+                "project_structure.get",
+                {"project_id": "platform", "family": "test_roots"},
+            )
+            outcome = ps_handler.handle_project_structure_get(req)
+        self.assertTrue(outcome.primary_success)
+        self.assertEqual(outcome.result_payload["family"], "test_roots")
+        self.assertEqual(
+            outcome.result_payload["entries"][0]["attachment"],
+            "services/platform-svc/tests/",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

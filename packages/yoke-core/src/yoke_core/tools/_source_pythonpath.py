@@ -17,6 +17,12 @@ PACKAGE_SRC_RELS: tuple[str, ...] = (
 )
 SOURCE_RUN_RECIPE = "yoke dev run -- <command>"
 PYTEST_RUN_RECIPE = "yoke watch pytest -- <pytest args>"
+YOKE_CORE_MARKER = Path("packages") / "yoke-core" / "src" / "yoke_core"
+
+
+def is_yoke_shaped_tree(root: Path) -> bool:
+    """True when *root* is a Yoke source checkout, not an external project."""
+    return (root / YOKE_CORE_MARKER).is_dir()
 
 
 def repo_root(start: Path | None = None) -> Path:
@@ -46,6 +52,8 @@ def with_source_pythonpath(
     root: Path,
 ) -> dict[str, str]:
     out = dict(os.environ if env is None else env)
+    if not is_yoke_shaped_tree(root):
+        return out
     existing = [
         value
         for value in out.get("PYTHONPATH", "").split(os.pathsep)
@@ -147,8 +155,10 @@ __all__ = [
     "PACKAGE_SRC_RELS",
     "PYTEST_RUN_RECIPE",
     "SOURCE_RUN_RECIPE",
+    "YOKE_CORE_MARKER",
     "import_origins",
     "import_origin_refusal",
+    "is_yoke_shaped_tree",
     "repo_root",
     "source_entries",
     "source_modules",

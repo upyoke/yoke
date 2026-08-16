@@ -144,7 +144,7 @@ from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.project_structure_read import (
-    PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
+    PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE, PROJECT_STRUCTURE_GET_USAGE,
 )
 from yoke_cli.commands.adapters.projects_secret import (
     PROJECTS_CAPABILITY_SECRET_SET_USAGE,
@@ -284,6 +284,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     **IDENTITY_USAGE,
     "project_structure.patch.apply": PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
     "project_structure.deploy_defaults.get": PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
+    "project_structure.get": PROJECT_STRUCTURE_GET_USAGE,
     "events.query.run": EVENTS_QUERY_USAGE,
     "events.tail.run": EVENTS_TAIL_USAGE,
     "events.count.run": EVENTS_COUNT_USAGE,

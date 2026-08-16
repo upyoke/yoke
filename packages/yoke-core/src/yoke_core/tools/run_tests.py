@@ -47,6 +47,11 @@ from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
 )
 from yoke_core.tools import _source_pythonpath
+from yoke_core.tools.impacted_project_test_roots import (
+    UNSUPPORTED_PROJECT_TEST_ROOTS,
+    default_testpaths,
+)
+from yoke_core.tools.watch_pytest_project_python import pytest_argv
 
 
 DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
@@ -186,12 +191,20 @@ def run(
         print(binding.refusal, file=sys.stderr)
         return _EXIT_STATUS_TREE_BINDING_REFUSED
 
-    if _is_yoke_backend_verification(root, paths or ()):
+    requested = list(paths or default_testpaths(root) or ())
+    if not requested:
+        if _source_pythonpath.is_yoke_shaped_tree(root):
+            requested = list(DEFAULT_TESTPATHS)
+        else:
+            print(f"run_tests {UNSUPPORTED_PROJECT_TEST_ROOTS}", file=sys.stderr)
+            return 1
+
+    if _is_yoke_backend_verification(root, requested):
         if not _prepare_yoke_backend_env(root):
             return 1
 
     argv = build_pytest_argv(
-        list(paths or ()),
+        requested,
         keyword=keyword,
         fail_fast=fail_fast,
         quiet=quiet,
@@ -199,11 +212,7 @@ def run(
         no_parallel=no_parallel,
         extra=extra,
     )
-
-    # Launch pytest as a subprocess rooted at the repo so tests see the same
-    # working directory they would under the old shell harness. Using the
-    # current interpreter keeps virtualenv consistency.
-    cmd = [sys.executable, "-m", "pytest", *argv]
+    cmd = pytest_argv(argv, cwd=root)
     env = os.environ.copy()
     # Ensure pytest imports Yoke packages from this checkout, even when an
     # editable install still points at the main tree.
@@ -211,7 +220,7 @@ def run(
     env = apply_postgres_xdist_auto_env(argv, env)
     # Already judged above; the child's startup check inherits that answer.
     env = _tree_binding_startup.with_binding_evaluated(env)
-    if (root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
+    if _source_pythonpath.is_yoke_shaped_tree(root):
         refusal = _source_pythonpath.import_origin_refusal(root, env=env)
         if refusal is not None:
             print(f"Error: {refusal}", file=sys.stderr)

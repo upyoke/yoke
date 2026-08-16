@@ -165,6 +165,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke identity link set", "identity.link"),
     _w("yoke identity autojoin set", "identity.autojoin"),
     _w("yoke project-structure patch apply", "project_structure"),
+    _w("yoke project-structure get", "project_structure"),
     _w(
         "yoke project-structure deploy-defaults get",
         "project_structure.deploy_defaults",

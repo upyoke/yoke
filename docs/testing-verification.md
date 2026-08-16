@@ -267,6 +267,10 @@ tree that was verified.
 
 ## Full-suite authority: CI
 
+Per-project extras, groups, and test-root trees are declared on the
+`test_environment` capability and Project Structure `test_roots`; see
+[`project-test-environment.md`](testing-verification/project-test-environment.md).
+
 Off-machine CI runs the full three-anchor suite on the pull request, on
 the merge queue's merge_group ref (one gate per train's combined head),
 and on the merged `main` commit. Local verification stays change-scoped:
