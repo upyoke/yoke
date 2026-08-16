@@ -68,18 +68,22 @@ def test_stamp_preserves_claude_and_codex_session_ids(tmp_path, monkeypatch) -> 
             "transcript_path": _transcript(session_id),
         }
         original = json.dumps(payload)
-        assert record_then_stamp(
+        stamped = json.loads(record_then_stamp(
             payload, original, executor, "PreToolUse",
-        ) == original
+        ))
+        assert stamped["session_id"] == session_id
+        assert stamped["identity_stamped"] is True
 
 
 def test_cursor_payload_without_transcript_is_unchanged(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     payload = {"session_id": "cursor-session", "tool_name": "Write"}
     original = json.dumps(payload)
-    assert record_then_stamp(
+    stamped = json.loads(record_then_stamp(
         payload, original, "cursor", "PreToolUse",
-    ) == original
+    ))
+    assert stamped["session_id"] == "cursor-session"
+    assert stamped["identity_stamped"] is True
 
 
 def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:

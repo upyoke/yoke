@@ -69,3 +69,60 @@ def test_parse_payload_folds_worktree_remap(monkeypatch) -> None:
     assert data["is_worktree_remap_session"] is True
     assert data["is_subagent_session"] is False
     assert data["remapped_conversation_id"] == REMAPPED
+
+
+def test_record_remount_writes_self_map() -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": CONTAINER,
+            "conversation_id": CONTAINER,
+            "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        },
+        holder_lookup=lambda _lane: CONTAINER,
+        record=lambda conv, sid: recorded.append((conv, sid)),
+    )
+    assert holder == CONTAINER
+    assert recorded == [(CONTAINER, CONTAINER)]
+
+
+def test_record_remount_absent_holder_writes_nothing() -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": REMAPPED,
+            "conversation_id": REMAPPED,
+            "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        },
+        holder_lookup=lambda _lane: "",
+        record=lambda conv, sid: recorded.append((conv, sid)),
+    )
+    assert holder == ""
+    assert recorded == []
+
+
+def test_record_remount_writes_new_conversation_to_holder() -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": REMAPPED,
+            "conversation_id": REMAPPED,
+            "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        },
+        holder_lookup=lambda _lane: CONTAINER,
+        record=lambda conv, sid: recorded.append((conv, sid)),
+    )
+    assert holder == CONTAINER
+    assert recorded == [(REMAPPED, CONTAINER)]

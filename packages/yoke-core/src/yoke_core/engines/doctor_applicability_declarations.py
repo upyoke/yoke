@@ -107,7 +107,7 @@ _SHAPES = (
         "architecture-model-doc-drift",
         "branch-divergence",
         "config-validation", "cross-project-commits", "file-line-limit",
-        "flow-workflow-exists", "gate-liveness", "main-checkout",
+        "flow-workflow-exists", "gate-liveness", "launcher-authority", "main-checkout",
         "orphaned-stashes", "orphaned-temp-files", "path-claim-symlink-coverage",
         "path-confabulation", "project-hook-config-validity", "size-bloat",
         "strategy-render-staleness",

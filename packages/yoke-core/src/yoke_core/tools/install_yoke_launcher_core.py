@@ -266,6 +266,8 @@ def write_launcher(
 ) -> None:
     actual = source if source is not None else LAUNCHER_SOURCE
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    if target_path.is_symlink():
+        target_path.unlink()
     text = Path(actual).read_text(encoding="utf-8")
     if default_home is not None:
         text = text.replace(

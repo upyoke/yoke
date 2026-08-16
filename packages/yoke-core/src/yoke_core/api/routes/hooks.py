@@ -22,7 +22,11 @@ from pydantic import BaseModel, Field
 
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
+from yoke_core.domain.execution_provenance import collect_execution_provenance
 from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
+from yoke_core.domain.session_ambient_identity import (
+    is_conversation_shaped_session_id,
+)
 
 # The evaluator's import closure spans the whole repo-tree hook runner
 # (runner, typed dispatch, telemetry, capability resolve, ...), which no
@@ -95,6 +99,9 @@ def post_hooks_evaluate(
                 }
             },
         )
+    stamped = _refuse_conversation_shaped(request)
+    if stamped is not None:
+        return stamped
     if request.hook_schema != HOOK_WIRE_SCHEMA:
         # An unknown schema must not be half-interpreted; the client treats
         # any non-200 as fail-open no-op, which is the safe degradation.
@@ -136,14 +143,67 @@ def post_hooks_evaluate(
     record_histogram("yoke.hook.wait_ms", result.wait_ms, attributes=attributes)
     record_counter("yoke.hook.requests", attributes=attributes)
     return JSONResponse(
-        content=HookEvaluateResponse(
-            stdout=result.stdout,
-            exit_code=result.exit_code,
-            wait_ms=result.wait_ms,
-            degraded=list(result.degraded),
-            outcome=result.outcome,
-        ).model_dump()
+        content=_with_provenance(
+            HookEvaluateResponse(
+                stdout=result.stdout,
+                exit_code=result.exit_code,
+                wait_ms=result.wait_ms,
+                degraded=list(result.degraded),
+                outcome=result.outcome,
+            ).model_dump()
+        )
     )
+
+
+def _with_provenance(content: dict[str, Any]) -> dict[str, Any]:
+    content["execution_provenance"] = collect_execution_provenance()
+    return content
+
+
+def _refuse_conversation_shaped(request: HookEvaluateRequest) -> JSONResponse | None:
+    """Reject relayed payloads whose stamped session id is still a conversation."""
+    import json
+
+    try:
+        payload = json.loads(request.stdin) if request.stdin else {}
+    except (json.JSONDecodeError, TypeError):
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    if payload.get("identity_stamped") is True:
+        return None
+    sid = payload.get("session_id")
+    if not isinstance(sid, str) or not sid.strip():
+        return JSONResponse(
+            content=_with_provenance(
+                HookEvaluateResponse(
+                    stdout=(
+                        "Yoke hook relay refused: payload has no stamped, "
+                        "non-conversation session id.\n"
+                    ),
+                    exit_code=2,
+                    wait_ms=0,
+                    degraded=[],
+                    outcome="denied",
+                ).model_dump()
+            ),
+        )
+    if is_conversation_shaped_session_id(payload, session_id=sid):
+        return JSONResponse(
+            content=_with_provenance(
+                HookEvaluateResponse(
+                    stdout=(
+                        "Yoke hook relay refused: session id is still "
+                        "conversation-shaped.\n"
+                    ),
+                    exit_code=2,
+                    wait_ms=0,
+                    degraded=[],
+                    outcome="denied",
+                ).model_dump()
+            ),
+        )
+    return None
 
 
 def _authorize_project(actor_id: int, project_id: Optional[int]) -> JSONResponse | None:

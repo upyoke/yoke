@@ -28,20 +28,24 @@ from yoke_harness.hooks.decision_render import (
 )
 from yoke_harness.hooks.identity import (
     detect_executor,
-    is_codex,
     is_cursor,
-    prune_stale_session_anchors,
-    record_session_anchor,
     relay_identity_payload,
-    resolve_session_id,
-    write_runtime_cache,
 )
 from yoke_harness.hooks.identity_stamp import record_then_stamp
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
 )
+from yoke_harness.hooks.relay_identity_guard import (
+    capture_codex_session,
+    deny_unstamped_relay,
+    parse_hook_payload,
+    print_execution_provenance,
+    record_client_anchor,
+)
 
+_record_client_anchor = record_client_anchor
+_codex_capture = capture_codex_session
 
 HOOKS_EVALUATE_PATH = "/v1/hooks/evaluate"
 AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
@@ -77,7 +81,6 @@ def _cursor_degradation_stdout(
         return json.dumps(payload)
     return json.dumps({"additional_context": warning})
 
-
 def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "") -> int:
     """Fail open for hook transport/local harness failures."""
     sys.stderr.write(
@@ -85,37 +88,13 @@ def degrade_to_noop(event_name: str, detail: str, *, preserved_stdout: str = "")
         "https transport degraded "
         f"to no-op allow ({detail})\n"
     )
+    print_execution_provenance(fallback_local=True)
     visible_stdout = _cursor_degradation_stdout(
         event_name, detail, preserved_stdout,
     )
     if visible_stdout:
         sys.stdout.write(visible_stdout)
     return 0
-
-
-def _parse_payload(stdin_data: str) -> dict:
-    try:
-        payload = json.loads(stdin_data) if stdin_data else None
-    except (json.JSONDecodeError, TypeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _record_client_anchor(payload: dict, *, session_start: bool = False) -> None:
-    try:
-        session_id = payload.get("session_id")
-        if not isinstance(session_id, str) or not session_id or session_id == "unknown":
-            return
-        tp = payload.get("transcript_path")
-        if session_start:
-            prune_stale_session_anchors()
-        record_session_anchor(
-            session_id,
-            transcript_path=tp if isinstance(tp, str) else "",
-        )
-    except Exception:
-        return
-
 
 def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
     cwd = payload.get("cwd")
@@ -124,18 +103,6 @@ def _client_lint_config_snapshot(payload: dict) -> dict[str, dict[str, object]]:
         return lint_policy.snapshot_from_workspace(start=start)
     except Exception:
         return {}
-
-
-def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
-    if event_name != SESSION_START_EVENT or not is_codex(executor):
-        return
-    try:
-        sid = resolve_session_id(stdin_data)
-        if sid:
-            write_runtime_cache(sid, stdin_data)
-    except Exception:
-        return
-
 
 def _with_extra_context(
     stdout: str,
@@ -154,7 +121,6 @@ def _with_extra_context(
     if not rendered:
         return stdout
     return merge_allow_stdout(stdout, rendered, event_name)
-
 
 def evaluate_hook_event(
     event_name: str,
@@ -179,7 +145,7 @@ def evaluate_hook_event(
             sys.stdout.write(rendered)
         return 0
     deadline = start_hook_deadline()
-    payload = _parse_payload(stdin_data)
+    payload = parse_hook_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
@@ -198,12 +164,13 @@ def evaluate_hook_event(
         lint_config_snapshot=policy_snapshot,
     )
     stdout = local.stdout
+    if local.denied:
+        print_execution_provenance()
     if not local.denied:
         stdout = _with_extra_context(stdout, extra_context, event_name)
     if stdout:
         sys.stdout.write(stdout)
     return local.exit_code
-
 
 def relay_hook_event(
     event_name: str,
@@ -223,7 +190,7 @@ def relay_hook_event(
     deadline = start_hook_deadline()
     if stdin_data is None:
         stdin_data = sys.stdin.read()
-    payload = _parse_payload(stdin_data)
+    payload = parse_hook_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
     _record_client_anchor(
         payload, session_start=event_name == SESSION_START_EVENT,
@@ -248,6 +215,7 @@ def relay_hook_event(
         lint_config_snapshot=policy_snapshot,
     )
     if local.denied:
+        print_execution_provenance()
         if local.stdout:
             sys.stdout.write(local.stdout)
         return local.exit_code
@@ -257,10 +225,14 @@ def relay_hook_event(
     # costs the session its policy verdict but never its orientation.
     allow_stdout = _with_extra_context(local.stdout, extra_context, event_name)
 
+    denied = deny_unstamped_relay(parse_hook_payload(stdin_data))
+    if denied is not None:
+        return denied
     identity = relay_identity_payload(event_name, payload, executor)
     payload_extra = dict(local.payload_extra or {})
     if policy_snapshot:
         payload_extra[lint_policy.SNAPSHOT_PAYLOAD_KEY] = policy_snapshot
+    from yoke_core.domain.execution_provenance import collect_execution_provenance
     body = {
         "hook_schema": _HOOK_WIRE_SCHEMA,
         "event_name": event_name,
@@ -273,6 +245,7 @@ def relay_hook_event(
         "project_id": identity["project_id"],
         "payload_extra": payload_extra,
         "deadline_ms": max(1, deadline.remaining_ms()),
+        "execution_provenance": collect_execution_provenance(),
     }
     url = connection.api_url.rstrip("/") + HOOKS_EVALUATE_PATH
     http_request = urllib.request.Request(
@@ -328,6 +301,11 @@ def relay_hook_event(
             "response body is not the hook contract",
             preserved_stdout=allow_stdout,
         )
+    server_fp = response.get("execution_provenance")
+    if isinstance(server_fp, dict):
+        print_execution_provenance(server_fp)
+    else:
+        print_execution_provenance()
     if outcome == "denied":
         if stdout:
             sys.stdout.write(stdout)
@@ -337,7 +315,6 @@ def relay_hook_event(
     if merged:
         sys.stdout.write(merged)
     return exit_code
-
 
 __all__ = [
     "HOOKS_EVALUATE_PATH",

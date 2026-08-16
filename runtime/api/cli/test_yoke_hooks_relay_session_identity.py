@@ -19,8 +19,8 @@ from yoke_contracts.cursor_session_map import (
     record_conversation_session,
 )
 from yoke_core.domain import lint_session_cwd
-from yoke_core.domain.lint_session_cwd_identity import (
-    FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
+from yoke_core.domain.lint_session_cwd_foreign_lane import (
+    FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
 )
 from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
 from yoke_harness.hooks import cursor_lifecycle_hooks, relay
@@ -130,7 +130,7 @@ def test_mapped_cursor_identity_reaches_raw_matching_server(
         assert verdict.session_id == HOLDER
 
 
-def test_first_hook_self_map_stamps_relay_server_denies_without_map(
+def test_first_hook_self_map_stamps_relay_keeps_stamped_id(
     tmp_path, monkeypatch, relay_capture,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "local-home"))
@@ -140,10 +140,11 @@ def test_first_hook_self_map_stamps_relay_server_denies_without_map(
         relayed = _relay_payload(_cursor_write(lane), relay_capture)
         assert relayed["session_id"] == CONVERSATION
         assert relayed["container_session_id"] == CONVERSATION
+        assert relayed["identity_stamped"] is True
 
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "server-home"))
         server_payload = parse_payload(json.dumps(relayed))
         assert server_payload["session_id"] == CONVERSATION
         verdict = lint_session_cwd.evaluate_pre_tool_use(server_payload)
         assert verdict.allow is False
-        assert verdict.failure_class == IDENTITY_FAILURE_CLASS
+        assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS

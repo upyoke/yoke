@@ -119,7 +119,50 @@ def _holder_session_via_dispatcher(lane: str) -> str:
     return session_id if isinstance(session_id, str) else ""
 
 
+def record_remount_conversation_session(
+    payload: Mapping[str, Any],
+    *,
+    conversation_id: Optional[str] = None,
+    holder_lookup=None,
+    record=None,
+) -> str:
+    """Write conversation→holder pairing synchronously at remount time.
+
+    ``record`` is injectable: ``callable(conversation_id, session_id)``.
+    Default writes the client cursor-session-map. Returns the holder
+    session, or empty when no pairing could be recorded.
+    """
+    holder = resolve_worktree_remap_container(
+        payload, holder_lookup=holder_lookup,
+    )
+    conv = conversation_id or payload.get("conversation_id") or payload.get("session_id")
+    if not isinstance(conv, str) or not conv:
+        return holder
+    if not holder:
+        from yoke_contracts.cursor_session_map import linked_worktree_lane_name
+
+        lane = linked_worktree_lane_name(workspace_path_from_payload(payload))
+        lookup = holder_lookup or _holder_session_for_lane
+        try:
+            found = lookup(lane) if lane else ""
+        except Exception:  # noqa: BLE001
+            found = ""
+        if found != conv:
+            return ""
+        holder = found
+    writer = record
+    if writer is None:
+        from yoke_harness.hooks.cursor_session_map import record_conversation_session
+        writer = record_conversation_session
+    try:
+        writer(conv, holder)
+    except Exception:  # noqa: BLE001 — remount must never break the chat
+        return holder
+    return holder
+
+
 __all__ = [
+    "record_remount_conversation_session",
     "resolve_worktree_remap_container",
     "workspace_path_from_payload",
 ]

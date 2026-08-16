@@ -51,7 +51,7 @@ INSTALL_ADVISORY_COMMAND = (
     "    python3 -m yoke_core.tools.install_yoke_launcher"
 )
 INSTALL_ADVISORY_POINTER = (
-    "(add --help to that command for the install variants)"
+    "(add --help for variants; --repair rewrites ~/.local/bin/yoke)"
 )
 
 # Stable orientation-block heading. Both the compact and full variants

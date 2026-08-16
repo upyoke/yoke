@@ -213,7 +213,33 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
     claims = getattr(verdict, "claims", ()) or ()
 
     if failure_class == _IDENTITY:
-        pass
+        from yoke_core.domain.execution_provenance import (
+            collect_execution_provenance,
+            format_provenance_line,
+        )
+        from yoke_core.domain.session_ambient_identity import (
+            consult_identity_channels,
+        )
+
+        channels = consult_identity_channels()
+        resolved = getattr(verdict, "session_id", "") or ""
+        print(
+            format_provenance_line(collect_execution_provenance()),
+            file=sys.stderr,
+        )
+        _emit(
+            name="SessionCwdMismatchDenied",
+            outcome="blocked",
+            context={
+                "session_id": resolved,
+                "offending_target": verdict.offending_target,
+                "claim_count": len(claims),
+                "failure_class": failure_class,
+                "identity_channels": channels,
+                "resolved_session_id": resolved,
+            },
+            session_id=resolved,
+        )
     elif failure_class == _FOREIGN_LANE and occupant is not None:
         emit_foreign_lane_denied(
             session_id=verdict.session_id,
@@ -238,6 +264,12 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
     if occupant is not None:
         audit["occupant_session_id"] = occupant.session_id
         audit["occupant_item_id"] = occupant.item_id
+    if failure_class == _IDENTITY:
+        from yoke_core.domain.session_ambient_identity import (
+            consult_identity_channels as _channels,
+        )
+        audit["identity_channels"] = _channels()
+        audit["resolved_session_id"] = getattr(verdict, "session_id", "") or ""
     if failure_class == _PRE_IMPL:
         audit["item_id"] = getattr(verdict, "item_id", None)
         audit["item_status"] = getattr(verdict, "item_status", None)
