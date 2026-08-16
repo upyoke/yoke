@@ -130,7 +130,7 @@ def test_mapped_cursor_identity_reaches_raw_matching_server(
         assert verdict.session_id == HOLDER
 
 
-def test_unmapped_cursor_identity_reaches_server_empty_and_denies_lane_write(
+def test_first_hook_self_map_stamps_relay_server_denies_without_map(
     tmp_path, monkeypatch, relay_capture,
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "local-home"))
@@ -138,12 +138,12 @@ def test_unmapped_cursor_identity_reaches_server_empty_and_denies_lane_write(
     with test_database() as conn:
         lane = _held_lane(conn, tmp_path)
         relayed = _relay_payload(_cursor_write(lane), relay_capture)
-        assert relayed["session_id"] == ""
-        assert relayed["container_session_id"] == ""
+        assert relayed["session_id"] == CONVERSATION
+        assert relayed["container_session_id"] == CONVERSATION
 
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "server-home"))
         server_payload = parse_payload(json.dumps(relayed))
-        assert server_payload["session_id"] == ""
+        assert server_payload["session_id"] == CONVERSATION
         verdict = lint_session_cwd.evaluate_pre_tool_use(server_payload)
         assert verdict.allow is False
         assert verdict.failure_class == IDENTITY_FAILURE_CLASS
