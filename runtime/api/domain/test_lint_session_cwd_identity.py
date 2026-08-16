@@ -67,13 +67,15 @@ def _held_lane(conn, repo, session_id=HOLDER):
     return lane
 
 
-def _write(lane, session_id=""):
+def _write(lane, session_id="", conversation_id=""):
     payload = {
         "tool_name": "Write",
         "tool_input": {"file_path": str(lane / "src" / "a.py")},
     }
     if session_id:
         payload["session_id"] = session_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
     return lint_session_cwd.evaluate_pre_tool_use(payload)
 
 
@@ -111,3 +113,28 @@ class TestForeignCaller:
         assert HOLDER in verdict.reason
         assert "yoke claims work acquire" in verdict.reason
         assert "identity plumbing" not in verdict.reason
+
+
+class TestCursorConversationOnPayload:
+    def test_mapped_conversation_allows_own_lane(self, conn, repo, isolated_home):
+        record_conversation_session(
+            CONVERSATION, HOLDER, isolated_home / CURSOR_SESSION_MAP_DIR_NAME,
+        )
+        lane = _held_lane(conn, repo)
+        verdict = _write(
+            lane, session_id=CONVERSATION, conversation_id=CONVERSATION,
+        )
+        assert verdict.allow is True
+        assert verdict.session_id == HOLDER
+
+    def test_unmapped_conversation_is_identity_failure(
+        self, conn, repo, isolated_home,
+    ):
+        lane = _held_lane(conn, repo)
+        verdict = _write(
+            lane, session_id=CONVERSATION, conversation_id=CONVERSATION,
+        )
+        assert verdict.allow is False
+        assert verdict.failure_class == IDENTITY_FAILURE_CLASS
+        assert "Identify yourself" in verdict.reason
+        assert "not a foreign lane holder" in verdict.reason
