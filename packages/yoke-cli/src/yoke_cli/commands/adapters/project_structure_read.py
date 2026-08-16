@@ -48,7 +48,8 @@ def project_structure_deploy_defaults_get(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
     )
@@ -75,7 +76,8 @@ def project_structure_deploy_defaults_get(args: List[str]) -> int:
             project_id=parsed.project,
         ),
         payload={"project_id": parsed.project},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
@@ -112,7 +114,8 @@ def project_structure_get(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--family", default=None, help="Optional family slice.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECT_STRUCTURE_GET_USAGE)
     if parsed is None:
         return 2
@@ -136,7 +139,8 @@ def project_structure_get(args: List[str]) -> int:
         function_id="project_structure.get",
         target=TargetRef(kind="project_structure", project_id=parsed.project),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 
