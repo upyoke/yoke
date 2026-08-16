@@ -22,6 +22,9 @@ from yoke_core.domain import lint_session_cwd
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
 )
+from yoke_core.domain.lint_session_cwd_identity import (
+    FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
+)
 from yoke_core.domain.session_ambient_identity import AMBIENT_ENV_VARS
 from yoke_harness.hooks import cursor_lifecycle_hooks, relay
 from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
@@ -148,3 +151,18 @@ def test_first_hook_self_map_stamps_relay_keeps_stamped_id(
         verdict = lint_session_cwd.evaluate_pre_tool_use(server_payload)
         assert verdict.allow is False
         assert verdict.failure_class == FOREIGN_LANE_FAILURE_CLASS
+
+
+def test_unmapped_worktree_remount_denies_identity_failure(
+    tmp_path, monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "no-map-home"))
+    for name in AMBIENT_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+    with test_database() as conn:
+        lane = _held_lane(conn, tmp_path)
+        payload = _cursor_write(lane)
+        payload["workspace_roots"] = [str(lane)]
+        verdict = lint_session_cwd.evaluate_pre_tool_use(payload)
+        assert verdict.allow is False
+        assert verdict.failure_class == IDENTITY_FAILURE_CLASS

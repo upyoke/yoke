@@ -8,6 +8,7 @@ shim and quarantine shadows, never delete).
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,6 +18,12 @@ from yoke_core.tools.install_yoke_launcher_sweep import (
     canonical_shim_path,
     converge_machine,
     enumerate_shadow_installs,
+)
+
+_HOOK_CONFIG_RELATIVE = (
+    Path(".claude/settings.json"),
+    Path(".cursor/hooks.json"),
+    Path(".codex/hooks.json"),
 )
 
 
@@ -44,6 +51,50 @@ def _resolve_checkout(args: DoctorArgs) -> Path | None:
     if raw:
         return Path(raw)
     return None
+
+
+def _command_strings(payload: object) -> list[str]:
+    found: list[str] = []
+    if isinstance(payload, dict):
+        command = payload.get("command")
+        if isinstance(command, str) and command.strip():
+            found.append(command)
+        for value in payload.values():
+            found.extend(_command_strings(value))
+    elif isinstance(payload, list):
+        for item in payload:
+            found.extend(_command_strings(item))
+    return found
+
+
+def hook_config_yoke_problems(root: Path, canonical: Path) -> list[str]:
+    """FAIL when a hook command names a non-canonical absolute ``yoke``."""
+    problems: list[str] = []
+    try:
+        canonical_resolved = canonical.resolve()
+    except OSError:
+        canonical_resolved = canonical
+    for relative in _HOOK_CONFIG_RELATIVE:
+        path = root / relative
+        if not path.is_file():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for command in _command_strings(payload):
+            for token in command.replace("'", " ").replace('"', " ").split():
+                if not (token.startswith("/") and token.endswith("/yoke")):
+                    continue
+                try:
+                    resolved = Path(token).expanduser().resolve()
+                except OSError:
+                    continue
+                if resolved != canonical_resolved:
+                    problems.append(
+                        f"{relative} command names {token}, not canonical {canonical}"
+                    )
+    return problems
 
 
 def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -74,6 +125,9 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         problems.append(
             f"interactive yoke ({interactive}) differs from login-shell yoke ({login})"
         )
+    checkout = _resolve_checkout(args)
+    if checkout is not None:
+        problems.extend(hook_config_yoke_problems(checkout, canonical))
     if problems:
         rec.record(
             SLUG, TITLE, "FAIL",
@@ -88,4 +142,4 @@ def hc_launcher_authority(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
 
 
-__all__ = ["SLUG", "TITLE", "hc_launcher_authority"]
+__all__ = ["SLUG", "TITLE", "hc_launcher_authority", "hook_config_yoke_problems"]

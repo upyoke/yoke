@@ -152,6 +152,31 @@ def test_record_then_stamp_establishes_unmapped_transcript_container(tmp_path, m
     assert stamped["container_session_id"] == conversation
 
 
+def test_record_then_stamp_skips_self_map_on_worktree_lane(
+    tmp_path, monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+        monkeypatch.delenv(name, raising=False)
+    conversation = "conv-remount-absent"
+    payload = {
+        "session_id": conversation,
+        "conversation_id": conversation,
+        "workspace_roots": [str(tmp_path / "repo" / ".worktrees" / "YOK-9")],
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == ""
+    from yoke_contracts.cursor_session_map import recorded_session_id_for_conversation
+
+    assert not recorded_session_id_for_conversation(
+        home / CURSOR_SESSION_MAP_DIR_NAME, conversation,
+    )
+
+
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:
     home = tmp_path / "home"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))

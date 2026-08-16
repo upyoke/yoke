@@ -220,6 +220,8 @@ echo client and server fingerprints; a relay timeout prints
 `fallback=local`. Local path evaluation refuses to POST a payload whose
 stamped `session_id` is missing or still conversation-shaped unless the
 client set `identity_stamped`. Identity-resolution failures deny writes only.
+`YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict
+without writing process-anchors, the cursor-session-map, or registering a session.
 
 ## 5. Repo-local Skill Discovery
 

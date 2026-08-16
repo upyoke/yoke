@@ -55,3 +55,37 @@ def test_identity_channels_call_fold_raw_identity() -> None:
     source = inspect.getsource(session_id_from_hook_payload)
     assert "fold_raw_identity" in source
     assert callable(fold_raw_identity)
+
+
+def test_fold_raw_identity_never_returns_conversation_alias(tmp_path) -> None:
+    from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
+
+    map_dir = tmp_path / CURSOR_SESSION_MAP_DIR_NAME
+    map_dir.mkdir()
+    env = {"CURSOR_CONVERSATION_ID": "conv-raw"}
+    assert fold_raw_identity(
+        "conv-raw",
+        map_dir=map_dir,
+        env=env,
+        conversation_aliases=("conv-raw",),
+    ) == ""
+
+
+def test_record_then_stamp_replay_writes_no_map(tmp_path, monkeypatch) -> None:
+    from yoke_contracts.cursor_session_map import (
+        CURSOR_SESSION_MAP_DIR_NAME,
+        recorded_session_id_for_conversation,
+    )
+    from yoke_harness.hooks.identity_stamp import record_then_stamp
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    monkeypatch.setenv("YOKE_HOOK_REPLAY", "1")
+    payload = {
+        "session_id": "conv-replay",
+        "conversation_id": "conv-replay",
+    }
+    record_then_stamp(payload, "{}", "cursor", "PreToolUse")
+    assert recorded_session_id_for_conversation(
+        home / CURSOR_SESSION_MAP_DIR_NAME, "conv-replay",
+    ) in {"", None}

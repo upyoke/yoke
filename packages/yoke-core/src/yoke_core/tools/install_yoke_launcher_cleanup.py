@@ -118,8 +118,6 @@ def _editable_distribution_paths_from_dist_info(dist_info: Path) -> list[Path]:
     return sorted(unique, key=lambda path: len(path.parts), reverse=True)
 
 
-
-
 def quarantine_shadow_launcher(
     path: Path,
     *,

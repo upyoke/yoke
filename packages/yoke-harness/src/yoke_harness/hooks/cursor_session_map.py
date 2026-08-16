@@ -93,7 +93,11 @@ def record_from_hook_payload(
                 container = resolve_container_from_subagent_transcript_layout(
                     conversation_id,
                 )
-            if not container and _top_level_shaped(payload, conversation_id):
+            if (
+                not container
+                and _top_level_shaped(payload, conversation_id)
+                and not _worktree_lane_name(payload)
+            ):
                 container = (
                     fold_conversation_session_id(
                         conversation_id,
@@ -129,13 +133,8 @@ def _top_level_shaped(payload: dict, conversation_id: str) -> bool:
     return True
 
 
-def _worktree_remap_container(payload: dict) -> str:
-    """Alias a linked-worktree remount onto its claim-holder session.
-
-    Client hooks must not import ``yoke_core`` (package boundary). Lane
-    parsing stays in contracts; holder lookup rides the function-call
-    dispatcher over the active transport.
-    """
+def _worktree_lane_name(payload: dict) -> str:
+    """Return the linked-worktree lane named by the payload, or empty."""
     from yoke_contracts.cursor_session_map import linked_worktree_lane_name
 
     roots = payload.get("workspace_roots")
@@ -144,7 +143,17 @@ def _worktree_remap_container(payload: dict) -> str:
         workspace = roots[0]
     elif isinstance(payload.get("cwd"), str):
         workspace = payload["cwd"]
-    lane = linked_worktree_lane_name(workspace)
+    return linked_worktree_lane_name(workspace)
+
+
+def _worktree_remap_container(payload: dict) -> str:
+    """Alias a linked-worktree remount onto its claim-holder session.
+
+    Client hooks must not import ``yoke_core`` (package boundary). Lane
+    parsing stays in contracts; holder lookup rides the function-call
+    dispatcher over the active transport.
+    """
+    lane = _worktree_lane_name(payload)
     if not lane:
         return ""
     try:
