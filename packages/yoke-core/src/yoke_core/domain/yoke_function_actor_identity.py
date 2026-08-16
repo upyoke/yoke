@@ -3,7 +3,8 @@
 The dispatcher trusts ``FunctionCallRequest.actor.session_id`` as the
 caller's declared harness session. This helper resolves the ambient
 caller session (env chain, then the hook-written process-anchor
-registry — :mod:`yoke_core.domain.session_ambient_identity`),
+registry, then cursor-session-map —
+:mod:`yoke_core.domain.session_ambient_identity`),
 classifies the function as read-only or mutating from its registry
 metadata, and returns a bound copy of the request or a typed error.
 

@@ -67,10 +67,10 @@ AMBIENT_ENV_VARS: Tuple[str, ...] = (
 # override; deliberately does NOT teach env-var self-bootstrap.
 AMBIENT_RESOLUTION_FAILED = (
     "ambient session identity could not be resolved (env chain, then the "
-    "hook-written process-anchor registry) — this is a Yoke "
-    "infrastructure gap, not something to work around; file a field-note "
-    "if you can, otherwise report it to the operator. Operator-debug "
-    "override: --session-id."
+    "hook-written process-anchor registry, then cursor-session-map) — this "
+    "is a Yoke infrastructure gap, not something to work around; file a "
+    "field-note if you can, otherwise report it to the operator. "
+    "Operator-debug override: --session-id."
 )
 
 ANCHORS_DIR_NAME = "session-anchors"

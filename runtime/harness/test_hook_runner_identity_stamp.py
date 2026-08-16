@@ -132,7 +132,7 @@ def test_stamp_folds_transcript_container_identity(tmp_path, monkeypatch) -> Non
     assert stamped["container_session_id"] == "sid-holder"
 
 
-def test_stamp_clears_unmapped_transcript_container(tmp_path, monkeypatch) -> None:
+def test_record_then_stamp_establishes_unmapped_transcript_container(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     conversation = "conv-transcript-unknown"
     payload = {
@@ -144,8 +144,8 @@ def test_stamp_clears_unmapped_transcript_container(tmp_path, monkeypatch) -> No
     stamped = json.loads(record_then_stamp(
         payload, json.dumps(payload), "cursor", "PreToolUse",
     ))
-    assert stamped["session_id"] == ""
-    assert stamped["container_session_id"] == ""
+    assert stamped["session_id"] == conversation
+    assert stamped["container_session_id"] == conversation
 
 
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:
