@@ -110,6 +110,9 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     if container:
         data["container_session_id"] = container
         own = str(data.get("session_id", ""))
+        if not own:
+            data["session_id"] = container
+            own = container
         folded = bool(own) and own != container
         evidence = container_session_id_from_evidence(data) if folded else ""
         data["is_subagent_session"] = folded and bool(evidence)

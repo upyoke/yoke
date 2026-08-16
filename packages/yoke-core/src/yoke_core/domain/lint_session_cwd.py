@@ -52,6 +52,10 @@ from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
     build_denial_message as build_foreign_lane_message,
 )
+from yoke_core.domain.lint_session_cwd_identity import (
+    FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
+    build_denial_message as build_identity_failure_message,
+)
 from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as PRE_IMPL_FAILURE_CLASS,
 )
@@ -62,6 +66,10 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
 from yoke_core.domain.lint_session_cwd_validate import (
     ValidationVerdict,
     validate_targets,
+)
+from yoke_core.domain.session_ambient_identity import (
+    resolve_ambient_session_id,
+    session_id_from_hook_payload,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
@@ -115,7 +123,16 @@ def evaluate_pre_tool_use(
     watcher_capture_root: str = "",
 ) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
-    session_id = _extract_session_id(payload)
+    session_id = session_id_from_hook_payload(payload)
+    if not session_id:
+        return Verdict(
+            allow=False,
+            reason=append_field_note_footer(
+                build_identity_failure_message(),
+                rule_id="lint-session-cwd",
+            ),
+            failure_class=IDENTITY_FAILURE_CLASS,
+        )
     targets = extract_payload_targets(payload)
     fallback_cwd = resolve_authority_cwd(payload)
 
@@ -171,7 +188,6 @@ def evaluate_pre_tool_use(
         body = build_foreign_lane_message(
             offending_target=outcome.offending_target,
             occupant=outcome.occupant,
-            caller_session_id=outcome.session_id,
         )
     else:
         body = build_scope_mismatch_block(
@@ -209,7 +225,7 @@ def evaluate_orientation(
         if isinstance(raw, str):
             session_id = raw
     if not session_id:
-        session_id = _resolve_session_id_from_env()
+        session_id = resolve_ambient_session_id() or ""
     if not session_id:
         return None
     try:
@@ -282,21 +298,6 @@ def evaluate(record: HookContext) -> HookDecision:
             next=Next.CONTINUE,
         )
     return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-
-
-def _extract_session_id(payload: Mapping[str, Any]) -> str:
-    raw = payload.get("session_id")
-    if isinstance(raw, str) and raw.strip():
-        return raw
-    return _resolve_session_id_from_env()
-
-
-def _resolve_session_id_from_env() -> str:
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        value = os.environ.get(name)
-        if value:
-            return value
-    return ""
 
 
 def main() -> int:

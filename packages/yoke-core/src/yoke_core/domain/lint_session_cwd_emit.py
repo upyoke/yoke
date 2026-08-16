@@ -201,6 +201,9 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
     from yoke_core.domain.lint_session_cwd_foreign_lane import (
         FAILURE_CLASS as _FOREIGN_LANE,
     )
+    from yoke_core.domain.lint_session_cwd_identity import (
+        FAILURE_CLASS as _IDENTITY,
+    )
     from yoke_core.domain.lint_session_cwd_status import (
         FAILURE_CLASS as _PRE_IMPL,
     )
@@ -209,7 +212,9 @@ def emit_deny_and_build_audit(verdict: object) -> dict:
     occupant = getattr(verdict, "occupant", None)
     claims = getattr(verdict, "claims", ()) or ()
 
-    if failure_class == _FOREIGN_LANE and occupant is not None:
+    if failure_class == _IDENTITY:
+        pass
+    elif failure_class == _FOREIGN_LANE and occupant is not None:
         emit_foreign_lane_denied(
             session_id=verdict.session_id,
             offending_target=verdict.offending_target,

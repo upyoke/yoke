@@ -21,7 +21,6 @@ from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.cursor_response import cursor_lifecycle_allow_stdout
 
-from yoke_harness.hooks import cursor_session_map
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
     merge_allow_stdout,
@@ -37,6 +36,7 @@ from yoke_harness.hooks.identity import (
     resolve_session_id,
     write_runtime_cache,
 )
+from yoke_harness.hooks.identity_stamp import record_then_stamp
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
@@ -183,7 +183,7 @@ def evaluate_hook_event(
     policy_snapshot = _client_lint_config_snapshot(payload)
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )
@@ -230,7 +230,7 @@ def relay_hook_event(
     )
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
-    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
     from yoke_harness.hooks.cursor_lifecycle_hooks import (
         ensure_user_lifecycle_hooks_for_executor,
     )

@@ -54,6 +54,9 @@ from yoke_core.domain.lint_session_cwd_status import (
     FAILURE_CLASS as _PRE_IMPL_FAILURE_CLASS,
     is_pre_implementing_status,
 )
+from yoke_core.domain.lint_session_cwd_identity import (
+    FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
+)
 from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
@@ -117,9 +120,11 @@ def validate_targets(
     ``watcher_capture_root`` is the client-evidenced root on relayed calls;
     local evaluation resolves the root directly.
     """
-    claims = (
-        claimed_worktrees(conn, session_id=session_id) if session_id else []
-    )
+    if not (session_id or "").strip():
+        return ValidationVerdict(
+            allow=False, failure_class=IDENTITY_FAILURE_CLASS,
+        )
+    claims = claimed_worktrees(conn, session_id=session_id)
     repo_roots = tuple(_derive_repo_roots(conn, claims))
 
     targets_to_check: List[str] = [

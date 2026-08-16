@@ -32,27 +32,11 @@ this chain rather than the only identity source.
 from __future__ import annotations
 
 import os
-from typing import Mapping, Optional, Tuple
+from typing import Any, Mapping, Optional
 
-
-# Cursor is deliberately absent: the id it exports names the *conversation*
-# that spawned the shell, which for a dispatched subagent is not a
-# registered session. Cursor resolves through step 3's mapping instead.
-AMBIENT_ENV_VARS: Tuple[str, ...] = (
-    "YOKE_SESSION_ID",
-    "CLAUDE_SESSION_ID",
-    "CODEX_THREAD_ID",
-)
-
-# One denial sentence for every surface that requires a session and found
-# none. Names the infrastructure-gap framing and the operator-debug
-# override; deliberately does NOT teach env-var self-bootstrap.
-AMBIENT_RESOLUTION_FAILED = (
-    "ambient session identity could not be resolved (env chain, then the "
-    "hook-written process-anchor registry) — this is a Yoke "
-    "infrastructure gap, not something to work around; file a field-note "
-    "if you can, otherwise report it to the operator. Operator-debug "
-    "override: --session-id."
+from yoke_contracts.session_identity import (
+    AMBIENT_ENV_VARS,
+    AMBIENT_RESOLUTION_FAILED,
 )
 
 
@@ -96,9 +80,21 @@ def resolve_ambient_session_id(
     )
 
 
+def session_id_from_hook_payload(
+    payload: Mapping[str, Any],
+    env: Optional[Mapping[str, str]] = None,
+) -> str:
+    """Return payload ``session_id`` when set, else the canonical ambient chain."""
+    raw = payload.get("session_id")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return resolve_ambient_session_id(env) or ""
+
+
 __all__ = [
     "AMBIENT_ENV_VARS",
     "AMBIENT_RESOLUTION_FAILED",
     "resolve_ambient_session_id",
     "resolve_env_session_id",
+    "session_id_from_hook_payload",
 ]

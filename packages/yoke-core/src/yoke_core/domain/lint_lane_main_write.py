@@ -28,7 +28,6 @@ and allows the call.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -57,6 +56,7 @@ from yoke_core.domain.lint_session_cwd_validate import (
     _lookup_item_status,
     _lookup_item_workflow,
 )
+from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree, claimed_worktrees
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
@@ -104,14 +104,7 @@ def _extract_tool_name(payload: Mapping[str, Any]) -> str:
 
 
 def _extract_session_id(payload: Mapping[str, Any]) -> str:
-    raw = payload.get("session_id")
-    if isinstance(raw, str) and raw.strip():
-        return raw
-    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        value = os.environ.get(name)
-        if value:
-            return value
-    return ""
+    return session_id_from_hook_payload(payload)
 
 
 def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
