@@ -54,7 +54,7 @@ def _register_checkout(repo_path, project_id=1):
 
 
 class TestNoSession:
-    def test_payload_without_session_id_denies_identity_failure(
+    def test_payload_without_session_id_allows_non_write(
         self, conn, monkeypatch, tmp_path,
     ):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -66,8 +66,7 @@ class TestNoSession:
         verdict = lint_session_cwd.evaluate_pre_tool_use({
             "cwd": "/some/random/path",
         })
-        assert verdict.allow is False
-        assert verdict.failure_class == "identity_resolution"
+        assert verdict.allow is True
 
 
 class TestNoClaims:

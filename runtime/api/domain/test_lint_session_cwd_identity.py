@@ -103,6 +103,21 @@ class TestUnidentifiedCaller:
         assert "not a foreign lane holder" in verdict.reason
         assert "yoke claims work acquire" not in verdict.reason
 
+    def test_main_cwd_registered_adapter_is_allowed(
+        self, conn, repo, isolated_home,
+    ):
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "tool_name": "Bash",
+            "cwd": str(repo),
+            "tool_input": {
+                "command": (
+                    "yoke ouroboros field-note append --kind failed "
+                    "--evidence 'identity diagnostics'"
+                ),
+            },
+        })
+        assert verdict.allow is True
+
 
 class TestForeignCaller:
     def test_identified_intruder_is_still_foreign(self, conn, repo, isolated_home):

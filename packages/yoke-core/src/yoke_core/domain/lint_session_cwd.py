@@ -30,6 +30,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_lane_main_write_classify import (
+    is_write_operation,
+)
 from yoke_core.domain.lint_session_cwd_control_plane import (
     ORIENTATION_HEADING,
     SCOPE_MISMATCH_TEMPLATE,
@@ -124,6 +127,11 @@ def evaluate_pre_tool_use(
 ) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
     session_id = session_id_from_hook_payload(payload)
+    if not session_id and not is_write_operation(
+        str(payload.get("tool_name") or payload.get("toolName") or ""),
+        dict(payload),
+    ):
+        return Verdict(allow=True)
     if not session_id:
         return Verdict(
             allow=False,

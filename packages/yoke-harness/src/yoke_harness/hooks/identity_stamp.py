@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, Optional
 
 from yoke_cli.config import machine_config
 from yoke_contracts.payload_session_fold import fold_payload_session_id
@@ -23,11 +23,11 @@ from yoke_contracts.session_identity import (
 )
 
 
-def resolved_session_id(payload: dict[str, Any]) -> str:
+def resolved_session_id(payload: dict[str, Any]) -> Optional[str]:
     """Fold ``payload.session_id`` through the conversation map, else ambient.
 
     A mapped conversation becomes the recorded session. An unmapped
-    conversation yields empty — stamp nothing; empty beats wrong. A
+    conversation yields empty — stamp that empty value; empty beats wrong. A
     non-conversation id (Claude/Codex) is returned raw. Absent
     ``session_id`` falls through to the ambient chain.
     """
@@ -41,20 +41,20 @@ def resolved_session_id(payload: dict[str, Any]) -> str:
             home / ANCHORS_DIR_NAME,
             os.environ,
             cursor_map_dir=map_dir,
-        ) or ""
+        )
     except Exception:  # noqa: BLE001 — hook path must never raise
-        return ""
+        return None
 
 
 def stamp_hook_stdin(stdin_data: str, payload: dict[str, Any]) -> str:
     """Stamp ``payload.session_id`` with the folded or ambient session.
 
     Mutates *payload* in place. Rewrites stdin JSON when the stamp
-    replaces a conversation id or fills an omitted id. An unmapped
-    conversation leaves the payload unchanged (stamp nothing).
+    replaces a conversation id, clears an unmapped conversation id, or fills
+    an omitted id.
     """
     session_id = resolved_session_id(payload)
-    if not session_id:
+    if session_id is None:
         return stdin_data
     current = payload.get("session_id")
     if isinstance(current, str) and current.strip() == session_id:
