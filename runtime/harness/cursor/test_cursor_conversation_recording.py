@@ -26,6 +26,7 @@ from yoke_contracts.cursor_session_map import (
 
 CONTAINER = "11111111-2222-3333-4444-555555555555"
 SUBAGENT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+HOLDER = "99999999-8888-7777-6666-555555555555"
 TRANSCRIPT = (
     f"/home/u/.cursor/projects/p/agent-transcripts/{CONTAINER}/{CONTAINER}.jsonl"
 )
@@ -59,12 +60,14 @@ class TestRecorder:
     def test_subagent_conversation_records_against_the_container(
         self, machine_home,
     ):
+        cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         cursor_session_map.record_from_hook_payload(_payload(), "cursor")
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
 
     def test_folded_payload_still_records_the_child_alias(self, machine_home):
         # Payload adapter folds session_id onto the container and parks the
         # child on subagent_session_id; shells still export the child id.
+        cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         cursor_session_map.record_from_hook_payload(
             {
                 "hook_event_name": "beforeShellExecution",
@@ -77,9 +80,28 @@ class TestRecorder:
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
         assert _mapped(machine_home, CONTAINER) == CONTAINER
 
-    def test_top_level_conversation_records_against_itself(self, machine_home):
-        cursor_session_map.record_from_hook_payload(_payload(CONTAINER), "cursor")
+    def test_top_level_session_start_records_against_itself(self, machine_home):
+        cursor_session_map.record_from_hook_payload(
+            _payload(CONTAINER), "cursor", "SessionStart",
+        )
         assert _mapped(machine_home, CONTAINER) == CONTAINER
+
+    def test_mapped_transcript_container_keeps_registered_session(
+        self, machine_home,
+    ):
+        cursor_session_map.record_conversation_session(CONTAINER, HOLDER)
+        cursor_session_map.record_from_hook_payload(
+            _payload(CONTAINER), "cursor", "PreToolUse",
+        )
+        assert _mapped(machine_home, CONTAINER) == HOLDER
+
+    def test_unmapped_transcript_container_is_not_recorded(
+        self, machine_home,
+    ):
+        cursor_session_map.record_from_hook_payload(
+            _payload(CONTAINER), "cursor", "PreToolUse",
+        )
+        assert _mapped(machine_home, CONTAINER) is None
 
     def test_other_harnesses_record_nothing(self, machine_home):
         cursor_session_map.record_from_hook_payload(_payload(), "claude-code")
@@ -109,6 +131,7 @@ class TestRecorder:
         self, machine_home,
     ):
         # A sub-conversation naming its parent must not map to itself.
+        cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         cursor_session_map.record_from_hook_payload(
             _payload(), "cursor", "SessionStart",
         )
@@ -147,6 +170,7 @@ class TestClientEntryPoints:
         )
 
     def test_local_evaluation_records(self, machine_home):
+        cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         relay.evaluate_hook_event(
             "PreToolUse", stdin_data=json.dumps(_payload()),
         )
@@ -156,6 +180,7 @@ class TestClientEntryPoints:
         # The denial short-circuits before any network call; the recording
         # must already have happened, because the relayed evaluation runs
         # on a machine this shell will never read a mapping from.
+        cursor_session_map.record_conversation_session(CONTAINER, CONTAINER)
         relay.relay_hook_event(
             "PreToolUse", object(), stdin_data=json.dumps(_payload()),
         )

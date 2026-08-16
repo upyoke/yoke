@@ -19,6 +19,28 @@ from yoke_contracts.cursor_session_map import (
 _MapDir = Union[str, "os.PathLike[str]"]
 
 
+def fold_conversation_session_id(
+    conversation_id: object,
+    map_dir: _MapDir,
+) -> str:
+    """Return a conversation's mapped session, or empty when unmapped.
+
+    Conversation-shaped identity must never pass through raw. Callers that
+    know a channel carries a conversation use this stricter primitive;
+    ``fold_payload_session_id`` adds the payload-specific distinction between
+    a conversation alias and a native Claude/Codex session id.
+    """
+    if not isinstance(conversation_id, str) or not conversation_id.strip():
+        return ""
+    return (
+        recorded_session_id_for_conversation(
+            map_dir,
+            conversation_id.strip(),
+        )
+        or ""
+    )
+
+
 def fold_payload_session_id(
     payload: Mapping[str, Any],
     map_dir: _MapDir,
@@ -36,7 +58,7 @@ def fold_payload_session_id(
     if not isinstance(raw, str) or not raw.strip():
         return None
     raw = raw.strip()
-    mapped = recorded_session_id_for_conversation(map_dir, raw)
+    mapped = fold_conversation_session_id(raw, map_dir)
     if mapped:
         return mapped
     source = os.environ if env is None else env
@@ -50,4 +72,7 @@ def fold_payload_session_id(
     return raw
 
 
-__all__ = ["fold_payload_session_id"]
+__all__ = [
+    "fold_conversation_session_id",
+    "fold_payload_session_id",
+]

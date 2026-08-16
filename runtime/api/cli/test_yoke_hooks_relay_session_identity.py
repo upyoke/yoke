@@ -12,6 +12,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item_claim,
 )
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.harness.cursor.cursor_hooks_payload import parse_payload
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -29,6 +30,9 @@ from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
 HOLDER = "sid-cursor-holder"
 CONVERSATION = "conv-cursor-remount"
 ITEM_ID = 4102
+TRANSCRIPT = (
+    f"/home/u/.cursor/projects/p/agent-transcripts/{CONVERSATION}/{CONVERSATION}.jsonl"
+)
 
 
 @pytest.fixture()
@@ -84,8 +88,10 @@ def _held_lane(conn, tmp_path):
 
 def _cursor_write(lane):
     return {
+        "hook_event_name": "preToolUse",
         "session_id": CONVERSATION,
         "conversation_id": CONVERSATION,
+        "transcript_path": TRANSCRIPT,
         "tool_name": "Write",
         "tool_input": {"file_path": str(lane / "source.py")},
     }
@@ -114,9 +120,12 @@ def test_mapped_cursor_identity_reaches_raw_matching_server(
         lane = _held_lane(conn, tmp_path)
         relayed = _relay_payload(_cursor_write(lane), relay_capture)
         assert relayed["session_id"] == HOLDER
+        assert relayed["container_session_id"] == HOLDER
 
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "server-home"))
-        verdict = lint_session_cwd.evaluate_pre_tool_use(relayed)
+        server_payload = parse_payload(json.dumps(relayed))
+        assert server_payload["session_id"] == HOLDER
+        verdict = lint_session_cwd.evaluate_pre_tool_use(server_payload)
         assert verdict.allow is True
         assert verdict.session_id == HOLDER
 
@@ -130,8 +139,11 @@ def test_unmapped_cursor_identity_reaches_server_empty_and_denies_lane_write(
         lane = _held_lane(conn, tmp_path)
         relayed = _relay_payload(_cursor_write(lane), relay_capture)
         assert relayed["session_id"] == ""
+        assert relayed["container_session_id"] == ""
 
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "server-home"))
-        verdict = lint_session_cwd.evaluate_pre_tool_use(relayed)
+        server_payload = parse_payload(json.dumps(relayed))
+        assert server_payload["session_id"] == ""
+        verdict = lint_session_cwd.evaluate_pre_tool_use(server_payload)
         assert verdict.allow is False
         assert verdict.failure_class == IDENTITY_FAILURE_CLASS
