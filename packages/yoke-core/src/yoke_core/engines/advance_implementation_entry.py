@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.events import TRANSPORT_NO_LOCAL_DB_REASON, emit_event
 from yoke_core.engines.advance_implementation_preflight_gates import (
+    _probe_session_identity,
     _run_preflight_gates,
 )
 
@@ -43,16 +44,6 @@ def _parse_item_id(raw: Any) -> int:
     from yoke_core.domain.yok_n_parser import parse_item_id
 
     return parse_item_id(raw, allow_bare_internal=True)
-
-
-def _resolve_session_id(explicit: Optional[str]) -> str:
-    if explicit:
-        return explicit
-    from yoke_core.domain.session_ambient_identity import (
-        resolve_ambient_session_id,
-    )
-
-    return resolve_ambient_session_id() or ""
 
 
 def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
@@ -197,7 +188,16 @@ def run(
         print(f"ERROR: invalid item id {item_id!r}", file=sys.stderr)
         return 2
 
-    resolved_session = _resolve_session_id(session_id)
+    resolved_session, identity_kind, identity_narrative = (
+        _probe_session_identity(session_id)
+    )
+    if identity_kind:
+        error = {"phase": PHASE_PREFLIGHT, "kind": identity_kind,
+                 "narrative": identity_narrative}
+        print(identity_narrative, file=sys.stderr)
+        print(json.dumps({"item_id": item_id_int, "phases": [],
+                          "session_id": "", "error": error}), file=out)
+        return 1
     item = _read_item(item_id_int)
     if item is None:
         print(f"ERROR: item {item_id!r} not found.", file=sys.stderr)

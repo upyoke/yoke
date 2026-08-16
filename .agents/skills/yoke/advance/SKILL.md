@@ -129,7 +129,7 @@ unless the read succeeds.
 
 When the requested advance target is `implementation`, map it to the canonical status `implementing` for lifecycle comparisons. `implementation` is the advance-target name (the sub-skill path); `implementing` is the DB status. Keep using `implementation` as the advance target in operator-facing examples and routed `/yoke do` invocations.
 
-**Immediately** stamp the session mode and register the work claim so this session owns the item before any phase-doc reads, worktree setup, or preflight gates run. The mode update keeps the board's active-session row showing `advance` instead of the default `wait`; the claim is what sets the active item attribution — `cmd_claim` internally calls `_set_current_item` on the session row, so this single call both acquires the exclusive work claim and establishes the DB-backed current-item signal used by the board, scheduler, and observe-tool hook.
+**Immediately** stamp the session mode. For implementation entry (`_target = implementing`), defer the first work-claim acquisition to the orchestrator: its client-side write-guard identity probe must pass before `worktree_preflight.run_preflight` creates the claim or lane. For reviewing/polishing re-entry, acquire the claim below before phase-doc reads. The mode update keeps the board's active-session row showing `advance` instead of the default `wait`; claim acquisition establishes DB-backed active-item attribution.
 
 Session-mode stamping is an internal advance-router action (`session-touch`
 service-client handler; no registered product CLI wrapper). Do not teach or run a
@@ -171,7 +171,7 @@ for binding in definition["skill_bindings"]:
 ' "$_target")
 ```
 
-For claim-holding targets (`implementing`, `reviewing-implementation`, `polishing-implementation`), call `claims.work.acquire` so the handler establishes the work claim and sets the DB-backed active-item attribution in one transaction:
+For re-entry claim-holding targets (`reviewing-implementation`, `polishing-implementation`), call `claims.work.acquire` so the handler establishes the work claim and sets DB-backed active-item attribution in one transaction. For `implementing`, skip this call; the implementation-entry orchestrator probes identity first, then `worktree_preflight.run_preflight` acquires the claim:
 
 ```json
 {
@@ -282,6 +282,8 @@ for `PREFIX-{N}`. This engine is not a product CLI wrapper; the operator surface
 still `/yoke advance PREFIX-{N} implementation`.
 
 Pass `--no-worktree` for evidence-only items, `--force` for the operator-asserted override path, `--qa-bypass` to bypass implementation QA when truly needed. The orchestrator composes preflight gates → `worktree_preflight.run_preflight` (bundles claim + activation + worktree creation/reuse) → environment (capability-gated) → finalize (`lifecycle.transition.execute`) inside one Python process and emits one `AdvancePhaseCompleted` event per phase. It is idempotent: rerunning against an item already at `implementing` reuses the worktree, re-acquires the same claim, and skips the status flip rather than re-emitting it. On preflight failure the orchestrator stops before activation/worktree/finalize and prints the gate narrative; on `worktree-create-failed` it releases the claim with reason `worktree-create-failed`; on finalize failure the worktree and claim remain in place so the next invocation can converge. Verify the phase trail with `yoke events query --item {N} --event-name AdvancePhaseCompleted`.
+
+Before worktree preflight or any claim/lane mutation, the orchestrator corroborates the acting session through the same canonical ambient resolver used by the PreToolUse write guards. Missing identity refuses as `write-guard-identity-unresolved`; an explicit `--session-id` must match the ambient result. Repair the harness env stamp, process-anchor registry, or Cursor conversation map and retry — never provision an unwritable lane with a guessed identity.
 
 After the orchestrator returns success, the same harness session continues into worktree-bound implementation work via the implementing sub-skill handoff documented in [`finalize.md`](finalize.md) (`## Implementation-entry Sub-skill Handoff`).
 

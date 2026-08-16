@@ -1,11 +1,12 @@
 """Preflight gate evaluation for the advance implementation entry.
 
 Owns the pre-worktree refusal gates run before an item advances into
-``implementing``: upstream hard-block dependencies, acceptance-criteria
-presence, File Budget, and path-claim spec coverage. Kept separate from
-the orchestrator module so it stays within the authored-file line cap.
+``implementing``: acting-session identity, upstream hard-block dependencies,
+acceptance-criteria presence, File Budget, and path-claim spec coverage. Kept
+separate from the orchestrator module so it stays within the authored-file
+line cap.
 
-Each gate reads the control-plane DB. The reads route through the
+The DB-backed gates route their reads through the
 transport-aware ``call_dispatcher`` facade (registered
 ``advance.preflight.*`` internal functions) so the evaluation works over
 an https control plane as well as an in-process local Postgres
@@ -15,12 +16,55 @@ narratives are constructed here client-side, unchanged.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.item_ref import format_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+
+IDENTITY_UNRESOLVED = "write-guard-identity-unresolved"
+IDENTITY_MISMATCH = "write-guard-identity-mismatch"
+
+
+def _probe_session_identity(
+    declared_session_id: Optional[str],
+) -> Tuple[str, str, str]:
+    """Corroborate the claim owner through the write guards' resolver.
+
+    ``--session-id`` is accepted only when the canonical ambient chain sees
+    the same session. A flag alone cannot make later PreToolUse calls identify
+    the process, so a missing or divergent ambient identity must stop before
+    worktree preflight creates a claim or lane.
+    """
+    from yoke_core.domain.session_ambient_identity import (
+        resolve_ambient_session_id,
+    )
+
+    ambient = (resolve_ambient_session_id() or "").strip()
+    declared = (declared_session_id or "").strip()
+    if ambient and (not declared or declared == ambient):
+        return ambient, "", ""
+
+    if not ambient:
+        kind = IDENTITY_UNRESOLVED
+        detail = "the canonical ambient chain returned no session id"
+    else:
+        kind = IDENTITY_MISMATCH
+        detail = (
+            f"declared session {declared!r} differs from the write-guard "
+            f"session {ambient!r}"
+        )
+    narrative = (
+        f"BLOCKED: {kind}: implementation entry refused before work-claim "
+        f"or lane creation because {detail}. Repair the harness identity "
+        "path consumed by the write guards (environment stamp, process-anchor "
+        "registry, or Cursor conversation map), then retry. Do not guess or "
+        "export a session id; --session-id must corroborate the same ambient "
+        "session because later PreToolUse calls cannot observe the flag."
+    )
+    return "", kind, narrative
 
 
 def _relay_gate(
@@ -94,4 +138,9 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     return True, ""
 
 
-__all__ = ["_run_preflight_gates"]
+__all__ = [
+    "IDENTITY_MISMATCH",
+    "IDENTITY_UNRESOLVED",
+    "_probe_session_identity",
+    "_run_preflight_gates",
+]

@@ -53,6 +53,11 @@ def _err_response(code="dirty_tracked", msg="dirty tree"):
     )
 
 
+@pytest.fixture(autouse=True)
+def ambient_session(monkeypatch):
+    monkeypatch.setenv("YOKE_SESSION_ID", "s1")
+
+
 @pytest.fixture
 def silence_emits(monkeypatch):
     monkeypatch.setattr(orch, "emit_event", lambda *a, **kw: None)

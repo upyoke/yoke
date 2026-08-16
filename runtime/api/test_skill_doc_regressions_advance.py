@@ -216,6 +216,15 @@ class TestAdvanceTeachesFunctionCallAdapters:
         assert "from_stage_id" in text
         assert "_worktree_policy" in text
 
+    def test_implementation_entry_probes_identity_before_claim(self):
+        text = _read(SKILLS / "advance" / "SKILL.md")
+        assert (
+            "defer the first work-claim acquisition to the orchestrator" in text
+        )
+        assert "write-guard-identity-unresolved" in text
+        assert "--session-id` must match the ambient result" in text
+        assert "worktree_preflight.run_preflight` acquires the claim" in text
+
     def test_finalize_teaches_release_work_claim_adapter(self):
         text = _read(SKILLS / "advance" / "finalize.md")
         assert "yoke claims work release" in text, (
