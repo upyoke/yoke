@@ -49,12 +49,13 @@ def test_stamp_fills_empty_payload_from_env(tmp_path, monkeypatch) -> None:
     assert json.loads(stdin)["session_id"] == "sid-env"
 
 
-def test_stamp_preserves_existing_session_id(tmp_path, monkeypatch) -> None:
+def test_stamp_preserves_claude_and_codex_session_ids(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "sid-env")
-    payload = {"session_id": "sid-payload"}
-    original = json.dumps(payload)
-    assert stamp_hook_stdin(original, payload) == original
+    for session_id in ("claude-session", "codex-thread"):
+        payload = {"session_id": session_id}
+        original = json.dumps(payload)
+        assert stamp_hook_stdin(original, payload) == original
 
 
 def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:
@@ -76,14 +77,15 @@ def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:
     assert json.loads(stdin)["session_id"] == "sid-holder"
 
 
-def test_stamp_leaves_unmapped_conversation_unstamped(tmp_path, monkeypatch) -> None:
+def test_stamp_clears_unmapped_conversation(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "sid-other")
     conversation = "conv-unknown"
     payload = {"session_id": conversation, "conversation_id": conversation}
     original = json.dumps(payload)
-    assert stamp_hook_stdin(original, payload) == original
-    assert payload["session_id"] == conversation
+    stdin = stamp_hook_stdin(original, payload)
+    assert json.loads(stdin)["session_id"] == ""
+    assert payload["session_id"] == ""
 
 
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:
