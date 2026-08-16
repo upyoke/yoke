@@ -84,10 +84,23 @@ def session_id_from_hook_payload(
     payload: Mapping[str, Any],
     env: Optional[Mapping[str, str]] = None,
 ) -> str:
-    """Return payload ``session_id`` when set, else the canonical ambient chain."""
-    raw = payload.get("session_id")
-    if isinstance(raw, str) and raw.strip():
-        return raw.strip()
+    """Fold payload ``session_id`` through the conversation map, else ambient.
+
+    A mapped conversation becomes the recorded session. An unmapped
+    conversation yields empty so the write guard reports identity
+    failure, not a foreign lane. A non-conversation id is returned raw.
+    """
+    from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
+    from yoke_contracts.payload_session_fold import fold_payload_session_id
+    from yoke_core.domain import machine_config
+
+    folded = fold_payload_session_id(
+        payload,
+        machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME,
+        env,
+    )
+    if folded is not None:
+        return folded
     return resolve_ambient_session_id(env) or ""
 
 

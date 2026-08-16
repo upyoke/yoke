@@ -191,7 +191,7 @@ def record_conversation_session(
     return True
 
 
-def _read_recorded_session_id(
+def recorded_session_id_for_conversation(
     map_dir: _MapDir, conversation_id: str,
 ) -> Optional[str]:
     """Return a live map entry's session id, or ``None`` when absent/stale."""
@@ -280,7 +280,7 @@ def resolve_mapped_session_id(
     conversation_id = (source.get(CURSOR_CONVERSATION_ENV_VAR) or "").strip()
     if not conversation_id or not _SAFE_ID.match(conversation_id):
         return None
-    mapped = _read_recorded_session_id(map_dir, conversation_id)
+    mapped = recorded_session_id_for_conversation(map_dir, conversation_id)
     if mapped:
         return mapped
     container = _resolve_unmapped_container(
@@ -323,6 +323,7 @@ __all__ = [
     "linked_worktree_lane_name",
     "prune_stale_conversation_sessions",
     "record_conversation_session",
+    "recorded_session_id_for_conversation",
     "resolve_container_from_subagent_transcript_layout",
     "resolve_mapped_session_id",
     "transcript_session_id",

@@ -15,6 +15,7 @@ import os
 from typing import Any
 
 from yoke_cli.config import machine_config
+from yoke_contracts.payload_session_fold import fold_payload_session_id
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -23,26 +24,34 @@ from yoke_contracts.session_identity import (
 
 
 def resolved_session_id(payload: dict[str, Any]) -> str:
-    """Payload session id when set, else the canonical ambient chain."""
-    raw = payload.get("session_id")
-    if isinstance(raw, str) and raw.strip():
-        return raw.strip()
+    """Fold ``payload.session_id`` through the conversation map, else ambient.
+
+    A mapped conversation becomes the recorded session. An unmapped
+    conversation yields empty — stamp nothing; empty beats wrong. A
+    non-conversation id (Claude/Codex) is returned raw. Absent
+    ``session_id`` falls through to the ambient chain.
+    """
     try:
         home = machine_config.yoke_home()
+        map_dir = home / CURSOR_SESSION_MAP_DIR_NAME
+        folded = fold_payload_session_id(payload, map_dir)
+        if folded is not None:
+            return folded
         return resolve_ambient_session_id(
             home / ANCHORS_DIR_NAME,
             os.environ,
-            cursor_map_dir=home / CURSOR_SESSION_MAP_DIR_NAME,
+            cursor_map_dir=map_dir,
         ) or ""
     except Exception:  # noqa: BLE001 — hook path must never raise
         return ""
 
 
 def stamp_hook_stdin(stdin_data: str, payload: dict[str, Any]) -> str:
-    """Fill ``payload.session_id`` from ambient identity when omitted.
+    """Stamp ``payload.session_id`` with the folded or ambient session.
 
-    Mutates *payload* in place. Rewrites stdin JSON only when the stamp
-    adds an id the original document did not carry.
+    Mutates *payload* in place. Rewrites stdin JSON when the stamp
+    replaces a conversation id or fills an omitted id. An unmapped
+    conversation leaves the payload unchanged (stamp nothing).
     """
     session_id = resolved_session_id(payload)
     if not session_id:

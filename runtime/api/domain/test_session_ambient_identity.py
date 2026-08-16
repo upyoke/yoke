@@ -10,6 +10,10 @@ from __future__ import annotations
 import pytest
 
 from yoke_contracts import session_identity
+from yoke_contracts.cursor_session_map import (
+    CURSOR_SESSION_MAP_DIR_NAME,
+    record_conversation_session,
+)
 from yoke_contracts.process_ancestry import ProcessAnchor
 
 from yoke_core.domain import session_ambient_identity as ambient
@@ -125,3 +129,25 @@ class TestCliChokepointDelegation:
         )
 
         assert _resolve_session_id(None) is None
+
+
+class TestHookPayloadFold:
+    def test_mapped_conversation_resolves_to_session(self, machine_home):
+        record_conversation_session(
+            "conv-1", "sid-mapped", machine_home / CURSOR_SESSION_MAP_DIR_NAME,
+        )
+        assert ambient.session_id_from_hook_payload({
+            "session_id": "conv-1",
+            "conversation_id": "conv-1",
+        }) == "sid-mapped"
+
+    def test_unmapped_conversation_is_empty(self, machine_home):
+        assert ambient.session_id_from_hook_payload({
+            "session_id": "conv-unknown",
+            "conversation_id": "conv-unknown",
+        }) == ""
+
+    def test_real_session_id_is_unchanged(self, machine_home):
+        assert ambient.session_id_from_hook_payload({
+            "session_id": "sid-claude",
+        }) == "sid-claude"
