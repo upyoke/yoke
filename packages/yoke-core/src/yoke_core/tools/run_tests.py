@@ -193,9 +193,7 @@ def run(
 
     requested = list(paths or default_testpaths(root) or ())
     if not requested:
-        if _source_pythonpath.is_yoke_shaped_tree(root) or (
-            root / "runtime" / "api"
-        ).is_dir():
+        if _source_pythonpath.is_yoke_shaped_tree(root):
             requested = list(DEFAULT_TESTPATHS)
         else:
             print(f"run_tests {UNSUPPORTED_PROJECT_TEST_ROOTS}", file=sys.stderr)
@@ -222,7 +220,7 @@ def run(
     env = apply_postgres_xdist_auto_env(argv, env)
     # Already judged above; the child's startup check inherits that answer.
     env = _tree_binding_startup.with_binding_evaluated(env)
-    if (root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
+    if _source_pythonpath.is_yoke_shaped_tree(root):
         refusal = _source_pythonpath.import_origin_refusal(root, env=env)
         if refusal is not None:
             print(f"Error: {refusal}", file=sys.stderr)

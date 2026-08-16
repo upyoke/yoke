@@ -1,12 +1,13 @@
-"""Checkout-shaped pytest argv and empty-roots selection."""
+"""Checkout-shaped pytest argv, source binding, and empty-roots selection."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 from yoke_core.domain.test_environment_declaration import TestEnvironmentDeclaration
-from yoke_core.tools import watch_pytest_project_python as helper
+from yoke_core.tools import _source_pythonpath, watch_pytest_project_python as helper
 
 
 def test_yoke_shaped_tree_uses_the_current_interpreter(
@@ -54,6 +55,18 @@ def test_declared_extras_on_a_uv_project_use_uv_run(
         "engine",
         "python3",
     ]
+
+
+def test_source_entries_bind_only_on_a_yoke_shaped_tree(tmp_path: Path) -> None:
+    base = {"PYTHONPATH": "/already/there"}
+    external = _source_pythonpath.with_source_pythonpath(base, tmp_path)
+    assert external["PYTHONPATH"] == "/already/there"
+
+    (tmp_path / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
+    bound = _source_pythonpath.with_source_pythonpath(base, tmp_path)
+    assert bound["PYTHONPATH"].split(os.pathsep)[0] == str(
+        (tmp_path / _source_pythonpath.PACKAGE_SRC_RELS[0]).resolve()
+    )
 
 
 def test_empty_roots_print_the_named_verdict(capsys, monkeypatch) -> None:

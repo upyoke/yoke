@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
-from yoke_contracts.uv_project import UV_EXECUTABLE, is_uv_project, uv_run_argv
+from yoke_contracts.uv_project import is_uv_project, uv_run_argv
 from yoke_core.domain.test_environment_declaration import load_declaration
 from yoke_core.tools import _source_pythonpath
 from yoke_core.tools.impacted_project_test_roots import (
@@ -31,16 +31,11 @@ def pytest_argv(
     declaration = load_declaration(checkout=here)
     trailing = ["-m", "pytest", *list(args)]
     argv = declaration.run_python_argv(trailing, cwd=here)
+    # An undeclared selection outside a uv project has no environment to bind,
+    # so the console script's own interpreter is the only one that can run.
     if argv == uv_run_argv(trailing) and not is_uv_project(here):
         return [sys.executable, "-m", "pytest", *list(args)]
-    if argv[0] == UV_EXECUTABLE:
-        return argv
-    return [UV_EXECUTABLE, "run", "--frozen", "python3", *trailing]
-
-
-def pytest_env(base: dict[str, str] | None, root: Path) -> dict[str, str]:
-    """PYTHONPATH injection only on a yoke-shaped tree."""
-    return _source_pythonpath.with_source_pythonpath(base, root)
+    return argv
 
 
 def impacted_selection(base: str, *, bounded: bool = False):
@@ -74,6 +69,5 @@ def selection_footer(selection, collected_items: int | None) -> str:
 __all__ = [
     "impacted_selection",
     "pytest_argv",
-    "pytest_env",
     "selection_footer",
 ]

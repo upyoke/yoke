@@ -232,7 +232,7 @@ def test_local_postgres_auto_worker_env_reaches_runner(monkeypatch, tmp_path):
 class TestNestedPytestRejection:
     """Guard against `-- python3 -m pytest …` pass-through.
 
-    `_pytest_argv` always prepends `sys.executable -m pytest`, so the
+    `_pytest_argv` prepends its own interpreter and `-m pytest`, so the
     mistaken shape silently produced `python3 -m pytest python3 -m
     pytest …`. The wrapper now rejects common interpreter prefixes.
     """

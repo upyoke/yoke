@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from yoke_core.tools._source_pythonpath import repo_root
-from yoke_core.tools.impacted_project_test_roots import resolve_test_roots
+from yoke_core.tools.impacted_project_test_roots import current_test_roots
 
 
 MAX_BOUNDED_FILE_FRACTION = 0.8
@@ -30,7 +29,7 @@ class Selection:
     def pytest_paths(self) -> tuple[str, ...]:
         if not self.full_sweep:
             return self.files
-        return resolve_test_roots(str(repo_root()))
+        return current_test_roots()
 
     def count_summary(self) -> str:
         selected_files = self.total_files if self.full_sweep else len(self.files)

@@ -174,11 +174,8 @@ def handle_project_structure_get(
                 jsonpath="$.payload.project_id",
             ),
         )
-    family = payload.get("family")
-    if family is not None and (not isinstance(family, str) or not family.strip()):
-        family = None
-    elif isinstance(family, str):
-        family = family.strip()
+    raw_family = payload.get("family")
+    family = raw_family.strip() if isinstance(raw_family, str) else None
     try:
         result = read_structure(project_id, family=family)
     except (UsageError, ValidationError) as exc:

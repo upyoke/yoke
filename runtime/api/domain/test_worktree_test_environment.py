@@ -29,8 +29,8 @@ from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 def _empty_declaration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         env,
-        "_declaration_for",
-        lambda _path, project=None: TestEnvironmentDeclaration(
+        "load_declaration",
+        lambda project=None, **_kwargs: TestEnvironmentDeclaration(
             project=project or "yoke"
         ),
     )
@@ -280,8 +280,8 @@ def test_declared_extras_are_synced_and_named_on_the_receipt(
     monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ["PATH"])
     monkeypatch.setattr(
         env,
-        "_declaration_for",
-        lambda _path, project=None: TestEnvironmentDeclaration(
+        "load_declaration",
+        lambda project=None, **_kwargs: TestEnvironmentDeclaration(
             project=project or "platform", extras=("engine",)
         ),
     )

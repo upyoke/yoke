@@ -257,12 +257,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_args = apply_parallel_default(pytest_args, no_parallel=no_parallel)
     source_root = _source_pythonpath.repo_root(Path.cwd())
     pytest_env = apply_postgres_xdist_auto_env(pytest_args)
-    from yoke_core.tools.watch_pytest_project_python import pytest_env as bind_env
-
-    pytest_env = bind_env(pytest_env, source_root)
+    pytest_env = _source_pythonpath.with_source_pythonpath(pytest_env, source_root)
     # Already judged above; the child's startup check inherits that answer.
     pytest_env = _tree_binding_startup.with_binding_evaluated(pytest_env)
-    if (source_root / "packages" / "yoke-core" / "src" / "yoke_core").is_dir():
+    if _source_pythonpath.is_yoke_shaped_tree(source_root):
         import_refusal = _source_pythonpath.import_origin_refusal(
             source_root,
             env=pytest_env,

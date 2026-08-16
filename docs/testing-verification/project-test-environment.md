@@ -18,8 +18,8 @@ yoke project-structure get --project <slug> --family test_roots
 
 An absent or empty capability is the default: `uv sync --frozen` and
 `uv run --frozen python3` with no extra-selection flags. A nested
-`uv_project` is passed as `uv --project <path>` only when that path is
-itself a uv project from the current working directory.
+`uv_project` is passed as `uv run --project <path>` only when that path
+is itself a uv project from the current working directory.
 
 Sanctioned run surface:
 

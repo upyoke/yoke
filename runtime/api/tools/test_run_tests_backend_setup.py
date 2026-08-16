@@ -33,6 +33,24 @@ class _LaunchedPytest:
         return self._returncode
 
 
+def _yoke_shaped_checkout(tmp_path: Path, monkeypatch) -> Path:
+    """A tmp tree the runner reads as a Yoke source checkout.
+
+    Carries the yoke-core marker that the default-testpaths and
+    import-origin branches key on, plus the origin answer a real checkout
+    would give — the sources these tests name are not on disk under it.
+    """
+    root = tmp_path / "yoke"
+    (root / "runtime" / "api").mkdir(parents=True)
+    (root / "packages" / "yoke-core" / "src" / "yoke_core").mkdir(parents=True)
+    monkeypatch.setattr(
+        run_tests._source_pythonpath,
+        "import_origin_refusal",
+        lambda *args, **kwargs: None,
+    )
+    return root
+
+
 def _capture_launch(captured: dict):
     """Patch value recording how the runner launched pytest."""
 
@@ -139,8 +157,7 @@ class TestCanonicalYokeDbSetup:
     def test_default_yoke_backend_run_prepares_postgres_authority(
         self, tmp_path: Path, monkeypatch
     ):
-        root = tmp_path / "yoke"
-        (root / "runtime" / "api").mkdir(parents=True)
+        root = _yoke_shaped_checkout(tmp_path, monkeypatch)
         calls = []
 
         monkeypatch.setattr(run_tests, "_repo_root", lambda: root)
@@ -161,8 +178,7 @@ class TestCanonicalYokeDbSetup:
     def test_postgres_authority_failure_stops_before_pytest(
         self, tmp_path: Path, monkeypatch
     ):
-        root = tmp_path / "yoke"
-        (root / "runtime" / "api").mkdir(parents=True)
+        root = _yoke_shaped_checkout(tmp_path, monkeypatch)
         monkeypatch.setenv("YOKE_PYTEST_WORKERS", "auto")
         monkeypatch.setattr(run_tests, "_repo_root", lambda: root)
         monkeypatch.setattr(
@@ -190,8 +206,7 @@ class TestCanonicalYokeDbSetup:
 
         from yoke_core.domain import process_group_reaping
 
-        root = tmp_path / "yoke"
-        (root / "runtime" / "api").mkdir(parents=True)
+        root = _yoke_shaped_checkout(tmp_path, monkeypatch)
         monkeypatch.setenv("YOKE_PYTEST_WORKERS", "auto")
         monkeypatch.setattr(run_tests, "_repo_root", lambda: root)
         monkeypatch.setattr(

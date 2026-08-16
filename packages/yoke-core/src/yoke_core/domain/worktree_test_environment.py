@@ -39,6 +39,12 @@ from yoke_contracts.uv_project import (
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding
+from yoke_core.domain.test_environment_declaration import (
+    SANCTIONED_RUN_SURFACE,
+    TestEnvironmentDeclaration,
+    load_declaration,
+    resolve_uv_projects,
+)
 
 SYNC_TIMEOUT_CONFIG = "worktree_test_environment_sync_timeout_seconds"
 DEFAULT_SYNC_TIMEOUT_SECONDS = 600
@@ -129,12 +135,6 @@ def runs_pytest(project_dir: Path) -> bool:
     ).is_dir()
 
 
-def _declaration_for(worktree_path: Path, project: str | None):
-    from yoke_core.domain.test_environment_declaration import load_declaration
-
-    return load_declaration(project, checkout=worktree_path)
-
-
 def provision_test_environment(
     worktree_path: str,
     *,
@@ -147,13 +147,8 @@ def provision_test_environment(
     uv-managed project is nothing this surface owns, and reports ready
     with no actions.
     """
-    from yoke_core.domain.test_environment_declaration import (
-        SANCTIONED_RUN_SURFACE,
-        resolve_uv_projects,
-    )
-
     root = Path(worktree_path)
-    declaration = _declaration_for(root, project)
+    declaration = load_declaration(project, checkout=root)
     try:
         resolved = resolve_uv_projects(root, declaration, discover=uv_projects)
     except OSError as exc:
@@ -206,7 +201,9 @@ def provision_test_environment(
 
 
 def _collect_trivial_test(
-    project_dir: Path, timeout: int, declaration
+    project_dir: Path,
+    timeout: int,
+    declaration: TestEnvironmentDeclaration,
 ) -> subprocess.CompletedProcess:
     """Collect one trivial test inside *project_dir* using its environment.
 
@@ -267,7 +264,9 @@ def _missing_uv_narrative(projects: Sequence[Path]) -> str:
 
 
 def _sync_failure_narrative(
-    project: Path, completed: subprocess.CompletedProcess, declaration
+    project: Path,
+    completed: subprocess.CompletedProcess,
+    declaration: TestEnvironmentDeclaration,
 ) -> str:
     argv = " ".join(declaration.sync_argv())
     inspect = ""
@@ -282,10 +281,10 @@ def _sync_failure_narrative(
 
 
 def _proof_failure_narrative(
-    project: Path, completed: subprocess.CompletedProcess, declaration
+    project: Path,
+    completed: subprocess.CompletedProcess,
+    declaration: TestEnvironmentDeclaration,
 ) -> str:
-    from yoke_core.domain.test_environment_declaration import SANCTIONED_RUN_SURFACE
-
     argv = " ".join(declaration.sync_argv())
     if declaration.selection_flags():
         present = (
