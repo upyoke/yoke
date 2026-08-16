@@ -11,7 +11,14 @@ from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,
     record_conversation_session,
 )
-from yoke_harness.hooks.identity_stamp import stamp_hook_stdin
+from yoke_harness.hooks.identity_stamp import record_then_stamp, stamp_hook_stdin
+
+
+def _transcript(conversation_id: str) -> str:
+    return (
+        "/home/u/.cursor/projects/p/agent-transcripts/"
+        f"{conversation_id}/{conversation_id}.jsonl"
+    )
 
 
 def test_local_context_stamps_env_session_id(monkeypatch) -> None:
@@ -52,10 +59,27 @@ def test_stamp_fills_empty_payload_from_env(tmp_path, monkeypatch) -> None:
 def test_stamp_preserves_claude_and_codex_session_ids(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "sid-env")
-    for session_id in ("claude-session", "codex-thread"):
-        payload = {"session_id": session_id}
+    for executor, session_id in (
+        ("claude-code", "claude-session"),
+        ("codex", "codex-thread"),
+    ):
+        payload = {
+            "session_id": session_id,
+            "transcript_path": _transcript(session_id),
+        }
         original = json.dumps(payload)
-        assert stamp_hook_stdin(original, payload) == original
+        assert record_then_stamp(
+            payload, original, executor, "PreToolUse",
+        ) == original
+
+
+def test_cursor_payload_without_transcript_is_unchanged(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    payload = {"session_id": "cursor-session", "tool_name": "Write"}
+    original = json.dumps(payload)
+    assert record_then_stamp(
+        payload, original, "cursor", "PreToolUse",
+    ) == original
 
 
 def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:
@@ -86,6 +110,42 @@ def test_stamp_clears_unmapped_conversation(tmp_path, monkeypatch) -> None:
     stdin = stamp_hook_stdin(original, payload)
     assert json.loads(stdin)["session_id"] == ""
     assert payload["session_id"] == ""
+
+
+def test_stamp_folds_transcript_container_identity(tmp_path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    conversation = "conv-transcript-remount"
+    record_conversation_session(
+        conversation, "sid-holder", home / CURSOR_SESSION_MAP_DIR_NAME,
+    )
+    payload = {
+        "session_id": conversation,
+        "conversation_id": conversation,
+        "transcript_path": _transcript(conversation),
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == "sid-holder"
+    assert stamped["container_session_id"] == "sid-holder"
+
+
+def test_stamp_clears_unmapped_transcript_container(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
+    conversation = "conv-transcript-unknown"
+    payload = {
+        "session_id": conversation,
+        "conversation_id": conversation,
+        "transcript_path": _transcript(conversation),
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == ""
+    assert stamped["container_session_id"] == ""
 
 
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:

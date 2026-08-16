@@ -18,9 +18,9 @@ from yoke_contracts.cursor_session_map import (
     container_session_id_from_evidence,
     prune_stale_conversation_sessions,
     record_conversation_session as _record_conversation_session,
-    resolve_mapped_session_id,
 )
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
+from yoke_contracts.payload_session_fold import fold_conversation_session_id
 from yoke_harness.hooks.identity_runtime import is_cursor
 
 
@@ -31,21 +31,6 @@ def _map_dir():
 def record_conversation_session(conversation_id: str, session_id: str) -> None:
     """Record that ``conversation_id`` belongs to ``session_id``."""
     _record_conversation_session(conversation_id, session_id, _map_dir())
-
-
-def _existing_fold_container(conversation_id: str) -> str:
-    """Return a prior non-identity map target for ``conversation_id``, else ``\"\"``."""
-    existing = resolve_mapped_session_id(
-        _map_dir(),
-        {CURSOR_CONVERSATION_ENV_VAR: conversation_id},
-    )
-    if (
-        isinstance(existing, str)
-        and existing
-        and existing != conversation_id
-    ):
-        return existing
-    return ""
 
 
 def record_from_hook_payload(
@@ -86,20 +71,36 @@ def record_from_hook_payload(
     if not is_cursor(executor):
         return
     try:
-        conversation_id = payload.get("session_id")
+        conversation_id = payload.get("conversation_id")
         if not isinstance(conversation_id, str) or not conversation_id:
-            conversation_id = payload.get("conversation_id")
+            conversation_id = payload.get("session_id")
         if not isinstance(conversation_id, str) or not conversation_id:
             return
-        container = container_session_id_from_evidence(payload)
-        if not container:
+        raw_container = container_session_id_from_evidence(payload)
+        if raw_container:
+            container = fold_conversation_session_id(
+                raw_container,
+                _map_dir(),
+            )
+            if (
+                not container
+                and event_name == SESSION_START_EVENT
+                and raw_container == conversation_id
+            ):
+                # The top-level SessionStart establishes the first identity
+                # map. Every later transcript-derived channel must consume
+                # that map rather than trusting the conversation raw.
+                container = conversation_id
+        else:
             container = _worktree_remap_container(payload)
-        if not container and event_name == SESSION_START_EVENT:
-            container = conversation_id
-        if container == conversation_id:
-            folded = _existing_fold_container(conversation_id)
-            if folded:
-                container = folded
+            if not container and event_name == SESSION_START_EVENT:
+                container = (
+                    fold_conversation_session_id(
+                        conversation_id,
+                        _map_dir(),
+                    )
+                    or conversation_id
+                )
         if not container:
             return
         aliases = {conversation_id}

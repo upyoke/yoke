@@ -36,7 +36,12 @@ import os
 import sys
 from typing import Any, Dict
 
+from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
+from yoke_contracts.payload_session_fold import (
+    fold_conversation_session_id,
+    fold_payload_session_id,
+)
 
 
 # Cursor tool vocabulary -> canonical chain matcher vocabulary. Only names
@@ -109,14 +114,22 @@ def parse_payload(payload: str) -> Dict[str, Any]:
     container = resolve_container_session_id(data)
     if container:
         data["container_session_id"] = container
-        own = str(data.get("session_id", ""))
-        if not own:
+        session_id = str(data.get("session_id", ""))
+        own_value = data.get("conversation_id")
+        own = (
+            own_value.strip()
+            if isinstance(own_value, str) and own_value.strip()
+            else session_id
+        )
+        if not session_id:
             data["session_id"] = container
-            own = container
+            session_id = container
+        if not own:
+            own = session_id
         folded = bool(own) and own != container
         evidence = container_session_id_from_evidence(data) if folded else ""
-        data["is_subagent_session"] = folded and bool(evidence)
-        data["is_worktree_remap_session"] = folded and not evidence
+        data["is_subagent_session"] = folded and bool(evidence) and own != evidence
+        data["is_worktree_remap_session"] = folded and not data["is_subagent_session"]
         if data["is_subagent_session"]:
             # Container model: the top-level session owns all activity, so
             # every downstream consumer (telemetry, registration, policy)
@@ -159,20 +172,31 @@ def container_session_id_from_evidence(data: Dict[str, Any]) -> str:
 def resolve_container_session_id(data: Dict[str, Any]) -> str:
     """Resolve the top-level (container) session id for a Cursor hook event.
 
-    Direct evidence first (:func:`container_session_id_from_evidence`),
-    then a linked-worktree claim-holder fold when Cursor remounted the chat
-    onto ``.worktrees/<lane>``, then the payload's own ``session_id`` /
-    ``conversation_id`` — correct for top-level events; for a subagent
-    event carrying none of the evidence signals this attributes to the
-    sub-session (callers holding earlier ``subagentStart`` state can
-    correct it).
+    A client-stamped ``container_session_id`` wins, including an explicit
+    empty value: the client owns the conversation map and empty beats a raw
+    conversation. Every unstamped conversation-shaped channel uses that same
+    map fold before it can become identity. A linked-worktree claim-holder is
+    already a registered session and remains the non-conversation fallback.
 
     Yoke registers only the container session; sub-session and worktree-
     remapped conversation activity folds into it.
     """
+    stamped = data.get("container_session_id")
+    if isinstance(stamped, str):
+        return stamped.strip()
+    try:
+        map_dir = (
+            machine_config.yoke_home() / cursor_session_map.CURSOR_SESSION_MAP_DIR_NAME
+        )
+    except Exception:  # noqa: BLE001 — fold must never break payload parse
+        map_dir = None
     resolved = container_session_id_from_evidence(data)
     if resolved:
-        return resolved
+        return (
+            fold_conversation_session_id(resolved, map_dir)
+            if map_dir is not None
+            else ""
+        )
     try:
         from runtime.harness.cursor.cursor_worktree_session_fold import (
             resolve_worktree_remap_container,
@@ -183,11 +207,14 @@ def resolve_container_session_id(data: Dict[str, Any]) -> str:
         holder = ""
     if holder:
         return holder
-    for key in ("session_id", "conversation_id"):
-        value = data.get(key)
-        if isinstance(value, str) and value:
-            return value
-    return ""
+    folded = fold_payload_session_id(data, map_dir) if map_dir is not None else None
+    if folded is not None:
+        return folded
+    return (
+        fold_conversation_session_id(data.get("conversation_id"), map_dir)
+        if map_dir is not None
+        else ""
+    )
 
 
 def resolve_session_id(payload: str) -> str:
