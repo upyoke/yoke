@@ -230,12 +230,6 @@ class TestFlushEnsureSessionWiring:
         assert len(flushed) == 1, "records must still flush after a probe crash"
 
 
-# ---------------------------------------------------------------------------
-# runner wiring: every event with a payload session arms the probe; remote
-# evaluation registers the DB half only (no server-side anchor, executor honored)
-# ---------------------------------------------------------------------------
-
-
 def _allow(_context: HookContext) -> HookDecision:
     return HookDecision(outcome=Outcome.ALLOW, next=Next.CONTINUE)
 
@@ -290,7 +284,11 @@ class TestRunnerArmsEnsureSession:
         assert json.loads(payload_json)["transcript_path"] == "/t/z.jsonl"
         assert rest == ["/t/z.jsonl", True, "", False, False, None, None]
 
-    def test_sessionless_payload_does_not_arm(self, monkeypatch):
+    def test_sessionless_payload_does_not_arm(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+        for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
+                     "CURSOR_CONVERSATION_ID", "CURSOR_TRANSCRIPT_PATH"):
+            monkeypatch.delenv(name, raising=False)
         captured = _run_runner(monkeypatch, {
             "tool_name": "Bash", "tool_input": {"command": "ls"},
         })

@@ -1,8 +1,6 @@
 """Tests for ``yoke hook evaluate`` (local delegation + https relay).
 
-Verdict-composition coverage (client deny short-circuit, allow-stdout
-merge, degradation preserving the client half) lives in
-``test_yoke_hooks_relay_compose.py`` (350-line cap).
+Verdict-composition coverage lives in ``test_yoke_hooks_relay_compose.py``.
 """
 
 from __future__ import annotations
@@ -120,6 +118,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
 ) -> None:
     raw_stdin = '{"tool_name": "Bash", "tool_input": {"command": "ls"}}'
     monkeypatch.setattr(sys, "stdin", io.StringIO(raw_stdin))
+    monkeypatch.setenv("YOKE_SESSION_ID", "sid-stamped")
     monkeypatch.setenv("YOKE_HOOK_AGENT_TYPE", "engineer")
     monkeypatch.setattr(
         "yoke_harness.hooks.relay.detect_executor",
@@ -149,7 +148,7 @@ def test_hook_evaluate_https_posts_contract_and_relays(
     body = json.loads(request.data.decode("utf-8"))
     assert body["hook_schema"] == 1
     assert body["event_name"] == "PreToolUse"
-    assert body["stdin"] == raw_stdin
+    assert json.loads(body["stdin"]) == {**json.loads(raw_stdin), "session_id": "sid-stamped"}
     assert body["executor"] == "claude-code"
     assert body["agent_type"] == "engineer"
     assert body["payload_extra"] == {}
