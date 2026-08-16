@@ -72,6 +72,11 @@ def emits(monkeypatch):
     return cap
 
 
+@pytest.fixture(autouse=True)
+def ambient_session(monkeypatch):
+    monkeypatch.setenv("YOKE_SESSION_ID", "s1")
+
+
 @pytest.fixture
 def gates_pass(monkeypatch):
     monkeypatch.setattr(orch, "_run_preflight_gates",
@@ -137,17 +142,6 @@ def test_parse_item_id_prefix_ref_resolves_project_sequence(test_db):
 def test_parse_item_id_invalid_raises():
     with pytest.raises(ValueError):
         orch._parse_item_id("not-a-number")
-
-
-def test_resolve_session_id_priority(monkeypatch):
-    monkeypatch.setenv("YOKE_SESSION_ID", "env-id")
-    assert orch._resolve_session_id("explicit") == "explicit"
-    for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread")
-    assert orch._resolve_session_id(None) == "codex-thread"
-    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
-    assert orch._resolve_session_id(None) == ""
 
 
 @pytest.mark.parametrize("item_in,capability,want_outcome", [

@@ -6,8 +6,8 @@ Called by the advance router when target status is `implementing` and the
 pinned definition binds `advance` to a single implementation lane. Owns
 collision detection, dirty-main protection, canonical/legacy worktree
 recognition, and worktree creation. The session's write authority over the new
-worktree is its work-claim (acquired in Step 1), validated per tool call by
-`lint_session_cwd`.
+worktree is its work-claim (acquired by preflight after the implementation-entry
+identity probe), validated per tool call by `lint_session_cwd`.
 
 This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. The skill prose no longer hand-authors any of the shell snippets that previously routed agents through guard-hostile shapes (`db_router query -separator "|"`, manual `.worktrees/` `ls`, project shell-variable lookup, dirty-tree compound).
 
@@ -94,7 +94,7 @@ worktree` when the recursive walk is the point.
 
 ## What preflight handles internally
 
-- **Step 1 — Work claim.** Idempotent for same-session re-claim. A live conflict surfaces a `work-claim-conflict` block with a narrative that explicitly disclaims claim-widening as the wrong remediation.
+- **Step 1 — Work claim.** Runs only after the implementation-entry identity probe corroborates the session. Idempotent for same-session re-claim. A live conflict surfaces a `work-claim-conflict` block with a narrative that explicitly disclaims claim-widening as the wrong remediation.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
 - **Step 3 — Worktree resolution.** Canonical `PREFIX-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. Tracked or staged dirt blocks as `dirty-tracked`; untracked non-gitignored files block as `dirty-untracked`. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
