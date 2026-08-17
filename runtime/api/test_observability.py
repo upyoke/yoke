@@ -39,6 +39,19 @@ def test_json_log_formatter_emits_canonical_fields() -> None:
     assert payload["context"]["status_code"] == 200
 
 
+def test_structured_logging_defaults_to_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = logging.getLogger()
+    monkeypatch.setattr(root, "handlers", [])
+    monkeypatch.setattr(root, "level", root.level)
+
+    observability.configure_structured_logging()
+
+    assert len(root.handlers) == 1
+    assert root.handlers[0].stream is sys.stderr
+
+
 def test_new_request_id_preserves_header_or_generates_uuid() -> None:
     assert observability.new_request_id({"x-request-id": "req-fixed"}) == "req-fixed"
     generated = observability.new_request_id({})

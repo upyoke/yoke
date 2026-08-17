@@ -160,16 +160,12 @@ jobs:
             echo "native image architecture mismatch: actual=$actual_arch expected=$EXPECTED_ARCH" >&2
             exit 1
           fi
-          metadata="$(docker run --rm \
-            --entrypoint python "$image_ref" -c \
-            'import os; from importlib.metadata import version; from yoke_core.tools.product_wheel_validation import verify_installed_boot; verify_installed_boot(); print(version("yoke-core")); print(os.environ.get("YOKE_BUILD_SHA", ""))')"
-          actual_version="$(sed -n '1p' <<< "$metadata")"
-          actual_build="$(sed -n '2p' <<< "$metadata")"
-          if [[ "$actual_version" != "$EXPECTED_VERSION" || "$actual_build" != "$EXPECTED_BUILD" ]]; then
-            echo "pushed image metadata mismatch: version=$actual_version build=$actual_build expected version=$EXPECTED_VERSION build=$EXPECTED_BUILD" >&2
-            exit 1
-          fi
-          echo "native image verified: arch=$actual_arch version=$actual_version build=$actual_build"
+          metadata="$(docker run --rm --entrypoint python3 "$image_ref" \
+            -m yoke_core.tools.server_image_metadata emit)"
+          python3 packages/yoke-core/src/yoke_core/tools/server_image_metadata.py verify \
+            --expected-version "$EXPECTED_VERSION" \
+            --expected-build "$EXPECTED_BUILD" <<< "$metadata"
+          echo "native image verified: arch=$actual_arch version=$EXPECTED_VERSION build=$EXPECTED_BUILD"
 
       - name: Export the native image digest
         run: |

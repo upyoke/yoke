@@ -1,7 +1,7 @@
 """Runtime observability helpers for the Yoke API service.
 
 Yoke owns the semantic event envelope. This module owns service/runtime
-visibility around that envelope: structured stdout logs, request ids, and
+visibility around that envelope: structured stderr logs, request ids, and
 optional OpenTelemetry instrumentation when the packages and exporter config
 are present.
 """
@@ -31,7 +31,7 @@ from yoke_core.api.observability_otel import (
 REQUEST_ID_HEADER = "x-request-id"
 REQUEST_ID_STATE_ATTR = "yoke_request_id"
 
-_JSON_HANDLER_MARKER = "_yoke_json_stdout_handler"
+_JSON_HANDLER_MARKER = "_yoke_json_log_handler"
 
 CANONICAL_LOG_FIELDS = (
     "event_name",
@@ -88,8 +88,8 @@ def configure_structured_logging(
     level: str = "INFO",
     stream: Any = None,
 ) -> None:
-    """Configure root logging for structured stdout emission."""
-    target = sys.stdout if stream is None else stream
+    """Configure root logging for structured stderr emission."""
+    target = sys.stderr if stream is None else stream
     root = logging.getLogger()
     normalized_level = getattr(logging, str(level).upper(), logging.INFO)
     root.setLevel(normalized_level)
