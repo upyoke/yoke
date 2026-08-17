@@ -25,13 +25,15 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ### 1. Resolve harness identity
 
-Resolve the following parameters for the session offer:
+Run `yoke sessions init` as a single foreground call. Use the printed
+`SESSION_ID`, `EXECUTOR`, `LANE`, `PROVIDER`, `WORKSPACE`, and `MODEL`
+values. Do not resolve them yourself. Never mint a session id.
 
-- **executor**: from `$YOKE_EXECUTOR` env var, else `codex` when `CODEX_THREAD_ID` or `CODEX_MODEL` is present, else `claude-code`
-- **provider**: from `$YOKE_PROVIDER` env var, else `openai` when the resolved executor is `codex`, else `anthropic`
-- **lane**: resolved deterministically by the init block in `loop.md` from the core `executor_default_lane_*` config key (printed as `LANE=`). Do NOT resolve this yourself — use the value printed by the init block
-- **workspace**: from `git rev-parse --show-toplevel`
-- **session_id**: reuse `$YOKE_SESSION_ID` if already set; otherwise resolve from `$CLAUDE_SESSION_ID` (Claude Code) or `$CODEX_THREAD_ID` (Codex). For supported harnesses, always use the harness-provided stable ID — never auto-generate a second ID format. Reuse it for every re-offer, heartbeat, claim, and event emitted by the loop
+`yoke sessions init` owns executor/provider/session-id resolution for
+Claude Code, Codex, and Cursor, then calls `sessions.begin`. Cursor is a
+first-class executor (`cursor-desktop` / `cursor-cli`); its session id
+comes from the conversation map, not from inventing an id.
+
 - **Note:** Yoke-owned harnesses self-report identity only. `supported_paths` is no longer passed by the harness — Yoke core derives harness capabilities server-side from the shared registry plus manifest limitations keyed by `executor`
 
 ### 2. Call the decision engine
@@ -67,5 +69,5 @@ Canonical emission of `HarnessSessionOffered` and `NextActionChosen` lives in th
 - Max chain depth is controlled by `max_chain_steps` in machine config (default: 3).
 - The loop must keep `session_id` stable across every chained step so claim/lease state can correlate correctly.
 - The loop refreshes the session heartbeat while a mode handler is running so live work does not become reclaimable just because the handler takes time.
-- Harness identity is resolved from environment variables (`$YOKE_EXECUTOR`, `$YOKE_PROVIDER`) with Codex fallback detection via `CODEX_THREAD_ID` / `CODEX_MODEL`, so prompt-managed Codex sessions do not silently self-report as `claude-code`. Supported paths are derived server-side from the shared registry plus manifest limitations. The model identifier is read from the session row's model field (see your `harness_sessions` packet stanza) or the canonical `hook_helpers_model.detect_model` fallback — never substituted by the LLM agent.
+- Harness identity is resolved by `yoke sessions init` for Claude Code, Codex, and Cursor. Do not reconstruct executor or session id from env vars, and never mint. Supported paths are derived server-side from the shared registry plus manifest limitations. The model identifier is read from the session row's model field (see your `harness_sessions` packet stanza) or the canonical `hook_helpers_model.detect_model` fallback — never substituted by the LLM agent.
 - Canonical `HarnessSessionOffered` / `NextActionChosen` emission is in the shared `yoke sessions offer` path, not in the loop. This ensures all harnesses produce identical event lineage regardless of whether they use `do/loop.md`.
