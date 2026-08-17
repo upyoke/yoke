@@ -24,6 +24,9 @@ dependencies = [
     # so the engine wheel cannot boot without the harness wheel. The reverse
     # edge stays forbidden — yoke-harness never imports yoke-core.
     "yoke-harness",
+    # Python 3.9-3.10 have no stdlib tomllib. Hook-trust parsing is a core
+    # runtime path, so the compatibility reader is a product dependency.
+    "tomli>=2.0,<3; python_version < '3.11'",
     # fastapi 0.129+ / uvicorn 0.40+ dropped Python 3.9; pin to the last 3.9-compatible
     # versions so core stays installable on stock Apple Python 3.9. Both install
     # cleanly on 3.10-3.14 via prebuilt wheels.

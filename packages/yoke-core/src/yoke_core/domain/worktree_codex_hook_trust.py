@@ -24,17 +24,15 @@ operator's own trust decision, made through Codex.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:  # Python < 3.11
-    try:
-        import tomli as tomllib  # type: ignore[no-redef]
-    except ImportError:  # pragma: no cover - no TOML reader available
-        tomllib = None  # type: ignore[assignment]
+else:
+    import tomli as tomllib
 
 
 #: Where a checkout exposes its Codex hooks, relative to the checkout root.
@@ -42,7 +40,6 @@ HOOKS_RELATIVE_PATH = os.path.join(".codex", "hooks.json")
 
 _TRUSTED_HASH_KEY = "trusted_hash"
 
-REASON_NO_TOML_READER = "no TOML reader available to read the Codex config"
 REASON_NO_CONFIG = "Codex config not present"
 REASON_UNREADABLE_CONFIG = "Codex config could not be read"
 REASON_NO_SOURCE_HOOKS = "source checkout exposes no Codex hooks file"
@@ -115,8 +112,6 @@ def hooks_file_for(checkout: str) -> Path:
 
 def _read_trust_state(config_path: Path) -> Tuple[Dict[str, str], str]:
     """Return every ``key -> trusted hash`` pair, plus a blocking reason."""
-    if tomllib is None:
-        return {}, REASON_NO_TOML_READER
     if not config_path.exists():
         return {}, f"{REASON_NO_CONFIG}: {config_path}"
     try:
