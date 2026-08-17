@@ -201,7 +201,7 @@ The cross-item overlap detector honors `item_dependencies`: when a candidate ite
 
 ## Architecture Model
 
-Yoke encodes architectural taste as machine-checkable invariants on path targets, not style-guide prose. Every project may declare an `architecture_model` Project Structure family (singleton) whose payload defines the per-project layer map, dependency rules, and sanctioned cross-cutting entrypoints — read by the architecture-fitness Doctor HCs and the canonical status gate.
+Yoke encodes architectural taste as machine-checkable invariants on path targets, not style-guide prose. Every project may declare an `architecture_model` Project Structure family (singleton): the single policy document carrying the layer map, area patterns, dependency rules, cross-cutting gateways, exemption patterns, and the `package_roots` layout mapping module resolution reads — consumed by the architecture-fitness Doctor HCs, the status gate, the board's architecture section, and the workbench Architecture page. Setup is scan-derive-accept for every repo state: `yoke project-structure architecture-draft get --project P` proposes a draft from the tree (an empty repo yields the minimal vocabulary-only map), the operator reviews and edits, and `project_structure.patch.apply` writes it — identical for yoke and external projects. Coverage and violations come from one shared computer via `yoke project-structure architecture-health get --project P`.
 
 ### Layer vocabulary
 
@@ -213,17 +213,17 @@ Arrows mean *"may depend on"*. The payload expresses per-layer `may_depend_on` a
 
 ### Domains
 
-Domains group canonical Yoke concerns by glob-matched path roots — at least `claims`, `lifecycle_status`, `db_mutation`, `scheduler_frontier`, `harness_adapters`, `doctor_health`, `project_structure`, `events`, `deployment`, `backlog_items`, `qa_browser`. The payload's `domains` list carries the authoritative `{id, path_roots}` mapping; read it from the payload, not this prose.
+Domains group concerns by path patterns, and every pattern declares both facts at once: `domains[].path_roots` entries are `{glob, layer}` objects — the area (domain) and the kind (layer) of the files the glob matches, finer patterns where an area mixes kinds, first match wins (`*` stays inside a path segment; `**` crosses). Classification is derived, never inferred: every `project.snapshot.sync` converges per-file `path_context_values` rows with the map (`architecture_layer` / `architecture_domain`), so labels refresh whenever the file inventory does. Operator-authored override rows — any architecture-family row whose value carries no `glob` key — survive every refresh. Read the authoritative mapping from the payload, not this prose.
 
 ### Cross-cutting entrypoints
 
-Cross-cutting concerns enter through sanctioned interfaces, not ambient reach-around imports. The payload's `cross_cutting_entrypoints` registry names the approved gateway modules per concern — commonly `db_path`, `backlog_mutation`, `session_identity`, `events`, `path_authority`, `live_operation_ownership`, and `external_artifact_fetch`. Read the approved gateways for each concern from your project's model payload rather than this prose.
+Cross-cutting concerns enter through sanctioned interfaces, not ambient reach-around imports. The payload's `cross_cutting_entrypoints` registry names the approved gateway modules per concern — commonly `backlog_mutation`, `session_identity`, `events`, `path_authority`, `live_operation_ownership`, and `external_artifact_fetch`. One-hop import allowlists cannot express compositional defect classes; those live as project-local checks (the DB-connection guard is the worked example), and retired entrypoints record their rationale in the payload's `decisions` list. Read the approved gateways from your project's model payload rather than this prose.
 
 The `guarded_imports` field on each entrypoint names symbols whose direct import outside the approved list fires `HC-architecture-cross-cutting-entrypoint`. Consult the entrypoint metadata rather than copying gateway symbols into prose.
 
 ### Exemption families
 
-Generated artifacts, fixtures, archive surfaces, test files, and separately versioned Pack source inherit exemption context families from `path_context_values` rather than from prose allowlists. The exemption registry — `architecture_generated`, `architecture_fixture`, `architecture_archive`, `architecture_test_surface`, `architecture_pack_source` — pre-classifies the path so `HC-architecture-unclassified-path` PASSes without operator action.
+Generated artifacts, fixtures, archive surfaces, test files, and separately versioned Pack source inherit exemption context families from `path_context_values` rather than from prose allowlists — `architecture_generated`, `architecture_fixture`, `architecture_archive`, `architecture_test_surface`, `architecture_pack_source`. The map's optional `exemptions` list (`{glob, family}` entries, matched before domain patterns) seeds these rows on every snapshot sync, so `HC-architecture-unclassified-path` PASSes without per-file operator action.
 
 ### Item-level architecture impact
 
@@ -240,7 +240,7 @@ Every item declares an `architecture_impact` classification at idea / refine tim
 
 ### Doctor surface
 
-Six HCs enforce the model: `HC-architecture-unclassified-path`, `HC-architecture-forbidden-edge`, `HC-architecture-cross-cutting-entrypoint`, `HC-architecture-impact-declaration`, `HC-architecture-scan-error`, and `HC-architecture-model-doc-drift`. All six self-skip cleanly on minimal-schema fixtures, log remediation prompts (update the item, re-run the path snapshot, widen the claim), and emit findings keyed to canonical path targets so violations are always attributable.
+Six HCs enforce the model: `HC-architecture-unclassified-path`, `HC-architecture-forbidden-edge`, `HC-architecture-cross-cutting-entrypoint`, `HC-architecture-impact-declaration`, `HC-architecture-scan-error`, and `HC-architecture-model-doc-drift`. The three snapshot checks fold the same shared health computer the board section and Architecture page read, record at WARN (promotion to FAIL waits until classifications prove stable), self-skip cleanly on minimal-schema fixtures, and emit findings keyed to canonical path targets so violations are always attributable.
 
 ## Testing
 - **No hardcoded drifting IDs in tests.** Tests must never contain literal `PREFIX-N`-style work item IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.

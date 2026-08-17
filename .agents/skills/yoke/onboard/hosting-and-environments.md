@@ -113,6 +113,19 @@ Capture the project-wide policy the profile implies (command definitions, merge 
 yoke project-structure patch apply --project {project} --ops-json '{json_ops}'
 ```
 
+### Architecture map (scan-derive-accept; skippable)
+
+Offer the project an architecture map: propose a draft from the tree, review it with the operator, and apply the edited result through the same patch surface — identical for every repo state (an empty repo yields the minimal vocabulary-only map that grows via the unclassified warning; a scaffolded repo is just a tidy tree the scanner classifies). Skipping is fine — the project adopts later with the same two commands.
+
+```bash
+yoke project snapshot sync {checkout} --project {project}
+yoke project-structure architecture-draft get --project {project} > /tmp/architecture-draft.json
+# review + edit the draft with the operator, then apply it as the
+# architecture_model family via `yoke project-structure patch apply`
+```
+
+Once applied, classifications refresh automatically on every snapshot sync; verify with `yoke project-structure architecture-health get --project {project}` and record the coverage line as evidence on the `project-structure-setup` row.
+
 ### Mark the rows
 
 ```bash
