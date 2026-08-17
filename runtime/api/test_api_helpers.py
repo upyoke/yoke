@@ -80,7 +80,7 @@ CREATE TABLE deployment_flows (
 """
 
 DEPLOYMENT_RUNS_SCHEMA = """
-CREATE TABLE environments (
+CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL, url TEXT,
     last_deployed_at TEXT, created_at TEXT NOT NULL DEFAULT '', settings TEXT
 );

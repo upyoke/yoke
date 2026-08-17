@@ -58,7 +58,7 @@ CREATE TABLE deployment_flows (
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active', UNIQUE(project_id, name)
 );
-CREATE TABLE environments (
+CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL, url TEXT,
     last_deployed_at TEXT, created_at TEXT NOT NULL DEFAULT '',
     settings TEXT DEFAULT '{}'

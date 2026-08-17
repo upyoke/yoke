@@ -20,7 +20,7 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
     + STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL
     + ";\n"
     + """
-    CREATE TABLE environments (
+    CREATE TABLE IF NOT EXISTS environments (
         id TEXT PRIMARY KEY,
         site TEXT,
         name TEXT NOT NULL,
