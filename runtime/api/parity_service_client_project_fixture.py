@@ -20,6 +20,16 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
     + STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL
     + ";\n"
     + """
+    CREATE TABLE environments (
+        id TEXT PRIMARY KEY,
+        site TEXT,
+        name TEXT NOT NULL,
+        url TEXT,
+        last_deployed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT '',
+        settings TEXT DEFAULT '{}'
+    );
+
     CREATE TABLE deployment_flows (
         id TEXT PRIMARY KEY,
         project_id INTEGER NOT NULL REFERENCES projects(id),

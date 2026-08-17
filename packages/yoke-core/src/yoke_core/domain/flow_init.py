@@ -34,11 +34,15 @@ def _ensure_flow_schema(conn) -> None:
             on_failure TEXT DEFAULT 'halt',
             created_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
-            target_tier TEXT
-                CHECK(target_tier IN ('persistent','ephemeral')),
+            target_tier TEXT,
             target_environment_id {environment_ref},
-            CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
-                  = (target_environment_id IS NOT NULL)),
+            CONSTRAINT deployment_flows_target_tier_vocabulary
+                CHECK (target_tier IS NULL
+                       OR target_tier IN ('persistent','ephemeral')),
+            CONSTRAINT deployment_flows_target_tier_environment
+                CHECK ((target_tier IS NOT NULL
+                        AND target_tier = 'persistent')
+                       = (target_environment_id IS NOT NULL)),
             UNIQUE(project_id, name)
         )""")
 

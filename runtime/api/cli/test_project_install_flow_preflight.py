@@ -29,7 +29,7 @@ def test_malformed_declaration_fails_before_checkout_or_config_mutation(
     repo = tmp_path / "repo"
     declaration = repo / ".yoke" / "deployment-flows.json"
     declaration.parent.mkdir(parents=True)
-    declaration.write_text('{"schema": 2, "flows": [', encoding="utf-8")
+    declaration.write_text('{"schema": 3, "flows": [', encoding="utf-8")
     (repo / "sentinel.txt").write_text("unchanged\n", encoding="utf-8")
     config = tmp_path / "machine-home" / "config.json"
     before = _snapshot(repo)
@@ -55,7 +55,7 @@ def test_server_rejection_fails_before_checkout_or_config_mutation(
     declaration = repo / ".yoke" / "deployment-flows.json"
     declaration.parent.mkdir(parents=True)
     declaration.write_text(json.dumps({
-        "schema": 2,
+        "schema": 3,
         "flows": [{
             "id": "acme-production",
             "name": "Production",

@@ -84,8 +84,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 id TEXT PRIMARY KEY,
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 flow TEXT NOT NULL REFERENCES deployment_flows(id),
-                target_tier TEXT
-                    CHECK(target_tier IN ('persistent','ephemeral')),
+                target_tier TEXT,
                 target_environment_id {environment_ref},
                 release_lineage TEXT,
                 status TEXT NOT NULL DEFAULT 'created'
@@ -95,8 +94,13 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 started_at TEXT,
                 completed_at TEXT,
                 created_by TEXT DEFAULT 'operator',
-                CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
-                      = (target_environment_id IS NOT NULL))
+                CONSTRAINT deployment_runs_target_tier_vocabulary
+                    CHECK (target_tier IS NULL
+                           OR target_tier IN ('persistent','ephemeral')),
+                CONSTRAINT deployment_runs_target_tier_environment
+                    CHECK ((target_tier IS NOT NULL
+                            AND target_tier = 'persistent')
+                           = (target_environment_id IS NOT NULL))
             )
             """,
             """
