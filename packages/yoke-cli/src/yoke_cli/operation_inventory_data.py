@@ -171,6 +171,14 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
         "yoke project-structure deploy-defaults get",
         "project_structure.deploy_defaults",
     ),
+    _w(
+        "yoke project-structure architecture-health get",
+        "project_structure.architecture_health",
+    ),
+    _w(
+        "yoke project-structure architecture-draft get",
+        "project_structure.architecture_draft",
+    ),
     *GITHUB_ACTIONS_WRAPPED_ROWS,
     # Per-project DB-authoritative strategy docs; each project's
     # .yoke/strategy/ is a gitignored rendered view written only by

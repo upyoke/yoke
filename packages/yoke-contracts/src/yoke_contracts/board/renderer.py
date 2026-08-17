@@ -24,6 +24,9 @@ from yoke_contracts.board.phase_timer import PhaseRecorder, measure_phase
 from yoke_contracts.board.project_scope import project_filter as _project_filter
 from yoke_contracts.board.renderer_dashboard import render_dashboard
 from yoke_contracts.board.renderer_sections import render_board_sections
+from yoke_contracts.board.sections_architecture import (
+    render_architecture_section,
+)
 from yoke_contracts.board.sections import (
     classify_items,
     consistency_check,
@@ -191,6 +194,15 @@ def _assemble(
     if sessions_text:
         lines.append("")
         lines.append(sessions_text)
+
+    # ------------------------------------------------------------------
+    # 5b. Architecture health (collapses when no scoped map exists)
+    # ------------------------------------------------------------------
+    with measure_phase(phase_recorder, "architecture"):
+        architecture_text = render_architecture_section(db, scope)
+    if architecture_text:
+        lines.append("")
+        lines.append(architecture_text)
 
     # ------------------------------------------------------------------
     # 6. Section tables

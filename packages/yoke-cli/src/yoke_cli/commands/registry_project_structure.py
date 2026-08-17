@@ -6,6 +6,8 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.project_structure_read import (
+    architecture_draft_get,
+    architecture_health_get,
     project_structure_get,
 )
 
@@ -24,6 +26,12 @@ PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY: Dict[
          _adapters.project_structure_deploy_defaults_get),
     ("project-structure", "get"):
         ("project_structure.get", project_structure_get),
+    ("project-structure", "architecture-health", "get"):
+        ("project_structure.architecture_health.get",
+         architecture_health_get),
+    ("project-structure", "architecture-draft", "get"):
+        ("project_structure.architecture_draft.get",
+         architecture_draft_get),
 }
 
 

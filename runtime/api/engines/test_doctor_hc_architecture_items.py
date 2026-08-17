@@ -155,3 +155,18 @@ class TestScanErrorEdge:
         hc_architecture_scan_error(conn, _args(), rec)
         assert rec.results[-1].result == "PASS"
         assert "skipping" in rec.results[-1].detail
+
+    def test_clean_rows_pass(self, conn):
+        tid = mint_target(conn, "yoke", "runtime/api/domain/ok.py")
+        snap = _make_snapshot(conn)
+        conn.execute(
+            "INSERT INTO path_snapshot_entries "
+            "(snapshot_id, target_id, line_count, language, "
+            "module_name, area, is_generated, dependency_edges) "
+            "VALUES (%s, %s, 5, 'python', 'ok', NULL, 0, '[]')",
+            (snap, tid),
+        )
+        conn.commit()
+        rec = RecordCollector()
+        hc_architecture_scan_error(conn, _args(), rec)
+        assert rec.results[-1].result == "PASS"

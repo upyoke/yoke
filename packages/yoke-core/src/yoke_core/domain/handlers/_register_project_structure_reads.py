@@ -29,6 +29,28 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[], adapter_status="live", claim_required_kind=None,
     )
+    registry.register(
+        "project_structure.architecture_health.get",
+        _ps.handle_architecture_health_get,
+        _ps.ArchitectureHealthGetRequest,
+        _ps.ArchitectureHealthGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.project_structure",
+        target_kinds=["project_structure", "global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        "project_structure.architecture_draft.get",
+        _ps.handle_architecture_draft_get,
+        _ps.ArchitectureDraftGetRequest,
+        _ps.ArchitectureDraftGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.project_structure",
+        target_kinds=["project_structure", "global"], side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[], adapter_status="live", claim_required_kind=None,
+    )
 
 
 __all__ = ["register"]

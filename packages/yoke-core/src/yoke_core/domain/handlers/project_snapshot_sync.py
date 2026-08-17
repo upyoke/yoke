@@ -35,6 +35,7 @@ class ProjectSnapshotSyncResponse(BaseModel):
     project_id: int
     snapshots: List[Dict[str, Any]]
     warnings: List[str]
+    architecture_refresh: Optional[Dict[str, Any]] = None
 
 
 def handle_project_snapshot_sync(
@@ -218,10 +219,48 @@ def _sync(project_ref: str, payload: PathSnapshotSyncPayload) -> Dict[str, Any]:
                 "symlink_count": result.symlink_count,
                 "lane_head_recorded": lane_head_recorded,
             })
+        architecture_refresh = _refresh_architecture_context(
+            conn, project_id, rows,
+        )
     return {
         "project_id": project_id,
         "snapshots": rows,
         "warnings": warnings,
+        "architecture_refresh": architecture_refresh,
+    }
+
+
+def _refresh_architecture_context(
+    conn: Any, project_id: int, rows: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Converge map-derived classifications after a HEAD snapshot lands.
+
+    Classifications derive from the map plus the tree, so they refresh
+    whenever the file inventory does. Projects without a declared map
+    skip silently; the synced commit is the provenance token.
+    """
+    head = next(
+        (row for row in rows if row.get("ref") == "HEAD"), None,
+    )
+    if head is None:
+        return None
+    from yoke_core.domain.architecture_path_context_seed import (
+        seed_architecture_path_context,
+    )
+
+    seed = seed_architecture_path_context(
+        conn, project_id,
+        recorded_event_id=f"snapshot:{head.get('commit_sha') or 'HEAD'}",
+    )
+    if not seed.declared:
+        return None
+    return {
+        "layer_rows": seed.layer_rows,
+        "domain_rows": seed.domain_rows,
+        "exemption_rows": seed.exemption_rows,
+        "unclassified": seed.unclassified,
+        "removed_rows": seed.removed_rows,
+        "operator_rows_kept": seed.operator_rows_kept,
     }
 
 

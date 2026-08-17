@@ -193,6 +193,28 @@ def put_context_value(
     return row_id
 
 
+def remove_context_value(
+    conn: Any,
+    *,
+    target_id: int,
+    context_family: str,
+    entry_key: str,
+) -> bool:
+    """Delete one context value row by identity; True when a row went.
+
+    Row identity mirrors :func:`put_context_value` — ``(target_id,
+    context_family, entry_key)``. Used by derived-classification
+    refreshers to retire rows their source no longer produces.
+    """
+    p = _p(conn)
+    cur = conn.execute(
+        "DELETE FROM path_context_values "
+        f"WHERE target_id={p} AND context_family={p} AND entry_key={p}",
+        (target_id, context_family, entry_key),
+    )
+    return bool(cur.rowcount)
+
+
 def _ancestor_chain(
     conn: Any, target_id: int,
 ) -> List[Tuple[int, int]]:
@@ -310,4 +332,5 @@ __all__ = [
     "RENDER_RELATIONSHIP_FAMILIES",
     "put_context_value",
     "read_context_value",
+    "remove_context_value",
 ]

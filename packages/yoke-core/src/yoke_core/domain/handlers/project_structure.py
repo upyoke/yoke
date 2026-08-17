@@ -190,13 +190,102 @@ def handle_project_structure_get(
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
+class ArchitectureHealthGetRequest(BaseModel):
+    project_id: str | int | None = None
+
+
+class ArchitectureHealthGetResponse(BaseModel):
+    project_id: str
+    health: dict
+
+
+class ArchitectureDraftGetRequest(BaseModel):
+    project_id: str | int | None = None
+
+
+class ArchitectureDraftGetResponse(BaseModel):
+    project_id: str
+    payload: dict
+    notes: list
+
+
+def _architecture_project_id(request: FunctionCallRequest):
+    payload = request.payload or {}
+    return (
+        request.target.project_id
+        or _payload_project_id(payload)
+        or payload.get("project")
+    )
+
+
+def _missing_project() -> HandlerOutcome:
+    return HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(
+            code="payload_invalid",
+            message="project_id is required",
+            jsonpath="$.payload.project_id",
+        ),
+    )
+
+
+def handle_architecture_health_get(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Coverage and violations for the project's declared map."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.architecture_health import (
+        compute_architecture_health,
+    )
+
+    project_id = _architecture_project_id(request)
+    if project_id is None:
+        return _missing_project()
+    with db_helpers.connect() as conn:
+        health = compute_architecture_health(conn, project_id)
+    return HandlerOutcome(
+        result_payload={"project_id": str(project_id), "health": health},
+        primary_success=True,
+    )
+
+
+def handle_architecture_draft_get(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    """Scan-derived draft map proposal for operator review."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.architecture_map_survey import (
+        draft_architecture_map,
+    )
+
+    project_id = _architecture_project_id(request)
+    if project_id is None:
+        return _missing_project()
+    with db_helpers.connect() as conn:
+        draft = draft_architecture_map(conn, project_id)
+    return HandlerOutcome(
+        result_payload={
+            "project_id": str(project_id),
+            "payload": draft["payload"],
+            "notes": draft["notes"],
+        },
+        primary_success=True,
+    )
+
+
 __all__ = [
+    "ArchitectureDraftGetRequest",
+    "ArchitectureDraftGetResponse",
+    "ArchitectureHealthGetRequest",
+    "ArchitectureHealthGetResponse",
     "ProjectStructurePatchApplyRequest",
     "ProjectStructurePatchApplyResponse",
     "ProjectStructureDeployDefaultsGetRequest",
     "ProjectStructureDeployDefaultsGetResponse",
     "ProjectStructureGetRequest",
     "ProjectStructureGetResponse",
+    "handle_architecture_draft_get",
+    "handle_architecture_health_get",
     "handle_project_structure_patch_apply",
     "handle_project_structure_deploy_defaults_get",
     "handle_project_structure_get",

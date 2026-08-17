@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-17T02:04:47Z_
+_Audit generated_at: 2026-08-17T13:22:29Z_
 
 ## 1. Summary
 
-- Function ids registered: **382**
+- Function ids registered: **384**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **305** (305 carry usable `--help`)
-- Operation tracker: **282 wrapped**, 6 tool_cli, 116 permanent, 0 pending
-- Skill-body recipes: 275 total (217 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **307** (307 carry usable `--help`)
+- Operation tracker: **284 wrapped**, 6 tool_cli, 116 permanent, 0 pending
+- Skill-body recipes: 277 total (219 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **282** (operation tracker confirms 282 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation tracker confirms 284 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -147,6 +147,8 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **282** (operation track
 | packs | `yoke packs list` | `packs.list` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
+| project_structure | `yoke project-structure architecture-draft get` | `project_structure.architecture_draft.get` | ok |
+| project_structure | `yoke project-structure architecture-health get` | `project_structure.architecture_health.get` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure get` | `project_structure.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
@@ -470,9 +472,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 18 |
-| cursor | 15 |
-| claude-code | 14 |
+| claude-code | 18 |
+| codex | 15 |
+| cursor | 14 |
 | agent | 3 |
 
 ## 8. Contradictions

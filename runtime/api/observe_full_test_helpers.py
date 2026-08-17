@@ -93,7 +93,7 @@ _EVENTS_DDL = """CREATE TABLE events (
     event_name TEXT NOT NULL,
     event_outcome TEXT,
     service TEXT NOT NULL DEFAULT 'cli',
-    project_id INTEGER NOT NULL DEFAULT 1,
+    project_id INTEGER,
     item_id TEXT,
     task_num INTEGER,
     agent TEXT,
