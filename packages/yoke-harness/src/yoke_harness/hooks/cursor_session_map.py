@@ -61,6 +61,10 @@ def record_from_hook_payload(
     re-fire sessionStart without ``workspace_roots``, and the identity
     fallback would otherwise clobber the claim-holder alias.
 
+    Main-rooted holder hooks refresh a remount-expect receipt. A worktree
+    remap consumes that receipt before aliasing; folder occupancy alone
+    does not fold.
+
     When the payload adapter has already folded ``session_id`` onto the
     container, the child id survives on ``subagent_session_id`` /
     ``remapped_conversation_id`` / ``conversation_id`` / the Cursor env
@@ -107,6 +111,8 @@ def record_from_hook_payload(
                 )
         if not container:
             return
+        if not _worktree_lane_name(payload):
+            refresh_remount_expect(container)
         aliases = {conversation_id}
         for key in (
             "conversation_id",
@@ -185,7 +191,18 @@ def _worktree_remap_container(payload: dict) -> str:
     own = payload.get("session_id") or payload.get("conversation_id") or ""
     if isinstance(own, str) and own and own == session_id:
         return ""
+    from yoke_contracts.cursor_remount_expect import consume_remount_expect
+
+    if not consume_remount_expect(_map_dir(), session_id):
+        return ""
     return session_id
+
+
+def refresh_remount_expect(session_id: str) -> bool:
+    """Refresh the holder's remount-expect receipt in the machine map dir."""
+    from yoke_contracts.cursor_remount_expect import write_remount_expect
+
+    return write_remount_expect(_map_dir(), session_id)
 
 
 def prune_stale_conversation_map() -> None:
@@ -200,4 +217,5 @@ __all__ = [
     "prune_stale_conversation_map",
     "record_conversation_session",
     "record_from_hook_payload",
+    "refresh_remount_expect",
 ]

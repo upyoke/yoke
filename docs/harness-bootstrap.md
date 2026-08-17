@@ -221,7 +221,16 @@ echo client and server fingerprints; a relay timeout prints
 stamped `session_id` is missing or still conversation-shaped unless the
 client set `identity_stamped`. Identity-resolution failures deny writes only.
 `YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict
-without writing process-anchors, the cursor-session-map, or registering a session.
+without writing process-anchors, the cursor-session-map, remount-expect
+receipts, or registering a session.
+
+A Cursor remount mints a new conversation id and does not name the prior
+session. While the holder is still on the main checkout, each client hook
+refreshes a short-lived remount-expect receipt under
+`cursor-session-map/remount-expect/`. The first hook in the linked
+worktree consumes that receipt before aliasing the new conversation onto
+the holder. A worktree workspace with a live claim holder and no receipt
+is identity-failure, not a folder fold.
 
 ## 5. Repo-local Skill Discovery
 

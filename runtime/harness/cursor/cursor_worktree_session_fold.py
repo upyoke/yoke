@@ -4,8 +4,8 @@ When Cursor remounts a chat onto a linked Yoke worktree (``move_agent_to_root``
 or equivalent), it often assigns a new conversation id under a new project
 path while work claims stay on the prior container session. This module
 resolves that container from the worktree lane name → active item claim
-holder, so hooks can alias the new conversation without minting competing
-authority.
+holder, then aliases the new conversation only when a remount-expect
+receipt for that holder is live. Folder occupancy alone is not enough.
 
 Never raises — a wrong fold is worse than a missing one. Empty string means
 "no evidence; caller keeps the payload's own id."
@@ -33,17 +33,31 @@ def workspace_path_from_payload(payload: Mapping[str, Any]) -> str:
     return ""
 
 
+def _cursor_map_dir(map_dir=None):
+    if map_dir is not None:
+        return map_dir
+    from yoke_cli.config import machine_config
+    from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
+
+    return machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME
+
+
 def resolve_worktree_remap_container(
     payload: Mapping[str, Any],
     *,
     holder_lookup=None,
+    map_dir=None,
 ) -> str:
     """Return the claim-holder session for a linked-worktree workspace.
 
     ``holder_lookup`` is injectable for tests: ``callable(lane: str) -> str``.
     Default lookup uses ``claims.work.holder_get`` over the active transport
     so https control planes work from client hook processes.
+
+    A foreign holder is returned only when a live remount-expect receipt
+    exists for that holder. Folder occupancy alone is not enough.
     """
+    from yoke_contracts.cursor_remount_expect import remount_expect_is_live
     from yoke_contracts.cursor_session_map import linked_worktree_lane_name
 
     workspace = workspace_path_from_payload(payload)
@@ -59,6 +73,12 @@ def resolve_worktree_remap_container(
         return ""
     own = payload.get("session_id") or payload.get("conversation_id") or ""
     if isinstance(own, str) and own and own == holder:
+        return ""
+    try:
+        target = _cursor_map_dir(map_dir)
+    except Exception:  # noqa: BLE001
+        return ""
+    if not remount_expect_is_live(target, holder):
         return ""
     return holder
 
@@ -125,15 +145,17 @@ def record_remount_conversation_session(
     conversation_id: Optional[str] = None,
     holder_lookup=None,
     record=None,
+    map_dir=None,
 ) -> str:
-    """Write conversation→holder pairing synchronously at remount time.
+    """Write conversation→holder pairing when a remount receipt is live.
 
     ``record`` is injectable: ``callable(conversation_id, session_id)``.
     Default writes the client cursor-session-map. Returns the holder
-    session, or empty when no pairing could be recorded.
+    session, or empty when no pairing could be recorded. A foreign
+    holder requires consuming a live remount-expect receipt.
     """
     holder = resolve_worktree_remap_container(
-        payload, holder_lookup=holder_lookup,
+        payload, holder_lookup=holder_lookup, map_dir=map_dir,
     )
     conv = conversation_id or payload.get("conversation_id") or payload.get("session_id")
     if not isinstance(conv, str) or not conv:
@@ -150,6 +172,15 @@ def record_remount_conversation_session(
         if found != conv:
             return ""
         holder = found
+    elif holder != conv:
+        from yoke_contracts.cursor_remount_expect import consume_remount_expect
+
+        try:
+            target = _cursor_map_dir(map_dir)
+        except Exception:  # noqa: BLE001
+            return ""
+        if not consume_remount_expect(target, holder):
+            return ""
     writer = record
     if writer is None:
         from yoke_harness.hooks.cursor_session_map import record_conversation_session

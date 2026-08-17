@@ -145,6 +145,7 @@ def record_then_stamp(
                     workspace = payload["cwd"]
                 if not linked_worktree_lane_name(workspace):
                     cursor_session_map.record_conversation_session(conv, conv)
+                    cursor_session_map.refresh_remount_expect(conv)
     except Exception:  # noqa: BLE001 — remount bookkeeping must not break hooks
         pass
     return stamp_hook_stdin(stdin_data, payload, executor)
