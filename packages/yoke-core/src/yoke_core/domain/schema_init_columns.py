@@ -245,6 +245,11 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "strategy_docs", "archived_at", "TEXT DEFAULT NULL")
     conn.commit()
 
+    # Existing environments tables predate the delivery stamp leaf.
+    if _table_exists(conn, "environments"):
+        _add_column_if_not_exists(conn, "environments", "last_deployed_at", "TEXT")
+    conn.commit()
+
 
 def apply_legacy_data_migrations(conn: Any) -> None:
     """Birth/full-init-only data-shape migrations and legacy drops.

@@ -34,6 +34,9 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
         "ALTER TABLE environments ADD COLUMN IF NOT EXISTS deploy_method TEXT"
     )
     test_db.execute(
+        "ALTER TABLE environments ADD COLUMN IF NOT EXISTS last_deployed_at TEXT"
+    )
+    test_db.execute(
         "DELETE FROM environments WHERE site IN "
         "(SELECT id FROM sites WHERE project_id=%s)",
         (int(project_id),),
@@ -95,6 +98,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
             "url": "https://example.test",
             "deploy_method": "github-actions",
             "health_check_url": "https://example.test/health",
+            "last_deployed_at": None,
         }],
     }
     assert "projects.infrastructure.list" in ui_server.UI_READ_FUNCTION_ALLOWLIST

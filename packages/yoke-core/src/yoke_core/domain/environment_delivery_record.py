@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows, query_scalar
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 DELIVERY_ENV_NAMES = frozenset({"prod", "stage"})
@@ -120,6 +120,8 @@ def stamp_environment_last_deployed(
     when: Optional[str] = None,
 ) -> None:
     """Write ``last_deployed_at`` on one environment row."""
+    if not _column_exists(conn, "environments", "last_deployed_at"):
+        return
     conn.execute(
         "UPDATE environments SET last_deployed_at = %s WHERE id = %s",
         (when or iso8601_now(), environment_id),

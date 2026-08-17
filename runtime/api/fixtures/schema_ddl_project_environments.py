@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS environments (
     name TEXT NOT NULL,
     url TEXT,
     health_check_url TEXT,
+    last_deployed_at TEXT,
     created_at TEXT NOT NULL,
     settings TEXT DEFAULT '{}',
     UNIQUE(site, name)
