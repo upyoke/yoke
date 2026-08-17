@@ -139,7 +139,7 @@ from yoke_cli.commands.adapters.projects import (
 )
 from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_CREATE_USAGE,
-    PROJECTS_ENVIRONMENT_CREATE_USAGE,
+    PROJECTS_ENVIRONMENT_CREATE_USAGE, PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     PROJECTS_SITE_CREATE_USAGE,
     PROJECTS_UPDATE_USAGE,
 )
@@ -263,7 +263,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
     "projects.site.create": PROJECTS_SITE_CREATE_USAGE,
-    "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE,
+    "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE, "projects.environment.update": PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-16T16:19:57Z_
+_Audit generated_at: 2026-08-17T02:04:47Z_
 
 ## 1. Summary
 
-- Function ids registered: **381**
+- Function ids registered: **382**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **304** (304 carry usable `--help`)
-- Operation tracker: **281 wrapped**, 6 tool_cli, 116 permanent, 0 pending
+- `yoke` CLI subcommands: **305** (305 carry usable `--help`)
+- Operation tracker: **282 wrapped**, 6 tool_cli, 116 permanent, 0 pending
 - Skill-body recipes: 275 total (217 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **281** (operation tracker confirms 281 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **282** (operation tracker confirms 282 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -161,6 +161,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **281** (operation track
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
 | projects | `yoke projects environment create` | `projects.environment.create` | ok |
+| projects | `yoke projects environment update` | `projects.environment.update` | ok |
 | projects | `yoke projects environment-settings get` | `projects.environment_settings.get` | ok |
 | projects | `yoke projects environment-settings merge` | `projects.environment_settings.merge` | ok |
 | projects | `yoke projects get` | `projects.get` | ok |
@@ -469,9 +470,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 28 |
-| cursor | 10 |
-| claude-code | 9 |
+| codex | 18 |
+| cursor | 15 |
+| claude-code | 14 |
 | agent | 3 |
 
 ## 8. Contradictions

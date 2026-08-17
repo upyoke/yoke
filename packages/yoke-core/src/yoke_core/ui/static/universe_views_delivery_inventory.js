@@ -204,7 +204,7 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
             {
               label: "last deploy",
               value: (row) => {
-                const stamp = runTimestamp(latestFor(row));
+                const stamp = row.last_deployed_at || runTimestamp(latestFor(row));
                 return stamp ? relativeAge(stamp) : "never";
               },
             },

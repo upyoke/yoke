@@ -35,6 +35,7 @@ def test_lists_only_non_secret_site_and_environment_metadata() -> None:
                 "url": "https://externalwebapp.example",
                 "deploy_method": "github-actions",
                 "health_check_url": "https://externalwebapp.example/health",
+                "last_deployed_at": "2026-07-26T14:00:00Z",
             }
         ],
     ]

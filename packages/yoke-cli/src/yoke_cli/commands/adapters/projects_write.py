@@ -34,10 +34,12 @@ __all__ = [
     "projects_update",
     "projects_site_create",
     "projects_environment_create",
+    "projects_environment_update",
     "PROJECTS_CREATE_USAGE",
     "PROJECTS_UPDATE_USAGE",
     "PROJECTS_SITE_CREATE_USAGE",
     "PROJECTS_ENVIRONMENT_CREATE_USAGE",
+    "PROJECTS_ENVIRONMENT_UPDATE_USAGE",
 ]
 
 
@@ -162,7 +164,13 @@ PROJECTS_SITE_CREATE_USAGE = (
 
 PROJECTS_ENVIRONMENT_CREATE_USAGE = (
     "yoke projects environment create --project P --site-slug SLUG "
-    "--environment-id ID [--settings-json JSON] [--session-id S] [--json]"
+    "--environment-id ID [--name prod|stage] [--settings-json JSON] "
+    "[--session-id S] [--json]"
+)
+
+PROJECTS_ENVIRONMENT_UPDATE_USAGE = (
+    "yoke projects environment update --project P --environment-id ID "
+    "--name prod|stage [--session-id S] [--json]"
 )
 
 
@@ -189,6 +197,12 @@ def _infrastructure_create(
             required=True,
             help="Environment row id.",
         )
+        parser.add_argument(
+            "--name",
+            dest="name",
+            default=None,
+            help="Optional delivery name (prod or stage).",
+        )
     parser.add_argument(
         "--settings-json",
         dest="settings_json",
@@ -206,6 +220,8 @@ def _infrastructure_create(
     }
     if with_environment:
         payload["environment_id"] = parsed.environment_id
+        if getattr(parsed, "name", None):
+            payload["name"] = parsed.name
     settings, settings_error = _parse_settings_json(parsed.settings_json)
     if settings_error is not None:
         print(f"error: {settings_error}", file=sys.stderr)
@@ -259,4 +275,38 @@ def projects_environment_create(args: List[str]) -> int:
         usage=PROJECTS_ENVIRONMENT_CREATE_USAGE,
         prog="yoke projects environment create",
         with_environment=True,
+    )
+
+
+def projects_environment_update(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke projects environment update",
+        description=PROJECTS_ENVIRONMENT_UPDATE_USAGE,
+    )
+    parser.add_argument("--project", required=True)
+    parser.add_argument("--environment-id", dest="environment_id", required=True)
+    parser.add_argument("--name", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, PROJECTS_ENVIRONMENT_UPDATE_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        if not response.success:
+            return None
+        print(json.dumps(response.result or {}, sort_keys=True), file=stdout)
+        return None
+
+    return dispatch_and_emit(
+        function_id="projects.environment.update",
+        target=TargetRef(kind="global"),
+        payload={
+            "project": parsed.project,
+            "environment_id": parsed.environment_id,
+            "name": parsed.name,
+        },
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
     )

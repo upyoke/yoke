@@ -107,18 +107,18 @@ Seed data: none — a fresh universe seeds no sites; rows are registered through
 
 ## Table: environments
 
-Deployment environments for sites (e.g., production, staging). `local` is a machine-config client concept, not a deploy-target environments row.
+Deployment environments for sites (e.g., prod, stage). `local` is a machine-config client concept, not a deploy-target environments row.
 
 ```sql
 id TEXT PRIMARY KEY -- e.g., 'external-webapp-web-production'
 site TEXT NOT NULL REFERENCES sites(id)
-name TEXT NOT NULL -- environment name (e.g., 'production', 'prod', 'stage')
+name TEXT NOT NULL -- delivery name; the live set is exactly 'prod' or 'stage'
 url TEXT -- public URL (e.g., 'http://100.115.178.33:3000')
 deploy_method TEXT -- e.g., 'github-actions', 'rsync+docker'
 deploy_command TEXT -- shell command to run for deployment
 health_check_url TEXT -- URL to check after deployment
 config_notes TEXT -- human-readable notes about the environment
-last_deployed_at TEXT -- last successful deployment timestamp
+last_deployed_at TEXT -- stamped on successful run completion and on release_pin.record
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 UNIQUE(site, name) -- one environment per name per site
 ```
@@ -204,7 +204,7 @@ description TEXT
 stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, step_runner, ...}]
 on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-target_env TEXT DEFAULT NULL -- target deployment environment; auto-sets deployed_to on pipeline completion
+target_env TEXT DEFAULT NULL -- delivery token; new names are prod/stage. Historical tokens such as production may remain on immutable definitions that already have runs
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
 status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
 UNIQUE(project, name)

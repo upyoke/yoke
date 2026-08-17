@@ -64,7 +64,7 @@ def handle_projects_infrastructure_list(
         environments = query_rows(
             conn,
             "SELECT e.id, e.site, e.name, e.url, e.deploy_method, "
-            "e.health_check_url FROM environments e "
+            "e.health_check_url, e.last_deployed_at FROM environments e "
             "JOIN sites s ON s.id = e.site "
             "WHERE s.project_id = %s ORDER BY e.site, e.id",
             (project_id,),

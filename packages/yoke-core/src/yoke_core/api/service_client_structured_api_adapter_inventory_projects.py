@@ -68,12 +68,24 @@ PROJECT_ADAPTERS = [
         function_id="projects.environment.create",
         cli_invocation=(
             "yoke projects environment create --project P --site-slug SLUG "
-            "--environment-id ID [--settings-json JSON]"
+            "--environment-id ID [--name prod|stage] [--settings-json JSON]"
         ),
         notes=(
             "idempotent environment registration under a project-owned "
             "site (resolves ownership through the site row); an existing "
-            "id under the same site reports already_present untouched"
+            "id under the same site reports already_present untouched; "
+            "optional --name sets the closed delivery name at insert"
+        ),
+    ),
+    AdapterEntry(
+        function_id="projects.environment.update",
+        cli_invocation=(
+            "yoke projects environment update --project P "
+            "--environment-id ID --name prod|stage"
+        ),
+        notes=(
+            "renames an existing environment in place; id and site stay "
+            "stable and the name must be prod or stage"
         ),
     ),
 ]

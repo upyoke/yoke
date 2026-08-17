@@ -145,6 +145,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects infrastructure list", "projects.infrastructure"),
     _w("yoke projects site create", "projects.infrastructure"),
     _w("yoke projects environment create", "projects.infrastructure"),
+    _w("yoke projects environment update", "projects.infrastructure"),
     _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
     _w("yoke projects pulumi-state checkpoint-import", "projects.pulumi_state"),
     _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),

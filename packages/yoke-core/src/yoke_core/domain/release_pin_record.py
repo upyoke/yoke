@@ -92,6 +92,11 @@ def record_release_pin(
                     "a container with a scalar pin"
                 )
             if current == normalized_pin:
+                from yoke_core.domain.environment_delivery_record import (
+                    stamp_environment_last_deployed,
+                )
+                stamp_environment_last_deployed(conn, route.environment_id)
+                conn.commit()
                 return _receipt(
                     identity.slug,
                     environment,
@@ -110,6 +115,10 @@ def record_release_pin(
                 (merged, route.environment_id, base),
             )
             if cursor.rowcount:
+                from yoke_core.domain.environment_delivery_record import (
+                    stamp_environment_last_deployed,
+                )
+                stamp_environment_last_deployed(conn, route.environment_id)
                 conn.commit()
                 return _receipt(
                     identity.slug,

@@ -193,6 +193,24 @@ class TestEnvironmentCreate:
         assert outcome.primary_success is False
         assert outcome.error.code == "environment_site_mismatch"
 
+    def test_explicit_delivery_name_overrides_derived_leaf(
+        self, infrastructure_db,
+    ) -> None:
+        _create_site()
+        outcome = handlers.handle_projects_environment_create(
+            _request(
+                "projects.environment.create",
+                {
+                    "project": WEBAPP_PROJECT,
+                    "site_slug": SITE,
+                    "environment_id": "production",
+                    "name": "prod",
+                },
+            )
+        )
+        assert outcome.primary_success is True
+        assert outcome.result_payload["name"] == "prod"
+
     def test_name_falls_back_to_id_without_site_prefix(
         self, infrastructure_db,
     ) -> None:
