@@ -22,7 +22,7 @@ from __future__ import annotations
 import glob as _glob
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Pattern, Tuple
+from typing import Any, Dict, List, Pattern, Tuple
 
 from yoke_core.domain.architecture_context_data import (
     iter_python_entries,
