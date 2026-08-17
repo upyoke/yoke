@@ -54,6 +54,7 @@ __all__ = [
     "cmd_list",
     "cmd_set_status",
     "cmd_stages",
+    "cmd_target",
     "cmd_update_stages",
     "main",
     "validate_stages",
@@ -68,6 +69,7 @@ Subcommands:
   get <id> [field]                                  Get flow
   list [--project <project>] [--include-disabled]   List flows
   stages <id>                                       Output raw JSON stages
+  target <id>                                       Print tier|environment-id|environment-name
   update-stages <id> <stages_json> [--description D]  Replace stages (validated)
   set-status <id> <active|disabled>                 Enable/disable without deleting
   delete <id> [--repoint-items-to <flow-id>]        Delete flow (repoint refs)
@@ -119,9 +121,11 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 0
             while i < len(rest):
                 if rest[i] == "--project" and i + 1 < len(rest):
-                    project = rest[i + 1]; i += 2
+                    project = rest[i + 1]
+                    i += 2
                 elif rest[i] == "--include-disabled":
-                    include_disabled = True; i += 1
+                    include_disabled = True
+                    i += 1
                 else:
                     i += 1
             result = cmd_list(conn, project, include_disabled=include_disabled)
@@ -148,7 +152,8 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 2
             while i < len(rest):
                 if rest[i] == "--description" and i + 1 < len(rest):
-                    description = rest[i + 1]; i += 2
+                    description = rest[i + 1]
+                    i += 2
                 else:
                     i += 1
             print(cmd_update_stages(conn, rest[0], rest[1], description))
@@ -167,7 +172,8 @@ def main(argv: Optional[List[str]] = None) -> None:
             i = 1
             while i < len(rest):
                 if rest[i] == "--repoint-items-to" and i + 1 < len(rest):
-                    repoint_to = rest[i + 1]; i += 2
+                    repoint_to = rest[i + 1]
+                    i += 2
                 else:
                     i += 1
             print(cmd_delete(conn, rest[0], repoint_to))

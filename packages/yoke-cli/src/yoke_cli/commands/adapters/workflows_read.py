@@ -107,7 +107,8 @@ def workflows_definition_get(args: List[str]) -> int:
                     for value in (
                         flow.get("id"),
                         flow.get("name"),
-                        flow.get("target_env"),
+                        flow.get("target_environment")
+                        or flow.get("target_tier"),
                         flow.get("on_failure"),
                         stage_names,
                         flow.get("project"),

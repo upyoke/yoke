@@ -33,7 +33,7 @@ DEPLOYMENT_FLOWS_DESCRIBE_USAGE = (
 )
 DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE = (
     "yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM "
-    "[--project P] [--flow F] [--target-env ENV] "
+    "[--project P] [--flow F] [--environment ENV] "
     "[--release-lineage LINEAGE] [--created-by WHO] "
     "[--session-id S] [--json]"
 )
@@ -131,7 +131,7 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke deployment-runs start-for-item",
         description=(
-            "Compose target-env resolution, run creation, item membership, "
+            "Compose target resolution, run creation, item membership, "
             "and composition validation for one item. Requires the "
             "same-universe owner-only local-postgres env "
             "(`yoke --env <control-plane>-db-admin ...`); the HTTPS product "
@@ -142,7 +142,7 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     parser.add_argument("item")
     parser.add_argument("--project")
     parser.add_argument("--flow")
-    parser.add_argument("--target-env")
+    parser.add_argument("--environment")
     parser.add_argument("--release-lineage")
     parser.add_argument("--created-by")
     add_session_arg(parser)
@@ -161,7 +161,7 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     payload = {
         key: value
         for key in (
-            "project", "flow", "target_env", "release_lineage", "created_by",
+            "project", "flow", "environment", "release_lineage", "created_by",
         )
         if (value := getattr(parsed, key)) is not None
     }

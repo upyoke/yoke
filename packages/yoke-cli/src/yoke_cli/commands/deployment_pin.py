@@ -94,16 +94,18 @@ def evaluate_pin_move(
     settings: dict,
     repo_path: str,
     source_ref: str,
-    target_env: str,
+    environment_name: str,
 ) -> PinComparison:
     """Compare the pin at *source_ref* against the environment's live pin."""
     pin_file = str(settings["pin_file"])
     branches = settings.get("branch_by_environment") or {}
-    branch = branches.get(target_env)
+    branch = branches.get(environment_name)
     if not branch:
         return PinComparison(
             regressed=False,
-            skipped_reason=(f"no pin branch declared for environment {target_env!r}"),
+            skipped_reason=(
+                f"no pin branch declared for environment {environment_name!r}"
+            ),
         )
     candidate = read_pin_at_ref(repo_path, source_ref, pin_file)
     current = read_pin_at_ref(repo_path, f"origin/{branch}", pin_file)
@@ -129,20 +131,20 @@ def assert_no_pin_regression(
     settings: dict,
     repo_path: Optional[str],
     source_ref: Optional[str],
-    target_env: Optional[str],
+    environment_name: Optional[str],
 ) -> Optional[PinComparison]:
     """Raise when the proposed ref would roll the environment's pin back.
 
     Returns the comparison when one was performed (so callers can report a
     skip reason), or None when the caller supplied no ref to compare.
     """
-    if not repo_path or not source_ref or not target_env:
+    if not repo_path or not source_ref or not environment_name:
         return None
     comparison = evaluate_pin_move(
         settings=settings,
         repo_path=repo_path,
         source_ref=source_ref,
-        target_env=target_env,
+        environment_name=environment_name,
     )
     if comparison.regressed:
         raise PinRegressionError(

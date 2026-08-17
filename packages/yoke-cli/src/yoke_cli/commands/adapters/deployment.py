@@ -14,7 +14,7 @@ from yoke_cli.commands._helpers import (
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
-    RESOLVE_TARGET_ENV_DESCRIPTION,
+    RESOLVE_TARGET_DESCRIPTION,
 )
 
 DEPLOYMENT_FLOWS_GET_USAGE = (
@@ -42,9 +42,9 @@ DEPLOYMENT_RUNS_APPROVE_USAGE = (
     "yoke deployment-runs approve RUN-ID [--note TEXT] "
     "[--session-id S] [--json]"
 )
-DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE = (
-    "yoke deployment-runs resolve-target-env PROJECT FLOW "
-    "[--target-env ENV] [--session-id S] [--json]"
+DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE = (
+    "yoke deployment-runs resolve-target PROJECT FLOW "
+    "[--environment ENV] [--session-id S] [--json]"
 )
 
 
@@ -289,33 +289,39 @@ def deployment_runs_approve(args: List[str]) -> int:
     )
 
 
-def deployment_runs_resolve_target_env(args: List[str]) -> int:
+def deployment_runs_resolve_target(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke deployment-runs resolve-target-env",
+        prog="yoke deployment-runs resolve-target",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=RESOLVE_TARGET_ENV_DESCRIPTION,
+        description=RESOLVE_TARGET_DESCRIPTION,
         epilog=ITEMLESS_RELEASE_RECIPE,
     )
     parser.add_argument("project")
     parser.add_argument("flow")
-    parser.add_argument("--target-env", dest="target_env", default=None)
+    parser.add_argument("--environment", dest="environment", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+        parser, args, DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE,
     )
     if parsed is None:
         return 2
 
     def _human_writer(response, stdout, stderr) -> None:
-        print((response.result or {}).get("target_env", ""), file=stdout)
+        result = response.result or {}
+        fields = (
+            "target_tier", "target_environment_id", "target_environment_name",
+        )
+        print(
+            "|".join(str(result.get(f) or "") for f in fields), file=stdout,
+        )
         return None
 
     payload = {"project": parsed.project, "flow": parsed.flow}
-    if parsed.target_env is not None:
-        payload["target_env"] = parsed.target_env
+    if parsed.environment is not None:
+        payload["environment"] = parsed.environment
     return dispatch_and_emit(
-        function_id="deployment_runs.resolve_target_env",
+        function_id="deployment_runs.resolve_target",
         target=TargetRef(kind="global"),
         payload=payload,
         session_id=parsed.session_id, json_mode=parsed.json_mode,
@@ -331,7 +337,7 @@ __all__ = [
     "DEPLOYMENT_RUNS_APPROVE_USAGE",
     "DEPLOYMENT_RUNS_LIST_USAGE",
     "DEPLOYMENT_RUNS_UPDATE_USAGE",
-    "DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE",
+    "DEPLOYMENT_RUNS_RESOLVE_TARGET_USAGE",
     "deployment_flows_get",
     "deployment_flows_set_status",
     "deployment_flows_stages",
@@ -339,5 +345,5 @@ __all__ = [
     "deployment_runs_approve",
     "deployment_runs_list",
     "deployment_runs_update",
-    "deployment_runs_resolve_target_env",
+    "deployment_runs_resolve_target",
 ]

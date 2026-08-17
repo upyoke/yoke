@@ -25,7 +25,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke deployment-runs stages", "deployment_runs"),
     _w("yoke deployment-runs update", "deployment_runs"),
     _w("yoke deployment-runs terminalize", "deployment_runs"),
-    _w("yoke deployment-runs resolve-target-env", "deployment_runs"),
+    _w("yoke deployment-runs resolve-target", "deployment_runs"),
 )
 
 

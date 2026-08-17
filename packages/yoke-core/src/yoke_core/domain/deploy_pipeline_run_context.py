@@ -71,7 +71,12 @@ def finalize_run_success(
     _yoke_db("runs", "update", run_id, "status", "succeeded", sd=sd)
     _emit_run_event(
         "DeploymentRunSucceeded", "completed",
-        {"run_id": run_id, "flow": flow_id, "project": project},
+        {
+            "run_id": run_id,
+            "flow": flow_id,
+            "project": project,
+            "target_environment": environment_name,
+        },
         member_items=member_items, project=project, sd=sd,
     )
     # Auto-set deployed_to (item-bound; no-op for item-less runs)

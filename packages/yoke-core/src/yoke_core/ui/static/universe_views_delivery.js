@@ -108,7 +108,10 @@ function renderRunsTable(body, rows, projects, onTerminalized) {
     const item = el(documentNode, "td");
     item.appendChild(originatingItems(documentNode, row));
     tr.appendChild(item);
-    tr.appendChild(el(documentNode, "td", null, row.target_env || "—"));
+    tr.appendChild(el(
+      documentNode, "td", null,
+      row.target_environment || row.target_tier || "—",
+    ));
     const stages = el(documentNode, "td");
     stages.appendChild(runStages(documentNode, row));
     tr.appendChild(stages);

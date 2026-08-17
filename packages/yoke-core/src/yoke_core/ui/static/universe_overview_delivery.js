@@ -65,7 +65,9 @@ export function loadDelivery(context, panel, getScope, activationFacts) {
           "overview-project-cell",
         );
         appendCell(
-          documentNode, tableRow, row.target_env || "—", "overview-target-cell",
+          documentNode, tableRow,
+          row.target_environment || row.target_tier || "—",
+          "overview-target-cell",
         );
         const stages = (row.stages || []).length
           ? deliveryStageBar(documentNode, row.stages)
@@ -116,7 +118,9 @@ function renderLatestEnvironments(documentNode, body, rows) {
     String(right.created_at || "").localeCompare(String(left.created_at || "")),
   );
   for (const row of sorted) {
-    const target = String(row.target_env || "").trim();
+    const target = String(
+      row.target_environment || row.target_tier || "",
+    ).trim();
     if (!target) continue;
     const key = `${row.project || ""}:${target}`;
     if (!latest.has(key)) latest.set(key, row);
@@ -126,7 +130,10 @@ function renderLatestEnvironments(documentNode, body, rows) {
   line.setAttribute("aria-label", "Latest by environment");
   for (const row of [...latest.values()].slice(0, 6)) {
     const fact = el(documentNode, "span", "overview-environment-fact");
-    const label = [row.project, row.target_env].filter(Boolean).join(" · ");
+    const label = [
+      row.project,
+      row.target_environment || row.target_tier,
+    ].filter(Boolean).join(" · ");
     fact.appendChild(el(documentNode, "strong", null, label || "environment"));
     fact.appendChild(el(
       documentNode, "span", null, ` ${row.status || "unknown"} · `,

@@ -39,8 +39,7 @@ MINIMUM_SERVING_VERSION = "0.1.1+launch.226"
 #: Canonical environment names for the long-form labels the label era used.
 CANONICAL_ENVIRONMENT_NAMES = {"production": "prod", "staging": "stage"}
 
-#: ``target_tier`` vocabulary (mirrors the flow-declaration contract; a
-#: migration module stays frozen, so the values are pinned here).
+#: ``target_tier`` vocabulary, pinned because migration modules stay frozen.
 TIER_PERSISTENT = "persistent"
 TIER_EPHEMERAL = "ephemeral"
 
@@ -208,6 +207,35 @@ def _recode_json_column(conn: Any, table: str, key: str, column: str) -> None:
             )
 
 
+def _recode_pin_capability_keys(conn: Any) -> None:
+    """Re-key release-pin environment maps onto canonical environment names."""
+    p = _marker(conn)
+    rows = _rows(conn.execute(
+        f"SELECT id, settings FROM project_capabilities WHERE type = {p}",
+        ("release_pin",),
+    ))
+    for row in rows:
+        try:
+            settings = json.loads(row["settings"] or "{}")
+        except (TypeError, ValueError):
+            continue
+        changed = False
+        for map_key in ("branch_by_environment", "environment_by_target"):
+            mapping = settings.get(map_key)
+            if not isinstance(mapping, dict):
+                continue
+            for legacy, canonical in CANONICAL_ENVIRONMENT_NAMES.items():
+                if legacy in mapping and canonical not in mapping:
+                    mapping[canonical] = mapping.pop(legacy)
+                    changed = True
+        if changed:
+            conn.execute(
+                f"UPDATE project_capabilities SET settings = {p} "
+                f"WHERE id = {p}",
+                (json.dumps(settings, separators=(",", ":")), row["id"]),
+            )
+
+
 def _recode_receipt_events(conn: Any) -> None:
     p = _marker(conn)
     rows = _rows(conn.execute(
@@ -273,6 +301,8 @@ def apply(conn: Any) -> None:
     if _table_exists(conn, "qa_requirements"):
         _recode_label_column(conn, "qa_requirements", "target_env")
         _recode_json_column(conn, "qa_requirements", "id", "method_config")
+    if _table_exists(conn, "project_capabilities"):
+        _recode_pin_capability_keys(conn)
     if _table_exists(conn, "events"):
         _recode_receipt_events(conn)
 
