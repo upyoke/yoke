@@ -7,9 +7,9 @@ the validation or transaction semantics. The op list is atomic: either every
 op lands or the transaction is rolled back and the handler returns
 ``payload_invalid`` / ``policy_violation`` with the original error message.
 
-``claim_required_kind="item"`` — Project Structure mutations are item-scoped
-because they typically land alongside a work item's spec change. The active
-claim's session is verified by the dispatcher before this handler runs.
+Project Structure mutations are project-scoped configuration writes. The
+dispatcher requires project-admin permission before this handler runs; an
+optional item target is provenance context, not mutation authority.
 
 Read path:
 ``project_structure.deploy_defaults.get`` exposes the project's default

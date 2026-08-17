@@ -214,9 +214,9 @@ def register(registry) -> None:
         target_kinds=["project_structure"],
         side_effects=["project_structure_write"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["claim_required"],
+        guardrails=[],
         adapter_status="live",
-        claim_required_kind="item",
+        claim_required_kind=None,
     )
     registry.register(
         "board.data.get",

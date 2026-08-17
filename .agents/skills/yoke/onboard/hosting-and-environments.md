@@ -120,8 +120,8 @@ Offer the project an architecture map: propose a draft from the tree, review it 
 ```bash
 yoke project snapshot sync {checkout} --project {project}
 yoke project-structure architecture-draft get --project {project} > /tmp/architecture-draft.json
-# review + edit the draft with the operator, then apply it as the
-# architecture_model family via `yoke project-structure patch apply`
+# review + edit the draft with the operator, then insert that JSON payload:
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"architecture_model","attachment":"project","payload":{architecture_model_json}}]'
 ```
 
 Once applied, classifications refresh automatically on every snapshot sync; verify with `yoke project-structure architecture-health get --project {project}` and record the coverage line as evidence on the `project-structure-setup` row.

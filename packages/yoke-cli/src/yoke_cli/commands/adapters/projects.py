@@ -263,7 +263,7 @@ def projects_capability_has(args: List[str]) -> int:
 
 PROJECT_STRUCTURE_PATCH_APPLY_USAGE = (
     "yoke project-structure patch apply --project NAME "
-    "--item ITEM --ops-json JSON [--actor ACTOR] [--session-id S] [--json]"
+    "--ops-json JSON [--item ITEM] [--actor ACTOR] [--session-id S] [--json]"
 )
 
 
@@ -273,7 +273,7 @@ def project_structure_patch_apply(args: List[str]) -> int:
         description=PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
     )
     parser.add_argument("--project", required=True, help="Project id.")
-    parser.add_argument("--item", required=True, help="Claimed work item.")
+    parser.add_argument("--item", help="Optional work-item provenance.")
     parser.add_argument("--ops-json", dest="ops_json", required=True,
                         help="JSON array of patch op dicts.")
     parser.add_argument("--actor", default=None,
@@ -292,11 +292,14 @@ def project_structure_patch_apply(args: List[str]) -> int:
     payload: Dict[str, Any] = {"project_id": parsed.project, "ops": ops}
     if parsed.actor:
         payload["actor"] = parsed.actor
+    target = (
+        item_target("project_structure", parsed.item, project=parsed.project)
+        if parsed.item
+        else TargetRef(kind="project_structure", project_id=parsed.project)
+    )
     return dispatch_and_emit(
         function_id="project_structure.patch.apply",
-        target=item_target(
-            "project_structure", parsed.item, project=parsed.project,
-        ),
+        target=target,
         payload=payload,
         session_id=parsed.session_id, json_mode=parsed.json_mode,
     )
