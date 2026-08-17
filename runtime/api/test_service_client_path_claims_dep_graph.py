@@ -23,6 +23,8 @@ A final reproduction test exercises the filing shape end-to-end and
 asserts post-fix success.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 

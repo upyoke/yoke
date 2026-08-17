@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from yoke_core.domain.populate_registry_data_updates import (
+from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
     SEVERITY_ONLY_UPDATES,
 )

@@ -56,7 +56,7 @@ from __future__ import annotations
 import json
 import sys
 
-from yoke_core.domain.lint_long_command_polling_constants import (
+from yoke_core.domain.lint_long_command_polling_constants import (  # noqa: F401
     CHECK_ID,
     DEFAULT_MODE,
     HOOK_NAME,
@@ -69,10 +69,10 @@ from yoke_core.domain.lint_long_command_polling_constants import (
     VALID_MODES,
 )
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from yoke_core.domain.lint_long_command_polling_config import (
+from yoke_core.domain.lint_long_command_polling_config import (  # noqa: F401
     _read_lint_mode,
 )
-from yoke_core.domain.lint_long_command_polling_extract import (
+from yoke_core.domain.lint_long_command_polling_extract import (  # noqa: F401
     _extract_command,
     _extract_tool_name,
 )
@@ -83,7 +83,7 @@ from yoke_core.domain.lint_long_command_polling_decide import (
 from yoke_core.domain.lint_long_command_polling_evaluate import (
     evaluate_payload,
 )
-from yoke_core.domain.lint_long_command_polling_monitor_duplicate import (
+from yoke_core.domain.lint_long_command_polling_monitor_duplicate import (  # noqa: F401
     evaluate_duplicate_monitor,
 )
 from yoke_core.hooks.types import (

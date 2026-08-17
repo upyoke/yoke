@@ -4,6 +4,8 @@ Split out of ``test_lint_event_registry.py`` to keep authored files under the
 350-line limit.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import io

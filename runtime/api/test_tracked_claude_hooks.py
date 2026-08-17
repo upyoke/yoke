@@ -154,7 +154,7 @@ def test_settings_json_has_no_worktree_local_db_injection() -> None:
         "(observe, observe_pre, lint_db_cmd, lint_event_registry) "
         "owns DB resolution via yoke_core.domain.db_helpers.resolve_db_path. "
         "Strip the YOKE_DB= prefix and --db argument. See YOK-1384.\n"
-        f"Violations:\n" + "\n".join(f"  - {v}" for v in violations)
+        "Violations:\n" + "\n".join(f"  - {v}" for v in violations)
     )
 
 

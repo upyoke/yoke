@@ -233,7 +233,7 @@ yoke claims work holder-get PREFIX-N
 
 It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, holder `session_id`, `target_kind`, the target columns, `claimed_at`, and `last_heartbeat` — in one call. The typed work-claim model means the lookup matches on `target_kind='item'` plus the bare integer `item_id`; do not write ad-hoc SQL using guessed owner columns, guessed claim-session columns, retired item-claim table names, or generic target columns. The same recipe is the canonical example in the generated agent context packet (`yoke_core.domain.schema_api_context`, topic `claims`).
 
-Inside the Yoke source repo only, the in-tree `python3 -m runtime.harness.harness_sessions who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
+Inside the Yoke source repo only, the in-tree `python3 -m yoke_core.hooks.sessions_cli who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
 
 `work_claims` is the **active session occupancy** primitive — what a harness session is doing right now. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT live shared-operation truth (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.owner_work_claim_id`.
 

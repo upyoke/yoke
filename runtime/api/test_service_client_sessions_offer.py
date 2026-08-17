@@ -8,6 +8,8 @@ Persistence + concurrency → test_service_client_sessions_offer_persist.py
 Codex manifest paths → test_service_client_sessions_offer_codex_manifest.py
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import json

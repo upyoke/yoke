@@ -17,7 +17,6 @@ Lives in its own sibling test module File Budget so
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -31,8 +30,6 @@ from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_POINTER,
     MAIN_AGENT_ROLE,
     RENDER_FAILURE_PREFIX,
-    append_main_agent_compact,
-    append_main_agent_full,
     render_install_advisory_block,
     render_interpreter_advisory_block,
     render_main_agent_block,

@@ -8,8 +8,6 @@ attribution; the operator sees the registered subcommands listed).
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import unittest
 from unittest import mock
 
