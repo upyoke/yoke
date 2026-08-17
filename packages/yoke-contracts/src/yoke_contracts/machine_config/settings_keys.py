@@ -79,7 +79,7 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
         "per-module budget inside one hook evaluation",
     ),
     "hook_runner_total_timeout_ms": (
-        "3000",
+        "10000",
         "total harness-wait budget for one hook evaluation",
     ),
     "hook_session_end_cleanup_timeout_ms": (

@@ -10,6 +10,7 @@ Two anti-patterns are caught:
    :mod:`yoke_core.tools.watch_merge`,
    :mod:`yoke_core.tools.watch_doctor`,
    :mod:`yoke_core.tools.watch_qa_case`,
+   :mod:`yoke_core.tools.watch_qa_plan`,
    :mod:`yoke_core.tools.watch_advance`,
    :mod:`yoke_core.tools.watch_lifecycle`, and
    :mod:`yoke_core.tools.watch_session_offer` exist, the canonical
@@ -30,6 +31,7 @@ For class (1): a finding is reported when a line contains BOTH
 ``tail -f`` and ``grep --line-buffered`` and the surrounding context (5
 lines before and after) does not contain any of ``fallback``,
 ``watch_pytest``, ``watch_merge``, ``watch_doctor``, ``watch_qa_case``,
+``watch_qa_plan``,
 ``watch_advance``,
 ``watch_lifecycle``, or ``watch_session_offer``.
 
@@ -70,6 +72,7 @@ EXCLUDE_PATHS: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/tools/watch_merge.py",
     "packages/yoke-core/src/yoke_core/tools/watch_doctor.py",
     "packages/yoke-core/src/yoke_core/tools/watch_qa_case.py",
+    "packages/yoke-core/src/yoke_core/tools/watch_qa_plan.py",
     "packages/yoke-core/src/yoke_core/tools/watch_advance.py",
     "packages/yoke-core/src/yoke_core/tools/watch_lifecycle.py",
     "packages/yoke-core/src/yoke_core/tools/watch_session_offer.py",
@@ -79,6 +82,7 @@ EXCLUDE_PATHS: tuple[str, ...] = (
     "runtime/api/tools/test_watch_merge.py",
     "runtime/api/tools/test_watch_doctor.py",
     "runtime/api/tools/test_watch_qa_case.py",
+    "runtime/api/tools/test_watch_qa_plan.py",
     "runtime/api/tools/test_watch_advance.py",
     "runtime/api/tools/test_watch_lifecycle.py",
     "runtime/api/tools/test_watch_session_offer.py",
@@ -95,6 +99,7 @@ FALLBACK_TOKENS: tuple[str, ...] = (
     "watch_merge",
     "watch_doctor",
     "watch_qa_case",
+    "watch_qa_plan",
     "watch_advance",
     "watch_lifecycle",
     "watch_session_offer",

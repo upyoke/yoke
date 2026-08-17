@@ -304,6 +304,7 @@ def submit_plan_review(
         "execution_id": str(execution["id"]),
         "bundle_id": bundle_id,
         "state": settled_state,
+        "submission": "persisted",
         "verdicts": [
             {
                 "requirement_id": requirement_id,

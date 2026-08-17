@@ -103,9 +103,21 @@ def test_floor_fails_when_installed_below_floor(monkeypatch, conn):
 def test_floor_passes_when_codex_not_installed(monkeypatch, conn):
     monkeypatch.setattr(mod, "_read_floor_token", lambda: "0.118.0-alpha.2")
     monkeypatch.setattr(mod, "_detect_codex_version", lambda: None)
+    monkeypatch.setattr(mod, "_codex_config_present", lambda: False)
+    monkeypatch.setattr(mod, "_codex_binary", lambda: None)
     rec = _record(hc_codex_hook_floor, conn)
     assert rec.results[0].result == "PASS"
     assert "wrapper-only" in rec.results[0].detail
+
+
+def test_floor_fails_when_config_present_but_version_unread(monkeypatch, conn):
+    monkeypatch.setattr(mod, "_read_floor_token", lambda: "0.118.0-alpha.2")
+    monkeypatch.setattr(mod, "_detect_codex_version", lambda: None)
+    monkeypatch.setattr(mod, "_codex_config_present", lambda: True)
+    monkeypatch.setattr(mod, "_codex_binary", lambda: None)
+    rec = _record(hc_codex_hook_floor, conn)
+    assert rec.results[0].result == "FAIL"
+    assert "could not be read" in rec.results[0].detail
 
 
 def test_floor_passes_when_manifest_unavailable(monkeypatch, conn):

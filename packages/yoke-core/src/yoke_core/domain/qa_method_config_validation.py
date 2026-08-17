@@ -74,6 +74,22 @@ def validate_method_config(config_contract_id: str, raw: Any) -> dict:
         violation = browser_method_contract_violation(config_contract_id, steps)
         if violation is not None:
             raise QaMethodConfigError(violation.message)
+    elif config_contract_id in {"terminal-check", "terminal-inspection"}:
+        from yoke_core.domain.machine_qa_action_readiness_contract import (
+            bound_ready_timeout_seconds,
+        )
+
+        for action in config.get("actions") or []:
+            if not isinstance(action, dict):
+                continue
+            if "ready_timeout_seconds" not in action:
+                continue
+            try:
+                action["ready_timeout_seconds"] = bound_ready_timeout_seconds(
+                    action["ready_timeout_seconds"]
+                )
+            except ValueError as exc:
+                raise QaMethodConfigError(str(exc)) from exc
     return config
 
 

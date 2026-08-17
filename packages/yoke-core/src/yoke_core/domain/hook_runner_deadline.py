@@ -24,7 +24,7 @@ from yoke_core.domain.runtime_settings import get_int
 MODULE_TIMEOUT_CONFIG_KEY = "hook_runner_module_timeout_ms"
 MODULE_TIMEOUT_DEFAULT_MS = 10000
 TOTAL_TIMEOUT_CONFIG_KEY = "hook_runner_total_timeout_ms"
-TOTAL_TIMEOUT_DEFAULT_MS = 3000
+TOTAL_TIMEOUT_DEFAULT_MS = 10000
 
 Clock = Callable[[], float]
 

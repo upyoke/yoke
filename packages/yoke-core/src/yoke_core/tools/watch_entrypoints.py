@@ -17,6 +17,7 @@ from yoke_core.tools import (
     watch_preflight,
     watch_pytest,
     watch_qa_case,
+    watch_qa_plan,
     watch_tail,
 )
 
@@ -32,6 +33,7 @@ WRAPPER_MAINS: dict[str, WrapperMain] = {
         watch_deploy,
         watch_preflight,
         watch_qa_case,
+        watch_qa_plan,
         watch_tail,
     )
 }

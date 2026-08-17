@@ -2,7 +2,9 @@
 
 from yoke_cli.commands.adapters import (
     direct_workflow_usage,
+    harness_machine_report,
     inbox_decisions,
+    overview,
     item_pages,
     items_merge_provenance,
     item_worktree_create,
@@ -42,6 +44,8 @@ USAGE_BY_FUNCTION_ID = {
         items_merge_provenance.ITEMS_MERGE_PROVENANCE_OPERATOR_CORRECT_USAGE
     ),
     **direct_workflow_usage.USAGE_BY_FUNCTION_ID,
+    **harness_machine_report.USAGE_BY_FUNCTION_ID,
+    **overview.USAGE_BY_FUNCTION_ID,
     **inbox_decisions.USAGE_BY_FUNCTION_ID,
     **item_pages.USAGE_BY_FUNCTION_ID,
     **qa_catalog.USAGE_BY_FUNCTION_ID,

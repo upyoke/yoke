@@ -145,14 +145,16 @@
   font-size: 12px;
   color: var(--yoke-ink-2);
 }
-.universe-app-root .activation-target[data-hit="true"] {
+.universe-app-root .activation-target[data-hook-health="green"] {
   color: var(--yoke-good);
   font-weight: 600;
 }
-/* Registered but hookless — deliberately after the hit rule, which would
-   otherwise paint an unapproved harness the same green as a working one. */
-.universe-app-root .activation-target[data-hook-health="hooks_silent"] {
+.universe-app-root .activation-target[data-hook-health="orange"] {
   color: var(--yoke-warn);
+  font-weight: 600;
+}
+.universe-app-root .activation-target[data-hook-health="red"] {
+  color: var(--yoke-crit);
   font-weight: 600;
 }
 .universe-app-root .activation-remediation {

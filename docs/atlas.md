@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-17T21:18:45Z_
+_Audit generated_at: 2026-08-17T22:28:38Z_
 
 ## 1. Summary
 
-- Function ids registered: **384**
-- Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **307** (307 carry usable `--help`)
-- Operation tracker: **284 wrapped**, 6 tool_cli, 116 permanent, 0 pending
+- Function ids registered: **385**
+- Internal dispatch-only functions without CLI adapters: **76**
+- `yoke` CLI subcommands: **309** (309 carry usable `--help`)
+- Operation tracker: **286 wrapped**, 7 tool_cli, 116 permanent, 0 pending
 - Skill-body recipes: 278 total (220 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation tracker confirms 284 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **286** (operation tracker confirms 286 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -99,6 +99,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation track
 | github_actions | `yoke github-actions trigger-once` | `github_actions.workflow.dispatch_once` | ok |
 | github_actions | `yoke github-actions workflow find-run` | `github_actions.workflow.find_run` | ok |
 | github_actions | `yoke github-actions find-run` | `github_actions.workflow.find_run` | ok |
+| harness | `yoke harness machine-report upsert` | `harness.machine_report.upsert` | ok |
 | hook | `yoke hook evaluate` | `hook.evaluate.run` | ok |
 | identity | `yoke identity autojoin set` | `identity.autojoin.set` | ok |
 | identity | `yoke identity invite create` | `identity.invite.create` | ok |
@@ -144,6 +145,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation track
 | ouroboros | `yoke ouroboros field-note get` | `ouroboros.field_note.get` | ok |
 | ouroboros | `yoke ouroboros field-note list` | `ouroboros.field_note.list` | ok |
 | ouroboros | `yoke ouroboros field-note promote` | `ouroboros.field_note.promote` | ok |
+| overview | `yoke overview activation get` | `overview.activation.get` | ok |
 | packs | `yoke packs list` | `packs.list` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
@@ -317,6 +319,7 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | tools.watch | `yoke watch merge` | tool_shaped |
 | tools.watch | `yoke watch pytest` | tool_shaped |
 | tools.watch | `yoke watch qa-case` | tool_shaped |
+| tools.watch | `yoke watch qa-plan` | tool_shaped |
 
 ## 4. Permanent command-shaped boundary roster
 
@@ -459,7 +462,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 129 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 29 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 30 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
@@ -472,8 +475,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 43 |
-| claude-code | 5 |
+| codex | 46 |
+| claude-code | 2 |
 | cursor | 2 |
 
 ## 8. Contradictions

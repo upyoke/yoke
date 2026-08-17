@@ -276,14 +276,14 @@ Codex-specific sidecar metadata (`agents/openai.yaml`) is intentionally absent f
 
 ## 6. Hook Approval
 
-Installing hook glue does not make it run. Every harness Yoke ships an adapter for gates its hooks behind the operator's approval for that project, and every one of them fails **silently** when approval is missing: the harness runs the session normally and simply never invokes the hooks. Nothing errors, so the failure has to be inferred from what is absent — no tool telemetry, no heartbeats past registration, a board that reads idle while the session is working, and a session id later commands cannot find because the CLI's ensure-register probe wrote the only row that exists.
+Installing hook glue does not make it run. A harness with a readable approval gate fails **silently** when approval is missing: the harness runs the session normally and simply never invokes the hooks. Nothing errors, so the failure has to be inferred from what is absent — no tool telemetry, no heartbeats past registration, a board that reads idle while the session is working, and a session id later commands cannot find because the CLI's ensure-register probe wrote the only row that exists.
 
-Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`, with the surface where approval is granted and what the grant is keyed to. A harness absent from that mapping has no gate. Two surfaces read the declaration rather than branching on a harness id:
+Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`, with the surface where approval is granted and what the grant is keyed to. A harness absent from that mapping has no gate — Claude Code is absent because folder-trust does not gate hooks on the probed builds. Two surfaces read the declaration rather than branching on a harness id:
 
 | Reader | What it does with the declaration |
 |--------|-----------------------------------|
 | `yoke project install` / `yoke onboard` | Records one approval sentence per harness whose glue the run wrote or updated, under the install report's `harness_hook_trust` key, and renders it in the installer JSON and the wizard's completion screen. |
-| The Overview's harness activation module | Reports per-target hook health, and renders the approval surface's name as the remediation for a harness whose sessions carry no hook-written telemetry. |
+| The Overview's harness activation module | Reports per-target hook health (green / orange / red). Orange remediation names the approval surface when approval state is readable and untrusted. |
 
 Two properties of the gate matter more than the mechanics:
 

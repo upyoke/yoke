@@ -47,6 +47,7 @@ class PlanReviewSubmitResponse(BaseModel):
     execution_id: str
     bundle_id: str
     state: str
+    submission: str
     verdicts: list[dict[str, Any]]
 
 

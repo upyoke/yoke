@@ -188,8 +188,10 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "expected outcome. Return exactly one independent verdict and "
             f"rationale for each of the {len(cases)} cases. Do not infer a "
             "verdict from capture status. Use only the supplied artifact-read "
-            "commands for bytes that are not directly available, and refuse "
-            "a missing or different target authority."
+            "commands for bytes that are not directly available "
+            "(add --output PATH to land bytes on disk; prefer the result "
+            "path key — artifact_handle.path may be a dead /tmp location), "
+            "and refuse a missing or different target authority."
         )
         submit_command = (
             f"yoke qa plan review-submit {subject_flag} "

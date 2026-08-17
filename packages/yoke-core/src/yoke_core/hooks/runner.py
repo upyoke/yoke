@@ -6,16 +6,14 @@ harness-specific decision, and emits best-effort telemetry. Typed modules run
 under :mod:`yoke_core.hooks.typed_dispatch`'s watchdog; subprocess
 modules use ``subprocess.run(timeout=...)``.
 
-Two budgets apply: the legacy per-module ceiling
-``hook_runner_module_timeout_ms`` and the total harness-wait deadline
-``hook_runner_total_timeout_ms``. A deny computed before the total deadline is
-rendered; unfinished ordinary work after the deadline degrades to allow/no-op.
-``dry_run=True`` prints the resolved chain without invoking policy code.
-Both halves of the https relay split pass ``controls``
-(:class:`yoke_core.hooks.remote_policy.RunControls`): the server
-(``/v1/hooks/evaluate``) injects the propagated budget and skips classified
-local-state policies; the relay client runs only that local-state subset
-with ``flush_tail=False`` (the server's run owns the telemetry tail).
+Two budgets apply: the per-module ceiling ``hook_runner_module_timeout_ms``
+and the total harness-wait deadline ``hook_runner_total_timeout_ms``. A deny
+computed before the deadline is rendered; unfinished ordinary work after it
+degrades to allow/no-op. ``dry_run=True`` prints the resolved chain without
+invoking policy code. Both halves of the https relay split pass ``controls``
+(:class:`yoke_core.hooks.remote_policy.RunControls`): the server injects the
+propagated budget and skips classified local-state policies; the relay client
+runs only that subset with ``flush_tail=False``.
 """
 
 from __future__ import annotations
@@ -39,6 +37,7 @@ from yoke_core.hooks.remote_policy import RunControls
 # The telemetry patch seam: the flush itself happens in run_tail, but the
 # module attribute patched here is the same object run_tail resolves.
 from yoke_core.hooks import telemetry as _telemetry  # noqa: F401
+from yoke_core.hooks.skipped_guards import record_skipped_guards
 from yoke_core.hooks.subprocess_policy import run_subprocess_policy
 from yoke_core.hooks.target import resolve_context_target_root
 from yoke_core.hooks.typed_dispatch import audit_only_synthetic, dispatch_typed
@@ -266,10 +265,12 @@ def run_event(
     extra_stdout_parts: list[str] = []
     telem_records: list[tuple[str, dict]] = []
     timed_out = False
+    skipped_guards: list[str] = []
 
-    for module_id in chain:
+    for index, module_id in enumerate(chain):
         if deadline.expired():
             timed_out = True
+            skipped_guards = chain[index:]
             break
         if controls is not None and controls.skip_module is not None:
             marker = controls.skip_module(module_id)
@@ -299,12 +300,16 @@ def run_event(
             extra_stdout_parts.append(decision_stdout)
         if failure and failure.startswith("timeout_") and deadline.expired():
             timed_out = True
+            skipped_guards = chain[index + 1:]
             break
         if decision.next is Next.STOP:
             break
         if deadline.expired():
             timed_out = True
+            skipped_guards = chain[index + 1:]
             break
+    if skipped_guards:
+        record_skipped_guards(skipped_guards, controls)
 
     rendered_text, exit_code = capability.decision_renderer(decisions, event_name)
     if extra_stdout_parts:

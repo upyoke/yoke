@@ -44,8 +44,7 @@ export const INSTALL_COMMAND = "curl -fsSL https://upyoke.com/install | sh";
 // not actually running Yoke's hooks. The engine names the harness's own trust
 // surface; this is the sentence that wraps it.
 export const hookTrustRemediation = (trustSurface) =>
-  `Sessions detected but hooks are not firing — trust this project's hooks ` +
-  `in ${trustSurface}.`;
+  `Waiting on you — trust this project's hooks in ${trustSurface}.`;
 
 export const MODULE_COPY = {
   connect_harness: {

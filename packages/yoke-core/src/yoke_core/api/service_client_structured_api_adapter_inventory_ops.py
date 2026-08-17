@@ -189,6 +189,14 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="strategy.master_plan_check.run",
         cli_invocation="yoke strategy master-plan-check",
     ),
+    _read_entry(
+        function_id="overview.activation.get",
+        cli_invocation="yoke overview activation get",
+    ),
+    AdapterEntry(
+        function_id="harness.machine_report.upsert",
+        cli_invocation="yoke harness machine-report upsert --project-id N",
+    ),
 ]
 
 

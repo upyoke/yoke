@@ -114,7 +114,13 @@ def action(
     if ready_text:
         row["ready_text"] = list(ready_text)
     if ready_timeout_seconds is not None:
-        row["ready_timeout_seconds"] = ready_timeout_seconds
+        from yoke_core.domain.machine_qa_action_readiness_contract import (
+            bound_ready_timeout_seconds,
+        )
+
+        row["ready_timeout_seconds"] = bound_ready_timeout_seconds(
+            ready_timeout_seconds
+        )
     if wait_seconds is not None:
         row["wait_seconds"] = wait_seconds
     return row

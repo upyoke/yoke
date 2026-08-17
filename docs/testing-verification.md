@@ -159,10 +159,10 @@ Provision the host once before saving the capability:
 5. Disable automatic system and display sleep for the test interval. Restore
    the operator's normal sleep policy when the dedicated test interval ends.
 
-`machine_browser_approval` gates are self-approving. The runner uses the host's
-provisioned visible Safari session and then waits for terminal completion; no
-operator browser action is needed or wanted. Approving the one-time code
-manually in parallel consumes it and breaks the automated gate.
+The `machine_browser_approval` gate self-approves in the host's visible Safari
+session (`self_approving: true` on `machine_qa.operator_gate`). No operator
+browser action is needed; redeeming the one-time code in another browser
+consumes it and breaks the gate (`machine_browser_tab_missing`).
 
 The saved settings document contains exactly `resource_name`, `host`, `user`,
 and `operating_notes`. It contains no credentials. `ssh_private_key` is the

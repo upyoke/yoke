@@ -34,7 +34,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.overview_harness_hook_health import harness_targets
+from yoke_core.domain.harness_machine_state import read_harness_machine_reports
+from yoke_core.domain.overview_harness_hook_health import (
+    harness_targets,
+    session_identities,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 MODULE_FINISH_INSTALLATION_WIZARD = "finish_installation_wizard"
@@ -72,18 +76,18 @@ def _guarded_exists(conn: Any, table: str, sql: str) -> bool:
 
 def read_signals(conn: Any) -> Dict[str, Any]:
     """Read every engine-owned activation signal in one pass."""
-    # One row per distinct identity pair, carrying how many of its sessions
-    # ever recorded a tool call. Only the hook chain stamps that column, so
-    # the count is what separates a live harness from one whose glue was
-    # never approved and therefore never ran.
-    harness_identities = [
-        (str(row[0]), str(row[1] or ""), int(row[2]))
-        for row in conn.execute(
+    # One row per session so a silent older episode in the same identity
+    # still colours red. Only the hook chain stamps tool_call_count /
+    # last_tool_call_at.
+    harness_identities = session_identities(
+        conn.execute(
             "SELECT executor, COALESCE(executor_display_name, ''), "
-            "COUNT(*) FILTER (WHERE tool_call_count > 0) "
-            "FROM harness_sessions GROUP BY 1, 2"
+            "CASE WHEN tool_call_count > 0 OR last_tool_call_at IS NOT NULL "
+            "THEN 1 ELSE 0 END, episode_started_at, last_tool_call_at "
+            "FROM harness_sessions"
         ).fetchall()
-    ]
+    )
+    harness_reports = read_harness_machine_reports(conn)
     latest = conn.execute(
         "SELECT executor, offered_at FROM harness_sessions "
         "ORDER BY offered_at DESC LIMIT 1"
@@ -112,6 +116,7 @@ def read_signals(conn: Any) -> Dict[str, Any]:
         ),
         "sessions_exist": bool(harness_identities),
         "harness_identities": harness_identities,
+        "harness_reports": harness_reports,
         "connected": (
             {"executor": str(latest[0]), "at": latest[1]}
             if latest is not None else None
@@ -240,7 +245,10 @@ def compute_activation(
                 row["done"] for row in submodules
             )
         if key == MODULE_CONNECT_HARNESS:
-            module["targets"] = harness_targets(signals["harness_identities"])
+            module["targets"] = harness_targets(
+                signals["harness_identities"],
+                signals["harness_reports"],
+            )
             module["projects"] = signals["project_directories"]
             module["connected"] = signals["connected"]
         modules.append(module)

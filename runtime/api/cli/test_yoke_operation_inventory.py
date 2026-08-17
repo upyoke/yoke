@@ -122,6 +122,7 @@ class TestRegistryShape:
             "yoke watch doctor",
             "yoke watch merge",
             "yoke watch qa-case",
+            "yoke watch qa-plan",
             "yoke release-pin verify",
         }
         for entry in inv.by_status(inv.TOOL_CLI):
