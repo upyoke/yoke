@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the PathClaimOverride fact layer.
 
 Scenarios:

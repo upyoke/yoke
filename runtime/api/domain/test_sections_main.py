@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """sections — main dispatcher and event-fallback coverage.
 
 Split out of ``test_sections.py`` to keep authored files under the 350-line

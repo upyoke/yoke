@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression coverage for migration capability connection ownership."""
 
 from __future__ import annotations

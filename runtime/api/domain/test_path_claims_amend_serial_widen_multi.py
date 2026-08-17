@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Multi-upstream determinism + mutation-clean rejection coverage.
 
 Lives in a sibling file because ``test_path_claims_amend_serial_widen.py``

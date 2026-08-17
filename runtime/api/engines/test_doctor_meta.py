@@ -1,3 +1,5 @@
+# ruff: noqa: E402
+
 """Doctor meta-HCs covering registry, backlog quality, schema, and item flows.
 
 Project FK/JSON/ephemeral/lifecycle HCs live in test_doctor_meta_project.py.

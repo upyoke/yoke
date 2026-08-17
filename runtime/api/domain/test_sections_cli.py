@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """sections — CLI subcommand surfaces (upsert/get/list/delete).
 
 Split out of ``test_sections.py`` to keep authored files under the 350-line

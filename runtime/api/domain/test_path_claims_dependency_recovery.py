@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the data-driven recovery sweep over released claims.
 
 The terminal-hook fix in ``path_claims_item_hook_release`` closes the

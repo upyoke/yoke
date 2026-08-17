@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """End-to-end coverage for the coordination_only no-mutex contract.
 
 Three items mutually linked by ``coordination_only`` ``item_dependencies``

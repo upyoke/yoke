@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression scenarios for the merge-base boundary anchor.
 
 Covers the core merge-base boundary scenarios:

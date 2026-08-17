@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Override-effectiveness tests.
 
 When ``path_claims_override.is_active_override(candidate, blocker)``
@@ -10,7 +12,6 @@ state), the classifier reverts to today's incompatible verdict.
 
 from __future__ import annotations
 
-import pytest
 
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,

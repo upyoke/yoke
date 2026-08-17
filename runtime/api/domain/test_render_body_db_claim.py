@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """render_body — unified ``## DB Claim`` body-section rendering.
 
 Split out of ``test_render_body.py`` to keep authored files under the

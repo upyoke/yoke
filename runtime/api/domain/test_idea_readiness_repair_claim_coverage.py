@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for yoke_core.domain.idea_readiness_repair_claim_coverage.
 
 Covers:

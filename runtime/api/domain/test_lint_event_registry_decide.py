@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """lint_event_registry — decide() pure decision surface.
 
 Split out of ``test_lint_event_registry.py`` to keep authored files under the

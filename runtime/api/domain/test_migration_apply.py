@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the two-unit apply contract — rehearsal unit.
 
 Original module covered every flavor of the apply contract. It is now split

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the ``workflow_item.epic_task.review_*`` handler family.
 
 Direct handler-call coverage against a disposable test DB; qa-bridge

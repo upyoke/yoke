@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the ``workflow_item.epic_task`` state handlers + registration shape.
 
 Covers ``body_get`` / ``update_status`` / ``simulation_upsert`` /

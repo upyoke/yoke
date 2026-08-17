@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Direct Python tests for ``yoke_core.domain.lint_event_registry``.
 
 Original module covered every flavor of the lint hook. It is now split across

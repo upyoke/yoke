@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the ``## Path Claims`` body renderer."""
 
 from __future__ import annotations

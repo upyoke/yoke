@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """render_body — TC-render-body-* behavioral backstop suite.
 
 Split out of ``test_render_body.py`` to keep authored files under the

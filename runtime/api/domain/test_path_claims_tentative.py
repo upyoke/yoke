@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for tentative path-claim registration plumbing.
 
 Covers registration (callers register tentative without broad parent claims)

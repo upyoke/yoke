@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the committed-git boundary check.
 
 Boots a small temp git repo per test so the diff window has real

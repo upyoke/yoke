@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """migration_apply — live-verify failure recovery and profile gating.
 
 Split out of ``test_migration_apply.py`` to keep authored files under the

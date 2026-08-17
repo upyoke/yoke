@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression coverage for superseding no-claim exceptions."""
 
 from __future__ import annotations

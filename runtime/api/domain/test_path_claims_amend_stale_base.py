@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the stale-base-on-new-claim widen validator.
 
 Scenarios:

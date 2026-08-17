@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression coverage for dependency-aware widen-overlap handling.
 
 Pins serial-via-dependency widen, un-attested overlap

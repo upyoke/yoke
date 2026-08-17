@@ -9,17 +9,9 @@ Uses in-memory SQLite and mock subprocess for deterministic testing.
 from __future__ import annotations
 
 import json
-import re
-import subprocess
-import textwrap
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
 
 from yoke_core.engines.doctor import (
-    DoctorArgs,
-    RecordCollector,
     hc_events_destructive_maintenance_audit,
     hc_events_historical_coverage_collapse,
     hc_events_synthetic_contamination,
@@ -27,15 +19,11 @@ from yoke_core.engines.doctor import (
 
 from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
-    _args,
     _ensure_migration_audit_table,
-    _completed,
     _iso_days_ago,
-    _iso_minutes_ago,
     _make_conn,
     _p,
     _result,
-    _results,
     _run_hc,
 )
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl

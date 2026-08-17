@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import pytest

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Cascade release of process-linked path claims via the by-claim-id path.
 
 The session-scoped release path already cascades linked process path
@@ -34,7 +36,7 @@ def _seed_process_work_claim(conn, *, session_id: str, process_key: str) -> int:
         "conflict_group, claimed_at, last_heartbeat) "
         "VALUES (%s, 'process', %s, %s, '2026-05-01T00:00:00Z', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (session_id, process_key, f"strategy-control-plane:yoke"),
+        (session_id, process_key, "strategy-control-plane:yoke"),
     )
     return int(cur.fetchone()[0])
 

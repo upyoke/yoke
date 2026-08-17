@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Mixed widen+narrow partial-progress tests for claim-coverage auto-repair.
 
 Sibling of :mod:`test_idea_readiness_repair_claim_coverage`. Lives in its

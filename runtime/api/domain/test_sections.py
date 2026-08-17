@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for ``yoke_core.domain.sections`` — core API (upsert/get/list/delete).
 
 Original module covered every flavor of sections behavior. It is now split

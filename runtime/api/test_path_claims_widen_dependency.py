@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Widen-direction dep-graph awareness tests.
 
 When a claim that registered with a non-terminal item_dependencies edge

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for ``path-claims list --state`` filter parsing.
 
 Regression home for the friction logged repeatedly across YOK-1888 /

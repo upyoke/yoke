@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for path-claim activation / terminal dispatcher commands."""
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Focused helper tests for :mod:`path_claims_blocked_reason_refresh`.
 
 Split out of ``test_path_claims_dependency_propagation_coordination.py`` so

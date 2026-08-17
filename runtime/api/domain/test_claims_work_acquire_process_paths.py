@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Process work-claim acquisition is a pure process lock — no path claims.
 
 The strategy authority is the ``strategy_docs`` DB table; the rendered

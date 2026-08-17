@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the PathClaimOverride telemetry emitter.
 
 Split out of ``test_path_claims_override.py`` to keep both files

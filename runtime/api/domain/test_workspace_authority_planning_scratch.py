@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Planning-scratch coverage for workspace authority."""
 
 from __future__ import annotations
@@ -21,8 +23,8 @@ from runtime.api.domain.workspace_authority_test_helpers import (
     _seed_item,
     _seed_project,
     _seed_session_status,
-    conn,
-    patch_conn,
+    conn,  # noqa: F401 -- imported pytest fixture
+    patch_conn,  # noqa: F401 -- imported pytest fixture
 )
 
 

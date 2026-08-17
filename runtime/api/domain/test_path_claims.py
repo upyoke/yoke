@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Register-side tests for the path-claim domain.
 
 Lifecycle (activate/release/cancel) and overlap-classifier coverage

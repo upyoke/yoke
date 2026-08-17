@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for project-relative path → ``path_targets.id`` resolution."""
 
 from __future__ import annotations

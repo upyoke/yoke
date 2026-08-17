@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for planned-target creation, materialization, and snapshot reuse.
 
 Covers the planning surface: schema columns
@@ -195,7 +197,7 @@ class TestMaterialization:
         assert match == leaf
 
     def test_find_planned_match_rejects_kind_mismatch(self, conn):
-        leaf = plan_path_target(
+        plan_path_target(
             conn, project_id=1,
             path_string="a/b/c.py", kind=KIND_FILE, item_id=1,
         )

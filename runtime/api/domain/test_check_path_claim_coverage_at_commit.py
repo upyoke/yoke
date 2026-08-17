@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for yoke_core.domain.check_path_claim_coverage_at_commit."""
 
 from __future__ import annotations
@@ -17,9 +19,7 @@ from runtime.api.domain._test_check_path_claim_helpers import (
 )
 
 
-# ---------------------------------------------------------------------------
 # files_outside_coverage
-# ---------------------------------------------------------------------------
 
 
 class TestFilesOutsideCoverage:
