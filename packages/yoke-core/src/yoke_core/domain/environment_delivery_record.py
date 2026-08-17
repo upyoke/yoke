@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows, query_scalar
+from yoke_core.domain.schema_common import _table_exists
 
 
 DELIVERY_ENV_NAMES = frozenset({"prod", "stage"})
@@ -35,21 +36,23 @@ def require_delivery_env_name(name: str) -> str:
 def registered_target_env_tokens(conn: Any, project_id: int) -> list[str]:
     """Return the sorted delivery tokens a project currently recognizes."""
     tokens: set[str] = set()
-    for row in query_rows(
-        conn,
-        "SELECT e.id, e.name FROM environments e "
-        "JOIN sites s ON s.id = e.site WHERE s.project_id = %s",
-        (project_id,),
-    ):
-        tokens.update(_nonempty_tokens((
-            _row_value(row, "id", 0), _row_value(row, "name", 1),
-        )))
-    for row in query_rows(
-        conn,
-        "SELECT target_env FROM deployment_flows WHERE project_id = %s",
-        (project_id,),
-    ):
-        tokens.update(_nonempty_tokens((_row_value(row, "target_env", 0),)))
+    if _has_environment_registry(conn):
+        for row in query_rows(
+            conn,
+            "SELECT e.id, e.name FROM environments e "
+            "JOIN sites s ON s.id = e.site WHERE s.project_id = %s",
+            (project_id,),
+        ):
+            tokens.update(_nonempty_tokens((
+                _row_value(row, "id", 0), _row_value(row, "name", 1),
+            )))
+    if _table_exists(conn, "deployment_flows"):
+        for row in query_rows(
+            conn,
+            "SELECT target_env FROM deployment_flows WHERE project_id = %s",
+            (project_id,),
+        ):
+            tokens.update(_nonempty_tokens((_row_value(row, "target_env", 0),)))
     return sorted(tokens)
 
 
@@ -66,6 +69,8 @@ def require_registered_target_env(
     """
     token = str(target_env or "").strip()
     if token.lower() in UNBOUND_TARGET_ENVS:
+        return
+    if not _has_environment_registry(conn):
         return
     env_count = query_scalar(
         conn,
@@ -90,7 +95,7 @@ def resolve_environment_id(
 ) -> Optional[str]:
     """Return the project environment id for ``target_env``, if any."""
     token = str(target_env or "").strip()
-    if not token:
+    if not token or not _has_environment_registry(conn):
         return None
     row = query_scalar(
         conn,
@@ -144,6 +149,10 @@ def stamp_run_environment(
         return None
     stamp_environment_last_deployed(conn, environment_id, when=when)
     return environment_id
+
+
+def _has_environment_registry(conn: Any) -> bool:
+    return _table_exists(conn, "environments") and _table_exists(conn, "sites")
 
 
 def _row_value(row: Any, key: str, index: int) -> Any:

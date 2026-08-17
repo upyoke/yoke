@@ -118,19 +118,4 @@ PROJECT_COMMANDS: list[dict] = [
             "SQL or generic capability-settings surfaces."
         ),
     },
-    {
-        "topic": "project",
-        "purpose": "Rename a registered environment delivery name",
-        "recipe": (
-            "yoke projects environment update --project <project> "
-            "--environment-id <id> --name prod|stage --json"
-        ),
-        "notes": (
-            "Registered write projects.environment.update. Keeps the "
-            "environment id and site stable and writes only the display "
-            "name. Names are the closed set prod/stage. Create still uses "
-            "projects.environment.create; optional --name on create sets "
-            "the delivery name at insert time."
-        ),
-    },
 ]
