@@ -83,6 +83,10 @@ def _area_for(path: str) -> Tuple[str, str]:
         prefix_parts.append(segment)
         if segment not in _GENERIC_HEADS:
             return segment.replace("-", "_"), "/".join(prefix_parts)
+    if prefix_parts:
+        # Every directory segment was a generic head ("src/app/x.py"):
+        # the deepest one still names the area better than "root".
+        return prefix_parts[-1].replace("-", "_"), "/".join(prefix_parts)
     return "root", ""
 
 
