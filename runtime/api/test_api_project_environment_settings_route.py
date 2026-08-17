@@ -17,11 +17,11 @@ def environment_db():
     conn = connect_test_db(db["db_path"])
     try:
         conn.execute(
-            "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
+            "CREATE TABLE IF NOT EXISTS sites (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
             "name TEXT NOT NULL, created_at TEXT NOT NULL)"
         )
         conn.execute(
-            "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT NOT NULL, "
+            "CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, site TEXT NOT NULL, "
             "name TEXT NOT NULL, settings TEXT DEFAULT '{}', "
             "created_at TEXT NOT NULL)"
         )
