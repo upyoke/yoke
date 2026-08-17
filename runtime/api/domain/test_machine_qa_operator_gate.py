@@ -84,6 +84,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
     assert any(" -X stuff " in command for command in commands)
     event = json.loads(capsys.readouterr().out)
     assert event == {
+        "approval_automation": "self_approving_visible_safari",
         "code": "AB12-CD34",
         "event": "machine_qa.operator_gate",
         "kind": "machine_browser_approval",

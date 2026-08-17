@@ -78,6 +78,7 @@ def _emit_browser_approval(url: str, code: str) -> None:
     print(
         json.dumps(
             {
+                "approval_automation": "self_approving_visible_safari",
                 "event": "machine_qa.operator_gate",
                 "kind": "machine_browser_approval",
                 "url": url,
