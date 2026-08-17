@@ -424,6 +424,8 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
   - Actor identity referenced by work_claims.actor_id, path_claims.registered_by_actor_id, and similar foreign keys. kind is 'human' or 'system'; system_component is the bound component name when kind is system-attributed. Human-readable names live in actor_labels as surface-specific projections: display for generic actor views, github_label for GitHub sync. actors has NO org_id column; resolve an actor's organization membership through actor_org_roles.org_id.
 - **`actor_labels`** — `id, actor_id, surface, label, created_at`
   - Surface-specific actor labels. surface='display' is the generic actor-facing display projection; surface='github_label' is the GitHub sync projection. The table is constrained to one label per actor per surface and one actor per surface/label pair.
+- **`harness_machine_reports`** — `project_id, harness_id, glue_written, glue_present, glue_malformed, config_present, project_entry_present, approval_state, reported_at`
+  - PK (project_id, harness_id). No machines, project_installs, or harness_installs table. approval_state is approved|unapproved|not_applicable|unknown; orange is unapproved (literal .codex/hooks.json hooks.state keys, no hashing). Write via harness.machine_report.upsert.
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
 - `harness_sessions.offer_envelope` — `execution_lane`:str='primary', `supported_paths`:list[str]=[], `capabilities`:list[str]=[], `workspace`:str='', `offered_at`:str (ISO-8601)='', `offer_diagnostics`:dict={}. Validator: `yoke_core.domain.sessions_offer_envelope_merge.merge_offer_envelope`.

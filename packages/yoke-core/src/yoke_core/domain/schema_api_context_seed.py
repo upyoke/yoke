@@ -182,6 +182,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # smaller per-role cap. The top-level packet also carries the compact Pack
 # catalog/report projection so Pack-status audits do not guess its schema.
 # These caps therefore follow the complete registered recipes and table facts
-# rendered today rather than an arbitrary prose target.
-PACKET_LINE_BUDGET_PER_ROLE: int = 417
-PACKET_LINE_BUDGET_AGGREGATE: int = 2158
+# rendered today rather than an arbitrary prose target. The claims topic now
+# also names harness_machine_reports (install-glue presence; no hashing).
+PACKET_LINE_BUDGET_PER_ROLE: int = 419
+PACKET_LINE_BUDGET_AGGREGATE: int = 2161

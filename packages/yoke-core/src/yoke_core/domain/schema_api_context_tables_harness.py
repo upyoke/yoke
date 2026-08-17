@@ -23,14 +23,11 @@ HARNESS_TABLES: dict[str, dict] = {
             ("reported_at", "TEXT"),
         ],
         "notes": (
-            "Primary key is (project_id, harness_id). There is no machines "
-            "table, no project_installs table, and no ProjectInstalled "
-            "event — a hookless harness produces no server-visible fact "
-            "until this row is upserted. approval_state is "
-            "approved|unapproved|not_applicable|unknown. Orange health "
-            "is approval_state=unapproved (presence of any hooks.state "
-            "entry keyed to the literal .codex/hooks.json path; no "
-            "hashing). Write through harness.machine_report.upsert."
+            "PK (project_id, harness_id). No machines, project_installs, "
+            "or harness_installs table. approval_state is "
+            "approved|unapproved|not_applicable|unknown; orange is "
+            "unapproved (literal .codex/hooks.json hooks.state keys, no "
+            "hashing). Write via harness.machine_report.upsert."
         ),
     },
 }

@@ -4,6 +4,7 @@
 import { el } from "./universe_view_support.js";
 import { hookTrustRemediation } from "./universe_views_overview_activation_copy.js";
 
+const HEALTH_GREEN = "green";
 const HEALTH_ORANGE = "orange";
 
 function orangeTrustSurfaces(targets) {
@@ -23,7 +24,15 @@ export function renderHarnessTargets(documentNode, module, body) {
     if (index) {
       targets.appendChild(el(documentNode, "span", "activation-target-sep", " · "));
     }
-    const chip = el(documentNode, "span", "activation-target", target.label);
+    const lit = Boolean(target.hit) && (
+      !target.hook_health || target.hook_health === HEALTH_GREEN
+    );
+    const chip = el(
+      documentNode,
+      "span",
+      "activation-target",
+      lit ? `${target.label} ✓` : target.label,
+    );
     chip.setAttribute("data-hit", String(Boolean(target.hit)));
     if (target.hook_health) {
       chip.setAttribute("data-hook-health", target.hook_health);

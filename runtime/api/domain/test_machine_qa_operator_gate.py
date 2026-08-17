@@ -88,6 +88,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         "code": "AB12-CD34",
         "event": "machine_qa.operator_gate",
         "kind": "machine_browser_approval",
+        "self_approving": True,
         "url": "https://app.stage.upyoke.com/connect",
     }
     assert result.browser_evidence == {
