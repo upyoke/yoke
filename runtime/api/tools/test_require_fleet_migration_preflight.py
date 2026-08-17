@@ -53,7 +53,7 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
     )
     monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
 
-    assert preflight.main(["production", "abc123"]) == 1
+    assert preflight.main(["prod", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "yoke watch preflight -- prod-db-admin" in refusal
@@ -72,9 +72,33 @@ def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
     )
     monkeypatch.setattr(preflight, "_query_receipts", lambda *_args: ([], ""))
 
-    assert preflight.main(["production", "abc123"]) == 1
+    assert preflight.main(["prod-db-admin", "abc123"]) == 1
 
     refusal = capsys.readouterr().err
     assert "yoke watch preflight -- prod-db-admin" in refusal
     assert "--engine-wheel <release-yoke-core-wheel>" in refusal
     assert "--receipt-env <control-plane-connection>" in refusal
+
+
+def test_receipt_coverage_is_read_for_the_registered_environment_name(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setattr(
+        yoke_migration_fleet,
+        "history_names",
+        lambda: ("0005_x",),
+    )
+    monkeypatch.setattr(
+        preflight,
+        "_query_receipts",
+        lambda *_args: (
+            [{"envelope": {"context": {"environment": "prod", "entries": ["0005_x"]}}}],
+            "",
+        ),
+    )
+
+    assert preflight.main(["prod", "abc123"]) == 0
+
+    report = capsys.readouterr().out
+    assert "target environment: prod" in report
+    assert "covered by a passing fleet preflight: 1 of 1" in report

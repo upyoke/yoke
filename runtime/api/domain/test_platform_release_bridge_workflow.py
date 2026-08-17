@@ -64,10 +64,50 @@ def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None
 def test_bridge_forwards_environment_release_mode_and_annotated_tag() -> None:
     text = _text()
 
-    assert '--input "target_environment=$TARGET_ENVIRONMENT"' in text
+    assert '--input "target_environment=$platform_target"' in text
     assert '--input "product_ref=$PRODUCT_REF"' in text
     assert '--input "release_mode=$RELEASE_MODE"' in text
     assert "--correlation-input yoke_dispatch_id" in text
+
+
+def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() -> None:
+    declared = _text().split("      target_environment:", 1)[1].split(
+        "      release_mode:", 1
+    )[0]
+
+    assert "          - stage\n          - prod\n" in declared
+    assert "production" not in declared
+
+
+def test_bridge_translates_to_the_promotion_label_only_at_the_platform_dispatch() -> None:
+    text = _text()
+    dispatch = text.split(
+        "- name: Dispatch and await Platform pin promotion and release", 1
+    )[1].split("      - name: ", 1)[0]
+
+    assert "stage) platform_target=stage ;;" in dispatch
+    assert "prod) platform_target=production ;;" in dispatch
+    # An unroutable environment stops the release rather than dispatching a
+    # promotion input Platform's own choice list would reject.
+    assert "no Platform promotion route for environment $TARGET_ENVIRONMENT" in dispatch
+    assert text.count("platform_target=production") == 1
+
+
+def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
+    text = _text()
+    preflight = text.split(
+        "- name: Refuse a release carrying an unrehearsed migration entry", 1
+    )[1].split("      - name: ", 1)[0]
+    record = text.split(
+        "- name: Record desired pin after successful Platform release", 1
+    )[1]
+
+    for step in (preflight, record):
+        assert "TARGET_ENVIRONMENT: ${{ inputs.target_environment }}" in step
+        assert "platform_target" not in step
+        assert "production" not in step
+    assert '"$TARGET_ENVIRONMENT" "$PRODUCT_SHA"' in preflight
+    assert '--environment "$TARGET_ENVIRONMENT"' in record
 
 
 def test_bridge_recovers_a_lost_dispatch_response_without_reposting() -> None:

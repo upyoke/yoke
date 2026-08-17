@@ -6,7 +6,9 @@
     "yoke-hosted-production-hotfix",
     "yoke-hosted-stage",
     "yoke-hosted-production-hotfix-no-ci-gate",
-    "yoke-hosted-stage-no-ci-gate"
+    "yoke-hosted-stage-no-ci-gate",
+    "yoke-hosted-production-hotfix-warm-gated",
+    "yoke-hosted-stage-warm-gated"
   ],
   "flows": [
     {
@@ -29,8 +31,8 @@
       "target_tier": null
     },
     {
-      "id": "yoke-hosted-production-hotfix-warm-gated",
-      "name": "Production Hotfix (Warm-Gated, No CI Gate)",
+      "id": "yoke-hosted-production-hotfix-typed-target",
+      "name": "Production Hotfix (Warm-Gated, No CI Gate, Typed Target)",
       "description": "Dispatch an annotated Yoke hotfix through the Platform production train without waiting for repository CI, then warm the rolled production box before reporting success",
       "stages": [
         {
@@ -44,7 +46,7 @@
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
           "inputs": {
-            "target_environment": "production",
+            "target_environment": "{target_environment}",
             "release_mode": "hotfix",
             "product_sha": "{head_sha}",
             "deployment_run_id": "{run_id}"
@@ -69,8 +71,8 @@
       "target_environment_id": "production"
     },
     {
-      "id": "yoke-hosted-stage-warm-gated",
-      "name": "Stage (Warm-Gated, No CI Gate)",
+      "id": "yoke-hosted-stage-typed-target",
+      "name": "Stage (Warm-Gated, No CI Gate, Typed Target)",
       "description": "Dispatch an annotated Yoke version through the Platform stage train without waiting for repository CI, then warm the rolled stage box before reporting success",
       "stages": [
         {
@@ -84,7 +86,7 @@
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
           "inputs": {
-            "target_environment": "stage",
+            "target_environment": "{target_environment}",
             "release_mode": "normal",
             "product_sha": "{head_sha}",
             "deployment_run_id": "{run_id}"

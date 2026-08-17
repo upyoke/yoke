@@ -58,6 +58,7 @@ def _dispatch_github_actions_workflow(
     release_lineage: str,
     product_repo_path: str = "",
     image_tag: str = "",
+    environment_name: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
     """Handle github-actions-workflow step_runner.
@@ -114,9 +115,7 @@ def _dispatch_github_actions_workflow(
 
     publish_product = name == "distribution-publish" and product_repo_path
     project_head_sha, lineage_error = _resolve_release_lineage_sha(
-        release_lineage,
-        project_repo_path,
-        gate_branch,
+        release_lineage, project_repo_path, gate_branch,
     )
     if lineage_error:
         diagnostic = lineage_error
@@ -151,6 +150,7 @@ def _dispatch_github_actions_workflow(
             return 1, sha_error
     workflow_inputs = _resolve_workflow_inputs(
         raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
+        target_environment=environment_name,
     )
 
     ga_run_id = ""

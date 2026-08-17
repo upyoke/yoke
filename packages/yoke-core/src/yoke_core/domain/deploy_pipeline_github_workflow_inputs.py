@@ -31,8 +31,15 @@ def resolve_workflow_inputs(
     *,
     head_sha: str,
     run_id: str = "",
+    target_environment: str = "",
 ) -> Dict[str, str]:
-    """Resolve supported deployment-run placeholders in workflow inputs."""
+    """Resolve supported deployment-run placeholders in workflow inputs.
+
+    ``target_environment`` is the registered name of the environment the run
+    deploys to, resolved from the flow's typed environment reference. A
+    dispatched workflow that hands an environment coordinate back to a Yoke
+    surface must receive that name, never a workflow's own display label.
+    """
     replacements = {
         "{head_sha}": head_sha,
         "$head_sha": head_sha,
@@ -40,6 +47,9 @@ def resolve_workflow_inputs(
         "{run_id}": run_id,
         "$run_id": run_id,
         "${run_id}": run_id,
+        "{target_environment}": target_environment,
+        "$target_environment": target_environment,
+        "${target_environment}": target_environment,
     }
     return {
         key: replacements.get(value, value)
