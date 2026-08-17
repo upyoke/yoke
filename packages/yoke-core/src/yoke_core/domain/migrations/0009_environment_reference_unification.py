@@ -1,49 +1,52 @@
 """Replace free-text deployment target labels with environment references.
 
 Deployment flows and runs carried a ``target_env`` label that only
-string-matched the environment registry, so ``"production"`` on a flow and
-``"prod"`` on the environment named the same thing without ever joining, and
-every consumer papered over the seam with its own alias map. The typed pair
-``target_tier`` + ``target_environment_id`` (added by the boot converge)
-replaces the label: ``persistent`` rows reference a registered environment
-row, ``ephemeral`` rows deploy per-run preview substrate, and merge-only
-flows carry neither.
+string-matched the environment registry, so ``"production"`` on a flow
+and ``"prod"`` on the environment named the same thing without joining,
+and every consumer papered over the seam with its own alias map. The
+typed pair ``target_tier`` + ``target_environment_id`` replaces the
+label: ``persistent`` rows reference a registered environment row,
+``ephemeral`` rows deploy per-run preview substrate, and merge-only flows
+carry neither.
 
-This entry recodes what already exists: it resolves each legacy label to the
-project's environment row (minting the row when a project has flows but no
-registry — the registry is newer than the flows), copies the same resolution
-onto historical runs, rewrites legacy long-form labels held in item
-``deployed_to`` stamps, QA requirement targets and method configs, and fleet
-preflight receipt events, then drops the label columns and installs the
-tier/environment CHECK on databases born before the typed DDL.
+This entry recodes what already exists: it resolves each legacy label to
+the project's environment row (minting the row when a project has flows
+but no registry), copies the same resolution onto historical runs,
+rewrites legacy labels held in ``deployed_to`` stamps, QA content,
+release-pin map keys, and preflight receipt events, then drops the label
+columns and installs the tier/environment CHECK.
 
-Idempotent against its own output: resolution matches by environment id and
-canonical name first, so a re-run (or a row the running code already
-produced) folds onto the existing environment instead of minting a twin.
+Idempotent against its own output: resolution matches by environment id
+and canonical name first, so a re-run folds onto the existing environment
+instead of minting a twin.
 """
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
-#: The oldest artifact that may serve a database this entry has been applied
-#: to. Derived rather than chosen: every build carrying this code is newer
-#: than ``0.1.1+launch.225``, the published build at authoring time, because
-#: that build still reads the dropped ``target_env`` columns. Build numbers
-#: only increase, so the shipping build is at least ``launch.226``. Raising
-#: it later needs its own evidence; lowering it re-admits a container that
+from yoke_core.domain.migrations._environment_label_recode import (
+    CANONICAL_ENVIRONMENT_NAMES,
+    RECEIPT_EVENT_NAME,
+    marker as _marker,
+    recode_json_column as _recode_json_column,
+    recode_label_column as _recode_label_column,
+    recode_pin_capability_keys as _recode_pin_capability_keys,
+    recode_receipt_events as _recode_receipt_events,
+    fetch_rows as _rows,
+)
+
+#: The oldest artifact that may serve a database this entry has been
+#: applied to. Derived rather than chosen: every build carrying this code
+#: is newer than ``0.1.1+launch.225``, the published build at authoring
+#: time, which still reads the dropped ``target_env`` columns. Raising it
+#: later needs its own evidence; lowering it re-admits a container that
 #: reads dropped columns.
 MINIMUM_SERVING_VERSION = "0.1.1+launch.226"
-
-#: Canonical environment names for the long-form labels the label era used.
-CANONICAL_ENVIRONMENT_NAMES = {"production": "prod", "staging": "stage"}
 
 #: ``target_tier`` vocabulary, pinned because migration modules stay frozen.
 TIER_PERSISTENT = "persistent"
 TIER_EPHEMERAL = "ephemeral"
-
-RECEIPT_EVENT_NAME = "FleetMigrationPreflightPassed"
 
 _TABLES_WITH_TARGETS = ("deployment_flows", "deployment_runs")
 
@@ -52,34 +55,16 @@ def _canonical_name(label: str) -> str:
     return CANONICAL_ENVIRONMENT_NAMES.get(label.lower(), label.lower())
 
 
-def _rows(cursor: Any) -> list[dict[str, Any]]:
-    columns = [str(c[0]) for c in cursor.description]
-    return [
-        dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
-        for row in cursor.fetchall()
-    ]
-
-
-def _marker(conn: Any) -> str:
-    from yoke_core.domain import db_backend
-
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _now() -> str:
     from yoke_core.domain.db_helpers import iso8601_now
-
     return iso8601_now()
-
 
 def _resolve_environment(conn: Any, project_id: int, label: str) -> str:
     """The environment id *label* names within *project_id*, minting if new.
 
-    Matches by environment id first (a label-era flow could carry the row id
-    itself), then by canonical name. A project with flows but no registered
-    environment gets the row minted under its first site — the same shape
-    operators register by hand — so the persistent tier's foreign key holds
-    fleet-wide without waiting for manual registration.
+    Matches by environment id first (a label-era flow could carry the row
+    id itself), then by canonical name; a project with flows but no
+    registered environment gets the row minted under its first site.
     """
     p = _marker(conn)
     name = _canonical_name(label)
@@ -132,6 +117,14 @@ def _first_site(conn: Any, project_id: int) -> str:
     return site_id
 
 
+def _ensure_typed_target_columns(conn: Any, table: str) -> None:
+    """Add the typed pair when the entry runs before the boot converge
+    delivers it (a rehearsal applies against a raw authority copy)."""
+    from yoke_core.domain.schema_common import _add_column_if_not_exists
+    for column in ("target_tier", "target_environment_id"):
+        _add_column_if_not_exists(conn, table, column, "TEXT")
+
+
 def _backfill_table(conn: Any, table: str) -> None:
     p = _marker(conn)
     rows = _rows(conn.execute(
@@ -157,112 +150,13 @@ def _backfill_table(conn: Any, table: str) -> None:
         )
 
 
-def _recode_label_column(conn: Any, table: str, column: str) -> None:
-    p = _marker(conn)
-    for legacy, canonical in CANONICAL_ENVIRONMENT_NAMES.items():
-        conn.execute(
-            f"UPDATE \"{table}\" SET \"{column}\" = {p} "
-            f"WHERE \"{column}\" = {p}",
-            (canonical, legacy),
-        )
-
-
-def _recode_environment_values(node: Any) -> bool:
-    """Rewrite long-form environment labels held under environment keys."""
-    changed = False
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if (
-                key in {"active_env", "target_env", "environment"}
-                and isinstance(value, str)
-                and value.lower() in CANONICAL_ENVIRONMENT_NAMES
-            ):
-                node[key] = CANONICAL_ENVIRONMENT_NAMES[value.lower()]
-                changed = True
-            else:
-                changed = _recode_environment_values(value) or changed
-    elif isinstance(node, list):
-        for child in node:
-            changed = _recode_environment_values(child) or changed
-    return changed
-
-
-def _recode_json_column(conn: Any, table: str, key: str, column: str) -> None:
-    p = _marker(conn)
-    rows = _rows(conn.execute(
-        f"SELECT \"{key}\" AS row_key, \"{column}\" AS doc FROM \"{table}\" "
-        f"WHERE \"{column}\" LIKE '%production%' "
-        f"OR \"{column}\" LIKE '%staging%'",
-    ))
-    for row in rows:
-        try:
-            doc = json.loads(row["doc"])
-        except (TypeError, ValueError):
-            continue
-        if _recode_environment_values(doc):
-            conn.execute(
-                f"UPDATE \"{table}\" SET \"{column}\" = {p} "
-                f"WHERE \"{key}\" = {p}",
-                (json.dumps(doc, separators=(",", ":")), row["row_key"]),
-            )
-
-
-def _recode_pin_capability_keys(conn: Any) -> None:
-    """Re-key release-pin environment maps onto canonical environment names."""
-    p = _marker(conn)
-    rows = _rows(conn.execute(
-        f"SELECT id, settings FROM project_capabilities WHERE type = {p}",
-        ("release_pin",),
-    ))
-    for row in rows:
-        try:
-            settings = json.loads(row["settings"] or "{}")
-        except (TypeError, ValueError):
-            continue
-        changed = False
-        for map_key in ("branch_by_environment", "environment_by_target"):
-            mapping = settings.get(map_key)
-            if not isinstance(mapping, dict):
-                continue
-            for legacy, canonical in CANONICAL_ENVIRONMENT_NAMES.items():
-                if legacy in mapping and canonical not in mapping:
-                    mapping[canonical] = mapping.pop(legacy)
-                    changed = True
-        if changed:
-            conn.execute(
-                f"UPDATE project_capabilities SET settings = {p} "
-                f"WHERE id = {p}",
-                (json.dumps(settings, separators=(",", ":")), row["id"]),
-            )
-
-
-def _recode_receipt_events(conn: Any) -> None:
-    p = _marker(conn)
-    rows = _rows(conn.execute(
-        f"SELECT id, envelope FROM events WHERE event_name = {p}",
-        (RECEIPT_EVENT_NAME,),
-    ))
-    for row in rows:
-        try:
-            envelope = json.loads(row["envelope"])
-        except (TypeError, ValueError):
-            continue
-        if _recode_environment_values(envelope):
-            conn.execute(
-                f"UPDATE events SET envelope = {p} WHERE id = {p}",
-                (json.dumps(envelope, separators=(",", ":")), row["id"]),
-            )
-
-
 def _install_target_checks(conn: Any, table: str) -> None:
     """Install the tier vocabulary and tier/environment pairing CHECKs.
 
-    Postgres only: databases born from the typed DDL carry the constraints
-    inline, and the SQLite validation surface cannot ALTER TABLE ADD
-    CONSTRAINT — its fresh fixtures are created from the typed DDL anyway.
+    Postgres only: databases born from the typed DDL carry the
+    constraints inline, and SQLite cannot ALTER TABLE ADD CONSTRAINT.
     """
     from yoke_core.domain import db_backend
-
     if not db_backend.connection_is_postgres(conn):
         return
     constraints = {
@@ -286,12 +180,34 @@ def _install_target_checks(conn: Any, table: str) -> None:
             )
 
 
+def _drop_label_era_progress_view(conn: Any) -> None:
+    """Drop ``item_progress_view`` only while it still reads ``target_env``.
+
+    The boot converge recreates the view from the typed definition before
+    this entry runs, so a live boot never hits this branch; a rehearsal
+    against a raw authority copy still carries the label-era view, which
+    would otherwise block the column drop.
+    """
+    from yoke_core.domain import db_backend
+    if not db_backend.connection_is_postgres(conn):
+        return
+    rows = _rows(conn.execute(
+        "SELECT 1 FROM information_schema.views "
+        "WHERE table_name = 'item_progress_view' "
+        "AND view_definition LIKE '%target_env%'",
+    ))
+    if rows:
+        conn.execute("DROP VIEW item_progress_view")
+
+
 def apply(conn: Any) -> None:
     from yoke_core.domain.schema_common import _column_exists, _table_exists
 
+    _drop_label_era_progress_view(conn)
     for table in _TABLES_WITH_TARGETS:
         if not _table_exists(conn, table):
             continue
+        _ensure_typed_target_columns(conn, table)
         if _column_exists(conn, table, "target_env"):
             _backfill_table(conn, table)
             conn.execute(f"ALTER TABLE \"{table}\" DROP COLUMN target_env")
