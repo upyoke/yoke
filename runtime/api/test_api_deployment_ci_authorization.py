@@ -59,11 +59,12 @@ def _envelope(
     *,
     project: str = "yoke",
     payload: dict | None = None,
+    target_kind: str = "global",
 ) -> dict:
     return {
         "function": function_id,
         "actor": {"actor_id": "spoofed", "session_id": "deployment-ci-test"},
-        "target": {"kind": "global", "project_id": project},
+        "target": {"kind": target_kind, "project_id": project},
         "payload": payload if payload is not None else {"project": project},
     }
 
@@ -89,6 +90,26 @@ def test_deployment_ci_denies_install_onboarding_and_project_admin_mutations(
         "/v1/functions/call",
         json=_envelope(function_id, payload=payload),
         headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+
+
+def test_project_structure_patch_still_requires_project_admin(
+    client, ci_auth_db,
+) -> None:
+    response = client.post(
+        "/v1/functions/call",
+        json=_envelope(
+            "project_structure.patch.apply",
+            target_kind="project_structure",
+            payload={
+                "project_id": "yoke",
+                "ops": [{"op": "remove", "family": "areas", "attachment": "x"}],
+            },
+        ),
+        headers=_deployment_ci_headers(ci_auth_db["db_path"]),
     )
 
     assert response.status_code == 403

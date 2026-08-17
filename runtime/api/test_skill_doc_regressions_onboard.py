@@ -242,6 +242,13 @@ def test_onboard_teaches_environment_and_flow_registration():
     assert ".yoke/deployment-flows.json" in text
     assert "yoke deployment-flows reconcile-project" in text
     assert "default_flow" in text
+    patch_commands = [
+        line for line in text.splitlines()
+        if line.startswith("yoke project-structure patch apply ")
+    ]
+    assert len(patch_commands) == 2
+    assert all("--project {project} --ops-json " in line for line in patch_commands)
+    assert all("--item" not in line for line in patch_commands)
 
 
 def test_onboard_seeds_work_through_the_idea_intake_shape():

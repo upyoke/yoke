@@ -33,6 +33,16 @@ def _command_request(function: str, payload=None) -> FunctionCallRequest:
 
 
 class TestProjectStructurePatchApply(unittest.TestCase):
+    def test_registration_needs_no_item_claim(self):
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+        from yoke_core.domain.yoke_function_registry import lookup
+
+        register_all_handlers()
+        entry = lookup("project_structure.patch.apply")
+        self.assertIsNotNone(entry)
+        self.assertIsNone(entry.claim_required_kind)
+        self.assertNotIn("claim_required", entry.guardrails)
+
     def test_rejects_missing_project_id(self):
         req = _request({"ops": [{"op": "put", "family": "f", "attachment": "a"}]})
         outcome = ps_handler.handle_project_structure_patch_apply(req)
@@ -72,7 +82,7 @@ class TestProjectStructurePatchApply(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "policy_violation")
 
-    def test_happy_path_returns_applied_ops(self):
+    def test_happy_path_without_item_returns_applied_ops(self):
         with patch(
             "yoke_core.domain.project_structure_write.apply_patch",
             return_value={

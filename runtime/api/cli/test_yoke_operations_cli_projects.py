@@ -296,17 +296,17 @@ class TestProjectsCheckoutContext:
 
 
 class TestProjectStructurePatchApply:
-    def test_dispatches(self) -> None:
+    def test_onboarding_shape_dispatches_without_item(self) -> None:
         rc = _run(
             _stub_ok, "project-structure", "patch", "apply",
-            "--project", "yoke", "--item", "YOK-2137",
+            "--project", "yoke",
             "--ops-json", '[{"op":"replace","path":"/foo","value":"bar"}]',
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.function == "project_structure.patch.apply"
         assert req.target.kind == "project_structure"
-        assert req.target.item_ref == "YOK-2137"
+        assert req.target.item_ref is None
         assert req.payload == {
             "project_id": "yoke",
             "ops": [{"op": "replace", "path": "/foo", "value": "bar"}],
@@ -320,6 +320,7 @@ class TestProjectStructurePatchApply:
             "--actor", "ops@example.com",
         )
         assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].target.item_ref == "YOK-2137"
         assert _CAPTURED_REQUESTS[-1].payload["actor"] == "ops@example.com"
 
     def test_bad_ops_json_returns_two(self) -> None:
