@@ -129,13 +129,6 @@ A capability is the configured resource a method may need. Its availability
 is one of: not configured, configured (unverified), ready, in use, or error.
 Serial resources queue while in use; that does not prevent plan attachment.
 
-The Test Mac `machine_browser_approval` gate self-approves by driving a
-visible Safari window on the QA host. No operator browser action is needed.
-Redeeming the one-time code in a parallel browser consumes it and breaks
-the gate (`machine_browser_tab_missing`). The emitted
-`machine_qa.operator_gate` payload carries `self_approving: true` so
-monitors do not relay it as a human handoff.
-
 The Test Mac is one `test-machine` capability, not three separate resources.
 Inspect, update non-secret settings, and verify it with:
 
@@ -166,10 +159,10 @@ Provision the host once before saving the capability:
 5. Disable automatic system and display sleep for the test interval. Restore
    the operator's normal sleep policy when the dedicated test interval ends.
 
-`machine_browser_approval` gates are self-approving. The runner uses the host's
-provisioned visible Safari session and then waits for terminal completion; no
-operator browser action is needed or wanted. Approving the one-time code
-manually in parallel consumes it and breaks the automated gate.
+The `machine_browser_approval` gate self-approves in the host's visible Safari
+session (`self_approving: true` on `machine_qa.operator_gate`). No operator
+browser action is needed; redeeming the one-time code in another browser
+consumes it and breaks the gate (`machine_browser_tab_missing`).
 
 The saved settings document contains exactly `resource_name`, `host`, `user`,
 and `operating_notes`. It contains no credentials. `ssh_private_key` is the
