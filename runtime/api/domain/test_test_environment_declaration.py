@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.test_environment_declaration import (
+from yoke_core.domain.qa_environment_declaration import (
     CAPABILITY_TYPE,
     TestEnvironmentDeclaration,
     load_declaration,

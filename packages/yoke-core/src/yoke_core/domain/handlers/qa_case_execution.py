@@ -90,7 +90,7 @@ def _handler_for(function_id: str):
         qa_browser,
         qa_browser_writes,
         qa_requirement_waive,
-        test_machine_case,
+        machine_qa_case,
     )
 
     return {
@@ -101,7 +101,7 @@ def _handler_for(function_id: str):
         "qa.artifact.add": qa_browser_writes.handle_qa_artifact_add,
         "qa.artifact.presign": (qa_artifact_presign.handle_qa_artifact_presign),
         "qa.requirement.waive": (qa_requirement_waive.handle_qa_requirement_waive),
-        "test_machine.case_execute": test_machine_case.handle_case_execute,
+        "test_machine.case_execute": machine_qa_case.handle_case_execute,
     }.get(function_id)
 
 

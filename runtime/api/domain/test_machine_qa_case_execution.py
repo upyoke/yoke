@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult

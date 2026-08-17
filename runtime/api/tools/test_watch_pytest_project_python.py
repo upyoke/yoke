@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from yoke_core.domain.test_environment_declaration import TestEnvironmentDeclaration
+from yoke_core.domain.qa_environment_declaration import TestEnvironmentDeclaration
 from yoke_core.tools import _source_pythonpath, watch_pytest_project_python as helper
 
 

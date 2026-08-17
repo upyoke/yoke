@@ -180,6 +180,8 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
         "./packages/yoke-harness" in dockerfile
     )
     assert "local_wheel_constraints.py" in dockerfile
+    assert "wheel_module_completeness.py" in dockerfile
+    assert "--package-root packages/yoke-core/src/yoke_core" in dockerfile
     assert "postgres_binaries.py" in dockerfile
     assert "['ensure_binaries']()" in dockerfile
     assert "libgssapi-krb5-2" in dockerfile
@@ -193,6 +195,7 @@ def test_dockerfile_uses_wheel_runtime_and_healthcheck() -> None:
         "--constraint /tmp/yoke-local-constraints.txt ."
     )
     assert 'CMD ["python", "-m", "yoke_core.api.server_entrypoint"]' in dockerfile
+    assert "RUN python -m yoke_core.tools.product_wheel_validation" in dockerfile
     assert 'CMD ["python", "-m", "yoke_core.api.container_healthcheck"]' in dockerfile
     assert "EXPOSE 8765" in dockerfile
     assert "USER yoke" in dockerfile

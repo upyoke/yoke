@@ -20,12 +20,12 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     TargetRef,
 )
-from yoke_core.domain.handlers.test_machine import (
+from yoke_core.domain.handlers.machine_qa import (
     handle_verify,
     handle_verify_begin,
     handle_verify_submit,
 )
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     handle_case_begin,
     handle_case_execute,
     handle_case_submit,

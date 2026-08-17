@@ -14,12 +14,12 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_cli.commands.adapters import test_machine as test_machine_cli
 from yoke_contracts.api.function_call import FunctionCallResponse
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     handle_baseline_group_begin,
     handle_baseline_group_execute,
     handle_baseline_group_submit,
 )
-from yoke_core.domain.handlers.test_machine_execution_abort import (
+from yoke_core.domain.handlers.machine_qa_execution_abort import (
     handle_baseline_group_abort,
 )
 from yoke_core.domain.host_control_runner import (

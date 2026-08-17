@@ -1,4 +1,4 @@
-"""Additive verification receipts for composite test-machine capabilities."""
+"""Additive verification receipts for composite machine-QA capabilities."""
 
 from __future__ import annotations
 

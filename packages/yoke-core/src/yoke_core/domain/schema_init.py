@@ -67,7 +67,7 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
 from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
-from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
+from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_execution_instructions_schema import (
     ensure_workflow_execution_instructions_schema,

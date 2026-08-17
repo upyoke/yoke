@@ -9,8 +9,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.test_machine import _failure
-from yoke_core.domain.handlers.test_machine_case_evidence import (
+from yoke_core.domain.handlers.machine_qa import _failure
+from yoke_core.domain.handlers.machine_qa_case_evidence import (
     record_machine_case_result as _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
@@ -26,7 +26,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     rollback_machine_submission,
     validate_case_submission,
 )
-from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 
 
 class TestMachineCaseExecuteRequest(BaseModel):
@@ -258,7 +258,7 @@ def contract_baseline(case: dict[str, Any]) -> list[str]:
     return [baseline] if baseline else []
 
 
-from yoke_core.domain.handlers.test_machine_baseline_group import (  # noqa: E402
+from yoke_core.domain.handlers.machine_qa_baseline_group import (  # noqa: E402
     TestMachineBaselineGroupBeginResponse,
     TestMachineBaselineGroupExecuteRequest,
     TestMachineBaselineGroupExecuteResponse,

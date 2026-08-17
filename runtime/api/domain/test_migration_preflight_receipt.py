@@ -57,7 +57,9 @@ class TestReceiptContext:
         assert context[receipt.ENVIRONMENT_KEY] == "prod"
 
     def test_entries_are_sorted_and_deduplicated(self):
-        context = receipt.receipt_context("stage", "abc", ["0002_b", "0001_a", "0002_b"])
+        context = receipt.receipt_context(
+            "stage", "abc", ["0002_b", "0001_a", "0002_b"]
+        )
         assert context[receipt.ENTRIES_KEY] == ["0001_a", "0002_b"]
 
     def test_blank_entries_are_dropped_rather_than_recorded_as_coverage(self):
@@ -67,6 +69,16 @@ class TestReceiptContext:
     def test_the_product_sha_is_recorded_for_audit(self):
         context = receipt.receipt_context("stage", " abc123 ", ["0001_a"])
         assert context[receipt.PRODUCT_SHA_KEY] == "abc123"
+
+    def test_the_selected_engine_artifact_is_recorded_for_audit(self):
+        artifact = {"kind": "wheel", "name": "yoke_core.whl", "sha256": "abc"}
+        context = receipt.receipt_context(
+            "stage",
+            "abc123",
+            ["0001_a"],
+            engine_artifact=artifact,
+        )
+        assert context[receipt.ENGINE_ARTIFACT_KEY] == artifact
 
 
 class TestCoverage:
@@ -101,7 +113,9 @@ class TestCoverage:
         # A receipt whose entries field is a bare string is malformed. Iterating
         # it would manufacture single-character "coverage" that matches nothing
         # and hides the malformation.
-        assert receipt.covered_entries([_row("stage", "0001_a")], "stage") == frozenset()
+        assert (
+            receipt.covered_entries([_row("stage", "0001_a")], "stage") == frozenset()
+        )
 
 
 class TestStoredEnvelopeShape:
@@ -126,9 +140,7 @@ class TestStoredEnvelopeShape:
 
     def test_a_nested_receipt_is_read(self):
         rows = [self._stored("prod", ["0001_a", "0002_b"])]
-        assert receipt.covered_entries(rows, "prod") == frozenset(
-            {"0001_a", "0002_b"}
-        )
+        assert receipt.covered_entries(rows, "prod") == frozenset({"0001_a", "0002_b"})
 
     def test_a_nested_receipt_still_respects_the_environment_boundary(self):
         rows = [self._stored("stage", ["0001_a"])]
@@ -224,13 +236,16 @@ class TestRefusalMessage:
 
 class TestAdminConnectionForEnvironment:
     def test_an_admin_connection_is_already_itself(self):
-        assert receipt.admin_connection_for_environment("prod-db-admin") == "prod-db-admin"
+        assert (
+            receipt.admin_connection_for_environment("prod-db-admin") == "prod-db-admin"
+        )
 
     def test_prod_resolves_to_the_admin_connection(self):
         assert receipt.admin_connection_for_environment("prod") == "prod-db-admin"
 
     def test_stage_resolves_to_the_admin_connection(self):
         assert receipt.admin_connection_for_environment("stage") == "stage-db-admin"
+
 
 class TestUnreadableMessage:
     def test_unreadable_is_stated_as_unknown_rather_than_as_unrehearsed(self):

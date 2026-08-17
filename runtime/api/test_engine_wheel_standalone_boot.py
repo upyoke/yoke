@@ -4,10 +4,9 @@ Installs ``yoke-core`` — resolving ONLY its declared wheel metadata
 dependencies — into an isolated venv from the locally built wheelhouse,
 then asserts in a subprocess whose ``sys.path`` never sees the repo tree:
 
-1. ``import yoke_core.domain`` succeeds. The universe boot path
-   (``universe_is_born`` → frontier → session canonicalization) imports
-   this package, so an undeclared package dependency (e.g. a wheel-shipped
-   module importing a package absent from ``pyproject.toml``) fails here.
+1. The container entrypoint and schema orchestrator import successfully. This
+   is the exact pre-serve path an installed server image needs, including every
+   runtime schema dependency.
 2. ``import yoke_core.api.main`` succeeds. ``main`` builds the FastAPI app
    at import (``app = create_app()``), which imports every registered
    route module — so a packaged module reaching for the repo-tree
@@ -75,10 +74,17 @@ def test_engine_wheel_boots_and_serves_standalone(
         "'repo tree leaked into the wheels-only venv'\n"
     )
 
-    # Boot path: the domain package must resolve every import from
-    # wheel-shipped homes declared in yoke-core's metadata.
+    # Boot path: exercise the same entrypoint and schema module imported by the
+    # installed server image, not an ambient source checkout.
     _run(
-        [str(venv_python), "-c", isolation_check + "import yoke_core.domain\nprint('ok')"],
+        [
+            str(venv_python),
+            "-c",
+            isolation_check
+            + "import yoke_core.api.server_entrypoint\n"
+            + "import yoke_core.domain.schema_init\n"
+            + "print('ok')",
+        ],
         cwd=tmp_path,
         env=env,
         timeout=120,
@@ -86,7 +92,11 @@ def test_engine_wheel_boots_and_serves_standalone(
 
     # Serve path: building the app imports every registered route module.
     _run(
-        [str(venv_python), "-c", isolation_check + "import yoke_core.api.main\nprint('ok')"],
+        [
+            str(venv_python),
+            "-c",
+            isolation_check + "import yoke_core.api.main\nprint('ok')",
+        ],
         cwd=tmp_path,
         env=env,
         timeout=120,

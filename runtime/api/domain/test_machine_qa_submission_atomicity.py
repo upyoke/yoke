@@ -19,11 +19,11 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers.test_machine import (
+from yoke_core.domain.handlers.machine_qa import (
     handle_verify_begin,
     handle_verify_submit,
 )
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     handle_baseline_group_begin,
     handle_baseline_group_submit,
     handle_case_begin,

@@ -19,7 +19,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
 from yoke_core.domain.machine_qa_submission_artifacts import (
     ensure_secret_free_result,
 )
-from yoke_core.domain.test_machine_capability import (
+from yoke_core.domain.machine_qa_capability import (
     TestMachineCapabilityError,
     replace_test_machine_settings,
     test_machine_detail,
@@ -222,7 +222,7 @@ def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
         complete_host_control_execution,
         validate_host_control_submission,
     )
-    from yoke_core.domain.test_machine_verification_recording import (
+    from yoke_core.domain.machine_verification_recording import (
         record_test_machine_verification,
         recorded_test_machine_verification,
     )

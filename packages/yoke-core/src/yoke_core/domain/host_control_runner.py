@@ -17,7 +17,7 @@ from yoke_core.domain.capability_machine_secrets import (
     read_machine_capability_secret,
 )
 from yoke_core.domain.project_identity import resolve_project
-from yoke_core.domain.test_machine_capability import (
+from yoke_core.domain.machine_qa_capability import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )

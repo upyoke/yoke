@@ -15,7 +15,7 @@ from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
 from yoke_core.domain.coordination_leases import Lease
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.function_authz_scope import PROJECT, classify
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     handle_baseline_group_begin,
     handle_case_begin,
 )

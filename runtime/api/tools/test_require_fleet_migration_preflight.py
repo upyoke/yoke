@@ -9,13 +9,13 @@ from runtime.api.tools import require_fleet_migration_preflight as preflight
 from runtime.api.tools import yoke_migration_fleet
 
 
-def test_query_failure_preserves_advisory_stderr_and_api_error_stdout(monkeypatch) -> None:
+def test_query_failure_preserves_advisory_stderr_and_api_error_stdout(
+    monkeypatch,
+) -> None:
     result = subprocess.CompletedProcess(
         args=["yoke", "events", "query"],
         returncode=1,
-        stdout=json.dumps(
-            {"success": False, "error": {"code": "permission_denied"}}
-        ),
+        stdout=json.dumps({"success": False, "error": {"code": "permission_denied"}}),
         stderr="this checkout is ahead of the server's build",
     )
     monkeypatch.setattr(preflight.subprocess, "run", lambda *args, **kwargs: result)
@@ -57,6 +57,7 @@ def test_refusal_recipe_records_on_the_gate_connection(monkeypatch, capsys) -> N
 
     refusal = capsys.readouterr().err
     assert "yoke watch preflight -- prod-db-admin" in refusal
+    assert "--engine-wheel <release-yoke-core-wheel>" in refusal
     assert "--receipt-env prod" in refusal
 
 
@@ -75,4 +76,5 @@ def test_refusal_recipe_requires_an_explicit_connection_without_ambient_env(
 
     refusal = capsys.readouterr().err
     assert "yoke watch preflight -- prod-db-admin" in refusal
+    assert "--engine-wheel <release-yoke-core-wheel>" in refusal
     assert "--receipt-env <control-plane-connection>" in refusal

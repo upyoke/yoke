@@ -7,14 +7,14 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.test_machine import _failure
-from yoke_core.domain.handlers.test_machine_plan_case_models import (
+from yoke_core.domain.handlers.machine_qa import _failure
+from yoke_core.domain.handlers.machine_qa_plan_case_models import (
     TestMachinePlanCaseBeginRequest,
     TestMachinePlanCaseBeginResponse,
     TestMachinePlanCaseSubmitRequest,
     TestMachinePlanCaseSubmitResponse,
 )
-from yoke_core.domain.handlers.test_machine_plan_case_request import (
+from yoke_core.domain.handlers.machine_qa_plan_case_request import (
     parse_plan_case_request,
     target_plan_subject,
 )
@@ -25,7 +25,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     rollback_machine_submission,
     validate_case_submission,
 )
-from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 from yoke_core.domain.coordination_lease_contention import waiting_lease_evidence
 
 

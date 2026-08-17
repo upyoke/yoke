@@ -1,4 +1,4 @@
-"""Keep test execution budgets separate from gate-admission waits."""
+"""Keep QA execution budgets separate from gate-admission waits."""
 
 from __future__ import annotations
 

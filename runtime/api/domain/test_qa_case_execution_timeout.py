@@ -12,7 +12,7 @@ from yoke_core.domain import (
     qa_case_execution,
     qa_case_execution_cli,
     qa_case_worktree_run,
-    test_gate_timeout,
+    qa_gate_timeout,
 )
 
 
@@ -91,7 +91,7 @@ def test_watched_command_starts_its_budget_after_gate_admission(
     # No parent deadline: the watched run counts its own budget from the
     # moment the gate admits it, not from when it started queueing.
     assert captured["timeout_seconds"] is None
-    assert captured["env"][test_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV] == "17"
+    assert captured["env"][qa_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV] == "17"
     assert json.loads(captured["qa.artifact.add"]["metadata"])["timed_out"] is True
 
 
@@ -99,7 +99,7 @@ def test_timed_out_record_names_the_queue_wait_it_was_not_charged(
     tmp_path: Path,
 ) -> None:
     output = (
-        f"{test_gate_timeout.SLOT_ACQUIRED_PREFIX}932s\n"
+        f"{qa_gate_timeout.SLOT_ACQUIRED_PREFIX}932s\n"
         "10 workers [20643 items]\n"
         "# watch_pytest timed out after 17 seconds; child process group reaped\n"
     )
@@ -134,7 +134,7 @@ def test_passing_run_records_no_timeout_summary(tmp_path: Path) -> None:
     passed = qa_case_command_stream.StreamedCommand(
         exit_code=0,
         timed_out=False,
-        output=f"{test_gate_timeout.SLOT_ACQUIRED_PREFIX}932s\n",
+        output=f"{qa_gate_timeout.SLOT_ACQUIRED_PREFIX}932s\n",
         capture_path=tmp_path / "capture.log",
     )
 
@@ -151,7 +151,7 @@ def test_cli_restates_a_timeout_alongside_the_failing_verdict(
     capsys,
     monkeypatch,
 ) -> None:
-    summary = test_gate_timeout.timeout_summary(
+    summary = qa_gate_timeout.timeout_summary(
         qa_case_budget.DEFAULT_COMMAND_CASE_BUDGET_SECONDS,
         932.0,
     )
@@ -180,7 +180,7 @@ def test_cli_restates_a_timeout_alongside_the_failing_verdict(
 def test_unwatched_command_keeps_its_parent_timeout() -> None:
     env: dict[str, str] = {}
 
-    timeout = test_gate_timeout.process_timeout_for_command(
+    timeout = qa_gate_timeout.process_timeout_for_command(
         "ruff check package", 17, env
     )
 

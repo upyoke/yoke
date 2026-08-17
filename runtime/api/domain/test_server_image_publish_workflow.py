@@ -164,6 +164,7 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
     assert "docker image inspect" in build
     assert '"$actual_arch" != "$EXPECTED_ARCH"' in build
     assert 'version("yoke-core")' in build
+    assert "verify_installed_boot" in build
     assert '"$actual_version" != "$EXPECTED_VERSION"' in build
     assert '"$actual_build" != "$EXPECTED_BUILD"' in build
     assert "uses: actions/upload-artifact@" in build
@@ -191,8 +192,12 @@ def test_digest_is_attested_before_any_named_reference_is_published():
     latest_tag_index = text.index('--tag "$LATEST_REF"')
     verify_index = text.index("Verify published references resolve to the built digest")
     assert (
-        build_index < assemble_index < attest_index
-        < sha_tag_index < latest_tag_index < verify_index
+        build_index
+        < assemble_index
+        < attest_index
+        < sha_tag_index
+        < latest_tag_index
+        < verify_index
     )
     assert "needs: [validate-tag, assemble, attest]" in text
     assert "subject-name: ${{ needs.validate-tag.outputs.repository }}" in text

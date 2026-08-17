@@ -41,6 +41,9 @@ RUN if [ -n "$YOKE_ENGINE_VERSION" ]; then \
     && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-cli \
     && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-harness \
     && python -m pip wheel --no-deps --wheel-dir /wheels ./packages/yoke-core \
+    && python packages/yoke-core/src/yoke_core/tools/wheel_module_completeness.py \
+        --package-root packages/yoke-core/src/yoke_core \
+        --wheel /wheels/yoke_core-*.whl \
     && python packages/yoke-core/src/yoke_core/tools/local_wheel_constraints.py \
         /wheels yoke-contracts yoke-cli yoke-harness yoke-core \
         > /tmp/yoke-local-constraints.txt \
@@ -97,6 +100,10 @@ COPY --from=builder /wheels /wheels
 RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
         yoke yoke-contracts yoke-cli yoke-harness yoke-core \
     && rm -rf /wheels
+
+# Exercise the installed artifact's pre-serve entrypoint and schema imports.
+# This deliberately runs after source and wheels have left the runtime stage.
+RUN python -m yoke_core.tools.product_wheel_validation
 
 # Every image consumer inherits this build-time release-identity gate. An
 # explicit release version must match the installed wheel metadata exactly;

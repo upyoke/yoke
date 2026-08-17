@@ -39,7 +39,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.domain import test_gate_timeout, verification_tree_binding
+from yoke_core.domain import qa_gate_timeout, verification_tree_binding
 from yoke_core.domain import (
     verification_tree_binding_pytest_startup as _tree_binding_startup,
 )
@@ -298,7 +298,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     with gate_admission.admitted_gate(pytest_args, stream=sys.stdout):
         try:
-            execution_timeout = test_gate_timeout.execution_timeout_from_env()
+            execution_timeout = qa_gate_timeout.execution_timeout_from_env()
         except ValueError as exc:
             print(f"watch_pytest: {exc}", file=sys.stderr)
             return 2

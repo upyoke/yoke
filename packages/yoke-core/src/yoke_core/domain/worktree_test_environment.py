@@ -39,7 +39,7 @@ from yoke_contracts.uv_project import (
 )
 from yoke_core.domain import runtime_settings
 from yoke_core.domain import verification_tree_binding_pytest_startup as _tree_binding
-from yoke_core.domain.test_environment_declaration import (
+from yoke_core.domain.qa_environment_declaration import (
     SANCTIONED_RUN_SURFACE,
     TestEnvironmentDeclaration,
     load_declaration,

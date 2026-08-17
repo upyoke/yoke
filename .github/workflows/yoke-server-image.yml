@@ -162,7 +162,7 @@ jobs:
           fi
           metadata="$(docker run --rm \
             --entrypoint python "$image_ref" -c \
-            'import os; from importlib.metadata import version; print(version("yoke-core")); print(os.environ.get("YOKE_BUILD_SHA", ""))')"
+            'import os; from importlib.metadata import version; from yoke_core.tools.product_wheel_validation import verify_installed_boot; verify_installed_boot(); print(version("yoke-core")); print(os.environ.get("YOKE_BUILD_SHA", ""))')"
           actual_version="$(sed -n '1p' <<< "$metadata")"
           actual_build="$(sed -n '2p' <<< "$metadata")"
           if [[ "$actual_version" != "$EXPECTED_VERSION" || "$actual_build" != "$EXPECTED_BUILD" ]]; then

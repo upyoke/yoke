@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers.test_machine_plan_case import (
+from yoke_core.domain.handlers.machine_qa_plan_case import (
     handle_plan_case_begin,
     handle_plan_case_submit,
 )
@@ -34,7 +34,7 @@ from yoke_core.domain.qa_plan_execution_state import (
     finish_plan_execution,
     lock_plan_execution,
 )
-from yoke_core.domain.test_machine_capability import lease_key
+from yoke_core.domain.machine_qa_capability import lease_key
 
 
 ACTOR = ActorContext(actor_id="2", session_id="session-machine-plan")

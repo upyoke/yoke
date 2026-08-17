@@ -38,8 +38,8 @@ from yoke_core.domain.machine_qa_case_result import (
 from yoke_core.domain.machine_qa_result_safety import (
     redact_machine_qa_value,
 )
-from yoke_core.domain.test_machine_capability import lease_key
-from yoke_core.domain.test_machine_verification_recording import (
+from yoke_core.domain.machine_qa_capability import lease_key
+from yoke_core.domain.machine_verification_recording import (
     record_test_machine_verification,
 )
 

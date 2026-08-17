@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import zipfile
@@ -244,10 +245,11 @@ def test_build_product_wheelhouse_includes_bootstrap_pip(
 
     monkeypatch.setattr(build_release, "_uv_executable", lambda _: "uv")
     monkeypatch.setattr(build_release, "_run", fake_run)
+    _disable_wheel_validation(monkeypatch)
     monkeypatch.setattr(
         build_release,
         "_pip_python",
-        lambda _: _FixedPython(tmp_path / "python"),
+        lambda _: contextlib.nullcontext(tmp_path / "python"),
     )
 
     build_release.build_product_wheelhouse(repo_root=tmp_path, wheelhouse=wheelhouse)
@@ -270,6 +272,7 @@ def test_build_product_wheelhouse_rejects_public_version_before_pip(
 
     monkeypatch.setattr(build_release, "_uv_executable", lambda _: "uv")
     monkeypatch.setattr(build_release, "_run", fake_run)
+    _disable_wheel_validation(monkeypatch)
     monkeypatch.setattr(
         build_release,
         "_pip_python",
@@ -334,12 +337,10 @@ def _record_hash(data: bytes) -> str:
     return f"sha256={encoded}"
 
 
-class _FixedPython:
-    def __init__(self, path: Path) -> None:
-        self._path = path
-
-    def __enter__(self) -> Path:
-        return self._path
-
-    def __exit__(self, *exc: object) -> None:
-        pass
+def _disable_wheel_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("assert_core_wheel_completeness", "verify_product_wheel_boot"):
+        monkeypatch.setattr(
+            build_release.product_wheel_validation,
+            name,
+            lambda *_args, **_kwargs: None,
+        )

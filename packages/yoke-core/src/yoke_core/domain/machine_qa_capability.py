@@ -31,7 +31,7 @@ from yoke_core.domain.project_identity import (
     resolve_project,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
+from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 
 
 HOST_CONTROL_EXECUTOR_ID = "host_control"

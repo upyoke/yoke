@@ -25,7 +25,7 @@ from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import qa_case_command_stream
 from yoke_core.domain import qa_case_budget
 from yoke_core.domain import qa_constants
-from yoke_core.domain import test_gate_timeout
+from yoke_core.domain import qa_gate_timeout
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
@@ -87,7 +87,7 @@ def execute_worktree_case(
         if not base_url:
             raise QaCaseExecutionError("this Command case requires --base-url")
         command_env["BASE_URL"] = base_url
-    process_timeout = test_gate_timeout.process_timeout_for_command(
+    process_timeout = qa_gate_timeout.process_timeout_for_command(
         command, timeout, command_env
     )
     started = time.monotonic()
@@ -109,7 +109,7 @@ def execute_worktree_case(
     verdict = "pass" if exit_code == 0 else "fail"
     # A timeout and a broken branch both land on ``fail``, and a queued gate's
     # capture ends mid-suite with no failures in it. Say which one this was.
-    slot_wait_seconds = test_gate_timeout.announced_slot_wait_seconds(
+    slot_wait_seconds = qa_gate_timeout.announced_slot_wait_seconds(
         streamed.output
     )
     elapsed_compute_seconds = max(
@@ -117,7 +117,7 @@ def execute_worktree_case(
         duration_ms / 1000 - (slot_wait_seconds or 0.0),
     )
     timeout_summary = (
-        test_gate_timeout.timeout_summary(
+        qa_gate_timeout.timeout_summary(
             timeout,
             slot_wait_seconds,
             elapsed_compute_seconds=elapsed_compute_seconds,
