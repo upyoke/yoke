@@ -1,16 +1,24 @@
 name: platform-release-bridge
 run-name: "${{ inputs.release_mode }} ${{ inputs.target_environment }} yoke@${{ inputs.product_sha }} [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
 
+# One environment coordinate crosses this bridge: `target_environment`, the
+# registered Yoke environment name the deployment run's typed environment
+# reference resolves to. Every Yoke surface here — the fleet-preflight receipt
+# gate and the desired-pin writer — is keyed by that name. Platform's promotion
+# train has its own `stage`/`production` input vocabulary that Yoke cannot
+# rename, so the name is translated to it once, at the dispatch step that
+# speaks to Platform, and nowhere else.
+
 on:
   workflow_dispatch:
     inputs:
       target_environment:
-        description: "Hosted environment to release"
+        description: "Registered Yoke environment name to release"
         required: true
         type: choice
         options:
           - stage
-          - production
+          - prod
       release_mode:
         description: "Normal release or production hotfix"
         required: true
@@ -143,6 +151,14 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
         run: |
+          case "$TARGET_ENVIRONMENT" in
+            stage) platform_target=stage ;;
+            prod) platform_target=production ;;
+            *)
+              echo "no Platform promotion route for environment $TARGET_ENVIRONMENT" >&2
+              exit 1
+              ;;
+          esac
           request_id="bridge:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${OUTER_DISPATCH_ID}"
           dispatch_error="$RUNNER_TEMP/platform-release-dispatch-error.txt"
           platform_run_id=""
@@ -150,7 +166,7 @@ jobs:
             if platform_run_id="$(yoke github-actions trigger \
               upyoke/platform yoke-release-promote.yml \
               --ref main \
-              --input "target_environment=$TARGET_ENVIRONMENT" \
+              --input "target_environment=$platform_target" \
               --input "product_ref=$PRODUCT_REF" \
               --input "release_mode=$RELEASE_MODE" \
               --request-id "$request_id" \

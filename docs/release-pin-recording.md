@@ -71,6 +71,15 @@ the version through `yoke release-pin record`. The record command's successful,
 non-empty receipt is the final job gate: a missing declaration, authorization
 denial, mutation refusal, or missing receipt keeps the outer release red.
 
+The bridge's `target_environment` input is the **registered environment name**,
+which the deploy pipeline resolves from the run's typed environment reference
+through the `{target_environment}` stage-input placeholder. That name is what
+`--environment` receives, so a release to an environment row whose id is
+`production` and whose name is `prod` records against the `prod` key rather than
+failing `target_not_configured`. A dispatched workflow's own display vocabulary
+is derived from the name at the step that speaks to that workflow, and never
+travels back into a Yoke surface.
+
 Platform's promotion workflow owns branch materialization, deployment, and
 failure restoration. It carries no control-plane settings token and contains
 no desired-pin writer. This keeps one writer at the outer success boundary and

@@ -44,7 +44,7 @@
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
           "inputs": {
-            "target_environment": "production",
+            "target_environment": "{target_environment}",
             "release_mode": "hotfix",
             "product_sha": "{head_sha}",
             "deployment_run_id": "{run_id}"
@@ -84,7 +84,7 @@
           "dispatch_correlation_input": "yoke_dispatch_id",
           "ref": "main",
           "inputs": {
-            "target_environment": "stage",
+            "target_environment": "{target_environment}",
             "release_mode": "normal",
             "product_sha": "{head_sha}",
             "deployment_run_id": "{run_id}"

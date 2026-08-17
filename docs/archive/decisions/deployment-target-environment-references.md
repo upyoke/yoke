@@ -26,10 +26,17 @@ Rules that keep the seam closed:
   a raw id or tier when a name resolves.
 - Runtime environment identity (`YOKE_ENVIRONMENT`) carries the
   environment name — the deploy pipeline sets it from the referenced row.
-- Fleet-preflight receipts key on the environment name. The one sanctioned
-  translation left is at the release-gate boundary, where Platform's
-  promotion train dispatches with its own `stage`/`production` input
-  vocabulary that Yoke cannot rename.
+- Fleet-preflight receipts key on the environment name, and so does the
+  desired-pin writer. A dispatched workflow therefore receives the
+  environment name — flow stages ask for it with the
+  `{target_environment}` input placeholder, which resolves from the run's
+  typed reference. The one sanctioned translation left is the last step
+  before a foreign train: Platform's promotion workflow takes its own
+  `stage`/`production` input vocabulary that Yoke cannot rename, so the
+  bridge derives that label where it dispatches and nowhere else. A label
+  that travels further than its own dispatch is the defect this rule
+  prevents: it reached the pin writer once, which refused the unregistered
+  name and left desired authority a release behind.
 - `items.deployed_to` stamps the environment name; `local` remains the
   non-registered local label.
 - The valid-deploy-environment set comes from the registry alone — flow

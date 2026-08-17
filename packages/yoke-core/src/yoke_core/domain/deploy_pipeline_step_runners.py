@@ -148,6 +148,7 @@ def _dispatch_step_runner(
             release_lineage=release_lineage,
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
+            environment_name=environment_name,
         )
 
     print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)
