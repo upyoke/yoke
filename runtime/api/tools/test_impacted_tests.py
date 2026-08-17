@@ -74,6 +74,8 @@ def _tiny_repo(tmp_path: Path) -> Path:
         "runtime/api/test_unrelated.py",
         "from runtime.api import unrelated\n\ndef test_y():\n    pass\n",
     )
+    for test_path in impacted_tests.ALWAYS_RUN_TESTS:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
     return tmp_path
 
 
@@ -169,7 +171,7 @@ def test_relative_imports_are_resolved(tmp_path):
 
     selection = select(["runtime/api/pkg/core.py"], index)
 
-    assert selection.files == _with_floor("runtime/api/pkg/test_core_relative.py")
+    assert selection.files == ("runtime/api/pkg/test_core_relative.py",)
 
 
 def test_selection_pytest_paths_prefers_selected_tests():
@@ -184,6 +186,19 @@ def test_no_changes_selects_nothing():
     selection = select([], ImportIndex(importers={}, module_of={}))
     assert selection.full_sweep is False
     assert selection.files == ()
+
+
+def test_contract_floor_only_selects_tests_present_in_project(tmp_path):
+    _write(tmp_path, "runtime/__init__.py", "")
+    _write(tmp_path, "runtime/api/__init__.py", "")
+
+    selection = select(
+        ["docs/operator-guide.md"], build_import_index(tmp_path), bounded=True
+    )
+
+    assert selection.bounded_deferral is True
+    assert selection.files == ()
+    assert selection.widening_triggers == ()
 
 
 def test_subprocess_module_string_selects_the_shelling_test(tmp_path):
