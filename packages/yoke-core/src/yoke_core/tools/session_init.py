@@ -10,11 +10,11 @@ collapses to a single foreground call:
 Stdout: KEY=VALUE lines, one per line, in stable order.
 
 Output keys (always present):
-- ``SESSION_ID``       — the YOKE_SESSION_ID (existing env, harness-mapped, or generated)
+- ``SESSION_ID``       — ambient session id (env, process-anchor registry, or cursor-session-map)
 - ``WORKSPACE``        — git toplevel of the calling cwd
 - ``LANE``             — resolved execution lane (advisory; server anchors on session row)
-- ``EXECUTOR``         — claude-code | codex | (custom from YOKE_EXECUTOR)
-- ``PROVIDER``         — anthropic | openai | (custom from YOKE_PROVIDER)
+- ``EXECUTOR``         — claude-code | codex | cursor-desktop | cursor-cli | (custom from YOKE_EXECUTOR)
+- ``PROVIDER``         — anthropic | openai | cursor | (custom from YOKE_PROVIDER)
 - ``MODEL``            — resolved from ``harness_sessions.model`` by session id,
                          falling back to ``runtime.harness.hook_helpers_model.detect_model``
 - ``MAX_CHAIN_STEPS``  — read from machine config (default 3)
@@ -33,16 +33,15 @@ across loop iterations are safe.
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Sequence
 
-from yoke_core.tools import python_interpreter_probe
+from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
 from yoke_core.domain.db_helpers import connect, resolve_db_path
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.tools import python_interpreter_probe
 from yoke_harness.hooks.identity import (
     _is_placeholder_model,
     detect_executor,
@@ -59,15 +58,8 @@ def _resolve_provider(executor: str) -> str:
     return detect_provider(executor)
 
 
-def _resolve_session_id(executor: str) -> str:
-    if os.environ.get("YOKE_SESSION_ID"):
-        return os.environ["YOKE_SESSION_ID"]
-    if os.environ.get("CLAUDE_SESSION_ID"):
-        return os.environ["CLAUDE_SESSION_ID"]
-    if os.environ.get("CODEX_THREAD_ID"):
-        return os.environ["CODEX_THREAD_ID"]
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"{executor}-{ts}-{uuid.uuid4().hex[:6]}"
+def _resolve_session_id() -> Optional[str]:
+    return resolve_ambient_session_id()
 
 
 def _relay_owns_session_authority() -> bool:
@@ -237,11 +229,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     executor = _resolve_executor()
     provider = _resolve_provider(executor)
-    session_id = _resolve_session_id(executor)
     workspace = _resolve_workspace()
     if not workspace:
         print("Error: not inside a git repository", file=sys.stderr)
         return 1
+    session_id = _resolve_session_id()
+    if not session_id:
+        print(AMBIENT_RESOLUTION_FAILED, file=sys.stderr)
+        return 2
     lane = _resolve_lane(workspace, executor)
     max_chain_steps = _read_max_chain_steps(workspace)
     model = _resolve_model(session_id, executor)

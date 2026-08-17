@@ -8,14 +8,12 @@ session-begin side-effect is bypassed.
 
 from __future__ import annotations
 
-import os
 import subprocess
-from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.fixtures.file_test_db import init_test_db
 from yoke_core.tools import python_interpreter_probe, session_init
 from runtime.api.test_constants import TEST_MODEL_ID
 
@@ -28,6 +26,8 @@ def clean_env(monkeypatch):
         "CLAUDE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT",
         "CODEX_THREAD_ID", "CODEX_MODEL", "CODEX_ORIGINATOR",
         "CODEX_INTERNAL_ORIGINATOR_OVERRIDE",
+        "CURSOR_CONVERSATION_ID", "CURSOR_TRANSCRIPT_PATH",
+        "CURSOR_INVOKED_AS", "CURSOR_AGENT",
     ):
         monkeypatch.delenv(key, raising=False)
     # Pin the transport gate to local so model-resolver tests read locally
@@ -67,20 +67,19 @@ class TestResolveProvider:
 class TestResolveSessionId:
     def test_explicit_yoke_session_id_wins(self, monkeypatch):
         monkeypatch.setenv("YOKE_SESSION_ID", "explicit-id")
-        assert session_init._resolve_session_id("claude-code") == "explicit-id"
+        assert session_init._resolve_session_id() == "explicit-id"
 
     def test_claude_session_id_used(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-id-1")
-        assert session_init._resolve_session_id("claude-code") == "claude-id-1"
+        assert session_init._resolve_session_id() == "claude-id-1"
 
     def test_codex_thread_id_used(self, monkeypatch):
         monkeypatch.setenv("CODEX_THREAD_ID", "codex-thread-x")
-        assert session_init._resolve_session_id("codex") == "codex-thread-x"
+        assert session_init._resolve_session_id() == "codex-thread-x"
 
-    def test_fallback_generates_id(self):
-        sid = session_init._resolve_session_id("claude-code")
-        assert sid.startswith("claude-code-")
-        assert len(sid) > len("claude-code-")
+    def test_fallback_refuses_to_mint(self, monkeypatch):
+        monkeypatch.setattr(session_init, "resolve_ambient_session_id", lambda: None)
+        assert session_init._resolve_session_id() is None
 
 
 class TestReadMaxChainSteps:

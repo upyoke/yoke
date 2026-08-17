@@ -8,6 +8,7 @@
 |-------------|---------------------|------------------------|
 | Claude Code | `CLAUDE_SESSION_ID` | Hook payload `session_id` when available |
 | Codex | `CODEX_THREAD_ID` | Hook payload `session_id` when available |
+| Cursor | conversation map (`<machine-home>/cursor-session-map/`) | not an env var (`CURSOR_CONVERSATION_ID` names the conversation, not the session) |
 
 The canonical session ID is the harness-provided stable conversation-level
 identifier. It MUST NOT be inferred from the board or fabricated IDs. When the

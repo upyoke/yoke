@@ -38,8 +38,7 @@ UNCORROBORATED_SESSION_MESSAGE = (
     "process cannot corroborate. {ambient_note} A session id comes from "
     "the harness that owns the conversation — it is never minted by the "
     "caller, because a minted id registers a session that does not exist "
-    "and hides the resolution failure behind a normal-looking row. "
-    + AMBIENT_RESOLUTION_FAILED
+    "and hides the resolution failure behind a normal-looking row."
 )
 
 
@@ -95,9 +94,12 @@ def uncorroborated_reason(
     )
     if declared == (ambient or ""):
         return None
-    return UNCORROBORATED_SESSION_MESSAGE.format(
+    message = UNCORROBORATED_SESSION_MESSAGE.format(
         declared=declared, ambient_note=_ambient_note(ambient),
     )
+    if ambient:
+        return message
+    return f"{message} {AMBIENT_RESOLUTION_FAILED}"
 
 
 __all__ = [

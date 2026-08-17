@@ -24,6 +24,7 @@ _CURSOR_COARSE = "cursor"
 _CURSOR_AGENT_ENV = "CURSOR_INVOKED_AS"
 _CURSOR_AGENT_VALUE = "cursor-agent"
 _CURSOR_TRANSCRIPT_ENV = "CURSOR_TRANSCRIPT_PATH"
+_CURSOR_CONVERSATION_ENV = "CURSOR_CONVERSATION_ID"
 _CURSOR_SURFACE_CLI = "cli"
 _CURSOR_SURFACE_DESKTOP = "desktop"
 
@@ -155,12 +156,11 @@ def detect_executor() -> str:
 
     Resolution order:
       1. ``YOKE_EXECUTOR`` — explicit override; stored verbatim.
-      2. Codex family (``CODEX_THREAD_ID`` set) -> ``codex-{surface}`` from the
-         full Codex entrypoint resolver (env -> transcript -> cache). Coarse
-         ``codex`` when every source misses.
-      3. Claude family -> ``claude-{surface}`` from ``CLAUDE_CODE_ENTRYPOINT``
-         (observed values: ``claude-desktop``, ``claude-vscode``).  Coarse
-         ``claude-code`` when the env var is unset.
+      2. Codex family (``CODEX_THREAD_ID`` set) -> ``codex-{surface}``.
+      3. Claude session/entrypoint (``CLAUDE_SESSION_ID`` /
+         ``CLAUDE_CODE_ENTRYPOINT``) -> ``claude-{surface}``.
+      4. Cursor hook/CLI markers, then ``CURSOR_CONVERSATION_ID`` as the
+         IDE-shell fallback to ``cursor-desktop``.
 
     The composed value is always ``coarse`` or ``{family}-{surface}`` so
     downstream callers can prefix-match on family and the lane resolver can key
@@ -172,11 +172,15 @@ def detect_executor() -> str:
         from runtime.harness.codex.codex_model import resolve_entrypoint
 
         return _compose_executor(_CODEX_COARSE, _CODEX_COARSE, resolve_entrypoint())
-    # Cursor exports no session env var; its hook processes carry
-    # CURSOR_TRANSCRIPT_PATH, and the standalone terminal agent additionally
-    # sets CURSOR_INVOKED_AS=cursor-agent. The rendered Cursor hook command
-    # pins YOKE_EXECUTOR=cursor, so this branch covers unpinned subprocesses.
+    if os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+        return _compose_executor(
+            "claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"),
+        )
+    # Hook/CLI markers, then CURSOR_CONVERSATION_ID as the IDE-shell fallback.
+    # Conversation id is last so a nested Claude/Codex terminal keeps its family.
     if _in_cursor_process():
+        return cursor_surface_entrypoint()
+    if os.environ.get(_CURSOR_CONVERSATION_ENV):
         return cursor_surface_entrypoint()
     return _compose_executor("claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
 

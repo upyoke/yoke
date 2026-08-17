@@ -9,6 +9,7 @@ from __future__ import annotations
 from yoke_cli.commands.session_begin_corroboration import (
     uncorroborated_reason,
 )
+from yoke_contracts.session_identity import AMBIENT_RESOLUTION_FAILED
 
 
 _AMBIENT = "019fb914-2b50-7133-8065-e174775dc981"
@@ -43,6 +44,7 @@ class TestRefuses:
         assert reason is not None
         assert "f6300c3b-4a37-4b08-aa56-65d11c5a22e2" in reason
         assert "no session id" in reason
+        assert AMBIENT_RESOLUTION_FAILED in reason
 
     def test_id_diverging_from_ambient_is_refused(self):
         reason = uncorroborated_reason(
@@ -50,6 +52,7 @@ class TestRefuses:
         )
         assert reason is not None
         assert _AMBIENT in reason
+        assert AMBIENT_RESOLUTION_FAILED not in reason
 
     def test_refusal_names_the_operator_debug_override(self):
         reason = uncorroborated_reason("minted", ambient_session_id="")

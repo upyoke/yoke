@@ -85,3 +85,15 @@ class TestMainForwardsFailureCause:
         assert rc == 1
         err = capsys.readouterr().err
         assert "SOME_CODE" in err
+
+    def test_main_refuses_when_ambient_unresolved(
+        self, tmp_path, monkeypatch, capsys,
+    ):
+        workspace = tmp_path / "ws"
+        workspace.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=str(workspace), check=True)
+        monkeypatch.chdir(workspace)
+        monkeypatch.setattr(session_init, "resolve_ambient_session_id", lambda: None)
+        rc = session_init.main(["--skip-begin"])
+        assert rc == 2
+        assert "ambient session identity could not be resolved" in capsys.readouterr().err
