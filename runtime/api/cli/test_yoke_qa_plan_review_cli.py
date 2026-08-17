@@ -111,6 +111,8 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
+    assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
+    assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]
 
 
 def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
