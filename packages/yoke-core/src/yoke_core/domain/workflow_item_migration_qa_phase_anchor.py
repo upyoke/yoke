@@ -19,11 +19,54 @@ def _qa_anchor_stage(workflow: WorkflowRuntime) -> str | None:
         return None
 
 
+def _qa_conflict_message(
+    binding: str,
+    source_anchor: str | None,
+    target_anchor: str | None,
+    requirement_id: int | None,
+) -> str:
+    source_label = repr(source_anchor) if source_anchor is not None else "<none>"
+    target_label = repr(target_anchor) if target_anchor is not None else "<none>"
+    detail = (
+        f"{binding} QA gate semantics changed "
+        f"(source anchor stage {source_label}; target anchor stage {target_label})"
+    )
+    if requirement_id is None:
+        return (
+            f"{detail}; accept the current workflow pin when the target QA "
+            "enforcement change is intentional"
+        )
+    return (
+        f"{detail}; waive with `yoke qa requirement waive --requirement-id "
+        f'{requirement_id} --rationale "<reason>" --source operator --force`, '
+        "or accept the current workflow pin when the target QA enforcement "
+        "change is intentional"
+    )
+
+
+def qa_conflict(
+    binding: str,
+    source_enforcement: tuple[tuple[str, str | None], ...],
+    target_enforcement: tuple[tuple[str, str | None], ...],
+    requirement_id: int | None,
+) -> str:
+    """Render one actionable QA migration conflict from enforcement paths."""
+    source_anchor = source_enforcement[0][0] if source_enforcement else None
+    target_anchor = target_enforcement[0][0] if target_enforcement else None
+    return _qa_conflict_message(
+        binding,
+        source_anchor,
+        target_anchor,
+        requirement_id,
+    )
+
+
 def phase_anchored_qa_conflict(
     source: WorkflowRuntime,
     target: WorkflowRuntime,
     *,
     binding: str,
+    requirement_id: int,
 ) -> str | None:
     """Explain why an unlinked QA requirement cannot survive the migration.
 
@@ -41,7 +84,9 @@ def phase_anchored_qa_conflict(
     if source_anchor is None and target_anchor is None:
         return None
     if source_anchor is None or target_anchor is None:
-        return f"{binding} QA gate semantics changed"
+        return _qa_conflict_message(
+            binding, source_anchor, target_anchor, requirement_id
+        )
     mapped_source_enforcement = tuple(
         (mapped_stage(source, target, gate_stage), mode)
         for gate_stage, mode in qa_enforcement_signature(source, source_anchor)
@@ -50,8 +95,10 @@ def phase_anchored_qa_conflict(
     if mapped_source_enforcement != target_enforcement or source.policies.get(
         "qa"
     ) != target.policies.get("qa"):
-        return f"{binding} QA gate semantics changed"
+        return _qa_conflict_message(
+            binding, source_anchor, target_anchor, requirement_id
+        )
     return None
 
 
-__all__ = ["phase_anchored_qa_conflict"]
+__all__ = ["phase_anchored_qa_conflict", "qa_conflict"]

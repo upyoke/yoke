@@ -90,19 +90,35 @@ def test_unlinked_requirement_blocks_when_target_moves_anchor(test_db):
     )
     insert_qa_requirement(test_db, item_id=ITEM_ID)
 
-    with pytest.raises(WorkflowRegistryError, match="QA gate semantics changed"):
+    with pytest.raises(WorkflowRegistryError) as raised:
         _migrate(test_db, target)
+
+    message = str(raised.value)
+    assert "source anchor stage 'reviewed-implementation'" in message
+    assert "target anchor stage 'implemented'" in message
+    assert "yoke qa requirement waive" in message
+    assert "accept the current workflow pin" in message
 
 
 def test_unlinked_requirement_blocks_when_target_drops_all_qa_gates(test_db):
     _source, target = _publish_pair(
         test_db,
-        strip_target_stages=("reviewed-implementation", "implemented", "release"),
+        strip_target_stages=(
+            "reviewed-implementation",
+            "implemented",
+            "release",
+            "done",
+        ),
     )
     insert_qa_requirement(test_db, item_id=ITEM_ID)
 
-    with pytest.raises(WorkflowRegistryError, match="QA gate semantics changed"):
+    with pytest.raises(WorkflowRegistryError) as raised:
         _migrate(test_db, target)
+
+    message = str(raised.value)
+    assert "source anchor stage 'reviewed-implementation'" in message
+    assert "target anchor stage <none>" in message
+    assert "--source operator --force" in message
 
 
 def test_waived_unlinked_requirement_never_blocks(test_db):

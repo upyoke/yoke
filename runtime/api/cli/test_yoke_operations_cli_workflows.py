@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from unittest.mock import patch
 
+import pytest
+
 from yoke_cli.commands.adapters.workflows_read import (
     workflows_current_set,
     workflows_definition_get,
@@ -103,6 +105,38 @@ def test_item_get_builds_server_resolved_target_and_renders_pin(capsys) -> None:
     )
 
 
+def test_item_migrate_preview_renders_compatibility_and_conflicts(capsys) -> None:
+    response = FunctionCallResponse(
+        success=True,
+        function="workflows.item.migrate",
+        version="v1",
+        result={
+            "preview": True,
+            "conflicts": ["QA requirement 7 changed"],
+            "after": {
+                "workflow_id": "issue",
+                "workflow_version": 5,
+                "status": "implementing",
+            },
+        },
+    )
+
+    def _dispatch(*, human_writer, **_kwargs):
+        human_writer(response, sys.stdout, sys.stderr)
+        return 0
+
+    with patch(
+        "yoke_cli.commands.adapters.workflows_read.dispatch_and_emit",
+        side_effect=_dispatch,
+    ):
+        assert workflows_item_migrate(["YOK-42", "--preview"]) == 0
+
+    assert capsys.readouterr().out.splitlines() == [
+        "item-workflow-preview|false|issue|5|implementing",
+        "conflict|QA requirement 7 changed",
+    ]
+
+
 def test_current_set_and_item_migrate_build_typed_payloads() -> None:
     calls = []
 
@@ -120,7 +154,9 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         assert workflows_current_set([
             "issue", "2", "--expected-current-version", "1",
         ]) == 0
-        assert workflows_item_migrate(["YOK-42", "--version", "2"]) == 0
+        assert workflows_item_migrate([
+            "YOK-42", "--version", "2", "--preview",
+        ]) == 0
         assert workflows_version_get(["issue", "1"]) == 0
         assert workflows_version_list(["dash"]) == 0
         assert workflows_policy_defaults_publish([
@@ -147,7 +183,7 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
     }
     assert calls[1]["function_id"] == "workflows.item.migrate"
     assert calls[1]["target"].item_ref == "YOK-42"
-    assert calls[1]["payload"] == {"version": 2}
+    assert calls[1]["payload"] == {"version": 2, "preview": True}
     assert calls[2]["function_id"] == "workflows.version.get"
     assert calls[2]["payload"] == {"workflow_id": "issue", "version": 1}
     assert calls[3]["function_id"] == "workflows.version.list"
@@ -169,3 +205,14 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         "expected_current_version": 3,
         "path_survey_default": False,
     }
+
+
+def test_item_migrate_help_teaches_operator_authority(capsys) -> None:
+    with pytest.raises(SystemExit) as raised:
+        workflows_item_migrate(["--help"])
+
+    assert raised.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "authority from an operator-started session" in help_text
+    assert "must not change their own session mode" in help_text
+    assert "--preview" in help_text

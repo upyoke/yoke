@@ -56,10 +56,10 @@ WORKFLOW_ADAPTERS = [
     AdapterEntry(
         function_id="workflows.item.migrate",
         cli_invocation=(
-            "yoke workflows item migrate ITEM [--version N] [--project P] "
-            "[--session-id S] [--json]"
+            "yoke workflows item migrate ITEM [--version N] [--preview] "
+            "[--project P] [--session-id S] [--json]"
         ),
-        notes="Explicitly migrates a compatible existing item to another published version.",
+        notes="Previews or migrates an existing item to another published version.",
     ),
     read_entry(
         function_id="workflows.mechanics.get",

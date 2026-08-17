@@ -103,6 +103,8 @@ def _claim_error(
     version: str,
     code: str,
     message: str,
+    *,
+    recovery_hint: Optional[str] = None,
 ) -> FunctionCallResponse:
     return FunctionCallResponse(
         success=False,
@@ -111,7 +113,11 @@ def _claim_error(
         request_id=request.request_id,
         result={},
         warnings=[],
-        error=FunctionError(code=code, message=message),
+        error=FunctionError(
+            code=code,
+            message=message,
+            recovery_hint=recovery_hint,
+        ),
         event_ids=[],
     )
 
@@ -284,6 +290,11 @@ def verify_claim(
                 ver,
                 "operator_override_required",
                 f"session {actor_session!r} lacks operator-override authority",
+                recovery_hint=(
+                    "Ask an authorized human operator to invoke this operation "
+                    "from an operator-started session. An agent changing its own "
+                    "session mode is not sanctioned remediation."
+                ),
             )
         allow_claim_verification(evidence, authority="operator_session")
         return None
