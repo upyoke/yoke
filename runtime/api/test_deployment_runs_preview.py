@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.deployment_runs — preview environments and cleanup.
 
 Split from test_deployment_runs.py: TestPreviewEnvironments, TestCanCleanupPreview.

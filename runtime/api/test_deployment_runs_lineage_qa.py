@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.deployment_runs — lineage, QA, validation, CLI.
 
 Split from test_deployment_runs.py: TestLineage, TestQA,
@@ -10,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.deployment_runs_test_db import db_path  # noqa: F401 — fixture re-export
+from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
