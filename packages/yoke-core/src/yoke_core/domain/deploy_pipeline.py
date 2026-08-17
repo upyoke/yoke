@@ -13,7 +13,6 @@ import argparse
 import os
 import subprocess
 import sys
-from pathlib import Path
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
@@ -35,7 +34,11 @@ from yoke_core.domain.deploy_pipeline_reporting import (
     _set_deploy_stage,
     _yoke_db,
 )
-from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.deploy_pipeline_run_context import (
+    finalize_run_success,
+    resolve_flow_target,
+    resolve_project_checkout_path,
+)
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
 
 
@@ -120,38 +123,24 @@ def run_pipeline(
         return EXIT_USAGE
 
     github_repo = _project_db("get", project, "github_repo", sd=sd) if project else ""
-    project_repo_path = ""
-    if project:
-        conn = connect()
-        try:
-            checkout = checkout_for_project(conn, project)
-        finally:
-            conn.close()
-        project_repo_path = str(checkout) if checkout is not None else ""
-        if project_repo_path and not (
-            Path(project_repo_path).expanduser() / ".git"
-        ).exists():
-            print(
-                f"Warning: machine-config checkout for project '{project}' "
-                f"at {project_repo_path} is missing or not a git checkout; "
-                "stages that consult the project repository will fail — "
-                "repair that projects entry in ~/.yoke/config.json",
-                file=sys.stderr,
-            )
+    project_repo_path = resolve_project_checkout_path(project)
 
-    target_env = _flow_db("get", flow_id, "target_env", sd=sd)
-    target_env = "" if target_env == "null" else target_env
+    target_tier, target_environment_id, environment_name = resolve_flow_target(
+        flow_id, sd=sd,
+    )
     print(
         "Deployment authority: "
         f"release_control_plane={deploy_env.release_control_plane_env()} "
-        f"target_env={target_env or '<unset>'} "
+        f"target={environment_name or target_tier or '<unset>'} "
         f"flow={flow_id} run={run_id}"
     )
 
-    # The branch this flow gates on: the target env's declared deploy
-    # branch (environments.settings.git.branch), else the project base
-    # branch. Consumed by the merged gate and the CI gate.
-    gate_branch = resolve_flow_gate_branch(project, target_env, project_repo_path)
+    # The branch this flow gates on: the referenced environment's declared
+    # deploy branch (environments.settings.git.branch), else the project
+    # base branch. Consumed by the merged gate and the CI gate.
+    gate_branch = resolve_flow_gate_branch(
+        project, target_tier, target_environment_id, project_repo_path,
+    )
 
     ok, first_item, branch = _resolve_and_verify_branch(
         member_items, project_repo_path, target_branch=gate_branch, sd=sd,
@@ -232,7 +221,7 @@ def run_pipeline(
             timeout_min=timeout_min,
             fresh=fresh,
             image_tag=image_tag,
-            target_env=target_env,
+            environment_name=environment_name,
             gate_branch=gate_branch,
             release_lineage=release_lineage,
             sd=sd,
@@ -319,18 +308,9 @@ def run_pipeline(
     finally:
         conn.close()
 
-    _yoke_db("runs", "update", run_id, "status", "succeeded", sd=sd)
-    _emit_run_event(
-        "DeploymentRunSucceeded", "completed",
-        {"run_id": run_id, "flow": flow_id, "project": project},
-        member_items=member_items, project=project, sd=sd,
+    finalize_run_success(
+        run_id, flow_id, project, member_items, environment_name, sd=sd,
     )
-
-    # Auto-set deployed_to (item-bound; no-op for item-less runs)
-    if target_env and member_items:
-        for item_id in member_items:
-            _yoke_db("items", "update", item_id, "deployed_to", target_env, sd=sd)
-        print(f"Auto-set deployed_to={target_env} from flow {flow_id}")
 
     print(f"Pipeline complete for run {run_id}")
     return EXIT_SUCCESS

@@ -2,7 +2,7 @@
 
 Wraps the four existing primitives operators were running by hand:
 
-    runs resolve-target-env  ->  runs create-run  ->  runs add-item
+    runs resolve-target  ->  runs create-run  ->  runs add-item
     ->  runs validate-composition
 
 into one call that returns a structured handle. Stops at validation —
@@ -29,8 +29,11 @@ from yoke_core.domain.deployment_runs_crud_mutate import (
     cmd_add_item,
     cmd_create_run,
 )
-from yoke_core.domain.deployment_runs_preview import cmd_resolve_target_env
+from yoke_core.domain.deployment_run_target_resolution import (
+    cmd_resolve_target,
+)
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+from yoke_core.domain.environment_delivery_record import STAGE_ENV_NAME
 from yoke_core.domain.deployment_item_flow_resolution import (
     lookup_item_project_and_flow as _lookup_item_project_and_flow,
 )
@@ -42,7 +45,7 @@ from yoke_core.engines.runs_release_lineage import (
 
 
 # Phase identifiers for the structured handle.
-PHASE_RESOLVE = "resolve-target-env"
+PHASE_RESOLVE = "resolve-target"
 PHASE_VALIDATE_LINEAGE = "validate-release-lineage"
 PHASE_CREATE = "create-run"
 PHASE_ADD_ITEM = "add-item"
@@ -63,7 +66,9 @@ class StartForItemResult:
     ok: bool
     project: Optional[str] = None
     flow: Optional[str] = None
-    target_env: Optional[str] = None
+    target_tier: Optional[str] = None
+    target_environment_id: Optional[str] = None
+    target_environment_name: Optional[str] = None
     run_id: Optional[str] = None
     validation_message: Optional[str] = None
     error: Optional[str] = None
@@ -75,7 +80,9 @@ class StartForItemResult:
             "ok": self.ok,
             "project": self.project,
             "flow": self.flow,
-            "target_env": self.target_env,
+            "target_tier": self.target_tier,
+            "target_environment_id": self.target_environment_id,
+            "target_environment_name": self.target_environment_name,
             "run_id": self.run_id,
             "item_ids": list(self.item_ids),
         }
@@ -92,7 +99,7 @@ def start_for_item(
     *,
     project: Optional[str] = None,
     flow: Optional[str] = None,
-    target_env: Optional[str] = None,
+    environment: Optional[str] = None,
     release_lineage: Optional[str] = None,
     project_repo_path: str = "",
     created_by: str = "operator",
@@ -131,10 +138,12 @@ def start_for_item(
         )
 
     try:
-        resolved_target_env = cmd_resolve_target_env(
-            resolved_project,
-            resolved_flow,
-            target_env_override=target_env,
+        target_tier, target_environment_id, environment_name = (
+            cmd_resolve_target(
+                resolved_project,
+                resolved_flow,
+                environment_override=environment,
+            )
         )
     except Exception as exc:
         return StartForItemResult(
@@ -142,15 +151,16 @@ def start_for_item(
             project=resolved_project,
             flow=resolved_flow,
             item_ids=[item_id],
-            error=f"resolve-target-env failed: {exc}",
+            error=f"resolve-target failed: {exc}",
             error_phase=PHASE_RESOLVE,
         )
 
-    if not release_lineage and resolved_target_env == "stage":
+    if not release_lineage and environment_name == STAGE_ENV_NAME:
         try:
             release_lineage, lineage_error = _resolve_remote_release_head(
                 resolved_project,
-                resolved_target_env,
+                target_tier,
+                target_environment_id,
                 project_repo_path,
             )
         except Exception as exc:
@@ -166,7 +176,9 @@ def start_for_item(
                 ok=False,
                 project=resolved_project,
                 flow=resolved_flow,
-                target_env=resolved_target_env,
+                target_tier=target_tier,
+                target_environment_id=target_environment_id,
+                target_environment_name=environment_name,
                 item_ids=[item_id],
                 error=lineage_error,
                 error_phase=PHASE_VALIDATE_LINEAGE,
@@ -175,7 +187,8 @@ def start_for_item(
         try:
             lineage_error = _validate_commit_release_lineage(
                 resolved_project,
-                resolved_target_env,
+                target_tier,
+                target_environment_id,
                 release_lineage,
                 project_repo_path,
             )
@@ -186,7 +199,9 @@ def start_for_item(
                 ok=False,
                 project=resolved_project,
                 flow=resolved_flow,
-                target_env=resolved_target_env,
+                target_tier=target_tier,
+                target_environment_id=target_environment_id,
+                target_environment_name=environment_name,
                 item_ids=[item_id],
                 error=lineage_error,
                 error_phase=PHASE_VALIDATE_LINEAGE,
@@ -196,7 +211,7 @@ def start_for_item(
         run_id = cmd_create_run(
             resolved_project,
             resolved_flow,
-            target_env=resolved_target_env,
+            environment=environment,
             release_lineage=release_lineage,
             created_by=created_by,
         )
@@ -205,7 +220,9 @@ def start_for_item(
             ok=False,
             project=resolved_project,
             flow=resolved_flow,
-            target_env=resolved_target_env,
+            target_tier=target_tier,
+            target_environment_id=target_environment_id,
+            target_environment_name=environment_name,
             item_ids=[item_id],
             error=f"create-run failed: {exc}",
             error_phase=PHASE_CREATE,
@@ -218,7 +235,9 @@ def start_for_item(
             ok=False,
             project=resolved_project,
             flow=resolved_flow,
-            target_env=resolved_target_env,
+            target_tier=target_tier,
+            target_environment_id=target_environment_id,
+            target_environment_name=environment_name,
             run_id=run_id,
             item_ids=[item_id],
             error=f"add-item failed: {exc}",
@@ -232,7 +251,9 @@ def start_for_item(
             ok=False,
             project=resolved_project,
             flow=resolved_flow,
-            target_env=resolved_target_env,
+            target_tier=target_tier,
+            target_environment_id=target_environment_id,
+            target_environment_name=environment_name,
             run_id=run_id,
             item_ids=[item_id],
             error=f"validate-composition raised: {exc}",
@@ -244,7 +265,9 @@ def start_for_item(
             ok=False,
             project=resolved_project,
             flow=resolved_flow,
-            target_env=resolved_target_env,
+            target_tier=target_tier,
+            target_environment_id=target_environment_id,
+            target_environment_name=environment_name,
             run_id=run_id,
             item_ids=[item_id],
             validation_message=msg,
@@ -256,7 +279,9 @@ def start_for_item(
         ok=True,
         project=resolved_project,
         flow=resolved_flow,
-        target_env=resolved_target_env,
+        target_tier=target_tier,
+        target_environment_id=target_environment_id,
+        target_environment_name=environment_name,
         run_id=run_id,
         item_ids=[item_id],
         validation_message=msg,

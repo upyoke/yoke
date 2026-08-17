@@ -15,6 +15,8 @@ from yoke_core.domain.flow_validation import validate_stages
 from yoke_contracts.project_contract.deployment_flows import (
     DECLARATION_SCHEMA,
     EMPTY_DECLARATION_TEXT,
+    TARGET_TIER_PERSISTENT,
+    VALID_TARGET_TIERS,
 )
 
 
@@ -31,7 +33,8 @@ _FLOW_KEYS = frozenset({
     "description",
     "stages",
     "on_failure",
-    "target_env",
+    "target_tier",
+    "target_environment_id",
     "done_description",
     "status",
 })
@@ -44,7 +47,8 @@ class FlowDeclaration:
     description: str
     stages: str
     on_failure: str
-    target_env: str | None
+    target_tier: str | None
+    target_environment_id: str | None
     done_description: str | None
     status: str
 
@@ -147,13 +151,28 @@ def _normalize_flow(raw: object, index: int) -> FlowDeclaration:
         raise ValueError(f"flow {index} stages must be an array")
     stages_json = json_helper.dumps_compact(stages)
     validate_stages(stages_json)
+    target_tier = _nullable_string(raw, "target_tier", index)
+    if target_tier is not None and target_tier not in VALID_TARGET_TIERS:
+        raise ValueError(
+            f"flow {index} target_tier must be one of "
+            f"{sorted(VALID_TARGET_TIERS)} or null"
+        )
+    target_environment_id = _nullable_string(
+        raw, "target_environment_id", index,
+    )
+    if (target_tier == TARGET_TIER_PERSISTENT) != bool(target_environment_id):
+        raise ValueError(
+            f"flow {index} target_environment_id is required exactly when "
+            "target_tier='persistent'"
+        )
     return FlowDeclaration(
         id=flow_id,
         name=_required_string(raw, "name", index),
         description=_optional_string(raw, "description", index, default=""),
         stages=stages_json,
         on_failure=_optional_string(raw, "on_failure", index, default="halt"),
-        target_env=_nullable_string(raw, "target_env", index),
+        target_tier=target_tier,
+        target_environment_id=target_environment_id,
         done_description=_nullable_string(raw, "done_description", index),
         status=validate_flow_status(str(raw.get("status", FLOW_STATUS_ACTIVE))),
     )

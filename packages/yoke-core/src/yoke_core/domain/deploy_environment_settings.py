@@ -254,19 +254,19 @@ def deploy_environment_from_settings(
     )
 
 
-def declared_env_branch(project: str, env_name: str) -> str:
-    """Return *env_name*'s declared deploy branch for *project*, or ``""``.
+def declared_env_branch(project: str, environment_id: str) -> str:
+    """Return the environment's declared deploy branch, or ``""``.
 
     Narrow read of ``environments.settings.git.branch`` that tolerates env
     rows that are not deploy-capable (no hosts/pulumi/database settings) and
     a missing env row entirely — the deployment-pipeline merged gate consumes
-    this for any flow ``target_env``, including envs that exist only as
-    topology declarations. DB/load failures propagate loudly; they must not
-    silently read as "no declared branch".
+    this for any flow's referenced environment, including envs that exist
+    only as topology declarations. DB/load failures propagate loudly; they
+    must not silently read as "no declared branch".
     """
     settings = load_project_renderer_settings(project)
     env = next(
-        (e for e in settings.environments if e.name == env_name), None
+        (e for e in settings.environments if e.id == environment_id), None
     )
     if env is None:
         return ""

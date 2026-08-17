@@ -1,9 +1,10 @@
 """Resolve and stamp first-class environment delivery records.
 
-Run ``target_env`` values are free text on the run row. Once a project
-registers environment rows, create-time validation requires the token to
-be a registered name, id, or an existing flow ``target_env`` for that
-project. Successful completion writes ``environments.last_deployed_at``.
+Deployment runs reference their target through
+``deployment_runs.target_environment_id``. Operator input still arrives as
+an environment id or name; resolution happens here, against the project's
+registered environments, and successful completion writes
+``environments.last_deployed_at``.
 """
 
 from __future__ import annotations
@@ -14,12 +15,13 @@ from yoke_core.domain.db_helpers import iso8601_now, query_rows, query_scalar
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
-DELIVERY_ENV_NAMES = frozenset({"prod", "stage"})
-UNBOUND_TARGET_ENVS = frozenset({"", "ephemeral"})
+PRODUCTION_ENV_NAME = "prod"
+STAGE_ENV_NAME = "stage"
+DELIVERY_ENV_NAMES = frozenset({PRODUCTION_ENV_NAME, STAGE_ENV_NAME})
 
 
-class UnregisteredTargetEnv(ValueError):
-    """``target_env`` is not in the project's registered delivery set."""
+class UnregisteredEnvironment(ValueError):
+    """The named environment is not registered for the project."""
 
 
 def require_delivery_env_name(name: str) -> str:
@@ -33,8 +35,8 @@ def require_delivery_env_name(name: str) -> str:
     return normalized
 
 
-def registered_target_env_tokens(conn: Any, project_id: int) -> list[str]:
-    """Return the sorted delivery tokens a project currently recognizes."""
+def registered_environment_tokens(conn: Any, project_id: int) -> list[str]:
+    """Return the sorted environment ids and names a project registers."""
     tokens: set[str] = set()
     if _has_environment_registry(conn):
         for row in query_rows(
@@ -46,32 +48,25 @@ def registered_target_env_tokens(conn: Any, project_id: int) -> list[str]:
             tokens.update(_nonempty_tokens((
                 _row_value(row, "id", 0), _row_value(row, "name", 1),
             )))
-    if _table_exists(conn, "deployment_flows"):
-        for row in query_rows(
-            conn,
-            "SELECT target_env FROM deployment_flows WHERE project_id = %s",
-            (project_id,),
-        ):
-            tokens.update(_nonempty_tokens((_row_value(row, "target_env", 0),)))
     return sorted(tokens)
 
 
-def require_registered_target_env(
+def require_registered_environment(
     conn: Any,
     project_id: int,
-    target_env: Optional[str],
-) -> None:
-    """Refuse a named target that is not in the project's registered set.
+    environment: Optional[str],
+) -> Optional[str]:
+    """Resolve *environment* to a registered id, refusing unknown names.
 
     Projects with no environment rows stay unconstrained so onboarding and
-    tests can create runs before a registry exists. Empty and ``ephemeral``
-    targets are preview/internal lanes, not missing delivery records.
+    tests can create runs before a registry exists; the token passes
+    through unresolved in that case.
     """
-    token = str(target_env or "").strip()
-    if token.lower() in UNBOUND_TARGET_ENVS:
-        return
+    token = str(environment or "").strip()
+    if not token:
+        return None
     if not _has_environment_registry(conn):
-        return
+        return token
     env_count = query_scalar(
         conn,
         "SELECT COUNT(*) FROM environments e "
@@ -79,22 +74,24 @@ def require_registered_target_env(
         (project_id,),
     )
     if not env_count:
-        return
-    allowed = registered_target_env_tokens(conn, project_id)
-    if token not in allowed:
-        raise UnregisteredTargetEnv(
-            f"target_env {token!r} is not registered; "
+        return token
+    environment_id = resolve_environment_id(conn, project_id, token)
+    if environment_id is None:
+        allowed = registered_environment_tokens(conn, project_id)
+        raise UnregisteredEnvironment(
+            f"environment {token!r} is not registered; "
             f"registered: {', '.join(allowed)}"
         )
+    return environment_id
 
 
 def resolve_environment_id(
     conn: Any,
     project_id: int,
-    target_env: Optional[str],
+    environment: Optional[str],
 ) -> Optional[str]:
-    """Return the project environment id for ``target_env``, if any."""
-    token = str(target_env or "").strip()
+    """Return the project environment id for an id-or-name token, if any."""
+    token = str(environment or "").strip()
     if not token or not _has_environment_registry(conn):
         return None
     row = query_scalar(
@@ -111,6 +108,17 @@ def resolve_environment_id(
         "WHERE s.project_id = %s AND e.name = %s",
         (project_id, token),
     )
+
+
+def environment_name(conn: Any, environment_id: Optional[str]) -> Optional[str]:
+    """Return the display name for one environment id, if registered."""
+    token = str(environment_id or "").strip()
+    if not token or not _table_exists(conn, "environments"):
+        return None
+    name = query_scalar(
+        conn, "SELECT name FROM environments WHERE id = %s", (token,),
+    )
+    return str(name) if name else None
 
 
 def stamp_environment_last_deployed(
@@ -134,23 +142,19 @@ def stamp_run_environment(
     *,
     when: Optional[str] = None,
 ) -> Optional[str]:
-    """Stamp the run's resolved environment; return the id or ``None``."""
+    """Stamp the run's referenced environment; return the id or ``None``."""
     row = query_rows(
         conn,
-        "SELECT project_id, target_env FROM deployment_runs WHERE id = %s",
+        "SELECT target_environment_id FROM deployment_runs WHERE id = %s",
         (run_id,),
     )
     if not row:
         return None
-    environment_id = resolve_environment_id(
-        conn,
-        int(_row_value(row[0], "project_id", 0)),
-        _row_value(row[0], "target_env", 1),
-    )
-    if environment_id is None:
+    environment_id = _row_value(row[0], "target_environment_id", 0)
+    if not environment_id or not _table_exists(conn, "environments"):
         return None
-    stamp_environment_last_deployed(conn, environment_id, when=when)
-    return environment_id
+    stamp_environment_last_deployed(conn, str(environment_id), when=when)
+    return str(environment_id)
 
 
 def _has_environment_registry(conn: Any) -> bool:
@@ -169,11 +173,13 @@ def _nonempty_tokens(values: Iterable[Any]) -> list[str]:
 
 __all__ = [
     "DELIVERY_ENV_NAMES",
-    "UNBOUND_TARGET_ENVS",
-    "UnregisteredTargetEnv",
-    "registered_target_env_tokens",
+    "PRODUCTION_ENV_NAME",
+    "STAGE_ENV_NAME",
+    "UnregisteredEnvironment",
+    "environment_name",
+    "registered_environment_tokens",
     "require_delivery_env_name",
-    "require_registered_target_env",
+    "require_registered_environment",
     "resolve_environment_id",
     "stamp_environment_last_deployed",
     "stamp_run_environment",

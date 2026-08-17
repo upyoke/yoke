@@ -86,9 +86,6 @@ def require_runtime_target(target: Mapping[str, Any]) -> None:
     """Refuse cross-environment dispatch in hosted Stage and Production."""
     runtime = runtime_environment_name()
     selected = str(target["environment"]["name"]).strip().lower()
-    aliases = {"production": "prod", "staging": "stage"}
-    runtime = aliases.get(runtime, runtime)
-    selected = aliases.get(selected, selected)
     if runtime in {"prod", "stage"} and selected != runtime:
         raise QaExecutionTargetError(
             f"runtime environment {runtime!r} cannot execute QA target {selected!r}"
@@ -96,8 +93,7 @@ def require_runtime_target(target: Mapping[str, Any]) -> None:
 
 
 def _yoke_endpoints(environment: str, tenant_slug: str) -> dict[str, Any]:
-    aliases = {"production": "prod", "staging": "stage"}
-    selected = aliases.get(environment.lower(), environment.lower())
+    selected = environment.lower()
     if selected not in {"prod", "stage"}:
         return {}
     app_url = HOSTED_STAGE_PLATFORM_URL if selected == "stage" else HOSTED_PLATFORM_URL
@@ -226,12 +222,8 @@ def select_backfill_environment(conn: Any, *, project_id: int) -> str:
         )
     ]
     runtime = runtime_environment_name()
-    aliases = {"production": "prod", "staging": "stage"}
-    runtime = aliases.get(runtime, runtime)
     matches = [
-        row
-        for row in rows
-        if aliases.get(str(row["name"]).lower(), str(row["name"]).lower()) == runtime
+        row for row in rows if str(row["name"]).lower() == runtime
     ]
     if len(matches) == 1:
         return str(matches[0]["id"])
@@ -310,10 +302,7 @@ def require_case_target(
     target: Mapping[str, Any],
 ) -> None:
     """Reject an endpoint or environment belonging to another Yoke target."""
-    environment = {"production": "prod", "staging": "stage"}.get(
-        str(target["environment"]["name"]).lower(),
-        str(target["environment"]["name"]).lower(),
-    )
+    environment = str(target["environment"]["name"]).lower()
     endpoints = target["endpoints"]
     try:
         case_coherence.require_case_environment_bindings(
@@ -333,9 +322,7 @@ def require_case_target(
         if key in {"active_env", "target_env", "environment"} and isinstance(
             value, str
         ):
-            normalized = {"production": "prod", "staging": "stage"}.get(
-                value.lower(), value.lower()
-            )
+            normalized = value.lower()
             if normalized in {"prod", "stage"} and normalized != environment:
                 raise QaExecutionTargetError(
                     f"mixed-environment QA case value at {path}: {value!r}"

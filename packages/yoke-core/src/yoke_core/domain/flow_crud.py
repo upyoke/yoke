@@ -36,7 +36,8 @@ _FLOW_FIELDS = frozenset(
         "stages",
         "on_failure",
         "created_at",
-        "target_env",
+        "target_tier",
+        "target_environment_id",
         "done_description",
         "status",
     }
@@ -44,7 +45,8 @@ _FLOW_FIELDS = frozenset(
 
 _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
-    "df.on_failure, df.created_at, df.target_env, df.done_description, df.status"
+    "df.on_failure, df.created_at, df.target_tier, df.target_environment_id, "
+    "df.done_description, df.status"
 )
 
 
@@ -72,6 +74,22 @@ def cmd_create(
     )
     conn.commit()
     return f"Created deployment flow: {flow_id}"
+
+
+def cmd_target(conn, flow_id: str) -> str:
+    """Return ``tier|environment_id|environment_name`` for one flow."""
+    row = query_one(
+        conn,
+        "SELECT COALESCE(df.target_tier, ''), "
+        "COALESCE(df.target_environment_id, ''), COALESCE(e.name, '') "
+        "FROM deployment_flows df "
+        "LEFT JOIN environments e ON e.id = df.target_environment_id "
+        "WHERE df.id=%s",
+        (flow_id,),
+    )
+    if row is None:
+        raise LookupError(f"deployment flow '{flow_id}' not found")
+    return _format_row(row)
 
 
 def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:

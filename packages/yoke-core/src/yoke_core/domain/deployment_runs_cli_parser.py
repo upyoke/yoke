@@ -24,7 +24,11 @@ def build_parser() -> argparse.ArgumentParser:
     cr = sub.add_parser("create-run", help="Create a new deployment run")
     cr.add_argument("project")
     cr.add_argument("flow")
-    cr.add_argument("--target-env", default=None)
+    cr.add_argument(
+        "--environment",
+        default=None,
+        help="Registered environment id or name overriding the flow target",
+    )
     cr.add_argument("--release-lineage", default=None)
     cr.add_argument("--created-by", default="operator")
 
@@ -113,22 +117,29 @@ def build_parser() -> argparse.ArgumentParser:
     ccp = sub.add_parser("can-cleanup-preview", help="Check if cleanup is allowed")
     ccp.add_argument("run_id")
 
-    rte = sub.add_parser("resolve-target-env", help="Resolve target env from flow or override")
+    rte = sub.add_parser(
+        "resolve-target",
+        help="Resolve tier and environment from flow or override",
+    )
     rte.add_argument("project")
     rte.add_argument("flow")
-    rte.add_argument("--target-env", default=None)
+    rte.add_argument("--environment", default=None)
 
     sfi = sub.add_parser(
         "start-for-item",
         help=(
-            "Compose resolve-target-env + create-run + add-item + "
+            "Compose resolve-target + create-run + add-item + "
             "validate-composition for an item, return a structured run handle."
         ),
     )
     sfi.add_argument("item_id", type=int)
     sfi.add_argument("--project", default=None)
     sfi.add_argument("--flow", default=None)
-    sfi.add_argument("--target-env", default=None)
+    sfi.add_argument(
+        "--environment",
+        default=None,
+        help="Registered environment id or name overriding the flow target",
+    )
     sfi.add_argument("--release-lineage", default=None)
     sfi.add_argument("--project-repo-path", default="")
     sfi.add_argument("--created-by", default="operator")

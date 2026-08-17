@@ -66,9 +66,11 @@ def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
     try:
         p = _p(conn)
         row = conn.execute(
-            "SELECT COALESCE(i.deployment_flow, ''), COALESCE(f.target_env, '') "
+            "SELECT COALESCE(i.deployment_flow, ''), "
+            "COALESCE(e.name, f.target_tier, '') "
             "FROM items i "
             "LEFT JOIN deployment_flows f ON f.id = i.deployment_flow "
+            "LEFT JOIN environments e ON e.id = f.target_environment_id "
             f"WHERE i.id = {p}",
             (item_id,),
         ).fetchone()
@@ -76,9 +78,9 @@ def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
         return ""
     if not row:
         return ""
-    deploy_flow, target_env = str(row[0] or ""), str(row[1] or "")
-    if deploy_flow and deploy_flow != "null" and target_env and target_env != "null":
-        return target_env
+    deploy_flow, environment = str(row[0] or ""), str(row[1] or "")
+    if deploy_flow and deploy_flow != "null" and environment and environment != "null":
+        return environment
     return ""
 
 

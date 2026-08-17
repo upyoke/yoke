@@ -195,7 +195,6 @@ def cmd_resolve_deploy_envs(
 
     Sources (in order, first non-empty wins for DB tables):
     1. ``environments`` via ``sites`` table
-       UNION ``deployment_flows.target_env``
     2. ``project_capabilities`` with type ``deployment_environments`` (JSON config)
 
     Returns newline-separated environment names (sorted), or None if none found.
@@ -213,15 +212,6 @@ def cmd_resolve_deploy_envs(
                 "FROM environments e "
                 "JOIN sites s ON s.id = e.site "
                 f"WHERE s.project_id = {p}"
-            )
-
-        if _table_exists(conn, "deployment_flows"):
-            parts.append(
-                "SELECT df.target_env AS env_name "
-                "FROM deployment_flows df "
-                f"WHERE df.project_id = {p} "
-                "AND df.target_env IS NOT NULL "
-                "AND df.target_env <> ''"
             )
 
         if parts:

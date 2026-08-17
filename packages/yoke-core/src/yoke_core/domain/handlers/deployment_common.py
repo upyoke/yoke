@@ -15,7 +15,8 @@ from yoke_contracts.api.function_call import (
 
 FLOW_ROW_FIELDS = (
     "id", "project", "name", "description", "stages", "on_failure",
-    "created_at", "target_env", "done_description", "status",
+    "created_at", "target_tier", "target_environment_id",
+    "done_description", "status",
 )
 
 
@@ -112,7 +113,7 @@ class DeploymentRunGetResponse(BaseModel):
 class DeploymentRunCreateRequest(BaseModel):
     project: str
     flow: str
-    target_env: Optional[str] = None
+    environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_by: str = "operator"
 
@@ -121,7 +122,8 @@ class DeploymentRunCreateResponse(BaseModel):
     run_id: str
     project: str
     flow: str
-    target_env: Optional[str] = None
+    target_tier: Optional[str] = None
+    target_environment_id: Optional[str] = None
     release_lineage: Optional[str] = None
     status: str
 
@@ -129,7 +131,7 @@ class DeploymentRunCreateResponse(BaseModel):
 class DeploymentRunStartForItemRequest(BaseModel):
     project: Optional[str] = None
     flow: Optional[str] = None
-    target_env: Optional[str] = None
+    environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_by: Optional[str] = None
 
@@ -139,7 +141,9 @@ class DeploymentRunStartForItemResponse(BaseModel):
     item_id: int
     project: str
     flow: str
-    target_env: str
+    target_tier: Optional[str] = None
+    target_environment_id: Optional[str] = None
+    target_environment_name: Optional[str] = None
     validation_message: Optional[str] = None
 
 
@@ -187,16 +191,18 @@ class DeploymentRunApproveResponse(BaseModel):
     event_id: Optional[str] = None
 
 
-class DeploymentRunResolveTargetEnvRequest(BaseModel):
+class DeploymentRunResolveTargetRequest(BaseModel):
     project: str
     flow: str
-    target_env: Optional[str] = None
+    environment: Optional[str] = None
 
 
-class DeploymentRunResolveTargetEnvResponse(BaseModel):
+class DeploymentRunResolveTargetResponse(BaseModel):
     project: str
     flow: str
-    target_env: str
+    target_tier: str
+    target_environment_id: str
+    target_environment_name: str
 
 
 def error(

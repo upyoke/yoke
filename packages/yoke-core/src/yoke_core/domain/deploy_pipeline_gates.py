@@ -40,26 +40,31 @@ def _active_item_lane_branch(item_ref: str) -> str:
 
 
 def resolve_flow_gate_branch(
-    project: str, target_env: str, repo_root: str = "",
+    project: str,
+    target_tier: str,
+    target_environment_id: str,
+    repo_root: str = "",
 ) -> str:
     """Resolve the branch a flow's merged gate verifies against.
 
-    Returns ``""`` for the ephemeral tier (``target_env="ephemeral"``):
-    preview flows deploy unmerged worktree branches by design, so no
-    merged/CI gate branch exists for them. ``repo_root`` is the project
-    checkout whose scope-first ``base_branch`` stance governs the
-    fallback when no environment declares a branch.
+    Returns ``""`` for the ephemeral tier: preview flows deploy unmerged
+    worktree branches by design, so no merged/CI gate branch exists for
+    them. ``repo_root`` is the project checkout whose scope-first
+    ``base_branch`` stance governs the fallback when the referenced
+    environment declares no branch.
     """
-    from yoke_core.domain.ephemeral_substrate import EPHEMERAL_TARGET_ENV
+    from yoke_contracts.project_contract.deployment_flows import (
+        TARGET_TIER_EPHEMERAL,
+    )
 
-    if target_env == EPHEMERAL_TARGET_ENV:
+    if target_tier == TARGET_TIER_EPHEMERAL:
         return ""
-    if project and target_env:
+    if project and target_environment_id:
         from yoke_core.domain.deploy_environment_settings import (
             declared_env_branch,
         )
 
-        declared = declared_env_branch(project, target_env)
+        declared = declared_env_branch(project, target_environment_id)
         if declared:
             return declared
     from yoke_core.domain import project_settings

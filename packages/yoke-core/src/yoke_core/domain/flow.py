@@ -36,6 +36,7 @@ from yoke_core.domain.flow_crud import (
     cmd_list,
     cmd_set_status,
     cmd_stages,
+    cmd_target,
     cmd_update_stages,
 )
 from yoke_core.domain.flow_init import cmd_init
@@ -131,6 +132,11 @@ def main(argv: Optional[List[str]] = None) -> None:
             if not rest:
                 _cli_usage_error("Usage: flow stages <id>")
             print(cmd_stages(conn, rest[0]))
+
+        elif subcmd == "target":
+            if not rest:
+                _cli_usage_error("Usage: flow target <id>")
+            print(cmd_target(conn, rest[0]))
 
         elif subcmd == "update-stages":
             if len(rest) < 2:

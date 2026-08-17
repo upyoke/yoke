@@ -4,7 +4,7 @@ Owns the read-only DB inspection used by the mutation gates: hydrating
 an :class:`yoke_core.domain.mutations.ItemState` from the ``items``
 row, probing whether optional tables exist, resolving the set of valid
 deployment environments for a project (``environments``/``sites`` →
-``deployment_flows.target_env`` → ``project_capabilities`` cascade),
+``project_capabilities`` cascade),
 and packaging the result into the
 :class:`yoke_core.domain.mutations.GateContext` consumed by
 ``prepare_update`` / ``prepare_approval``.
@@ -59,7 +59,6 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str] | None:
 
     Mirrors the resolution logic in yoke_core.domain.projects resolve-deploy-envs:
     1. Query environments/sites tables (if they exist)
-    2. UNION with deployment_flows.target_env (if table exists)
     3. Fall back to project_capabilities deployment_environments config
 
     No config-file fallback — DB is the sole source of truth.
@@ -75,19 +74,6 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str] | None:
                FROM environments e
                JOIN sites s ON s.id = e.site
                WHERE s.project_id = %s""",
-            (ident.id,),
-        ).fetchall()
-        for r in rows:
-            if r["env_name"]:
-                envs.add(r["env_name"])
-
-    if _table_exists(conn, "deployment_flows"):
-        rows = conn.execute(
-            """SELECT DISTINCT target_env AS env_name
-               FROM deployment_flows
-               WHERE project_id = %s
-               AND target_env IS NOT NULL
-               AND target_env <> ''""",
             (ident.id,),
         ).fetchall()
         for r in rows:

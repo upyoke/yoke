@@ -42,22 +42,18 @@ ENTRIES_KEY = "entries"
 PRODUCT_SHA_KEY = "product_sha"
 
 #: Suffix on the admin connection the preflight runs against. The connection
-#: names a cluster; a receipt names the environment a release targets, and the
-#: gate is dispatched with the latter.
+#: names a cluster; a receipt names the environment a release targets, and
+#: both use the environment's registered name, so the two vocabularies are
+#: one suffix apart.
 _ADMIN_SUFFIX = "-db-admin"
-
-#: The release train's environment vocabulary differs from the connection's
-#: for production alone. Recorded rather than inferred so a receipt written by
-#: one side is found by the other.
-_TARGET_ENVIRONMENT_ALIASES = {"prod": "production"}
 
 
 def target_environment_for_admin_env(admin_env: str) -> str:
-    """The release-facing environment name an admin connection rehearses."""
+    """The environment name an admin connection rehearses."""
     name = admin_env.strip()
     if name.endswith(_ADMIN_SUFFIX):
         name = name[: -len(_ADMIN_SUFFIX)]
-    return _TARGET_ENVIRONMENT_ALIASES.get(name, name)
+    return name
 
 
 def admin_connection_for_environment(environment: str) -> str:
@@ -65,9 +61,6 @@ def admin_connection_for_environment(environment: str) -> str:
     admin_env = environment.strip()
     if admin_env.endswith(_ADMIN_SUFFIX):
         return admin_env
-    for connection, target in _TARGET_ENVIRONMENT_ALIASES.items():
-        if target == admin_env:
-            return f"{connection}{_ADMIN_SUFFIX}"
     return f"{admin_env}{_ADMIN_SUFFIX}"
 
 

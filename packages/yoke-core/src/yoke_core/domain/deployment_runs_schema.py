@@ -26,12 +26,12 @@ from yoke_core.domain.schema_common import _column_exists
 # ---------------------------------------------------------------------------
 
 RUN_FIELDS = (
-    "id", "project", "flow", "target_env", "release_lineage",
-    "status", "current_stage", "created_at", "started_at",
-    "completed_at", "created_by",
+    "id", "project", "flow", "target_tier", "target_environment_id",
+    "release_lineage", "status", "current_stage", "created_at",
+    "started_at", "completed_at", "created_by",
 )
 
-UPDATABLE_FIELDS = ("status", "current_stage", "target_env", "created_by")
+UPDATABLE_FIELDS = ("status", "current_stage", "created_by")
 
 VALID_STATUSES = tuple(s.value for s in RunStatus)
 
@@ -44,7 +44,8 @@ VALID_ENV_TYPES = ("shared", "adhoc")
 _RUN_SELECT = (
     "id, COALESCE((SELECT p.slug FROM projects p "
     "WHERE p.id = deployment_runs.project_id), '') AS project, "
-    "flow, COALESCE(target_env,''), COALESCE(release_lineage,''), "
+    "flow, COALESCE(target_tier,''), COALESCE(target_environment_id,''), "
+    "COALESCE(release_lineage,''), "
     "status, COALESCE(current_stage,''), created_at, "
     "COALESCE(started_at,''), COALESCE(completed_at,''), COALESCE(created_by,'')"
 )
@@ -78,7 +79,9 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 id TEXT PRIMARY KEY,
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 flow TEXT NOT NULL REFERENCES deployment_flows(id),
-                target_env TEXT,
+                target_tier TEXT
+                    CHECK(target_tier IN ('persistent','ephemeral')),
+                target_environment_id TEXT REFERENCES environments(id),
                 release_lineage TEXT,
                 status TEXT NOT NULL DEFAULT 'created'
                     CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
@@ -86,7 +89,9 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 created_at TEXT NOT NULL,
                 started_at TEXT,
                 completed_at TEXT,
-                created_by TEXT DEFAULT 'operator'
+                created_by TEXT DEFAULT 'operator',
+                CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
+                      = (target_environment_id IS NOT NULL))
             )
             """,
             """
