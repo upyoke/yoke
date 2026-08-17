@@ -219,6 +219,12 @@ def select(
     """
     total_files = sum(is_test_file(path) for path in index.module_of)
     contracts = contract_selection_for(changed)
+    applicable_contracts = contracts.tests.intersection(index.module_of)
+    contracts = replace(
+        contracts,
+        tests=frozenset(applicable_contracts),
+        widening_triggers=(contracts.widening_triggers if applicable_contracts else ()),
+    )
     selection = replace(_widened(changed, index), total_files=total_files)
     if not selection.full_sweep:
         selection = replace(
