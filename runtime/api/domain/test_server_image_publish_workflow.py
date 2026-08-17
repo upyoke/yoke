@@ -8,8 +8,13 @@ attests it, and only then may a separate job publish the release references.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
+
+from yoke_core.tools import server_image_metadata
 
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -163,11 +168,47 @@ def test_build_uses_native_runners_and_pushes_only_by_digest():
     assert 'image_ref="$REPOSITORY@$PUSHED_DIGEST"' in build
     assert "docker image inspect" in build
     assert '"$actual_arch" != "$EXPECTED_ARCH"' in build
-    assert 'version("yoke-core")' in build
-    assert "verify_installed_boot" in build
-    assert '"$actual_version" != "$EXPECTED_VERSION"' in build
-    assert '"$actual_build" != "$EXPECTED_BUILD"' in build
+    assert '--entrypoint python3 "$image_ref"' in build
+    assert "yoke_core.tools.server_image_metadata emit" in build
+    assert "server_image_metadata.py verify" in build
+    assert "sed -n '1p'" not in build
+    assert "sed -n '2p'" not in build
     assert "uses: actions/upload-artifact@" in build
+
+
+def test_metadata_parser_ignores_output_before_the_marked_envelope():
+    expected = server_image_metadata.ServerImageMetadata(
+        version="0.1.1+launch.231",
+        build="98f040f7afbb",
+    )
+    output = "incidental output\n" + server_image_metadata.format_metadata_line(
+        expected
+    )
+
+    assert server_image_metadata.parse_metadata_output(output) == expected
+
+
+def test_metadata_entrypoint_keeps_stdout_machine_parseable():
+    env = dict(os.environ)
+    env["YOKE_BUILD_SHA"] = "image-build-test"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "yoke_core.tools.server_image_metadata",
+            "emit",
+        ],
+        cwd=_ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    parsed = server_image_metadata.parse_metadata_output(completed.stdout)
+    assert parsed.build == "image-build-test"
+    assert completed.stdout == server_image_metadata.format_metadata_line(parsed) + "\n"
+    assert "ObservabilityConfigured" not in completed.stdout
 
 
 def test_native_digests_are_assembled_and_verified_before_attestation():
