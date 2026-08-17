@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.projects_write import (
+    projects_environment_update,
+)
 from yoke_cli.commands.adapters.release_pin_record import release_pin_record
 
 
@@ -28,6 +31,10 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "environment", "create"): (
         "projects.environment.create",
         _adapters.projects_environment_create,
+    ),
+    ("projects", "environment", "update"): (
+        "projects.environment.update",
+        projects_environment_update,
     ),
     ("projects", "capability", "has"): (
         "projects.capability.has",

@@ -41,6 +41,7 @@ class ProjectsEnvironmentCreateRequest(BaseModel):
     project: str
     site_slug: str
     environment_id: str
+    name: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
 
 
@@ -159,7 +160,12 @@ def handle_projects_environment_create(
                 project, site_slug, environment_id,
                 str(existing[1]), OUTCOME_ALREADY_PRESENT,
             )
-        name = _environment_name(site_slug, environment_id)
+        try:
+            name = _requested_environment_name(
+                payload, site_slug, environment_id,
+            )
+        except ValueError as exc:
+            return _failure("payload_invalid", str(exc), "$.payload.name")
         conn.execute(
             "INSERT INTO environments (id, site, name, created_at, settings) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
@@ -183,6 +189,20 @@ def _environment_name(site_slug: str, environment_id: str) -> str:
     """Display name: the environment id with the owning-site prefix removed."""
     leaf = environment_id.removeprefix(f"{site_slug}-")
     return leaf or environment_id
+
+
+def _requested_environment_name(
+    payload: dict[str, Any], site_slug: str, environment_id: str,
+) -> str:
+    raw_name = payload.get("name")
+    if raw_name is None:
+        return _environment_name(site_slug, environment_id)
+    if not isinstance(raw_name, str) or not raw_name.strip():
+        raise ValueError("name must be a non-empty string when present")
+    from yoke_core.domain.environment_delivery_record import (
+        require_delivery_env_name,
+    )
+    return require_delivery_env_name(raw_name)
 
 
 def _site_outcome(project: str, site_slug: str, outcome: str) -> HandlerOutcome:
@@ -243,6 +263,9 @@ REGISTRATION_SPECS: List[Dict[str, Any]] = [
         "request_model": ProjectsSiteCreateRequest,
         "response_model": ProjectsSiteCreateResponse,
         "side_effects": ["sites_insert"],
+        "owner_module": (
+            "yoke_core.domain.handlers.projects_infrastructure_create"
+        ),
     },
     {
         "function_id": "projects.environment.create",
@@ -250,6 +273,9 @@ REGISTRATION_SPECS: List[Dict[str, Any]] = [
         "request_model": ProjectsEnvironmentCreateRequest,
         "response_model": ProjectsEnvironmentCreateResponse,
         "side_effects": ["environments_insert"],
+        "owner_module": (
+            "yoke_core.domain.handlers.projects_infrastructure_create"
+        ),
     },
 ]
 

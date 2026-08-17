@@ -91,7 +91,7 @@ One row per pipeline execution. Stage authority lives on the run, not on individ
 id TEXT PRIMARY KEY -- human-readable slug (e.g., 'run-20260315-001')
 project_id INTEGER NOT NULL REFERENCES projects(id)
 flow TEXT NOT NULL REFERENCES deployment_flows(id)
-target_env TEXT -- 'production', 'staging', 'shmaging', etc.
+target_env TEXT -- delivery token; registered names are prod/stage (historical flow tokens such as production may remain on immutable definitions)
 release_lineage TEXT -- links preview->prod runs (shared lineage ID)
 status TEXT NOT NULL DEFAULT 'created' -- created|executing|succeeded|failed|cancelled
 current_stage TEXT -- stage authority lives here, not on items
@@ -100,6 +100,8 @@ started_at TEXT -- when execution actually began
 completed_at TEXT
 created_by TEXT -- 'operator' or 'system'
 ```
+
+Once a project has environment rows, creating a run requires `target_env` to be empty/`ephemeral` or a registered environment name, id, or that project's existing flow `target_env`. Setting `status=succeeded` stamps `environments.last_deployed_at` on the resolved row.
 
 ## Table: deployment_run_items
 

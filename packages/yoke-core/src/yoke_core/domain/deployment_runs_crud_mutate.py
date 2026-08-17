@@ -149,6 +149,10 @@ def cmd_create_run(
         if not target_env:
             if flow_default:
                 target_env = flow_default
+        from yoke_core.domain.environment_delivery_record import (
+            require_registered_target_env,
+        )
+        require_registered_target_env(conn, project_id, target_env)
 
         _refuse_run_that_cannot_execute(conn, flow, release_lineage)
 
@@ -312,10 +316,16 @@ def cmd_update(
 
             # Auto-set completed_at when transitioning to terminal states
             if value in ("succeeded", "failed", "cancelled"):
+                completed_at = iso8601_now()
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, completed_at=%s WHERE id=%s",
-                    (value, iso8601_now(), run_id),
+                    (value, completed_at, run_id),
                 )
+                if value == "succeeded":
+                    from yoke_core.domain.environment_delivery_record import (
+                        stamp_run_environment,
+                    )
+                    stamp_run_environment(conn, run_id, when=completed_at)
                 conn.commit()
                 return None
         elif _lock_run(conn, run_id) is None:

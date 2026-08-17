@@ -116,6 +116,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # Site/environment registration: the install grant, like onboard.checklist.*.
     "projects.site.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "projects.environment.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "projects.environment.update": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "projects.pulumi_stack_config.get": AuthzSpec(
         PROJECT,
         PERM_PROJECT_RENDER_READ,

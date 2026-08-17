@@ -54,6 +54,7 @@ function deliveryClient() {
             url: "https://app.example",
             deploy_method: "github-actions",
             health_check_url: "https://app.example/health",
+            last_deployed_at: "2026-07-26T12:00:00Z",
           }],
         });
       }
@@ -140,6 +141,7 @@ test("Environments joins branch and latest-run reads without inventing policy", 
   assert.deepEqual(cells.slice(0, 4).map(cellText), [
     "Production", "main", "not exposed", "succeeded",
   ]);
+  assert.notEqual(cellText(cells[4]), "never");
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
     .includes("Auto-deploy policy has no published browser read"));
 

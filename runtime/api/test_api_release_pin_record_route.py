@@ -33,7 +33,7 @@ def release_pin_db():
         conn.execute(
             "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT NOT "
             "NULL, name TEXT NOT NULL, settings TEXT DEFAULT '{}', "
-            "created_at TEXT NOT NULL)"
+            "last_deployed_at TEXT, created_at TEXT NOT NULL)"
         )
         conn.execute(
             "INSERT INTO sites (id, project_id, name, created_at) VALUES "
