@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+from yoke_contracts.board.momentum_series import lines_changed_by_day
 from yoke_contracts.board.widgets_commit_cache import aggregate_cache_for_projects
-from yoke_core.domain.project_code_days import (
-    ensure_schema,
-    lines_by_day,
-    upsert_days,
-)
+from yoke_core.domain.board_zen_signals import ConnBoardDB
+from yoke_core.domain.project_code_days import ensure_schema, upsert_days
 
 
 def test_aggregate_cache_for_projects_sums_lines_and_commits():
@@ -44,7 +42,7 @@ def test_upsert_and_lines_by_day(test_db):
         ],
     )
     test_db.commit()
-    assert lines_by_day(test_db, [1], start_day="2026-08-01") == {
+    assert lines_changed_by_day(ConnBoardDB(test_db), [1], days=None) == {
         "2026-08-01": 40,
         "2026-08-02": 7,
     }

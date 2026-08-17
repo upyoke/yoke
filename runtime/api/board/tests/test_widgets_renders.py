@@ -165,6 +165,41 @@ class TestRenderVelocityMeter:
             "seeded done transition must light today's delivery slot"
         )
 
+    def test_meter_serves_legacy_payloads_without_shared_series(
+        self, monkeypatch
+    ):
+        """A replay payload recorded before the shared-series cutover
+        routes to the retained legacy query shapes instead of missing
+        loudly mid-rollout."""
+        from yoke_contracts.board import widgets_velocity_meter as meter
+
+        class _LegacyOnlyReplay:
+            def has_query(self, sql, params=None):
+                return False
+
+            def query_quiet(self, sql, params=None):
+                if sql.startswith("SELECT id FROM projects"):
+                    return [(1,)]
+                return []
+
+            def query(self, sql, params=None):
+                raise AssertionError(
+                    "shared-series query issued against a legacy payload"
+                )
+
+        today = datetime.now(UTC).date().isoformat()
+        legacy = ({today: 3}, {}, {}, {})
+        monkeypatch.setattr(
+            meter, "_legacy_series", lambda db, scope, days, dates: legacy
+        )
+        rows = meter.render_velocity_meter(
+            _LegacyOnlyReplay(), BoardConfig(), "all"
+        )
+        assert rows is not None and len(rows) == 4
+        assert rows[0].split(" ")[1][-1] != "▁", (
+            "legacy activity counts must still light the sparkline"
+        )
+
     def test_strategy_row_reads_doc_write_events(self, test_db_path):
         """The strategy row is sourced from the DB write-event stream, not
         git: a StrategyDocReplaced event today lights the last slot, and a

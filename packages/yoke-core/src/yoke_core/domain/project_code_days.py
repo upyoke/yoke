@@ -1,9 +1,9 @@
-"""``project_code_days`` — control-plane daily commit/line rollup.
+"""``project_code_days`` — control-plane daily commit/line rollup (write side).
 
-Board and Overview both read this table for code volume and commit-day
-activity. Local ``.commit-cache.json`` is ingest scratch only: a checkout
-with git warms the cache, aggregates per ``(project_id, day)``, and upserts
-here (via ``board.data.get`` payload or direct domain write).
+Local ``.commit-cache.json`` is ingest scratch only: a checkout with git
+warms the cache, aggregates per ``(project_id, day)``, and upserts here
+(via ``board.data.get`` payload or direct domain write). Readers live in
+:mod:`yoke_contracts.board.momentum_series`, shared by board and Overview.
 """
 
 from __future__ import annotations
@@ -74,56 +74,6 @@ def upsert_days(
     return written
 
 
-def lines_by_day(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, int]:
-    """SUM(lines_changed) per day for the given projects."""
-
-    if not project_ids:
-        return {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "project_code_days"):
-        return {}
-    markers = ", ".join("%s" for _ in project_ids)
-    rows = conn.execute(
-        "SELECT day, SUM(lines_changed) AS total "
-        "FROM project_code_days "
-        f"WHERE project_id IN ({markers}) AND day >= %s "
-        "GROUP BY day",
-        (*project_ids, start_day),
-    ).fetchall()
-    return {str(row["day"]): int(row["total"] or 0) for row in rows}
-
-
-def commits_by_day(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, int]:
-    """SUM(commit_count) per day for the given projects."""
-
-    if not project_ids:
-        return {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "project_code_days"):
-        return {}
-    markers = ", ".join("%s" for _ in project_ids)
-    rows = conn.execute(
-        "SELECT day, SUM(commit_count) AS total "
-        "FROM project_code_days "
-        f"WHERE project_id IN ({markers}) AND day >= %s "
-        "GROUP BY day",
-        (*project_ids, start_day),
-    ).fetchall()
-    return {str(row["day"]): int(row["total"] or 0) for row in rows}
-
-
 def aggregate_cache_for_projects(
     cache: Mapping[str, Mapping[str, Any]],
     repo_to_project: Mapping[str, int],
@@ -139,8 +89,6 @@ def aggregate_cache_for_projects(
 
 __all__ = [
     "aggregate_cache_for_projects",
-    "commits_by_day",
     "ensure_schema",
-    "lines_by_day",
     "upsert_days",
 ]

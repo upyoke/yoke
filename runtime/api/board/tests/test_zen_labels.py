@@ -101,6 +101,22 @@ class TestLabelExtraction:
         assert "dominant" not in with_cap
         assert set(with_cap) == {"rare", "minor"}
 
+    def test_df_cap_never_empties_a_small_corpus(self, zen_db):
+        """A tight cap on a small project keeps single-mention labels.
+
+        With few done items, ``total * cap%`` falls below one occurrence;
+        the threshold floors at one so unique head words survive instead
+        of the whole label row collapsing to nothing.
+        """
+        insert_zen_items(zen_db, [
+            (1, "gearbox retuning",  "yoke", "done", "2025-01-10"),
+            (2, "flywheel balance",  "yoke", "done", "2025-01-11"),
+            (3, "sprocket alignment", "yoke", "done", "2025-01-12"),
+        ])
+        with BoardDB(zen_db) as db:
+            labels = _zen_compute_labels(db, "yoke", "2000-01-01", 0, 3)
+        assert set(labels) == {"gearbox", "flywheel", "sprocket"}
+
     def test_min_labels_widens_window(self, zen_db):
         """When the window is too tight, min_labels widens it progressively."""
         import datetime as _dt

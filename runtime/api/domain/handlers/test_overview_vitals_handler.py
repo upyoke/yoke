@@ -168,10 +168,15 @@ def _today():
 def _reset(test_db):
     """Empty the tables these facts derive from, creating them if absent."""
     from yoke_core.domain.item_status_transitions import ensure_schema
+    from yoke_core.domain.project_code_days import (
+        ensure_schema as ensure_code_days_schema,
+    )
 
     ensure_schema(test_db)
+    ensure_code_days_schema(test_db)
     test_db.execute("DELETE FROM items")
     test_db.execute("DELETE FROM item_status_transitions")
+    test_db.execute("DELETE FROM project_code_days")
     test_db.commit()
 
 
@@ -260,6 +265,38 @@ def test_the_issues_meter_counts_delivery_not_intake(test_db):
     _transition(test_db, 8812, "done")
 
     assert _today_momentum(_vitals())["issues"] == 1
+
+
+def test_repeat_done_transitions_count_once_per_item_day(test_db):
+    # The issues series counts delivered (item, task) units per day, the
+    # way the board meter does — a second terminal transition on the same
+    # item the same day is a lifecycle echo, not a second delivery.
+    _reset(test_db)
+    insert_item(test_db, 8813, status="done", created_at=f"{_today()}T09:00:00Z")
+    test_db.commit()
+    _transition(test_db, 8813, "done")
+    _transition(test_db, 8813, "done")
+
+    assert _today_momentum(_vitals())["issues"] == 1
+
+
+def test_a_commit_only_day_registers_as_activity(test_db):
+    # The activity series carries the commit component, so a code-only
+    # day reads as active on the dashboard exactly as on the board.
+    from yoke_core.domain.project_code_days import upsert_days
+
+    _reset(test_db)
+    upsert_days(test_db, [{
+        "project_id": 1,
+        "day": _today(),
+        "commit_count": 5,
+        "lines_changed": 120,
+    }])
+    test_db.commit()
+
+    row = _today_momentum(_vitals())
+    assert row["activity"] == 5
+    assert row["code"] == 120
 
 
 def test_work_inside_an_epic_registers_as_activity(test_db):

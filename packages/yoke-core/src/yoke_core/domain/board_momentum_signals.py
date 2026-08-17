@@ -1,16 +1,24 @@
-"""Shared board/Overview momentum day series and streak facts.
+"""Board/Overview momentum — server-side wrapper over the shared series.
 
-One SQL definition for issues + strategy volume and one streak formula so
-the terminal board and hosted Overview cannot diverge on the same scope.
+Series composition lives in :mod:`yoke_contracts.board.momentum_series` —
+one SQL definition consumed by the terminal velocity meter and this
+builder — so the two surfaces cannot diverge. The streak and lifetime
+formulas here match the terminal board's: a day is active when the shared
+activity series (items + task touches + commits) registers it.
 """
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional
 
-UTC = timezone.utc
+from yoke_contracts.board.momentum_series import (
+    activity_units_by_day,
+    issues_done_by_day,
+    lines_changed_by_day,
+    strategy_bytes_by_day,
+)
+from yoke_core.domain.board_zen_signals import ConnBoardDB
 
 
 def _markers(values: list[int]) -> str:
@@ -18,102 +26,7 @@ def _markers(values: list[int]) -> str:
 
 
 def _utc_today() -> date:
-    return datetime.now(UTC).date()
-
-
-def strategy_bytes_by_day(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, int]:
-    """SUM(new_bytes) per day from StrategyDocCreated / StrategyDocReplaced."""
-
-    if not project_ids:
-        return {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "events"):
-        return {}
-    new_bytes = "(envelope::jsonb -> 'context' ->> 'new_bytes')::int"
-    day = "SUBSTRING(created_at, 1, 10)"
-    rows = conn.execute(
-        f"SELECT {day} AS day, SUM(COALESCE({new_bytes}, 0)) AS n "
-        "FROM events "
-        f"WHERE project_id IN ({_markers(project_ids)}) "
-        "AND event_name IN ('StrategyDocCreated', 'StrategyDocReplaced') "
-        f"AND {day} >= %s "
-        f"GROUP BY {day}",
-        (*project_ids, start_day),
-    ).fetchall()
-    return {str(row["day"]): int(row["n"] or 0) for row in rows}
-
-
-def issues_done_by_day(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, int]:
-    """Unique terminal-success transitions per day (board issues meter)."""
-
-    if not project_ids:
-        return {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    if not _table_exists(conn, "item_status_transitions"):
-        return {}
-    rows = conn.execute(
-        "SELECT SUBSTRING(t.created_at, 1, 10) AS day, COUNT(*) AS total "
-        "FROM item_status_transitions t "
-        f"WHERE t.project_id IN ({_markers(project_ids)}) "
-        "AND t.to_status IN ('done', 'passed') "
-        "AND SUBSTRING(t.created_at, 1, 10) >= %s "
-        "GROUP BY SUBSTRING(t.created_at, 1, 10)",
-        (*project_ids, start_day),
-    ).fetchall()
-    return {str(row["day"]): int(row["total"] or 0) for row in rows}
-
-
-def activity_units_by_day(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, int]:
-    """Item activity-day units + task-touch days (board activity without commits)."""
-
-    series: Counter[str] = Counter()
-    if not project_ids:
-        return {}
-    from yoke_core.domain.schema_common import _table_exists
-
-    markers = _markers(project_ids)
-    params = (*project_ids, start_day)
-    if _table_exists(conn, "item_activity_days"):
-        for row in conn.execute(
-            "SELECT day, COUNT(DISTINCT item_id) AS total "
-            "FROM item_activity_days "
-            f"WHERE project_id IN ({markers}) AND day >= %s "
-            "GROUP BY day",
-            params,
-        ).fetchall():
-            series[str(row["day"])] += int(row["total"])
-    if _table_exists(conn, "item_status_transitions"):
-        for row in conn.execute(
-            "SELECT day, COUNT(*) AS total FROM ("
-            "  SELECT SUBSTRING(t.created_at, 1, 10) AS day, "
-            "         t.item_id AS item_id, t.task_num AS task_num "
-            "  FROM item_status_transitions t "
-            f"  WHERE t.project_id IN ({markers}) "
-            "  AND t.task_num IS NOT NULL "
-            "  AND SUBSTRING(t.created_at, 1, 10) >= %s "
-            "  GROUP BY 1, 2, 3"
-            ") touched GROUP BY day",
-            params,
-        ).fetchall():
-            series[str(row["day"])] += int(row["total"])
-    return dict(series)
+    return datetime.now(timezone.utc).date()
 
 
 def compute_streak(
@@ -185,34 +98,22 @@ def build_momentum_series(
 
     today = _utc_today()
     first = today - timedelta(days=days - 1)
-    start = first.isoformat()
-    from yoke_core.domain.project_code_days import commits_by_day, lines_by_day
+    db = ConnBoardDB(conn)
 
-    activity = activity_units_by_day(conn, project_ids, start_day=start)
-    issues = issues_done_by_day(conn, project_ids, start_day=start)
-    strategy = strategy_bytes_by_day(conn, project_ids, start_day=start)
-    code = dict(code_by_day) if code_by_day is not None else lines_by_day(
-        conn, project_ids, start_day=start,
+    activity = activity_units_by_day(db, project_ids, days=days)
+    issues = issues_done_by_day(db, project_ids, days=days)
+    strategy = strategy_bytes_by_day(db, project_ids, days=days)
+    code = dict(code_by_day) if code_by_day is not None else (
+        lines_changed_by_day(db, project_ids, days=days)
     )
-    commit_days = commits_by_day(conn, project_ids, start_day=start)
-    # Union commit presence into activity for streak (board formula).
-    active_for_streak = set(activity)
-    active_for_streak.update(day for day, n in commit_days.items() if int(n) > 0)
-    active_for_streak.update(day for day, n in code.items() if int(n) > 0)
-    # Also treat any issues/strategy day as active for streak continuity with board
-    # only when activity/commit would — board uses activity∪commits only.
+    # The activity series already carries commit days, so activity presence
+    # IS the board streak formula (activity ∪ commits).
+    active_for_streak = {day for day, n in activity.items() if int(n) > 0}
     streak = compute_streak(active_for_streak, today=today)
     age = project_age_days(conn, project_ids)
     # Lifetime uses all-time activity days, not just the momentum window.
-    all_activity = activity_units_by_day(conn, project_ids, start_day="0001-01-01")
-    lifetime_days = set(all_activity)
-    lifetime_days.update(
-        day
-        for day, n in commits_by_day(
-            conn, project_ids, start_day="0001-01-01",
-        ).items()
-        if int(n) > 0
-    )
+    all_activity = activity_units_by_day(db, project_ids, days=None)
+    lifetime_days = {day for day, n in all_activity.items() if int(n) > 0}
     pct = lifetime_activity_pct(lifetime_days, project_days=age)
     momentum: list[dict[str, Any]] = []
     for offset in range(days):
@@ -235,11 +136,8 @@ def build_momentum_series(
 
 
 __all__ = [
-    "activity_units_by_day",
     "build_momentum_series",
     "compute_streak",
-    "issues_done_by_day",
     "lifetime_activity_pct",
     "project_age_days",
-    "strategy_bytes_by_day",
 ]

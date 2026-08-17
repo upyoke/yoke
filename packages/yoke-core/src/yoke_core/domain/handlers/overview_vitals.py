@@ -174,37 +174,6 @@ def _state_counts(conn: Any, project_ids: list[int]) -> Dict[str, int]:
     return dict(counts)
 
 
-def _day_counts(
-    conn: Any,
-    project_ids: list[int],
-    *,
-    start_day: str,
-) -> dict[str, Counter[str]]:
-    """Thin adapter over shared momentum readers (kept for older tests)."""
-    from collections import defaultdict
-
-    from yoke_core.domain.board_momentum_signals import (
-        activity_units_by_day,
-        issues_done_by_day,
-        strategy_bytes_by_day,
-    )
-
-    series: dict[str, Counter[str]] = defaultdict(Counter)
-    for day, total in activity_units_by_day(
-        conn, project_ids, start_day=start_day,
-    ).items():
-        series[day]["activity"] = total
-    for day, total in issues_done_by_day(
-        conn, project_ids, start_day=start_day,
-    ).items():
-        series[day]["issues"] = total
-    for day, total in strategy_bytes_by_day(
-        conn, project_ids, start_day=start_day,
-    ).items():
-        series[day]["strategy"] = total
-    return series
-
-
 def handle_overview_vitals(request: FunctionCallRequest) -> HandlerOutcome:
     if request.target.kind != "global":
         return _error(
