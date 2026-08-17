@@ -130,8 +130,10 @@ def resolve_envelope_project_id_for_event(
         if project_id is not None:
             return resolve_project_id_for_event(conn, db_path, project_id)
 
+    # No context project, no session project: the event indexes as
+    # global rather than being attributed to any particular project.
     return resolve_project_id_for_event(
-        conn, db_path, envelope.get("project", "yoke")
+        conn, db_path, envelope.get("project")
     )
 
 

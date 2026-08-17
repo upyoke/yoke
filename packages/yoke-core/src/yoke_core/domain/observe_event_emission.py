@@ -122,7 +122,7 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "severity": severity,
         "session_id": rec.session_id,
         "service": "cli",
-        "project": "yoke",
+        "project": "",
         "environment": None,
         "org_id": None,
         "actor": None,
