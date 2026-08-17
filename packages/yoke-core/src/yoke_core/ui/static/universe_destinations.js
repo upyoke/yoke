@@ -90,6 +90,13 @@ export const NAV = [
     id: "doctor", icon: "♥", label: "Doctor", scope: SCOPE_MULTI,
     summary: "The health checks and what they found.",
   },
+  {
+    id: "architecture", icon: "▦", label: "Architecture",
+    scope: SCOPE_SINGLE,
+    summary:
+      "The project's declared map — layers, areas, gateways — and how "
+      + "much of the tree honors it.",
+  },
   { id: "ouroboros", icon: "∞", label: "Ouroboros", scope: SCOPE_MULTI },
   { id: "projects", icon: "▤", label: "Projects", scope: SCOPE_NONE },
   {

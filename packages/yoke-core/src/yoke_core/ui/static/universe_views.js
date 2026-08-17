@@ -2,6 +2,9 @@
 // universe_view_support.js owns presentation primitives.
 
 import {
+  renderArchitectureView,
+} from "./universe_views_architecture.js";
+import {
   renderCapabilitiesView,
   renderCapabilityDetail,
 } from "./universe_views_capabilities.js";
@@ -98,6 +101,7 @@ export const VIEW_RENDERERS = {
   capabilities: renderCapabilitiesView,
   events: renderEventsView,
   doctor: renderDoctorView,
+  architecture: renderArchitectureView,
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
   project: renderProjectView,
