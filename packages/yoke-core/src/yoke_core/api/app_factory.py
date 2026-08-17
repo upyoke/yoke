@@ -28,7 +28,6 @@ from yoke_core.api.http_auth import (
     is_public_path,
     is_web_session_get_path,
 )
-from yoke_core.api.main import _ensure_db_initialized
 from yoke_core.api.observability import (
     REQUEST_ID_HEADER,
     REQUEST_ID_STATE_ATTR,
@@ -57,6 +56,10 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         """Initialize the backing DB and register all function handlers."""
+        # Imported here so the reusable app factory does not depend on the
+        # canonical module that imports this factory to publish ``app``.
+        from yoke_core.api.main import _ensure_db_initialized
+
         _ensure_db_initialized()
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,

@@ -11,7 +11,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from yoke_cli.project_snapshot.scanner import scan_ref
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.path_snapshot_payload_materializer import (
     materialize_snapshot_payload,
 )

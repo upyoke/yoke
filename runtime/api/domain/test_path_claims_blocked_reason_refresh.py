@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Focused helper tests for :mod:`path_claims_blocked_reason_refresh`.
 
 Split out of ``test_path_claims_dependency_propagation_coordination.py`` so
@@ -15,7 +17,7 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     add_edge,
     conn,
     count_refresh_events,

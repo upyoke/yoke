@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 from yoke_core.engines.doctor import hc_oneshot_migration_coverage
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
     _ensure_migration_audit_table,
     _make_conn,

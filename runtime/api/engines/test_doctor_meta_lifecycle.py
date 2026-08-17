@@ -9,7 +9,7 @@ Schema scaffolding is shared via _doctor_meta_test_helpers (private module).
 from __future__ import annotations
 
 from runtime.api.fixtures.backlog import insert_item_worktree
-from yoke_core.engines._doctor_meta_test_helpers import (
+from runtime.api.engines._doctor_meta_test_helpers import (
     _args,
     _insert_item,
     _make_conn,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain.bootstrap_project import run_verify
-from yoke_core.domain.bootstrap_project_test_helpers import (
+from runtime.api.domain.bootstrap_project_test_helpers import (
     _FakeRestResponse,
     setup_validation_ctx,
 )

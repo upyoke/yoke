@@ -15,7 +15,7 @@ from yoke_core.domain.item_worktree_lane_creation import (
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.worktree import create_worktree
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
 
 def test_blitz_materializes_registered_additional_lanes(

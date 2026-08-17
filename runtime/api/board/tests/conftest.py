@@ -9,7 +9,7 @@ from functools import partial
 import pytest
 
 from yoke_core.board.db import BoardDB
-from yoke_core.board.tests.helpers import (
+from runtime.api.board.tests.helpers import (
     insert_activity_day,
     insert_code_day,
     insert_deployment_run,

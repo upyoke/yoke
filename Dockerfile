@@ -101,7 +101,7 @@ RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels \
         yoke yoke-contracts yoke-cli yoke-harness yoke-core \
     && rm -rf /wheels
 
-# Exercise the installed artifact's pre-serve entrypoint and schema imports.
+# Import every installed core module with the source checkout absent.
 # This deliberately runs after source and wheels have left the runtime stage.
 RUN python -m yoke_core.tools.product_wheel_validation
 

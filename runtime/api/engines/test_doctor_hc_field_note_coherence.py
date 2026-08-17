@@ -41,7 +41,7 @@ def test_contract_tuples_are_non_empty() -> None:
     """Regression guard: clearing the enforcement scope would silently PASS."""
     assert len(IMPORTING_CONSUMERS) >= 5
     # 5 hand-named consumers plus the lint-denial importer set.
-    assert len(IMPORTING_CONSUMERS) == 5 + 22
+    assert len(IMPORTING_CONSUMERS) == 5 + 21
     assert len(PACKET_SEED_CONSUMERS) == 2
 
 

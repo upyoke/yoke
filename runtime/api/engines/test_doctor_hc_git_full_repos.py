@@ -15,7 +15,7 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
-from yoke_core.engines._doctor_hc_git_test_helpers import (
+from runtime.api.engines._doctor_hc_git_test_helpers import (
     _completed,
     _insert_item,
     _make_conn,

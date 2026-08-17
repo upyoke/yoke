@@ -14,7 +14,7 @@ from unittest import mock
 
 from yoke_core.engines.resync import DriftRecord, LocalOrphan, main
 
-from yoke_core.engines._resync_full_test_helpers import (
+from runtime.api.engines._resync_full_test_helpers import (
     populated_db as populated_db,
     test_db as test_db,
 )

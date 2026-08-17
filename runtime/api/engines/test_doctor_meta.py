@@ -1,3 +1,5 @@
+# ruff: noqa: E402
+
 """Doctor meta-HCs covering registry, backlog quality, schema, and item flows.
 
 Project FK/JSON/ephemeral/lifecycle HCs live in test_doctor_meta_project.py.
@@ -13,7 +15,7 @@ import json
 from pathlib import Path
 
 from yoke_core.engines.doctor_project_checks import discover_project_checks
-from yoke_core.engines._doctor_meta_test_helpers import (
+from runtime.api.engines._doctor_meta_test_helpers import (
     _args,
     _insert_deployment_flow,
     _insert_item,

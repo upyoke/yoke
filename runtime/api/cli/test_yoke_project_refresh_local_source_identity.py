@@ -7,7 +7,7 @@ from pathlib import Path
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.project_install import managed_git_hooks
-from yoke_core.tools import source_project_bundle
+from runtime.api.tools import source_project_bundle
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -39,7 +39,7 @@ def test_source_process_enforces_explicit_checkout_origin(
     _git_init(target)
     false_source = tmp_path / "different-yoke"
     (false_source / "runtime/harness").mkdir(parents=True)
-    tools = false_source / "packages/yoke-core/src/yoke_core/tools"
+    tools = false_source / "runtime/api/tools"
     tools.mkdir(parents=True)
     (tools.parent / "__init__.py").write_text("", encoding="utf-8")
     (tools / "__init__.py").write_text("", encoding="utf-8")

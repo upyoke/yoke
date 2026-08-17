@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """End-to-end coverage for the coordination_only no-mutex contract.
 
 Three items mutually linked by ``coordination_only`` ``item_dependencies``
@@ -21,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     local_human,
     seed_target,

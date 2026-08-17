@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """migration_apply — live-verify failure recovery and profile gating.
 
 Split out of ``test_migration_apply.py`` to keep authored files under the
@@ -17,7 +19,7 @@ from yoke_core.domain.migration_apply import (
     ProfileNotApplyError,
     rehearse,
 )
-from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
     _audit_row,
     _seed_apply_item,
     apply_env,

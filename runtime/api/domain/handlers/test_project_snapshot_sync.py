@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.handlers import project_snapshot_sync as handler
 
 

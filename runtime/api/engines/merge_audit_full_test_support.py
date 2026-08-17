@@ -6,7 +6,7 @@ import subprocess
 import pytest
 
 from runtime.api.fixtures.file_test_db import init_test_db
-from yoke_core.engines.merge_audit_test_schema import apply_merge_audit_schema
+from runtime.api.engines.merge_audit_test_schema import apply_merge_audit_schema
 
 
 @pytest.fixture()

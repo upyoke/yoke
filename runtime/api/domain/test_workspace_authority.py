@@ -16,7 +16,7 @@ from yoke_core.domain.workspace_authority import (
     assert_seed_source_under_target_root,
     assert_target_under_session_work_authority,
 )
-from yoke_core.domain.workspace_authority_test_helpers import (
+from runtime.api.domain.workspace_authority_test_helpers import (
     SESSION_A,
     SESSION_B,
     _seed_claim,

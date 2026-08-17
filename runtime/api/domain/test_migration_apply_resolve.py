@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression coverage for migration capability connection ownership."""
 
 from __future__ import annotations
@@ -6,7 +8,7 @@ import pytest
 
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_apply_resolve import _resolve_capability_settings
-from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401
+from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401
     _connect_validation_db,
     apply_env,
 )

@@ -19,14 +19,13 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_integrity_test_helpers import path_integrity_db
+from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain import (
-    path_integrity, path_integrity_fixtures, path_integrity_repair,
+    path_integrity, path_integrity_fixtures,
 )
 from yoke_core.domain.path_integrity_repair import (
     OP_DELETE_DUPLICATE_TARGET,
-    OP_REBIND_PARENT,
     PathIntegrityRepairError,
     apply_repair,
     mark_failure_abandoned,

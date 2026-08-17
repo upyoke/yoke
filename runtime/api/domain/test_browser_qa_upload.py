@@ -15,7 +15,7 @@ from yoke_core.domain.browser_qa_steps import (
     _durable_artifact_handle,
     _upload_artifact,
 )
-from yoke_core.domain.browser_qa_test_helpers import (
+from runtime.api.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
     _browser_check_steps,
     _fetch_context_from_test_db,

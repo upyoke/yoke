@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for path-claim event emission.
 
 Each emit helper accepts a connection and best-effort writes to the
@@ -15,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,
@@ -151,7 +153,7 @@ class TestRegistrationEmits:
         monkeypatch.setattr(path_claims_events, "emit_registered", _capture)
 
         actor = local_human(conn)
-        target = seed_target(conn, path_string="src/foo.py")
+        seed_target(conn, path_string="src/foo.py")
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "

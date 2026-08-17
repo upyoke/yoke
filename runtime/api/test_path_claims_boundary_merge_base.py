@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Regression scenarios for the merge-base boundary anchor.
 
 Covers the core merge-base boundary scenarios:
@@ -24,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     local_human,
     seed_target,

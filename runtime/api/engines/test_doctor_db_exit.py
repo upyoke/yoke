@@ -15,7 +15,7 @@ from yoke_core.engines.doctor import (
     run_checks,
 )
 
-from yoke_core.engines._doctor_db_test_helpers import apply_make_conn_schema
+from runtime.api.engines._doctor_db_test_helpers import apply_make_conn_schema
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 

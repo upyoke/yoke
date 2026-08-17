@@ -14,7 +14,7 @@ from yoke_core.domain.events_session_actor import (
     apply_session_actor_id,
     session_actor_lookup,
 )
-from yoke_core.engines._doctor_native_sql_test_helpers import (
+from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
 

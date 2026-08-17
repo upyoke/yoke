@@ -18,7 +18,7 @@ from yoke_core.domain.project_github_auth import (
     MissingRepoBinding,
     ProjectGithubAuth,
 )
-from yoke_core.engines._resync_test_helpers import (
+from runtime.api.engines._resync_test_helpers import (
     populated_db,  # noqa: F401 — imported pytest fixture
     test_db,  # noqa: F401 — imported pytest fixture
 )

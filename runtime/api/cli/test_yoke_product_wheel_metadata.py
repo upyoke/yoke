@@ -43,6 +43,14 @@ def test_built_product_wheels_pin_sibling_requires_dist(
             assert any(
                 requirement.name == "packaging" for requirement in requirements
             ), "yoke-core must declare its direct packaging dependency"
+            tomli = next(
+                requirement
+                for requirement in requirements
+                if requirement.name == "tomli"
+            )
+            assert tomli.marker is not None
+            assert tomli.marker.evaluate({"python_version": "3.10"})
+            assert not tomli.marker.evaluate({"python_version": "3.11"})
 
 
 def test_yoke_core_wheel_carries_universe_app_runtime_and_types(

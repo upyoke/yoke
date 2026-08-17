@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """render_body — unified ``## DB Claim`` body-section rendering.
 
 Split out of ``test_render_body.py`` to keep authored files under the
@@ -10,7 +12,7 @@ import json
 from pathlib import Path
 
 from yoke_core.domain import render_body
-from yoke_core.domain.render_body_test_helpers import (
+from runtime.api.domain.render_body_test_helpers import (
     _connect,
     db_path,  # noqa: F401  (pytest fixture)
     _seed_item,

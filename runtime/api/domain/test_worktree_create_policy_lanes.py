@@ -19,7 +19,7 @@ from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain import worktree_create
 from yoke_core.domain.worktree import create_worktree
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
 
 def test_epic_creates_integration_lane_and_each_worker(

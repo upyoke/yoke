@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the ``workflow_item.epic_task.review_*`` handler family.
 
 Direct handler-call coverage against a disposable test DB; qa-bridge
@@ -13,7 +15,7 @@ from unittest.mock import patch
 from yoke_core.domain.handlers import (
     workflow_item_epic_task_review as review_handlers,
 )
-from yoke_core.domain.handlers._epic_task_review_state_test_helpers import (  # noqa: F401
+from runtime.api.domain.handlers._epic_task_review_state_test_helpers import (  # noqa: F401
     EPIC_ID,
     db,
     db_with_task,

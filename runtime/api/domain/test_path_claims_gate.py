@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     SNAP,
     local_human,
     register_test_claim as register,
@@ -28,7 +28,7 @@ from yoke_core.domain.path_claims_gate import (
     gate_state_for_item,
 )
 
-pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
+pytest_plugins = ("runtime.api.domain._path_claims_test_helpers",)
 
 
 class TestGateStateForItem:

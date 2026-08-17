@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for path-claim activation / terminal dispatcher commands."""
 
 from __future__ import annotations
@@ -7,7 +9,7 @@ import json
 import pytest
 
 from yoke_core.domain import path_claims_dispatch, path_claims_dispatch_state
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP, ambient_holder_session, conn, local_human, seed_target,
     seed_test_holder_for,
 )

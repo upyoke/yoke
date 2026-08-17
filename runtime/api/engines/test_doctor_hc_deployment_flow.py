@@ -7,7 +7,7 @@ from pathlib import Path
 
 from yoke_core.engines.doctor import hc_flow_workflow_exists, hc_invalid_item_flows
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _insert_deployment_flow,
     _insert_item,
     _make_conn,

@@ -21,7 +21,7 @@ import pytest
 from yoke_core.domain import browser_qa
 from yoke_core.domain import browser_qa_requirement
 from yoke_core.domain import browser_qa_results
-from yoke_core.domain.browser_qa_test_helpers import (
+from runtime.api.domain.browser_qa_test_helpers import (
     _browser_verdict_assertion,
     _patch_external_deps,
     _run_scenario,

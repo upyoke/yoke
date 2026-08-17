@@ -26,7 +26,7 @@ from yoke_core.domain import runtime_settings
 from yoke_core.domain.worktree_create import _count_active_worktrees
 from yoke_core.domain.worktree_deps import _find_nested
 from yoke_core.domain.worktree_paths import _parse_item_id
-from yoke_core.domain.worktree_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.worktree_test_helpers import (  # noqa: F401 — fixtures
     TEST_ITEM_ID,
     TEST_ITEM_REF,
     git_repo,

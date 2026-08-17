@@ -16,7 +16,7 @@ from yoke_contracts.cursor_permissions import (
 from yoke_core.domain import install_bundle, install_bundle_managed
 from yoke_core.domain.agents_render_hooks import render_cursor_hooks_block
 from yoke_core.domain.project_install_test_helpers import make_bundle
-from yoke_core.tools.source_project_bundle import (
+from runtime.api.tools.source_project_bundle import (
     SOURCE_MANAGED_PREFIXES,
     build_source_bundle,
 )

@@ -91,7 +91,7 @@ def test_parity_velocity_meter_strategy_events(populated_db, tmp_path):
     the one replay serves, else the render raises ``BoardDataMissError``."""
     from datetime import date
 
-    from yoke_core.board.tests.helpers import insert_event
+    from runtime.api.board.tests.helpers import insert_event
 
     cfg = tmp_path / "config"
     cfg.write_text("dashboard_velocity_meter=true\n")

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the two-unit apply contract — rehearsal unit.
 
 Original module covered every flavor of the apply contract. It is now split
@@ -26,7 +28,7 @@ from yoke_core.domain.migration_apply import (
     rehearse,
 )
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
     _NO_APPLY_MIGRATION_BODY,
     _RAISING_MIGRATION_BODY,
     _audit_row,

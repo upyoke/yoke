@@ -13,7 +13,7 @@ import pytest
 
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain import strategy_docs_ingest as ing
-from yoke_core.domain.strategy_docs_test_helpers import (
+from runtime.api.domain.strategy_docs_test_helpers import (
     PROJECT_A,
     PROJECT_B,
     SEED_CONTENT,

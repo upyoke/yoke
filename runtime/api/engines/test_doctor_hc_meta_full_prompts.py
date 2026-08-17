@@ -27,7 +27,7 @@ from yoke_project_checks.check_agents_prompts import (
 from yoke_project_checks.check_docs import hc_doc_drift, hc_doc_health
 from yoke_project_checks.check_schema_script_sync import hc_schema_script_sync
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _insert_deployment_flow,
     _insert_item,
     _make_conn,

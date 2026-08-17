@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     SNAP,
     local_human,
     seed_target,
@@ -17,7 +17,7 @@ from yoke_core.domain.path_claims_item_hook import (
     cancel_claims_on_item_terminal,
 )
 
-pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
+pytest_plugins = ("runtime.api.domain._path_claims_test_helpers",)
 
 
 def _seed_item(conn, *, item_id: int):

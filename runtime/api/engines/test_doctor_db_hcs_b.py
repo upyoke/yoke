@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the Python doctor engine (DB-only health checks): late HCs.
 
 Other HC tests live in test_doctor_db.py and test_doctor_db_hcs_a.py.
@@ -11,7 +13,6 @@ from __future__ import annotations
 from runtime.api.fixtures.backlog import insert_item_worktree
 from yoke_core.engines.doctor import (
     HEALTH_CHECKS,
-    HealthCheck,
     RecordCollector,
     hc_deferred_items,
     hc_lifecycle_continuity,
@@ -22,11 +23,10 @@ from yoke_core.engines.doctor import (
     hc_smoke_failure_stale,
 )
 
-from yoke_core.engines._doctor_db_test_helpers import (
+from runtime.api.engines._doctor_db_test_helpers import (
     _default_args,
     _get_result,
-    _iso_offset,
-    conn,
+    conn,  # noqa: F401 -- imported pytest fixture
 )
 
 

@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_integrity_test_helpers import path_integrity_db
+from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain import path_integrity
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.path_snapshots import build_head_snapshot

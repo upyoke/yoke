@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_integrity_test_helpers import path_integrity_db
+from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain.path_integrity_invariants_render_relationship import (
     check_render_relationship,
 )

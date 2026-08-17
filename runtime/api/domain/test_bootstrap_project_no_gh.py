@@ -23,7 +23,7 @@ from yoke_core.domain.bootstrap_project import (
     run_preflight,
     run_setup,
 )
-from yoke_core.domain.bootstrap_project_test_helpers import (
+from runtime.api.domain.bootstrap_project_test_helpers import (
     _FakeRestResponse,
     _make_fake_run,
     bootstrap_seeded_db,

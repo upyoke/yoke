@@ -30,7 +30,7 @@ from yoke_core.domain.idea_readiness_repair_cross_item_overlap import (
     probe_cross_item_overlap,
 )
 import yoke_core.domain.idea_readiness_repair_cross_item_overlap as overlap_mod
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     SNAP,
     conn as conn,
     local_human,

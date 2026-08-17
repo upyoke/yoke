@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Planning-scratch coverage for workspace authority."""
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from yoke_core.domain.workspace_authority import (
     SESSION_ID_ENV_VAR,
     assert_target_under_session_work_authority,
 )
-from yoke_core.domain.workspace_authority_test_helpers import (
+from runtime.api.domain.workspace_authority_test_helpers import (
     PROJECT_REPO_ROOT,
     RETIRED_DISPATCH_ROOT,
     RUN_ID,
@@ -21,8 +23,8 @@ from yoke_core.domain.workspace_authority_test_helpers import (
     _seed_item,
     _seed_project,
     _seed_session_status,
-    conn,
-    patch_conn,
+    conn,  # noqa: F401 -- imported pytest fixture
+    patch_conn,  # noqa: F401 -- imported pytest fixture
 )
 
 

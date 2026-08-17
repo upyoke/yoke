@@ -17,7 +17,7 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain import path_snapshot_enrichment as enrich
 from yoke_core.domain import path_context
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from runtime.api.path_context_test_helpers import (
     emit_event,
     init_minimal_schema,

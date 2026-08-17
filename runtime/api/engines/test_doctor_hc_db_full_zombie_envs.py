@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from yoke_core.engines.doctor import hc_zombie_ephemeral_envs
-from yoke_core.engines._doctor_hc_db_full_test_helpers import (
+from runtime.api.engines._doctor_hc_db_full_test_helpers import (
     _add_ephemeral_environments_table,
     _result,
     _run_hc,

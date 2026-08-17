@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for the ``workflow_item.epic_task`` state handlers + registration shape.
 
 Covers ``body_get`` / ``update_status`` / ``simulation_upsert`` /
@@ -21,7 +23,7 @@ from yoke_core.domain.handlers import (
     workflow_item_epic_task_state as state_handlers,
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_core.domain.handlers._epic_task_review_state_test_helpers import (  # noqa: F401
+from runtime.api.domain.handlers._epic_task_review_state_test_helpers import (  # noqa: F401
     EPIC_ID,
     FAILING_RECEIPT,
     VALID_RECEIPT,

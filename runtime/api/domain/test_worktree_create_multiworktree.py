@@ -12,7 +12,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import worktree as worktree_cli
 from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.worktree import create_worktree
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 

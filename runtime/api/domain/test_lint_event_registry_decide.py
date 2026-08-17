@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """lint_event_registry — decide() pure decision surface.
 
 Split out of ``test_lint_event_registry.py`` to keep authored files under the
@@ -11,7 +13,7 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain import lint_event_registry as lint_mod
 from yoke_core.domain.lint_event_registry import decide
-from yoke_core.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
     _payload,
     no_table_db,
     registry_db,

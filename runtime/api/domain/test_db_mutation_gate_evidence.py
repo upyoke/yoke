@@ -20,7 +20,7 @@ from yoke_core.domain.db_mutation_gate import (
     clear_attestation_frozen_at,
     stamp_attestation_frozen_at,
 )
-from yoke_core.domain.db_mutation_gate_test_helpers import (
+from runtime.api.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_project,
     _write_module,

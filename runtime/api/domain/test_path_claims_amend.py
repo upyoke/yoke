@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the amendment surface (widen / narrow / cancel-amendment)."""
 
 from __future__ import annotations
@@ -8,7 +10,7 @@ import subprocess
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,
@@ -22,7 +24,6 @@ from yoke_core.domain.path_claims import (
 )
 from yoke_core.domain.path_claims_amend import (
     AmendmentNotFound,
-    CannotAmendClaim,
     NarrowWouldOrphanCommittedWork,
     cancel_amendment,
     narrow,

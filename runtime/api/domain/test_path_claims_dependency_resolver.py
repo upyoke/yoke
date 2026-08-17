@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the dep-graph resolver helpers.
 
 Covers register-side awareness:
@@ -17,14 +19,13 @@ Covers register-side awareness:
 from __future__ import annotations
 
 
-import pytest
 
 from yoke_core.domain.path_claims_dependency_resolver import (
     cross_check_explicit_upstream,
     has_bidirectional_dep_edge,
     resolve_upstream_for_register,
 )
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,

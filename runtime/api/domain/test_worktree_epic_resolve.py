@@ -11,7 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.worktree import resolve_item_worktree
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 

@@ -14,7 +14,7 @@ from yoke_core.domain.reflection_capture import (
     persist_entries,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from yoke_core.engines._doctor_native_sql_test_helpers import (
+from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
 

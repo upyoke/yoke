@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Legacy-data repair on release for coord-only blocked rows.
 
 Under the no-mutex contract, a downstream path claim can never land in
@@ -19,7 +21,7 @@ asserts the refresh-and-stay-blocked behavior is preserved for real
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     add_edge,
     conn,
     count_refresh_events,

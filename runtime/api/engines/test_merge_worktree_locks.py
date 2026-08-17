@@ -1,19 +1,15 @@
-"""Tests for merge_worktree: dirty-state, locks, preflight, generated files.
+# ruff: noqa: F811
 
-Other merge_worktree tests live in test_merge_worktree.py,
-test_merge_worktree_views.py, and test_merge_worktree_sync.py.
+"""Tests for merge-worktree dirty state, locks, preflight, and generated files.
 
-Pytest fixture (mw_db) shared via _merge_worktree_test_helpers (private module).
+Shared fixtures live in ``_merge_worktree_test_helpers``.
 """
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
-from unittest import mock
 
-import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.engines import merge_worktree
@@ -23,7 +19,7 @@ from yoke_core.engines.merge_worktree import (
     extract_generated_files,
 )
 
-from yoke_core.engines._merge_worktree_test_helpers import mw_db
+from runtime.api.engines._merge_worktree_test_helpers import mw_db  # noqa: F401
 
 
 def _p(conn) -> str:

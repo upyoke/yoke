@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Coverage for the PathClaimOverride telemetry emitter.
 
 Split out of ``test_path_claims_override.py`` to keep both files
@@ -14,7 +16,7 @@ import json
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     local_human,
     seed_item,

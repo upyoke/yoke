@@ -220,49 +220,6 @@ class TestResolveActiveWorktreeContext:
 
 
 # ---------------------------------------------------------------------------
-# verify_runtime_api_import_root
-# ---------------------------------------------------------------------------
-
-
-class TestVerifyRuntimeApiImportRoot:
-    def test_runtime_api_loaded_from_expected_worktree(self):
-        # The actual runtime.api package is loaded from this checkout's
-        # runtime/api/__init__.py. Use its real location to construct an
-        # expected worktree above it and verify the helper is happy.
-        import runtime.api as runtime_api
-
-        runtime_api_file = Path(runtime_api.__file__).resolve()
-        # Walk up until we leave runtime/api/ and runtime/ — the parent
-        # is the importable root we want to assert.
-        repo_root = runtime_api_file.parent.parent.parent
-        verdict = mod.verify_runtime_api_import_root(repo_root)
-        assert verdict.ok, verdict.reason
-        assert verdict.loaded_from is not None
-
-    def test_loaded_from_outside_expected_worktree(self, tmp_path: Path):
-        verdict = mod.verify_runtime_api_import_root(tmp_path)
-        # tmp_path is unrelated to the real runtime.api install.
-        assert verdict.ok is False
-        assert verdict.loaded_from is not None
-        assert "loaded from" in verdict.reason
-
-    def test_no_file_attribute_passes_conservatively(self, tmp_path: Path):
-        # Force the namespace-package branch by clearing ``__file__`` on
-        # the live ``runtime.api`` package for the duration of the call.
-        import runtime.api as runtime_api
-
-        original = getattr(runtime_api, "__file__", None)
-        try:
-            runtime_api.__file__ = None
-            verdict = mod.verify_runtime_api_import_root(tmp_path)
-        finally:
-            if original is not None:
-                runtime_api.__file__ = original
-        assert verdict.ok is True
-        assert "namespace package" in verdict.reason
-
-
-# ---------------------------------------------------------------------------
 # Helper API surface guarantees
 # ---------------------------------------------------------------------------
 

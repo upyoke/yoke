@@ -16,7 +16,7 @@ from yoke_core.domain.coordination_leases import LeaseHeldError, active_lease
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.migration_apply_contract import LEASE_KEY_PREFIX
 from yoke_core.domain.migration_apply_rehearse import rehearse
-from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — fixtures
     _seed_apply_item,
     apply_env,
 )

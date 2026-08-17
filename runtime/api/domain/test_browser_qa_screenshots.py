@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import browser_qa
-from yoke_core.domain.browser_qa_test_helpers import (
+from runtime.api.domain.browser_qa_test_helpers import (
     _browser_check_steps,
     _patch_external_deps,
     _run_scenario,

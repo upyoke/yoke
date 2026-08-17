@@ -23,7 +23,7 @@ import yoke_core.engines.resync as resync_mod
 from yoke_core.engines.resync import DriftRecord, PairedItem
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 
-from yoke_core.engines._resync_test_helpers import (
+from runtime.api.engines._resync_test_helpers import (
     populated_db,  # noqa: F401 — imported pytest fixture
     test_db,  # noqa: F401 — imported pytest fixture
 )

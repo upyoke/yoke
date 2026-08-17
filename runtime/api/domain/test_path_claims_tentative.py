@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Tests for tentative path-claim registration plumbing.
 
 Covers registration (callers register tentative without broad parent claims)
@@ -7,7 +9,7 @@ path targets as planned-equivalent implementation surfaces).
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     conn,  # noqa: F401
     local_human,
 )

@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Register-side tests for the path-claim domain.
 
 Lifecycle (activate/release/cancel) and overlap-classifier coverage
@@ -12,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     HOLDER_SESSION_ID,
     conn,  # noqa: F401  (pytest fixture)
     local_human,

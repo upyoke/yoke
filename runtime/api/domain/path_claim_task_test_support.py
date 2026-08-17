@@ -10,7 +10,7 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_item,
     insert_item_worktree,
 )
-from yoke_core.domain._path_claims_test_helpers import local_human
+from runtime.api.domain._path_claims_test_helpers import local_human
 from yoke_core.domain.db_helpers import iso8601_now
 
 

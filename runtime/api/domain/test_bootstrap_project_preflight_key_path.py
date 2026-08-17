@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from yoke_core.domain.bootstrap_project import BootstrapContext, run_preflight
-from yoke_core.domain.bootstrap_project_test_helpers import (
+from runtime.api.domain.bootstrap_project_test_helpers import (
     _make_fake_run,
     bootstrap_seeded_db,
     update_bootstrap_backend_ssh_settings,

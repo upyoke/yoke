@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     local_human,
 )

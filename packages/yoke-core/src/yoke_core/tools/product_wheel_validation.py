@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib
 import tempfile
-from pathlib import Path
-from typing import Callable
+from contextlib import contextmanager
+from pathlib import Path, PurePosixPath
+from typing import Callable, Iterator
 
+import yoke_core
 from yoke_core.tools import package_index, wheel_module_completeness
-
-
-INSTALLED_BOOT_MODULES = (
-    "yoke_core.api.server_entrypoint",
-    "yoke_core.domain.schema_init",
-)
 
 
 def assert_core_wheel_completeness(repo_root: Path, wheelhouse: Path) -> None:
@@ -29,7 +26,7 @@ def verify_product_wheel_boot(
     create_venv: Callable[[Path], None],
     run: Callable[..., None],
 ) -> None:
-    """Install from the wheel closure and import the real server boot path."""
+    """Install from the wheel closure and validate every shipped core module."""
     with tempfile.TemporaryDirectory(prefix="yoke-wheel-boot-") as work:
         root = Path(work)
         create_venv(root)
@@ -53,10 +50,58 @@ def verify_product_wheel_boot(
         )
 
 
-def verify_installed_boot() -> None:
-    """Import every module required before an installed server can serve."""
-    for module in INSTALLED_BOOT_MODULES:
-        importlib.import_module(module)
+def installed_core_module_names() -> tuple[str, ...]:
+    """Derive every importable module from the installed ``yoke_core`` tree."""
+    package_root = Path(yoke_core.__file__).resolve().parent
+    members = wheel_module_completeness.source_runtime_members(package_root)
+    return tuple(sorted(_module_name(member) for member in members))
+
+
+def _module_name(member: str) -> str:
+    path = PurePosixPath(member)
+    parts = path.parts[:-1]
+    if path.name != "__init__.py":
+        parts = (*parts, path.stem)
+    return ".".join(parts)
+
+
+@contextmanager
+def _record_missing_core_imports() -> Iterator[set[tuple[str, str]]]:
+    """Record missing imports attempted and swallowed by core modules."""
+    original_import = builtins.__import__
+    missing: set[tuple[str, str]] = set()
+
+    def tracked_import(name, globals=None, locals=None, fromlist=(), level=0):
+        try:
+            return original_import(name, globals, locals, fromlist, level)
+        except ModuleNotFoundError as exc:
+            requester = str((globals or {}).get("__name__") or "")
+            if requester == "yoke_core" or requester.startswith("yoke_core."):
+                missing.add((requester, str(exc.name or name)))
+            raise
+
+    builtins.__import__ = tracked_import
+    try:
+        yield missing
+    finally:
+        builtins.__import__ = original_import
+
+
+def verify_installed_boot() -> tuple[str, ...]:
+    """Import every installed core module and reject swallowed missing imports."""
+    with _record_missing_core_imports() as missing:
+        modules = installed_core_module_names()
+        for module in modules:
+            importlib.import_module(module)
+    if missing:
+        detail = ", ".join(
+            f"{requester} -> {dependency}"
+            for requester, dependency in sorted(missing)
+        )
+        raise wheel_module_completeness.WheelModuleCompletenessError(
+            "installed core modules swallowed missing imports: " + detail
+        )
+    return modules
 
 
 def _core_wheel(wheelhouse: Path) -> Path:
@@ -73,8 +118,8 @@ def _core_wheel(wheelhouse: Path) -> Path:
 
 
 def main() -> int:
-    verify_installed_boot()
-    print("installed yoke-core boot imports passed")
+    modules = verify_installed_boot()
+    print(f"installed yoke-core imports passed: {len(modules)} modules")
     return 0
 
 

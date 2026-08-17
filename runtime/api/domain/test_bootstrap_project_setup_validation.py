@@ -14,7 +14,7 @@ from yoke_core.domain.bootstrap_project import (
     run_setup,
 )
 from yoke_core.domain.bootstrap_project_helpers import SshKeyResolutionError
-from yoke_core.domain.bootstrap_project_test_helpers import (
+from runtime.api.domain.bootstrap_project_test_helpers import (
     _install_fake_rest,
     bootstrap_seeded_db,
     install_fake_project_github_auth,

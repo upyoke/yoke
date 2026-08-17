@@ -14,7 +14,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import path_integrity, path_integrity_fixtures
-from yoke_core.domain._path_integrity_test_helpers import path_integrity_db
+from runtime.api.domain._path_integrity_test_helpers import path_integrity_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.path_integrity_fixtures_helpers import project_row_id
 from yoke_core.domain.path_integrity_runs import (

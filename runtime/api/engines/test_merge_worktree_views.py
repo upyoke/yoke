@@ -18,7 +18,7 @@ import pytest
 from yoke_core.engines import merge_worktree
 from yoke_core.engines.merge_worktree import MergeArgs, MergeContext
 
-from yoke_core.engines._merge_worktree_test_helpers import mw_db
+from runtime.api.engines._merge_worktree_test_helpers import mw_db
 
 
 class TestYokeStateDirResolution:

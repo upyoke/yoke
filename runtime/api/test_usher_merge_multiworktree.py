@@ -11,7 +11,7 @@ from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
-pytest_plugins = ("yoke_core.domain.worktree_test_helpers",)
+pytest_plugins = ("runtime.api.domain.worktree_test_helpers",)
 
 SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
 MERGE_MD = SKILL_ROOT / "usher" / "merge.md"

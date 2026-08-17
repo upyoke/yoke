@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Multi-upstream determinism + mutation-clean rejection coverage.
 
 Lives in a sibling file because ``test_path_claims_amend_serial_widen.py``
@@ -17,7 +19,7 @@ import json
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,

@@ -13,7 +13,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.engines import merge_audit
-from yoke_core.engines.merge_audit_test_schema import (
+from runtime.api.engines.merge_audit_test_schema import (
     apply_merge_audit_schema,
     seed_merge_audit_task,
 )

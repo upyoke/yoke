@@ -19,7 +19,7 @@ from yoke_core.domain.item_worktree_resolution import (
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_naming import worktree_name_for_item
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
 
 def test_worktree_named_by_public_ref_and_resolves_back(

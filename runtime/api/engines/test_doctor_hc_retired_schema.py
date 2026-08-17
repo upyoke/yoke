@@ -22,7 +22,7 @@ from yoke_core.engines.doctor_hc_retired_schema import (
     hc_retired_schema_resurrection,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.engines._doctor_hc_retired_schema_test_helpers import (
+from runtime.api.engines._doctor_hc_retired_schema_test_helpers import (
     _make_control_conn,
     _write_registry,
 )

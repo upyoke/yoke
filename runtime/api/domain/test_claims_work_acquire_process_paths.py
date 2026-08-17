@@ -1,3 +1,5 @@
+# ruff: noqa: F811
+
 """Process work-claim acquisition is a pure process lock — no path claims.
 
 The strategy authority is the ``strategy_docs`` DB table; the rendered
@@ -9,7 +11,7 @@ acquired before the retirement) through ``_release_linked_path_claims``.
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     local_human,
     seed_test_holder_session,
