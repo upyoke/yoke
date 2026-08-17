@@ -176,7 +176,7 @@ def cmd_item_progress(args: list[str]) -> int:
     Usage: item-progress <item-id>
 
     Output: pipe-delimited progress view row:
-        status|flow_name|run_id|current_stage|target_env|stage_progress|done_description|qa_summary|pipeline_blocked_reason
+        status|flow_name|run_id|current_stage|target_environment|stage_progress|done_description|qa_summary|pipeline_blocked_reason
     Exit 0 on found, 1 on not found, 0 with empty on missing view.
 
     Rename: the view column ``blocked_reason`` was renamed to
@@ -201,7 +201,8 @@ def cmd_item_progress(args: list[str]) -> int:
             return 0
 
         progress_fields = [
-            "status", "flow_name", "run_id", "current_stage", "target_env",
+            "status", "flow_name", "run_id", "current_stage",
+            "target_environment",
             "stage_progress", "done_description", "qa_summary",
             "pipeline_blocked_reason",
         ]

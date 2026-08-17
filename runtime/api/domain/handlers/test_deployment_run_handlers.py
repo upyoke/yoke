@@ -26,6 +26,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             "run-20260616-001",
             "yoke",
             "yoke-hosted-production",
+            "persistent",
             "production",
             "",
             "created",
@@ -50,7 +51,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["run"]["id"], "run-20260616-001")
         self.assertEqual(
-            outcome.result_payload["run"]["target_env"],
+            outcome.result_payload["run"]["target_environment_id"],
             "production",
         )
 
@@ -74,7 +75,9 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 "id": "run-20260616-001",
                 "project": "yoke",
                 "flow": "flow",
-                "target_env": "prod",
+                "target_tier": "persistent",
+                "target_environment_id": "production",
+                "target_environment": "prod",
                 "status": "created",
                 "member_items": [],
                 "stages": [],
@@ -247,7 +250,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         cmd_create.assert_called_once_with(
             "yoke",
             "yoke-hosted-production",
-            target_env=None,
+            environment=None,
             release_lineage="a" * 40,
             created_by="operator",
         )
@@ -276,7 +279,8 @@ class TestDeploymentRunHandlers(unittest.TestCase):
 
     def test_run_create_reuses_the_retry_source_lineage(self):
         source = (
-            "run-old|yoke|yoke-hosted-production|production|" + "a" * 40
+            "run-old|yoke|yoke-hosted-production|persistent|production|"
+            + "a" * 40
             + "|failed|release|2026-06-15T00:00:00Z||"
             "2026-06-15T01:00:00Z|operator"
         )
@@ -313,14 +317,15 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
 
-    def test_resolve_target_env_returns_raw_value(self):
+    def test_resolve_target_returns_typed_triple(self):
         with patch(
-            "yoke_core.domain.deployment_runs_preview.cmd_resolve_target_env",
-            return_value="prod",
+            "yoke_core.domain.deployment_run_target_resolution."
+            "cmd_resolve_target",
+            return_value=("persistent", "production", "prod"),
         ):
-            outcome = deployment_runs.handle_deployment_run_resolve_target_env(
+            outcome = deployment_runs.handle_deployment_run_resolve_target(
                 _request(
-                    function="deployment_runs.resolve_target_env",
+                    function="deployment_runs.resolve_target",
                     payload={
                         "project": "yoke",
                         "flow": "yoke-hosted-production",
@@ -328,7 +333,13 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 ),
             )
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["target_env"], "prod")
+        self.assertEqual(outcome.result_payload["target_tier"], "persistent")
+        self.assertEqual(
+            outcome.result_payload["target_environment_id"], "production",
+        )
+        self.assertEqual(
+            outcome.result_payload["target_environment_name"], "prod",
+        )
 
 
 if __name__ == "__main__":

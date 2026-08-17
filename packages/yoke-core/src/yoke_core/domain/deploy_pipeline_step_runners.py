@@ -45,7 +45,7 @@ def _dispatch_step_runner(
     timeout_min: int,
     fresh: bool,
     image_tag: str = "",
-    target_env: str = "",
+    environment_name: str = "",
     gate_branch: str,
     release_lineage: str,
     product_repo_path: str = "",
@@ -67,7 +67,7 @@ def _dispatch_step_runner(
             _dispatch_health_check(
                 config,
                 project,
-                target_env,
+                environment_name,
                 project_repo_path=product_repo_path or project_repo_path,
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
@@ -85,7 +85,7 @@ def _dispatch_step_runner(
             exec_environment_activate,
         )
 
-        return exec_environment_activate(project, target_env), ""
+        return exec_environment_activate(project, environment_name), ""
     if step_runner == "core-container-deploy":
         from yoke_core.domain.deploy_core_container import (
             exec_core_container_deploy,
@@ -94,7 +94,7 @@ def _dispatch_step_runner(
         return (
             exec_core_container_deploy(
                 project,
-                target_env,
+                environment_name,
                 repo_path=product_repo_path or project_repo_path,
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
@@ -157,7 +157,7 @@ def _dispatch_step_runner(
 def _dispatch_health_check(
     config: Dict[str, Any],
     project: str,
-    target_env: str,
+    environment_name: str,
     *,
     project_repo_path: str = "",
     image_tag: str = "",
@@ -182,10 +182,10 @@ def _dispatch_health_check(
     url = str(config.get("url", "") or "")
     if url:
         return _step_runners.exec_health_check(url)
-    if not target_env:
+    if not environment_name:
         print(
-            "Error: health-check stage has no url and the flow declares no "
-            "target_env to resolve one from",
+            "Error: health-check stage has no url and the flow references "
+            "no target environment to resolve one from",
             file=sys.stderr,
         )
         return 1
@@ -195,7 +195,7 @@ def _dispatch_health_check(
     )
 
     try:
-        env = resolve_deploy_environment(project, target_env)
+        env = resolve_deploy_environment(project, environment_name)
     except DeployEnvironmentError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -242,7 +242,7 @@ def _dispatch_health_check(
     if rc != 0:
         return rc
     if env.deploy_namespace == "yoke":
-        manifest_gate = verify_deployed_cli_manifest(target_env)
+        manifest_gate = verify_deployed_cli_manifest(environment_name)
         print(manifest_gate.message)
         if manifest_gate.checked and not manifest_gate.ok:
             return 1

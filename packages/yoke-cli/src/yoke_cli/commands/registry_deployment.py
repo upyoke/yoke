@@ -64,9 +64,9 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("deployment_runs.update", _adapters.deployment_runs_update),
     ("deployment-runs", "terminalize"):
         ("deployment_runs.terminalize", deployment_runs_terminalize),
-    ("deployment-runs", "resolve-target-env"):
-        ("deployment_runs.resolve_target_env",
-         _adapters.deployment_runs_resolve_target_env),
+    ("deployment-runs", "resolve-target"):
+        ("deployment_runs.resolve_target",
+         _adapters.deployment_runs_resolve_target),
 }
 
 

@@ -45,13 +45,15 @@ _SCHEMA = """
         project_id INTEGER,
         name TEXT,
         stages TEXT,
-        target_env TEXT
+        target_tier TEXT,
+        target_environment_id TEXT
     );
     CREATE TABLE deployment_runs (
         id TEXT PRIMARY KEY,
         project_id INTEGER,
         flow TEXT,
-        target_env TEXT,
+        target_tier TEXT,
+        target_environment_id TEXT,
         release_lineage TEXT,
         status TEXT DEFAULT 'created',
         current_stage TEXT,
@@ -159,16 +161,17 @@ def deploy_db(tmp_path, monkeypatch):
             conn.close()
 
 
-def _seed_flow(conn, flow_id="flow-test", project="yoke", stages=None, target_env="production"):
+def _seed_flow(conn, flow_id="flow-test", project="yoke", stages=None):
     if stages is None:
         stages = [
             {"name": "deploy", "step_runner": "auto"},
             {"name": "smoke-test", "step_runner": "auto", "qa_kind": "smoke"},
         ]
     conn.execute(
-        "INSERT INTO deployment_flows (id, project_id, name, stages, target_env) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (flow_id, 1, flow_id, json.dumps(stages), target_env),
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, target_tier, target_environment_id) "
+        "VALUES (%s, %s, %s, %s, 'persistent', 'production')",
+        (flow_id, 1, flow_id, json.dumps(stages)),
     )
     conn.commit()
 

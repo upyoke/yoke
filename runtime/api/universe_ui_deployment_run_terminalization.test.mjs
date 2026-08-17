@@ -31,7 +31,8 @@ test("active run terminalization requires a reason and uses shared authority", a
             rows: [{
               id: "run-20260804-010",
               project: "yoke",
-              target_env: "production",
+              target_tier: "persistent",
+              target_environment: "prod",
               status,
               current_stage: "hosted-release",
               created_at: "2026-08-04T01:00:00Z",

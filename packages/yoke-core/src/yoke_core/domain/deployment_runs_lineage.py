@@ -56,15 +56,18 @@ def cmd_lineage_create(db_path: Optional[str] = None) -> str:
 
 def cmd_lineage_final_status(lineage_id: str, db_path: Optional[str] = None) -> str:
     """Status of last production-target run in lineage. Returns 'none' if not found."""
+    from yoke_core.domain.environment_delivery_record import PRODUCTION_ENV_NAME
+
     conn = connect(db_path)
     try:
-        status = query_scalar(
+        run_status = query_scalar(
             conn,
-            "SELECT status FROM deployment_runs "
-            "WHERE release_lineage=%s AND target_env='production' "
-            "ORDER BY created_at DESC LIMIT 1",
-            (lineage_id,),
+            "SELECT dr.status FROM deployment_runs dr "
+            "JOIN environments e ON e.id = dr.target_environment_id "
+            "WHERE dr.release_lineage=%s AND e.name=%s "
+            "ORDER BY dr.created_at DESC LIMIT 1",
+            (lineage_id, PRODUCTION_ENV_NAME),
         )
-        return status if status else "none"
+        return run_status if run_status else "none"
     finally:
         conn.close()

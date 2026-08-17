@@ -281,8 +281,11 @@ def render_role_packet(role: str) -> str:
     chunks = [render_topic_packet(t) for t in seed.ROLE_TOPICS[role]]
     if role == "main_agent":
         chunks[-1] = chunks[-1].rstrip() + "\n" + (
-            "**Deployment-run raw-query hint:** `deployment_flows.target_env` "
-            "selects the environment; `deployment_runs.status` and "
+            "**Deployment-run raw-query hint:** "
+            "`deployment_flows.target_environment_id` references "
+            "`environments.id` (JOIN environments for the display name; "
+            "`target_tier` is persistent/ephemeral/NULL — there is no "
+            "`target_env` column); `deployment_runs.status` and "
             "`deployment_runs.current_stage` record progress. There is no "
             "`deployment_runs.item_id`; join through `deployment_run_items` "
             "for item-bound runs."

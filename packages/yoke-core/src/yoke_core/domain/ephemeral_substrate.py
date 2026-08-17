@@ -24,11 +24,6 @@ import hashlib
 from dataclasses import dataclass
 import re
 
-#: ``deployment_flows.target_env`` value naming the worktree/preview tier.
-#: Ephemeral flows deploy unmerged branches by design, so the deployment
-#: pipeline's merged/CI gates do not apply to this tier.
-EPHEMERAL_TARGET_ENV = "ephemeral"
-
 _CAPABILITY = "ephemeral-env"
 _CAPABILITY_HINT = (
     "set it via: yoke projects capability-settings merge --project {project} "

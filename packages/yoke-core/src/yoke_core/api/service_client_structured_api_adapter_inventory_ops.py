@@ -81,8 +81,8 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs stages RUN-ID",
     ),
     _read_entry(
-        function_id="deployment_runs.resolve_target_env",
-        cli_invocation="yoke deployment-runs resolve-target-env",
+        function_id="deployment_runs.resolve_target",
+        cli_invocation="yoke deployment-runs resolve-target",
     ),
     AdapterEntry(
         function_id="deployment_runs.update",

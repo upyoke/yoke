@@ -88,7 +88,7 @@ class TestCreateRun:
         assert result is not None
         fields = result.split("|")
         assert fields[1] == "yoke"
-        assert fields[5] == "created"
+        assert fields[6] == "created"
 
     def test_create_allocates_and_inserts_on_one_connection(
         self,
@@ -122,14 +122,14 @@ class TestCreateRun:
         assert len(set(run_ids)) == 2
         assert sorted(run_id[-3:] for run_id in run_ids) == ["001", "002"]
 
-    def test_create_with_target_env(self, db_path):
+    def test_create_with_environment_override(self, db_path):
         rid = dr.cmd_create_run(
             "yoke",
             "yoke-internal",
-            target_env="production",
+            environment="production",
             db_path=db_path,
         )
-        val = dr.cmd_get(rid, field="target_env", db_path=db_path)
+        val = dr.cmd_get(rid, field="target_environment_id", db_path=db_path)
         assert val == "production"
 
     def test_create_with_lineage(self, db_path):
@@ -172,13 +172,14 @@ class TestCreateRun:
         with pytest.raises(ValueError, match="disabled"):
             dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
 
-    def test_create_resolves_flow_target_env(self, db_path):
-        """When no target_env is given, should resolve from flow's target_env."""
+    def test_create_copies_flow_target(self, db_path):
+        """With no override, tier and environment copy from the flow."""
         rid = dr.cmd_create_run(
             "externalwebapp", "externalwebapp-standard", db_path=db_path
         )
-        val = dr.cmd_get(rid, field="target_env", db_path=db_path)
-        assert val == "preview"
+        tier = dr.cmd_get(rid, field="target_tier", db_path=db_path)
+        env = dr.cmd_get(rid, field="target_environment_id", db_path=db_path)
+        assert (tier, env) == ("persistent", "preview")
 
 
 class TestAddRemoveItem:

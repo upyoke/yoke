@@ -40,7 +40,7 @@ export function notificationRow(overrides = {}) {
     event_outcome: "completed",
     event: {
       context: {
-        target_env: "Production",
+        target_environment: "Production",
         run_id: "run-20260726-019",
       },
     },

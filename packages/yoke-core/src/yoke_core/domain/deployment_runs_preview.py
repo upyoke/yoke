@@ -8,7 +8,6 @@ Owns the full claim/release flow:
 - ``cmd_check_preview_occupancy`` — structured occupancy + age + item-list output.
 - ``cmd_claim_preview`` — full claim path with overwrite detection and event emission.
 - ``cmd_can_cleanup_preview`` — gate for adhoc cleanup based on lineage final-target run status.
-- ``cmd_resolve_target_env`` — resolve target env from override or flow default.
 
 Also holds ``_emit_event`` as a private helper — the only callers post-split
 are the two preview claim/release paths in this module.
@@ -59,34 +58,6 @@ def _emit_event(
         _native_emit(name, **kwargs)
     except Exception:
         pass
-
-
-# ---------------------------------------------------------------------------
-# Target env resolution
-# ---------------------------------------------------------------------------
-
-def cmd_resolve_target_env(
-    project: str,
-    flow: str,
-    target_env_override: Optional[str] = None,
-    db_path: Optional[str] = None,
-) -> str:
-    """Resolve target env from flow default or override."""
-    if target_env_override:
-        return target_env_override
-
-    conn = connect(db_path)
-    try:
-        ident = _project_identity(conn, project)
-        flow_target = query_scalar(
-            conn,
-            "SELECT COALESCE(target_env, '') FROM deployment_flows "
-            "WHERE id=%s AND project_id=%s",
-            (flow, ident.id),
-        )
-        return flow_target if flow_target else ""
-    finally:
-        conn.close()
 
 
 # ---------------------------------------------------------------------------

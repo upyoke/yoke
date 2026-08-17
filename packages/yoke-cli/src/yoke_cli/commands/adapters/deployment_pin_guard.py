@@ -53,8 +53,11 @@ def pin_regression_error(parsed: argparse.Namespace) -> Optional[str]:
             settings=settings,
             repo_path=repo_path,
             source_ref=source_ref,
-            target_env=(
-                parsed.target_env or _flow_target_env(parsed.flow, session_id)
+            environment_name=(
+                getattr(parsed, "environment", None)
+                or _flow_environment_name(
+                    parsed.project, parsed.flow, session_id,
+                )
             ),
         )
     except PinRegressionError as exc:
@@ -104,14 +107,16 @@ def _declared_pin_settings(
     return settings
 
 
-def _flow_target_env(flow: str, session_id: Optional[str]) -> Optional[str]:
+def _flow_environment_name(
+    project: str, flow: str, session_id: Optional[str]
+) -> Optional[str]:
     """The environment a flow deploys to, when the caller named no override."""
     result = _read(
-        "deployment_flows.get",
-        {"flow_id": flow, "field": "target_env"},
+        "deployment_runs.resolve_target",
+        {"project": project, "flow": flow},
         session_id,
     )
-    return (result or {}).get("value") or None
+    return (result or {}).get("target_environment_name") or None
 
 
 def _read(

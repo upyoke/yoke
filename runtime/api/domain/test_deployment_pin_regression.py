@@ -25,7 +25,7 @@ from yoke_contracts.api.function_call import (
 PIN_FILE = "release-pin.txt"
 SETTINGS = {
     "pin_file": PIN_FILE,
-    "branch_by_environment": {"stage": "stage", "production": "main"},
+    "branch_by_environment": {"stage": "stage", "prod": "main"},
 }
 GUARD = "yoke_cli.commands.adapters.deployment_pin_guard"
 
@@ -68,7 +68,7 @@ def _guard_args(repo, **overrides) -> argparse.Namespace:
     values = {
         "project": "demo",
         "flow": "demo-production",
-        "target_env": None,
+        "environment": None,
         "project_repo_path": str(repo),
         "source_ref": "origin/stale",
         "allow_pin_regression": False,
@@ -102,12 +102,16 @@ def _stub_control_plane(settings_json: str | None):
                 version="v1",
                 result={"settings_json": settings_json},
             )
-        if function_id == "deployment_flows.get":
+        if function_id == "deployment_runs.resolve_target":
             return FunctionCallResponse(
                 success=True,
                 function=function_id,
                 version="v1",
-                result={"value": "production"},
+                result={
+                    "target_tier": "persistent",
+                    "target_environment_id": "demo-prod",
+                    "target_environment_name": "prod",
+                },
             )
         raise AssertionError(f"unexpected function id {function_id!r}")
 
@@ -133,7 +137,7 @@ def test_stale_ref_against_advanced_branch_is_a_regression(tmp_path) -> None:
         settings=SETTINGS,
         repo_path=str(repo),
         source_ref="origin/stale",
-        target_env="production",
+        environment_name="prod",
     )
 
     assert comparison.regressed is True
@@ -148,7 +152,7 @@ def test_current_ref_is_not_a_regression(tmp_path) -> None:
         settings=SETTINGS,
         repo_path=str(repo),
         source_ref="origin/main",
-        target_env="production",
+        environment_name="prod",
     )
 
     assert comparison.regressed is False
@@ -161,7 +165,7 @@ def test_undeclared_environment_skips_with_a_reason(tmp_path) -> None:
         settings=SETTINGS,
         repo_path=str(repo),
         source_ref="origin/main",
-        target_env="ephemeral",
+        environment_name="ephemeral",
     )
 
     assert comparison.regressed is False
@@ -176,7 +180,7 @@ def test_assert_raises_for_a_stale_ref(tmp_path) -> None:
             settings=SETTINGS,
             repo_path=str(repo),
             source_ref="origin/stale",
-            target_env="production",
+            environment_name="prod",
         )
 
 
@@ -201,8 +205,8 @@ def test_guard_refuses_a_declared_project_and_names_both_versions(
         {"project": "demo", "cap_type": "release_pin"},
     )
     assert calls[1] == (
-        "deployment_flows.get",
-        {"flow_id": "demo-production", "field": "target_env"},
+        "deployment_runs.resolve_target",
+        {"project": "demo", "flow": "demo-production"},
     )
 
 
@@ -271,12 +275,16 @@ def test_retry_compares_the_source_run_lineage_not_origin_main(tmp_path) -> None
                 version="v1",
                 result={"settings_json": json.dumps(SETTINGS)},
             )
-        if function_id == "deployment_flows.get":
+        if function_id == "deployment_runs.resolve_target":
             return FunctionCallResponse(
                 success=True,
                 function=function_id,
                 version="v1",
-                result={"value": "production"},
+                result={
+                    "target_tier": "persistent",
+                    "target_environment_id": "demo-prod",
+                    "target_environment_name": "prod",
+                },
             )
         raise AssertionError(f"unexpected function id {function_id!r}")
 

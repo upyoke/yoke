@@ -101,18 +101,24 @@ class TestResolveFlowGateBranch:
         with mock.patch(
             "yoke_core.domain.deploy_environment_settings.declared_env_branch",
             return_value="stage",
-        ):
+        ) as declared:
             assert (
-                deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "stage")
+                deploy_pipeline_gates.resolve_flow_gate_branch(
+                    "yoke", "persistent", "stage",
+                )
                 == "stage"
             )
+        declared.assert_called_once_with("yoke", "stage")
 
-    def test_no_target_env_falls_back_to_base_branch(self):
+    def test_no_target_environment_falls_back_to_base_branch(self):
         with mock.patch(
             "yoke_core.domain.project_settings.get_project_str",
             return_value="main",
         ) as get_project_str:
-            assert deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "") == "main"
+            assert (
+                deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "", "")
+                == "main"
+            )
         get_project_str.assert_called_once_with("", "base_branch")
 
     def test_env_without_declared_branch_falls_back(self):
@@ -129,6 +135,7 @@ class TestResolveFlowGateBranch:
             assert (
                 deploy_pipeline_gates.resolve_flow_gate_branch(
                     "externalwebapp",
+                    "persistent",
                     "production",
                 )
                 == "main"
@@ -144,6 +151,7 @@ class TestResolveFlowGateBranch:
                 deploy_pipeline_gates.resolve_flow_gate_branch(
                     "externalwebapp",
                     "",
+                    "",
                     str(repo),
                 )
                 == "trunk"
@@ -152,7 +160,12 @@ class TestResolveFlowGateBranch:
 
     def test_ephemeral_tier_has_no_gate_branch(self):
         """Ephemeral preview flows deploy unmerged branches."""
-        assert deploy_pipeline_gates.resolve_flow_gate_branch("yoke", "ephemeral") == ""
+        assert (
+            deploy_pipeline_gates.resolve_flow_gate_branch(
+                "yoke", "ephemeral", "",
+            )
+            == ""
+        )
 
 
 class TestEphemeralTierBranchResolution:

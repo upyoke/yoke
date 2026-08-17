@@ -26,9 +26,12 @@ def client(test_db):
 def _clone_flow_for_project(conn, flow_id: str, project: str) -> None:
     conn.execute(
         "INSERT INTO deployment_flows "
+        "(id, project_id, name, description, stages, on_failure, "
+        "created_at, target_tier, target_environment_id, "
+        "done_description, status) "
         "SELECT %s, (SELECT id FROM projects WHERE slug=%s), %s, "
-        "description, stages, on_failure, created_at, target_env, "
-        "done_description, status "
+        "description, stages, on_failure, created_at, target_tier, "
+        "target_environment_id, done_description, status "
         "FROM deployment_flows WHERE id='test-approval-flow'",
         (flow_id, project, flow_id),
     )

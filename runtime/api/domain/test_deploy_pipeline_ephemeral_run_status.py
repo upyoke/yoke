@@ -14,6 +14,7 @@ import json
 from unittest import mock
 
 from yoke_core.domain import (
+    deploy_pipeline_run_context,
     deploy_pipeline,
     deploy_pipeline_step_runners,
     deploy_pipeline_gates,
@@ -40,7 +41,7 @@ class _Harness:
     def yoke_db(self, *args, sd=None):
         self.db_calls.append(args)
         if args[:2] == ("runs", "get"):
-            return f"{_RUN_ID}|yoke|flow-eph|ephemeral||created|"
+            return f"{_RUN_ID}|yoke|flow-eph|ephemeral|||created|"
         if args[:2] == ("runs", "items"):
             return "\n".join(
                 f"{_RUN_ID}|{item}" for item in self.member_items
@@ -52,8 +53,8 @@ class _Harness:
     def flow_db(self, *args, sd=None):
         if args[0] == "stages":
             return _STAGES
-        if args[0] == "get":
-            return "ephemeral"
+        if args[0] == "target":
+            return "ephemeral||"
         return ""
 
     def emit(self, name, outcome, ctx, **kwargs):
@@ -71,9 +72,19 @@ class _Harness:
             deploy_pipeline, "_project_db",
             side_effect=lambda *a, sd=None: "",
         ), mock.patch.object(
-            deploy_pipeline, "checkout_for_project", return_value="/repo",
+            deploy_pipeline, "resolve_project_checkout_path",
+            return_value="/repo",
         ), mock.patch.object(
             deploy_pipeline, "_emit_run_event", side_effect=self.emit,
+        ), mock.patch.object(
+            deploy_pipeline_run_context, "_yoke_db",
+            side_effect=self.yoke_db,
+        ), mock.patch.object(
+            deploy_pipeline_run_context, "_flow_db",
+            side_effect=self.flow_db,
+        ), mock.patch.object(
+            deploy_pipeline_run_context, "_emit_run_event",
+            side_effect=self.emit,
         ), mock.patch.object(
             deploy_qa_recorder, "cmd_seed_from_flow", return_value=0,
         ), mock.patch.object(

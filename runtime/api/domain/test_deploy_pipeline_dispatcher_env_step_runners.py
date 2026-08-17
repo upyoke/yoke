@@ -20,7 +20,7 @@ def _dispatch(stage, **overrides):
         timeout_min=1,
         fresh=False,
         image_tag="",
-        target_env="prod",
+        environment_name="prod",
         gate_branch="main",
         release_lineage="a" * 40,
         product_repo_path="",
@@ -134,7 +134,7 @@ class TestEnvStepRunnerDispatch:
             deploy_pipeline_step_runners, "_item_label", return_value="YOK-1",
         ):
             rc, diag = _dispatch(
-                _stage("ephemeral-deploy"), target_env="ephemeral",
+                _stage("ephemeral-deploy"), environment_name="",
             )
         assert (rc, diag) == (0, "")
         deploy.assert_called_once_with(
@@ -152,7 +152,7 @@ class TestEnvStepRunnerDispatch:
             rc, _diag = _dispatch(
                 _stage("ephemeral-deploy", branch="cfg-branch"),
                 branch="", first_item="", member_items=[],
-                target_env="ephemeral",
+                environment_name="",
             )
         assert rc == 0
         deploy.assert_called_once_with(
@@ -339,7 +339,7 @@ class TestEnvStepRunnerDispatch:
         manifest.assert_not_called()
 
     def test_health_check_without_url_or_target_env_fails(self):
-        rc, _ = _dispatch(_stage("health-check"), target_env="")
+        rc, _ = _dispatch(_stage("health-check"), environment_name="")
         assert rc == 1
 
     def test_unknown_step_runner_fails_loudly(self):

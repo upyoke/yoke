@@ -41,7 +41,8 @@ NO_LOCAL_CHECKOUT = "no-local-checkout"
 
 def _resolve_remote_release_head(
     project: str,
-    target_env: str,
+    target_tier: str,
+    target_environment_id: str,
     project_repo_path: str = "",
 ) -> tuple[str, str]:
     """Read the current flow gate-branch commit from the project remote.
@@ -90,7 +91,9 @@ def _resolve_remote_release_head(
             return "", NO_LOCAL_CHECKOUT
 
     repo_path = project_repo_path or str(checkout)
-    gate_branch = resolve_flow_gate_branch(project, target_env, repo_path)
+    gate_branch = resolve_flow_gate_branch(
+        project, target_tier, target_environment_id, repo_path,
+    )
     if not gate_branch:
         return "", (
             "deployment flow has no remote gate branch for commit-lineage "
@@ -104,7 +107,8 @@ def _resolve_remote_release_head(
 
 def _validate_commit_release_lineage(
     project: str,
-    target_env: str,
+    target_tier: str,
+    target_environment_id: str,
     release_lineage: str,
     project_repo_path: str = "",
 ) -> str:
@@ -120,7 +124,8 @@ def _validate_commit_release_lineage(
         return ""
     remote_sha, error = _resolve_remote_release_head(
         project,
-        target_env,
+        target_tier,
+        target_environment_id,
         project_repo_path,
     )
     if error == NO_LOCAL_CHECKOUT:

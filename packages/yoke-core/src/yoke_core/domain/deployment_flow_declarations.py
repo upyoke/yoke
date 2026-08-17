@@ -35,7 +35,8 @@ _DEFINITION_FIELDS = (
     "description",
     "stages",
     "on_failure",
-    "target_env",
+    "target_tier",
+    "target_environment_id",
     "done_description",
 )
 
@@ -69,16 +70,17 @@ def reconcile_project_flows(
         for flow in normalized.flows:
             row = conn.execute(
                 "SELECT project_id, name, description, stages, on_failure, "
-                "target_env, done_description, status "
-                "FROM deployment_flows WHERE id=%s",
+                "target_tier, target_environment_id, done_description, "
+                "status FROM deployment_flows WHERE id=%s",
                 (flow.id,),
             ).fetchone()
             if row is None:
                 conn.execute(
                     "INSERT INTO deployment_flows "
                     "(id, project_id, name, description, stages, on_failure, "
-                    "target_env, done_description, status, created_at) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    "target_tier, target_environment_id, done_description, "
+                    "status, created_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                     (
                         flow.id,
                         ident.id,
@@ -86,7 +88,8 @@ def reconcile_project_flows(
                         flow.description,
                         flow.stages,
                         flow.on_failure,
-                        flow.target_env,
+                        flow.target_tier,
+                        flow.target_environment_id,
                         flow.done_description,
                         flow.status,
                         iso8601_now(),
@@ -103,9 +106,10 @@ def reconcile_project_flows(
                 "description": row[2] or "",
                 "stages": row[3],
                 "on_failure": row[4],
-                "target_env": row[5],
-                "done_description": row[6],
-                "status": row[7],
+                "target_tier": row[5],
+                "target_environment_id": row[6],
+                "done_description": row[7],
+                "status": row[8],
             }
             desired = flow.__dict__
             definition_changed = any(
@@ -120,14 +124,16 @@ def reconcile_project_flows(
                 assert_flow_definition_mutable(conn, flow.id)
             conn.execute(
                 "UPDATE deployment_flows SET name=%s, description=%s, "
-                "stages=%s, on_failure=%s, target_env=%s, "
-                "done_description=%s, status=%s WHERE id=%s",
+                "stages=%s, on_failure=%s, target_tier=%s, "
+                "target_environment_id=%s, done_description=%s, status=%s "
+                "WHERE id=%s",
                 (
                     flow.name,
                     flow.description,
                     flow.stages,
                     flow.on_failure,
-                    flow.target_env,
+                    flow.target_tier,
+                    flow.target_environment_id,
                     flow.done_description,
                     flow.status,
                     flow.id,

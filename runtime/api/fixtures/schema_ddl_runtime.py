@@ -50,9 +50,13 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     stages TEXT NOT NULL,
     on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL,
-    target_env TEXT DEFAULT NULL,
+    target_tier TEXT
+        CHECK(target_tier IN ('persistent','ephemeral')),
+    target_environment_id TEXT,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active',
+    CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
+          = (target_environment_id IS NOT NULL)),
     UNIQUE(project_id, name)
 );
 
@@ -60,7 +64,9 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     id TEXT PRIMARY KEY,
     project_id INTEGER NOT NULL,
     flow TEXT NOT NULL,
-    target_env TEXT,
+    target_tier TEXT
+        CHECK(target_tier IN ('persistent','ephemeral')),
+    target_environment_id TEXT,
     release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
         CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
@@ -68,7 +74,9 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     created_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
-    created_by TEXT DEFAULT 'operator'
+    created_by TEXT DEFAULT 'operator',
+    CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
+          = (target_environment_id IS NOT NULL))
 );
 
 CREATE TABLE IF NOT EXISTS deployment_run_items (

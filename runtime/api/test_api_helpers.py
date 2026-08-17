@@ -71,7 +71,8 @@ CREATE TABLE deployment_flows (
     stages TEXT NOT NULL,
     on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL,
-    target_env TEXT DEFAULT NULL,
+    target_tier TEXT DEFAULT NULL,
+    target_environment_id TEXT DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     UNIQUE(project_id, name)
@@ -79,11 +80,16 @@ CREATE TABLE deployment_flows (
 """
 
 DEPLOYMENT_RUNS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS environments (
+    id TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL, url TEXT,
+    last_deployed_at TEXT, created_at TEXT NOT NULL DEFAULT '', settings TEXT
+);
 CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY,
     project_id INTEGER NOT NULL,
     flow TEXT NOT NULL,
-    target_env TEXT,
+    target_tier TEXT,
+    target_environment_id TEXT,
     release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),

@@ -37,15 +37,12 @@ class TestEmitEnvelopeIsAccepted:
 
 class TestEnvironmentNaming:
     def test_an_admin_connection_names_the_environment_it_rehearses(self):
-        assert receipt.target_environment_for_admin_env("prod-db-admin") == "production"
+        assert receipt.target_environment_for_admin_env("prod-db-admin") == "prod"
         assert receipt.target_environment_for_admin_env("stage-db-admin") == "stage"
 
-    def test_a_release_environment_is_already_itself(self):
-        assert receipt.target_environment_for_admin_env("production") == "production"
+    def test_an_environment_name_is_already_itself(self):
+        assert receipt.target_environment_for_admin_env("prod") == "prod"
         assert receipt.target_environment_for_admin_env("stage") == "stage"
-
-    def test_the_production_alias_resolves_without_the_admin_suffix(self):
-        assert receipt.target_environment_for_admin_env("prod") == "production"
 
     def test_surrounding_whitespace_does_not_make_a_new_environment(self):
         assert receipt.target_environment_for_admin_env("  stage  ") == "stage"
@@ -55,9 +52,9 @@ class TestEnvironmentNaming:
 
 
 class TestReceiptContext:
-    def test_the_recorded_environment_is_the_release_facing_name(self):
+    def test_the_recorded_environment_is_the_environment_name(self):
         context = receipt.receipt_context("prod-db-admin", "abc", ["0001_a"])
-        assert context[receipt.ENVIRONMENT_KEY] == "production"
+        assert context[receipt.ENVIRONMENT_KEY] == "prod"
 
     def test_entries_are_sorted_and_deduplicated(self):
         context = receipt.receipt_context("stage", "abc", ["0002_b", "0001_a", "0002_b"])
@@ -79,10 +76,10 @@ class TestCoverage:
 
     def test_a_stage_receipt_is_not_production_evidence(self):
         rows = [_row("stage", ["0001_a", "0002_b"])]
-        assert receipt.covered_entries(rows, "production") == frozenset()
+        assert receipt.covered_entries(rows, "prod") == frozenset()
 
     def test_a_receipt_is_found_when_the_gate_asks_by_admin_connection_name(self):
-        rows = [_row("production", ["0001_a"])]
+        rows = [_row("prod", ["0001_a"])]
         assert receipt.covered_entries(rows, "prod-db-admin") == frozenset({"0001_a"})
 
     def test_an_already_parsed_envelope_reads_the_same_as_an_encoded_one(self):
@@ -128,30 +125,30 @@ class TestStoredEnvelopeShape:
         return {"envelope": json.dumps(envelope)}
 
     def test_a_nested_receipt_is_read(self):
-        rows = [self._stored("production", ["0001_a", "0002_b"])]
-        assert receipt.covered_entries(rows, "production") == frozenset(
+        rows = [self._stored("prod", ["0001_a", "0002_b"])]
+        assert receipt.covered_entries(rows, "prod") == frozenset(
             {"0001_a", "0002_b"}
         )
 
     def test_a_nested_receipt_still_respects_the_environment_boundary(self):
         rows = [self._stored("stage", ["0001_a"])]
-        assert receipt.covered_entries(rows, "production") == frozenset()
+        assert receipt.covered_entries(rows, "prod") == frozenset()
 
     def test_an_unnested_receipt_is_still_read(self):
         # Both shapes work, so the gate does not break if the wrapping stops.
-        rows = [_row("production", ["0001_a"])]
-        assert receipt.covered_entries(rows, "production") == frozenset({"0001_a"})
+        rows = [_row("prod", ["0001_a"])]
+        assert receipt.covered_entries(rows, "prod") == frozenset({"0001_a"})
 
     def test_a_detail_key_is_not_descended_into_when_the_receipt_is_flat(self):
         envelope = {
             "context": {
-                receipt.ENVIRONMENT_KEY: "production",
+                receipt.ENVIRONMENT_KEY: "prod",
                 receipt.ENTRIES_KEY: ["0001_a"],
                 "detail": {receipt.ENTRIES_KEY: ["0009_unrelated"]},
             }
         }
         rows = [{"envelope": json.dumps(envelope)}]
-        assert receipt.covered_entries(rows, "production") == frozenset({"0001_a"})
+        assert receipt.covered_entries(rows, "prod") == frozenset({"0001_a"})
 
 
 class TestUncovered:
@@ -172,7 +169,7 @@ class TestUncovered:
     def test_with_no_receipts_at_all_the_whole_history_is_uncovered(self):
         # This is the bootstrap state, and refusing is correct: one passing
         # preflight with --record-receipt both clears it and proves the fleet.
-        assert receipt.uncovered(["0001_a"], [], "production") == ("0001_a",)
+        assert receipt.uncovered(["0001_a"], [], "prod") == ("0001_a",)
 
     def test_a_receipt_covering_more_than_this_build_carries_is_harmless(self):
         rows = [_row("stage", ["0001_a", "0002_b", "0003_c"])]
@@ -182,12 +179,12 @@ class TestUncovered:
 class TestRefusalMessage:
     def test_the_refusal_names_the_environment_and_the_entries(self):
         message = receipt.refusal_message("prod-db-admin", ["0002_b", "0003_c"])
-        assert "production" in message
+        assert "prod" in message
         assert "0002_b" in message
         assert "0003_c" in message
 
     def test_default_refusal_teaches_project_generic_rehearsal(self):
-        message = receipt.refusal_message("production", ["0002_b"])
+        message = receipt.refusal_message("prod", ["0002_b"])
         assert "yoke migration rehearse" in message
         assert "--help" in message
         assert "preflight_fleet_migrations" not in message
@@ -200,7 +197,7 @@ class TestRefusalMessage:
             "--receipt-env <control-plane-connection>"
         )
         message = receipt.refusal_message(
-            "production",
+            "prod",
             ["0002_b"],
             rehearse_command=command,
         )
@@ -229,8 +226,8 @@ class TestAdminConnectionForEnvironment:
     def test_an_admin_connection_is_already_itself(self):
         assert receipt.admin_connection_for_environment("prod-db-admin") == "prod-db-admin"
 
-    def test_production_resolves_to_the_admin_connection(self):
-        assert receipt.admin_connection_for_environment("production") == "prod-db-admin"
+    def test_prod_resolves_to_the_admin_connection(self):
+        assert receipt.admin_connection_for_environment("prod") == "prod-db-admin"
 
     def test_stage_resolves_to_the_admin_connection(self):
         assert receipt.admin_connection_for_environment("stage") == "stage-db-admin"
@@ -245,4 +242,4 @@ class TestUnreadableMessage:
         assert "Refusing" in receipt.unreadable_message("stage", "timeout")
 
     def test_unreadable_names_the_environment_it_could_not_answer_for(self):
-        assert "production" in receipt.unreadable_message("prod-db-admin", "timeout")
+        assert "prod" in receipt.unreadable_message("prod-db-admin", "timeout")

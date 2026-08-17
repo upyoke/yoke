@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from yoke_contracts.project_contract.deployment_flows import (
+    TARGET_TIER_EPHEMERAL,
+)
 from yoke_core.domain.ephemeral_substrate import (
-    EPHEMERAL_TARGET_ENV,
     EphemeralPolicyError,
     compose_project_name,
     derive_port,
@@ -49,7 +51,7 @@ class TestNaming:
         assert preview_url("abc", "preview.example.com") == (
             "https://abc.preview.example.com"
         )
-        assert EPHEMERAL_TARGET_ENV == "ephemeral"
+        assert TARGET_TIER_EPHEMERAL == "ephemeral"
 
 
 def _cap(**overrides):

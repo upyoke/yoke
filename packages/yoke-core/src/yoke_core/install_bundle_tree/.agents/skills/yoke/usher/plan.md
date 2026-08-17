@@ -18,7 +18,7 @@ yoke items get PREFIX-{N} project
 
 Group by `(project, deployment_flow)`. Resolve target env per group:
 ```bash
-yoke deployment-runs resolve-target-env {project} {flow}
+yoke deployment-runs resolve-target {project} {flow}
 ```
 
 Before displaying, query the authoritative hard-block edges for the batch to show merge-order rationale without duplicates:
@@ -54,7 +54,7 @@ Deployment routing:
  PREFIX-{id}: {flow or 'no deployment flow'} -> watch_merge done-transition --skip-deploy
 
  Route B (deployment runs):
- Run 1: project={project}, flow={flow}, target={target_env}
+ Run 1: project={project}, flow={flow}, target={environment-name-or-tier}
  PREFIX-{id}, PREFIX-{id}
 
 Approval gates expected:

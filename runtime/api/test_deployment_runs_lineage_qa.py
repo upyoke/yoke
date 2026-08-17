@@ -1,7 +1,8 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.deployment_runs — lineage, QA, validation, CLI.
 
 Split from test_deployment_runs.py: TestLineage, TestQA,
-TestValidateComposition, TestCheckBatchCompatibility, TestResolveTargetEnv,
+TestValidateComposition, TestCheckBatchCompatibility, TestResolveTarget,
 TestCLIExitCodes.
 """
 
@@ -10,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.deployment_runs_test_db import db_path  # noqa: F401 — fixture re-export
+from runtime.api.deployment_runs_test_db import db_path  # noqa: F401, F811 — fixture re-export
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -46,7 +47,7 @@ class TestLineage:
         lin = dr.cmd_lineage_create(db_path=db_path)
         run_id = dr.cmd_create_run(
             "yoke", "flow-main",
-            release_lineage=lin, target_env="production",
+            release_lineage=lin, environment="production",
             db_path=db_path,
         )
         dr.cmd_update(run_id, "current_stage", "complete", db_path=db_path)
@@ -162,18 +163,21 @@ class TestCheckBatchCompatibility:
         assert not ok
 
 
-class TestResolveTargetEnv:
+class TestResolveTarget:
     def test_override_wins(self, db_path: str) -> None:
-        result = dr.cmd_resolve_target_env("yoke", "flow-main", target_env_override="staging", db_path=db_path)
-        assert result == "staging"
+        result = dr.cmd_resolve_target(
+            "yoke", "flow-main",
+            environment_override="staging", db_path=db_path,
+        )
+        assert result == ("persistent", "staging", "stage")
 
     def test_flow_default(self, db_path: str) -> None:
-        result = dr.cmd_resolve_target_env("yoke", "flow-main", db_path=db_path)
-        assert result == "production"
+        result = dr.cmd_resolve_target("yoke", "flow-main", db_path=db_path)
+        assert result == ("persistent", "production", "prod")
 
     def test_no_default(self, db_path: str) -> None:
-        result = dr.cmd_resolve_target_env("yoke", "flow-preview", db_path=db_path)
-        assert result == ""
+        result = dr.cmd_resolve_target("yoke", "flow-preview", db_path=db_path)
+        assert result == ("", "", "")
 
 
 class TestCLIExitCodes:

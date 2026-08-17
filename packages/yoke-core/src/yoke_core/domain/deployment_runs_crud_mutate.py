@@ -129,30 +129,37 @@ def _refuse_run_that_cannot_execute(
 def cmd_create_run(
     project: str,
     flow: str,
-    target_env: Optional[str] = None,
+    environment: Optional[str] = None,
     release_lineage: Optional[str] = None,
     created_by: str = "operator",
     db_path: Optional[str] = None,
 ) -> str:
-    """Create a new deployment run. Returns the generated run ID."""
+    """Create a new deployment run. Returns the generated run ID.
+
+    ``environment`` (an id or name) overrides the flow's registered
+    target; tier and environment otherwise copy from the flow definition.
+    """
     conn = connect(db_path)
     try:
         if db_backend.connection_is_postgres(conn):
             conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
         project_id = resolve_project_id(conn, project)
-        _flow_project_id, flow_default = require_flow_for_new_run(
-            conn,
-            flow,
-            project_id=project_id,
+        _flow_project_id, target_tier, target_environment_id = (
+            require_flow_for_new_run(
+                conn,
+                flow,
+                project_id=project_id,
+            )
         )
-        # If no target_env, resolve from flow's target_env column
-        if not target_env:
-            if flow_default:
-                target_env = flow_default
-        from yoke_core.domain.environment_delivery_record import (
-            require_registered_target_env,
-        )
-        require_registered_target_env(conn, project_id, target_env)
+        if environment:
+            from yoke_core.domain.environment_delivery_record import (
+                require_registered_environment,
+            )
+
+            target_tier = "persistent"
+            target_environment_id = require_registered_environment(
+                conn, project_id, environment,
+            )
 
         _refuse_run_that_cannot_execute(conn, flow, release_lineage)
 
@@ -162,14 +169,16 @@ def cmd_create_run(
 
         inserted = conn.execute(
             "INSERT INTO deployment_runs "
-            "(id, project_id, flow, target_env, release_lineage, created_by, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+            "(id, project_id, flow, target_tier, target_environment_id, "
+            "release_lineage, created_by, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (id) DO NOTHING RETURNING id",
             (
                 run_id,
                 project_id,
                 flow,
-                target_env or None,
+                target_tier or None,
+                target_environment_id or None,
                 release_lineage or None,
                 created_by,
                 iso8601_now(),

@@ -49,17 +49,22 @@ class TestNextIdAndCreateRun:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         assert run_id.startswith("run-")
 
-    def test_create_run_resolves_target_env_from_flow(self, db_path: str) -> None:
+    def test_create_run_copies_target_from_flow(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
-        result = dr.cmd_get(run_id, field="target_env", db_path=db_path)
-        assert result == "production"
-
-    def test_create_run_with_explicit_target_env(self, db_path: str) -> None:
-        run_id = dr.cmd_create_run(
-            "yoke", "flow-main", target_env="staging", db_path=db_path
+        tier = dr.cmd_get(run_id, field="target_tier", db_path=db_path)
+        environment_id = dr.cmd_get(
+            run_id, field="target_environment_id", db_path=db_path
         )
-        result = dr.cmd_get(run_id, field="target_env", db_path=db_path)
-        assert result == "staging"
+        assert (tier, environment_id) == ("persistent", "production")
+
+    def test_create_run_with_environment_override(self, db_path: str) -> None:
+        run_id = dr.cmd_create_run(
+            "yoke", "flow-main", environment="staging", db_path=db_path
+        )
+        environment_id = dr.cmd_get(
+            run_id, field="target_environment_id", db_path=db_path
+        )
+        assert environment_id == "staging"
 
     def test_create_run_with_lineage(self, db_path: str) -> None:
         run_id = dr.cmd_create_run(
@@ -116,7 +121,7 @@ class TestGet:
         assert parts[0] == run_id
         assert parts[1] == "yoke"
         assert parts[2] == "flow-main"
-        assert parts[5] == "created"
+        assert parts[6] == "created"
 
     def test_get_single_field(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
@@ -139,8 +144,8 @@ class TestUpdate:
         assert err is None
         result = dr.cmd_get(run_id, db_path=db_path)
         parts = result.split("|")
-        assert parts[5] == "executing"
-        assert parts[8] != ""  # started_at set
+        assert parts[6] == "executing"
+        assert parts[9] != ""  # started_at set
 
     def test_update_status_succeeded_sets_completed_at(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
@@ -150,8 +155,8 @@ class TestUpdate:
         assert err is None
         result = dr.cmd_get(run_id, db_path=db_path)
         parts = result.split("|")
-        assert parts[5] == "succeeded"
-        assert parts[9] != ""  # completed_at set
+        assert parts[6] == "succeeded"
+        assert parts[10] != ""  # completed_at set
 
     def test_update_status_failed_sets_completed_at(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)

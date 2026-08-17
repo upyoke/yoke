@@ -117,12 +117,14 @@ def list_deployment_runs(
             params.append(status)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
         rows = conn.execute(
-            "SELECT dr.id, p.slug AS project, dr.flow, dr.target_env, "
+            "SELECT dr.id, p.slug AS project, dr.flow, dr.target_tier, "
+            "dr.target_environment_id, e.name AS target_environment, "
             "dr.release_lineage, dr.status, dr.current_stage, dr.created_at, "
             "dr.started_at, dr.completed_at, dr.created_by, df.stages "
             "FROM deployment_runs dr "
             "JOIN projects p ON p.id = dr.project_id "
             "JOIN deployment_flows df ON df.id = dr.flow "
+            "LEFT JOIN environments e ON e.id = dr.target_environment_id "
             f"{where}"
             "ORDER BY dr.created_at DESC, dr.id DESC LIMIT %s",
             (*params, limit),

@@ -12,8 +12,8 @@ from yoke_core.domain.handlers import deployment_runs
 
 def test_run_create_rejects_unpinned_retry_without_traceback():
     source = (
-        "run-old|yoke|yoke-hosted-production|production||failed|release|"
-        "2026-06-15T00:00:00Z||2026-06-15T01:00:00Z|operator"
+        "run-old|yoke|yoke-hosted-production|persistent|production||failed|"
+        "release|2026-06-15T00:00:00Z||2026-06-15T01:00:00Z|operator"
     )
     with patch(
         "yoke_core.domain.deployment_runs_crud_query.cmd_get",

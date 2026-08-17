@@ -33,7 +33,9 @@ def _capture(monkeypatch):
 def test_start_for_item_dispatch_success(monkeypatch):
     out_buf, err_buf = _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=True, project="yoke", flow="to-prod", target_env="prod",
+        ok=True, project="yoke", flow="to-prod",
+        target_tier="persistent", target_environment_id="production",
+        target_environment_name="prod",
         run_id="R-1", validation_message="ok", item_ids=[42],
     )
     with mock.patch.object(
@@ -53,10 +55,10 @@ def test_start_for_item_dispatch_success(monkeypatch):
 def test_start_for_item_dispatch_failure_writes_to_stderr(monkeypatch):
     out_buf, err_buf = _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=False, project="yoke", flow=None, target_env=None,
+        ok=False, project="yoke", flow=None,
         run_id=None,
         error="item 42 has no deployment_flow; cannot start deploy run",
-        error_phase="resolve-target-env",
+        error_phase="resolve-target",
         item_ids=[42],
     )
     with mock.patch.object(
@@ -68,14 +70,16 @@ def test_start_for_item_dispatch_failure_writes_to_stderr(monkeypatch):
     assert out_buf.getvalue() == ""
     payload = json.loads(err_buf.getvalue())
     assert payload["ok"] is False
-    assert payload["error_phase"] == "resolve-target-env"
+    assert payload["error_phase"] == "resolve-target"
     assert "deployment_flow" in payload["error"]
 
 
 def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=True, project="externalwebapp", flow="to-staging", target_env="staging",
+        ok=True, project="externalwebapp", flow="to-staging",
+        target_tier="persistent", target_environment_id="staging",
+        target_environment_name="stage",
         run_id="R-2", validation_message="ok", item_ids=[7],
     )
     with mock.patch.object(
@@ -85,7 +89,7 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
             "start-for-item", "7",
             "--project", "externalwebapp",
             "--flow", "to-staging",
-            "--target-env", "staging",
+            "--environment", "staging",
             "--release-lineage", "L-99",
             "--project-repo-path", "/workspace/externalwebapp",
             "--created-by", "agent",
@@ -95,7 +99,7 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     assert kwargs == {
         "project": "externalwebapp",
         "flow": "to-staging",
-        "target_env": "staging",
+        "environment": "staging",
         "release_lineage": "L-99",
         "project_repo_path": "/workspace/externalwebapp",
         "created_by": "agent",
@@ -105,7 +109,9 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
 def test_start_for_item_validation_failure_preserves_run_id_in_payload(monkeypatch):
     _, err_buf = _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=False, project="yoke", flow="to-prod", target_env="prod",
+        ok=False, project="yoke", flow="to-prod",
+        target_tier="persistent", target_environment_id="production",
+        target_environment_name="prod",
         run_id="R-3", validation_message="missing item",
         error="validate-composition failed: missing item",
         error_phase="validate-composition",
@@ -128,7 +134,9 @@ def test_start_for_item_via_db_router_main(monkeypatch, tmp_path):
     out_buf, _ = _capture(monkeypatch)
     monkeypatch.delenv("YOKE_DB", raising=False)
     handle = StartForItemResult(
-        ok=True, project="yoke", flow="to-prod", target_env="prod",
+        ok=True, project="yoke", flow="to-prod",
+        target_tier="persistent", target_environment_id="production",
+        target_environment_name="prod",
         run_id="R-9", validation_message="ok", item_ids=[42],
     )
     with mock.patch(

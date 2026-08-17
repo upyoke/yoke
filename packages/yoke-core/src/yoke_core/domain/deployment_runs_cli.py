@@ -35,6 +35,9 @@ from yoke_core.domain.deployment_runs_lineage import (
     cmd_lineage_create,
     cmd_lineage_final_status,
 )
+from yoke_core.domain.deployment_run_target_resolution import (
+    cmd_resolve_target,
+)
 from yoke_core.domain.deployment_runs_preview import (
     cmd_can_cleanup_preview,
     cmd_check_preview_occupancy,
@@ -42,7 +45,6 @@ from yoke_core.domain.deployment_runs_preview import (
     cmd_preview_check,
     cmd_preview_claim,
     cmd_preview_release,
-    cmd_resolve_target_env,
 )
 from yoke_core.domain.deployment_runs_qa import cmd_qa_add, cmd_qa_list, cmd_qa_update
 from yoke_core.domain.deployment_runs_schema import cmd_init
@@ -74,7 +76,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             run_id = cmd_create_run(
                 args.project,
                 args.flow,
-                target_env=args.target_env,
+                environment=args.environment,
                 release_lineage=args.release_lineage,
                 created_by=args.created_by,
             )
@@ -208,9 +210,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(msg)
             return 0 if allowed else 1
 
-        elif args.command == "resolve-target-env":
-            result = cmd_resolve_target_env(args.project, args.flow, target_env_override=args.target_env)
-            print(result)
+        elif args.command == "resolve-target":
+            tier, environment_id, environment_name = cmd_resolve_target(
+                args.project, args.flow, environment_override=args.environment,
+            )
+            print(f"{tier}|{environment_id}|{environment_name}")
             return 0
 
         elif args.command == "start-for-item":
@@ -218,7 +222,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 args.item_id,
                 project=args.project,
                 flow=args.flow,
-                target_env=args.target_env,
+                environment=args.environment,
                 release_lineage=args.release_lineage,
                 project_repo_path=args.project_repo_path,
                 created_by=args.created_by,

@@ -18,7 +18,7 @@ def handle_deployment_run_start_for_item(
         )
     payload = request.payload or {}
     for key in (
-        "project", "flow", "target_env", "release_lineage", "created_by",
+        "project", "flow", "environment", "release_lineage", "created_by",
     ):
         value = payload.get(key)
         if value is not None and not isinstance(value, str):
@@ -39,7 +39,7 @@ def handle_deployment_run_start_for_item(
         int(request.target.item_id),
         project=(payload.get("project") or None),
         flow=(payload.get("flow") or None),
-        target_env=(payload.get("target_env") or None),
+        environment=(payload.get("environment") or None),
         release_lineage=(payload.get("release_lineage") or None),
         created_by=created_by,
     )
@@ -56,7 +56,11 @@ def handle_deployment_run_start_for_item(
             "item_id": int(request.target.item_id),
             "project": str(result.project),
             "flow": str(result.flow),
-            "target_env": str(result.target_env),
+            "target_tier": str(result.target_tier or ""),
+            "target_environment_id": str(result.target_environment_id or ""),
+            "target_environment_name": str(
+                result.target_environment_name or ""
+            ),
             "validation_message": result.validation_message,
         },
         primary_success=True,

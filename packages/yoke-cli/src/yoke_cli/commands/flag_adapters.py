@@ -146,7 +146,7 @@ from yoke_cli.commands.adapters.deployment import (
     deployment_runs_approve,
     deployment_runs_get,
     deployment_runs_list,
-    deployment_runs_resolve_target_env,
+    deployment_runs_resolve_target,
     deployment_runs_update,
 )
 from yoke_cli.commands.adapters.ephemeral_env import (
@@ -381,7 +381,7 @@ __all__ = [
     "deployment_runs_get",
     "deployment_runs_list",
     "deployment_runs_update",
-    "deployment_runs_resolve_target_env",
+    "deployment_runs_resolve_target",
     "ephemeral_env_update",
     "ephemeral_env_get",
     "doctor_run",

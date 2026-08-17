@@ -46,14 +46,14 @@ def handle_deployment_run_create(
     payload = request.payload or {}
     project = payload.get("project")
     flow = payload.get("flow")
-    target_env = payload.get("target_env")
+    environment = payload.get("environment")
     release_lineage = payload.get("release_lineage")
     retry_of = payload.get("retry_of")
     created_by = payload.get("created_by") or "operator"
     for key, value, required in (
         ("project", project, True),
         ("flow", flow, True),
-        ("target_env", target_env, False),
+        ("environment", environment, False),
         ("release_lineage", release_lineage, False),
         ("retry_of", retry_of, False),
         ("created_by", created_by, True),
@@ -87,7 +87,7 @@ def handle_deployment_run_create(
         created_run_id = cmd_create_run(
             clean_project,
             clean_flow,
-            target_env=(target_env or "").strip() or None,
+            environment=(environment or "").strip() or None,
             release_lineage=(release_lineage or "").strip() or None,
             created_by=created_by.strip(),
         )
@@ -105,7 +105,10 @@ def handle_deployment_run_create(
             "run_id": created_run_id,
             "project": created.get("project") or clean_project,
             "flow": created.get("flow") or clean_flow,
-            "target_env": created.get("target_env") or None,
+            "target_tier": created.get("target_tier") or None,
+            "target_environment_id": (
+                created.get("target_environment_id") or None
+            ),
             "release_lineage": created.get("release_lineage") or None,
             "status": created.get("status") or "created",
         },

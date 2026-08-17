@@ -27,14 +27,16 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
                         function="deployment_flows.get",
                         payload={
                             "flow_id": "yoke-hosted-production",
-                            "field": "target_env",
+                            "field": "target_environment_id",
                         },
                     ),
                 )
 
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["flow_id"], "yoke-hosted-production")
-        self.assertEqual(outcome.result_payload["field"], "target_env")
+        self.assertEqual(
+            outcome.result_payload["field"], "target_environment_id",
+        )
         self.assertEqual(outcome.result_payload["value"], "prod")
         conn.close.assert_called_once()
         _assert_flow_connect_restored(self)
@@ -102,7 +104,7 @@ class TestDeploymentHandlerRegistration(unittest.TestCase):
             self.assertIn("deployment_runs.get", ids)
             self.assertIn("deployment_runs.list", ids)
             self.assertIn("deployment_runs.update", ids)
-            self.assertIn("deployment_runs.resolve_target_env", ids)
+            self.assertIn("deployment_runs.resolve_target", ids)
             update = registry.lookup("deployment_runs.update")
             self.assertEqual(
                 list(update.side_effects),

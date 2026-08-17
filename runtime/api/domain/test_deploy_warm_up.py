@@ -156,7 +156,7 @@ class TestWarmUpStageDispatch:
             first_item="7",
             timeout_min=1,
             fresh=False,
-            target_env="production",
+            environment_name="prod",
             gate_branch="main",
             release_lineage="a" * 40,
         )

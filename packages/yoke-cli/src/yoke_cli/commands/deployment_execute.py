@@ -44,12 +44,12 @@ def deployment_runs_execute(args: List[str]) -> int:
             "ignored: it would otherwise read as having pinned a checkout "
             "that the run never consulted.\n\n"
             "--env names the CONTROL-PLANE env holding the run row, not the "
-            "environment being deployed to. The target env is fixed on the "
-            "run at create time (--target-env). One control plane usually "
-            "serves every target, so a stage-targeted run and a "
-            "production-targeted run are both driven through the same "
-            "<control-plane>-db-admin env; the run output names both as "
-            "release_control_plane=... target_env=..."
+            "environment being deployed to. The target environment is fixed "
+            "on the run at create time (--environment overrides the flow's "
+            "registered target). One control plane usually serves every "
+            "target, so a stage-targeted run and a prod-targeted run are "
+            "both driven through the same <control-plane>-db-admin env; the "
+            "run output names both as release_control_plane=... target=..."
         )
         return 0
     active_env = os.environ.get(ENV_OVERRIDE, "").strip()

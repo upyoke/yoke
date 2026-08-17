@@ -136,7 +136,10 @@ class TestFunctionProxy:
         envelope = response.json()
         assert envelope["success"] is True
         assert envelope["result"]["rows"] == []
-        for field in ("id", "flow", "target_env", "status", "current_stage"):
+        for field in (
+            "id", "flow", "target_tier", "target_environment_id",
+            "status", "current_stage",
+        ):
             assert field in envelope["result"]["fields"]
 
         projects = self._call(

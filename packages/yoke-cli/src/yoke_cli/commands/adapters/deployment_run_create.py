@@ -65,7 +65,7 @@ def _execute_authority() -> str:
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
-    "yoke deployment-runs create PROJECT FLOW [--target-env ENV] "
+    "yoke deployment-runs create PROJECT FLOW [--environment ENV] "
     "[--project-repo-path PATH --source-ref REF | --retry-of RUN-ID] "
     "[--created-by WHO] [--allow-pin-regression] [--session-id S] [--json]"
 )
@@ -80,7 +80,7 @@ def deployment_runs_create(args: List[str]) -> int:
     )
     parser.add_argument("project")
     parser.add_argument("flow")
-    parser.add_argument("--target-env", dest="target_env", default=None)
+    parser.add_argument("--environment", dest="environment", default=None)
     parser.add_argument("--created-by", dest="created_by", default="operator")
     parser.add_argument(
         "--project-repo-path",
@@ -160,8 +160,8 @@ def deployment_runs_create(args: List[str]) -> int:
         if guard_error is not None:
             print(f"Error: {guard_error}", file=sys.stderr)
             return 1
-    if parsed.target_env is not None:
-        payload["target_env"] = parsed.target_env
+    if parsed.environment is not None:
+        payload["environment"] = parsed.environment
     return dispatch_and_emit(
         function_id="deployment_runs.create",
         target=TargetRef(kind="global"),

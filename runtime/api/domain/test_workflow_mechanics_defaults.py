@@ -162,15 +162,17 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     test_db.execute(
         "INSERT INTO deployment_flows("
         "id, project_id, name, description, stages, on_failure, created_at, "
-        "status, target_env"
-        ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', 'production')",
+        "status, target_tier, target_environment_id"
+        ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', "
+        "'persistent', 'production')",
         ("workflows-production", "Workflows production", "2026-07-26T00:00:00Z"),
     )
     test_db.execute(
         "INSERT INTO deployment_flows("
         "id, project_id, name, description, stages, on_failure, created_at, "
-        "status, target_env"
-        ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', 'stage')",
+        "status, target_tier, target_environment_id"
+        ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', "
+        "'persistent', 'stage')",
         ("workflows-stage", "Workflows stage", "2026-07-26T00:00:00Z"),
     )
     test_db.commit()

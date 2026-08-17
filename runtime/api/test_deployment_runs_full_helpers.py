@@ -34,20 +34,51 @@ _SCHEMA_DDL = """
     INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'yoke');
     INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'externalwebapp');
 
+    CREATE TABLE IF NOT EXISTS sites (
+        id TEXT PRIMARY KEY,
+        project_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT '',
+        settings TEXT DEFAULT '{}'
+    );
+    INSERT INTO sites (id, project_id, name)
+        VALUES ('yoke-site', 1, 'yoke');
+    INSERT INTO sites (id, project_id, name)
+        VALUES ('externalwebapp-site', 2, 'externalwebapp');
+    CREATE TABLE IF NOT EXISTS environments (
+        id TEXT PRIMARY KEY,
+        site TEXT NOT NULL,
+        name TEXT NOT NULL,
+        url TEXT,
+        last_deployed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT '',
+        settings TEXT DEFAULT '{}',
+        UNIQUE(site, name)
+    );
+    INSERT INTO environments (id, site, name)
+        VALUES ('production', 'yoke-site', 'prod');
+    INSERT INTO environments (id, site, name)
+        VALUES ('preview', 'externalwebapp-site', 'preview');
+    INSERT INTO environments (id, site, name)
+        VALUES ('ewa-prod', 'externalwebapp-site', 'prod');
     CREATE TABLE IF NOT EXISTS deployment_flows (
         id TEXT PRIMARY KEY,
         project_id INTEGER NOT NULL,
         name TEXT,
         stages TEXT,
-        target_env TEXT,
+        target_tier TEXT,
+        target_environment_id TEXT,
         done_description TEXT,
         status TEXT NOT NULL DEFAULT 'active'
     );
-    INSERT INTO deployment_flows (id, project_id, name, stages, target_env)
-        VALUES ('yoke-internal', 1, 'yoke-internal', '[]', NULL);
-    INSERT INTO deployment_flows (id, project_id, name, stages, target_env)
+    INSERT INTO deployment_flows
+        (id, project_id, name, stages, target_tier, target_environment_id)
+        VALUES ('yoke-internal', 1, 'yoke-internal', '[]', NULL, NULL);
+    INSERT INTO deployment_flows
+        (id, project_id, name, stages, target_tier, target_environment_id)
         VALUES ('externalwebapp-standard', 2, 'externalwebapp-standard',
-                '[{"name":"preview"},{"name":"production"}]', 'preview');
+                '[{"name":"preview"},{"name":"production"}]',
+                'persistent', 'preview');
 
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,

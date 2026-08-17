@@ -6,7 +6,7 @@ transitions.
 
 Schema reference (deployment_runs table):
 - id: TEXT PRIMARY KEY
-- project_id, flow, target_env, release_lineage, status, current_stage
+- project_id, flow, target_tier, target_environment_id, release_lineage, status, current_stage
 - status CHECK IN ('created','executing','succeeded','failed','cancelled')
 - created_at, started_at, completed_at, created_by
 
@@ -66,7 +66,8 @@ class DeploymentRun:
     flow: str
     status: str
     current_stage: Optional[str] = None
-    target_env: Optional[str] = None
+    target_tier: Optional[str] = None
+    target_environment_id: Optional[str] = None
     release_lineage: Optional[str] = None
     created_at: Optional[str] = None
     started_at: Optional[str] = None

@@ -261,10 +261,10 @@ def register(registry) -> None:
         ambient_session_required=False,
     )
     registry.register(
-        "deployment_runs.resolve_target_env",
-        _runs.handle_deployment_run_resolve_target_env,
-        _models.DeploymentRunResolveTargetEnvRequest,
-        _models.DeploymentRunResolveTargetEnvResponse,
+        "deployment_runs.resolve_target",
+        _runs.handle_deployment_run_resolve_target,
+        _models.DeploymentRunResolveTargetRequest,
+        _models.DeploymentRunResolveTargetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_runs",
         target_kinds=["global"], side_effects=[],

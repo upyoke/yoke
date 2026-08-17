@@ -93,7 +93,7 @@ function latestRunsByEnvironment(rows, directory) {
   const latest = new Map();
   for (const row of rows) {
     const key = `${projectIdentity(directory, row)}:${String(
-      row.target_env || "",
+      row.target_environment || row.target_tier || "",
     ).toLowerCase()}`;
     const previous = latest.get(key);
     const timestamp = new Date(runTimestamp(row) || 0).getTime();

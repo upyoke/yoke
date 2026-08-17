@@ -72,8 +72,8 @@ def test_registry_maps_deployment_tokens_to_function_ids() -> None:
         "deployment_runs.update"
     )
     assert SUBCOMMAND_REGISTRY[
-        ("deployment-runs", "resolve-target-env")
-    ][0] == "deployment_runs.resolve_target_env"
+        ("deployment-runs", "resolve-target")
+    ][0] == "deployment_runs.resolve_target"
 
 
 def test_flow_stages_dispatches_and_prints_raw_stages() -> None:
@@ -188,7 +188,7 @@ def test_deployment_run_approve_dispatches_note_and_prints_transition() -> None:
     assert req.payload == {"note": "stage verified"}
 
 
-def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
+def test_resolve_target_dispatches_and_prints_typed_triple() -> None:
     def stub(request: FunctionCallRequest) -> FunctionCallResponse:
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(
@@ -199,19 +199,21 @@ def test_resolve_target_env_dispatches_and_prints_raw_value() -> None:
             result={
                 "project": "yoke",
                 "flow": "yoke-hosted-production",
-                "target_env": "production",
+                "target_tier": "persistent",
+                "target_environment_id": "production",
+                "target_environment_name": "prod",
             },
         )
 
     rc, out, _err = _run_capture(
         stub,
-        "deployment-runs", "resolve-target-env",
+        "deployment-runs", "resolve-target",
         "yoke", "yoke-hosted-production",
     )
     assert rc == 0
-    assert out == "production\n"
+    assert out == "persistent|production|prod\n"
     req = _CAPTURED_REQUESTS[-1]
-    assert req.function == "deployment_runs.resolve_target_env"
+    assert req.function == "deployment_runs.resolve_target"
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
@@ -239,7 +241,8 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
                 "run_id": "run-20260616-009",
                 "project": "yoke",
                 "flow": "yoke-hosted-production",
-                "target_env": "production",
+                "target_tier": "persistent",
+                "target_environment_id": "production",
                 "status": "created",
             },
         )
@@ -300,7 +303,7 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
     # deployed to; help has to say which axis it actually names, or an
     # operator reaches for a <target>-db-admin env that need not exist.
     assert "not the environment being deployed to" in out
-    assert "--target-env" in out
+    assert "--environment" in out
     assert err == ""
 
 

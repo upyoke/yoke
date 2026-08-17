@@ -328,7 +328,7 @@ status TEXT -- current item status
 flow_name TEXT -- deployment_flows.name (NULL if no flow assigned)
 run_id TEXT -- deployment_runs.id (NULL if no active run or table missing)
 current_stage TEXT -- deployment_runs.current_stage (NULL if no run)
-target_env TEXT -- deployment_flows.target_env (NULL if not set)
+target_environment TEXT -- resolved environment name, else the flow's target_tier (NULL if not set)
 stage_progress TEXT -- 'N/M' format (NULL if no run)
 done_description TEXT -- deployment_flows.done_description (NULL if no flow)
 qa_summary TEXT -- latest QA run result summary (NULL if none)

@@ -105,7 +105,7 @@ export function notificationPresentation(row) {
     return { title: facts.title, subtitle: facts.summary || row.reason };
   }
   if (row.notification_kind === "deployment_run_completed") {
-    const target = facts.target_env || "Deployment";
+    const target = facts.target_environment || "Deployment";
     return {
       title: `${target} deploy completed`,
       subtitle: [facts.run_id, row.event_outcome]

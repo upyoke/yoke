@@ -143,21 +143,6 @@ def _resolve_deploy_envs(conn: Any, project: str) -> list[str]:
     except db_backend.operational_error_types(conn):
         pass  # tables don't exist
 
-    # Check deployment_flows.target_env
-    try:
-        rows = conn.execute(
-            """SELECT DISTINCT target_env AS env_name
-               FROM deployment_flows
-               WHERE project_id = %s AND target_env IS NOT NULL AND target_env <> ''""",
-            (ident.id,),
-        ).fetchall()
-        for r in rows:
-            val = r["env_name"] if hasattr(r, "keys") and "env_name" in r.keys() else r[0]
-            if val:
-                envs.add(val)
-    except db_backend.operational_error_types(conn):
-        pass
-
     if envs:
         return sorted(envs)
 

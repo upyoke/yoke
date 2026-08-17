@@ -65,7 +65,8 @@ def _row_snapshot(row: Any) -> dict[str, str | None]:
 
 def _locked_existing(conn: Any, run_id: str) -> dict[str, str | None] | None:
     row = conn.execute(
-        "SELECT dr.id,p.slug AS project,dr.flow,dr.target_env,"
+        "SELECT dr.id,p.slug AS project,dr.flow,dr.target_tier,"
+        "dr.target_environment_id,"
         "dr.release_lineage,dr.status,dr.current_stage,dr.created_at,"
         "dr.started_at,dr.completed_at,dr.created_by "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "
@@ -119,12 +120,14 @@ def project_snapshot(
         elif existing is None:
             authority.execute(
                 "INSERT INTO deployment_runs("
-                "id,project_id,flow,target_env,release_lineage,status,"
+                "id,project_id,flow,target_tier,target_environment_id,"
+                "release_lineage,status,"
                 "current_stage,created_at,started_at,completed_at,created_by"
-                ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     snapshot["id"], project_id, snapshot["flow"],
-                    snapshot["target_env"], snapshot["release_lineage"],
+                    snapshot["target_tier"], snapshot["target_environment_id"],
+                    snapshot["release_lineage"],
                     snapshot["status"], snapshot["current_stage"],
                     snapshot["created_at"], snapshot["started_at"],
                     snapshot["completed_at"], snapshot["created_by"],
@@ -146,11 +149,13 @@ def project_snapshot(
                 )
             changed = _changed_fields(existing, snapshot)
             authority.execute(
-                "UPDATE deployment_runs SET target_env=%s,status=%s,"
+                "UPDATE deployment_runs SET target_tier=%s,"
+                "target_environment_id=%s,status=%s,"
                 "current_stage=%s,created_at=%s,started_at=%s,completed_at=%s,"
                 "created_by=%s WHERE id=%s",
                 (
-                    snapshot["target_env"], snapshot["status"],
+                    snapshot["target_tier"],
+                    snapshot["target_environment_id"], snapshot["status"],
                     snapshot["current_stage"], snapshot["created_at"],
                     snapshot["started_at"], snapshot["completed_at"],
                     snapshot["created_by"], snapshot["id"],

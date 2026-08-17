@@ -23,7 +23,7 @@ def lock_deployment_flow_rows(
     flow_ids: Iterable[str],
     *,
     binding: bool,
-) -> dict[str, tuple[int, str, str]]:
+) -> dict[str, tuple[int, str, str, str]]:
     """Lock flow rows in stable order for definitions or new references."""
     normalized = tuple(sorted({str(flow_id) for flow_id in flow_ids}))
     if not normalized:
@@ -31,11 +31,12 @@ def lock_deployment_flow_rows(
     suffix = ""
     if db_backend.connection_is_postgres(conn):
         suffix = " FOR SHARE" if binding else " FOR UPDATE"
-    rows: dict[str, tuple[int, str, str]] = {}
+    rows: dict[str, tuple[int, str, str, str]] = {}
     for flow_id in normalized:
         row = conn.execute(
             "SELECT id, project_id, status, "
-            "COALESCE(target_env, '') AS target_env "
+            "COALESCE(target_tier, '') AS target_tier, "
+            "COALESCE(target_environment_id, '') AS target_environment_id "
             f"FROM deployment_flows WHERE id = {_p(conn)}{suffix}",
             (flow_id,),
         ).fetchone()
@@ -45,7 +46,15 @@ def lock_deployment_flow_rows(
         rows[row_id] = (
             int(row["project_id"] if hasattr(row, "keys") else row[1]),
             str(row["status"] if hasattr(row, "keys") else row[2]),
-            str((row["target_env"] if hasattr(row, "keys") else row[3]) or ""),
+            str((row["target_tier"] if hasattr(row, "keys") else row[3]) or ""),
+            str(
+                (
+                    row["target_environment_id"]
+                    if hasattr(row, "keys")
+                    else row[4]
+                )
+                or ""
+            ),
         )
     return rows
 
@@ -55,19 +64,19 @@ def require_flow_for_new_run(
     flow_id: str,
     *,
     project_id: int | None = None,
-) -> tuple[int, str]:
-    """Return project and target env when a flow accepts new runs."""
+) -> tuple[int, str, str]:
+    """Return project, tier, and environment when a flow accepts new runs."""
     row = lock_deployment_flow_rows(conn, (flow_id,), binding=True).get(flow_id)
     if row is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
-    flow_project_id, status, target_env = row
+    flow_project_id, status, target_tier, target_environment_id = row
     if project_id is not None and flow_project_id != project_id:
         raise ValueError(f"deployment flow '{flow_id}' belongs to another project")
     if status != FLOW_STATUS_ACTIVE:
         raise ValueError(
             f"deployment flow '{flow_id}' is {status} and cannot start new runs"
         )
-    return flow_project_id, target_env
+    return flow_project_id, target_tier, target_environment_id
 
 
 def assert_flow_definition_mutable(conn: Any, flow_id: str) -> None:

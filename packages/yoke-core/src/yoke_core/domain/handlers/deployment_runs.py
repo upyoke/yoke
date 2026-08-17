@@ -220,16 +220,16 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
     )
 
 
-def handle_deployment_run_resolve_target_env(
+def handle_deployment_run_resolve_target(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    invalid = require_global(request, "deployment_runs.resolve_target_env")
+    invalid = require_global(request, "deployment_runs.resolve_target")
     if invalid is not None:
         return invalid
     payload = request.payload or {}
     project = payload.get("project")
     flow = payload.get("flow")
-    target_env = payload.get("target_env")
+    environment = payload.get("environment")
     if not isinstance(project, str) or not project.strip():
         return error(
             "payload_invalid", "project is required",
@@ -240,20 +240,22 @@ def handle_deployment_run_resolve_target_env(
             "payload_invalid", "flow is required",
             jsonpath="$.payload.flow",
         )
-    if target_env is not None and not isinstance(target_env, str):
+    if environment is not None and not isinstance(environment, str):
         return error(
             "payload_invalid",
-            "target_env must be a string when present",
-            jsonpath="$.payload.target_env",
+            "environment must be a string when present",
+            jsonpath="$.payload.environment",
         )
 
-    from yoke_core.domain.deployment_runs_preview import cmd_resolve_target_env
+    from yoke_core.domain.deployment_run_target_resolution import (
+        cmd_resolve_target,
+    )
 
     try:
-        resolved = cmd_resolve_target_env(
+        tier, environment_id, environment_name = cmd_resolve_target(
             project.strip(),
             flow.strip(),
-            target_env_override=target_env,
+            environment_override=environment,
         )
     except LookupError as exc:
         return error("not_found", str(exc))
@@ -263,7 +265,9 @@ def handle_deployment_run_resolve_target_env(
         result_payload={
             "project": project.strip(),
             "flow": flow.strip(),
-            "target_env": resolved,
+            "target_tier": tier,
+            "target_environment_id": environment_id,
+            "target_environment_name": environment_name,
         },
         primary_success=True,
     )
@@ -275,5 +279,5 @@ __all__ = [
     "handle_deployment_run_get",
     "handle_deployment_run_list",
     "handle_deployment_run_update",
-    "handle_deployment_run_resolve_target_env",
+    "handle_deployment_run_resolve_target",
 ]

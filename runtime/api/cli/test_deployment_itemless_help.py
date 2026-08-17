@@ -24,8 +24,8 @@ def _help(*argv: str) -> tuple[int, str, str]:
 
 def _assert_itemless_recipe(text: str) -> None:
     assert "Itemless environment release" in text
-    assert "resolve-target-env PROJECT FLOW" in text
-    assert "Verify TARGET_ENV is the deploy destination" in text
+    assert "resolve-target PROJECT FLOW" in text
+    assert "Verify the environment name is the deploy destination" in text
     assert "--project-repo-path /path/to/checkout" in text
     assert "--source-ref origin/main" in text
     assert "--retry-of FAILED_RUN_ID" in text
@@ -36,12 +36,12 @@ def _assert_itemless_recipe(text: str) -> None:
     assert ITEMLESS_RELEASE_RECIPE.strip() in text
 
 
-def test_resolve_target_env_help_teaches_verify_destination() -> None:
+def test_resolve_target_help_teaches_verify_destination() -> None:
     rc, out, err = _help(
-        "deployment-runs", "resolve-target-env", "--help",
+        "deployment-runs", "resolve-target", "--help",
     )
     assert rc == 0, err
-    assert "environment being deployed TO" in out
+    assert "being deployed TO" in out
     assert "not the control-plane connection name" in out
     _assert_itemless_recipe(out)
 
@@ -63,9 +63,9 @@ def test_deployment_runs_group_help_includes_itemless_recipe() -> None:
 def test_watch_deploy_help_teaches_itemless_release_path() -> None:
     rc, out, err = _help("watch", "deploy", "--help")
     assert rc == 0, err
-    assert "resolve the target env" in out
+    assert "resolve the flow's" in out
     assert "--project-repo-path" in out
-    assert "Verify the resolved target_env" in out
+    assert "Verify the resolved environment" in out
     _assert_itemless_recipe(out)
 
 

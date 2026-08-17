@@ -22,7 +22,7 @@ from yoke_core.domain.qa_execution_environment_target import require_case_target
 def _replace_text(value: str, target: Mapping[str, Any]) -> str:
     endpoints = target["endpoints"]
     environment = str(target["environment"]["name"]).lower()
-    production = environment in {"prod", "production"}
+    production = environment == "prod"
     release_channel = str(endpoints["release_channel"])
     replacements = (
         (DISTRIBUTION_STAGE_URL, str(endpoints["installer_base_url"])),
@@ -73,9 +73,9 @@ def _project(value: Any, target: Mapping[str, Any]) -> Any:
 
 def _target_destination_keys(target: Mapping[str, Any]) -> list[str]:
     environment = str(target["environment"]["name"]).lower()
-    if environment in {"stage", "staging"}:
+    if environment == "stage":
         selected = CHOOSE_STAGE_KEYS
-    elif environment in {"prod", "production"}:
+    elif environment == "prod":
         selected = CHOOSE_PRODUCTION_KEYS
     else:
         raise ValueError(

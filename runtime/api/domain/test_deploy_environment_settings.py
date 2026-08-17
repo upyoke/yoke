@@ -337,8 +337,8 @@ class TestDeclaredGitBranch:
         assert env.git_branch == ""
 
     def test_declared_env_branch_narrow_reader(self, monkeypatch):
-        # The narrow reader tolerates env rows that are not deploy-capable
-        # (no hosts/pulumi/database) — the merged gate reads any target_env.
+        # The narrow reader tolerates env rows that are not
+        # deploy-capable — the merged gate reads any referenced env.
         from yoke_core.domain import deploy_environment_settings as des
 
         bare = RendererEnvironmentSettings(
@@ -349,7 +349,7 @@ class TestDeclaredGitBranch:
         monkeypatch.setattr(
             des, "load_project_renderer_settings", lambda project: snapshot
         )
-        assert des.declared_env_branch("yoke", "stage") == "stage"
+        assert des.declared_env_branch("yoke", "yoke-api-stage") == "stage"
         assert des.declared_env_branch("yoke", "missing-env") == ""
 
     def test_declared_env_branch_without_git_key(self, monkeypatch):
@@ -362,4 +362,4 @@ class TestDeclaredGitBranch:
         monkeypatch.setattr(
             des, "load_project_renderer_settings", lambda project: snapshot
         )
-        assert des.declared_env_branch("yoke", "ephemeral") == ""
+        assert des.declared_env_branch("yoke", "yoke-api-eph") == ""

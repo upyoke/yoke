@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for yoke_core.domain.deployment_runs — preview environments and cleanup.
 
 Split from test_deployment_runs.py: TestPreviewEnvironments, TestCanCleanupPreview.
@@ -95,7 +96,7 @@ class TestCanCleanupPreview:
         # Create another run in lineage that succeeds
         r2 = dr.cmd_create_run(
             "yoke", "flow-main", release_lineage=lin,
-            target_env="production", db_path=db_path,
+            environment="production", db_path=db_path,
         )
         dr.cmd_update(r2, "current_stage", "complete", db_path=db_path)
         dr.cmd_update(r2, "status", "succeeded", db_path=db_path)

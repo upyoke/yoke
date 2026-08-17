@@ -1,5 +1,5 @@
 {
-  "schema": 2,
+  "schema": 3,
   "default_flow": "yoke-internal",
   "retire_if_present": [
     "yoke-hosted-production",
@@ -24,9 +24,9 @@
         }
       ],
       "on_failure": "halt",
-      "target_env": null,
       "done_description": "Merged to main",
-      "status": "active"
+      "status": "active",
+      "target_tier": null
     },
     {
       "id": "yoke-hosted-production-hotfix-warm-gated",
@@ -63,9 +63,10 @@
         }
       ],
       "on_failure": "halt",
-      "target_env": "production",
       "done_description": "Yoke hotfix completed through the hosted production train",
-      "status": "active"
+      "status": "active",
+      "target_tier": "persistent",
+      "target_environment_id": "production"
     },
     {
       "id": "yoke-hosted-stage-warm-gated",
@@ -102,9 +103,10 @@
         }
       ],
       "on_failure": "halt",
-      "target_env": "stage",
       "done_description": "Yoke release completed through the hosted stage train",
-      "status": "active"
+      "status": "active",
+      "target_tier": "persistent",
+      "target_environment_id": "stage"
     },
     {
       "id": "yoke-branch-preview",
@@ -121,9 +123,9 @@
         }
       ],
       "on_failure": "halt",
-      "target_env": "ephemeral",
       "done_description": "Yoke branch preview deployed",
-      "status": "active"
+      "status": "active",
+      "target_tier": "ephemeral"
     }
   ]
 }

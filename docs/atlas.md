@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-17T13:22:29Z_
+_Audit generated_at: 2026-08-17T15:07:35Z_
 
 ## 1. Summary
 
@@ -57,7 +57,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation track
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs project-snapshot` | `deployment_runs.project_snapshot` | ok |
-| deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
+| deployment_runs | `yoke deployment-runs resolve-target` | `deployment_runs.resolve_target` | ok |
 | deployment_runs | `yoke deployment-runs stages` | `deployment_runs.stages` | ok |
 | deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
 | deployment_runs | `yoke deployment-runs terminalize` | `deployment_runs.terminalize` | ok |
@@ -459,7 +459,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 129 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 28 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 29 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
@@ -472,10 +472,10 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 18 |
-| codex | 15 |
+| claude-code | 32 |
 | cursor | 14 |
-| agent | 3 |
+| agent | 2 |
+| codex | 2 |
 
 ## 8. Contradictions
 

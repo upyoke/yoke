@@ -58,7 +58,7 @@ def _environment_name_to_id(
 
 def environment_id_for_target(
     settings: Mapping[str, Any],
-    target_env: str,
+    environment_name: str,
     *,
     environments: Mapping[str, str] | Sequence[Mapping[str, Any]] | None = None,
 ) -> Optional[str]:
@@ -68,7 +68,7 @@ def environment_id_for_target(
     id value, or (when ``environments`` is provided) the environment's own
     ``name`` for a mapped id.
     """
-    needle = str(target_env or "").strip()
+    needle = str(environment_name or "").strip()
     if not needle:
         return None
     mapping = environment_by_target_map(settings)

@@ -60,6 +60,9 @@ from yoke_core.domain.deployment_runs_validation import (  # noqa: F401
 )
 
 # Preview-environment lifecycle (incl. private ``_emit_event`` helper)
+from yoke_core.domain.deployment_run_target_resolution import (  # noqa: F401
+    cmd_resolve_target,
+)
 from yoke_core.domain.deployment_runs_preview import (  # noqa: F401
     _emit_event,
     cmd_can_cleanup_preview,
@@ -68,7 +71,6 @@ from yoke_core.domain.deployment_runs_preview import (  # noqa: F401
     cmd_preview_check,
     cmd_preview_claim,
     cmd_preview_release,
-    cmd_resolve_target_env,
 )
 
 # CLI dispatcher
@@ -103,7 +105,7 @@ __all__ = [
     "cmd_qa_list",
     "cmd_qa_update",
     "cmd_remove_item",
-    "cmd_resolve_target_env",
+    "cmd_resolve_target",
     "cmd_update",
     "cmd_validate_composition",
     "main",

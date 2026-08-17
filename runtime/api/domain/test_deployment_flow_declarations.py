@@ -30,7 +30,7 @@ def _seed_project(conn) -> None:
 
 def _document() -> dict:
     return {
-        "schema": 2,
+        "schema": 3,
         "default_flow": "acme-production",
         "flows": [
             {
@@ -46,7 +46,8 @@ def _document() -> dict:
                     },
                     {"name": "complete", "step_runner": "auto"},
                 ],
-                "target_env": "production",
+                "target_tier": "persistent",
+                "target_environment_id": "acme-prod",
                 "done_description": "Production deployment completed",
             },
             {

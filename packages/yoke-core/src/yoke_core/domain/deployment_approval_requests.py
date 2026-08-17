@@ -19,10 +19,12 @@ def _p(conn: Any) -> str:
 def _run(conn: Any, run_id: str) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
-        "SELECT dr.id, dr.project_id, dr.flow, dr.target_env, dr.status, "
+        "SELECT dr.id, dr.project_id, dr.flow, dr.target_tier, "
+        "dr.target_environment_id, e.name AS target_environment, dr.status, "
         "dr.current_stage, dr.created_by, p.slug AS project, df.stages "
         "FROM deployment_runs dr JOIN projects p ON p.id = dr.project_id "
         "JOIN deployment_flows df ON df.id = dr.flow "
+        "LEFT JOIN environments e ON e.id = dr.target_environment_id "
         f"WHERE dr.id = {p}",
         (run_id,),
     ).fetchone()
@@ -61,7 +63,11 @@ def ensure_deployment_stage_approval(
     resolution = resolve_approval(parse_flow_stages(str(run["stages"])), stage)
     if not resolution.approved:
         raise ValueError(resolution.error or "stage does not accept approval")
-    target = str(run["target_env"] or "the target environment")
+    target = str(
+        run["target_environment"]
+        or run["target_tier"]
+        or "the target environment"
+    )
     originator = _existing_actor_id(
         conn,
         originator_actor_id
@@ -87,7 +93,8 @@ def ensure_deployment_stage_approval(
         subject_context={
             "run_id": run_id,
             "stage": stage,
-            "target_env": run["target_env"],
+            "target_environment_id": run["target_environment_id"],
+            "target_environment": run["target_environment"],
             "flow_id": str(run["flow"]),
             "title": f"Deploy to {target} — approve the stage",
         },

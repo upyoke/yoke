@@ -27,11 +27,11 @@ def release_pin_db():
     db = next(fixture)
     with connect_test_db(db["db_path"]) as conn:
         conn.execute(
-            "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER NOT "
+            "CREATE TABLE IF NOT EXISTS sites (id TEXT PRIMARY KEY, project_id INTEGER NOT "
             "NULL, name TEXT NOT NULL, created_at TEXT NOT NULL)"
         )
         conn.execute(
-            "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT NOT "
+            "CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, site TEXT NOT "
             "NULL, name TEXT NOT NULL, settings TEXT DEFAULT '{}', "
             "last_deployed_at TEXT, created_at TEXT NOT NULL)"
         )

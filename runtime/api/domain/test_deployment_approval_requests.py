@@ -61,9 +61,10 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     )
     test_db.execute(
         "INSERT INTO deployment_runs "
-        "(id, project_id, flow, target_env, status, current_stage, created_at) "
-        "VALUES ('run-approval-proof', 1, 'approval-proof', 'production', "
-        "'executing', 'production', '2026-07-26T00:00:00Z')"
+        "(id, project_id, flow, target_tier, target_environment_id, "
+        "status, current_stage, created_at) "
+        "VALUES ('run-approval-proof', 1, 'approval-proof', 'persistent', "
+        "'production', 'executing', 'production', '2026-07-26T00:00:00Z')"
     )
     test_db.commit()
 
@@ -161,9 +162,10 @@ def test_deployment_completion_event_and_deliveries_share_transaction(
     )
     test_db.execute(
         "INSERT INTO deployment_runs "
-        "(id, project_id, flow, target_env, status, created_by, created_at) "
-        "VALUES ('run-completion-proof', 1, 'completion-proof', 'production', "
-        "'succeeded', %s, '2026-07-26T00:00:00Z')",
+        "(id, project_id, flow, target_tier, target_environment_id, "
+        "status, created_by, created_at) "
+        "VALUES ('run-completion-proof', 1, 'completion-proof', 'persistent', "
+        "'production', 'succeeded', %s, '2026-07-26T00:00:00Z')",
         (str(initiator),),
     )
     test_db.commit()
