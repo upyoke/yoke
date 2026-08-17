@@ -1,18 +1,38 @@
 """Architecture model payload validator and derived-edge projector.
 
 The ``architecture_model`` Project Structure family stores the project's
-architecture-fitness map: domains, layers, allowed/forbidden edges per
-layer, and the cross-cutting entrypoint registry.
+architecture-fitness map: domains whose path patterns each declare the
+layer of the files they match, layer dependency rules, sanctioned
+cross-cutting entrypoints, exemption patterns, and the package-layout
+mapping module resolution reads.
 
 Source-of-truth payload shape:
 
-* ``domains`` - list of ``{"id": str, "path_roots": [glob, ...]}``.
 * ``layers`` - list of ``{"id": str, "may_depend_on": [layer, ...],
   "forbidden_edges": [layer, ...]}``.
+* ``domains`` - list of ``{"id": str, "path_roots": [
+  {"glob": str, "layer": str}, ...]}``. Every pattern declares both the
+  area (the domain it sits in) and the kind (the layer it belongs to),
+  so classification is read from the map instead of inferred.
+* ``exemptions`` - optional list of ``{"glob": str, "family": str}``
+  where family is one of the architecture exemption context families
+  (tests, generated, fixtures, archives, pack source). Exemption
+  patterns match before domain patterns.
 * ``cross_cutting_entrypoints`` - dict mapping entrypoint name to
   ``{"approved_modules": [module, ...],
     "approved_module_prefixes": [module_prefix, ...] (optional),
     "guarded_imports": [module.symbol, ...] (optional)}``.
+* ``package_roots`` - optional dict mapping an importable package name
+  to ``[{"root": str, "layout": "package_under_root" |
+  "package_is_root"}, ...]``. ``package_under_root`` means the package
+  directory sits under the root (a ``src`` layout);
+  ``package_is_root`` means the root directory IS the package (the
+  package name does not appear on disk). Module-to-path resolution in
+  the architecture checks reads this instead of any engine-side layout
+  table, so every project's layout is model-declared.
+* ``decisions`` - optional list of ``{"id": str, "rationale": str}``
+  recording durable model-shape decisions (for example why a retired
+  entrypoint no longer appears).
 
 Derived views: callers that want flat ``allowed_edges`` /
 ``forbidden_edges`` tables read them via :func:`derive_edges`. The
@@ -27,6 +47,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, FrozenSet, List, Mapping, Tuple
 
+from yoke_core.domain.architecture_model_sections import (
+    PACKAGE_LAYOUTS,
+    validate_decisions,
+    validate_exemptions,
+    validate_package_roots,
+)
 from yoke_core.domain.project_structure import ValidationError
 
 
@@ -38,19 +64,23 @@ def validate_payload(payload: Mapping[str, Any]) -> None:
             f"(got {type(payload).__name__})."
         )
 
-    _validate_domains(payload.get("domains"))
     layer_ids = _validate_layers(payload.get("layers"))
     _validate_layer_cross_refs(payload["layers"], layer_ids)
+    _validate_domains(payload.get("domains"), layer_ids)
+    validate_exemptions(payload.get("exemptions"))
     _validate_cross_cutting_entrypoints(
         payload.get("cross_cutting_entrypoints")
     )
+    validate_package_roots(payload.get("package_roots"))
+    validate_decisions(payload.get("decisions"))
 
 
-def _validate_domains(domains: Any) -> FrozenSet[str]:
-    if not isinstance(domains, list) or not domains:
+def _validate_domains(domains: Any, layer_ids: FrozenSet[str]) -> None:
+    if not isinstance(domains, list):
         raise ValidationError(
-            "Family 'architecture_model' payload must contain a non-empty "
-            "'domains' list."
+            "Family 'architecture_model' payload must contain a 'domains' "
+            "list (empty is valid for a map the tree has not grown into "
+            "yet)."
         )
     seen: List[str] = []
     for idx, dom in enumerate(domains):
@@ -75,16 +105,28 @@ def _validate_domains(domains: Any) -> FrozenSet[str]:
         if not isinstance(roots, list) or not roots:
             raise ValidationError(
                 f"Family 'architecture_model' 'domains'[{idx}].path_roots "
-                "must be a non-empty list of glob/path strings."
+                "must be a non-empty list of {glob, layer} objects."
             )
         for r_idx, root in enumerate(roots):
-            if not isinstance(root, str) or not root.strip():
+            where = f"'domains'[{idx}].path_roots[{r_idx}]"
+            if not isinstance(root, dict):
                 raise ValidationError(
-                    f"Family 'architecture_model' "
-                    f"'domains'[{idx}].path_roots[{r_idx}] must be a "
-                    f"non-empty string (got {type(root).__name__})."
+                    f"Family 'architecture_model' {where} must be a "
+                    "{glob, layer} object "
+                    f"(got {type(root).__name__})."
                 )
-    return frozenset(seen)
+            glob = root.get("glob")
+            if not isinstance(glob, str) or not glob.strip():
+                raise ValidationError(
+                    f"Family 'architecture_model' {where}.glob must be a "
+                    f"non-empty string (got {type(glob).__name__})."
+                )
+            layer = root.get("layer")
+            if not isinstance(layer, str) or layer not in layer_ids:
+                raise ValidationError(
+                    f"Family 'architecture_model' {where}.layer must name "
+                    f"a declared layer; known layers: {sorted(layer_ids)}."
+                )
 
 
 def _validate_layers(layers: Any) -> FrozenSet[str]:
@@ -146,10 +188,13 @@ def _validate_layer_cross_refs(
 
 
 def _validate_cross_cutting_entrypoints(entrypoints: Any) -> None:
-    if not isinstance(entrypoints, dict) or not entrypoints:
+    if entrypoints is None:
+        return
+    if not isinstance(entrypoints, dict):
         raise ValidationError(
-            "Family 'architecture_model' payload must contain a non-empty "
-            "'cross_cutting_entrypoints' object."
+            "Family 'architecture_model' 'cross_cutting_entrypoints' must "
+            "be an object when present "
+            f"(got {type(entrypoints).__name__})."
         )
     for ep_name, ep_value in entrypoints.items():
         if not isinstance(ep_name, str) or not ep_name:
@@ -240,6 +285,7 @@ def derive_edges(
 
 
 __all__ = [
+    "PACKAGE_LAYOUTS",
     "derive_edges",
     "validate_payload",
 ]

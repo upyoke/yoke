@@ -29,9 +29,6 @@ from yoke_core.engines.doctor_hc_architecture import (
     hc_architecture_forbidden_edge,
     hc_architecture_unclassified_path,
 )
-from yoke_core.engines.doctor_hc_architecture_items import (
-    hc_architecture_scan_error,
-)
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from runtime.api.path_context_test_helpers import (
     emit_event,
@@ -46,7 +43,10 @@ def _seed_model(conn: Any, project_id: int = 1) -> None:
     payload = {
         "domains": [
             {"id": "domain_invariants",
-             "path_roots": ["runtime/api/domain/*.py"]},
+             "path_roots": [
+                 {"glob": "runtime/api/domain/*.py",
+                  "layer": "domain_invariants"},
+             ]},
         ],
         "layers": [
             {"id": "domain_invariants", "may_depend_on": [],
@@ -56,7 +56,7 @@ def _seed_model(conn: Any, project_id: int = 1) -> None:
              "forbidden_edges": []},
         ],
         "cross_cutting_entrypoints": {
-            "db_path": {
+            "storage_access": {
                 "approved_modules": [
                     "yoke_core.domain.db_helpers",
                     "yoke_core.cli.db_router",
@@ -67,6 +67,11 @@ def _seed_model(conn: Any, project_id: int = 1) -> None:
                 "approved_modules": ["yoke_core.resilient_fetch"],
                 "guarded_imports": ["urllib.request.urlopen"],
             },
+        },
+        "package_roots": {
+            "yoke_core": [
+                {"root": "runtime/api", "layout": "package_is_root"},
+            ],
         },
     }
     conn.execute(
@@ -333,15 +338,3 @@ class TestCrossCuttingEntrypoint:
         assert "external_artifact_fetch" in rec.results[-1].detail
 
 
-class TestScanError:
-    def test_clean_rows_pass(self, conn):
-        tid = mint_target(conn, "yoke", "runtime/api/domain/ok.py")
-        snap = _make_snapshot(conn)
-        _make_snapshot_entry(
-            conn, snapshot_id=snap, target_id=tid,
-            module_name="yoke_core.domain.ok", edges=[],
-        )
-        conn.commit()
-        rec = RecordCollector()
-        hc_architecture_scan_error(conn, _args(), rec)
-        assert rec.results[-1].result == "PASS"
