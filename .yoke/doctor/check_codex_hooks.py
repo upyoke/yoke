@@ -18,6 +18,7 @@ each module comfortably below the 350-line cap.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 from pathlib import Path
@@ -154,10 +155,30 @@ def _read_floor_token() -> str | None:
     return _parse_floor(raw)
 
 
+_CODEX_BUNDLE_BINARY = Path(
+    "/Applications/ChatGPT.app/Contents/Resources/codex"
+)
+
+
+def _codex_config_present() -> bool:
+    home = Path.home() / ".codex"
+    return home.is_dir() or (home / "config.toml").is_file()
+
+
+def _codex_binary() -> str | None:
+    which = shutil.which("codex")
+    if which:
+        return which
+    if _CODEX_BUNDLE_BINARY.is_file() and os.access(_CODEX_BUNDLE_BINARY, os.X_OK):
+        return str(_CODEX_BUNDLE_BINARY)
+    return None
+
+
 def _detect_codex_version() -> str | None:
-    if not shutil.which("codex"):
+    binary = _codex_binary()
+    if not binary:
         return None
-    r = _run(["codex", "--version"], timeout=10)
+    r = _run([binary, "--version"], timeout=10)
     if r.returncode != 0:
         return None
     return _parse_floor((r.stdout or r.stderr or "").strip())
@@ -178,9 +199,16 @@ def hc_codex_hook_floor(
         return
     installed = _detect_codex_version()
     if not installed:
+        if _codex_config_present() or _codex_binary():
+            rec.record(
+                name, desc, "FAIL",
+                f"floor={floor}; Codex is installed (config or bundle "
+                "present) but its version could not be read",
+            )
+            return
         rec.record(
             name, desc, "PASS",
-            f"floor={floor}; codex CLI not installed locally — "
+            f"floor={floor}; Codex is not installed locally — "
             "wrapper-only mode is the documented fallback",
         )
         return

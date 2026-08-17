@@ -31,7 +31,9 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.plan.materialize": "yoke qa plan materialize --item PREFIX-N --transition T",
     "qa.plan.rematerialize": "yoke qa plan rematerialize --item PREFIX-N --transition T",
-    "qa.artifact.read": "yoke qa artifact read --requirement-id N --artifact-id N",
+    "qa.artifact.read": (
+        "yoke qa artifact read --requirement-id N --artifact-id N [--output PATH]"
+    ),
 }
 
 

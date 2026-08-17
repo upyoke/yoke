@@ -28,6 +28,8 @@ WRAPPED_ROWS = (
     _w("yoke test-machine get", "test_machine"),
     _w("yoke test-machine settings-replace", "test_machine"),
     _w("yoke test-machine verify", "test_machine"),
+    _w("yoke overview activation get", "overview"),
+    _w("yoke harness machine-report upsert", "harness.machine_report"),
 )
 PERMANENT_ROWS = DIRECT_WORKFLOW_PERMANENT_ROWS
 

@@ -141,6 +141,24 @@ def _entries_for(state: Dict[str, str], hooks_path: Path) -> Dict[str, str]:
     }
 
 
+def trust_entries_for(
+    hooks_path: Path,
+    *,
+    config_path: Optional[Path] = None,
+) -> Dict[str, str]:
+    """Return trust entries keyed to the literal ``hooks_path``.
+
+    Codex does not resolve symlinks before keying, so callers must pass
+    the path Codex would see — never ``Path.resolve()`` of a tracked
+    ``.codex/hooks.json`` symlink. Presence only: an empty map means
+    this path has never been trusted. This does not hash file bytes.
+    """
+    state, reason = _read_trust_state(config_path or codex_config_path())
+    if reason:
+        return {}
+    return _entries_for(state, hooks_path)
+
+
 def _same_content(left: Path, right: Path) -> Tuple[bool, str]:
     """Compare two hooks files byte-for-byte, following symlinks."""
     try:
@@ -286,4 +304,5 @@ __all__ = [
     "hooks_file_for",
     "inspect_hook_trust",
     "mirror_hook_trust",
+    "trust_entries_for",
 ]

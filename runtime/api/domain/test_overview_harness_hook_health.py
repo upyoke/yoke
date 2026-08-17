@@ -1,63 +1,95 @@
 """Hook health beside the Overview's harness activation targets.
 
-Session presence alone cannot separate a harness whose hooks run from one
-whose approval was never granted — both write a ``harness_sessions`` row.
-These cover the sub-signal that can, and the declaration that decides which
-harnesses report it at all.
+Colours say what the operator should do: green when hook-fed telemetry
+is present, orange when approval is readable and untrusted, red when
+listed and not yet working after the new-episode grace window. Grey is
+not a colour — a harness with no evidence and no matching session is
+omitted.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
 from yoke_core.domain.overview_harness_hook_health import (
-    HOOK_HEALTH_LIVE,
-    HOOK_HEALTH_NOT_SEEN,
-    HOOK_HEALTH_SILENT,
+    HOOK_HEALTH_GREEN,
+    HOOK_HEALTH_ORANGE,
+    HOOK_HEALTH_RED,
+    NEW_EPISODE_GRACE,
     harness_targets,
+    session_identities,
 )
 
 
-def _by_key(identities):
-    return {target["key"]: target for target in harness_targets(identities)}
+def _by_key(identities, reports=None, *, now=None):
+    return {
+        target["key"]: target
+        for target in harness_targets(identities, reports, now=now)
+    }
 
 
-def test_sessions_without_hook_telemetry_report_silent_and_their_surface():
-    targets = _by_key([("codex", "codex-desktop", 0)])
+def _old_episode():
+    return (datetime.now(timezone.utc) - NEW_EPISODE_GRACE - timedelta(seconds=1)).isoformat()
+
+
+def test_sessions_without_telemetry_report_red_after_grace():
+    targets = _by_key(session_identities([
+        ("codex", "codex-desktop", 0, _old_episode(), None),
+    ]))
 
     assert targets["codex"]["hit"] is True
-    assert targets["codex"]["hook_health"] == HOOK_HEALTH_SILENT
+    assert targets["codex"]["hook_health"] == HOOK_HEALTH_RED
     assert targets["codex"]["trust_surface"] == (
         HARNESS_HOOK_APPROVAL["codex"]["trust_surface"]
     )
+    assert "claude-code" not in targets
+    assert "cursor" not in targets
 
 
-def test_one_session_with_hook_telemetry_reports_live():
-    targets = _by_key([("codex", "codex-desktop", 0), ("codex", "", 2)])
+def test_one_session_with_hook_telemetry_reports_green():
+    targets = _by_key(session_identities([
+        ("codex", "codex-desktop", 0, _old_episode(), None),
+        ("codex", "", 2, _old_episode(), None),
+    ]))
 
-    # The family target spans both identities, so the live one carries it.
-    assert targets["codex"]["hook_health"] == HOOK_HEALTH_LIVE
-    assert targets["codex-cli"]["hook_health"] == HOOK_HEALTH_LIVE
-    assert targets["claude-code"]["hook_health"] == HOOK_HEALTH_NOT_SEEN
+    assert targets["codex"]["hook_health"] == HOOK_HEALTH_GREEN
+    assert targets["codex-cli"]["hook_health"] == HOOK_HEALTH_GREEN
 
 
-def test_a_target_no_session_ever_matched_reports_not_seen():
-    targets = _by_key([("codex", "", 1)])
-
-    assert targets["cursor"]["hit"] is False
-    assert targets["cursor"]["hook_health"] == HOOK_HEALTH_NOT_SEEN
-    assert targets["cursor"]["trust_surface"] == (
-        HARNESS_HOOK_APPROVAL["cursor"]["trust_surface"]
+def test_unapproved_report_is_orange_without_a_harness_id_branch():
+    targets = _by_key(
+        [],
+        reports=[{
+            "harness_id": "codex",
+            "glue_present": True,
+            "config_present": True,
+            "approval_state": "unapproved",
+        }],
     )
 
+    assert targets["codex"]["hook_health"] == HOOK_HEALTH_ORANGE
+    assert targets["codex"]["hit"] is False
 
-def test_applicability_follows_the_declaration_not_the_harness_id(monkeypatch):
-    monkeypatch.delitem(HARNESS_HOOK_APPROVAL, "cursor")
 
-    targets = _by_key([("cursor", "cursor-desktop", 0)])
+def test_fresh_episode_without_telemetry_stays_uncoloured():
+    now = datetime.now(timezone.utc)
+    targets = _by_key(
+        session_identities([
+            ("codex", "codex-desktop", 0, now.isoformat(), None),
+        ]),
+        now=now,
+    )
 
-    # Undeclared: hit still reports, health has nothing to remediate.
-    assert targets["cursor"]["hit"] is True
-    assert targets["cursor"]["hook_health"] is None
-    assert targets["cursor"]["trust_surface"] is None
-    # Still-declared harnesses are untouched by the removal.
-    assert targets["codex"]["hook_health"] == HOOK_HEALTH_NOT_SEEN
+    assert targets["codex"]["hit"] is True
+    assert targets["codex"]["hook_health"] is None
+
+
+def test_claude_lists_from_a_session_and_has_no_trust_surface():
+    targets = _by_key(session_identities([
+        ("claude-code", "claude-desktop", 1, _old_episode(), None),
+    ]))
+
+    assert targets["claude-code"]["hook_health"] == HOOK_HEALTH_GREEN
+    assert targets["claude-code"]["trust_surface"] is None
+    assert "claude-code" not in HARNESS_HOOK_APPROVAL

@@ -67,6 +67,7 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
 from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
+from yoke_core.domain.harness_machine_schema import ensure_harness_machine_schema
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_execution_instructions_schema import (
@@ -197,6 +198,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     converge_qa_plan_execution_schema(conn)
     ensure_qa_plan_review_schema(conn)
     ensure_test_machine_schema(conn)
+    ensure_harness_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()

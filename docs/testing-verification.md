@@ -129,6 +129,13 @@ A capability is the configured resource a method may need. Its availability
 is one of: not configured, configured (unverified), ready, in use, or error.
 Serial resources queue while in use; that does not prevent plan attachment.
 
+The Test Mac `machine_browser_approval` gate self-approves by driving a
+visible Safari window on the QA host. No operator browser action is needed.
+Redeeming the one-time code in a parallel browser consumes it and breaks
+the gate (`machine_browser_tab_missing`). The emitted
+`machine_qa.operator_gate` payload carries `self_approving: true` so
+monitors do not relay it as a human handoff.
+
 The Test Mac is one `test-machine` capability, not three separate resources.
 Inspect, update non-secret settings, and verify it with:
 

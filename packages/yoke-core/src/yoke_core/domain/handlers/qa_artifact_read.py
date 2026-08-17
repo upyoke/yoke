@@ -30,6 +30,7 @@ class QaArtifactReadResponse(BaseModel):
     machine: Optional[str] = None
     detail: Optional[str] = None
     expires_in_s: Optional[int] = None
+    path: Optional[str] = None
 
 
 def _inside(path: Path, roots: list[Path]) -> bool:
@@ -112,6 +113,7 @@ def _local_result(row, handle: dict) -> dict:
     return {
         "disposition": "ready",
         "content_base64": base64.b64encode(path.read_bytes()).decode("ascii"),
+        "path": str(path),
     }
 
 

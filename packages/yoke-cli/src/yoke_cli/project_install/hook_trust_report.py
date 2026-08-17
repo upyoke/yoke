@@ -35,6 +35,27 @@ def teaching_for_hooks_key(hooks_key: str) -> Optional[str]:
     return trust_teaching(HARNESS_ID_BY_HOOKS_KEY[hooks_key])
 
 
+def harness_ids_written(install_report: Any) -> List[str]:
+    """Harness ids whose glue this install run wrote or created."""
+    from yoke_cli.project_install.hooks import SETTINGS_FILE_BY_HOOKS_KEY
+
+    if not isinstance(install_report, Mapping):
+        return []
+    rel_to_harness = {
+        settings_rel: HARNESS_ID_BY_HOOKS_KEY[hooks_key]
+        for hooks_key, settings_rel in SETTINGS_FILE_BY_HOOKS_KEY.items()
+        if hooks_key in HARNESS_ID_BY_HOOKS_KEY
+    }
+    written: set[str] = set()
+    hooks_added = install_report.get("hooks_added") or {}
+    created = install_report.get("created_settings_files") or []
+    for rel in list(hooks_added) + list(created):
+        harness_id = rel_to_harness.get(str(rel))
+        if harness_id:
+            written.add(harness_id)
+    return sorted(written)
+
+
 def report_lines(install_report: Any) -> List[str]:
     """Read the approval sentences out of an install report."""
     if not isinstance(install_report, Mapping):
@@ -45,6 +66,7 @@ def report_lines(install_report: Any) -> List[str]:
 __all__ = [
     "HARNESS_ID_BY_HOOKS_KEY",
     "REPORT_KEY",
+    "harness_ids_written",
     "report_lines",
     "teaching_for_hooks_key",
 ]

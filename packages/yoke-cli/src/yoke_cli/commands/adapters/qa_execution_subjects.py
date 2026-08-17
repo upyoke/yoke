@@ -3,15 +3,25 @@
 from __future__ import annotations
 
 import argparse
-from typing import List
+import base64
+import shutil
+import sys
+from pathlib import Path
+from typing import Any, List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
+    ensure_handlers_loaded,
     item_target,
     parse_or_usage_error,
     usage_error,
+)
+from yoke_cli.transport.dispatcher import (
+    build_actor,
+    call_dispatcher,
+    emit_response,
 )
 from yoke_contracts.api.function_call import TargetRef
 
@@ -92,28 +102,65 @@ def qa_plan_rematerialize(args: List[str]) -> int:
 
 
 def qa_artifact_read(args: List[str]) -> int:
-    usage = "yoke qa artifact read --requirement-id N --artifact-id N [--json]"
+    usage = (
+        "yoke qa artifact read --requirement-id N --artifact-id N "
+        "[--output PATH] [--json]"
+    )
     parser = argparse.ArgumentParser(
         prog="yoke qa artifact read",
         description=usage,
     )
     parser.add_argument("--requirement-id", type=int, required=True)
     parser.add_argument("--artifact-id", type=int, required=True)
+    parser.add_argument("--output")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    return dispatch_and_emit(
+    if not parsed.output:
+        return dispatch_and_emit(
+            function_id="qa.artifact.read",
+            target=TargetRef(
+                kind="qa_requirement",
+                qa_requirement_id=parsed.requirement_id,
+            ),
+            payload={"artifact_id": parsed.artifact_id},
+            session_id=parsed.session_id,
+            json_mode=parsed.json_mode,
+        )
+    return _artifact_read_to_path(parsed)
+
+
+def _artifact_read_to_path(parsed: Any) -> int:
+    """Dispatch the read, then land bytes at ``--output`` when present."""
+    ensure_handlers_loaded()
+    response = call_dispatcher(
         function_id="qa.artifact.read",
         target=TargetRef(
             kind="qa_requirement",
             qa_requirement_id=parsed.requirement_id,
         ),
         payload={"artifact_id": parsed.artifact_id},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
+        actor=build_actor(session_id=parsed.session_id),
     )
+    dest = Path(parsed.output).expanduser()
+    result = response.result if response.success else None
+    if isinstance(result, dict):
+        encoded = result.get("content_base64")
+        source = result.get("path")
+        if encoded:
+            dest.write_bytes(base64.b64decode(encoded))
+        elif source and Path(str(source)).is_file():
+            shutil.copyfile(str(source), dest)
+        else:
+            print(
+                "yoke qa artifact read: no portable bytes to write to --output",
+                file=sys.stderr,
+            )
+            return emit_response(response, json_mode=parsed.json_mode)
+        result["path"] = str(dest.resolve())
+    return emit_response(response, json_mode=parsed.json_mode)
 
 
 __all__ = [

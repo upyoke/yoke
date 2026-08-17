@@ -224,6 +224,7 @@ _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     ("project.install", AuthzSpec(CLIENT_LOCAL, None)),
     ("project.refresh", AuthzSpec(CLIENT_LOCAL, None)),
     ("project.uninstall", AuthzSpec(CLIENT_LOCAL, None)),
+    ("harness.machine_report.", AuthzSpec(ACTOR_SESSION, None)),
 )
 
 

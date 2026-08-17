@@ -34,6 +34,20 @@ from yoke_core.domain.installer_campaign_plan_common import (
 _DESTINATION_PICKER_TEXT = ("Where should this Yoke live?",)
 
 
+def _browser_approval_actions() -> list[dict[str, Any]]:
+    return [
+        action("browser-approval"),
+        transition(
+            "operator-browser-approval",
+            "Enter",
+            operator_gate="machine_browser_approval",
+            completion_text=HOSTED_CONNECTED_TEXT,
+            gate_timeout_seconds=600,
+        ),
+        action("hosted-connected"),
+    ]
+
+
 def _hosted_completion_actions(
     *,
     path_needs_repair: bool,
@@ -73,15 +87,7 @@ def _hosted_completion_actions(
                 *CHOOSE_STAGE_KEYS,
                 wait_seconds=10,
             ),
-            action("browser-approval"),
-            transition(
-                "operator-browser-approval",
-                "Enter",
-                operator_gate="machine_browser_approval",
-                completion_text=HOSTED_CONNECTED_TEXT,
-                gate_timeout_seconds=600,
-            ),
-            action("hosted-connected"),
+            *_browser_approval_actions(),
             transition("continue-hosted-connected", "Enter"),
             action("machine-github"),
             transition("machine-github-backlog", *CHOOSE_BACKLOG_KEYS),
@@ -189,7 +195,8 @@ HOSTED_CONNECT = terminal_case(
     instructions=(
         "Launch the current installed release against the Stage hosted "
         "platform, use the browser approval path, and continue only after the "
-        "one-time machine authorization is approved."
+        "automated Safari approval has granted the one-time machine "
+        "authorization. No operator browser action is needed."
     ),
     expected_outcome=(
         "The browser approval screen opens the Stage platform and returns to a "
@@ -199,15 +206,7 @@ HOSTED_CONNECT = terminal_case(
         actions=(
             action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
-            action("browser-approval"),
-            transition(
-                "operator-browser-approval",
-                "Enter",
-                operator_gate="machine_browser_approval",
-                completion_text=HOSTED_CONNECTED_TEXT,
-                gate_timeout_seconds=600,
-            ),
-            action("hosted-connected"),
+            *_browser_approval_actions(),
         ),
         expected_text=(
             "Yoke is already on your PATH.",

@@ -206,18 +206,13 @@ def test_harness_targets_hit_from_executor_and_surface_values(test_db):
         "codex": True,
         "cursor": True,
         "claude-cli": True,
-        # No bare codex session: the desktop surface alone lights the family.
-        "codex-cli": False,
-        # Cursor lights CLI/IDE from display aliases, not bare sessions.
-        "cursor-cli": False,
         "claude-vscode": True,
         "cursor-desktop": True,
     }
     labels = [t["label"] for t in harness["targets"]]
     assert labels == [
         "Claude Code", "Codex", "Cursor",
-        "Claude CLI", "Codex CLI", "Cursor CLI",
-        "Claude in VS Code", "Cursor IDE",
+        "Claude CLI", "Claude in VS Code", "Cursor IDE",
     ]
     assert harness["connected"]["executor"] in {
         "claude-code", "codex", "cursor",
@@ -234,7 +229,7 @@ def test_latch_holds_activated_while_hook_health_regresses(test_db):
     test_db.commit()
     harness = _modules_by_key(_get())["connect_harness"]
     assert harness["state"] == "activated"
-    assert _targets(harness)["codex"]["hook_health"] == "hooks_live"
+    assert _targets(harness)["codex"]["hook_health"] == "green"
 
     # A glue update re-keys the harness's approval, so the sessions that
     # follow run hookless. The latch is monotone; health is not.
@@ -242,7 +237,7 @@ def test_latch_holds_activated_while_hook_health_regresses(test_db):
     test_db.commit()
     harness = _modules_by_key(_get())["connect_harness"]
     assert harness["state"] == "activated"
-    assert _targets(harness)["codex"]["hook_health"] == "hooks_silent"
+    assert _targets(harness)["codex"]["hook_health"] == "red"
 
 
 def test_project_rows_carry_most_recent_workspace_or_none(test_db):

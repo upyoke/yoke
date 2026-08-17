@@ -236,7 +236,7 @@ test("a registered but hookless harness reads warn with its remediation", async 
       connect_harness: {
         targets: harnessTargets(
           { codex: true, "codex-cli": true },
-          { codex: "hooks_silent", "codex-cli": "hooks_silent" },
+          { codex: "orange", "codex-cli": "orange" },
           { codex: surface, "codex-cli": surface },
         ),
         projects: [],
@@ -249,16 +249,15 @@ test("a registered but hookless harness reads warn with its remediation", async 
   const harness = moduleCards(root)[1];
   const chips = byClass(harness, "activation-target");
   // Registered, so it is a hit — but never the green a working harness reads.
-  assert.equal(chips[1].textContent, "Codex ⚠");
+  assert.equal(chips[1].textContent, "Codex");
   assert.equal(chips[1].attributes.get("data-hit"), "true");
-  assert.equal(chips[1].attributes.get("data-hook-health"), "hooks_silent");
+  assert.equal(chips[1].attributes.get("data-hook-health"), "orange");
   const remediation = byClass(harness, "activation-remediation");
-  // One line per approval surface, not one per silent chip.
+  // One line per approval surface, not one per orange chip.
   assert.equal(remediation.length, 1);
   assert.equal(
     remediation[0].textContent,
-    "Sessions detected but hooks are not firing — trust this project's " +
-    `hooks in ${surface}.`,
+    "Waiting on you — trust this project's hooks in " + `${surface}.`,
   );
   mounted.unmount();
 });

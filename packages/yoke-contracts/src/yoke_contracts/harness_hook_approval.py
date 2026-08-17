@@ -1,11 +1,14 @@
 """Per-harness hook-approval gates and the trust teaching they render.
 
-A harness runs Yoke's hook chain only after the operator approves it for
-that project. Codex records a per-hook ``trusted_hash`` keyed by the hook
-file's path and content; Claude Code and Cursor gate on their own
-per-folder approval. Every one of them fails *silently* when approval is
-missing — the harness simply never runs the hooks, so nothing errors and
-the session looks ordinary while none of its telemetry is written.
+A harness runs Yoke's hook chain only after the operator approves it when
+that harness has a readable approval gate. Codex records a per-hook
+``trusted_hash`` keyed by the hook file's path and content. Cursor still
+shows an approval prompt, but that receipt is not machine-readable.
+Claude Code does not gate hooks on folder-trust on the probed builds.
+A harness with no gate is absent from the mapping below. When a gate
+exists and approval is missing, the harness simply never runs the hooks,
+so nothing errors and the session looks ordinary while none of its
+telemetry is written.
 
 Two surfaces in different packages have to agree about that gate:
 
@@ -28,10 +31,6 @@ from typing import Dict, Mapping, Optional
 
 
 HARNESS_HOOK_APPROVAL: Dict[str, Mapping[str, str]] = {
-    "claude-code": {
-        "trust_surface": "Claude Code's folder-trust prompt",
-        "grant_scope": "per project folder",
-    },
     "codex": {
         "trust_surface": "Codex's hook-trust prompt",
         "grant_scope": (

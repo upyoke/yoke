@@ -81,6 +81,7 @@ def _emit_browser_approval(url: str, code: str) -> None:
                 "approval_automation": "self_approving_visible_safari",
                 "event": "machine_qa.operator_gate",
                 "kind": "machine_browser_approval",
+                "self_approving": True,
                 "url": url,
                 "code": code,
             },

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 
-TOTAL_TIMEOUT_DEFAULT_MS = 3000
+TOTAL_TIMEOUT_DEFAULT_MS = 10000
 TOTAL_TIMEOUT_ENV = "YOKE_HOOK_TOTAL_TIMEOUT_MS"
 
 Clock = Callable[[], float]

@@ -83,6 +83,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "Run the QA gate under the shared raw+progress watcher; pass bare "
         "`qa case run` flags after `--`."
     ),
+    "yoke watch qa-plan": (
+        "Run a QA plan under the shared raw+progress watcher; pass bare "
+        "`qa plan run` flags after `--`."
+    ),
     "yoke watch tail": (
         "Follow a watcher progress capture and exit on the wrapper's exit sentinel."
     ),

@@ -137,6 +137,16 @@ def install(
         session_id=None,
     )
     report["machine_config_newly_registered"] = registered
+    try:
+        from yoke_cli.project_install.harness_machine_persist import (
+            persist_install_glue,
+        )
+
+        persist_install_glue(root, int(resolved_id), report)
+    except Exception as exc:
+        report.setdefault("warnings", []).append(
+            f"harness machine report was not persisted: {exc}"
+        )
     return report
 
 

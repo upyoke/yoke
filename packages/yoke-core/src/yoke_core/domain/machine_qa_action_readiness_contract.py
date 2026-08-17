@@ -8,6 +8,22 @@ from typing import Any
 
 StringListValidator = Callable[..., list[str]]
 
+READY_TIMEOUT_MAX_SECONDS = 300.0
+
+
+def bound_ready_timeout_seconds(timeout: object) -> float:
+    """Return a ready timeout inside the shared authoring/execution bound."""
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not 0 < float(timeout) <= READY_TIMEOUT_MAX_SECONDS
+    ):
+        raise ValueError(
+            "action ready_timeout_seconds must be numeric from "
+            f"0..{int(READY_TIMEOUT_MAX_SECONDS)}"
+        )
+    return float(timeout)
+
 
 def normalize_action_readiness(
     action: Mapping[str, Any],
@@ -23,16 +39,10 @@ def normalize_action_readiness(
         )
     if "ready_timeout_seconds" not in action:
         return normalized
-    timeout = action["ready_timeout_seconds"]
-    if (
-        isinstance(timeout, bool)
-        or not isinstance(timeout, (int, float))
-        or not 0 < float(timeout) <= 300
-    ):
-        raise ValueError("action ready_timeout_seconds must be numeric from 0..300")
+    timeout = bound_ready_timeout_seconds(action["ready_timeout_seconds"])
     if "ready_text" not in normalized:
         raise ValueError("action ready_timeout_seconds requires ready_text")
-    normalized["ready_timeout_seconds"] = float(timeout)
+    normalized["ready_timeout_seconds"] = timeout
     return normalized
 
 
@@ -48,4 +58,9 @@ def registered_terminal_post_check(value: str) -> bool:
     return False
 
 
-__all__ = ["normalize_action_readiness", "registered_terminal_post_check"]
+__all__ = [
+    "READY_TIMEOUT_MAX_SECONDS",
+    "bound_ready_timeout_seconds",
+    "normalize_action_readiness",
+    "registered_terminal_post_check",
+]

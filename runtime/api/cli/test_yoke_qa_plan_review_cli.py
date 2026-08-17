@@ -111,5 +111,49 @@ def test_review_submit_cli_sends_complete_stdin_batch(capsys) -> None:
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
+
+
+def test_review_submit_exits_zero_when_verdicts_persisted_on_needs_review(
+    capsys,
+) -> None:
+    payload = {
+        "verdicts": [
+            {
+                "requirement_id": 41,
+                "verdict": "inconclusive",
+                "rationale": "Needs a human look.",
+            }
+        ]
+    }
+    with (
+        mock.patch.object(sys, "stdin", io.StringIO(json.dumps(payload))),
+        mock.patch.object(
+            qa_plan_review_cli,
+            "_call_plan_function",
+            return_value={
+                "execution_id": "execution-1",
+                "bundle_id": "bundle-1",
+                "state": "needs_review",
+                "submission": "persisted",
+                "verdicts": payload["verdicts"],
+            },
+        ) as submit,
+    ):
+        code = qa_plan_review_cli.run(
+            [
+                "--item-id",
+                "42",
+                "--execution-id",
+                "execution-1",
+                "--bundle-id",
+                "bundle-1",
+                "--bundle-digest",
+                "a" * 64,
+                "--stdin",
+            ]
+        )
+
+    assert code == 0
+    assert json.loads(capsys.readouterr().out)["submission"] == "persisted"
     assert submit.call_args.kwargs["function_id"] == "qa.plan_review.submit"
     assert submit.call_args.kwargs["payload"]["verdicts"] == payload["verdicts"]

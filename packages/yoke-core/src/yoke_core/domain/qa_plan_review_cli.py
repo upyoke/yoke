@@ -72,6 +72,8 @@ def run(args: List[str]) -> int:
         print(f"yoke qa plan review-submit: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result, sort_keys=True))
+    if result.get("submission") == "persisted":
+        return 0
     return 1 if result.get("state") in {"failed", "needs_review"} else 0
 
 

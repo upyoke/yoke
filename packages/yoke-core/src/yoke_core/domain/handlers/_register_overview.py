@@ -41,7 +41,7 @@ def register(registry) -> None:
         side_effects=["overview_activation_facts_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
-        adapter_status="internal",
+        adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
     )

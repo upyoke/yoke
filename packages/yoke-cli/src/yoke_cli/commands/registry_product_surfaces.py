@@ -1,9 +1,11 @@
 """Registry rows for workflow-aware product surfaces."""
 
 from yoke_cli.commands.adapters import (
+    harness_machine_report,
     inbox_decisions,
     item_worktree_create,
     item_worktrees,
+    overview,
     qa_catalog,
     qa_catalog_defaults,
     qa_plan_edit,
@@ -116,8 +118,20 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+OVERVIEW_SUBCOMMAND_REGISTRY = {
+    ("overview", "activation", "get"): (
+        "overview.activation.get",
+        overview.overview_activation_get,
+    ),
+    ("harness", "machine-report", "upsert"): (
+        "harness.machine_report.upsert",
+        harness_machine_report.harness_machine_report_upsert,
+    ),
+}
+
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
+    **OVERVIEW_SUBCOMMAND_REGISTRY,
     **EXECUTION_INSTRUCTION_SUBCOMMAND_REGISTRY,
     **INBOX_DECISION_SUBCOMMAND_REGISTRY,
     **ITEM_PAGE_SUBCOMMAND_REGISTRY,
