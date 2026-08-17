@@ -190,7 +190,10 @@ def _minimal_architecture_model() -> Dict[str, Any]:
     return {
         "edge_semantics": "explicit_only",
         "domains": [
-            {"id": "claims", "path_roots": ["runtime/api/domain/path_claims*.py"]},
+            {"id": "claims", "path_roots": [
+                {"glob": "src/pkg/path_claims*.py",
+                 "layer": "schema_storage"},
+            ]},
         ],
         "layers": [
             {"id": "schema_storage",
@@ -201,7 +204,7 @@ def _minimal_architecture_model() -> Dict[str, Any]:
              "forbidden_edges": []},
         ],
         "cross_cutting_entrypoints": {
-            "db_path": {
+            "storage_access": {
                 "approved_modules": [
                     "yoke_core.domain.db_helpers",
                     "yoke_core.cli.db_router",
@@ -245,22 +248,26 @@ class TestArchitectureModelFamily:
             )
 
     @pytest.mark.parametrize("mutate,match", [
-        (lambda p: p.pop("domains"), "non-empty 'domains' list"),
+        (lambda p: p.pop("domains"), "'domains' list"),
         (lambda p: p.pop("layers"), "non-empty 'layers' list"),
-        (lambda p: p.pop("cross_cutting_entrypoints"),
-         "non-empty 'cross_cutting_entrypoints' object"),
         (lambda p: p["domains"].append(
-            {"id": "claims", "path_roots": ["x"]}),
+            {"id": "claims", "path_roots": [
+                {"glob": "x", "layer": "schema_storage"}]}),
          "duplicate domain id"),
+        (lambda p: p["domains"][0]["path_roots"].__setitem__(0, "bare"),
+         "must be a .glob, layer. object"),
+        (lambda p: p["domains"][0]["path_roots"][0].__setitem__(
+            "layer", "ghost"),
+         "must name a declared layer"),
         (lambda p: p["layers"].append(
             {"id": "schema_storage", "may_depend_on": [], "forbidden_edges": []}),
          "duplicate layer id"),
         (lambda p: p["layers"][1]["may_depend_on"].append("ghost"),
          "references unknown layer"),
         (lambda p: p["cross_cutting_entrypoints"].__setitem__(
-            "db_path", {"approved_modules": []}),
+            "storage_access", {"approved_modules": []}),
          "non-empty 'approved_modules' list"),
-        (lambda p: p["cross_cutting_entrypoints"]["db_path"].__setitem__(
+        (lambda p: p["cross_cutting_entrypoints"]["storage_access"].__setitem__(
             "guarded_imports", ["sqlite3."]),
          "module.symbol"),
     ])
@@ -277,10 +284,10 @@ class TestArchitectureModelFamily:
 
     def test_approved_module_prefixes_optional(self, initialized_db: str):
         payload = _minimal_architecture_model()
-        payload["cross_cutting_entrypoints"]["db_path"][
+        payload["cross_cutting_entrypoints"]["storage_access"][
             "approved_module_prefixes"
         ] = ["yoke_core.domain.db_helpers_"]
-        payload["cross_cutting_entrypoints"]["db_path"][
+        payload["cross_cutting_entrypoints"]["storage_access"][
             "guarded_imports"
         ] = ["sqlite3.connect"]
         ps.apply_patch(

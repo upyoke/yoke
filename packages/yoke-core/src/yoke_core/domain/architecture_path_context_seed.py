@@ -19,7 +19,6 @@ segment, ``**`` crosses segments.
 
 from __future__ import annotations
 
-import glob as _glob
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Pattern, Tuple
@@ -49,9 +48,25 @@ class SeedResult:
 
 
 def _compile(pattern: str) -> Pattern[str]:
-    return re.compile(
-        _glob.translate(pattern, recursive=True, include_hidden=True)
-    )
+    """Compile a map glob: ``*``/``?`` stay inside one path segment,
+    ``**`` crosses segments. Self-contained so every supported runtime
+    agrees on the semantics."""
+    out: List[str] = []
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "*":
+            if pattern[i:i + 2] == "**":
+                out.append(".*")
+                i += 2
+                continue
+            out.append("[^/]*")
+        elif ch == "?":
+            out.append("[^/]")
+        else:
+            out.append(re.escape(ch))
+        i += 1
+    return re.compile("".join(out) + r"\Z")
 
 
 def _matchers(

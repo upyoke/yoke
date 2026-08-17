@@ -57,7 +57,9 @@ class TestBuildEnvelope:
         assert env["severity"] == "INFO"
         assert env["event_outcome"] == "completed"
         assert env["service"] == "cli"
-        assert env["project"] == "yoke"
+        # No explicit project: the envelope stays unattributed rather
+        # than inheriting one particular project's identity.
+        assert env["project"] == ""
         assert "event_id" in env
         assert "created_at" in env
 

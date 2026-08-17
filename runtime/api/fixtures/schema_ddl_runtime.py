@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS events (
     actor_id INTEGER,
     environment TEXT,
     service TEXT NOT NULL DEFAULT 'cli',
-    project_id INTEGER REFERENCES projects(id),
+    project_id INTEGER,
     item_id TEXT,
     task_num INTEGER,
     agent TEXT,
