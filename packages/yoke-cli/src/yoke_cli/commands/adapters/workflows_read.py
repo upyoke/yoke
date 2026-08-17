@@ -36,8 +36,14 @@ WORKFLOWS_ITEM_GET_USAGE = (
     "yoke workflows item get ITEM [--project P] [--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_MIGRATE_USAGE = (
-    "yoke workflows item migrate ITEM [--version N] [--project P] "
+    "yoke workflows item migrate ITEM [--version N] [--preview] [--project P] "
     "[--session-id S] [--json]"
+)
+WORKFLOWS_ITEM_MIGRATE_DESCRIPTION = (
+    f"{WORKFLOWS_ITEM_MIGRATE_USAGE}\n\n"
+    "Requires authority from an operator-started session. A human operator "
+    "must establish that authority; agents must not change their own session "
+    "mode to self-authorize."
 )
 
 
@@ -178,10 +184,15 @@ def workflows_item_get(args: List[str]) -> int:
 def workflows_item_migrate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item migrate",
-        description=WORKFLOWS_ITEM_MIGRATE_USAGE,
+        description=WORKFLOWS_ITEM_MIGRATE_DESCRIPTION,
     )
     parser.add_argument("item")
     parser.add_argument("--version", type=int, default=None)
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="Return migration conflicts without changing the item pin.",
+    )
     parser.add_argument("--project", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -196,6 +207,18 @@ def workflows_item_migrate(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         after = result.get("after") or {}
+        if result.get("preview"):
+            conflicts = result.get("conflicts") or []
+            print(
+                f"item-workflow-preview|{str(not conflicts).lower()}|"
+                f"{after.get('workflow_id') or ''}|"
+                f"{after.get('workflow_version') or ''}|"
+                f"{after.get('status') or ''}",
+                file=stdout,
+            )
+            for conflict in conflicts:
+                print(f"conflict|{conflict}", file=stdout)
+            return
         print(
             f"item-workflow-migrated|{str(bool(result.get('changed'))).lower()}|"
             f"{after.get('workflow_id') or ''}|"
@@ -207,6 +230,8 @@ def workflows_item_migrate(args: List[str]) -> int:
     payload: Dict[str, Any] = {}
     if parsed.version is not None:
         payload["version"] = parsed.version
+    if parsed.preview:
+        payload["preview"] = True
     return dispatch_and_emit(
         function_id="workflows.item.migrate",
         target=item_target("item", parsed.item, parsed.project),

@@ -198,13 +198,28 @@ def _ensure_terminal_semantics_preserved(
     )
 
 
+def _preview_result(
+    before: dict[str, Any],
+    after: Optional[dict[str, Any]] = None,
+    conflicts: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    return {
+        "changed": False,
+        "before": before,
+        "after": before if after is None else after,
+        "preview": True,
+        "conflicts": list(conflicts),
+    }
+
+
 def migrate_item_workflow_pin(
     conn: Any,
     *,
     item_id: int,
     target_version: Optional[int] = None,
+    preview: bool = False,
 ) -> dict[str, Any]:
-    """Move one item to a compatible version of its existing workflow."""
+    """Inspect or move one item to a compatible workflow version."""
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
         source_runtime = load_item_workflow_runtime(conn, int(item_id))
@@ -215,6 +230,9 @@ def migrate_item_workflow_pin(
             version=target_version,
         )
         if int(target["workflow_version_id"]) == int(before["workflow_version_id"]):
+            if preview:
+                conn.rollback()
+                return _preview_result(before)
             conn.commit()
             return {"changed": False, "before": before, "after": before}
 
@@ -270,6 +288,15 @@ def migrate_item_workflow_pin(
             target_stage=new_status,
             posture=posture,
         )
+        if preview:
+            projected_after = _inspect_item_workflow_pin(
+                conn,
+                int(item_id),
+                target_runtime,
+            )
+            projected_after["status"] = new_status
+            conn.rollback()
+            return _preview_result(before, projected_after, binding_conflicts)
         if binding_conflicts:
             raise WorkflowRegistryError(
                 "target workflow version is incompatible with live item bindings: "

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.backlog import insert_qa_requirement
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -156,6 +157,58 @@ def test_item_migrate_moves_only_compatible_target(test_db):
     assert (
         outcome.result_payload["after"]["workflow_version"] == converged + 1
     )
+
+
+def test_item_migrate_preview_returns_conflicts_without_moving_pin(test_db):
+    insert_item(test_db, id=943, workflow_id="issue", status="implementing")
+    before = current_workflow_version(test_db, "issue")
+    definition = builtin_workflow_definition("issue")["definition"]
+    review_stage = next(
+        stage
+        for stage in definition["stages"]
+        if stage["id"] == "reviewed-implementation"
+    )
+    review_stage["gates"] = [
+        gate for gate in review_stage["gates"] if gate["id"] != "qa_verification"
+    ]
+    target = publish_workflow_version(
+        test_db,
+        workflow_id="issue",
+        definition=definition,
+    )
+    insert_qa_requirement(test_db, item_id=943)
+
+    outcome = handle_workflows_item_migrate(
+        _request(
+            "workflows.item.migrate",
+            target=TargetRef(kind="item", item_id=943),
+            payload={"version": target["version"], "preview": True},
+        )
+    )
+
+    assert outcome.primary_success
+    assert outcome.result_payload["preview"] is True
+    assert outcome.result_payload["changed"] is False
+    assert len(outcome.result_payload["conflicts"]) == 1
+    assert "QA gate semantics changed" in outcome.result_payload["conflicts"][0]
+    assert outcome.result_payload["after"]["workflow_version"] == target["version"]
+    assert current_workflow_version(test_db, "issue") == target["version"]
+    pinned = test_db.execute(
+        "SELECT workflow_version_id FROM items WHERE id = %s", (943,)
+    ).fetchone()[0]
+    assert int(pinned) != int(target["version_id"])
+    assert outcome.result_payload["before"]["workflow_version"] == before
+
+    same_pin = handle_workflows_item_migrate(
+        _request(
+            "workflows.item.migrate",
+            target=TargetRef(kind="item", item_id=943),
+            payload={"version": before, "preview": True},
+        )
+    )
+    assert same_pin.primary_success
+    assert same_pin.result_payload["preview"] is True
+    assert same_pin.result_payload["conflicts"] == []
 
 
 def test_versioning_handlers_validate_targets():

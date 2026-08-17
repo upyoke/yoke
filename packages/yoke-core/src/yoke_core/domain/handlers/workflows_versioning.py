@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -97,12 +97,15 @@ class WorkflowPolicyDefaultsPublishResponse(BaseModel):
 
 class WorkflowItemMigrateRequest(BaseModel):
     version: Optional[int] = None
+    preview: bool = False
 
 
 class WorkflowItemMigrateResponse(BaseModel):
     changed: bool
     before: Dict[str, Any]
     after: Dict[str, Any]
+    preview: bool = False
+    conflicts: List[str] = Field(default_factory=list)
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -133,9 +136,7 @@ def handle_workflows_item_get(
             "$.target",
         )
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.workflow_item_versioning import (
-        inspect_item_workflow_pin,
-    )
+    from yoke_core.domain.workflow_item_versioning import inspect_item_workflow_pin
 
     try:
         with connect() as conn:
@@ -312,12 +313,8 @@ def handle_workflows_item_migrate(
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.workflow_definition_codec import (
-        WorkflowRegistryError,
-    )
-    from yoke_core.domain.workflow_item_versioning import (
-        migrate_item_workflow_pin,
-    )
+    from yoke_core.domain.workflow_definition_codec import WorkflowRegistryError
+    from yoke_core.domain.workflow_item_versioning import migrate_item_workflow_pin
 
     try:
         with connect() as conn:
@@ -325,6 +322,7 @@ def handle_workflows_item_migrate(
                 conn,
                 item_id=int(item_id),
                 target_version=payload.version,
+                preview=payload.preview,
             )
     except WorkflowRegistryError as exc:
         return _error("incompatible", str(exc), "$.payload.version")

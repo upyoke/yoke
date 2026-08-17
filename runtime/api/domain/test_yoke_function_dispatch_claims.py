@@ -330,6 +330,8 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "operator_override_required")
+        self.assertIn("operator-started session", resp.error.recovery_hint or "")
+        self.assertIn("not sanctioned remediation", resp.error.recovery_hint or "")
 
 
 if __name__ == "__main__":

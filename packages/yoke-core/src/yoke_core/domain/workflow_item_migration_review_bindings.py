@@ -6,9 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.qa_workflow_binding_validation import (
-    qa_enforcement_signature,
-)
+from yoke_core.domain.qa_workflow_binding_validation import qa_enforcement_signature
 from yoke_core.domain.workflow_gate_catalog import (
     GATE_APPROVAL,
     GATE_QA_VERIFICATION,
@@ -24,6 +22,7 @@ from yoke_core.domain.workflow_item_migration_common import (
 )
 from yoke_core.domain.workflow_item_migration_qa_phase_anchor import (
     phase_anchored_qa_conflict,
+    qa_conflict,
 )
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
@@ -190,6 +189,7 @@ def _qa_conflicts(
     conflicts: list[str] = []
     for kind, binding_id, raw_stage in bindings:
         label = f"{kind} {binding_id}"
+        waiver_id = int(binding_id) if kind == QA_REQUIREMENT_BINDING_KIND else None
         stage_id = str(raw_stage or "")
         if not stage_id:
             # Requirements that predate stage linkage are enforced by
@@ -199,6 +199,7 @@ def _qa_conflicts(
                     source,
                     target,
                     binding=label,
+                    requirement_id=int(binding_id),
                 )
                 if phase_conflict:
                     conflicts.append(phase_conflict)
@@ -214,19 +215,19 @@ def _qa_conflicts(
         if stage_conflict:
             conflicts.append(stage_conflict)
             continue
-        source_enforcement = qa_enforcement_signature(source, stage_id)
-        target_enforcement = qa_enforcement_signature(target, stage_id)
-        if not source_enforcement or not target_enforcement:
-            conflicts.append(f"{label} QA gate semantics changed")
+        source_qa = qa_enforcement_signature(source, stage_id)
+        target_qa = qa_enforcement_signature(target, stage_id)
+        if not source_qa or not target_qa:
+            conflicts.append(qa_conflict(label, source_qa, target_qa, waiver_id))
             continue
         mapped_source_enforcement = tuple(
             (mapped_stage(source, target, gate_stage), mode)
-            for gate_stage, mode in source_enforcement
+            for gate_stage, mode in source_qa
         )
-        if mapped_source_enforcement != target_enforcement or source.policies.get(
+        if mapped_source_enforcement != target_qa or source.policies.get(
             "qa"
         ) != target.policies.get("qa"):
-            conflicts.append(f"{label} QA gate semantics changed")
+            conflicts.append(qa_conflict(label, source_qa, target_qa, waiver_id))
     return conflicts
 
 
