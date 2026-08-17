@@ -10,8 +10,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.test_machine import _failure
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa import _failure
+from yoke_core.domain.handlers.machine_qa_case import (
     TestMachineCaseExecuteResponse,
     TestMachineCaseSubmitRequest,
     _load_case,
@@ -19,7 +19,7 @@ from yoke_core.domain.handlers.test_machine_case import (
     _target_requirement,
     _waiting_result,
 )
-from yoke_core.domain.handlers.test_machine_baseline_group_context import (
+from yoke_core.domain.handlers.machine_qa_baseline_group_context import (
     baseline_group_cases as _baseline_group_cases,
 )
 from yoke_core.domain.machine_qa_execution_contract import (
@@ -32,7 +32,7 @@ from yoke_core.domain.machine_qa_submission_recording import (
     rollback_machine_submission,
     validate_case_submission,
 )
-from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
+from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 
 
 class TestMachineBaselineGroupExecuteRequest(BaseModel):
@@ -168,7 +168,7 @@ def _record_failed_baseline(
     from yoke_core.domain.machine_qa_execution_protocol import (
         commit_deferred_connection,
     )
-    from yoke_core.domain.test_machine_verification_recording import (
+    from yoke_core.domain.machine_verification_recording import (
         record_test_machine_verification,
         recorded_test_machine_verification,
     )

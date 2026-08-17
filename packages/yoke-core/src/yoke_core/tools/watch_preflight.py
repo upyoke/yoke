@@ -38,7 +38,7 @@ PREFLIGHT_SUMMARY_RE = re.compile(
     re.IGNORECASE,
 )
 PREFLIGHT_PROGRESS_RE = re.compile(
-    r"(^environment:|^rehearsal cluster:"
+    r"(^engine artifact:|^environment:|^rehearsal cluster:"
     r"|^\s*(?:copy(?:ing)?|converg(?:e|ing))\b)",
     re.IGNORECASE,
 )
@@ -72,11 +72,13 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 HELP_EPILOG = """\
 examples:
-  yoke watch preflight -- prod-db-admin --record-receipt \\
+  yoke watch preflight -- prod-db-admin \\
+      --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
       --product-sha SHA --receipt-env prod
 
   yoke watch preflight --print-streaming-pair -- \\
-      prod-db-admin --record-receipt --product-sha SHA --receipt-env prod
+      prod-db-admin --engine-wheel /path/to/yoke_core-release.whl \\
+      --record-receipt --product-sha SHA --receipt-env prod
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m runtime.api.tools.preflight_fleet_migrations``.

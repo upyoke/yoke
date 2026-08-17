@@ -9,9 +9,13 @@ from packaging.requirements import Requirement
 
 from yoke_core.tools import (
     package_index,
+    wheel_module_completeness,
     wheel_record_validation,
     wheel_sibling_pins,
 )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_built_product_wheels_pin_sibling_requires_dist(
@@ -29,8 +33,7 @@ def test_built_product_wheels_pin_sibling_requires_dist(
     for record in product_records:
         wheel = product_wheelhouse / record.filename
         requirements = [
-            Requirement(raw)
-            for raw in wheel_sibling_pins.wheel_requires_dist(wheel)
+            Requirement(raw) for raw in wheel_sibling_pins.wheel_requires_dist(wheel)
         ]
         wheel_sibling_pins.assert_wheel_siblings_pinned(
             wheel, package_index.PRODUCT_PACKAGE_NAMES, version
@@ -38,8 +41,7 @@ def test_built_product_wheels_pin_sibling_requires_dist(
         wheel_record_validation.assert_wheel_record_valid(wheel)
         if record.canonical_name == "yoke-core":
             assert any(
-                requirement.name == "packaging"
-                for requirement in requirements
+                requirement.name == "packaging" for requirement in requirements
             ), "yoke-core must declare its direct packaging dependency"
 
 
@@ -76,8 +78,10 @@ def test_yoke_core_wheel_carries_hooks_without_source_test_helpers(
         "yoke_core/hooks/runner.py",
         "yoke_core/hooks/session_dispatch.py",
         "yoke_core/hooks/telemetry.py",
+        "yoke_core/domain/machine_verification_schema.py",
     ):
         assert member in members
+    assert "yoke_core/domain/test_machine_schema.py" not in members
     test_markers = (
         "_test_fixtures.py",
         "_test_helpers.py",
@@ -90,10 +94,15 @@ def test_yoke_core_wheel_carries_hooks_without_source_test_helpers(
         if member.startswith("yoke_core/")
         and not member.startswith("yoke_core/install_bundle_tree/")
         and member.endswith(".py")
-        and (
-            "/tests/" in member
-            or member.rsplit("/", 1)[-1].startswith("test_")
-            or member.endswith(test_markers)
-        )
+        and ("/tests/" in member or member.endswith(test_markers))
     )
     assert leaked == []
+
+
+def test_yoke_core_wheel_matches_source_runtime_modules(
+    product_wheelhouse: Path,
+) -> None:
+    wheel = next(product_wheelhouse.glob("yoke_core-*.whl"))
+    package_root = REPO_ROOT / "packages/yoke-core/src/yoke_core"
+
+    wheel_module_completeness.assert_wheel_module_completeness(package_root, wheel)

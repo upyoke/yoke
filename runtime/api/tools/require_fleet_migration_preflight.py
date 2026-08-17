@@ -69,7 +69,8 @@ def _yoke_fleet_rehearse_command(
     )
     return (
         "yoke watch preflight -- "
-        f"{admin_env} --record-receipt --product-sha <sha> "
+        f"{admin_env} --engine-wheel <release-yoke-core-wheel> "
+        "--record-receipt --product-sha <sha> "
         f"--receipt-env {receipt_env_arg}"
     )
 

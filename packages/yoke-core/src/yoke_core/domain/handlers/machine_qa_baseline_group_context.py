@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.handlers.test_machine_case import _is_machine_case
+from yoke_core.domain.handlers.machine_qa_case import _is_machine_case
 
 
 def baseline_group_cases(

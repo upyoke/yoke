@@ -40,6 +40,7 @@ SOURCE_TYPE = "script"
 ENVIRONMENT_KEY = "environment"
 ENTRIES_KEY = "entries"
 PRODUCT_SHA_KEY = "product_sha"
+ENGINE_ARTIFACT_KEY = "engine_artifact"
 
 #: Suffix on the admin connection the preflight runs against. The connection
 #: names a cluster; a receipt names the environment a release targets, and
@@ -65,16 +66,23 @@ def admin_connection_for_environment(environment: str) -> str:
 
 
 def receipt_context(
-    environment: str, product_sha: str, entries: Sequence[str]
+    environment: str,
+    product_sha: str,
+    entries: Sequence[str],
+    *,
+    engine_artifact: Mapping[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """The event context a passing rehearsal records."""
-    return {
+    context = {
         ENVIRONMENT_KEY: target_environment_for_admin_env(environment),
         PRODUCT_SHA_KEY: product_sha.strip(),
         # Sorted so two receipts covering the same entries are comparable by
         # eye in an audit listing, where the emission order is meaningless.
         ENTRIES_KEY: sorted({e.strip() for e in entries if e.strip()}),
     }
+    if engine_artifact:
+        context[ENGINE_ARTIFACT_KEY] = dict(engine_artifact)
+    return context
 
 
 def _context_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -107,9 +115,7 @@ def _context_of(row: Mapping[str, Any]) -> Mapping[str, Any]:
     return context
 
 
-def covered_entries(
-    rows: Iterable[Mapping[str, Any]], environment: str
-) -> frozenset:
+def covered_entries(rows: Iterable[Mapping[str, Any]], environment: str) -> frozenset:
     """Every history entry some passing receipt covers for one environment."""
     wanted = target_environment_for_admin_env(environment)
     covered = set()

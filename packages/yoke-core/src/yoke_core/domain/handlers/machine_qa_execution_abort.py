@@ -7,8 +7,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.test_machine import _failure
-from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
+from yoke_core.domain.handlers.machine_qa import _failure
+from yoke_core.domain.machine_qa_capability import TestMachineCapabilityError
 
 
 AbortReason = Literal[
@@ -120,7 +120,7 @@ def _case_target(
     request: FunctionCallRequest,
     function_id: str,
 ) -> int | HandlerOutcome:
-    from yoke_core.domain.handlers.test_machine_case import _target_requirement
+    from yoke_core.domain.handlers.machine_qa_case import _target_requirement
 
     return _target_requirement(request, function_id)
 
@@ -136,7 +136,7 @@ def handle_case_abort(request: FunctionCallRequest) -> HandlerOutcome:
     except ValidationError as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.handlers.test_machine_case import (
+    from yoke_core.domain.handlers.machine_qa_case import (
         _load_case,
         contract_baseline,
     )
@@ -179,7 +179,7 @@ def handle_baseline_group_abort(
     except ValidationError as exc:
         return _failure("payload_invalid", str(exc))
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.handlers.test_machine_case import (
+    from yoke_core.domain.handlers.machine_qa_case import (
         _baseline_group_cases,
         _load_case,
     )

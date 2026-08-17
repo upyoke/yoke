@@ -15,7 +15,7 @@ from yoke_core.domain.qa_plan_attachments import (
     materialize_for_item,
 )
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
-from yoke_core.domain.test_machine_capability import (
+from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
 )
 from yoke_contracts.api.function_call import (

@@ -28,7 +28,7 @@ from yoke_core.domain.machine_qa_pack import (
     load_machine_qa_methods,
     sync_machine_qa_pack_methods,
 )
-from yoke_core.domain.test_machine_capability import (
+from yoke_core.domain.machine_qa_capability import (
     replace_test_machine_settings,
     test_machine_detail as read_test_machine_detail,
 )

@@ -9,6 +9,7 @@ would. The live databases are only read.
 Usage::
 
     yoke watch preflight -- <env-name> [db ...]
+        [--engine-wheel PATH]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
 
 where *env-name* is a configured admin connection (``prod-db-admin`` or
@@ -23,6 +24,12 @@ recorded
 only on a passing run, so a receipt cannot exist for a fleet this did not
 clear.
 
+``--engine-wheel`` puts the named release artifact at the head of the import
+path before any ``yoke_core`` module loads. The preflight refuses a prior core
+import or an origin outside that wheel, so a selected artifact can never fall
+back to the ambient checkout. Its filename, digest, and schema member are
+printed and included in any recorded receipt.
+
 The watcher keeps output unbuffered, streams the per-database verdicts and
 receipt, writes the sentinel consumed by ``yoke watch tail``, and preserves
 the preflight exit code. Exits non-zero when any database fails, so a release
@@ -31,55 +38,163 @@ step can gate on it.
 
 from __future__ import annotations
 
+import hashlib
+import importlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 _RECEIPT_TIMEOUT_SECONDS = 120
 
 
-def _split_flags(args: List[str]) -> Tuple[List[str], bool, str, str]:
+class EngineArtifactError(ValueError):
+    """An explicitly selected engine artifact cannot be used faithfully."""
+
+
+@dataclass(frozen=True)
+class EngineArtifact:
+    kind: str
+    name: str
+    sha256: str
+    schema_origin: str
+
+    def evidence(self) -> Dict[str, str]:
+        values = {
+            "kind": self.kind,
+            "name": self.name,
+            "schema_origin": self.schema_origin,
+        }
+        if self.sha256:
+            values["sha256"] = self.sha256
+        return values
+
+    def display(self) -> str:
+        digest = f" sha256:{self.sha256}" if self.sha256 else ""
+        return f"{self.kind} {self.name}{digest} schema={self.schema_origin}"
+
+
+def _split_flags(args: List[str]) -> Tuple[List[str], bool, str, str, str]:
     """Separate the receipt flags from the environment and database operands."""
     positional: List[str] = []
     record = False
     product_sha = ""
     receipt_env = ""
+    engine_wheel = ""
     index = 0
     while index < len(args):
         token = args[index]
         if token == "--record-receipt":
             record = True
-        elif token == "--product-sha":
+        elif token in {"--product-sha", "--receipt-env", "--engine-wheel"}:
+            flag = token
             index += 1
-            product_sha = args[index] if index < len(args) else ""
-        elif token == "--receipt-env":
-            index += 1
-            receipt_env = args[index] if index < len(args) else ""
+            if index >= len(args):
+                raise ValueError(f"{flag} requires a value")
+            if flag == "--product-sha":
+                product_sha = args[index]
+            elif flag == "--receipt-env":
+                receipt_env = args[index]
+            else:
+                engine_wheel = args[index]
         else:
             positional.append(token)
         index += 1
-    return positional, record, product_sha, receipt_env
+    return positional, record, product_sha, receipt_env, engine_wheel
+
+
+def _activate_engine_artifact(raw_wheel: str) -> EngineArtifact:
+    """Bind yoke_core to a selected wheel, or describe the ambient engine."""
+    if not raw_wheel:
+        schema = importlib.import_module("yoke_core.domain.schema_init")
+        return EngineArtifact(
+            kind="ambient",
+            name="import-path",
+            sha256="",
+            schema_origin=str(getattr(schema, "__file__", "unknown")),
+        )
+
+    wheel = Path(raw_wheel).expanduser().resolve()
+    if wheel.suffix != ".whl" or not wheel.is_file():
+        raise EngineArtifactError(f"engine wheel is not a readable .whl file: {wheel}")
+    loaded = sorted(
+        name
+        for name in sys.modules
+        if name == "yoke_core" or name.startswith("yoke_core.")
+    )
+    if loaded:
+        raise EngineArtifactError(
+            "cannot select an engine wheel after yoke_core loaded: "
+            + ", ".join(loaded[:5])
+        )
+    sys.path.insert(0, str(wheel))
+    importlib.invalidate_caches()
+    try:
+        schema = importlib.import_module("yoke_core.domain.schema_init")
+    except (ImportError, OSError) as exc:
+        raise EngineArtifactError(
+            f"selected engine wheel cannot import schema_init: {exc}"
+        ) from exc
+    origin = Path(str(getattr(schema, "__file__", ""))).resolve()
+    try:
+        schema_member = origin.relative_to(wheel).as_posix()
+    except ValueError as exc:
+        raise EngineArtifactError(
+            f"selected engine resolved outside its wheel: {origin}"
+        ) from exc
+    return EngineArtifact(
+        kind="wheel",
+        name=wheel.name,
+        sha256=_file_sha256(wheel),
+        schema_origin=schema_member,
+    )
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _record_receipt(
-    *, receipt_env: str, environment: str, product_sha: str, entries: Sequence[str]
+    *,
+    receipt_env: str,
+    environment: str,
+    product_sha: str,
+    entries: Sequence[str],
+    engine_artifact: Mapping[str, str],
 ) -> str:
     """Write the pass to the control plane; return a reason on failure."""
     from yoke_core.domain import migration_preflight_receipt as receipt
 
-    context = receipt.receipt_context(environment, product_sha, entries)
+    context = receipt.receipt_context(
+        environment,
+        product_sha,
+        entries,
+        engine_artifact=engine_artifact,
+    )
     argv = [
-        "yoke", "events", "emit",
-        "--name", receipt.EVENT_NAME,
-        "--kind", receipt.EVENT_KIND,
-        "--type", receipt.EVENT_TYPE,
-        "--source-type", receipt.SOURCE_TYPE,
-        "--project", "yoke",
-        "--context", json.dumps(context),
+        "yoke",
+        "events",
+        "emit",
+        "--name",
+        receipt.EVENT_NAME,
+        "--kind",
+        receipt.EVENT_KIND,
+        "--type",
+        receipt.EVENT_TYPE,
+        "--source-type",
+        receipt.SOURCE_TYPE,
+        "--project",
+        "yoke",
+        "--context",
+        json.dumps(context),
     ]
     # The receipt belongs to the control plane the release gate will read, not
     # the separately selected admin cluster, so the child gets its own env.
@@ -105,7 +220,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(__doc__)
         return 0 if args else 2
 
-    positional, record, product_sha, receipt_env = _split_flags(args)
+    try:
+        positional, record, product_sha, receipt_env, engine_wheel = _split_flags(args)
+        engine_artifact = _activate_engine_artifact(engine_wheel)
+    except (EngineArtifactError, ValueError) as exc:
+        print(f"engine artifact selection failed: {exc}", file=sys.stderr)
+        return 2
     if not positional:
         print("name the admin connection to rehearse against", file=sys.stderr)
         return 2
@@ -125,6 +245,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     from yoke_core.tools.yoke_migration_fleet import database_dsn
     from runtime.api.tools import yoke_migration_fleet
 
+    print(f"engine artifact: {engine_artifact.display()}")
     authority = activate_selected_postgres(positional[0])
 
     spec = local_universe.cluster_spec(
@@ -160,6 +281,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         environment=positional[0],
         product_sha=product_sha,
         entries=entries,
+        engine_artifact=engine_artifact.evidence(),
     )
     if unwritten:
         # A pass nobody recorded reads to the operator as an unblocked release

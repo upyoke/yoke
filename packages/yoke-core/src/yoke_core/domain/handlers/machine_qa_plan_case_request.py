@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
-from yoke_core.domain.handlers.test_machine import _failure
+from yoke_core.domain.handlers.machine_qa import _failure
 
 
 def target_plan_subject(

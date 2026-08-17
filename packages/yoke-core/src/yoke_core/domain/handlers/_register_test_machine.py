@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.handlers import test_machine as _handlers
-from yoke_core.domain.handlers import test_machine_case as _case
-from yoke_core.domain.handlers import test_machine_execution_abort as _abort
-from yoke_core.domain.handlers import test_machine_plan_case as _plan_case
+from yoke_core.domain.handlers import machine_qa as _handlers
+from yoke_core.domain.handlers import machine_qa_case as _case
+from yoke_core.domain.handlers import machine_qa_execution_abort as _abort
+from yoke_core.domain.handlers import machine_qa_plan_case as _plan_case
 
 
 def register(registry) -> None:

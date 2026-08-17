@@ -17,6 +17,7 @@ from yoke_core.tools.watch_entrypoints import WRAPPER_MAINS
 @pytest.mark.parametrize(
     ("line", "expected"),
     [
+        ("engine artifact: wheel yoke_core.whl sha256:abc", LineClass.PROGRESS),
         ("COPY/CONVERGE yoke_alpha: starting rehearsal", LineClass.PROGRESS),
         ("converging yoke_alpha", LineClass.PROGRESS),
         ("PASS yoke_alpha: 0007_x -> converged", LineClass.SUMMARY),
@@ -32,6 +33,7 @@ def test_preflight_signal_classes(line: str, expected: LineClass) -> None:
 
 def test_union_pattern_matches_every_signal_shape() -> None:
     for line in (
+        "engine artifact: wheel yoke_core.whl sha256:abc",
         "COPY/CONVERGE yoke_alpha: starting rehearsal",
         "converging yoke_alpha",
         "PASS yoke_alpha: nothing pending -> converged",

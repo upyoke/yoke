@@ -1,4 +1,4 @@
-"""Request and response contracts for plan-scoped Machine QA cases."""
+"""Request and response contracts for plan-scoped machine-QA cases."""
 
 from __future__ import annotations
 

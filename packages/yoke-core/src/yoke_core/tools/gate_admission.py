@@ -31,7 +31,7 @@ Mechanics:
   whole rootdir). File-scoped runs are cheap on every axis and bypass
   admission entirely.
 - Waiting is bounded. A gate that never gets a slot within
-  ``test_gate_timeout.wait_timeout_seconds()`` proceeds without one and
+  ``qa_gate_timeout.wait_timeout_seconds()`` proceeds without one and
   says so, because a hung queue is worse than an oversubscribed machine.
 - The cap resolves from the ``YOKE_TEST_GATE_MAX_CONCURRENT`` env var,
   then the ``test_gate_max_concurrent`` machine-config key, then the
@@ -56,7 +56,7 @@ import time
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, TextIO
 
-from yoke_core.domain import test_gate_timeout
+from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools.gate_admission_ancestry import (
     ADMITTED_ENV,
     MARKER_NO_SLOT,
@@ -215,7 +215,7 @@ def _acquire(stream: TextIO):
             flush=True,
         )
         return None
-    wait_bound = test_gate_timeout.wait_timeout_seconds()
+    wait_bound = qa_gate_timeout.wait_timeout_seconds()
     identity = slot_identity()
     _stamp_activity(conn, SLOT_WAIT_APP_PREFIX, identity)
     waited_since = time.monotonic()
@@ -230,7 +230,7 @@ def _acquire(stream: TextIO):
                 waited = time.monotonic() - waited_since
                 if waited > _POLL_INTERVAL_S:
                     print(
-                        f"{test_gate_timeout.SLOT_ACQUIRED_PREFIX}{waited:.0f}s",
+                        f"{qa_gate_timeout.SLOT_ACQUIRED_PREFIX}{waited:.0f}s",
                         file=stream,
                         flush=True,
                     )

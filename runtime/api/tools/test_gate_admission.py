@@ -15,7 +15,7 @@ import uuid
 import psycopg
 import pytest
 
-from yoke_core.domain import test_gate_timeout
+from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools import gate_admission
 
 
@@ -111,7 +111,7 @@ def test_queued_gate_gets_its_whole_budget_once_admitted(tmp_path, monkeypatch):
     monkeypatch.setenv(gate_admission.CAP_ENV, "1")
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     monkeypatch.setenv(
-        test_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV, str(budget_seconds)
+        qa_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV, str(budget_seconds)
     )
     suite_dir = tmp_path / "suite"
     suite_dir.mkdir()

@@ -14,7 +14,7 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
-from yoke_core.domain.handlers.test_machine_case import (
+from yoke_core.domain.handlers.machine_qa_case import (
     handle_case_begin,
     handle_case_submit,
 )

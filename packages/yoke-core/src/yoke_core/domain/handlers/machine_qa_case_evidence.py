@@ -1,4 +1,4 @@
-"""Evidence persistence for executed Machine QA cases."""
+"""Evidence persistence for executed machine-QA cases."""
 
 from __future__ import annotations
 

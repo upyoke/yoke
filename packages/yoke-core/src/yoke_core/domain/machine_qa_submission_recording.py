@@ -9,7 +9,7 @@ from typing import Any, Literal, Mapping
 from pydantic import BaseModel, ConfigDict, Field
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.handlers.test_machine_case_evidence import (
+from yoke_core.domain.handlers.machine_qa_case_evidence import (
     record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult

@@ -1,4 +1,4 @@
-"""Per-project test-environment declaration (capability + uv flag lists).
+"""Per-project QA-environment declaration (capability + uv flag lists).
 
 Settings live on ``project_capabilities.type='test_environment'``. Test
 trees stay on Project Structure ``test_roots`` — this module does not

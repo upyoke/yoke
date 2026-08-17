@@ -26,7 +26,7 @@ from yoke_core.domain.migration_model_capability_validation import (
 )
 from yoke_core.domain.project_github_binding_state import INSTALLATION_ACTIVE
 from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.test_machine_capability import (
+from yoke_core.domain.machine_qa_capability import (
     TEST_MACHINE_BASELINES,
     TEST_MACHINE_FEATURES,
 )

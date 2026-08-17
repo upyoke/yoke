@@ -21,7 +21,7 @@ from yoke_core.domain.qa_plan_management import (
 )
 from yoke_core.domain.qa_plan_project_defaults import set_project_default
 from yoke_core.domain.schema_init_tables import create_governed_tables
-from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
+from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
 
 
 def test_builtin_methods_seed_with_real_contracts() -> None:

@@ -28,7 +28,7 @@ from yoke_core.domain.machine_qa_execution_contract import (
     HostControlOperation,
     issue_execution_contract,
 )
-from yoke_core.domain.test_machine_capability import lease_key
+from yoke_core.domain.machine_qa_capability import lease_key
 
 HOST_CONTROL_SUBMISSION_RECEIPT_KEY = "host_control_submission"
 

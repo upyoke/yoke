@@ -17,7 +17,7 @@ import pytest
 from runtime.api.domain.test_worktree_create_multiworktree import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import worktree_test_environment as env
-from yoke_core.domain.test_environment_declaration import (
+from yoke_core.domain.qa_environment_declaration import (
     TestEnvironmentDeclaration,
 )
 from yoke_core.domain.worktree import create_worktree

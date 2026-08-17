@@ -14,7 +14,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.handlers.test_machine_plan_case import (
+from yoke_core.domain.handlers.machine_qa_plan_case import (
     handle_plan_case_begin,
     handle_plan_case_submit,
 )

@@ -152,7 +152,7 @@ def apply_fixture_schema(conn: Any) -> None:
     from yoke_core.domain.strategy_execution_schema import (
         ensure_strategy_execution_schema,
     )
-    from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
+    from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
     from yoke_core.domain.field_note_dash_promotion import (
         ensure_field_note_dash_promotion_schema,
     )

@@ -14,7 +14,7 @@ import time
 import psycopg
 import pytest
 
-from yoke_core.domain import test_gate_timeout
+from yoke_core.domain import qa_gate_timeout
 from yoke_core.tools import gate_admission
 
 from runtime.api.tools.test_gate_admission import _scratch_lock_base
@@ -188,7 +188,7 @@ def test_wait_bound_expires_and_the_run_proceeds(monkeypatch, capsys):
     monkeypatch.setattr(gate_admission, "GATE_SLOT_LOCK_BASE", base)
     monkeypatch.setenv(gate_admission.CAP_ENV, "1")
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    monkeypatch.setenv(test_gate_timeout.WAIT_TIMEOUT_ENV, "0.5")
+    monkeypatch.setenv(qa_gate_timeout.WAIT_TIMEOUT_ENV, "0.5")
     stranger = psycopg.connect(dsn, autocommit=True)
     try:
         assert gate_admission.try_acquire_slot(stranger, 1, base=base) is True
@@ -216,7 +216,7 @@ def test_descendant_without_marker_queues_behind_parent_slot_shape(
     monkeypatch.setattr(gate_admission, "GATE_SLOT_LOCK_BASE", base)
     monkeypatch.setenv(gate_admission.CAP_ENV, "1")
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    monkeypatch.setenv(test_gate_timeout.WAIT_TIMEOUT_ENV, "0.4")
+    monkeypatch.setenv(qa_gate_timeout.WAIT_TIMEOUT_ENV, "0.4")
     parent = psycopg.connect(dsn, autocommit=True)
     try:
         assert gate_admission.try_acquire_slot(parent, 1, base=base) is True
@@ -296,11 +296,11 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(
 def test_wait_bound_refuses_a_non_positive_override(monkeypatch):
     # "Wait forever" is the failure this bound removes, so it must not be
     # reachable by setting the knob to zero.
-    monkeypatch.setenv(test_gate_timeout.WAIT_TIMEOUT_ENV, "0")
+    monkeypatch.setenv(qa_gate_timeout.WAIT_TIMEOUT_ENV, "0")
     with pytest.raises(ValueError):
-        test_gate_timeout.wait_timeout_seconds()
-    monkeypatch.delenv(test_gate_timeout.WAIT_TIMEOUT_ENV)
+        qa_gate_timeout.wait_timeout_seconds()
+    monkeypatch.delenv(qa_gate_timeout.WAIT_TIMEOUT_ENV)
     assert (
-        test_gate_timeout.wait_timeout_seconds()
-        == test_gate_timeout.DEFAULT_WAIT_TIMEOUT_S
+        qa_gate_timeout.wait_timeout_seconds()
+        == qa_gate_timeout.DEFAULT_WAIT_TIMEOUT_S
     )

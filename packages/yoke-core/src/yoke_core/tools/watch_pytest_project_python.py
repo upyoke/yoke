@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Sequence
 
 from yoke_contracts.uv_project import is_uv_project, uv_run_argv
-from yoke_core.domain.test_environment_declaration import load_declaration
+from yoke_core.domain.qa_environment_declaration import load_declaration
 from yoke_core.tools import _source_pythonpath
 from yoke_core.tools.impacted_project_test_roots import (
     UNSUPPORTED_PROJECT_TEST_ROOTS,

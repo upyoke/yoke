@@ -19,6 +19,7 @@ from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 from yoke_core.domain.migration_history_manifest import SOURCE_COMMIT_PATTERN
 from yoke_core.tools import (
     package_index,
+    product_wheel_validation,
     product_release_version,
     wheel_sibling_pins,
 )
@@ -75,9 +76,7 @@ def build_release(
     records = package_index.read_wheel_records(wheelhouse)
     package_index.validate_records(records)
     product_records = [
-        record
-        for record in records
-        if record.canonical_name in PRODUCT_PACKAGE_NAMES
+        record for record in records if record.canonical_name in PRODUCT_PACKAGE_NAMES
     ]
     version = _shared_product_version(product_records)
     asset_dir = (
@@ -146,6 +145,7 @@ def build_product_wheelhouse(
     version = wheel_sibling_pins.pin_wheelhouse_product_siblings(
         wheelhouse, PRODUCT_PACKAGE_NAMES
     )
+    product_wheel_validation.assert_core_wheel_completeness(repo_root, wheelhouse)
     # Fail before pip consults the public index. Without a local segment, a
     # same-version public wheel can outrank the channel wheel by build tag.
     product_release_version.assert_public_index_unforgeable(version)
@@ -171,6 +171,11 @@ def build_product_wheelhouse(
             cwd=repo_root,
         )
     package_index.validate_records(package_index.read_wheel_records(wheelhouse))
+    product_wheel_validation.verify_product_wheel_boot(
+        wheelhouse,
+        create_venv=create_seeded_pip_venv,
+        run=_run,
+    )
     return wheelhouse
 
 
@@ -219,9 +224,7 @@ class _pip_python:
             self._tmp.cleanup()
 
 
-def create_seeded_pip_venv(
-    root: Path, *, system_site_packages: bool = False
-) -> None:
+def create_seeded_pip_venv(root: Path, *, system_site_packages: bool = False) -> None:
     """Create a venv with pip seeded into it.
 
     Prefers ``uv venv --seed``: the stdlib venv's ensurepip bootstrap fails on
@@ -235,14 +238,12 @@ def create_seeded_pip_venv(
         if system_site_packages:
             args.append("--system-site-packages")
         args.append(str(root))
-        completed = subprocess.run(
-            args, text=True, capture_output=True, check=False
-        )
+        completed = subprocess.run(args, text=True, capture_output=True, check=False)
         if completed.returncode == 0:
             return
-    venv.EnvBuilder(
-        with_pip=True, system_site_packages=system_site_packages
-    ).create(root)
+    venv.EnvBuilder(with_pip=True, system_site_packages=system_site_packages).create(
+        root
+    )
 
 
 def _run(command: Sequence[str], *, cwd: Path) -> None:
