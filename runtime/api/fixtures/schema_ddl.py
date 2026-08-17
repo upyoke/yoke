@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from runtime.api.fixtures.schema_ddl_activity_rollups import _ACTIVITY_ROLLUPS_DDL
 from runtime.api.fixtures.schema_ddl_auth import _AUTH_DDL
 from runtime.api.fixtures.schema_ddl_epic_qa import _EPIC_QA_DDL
 from runtime.api.fixtures.schema_ddl_merge_locks import _MERGE_LOCKS_DDL
@@ -94,6 +95,7 @@ def _schema_ddl() -> str:
             + ITEM_WORKTREES_INDEX_SQL
             + _EPIC_QA_DDL
             + _RUNTIME_DDL
+            + _ACTIVITY_ROLLUPS_DDL
             + qa_catalog_without_fk
             + _STRATEGY_DDL
             + _AUTH_DDL

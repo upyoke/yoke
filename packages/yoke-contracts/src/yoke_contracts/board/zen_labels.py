@@ -74,10 +74,13 @@ def _labels_for_window(
     for word in keywords:
         freq[word] = freq.get(word, 0) + 1
 
-    # Doc-frequency cap: drop over-common words that carry no signal.
+    # Doc-frequency cap: drop over-common words that carry no signal. The
+    # threshold never floors below one occurrence — a word appearing once is
+    # never over-common — so a small corpus keeps its labels instead of
+    # collapsing to none.
     if df_cap_pct > 0:
         total = len(keywords)
-        threshold = total * df_cap_pct / 100.0
+        threshold = max(1.0, total * df_cap_pct / 100.0)
         freq = {w: c for w, c in freq.items() if c <= threshold}
 
     if not freq:
