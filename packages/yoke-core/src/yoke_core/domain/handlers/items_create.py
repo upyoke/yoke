@@ -83,6 +83,13 @@ class ItemCreateResponse(BaseModel):
     item_ref: Optional[str] = None
     dry_run: bool = False
     log: str = ""
+    # Resolved operator execution-instruction blocks for the created item,
+    # so a creator that executes immediately still receives them without a
+    # re-fetch (the read surfaces prepend the same blocks above the body).
+    # A separate field, mirroring the item reads, so structured-field
+    # writes can never round-trip it back into item content. None on
+    # dry-run: no row exists to resolve against.
+    execution_instructions: Optional[List[Dict[str, Any]]] = None
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -139,11 +146,24 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         )
         return _error(code, message)
 
+    execution_instructions: Optional[List[Dict[str, Any]]] = None
+    if not result.get("dry_run"):
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.workflow_execution_instructions import (
+            resolve_for_item,
+        )
+
+        with connect() as conn:
+            execution_instructions = resolve_for_item(
+                conn, int(result["item_id"])
+            )
+
     response = ItemCreateResponse(
         item_id=int(result["item_id"]),
         item_ref=result.get("item_ref"),
         dry_run=bool(result.get("dry_run", False)),
         log=captured.getvalue(),
+        execution_instructions=execution_instructions,
     )
     return HandlerOutcome(
         result_payload=response.model_dump(),
