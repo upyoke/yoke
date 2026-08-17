@@ -51,7 +51,7 @@ _LINTS: Tuple[str, ...] = tuple(
         "structured_field_transform_shell",
         "structured_field_transform_shell_messages", "subagent_background",
         "yok_n_cruft", "tc_label", "workspace_cwd_match",
-        "worktree_path_invariants", "write_path",
+        "write_path",
     )
 )
 
