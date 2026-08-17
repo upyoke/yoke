@@ -282,11 +282,25 @@ def architecture_draft_get(args: List[str]) -> int:
     )
 
 
+# Usage strings for the read family, spliced into the aggregate
+# adapter-usage map keyed by function id.
+PROJECT_STRUCTURE_READ_USAGE = {
+    "project_structure.deploy_defaults.get":
+        PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
+    "project_structure.get": PROJECT_STRUCTURE_GET_USAGE,
+    "project_structure.architecture_health.get":
+        ARCHITECTURE_HEALTH_GET_USAGE,
+    "project_structure.architecture_draft.get":
+        ARCHITECTURE_DRAFT_GET_USAGE,
+}
+
+
 __all__ = [
     "ARCHITECTURE_DRAFT_GET_USAGE",
     "ARCHITECTURE_HEALTH_GET_USAGE",
     "PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE",
     "PROJECT_STRUCTURE_GET_USAGE",
+    "PROJECT_STRUCTURE_READ_USAGE",
     "architecture_draft_get",
     "architecture_health_get",
     "project_structure_deploy_defaults_get",
