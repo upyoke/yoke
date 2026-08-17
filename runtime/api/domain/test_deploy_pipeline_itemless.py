@@ -14,6 +14,7 @@ from yoke_core.domain import (
     deploy_pipeline,
     deploy_pipeline_gates,
     deploy_pipeline_reporting,
+    deploy_pipeline_run_context,
     deploy_qa_recorder,
 )
 
@@ -38,8 +39,11 @@ class TestItemLessRun:
         def fake_yoke_db(*args, sd=None):
             db_calls.append(args)
             if args[:2] == ("runs", "get"):
-                # id|project|flow|target_env|lineage|status|current_stage
-                return f"{run_id}|yoke|flow-env|stage|{'d' * 40}|created|"
+                # id|project|flow|tier|environment|lineage|status|stage
+                return (
+                    f"{run_id}|yoke|flow-env|persistent|stage-env|"
+                    f"{'d' * 40}|created|"
+                )
             return ""
 
         def fake_flow_db(*args, sd=None):
@@ -79,7 +83,14 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "_project_db", return_value="",
         ), mock.patch.object(
-            deploy_pipeline, "checkout_for_project", checkout_lookup,
+            deploy_pipeline, "resolve_project_checkout_path", checkout_lookup,
+        ), mock.patch.object(
+            deploy_pipeline, "resolve_flow_target",
+            return_value=("persistent", "stage-env", "stage"),
+        ), mock.patch.object(
+            deploy_pipeline_run_context, "_yoke_db", side_effect=fake_yoke_db,
+        ), mock.patch.object(
+            deploy_pipeline_run_context, "_emit_run_event",
         ), mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged", verify,
         ), mock.patch.object(
@@ -108,7 +119,7 @@ class TestItemLessRun:
         )
         assert (
             "Deployment authority: release_control_plane=prod "
-            f"target_env=stage flow=flow-env run={run_id}"
+            f"target=stage flow=flow-env run={run_id}"
         ) in out
 
         # Item-bound steps are skipped entirely: no branch verification,
@@ -135,7 +146,7 @@ class TestItemLessRun:
         ]
         assert status_updates == ["executing", "succeeded"]
         # deployed_to is item-bound — never claimed for an item-less run
-        # even when the flow declares a target_env.
+        # even when the flow references a target environment.
         assert "Auto-set deployed_to" not in out
 
 

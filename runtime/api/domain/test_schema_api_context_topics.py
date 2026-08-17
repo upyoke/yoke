@@ -126,7 +126,7 @@ def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
 
     assert "ouroboros_entries" in main_body
     assert "deployment_runs" in main_body
-    assert "`deployment_flows.target_env`" in main_body
+    assert "`deployment_flows.target_environment_id`" in main_body
     assert "`deployment_runs.status`" in main_body
     assert "`deployment_runs.current_stage`" in main_body
     assert "There is no `deployment_runs.item_id`" in main_body

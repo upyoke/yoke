@@ -88,7 +88,8 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
         return okEnvelope({
           rows: [{
             id: "run-20260101-001", project: "externalwebapp",
-            flow: "externalwebapp-prod-release", target_env: "prod",
+            flow: "externalwebapp-prod-release",
+            target_tier: "persistent", target_environment: "prod",
             release_lineage: null, status: "succeeded",
             current_stage: "complete", created_at: "then",
             started_at: null, completed_at: null, created_by: "usher",
@@ -152,7 +153,8 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
         return okEnvelope({
           rows: [{
             id: "run-20260726-001", project: "yoke",
-            flow: "hosted-release", target_env: "prod",
+            flow: "hosted-release",
+            target_tier: "persistent", target_environment: "prod",
             release_lineage: "release-17", status: "executing",
             current_stage: "approval", created_at: "2026-07-26T10:00:00Z",
             created_by: "usher", stage_index: 1, stage_count: 3,
@@ -203,12 +205,14 @@ test("Flows selects one served definition and renders its stage pipeline", async
   const requests = [];
   const flowsByProject = {
     "1": [{
-      id: "alpha-release", name: "Alpha Release", target_env: "prod",
+      id: "alpha-release", name: "Alpha Release",
+      target_tier: "persistent", target_environment: "prod",
       status: "active", on_failure: "halt",
       stage_names: ["build", "verify"], project: "alpha",
     }],
     "2": [{
-      id: "beta-release", name: "Beta Release", target_env: "stage",
+      id: "beta-release", name: "Beta Release",
+      target_tier: "persistent", target_environment: "stage",
       status: "disabled", on_failure: "continue",
       stage_names: ["build"], project: "beta",
     }],

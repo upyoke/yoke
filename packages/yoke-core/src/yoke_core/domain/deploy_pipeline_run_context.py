@@ -13,8 +13,10 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from yoke_core.domain.deploy_pipeline_events import (
+    emit_run_event as _emit_run_event,
+)
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
     _flow_db,
     _yoke_db,
 )
@@ -64,6 +66,7 @@ def finalize_run_success(
     flow_id: str,
     project: str,
     member_items: List[str],
+    target_tier: str,
     environment_name: str,
     sd: Optional[str] = None,
 ) -> None:
@@ -79,14 +82,17 @@ def finalize_run_success(
         },
         member_items=member_items, project=project, sd=sd,
     )
-    # Auto-set deployed_to (item-bound; no-op for item-less runs)
-    if environment_name and member_items:
+    # Auto-set deployed_to (item-bound; no-op for item-less runs). A
+    # persistent run stamps the environment name; an ephemeral run has no
+    # registered environment, so the tier is the delivery label.
+    delivered_to = environment_name or target_tier
+    if delivered_to and member_items:
         for item_id in member_items:
             _yoke_db(
                 "items", "update", item_id, "deployed_to",
-                environment_name, sd=sd,
+                delivered_to, sd=sd,
             )
-        print(f"Auto-set deployed_to={environment_name} from flow {flow_id}")
+        print(f"Auto-set deployed_to={delivered_to} from flow {flow_id}")
 
 
 __all__ = [

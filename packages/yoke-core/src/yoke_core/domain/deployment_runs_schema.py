@@ -73,15 +73,20 @@ def cmd_init(db_path: Optional[str] = None) -> None:
     """Create tables if not exist (idempotent)."""
     conn = connect(db_path)
     try:
+        environment_ref = (
+            "TEXT REFERENCES environments(id)"
+            if _column_exists(conn, "environments", "id")
+            else "TEXT"
+        )
         for statement in (
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS deployment_runs (
                 id TEXT PRIMARY KEY,
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 flow TEXT NOT NULL REFERENCES deployment_flows(id),
                 target_tier TEXT
                     CHECK(target_tier IN ('persistent','ephemeral')),
-                target_environment_id TEXT REFERENCES environments(id),
+                target_environment_id {environment_ref},
                 release_lineage TEXT,
                 status TEXT NOT NULL DEFAULT 'created'
                     CHECK(status IN ('created','executing','succeeded','failed','cancelled')),

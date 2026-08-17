@@ -33,7 +33,8 @@ CREATE TABLE items (
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), name TEXT NOT NULL, description TEXT,
     stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt', created_at TEXT NOT NULL,
-    target_env TEXT DEFAULT NULL, done_description TEXT DEFAULT NULL,
+    target_tier TEXT DEFAULT NULL, target_environment_id TEXT DEFAULT NULL,
+    done_description TEXT DEFAULT NULL,
     UNIQUE(project_id, name)
 );
 """
@@ -315,7 +316,7 @@ class TestItemProgressStaleView:
         "CREATE VIEW item_progress_view AS "
         "SELECT i.id AS item_id, i.status, "
         "NULL AS flow_name, NULL AS run_id, NULL AS current_stage, "
-        "NULL AS target_env, NULL AS stage_progress, "
+        "NULL AS target_environment, NULL AS stage_progress, "
         "NULL AS done_description, NULL AS qa_summary, "
         "NULL AS blocked_reason, NULL AS smoke_qa_status "
         "FROM items i"

@@ -15,7 +15,16 @@ from yoke_core.domain.schema_common import (
 
 def _ensure_flow_schema(conn) -> None:
     """Create the flow registry and its strictly additive columns."""
-    conn.execute("""\
+    # The environment reference is a physical FK only when the registry
+    # precedes this step (the converge order guarantees it does); minimal
+    # fixture databases without a registry keep the column unconstrained,
+    # the same stance items.deployment_flow takes.
+    environment_ref = (
+        "TEXT REFERENCES environments(id)"
+        if _table_exists(conn, "environments")
+        else "TEXT"
+    )
+    conn.execute(f"""\
         CREATE TABLE IF NOT EXISTS deployment_flows (
             id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -27,7 +36,7 @@ def _ensure_flow_schema(conn) -> None:
             status TEXT NOT NULL DEFAULT 'active',
             target_tier TEXT
                 CHECK(target_tier IN ('persistent','ephemeral')),
-            target_environment_id TEXT REFERENCES environments(id),
+            target_environment_id {environment_ref},
             CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
                   = (target_environment_id IS NOT NULL)),
             UNIQUE(project_id, name)
@@ -46,10 +55,7 @@ def _ensure_flow_schema(conn) -> None:
         conn, "deployment_flows", "target_tier", "TEXT DEFAULT NULL"
     )
     _add_column_if_not_exists(
-        conn,
-        "deployment_flows",
-        "target_environment_id",
-        "TEXT REFERENCES environments(id)",
+        conn, "deployment_flows", "target_environment_id", environment_ref,
     )
     _add_column_if_not_exists(
         conn, "deployment_flows", "done_description", "TEXT DEFAULT NULL"
@@ -65,10 +71,7 @@ def _ensure_flow_schema(conn) -> None:
     if _table_exists(conn, "deployment_runs"):
         _add_column_if_not_exists(conn, "deployment_runs", "target_tier", "TEXT")
         _add_column_if_not_exists(
-            conn,
-            "deployment_runs",
-            "target_environment_id",
-            "TEXT REFERENCES environments(id)",
+            conn, "deployment_runs", "target_environment_id", environment_ref,
         )
 
     # Add deployment_flow / deploy_stage to items (idempotent).

@@ -51,7 +51,8 @@ export function multiProjectOverviewClient({ failProject } = {}) {
   const deliveryFor = (project) => ({
     rows: [{
       id: project === "2" ? "run-beta" : "run-yoke",
-      project: project === "2" ? "beta" : "yoke", target_env: "stage",
+      project: project === "2" ? "beta" : "yoke",
+      target_tier: "persistent", target_environment: "stage",
       status: "succeeded", created_at: project === "2" ? "2h" : "1h", stages: [],
     }],
   });
@@ -190,7 +191,8 @@ export function overviewClient(overrides = {}) {
     "deployment_runs.list": {
       rows: [{
         id: "run-1", project: "yoke",
-        flow: "yoke-hosted-stage", target_env: "stage",
+        flow: "yoke-hosted-stage",
+        target_tier: "persistent", target_environment: "stage",
         current_stage: "complete", status: "succeeded", created_at: "1h",
         waiting_on_approval: false,
         stages: [

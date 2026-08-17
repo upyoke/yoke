@@ -76,9 +76,9 @@ def run_pipeline(
         fields = run_row.split("|")
         project = fields[1] if len(fields) > 1 else ""
         flow_id = fields[2] if len(fields) > 2 else ""
-        release_lineage = fields[4] if len(fields) > 4 else ""
-        run_status = fields[5] if len(fields) > 5 else ""
-        current_stage = fields[6] if len(fields) > 6 else ""
+        release_lineage = fields[5] if len(fields) > 5 else ""
+        run_status = fields[6] if len(fields) > 6 else ""
+        current_stage = fields[7] if len(fields) > 7 else ""
 
         items_output = _yoke_db("runs", "items", run_id, sd=sd)
         if items_output:
@@ -309,9 +309,8 @@ def run_pipeline(
         conn.close()
 
     finalize_run_success(
-        run_id, flow_id, project, member_items, environment_name, sd=sd,
-    )
-
+        run_id, flow_id, project, member_items, target_tier,
+        environment_name, sd=sd)
     print(f"Pipeline complete for run {run_id}")
     return EXIT_SUCCESS
 

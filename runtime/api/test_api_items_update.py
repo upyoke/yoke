@@ -259,9 +259,13 @@ class TestUpdateItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             "INSERT INTO deployment_flows "
+            "(id, project_id, name, description, stages, on_failure, "
+            "created_at, target_tier, target_environment_id, "
+            "done_description, status) "
             "SELECT 'patch-delete-flow', project_id, 'PatchDelete', "
             "description, stages, "
-            "on_failure, created_at, target_env, done_description, status "
+            "on_failure, created_at, target_tier, target_environment_id, "
+            "done_description, status "
             "FROM deployment_flows WHERE id='test-approval-flow'"
         )
         conn.commit()

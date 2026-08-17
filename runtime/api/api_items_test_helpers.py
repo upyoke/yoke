@@ -53,13 +53,14 @@ CREATE TABLE strategy_doc_claims (
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,
     description TEXT, stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt',
-    created_at TEXT NOT NULL, target_env TEXT DEFAULT NULL,
+    created_at TEXT NOT NULL, target_tier TEXT DEFAULT NULL,
+    target_environment_id TEXT DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active', UNIQUE(project_id, name)
 );
 CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, flow TEXT NOT NULL,
-    target_env TEXT, release_lineage TEXT,
+    target_tier TEXT, target_environment_id TEXT, release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
     current_stage TEXT, created_at TEXT NOT NULL, started_at TEXT,

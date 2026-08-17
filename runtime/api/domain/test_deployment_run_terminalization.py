@@ -30,9 +30,9 @@ def _seed_run(test_db, run_id: str, status: str) -> None:
     )
     test_db.execute(
         "INSERT INTO deployment_runs "
-        "(id, project_id, flow, target_env, status, current_stage, created_at) "
-        "VALUES (%s, 1, %s, 'production', %s, 'hosted-release', "
-        "'2026-08-05T00:00:00Z')",
+        "(id, project_id, flow, target_tier, target_environment_id, status, current_stage, created_at) "
+        "VALUES (%s, 1, %s, 'persistent', 'production', %s, "
+        "'hosted-release', '2026-08-05T00:00:00Z')",
         (run_id, flow_id, status),
     )
     test_db.commit()

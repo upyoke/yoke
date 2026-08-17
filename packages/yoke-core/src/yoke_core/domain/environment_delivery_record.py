@@ -58,29 +58,22 @@ def require_registered_environment(
 ) -> Optional[str]:
     """Resolve *environment* to a registered id, refusing unknown names.
 
-    Projects with no environment rows stay unconstrained so onboarding and
-    tests can create runs before a registry exists; the token passes
-    through unresolved in that case.
+    A database without the registry tables at all (minimal fixtures) stays
+    unconstrained; once the registry exists, the referenced environment
+    must be one of the project's rows — the run row's foreign key could
+    not store anything else.
     """
     token = str(environment or "").strip()
     if not token:
         return None
     if not _has_environment_registry(conn):
         return token
-    env_count = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM environments e "
-        "JOIN sites s ON s.id = e.site WHERE s.project_id = %s",
-        (project_id,),
-    )
-    if not env_count:
-        return token
     environment_id = resolve_environment_id(conn, project_id, token)
     if environment_id is None:
         allowed = registered_environment_tokens(conn, project_id)
         raise UnregisteredEnvironment(
             f"environment {token!r} is not registered; "
-            f"registered: {', '.join(allowed)}"
+            f"registered: {', '.join(allowed) or '(none)'}"
         )
     return environment_id
 

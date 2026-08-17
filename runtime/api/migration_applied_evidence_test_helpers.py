@@ -126,7 +126,7 @@ def regression_db(tmp_db: str, tmp_path: Path):  # noqa: F811
         conn.execute(
             "INSERT INTO deployment_flows "
             "(id, project_id, name, description, stages, on_failure, "
-            " target_env, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            " target_tier, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             ("yoke-internal", 1, "Internal", "Test flow",
              stages_json, "halt", None, "2026-04-23T00:00:00Z"),
         )

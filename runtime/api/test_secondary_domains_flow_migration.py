@@ -108,10 +108,11 @@ class TestFlowInitializationOwnership:
         ])
         test_db.execute(
             "INSERT INTO deployment_flows "
-            "(id, project_id, name, description, stages, on_failure, target_env, "
-            " created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            "(id, project_id, name, description, stages, on_failure, "
+            "target_tier, target_environment_id, "
+            " created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             ("project-owned-flow", 1, "Project owned", "Repository declaration",
-             project_stages, "halt", None, "2024-01-01T00:00:00Z"),
+             project_stages, "halt", None, None, "2024-01-01T00:00:00Z"),
         )
         test_db.commit()
 
@@ -159,7 +160,7 @@ class TestItemProgressViewRefresh:
         "CREATE VIEW item_progress_view AS "
         "SELECT i.id AS item_id, i.status, "
         "NULL AS flow_name, NULL AS run_id, NULL AS current_stage, "
-        "NULL AS target_env, NULL AS stage_progress, "
+        "NULL AS target_environment, NULL AS stage_progress, "
         "NULL AS done_description, NULL AS qa_summary, "
         "NULL AS blocked_reason, NULL AS smoke_qa_status "
         "FROM items i"

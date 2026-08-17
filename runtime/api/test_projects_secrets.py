@@ -158,25 +158,30 @@ class TestResolveDeployEnvs:
         assert "production" in envs
         assert "staging" in envs
 
-    def test_resolves_from_deployment_flows(self, initialized_db: str):
+    def test_flow_definitions_do_not_widen_the_environment_set(
+        self, initialized_db: str,
+    ):
         conn = connect(initialized_db)
         try:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS deployment_flows ("
                 "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL, "
                 "description TEXT, stages TEXT NOT NULL DEFAULT '[]', "
-                "target_env TEXT, on_failure TEXT DEFAULT 'abort', "
+                "target_tier TEXT, target_environment_id TEXT, "
+                "on_failure TEXT DEFAULT 'abort', "
                 "created_at TEXT NOT NULL)"
             )
             conn.execute(
                 "INSERT INTO deployment_flows "
-                "(id, project_id, name, stages, target_env, created_at) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
+                "(id, project_id, name, stages, target_tier, "
+                "target_environment_id, created_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (
                     "flow-test",
                     1,
                     "test-flow",
                     "[]",
+                    "persistent",
                     "canary",
                     "2026-04-20T00:00:00Z",
                 ),
@@ -186,9 +191,7 @@ class TestResolveDeployEnvs:
             conn.close()
 
         result = projects.cmd_resolve_deploy_envs("yoke", db_path=initialized_db)
-        assert result is not None
-        envs = result.strip().split("\n")
-        assert "canary" in envs
+        assert result is None or "canary" not in result.strip().split("\n")
 
     def test_resolves_from_capability_config(self, initialized_db: str):
         conn = connect(initialized_db)

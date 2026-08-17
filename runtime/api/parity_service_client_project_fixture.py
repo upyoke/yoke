@@ -28,7 +28,8 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         stages TEXT NOT NULL,
         on_failure TEXT DEFAULT 'halt',
         created_at TEXT NOT NULL,
-        target_env TEXT DEFAULT NULL,
+        target_tier TEXT DEFAULT NULL,
+        target_environment_id TEXT DEFAULT NULL,
         done_description TEXT DEFAULT NULL,
         status TEXT NOT NULL DEFAULT 'active',
         UNIQUE(project_id, name)
@@ -38,7 +39,8 @@ SERVICE_CLIENT_PARITY_SCHEMA = (
         id TEXT PRIMARY KEY,
         project_id INTEGER NOT NULL REFERENCES projects(id),
         flow TEXT NOT NULL,
-        target_env TEXT,
+        target_tier TEXT,
+        target_environment_id TEXT,
         release_lineage TEXT,
         status TEXT NOT NULL DEFAULT 'created'
           CHECK(status IN ('created','executing','succeeded','failed','cancelled')),

@@ -42,7 +42,8 @@ CREATE TABLE deployment_flows (
     stages TEXT NOT NULL,
     on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL DEFAULT '',
-    target_env TEXT DEFAULT NULL,
+    target_tier TEXT DEFAULT NULL,
+    target_environment_id TEXT DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     UNIQUE(project_id, name)
 );
@@ -51,7 +52,8 @@ CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY,
     project_id INTEGER NOT NULL,
     flow TEXT NOT NULL,
-    target_env TEXT,
+    target_tier TEXT,
+    target_environment_id TEXT,
     release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
@@ -76,7 +78,7 @@ SELECT
     COALESCE(df.name, '') AS flow_name,
     COALESCE(dr.id, '') AS run_id,
     COALESCE(dr.current_stage, '') AS current_stage,
-    COALESCE(df.target_env, '') AS target_env,
+    COALESCE(df.target_environment_id, '') AS target_environment,
     '' AS stage_progress,
     '' AS done_description,
     '' AS qa_summary,
@@ -167,8 +169,10 @@ def _apply_item_query_schema() -> None:
     ])
     conn.execute(
         """INSERT INTO deployment_flows
-           (id, project_id, name, stages, target_env, created_at)
-           VALUES ('test-flow', 1, 'TestFlow', %s, 'production', %s)""",
+           (id, project_id, name, stages, target_tier,
+            target_environment_id, created_at)
+           VALUES ('test-flow', 1, 'TestFlow', %s, 'persistent',
+                   'production', %s)""",
         (flow_stages, ts),
     )
 

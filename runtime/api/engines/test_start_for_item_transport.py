@@ -72,7 +72,9 @@ def _stub_dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
             "item_id": TEST_ITEM_ID,
             "project": "yoke",
             "flow": "yoke-hosted-stage-no-ci-gate",
-            "target_env": "stage",
+            "target_tier": "persistent",
+            "target_environment_id": "stage",
+            "target_environment_name": "stage",
         },
     )
 
@@ -135,7 +137,7 @@ def test_start_for_item_entry_opens_no_local_connection():
 
 def test_resolve_head_reports_no_local_checkout(monkeypatch):
     monkeypatch.setattr(_CHECKOUT_RESOLVER, lambda *_a, **_k: None)
-    sha, error = _resolve_remote_release_head("yoke", "stage")
+    sha, error = _resolve_remote_release_head("yoke", "persistent", "stage")
     assert sha == ""
     assert error == NO_LOCAL_CHECKOUT
 
@@ -150,7 +152,9 @@ def test_validate_skips_supplied_lineage_without_local_checkout(monkeypatch):
         gates, "resolve_flow_gate_branch",
         lambda *_a, **_k: pytest.fail("git gate-branch resolver must not run"),
     )
-    assert _validate_commit_release_lineage("yoke", "stage", _MERGE_SHA) == ""
+    assert _validate_commit_release_lineage(
+        "yoke", "persistent", "stage", _MERGE_SHA,
+    ) == ""
 
 
 def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
@@ -158,10 +162,13 @@ def test_start_for_item_trusts_supplied_lineage_with_no_checkout(monkeypatch):
         composer, "_lookup_item_project_and_flow",
         lambda *_a: ("yoke", "yoke-hosted-stage-no-ci-gate"),
     )
-    monkeypatch.setattr(composer, "cmd_resolve_target_env", lambda *_a, **_k: "stage")
+    monkeypatch.setattr(
+        composer, "cmd_resolve_target",
+        lambda *_a, **_k: ("persistent", "stage", "stage"),
+    )
     seen = {}
 
-    def _create(project, flow, *, target_env, release_lineage, created_by):
+    def _create(project, flow, *, environment, release_lineage, created_by):
         seen["release_lineage"] = release_lineage
         return "run-20260730-002"
 
@@ -203,8 +210,12 @@ def test_validate_still_checks_remote_head_with_local_checkout(monkeypatch, tmp_
         ghw, "_resolve_publish_sha", lambda *_a, **_k: (_MERGE_SHA, ""),
     )
     # A lineage equal to the resolved remote head validates clean...
-    assert _validate_commit_release_lineage("yoke", "stage", _MERGE_SHA) == ""
+    assert _validate_commit_release_lineage(
+        "yoke", "persistent", "stage", _MERGE_SHA,
+    ) == ""
     # ...and a divergent lineage is rejected, exactly as the in-process path did.
     divergent = "b" * 40
-    message = _validate_commit_release_lineage("yoke", "stage", divergent)
+    message = _validate_commit_release_lineage(
+        "yoke", "persistent", "stage", divergent,
+    )
     assert "does not equal the exact remote gate-branch commit" in message

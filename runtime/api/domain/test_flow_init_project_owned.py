@@ -56,7 +56,7 @@ def test_yoke_checkout_owns_valid_flow_declarations() -> None:
 
     assert normalized.default_flow == "yoke-internal"
     assert "yoke-branch-preview" in by_id
-    assert by_id["yoke-branch-preview"].target_env == "ephemeral"
+    assert by_id["yoke-branch-preview"].target_tier == "ephemeral"
     assert json.loads(by_id["yoke-branch-preview"].stages) == [
         {"name": "ephemeral-deploy", "step_runner": "ephemeral-deploy"},
         {"name": "complete", "step_runner": "auto"},

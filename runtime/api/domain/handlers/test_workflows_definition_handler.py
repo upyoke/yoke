@@ -58,14 +58,17 @@ def _insert_flow(
     *,
     name: str,
     stages: str,
-    target_env: str | None = None,
+    target_tier: str | None = None,
+    target_environment_id: str | None = None,
     on_failure: str = "halt",
 ) -> None:
     conn.execute(
         "INSERT INTO deployment_flows "
-        "(id, project_id, name, stages, on_failure, target_env, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (flow_id, project_id, name, stages, on_failure, target_env, _iso()),
+        "(id, project_id, name, stages, on_failure, target_tier, "
+        "target_environment_id, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (flow_id, project_id, name, stages, on_failure, target_tier,
+         target_environment_id, _iso()),
     )
     conn.commit()
 
@@ -134,7 +137,8 @@ class TestFlows:
         _insert_project(test_db, 88, "otherproj")
         _insert_flow(
             test_db, "alpha-release", yoke_id,
-            name="Alpha Release", target_env="prod",
+            name="Alpha Release", target_tier="persistent",
+            target_environment_id="prod-env",
             stages=dumps_compact([
                 {"name": "merged", "step_runner": "auto"},
                 {"name": "complete", "step_runner": "auto"},
@@ -154,7 +158,8 @@ class TestFlows:
         scoped = get_workflows_definition(project="yoke")["flows"]
         assert [flow["id"] for flow in scoped] == ["alpha-release"]
         assert scoped[0]["name"] == "Alpha Release"
-        assert scoped[0]["target_env"] == "prod"
+        assert scoped[0]["target_tier"] == "persistent"
+        assert scoped[0]["target_environment_id"] == "prod-env"
         assert scoped[0]["status"] == "active"
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"

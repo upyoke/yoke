@@ -2,7 +2,7 @@
 """Preview-environment + cancellation tests for deployment_runs.
 Covers cmd_preview_check, cmd_preview_claim, cmd_preview_release,
 cmd_check_preview_occupancy, cmd_claim_preview, cmd_can_cleanup_preview,
-cmd_resolve_target_env, plus terminal cancelled status.
+cmd_resolve_target, plus terminal cancelled status.
 
 Split from ``test_deployment_runs_full.py``.
 """
@@ -159,26 +159,36 @@ class TestCanCleanupPreview:
         assert "failed" in msg
 
 
-class TestResolveTargetEnv:
-    """cmd_resolve_target_env: override vs flow default."""
+class TestResolveTarget:
+    """cmd_resolve_target: override vs flow default."""
 
-    def test_override_takes_priority(self, db_path):
-        result = dr.cmd_resolve_target_env(
+    def test_override_resolves_registered_name(self, db_path):
+        result = dr.cmd_resolve_target(
             "externalwebapp", "externalwebapp-standard",
-            target_env_override="staging",
+            environment_override="prod",
             db_path=db_path,
         )
-        assert result == "staging"
+        assert result == ("persistent", "ewa-prod", "prod")
+
+    def test_override_refuses_unregistered(self, db_path):
+        with pytest.raises(ValueError, match="not registered"):
+            dr.cmd_resolve_target(
+                "externalwebapp", "externalwebapp-standard",
+                environment_override="nowhere",
+                db_path=db_path,
+            )
 
     def test_flow_default(self, db_path):
-        result = dr.cmd_resolve_target_env("externalwebapp", "externalwebapp-standard", db_path=db_path)
-        assert result == "preview"
+        result = dr.cmd_resolve_target(
+            "externalwebapp", "externalwebapp-standard", db_path=db_path,
+        )
+        assert result == ("persistent", "preview", "preview")
 
     def test_no_default_returns_empty(self, db_path):
-        result = dr.cmd_resolve_target_env(
+        result = dr.cmd_resolve_target(
             "yoke", "yoke-internal", db_path=db_path,
         )
-        assert result == ""
+        assert result == ("", "", "")
 
 
 class TestCancelledStatus:
