@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import sections
-from yoke_core.domain.sections_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.sections_test_helpers import (  # noqa: F401 — fixtures
     _RecordingEmitter,
     _RecordingRenderer,
     _reset_injectables,

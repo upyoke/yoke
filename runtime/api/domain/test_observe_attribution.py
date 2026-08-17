@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from runtime.api.workflow_version_test_helpers import publish_issue_completion_stage
-from yoke_core.domain.observe_test_helpers import (
+from runtime.api.domain.observe_test_helpers import (
     _fresh_now,
     observe_attribution_db,
     seed_item,

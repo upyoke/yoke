@@ -11,7 +11,7 @@ from yoke_core.domain.workspace_authority import (
     SESSION_ID_ENV_VAR,
     assert_target_under_session_work_authority,
 )
-from yoke_core.domain.workspace_authority_test_helpers import (
+from runtime.api.domain.workspace_authority_test_helpers import (
     PROJECT_REPO_ROOT,
     RETIRED_DISPATCH_ROOT,
     RUN_ID,

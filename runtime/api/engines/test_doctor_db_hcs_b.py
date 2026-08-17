@@ -22,7 +22,7 @@ from yoke_core.engines.doctor import (
     hc_smoke_failure_stale,
 )
 
-from yoke_core.engines._doctor_db_test_helpers import (
+from runtime.api.engines._doctor_db_test_helpers import (
     _default_args,
     _get_result,
     _iso_offset,

@@ -25,7 +25,7 @@ from yoke_core.domain.lint_event_registry import (
     lookup_event_status,
     parse_payload,
 )
-from yoke_core.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
     no_table_db,
     registry_db,
 )

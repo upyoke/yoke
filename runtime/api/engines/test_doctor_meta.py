@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from yoke_core.engines.doctor_project_checks import discover_project_checks
-from yoke_core.engines._doctor_meta_test_helpers import (
+from runtime.api.engines._doctor_meta_test_helpers import (
     _args,
     _insert_deployment_flow,
     _insert_item,

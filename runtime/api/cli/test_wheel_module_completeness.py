@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 import sys
 import types
@@ -128,6 +129,47 @@ def test_factory_boot_uses_only_the_built_wheelhouse(tmp_path: Path) -> None:
         "yoke_core.tools.product_wheel_validation",
     ]
     assert commands[0][1] == commands[1][1] == created[0]
+
+
+def test_installed_gate_imports_every_derived_core_module(monkeypatch) -> None:
+    modules = ("yoke_core", "yoke_core.domain.example")
+    imported: list[str] = []
+    monkeypatch.setattr(
+        product_wheel_validation, "installed_core_module_names", lambda: modules
+    )
+    monkeypatch.setattr(
+        product_wheel_validation.importlib,
+        "import_module",
+        lambda name: imported.append(name),
+    )
+
+    assert product_wheel_validation.verify_installed_boot() == modules
+    assert imported == list(modules)
+
+
+def test_installed_gate_rejects_swallowed_missing_import(monkeypatch) -> None:
+    module = "yoke_core.domain.swallowed_import"
+
+    def import_module(_name: str) -> None:
+        try:
+            builtins.__import__(
+                "source_checkout_only", {"__name__": module}
+            )
+        except ModuleNotFoundError:
+            pass
+
+    monkeypatch.setattr(
+        product_wheel_validation, "installed_core_module_names", lambda: (module,)
+    )
+    monkeypatch.setattr(
+        product_wheel_validation.importlib, "import_module", import_module
+    )
+
+    with pytest.raises(
+        wheel_module_completeness.WheelModuleCompletenessError,
+        match=r"yoke_core\.domain\.swallowed_import -> source_checkout_only",
+    ):
+        product_wheel_validation.verify_installed_boot()
 
 
 def _source_tree(root: Path) -> Path:

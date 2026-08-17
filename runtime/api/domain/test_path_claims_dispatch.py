@@ -17,7 +17,7 @@ from yoke_core.domain import (
     path_claims_dispatch_amend,
     path_claims_dispatch_state,
 )
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     ambient_holder_session, conn, local_human, seed_target,
     seed_test_holder_for,
 )
@@ -287,7 +287,7 @@ class TestConflictsCmd:
     def test_conflicts_returns_pair_when_overlap_exists(
         self, patch_conn, capsys
     ):
-        from yoke_core.domain._path_claims_test_helpers import SNAP
+        from runtime.api.domain._path_claims_test_helpers import SNAP
         from yoke_core.domain.path_claims import activate, register
 
         actor = local_human(patch_conn)

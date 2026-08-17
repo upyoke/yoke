@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,

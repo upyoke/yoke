@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from yoke_core.engines._doctor_native_sql_test_helpers import (
+from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
 from yoke_cli.main import main as cli_main

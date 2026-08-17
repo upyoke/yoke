@@ -24,7 +24,7 @@ from yoke_project_checks.check_docs import (
     hc_claudemd_drift,
 )
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
     _make_conn,
     _result,

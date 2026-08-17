@@ -26,7 +26,7 @@ from yoke_core.engines.resync_detect_fetch import (
 )
 
 from runtime.api.fixtures.file_test_db import connect_test_db
-from yoke_core.engines._resync_test_helpers import (
+from runtime.api.engines._resync_test_helpers import (
     populated_db,  # noqa: F401 — imported pytest fixture
     test_db,  # noqa: F401 — imported pytest fixture
 )

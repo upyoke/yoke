@@ -33,7 +33,7 @@ from runtime.api.fixtures.file_test_db import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_claims_test_helpers import _apply_path_claim_schema
+from runtime.api.domain._path_claims_test_helpers import _apply_path_claim_schema
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.schema_init_columns import apply_harness_session_columns
 from yoke_core.api.service_client_path_claims import cmd_path_claim_register

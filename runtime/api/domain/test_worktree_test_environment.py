@@ -22,7 +22,7 @@ from yoke_core.domain.qa_environment_declaration import (
 )
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_provision import provision_worktree_test_environment
-from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
 
 @pytest.fixture(autouse=True)

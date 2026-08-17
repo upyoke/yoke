@@ -21,7 +21,7 @@ from yoke_core.engines.doctor import (
     hc_validation_no_qa_reqs,
 )
 
-from yoke_core.engines._doctor_db_test_helpers import (
+from runtime.api.engines._doctor_db_test_helpers import (
     _default_args,
     _get_result,
     _iso_offset,

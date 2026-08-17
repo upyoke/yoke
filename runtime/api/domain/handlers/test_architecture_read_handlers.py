@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers import project_snapshot_sync as sync_handler
 from yoke_core.domain.handlers import project_structure as ps_handler

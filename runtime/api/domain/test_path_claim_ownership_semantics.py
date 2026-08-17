@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     conn as path_claims_conn,  # noqa: F401 — fixture
     local_human,
     seed_target,

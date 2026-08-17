@@ -26,7 +26,7 @@ from yoke_project_checks.check_docs import (
     hc_doc_drift,
 )
 
-from yoke_core.engines._doctor_filesystem_full_test_helpers import (
+from runtime.api.engines._doctor_filesystem_full_test_helpers import (
     _cp,
     _run_hc,
 )

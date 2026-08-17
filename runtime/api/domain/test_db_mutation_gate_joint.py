@@ -19,7 +19,7 @@ import pytest
 from yoke_core.domain.db_mutation_gate import (
     check_idea_to_refining_idea_gate,
 )
-from yoke_core.domain.db_mutation_gate_test_helpers import (
+from runtime.api.domain.db_mutation_gate_test_helpers import (
     gate_db_context,
     _seed_capability,
     _seed_project,

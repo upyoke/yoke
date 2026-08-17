@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import conn  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import conn  # noqa: F401
 from yoke_core.domain.path_registry import KIND_DIRECTORY, KIND_FILE
 from yoke_core.domain.path_claims_resolve import (
     resolve_or_plan_paths_to_target_ids,

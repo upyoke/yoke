@@ -10,7 +10,7 @@ Heavy fixture/helper code lives in ``sections_test_helpers``.
 from __future__ import annotations
 
 from yoke_core.domain import sections
-from yoke_core.domain.sections_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.sections_test_helpers import (  # noqa: F401 — fixtures
     _reset_injectables,
     db_path,
 )

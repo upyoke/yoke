@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_snapshots_test_helpers import (
+from runtime.api.domain._path_snapshots_test_helpers import (
     NOW,
     _project_row_id,
     path_snapshot_db,

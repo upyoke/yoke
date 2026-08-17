@@ -2,16 +2,16 @@
 
 This module is a SHARED HELPER ONLY. It returns structured facts about the
 active worktree-scoped item / session, the expected worktree root, the
-current harness cwd, and whether ``runtime.api`` resolves under the
-expected worktree path. Policy decisions (deny payload, suppression
-handling, orientation rendering) live in the consumers:
+current harness cwd, and whether it is inside a registered worktree.
+Policy decisions (deny payload, suppression handling, orientation
+rendering) live in the consumers:
 
 * :mod:`yoke_core.domain.path_claim_bash_guard` — Bash-command file-mutation
-  policy (epic task 4).
+  policy.
 * :mod:`yoke_core.domain.lint_session_cwd` — session cwd binding policy
-  (epic task 13).
+  and orientation.
 * :mod:`yoke_core.domain.check_path_claim_coverage_at_commit` — pre-commit
-  path-claim coverage gate (epic task 14).
+  path-claim coverage gate.
 
 Helpers are designed to be importable from those modules without a cyclic
 import: they depend only on :mod:`yoke_core.domain.db_helpers` and the
@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
 
@@ -53,21 +52,6 @@ class WorktreeInvariantContext:
     expected_worktree_root: Optional[str]
     actual_cwd: str
     is_inside_worktree: bool
-
-
-@dataclass(frozen=True)
-class ImportRootVerdict:
-    """Outcome of the ``runtime.api`` import-root verification.
-
-    ``ok`` is True when the loaded ``runtime.api`` package resolves under
-    the expected worktree path. The verdict is consumed by the
-    session-cwd guard (epic task 13) which formats the deny payload.
-    """
-
-    ok: bool
-    loaded_from: Optional[str]
-    expected_under: str
-    reason: str
 
 
 def _resolve_session_id() -> str:
@@ -220,70 +204,10 @@ def resolve_active_worktree_context(
     )
 
 
-def verify_runtime_api_import_root(
-    expected_worktree: Path,
-) -> ImportRootVerdict:
-    """Verify ``runtime.api`` resolves under *expected_worktree*.
-
-    The helper inspects the ``runtime.api`` package's ``__file__`` to
-    confirm the loaded module came from the expected worktree path
-    rather than a stale main-checkout install. Used by the session-cwd
-    guard (epic task 13) to detect cases where a session was launched
-    from a worktree but ``PYTHONPATH`` / package install resolution
-    still points at main.
-    """
-    expected_str = str(expected_worktree.resolve())
-    try:
-        import runtime.api as runtime_api  # noqa: F401
-    except ImportError as exc:
-        return ImportRootVerdict(
-            ok=False,
-            loaded_from=None,
-            expected_under=expected_str,
-            reason=f"could not import runtime.api: {exc!s}",
-        )
-    loaded_from = getattr(runtime_api, "__file__", None)
-    if not loaded_from:
-        # Namespace package or otherwise file-less; conservative pass.
-        return ImportRootVerdict(
-            ok=True,
-            loaded_from=None,
-            expected_under=expected_str,
-            reason="runtime.api has no __file__ (namespace package); skipped",
-        )
-    resolved_loaded = str(Path(loaded_from).resolve())
-    if (
-        resolved_loaded.startswith(expected_str + os.sep)
-        or resolved_loaded == expected_str
-    ):
-        return ImportRootVerdict(
-            ok=True,
-            loaded_from=resolved_loaded,
-            expected_under=expected_str,
-            reason="runtime.api loaded from expected worktree",
-        )
-    return ImportRootVerdict(
-        ok=False,
-        loaded_from=resolved_loaded,
-        expected_under=expected_str,
-        reason=append_field_note_footer(
-            (
-                f"runtime.api loaded from {resolved_loaded!r}; "
-                f"expected a path under {expected_str!r}. The session's "
-                "PYTHONPATH or installed package is anchored outside the "
-                "active worktree."
-            ),
-            rule_id="lint-worktree-path-invariants",
-        ),
-    )
-
-
 __all__ = [
-    "ImportRootVerdict",
     "WorktreeInvariantContext",
     "expected_worktree_path",
     "resolve_active_worktree_context",
-    "verify_runtime_api_import_root",
 ]
 
 

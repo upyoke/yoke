@@ -16,7 +16,7 @@ from yoke_core.engines._doctor_hc_cutoff_test_helpers import (
     _patch_repo_root,
     _write_cutoff,
 )
-from yoke_core.engines._doctor_hc_db_full_test_helpers import (
+from runtime.api.engines._doctor_hc_db_full_test_helpers import (
     _result,
     _run_hc,
 )

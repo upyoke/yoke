@@ -23,7 +23,7 @@ from yoke_core.domain.lint_event_registry import (
     emit_denial,
     evaluate,
 )
-from yoke_core.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
+from runtime.api.domain.lint_event_registry_test_helpers import (  # noqa: F401 — fixtures
     _payload,
     registry_db,
 )

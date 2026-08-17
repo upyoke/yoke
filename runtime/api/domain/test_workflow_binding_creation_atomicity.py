@@ -20,7 +20,7 @@ from runtime.api.fixtures.backlog import (
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.test_sessions import _register
 from yoke_core.domain import deployment_runs_crud_mutate
-from yoke_core.domain._path_claims_test_helpers import local_human
+from runtime.api.domain._path_claims_test_helpers import local_human
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )

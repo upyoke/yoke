@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from yoke_core.engines._doctor_meta_test_helpers import (
+from runtime.api.engines._doctor_meta_test_helpers import (
     _args,
     _insert_deployment_flow,
     _insert_item,

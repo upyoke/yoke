@@ -11,7 +11,7 @@ from yoke_core.domain import db_mutation_gate_implementing
 from yoke_core.domain.db_mutation_gate import (
     check_implementing_to_reviewing_implementation_gate,
 )
-from yoke_core.domain.db_mutation_gate_test_helpers import (
+from runtime.api.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_project,
     gate_audit_path,

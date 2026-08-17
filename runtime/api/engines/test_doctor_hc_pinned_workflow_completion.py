@@ -7,7 +7,7 @@ import pytest
 from runtime.api.workflow_version_test_helpers import (
     publish_issue_completion_stage,
 )
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _insert_deployment_flow,
     _insert_item,
     _make_conn,

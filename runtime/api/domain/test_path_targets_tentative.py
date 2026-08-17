@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_claims_test_helpers import seed_item
+from runtime.api.domain._path_claims_test_helpers import seed_item
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
@@ -192,7 +192,7 @@ class TestOverlapDetection:
     """Tentative targets participate in overlap/conflict detection."""
 
     def test_tentative_target_overlap_blocks_second_claim(self, conn):
-        from yoke_core.domain._path_claims_test_helpers import local_human
+        from runtime.api.domain._path_claims_test_helpers import local_human
 
         _seed_issue_items(conn, 201)
         actor = local_human(conn)

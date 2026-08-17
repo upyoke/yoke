@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.domain import render_body
-from yoke_core.domain.render_body_test_helpers import (
+from runtime.api.domain.render_body_test_helpers import (
     _connect,
     db_path,  # noqa: F401  (pytest fixture)
     _p,

@@ -185,7 +185,7 @@ def _build_bundle(
     command = [
         sys.executable,
         "-m",
-        "yoke_core.tools.source_project_bundle",
+        "runtime.api.tools.source_project_bundle",
         "--source-checkout",
         str(source_checkout),
         "--target-root",
@@ -218,7 +218,7 @@ def _build_bundle(
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
         if (
-            "No module named yoke_core.tools.source_project_bundle" in detail
+            "No module named runtime.api.tools.source_project_bundle" in detail
             or "source bundle imports are not bound" in detail
         ):
             detail = (

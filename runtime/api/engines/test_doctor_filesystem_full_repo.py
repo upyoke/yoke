@@ -19,7 +19,7 @@ from yoke_core.engines.doctor import (
     hc_stray_project_files,
 )
 
-from yoke_core.engines._doctor_filesystem_full_test_helpers import (
+from runtime.api.engines._doctor_filesystem_full_test_helpers import (
     _cp,
     _run_hc,
 )

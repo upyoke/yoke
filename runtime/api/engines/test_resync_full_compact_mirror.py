@@ -29,7 +29,7 @@ from runtime.api.api_workflow_test_helpers import (
     install_workflow_registry_and_pin_items,
 )
 
-from yoke_core.engines._resync_full_test_helpers import (
+from runtime.api.engines._resync_full_test_helpers import (
     _make_gh_issues,
     test_db,  # noqa: F401 — pytest fixture
 )

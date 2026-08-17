@@ -24,7 +24,7 @@ from yoke_core.domain.path_claims_dependency_resolver import (
     has_bidirectional_dep_edge,
     resolve_upstream_for_register,
 )
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,

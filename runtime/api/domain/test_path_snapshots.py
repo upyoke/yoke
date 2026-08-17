@@ -26,7 +26,7 @@ from yoke_core.domain.path_snapshots import (
     PathSnapshotError,
     build_head_snapshot,
 )
-from yoke_core.domain._path_snapshots_test_helpers import (
+from runtime.api.domain._path_snapshots_test_helpers import (
     NOW,
     path_snapshot_db,
 )

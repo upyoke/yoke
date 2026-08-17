@@ -17,7 +17,7 @@ here asserts:
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     conn,
     seed_test_holder_session,
 )

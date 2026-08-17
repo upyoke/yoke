@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain._path_claims_test_helpers import conn  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import conn  # noqa: F401
 from yoke_core.domain.path_claims_events import emit_registration_blocked
 
 

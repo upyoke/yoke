@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from yoke_core.engines._doctor_native_sql_test_helpers import (
+from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
 from yoke_core.domain import attestation_rehearsal_dryrun as dryrun

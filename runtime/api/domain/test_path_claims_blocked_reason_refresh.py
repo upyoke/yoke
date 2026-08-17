@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     add_edge,
     conn,
     count_refresh_events,

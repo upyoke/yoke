@@ -18,7 +18,7 @@ from yoke_core.engines.resync import (
     stage2_compare,
 )
 
-from yoke_core.engines._resync_test_helpers import (
+from runtime.api.engines._resync_test_helpers import (
     populated_db,
     test_db,
 )

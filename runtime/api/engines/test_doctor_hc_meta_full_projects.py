@@ -21,7 +21,7 @@ from yoke_core.engines.doctor import (
     hc_projects_without_flows,
 )
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _insert_deployment_flow,
     _insert_item,
     _make_conn,

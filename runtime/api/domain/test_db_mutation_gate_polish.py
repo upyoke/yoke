@@ -14,7 +14,7 @@ import pytest
 from yoke_core.domain.db_mutation_gate import (
     check_polishing_implementation_to_implemented_gate,
 )
-from yoke_core.domain.db_mutation_gate_test_helpers import (
+from runtime.api.domain.db_mutation_gate_test_helpers import (
     _seed_capability,
     _seed_project,
     _write_module,

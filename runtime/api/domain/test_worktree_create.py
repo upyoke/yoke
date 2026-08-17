@@ -24,7 +24,7 @@ from yoke_core.domain.worktree import (
     create_worktree,
     resolve_item_worktree,
 )
-from yoke_core.domain.worktree_test_helpers import (
+from runtime.api.domain.worktree_test_helpers import (
     TEST_ITEM_ID,
     TEST_ITEM_REF,
     pin_test_item_workflow,

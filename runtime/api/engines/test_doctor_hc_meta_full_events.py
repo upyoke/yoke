@@ -25,7 +25,7 @@ from yoke_core.engines.doctor import (
     hc_events_synthetic_contamination,
 )
 
-from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
+from runtime.api.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
     _args,
     _ensure_migration_audit_table,

@@ -28,7 +28,7 @@ from yoke_core.engines.merge_worktree_runner import (
     _pre_acquire_check_with_retry,
 )
 
-from yoke_core.engines._merge_worktree_test_helpers import mw_db as mw_db
+from runtime.api.engines._merge_worktree_test_helpers import mw_db as mw_db
 
 
 class TestPreAcquireCheckRetryUnit:

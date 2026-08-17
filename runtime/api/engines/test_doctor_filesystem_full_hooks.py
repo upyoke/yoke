@@ -23,7 +23,7 @@ from yoke_project_checks.check_agents_hooks import (
     hc_self_test,
 )
 
-from yoke_core.engines._doctor_filesystem_full_test_helpers import (
+from runtime.api.engines._doctor_filesystem_full_test_helpers import (
     _cp,
     _make_conn,
     _run_hc,

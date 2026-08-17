@@ -11,7 +11,7 @@ Covers:
   occur during a render.
 
 Schema, fixture, and helpers live in
-:mod:`yoke_core.domain.qa_gate_summary_test_fixtures` so this file
+:mod:`runtime.api.domain.qa_gate_summary_test_fixtures` so this file
 stays under the 350-line authored-file cap.
 """
 
@@ -27,7 +27,7 @@ from yoke_core.domain.qa_gate_summary import (
     cmd_gate_summary,
     render_gate_summary,
 )
-from yoke_core.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
+from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
     add_artifact,
     add_requirement,
     add_run,

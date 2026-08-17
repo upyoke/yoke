@@ -19,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import (
+from runtime.api.domain import (
     migration_apply_test_helpers,
     render_body_test_helpers,
 )
-from yoke_core.engines import (
+from runtime.api.engines import (
     _doctor_db_test_helpers,
     _doctor_hc_meta_full_test_helpers,
     _doctor_meta_test_helpers,

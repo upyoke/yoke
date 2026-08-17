@@ -12,7 +12,7 @@ from runtime.api.domain.path_claim_task_test_support import (
     seed_target,
     seed_worker_task,
 )
-from yoke_core.domain._path_claims_test_helpers import local_human
+from runtime.api.domain._path_claims_test_helpers import local_human
 from yoke_core.domain.advance_path_claim_task_activation import (
     task_activation_block_reason,
 )

@@ -17,7 +17,7 @@ from yoke_core.domain import (
     backlog_update_op,
     item_status_transitions,
 )
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     local_human,
     seed_target,
 )

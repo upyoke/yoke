@@ -13,7 +13,7 @@ from yoke_core.domain import browser_qa, db_backend
 from yoke_core.domain.qa_artifact_handle import parse_handle
 from yoke_core.domain.qa_artifact_ops import linked_artifact_handle
 from yoke_core.domain.qa_artifacts import artifact_directory
-from yoke_core.domain.browser_qa_test_helpers import (
+from runtime.api.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
     _browser_check_steps,
     _fetch_context_from_test_db,

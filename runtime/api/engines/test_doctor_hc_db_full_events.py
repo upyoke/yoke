@@ -27,7 +27,7 @@ from runtime.api.conftest import (
 )
 from yoke_core.domain.db_helpers import iso8601_now
 
-from yoke_core.engines._doctor_hc_db_full_test_helpers import (
+from runtime.api.engines._doctor_hc_db_full_test_helpers import (
     _add_deployment_preview_environments_table,
     _result,
     _run_hc,

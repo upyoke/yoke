@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import check_path_claim_coverage_at_commit as mod
-from yoke_core.domain._test_check_path_claim_helpers import (
+from runtime.api.domain._test_check_path_claim_helpers import (
     conn,  # noqa: F401  # re-exported pytest fixture
     init_repo,
     make_ctx,

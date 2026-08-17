@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from yoke_core.engines.resync import PairedItem, stage2_compare
 
-from yoke_core.engines._resync_full_test_helpers import (
+from runtime.api.engines._resync_full_test_helpers import (
     _make_gh_issues,
     populated_db,
     test_db,

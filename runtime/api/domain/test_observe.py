@@ -26,7 +26,7 @@ from yoke_core.domain.observe_normalization import (
     TOOL_KIND_WRITE,
     ToolEventRecord,
 )
-from yoke_core.domain.observe_test_helpers import observe_events_db
+from runtime.api.domain.observe_test_helpers import observe_events_db
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 

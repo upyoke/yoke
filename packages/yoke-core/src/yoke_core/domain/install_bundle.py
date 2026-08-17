@@ -40,6 +40,7 @@ from yoke_contracts.engine_version import (
     UNRESOLVED_SCM_FALLBACK_VERSION,
     installed_engine_version,
 )
+from yoke_contracts.install_binding import source_checkout_root
 from yoke_contracts.project_contract.install_bundle import BUNDLE_SCHEMA
 from yoke_contracts.packs import PACKS_SOURCE
 
@@ -100,7 +101,7 @@ def yoke_version() -> str:
 
 
 def server_tree_root() -> Path:
-    """Install-bundle source tree root (env override, then runtime, else wheel)."""
+    """Install-bundle tree root from an override, checkout, or wheel snapshot."""
     import os
 
     declared = os.environ.get("YOKE_SERVER_TREE_ROOT", "").strip()
@@ -111,12 +112,8 @@ def server_tree_root() -> Path:
                 f"YOKE_SERVER_TREE_ROOT is set but is not a directory: {declared}"
             )
         return root
-    try:
-        import runtime
-
-        return Path(runtime.__file__).resolve().parent.parent
-    except ModuleNotFoundError:
-        return _packaged_tree_root()
+    checkout = source_checkout_root(__file__)
+    return checkout if checkout is not None else _packaged_tree_root()
 
 
 def _packaged_tree_root() -> Path:

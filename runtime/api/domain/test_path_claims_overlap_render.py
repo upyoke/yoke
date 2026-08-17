@@ -19,7 +19,7 @@ Split from `test_path_claims_overlap.py` so the parent stays under the
 
 from __future__ import annotations
 
-from yoke_core.domain._path_claims_test_helpers import (
+from runtime.api.domain._path_claims_test_helpers import (
     conn,  # noqa: F401  (pytest fixture)
     local_human,
     register_test_claim as register,

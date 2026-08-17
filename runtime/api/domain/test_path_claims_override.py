@@ -21,7 +21,7 @@ import os
 
 import pytest
 
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import (  # noqa: F401
     SNAP,
     conn,
     local_human,

@@ -18,7 +18,7 @@ from runtime.api.conftest import (
     insert_qa_requirement,
     insert_qa_run,
 )
-from yoke_core.engines._doctor_hc_db_full_test_helpers import (
+from runtime.api.engines._doctor_hc_db_full_test_helpers import (
     _result,
     _run_hc,
 )

@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.engines import done_transition, done_transition_cleanup
-from yoke_core.engines._done_transition_test_helpers import dt_db as _shared_dt_db
+from runtime.api.engines._done_transition_test_helpers import dt_db as _shared_dt_db
 from runtime.api.test_backlog import _seed_claim
 
 
@@ -123,7 +123,7 @@ class TestCleanupStaleBranches:
 class TestDoneRunnerCleanupIsAdvisory:
     def test_incomplete_cleanup_does_not_block_done(self, dt_db):
         db_path, _ = dt_db
-        from yoke_core.engines._done_transition_test_helpers import _insert_item
+        from runtime.api.engines._done_transition_test_helpers import _insert_item
 
         repo_root = db_path.parent
         _insert_item(db_path, TEST_ITEM_ID, status="reviewed-implementation")

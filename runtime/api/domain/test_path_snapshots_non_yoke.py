@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_snapshots_test_helpers import path_snapshot_db
+from runtime.api.domain._path_snapshots_test_helpers import path_snapshot_db
 from yoke_core.domain.path_registry import target_at
 from yoke_core.domain.path_snapshots import build_head_snapshot
 

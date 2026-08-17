@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Release propagation when remaining overlaps are dependency-sanctioned."""
 
-from yoke_core.domain._path_claims_test_helpers import conn, seed_target  # noqa: F401
+from runtime.api.domain._path_claims_test_helpers import conn, seed_target  # noqa: F401
 from yoke_core.domain.path_claims_dependency_propagation import (
     propagate_release_unblock,
     unblock_stranded_for_released,

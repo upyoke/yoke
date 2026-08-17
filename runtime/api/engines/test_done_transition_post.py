@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition
 from yoke_core.engines import done_transition_status
 
-pytest_plugins = ("yoke_core.engines._done_transition_test_helpers",)
+pytest_plugins = ("runtime.api.engines._done_transition_test_helpers",)
 
 
 def _resp(function_id, result=None):
@@ -26,13 +26,13 @@ def _resp(function_id, result=None):
 
 
 def _insert_item(*args, **kwargs):
-    from yoke_core.engines._done_transition_test_helpers import _insert_item as insert
+    from runtime.api.engines._done_transition_test_helpers import _insert_item as insert
 
     return insert(*args, **kwargs)
 
 
 def connect_dt_db(db_path):
-    from yoke_core.engines._done_transition_test_helpers import connect_dt_db as connect
+    from runtime.api.engines._done_transition_test_helpers import connect_dt_db as connect
 
     return connect(db_path)
 

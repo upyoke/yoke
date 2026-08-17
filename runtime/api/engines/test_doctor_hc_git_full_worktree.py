@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from yoke_core.engines._doctor_hc_git_test_helpers import (
+from runtime.api.engines._doctor_hc_git_test_helpers import (
     _completed,
     _insert_item,
     _make_conn,
