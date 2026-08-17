@@ -28,15 +28,15 @@ from typing import Any, Iterable
 
 import pytest
 
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner import subprocess_policy
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.decision_render import (
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks import subprocess_policy
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.decision_render import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     render_claude_decision,
     render_codex_decision,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 def _silence_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:

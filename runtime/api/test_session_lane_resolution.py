@@ -135,7 +135,7 @@ class TestProjectLaneForExecutor:
 
     @pytest.mark.parametrize("executor,expected", _EXECUTOR_LANES)
     def test_resolves_each_executor_surface(self, executor, expected):
-        from runtime.harness.hook_runner_register_identity import (
+        from yoke_core.hooks.registration_identity import (
             project_lane_for_executor,
         )
 
@@ -146,7 +146,7 @@ class TestProjectLaneForExecutor:
         assert project_lane_for_executor(conn, 1, executor) == expected
 
     def test_relayed_sentinel_does_not_override_project_policy(self):
-        from runtime.harness.hook_runner_register_identity import (
+        from yoke_core.hooks.registration_identity import (
             project_lane_for_executor,
         )
 
@@ -156,7 +156,7 @@ class TestProjectLaneForExecutor:
         ) == "DARIUS"
 
     def test_no_project_id_leaves_the_caller_in_charge(self):
-        from runtime.harness.hook_runner_register_identity import (
+        from yoke_core.hooks.registration_identity import (
             project_lane_for_executor,
         )
 

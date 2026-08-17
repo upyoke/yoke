@@ -8,9 +8,9 @@ from typing import Any
 
 import pytest
 
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,

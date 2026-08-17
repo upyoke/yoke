@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-import runtime.harness.hook_helpers_identity as tree_identity
+import yoke_core.hooks.helpers_identity as tree_identity
 import yoke_harness.hooks.identity_runtime as wheel_identity
 
 BOTH = pytest.mark.parametrize("identity", [tree_identity, wheel_identity])

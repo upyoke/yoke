@@ -201,7 +201,7 @@ def _running_under_pytest() -> bool:
 def _try_help(module: str) -> Optional[str]:
     """Return ``<current-python> -m <module> --help`` output or None.
 
-    Some Yoke CLIs (notably :mod:`runtime.harness.harness_sessions`)
+    Some Yoke CLIs (notably :mod:`yoke_core.hooks.sessions_cli`)
     print a custom usage banner and exit non-zero. Accept those banners,
     but reject interpreter/bootstrap errors instead of treating stderr as
     a live command surface.

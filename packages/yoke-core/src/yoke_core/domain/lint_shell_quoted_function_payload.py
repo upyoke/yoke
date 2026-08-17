@@ -53,7 +53,7 @@ from yoke_core.domain.lint_shell_quoted_function_payload_skill import (
 from yoke_core.domain.lint_shell_quoted_function_payload_wrapping_variants import (
     NO_CONSUMER_ALLOWANCE_FUNCTIONS as _NO_CONSUMER_ALLOWANCE_FUNCTIONS,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 _BYPASS_TOKEN = "# lint:no-shell-json-payload-check"
@@ -272,7 +272,7 @@ def _strip_safe_mktemp_assignments(
 def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
     """Best-effort ``HarnessToolCallDenied`` audit event."""
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     _s = lambda v: v if isinstance(v, str) else ""  # noqa: E731

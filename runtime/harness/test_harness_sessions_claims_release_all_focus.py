@@ -21,7 +21,7 @@ from runtime.api.test_sessions import (
     _register,
     conn,  # noqa: F401
 )
-from runtime.harness.harness_sessions_claims import (
+from yoke_core.hooks.sessions_claims import (
     cmd_claim,
     cmd_release_all,
 )

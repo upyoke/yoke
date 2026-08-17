@@ -16,7 +16,7 @@ from pathlib import Path
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.harness.harness_sessions_claims import cmd_who_claims
+from yoke_core.hooks.sessions_claims import cmd_who_claims
 
 
 _SCHEMA = """

@@ -175,7 +175,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_claim_ownership_mutations",
     "yoke_core.domain.lint_git_stash_arg_order",
     "yoke_core.domain.lint_destructive_git",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
@@ -184,7 +184,7 @@ _PRE_EDIT: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
@@ -196,12 +196,12 @@ _PRE_WRITE: tuple[str, ...] = (
     "yoke_core.domain.lint_python_runtime_import_in_tmp",
     "yoke_core.domain.hint_file_line_limit_approach",
     "yoke_core.domain.lint_tc_label",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _PRE_READ: tuple[str, ...] = (
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
@@ -232,14 +232,14 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
     "yoke_core.domain.lint_lane_main_write",
     "yoke_core.domain.path_claim_pre_edit_guard",
     "yoke_core.domain.lint_tc_label",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 )
 
 _POST_DEFAULT: tuple[str, ...] = (
     "yoke_core.domain.db_error_hook",
     "yoke_core.domain.hint_posttool_field_note",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
@@ -249,12 +249,12 @@ _POST_DEFAULT: tuple[str, ...] = (
 # tool-call completion event.
 _POST_AGENT: tuple[str, ...] = (
     "yoke_core.domain.reflection_capture_hook",
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
 _POST_FAILURE_DEFAULT: tuple[str, ...] = (
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 )
 
@@ -265,7 +265,7 @@ _PERMISSION_REQUEST: tuple[str, ...] = (
 # Every session-lifecycle event routes to the one dispatch entry; none of
 # them has a policy chain of its own.
 _LIFECYCLE_DISPATCH: tuple[str, ...] = (
-    "runtime.harness.hook_runner.session_dispatch",
+    "yoke_core.hooks.session_dispatch",
 )
 
 # The PreToolUse mapping is matcher-keyed; non-Pre events use a single

@@ -9,7 +9,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from yoke_core.domain import lint_tc_label as mod
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _bash(command: str) -> dict:

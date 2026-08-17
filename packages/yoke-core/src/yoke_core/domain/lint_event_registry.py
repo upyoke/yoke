@@ -60,7 +60,7 @@ from yoke_core.domain.lint_event_registry_render import (
     build_deprecated_warning,
     emit_denial,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 __all__ = [
     "CHECK_ID",

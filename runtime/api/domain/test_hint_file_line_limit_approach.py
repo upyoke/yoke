@@ -12,7 +12,7 @@ import unittest
 
 from yoke_core.domain import hint_file_line_limit_approach as hint
 from yoke_core.domain.file_line_check import Classification, LIMIT
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Outcome
 
 
 def _content(n: int) -> str:

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.harness import hook_runner_register as register_module
+from yoke_core.hooks import registration as register_module
 
 
 @pytest.fixture(autouse=True)

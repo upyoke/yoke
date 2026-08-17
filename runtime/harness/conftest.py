@@ -17,7 +17,7 @@ from runtime.api.api_workflow_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.harness import hook_helpers, hook_helpers_markers
+from yoke_core.hooks import helpers as hook_helpers, helpers_markers as hook_helpers_markers
 
 from yoke_core.domain import db_backend as _db_backend
 
@@ -166,5 +166,5 @@ def no_parent_argv():
     to ``ps -p $PPID`` and could pick up a ``--model`` flag from the test
     runner's parent, masking the behavior under test.
     """
-    with mock.patch("runtime.harness.hook_helpers._read_parent_argv", return_value=[]):
+    with mock.patch("yoke_core.hooks.helpers._read_parent_argv", return_value=[]):
         yield

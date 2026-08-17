@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from runtime.harness.hook_runner import (
+from yoke_core.hooks import (
     AdapterCapability,
     HookContext,
     HookDecision,
@@ -26,7 +26,7 @@ from runtime.harness.hook_runner import (
 
 
 def test_top_level_imports_resolve() -> None:
-    """`from runtime.harness.hook_runner import ...` succeeds."""
+    """`from yoke_core.hooks import ...` succeeds."""
 
     assert HookContext is not None
     assert HookDecision is not None

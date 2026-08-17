@@ -27,7 +27,7 @@ import sys
 from typing import Optional
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 WORKFLOW_PATH_PATTERNS = (
@@ -138,7 +138,7 @@ def evaluate_payload(payload: dict) -> Optional[str]:
 
 def _emit_denial(payload: dict, reason: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     session_id = payload.get("session_id") or ""

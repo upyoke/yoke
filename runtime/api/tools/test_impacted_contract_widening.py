@@ -48,7 +48,7 @@ def test_repo_cleanliness_floor_names_its_global_widening_trigger(tmp_path):
 
 def test_cursor_identity_dispatch_survives_bounded_tooling_deferral(tmp_path):
     root = _tiny_repo(tmp_path)
-    cursor_payload = "runtime/harness/cursor/cursor_hooks_payload.py"
+    cursor_payload = "packages/yoke-core/src/yoke_core/hooks/cursor_payload.py"
     tooling = "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py"
     dispatch_test = CURSOR_SESSION_IDENTITY_DISPATCH_TESTS[0]
     _write(root, cursor_payload, "def resolve_container_session_id(): pass\n")

@@ -20,17 +20,17 @@ runtime/harness/
     settings.json         # Hook source materialized at .claude/settings.json
     agents/               # Rendered Claude agent adapters (yoke-*.md)
     rules/                # Claude-specific session rules
-    # Hook entrypoints live under runtime.harness.hook_runner
+    # Hook entrypoints live under yoke_core.hooks
   codex/                  # Codex adapter
     manifest.json         # Adapter manifest (identity, affordances, limitations)
     hooks.json            # Hook configuration (surfaced via .codex/hooks.json symlink)
     agents/               # Rendered Codex custom-agent adapters (yoke-*.toml)
-    # Python entrypoints live under runtime.harness.codex.*
+    # Python entrypoints live under yoke_core.hooks.*
   cursor/                 # Cursor adapter
     manifest.json         # Adapter manifest (identity, affordances, limitations)
     hooks.json            # Hook configuration (copied to the source-dev .cursor surface)
     agents/               # Rendered Cursor custom-agent adapters (yoke-*.md, surfaced via .cursor/agents)
-    # Python entrypoints live under runtime.harness.cursor.*
+    # Python entrypoints live under yoke_core.hooks.*
   {future-harness}/       # Future adapters follow the same pattern
     manifest.json
     agents/
@@ -43,9 +43,9 @@ The agent adapter directories are populated by the substrate renderer (`python3 
 
 The Codex/bootstrap cluster is now Pythonized end-to-end. Entry and hook surfaces route through:
 
-- `runtime.harness.bootstrap`
-- `runtime.harness.codex.codex_model`
-- `runtime.harness.hook_runner` (shared dispatch entrypoint for both Claude Code and Codex)
+- `yoke_core.hooks.bootstrap`
+- `yoke_core.hooks.codex_model`
+- `yoke_core.hooks` (shared dispatch entrypoint for both Claude Code and Codex)
 
 ## Required adapter parts
 
@@ -118,7 +118,7 @@ Codex Stop stdout remains exactly `{}`. Cleanup failures are emitted through `Ha
 
 ### Stop / SessionEnd Cleanup
 
-`runtime.harness.hook_runner.session_end_cleanup` is a thin bounded wrapper around the existing `end_session_if_empty` domain primitive. It emits `HarnessSessionHookFailed` only when the in-process cleanup cannot complete cleanly.
+`yoke_core.hooks.session_end_cleanup` is a thin bounded wrapper around the existing `end_session_if_empty` domain primitive. It emits `HarnessSessionHookFailed` only when the in-process cleanup cannot complete cleanly.
 
 Codex Stop fires at the end of every assistant turn. It is a turn-boundary cleanup, not an archive trigger: claimless sessions end, claimed or chain-pending sessions remain available for the next prompt.
 

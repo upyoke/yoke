@@ -42,7 +42,7 @@ from yoke_core.domain.path_claim_target_resolver import (
     evaluate_target,
     resolve_active_claim_for_session,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 # Verbs the parser may emit for a sentinel mutation tuple.

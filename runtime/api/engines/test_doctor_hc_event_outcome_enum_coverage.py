@@ -120,7 +120,7 @@ class TestSourceScanPasses:
                 (
                     "runtime/api/domain/lint_example.py",
                     """
-                    from runtime.harness.hook_runner.telemetry import (
+                    from yoke_core.hooks.telemetry import (
                         emit_denial_event,
                     )
 
@@ -147,7 +147,7 @@ class TestSourceScanPasses:
                 (
                     "runtime/api/domain/lint_ternary.py",
                     """
-                    from runtime.harness.hook_runner.telemetry import (
+                    from yoke_core.hooks.telemetry import (
                         emit_denial_event,
                     )
 
@@ -178,7 +178,7 @@ class TestSourceScanFails:
                 (
                     "runtime/api/domain/lint_drifted.py",
                     """
-                    from runtime.harness.hook_runner.telemetry import (
+                    from yoke_core.hooks.telemetry import (
                         emit_denial_event,
                     )
 
@@ -204,7 +204,7 @@ class TestSourceScanFails:
                 (
                     "runtime/api/domain/lint_split.py",
                     """
-                    from runtime.harness.hook_runner.telemetry import (
+                    from yoke_core.hooks.telemetry import (
                         emit_denial_event,
                     )
 
@@ -232,7 +232,7 @@ class TestUnresolvedExpressionsPassNotFail:
                 (
                     "runtime/api/domain/lint_dynamic.py",
                     """
-                    from runtime.harness.hook_runner.telemetry import (
+                    from yoke_core.hooks.telemetry import (
                         emit_denial_event,
                     )
 

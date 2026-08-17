@@ -75,7 +75,7 @@ from yoke_core.domain.session_ambient_identity import (
     session_id_from_hook_payload,
 )
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.session_cwd import client_scratch_root
 
 

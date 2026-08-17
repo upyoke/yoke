@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.harness.codex import codex_model
-from runtime.harness.codex.adapter import CAPABILITY as CODEX_CAPABILITY
-from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
-from runtime.harness.hook_helpers_identity import (
+from yoke_core.hooks import codex_model
+from yoke_core.hooks.codex_adapter import CAPABILITY as CODEX_CAPABILITY
+from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
+from yoke_core.hooks.helpers_identity import (
     detect_executor,
     detect_provider,
 )
-from runtime.harness.hook_runner.capability_resolve import resolve_capability
+from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_harness.hooks import identity_codex_runtime
 
 
@@ -83,7 +83,7 @@ class TestRunnerAdapterSelection:
     ) -> None:
         """With YOKE_EXECUTOR=codex pinned (as the rendered Codex hooks.json
         command does) and no CODEX_THREAD_ID, ``capability_resolve.resolve_capability``
-        loads ``runtime.harness.codex.adapter.CAPABILITY``."""
+        loads ``yoke_core.hooks.codex_adapter.CAPABILITY``."""
         monkeypatch.setenv("YOKE_EXECUTOR", "codex")
         capability = resolve_capability(detect_executor(), dry_run=False)
         assert capability is CODEX_CAPABILITY

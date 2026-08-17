@@ -34,7 +34,7 @@ _LOWER_LEVEL_RECIPES = (
     "python3 -m yoke_core.api.service_client path-claim-register",
     "python3 -m yoke_core.api.service_client path-claim-widen",
     "service_client claim-release",
-    "runtime.harness.harness_sessions who-claims",
+    "yoke_core.hooks.sessions_cli who-claims",
 )
 
 

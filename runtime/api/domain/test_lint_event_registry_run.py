@@ -4,6 +4,8 @@ Split out of ``test_lint_event_registry.py`` to keep authored files under the
 350-line limit.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import io
@@ -25,7 +27,7 @@ from yoke_core.domain.lint_event_registry_test_helpers import (  # noqa: F401 â€
     _payload,
     registry_db,
 )
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _record(payload_json: str):
@@ -37,14 +39,14 @@ def _record(payload_json: str):
 class TestEmitDenial:
     def test_allow_is_noop(self):
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event"
+            "yoke_core.hooks.telemetry.emit_denial_event"
         ) as mocked:
             emit_denial(Decision(action="allow"))
         mocked.assert_not_called()
 
     def test_warn_is_noop(self):
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event"
+            "yoke_core.hooks.telemetry.emit_denial_event"
         ) as mocked:
             emit_denial(Decision(action="warn", stderr_message="w"))
         mocked.assert_not_called()
@@ -58,7 +60,7 @@ class TestEmitDenial:
             hook_meta=HookMeta(session_id="s", tool_use_id="t", turn_id="r"),
         )
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event"
+            "yoke_core.hooks.telemetry.emit_denial_event"
         ) as mocked:
             emit_denial(decision)
         mocked.assert_called_once()
@@ -78,7 +80,7 @@ class TestEmitDenial:
             reason=build_deny_reason("Foo"),
         )
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event",
+            "yoke_core.hooks.telemetry.emit_denial_event",
             side_effect=RuntimeError("backend down"),
         ):
             # Must not raise.
@@ -112,7 +114,7 @@ class TestEvaluate:
     def test_deny_carries_envelope_and_emits(self, registry_db, monkeypatch):
         monkeypatch.setenv("YOKE_DB", registry_db)
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event"
+            "yoke_core.hooks.telemetry.emit_denial_event"
         ) as mocked:
             decision = evaluate(
                 _record(
@@ -220,7 +222,7 @@ class TestMain:
         payload = _payload('sh emit-event.sh --name "Unknown"')
         monkeypatch.setattr("sys.stdin", io.StringIO(payload))
         with mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event"
+            "yoke_core.hooks.telemetry.emit_denial_event"
         ):
             rc = lint_mod.main()
         assert rc == 0

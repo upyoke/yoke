@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.harness.bootstrap import load_spec
+from yoke_core.hooks.bootstrap import load_spec
 
 
 def _repo_root() -> Path:

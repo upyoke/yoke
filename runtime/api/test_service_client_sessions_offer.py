@@ -8,6 +8,8 @@ Persistence + concurrency → test_service_client_sessions_offer_persist.py
 Codex manifest paths → test_service_client_sessions_offer_codex_manifest.py
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import json
@@ -213,7 +215,7 @@ class TestSessionOfferCommand:
     )
     def test_session_offer_supported_harness_requires_session_id(self, session_offer_db, executor):
         """Supported harnesses must pass their canonical session ID."""
-        from runtime.harness.hook_helpers import is_codex
+        from yoke_core.hooks.helpers import is_codex
         result = _run_client(
             [
                 "session-offer",

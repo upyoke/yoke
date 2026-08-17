@@ -86,7 +86,7 @@ def test_codex_hook_commands_use_yoke_cli_without_repo_pythonpath() -> None:
         assert "yoke hook evaluate" in cmd, (
             f"Codex hook command missing yoke hook evaluate: {cmd!r}"
         )
-        assert "runtime.harness.hook_runner" not in cmd, (
+        assert "yoke_core.hooks" not in cmd, (
             f"Codex hook command leaked local hook_runner module: {cmd!r}"
         )
         assert "PYTHONPATH" not in cmd, (

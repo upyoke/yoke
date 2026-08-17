@@ -33,13 +33,13 @@ from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_HEADING,
     INSTALL_ADVISORY_POINTER,
 )
-from runtime.harness.codex.codex_hooks_payload import (
+from yoke_core.hooks.codex_payload import (
     prompt_marker_path,
     runtime_cache_path,
     session_marker_path,
 )
-from runtime.harness.hook_runner import session_dispatch
-from runtime.harness.hook_runner.types import HookContext
+from yoke_core.hooks import session_dispatch
+from yoke_core.hooks.types import HookContext
 
 
 def _fresh_codex_session_id() -> str:
@@ -103,25 +103,25 @@ class _Invoker:
         )
 
         with mock.patch(
-            "runtime.harness.codex.codex_hooks_payload.resolve_session_id",
+            "yoke_core.hooks.codex_payload.resolve_session_id",
             return_value=sid,
         ), mock.patch(
-            "runtime.harness.codex.codex_hooks_payload.read_runtime_cache_field",
+            "yoke_core.hooks.codex_payload.read_runtime_cache_field",
             return_value="",
         ), mock.patch(
-            "runtime.harness.codex.codex_model.resolve",
+            "yoke_core.hooks.codex_model.resolve",
             return_value="gpt-5",
         ), mock.patch(
-            "runtime.harness.codex.codex_model.resolve_entrypoint",
+            "yoke_core.hooks.codex_model.resolve_entrypoint",
             return_value="codex-entry",
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._touch",
+            "yoke_core.hooks.session_dispatch._touch",
             return_value=touch_rc,
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._register_codex",
+            "yoke_core.hooks.session_dispatch._register_codex",
             return_value=register_err,
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._render_codex_reminder",
+            "yoke_core.hooks.session_dispatch._render_codex_reminder",
             return_value="",
         ), mock.patch(
             "yoke_core.domain.events.emit_event",
@@ -288,16 +288,16 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         )
         root = str(Path.cwd())
         with mock.patch.dict(os.environ, {}, clear=False), mock.patch(
-            "runtime.harness.codex.codex_hooks_payload.resolve_session_id",
+            "yoke_core.hooks.codex_payload.resolve_session_id",
             return_value=self.session_id,
         ), mock.patch(
-            "runtime.harness.codex.codex_model.resolve",
+            "yoke_core.hooks.codex_model.resolve",
             return_value="gpt-5",
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._touch",
+            "yoke_core.hooks.session_dispatch._touch",
             return_value=0,
         ), mock.patch(
-            "runtime.harness.hook_runner.telemetry.emit_harness_session_sent_first_user_prompt_submit",
+            "yoke_core.hooks.telemetry.emit_harness_session_sent_first_user_prompt_submit",
         ), mock.patch.object(
             main_agent_packet.shutil,
             "which",

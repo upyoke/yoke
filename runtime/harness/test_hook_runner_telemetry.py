@@ -1,11 +1,11 @@
-"""Tests for ``runtime.harness.hook_runner.telemetry``.
+"""Tests for ``yoke_core.hooks.telemetry``.
 
 After the cutover the legacy ``session_hooks_*`` per-event
 sibling modules are deleted; telemetry re-exports now resolve to the
 new ``hook_runner.{denial,identity,service_client,stdin}`` siblings.
 
 Same-object semantics matter: callers do
-``mock.patch("runtime.harness.hook_runner.telemetry.X", ...)`` and
+``mock.patch("yoke_core.hooks.telemetry.X", ...)`` and
 expect the patch to take effect at every call site that imports
 through the shim. A wrapper function (rather than a module-level
 alias) would break that contract; this suite locks the alias shape
@@ -19,15 +19,15 @@ from typing import Any
 
 import pytest
 
-import runtime.harness.hook_runner.denial as denial
-import runtime.harness.hook_runner.identity as identity
-import runtime.harness.hook_runner.service_client as svc_client
-import runtime.harness.hook_runner.stdin as stdin
-import runtime.harness.hook_runner.telemetry as telemetry
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.decision_render import render_claude_decision
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+import yoke_core.hooks.denial as denial
+import yoke_core.hooks.identity as identity
+import yoke_core.hooks.service_client as svc_client
+import yoke_core.hooks.stdin as stdin
+import yoke_core.hooks.telemetry as telemetry
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.decision_render import render_claude_decision
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 # Names that are CALLABLES on the public surface. Each one is checked

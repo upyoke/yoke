@@ -42,7 +42,7 @@ from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
     is_read_only_import_probe,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-no-agent-runtime-api-import-from-c"
 HOOK_NAME = "lint-no-agent-runtime-api-import-from-c"
@@ -225,7 +225,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
 
 def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     sid = payload.get("session_id") or ""

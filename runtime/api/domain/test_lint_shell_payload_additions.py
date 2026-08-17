@@ -12,7 +12,7 @@ from yoke_core.domain import lint_shell_quoted_function_payload as lint
 from yoke_core.domain.lint_shell_quoted_function_payload_messages import (
     build_choreography_remediation,
 )
-from runtime.harness.hook_runner.types import Outcome
+from yoke_core.hooks.types import Outcome
 
 
 def _record(command: str) -> "lint.HookContext":

@@ -8,13 +8,11 @@ attribution; the operator sees the registered subcommands listed).
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_shell_quoted_function_payload as lint
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _payload(command: str) -> dict:

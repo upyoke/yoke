@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.harness.codex import codex_hooks_payload as payload
+from yoke_core.hooks import codex_payload as payload
 
 
 def test_check_and_arm_marker_is_fire_once(tmp_path):

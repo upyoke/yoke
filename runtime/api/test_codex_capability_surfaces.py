@@ -5,7 +5,7 @@ secondary operator surfaces that previously kept stale ``advance`` omissions
 after the registry and main docs were corrected.
 
 Note: collapsed Codex's session-lifecycle rendering into the shared
-``runtime.harness.hook_runner`` chain. The legacy
+``yoke_core.hooks`` chain. The legacy
 ``ch._render_session_start_orientation`` / ``ch._render_prompt_submit_reminder``
 helpers were deleted with the legacy ``codex_hooks`` module. The orientation
 prose itself is now resolved through the runner's lifecycle dispatch and is

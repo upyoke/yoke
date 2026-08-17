@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from runtime.harness.bootstrap import load_spec, render_compact, render_full
+from yoke_core.hooks.bootstrap import load_spec, render_compact, render_full
 
 
 IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main"

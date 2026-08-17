@@ -9,7 +9,7 @@ from contextlib import redirect_stdout
 import pytest
 
 from yoke_core.domain import hint_monitor_relay
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 def _make_context(payload_dict: dict) -> HookContext:

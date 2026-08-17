@@ -20,13 +20,13 @@ from typing import Any
 
 import pytest
 
-import runtime.harness.hook_runner_register as register_module
-import runtime.harness.hook_runner.telemetry as telemetry
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.decision_render import render_claude_decision
-from runtime.harness.hook_runner.remote_policy import RunControls
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+import yoke_core.hooks.registration as register_module
+import yoke_core.hooks.telemetry as telemetry
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.decision_render import render_claude_decision
+from yoke_core.hooks.remote_policy import RunControls
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +282,7 @@ class TestRunnerArmsEnsureSession:
         # The MERGED payload rides the tuple (wire extras included), not
         # raw stdin.
         assert json.loads(payload_json)["transcript_path"] == "/t/z.jsonl"
-        assert rest == ["/t/z.jsonl", True, "", False, False, None, None]
+        assert rest == ["/t/z.jsonl", True, "", True, False, None, None]
 
     def test_sessionless_payload_does_not_arm(self, monkeypatch, tmp_path):
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))

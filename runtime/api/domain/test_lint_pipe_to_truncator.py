@@ -15,7 +15,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_pipe_to_truncator as lptt
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _payload(command: str, **extra) -> dict:

@@ -97,7 +97,7 @@ def holder_session_for_item(
     summaries surface the canonical claim facts (``claim_id``,
     ``holder_session_id``, ``item_id``, ``claim_type``, ``claimed_at``)
     so reviewers do not need to hand-query ``work_claims``. The query
-    is the same shape ``runtime.harness.harness_sessions_claims.cmd_who_claims``
+    is the same shape ``yoke_core.hooks.sessions_claims.cmd_who_claims``
     uses (the canonical surface exposed via
     ``python3 -m yoke_core.cli.db_router harness-sessions who-claims YOK-N``);
     keeping the column set in sync keeps both surfaces consistent.

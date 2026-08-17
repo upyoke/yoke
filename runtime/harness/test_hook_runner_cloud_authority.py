@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 from yoke_core.domain import machine_config
-from runtime.harness.codex import codex_hooks_payload
-from runtime.harness.hook_runner import target
+from yoke_core.hooks import codex_payload as codex_hooks_payload
+from yoke_core.hooks import target
 
 
 def _binding(root: Path) -> Path:

@@ -212,7 +212,7 @@ shared hook runner's telemetry flush probes `harness_sessions` for the
 dispatching session id on its already-open connection (zero added
 round-trips when registered) and drives the same `_register_from_hook`
 sequence when the row is positively missing
-(`runtime.harness.hook_runner_register.ensure_registered_from_hook`).
+(`yoke_core.hooks.registration.ensure_registered_from_hook`).
 Tool-call payloads lack SessionStart's model/source fields; the register
 sequence tolerates that via the detect-* fallbacks, and concurrent
 PreToolUse/PostToolUse probes are race-safe because registration is
@@ -284,7 +284,7 @@ second call for an already-owned item returns `(already owned)` and exits 0.
 
 | File | Harness | Hook Event | Role |
 |------|---------|------------|------|
-| `runtime/harness/hook_runner/` | Claude Code, Codex | `session-start`, `user-prompt-submit`, `pre-tool-use`, `post-tool-use`, `stop`, `session-end` | Shared hook front door for both harnesses: registration, orientation, `YOKE_SESSION_ID` propagation, backfill, and lifecycle cleanup |
+| `yoke_core.hooks` | Claude Code, Codex | `session-start`, `user-prompt-submit`, `pre-tool-use`, `post-tool-use`, `stop`, `session-end` | Wheel-shipped hook front door for both harnesses: registration, orientation, `YOKE_SESSION_ID` propagation, backfill, and lifecycle cleanup |
 | `yoke_core.api.service_client` | both | n/a | Shared session-offer / registration / claim mutation surface (`session-begin`, `session-touch`, `session-end`, `claim-work`, `release-work-claim`) |
 
 ## Test Coverage

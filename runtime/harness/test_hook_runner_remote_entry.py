@@ -9,14 +9,14 @@ import types
 from typing import Any
 
 import pytest
-from runtime.harness.hook_runner import remote_entry
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.remote_entry import evaluate_remote
-from runtime.harness.hook_runner.remote_policy import (
+from yoke_core.hooks import remote_entry
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.remote_entry import evaluate_remote
+from yoke_core.hooks.remote_policy import (
     DEADLINE_EXHAUSTED_MARKER,
     LOCAL_STATE_POLICIES,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 @pytest.fixture(autouse=True)
@@ -147,7 +147,7 @@ def test_session_dispatch_skips_on_real_lifecycle_chain() -> None:
 
     assert result.exit_code == 0
     assert result.stdout == ""
-    assert result.degraded == ("runtime.harness.hook_runner.session_dispatch",)
+    assert result.degraded == ("yoke_core.hooks.session_dispatch",)
     assert result.outcome == "completed"
 
 

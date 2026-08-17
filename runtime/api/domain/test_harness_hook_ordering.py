@@ -16,7 +16,7 @@ from yoke_contracts.hook_runner.hook_ordering import (
 )
 
 _POST_HEARTBEAT_OBSERVE = [
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",
 ]
 
@@ -71,7 +71,7 @@ class TestPreToolUseBash(unittest.TestCase):
                 "yoke_core.domain.lint_claim_ownership_mutations",
                 "yoke_core.domain.lint_git_stash_arg_order",
                 "yoke_core.domain.lint_destructive_git",
-                "runtime.harness.hook_helpers_heartbeat",
+                "yoke_core.hooks.heartbeat",
                 "yoke_core.domain.observe_pre",
             ],
         )
@@ -91,10 +91,10 @@ class TestPreToolUseBash(unittest.TestCase):
         )
         self.assertEqual(
             chain[chain.index("yoke_core.domain.lint_destructive_git") + 1],
-            "runtime.harness.hook_helpers_heartbeat",
+            "yoke_core.hooks.heartbeat",
         )
         self.assertEqual(
-            chain[chain.index("runtime.harness.hook_helpers_heartbeat") + 1],
+            chain[chain.index("yoke_core.hooks.heartbeat") + 1],
             "yoke_core.domain.observe_pre",
         )
 
@@ -275,19 +275,19 @@ class TestNonPreEvents(unittest.TestCase):
 
     def test_TC_session_start_runs_session_hooks(self):
         chain = ordered_pipeline_for("SessionStart")
-        self.assertEqual(chain, ["runtime.harness.hook_runner.session_dispatch"])
+        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
 
     def test_TC_session_end_runs_session_hooks(self):
         chain = ordered_pipeline_for("SessionEnd")
-        self.assertEqual(chain, ["runtime.harness.hook_runner.session_dispatch"])
+        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
 
     def test_TC_user_prompt_submit_runs_session_hooks(self):
         chain = ordered_pipeline_for("UserPromptSubmit")
-        self.assertEqual(chain, ["runtime.harness.hook_runner.session_dispatch"])
+        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
 
     def test_TC_stop_runs_session_hooks(self):
         chain = ordered_pipeline_for("Stop")
-        self.assertEqual(chain, ["runtime.harness.hook_runner.session_dispatch"])
+        self.assertEqual(chain, ["yoke_core.hooks.session_dispatch"])
 
 
 class TestRegistryShape(unittest.TestCase):

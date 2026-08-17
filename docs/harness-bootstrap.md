@@ -39,9 +39,9 @@ The mechanism does not matter. The content does. A harness that has loaded all r
 
 ### Generated `main_agent` packet
 
-The shared bootstrap render path (`runtime.harness.bootstrap.render_compact` and `render_full`) injects the layer-explicit `main_agent` packet block via [`yoke_core.domain.main_agent_packet`](../packages/yoke-core/src/yoke_core/domain/main_agent_packet.py). The block is generated, never hand-copied: the body comes from `yoke_core.domain.schema_api_context.render_role_packet("main_agent")` and stays in lockstep with subagent packets via the schema/API-context drift check.
+The shared bootstrap render path (`yoke_core.hooks.bootstrap.render_compact` and `render_full`) injects the layer-explicit `main_agent` packet block via [`yoke_core.domain.main_agent_packet`](../packages/yoke-core/src/yoke_core/domain/main_agent_packet.py). The block is generated, never hand-copied: the body comes from `yoke_core.domain.schema_api_context.render_role_packet("main_agent")` and stays in lockstep with subagent packets via the schema/API-context drift check.
 
-The injection means the top-level Yoke session sees the same compact `core` + `claims` spine the read-only subagents (`architect_agent`, `simulator_agent`, `boss_agent`) see, alongside the file-reads list and Critical Runtime Invariants block. Harnesses that consume the shared bootstrap render path (via `runtime.harness.hook_runner` for both Codex and Claude Code) inherit the packet automatically.
+The injection means the top-level Yoke session sees the same compact `core` + `claims` spine the read-only subagents (`architect_agent`, `simulator_agent`, `boss_agent`) see, alongside the file-reads list and Critical Runtime Invariants block. Harnesses that consume the shared bootstrap render path (via `yoke_core.hooks` for both Codex and Claude Code) inherit the packet automatically.
 
 If the schema/API context generator is unavailable (fresh checkout, broken bootstrap state), the bootstrap path stays fail-open: the helper returns an empty block and the orientation continues with file-reads + invariants only. There is no path that hand-copies stale packet content into the orientation prose.
 
@@ -250,7 +250,7 @@ Because the directory is hidden, generic discovery (e.g. `rg --files`, plain `ls
 
 ### Discovery surface
 
-The `runtime.harness.bootstrap` module owns repo-local skill discovery.
+The `yoke_core.hooks.bootstrap` module owns repo-local skill discovery.
 Its `skill-list` mode enumerates available skills, and its `skill-path`
 mode resolves one skill name to its canonical `SKILL.md` path. No
 wrapped product CLI exists for this harness bootstrap resolver yet.

@@ -36,7 +36,7 @@ import sys
 from typing import Optional
 
 from yoke_contracts.field_note_text import FOOTER
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 TARGET_TOOL = "Bash"

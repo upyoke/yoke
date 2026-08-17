@@ -31,7 +31,7 @@ class TestYokeWatchCommandSpelling(unittest.TestCase):
         os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
         self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
         self._emit_patch = patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event",
+            "yoke_core.hooks.telemetry.emit_denial_event",
         )
         self._emit_patch.start()
         self.addCleanup(self._emit_patch.stop)

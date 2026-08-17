@@ -19,7 +19,7 @@ from yoke_core.domain.lint_main_commit_client_facts import (
     client_list,
 )
 from yoke_core.domain.lint_staged_union import effective_staged_set
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 def _extract_tool_input(payload: dict) -> dict:
@@ -197,7 +197,7 @@ def _build_deny_response(reason: str) -> dict:
 def _emit_denial(payload: dict, reason: str) -> None:
     """Emit a ``HarnessToolCallDenied`` audit event (fire and forget, fail-open)."""
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     session_id = payload.get("session_id") or ""

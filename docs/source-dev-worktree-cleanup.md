@@ -63,7 +63,7 @@ wt=/Users/dev/yoke/.worktrees/example-worktree
 branch=codex/example-branch
 
 test -z "$(git -C "$wt" status --porcelain --ignored=matching --untracked-files=all)"
-python3 -m runtime.harness.harness_sessions who-claims 0
+python3 -m yoke_core.hooks.sessions_cli who-claims 0
 git -C "$repo" merge-base --is-ancestor "$branch" "$base_ref"
 git -C "$repo" worktree remove "$wt"
 git -C "$repo" branch -d "$branch"

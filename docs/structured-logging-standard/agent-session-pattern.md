@@ -21,7 +21,7 @@ HarnessSessionStopped (0..1 -- session close when stop hooks are wired)
 **HarnessSessionSentFirstUserPromptSubmit**
 
 Emitted on the first UserPromptSubmit handled by
-`runtime.harness.hook_runner`; SessionStart separately emits
+`yoke_core.hooks`; SessionStart separately emits
 `HarnessSessionStarted` when it registers the session.
 
 ```json

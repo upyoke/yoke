@@ -157,19 +157,55 @@ class TestRenderAdvisory:
         )
         assert render_advisory(ok) == ""
 
-    def test_advisory_names_canonical_homebrew_and_override(self):
+    def test_advisory_names_live_recommendation_and_override(self, monkeypatch):
         bad = ProbeResult(
             ok=False, resolved_python="/usr/bin/python3",
             missing_module=SENTINEL_MODULE, override_used=False,
+        )
+        monkeypatch.setattr(
+            probe_mod, "_recommended_python",
+            lambda *, exclude: "/launcher/venv/bin/python",
         )
         rendered = render_advisory(bad)
         assert "pydantic" in rendered
         assert "/usr/bin/python3" in rendered
         assert OVERRIDE_ENV_VAR in rendered
-        # One of the canonical Homebrew paths must appear.
-        assert (
-            "/opt/homebrew/bin/python3" in rendered
-            or "/usr/local/bin/python3" in rendered
+        assert "/launcher/venv/bin/python" in rendered
+
+    def test_advisory_never_invents_a_missing_interpreter(self, monkeypatch):
+        bad = ProbeResult(
+            ok=False, resolved_python="/usr/bin/python3",
+            missing_module=SENTINEL_MODULE, override_used=False,
+        )
+        monkeypatch.setattr(
+            probe_mod, "_recommended_python", lambda *, exclude: None,
+        )
+        rendered = render_advisory(bad)
+        assert "No live pydantic-equipped Python" in rendered
+        assert "/opt/homebrew/bin/python3" not in rendered
+        assert "/usr/local/bin/python3" not in rendered
+
+    def test_launcher_interpreter_is_preferred_when_live(
+        self, tmp_path, monkeypatch,
+    ):
+        launcher_python = tmp_path / "uv-tools" / "bin" / "python"
+        launcher_python.parent.mkdir(parents=True)
+        launcher_python.write_text("", encoding="utf-8")
+        launcher_python.chmod(0o755)
+        launcher = tmp_path / "bin" / "yoke"
+        launcher.parent.mkdir()
+        launcher.write_text(f"#!{launcher_python}\n", encoding="utf-8")
+        launcher.chmod(0o755)
+        monkeypatch.setattr(
+            probe_mod.shutil, "which",
+            lambda name: str(launcher) if name == "yoke" else None,
+        )
+        monkeypatch.setattr(
+            probe_mod.subprocess, "run",
+            lambda *args, **kwargs: SimpleNamespace(returncode=0),
+        )
+        assert probe_mod._recommended_python(exclude=None) == str(
+            launcher_python
         )
 
 
@@ -184,5 +220,4 @@ class TestSentinelImportableHere:
             capture_output=True, text=True, timeout=5,
         )
         assert proc.returncode == 0, proc.stderr
-
 

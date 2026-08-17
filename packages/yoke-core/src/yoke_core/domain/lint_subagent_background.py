@@ -67,18 +67,6 @@ import re
 import sys
 from typing import Optional
 
-# Strips fd-duplication patterns (`2>&1`, `>&2`, `<&3`, etc.) and the `&&`
-# logical-AND operator so the residual `&` is the real backgrounding token.
-_FD_DUP_PATTERN = re.compile(r"\d*[<>]>?&\d+")
-
-
-def _has_real_backgrounding_amp(command: str) -> bool:
-    """True when ``&`` appears as a backgrounding operator (not ``2>&1`` / ``&&``)."""
-    if not command or "&" not in command:
-        return False
-    stripped = _FD_DUP_PATTERN.sub("", command).replace("&&", "")
-    return "&" in stripped
-
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_subagent_background_constants import (
     AGENT_TYPE_ENV_VAR,
@@ -93,12 +81,24 @@ from yoke_core.domain.lint_subagent_background_decide import (
     emit_audit_event,
     format_reason,
 )
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,
     Outcome,
 )
+
+# Strips fd-duplication patterns (`2>&1`, `>&2`, `<&3`, etc.) and the `&&`
+# logical-AND operator so the residual `&` is the real backgrounding token.
+_FD_DUP_PATTERN = re.compile(r"\d*[<>]>?&\d+")
+
+
+def _has_real_backgrounding_amp(command: str) -> bool:
+    """True when ``&`` appears as a backgrounding operator (not ``2>&1`` / ``&&``)."""
+    if not command or "&" not in command:
+        return False
+    stripped = _FD_DUP_PATTERN.sub("", command).replace("&&", "")
+    return "&" in stripped
 
 
 # Re-export public constants so callers can import them from this module

@@ -12,7 +12,7 @@ from unittest import mock
 
 import pytest
 
-from runtime.harness.hook_helpers import (
+from yoke_core.hooks.helpers import (
     canonical_harness_id,
     compose_executor_from_entrypoint,
     detect_entrypoint,
@@ -113,7 +113,7 @@ class TestDetectExecutor:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.codex.codex_model.resolve_entrypoint",
+                "yoke_core.hooks.codex_model.resolve_entrypoint",
                 return_value="codex-desktop",
             ) as resolver:
                 assert detect_executor() == "codex-desktop"
@@ -245,7 +245,7 @@ class TestDetectEntrypointCodexAndClaude:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.codex.codex_model.resolve_entrypoint",
+                "yoke_core.hooks.codex_model.resolve_entrypoint",
                 return_value="codex-desktop",
             ) as resolver:
                 assert detect_entrypoint() == "codex-desktop"

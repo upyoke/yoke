@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from runtime.harness.hook_runner import session_dispatch_cursor as dispatch_cursor
-from runtime.harness.hook_runner.types import HookContext
+from yoke_core.hooks import session_dispatch_cursor as dispatch_cursor
+from yoke_core.hooks.types import HookContext
 
 MAIN = "11111111-2222-3333-4444-555555555555"
 
@@ -97,7 +97,7 @@ def test_prompt_submit_is_silent_and_touches(
     quiet_side_effects: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.session_dispatch._first_prompt",
+        "yoke_core.hooks.session_dispatch._first_prompt",
         lambda session_id, codex: False,
     )
     payload = {"session_id": MAIN, "model": "composer-2.5"}
@@ -114,7 +114,7 @@ def test_prompt_submit_reregisters_when_touch_fails(
         dispatch_cursor._lifecycle, "touch", lambda root, sid: 1
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.session_dispatch._first_prompt",
+        "yoke_core.hooks.session_dispatch._first_prompt",
         lambda session_id, codex: False,
     )
     payload = {"session_id": MAIN, "model": "composer-2.5"}

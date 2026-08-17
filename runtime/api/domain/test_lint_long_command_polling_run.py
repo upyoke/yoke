@@ -28,7 +28,7 @@ from yoke_core.domain.lint_long_command_polling_test_helpers import (
     _bash_payload,
     _non_bash_payload,
 )
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _record_for(payload: dict) -> "lint.HookContext":
@@ -93,7 +93,7 @@ class TestEvaluate(unittest.TestCase):
         payload = _bash_payload("sleep 10 && tail -20 /tmp/foo.out")
         with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
              mock.patch(
-                "runtime.harness.hook_runner.telemetry.emit_denial_event"
+                "yoke_core.hooks.telemetry.emit_denial_event"
              ) as emit_mock:
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.DENY)
@@ -108,7 +108,7 @@ class TestEvaluate(unittest.TestCase):
         payload = _non_bash_payload("ScheduleWakeup", turn_id="turn-9")
         with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
              mock.patch(
-                "runtime.harness.hook_runner.telemetry.emit_denial_event"
+                "yoke_core.hooks.telemetry.emit_denial_event"
              ) as emit_mock:
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)
@@ -123,7 +123,7 @@ class TestEvaluate(unittest.TestCase):
         )
         with mock.patch.object(lint_eval, "_read_lint_mode", return_value="deny"), \
              mock.patch(
-                "runtime.harness.hook_runner.telemetry.emit_denial_event"
+                "yoke_core.hooks.telemetry.emit_denial_event"
              ) as emit_mock:
             decision = lint.evaluate(_record_for(payload))
         self.assertIs(decision.outcome, Outcome.NOOP)

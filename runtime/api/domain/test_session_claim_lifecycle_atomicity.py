@@ -10,7 +10,7 @@ import pytest
 from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.test_sessions import _register
-from runtime.harness import harness_sessions_claims_acquire as runtime_claims
+from yoke_core.hooks import sessions_claims_acquire as runtime_claims
 from yoke_core.domain import (
     sessions_lifecycle_reactivation,
     sessions_render_end,

@@ -1,7 +1,7 @@
 """PreToolUse Bash hook: refuse agent-context ``service_client session-end``.
 
 The harness owns session lifetime — ``Stop`` and ``SessionEnd`` hooks route
-through ``runtime/harness/hook_runner/session_end_cleanup.py`` and call
+through ``yoke_core.hooks.session_end_cleanup`` and call
 ``service_client session-end --force --release-claims`` from a hook-runner
 ``subprocess.run`` (PreToolUse does NOT fire for hook-runner-internal
 subprocess invocations, so this lint never sees those legitimate calls).
@@ -37,7 +37,7 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-no-agent-session-end"
 HOOK_NAME = "lint-no-agent-session-end"
@@ -178,7 +178,7 @@ def _emit_audit_event(
     payload: dict, reason: str, mode: str, outcome: str,
 ) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     sid = payload.get("session_id") or ""

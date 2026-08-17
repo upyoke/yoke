@@ -20,7 +20,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 # Chain members that are not deniers (liveness + observation) and therefore
 # carry no enforcement-mode knob.
 _NON_DENIERS = frozenset({
-    "runtime.harness.hook_helpers_heartbeat",
+    "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe_pre",
 })
 

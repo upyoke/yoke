@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from runtime.harness.bootstrap import (
+from yoke_core.hooks.bootstrap import (
     doctrine_short,
     existing,
     load_spec,

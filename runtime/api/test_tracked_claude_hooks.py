@@ -126,7 +126,7 @@ def _violates_python_resolver_contract(command: str) -> bool:
     """Return True when *command* injects a worktree-local DB path into a
     Python-resolved hook module.
 
-    Non-Python-resolved modules (for example ``runtime.harness.codex.codex_hooks``
+    Non-Python-resolved modules (for example shell hook shims
     or generic ``python3 -m pytest`` calls) are ignored — those commands
     are out of scope for this guard and may legitimately pass ``--db`` for
     other reasons.
@@ -154,7 +154,7 @@ def test_settings_json_has_no_worktree_local_db_injection() -> None:
         "(observe, observe_pre, lint_db_cmd, lint_event_registry) "
         "owns DB resolution via yoke_core.domain.db_helpers.resolve_db_path. "
         "Strip the YOKE_DB= prefix and --db argument. See YOK-1384.\n"
-        f"Violations:\n" + "\n".join(f"  - {v}" for v in violations)
+        "Violations:\n" + "\n".join(f"  - {v}" for v in violations)
     )
 
 

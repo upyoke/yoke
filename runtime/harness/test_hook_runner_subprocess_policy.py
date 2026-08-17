@@ -6,8 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from runtime.harness.hook_runner import subprocess_policy as policy
-from runtime.harness.hook_runner.types import HookContext
+from yoke_core.hooks import subprocess_policy as policy
+from yoke_core.hooks.types import HookContext
 
 
 def test_observe_subprocess_gets_target_root_and_hook_args(monkeypatch, tmp_path):
@@ -20,11 +20,11 @@ def test_observe_subprocess_gets_target_root_and_hook_args(monkeypatch, tmp_path
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.subprocess_policy.subprocess.run",
+        "yoke_core.hooks.subprocess_policy.subprocess.run",
         fake_run,
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.target_authority_env",
+        "yoke_core.hooks.service_client.target_authority_env",
         lambda root: {"YOKE_ROOT": root},
     )
     ctx = HookContext(
@@ -67,11 +67,11 @@ def test_non_observe_subprocess_keeps_plain_module_argv(monkeypatch, tmp_path):
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.subprocess_policy.subprocess.run",
+        "yoke_core.hooks.subprocess_policy.subprocess.run",
         fake_run,
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.target_authority_env",
+        "yoke_core.hooks.service_client.target_authority_env",
         lambda root: {"YOKE_ROOT": root},
     )
     ctx = HookContext(

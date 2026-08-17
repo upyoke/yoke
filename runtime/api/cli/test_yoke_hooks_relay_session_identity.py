@@ -12,7 +12,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
     seed_item_claim,
 )
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.harness.cursor.cursor_hooks_payload import parse_payload
+from yoke_core.hooks.cursor_payload import parse_payload
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.cursor_session_map import (
     CURSOR_SESSION_MAP_DIR_NAME,

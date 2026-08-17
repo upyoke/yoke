@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
-import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
 
-from yoke_core.domain import db_backend
 from yoke_core.domain import lint_claim_ownership_mutations as lint
-from yoke_core.domain.db_helpers import iso8601_now
-from runtime.api.fixtures.file_test_db import init_test_db
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
 _AMBIENT = "sess-self"
@@ -95,7 +89,7 @@ class TestClassifyMutation(unittest.TestCase):
 class TestIsReadOnlyCommand(unittest.TestCase):
     def test_read_only_substrings_and_db_router_paths(self) -> None:
         for command in [
-            "python3 -m runtime.harness.harness_sessions who-claims 1",
+            "python3 -m yoke_core.hooks.sessions_cli who-claims 1",
             "python3 -m yoke_core.api.service_client path-claim-list",
             "python3 -m yoke_core.api.service_client ownership-guard --item 1",
             "python3 -m yoke_core.api.service_client actors-list",

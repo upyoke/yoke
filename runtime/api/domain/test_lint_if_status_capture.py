@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest import mock
 
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_if_status_capture as lint
 
 

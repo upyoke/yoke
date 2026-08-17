@@ -15,7 +15,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_no_agent_curl_against_yoke_api as lint
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _payload(command: str, **extra) -> dict:

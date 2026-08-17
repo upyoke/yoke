@@ -67,7 +67,7 @@ Episode-scoped audit goes through `--current-episode`:
   session has no boundary event recorded, the result is the empty set,
   not implicitly "all events for the session." The composition with other
   flags is AND.
-- `python3 -m runtime.harness.harness_sessions who-claims <item-id> --current-episode`
+- `python3 -m yoke_core.hooks.sessions_cli who-claims <item-id> --current-episode`
   appends `episode_scope=current_episode|inherited_from_prior_episode|unknown`
   to the claim row and an `episode_boundary=<ts|none>` line so inherited
   claims remain visible. Audit MUST show inheritance; it never hides a

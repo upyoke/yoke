@@ -84,7 +84,7 @@ def _payload(repo: Path, command: str) -> str:
     })
 
 
-def test_hook_evaluate_pretooluse_stays_inside_product_boundary(
+def test_bound_local_hook_reports_missing_engine_loudly(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(
@@ -93,10 +93,12 @@ def test_hook_evaluate_pretooluse_stays_inside_product_boundary(
         config_payload=_local_config(),
     )
 
-    assert run.returncode == 0
+    assert run.returncode == 1
     assert run.stdout == ""
-    assert run.stderr == ""
-    _assert_clean_client_boundary(run)
+    assert "YOKE_LOCAL_HOOK_ENGINE_MISSING" in run.stderr
+    assert run.boundary["caught"] is None
+    assert run.boundary["blocked_attempts"] == ["yoke_core"]
+    assert run.boundary["forbidden_loaded"] == []
 
 
 def test_hook_evaluate_missing_harness_fails_open_for_live_event(
@@ -146,7 +148,6 @@ def test_local_subset_denies_git_commit_on_main_without_authority_imports(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload=_local_config(),
         stdin_data=_payload(repo, "git commit -m impl"),
         client_cwd=repo,
     )
@@ -168,7 +169,6 @@ def test_local_subset_honors_main_commit_bypass_without_authority_imports(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload=_local_config(),
         stdin_data=_payload(repo, "git commit -m impl # lint:no-main-check"),
         client_cwd=repo,
     )
@@ -209,7 +209,6 @@ def test_local_subset_denies_destructive_git_without_authority_imports(
     run = _run_product_cli(
         tmp_path,
         ["hook", "evaluate", "PreToolUse"],
-        config_payload=_local_config(),
         stdin_data=_payload(repo, "git reset --hard"),
         client_cwd=repo,
     )

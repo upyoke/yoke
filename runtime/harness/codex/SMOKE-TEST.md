@@ -22,7 +22,7 @@ reads render on demand.
 ### Step 1: Bootstrap orientation
 
 ```sh
-python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
+python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
 ```
 
 **Verify:**
@@ -215,7 +215,7 @@ Run the same shepherd proof sequence as wrapper-only mode Step 7, but now with h
 
 ### Step 5: Stop hook (direct cleanup)
 
-`Stop` is wired into `runtime/harness/codex/hooks.json` and dispatches through the identity-pinned command shape `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai PYTHONPATH=... python3 -m runtime.harness.hook_runner Stop`, with the same shared runner entrypoint Claude uses. The dispatch routes to `runtime.harness.hook_runner.session_dispatch._run_stop`, runs bounded `session-end-if-empty`, and returns `{}`.
+`Stop` is wired into `runtime/harness/codex/hooks.json` and dispatches through the identity-pinned command shape `env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai PYTHONPATH=... python3 -m yoke_core.hooks Stop`, with the same shared runner entrypoint Claude uses. The dispatch routes to `yoke_core.hooks.session_dispatch._run_stop`, runs bounded `session-end-if-empty`, and returns `{}`.
 
 Inside a hook-enhanced Codex session, allow the assistant to finish a turn so Codex emits `Stop`. Then, from the operator shell, capture the most recent lifecycle telemetry for this session:
 
@@ -224,8 +224,8 @@ python3 -m yoke_core.cli.db_router query "SELECT event_name, created_at, event_o
 ```
 
 **Verify:**
-- [ ] The hook command in `runtime/harness/codex/hooks.json` includes `YOKE_EXECUTOR=codex`, `YOKE_PROVIDER=openai`, and resolves to `python3 -m runtime.harness.hook_runner Stop`
-- [ ] `runtime.harness.hook_runner Stop` exits 0 (no chain failure surfaced back into Codex)
+- [ ] The hook command in `runtime/harness/codex/hooks.json` includes `YOKE_EXECUTOR=codex`, `YOKE_PROVIDER=openai`, and resolves to `python3 -m yoke_core.hooks Stop`
+- [ ] `yoke_core.hooks Stop` exits 0 (no chain failure surfaced back into Codex)
 - [ ] **Codex `Stop` stdout is exactly `{}`** — the JSON contract is preserved even when direct cleanup times out or the service client is missing
 - [ ] Exactly one of `HarnessSessionEnded` or `ChainEndDeferred` is present when the session was eligible for cleanup
 - [ ] `HarnessSessionHookFailed` is absent for a clean run and present only when direct cleanup cannot complete

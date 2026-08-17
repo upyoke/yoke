@@ -22,7 +22,7 @@ def _request(payload: dict) -> FunctionCallRequest:
 
 def test_hook_evaluate_handler_delegates_to_hook_runner() -> None:
     with patch(
-        "runtime.harness.hook_runner.__main__.main",
+        "yoke_core.hooks.__main__.main",
         return_value=0,
     ) as hook_main:
         outcome = handle_hook_evaluate(_request({"event_name": "PreToolUse"}))
@@ -34,7 +34,7 @@ def test_hook_evaluate_handler_delegates_to_hook_runner() -> None:
 
 def test_hook_evaluate_handler_delegates_dry_run_flag() -> None:
     with patch(
-        "runtime.harness.hook_runner.__main__.main",
+        "yoke_core.hooks.__main__.main",
         return_value=0,
     ) as hook_main:
         outcome = handle_hook_evaluate(

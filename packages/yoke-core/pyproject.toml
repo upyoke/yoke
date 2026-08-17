@@ -100,3 +100,6 @@ where = ["src"]
     "packs/**/.*/**/*",
     "docs/public/**/*",
 ]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["**/__pycache__/*", "**/*.pyc", "*.pyc"]

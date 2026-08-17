@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from yoke_core.domain.populate_registry_data_updates import (
+from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
     SEVERITY_ONLY_UPDATES,
 )
@@ -137,7 +137,7 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "HarnessSessionSentFirstUserPromptSubmit",
         "system",
         "session_lifecycle",
-        "runtime.harness.hook_runner",
+        "yoke_core.hooks",
         "First UserPromptSubmit hook for this session has been handled (orientation block rendered). Distinct from HarnessSessionStarted, which fires earlier from the SessionStart hook when the harness_sessions row is inserted.",
         "INFO",
     ),
@@ -145,8 +145,8 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "HarnessSessionStarted",
         "system",
         "session_lifecycle",
-        "runtime.harness.hook_runner",
-        "A new session was registered in harness_sessions (emitted from the SessionStart hook via runtime.harness.hook_runner)",
+        "yoke_core.hooks",
+        "A new session was registered in harness_sessions (emitted from the SessionStart hook via yoke_core.hooks)",
         "INFO",
     ),
     (

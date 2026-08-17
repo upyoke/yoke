@@ -94,7 +94,7 @@ class TestServiceClientSignatures:
 
 class TestHarnessSessionsSignatures:
     def test_who_claims_classifies(self):
-        cmd = "python3 -m runtime.harness.harness_sessions who-claims YOK-1"
+        cmd = "python3 -m yoke_core.hooks.sessions_cli who-claims YOK-1"
         assert (
             match_read_only_signature(cmd)
             == "harness_sessions-who-claims"
@@ -103,13 +103,13 @@ class TestHarnessSessionsSignatures:
     def test_help_classifies(self):
         assert (
             match_read_only_signature(
-                "python3 -m runtime.harness.harness_sessions --help"
+                "python3 -m yoke_core.hooks.sessions_cli --help"
             )
             == "harness_sessions-help"
         )
 
     def test_mutation_subcommand_does_not_classify(self):
-        cmd = "python3 -m runtime.harness.harness_sessions begin sess-x DARIUS anthropic opus /tmp"
+        cmd = "python3 -m yoke_core.hooks.sessions_cli begin sess-x DARIUS anthropic opus /tmp"
         assert match_read_only_signature(cmd) is None
 
 

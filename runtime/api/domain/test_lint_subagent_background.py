@@ -13,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from yoke_core.domain import lint_subagent_background as lint
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 def _payload(tool_name, *, command=None, run_in_background=None, reason=None,
@@ -79,7 +79,7 @@ class TestSubagentContextDenies(unittest.TestCase):
         os.environ[lint.AGENT_TYPE_ENV_VAR] = "engineer"
         self.addCleanup(lambda: os.environ.pop(lint.AGENT_TYPE_ENV_VAR, None))
         self._emit_patch = patch(
-            "runtime.harness.hook_runner.telemetry.emit_denial_event",
+            "yoke_core.hooks.telemetry.emit_denial_event",
         )
         self.emit_stub = self._emit_patch.start()
         self.addCleanup(self._emit_patch.stop)

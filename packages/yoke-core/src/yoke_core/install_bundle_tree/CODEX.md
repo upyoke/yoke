@@ -128,7 +128,7 @@ Hooks inject orientation at session start. To print the full bootstrap
 without relying on hook injection:
 
 ```sh
-python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
+python3 -m yoke_core.hooks.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
 ```
 
 That loads `CODEX.md` as the Codex-specific shell, the neutral startup reads
@@ -153,8 +153,8 @@ into the shell by hand.
 Thin wrappers, docs, and non-native tooling that need to enumerate or resolve Yoke skills use the Yoke-owned resolver on the bootstrap path:
 
 ```sh
-python3 -m runtime.harness.bootstrap skill-list --root "$YOKE_ROOT"
-python3 -m runtime.harness.bootstrap skill-path <skill-name> --root "$YOKE_ROOT"
+python3 -m yoke_core.hooks.bootstrap skill-list --root "$YOKE_ROOT"
+python3 -m yoke_core.hooks.bootstrap skill-path <skill-name> --root "$YOKE_ROOT"
 ```
 
 The resolver always returns the canonical `.agents/skills/yoke/.../SKILL.md` path and never falls back to home-directory guesses like `~/.agents` or `~/.codex/skills`.

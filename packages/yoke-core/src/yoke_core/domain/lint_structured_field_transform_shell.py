@@ -39,7 +39,7 @@ from yoke_core.domain.lint_structured_field_transform_shell_messages import (
     REMEDIATION_API_FIRST,
     REMEDIATION_TEXT,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 _BYPASS_TOKEN = "# lint:no-structured-transform-check"
@@ -220,7 +220,7 @@ def _build_deny_response(reason: str) -> dict:
 def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
     """Best-effort ``HarnessToolCallDenied`` audit event."""
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     sid = payload.get("session_id") or ""
