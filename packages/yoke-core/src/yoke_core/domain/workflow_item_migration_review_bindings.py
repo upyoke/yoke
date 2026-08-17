@@ -22,7 +22,12 @@ from yoke_core.domain.workflow_item_migration_common import (
     source_stage_for_target,
     stored_stage_conflict,
 )
+from yoke_core.domain.workflow_item_migration_qa_phase_anchor import (
+    phase_anchored_qa_conflict,
+)
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
+
+QA_REQUIREMENT_BINDING_KIND = "QA requirement"
 
 
 def _approval_semantics(
@@ -125,16 +130,25 @@ def _qa_stage_bindings(conn: Any, item_id: int) -> list[tuple[str, Any, Any]]:
             if _column_exists(conn, "qa_requirements", "workflow_transition_id")
             else "NULL"
         )
+        # Waived requirements enforce nothing at runtime, so they impose
+        # no compatibility constraint on the target workflow.
+        waiver_filter = (
+            " AND waived_at IS NULL"
+            if _column_exists(conn, "qa_requirements", "waived_at")
+            else ""
+        )
         rows = dict_rows(
             conn.execute(
                 f"SELECT id, {transition} AS transition_id "
                 "FROM qa_requirements "
-                f"WHERE item_id = {bind} OR epic_id = {bind} ORDER BY id",
+                f"WHERE (item_id = {bind} OR epic_id = {bind})"
+                f"{waiver_filter} ORDER BY id",
                 (item_id, item_id),
             )
         )
         bindings.extend(
-            ("QA requirement", row["id"], row["transition_id"]) for row in rows
+            (QA_REQUIREMENT_BINDING_KIND, row["id"], row["transition_id"])
+            for row in rows
         )
     if _table_exists(conn, "qa_plan_item_attachments"):
         rows = dict_rows(
@@ -178,6 +192,17 @@ def _qa_conflicts(
         label = f"{kind} {binding_id}"
         stage_id = str(raw_stage or "")
         if not stage_id:
+            # Requirements that predate stage linkage are enforced by
+            # phase at the qa_verification anchor, never by this column.
+            if kind == QA_REQUIREMENT_BINDING_KIND:
+                phase_conflict = phase_anchored_qa_conflict(
+                    source,
+                    target,
+                    binding=label,
+                )
+                if phase_conflict:
+                    conflicts.append(phase_conflict)
+                continue
             conflicts.append(f"{label} has no workflow transition linkage")
             continue
         stage_conflict = stored_stage_conflict(
