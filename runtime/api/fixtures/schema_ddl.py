@@ -22,10 +22,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from runtime.api.fixtures.schema_ddl_activity_rollups import _ACTIVITY_ROLLUPS_DDL
 from runtime.api.fixtures.schema_ddl_auth import _AUTH_DDL
 from runtime.api.fixtures.schema_ddl_epic_qa import _EPIC_QA_DDL
 from runtime.api.fixtures.schema_ddl_merge_locks import _MERGE_LOCKS_DDL
+from runtime.api.fixtures.schema_ddl_momentum_feeds import _MOMENTUM_FEEDS_DDL
 from runtime.api.fixtures.schema_ddl_runtime import _RUNTIME_DDL
 from runtime.api.fixtures.schema_ddl_strategy import _STRATEGY_DDL
 
@@ -95,7 +95,7 @@ def _schema_ddl() -> str:
             + ITEM_WORKTREES_INDEX_SQL
             + _EPIC_QA_DDL
             + _RUNTIME_DDL
-            + _ACTIVITY_ROLLUPS_DDL
+            + _MOMENTUM_FEEDS_DDL
             + qa_catalog_without_fk
             + _STRATEGY_DDL
             + _AUTH_DDL
