@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from runtime.api.deployment_runs_test_db import db_path  # noqa: F401
-from runtime.api.fixtures.file_test_db import apply_inline_ddl, connect_test_db
+from pathlib import Path
+
+from runtime.api.deployment_runs_test_db import _apply_schema
+from runtime.api.fixtures.file_test_db import (
+    apply_inline_ddl,
+    connect_test_db,
+    init_test_db,
+)
 import pytest
 
 from yoke_core.domain import deployment_runs as dr
@@ -41,10 +47,15 @@ _SITES_ENVS_DDL = """
 """
 
 
-@pytest.fixture
-def delivery_db(db_path: str):
+def _apply_delivery_schema() -> None:
+    _apply_schema()
     apply_inline_ddl(_SITES_ENVS_DDL)
-    yield db_path
+
+
+@pytest.fixture
+def delivery_db(tmp_path: Path):
+    with init_test_db(tmp_path, apply_schema=_apply_delivery_schema) as token:
+        yield token
 
 
 def _request(function: str, payload: dict) -> FunctionCallRequest:
