@@ -48,7 +48,6 @@ def _seed_repo(root: Path, *, include_settings: bool = True) -> None:
             "\n".join(
                 [
                     "Bash",
-                    "Write(**)",
                     "Edit(**)",
                     "Read(*)",
                     "Grep(*)",

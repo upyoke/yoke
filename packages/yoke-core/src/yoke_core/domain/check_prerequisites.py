@@ -47,7 +47,6 @@ AGENT_FILES = (
 
 PERMISSION_RULES = (
     "Bash",
-    "Write(**)",
     "Edit(**)",
     "Read(*)",
     "Grep(*)",

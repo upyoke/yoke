@@ -138,7 +138,7 @@ def _claude_settings_permissions() -> Dict[str, Any]:
     """The permissions region a managed project's .claude/settings.json needs.
 
     Single source: the Claude substrate renderer's permission contract. Without
-    these a fresh project prompts on every Bash/Write/Edit/Monitor call.
+    these a fresh project prompts on every Bash/Edit/Monitor call.
     """
     from yoke_core.domain.agents_render_claude import CLAUDE_PERMISSIONS
 

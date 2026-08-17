@@ -76,7 +76,6 @@ def _seed_minimal_repo(root: Path) -> None:
         "\n".join(
             [
                 "Bash",
-                "Write(**)",
                 "Edit(**)",
                 "Read(*)",
                 "Grep(*)",
