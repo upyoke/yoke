@@ -141,6 +141,35 @@ def test_browser_gate_ignores_stale_outcomes_before_current_code(
     assert json.loads(capsys.readouterr().out)["code"] == "EF56-GH78"
 
 
+def test_browser_gate_accepts_completion_after_browser_automation_failure() -> None:
+    browser_evidence = {"browser": "Safari", "state": "browser_tab_missing"}
+    transcripts = iter(
+        (
+            "One-time code: AB12-CD34\n"
+            "Open: https://app.stage.upyoke.com/connect\n",
+            "One-time code: AB12-CD34\nYoke token connected.\n",
+        )
+    )
+
+    result = run_machine_browser_approval_with_io(
+        read_transcript=lambda: next(transcripts),
+        send_keys=lambda _keys: True,
+        action=_gate_action(),
+        progress_callback=None,
+        allowed_base_urls=("https://app.stage.upyoke.com",),
+        approve_browser=lambda _url, _code: BrowserApprovalResult(
+            False,
+            browser_evidence,
+            "machine_browser_tab_missing",
+        ),
+    )
+
+    assert result.ok is True
+    assert result.error_code is None
+    assert result.browser_evidence == browser_evidence
+    assert result.browser_automation_error_code == "machine_browser_tab_missing"
+
+
 def test_browser_gate_rejects_a_non_entry_path_before_automation() -> None:
     called: list[bool] = []
     result = run_machine_browser_approval_with_io(

@@ -38,6 +38,7 @@ class OperatorGateResult:
     transcript: str
     error_code: str | None = None
     browser_evidence: dict[str, Any] | None = None
+    browser_automation_error_code: str | None = None
 
 
 def _labeled_value(transcript: str, label: str) -> str | None:
@@ -148,13 +149,11 @@ def run_machine_browser_approval_with_io(
             "machine_browser_approval_input_failed",
         )
     approval = approve_browser(url, code)
-    if not approval.ok:
-        return OperatorGateResult(
-            False,
-            transcript,
-            approval.error_code or "machine_browser_approval_failed",
-            approval.evidence,
-        )
+    browser_automation_error_code = (
+        None
+        if approval.ok
+        else approval.error_code or "machine_browser_approval_failed"
+    )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
     gate_code = _labeled_value(transcript, "One-time code:")
@@ -170,6 +169,7 @@ def run_machine_browser_approval_with_io(
                 True,
                 transcript,
                 browser_evidence=approval.evidence,
+                browser_automation_error_code=browser_automation_error_code,
             )
         if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(
@@ -177,6 +177,7 @@ def run_machine_browser_approval_with_io(
                 transcript,
                 "machine_browser_approval_rejected",
                 approval.evidence,
+                browser_automation_error_code,
             )
         now = time.monotonic()
         if now >= deadline:
@@ -185,6 +186,7 @@ def run_machine_browser_approval_with_io(
                 transcript,
                 "machine_browser_approval_timed_out",
                 approval.evidence,
+                browser_automation_error_code,
             )
         if progress_callback is not None and now >= next_heartbeat:
             try:
@@ -195,6 +197,7 @@ def run_machine_browser_approval_with_io(
                     transcript,
                     "machine_browser_approval_heartbeat_failed",
                     approval.evidence,
+                    browser_automation_error_code,
                 )
             next_heartbeat = now + _HEARTBEAT_SECONDS
         time.sleep(1.0)
