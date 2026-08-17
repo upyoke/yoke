@@ -158,7 +158,6 @@
   "permissions": {
     "allow": [
       "Bash",
-      "Write(**)",
       "Edit(**)",
       "Read(*)",
       "Grep(*)",

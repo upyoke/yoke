@@ -22,10 +22,14 @@ from yoke_core.domain.agents_render_manifests import CLAUDE_MANIFEST
 # rendered settings.json includes it. Permissions are not derived from
 # universal source; they are Claude-specific tool gates that mirror the
 # harness's permission contract.
+#
+# File-editing access is Edit(**) only. Claude's file-permission matcher
+# ignores Write(**) and warns that Edit rules cover every file-editing tool.
+# Sibling allow entries stay as-is: Bash and Monitor are tool-level gates,
+# and Read(*) / Grep(*) / Glob(*) are those tools' own path forms.
 CLAUDE_PERMISSIONS: dict = {
     "allow": [
         "Bash",
-        "Write(**)",
         "Edit(**)",
         "Read(*)",
         "Grep(*)",
