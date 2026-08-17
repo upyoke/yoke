@@ -189,28 +189,23 @@ class TestDoLoopContract:
         assert "context.scheduler.next_step" in text
         assert "dispatch based on item type" not in text
 
-    def test_do_skill_documents_env_var_identity(self):
-        """SKILL.md documents env var resolution for executor and provider.
+    def test_do_skill_documents_session_init_identity(self):
+        """SKILL.md teaches ``yoke sessions init`` as the identity owner.
 
-        The model identifier is intentionally *not* in this list (the migration
-        removed the LLM-side model resolution chain (no more ``--model``
-        substitution into the loop command) and the canonical value is
-        read from ``harness_sessions.model`` server-side. This test enforces
-        that ``YOKE_MODEL`` and ``CLAUDE_MODEL`` do not appear in any
-        ``.agents/skills/yoke/do/`` file. The model resolution path is
-        teaching content in the Philosophy section, not part of the
-        env-var identity list.
+        Agents use the printed SESSION_ID/EXECUTOR/LANE values. They do not
+        reconstruct executor or session id from env vars, and they never mint.
+        Cursor is a first-class executor. Model stays server-resolved.
         """
         text = _DO_SKILL_PATH.read_text(encoding="utf-8")
-        assert "YOKE_EXECUTOR" in text
-        assert "YOKE_PROVIDER" in text
+        assert "yoke sessions init" in text
+        assert "Do not resolve them yourself." in text
+        assert "Never mint a session id." in text
+        assert "Cursor is a" in text
         assert "YOKE_MODEL" not in text
         assert "CLAUDE_MODEL" not in text
-        assert "CODEX_THREAD_ID" in text
         assert "YOKE_SUPPORTED_PATHS" not in text
         assert "Yoke-owned harnesses self-report identity only." in text
         assert "derives harness capabilities server-side" in text
-        # The new doctrine sentence is teaching content for the agent.
         assert "Model is server-resolved." in text
 
     def test_do_skill_documents_shared_path_emission(self):
