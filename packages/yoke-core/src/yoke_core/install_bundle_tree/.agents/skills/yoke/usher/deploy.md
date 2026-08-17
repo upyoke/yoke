@@ -83,11 +83,11 @@ For each `(project, flow)` group:
 
 ### 8c1-8c7: Compose the run
 
-Lead with the composed surface `runs start-for-item`, which folds resolve-target-env, create-run, add-item, and validate-composition into a single invocation:
+Lead with the composed surface `runs start-for-item`, which folds resolve-target, create-run, add-item, and validate-composition into a single invocation:
 
 ```bash
 yoke --env {control-plane}-db-admin deployment-runs start-for-item {item-id} \
-    [--project {project}] [--flow {flow}] [--target-env {target-env}] \
+    [--project {project}] [--flow {flow}] [--environment {environment}] \
     [--release-lineage {lineage-id}] [--created-by {actor}]
 ```
 
@@ -95,15 +95,15 @@ Create and start-for-item require the owner-only local-postgres connection
 (not the HTTPS product plane) so run rows stay writable when that plane is
 the deploy target. Use the same `*-db-admin` env that execute will use.
 
-Multiple resolvable target envs → `AskUserQuestion` for selection, then re-run with `--target-env`. Validation failure → halt.
+Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.
 
 Preview-flow side decisions wrap the composed call (these are not folded into `start-for-item`):
 
-- **Before** `start-for-item`: check occupancy via `runs check-preview-occupancy {project} {target_env}`; if occupied, `AskUserQuestion` (overwrite / new name / abort). For a new lineage, `runs lineage-create` first and pass the result as `--release-lineage`.
+- **Before** `start-for-item`: check occupancy via `runs check-preview-occupancy {project} {environment}`; if occupied, `AskUserQuestion` (overwrite / new name / abort). For a new lineage, `runs lineage-create` first and pass the result as `--release-lineage`.
 - **Resume an existing run** instead of starting a new one when `runs find-by-item {first-item-id} --status executing` returns a row — skip to 8c8.
-- **After** `start-for-item`: `runs claim-preview {run-id} {project} {target_env}` to attach the preview to the run.
+- **After** `start-for-item`: `runs claim-preview {run-id} {project} {environment}` to attach the preview to the run.
 
-The target-env resolver is `yoke deployment-runs resolve-target-env`; prefer the registered composed call for item-bound delivery.
+The target resolver is `yoke deployment-runs resolve-target`; prefer the registered composed call for item-bound delivery.
 
 ### 8c8: Run-level QA seeding
 **Do NOT manually seed** — `yoke_core.domain.deploy_pipeline` calls the internal deploy QA recorder automatically.

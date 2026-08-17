@@ -20,6 +20,8 @@ public export):
   role_permissions, actor_project_roles, organizations, actor_org_roles.
 - :mod:`schema_api_context_tables_qa` — qa_requirements, qa_runs.
 - :mod:`schema_api_context_tables_project` — projects, project_structure.
+- :mod:`schema_api_context_tables_delivery` — deployment flows, runs,
+  run items, ephemeral environments.
 - :mod:`schema_api_context_tables_packs` — Pack catalog and receipt reports.
 - :mod:`schema_api_context_tables_github` — App installations and repo bindings.
 
@@ -36,6 +38,9 @@ from yoke_core.domain.schema_api_context_tables_claims import (
 )
 from yoke_core.domain.schema_api_context_tables_core import (
     CORE_TABLES,
+)
+from yoke_core.domain.schema_api_context_tables_delivery import (
+    DELIVERY_TABLES,
 )
 from yoke_core.domain.schema_api_context_tables_dispatch import (
     DISPATCH_TABLES,
@@ -62,6 +67,7 @@ CANONICAL_TABLES: dict[str, dict] = {
     **AUTH_TABLES,
     **QA_TABLES,
     **PROJECT_TABLES,
+    **DELIVERY_TABLES,
     **PACK_TABLES,
     **GITHUB_APP_TABLES,
     **PYTHON_HELPERS_TABLES,

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-17T13:22:29Z_
+_Audit generated_at: 2026-08-17T14:18:01Z_
 
 ## 1. Summary
 
-- Function ids registered: **384**
+- Function ids registered: **382**
 - Internal dispatch-only functions without CLI adapters: **77**
-- `yoke` CLI subcommands: **307** (307 carry usable `--help`)
-- Operation tracker: **284 wrapped**, 6 tool_cli, 116 permanent, 0 pending
-- Skill-body recipes: 277 total (219 template-skipped, 0 failing)
+- `yoke` CLI subcommands: **305** (305 carry usable `--help`)
+- Operation tracker: **282 wrapped**, 6 tool_cli, 116 permanent, 0 pending
+- Skill-body recipes: 275 total (217 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation tracker confirms 284 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **282** (operation tracker confirms 282 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -57,7 +57,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation track
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
 | deployment_runs | `yoke deployment-runs project-snapshot` | `deployment_runs.project_snapshot` | ok |
-| deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
+| deployment_runs | `yoke deployment-runs resolve-target` | `deployment_runs.resolve_target` | ok |
 | deployment_runs | `yoke deployment-runs stages` | `deployment_runs.stages` | ok |
 | deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
 | deployment_runs | `yoke deployment-runs terminalize` | `deployment_runs.terminalize` | ok |
@@ -147,8 +147,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **284** (operation track
 | packs | `yoke packs list` | `packs.list` | ok |
 | path_claims | `yoke path-claims conflicts list` | `path_claims.conflicts.list` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
-| project_structure | `yoke project-structure architecture-draft get` | `project_structure.architecture_draft.get` | ok |
-| project_structure | `yoke project-structure architecture-health get` | `project_structure.architecture_health.get` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure get` | `project_structure.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
@@ -459,7 +457,7 @@ _No pending handler-registration rows._
 | path glob | count |
 |---|---|
 | .agents/skills/yoke/**/*.md | 129 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 28 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 29 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
@@ -472,9 +470,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| claude-code | 18 |
-| codex | 15 |
+| claude-code | 23 |
 | cursor | 14 |
+| codex | 10 |
 | agent | 3 |
 
 ## 8. Contradictions

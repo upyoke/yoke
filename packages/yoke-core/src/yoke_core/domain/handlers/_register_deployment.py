@@ -263,8 +263,8 @@ def register(registry) -> None:
     registry.register(
         "deployment_runs.resolve_target",
         _runs.handle_deployment_run_resolve_target,
-        _models.DeploymentRunResolveTargetEnvRequest,
-        _models.DeploymentRunResolveTargetEnvResponse,
+        _models.DeploymentRunResolveTargetRequest,
+        _models.DeploymentRunResolveTargetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_runs",
         target_kinds=["global"], side_effects=[],

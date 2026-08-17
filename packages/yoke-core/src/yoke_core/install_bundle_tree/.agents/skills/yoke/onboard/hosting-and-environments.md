@@ -96,7 +96,7 @@ Discover what already exists with the metadata-only inventory (`yoke projects in
 
 ### Declare the deploy flows and the default
 
-The deploy-flow surface is declaration-driven. Write the project-owned declaration to `.yoke/deployment-flows.json` in the checkout (schema 1: `flows` with `id`/`name`/`description`/`stages`/`on_failure`/`target_env`/`done_description`/`status`, plus top-level `default_flow`), then reconcile — the declared `default_flow` also sets the project deploy default:
+The deploy-flow surface is declaration-driven. Write the project-owned declaration to `.yoke/deployment-flows.json` in the checkout (schema 3: `flows` with `id`/`name`/`description`/`stages`/`on_failure`/`target_tier`/`target_environment_id`/`done_description`/`status`, plus top-level `default_flow`), then reconcile — the declared `default_flow` also sets the project deploy default:
 
 ```bash
 yoke deployment-flows reconcile-project {project} {checkout}/.yoke/deployment-flows.json

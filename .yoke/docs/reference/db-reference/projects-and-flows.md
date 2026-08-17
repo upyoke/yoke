@@ -204,7 +204,8 @@ description TEXT
 stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, step_runner, ...}]
 on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-target_env TEXT DEFAULT NULL -- delivery token; new names are prod/stage. Historical tokens such as production may remain on immutable definitions that already have runs
+target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
+target_environment_id TEXT -- REFERENCES environments(id); required exactly when target_tier='persistent'
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
 status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
 UNIQUE(project, name)
@@ -227,7 +228,7 @@ the run as `DeploymentRunWarmedUp`; a failure fails the stage with the real
 transport or function error rather than marking a cold box deployed. Python
 owner: `yoke_core.domain.deploy_warm_up`.
 
-**`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's `target_env` environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
+**`health-check` step runner:** An explicit stage `url` is checked verbatim (plain HTTP 2xx, no request-id contract assumed for arbitrary endpoints). When the stage omits `url`, the URL resolves from the flow's referenced environment settings as `https://{hosts.api}{health_path}` and the check enforces the Yoke core x-request-id echo contract: the request carries a generated `x-request-id` header and fails unless the response echoes the exact same value back.
 
 Read the current project workflow definition with `yoke workflows definition get --project <slug> --json`; inspect a materialized flow with `yoke deployment-flows get <flow-id>` / `stages`. External project
 repositories own their desired definitions in `.yoke/deployment-flows.json`;
