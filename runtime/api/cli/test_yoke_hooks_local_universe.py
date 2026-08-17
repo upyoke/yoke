@@ -1,11 +1,4 @@
-"""``yoke hook evaluate`` local-universe routing.
-
-On a machine with no https connection, the adapter runs the client-local
-lint subset for the verdict (unchanged) and then drives the in-process
-session lifecycle against a bound local universe. The relay/https path must
-never drive that lifecycle — every current session depends on it unchanged.
-Shares the wire fixtures of ``test_yoke_operations_cli_hooks.py``.
-"""
+"""``yoke hook evaluate`` local-universe routing."""
 
 from __future__ import annotations
 
@@ -24,38 +17,47 @@ from yoke_cli.main import main as cli_main
 
 
 _RESOLVE = "yoke_cli.transport.https.resolve_https_connection"
-_DRIVE = "yoke_cli.commands.adapters.hooks._drive_local_universe_lifecycle"
+_LOCAL = "yoke_cli.commands.adapters.hooks._evaluate_local_universe_hook"
+_ACTIVE = "yoke_cli.commands.adapters.hooks._active_local_universe"
 
 
-def test_no_https_runs_lint_subset_then_drives_lifecycle(monkeypatch) -> None:
-    # No https: the lint subset runs on the shared stdin (owns the verdict),
-    # then the local-universe lifecycle is driven from the same payload.
+def test_bound_local_universe_runs_complete_engine_chain(monkeypatch) -> None:
     monkeypatch.setattr(_RESOLVE, lambda: None)
+    monkeypatch.setattr(_ACTIVE, lambda: True)
     monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
-    lifecycle_calls: list = []
-    monkeypatch.setattr(
-        _DRIVE, lambda event, stdin_data: lifecycle_calls.append((event, stdin_data)),
-    )
+    local_calls: list[tuple] = []
+    monkeypatch.setattr(_LOCAL, lambda *args, **kwargs: local_calls.append(
+        (args, kwargs)
+    ) or 0)
     with patch(
         "yoke_harness.hooks.relay.evaluate_hook_event",
-        return_value=0,
+        side_effect=AssertionError("bound local universe must use yoke-core"),
     ) as hook_main:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             rc = cli_main(["hook", "evaluate", "PreToolUse"])
 
     assert rc == 0
-    assert hook_main.call_count == 1
-    assert hook_main.call_args.args == ("PreToolUse",)
-    # PreToolUse is not the orientation event, so no orientation is composed
-    # and the engine is never reached for it.
-    assert hook_main.call_args.kwargs == {
-        "stdin_data": '{"session_id": "s1"}',
+    hook_main.assert_not_called()
+    assert local_calls == [(("PreToolUse", '{"session_id": "s1"}'), {
         "extra_context": "",
-    }
-    assert lifecycle_calls == [("PreToolUse", '{"session_id": "s1"}')]
+    })]
 
 
-def test_https_relay_skips_local_universe_lifecycle(
+def test_unbound_machine_retains_client_subset(monkeypatch) -> None:
+    monkeypatch.setattr(_RESOLVE, lambda: None)
+    monkeypatch.setattr(_ACTIVE, lambda: False)
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s1"}'))
+    with patch(
+        "yoke_harness.hooks.relay.evaluate_hook_event",
+        return_value=0,
+    ) as hook_main:
+        assert cli_main(["hook", "evaluate", "PreToolUse"]) == 0
+    hook_main.assert_called_once_with(
+        "PreToolUse", stdin_data='{"session_id": "s1"}', extra_context="",
+    )
+
+
+def test_https_relay_skips_local_engine(
     monkeypatch, https_connection,  # noqa: F811
 ) -> None:
     monkeypatch.setattr(
@@ -69,7 +71,7 @@ def test_https_relay_skips_local_universe_lifecycle(
         "yoke_harness.hooks.relay.record_session_anchor", lambda *_a, **_k: None,
     )
     driven: list = []
-    monkeypatch.setattr(_DRIVE, lambda *a: driven.append(a))
+    monkeypatch.setattr(_LOCAL, lambda *a, **k: driven.append((a, k)))
     monkeypatch.setattr(
         "urllib.request.urlopen",
         lambda *_a, **_k: _FakeResponse(json.dumps({
@@ -81,17 +83,15 @@ def test_https_relay_skips_local_universe_lifecycle(
     assert driven == []
 
 
-def test_drive_helper_is_fail_open_on_orchestrator_error(monkeypatch) -> None:
-    # A lifecycle failure must never propagate into the hook decision.
+def test_missing_local_engine_is_loud(monkeypatch, capsys) -> None:
     from yoke_cli.commands.adapters import hooks as hooks_mod
 
-    def _boom(*_a, **_k):
-        raise RuntimeError("lifecycle exploded")
+    def _missing(_name):
+        raise ModuleNotFoundError("No module named 'yoke_core.hooks.local_entry'")
 
-    monkeypatch.setattr(
-        "runtime.harness.hook_runner.local_universe_lifecycle."
-        "run_local_universe_session_lifecycle",
-        _boom,
+    monkeypatch.setattr("importlib.import_module", _missing)
+    rc = hooks_mod._evaluate_local_universe_hook(
+        "PreToolUse", '{"session_id": "s1"}', extra_context="",
     )
-    # Must not raise.
-    hooks_mod._drive_local_universe_lifecycle("PreToolUse", '{"session_id": "s1"}')
+    assert rc == 1
+    assert "YOKE_LOCAL_HOOK_ENGINE_MISSING" in capsys.readouterr().err

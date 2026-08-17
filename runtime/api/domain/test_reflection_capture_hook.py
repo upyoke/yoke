@@ -17,7 +17,7 @@ from yoke_core.domain.reflection_capture_hook import (
     EVENT_FIRED, EVENT_UNHANDLED, evaluate,
 )
 from yoke_core.domain.reflection_capture_shapes import CaptureResult
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
 VALID_BLOCK = textwrap.dedent("""\

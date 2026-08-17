@@ -2,7 +2,7 @@
 
 These tests load the real hint module (``hint_posttool_field_note``,
 ``hint_monitor_relay``, ``hint_file_line_limit_approach``) into a single-entry
-chain, drive ``runtime.harness.hook_runner.runner.run_event`` with a realistic
+chain, drive ``yoke_core.hooks.runner.run_event`` with a realistic
 stdin payload, and assert the rendered ``hookSpecificOutput.additionalContext``
 envelope reaches stdout for both Claude and Codex.
 
@@ -29,9 +29,9 @@ import pytest
 
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 from yoke_core.domain.file_line_check import LIMIT as FILE_LINE_LIMIT
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.decision_render import (
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.decision_render import (
     render_claude_decision,
     render_codex_decision,
 )

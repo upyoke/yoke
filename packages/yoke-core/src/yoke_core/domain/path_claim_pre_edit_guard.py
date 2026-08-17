@@ -32,7 +32,7 @@ from yoke_core.domain.path_claim_target_resolver import (
     resolve_active_claim_for_session,
     widen_template,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 # Tool kinds this guard inspects. Bash is intentionally NOT here — see

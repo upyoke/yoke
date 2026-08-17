@@ -10,12 +10,10 @@ harness-lifecycle events that have no policy chain today (`SessionStart`,
 existing `harness_hook_ordering` table records — so callers see one list
 shape regardless of event family.
 
-Wheel-shipped home next to the ordering table it wraps: server-side
-consumers (the doctor health checks) must resolve the chain on a
-wheels-only install, where the repo-tree hook runner is absent. The
-returned module ids are data — some (e.g. the lifecycle dispatch entry)
-name repo-tree modules that only import inside a source checkout; the
-runner's dynamic dispatch fails open per module where they are absent.
+Wheel-shipped home next to the ordering table it wraps: installed engine
+and client consumers must resolve the same chain without a source checkout.
+Every returned module id therefore names a wheel-shipped module; dynamic
+dispatch reports an import failure loudly if that invariant is broken.
 
 Returned lists are fresh copies; mutating them does not leak back into the
 underlying `HOOK_ORDERING` mapping.
@@ -34,7 +32,7 @@ from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 # dispatch entry so the runner can route them uniformly without a None
 # check at the call site.
 _LIFECYCLE_DISPATCH: tuple[str, ...] = (
-    "runtime.harness.hook_runner.session_dispatch",
+    "yoke_core.hooks.session_dispatch",
 )
 
 _LIFECYCLE_EVENTS: frozenset[str] = frozenset({

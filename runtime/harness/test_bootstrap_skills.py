@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from runtime.harness.bootstrap import (
+from yoke_core.hooks.bootstrap import (
     ROOT_SKILL_NAME,
     SKILLS_ROOT_REL,
     list_skills,

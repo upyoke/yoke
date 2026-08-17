@@ -34,7 +34,7 @@ import os
 import sys
 from typing import Any, Optional
 
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 TARGET_TOOL = "Agent"
@@ -213,7 +213,7 @@ def evaluate(record: HookContext) -> HookDecision:
 def main() -> None:
     """CLI entry — reads a JSON-encoded hook envelope on stdin.
 
-    Permits the universal ``python3 -m runtime.harness.hook_runner
+    Permits the universal ``python3 -m yoke_core.hooks
     PostToolUse`` runner to dispatch this module by name.
     """
     try:

@@ -54,10 +54,10 @@ CORRECTIVE_UPDATES: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "Test-only event used by the events-capture test harness",
         "INFO",
     ),
-    ("AgentSessionStarted", "system", "session_lifecycle", "runtime.harness.hook_runner", "Agent session started (emitted by runtime.harness.hook_runner)", "INFO"),
-    ("SessionStarted", "system", "session_lifecycle", "runtime.harness.hook_runner", "A new session was registered in harness_sessions (emitted from the SessionStart hook via runtime.harness.hook_runner)", "INFO"),
-    ("SessionSentFirstUserPromptSubmit", "system", "session_lifecycle", "runtime.harness.hook_runner", "First UserPromptSubmit hook for this session has been handled (orientation block rendered). Distinct from SessionStarted, which fires earlier from the SessionStart hook when the harness_sessions row is inserted.", "INFO"),
-    ("SessionStartPayloadObserved", "system", "session_lifecycle", "runtime.harness.hook_runner", "Diagnostic: captures the SessionStart hook payload's top-level keys and model-field shape for surfaces where the docs' promise of payload.model fails in practice (e.g. VS Code)", "DEBUG"),
+    ("AgentSessionStarted", "system", "session_lifecycle", "yoke_core.hooks", "Agent session started (emitted by yoke_core.hooks)", "INFO"),
+    ("SessionStarted", "system", "session_lifecycle", "yoke_core.hooks", "A new session was registered in harness_sessions (emitted from the SessionStart hook via yoke_core.hooks)", "INFO"),
+    ("SessionSentFirstUserPromptSubmit", "system", "session_lifecycle", "yoke_core.hooks", "First UserPromptSubmit hook for this session has been handled (orientation block rendered). Distinct from SessionStarted, which fires earlier from the SessionStart hook when the harness_sessions row is inserted.", "INFO"),
+    ("SessionStartPayloadObserved", "system", "session_lifecycle", "yoke_core.hooks", "Diagnostic: captures the SessionStart hook payload's top-level keys and model-field shape for surfaces where the docs' promise of payload.model fails in practice (e.g. VS Code)", "DEBUG"),
 )
 
 

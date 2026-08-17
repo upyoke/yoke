@@ -86,7 +86,7 @@ from yoke_core.domain.lint_long_command_polling_evaluate import (
 from yoke_core.domain.lint_long_command_polling_monitor_duplicate import (
     evaluate_duplicate_monitor,
 )
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,

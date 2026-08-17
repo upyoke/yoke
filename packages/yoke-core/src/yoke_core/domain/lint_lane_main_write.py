@@ -58,7 +58,7 @@ from yoke_core.domain.lint_session_cwd_validate import (
 )
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree, claimed_worktrees
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-lane-main-write"
 GUARD_KEY = "lint_lane_main_write"

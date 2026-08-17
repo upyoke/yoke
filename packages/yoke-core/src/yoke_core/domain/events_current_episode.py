@@ -16,7 +16,7 @@ This module exposes one shared helper used by both
 :mod:`yoke_core.domain.events_queries` — the events *filter* is an
 allowed telemetry query; only boundary resolution lives here) and
 ``who-claims --current-episode`` (via
-:mod:`runtime.harness.harness_sessions_claims`). The contract is:
+:mod:`yoke_core.hooks.sessions_claims`). The contract is:
 
 * Boundary = ``harness_sessions.episode_started_at``.
 * When the session row is missing or carries no boundary the helper

@@ -28,7 +28,7 @@ _DOMAIN_PY_MODULES: Dict[str, str] = {
     "runs":              "yoke_core.domain.deployment_runs",
     "envs":              "yoke_core.domain.ephemeral_env",
     "qa":                "yoke_core.domain.qa",
-    "harness-sessions":  "runtime.harness.harness_sessions",
+    "harness-sessions":  "yoke_core.hooks.sessions_cli",
     "sections":          "yoke_core.domain.sections",
     "path-claims":       "yoke_core.domain.path_claims_dispatch",
 }

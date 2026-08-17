@@ -29,7 +29,7 @@ from yoke_core.domain.lint_session_cwd_validate import validate_targets
 from yoke_core.domain.lint_session_cwd_target_extract import (
     extract_command_targets,
 )
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
 @pytest.fixture

@@ -49,6 +49,7 @@ def test_yoke_core_wheel_carries_universe_app_runtime_and_types(
     wheel = next(product_wheelhouse.glob("yoke_core-*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         members = set(archive.namelist())
+    assert not any(member.endswith(".pyc") for member in members)
     for member in (
         "yoke_core/ui/static/app.js",
         "yoke_core/ui/static/contract.js",
@@ -62,3 +63,37 @@ def test_yoke_core_wheel_carries_universe_app_runtime_and_types(
         "yoke_core/ui/contracts/tsconfig.json",
     ):
         assert member in members
+
+
+def test_yoke_core_wheel_carries_hooks_without_source_test_helpers(
+    product_wheelhouse: Path,
+) -> None:
+    wheel = next(product_wheelhouse.glob("yoke_core-*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        members = set(archive.namelist())
+    for member in (
+        "yoke_core/hooks/local_entry.py",
+        "yoke_core/hooks/runner.py",
+        "yoke_core/hooks/session_dispatch.py",
+        "yoke_core/hooks/telemetry.py",
+    ):
+        assert member in members
+    test_markers = (
+        "_test_fixtures.py",
+        "_test_helpers.py",
+        "_test_schema.py",
+        "_test_support.py",
+    )
+    leaked = sorted(
+        member
+        for member in members
+        if member.startswith("yoke_core/")
+        and not member.startswith("yoke_core/install_bundle_tree/")
+        and member.endswith(".py")
+        and (
+            "/tests/" in member
+            or member.rsplit("/", 1)[-1].startswith("test_")
+            or member.endswith(test_markers)
+        )
+    )
+    assert leaked == []

@@ -93,7 +93,7 @@ from yoke_core.domain.lint_subagent_background_decide import (
     emit_audit_event,
     format_reason,
 )
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,

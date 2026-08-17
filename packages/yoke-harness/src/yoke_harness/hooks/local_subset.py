@@ -90,7 +90,7 @@ def _matcher(event_name: str, payload: dict) -> Optional[str]:
 def _chain_for(event_name: str, matcher: Optional[str]) -> list[str]:
     if event_name in _LIFECYCLE_EVENTS:
         chain = ordered_pipeline_for(event_name, "_default")
-        return chain or ["runtime.harness.hook_runner.session_dispatch"]
+        return chain or ["yoke_core.hooks.session_dispatch"]
     return ordered_pipeline_for(event_name, matcher or "_default")
 
 

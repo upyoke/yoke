@@ -9,7 +9,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from yoke_core.domain import lint_main_commit, lint_staged_union
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
 def _payload(command: str) -> dict:

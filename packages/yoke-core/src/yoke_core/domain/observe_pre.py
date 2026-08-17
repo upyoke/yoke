@@ -39,7 +39,7 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain.observe import insert_event
 from yoke_core.domain.observe_db import connect_observe_db
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,
@@ -165,7 +165,7 @@ def _try_refresh_session_model(data: Dict[str, Any]) -> None:
     if not isinstance(session_id, str) or not isinstance(transcript_path, str):
         return
     try:
-        from runtime.harness.hook_runner.telemetry import (
+        from yoke_core.hooks.telemetry import (
             refresh_session_model_if_placeholder,
         )
 

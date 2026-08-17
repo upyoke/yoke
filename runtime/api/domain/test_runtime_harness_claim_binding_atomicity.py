@@ -16,7 +16,7 @@ from runtime.api.domain.test_workflow_item_migration_compatibility import (
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database
 from runtime.api.test_sessions import _register
-from runtime.harness import harness_sessions_claims_acquire as runtime_claims
+from yoke_core.hooks import sessions_claims_acquire as runtime_claims
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
 )

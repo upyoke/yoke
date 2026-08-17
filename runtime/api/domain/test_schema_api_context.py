@@ -282,7 +282,7 @@ def test_service_client_help_lists_path_claim_surface() -> None:
 
 
 def test_harness_sessions_help_exposes_who_claims() -> None:
-    text = sac._try_help("runtime.harness.harness_sessions")
+    text = sac._try_help("yoke_core.hooks.sessions_cli")
     if text is None:
         pytest.skip("harness_sessions --help unavailable on this checkout")
     assert "who-claims" in text

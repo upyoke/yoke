@@ -135,7 +135,7 @@ class TestReadOnlyVerbs:
     def test_grep_pattern_with_escaped_alternation_is_not_a_path(self):
         muts = extract_mutations(
             'grep -n "claim_work\\|cmd_claim\\|current_item" '
-            "runtime/harness/harness_sessions.py"
+            "packages/yoke-core/src/yoke_core/hooks/sessions_cli.py"
         )
         assert muts == []
 

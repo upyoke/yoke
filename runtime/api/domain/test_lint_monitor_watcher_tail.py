@@ -6,7 +6,7 @@ import json
 import unittest
 from unittest import mock
 
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 from yoke_core.domain import lint_monitor_watcher_tail as lint
 
 

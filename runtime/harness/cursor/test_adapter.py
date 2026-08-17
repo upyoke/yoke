@@ -12,21 +12,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from runtime.harness.cursor.cursor_hooks_payload import parse_payload
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.capability_resolve import resolve_capability
-from runtime.harness.hook_runner.decision_render import render_cursor_decision
-from runtime.harness.hook_runner.types import HookDecision, Outcome
+from yoke_core.hooks import cursor_adapter
+from yoke_core.hooks.cursor_payload import parse_payload
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.capability_resolve import resolve_capability
+from yoke_core.hooks.decision_render import render_cursor_decision
+from yoke_core.hooks.types import HookDecision, Outcome
 
 
 def test_capability_imports() -> None:
-    from runtime.harness.cursor.adapter import CAPABILITY
+    from yoke_core.hooks.cursor_adapter import CAPABILITY
 
     assert isinstance(CAPABILITY, AdapterCapability)
 
 
 def test_capability_family_is_cursor() -> None:
-    from runtime.harness.cursor.adapter import CAPABILITY
+    from yoke_core.hooks.cursor_adapter import CAPABILITY
 
     assert CAPABILITY.family == "cursor"
 
@@ -35,14 +36,14 @@ def test_no_chain_omissions_declared() -> None:
     # Cursor runs the same universal chains as Claude and Codex; the
     # preToolUse no-allow-time-injection constraint is owned by the
     # decision renderer, not by chain omissions.
-    from runtime.harness.cursor.adapter import CAPABILITY
+    from yoke_core.hooks.cursor_adapter import CAPABILITY
 
     assert CAPABILITY.apply_patch_chain_omissions == frozenset()
     assert CAPABILITY.pretool_omissions == frozenset()
 
 
 def test_subprocess_modules_carveout() -> None:
-    from runtime.harness.cursor.adapter import CAPABILITY
+    from yoke_core.hooks.cursor_adapter import CAPABILITY
 
     assert CAPABILITY.subprocess_modules == frozenset(
         {
@@ -53,7 +54,7 @@ def test_subprocess_modules_carveout() -> None:
 
 
 def test_callables_bound_by_reference_not_wrappers() -> None:
-    from runtime.harness.cursor.adapter import CAPABILITY
+    from yoke_core.hooks.cursor_adapter import CAPABILITY
 
     assert CAPABILITY.payload_parser is parse_payload
     assert CAPABILITY.decision_renderer is render_cursor_decision
@@ -139,13 +140,13 @@ def test_deny_wins_over_advisory() -> None:
 
 
 def test_adapter_module_has_zero_def_declarations() -> None:
-    adapter_path = Path(__file__).resolve().parent / "adapter.py"
+    adapter_path = Path(cursor_adapter.__file__).resolve()
     source = adapter_path.read_text(encoding="utf-8")
     def_lines = [line for line in source.splitlines() if line.startswith("def ")]
     assert def_lines == [], f"adapter.py must contain zero def declarations, found: {def_lines}"
 
 
 def test_adapter_module_under_140_lines() -> None:
-    adapter_path = Path(__file__).resolve().parent / "adapter.py"
+    adapter_path = Path(cursor_adapter.__file__).resolve()
     line_count = len(adapter_path.read_text(encoding="utf-8").splitlines())
     assert line_count <= 140, f"adapter.py is {line_count} lines, must be <=140"

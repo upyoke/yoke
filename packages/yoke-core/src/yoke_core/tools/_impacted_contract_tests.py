@@ -91,7 +91,7 @@ CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
 PATH_CONTRACT_TESTS = (
     (
         "cursor_session_identity_dispatch_contract",
-        frozenset({"runtime/harness/cursor/cursor_hooks_payload.py"}),
+        frozenset({"packages/yoke-core/src/yoke_core/hooks/cursor_payload.py"}),
         CURSOR_SESSION_IDENTITY_DISPATCH_TESTS,
     ),
     (

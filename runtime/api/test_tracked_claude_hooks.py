@@ -126,7 +126,7 @@ def _violates_python_resolver_contract(command: str) -> bool:
     """Return True when *command* injects a worktree-local DB path into a
     Python-resolved hook module.
 
-    Non-Python-resolved modules (for example ``runtime.harness.codex.codex_hooks``
+    Non-Python-resolved modules (for example shell hook shims
     or generic ``python3 -m pytest`` calls) are ignored — those commands
     are out of scope for this guard and may legitimately pass ``--db`` for
     other reasons.

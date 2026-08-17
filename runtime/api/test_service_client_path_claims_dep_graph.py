@@ -298,7 +298,7 @@ class TestYok1619Reproduction:
         upstream_claims = []
         for upstream, path in [
             (u_a, "runtime/api/domain/populate_registry_data_authoritative.py"),
-            (u_b, "runtime/harness/harness_sessions_claims_acquire.py"),
+            (u_b, "packages/yoke-core/src/yoke_core/hooks/sessions_claims_acquire.py"),
             (u_c, "AGENTS.md"),
         ]:
             cid, _ = _seed_active_claim_for_path(
@@ -313,7 +313,7 @@ class TestYok1619Reproduction:
             integration_target="main",
             paths=[
                 "runtime/api/domain/populate_registry_data_authoritative.py",
-                "runtime/harness/harness_sessions_claims_acquire.py",
+                "packages/yoke-core/src/yoke_core/hooks/sessions_claims_acquire.py",
                 "AGENTS.md",
             ],
             actor_id=local_human(conn),

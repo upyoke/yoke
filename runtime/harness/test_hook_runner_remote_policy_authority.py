@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.harness.hook_runner.remote_policy import LOCAL_STATE_POLICIES
+from yoke_core.hooks.remote_policy import LOCAL_STATE_POLICIES
 
 
 def test_db_backed_authority_guards_stay_server_side() -> None:
@@ -20,7 +20,7 @@ def test_db_backed_authority_guards_stay_server_side() -> None:
         "yoke_core.domain.lint_lane_main_write",
         "yoke_core.domain.path_claim_bash_guard",
         "yoke_core.domain.path_claim_pre_edit_guard",
-        "runtime.harness.hook_helpers_heartbeat",
+        "yoke_core.hooks.heartbeat",
         "yoke_core.domain.observe_pre",
         "yoke_core.domain.observe",
     }

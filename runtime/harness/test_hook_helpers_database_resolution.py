@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from unittest import mock
 
-from runtime.harness.hook_helpers import resolve_yoke_db
+from yoke_core.hooks.helpers import resolve_yoke_db
 from yoke_core.domain import machine_config
 
 
@@ -59,7 +59,7 @@ class TestResolveYokeDb:
             os.environ, {machine_config.CONFIG_FILE_ENV: str(binding)}, clear=True
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
+                "yoke_core.hooks.helpers_session_id.find_project_root",
                 return_value=str(root),
             ):
                 assert resolve_yoke_db() == ""
@@ -76,7 +76,7 @@ class TestResolveYokeDb:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
+                "yoke_core.hooks.helpers_session_id.find_project_root",
                 return_value=str(root),
             ):
                 assert resolve_yoke_db() == ""
@@ -92,7 +92,7 @@ class TestResolveYokeDb:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
+                "yoke_core.hooks.helpers_session_id.find_project_root",
                 return_value=str(root),
             ):
                 assert resolve_yoke_db() == str(fixture)

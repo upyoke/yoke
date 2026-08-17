@@ -1,10 +1,10 @@
 """``yoke hook evaluate`` adapter.
 
 Project hook configs keep this one spelling on every transport. The product
-adapter delegates hook evaluation to ``yoke_harness`` when that package is
-installed. Missing harness code fails open for live hook events, because hook
-delivery must not break the calling agent; dry-run reports the missing package
-clearly instead.
+adapter uses ``yoke_harness`` for client-only evaluation and dispatches the
+complete packaged chain through ``yoke_core`` when a local Postgres universe
+is active. Missing local engine code is a permanent install defect and fails
+loudly; transient HTTPS transport failures retain their fail-open contract.
 """
 
 from __future__ import annotations
@@ -126,8 +126,8 @@ def hook_evaluate(args: List[str]) -> int:
             return degrade_to_noop(parsed.event_name, str(exc))
 
         # Read stdin once: the relay, the orientation composer, and the
-        # local-universe lifecycle all need the same payload, and a hook
-        # process gets exactly one shot at it.
+        # local engine all need the same payload, and a hook process gets
+        # exactly one shot at it.
         if stdin_data is None:
             stdin_data = sys.stdin.read()
         extra_context = _session_orientation(parsed.event_name, stdin_data)
@@ -139,19 +139,20 @@ def hook_evaluate(args: List[str]) -> int:
                 extra_context=extra_context,
             )
 
-        # No https connection. Run the client-local lint subset for the
-        # verdict (unchanged), then — only on a bound local-postgres universe
-        # where the client IS the authority — drive the in-process session
-        # lifecycle (register/heartbeat/end) against it. Fail-open: a
-        # lifecycle failure never affects the hook decision, and a machine
-        # with no engine / no universe stays lint-only.
-        exit_code = evaluate_hook_event(
+        # A bound local-postgres universe is an installed engine authority,
+        # so run the complete packaged chain in-process. Machines with no
+        # bound universe retain the product-safe client subset.
+        if _active_local_universe():
+            return _evaluate_local_universe_hook(
+                parsed.event_name,
+                stdin_data,
+                extra_context=extra_context,
+            )
+        return evaluate_hook_event(
             parsed.event_name,
             stdin_data=stdin_data,
             extra_context=extra_context,
         )
-        _drive_local_universe_lifecycle(parsed.event_name, stdin_data)
-        return exit_code
 
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
 
@@ -161,7 +162,7 @@ def _session_orientation(event_name: str, stdin_data: str) -> str:
 
     Reaches the engine-side composer (bundled with the core wheel) through
     the sanctioned dynamic-import lane, for the same reason the local
-    universe lifecycle does: the client cannot take static authority over
+    hook entry does: the client cannot take static authority over
     engine modules before the transport decision. Absent engine -> no
     orientation; never raises, because a hook must not break its agent.
 
@@ -182,22 +183,50 @@ def _session_orientation(event_name: str, stdin_data: str) -> str:
         return ""
 
 
-def _drive_local_universe_lifecycle(event_name: str, stdin_data: str) -> None:
-    """Best-effort in-process session lifecycle for a bound local universe.
+def _active_local_universe() -> bool:
+    """Return whether the active connection is non-production Postgres."""
+    try:
+        from yoke_cli.config import machine_config
+        from yoke_contracts.machine_config.schema import (
+            POSTGRES_TRANSPORTS,
+            connection_is_prod,
+        )
 
-    Reaches the engine-side orchestrator (bundled with the core wheel) via the
-    sanctioned dynamic-import lane, exactly as the function-call dispatcher
-    lazily reaches the engine for a local universe. Absent engine / no
-    universe -> no-op; never raises."""
+        connection = machine_config.active_connection()
+    except Exception:
+        return False
+    transport = str(connection.get("transport") or "").strip()
+    return transport in POSTGRES_TRANSPORTS and not connection_is_prod(
+        connection
+    )
+
+
+def _evaluate_local_universe_hook(
+    event_name: str,
+    stdin_data: str,
+    *,
+    extra_context: str,
+) -> int:
+    """Load the installed engine hook entry and fail loudly if it is absent."""
     import importlib
 
     try:
-        module = importlib.import_module(
-            "runtime.harness.hook_runner.local_universe_lifecycle"
+        module = importlib.import_module("yoke_core.hooks.local_entry")
+    except (ImportError, ModuleNotFoundError) as exc:
+        sys.stderr.write(
+            "ERROR: YOKE_LOCAL_HOOK_ENGINE_MISSING: the active "
+            f"local-postgres universe requires yoke-core hooks ({exc})\n"
         )
-    except Exception:
-        return
+        return 1
     try:
-        module.run_local_universe_session_lifecycle(event_name, stdin_data)
-    except Exception:
-        return
+        return int(module.evaluate_local_hook(
+            event_name,
+            stdin_data,
+            extra_context=extra_context,
+        ))
+    except Exception as exc:
+        sys.stderr.write(
+            "ERROR: YOKE_LOCAL_HOOK_ENGINE_FAILED: "
+            f"{type(exc).__name__}: {exc}\n"
+        )
+        return 1

@@ -86,7 +86,7 @@ def _classify_service_client(args: List[str]) -> Optional[str]:
 
 
 def _classify_harness_sessions(args: List[str]) -> Optional[str]:
-    """``runtime.harness.harness_sessions who-claims`` and ``--help``."""
+    """``yoke_core.hooks.sessions_cli who-claims`` and ``--help``."""
     if not args:
         return None
     if _has_help_flag(args):
@@ -163,7 +163,7 @@ def _classify_python_module(tokens: List[str]) -> Optional[str]:
         return _classify_db_router(args)
     if module == "yoke_core.api.service_client":
         return _classify_service_client(args)
-    if module == "runtime.harness.harness_sessions":
+    if module == "yoke_core.hooks.sessions_cli":
         return _classify_harness_sessions(args)
     if _has_help_flag(args):
         return f"python-{module}-help"

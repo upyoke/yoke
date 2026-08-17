@@ -25,12 +25,12 @@ from typing import Any
 
 import pytest
 
-from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner import telemetry as telemetry_module
-from runtime.harness.hook_runner import subprocess_policy
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks import telemetry as telemetry_module
+from yoke_core.hooks import subprocess_policy
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 # ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ def test_cli_dry_run_pretooluse_lists_typed_and_subproc_markers() -> None:
     _pp = os.pathsep.join(p for p in (repo_root, os.environ.get("PYTHONPATH", "")) if p)
     env = {**os.environ, "PYTHONPATH": _pp}
     completed = subprocess.run(
-        [sys.executable, "-m", "runtime.harness.hook_runner", "PreToolUse", "--dry-run"],
+        [sys.executable, "-m", "yoke_core.hooks", "PreToolUse", "--dry-run"],
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-import runtime.harness.hook_runner_register as register_module
+import yoke_core.hooks.registration as register_module
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ def yoke_target(monkeypatch):
         register_module, "is_yoke_target", lambda _r, _d: True,
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_helpers.resolve_yoke_db", lambda _d: "",
+        "yoke_core.hooks.helpers.resolve_yoke_db", lambda _d: "",
     )
     for name, value in (
         ("detect_executor", lambda: "claude-code"),
@@ -37,7 +37,7 @@ def yoke_target(monkeypatch):
         ("detect_model", lambda _e, transcript_path="": "model-x"),
         ("detect_entrypoint", lambda: None),
     ):
-        monkeypatch.setattr(f"runtime.harness.hook_helpers.{name}", value)
+        monkeypatch.setattr(f"yoke_core.hooks.helpers.{name}", value)
 
 
 def _capture_anchors(monkeypatch):
@@ -158,11 +158,11 @@ class TestRelayOwnedRegistration:
     def test_https_transport_skips_subprocess_and_reports_success(
         self, monkeypatch,
     ):
-        from runtime.harness.hook_runner import session_lifecycle_client as slc
+        from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: True)
         monkeypatch.setattr(
-            "runtime.harness.hook_runner.service_client.register_session",
+            "yoke_core.hooks.service_client.register_session",
             lambda *a: pytest.fail(
                 "https transport must not spawn the local registration "
                 "subprocess — the relay owns registration"
@@ -178,7 +178,7 @@ class TestRelayOwnedRegistration:
     def test_https_skip_threads_through_register_from_hook(
         self, yoke_target, monkeypatch,
     ):
-        from runtime.harness.hook_runner import session_lifecycle_client as slc
+        from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: True)
         anchors = _capture_anchors(monkeypatch)
@@ -192,12 +192,12 @@ class TestRelayOwnedRegistration:
         assert anchors == [("s-https", "/t/x.jsonl")]
 
     def test_local_transport_still_runs_subprocess(self, monkeypatch):
-        from runtime.harness.hook_runner import session_lifecycle_client as slc
+        from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: False)
         calls = []
         monkeypatch.setattr(
-            "runtime.harness.hook_runner.service_client.register_session",
+            "yoke_core.hooks.service_client.register_session",
             lambda *a: calls.append(a) or None,
         )
         monkeypatch.setattr(
@@ -213,7 +213,7 @@ class TestRelayOwnedRegistration:
         assert calls[0][1] == "s-local"
 
     def test_helper_resolves_false_on_config_read_failure(self, monkeypatch):
-        from runtime.harness.hook_runner import session_lifecycle_client as slc
+        from yoke_core.hooks import session_lifecycle_client as slc
 
         def _boom():
             raise RuntimeError("config unreadable")
@@ -226,7 +226,7 @@ class TestRelayOwnedRegistration:
     def test_helper_reads_https_transport_from_active_connection(
         self, monkeypatch,
     ):
-        from runtime.harness.hook_runner import session_lifecycle_client as slc
+        from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(
             "yoke_core.domain.machine_config.active_connection",

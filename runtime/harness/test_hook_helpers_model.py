@@ -11,7 +11,7 @@ import json
 import os
 from unittest import mock
 
-from runtime.harness.hook_helpers import (
+from yoke_core.hooks.helpers import (
     _extract_model_from_argv,
     _is_placeholder_model,
     detect_model,
@@ -43,7 +43,7 @@ class TestDetectModel:
     def test_codex_resolver_chain_consulted(self, no_parent_argv):
         with mock.patch.dict(os.environ, {}, clear=True), \
              mock.patch(
-                 "runtime.harness.codex.codex_model.resolve",
+                 "yoke_core.hooks.codex_model.resolve",
                  return_value="gpt-6-real",
              ):
             assert detect_model("codex") == "gpt-6-real"
@@ -100,7 +100,7 @@ class TestDetectModel:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=argv,
             ):
                 assert detect_model() == "claude-opus-4-7[1m]"
@@ -111,7 +111,7 @@ class TestDetectModel:
         """
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "claude-opus-4-7[1m]"],
             ):
                 assert detect_model() == "claude-opus-4-7[1m]"
@@ -122,7 +122,7 @@ class TestDetectModel:
             os.environ, {"CLAUDE_MODEL": "env-wins"}, clear=True
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "argv-loses"],
             ):
                 assert detect_model() == "env-wins"
@@ -134,7 +134,7 @@ class TestDetectModel:
             clear=True,
         ):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--output-format", "stream-json"],
             ):
                 assert detect_model() == TEST_MODEL_ID
@@ -210,7 +210,7 @@ class TestDetectModelVscodeRegression:
         """
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=[
                     "/path/to/claude",
                     "--output-format",
@@ -239,7 +239,7 @@ class TestDetectModelVscodeRegression:
         )
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "default"],
             ):
                 assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID
@@ -255,7 +255,7 @@ class TestDetectModelVscodeRegression:
         )
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "default"],
             ):
                 assert detect_model(transcript_path=str(transcript)) == "claude-sonnet-4-6"
@@ -269,7 +269,7 @@ class TestDetectModelVscodeRegression:
         )
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "claude-opus-4-7[1m]"],
             ):
                 assert detect_model(transcript_path=str(transcript)) == "claude-opus-4-7[1m]"
@@ -313,7 +313,7 @@ class TestDetectModelVscodeRegression:
         )
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=["claude", "--model", "default"],
             ):
                 assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID
@@ -332,7 +332,7 @@ class TestDetectModelVscodeRegression:
         )
         with mock.patch.dict(os.environ, {}, clear=True):
             with mock.patch(
-                "runtime.harness.hook_helpers_model._read_parent_argv",
+                "yoke_core.hooks.helpers_model._read_parent_argv",
                 return_value=[],
             ):
                 assert detect_model(transcript_path=str(transcript)) == TEST_MODEL_ID

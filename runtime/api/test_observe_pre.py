@@ -28,7 +28,7 @@ from runtime.api.fixtures.file_test_db import (
     init_test_db,
 )
 from runtime.api.observe_test_helpers import _PROJECTS_DDL, _PROJECTS_SEED_DDL
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 
 EVENTS_SCHEMA = (

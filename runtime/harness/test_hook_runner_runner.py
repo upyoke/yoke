@@ -1,4 +1,4 @@
-"""Tests for ``runtime.harness.hook_runner.runner``.
+"""Tests for ``yoke_core.hooks.runner``.
 
 Covers the typed SIGALRM timeout (``HookExecutionFailed`` + chain
 continues), subprocess success (stdout appended +
@@ -20,11 +20,11 @@ from typing import Any
 
 import pytest
 
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner import telemetry as telemetry_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-from runtime.harness.hook_runner.decision_render import render_claude_decision
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks import telemetry as telemetry_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
+from yoke_core.hooks.decision_render import render_claude_decision
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 def _capability(
     monkeypatch: pytest.MonkeyPatch,
@@ -56,13 +56,13 @@ def _silence_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 _REPO_ROOT = str(Path(__file__).resolve().parents[2])
-_SUBPROC_RUN = "runtime.harness.hook_runner.subprocess_policy.subprocess.run"
+_SUBPROC_RUN = "yoke_core.hooks.subprocess_policy.subprocess.run"
 
 def _run_cli(*args: str, stdin: str = "") -> subprocess.CompletedProcess:
     _pp = os.pathsep.join(p for p in (_REPO_ROOT, os.environ.get("PYTHONPATH", "")) if p)
     env = {**os.environ, "PYTHONPATH": _pp}
     return subprocess.run(
-        [sys.executable, "-m", "runtime.harness.hook_runner", *args],
+        [sys.executable, "-m", "yoke_core.hooks", *args],
         input=stdin, capture_output=True, text=True, timeout=15, check=False,
         cwd=_REPO_ROOT, env=env,
     )
@@ -316,7 +316,7 @@ def test_typed_policy_stdout_audit_field_is_appended(
 
 def test_runner_and_main_files_under_350_lines() -> None:
     """runner.py and __main__.py each <= 350 lines."""
-    pkg = Path(__file__).resolve().parent / "hook_runner"
+    pkg = Path(runner_module.__file__).resolve().parent
     for filename in ("runner.py", "__main__.py"):
         with (pkg / filename).open("rb") as fh:
             count = sum(1 for _ in fh)

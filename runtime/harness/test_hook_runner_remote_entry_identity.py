@@ -6,9 +6,9 @@ import json
 import sys
 import types
 
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.remote_entry import evaluate_remote
-from runtime.harness.hook_runner.types import HookDecision, Next, Outcome
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.remote_entry import evaluate_remote
+from yoke_core.hooks.types import HookDecision, Next, Outcome
 
 
 def test_remote_merges_wire_identity_into_payload(monkeypatch) -> None:

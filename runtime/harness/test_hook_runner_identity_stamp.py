@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
-from runtime.harness.hook_runner import runner as runner_module
+from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
+from yoke_core.hooks import runner as runner_module
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,

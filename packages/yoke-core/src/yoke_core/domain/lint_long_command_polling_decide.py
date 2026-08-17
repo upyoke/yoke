@@ -179,7 +179,7 @@ def _emit_audit_event(
     """
     # Imported locally so module load does not depend on the harness package.
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
 

@@ -44,10 +44,10 @@ CLI_ADAPTER_DYNAMIC_AUTHORITY_IMPORTS = {
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",
-        "runtime.harness.hook_runner.local_universe_lifecycle",
+        "yoke_core.hooks.local_entry",
     ): (
         "local_universe_dispatch",
-        "drive the in-process session lifecycle for a bound local universe",
+        "run the complete packaged hook chain for a bound local universe",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/hooks.py",

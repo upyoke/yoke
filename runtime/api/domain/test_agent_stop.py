@@ -81,7 +81,7 @@ class TestRunHook:
     def test_run_hook_swallows_exceptions(self):
         """Hook always exits 0 (never propagates exceptions)."""
         with patch(
-            "runtime.harness.hook_helpers.find_project_root",
+            "yoke_core.hooks.helpers.find_project_root",
             side_effect=RuntimeError("boom"),
         ):
             # Should not raise.
@@ -90,7 +90,7 @@ class TestRunHook:
     def test_run_hook_returns_early_when_db_missing(self, tmp_path: Path, monkeypatch):
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
         with patch(
-            "runtime.harness.hook_helpers.resolve_yoke_db",
+            "yoke_core.hooks.helpers.resolve_yoke_db",
             return_value=str(tmp_path / "missing.db"),
         ), patch(
             "yoke_core.domain.agent_stop.process_dispatch_chains"
@@ -105,13 +105,13 @@ class TestRunHook:
         monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
 
         with patch(
-            "runtime.harness.hook_helpers.find_project_root",
+            "yoke_core.hooks.helpers.find_project_root",
             return_value=str(tmp_path),
         ), patch(
-            "runtime.harness.hook_helpers.resolve_yoke_db",
+            "yoke_core.hooks.helpers.resolve_yoke_db",
             return_value=str(db_path),
         ), patch(
-            "runtime.harness.hook_helpers.get_session_id",
+            "yoke_core.hooks.helpers.get_session_id",
             return_value="sess-1",
         ), patch(
             "yoke_core.domain.agent_stop.process_dispatch_chains",

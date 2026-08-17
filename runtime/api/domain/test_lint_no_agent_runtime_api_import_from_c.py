@@ -15,7 +15,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_no_agent_runtime_api_import_from_c as lint
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _payload(command: str, **extra) -> dict:
@@ -63,7 +63,7 @@ class TestPositiveTrip(unittest.TestCase):
         self.assertIn("session_init", reason)
 
     def test_runtime_harness_import_denies(self):
-        cmd = 'python3 -c "from runtime.harness.harness_sessions import x"'
+        cmd = 'python3 -c "from yoke_core.hooks.sessions_cli import x"'
         result = _eval(cmd)
         self.assertIsNotNone(result)
         self.assertEqual(result[0], "deny")

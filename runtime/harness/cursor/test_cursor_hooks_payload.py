@@ -14,7 +14,7 @@ import json
 
 import pytest
 
-from runtime.harness.cursor.cursor_hooks_payload import (
+from yoke_core.hooks.cursor_payload import (
     parse_payload,
     payload_field,
     resolve_container_session_id,

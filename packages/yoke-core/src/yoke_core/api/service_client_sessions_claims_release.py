@@ -71,7 +71,7 @@ def cmd_release_all_claims(args: list[str]) -> int:
         return 0
 
     proc = subprocess.run(
-        [sys.executable, "-m", "runtime.harness.harness_sessions",
+        [sys.executable, "-m", "yoke_core.hooks.sessions_cli",
          "release-all", parsed.session_id, parsed.reason],
         capture_output=True,
         text=True,

@@ -30,7 +30,7 @@ import sys
 from typing import Iterator, Optional, Tuple
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 TC_LABEL_RE = re.compile(r"\bTC-\d+\b")
@@ -246,7 +246,7 @@ def _build_deny_response(reason: str) -> dict:
 
 def _emit_denial(payload: dict, reason: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     session_id = payload.get("session_id") or ""

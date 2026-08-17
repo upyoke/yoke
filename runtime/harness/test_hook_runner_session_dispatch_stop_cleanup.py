@@ -5,7 +5,7 @@ from __future__ import annotations
 import psycopg
 import pytest
 
-from runtime.harness.hook_runner import session_end_cleanup as _sec
+from yoke_core.hooks import session_end_cleanup as _sec
 
 
 class FakeConn:

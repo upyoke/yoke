@@ -131,7 +131,7 @@ def emit_audit_event(
 ) -> None:
     """Emit ``HarnessToolCallDenied`` with mode/outcome annotated reason."""
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     session_id = _safe_str(payload.get("session_id"))

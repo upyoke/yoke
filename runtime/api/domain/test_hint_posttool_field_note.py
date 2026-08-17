@@ -18,7 +18,7 @@ from typing import Any
 
 from yoke_core.domain import hint_posttool_field_note as hook
 from yoke_contracts.field_note_text import FOOTER
-from runtime.harness.hook_runner.types import HookContext, Next, Outcome
+from yoke_core.hooks.types import HookContext, Next, Outcome
 
 # Placeholder item id used in command-string fixtures. Per AGENTS.md
 # "No hardcoded drifting IDs in tests", we synthesize the YOK-N form from
@@ -109,7 +109,7 @@ class TestIsYokeCliCommand(unittest.TestCase):
         # Heuristic anchor is `runtime.api.` specifically; `runtime.harness.`
         # is out of scope for the Yoke CLI surface boundary.
         self.assertFalse(hook.is_yoke_cli_command(
-            "python3 -m runtime.harness.hook_runner PreToolUse"
+            "python3 -m yoke_core.hooks PreToolUse"
         ))
 
     def test_TC_word_containing_yoke_does_not_match(self) -> None:

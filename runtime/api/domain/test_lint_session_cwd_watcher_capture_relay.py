@@ -12,7 +12,7 @@ from runtime.api.domain.lint_session_cwd_test_helpers import (
 )
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import test_database
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_SCRATCH_ROOT_KEY,
     CLIENT_SCRATCH_ROOT_SCHEMA,

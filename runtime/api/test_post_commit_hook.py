@@ -160,8 +160,7 @@ class TestHookShape:
         # No reference to runtime/harness/claude or runtime/harness/codex
         # — the hook is a git-operation concern, not an agent-tool-call
         # concern.
-        assert "runtime.harness.claude" not in POST_COMMIT_SHIM
-        assert "runtime.harness.codex" not in POST_COMMIT_SHIM
+        assert "runtime.harness" not in POST_COMMIT_SHIM
 
     def test_shim_guards_missing_launcher_without_blocking(self):
         # Launcher absent from PATH: teach the machine install on stderr

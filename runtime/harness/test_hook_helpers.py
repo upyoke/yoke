@@ -22,8 +22,8 @@ import os
 import time
 from unittest import mock
 
-from runtime.harness import hook_helpers
-from runtime.harness.hook_helpers import (
+from yoke_core.hooks import helpers as hook_helpers
+from yoke_core.hooks.helpers import (
     find_project_root,
     get_session_id,
     parse_hook_json,

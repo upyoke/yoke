@@ -79,7 +79,7 @@ def emit_denial(decision: "Decision") -> None:
         import contextlib
         import io as _io
 
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
 
         with (
             contextlib.redirect_stdout(_io.StringIO()),

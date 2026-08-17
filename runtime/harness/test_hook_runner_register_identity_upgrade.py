@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.harness import hook_runner_register as register_module
+from yoke_core.hooks import registration as register_module
 
 
 class _Cursor:
@@ -100,7 +100,7 @@ def test_unresolved_lane_drives_reregister_from_project_routing(monkeypatch):
         lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_executor",
         lambda _conn, _project, _executor, **_kw: "DARIUS",
     )
 
@@ -124,7 +124,7 @@ def test_healed_lane_stops_driving_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("a resolved lane must not re-register"),
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_executor",
         lambda *_a, **_kw: pytest.fail("resolved rows must not consult routing"),
     )
 
@@ -145,7 +145,7 @@ def test_unresolvable_lane_does_not_drive_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("an unresolvable lane must not re-register"),
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner_register_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_executor",
         lambda _conn, _project, _executor, **_kw: "primary",
     )
 

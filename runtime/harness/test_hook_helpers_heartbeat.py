@@ -1,6 +1,6 @@
 """Coverage for the PreToolUse heartbeat refresh hook.
 
-The hook lives at :mod:`runtime.harness.hook_helpers_heartbeat`. Per
+The hook lives at :mod:`yoke_core.hooks.heartbeat`. Per
 the FR-3 Option B contract it is telemetry-style: never blocks tool
 execution, swallows every failure, and returns
 ``HookDecision(outcome=NOOP, next=CONTINUE)`` unconditionally.
@@ -27,7 +27,7 @@ from unittest import mock
 
 import pytest
 
-from runtime.harness.hook_runner.types import (
+from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
     Next,
@@ -41,7 +41,7 @@ def _pin_local_transport(monkeypatch):
     # authority; pin the gate so the machine's real https connection (if
     # any) does not divert _heartbeat_session to its remote-only early
     # return. The https-skip behavior is asserted explicitly below.
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     monkeypatch.setattr(
         hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: False,
@@ -65,7 +65,7 @@ def base_context():
 
 
 def _evaluate(record: HookContext) -> HookDecision:
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
     return hook_helpers_heartbeat.evaluate(record)
 
 
@@ -74,7 +74,7 @@ def test_evaluate_unknown_session_no_db_touch(base_context):
         **{**base_context.__dict__, "session_id": "unknown"},
     )
     with mock.patch(
-        "runtime.harness.hook_helpers_heartbeat._heartbeat_session"
+        "yoke_core.hooks.heartbeat._heartbeat_session"
     ) as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
@@ -88,7 +88,7 @@ def test_evaluate_empty_session_no_db_touch(base_context):
         **{**base_context.__dict__, "session_id": ""},
     )
     with mock.patch(
-        "runtime.harness.hook_helpers_heartbeat._heartbeat_session"
+        "yoke_core.hooks.heartbeat._heartbeat_session"
     ) as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
@@ -100,7 +100,7 @@ def test_evaluate_known_session_calls_heartbeat(base_context):
         **{**base_context.__dict__, "session_id": "abc-123"},
     )
     with mock.patch(
-        "runtime.harness.hook_helpers_heartbeat._heartbeat_session"
+        "yoke_core.hooks.heartbeat._heartbeat_session"
     ) as hb:
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
@@ -114,7 +114,7 @@ def test_evaluate_heartbeat_exception_collapses_to_noop(base_context):
         **{**base_context.__dict__, "session_id": "abc-123"},
     )
     with mock.patch(
-        "runtime.harness.hook_helpers_heartbeat._heartbeat_session",
+        "yoke_core.hooks.heartbeat._heartbeat_session",
         side_effect=RuntimeError("kaboom"),
     ) as hb:
         decision = _evaluate(ctx)
@@ -125,7 +125,7 @@ def test_evaluate_heartbeat_exception_collapses_to_noop(base_context):
 def test_heartbeat_session_session_error_swallowed():
     """SessionError from the registry writer must not raise out."""
     from yoke_core.domain.sessions import SessionError
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     with mock.patch(
         "yoke_core.domain.db_backend.connect"
@@ -142,7 +142,7 @@ def test_heartbeat_session_session_error_swallowed():
 
 def test_heartbeat_session_uses_backend_factory():
     """Heartbeat must not open data/yoke.db through raw sqlite3."""
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     with mock.patch("yoke_core.domain.db_backend.connect") as conn_factory:
         conn_factory.side_effect = RuntimeError("no authority")
@@ -153,7 +153,7 @@ def test_heartbeat_session_uses_backend_factory():
 def test_heartbeat_session_skips_local_write_on_https(monkeypatch):
     """On https the session row is server-side; a client-side in-process
     call must not open a local DB connection."""
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     monkeypatch.setattr(
         hook_helpers_heartbeat, "_relay_owns_session_authority", lambda: True,
@@ -166,7 +166,7 @@ def test_heartbeat_session_skips_local_write_on_https(monkeypatch):
 def test_heartbeat_session_backfills_missing_session(base_context):
     """A missed SessionStart still becomes board-visible on tool activity."""
     from yoke_core.domain.sessions import SessionError
-    from runtime.harness import hook_helpers_heartbeat
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
 
     conn = mock.MagicMock()
     with mock.patch(
@@ -176,15 +176,15 @@ def test_heartbeat_session_backfills_missing_session(base_context):
         "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
         side_effect=SessionError("NOT_FOUND", "no such session"),
     ), mock.patch(
-        "runtime.harness.hook_runner.session_lifecycle_client.register_harness_session",
+        "yoke_core.hooks.session_lifecycle_client.register_harness_session",
     ) as register, mock.patch(
-        "runtime.harness.hook_helpers_identity.detect_provider",
+        "yoke_core.hooks.helpers_identity.detect_provider",
         return_value="anthropic",
     ), mock.patch(
         # Pinned like detect_provider above: the backfill re-detects the
         # entrypoint from ambient env, so an unpinned run inside a desktop
         # harness session would recompose executor as claude-desktop.
-        "runtime.harness.hook_helpers_identity.detect_entrypoint",
+        "yoke_core.hooks.helpers_identity.detect_entrypoint",
         return_value=None,
     ):
         hook_helpers_heartbeat._heartbeat_session("missing-sid", base_context)
@@ -206,7 +206,7 @@ def test_evaluate_decision_shape(base_context):
         **{**base_context.__dict__, "session_id": "abc"},
     )
     with mock.patch(
-        "runtime.harness.hook_helpers_heartbeat._heartbeat_session"
+        "yoke_core.hooks.heartbeat._heartbeat_session"
     ):
         decision = _evaluate(ctx)
     assert decision.outcome is Outcome.NOOP
@@ -220,7 +220,7 @@ def test_evaluate_decision_shape(base_context):
 # ---------------------------------------------------------------------------
 
 
-_HEARTBEAT_MODULE = "runtime.harness.hook_helpers_heartbeat"
+_HEARTBEAT_MODULE = "yoke_core.hooks.heartbeat"
 
 
 def test_pretool_bash_chain_includes_heartbeat():

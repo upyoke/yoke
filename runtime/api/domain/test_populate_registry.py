@@ -141,7 +141,7 @@ HOOK_RUNNER_TELEMETRY_EVENTS = (
 def test_hook_runner_telemetry_events_registered_in_authoritative_metadata():
     """Every runner-native hook telemetry name that hook_runner.telemetry can
     emit must appear in AUTHORITATIVE_METADATA with kind=system, the matching
-    event_type, owner_service=runtime.harness.hook_runner, and the expected
+    event_type, owner_service=yoke_core.hooks, and the expected
     severity. Guards against rogue-event regressions surfaced by
     HC-event-registry-coverage."""
     from yoke_core.domain.populate_registry import AUTHORITATIVE_METADATA
@@ -156,8 +156,8 @@ def test_hook_runner_telemetry_events_registered_in_authoritative_metadata():
         assert event_type == expected_type, (
             f"{name} event_type={event_type!r}, want {expected_type!r}"
         )
-        assert service == "runtime.harness.hook_runner", (
-            f"{name} owner_service={service!r}, want 'runtime.harness.hook_runner'"
+        assert service == "yoke_core.hooks", (
+            f"{name} owner_service={service!r}, want 'yoke_core.hooks'"
         )
         assert severity == expected_severity, (
             f"{name} severity={severity!r}, want {expected_severity!r}"

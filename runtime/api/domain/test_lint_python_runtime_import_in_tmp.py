@@ -15,7 +15,7 @@ import unittest
 from unittest import mock
 
 from yoke_core.domain import lint_python_runtime_import_in_tmp as lint
-from runtime.harness.hook_runner.types import Next, Outcome
+from yoke_core.hooks.types import Next, Outcome
 
 
 def _payload(file_path: str, content: str) -> dict:

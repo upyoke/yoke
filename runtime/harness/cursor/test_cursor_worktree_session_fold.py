@@ -8,10 +8,10 @@ from yoke_contracts.cursor_remount_expect import (
     write_remount_expect,
 )
 from yoke_contracts.cursor_session_map import linked_worktree_lane_name
-from runtime.harness.cursor.cursor_worktree_session_fold import (
+from yoke_core.hooks.cursor_worktree_session_fold import (
     resolve_worktree_remap_container,
 )
-from runtime.harness.cursor.cursor_hooks_payload import parse_payload
+from yoke_core.hooks.cursor_payload import parse_payload
 
 
 CONTAINER = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -75,7 +75,7 @@ def test_resolve_worktree_remap_container_requires_live_expect(tmp_path) -> None
 
 
 def test_parse_payload_folds_worktree_remap(monkeypatch) -> None:
-    from runtime.harness.cursor import cursor_worktree_session_fold as fold
+    from yoke_core.hooks import cursor_worktree_session_fold as fold
 
     monkeypatch.setattr(
         fold,
@@ -97,7 +97,7 @@ def test_parse_payload_folds_worktree_remap(monkeypatch) -> None:
 
 
 def test_record_remount_writes_self_map() -> None:
-    from runtime.harness.cursor.cursor_worktree_session_fold import (
+    from yoke_core.hooks.cursor_worktree_session_fold import (
         record_remount_conversation_session,
     )
 
@@ -116,7 +116,7 @@ def test_record_remount_writes_self_map() -> None:
 
 
 def test_record_remount_absent_holder_writes_nothing() -> None:
-    from runtime.harness.cursor.cursor_worktree_session_fold import (
+    from yoke_core.hooks.cursor_worktree_session_fold import (
         record_remount_conversation_session,
     )
 
@@ -135,7 +135,7 @@ def test_record_remount_absent_holder_writes_nothing() -> None:
 
 
 def test_record_remount_writes_new_conversation_to_holder(tmp_path) -> None:
-    from runtime.harness.cursor.cursor_worktree_session_fold import (
+    from yoke_core.hooks.cursor_worktree_session_fold import (
         record_remount_conversation_session,
     )
 
@@ -157,7 +157,7 @@ def test_record_remount_writes_new_conversation_to_holder(tmp_path) -> None:
 
 
 def test_record_remount_without_expect_writes_nothing(tmp_path) -> None:
-    from runtime.harness.cursor.cursor_worktree_session_fold import (
+    from yoke_core.hooks.cursor_worktree_session_fold import (
         record_remount_conversation_session,
     )
 

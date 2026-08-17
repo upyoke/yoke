@@ -68,7 +68,7 @@ def run_hook(role: Optional[str] = None) -> None:
     """
     del role  # accepted only for configuration compatibility
     try:
-        from runtime.harness.hook_helpers import find_project_root, get_session_id, resolve_yoke_db
+        from yoke_core.hooks.helpers import find_project_root, get_session_id, resolve_yoke_db
 
         project_root = find_project_root()
         db_path = resolve_yoke_db()

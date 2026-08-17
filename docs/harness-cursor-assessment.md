@@ -52,12 +52,12 @@ exist. Ids in play: directory `runtime/harness/{id}/`, canonical executor id
 | `CLAUDE_MANIFEST` / `CODEX_MANIFEST` source dicts | `yoke_core.domain.agents_render_manifests` |
 | `_MANIFEST_DIRECTORY_BY_HARNESS_ID` (capability resolution) | `yoke_core.domain.sessions_queries_lookup` |
 | `render_for_harness` explicit per-harness branches | `yoke_core.domain.dispatch_descriptors` |
-| Executor/provider/entrypoint detection — **two duplicated copies** | `runtime/harness/hook_helpers_identity.py` and `yoke_harness.hooks.identity_runtime` |
+| Executor/provider/entrypoint detection — **two duplicated copies** | `yoke_core.hooks.helpers_identity` and `yoke_harness.hooks.identity_runtime` |
 | `AMBIENT_ENV_VARS` session-id env chain | `yoke_core.domain.session_ambient_identity` |
 | `HARNESS_PROCESS_BASENAMES` / `MULTIPLEXED_PROCESS_BASENAMES` | `yoke_contracts.process_ancestry` |
-| Binary family fallback (`codex` prefix else `claude`) — an unknown executor silently inherits Claude's wire format | `runtime/harness/hook_runner/capability_resolve.py` |
-| `render_claude_decision` / `render_codex_decision` wire formats | `runtime/harness/hook_runner/decision_render.py` |
-| Per-family lifecycle branches (orientation, stop shape, env delivery) | `runtime/harness/hook_runner/session_dispatch.py` |
+| Binary family fallback (`codex` prefix else `claude`) — an unknown executor silently inherits Claude's wire format | `yoke_core.hooks.capability_resolve` |
+| `render_claude_decision` / `render_codex_decision` wire formats | `yoke_core.hooks.decision_render` |
+| Per-family lifecycle branches (orientation, stop shape, env delivery) | `yoke_core.hooks.session_dispatch` |
 | Hook-block renderers + `_CODEX_VERB_BY_EVENT` + identity env pin | `yoke_core.domain.agents_render_hooks` |
 | `SETTINGS_FILE_BY_HOOKS_KEY`, `HOOK_MERGE_TARGETS`, bundle hook-key validation | `yoke_cli.project_install` (`hooks.py`, `files.py`, `validate.py`) |
 | `INSTALL_BUNDLE_SOURCE_DIRS` | `yoke_core.domain.install_bundle` |
@@ -65,7 +65,7 @@ exist. Ids in play: directory `runtime/harness/{id}/`, canonical executor id
 | Rendered packet text naming the `harness_id` enum | `yoke_core.domain.schema_api_context_render` (+ claims-table stanza) |
 | Canonical-session-id gate for known harnesses | `yoke_core.api.service_client_sessions_offer` |
 
-`AdapterCapability` (`runtime/harness/hook_runner/adapter_capability.py`) is
+`AdapterCapability` (`yoke_core.hooks.adapter_capability`) is
 the designed plug seam — payload parser, decision renderer, chain omissions —
 and a Cursor integration authors one instance plus the surrounding
 enumeration edits above.

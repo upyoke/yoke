@@ -25,11 +25,11 @@ import pytest
 
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_contracts.hook_runner.hook_ordering import HOOK_ORDERING, ordered_pipeline_for
-from runtime.harness.claude.adapter import CAPABILITY as CLAUDE_CAPABILITY
-from runtime.harness.codex.adapter import CAPABILITY as CODEX_CAPABILITY
-from runtime.harness.cursor.adapter import CAPABILITY as CURSOR_CAPABILITY
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.adapter_capability import AdapterCapability
+from yoke_core.hooks.claude_adapter import CAPABILITY as CLAUDE_CAPABILITY
+from yoke_core.hooks.codex_adapter import CAPABILITY as CODEX_CAPABILITY
+from yoke_core.hooks.cursor_adapter import CAPABILITY as CURSOR_CAPABILITY
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.adapter_capability import AdapterCapability
 
 
 _CAPABILITIES = (CLAUDE_CAPABILITY, CODEX_CAPABILITY, CURSOR_CAPABILITY)

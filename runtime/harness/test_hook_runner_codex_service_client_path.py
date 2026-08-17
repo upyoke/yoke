@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from runtime.harness.hook_runner import session_lifecycle_client
-from runtime.harness.hook_runner import session_dispatch
+from yoke_core.hooks import session_lifecycle_client
+from yoke_core.hooks import session_dispatch
 
 
 def _pin_local_transport(monkeypatch) -> None:
@@ -28,11 +28,11 @@ def test_codex_register_uses_target_service_client_path(monkeypatch) -> None:
 
     _pin_local_transport(monkeypatch)
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.target.target_service_client_path",
+        "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.register_session",
+        "yoke_core.hooks.service_client.register_session",
         fake_register,
     )
 
@@ -65,11 +65,11 @@ def test_universal_register_uses_target_service_client_path(monkeypatch) -> None
 
     _pin_local_transport(monkeypatch)
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.target.target_service_client_path",
+        "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.register_session",
+        "yoke_core.hooks.service_client.register_session",
         fake_register,
     )
 
@@ -103,11 +103,11 @@ def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.target.target_service_client_path",
+        "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.touch_session",
+        "yoke_core.hooks.service_client.touch_session",
         fake_touch,
     )
 
@@ -127,11 +127,11 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
         return 0
 
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.target.target_service_client_path",
+        "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.service_client.touch_session",
+        "yoke_core.hooks.service_client.touch_session",
         fake_touch,
     )
 
@@ -148,7 +148,7 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
 
 def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> None:
     monkeypatch.setattr(
-        "runtime.harness.hook_runner.target.target_service_client_path",
+        "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
     )
 
@@ -169,7 +169,7 @@ def test_codex_recovery_command_uses_target_service_client_path(monkeypatch) -> 
 def test_generic_hook_registration_uses_universal_lifecycle_client(
     monkeypatch,
 ) -> None:
-    from runtime.harness import hook_runner_register
+    from yoke_core.hooks import registration as hook_runner_register
 
     calls: list[dict] = []
 
@@ -189,19 +189,19 @@ def test_generic_hook_registration_uses_universal_lifecycle_client(
     )
     monkeypatch.setattr(hook_runner_register, "is_yoke_target", lambda *_args: True)
     monkeypatch.setattr(
-        "runtime.harness.hook_helpers.resolve_yoke_db",
+        "yoke_core.hooks.helpers.resolve_yoke_db",
         lambda _script_dir: "",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_helpers.detect_executor",
+        "yoke_core.hooks.helpers.detect_executor",
         lambda: "claude",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_helpers.detect_provider",
+        "yoke_core.hooks.helpers.detect_provider",
         lambda _executor: "anthropic",
     )
     monkeypatch.setattr(
-        "runtime.harness.hook_helpers.detect_entrypoint",
+        "yoke_core.hooks.helpers.detect_entrypoint",
         lambda: "claude-desktop",
     )
     monkeypatch.setattr(hook_runner_register, "register_harness_session", fake_register)

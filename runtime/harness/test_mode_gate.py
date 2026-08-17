@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from runtime.harness.hook_runner import mode_gate
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks import mode_gate
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner import lint_policy
 
 
@@ -167,9 +167,9 @@ def test_run_event_downgrades_warn_guard_and_chain_continues(
     """End-to-end: run_event applies the gate before the STOP check, so a
     warn-configured guard's deny is downgraded (command allowed) and the chain
     continues past it."""
-    from runtime.harness.hook_runner import runner as runner_module
-    from runtime.harness.hook_runner.adapter_capability import AdapterCapability
-    from runtime.harness.hook_runner.decision_render import render_claude_decision
+    from yoke_core.hooks import runner as runner_module
+    from yoke_core.hooks.adapter_capability import AdapterCapability
+    from yoke_core.hooks.decision_render import render_claude_decision
 
     class _Deny:
         @staticmethod

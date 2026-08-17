@@ -24,7 +24,9 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Tuple
 
 
@@ -117,18 +119,56 @@ def probe() -> ProbeResult:
     )
 
 
-def _canonical_homebrew_python() -> str:
-    """Return the canonical Homebrew ``python3`` path for this host.
+def _launcher_python() -> Optional[str]:
+    """Return the live ``yoke`` launcher's pinned Python, when declared."""
+    launcher = shutil.which("yoke")
+    if not launcher:
+        return None
+    try:
+        with Path(launcher).open(encoding="utf-8") as stream:
+            first_line = stream.readline().strip()
+    except (OSError, UnicodeError):
+        return None
+    if not first_line.startswith("#!"):
+        return None
+    candidate = first_line[2:].strip()
+    if not os.path.isabs(candidate) or "python" not in Path(candidate).name:
+        return None
+    return candidate
 
-    Apple Silicon installs land under ``/opt/homebrew``; Intel macs land
-    under ``/usr/local``. Falls back to the Apple-Silicon path when
-    neither exists so the advisory still names a copy-pasteable command.
-    """
-    if os.path.exists(HOMEBREW_PYTHON_ARM):
-        return HOMEBREW_PYTHON_ARM
-    if os.path.exists(HOMEBREW_PYTHON_INTEL):
-        return HOMEBREW_PYTHON_INTEL
-    return HOMEBREW_PYTHON_ARM
+
+def _imports_sentinel(target: str) -> bool:
+    """Return whether an existing interpreter imports the sentinel now."""
+    if not os.path.isfile(target) or not os.access(target, os.X_OK):
+        return False
+    try:
+        result = subprocess.run(
+            [target, "-c", f"import {SENTINEL_MODULE}"],
+            capture_output=True,
+            text=True,
+            timeout=SUBPROCESS_TIMEOUT_S,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def _recommended_python(*, exclude: Optional[str]) -> Optional[str]:
+    """Return the first live, dependency-equipped interpreter candidate."""
+    candidates = (
+        _launcher_python(),
+        sys.executable,
+        HOMEBREW_PYTHON_ARM,
+        HOMEBREW_PYTHON_INTEL,
+    )
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate or candidate == exclude or candidate in seen:
+            continue
+        seen.add(candidate)
+        if _imports_sentinel(candidate):
+            return candidate
+    return None
 
 
 def render_advisory(result: ProbeResult) -> str:
@@ -140,20 +180,31 @@ def render_advisory(result: ProbeResult) -> str:
     """
     if result.ok or not result.missing_module:
         return ""
-    homebrew = _canonical_homebrew_python()
     resolved = result.resolved_python or "<unresolved>"
     lines = [
         (
             f"Yoke interpreter check: resolved python3 ({resolved}) is "
             f"missing `{result.missing_module}`."
         ),
-        f"Canonical interpreter: {homebrew}",
-        (
-            f"Fix: export {OVERRIDE_ENV_VAR}={homebrew}  "
-            f"(or adjust PATH so a pydantic-equipped python3 resolves "
-            f"first)."
-        ),
     ]
+    recommendation = _recommended_python(exclude=result.resolved_python)
+    if recommendation:
+        lines.extend([
+            f"Live interpreter: {recommendation}",
+            (
+                f"Fix: export {OVERRIDE_ENV_VAR}={recommendation}  "
+                f"(or adjust PATH so this interpreter resolves first)."
+            ),
+        ])
+    else:
+        lines.extend([
+            "No live pydantic-equipped Python interpreter was found.",
+            (
+                "Fix: repair the Yoke launcher or install pydantic, then set "
+                f"{OVERRIDE_ENV_VAR} only to an interpreter that passes "
+                f"`python3 -c 'import {SENTINEL_MODULE}'`."
+            ),
+        ])
     if result.override_used:
         lines.append(
             f"Note: {OVERRIDE_ENV_VAR} is already set but its target is "

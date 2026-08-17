@@ -16,7 +16,7 @@ Output keys (always present):
 - ``EXECUTOR``         — claude-code | codex | cursor-desktop | cursor-cli | (custom from YOKE_EXECUTOR)
 - ``PROVIDER``         — anthropic | openai | cursor | (custom from YOKE_PROVIDER)
 - ``MODEL``            — resolved from ``harness_sessions.model`` by session id,
-                         falling back to ``runtime.harness.hook_helpers_model.detect_model``
+                         falling back to ``yoke_core.hooks.helpers_model.detect_model``
 - ``MAX_CHAIN_STEPS``  — read from machine config (default 3)
 
 Model resolution is server-owned: SessionStart writes the authoritative

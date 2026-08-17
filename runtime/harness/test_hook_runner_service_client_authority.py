@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from yoke_core.domain import machine_config, yoke_connected_env
-from runtime.harness.hook_runner import service_client, target
+from yoke_core.hooks import service_client, target
 
 _RETIRED_BACKEND_ENV = "YOKE_" + "BACKEND"
 

@@ -23,11 +23,11 @@ from runtime.api.test_sessions import (
     _register,
     conn,  # noqa: F401
 )
-from runtime.harness.harness_sessions_claims import (
+from yoke_core.hooks.sessions_claims import (
     WHO_CLAIMS_NON_HOLDER_WARNING_TEMPLATE,
     cmd_who_claims,
 )
-from runtime.harness.harness_sessions_claims_acquire import (
+from yoke_core.hooks.sessions_claims_acquire import (
     CLAIM_CONFLICT_HOLDER_AUTHORITY_WARNING,
     CLAIM_CONFLICT_NEXT_STEPS,
     cmd_claim,

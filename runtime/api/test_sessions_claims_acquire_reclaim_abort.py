@@ -144,7 +144,7 @@ def _seed_holder_with_claim(
 def _attempt_claim(conn, attempting_session_id: str, item_id: int):
     """Run cmd_claim from a fresh session and return its outcome."""
     _register(conn, session_id=attempting_session_id)
-    from runtime.harness.harness_sessions_claims_acquire import cmd_claim
+    from yoke_core.hooks.sessions_claims_acquire import cmd_claim
 
     return cmd_claim(
         conn,

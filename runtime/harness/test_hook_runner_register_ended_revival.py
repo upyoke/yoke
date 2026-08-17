@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-import runtime.harness.hook_runner_register as register_module
+import yoke_core.hooks.registration as register_module
 
 
 def _patch_state(monkeypatch, *, found, stored_actor_id=None, ended=False):

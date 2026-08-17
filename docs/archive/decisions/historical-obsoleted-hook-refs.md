@@ -149,7 +149,7 @@ frontier. This decision does not change that scope.
 - Future agents reading historical content under `docs/archive/`,
   terminal-item structured fields, or older `events` rows must treat the
   retired hook-module names as **historical fact, not as guidance about
-  live surfaces**. The live module is `runtime.harness.hook_runner`.
+  live surfaces**. The live module is `yoke_core.hooks`.
 
 ### Follow-ups required
 

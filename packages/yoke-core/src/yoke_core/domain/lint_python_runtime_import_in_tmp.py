@@ -42,7 +42,7 @@ import sys
 from typing import Optional
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 _BYPASS_TOKEN = "# lint:no-tmp-runtime-import-check"
@@ -199,7 +199,7 @@ def _build_deny_response(reason: str) -> dict:
 def _emit_denial(payload: dict, reason: str, *, outcome: str = "denied") -> None:
     """Best-effort ``HarnessToolCallDenied`` audit event."""
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     _s = lambda v: v if isinstance(v, str) else ""  # noqa: E731

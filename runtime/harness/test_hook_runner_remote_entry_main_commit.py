@@ -12,10 +12,10 @@ from yoke_contracts.hook_runner.main_commit import (
     CLIENT_GIT_COMMIT_FACTS_KEY,
     CLIENT_GIT_COMMIT_FACTS_SCHEMA,
 )
-from runtime.harness.hook_runner import runner as runner_module
-from runtime.harness.hook_runner.remote_entry import evaluate_remote
-from runtime.harness.hook_runner.remote_policy import LOCAL_STATE_POLICIES
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks import runner as runner_module
+from yoke_core.hooks.remote_entry import evaluate_remote
+from yoke_core.hooks.remote_policy import LOCAL_STATE_POLICIES
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 @pytest.fixture(autouse=True)

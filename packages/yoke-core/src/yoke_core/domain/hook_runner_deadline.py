@@ -3,7 +3,7 @@
 Wheel-shipped home: the ``POST /v1/hooks/evaluate`` route clamps request
 deadlines to :func:`resolve_total_timeout_ms`, so the budget resolution
 must import on a wheels-only install (no repo tree on ``sys.path``). The
-repo-tree hook runner (``runtime.harness.hook_runner``) imports these
+repo-tree hook runner (``yoke_core.hooks``) imports these
 helpers from here.
 
 Distinct from :mod:`yoke_harness.hooks.deadline`, the CLIENT-side budget:

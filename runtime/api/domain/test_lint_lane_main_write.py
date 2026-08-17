@@ -18,7 +18,7 @@ from yoke_core.domain.lint_lane_main_write_messages import (
     ESCAPE_TOKEN,
     SUPPRESSION_TOKEN,
 )
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 @pytest.fixture

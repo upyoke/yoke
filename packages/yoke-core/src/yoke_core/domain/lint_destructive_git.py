@@ -16,7 +16,7 @@ from typing import Optional, Tuple
 from yoke_core.domain import lint_destructive_git_commands as command_checks
 from yoke_core.domain import lint_destructive_git_messages as messages
 from yoke_core.domain import lint_destructive_git_worktrees as worktree_checks
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-destructive-git"
 HOOK_NAME = "lint-destructive-git"
@@ -279,7 +279,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
 
 def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     sid = payload.get("session_id") or ""

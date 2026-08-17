@@ -31,7 +31,7 @@ from yoke_core.domain.file_line_check import (
     Classification,
     classify_path,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 TARGET_TOOL = "Write"

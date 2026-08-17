@@ -35,7 +35,7 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-raw-pytest-full-suite"
 HOOK_NAME = "lint-raw-pytest-full-suite"
@@ -241,7 +241,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
 
 def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
     except Exception:
         return
     session_id = payload.get("session_id") or ""

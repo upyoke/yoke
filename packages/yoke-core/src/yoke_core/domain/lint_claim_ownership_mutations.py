@@ -26,7 +26,7 @@ from yoke_core.domain.lint_claim_ownership_denials import (
     recent_denial_reason as _recent_denial_reason,
     spoof_reason as _spoof_reason,
 )
-from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
+from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
 CHECK_ID = "claim_ownership_mutation"
@@ -170,7 +170,7 @@ def _matches_path(tokens: list[str], paths: Iterable[tuple[str, ...]]) -> bool:
 
 def _is_read_only_command(command: str) -> bool:
     module = _module_invoked(command)
-    if module in ("yoke_core.api.service_client", "runtime.harness.harness_sessions"):
+    if module in ("yoke_core.api.service_client", "yoke_core.hooks.sessions_cli"):
         tokens = _positional_tokens_after(command, module)
         return bool(tokens and tokens[0] in _READ_ONLY_SUBSTRINGS)
     if module == "yoke_core.cli.db_router":
@@ -236,7 +236,7 @@ def _resolve_db_path() -> Optional[str]:
 
 def _emit_denial(payload: dict, reason: str) -> None:
     try:
-        from runtime.harness.hook_runner.telemetry import emit_denial_event
+        from yoke_core.hooks.telemetry import emit_denial_event
 
         emit_denial_event(
             hook=HOOK_NAME,

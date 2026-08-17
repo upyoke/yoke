@@ -20,6 +20,7 @@ from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.hook_runner.cursor_response import cursor_lifecycle_allow_stdout
+from yoke_contracts.hook_runner.failures import render_failure_warning
 
 from yoke_harness.hooks.deadline import start_hook_deadline
 from yoke_harness.hooks.decision_render import (
@@ -310,6 +311,9 @@ def relay_hook_event(
         print_execution_provenance(server_fp)
     else:
         print_execution_provenance()
+    failure_warning = render_failure_warning(response.get("degraded", ()))
+    if failure_warning:
+        sys.stderr.write(failure_warning)
     if outcome == "denied":
         if stdout:
             sys.stdout.write(stdout)

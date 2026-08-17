@@ -147,7 +147,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="claims.work.holder_get",
         cli_invocation=(
-            "python3 -m runtime.harness.harness_sessions who-claims YOK-N"
+            "python3 -m yoke_core.hooks.sessions_cli who-claims YOK-N"
         ),
     ),
     _read_entry(

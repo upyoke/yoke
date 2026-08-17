@@ -24,7 +24,7 @@ import pytest
 
 from yoke_core.domain import schema_api_context
 from yoke_core.tools import python_interpreter_probe
-from runtime.harness.bootstrap import load_spec, render_compact, render_full
+from yoke_core.hooks.bootstrap import load_spec, render_compact, render_full
 from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_COMMAND,
     INSTALL_ADVISORY_HEADING,

@@ -10,7 +10,7 @@ import json
 import pytest
 
 from yoke_core.domain import project_scratch_dir
-from runtime.harness.codex.codex_model import (
+from yoke_core.hooks.codex_model import (
     resolve,
     resolve_entrypoint,
     resolve_entrypoint_from_env,

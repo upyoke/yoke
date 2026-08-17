@@ -9,7 +9,7 @@ from pathlib import Path
 from yoke_core.domain import path_claim_bash_guard as bash_guard
 from yoke_core.domain.path_claim_bash_guard import evaluate, evaluate_payload
 from runtime.api.domain.test_path_claim_bash_guard import _claim_dict, _payload
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 class TestCurrentItemWorktreeNarrative:

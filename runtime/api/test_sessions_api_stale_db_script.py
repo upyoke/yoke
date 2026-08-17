@@ -147,7 +147,7 @@ class TestSessionsDbScript:
         env = os.environ.copy()
         env["YOKE_DB"] = str(db_path)
         return subprocess.run(
-            [sys.executable, "-m", "runtime.harness.harness_sessions", *args],
+            [sys.executable, "-m", "yoke_core.hooks.sessions_cli", *args],
             env=env,
             cwd=str(_REPO_ROOT),
             capture_output=True,

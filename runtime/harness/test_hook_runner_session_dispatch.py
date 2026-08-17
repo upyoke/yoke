@@ -12,6 +12,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from yoke_core.hooks import resume_block_dispatch, session_dispatch
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,25 +42,21 @@ class TestLegacySurfaceRetired(unittest.TestCase):
         )
 
     def test_post_runner_session_dispatch_present(self) -> None:
-        self.assertTrue(
-            (REPO_ROOT / "runtime/harness/hook_runner/session_dispatch.py").exists()
-        )
-        self.assertTrue(
-            (REPO_ROOT / "runtime/harness/hook_runner/resume_block_dispatch.py").exists()
-        )
+        self.assertTrue(Path(session_dispatch.__file__).resolve().exists())
+        self.assertTrue(Path(resume_block_dispatch.__file__).resolve().exists())
 
 
 class TestOrientationProjectAuthority(unittest.TestCase):
     """Session orientation must not teach DB repo paths as client checkouts."""
 
     def test_orientation_does_not_render_project_repo_path_map(self) -> None:
-        from runtime.harness.hook_runner import session_dispatch
+        from yoke_core.hooks import session_dispatch
 
         with mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._bootstrap_lines",
+            "yoke_core.hooks.session_dispatch._bootstrap_lines",
             return_value=["Read before editing:", "- AGENTS.md"],
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._git_line",
+            "yoke_core.hooks.session_dispatch._git_line",
             return_value="",
         ):
             rendered = session_dispatch._render_claude_orientation(
@@ -78,7 +76,7 @@ class TestEndSessionCommand(unittest.TestCase):
     """Stop and SessionEnd both use the non-destructive empty-session cleanup."""
 
     def test_session_end_cleanup_uses_domain_end_if_empty(self) -> None:
-        from runtime.harness.hook_runner import session_end_cleanup
+        from yoke_core.hooks import session_end_cleanup
 
         class FakeConn:
             def close(self) -> None:
@@ -98,8 +96,8 @@ class TestEndSessionCommand(unittest.TestCase):
         self.assertEqual(captured["session_id"], "sess-stop")
 
     def test_stop_skips_model_refresh_and_runs_cleanup(self) -> None:
-        from runtime.harness.hook_runner import session_dispatch
-        from runtime.harness.hook_runner.types import HookContext
+        from yoke_core.hooks import session_dispatch
+        from yoke_core.hooks.types import HookContext
 
         ctx = HookContext(
             event_name="Stop",
@@ -111,18 +109,18 @@ class TestEndSessionCommand(unittest.TestCase):
             },
         )
         with mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._root_and_db",
+            "yoke_core.hooks.session_dispatch._root_and_db",
             return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._is_yoke_target",
+            "yoke_core.hooks.session_dispatch._is_yoke_target",
             return_value=True,
         ), mock.patch(
-            "runtime.harness.hook_runner.telemetry.resolve_direct_session_id",
+            "yoke_core.hooks.telemetry.resolve_direct_session_id",
             return_value="sess-stop",
         ), mock.patch(
-            "runtime.harness.hook_runner.telemetry.refresh_session_model_if_placeholder",
+            "yoke_core.hooks.telemetry.refresh_session_model_if_placeholder",
         ) as refresh, mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._end_session_if_empty",
+            "yoke_core.hooks.session_dispatch._end_session_if_empty",
         ) as cleanup:
             decision = session_dispatch.evaluate(ctx)
 
@@ -137,8 +135,8 @@ class TestEndSessionCommand(unittest.TestCase):
     def test_model_report_routes_to_the_reporting_harness(self) -> None:
         """Only a harness that reports its model has a handler for the
         verb; every other family returns without side effects."""
-        from runtime.harness.hook_runner import session_dispatch
-        from runtime.harness.hook_runner.types import HookContext
+        from yoke_core.hooks import session_dispatch
+        from yoke_core.hooks.types import HookContext
 
         def _context(family: str) -> HookContext:
             return HookContext(
@@ -149,13 +147,13 @@ class TestEndSessionCommand(unittest.TestCase):
             )
 
         with mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._root_and_db",
+            "yoke_core.hooks.session_dispatch._root_and_db",
             return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch._is_yoke_target",
+            "yoke_core.hooks.session_dispatch._is_yoke_target",
             return_value=True,
         ), mock.patch(
-            "runtime.harness.hook_runner.session_dispatch_cursor.run_model_report",
+            "yoke_core.hooks.session_dispatch_cursor.run_model_report",
             return_value="",
         ) as report:
             session_dispatch.evaluate(_context("cursor"))
@@ -168,7 +166,7 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
     """Slim resume block subprocess routes through the canonical CLI."""
 
     def test_render_invokes_sessions_resume_block_module(self) -> None:
-        from runtime.harness.hook_runner import resume_block_dispatch
+        from yoke_core.hooks import resume_block_dispatch
 
         captured_cmd: list[list[str]] = []
 
@@ -183,7 +181,7 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
             return _R()
 
         with mock.patch(
-            "runtime.harness.hook_runner.resume_block_dispatch.subprocess.run",
+            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
             side_effect=_fake_run,
         ):
             result = resume_block_dispatch.render(
@@ -199,10 +197,10 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
         self.assertIn("UserPromptSubmit", cmd)
 
     def test_render_returns_empty_when_session_id_missing(self) -> None:
-        from runtime.harness.hook_runner import resume_block_dispatch
+        from yoke_core.hooks import resume_block_dispatch
 
         with mock.patch(
-            "runtime.harness.hook_runner.resume_block_dispatch.subprocess.run",
+            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
         ) as mocked:
             result = resume_block_dispatch.render(
                 "/repo", "", "SessionStart",
@@ -211,7 +209,7 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
         mocked.assert_not_called()
 
     def test_render_returns_empty_on_nonzero_exit(self) -> None:
-        from runtime.harness.hook_runner import resume_block_dispatch
+        from yoke_core.hooks import resume_block_dispatch
 
         class _R:
             returncode = 7
@@ -219,7 +217,7 @@ class TestResumeBlockDispatchSubprocess(unittest.TestCase):
             stderr = ""
 
         with mock.patch(
-            "runtime.harness.hook_runner.resume_block_dispatch.subprocess.run",
+            "yoke_core.hooks.resume_block_dispatch.subprocess.run",
             return_value=_R(),
         ):
             result = resume_block_dispatch.render(

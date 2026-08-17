@@ -1,4 +1,4 @@
-"""Tests for runtime.harness.harness_sessions."""
+"""Tests for yoke_core.hooks.sessions_cli."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ class TestHarnessSessions:
         insert_item(test_db, id=10, status="refined-idea")
 
     def test_begin_and_list(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_list
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_list
 
         result = cmd_begin(
             test_db, "sess-1", "claude", "anthropic", "opus-4", "/workspace"
@@ -36,14 +36,14 @@ class TestHarnessSessions:
         assert "sess-1" in listed
 
     def test_touch(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_touch
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_touch
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         result = cmd_touch(test_db, "s1")
         assert "Heartbeat" in result
 
     def test_claim_and_release(self, test_db):
-        from runtime.harness.harness_sessions import (
+        from yoke_core.hooks.sessions_cli import (
             cmd_begin,
             cmd_claim,
             cmd_list_claims,
@@ -63,7 +63,7 @@ class TestHarnessSessions:
         assert "Released" in release_result
 
     def test_idempotent_claim(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_claim
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_claim
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
@@ -71,7 +71,7 @@ class TestHarnessSessions:
         assert "already owned" in result
 
     def test_end_session(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_end, cmd_list
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_end, cmd_list
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_end(test_db, "s1")
@@ -79,7 +79,7 @@ class TestHarnessSessions:
         assert "s1" not in listed
 
     def test_who_claims(self, test_db):
-        from runtime.harness.harness_sessions import (
+        from yoke_core.hooks.sessions_cli import (
             cmd_begin,
             cmd_claim,
             cmd_who_claims,
@@ -92,7 +92,7 @@ class TestHarnessSessions:
         assert "10" in result
 
     def test_get(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_get
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_get
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         result = cmd_get(test_db, "s1")
@@ -101,7 +101,7 @@ class TestHarnessSessions:
 
     @patch("yoke_core.domain.events.emit_event")
     def test_claim_promotes_top_level_item_id(self, mock_emit, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_claim
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_claim
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
@@ -113,7 +113,7 @@ class TestHarnessSessions:
 
     @patch("yoke_core.domain.events.emit_event")
     def test_release_promotes_top_level_item_id(self, mock_emit, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_claim, cmd_release
+        from yoke_core.hooks.sessions_cli import cmd_begin, cmd_claim, cmd_release
 
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
@@ -138,7 +138,7 @@ class TestCmdBeginCanonicalizesExecutor:
         return row[0], row[1]
 
     def test_surface_specific_inbound_is_canonicalized(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin
+        from yoke_core.hooks.sessions_cli import cmd_begin
 
         cases = [
             ("claude-desktop", "claude-code", "claude-desktop"),
@@ -153,7 +153,7 @@ class TestCmdBeginCanonicalizesExecutor:
             assert display == want_display, (inbound, display)
 
     def test_canonical_inbound_keeps_display_null(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin
+        from yoke_core.hooks.sessions_cli import cmd_begin
 
         cmd_begin(test_db, "sess-canonical", "claude-code", "anthropic", "opus", "/ws")
         executor, display = self._stored_executor(test_db, "sess-canonical")
@@ -161,16 +161,16 @@ class TestCmdBeginCanonicalizesExecutor:
         assert display is None
 
     def test_unknown_executor_passes_through_with_null_display(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin
+        from yoke_core.hooks.sessions_cli import cmd_begin
 
         cmd_begin(test_db, "sess-custom", "my-custom-tool", "anthropic", "opus", "/ws")
         executor, display = self._stored_executor(test_db, "sess-custom")
         assert executor == "my-custom-tool"
         assert display is None
 
-    @patch("runtime.harness.harness_sessions_lifecycle._emit_event")
+    @patch("yoke_core.hooks.sessions_lifecycle._emit_event")
     def test_event_payload_includes_display_name(self, mock_emit, test_db):
-        from runtime.harness.harness_sessions import cmd_begin
+        from yoke_core.hooks.sessions_cli import cmd_begin
         import json
 
         cmd_begin(test_db, "sess-evt", "claude-desktop", "anthropic", "opus", "/ws")
@@ -178,9 +178,9 @@ class TestCmdBeginCanonicalizesExecutor:
         assert payload["executor"] == "claude-code"
         assert payload["executor_display_name"] == "claude-desktop"
 
-    @patch("runtime.harness.harness_sessions_lifecycle._emit_event")
+    @patch("yoke_core.hooks.sessions_lifecycle._emit_event")
     def test_event_payload_omits_display_when_null(self, mock_emit, test_db):
-        from runtime.harness.harness_sessions import cmd_begin
+        from yoke_core.hooks.sessions_cli import cmd_begin
         import json
 
         cmd_begin(

@@ -33,7 +33,7 @@ def handle_hook_evaluate(request: FunctionCallRequest) -> HandlerOutcome:
             ),
         )
 
-    from runtime.harness.hook_runner.__main__ import main as hook_runner_main
+    from yoke_core.hooks.__main__ import main as hook_runner_main
 
     runner_args = [event_name.strip()]
     if bool(payload.get("dry_run", False)):

@@ -1,4 +1,4 @@
-"""Tests for ``runtime.harness.hook_runner.decision_render``.
+"""Tests for ``yoke_core.hooks.decision_render``.
 
 Covers the Claude empty-decision case (``("", 0)``), the Codex
 empty-decision case (the apply-patch deny envelope shape), plus the
@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import json
 
-from runtime.harness.hook_runner.decision_render import (
+from yoke_core.hooks.decision_render import (
     HOOK_SPECIFIC_OUTPUT_KEY,
     merge_allow_stdout,
     render_claude_decision,
     render_codex_decision,
 )
-from runtime.harness.hook_runner.types import HookDecision, Outcome
+from yoke_core.hooks.types import HookDecision, Outcome
 
 
 def _allow() -> HookDecision:

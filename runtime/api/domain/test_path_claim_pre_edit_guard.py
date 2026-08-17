@@ -17,7 +17,7 @@ from yoke_core.domain.path_claim_pre_edit_guard import (
     evaluate,
     evaluate_payload,
 )
-from runtime.harness.hook_runner.types import HookContext, Outcome
+from yoke_core.hooks.types import HookContext, Outcome
 
 
 def _claim_dict(

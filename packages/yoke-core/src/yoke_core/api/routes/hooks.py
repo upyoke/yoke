@@ -8,7 +8,7 @@ is enforced by the app-level bearer-token middleware like every other
 ``/v1`` route; the verified token's actor binds to the ``harness_sessions``
 row at relayed ensure-register. The wire contract is frozen: see
 :mod:`yoke_harness.hooks.relay` (client) and
-:mod:`runtime.harness.hook_runner.remote_entry` (evaluation).
+:mod:`yoke_core.hooks.remote_entry` (evaluation).
 """
 
 from __future__ import annotations
@@ -27,19 +27,7 @@ from yoke_core.domain.hook_runner_deadline import resolve_total_timeout_ms
 from yoke_core.domain.session_ambient_identity import (
     is_conversation_shaped_session_id,
 )
-
-# The evaluator's import closure spans the whole repo-tree hook runner
-# (runner, typed dispatch, telemetry, capability resolve, ...), which no
-# wheel ships — relocating it wholesale is a hook-runner packaging project,
-# not a route concern. A wheels-only install therefore serves this route as
-# a clean 501 (see the handler) instead of failing app import; every other
-# route stays servable. Relay clients already degrade any non-200 fail-open
-# to the event's no-op success, so hooks on such an install reduce to the
-# client-evaluated local subset.
-try:
-    from runtime.harness.hook_runner.remote_entry import evaluate_remote
-except ModuleNotFoundError:  # wheels-only install: no repo tree on sys.path
-    evaluate_remote = None  # type: ignore[assignment]
+from yoke_core.hooks.remote_entry import evaluate_remote
 
 
 router = APIRouter()
@@ -82,23 +70,6 @@ def post_hooks_evaluate(
     http_request: Request, request: HookEvaluateRequest,
 ) -> JSONResponse:
     """Evaluate one hook event server-side and relay the rendered decision."""
-    if evaluate_remote is None:
-        # Wheels-only install (see the guarded import above). The client
-        # treats any non-200 as fail-open no-op, which is the safe
-        # degradation — its local-subset verdict still applies.
-        return JSONResponse(
-            status_code=501,
-            content={
-                "error": {
-                    "code": "HOOK_EVALUATION_UNAVAILABLE",
-                    "message": (
-                        "server-side hook evaluation requires the repo-tree "
-                        "hook runner, which this wheels-only install does "
-                        "not ship"
-                    ),
-                }
-            },
-        )
     stamped = _refuse_conversation_shaped(request)
     if stamped is not None:
         return stamped

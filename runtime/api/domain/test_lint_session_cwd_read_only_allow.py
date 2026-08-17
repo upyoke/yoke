@@ -74,7 +74,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
             "cwd": "/opt/elsewhere",
             "tool_input": {
                 "command": (
-                    "python3 -m runtime.harness.harness_sessions "
+                    "python3 -m yoke_core.hooks.sessions_cli "
                     "who-claims YOK-1691"
                 ),
             },
@@ -134,7 +134,7 @@ class TestReadOnlyAllowEmitsCorrectEvent:
             lint_session_cwd_emit, "emit_mismatch_denied", _deny,
         )
 
-        from runtime.harness.hook_runner.types import HookContext, Outcome
+        from yoke_core.hooks.types import HookContext, Outcome
 
         record = HookContext(
             event_name="PreToolUse", executor_family="claude",
