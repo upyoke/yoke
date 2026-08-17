@@ -39,6 +39,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine 
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_project_structure import (
+    PROJECT_STRUCTURE_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_projects import (
     PROJECT_ADAPTERS,
 )
@@ -212,16 +215,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
             "python3 -m yoke_core.api.service_client coordination-lease-list"
         ),
     ),
-    AdapterEntry(
-        function_id="project_structure.patch.apply",
-        cli_invocation=(
-            "python3 -m yoke_core.cli.db_router project-structure patch-apply"
-        ),
-    ),
-    _read_entry(
-        function_id="project_structure.deploy_defaults.get",
-        cli_invocation="yoke project-structure deploy-defaults get --project NAME",
-    ),
+    *PROJECT_STRUCTURE_ADAPTERS,
     *STRATEGY_ADAPTERS,
     # Operational families wrapped by the registry_* sub-modules (deployment,
     # readiness, shepherd-dependency, ephemeral-env, strategy-carry/checkpoint,
