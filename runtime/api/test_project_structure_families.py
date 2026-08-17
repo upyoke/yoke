@@ -58,7 +58,7 @@ class TestContextRoutingFamily:
     def test_put_entry_accepted(self, initialized_db: str, entry_key: str):
         """Both the reserved ``always`` key and arbitrary topic names accept
         a non-empty ``docs`` list payload."""
-        result = ps.apply_patch(
+        ps.apply_patch(
             "test",
             ops=[_put("context_routing", "project",
                       {"docs": ["AGENTS.md", "docs/OVERVIEW.md"]},
@@ -93,7 +93,7 @@ class TestContextRoutingFamily:
 
 class TestWriteReadRoundTrip:
     def test_first_put(self, initialized_db: str):
-        result = ps.apply_patch(
+        ps.apply_patch(
             "test",
             ops=[_put("areas", "project", {"description": "core area"}, entry_key="core")],
             db_path=initialized_db,
@@ -126,7 +126,7 @@ class TestWriteReadRoundTrip:
             ops=[_put("areas", "project", {"description": "x"}, entry_key="k")],
             db_path=initialized_db,
         )
-        result = ps.apply_patch(
+        ps.apply_patch(
             "test",
             ops=[_remove("areas", "project", entry_key="k")],
             db_path=initialized_db,
