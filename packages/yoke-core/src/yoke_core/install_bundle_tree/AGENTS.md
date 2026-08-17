@@ -1,3 +1,8 @@
+<!-- KEEP IN SYNC: an identical copy of this block lives in both the yoke and platform repos (hand-copied; no machinery syncs it). Edit both together. -->
+## Control-Plane Authority — Hard Rule (this installation)
+- **Stage is a test environment, nothing more.** The stage control plane exists to test the live control plane. No real operation routes through it, depends on it, or records anything durable there.
+- **All non-testing control-plane operations run on prod.** Releases, receipts, deployment-run records, delivery records, GitHub relays — every durable or authority write targets the prod control plane (`prod` / `prod-db-admin`), regardless of which environment is being deployed or which fleet is being rehearsed.
+- **Stage connections (`stage-db-admin`) are rehearsal/test targets only.** Anything recorded there is disposable and read by nothing live.
 # Yoke — Project Rules
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -317,20 +322,16 @@ Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke cura
 - **Prefer inline chat for summaries, checkpoints, and design iteration.** Present analysis, checkpoint confirmations, and collaborative design discussions as regular conversational output. Do not default to structured chooser UIs for collaborative discussion — freeform replies are more natural for iterative work. Reserve structured question tools for genuinely short binary/ternary decisions with no surrounding context to present.
 - **The work item is the plan.** When you're running a `/yoke` skill on a work item, the work item's structured fields are the plan. Don't enter plan mode on your own. If the plan in the work item is insufficient, stop and escalate to the user.
 <!-- END YOKE MANAGED BLOCK -->
-
 # Yoke Repo Internals
 <!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic doctrine `yoke project install` ships; this section is yoke's own companion content and stays out of the markers. -->
-
 ## CLA signatures branch — Hard Rule
 - **`origin/cla-signatures` is permanent governance state, not a leftover lane.** This Fair Source repo (LICENSE / fair.io) requires contributors to sign the CLA before external PRs merge. The CLA Assistant workflow (`.github/workflows/cla.yml`) writes those signatures to `signatures/version1/cla.json` **on the `cla-signatures` branch** — that branch is the durable signature ledger the required `signature-check` status reads. Never delete, force-push, reset, or prune it during branch/worktree cleanup (divergence from `main` / no merge-base is expected). Leave it unprotected so the workflow can append signatures. Operator setup notes live in the workflow header; this rule is the agent-facing do-not-clean backstop.
-
 ## File Layout
 Repo-relative paths:
 - API: `runtime/api/` (`yoke_core.cli.db_router`, `yoke_core.api.service_client`, `yoke_core.engines.*`, internal test runner, API server); agent recipes via `yoke <subcommand>` unless a packet marks a retained tool shape.
 - Skills: `.agents/skills/yoke/{command}/SKILL.md` (`.claude/skills/yoke/` compat symlink). Agents: `runtime/agents/{agent}.md`; Claude adapters `runtime/harness/claude/agents/yoke-*.md` via `yoke agents render`; `.claude/agents` symlinks there. Prompt philosophy: `docs/prompt-philosophy.md`. Backlog: `yoke items get YOK-N body` (virtual; no generated `.md` bodies).
 - Browser: packaged under `packages/yoke-harness/src/yoke_harness/browser_runtime/`, materialized to `~/.yoke/browser-runtime/` (`yoke_harness.browser_*` / `yoke_core.domain.browser_*`). Harness adapters: `runtime/harness/{harness-id}/`; Codex via `.codex/hooks.json` and `codex app <repo>`.
 - Machine config `~/.yoke/config.json`; project surfaces `.yoke/`; docs `docs/`; design specs in `items.design_spec`. Hook sources: `runtime/harness/claude/settings.json` materialized at `.claude/settings.json`, plus `runtime/harness/codex/hooks.json` through the `.codex` link.
-
 ## Source-Dev Doctrine
 - The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Run `uv run --frozen ruff check <changed Python paths>` for changed-path lint; detailed recipes: [`docs/testing-verification.md`](docs/testing-verification.md).
 - The local verification default for Yoke code is the impacted selection: `yoke watch pytest --impacted main --bounded` (reverse-import + string-reference reachability over the branch diff, plus an always-run contract-test floor; `--bounded` reports an unbounded verdict instead of widening, while plain `--impacted` falls back to the full sweep). The full three-anchor sweep `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` is CI's job on every pull request and push to main; run it locally only as the CI-outage fallback or for narrow debugging. Both shapes inject xdist `-n auto` unless `-n` is passed. Use `-- -n 0` for sequential order-sensitive debugging. A CI failure on a test the impacted run skipped is a selector defect — see [`docs/testing-verification/full-suite-authority.md`](docs/testing-verification/full-suite-authority.md) for the triage, the widening telemetry, and the one-full-execution contract. Yoke's project-default Command case runs this same impacted selection, so per `## Testing` above the gate run is the last local execution.

@@ -12,17 +12,19 @@ Usage::
         [--engine-wheel PATH]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
 
+    yoke watch preflight -- prod-db-admin --record-receipt --receipt-env prod
+    yoke watch preflight -- stage-db-admin --record-receipt --receipt-env prod
+
 where *env-name* is a configured admin connection (``prod-db-admin`` or
 ``stage-db-admin``). Naming databases limits the run to those; the default is
 every tenant database on that cluster.
 
 ``--record-receipt`` records the pass in the control plane, which is what the
-release gate reads before allocating a tag. The explicitly selected admin
-cluster does not replace the ambient ``YOKE_ENV`` control plane used for the
-receipt; ``--receipt-env`` names that control plane explicitly instead. It is
-recorded
-only on a passing run, so a receipt cannot exist for a fleet this did not
-clear.
+release gate reads before allocating a tag.
+Receipts always target the prod control plane. The selected admin connection
+changes the covered fleet, not the receipt plane. ``--receipt-env`` names that
+control plane explicitly. Receipts are recorded only on passing runs, so they
+cannot exist for fleets this did not clear.
 
 ``--engine-wheel`` puts the named release artifact at the head of the import
 path before any ``yoke_core`` module loads. The preflight refuses a prior core
@@ -48,6 +50,12 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config.schema import (
+    connection_is_prod,
+    same_universe_https_env,
+)
 
 _RECEIPT_TIMEOUT_SECONDS = 120
 
@@ -162,6 +170,20 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _release_gate_receipt_env() -> str:
+    """Return the configured product connection owning release evidence."""
+    config = machine_config.load_config()
+    connections = config.get("connections")
+    if not isinstance(connections, Mapping):
+        return ""
+    authorities = {
+        same_universe_https_env(config, str(env)) or str(env)
+        for env, connection in connections.items()
+        if isinstance(connection, Mapping) and connection_is_prod(connection)
+    }
+    return next(iter(authorities)) if len(authorities) == 1 else ""
+
+
 def _record_receipt(
     *,
     receipt_env: str,
@@ -239,6 +261,25 @@ def main(argv: Optional[List[str]] = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if record:
+        release_gate_env = _release_gate_receipt_env()
+        if not release_gate_env:
+            print(
+                "--record-receipt could not resolve one prod release-gate "
+                "authority from the configured connections; mark the owning "
+                "connection with prod=true.",
+                file=sys.stderr,
+            )
+            return 2
+        if receipt_env != release_gate_env:
+            print(
+                "--record-receipt must write to the prod release-gate control "
+                f"plane. Retry: yoke watch preflight -- {positional[0]} "
+                "[db ...] --record-receipt --product-sha <sha> "
+                f"--receipt-env {release_gate_env}",
+                file=sys.stderr,
+            )
+            return 2
 
     from yoke_core.domain import local_universe, migration_fleet_preflight
     from yoke_core.domain.connected_env_readiness import activate_selected_postgres

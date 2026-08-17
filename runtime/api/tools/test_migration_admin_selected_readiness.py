@@ -31,6 +31,20 @@ def _authority(environment: str) -> SimpleNamespace:
     return SimpleNamespace(environment=environment, dsn=SELECTED_DSN)
 
 
+def _machine_config(release_env: str = "prod") -> dict[str, Any]:
+    return {
+        "connections": {
+            release_env: {"transport": "https"},
+            f"{release_env}-db-admin": {
+                "transport": "local-postgres",
+                "prod": True,
+            },
+            "stage": {"transport": "https"},
+            "stage-db-admin": {"transport": "local-postgres", "prod": False},
+        }
+    }
+
+
 def test_reporter_activates_before_fleet_discovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -97,7 +111,12 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
         )
         return [SimpleNamespace(passed=True, line="yoke_alpha: PASS")]
 
-    monkeypatch.setenv("YOKE_ENV", "control-plane")
+    monkeypatch.setenv("YOKE_ENV", "release")
+    monkeypatch.setattr(
+        preflight.machine_config,
+        "load_config",
+        lambda: _machine_config("release"),
+    )
     monkeypatch.setattr(readiness, "activate_selected_postgres", activate)
     monkeypatch.setattr(local_universe, "ensure_engine_binaries", lambda _emit: tmp_path)
     monkeypatch.setattr(
@@ -121,4 +140,34 @@ def test_preflight_keeps_receipt_on_preexisting_control_plane(
         ["prod-db-admin", "yoke_alpha", "--record-receipt", "--product-sha", "abc"]
     ) == 0
     assert events == ["activate:prod-db-admin", "rehearse"]
-    assert receipts == ["control-plane"]
+    assert receipts == ["release"]
+
+
+def test_preflight_refuses_receipt_on_test_control_plane(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        preflight.machine_config,
+        "load_config",
+        lambda: _machine_config("release"),
+    )
+
+    assert preflight.main(
+        ["stage-db-admin", "--record-receipt", "--receipt-env", "stage"]
+    ) == 2
+
+    refusal = capsys.readouterr().err
+    assert "yoke watch preflight -- stage-db-admin" in refusal
+    assert "--receipt-env release" in refusal
+
+
+def test_preflight_help_teaches_both_receipt_coverage_shapes(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert preflight.main(["--help"]) == 0
+
+    help_text = capsys.readouterr().out
+    assert "prod-db-admin --record-receipt --receipt-env prod" in help_text
+    assert "stage-db-admin --record-receipt --receipt-env prod" in help_text
+    assert "Receipts always target the prod control plane" in help_text
