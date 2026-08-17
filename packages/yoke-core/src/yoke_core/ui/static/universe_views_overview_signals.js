@@ -42,6 +42,16 @@ function svgElement(documentNode, tag, className) {
   return node;
 }
 
+// Zero sits on the baseline; anything above zero is lifted clear of it. A
+// heavy-tailed series (one outlier day many times the median) would otherwise
+// round most real days onto the baseline pixel, rendering "a little happened"
+// and "nothing happened" identically — the distinction the terminal board's
+// encoder guarantees by giving any non-zero value at least its first level.
+function sparklineHeight(value, maximum) {
+  if (value <= 0) return 25;
+  return Math.min(24, Math.round(25 - value / maximum * 22));
+}
+
 function sparkline(documentNode, values, signal) {
   const svg = svgElement(documentNode, "svg", "overview-sparkline");
   svg.setAttribute("viewBox", "0 0 240 28");
@@ -62,8 +72,7 @@ function sparkline(documentNode, values, signal) {
     "points",
     values.map((value, index) => {
       const x = Math.round(index / denominator * 240);
-      const y = Math.round(25 - (Number(value) || 0) / maximum * 22);
-      return `${x},${y}`;
+      return `${x},${sparklineHeight(Number(value) || 0, maximum)}`;
     }).join(" "),
   );
   svg.appendChild(line);
