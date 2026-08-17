@@ -55,6 +55,10 @@ from yoke_core.engines.doctor_hc_session_cwd_binding import (
     hc_session_cwd_binding,
     hc_session_pre_implementing_activity,
 )
+from yoke_core.engines.doctor_hc_launcher_authority import (
+    TITLE as LAUNCHER_AUTHORITY_TITLE,
+    hc_launcher_authority,
+)
 from yoke_core.engines.doctor_hc_session_lane_mismatch import (
     hc_session_lane_mismatch,
 )
@@ -95,6 +99,11 @@ HARNESS_HEALTH_CHECKS: List[HealthCheck] = [
         "session-lane-mismatch",
         "Session offer lane mismatch (envelope vs row)",
         hc_session_lane_mismatch,
+    ),
+    HealthCheck(
+        "launcher-authority",
+        LAUNCHER_AUTHORITY_TITLE,
+        hc_launcher_authority,
     ),
     HealthCheck(
         "project-hook-config-validity",

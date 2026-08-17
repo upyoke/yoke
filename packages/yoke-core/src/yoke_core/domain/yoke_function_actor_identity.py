@@ -48,6 +48,7 @@ from typing import Any, Callable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_ambient_identity import (
+    format_actor_session_missing,
     resolve_ambient_session_id,
 )
 from yoke_contracts.api.function_call import (
@@ -229,16 +230,7 @@ def bind_actor_identity(
             error=_error_response(
                 request, entry,
                 code="actor_session_missing",
-                message=(
-                    f"mutating function {entry.function_id!r} could not "
-                    "resolve an ambient harness session for this process. "
-                    "This is a Yoke infrastructure gap (session "
-                    "registration or process-anchor resolution failed), "
-                    "not something to work around — file a field-note if "
-                    "you can, otherwise report it to the operator. "
-                    "Operator-debug only: an explicit session id "
-                    "(--session-id) overrides ambient resolution."
-                ),
+                message=format_actor_session_missing(entry.function_id),
             ),
         )
 

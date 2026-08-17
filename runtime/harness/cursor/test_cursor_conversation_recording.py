@@ -188,7 +188,7 @@ class TestRecorder:
         )
         assert _mapped(machine_home, CONTAINER) == HOLDER
 
-    def test_pretooluse_worktree_without_holder_self_maps(
+    def test_pretooluse_worktree_without_holder_does_not_self_map(
         self, machine_home, monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
@@ -203,7 +203,7 @@ class TestRecorder:
             "cursor",
             "PreToolUse",
         )
-        assert _mapped(machine_home, CONTAINER) == CONTAINER
+        assert _mapped(machine_home, CONTAINER) is None
 
 
 

@@ -72,7 +72,39 @@ def fold_payload_session_id(
     return raw
 
 
+HOOK_REPLAY_ENV = "YOKE_HOOK_REPLAY"
+
+
+def is_hook_replay(env: Optional[Mapping[str, str]] = None) -> bool:
+    """True when hook evaluation must suppress identity side effects."""
+    source = os.environ if env is None else env
+    return source.get(HOOK_REPLAY_ENV, "").strip().lower() in {"1", "true", "yes"}
+
+
+def is_conversation_shaped_session_id(
+    payload: Mapping[str, Any],
+    *,
+    session_id: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """True when ``session_id`` is a conversation alias, not a Yoke session."""
+    raw = session_id if session_id is not None else payload.get("session_id")
+    if not isinstance(raw, str) or not raw.strip():
+        return False
+    raw = raw.strip()
+    source = os.environ if env is None else env
+    aliases = [
+        payload.get("conversation_id"),
+        payload.get("remapped_conversation_id"),
+        source.get(CURSOR_CONVERSATION_ENV_VAR),
+    ]
+    return any(isinstance(alias, str) and alias.strip() == raw for alias in aliases)
+
+
 __all__ = [
+    "HOOK_REPLAY_ENV",
     "fold_conversation_session_id",
     "fold_payload_session_id",
+    "is_conversation_shaped_session_id",
+    "is_hook_replay",
 ]

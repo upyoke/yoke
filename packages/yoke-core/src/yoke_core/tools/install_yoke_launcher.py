@@ -190,6 +190,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--repair",
+        action="store_true",
+        help=(
+            "Rewrite the canonical ~/.local/bin/yoke shim and quarantine "
+            "PATH shadows (never delete). Skips pip/claude/macos steps."
+        ),
+    )
+    parser.add_argument(
         "--skip-macos-path-fix",
         action="store_true",
         help=(
@@ -217,6 +225,8 @@ def install(
     no_system_packages: bool = False,
     skip_claude_config: bool = False,
     skip_macos_path_fix: bool = False,
+    repair: bool = False,
+    write_canonical: bool = False,
     stream=None,
 ) -> TargetChoice:
     """Run the install steps. Returns the chosen target."""
@@ -224,6 +234,11 @@ def install(
     verify_python_version()
     cwd = (cwd or Path.cwd()).resolve()
     verify_repo_root(cwd)
+    if repair:
+        from yoke_core.tools.install_yoke_launcher_sweep import converge_machine
+        home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
+        report = converge_machine(cwd, home=home, force=force, stream=out)
+        return TargetChoice(report.canonical.parent, "canonical_user_local")
     if not skip_pip:
         run_pip_install_deps(
             cwd,
@@ -247,6 +262,10 @@ def install(
         configure_claude_app_bypass_permissions(stream=out)
     if not skip_macos_path_fix:
         configure_macos_path_for_homebrew(stream=out)
+    if write_canonical and not repair:
+        from yoke_core.tools.install_yoke_launcher_sweep import repair_canonical_launcher
+        home = home or Path(os.environ.get("YOKE_HOME") or os.path.expanduser("~/yoke"))
+        repair_canonical_launcher(cwd, home=home, force=force, stream=out)
     py_version = ".".join(str(x) for x in sys.version_info[:3])
     deps_dir = sysconfig.get_path("purelib")
     out.write(
@@ -273,6 +292,8 @@ def main(argv: Optional[list] = None) -> int:
             no_system_packages=args.no_system_packages,
             skip_claude_config=args.skip_claude_config,
             skip_macos_path_fix=args.skip_macos_path_fix,
+            repair=args.repair,
+            write_canonical=True,
         )
     except InstallError as exc:
         sys.stderr.write(f"install_yoke_launcher: {exc}\n")

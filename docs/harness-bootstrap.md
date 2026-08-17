@@ -206,6 +206,32 @@ For supported harnesses, Yoke core derives the effective `supported_paths` serve
 
 Non-Yoke-owned adapters may still declare `supported_paths` at session-offer time. If they omit the field and no manifest exists for the executor, Yoke preserves backward compatibility by treating the session as unconstrained for downstream-path validation. Adapters that want truthful fallback enforcement should add a manifest under `runtime/harness/{executor}/manifest.json` (or normalize their own surface-specific executors back to a family manifest the way Yoke-owned harnesses do); harness-passed `supported_paths` is ignored for Yoke-owned harnesses. Yoke-owned manifests should declare limitations, not copied command/path allowlists.
 
+## 4b. Machine launcher authority
+
+The login-shell `yoke` on PATH must be the canonical shim
+(`$XDG_BIN_HOME/yoke` or `~/.local/bin/yoke`) pointing at the registered
+checkout editable install. `python3 -m yoke_core.tools.install_yoke_launcher`
+writes it. `--repair` and `yoke doctor run --quick --fix` (HC-launcher-authority)
+quarantine PATH shadows and never delete them.
+
+Hook and guard verdicts print `{source_sha, install_kind, install_path}`
+so version skew is a fingerprint, not a reconstruction. Relayed verdicts
+echo client and server fingerprints; a relay timeout prints
+`fallback=local`. Local path evaluation refuses to POST a payload whose
+stamped `session_id` is missing or still conversation-shaped unless the
+client set `identity_stamped`. Identity-resolution failures deny writes only.
+`YOKE_HOOK_REPLAY=1 yoke hook evaluate <event>` returns the same verdict
+without writing process-anchors, the cursor-session-map, remount-expect
+receipts, or registering a session.
+
+A Cursor remount mints a new conversation id and does not name the prior
+session. While the holder is still on the main checkout, each client hook
+refreshes a short-lived remount-expect receipt under
+`cursor-session-map/remount-expect/`. The first hook in the linked
+worktree consumes that receipt before aliasing the new conversation onto
+the holder. A worktree workspace with a live claim holder and no receipt
+is identity-failure, not a folder fold.
+
 ## 5. Repo-local Skill Discovery
 
 Yoke skills live canonically in the **hidden** repo-local directory `.agents/skills/yoke/`. Modern Codex runtimes natively scan repo-local `.agents/skills` locations, so the Yoke skill tree is a first-class Codex skill source when Codex starts in this repository. No `.codex/skills` mirror is required.

@@ -263,16 +263,19 @@ def write_launcher(
     source: Optional[Path] = None,
     *,
     default_home: Optional[Path] = None,
+    python: Optional[Path] = None,
 ) -> None:
     actual = source if source is not None else LAUNCHER_SOURCE
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    if target_path.is_symlink():
+        target_path.unlink()
     text = Path(actual).read_text(encoding="utf-8")
     if default_home is not None:
         text = text.replace(
             "DEFAULT_YOKE_HOME = None",
             f"DEFAULT_YOKE_HOME = {str(default_home)!r}",
         )
-    pinned_shebang = f"#!{sys.executable}"
+    pinned_shebang = f"#!{python or sys.executable}"
     if text.startswith("#!") and "\n" in text:
         first_newline = text.index("\n")
         text = pinned_shebang + text[first_newline:]

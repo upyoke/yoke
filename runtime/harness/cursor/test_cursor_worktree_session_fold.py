@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yoke_contracts.cursor_remount_expect import (
+    consume_remount_expect,
+    remount_expect_is_live,
+    write_remount_expect,
+)
 from yoke_contracts.cursor_session_map import linked_worktree_lane_name
 from runtime.harness.cursor.cursor_worktree_session_fold import (
     resolve_worktree_remap_container,
@@ -11,6 +16,7 @@ from runtime.harness.cursor.cursor_hooks_payload import parse_payload
 
 CONTAINER = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 REMAPPED = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+WORKTREE = "/repo/.worktrees/YOK-2026"
 
 
 def test_linked_worktree_lane_name_yoke_layout() -> None:
@@ -28,22 +34,41 @@ def test_linked_worktree_lane_name_yoke_layout() -> None:
     )
 
 
-def test_resolve_worktree_remap_container_uses_holder_lookup() -> None:
+def test_resolve_worktree_remap_container_uses_holder_lookup(tmp_path) -> None:
+    write_remount_expect(tmp_path, CONTAINER)
     payload = {
         "session_id": REMAPPED,
-        "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        "workspace_roots": [WORKTREE],
     }
     assert (
         resolve_worktree_remap_container(
-            payload, holder_lookup=lambda lane: CONTAINER if lane == "YOK-2026" else "",
+            payload,
+            holder_lookup=lambda lane: CONTAINER if lane == "YOK-2026" else "",
+            map_dir=tmp_path,
         )
         == CONTAINER
     )
     # Same id as holder → no fold (avoid self-alias noise).
     assert (
         resolve_worktree_remap_container(
-            {"session_id": CONTAINER, "workspace_roots": ["/repo/.worktrees/YOK-2026"]},
+            {"session_id": CONTAINER, "workspace_roots": [WORKTREE]},
             holder_lookup=lambda _lane: CONTAINER,
+            map_dir=tmp_path,
+        )
+        == ""
+    )
+
+
+def test_resolve_worktree_remap_container_requires_live_expect(tmp_path) -> None:
+    payload = {
+        "session_id": REMAPPED,
+        "workspace_roots": [WORKTREE],
+    }
+    assert (
+        resolve_worktree_remap_container(
+            payload,
+            holder_lookup=lambda _lane: CONTAINER,
+            map_dir=tmp_path,
         )
         == ""
     )
@@ -69,3 +94,99 @@ def test_parse_payload_folds_worktree_remap(monkeypatch) -> None:
     assert data["is_worktree_remap_session"] is True
     assert data["is_subagent_session"] is False
     assert data["remapped_conversation_id"] == REMAPPED
+
+
+def test_record_remount_writes_self_map() -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": CONTAINER,
+            "conversation_id": CONTAINER,
+            "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        },
+        holder_lookup=lambda _lane: CONTAINER,
+        record=lambda conv, sid: recorded.append((conv, sid)),
+    )
+    assert holder == CONTAINER
+    assert recorded == [(CONTAINER, CONTAINER)]
+
+
+def test_record_remount_absent_holder_writes_nothing() -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": REMAPPED,
+            "conversation_id": REMAPPED,
+            "workspace_roots": ["/repo/.worktrees/YOK-2026"],
+        },
+        holder_lookup=lambda _lane: "",
+        record=lambda conv, sid: recorded.append((conv, sid)),
+    )
+    assert holder == ""
+    assert recorded == []
+
+
+def test_record_remount_writes_new_conversation_to_holder(tmp_path) -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    write_remount_expect(tmp_path, CONTAINER)
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": REMAPPED,
+            "conversation_id": REMAPPED,
+            "workspace_roots": [WORKTREE],
+        },
+        holder_lookup=lambda _lane: CONTAINER,
+        record=lambda conv, sid: recorded.append((conv, sid)),
+        map_dir=tmp_path,
+    )
+    assert holder == CONTAINER
+    assert recorded == [(REMAPPED, CONTAINER)]
+    assert not remount_expect_is_live(tmp_path, CONTAINER)
+
+
+def test_record_remount_without_expect_writes_nothing(tmp_path) -> None:
+    from runtime.harness.cursor.cursor_worktree_session_fold import (
+        record_remount_conversation_session,
+    )
+
+    recorded = []
+    holder = record_remount_conversation_session(
+        {
+            "session_id": REMAPPED,
+            "conversation_id": REMAPPED,
+            "workspace_roots": [WORKTREE],
+        },
+        holder_lookup=lambda _lane: CONTAINER,
+        record=lambda conv, sid: recorded.append((conv, sid)),
+        map_dir=tmp_path,
+    )
+    assert holder == ""
+    assert recorded == []
+
+
+def test_remount_expect_write_consume_and_expiry(tmp_path, monkeypatch) -> None:
+    assert write_remount_expect(tmp_path, CONTAINER)
+    assert remount_expect_is_live(tmp_path, CONTAINER)
+    assert consume_remount_expect(tmp_path, CONTAINER)
+    assert not remount_expect_is_live(tmp_path, CONTAINER)
+    assert not consume_remount_expect(tmp_path, CONTAINER)
+
+    assert write_remount_expect(tmp_path, CONTAINER)
+    monkeypatch.setenv("YOKE_HOOK_REPLAY", "1")
+    assert not write_remount_expect(tmp_path, CONTAINER)
+    assert remount_expect_is_live(tmp_path, CONTAINER)
+    assert not consume_remount_expect(tmp_path, CONTAINER)
+    monkeypatch.delenv("YOKE_HOOK_REPLAY", raising=False)
+    assert consume_remount_expect(tmp_path, CONTAINER)

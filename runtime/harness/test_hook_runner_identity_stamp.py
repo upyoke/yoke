@@ -68,18 +68,22 @@ def test_stamp_preserves_claude_and_codex_session_ids(tmp_path, monkeypatch) -> 
             "transcript_path": _transcript(session_id),
         }
         original = json.dumps(payload)
-        assert record_then_stamp(
+        stamped = json.loads(record_then_stamp(
             payload, original, executor, "PreToolUse",
-        ) == original
+        ))
+        assert stamped["session_id"] == session_id
+        assert stamped["identity_stamped"] is True
 
 
 def test_cursor_payload_without_transcript_is_unchanged(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     payload = {"session_id": "cursor-session", "tool_name": "Write"}
     original = json.dumps(payload)
-    assert record_then_stamp(
+    stamped = json.loads(record_then_stamp(
         payload, original, "cursor", "PreToolUse",
-    ) == original
+    ))
+    assert stamped["session_id"] == "cursor-session"
+    assert stamped["identity_stamped"] is True
 
 
 def test_stamp_folds_mapped_conversation_id(tmp_path, monkeypatch) -> None:
@@ -146,6 +150,97 @@ def test_record_then_stamp_establishes_unmapped_transcript_container(tmp_path, m
     ))
     assert stamped["session_id"] == conversation
     assert stamped["container_session_id"] == conversation
+
+
+def test_record_then_stamp_writes_remount_expect_on_main(
+    tmp_path, monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+        monkeypatch.delenv(name, raising=False)
+    conversation = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    payload = {
+        "session_id": conversation,
+        "conversation_id": conversation,
+        "workspace_roots": [str(tmp_path / "repo")],
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == conversation
+    from yoke_contracts.cursor_remount_expect import remount_expect_is_live
+
+    assert remount_expect_is_live(
+        home / CURSOR_SESSION_MAP_DIR_NAME, conversation,
+    )
+
+
+def test_record_then_stamp_skips_self_map_on_worktree_lane(
+    tmp_path, monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+        monkeypatch.delenv(name, raising=False)
+    conversation = "conv-remount-absent"
+    payload = {
+        "session_id": conversation,
+        "conversation_id": conversation,
+        "workspace_roots": [str(tmp_path / "repo" / ".worktrees" / "YOK-9")],
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == ""
+    from yoke_contracts.cursor_session_map import recorded_session_id_for_conversation
+
+    assert not recorded_session_id_for_conversation(
+        home / CURSOR_SESSION_MAP_DIR_NAME, conversation,
+    )
+
+
+def test_record_then_stamp_folds_worktree_when_expect_live(
+    tmp_path, monkeypatch,
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    for name in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
+        monkeypatch.delenv(name, raising=False)
+    holder = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    remapped = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    from yoke_contracts.cursor_remount_expect import write_remount_expect
+
+    write_remount_expect(home / CURSOR_SESSION_MAP_DIR_NAME, holder)
+
+    class _Resp:
+        success = True
+        result = {"holder": {"session_id": holder}}
+
+    import yoke_cli.commands._helpers as helpers
+    import yoke_cli.transport.dispatcher as disp
+
+    monkeypatch.setattr(helpers, "ensure_handlers_loaded", lambda: None)
+    monkeypatch.setattr(helpers, "item_target", lambda *_a, **_k: {})
+    monkeypatch.setattr(disp, "build_actor", lambda **_k: {})
+    monkeypatch.setattr(disp, "call_dispatcher", lambda **_k: _Resp())
+    payload = {
+        "session_id": remapped,
+        "conversation_id": remapped,
+        "workspace_roots": [str(tmp_path / "repo" / ".worktrees" / "YOK-9")],
+        "tool_name": "Write",
+    }
+    stamped = json.loads(record_then_stamp(
+        payload, json.dumps(payload), "cursor", "PreToolUse",
+    ))
+    assert stamped["session_id"] == holder
+    from yoke_contracts.cursor_session_map import recorded_session_id_for_conversation
+
+    assert recorded_session_id_for_conversation(
+        home / CURSOR_SESSION_MAP_DIR_NAME, remapped,
+    ) == holder
 
 
 def test_stamp_fills_from_cursor_session_map(tmp_path, monkeypatch) -> None:

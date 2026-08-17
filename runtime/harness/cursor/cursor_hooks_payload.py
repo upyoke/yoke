@@ -112,6 +112,17 @@ def parse_payload(payload: str) -> Dict[str, Any]:
         if event == "afterShellExecution" and "output" in data:
             data.setdefault("tool_output", data.get("output"))
 
+    from yoke_core.domain.session_ambient_identity import (
+        is_conversation_shaped_session_id,
+    )
+
+    stamped = data.get("session_id")
+    keep_stamped = (
+        isinstance(stamped, str)
+        and stamped.strip()
+        and (data.get("identity_stamped") is True
+             or not is_conversation_shaped_session_id(data, session_id=stamped))
+    )
     container = resolve_container_session_id(data)
     if container:
         data["container_session_id"] = container
@@ -137,10 +148,12 @@ def parse_payload(payload: str) -> Dict[str, Any]:
             # reads the container id from ``session_id``; the subagent's
             # own id stays available for correlation.
             data["subagent_session_id"] = own
-            data["session_id"] = container
+            if not keep_stamped:
+                data["session_id"] = container
         elif data["is_worktree_remap_session"]:
             data["remapped_conversation_id"] = own
-            data["session_id"] = container
+            if not keep_stamped:
+                data["session_id"] = container
 
     return data
 

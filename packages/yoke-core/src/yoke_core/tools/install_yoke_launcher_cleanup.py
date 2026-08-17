@@ -7,6 +7,7 @@ import shutil
 import sys
 import sysconfig
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Optional, Sequence, Tuple
 from urllib.parse import unquote, urlparse
 
@@ -117,7 +118,28 @@ def _editable_distribution_paths_from_dist_info(dist_info: Path) -> list[Path]:
     return sorted(unique, key=lambda path: len(path.parts), reverse=True)
 
 
+def quarantine_shadow_launcher(
+    path: Path,
+    *,
+    stamp: str = "",
+    stream=None,
+) -> Path:
+    """Move a shadow ``yoke`` binary aside. Never deletes. Returns restore path."""
+    if not path.exists():
+        raise FileNotFoundError(path)
+    suffix = stamp or datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    dest = path.with_name(f"{path.name}.yoke-quarantine-{suffix}")
+    n = 0
+    while dest.exists():
+        n += 1
+        dest = path.with_name(f"{path.name}.yoke-quarantine-{suffix}-{n}")
+    path.rename(dest)
+    out = stream if stream is not None else sys.stdout
+    out.write(f"Quarantined {path} -> {dest} (restore: mv {dest} {path})\n")
+    return dest
+
 __all__ = [
     "YOKE_EDITABLE_PACKAGE_NAMES",
     "cleanup_stale_editable_yoke_metadata",
+    "quarantine_shadow_launcher",
 ]

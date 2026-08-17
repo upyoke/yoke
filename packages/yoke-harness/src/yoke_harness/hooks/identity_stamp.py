@@ -97,6 +97,9 @@ def stamp_hook_stdin(
     ):
         payload["session_id"] = session_id
         changed = True
+    if session_id:
+        payload["identity_stamped"] = True
+        changed = True
     if not changed:
         return stdin_data
     try:
@@ -112,9 +115,39 @@ def record_then_stamp(
     event_name: str,
 ) -> str:
     """Record the Cursor conversation pairing, then stamp session identity."""
+    from yoke_contracts.payload_session_fold import is_hook_replay
     from yoke_harness.hooks import cursor_session_map
 
+    if is_hook_replay():
+        return stamp_hook_stdin(stdin_data, payload, executor)
     cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    try:
+        conv = payload.get("conversation_id") or payload.get("session_id")
+        if isinstance(conv, str) and conv:
+            from yoke_cli.config import machine_config
+            from yoke_contracts.cursor_session_map import (
+                CURSOR_SESSION_MAP_DIR_NAME,
+                linked_worktree_lane_name,
+                recorded_session_id_for_conversation,
+            )
+
+            existing = recorded_session_id_for_conversation(
+                machine_config.yoke_home() / CURSOR_SESSION_MAP_DIR_NAME,
+                conv,
+            )
+            if not existing:
+
+                roots = payload.get("workspace_roots")
+                workspace = ""
+                if isinstance(roots, list) and roots and isinstance(roots[0], str):
+                    workspace = roots[0]
+                elif isinstance(payload.get("cwd"), str):
+                    workspace = payload["cwd"]
+                if not linked_worktree_lane_name(workspace):
+                    cursor_session_map.record_conversation_session(conv, conv)
+                    cursor_session_map.refresh_remount_expect(conv)
+    except Exception:  # noqa: BLE001 — remount bookkeeping must not break hooks
+        pass
     return stamp_hook_stdin(stdin_data, payload, executor)
 
 

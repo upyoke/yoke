@@ -79,6 +79,8 @@ def _payload(repo: Path, command: str) -> str:
         "tool_name": "Bash",
         "tool_input": {"command": command},
         "cwd": str(repo),
+        "session_id": "sid-product",
+        "identity_stamped": True,
     })
 
 
@@ -152,7 +154,7 @@ def test_local_subset_denies_git_commit_on_main_without_authority_imports(
     assert run.returncode == 2
     assert "Implementation commit on main branch" in run.stdout
     assert "impl.py" in run.stdout
-    assert run.stderr == ""
+    assert "yoke-provenance" in run.stderr
     _assert_clean_client_boundary(run)
 
 
@@ -215,7 +217,7 @@ def test_local_subset_denies_destructive_git_without_authority_imports(
     assert run.returncode == 2
     assert "destructive git command" in run.stdout
     assert "base.txt" in run.stdout
-    assert run.stderr == ""
+    assert "yoke-provenance" in run.stderr
     _assert_clean_client_boundary(run)
 
 
