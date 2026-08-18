@@ -200,6 +200,84 @@ def test_heartbeat_session_backfills_missing_session(base_context):
     conn.close.assert_called_once()
 
 
+_TERMINAL_READ_CTX = {
+    "executor_family": "cursor",
+    "executor_surface": "cursor-desktop",
+    "tool_name": "Read",
+    "payload": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Read",
+        "tool_input": {
+            "file_path": (
+                "/Users/x/.cursor/projects/Users-x/terminals/1.txt"
+            ),
+        },
+    },
+}
+
+
+def test_heartbeat_skips_ended_cursor_terminal_read(base_context):
+    """An empty closeout must not come back for leftover terminal Reads."""
+    from yoke_core.domain.sessions import SessionError
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
+
+    ctx = HookContext(
+        **{**base_context.__dict__, "session_id": "ended-sid", **_TERMINAL_READ_CTX},
+    )
+    with mock.patch(
+        "yoke_core.domain.db_backend.connect",
+        return_value=mock.MagicMock(),
+    ), mock.patch(
+        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
+        side_effect=SessionError("SESSION_ENDED", "ended"),
+    ), mock.patch.object(
+        hook_helpers_heartbeat, "_backfill_session",
+    ) as backfill:
+        hook_helpers_heartbeat._heartbeat_session("ended-sid", ctx)
+    backfill.assert_not_called()
+
+
+def test_heartbeat_backfills_ended_row_for_other_tools(base_context):
+    from yoke_core.domain.sessions import SessionError
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
+
+    ctx = HookContext(
+        **{**base_context.__dict__, "session_id": "ended-sid"},
+    )
+    with mock.patch(
+        "yoke_core.domain.db_backend.connect",
+        return_value=mock.MagicMock(),
+    ), mock.patch(
+        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
+        side_effect=SessionError("SESSION_ENDED", "ended"),
+    ), mock.patch.object(
+        hook_helpers_heartbeat, "_backfill_session",
+    ) as backfill:
+        hook_helpers_heartbeat._heartbeat_session("ended-sid", ctx)
+    backfill.assert_called_once()
+
+
+def test_heartbeat_still_backfills_missing_row_for_terminal_read(base_context):
+    """A never-registered session is not this isolation."""
+    from yoke_core.domain.sessions import SessionError
+    from yoke_core.hooks import heartbeat as hook_helpers_heartbeat
+
+    ctx = HookContext(
+        **{**base_context.__dict__, "session_id": "missing-sid", **_TERMINAL_READ_CTX},
+    )
+    with mock.patch(
+        "yoke_core.domain.db_backend.connect",
+        return_value=mock.MagicMock(),
+    ), mock.patch(
+        "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
+        side_effect=SessionError("NOT_FOUND", "no such session"),
+    ), mock.patch.object(
+        hook_helpers_heartbeat, "_backfill_session",
+    ) as backfill:
+        hook_helpers_heartbeat._heartbeat_session("missing-sid", ctx)
+    backfill.assert_called_once()
+
+
 def test_evaluate_decision_shape(base_context):
     """Decision is always NOOP/CONTINUE/block=False — never blocks."""
     ctx = HookContext(
