@@ -103,6 +103,10 @@ def wire_happy_path(
         verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, None)
     )
     monkeypatch.setattr(
+        verdict_mod, "read_landing_checks",
+        lambda _ctx, _sha: ((), None),
+    )
+    monkeypatch.setattr(
         landing_pr_mod, "find_landable_pull_request",
         lambda _ctx, lane_head="": ("url", "42", ""),
     )

@@ -13,10 +13,12 @@ from runtime.api.merge_queue_landing_test_helpers import (
 from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_failed_train as failed_train_mod
 from yoke_core.domain import merge_queue_landing_timeout as timeout_mod
+from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain import session_liveness_pump as liveness_mod
+from yoke_core.domain.merge_queue_landing_verdict import LandingCheck
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
-from yoke_core.engines.merge_worktree_pr_queue import QueueMember
+from yoke_core.engines.merge_worktree_pr_queue import QueueMember, TrainRun
 
 
 class StubPump:
@@ -127,6 +129,39 @@ def test_every_poll_observation_is_announced(monkeypatch):
     assert all(line.startswith(route_mod.POLL_LINE_PREFIX) for line in announced)
     assert "queue-entry=AWAITING_CHECKS" in announced[0]
     assert "elapsed:" in announced[0]
+    assert "merged=true" in announced[-1]
+    # The second armed observation is the same set; repeating it hid a
+    # stalled check behind elapsed time.
+    assert len(announced) == 2
+
+
+def test_poll_announces_only_when_the_check_set_changes(monkeypatch):
+    checks = [
+        ((LandingCheck("lint", "in_progress"),), None),
+        ((LandingCheck("lint", "in_progress"),), None),
+        ((LandingCheck("lint", "completed", "success"),), None),
+    ]
+    wire_happy_path(
+        monkeypatch,
+        landing_states=[ARMED, ARMED, ARMED, ARMED, MERGED],
+        queue_entries=(
+            QueueMember(pr_num="42", head_ref="YOK-200", state="AWAITING_CHECKS"),
+        ),
+        train=TrainRun(status="in_progress", head_sha="abc123"),
+    )
+    monkeypatch.setattr(
+        verdict_mod, "read_landing_checks",
+        lambda *_a, **_k: checks.pop(0) if checks else ((LandingCheck(
+            "lint", "completed", "success",
+        ),), None),
+    )
+    announced: list[str] = []
+    outcome = land(emit=announced.append)
+    assert outcome.ok
+    pending = [line for line in announced if "pending-checks=lint" in line]
+    concluded = [line for line in announced if "concluded-checks=lint=success" in line]
+    assert len(pending) == 1
+    assert len(concluded) == 1
     assert "merged=true" in announced[-1]
 
 

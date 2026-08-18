@@ -28,7 +28,7 @@ who cannot see the difference finds out at the deadline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from yoke_core.domain.github_poll_schedule import (
     MINIMUM_POLL_INTERVAL_SECONDS,
@@ -58,6 +58,15 @@ DEFAULT_CONFIRM_SECONDS = MINIMUM_POLL_INTERVAL_SECONDS
 
 
 @dataclass(frozen=True)
+class LandingCheck:
+    """One check run attached to the SHA the train is validating."""
+
+    name: str
+    status: str
+    conclusion: str = ""
+
+
+@dataclass(frozen=True)
 class LandingVerdict:
     """One classification of a queued pull request, with what it observed."""
 
@@ -66,12 +75,75 @@ class LandingVerdict:
     warnings: tuple[str, ...] = field(default=())
 
 
+def describe_checks(checks: Sequence[LandingCheck]) -> str:
+    """Pending and concluded check names, sorted so a reshuffle is not news."""
+    pending = sorted(
+        check.name for check in checks if check.status != "completed"
+    )
+    concluded = sorted(
+        f"{check.name}={check.conclusion or check.status}"
+        for check in checks if check.status == "completed"
+    )
+    return (
+        f"pending-checks={','.join(pending) or 'none'} "
+        f"concluded-checks={','.join(concluded) or 'none'}"
+    )
+
+
+def read_landing_checks(
+    ctx: MergeContext, head_sha: str,
+) -> tuple[Optional[tuple[LandingCheck, ...]], Optional[str]]:
+    """Per-check breakdown for the SHA the train is validating."""
+    from yoke_contracts.github_app_installation_permissions import (
+        GITHUB_CHECKS_READ_PERMISSION_LEVELS as CHECKS_READ,
+    )
+    from yoke_core.domain.gh_rest_transport import (
+        RestRequest,
+        RestTransportError,
+        request_with_retry,
+        split_repo,
+    )
+    from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
+
+    if not head_sha:
+        return (), None
+    auth, auth_err = resolve_auth_detail(ctx, CHECKS_READ)
+    if auth_err or auth is None:
+        return None, auth_err
+    owner, repo = split_repo(auth.repo)
+    try:
+        response = request_with_retry(
+            RestRequest(
+                method="GET",
+                path=f"/repos/{owner}/{repo}/commits/{head_sha}/check-runs",
+            ),
+            token=auth.token,
+        )
+    except RestTransportError as exc:
+        return None, f"check-runs read failed: {exc}"
+    payload = response.body if isinstance(response.body, dict) else None
+    raw_runs = payload.get("check_runs") if payload is not None else None
+    if not isinstance(raw_runs, list):
+        return None, "check-runs response omitted check_runs"
+    checks: list[LandingCheck] = []
+    for raw in raw_runs:
+        if not isinstance(raw, dict):
+            return None, "check-runs response contained a malformed run"
+        checks.append(LandingCheck(
+            name=str(raw.get("name") or "unnamed check").strip(),
+            status=str(raw.get("status") or "").strip().lower(),
+            conclusion=str(raw.get("conclusion") or "").strip().lower(),
+        ))
+    return tuple(checks), None
+
+
 def describe(
     pr_num: str,
     state: PrLandingState,
     entry: Optional[QueueMember],
     entry_readable: bool,
     train: Optional[TrainRun],
+    checks: Optional[tuple[LandingCheck, ...]] = None,
 ) -> str:
     """The observed facts behind a verdict, as plain named readings."""
     if not entry_readable:
@@ -90,12 +162,15 @@ def describe(
         run = train.conclusion or train.status or "unreported"
         if train.url:
             run = f"{run} ({train.url})"
-    return (
+    narrative = (
         f"pull request {pr_num}: merged=false, "
         f"state={'closed' if state.closed else 'open'}, "
         f"merge-when-ready={'armed' if state.auto_merge_active else 'cleared'}, "
         f"queue-entry={slot}, train-run={run}"
     )
+    if checks is not None:
+        narrative = f"{narrative}, {describe_checks(checks)}"
+    return narrative
 
 
 def _observe(
@@ -117,7 +192,15 @@ def _observe(
     train, train_note = read_train_run(ctx, pr_num)
     if train_note:
         warnings.append(train_note)
-    narrative = describe(pr_num, state, entry, entry_error is None, train)
+    checks: Optional[tuple[LandingCheck, ...]] = None
+    if train is not None and train.head_sha:
+        checks, check_error = read_landing_checks(ctx, train.head_sha)
+        if check_error:
+            warnings.append(check_error)
+            checks = None
+    narrative = describe(
+        pr_num, state, entry, entry_error is None, train, checks,
+    )
     return narrative, entry, entry_error is None
 
 
@@ -207,9 +290,12 @@ __all__ = [
     "CLOSED_UNMERGED",
     "DEFAULT_CONFIRM_SECONDS",
     "LANDED",
+    "LandingCheck",
     "LandingVerdict",
     "PENDING",
     "STALLED",
     "classify_landing",
     "describe",
+    "describe_checks",
+    "read_landing_checks",
 ]

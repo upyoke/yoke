@@ -261,6 +261,8 @@ def handle_release_merged_lane(request: FunctionCallRequest) -> HandlerOutcome:
     cycle cannot form.
 
     Idempotent: a retry after the row is already released reports zero.
+    Claim-independent: the terminal transition may already have released
+    the item claim that used to be required here.
     """
     item_id = _item_id(request)
     if item_id is None:

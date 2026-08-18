@@ -25,6 +25,9 @@ from yoke_core.domain.merge_queue_route_selection import (
     route_standalone_landing,
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
+from yoke_core.domain.standalone_item_merge_checkout import (
+    resolve_checkout as _resolve_checkout,
+)
 from yoke_core.domain.standalone_item_merge_lane import (
     active_lanes,
     lane_branch,
@@ -68,34 +71,9 @@ def _session_holds_claim(item_id: int, session_id: str) -> str:
     return recovery.claim_error(item_id, session_id)
 
 
-def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
-    """Resolve the checkout and base branch the ITEM's branch lands in.
-
-    The lane was prepared in the checkout the item's project maps to, so the
-    merge reads the same mapping through the shared preflight resolver.
-    Deriving it from the session's own repo instead merged — or refused —
-    against whichever repository the harness happened to stand in.
-    """
-    from yoke_core.domain.worktree_preflight_repo_resolution import (
-        resolve_preflight_repo_root,
-    )
-    from yoke_core.engines.done_transition_gates import (
-        _get_base_branch,
-        _resolve_default_branch,
-    )
-
-    repo_root, error = resolve_preflight_repo_root(
-        item=item, project_flag=None, repo_root_override=None,
-    )
-    if error:
-        raise RuntimeError(error)
-    project_repo = Path(repo_root)
-    project_slug = str((item.get("project") or {}).get("slug") or "")
-    default_branch = (
-        _resolve_default_branch(project_slug) if project_slug else ""
-    )
-    target = target_override or _get_base_branch(default_branch, project_repo)
-    return project_repo, target or "main"
+def _announce_close_out(step: str) -> None:
+    """Name each close-out step so a killed capture shows where it stopped."""
+    print(f"[phase:close-out] {step}", file=sys.stderr, flush=True)
 
 
 def _transition_to_done(
@@ -280,6 +258,7 @@ def run(argv: List[str]) -> int:
     }
 
     if needs_evidence:
+        _announce_close_out("recording evidence")
         write_error = evidence.record(
             item_id=item_id,
             outcome=outcome,
@@ -308,11 +287,13 @@ def run(argv: List[str]) -> int:
 
     from yoke_core.domain.standalone_item_merge import sync_item_to_github
 
+    _announce_close_out("syncing GitHub")
     sync_error = sync_item_to_github(item_id)
     if sync_error:
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
     if not args.skip_status:
+        _announce_close_out("terminal transition")
         transition_error = _transition_to_done(
             item_id, status, repo_root, target, outcome.commit_sha,
             outcome.merge_sha,
@@ -326,6 +307,7 @@ def run(argv: List[str]) -> int:
             print(json.dumps(envelope, indent=2, sort_keys=True))
             return 1
         envelope["status"] = "done"
+        _announce_close_out("lane cleanup")
         envelope["warnings"].extend(cleanup_terminal_item_lanes(
             {**item, "claim": None}, target_status="done",
             session_id=str(args.session_id),

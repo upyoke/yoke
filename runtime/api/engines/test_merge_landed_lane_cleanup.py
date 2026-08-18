@@ -228,8 +228,55 @@ def test_row_release_failure_warns_without_unwinding_the_merge(monkeypatch):
     )
     said: list[str] = []
 
-    release_lane_row(7, BRANCH, emit=lambda message, **_kw: said.append(message))
+    warning = release_lane_row(
+        7, BRANCH, emit=lambda message, **_kw: said.append(message),
+    )
 
-    assert len(said) == 1
-    assert "left active after worktree removal" in said[0]
-    assert "control plane down" in said[0]
+    assert warning is not None
+    assert "left active after worktree removal" in warning
+    assert warning in said
+    assert "control plane down" in warning
+
+
+def test_claim_required_release_is_not_a_left_active_warning(monkeypatch):
+    """The terminal transition already released the row and the claim."""
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **_kw: SimpleNamespace(
+            success=False, result=None,
+            error=SimpleNamespace(
+                message=(
+                    "no active claim by session 's' on item YOK-1; "
+                    "acquire one first: yoke claims work acquire"
+                ),
+            ),
+        ),
+    )
+    said: list[str] = []
+
+    warning = release_lane_row(
+        7, BRANCH, emit=lambda message, **_kw: said.append(message),
+    )
+
+    assert warning is None
+    assert said == []
+
+
+def test_row_release_warning_is_returned_from_prune(landed_lane, monkeypatch):
+    """The merge envelope carries any warning that was actually emitted."""
+    _land_on_main(landed_lane.repo)
+    monkeypatch.setattr(
+        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+        lambda **_kw: SimpleNamespace(
+            success=False, result=None,
+            error=SimpleNamespace(message="control plane down"),
+        ),
+    )
+
+    preserved = prune_landed_lane(
+        repo_root=str(landed_lane.repo), branch=BRANCH, target="main",
+        item_id=7, run_git=_run_git, emit=lambda *_a, **_kw: None,
+    )
+
+    assert any("left active after worktree removal" in note for note in preserved)
+    assert any("control plane down" in note for note in preserved)
