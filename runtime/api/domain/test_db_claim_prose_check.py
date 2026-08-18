@@ -125,6 +125,53 @@ That's the example schema we will NOT modify here.
         prose = "We document the historical `ALTER TABLE items` example."
         assert detect_triggers(prose) == []
 
+    def test_semantic_backfill_without_data_context_is_ignored(self):
+        prose = (
+            "sessions.begin is the designed backfill once init declares "
+            "the ambient session id."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_inline_out_of_scope_clause_is_ignored(self):
+        prose = (
+            "OUT OF SCOPE: changing the authority boundary itself, and "
+            "backfilling qa_requirements.workflow_transition_id."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_markdown_out_of_scope_section_is_ignored(self):
+        prose = """Implementation only changes CLI parsing.
+
+## Out of scope
+ALTER TABLE items and backfill existing rows.
+
+## Verification
+Run the focused parser tests.
+"""
+        assert detect_triggers(prose) == []
+
+    def test_quoted_and_historical_motivation_is_ignored(self):
+        prose = (
+            'An earlier engine release "ships a schema change". '
+            "This work only repairs function registration."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_motivating_parenthetical_is_ignored(self):
+        prose = (
+            "Apply project configuration after deploy (the motivating case: "
+            "the engine ships a schema change); no database write occurs here."
+        )
+        assert detect_triggers(prose) == []
+
+    def test_current_schema_change_outside_ignored_context_still_fires(self):
+        prose = (
+            "OUT OF SCOPE: backfill existing rows.\n\n"
+            "Implementation ships a schema change in this release."
+        )
+        labels = [t[0] for t in detect_triggers(prose)]
+        assert "schema change" in labels
+
     def test_grep_tooling_line_ignored(self):
         prose = "rg -n 'ALTER TABLE' runtime\nThe tool searches for usages."
         assert detect_triggers(prose) == []

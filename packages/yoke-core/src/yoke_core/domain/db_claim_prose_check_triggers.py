@@ -22,8 +22,8 @@ Trigger phrase taxonomy:
 * DML against authoritative tables: ``INSERT INTO``, ``UPDATE``,
   ``DELETE FROM`` paired with a table name.
 * Schema vocabulary: ``schema change``, ``schema migration``, ``column``
-  in a mutation context, ``backfill``, ``bulk data``, ``add a column``,
-  ``drop the column``.
+  in a mutation context, data-context ``backfill``, ``bulk data``,
+  ``add a column``, ``drop the column``.
 * Governed-DB language: ``governed DB``, ``governed migration``,
   ``governed mutation``, ``authoritative DB``, ``authoritative database``,
   ``migration_audit``, ``migration module``.
@@ -33,10 +33,9 @@ Trigger phrase taxonomy:
 Match policy:
 
 * All detection is case-insensitive.
-* Phrases inside fenced code blocks (``\`\`\` ... \`\`\``) and inline
-  code spans (``\`...\``) are ignored — those frequently quote shell
-  commands or grep patterns that contain the trigger words without
-  declaring DB mutation.
+* Phrases inside fenced code blocks (``\`\`\` ... \`\`\``), inline code,
+  quoted prose, explicit out-of-scope sections, and clearly historical
+  narrative are ignored.
 * Lines beginning with ``rg -``, ``grep -``, or ``python3 -m`` (after
   whitespace) are ignored — they are tooling references, not declarative
   prose.
@@ -49,6 +48,13 @@ from __future__ import annotations
 
 import re
 from typing import Dict, List
+
+
+_BACKFILL_TERM = r"\bback[\s-]?fill(?:ing|ed)?\b"
+_BACKFILL_CONTEXT = (
+    r"\b(?:rows?|columns?|tables?|records?|data|databases?|db|schemas?|"
+    r"migrations?|migration_audit|values?|fields?)\b"
+)
 
 
 # Compiled patterns — each carries an operator-facing label so the
@@ -107,7 +113,14 @@ _PROSE_PATTERNS: List[tuple] = [
         "schema mutation",
         re.compile(r"\bschema\s+mutation[s]?\b", re.IGNORECASE),
     ),
-    ("backfill", re.compile(r"\bback[\s-]?fill(?:ing|ed)?\b", re.IGNORECASE)),
+    (
+        "backfill",
+        re.compile(
+            rf"(?:{_BACKFILL_CONTEXT}[^.\n]{{0,80}}{_BACKFILL_TERM}|"
+            rf"{_BACKFILL_TERM}[^.\n]{{0,80}}{_BACKFILL_CONTEXT})",
+            re.IGNORECASE,
+        ),
+    ),
     ("bulk data", re.compile(r"\bbulk\s+data\b", re.IGNORECASE)),
     ("governed DB", re.compile(r"\bgoverned\s+db\b", re.IGNORECASE)),
     (
@@ -194,6 +207,28 @@ _NEGATIVE_DB_CLAIM_PATTERNS: List[re.Pattern] = [
 # (`...`) get stripped before detection.
 _FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+_QUOTED_PROSE_RE = re.compile(r'(?:"[^"\n]+"|“[^”\n]+”)')
+_ANY_HEADING_RE = re.compile(r"^[ \t]*(?P<marks>#{1,6})[ \t]+", re.IGNORECASE)
+_OUT_OF_SCOPE_HEADING_RE = re.compile(
+    r"^[ \t]*(?P<marks>#{1,6})[ \t]+(?:\*\*)?out[ -]of[ -]scope"
+    r"(?:\*\*)?(?:[ \t]*:[^\n]*)?[ \t]*#*[ \t]*(?:\n|\Z)",
+    re.IGNORECASE,
+)
+_OUT_OF_SCOPE_LINE_RE = re.compile(
+    r"^[ \t]*(?:\*\*)?out[ -]of[ -]scope(?:\*\*)?[ \t]*:[^\n]*",
+    re.IGNORECASE,
+)
+_NARRATIVE_PAREN_RE = re.compile(
+    r"\([^()\n]{0,240}\b(?:background|historical|previous|earlier|prior|"
+    r"motivat(?:e|ed|ing|ion))\b[^()\n]{0,240}\)",
+    re.IGNORECASE,
+)
+_HISTORICAL_SENTENCE_RE = re.compile(
+    r"(?:^|(?<=[.!?])\s+)(?:(?:historically|previously|formerly)\b|"
+    r"(?:(?:an?|the)\s+)?(?:earlier|previous|prior)\s+"
+    r"(?:release|version|engine|implementation)\b)[^.!?\n]*(?:[.!?]|\n|\Z)",
+    re.IGNORECASE | re.MULTILINE,
+)
 # Whole-line strip — kill any line whose first non-whitespace token is a
 # tooling invocation. The regex matches up to and including the trailing
 # newline (or end of string) so the entire command line vanishes.
@@ -223,13 +258,40 @@ def _strip_non_executing_sql_evidence(prose: str) -> str:
     return "".join(segments)
 
 
+def _strip_out_of_scope_sections(prose: str) -> str:
+    """Blank explicit Markdown out-of-scope sections and inline clauses."""
+    kept = []
+    skipped_heading_level = None
+    for line in prose.splitlines(keepends=True):
+        heading = _ANY_HEADING_RE.match(line)
+        if skipped_heading_level is not None:
+            if heading and len(heading.group("marks")) <= skipped_heading_level:
+                skipped_heading_level = None
+            else:
+                kept.append("\n" if line.endswith("\n") else " ")
+                continue
+        scope_heading = _OUT_OF_SCOPE_HEADING_RE.match(line)
+        if scope_heading:
+            skipped_heading_level = len(scope_heading.group("marks"))
+            kept.append("\n" if line.endswith("\n") else " ")
+        elif _OUT_OF_SCOPE_LINE_RE.match(line):
+            kept.append("\n" if line.endswith("\n") else " ")
+        else:
+            kept.append(line)
+    return "".join(kept)
+
+
 def _strip_code(prose: str) -> str:
-    """Remove fenced code blocks, inline code spans, and tooling lines."""
+    """Remove code and narrative contexts that do not declare current work."""
     if not prose:
         return ""
     no_fenced = _FENCED_CODE_RE.sub(" ", prose)
     no_inline = _INLINE_CODE_RE.sub(" ", no_fenced)
-    no_tools = _TOOLING_LINE_RE.sub(" ", no_inline)
+    no_quotes = _QUOTED_PROSE_RE.sub(" ", no_inline)
+    no_scope = _strip_out_of_scope_sections(no_quotes)
+    no_context = _NARRATIVE_PAREN_RE.sub(" ", no_scope)
+    no_history = _HISTORICAL_SENTENCE_RE.sub(" ", no_context)
+    no_tools = _TOOLING_LINE_RE.sub(" ", no_history)
     return _strip_non_executing_sql_evidence(no_tools)
 
 

@@ -94,7 +94,9 @@ class TestCheckComposition:
             item_ref="BUZ-42",
         )
         assert "yoke db-claim amend BUZ-42" in outcome.recovery
-        assert "--reason \"<why>\" --payload '<unified-claim-json>'" in outcome.recovery
+        assert '--reason "<why no governed DB mutation>" --state none' in outcome.recovery
+        assert "reviewed-negative attestation" in outcome.recovery
+        assert "--payload or --stdin" in outcome.recovery
         assert "service_client" not in outcome.recovery
 
     def test_no_profile_means_no_declared_claim(self):
