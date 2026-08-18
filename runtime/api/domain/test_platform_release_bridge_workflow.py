@@ -79,18 +79,21 @@ def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() 
     assert "production" not in declared
 
 
-def test_bridge_translates_to_the_promotion_label_only_at_the_platform_dispatch() -> None:
+def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch() -> None:
     text = _text()
     dispatch = text.split(
         "- name: Dispatch and await Platform pin promotion and release", 1
     )[1].split("      - name: ", 1)[0]
 
-    assert "stage) platform_target=stage ;;" in dispatch
-    assert "prod) platform_target=production ;;" in dispatch
+    # Platform's promotion train is keyed by the registered environment
+    # names, so the bridge passes the name through unchanged and never
+    # reintroduces a translated promotion label.
+    assert 'stage|prod) platform_target="$TARGET_ENVIRONMENT" ;;' in dispatch
+    assert "platform_target=production" not in text
+    assert "production" not in dispatch
     # An unroutable environment stops the release rather than dispatching a
     # promotion input Platform's own choice list would reject.
     assert "no Platform promotion route for environment $TARGET_ENVIRONMENT" in dispatch
-    assert text.count("platform_target=production") == 1
 
 
 def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:

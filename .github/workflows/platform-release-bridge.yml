@@ -3,11 +3,10 @@ run-name: "${{ inputs.release_mode }} ${{ inputs.target_environment }} yoke@${{ 
 
 # One environment coordinate crosses this bridge: `target_environment`, the
 # registered Yoke environment name the deployment run's typed environment
-# reference resolves to. Every Yoke surface here — the fleet-preflight receipt
-# gate and the desired-pin writer — is keyed by that name. Platform's promotion
-# train has its own `stage`/`production` input vocabulary that Yoke cannot
-# rename, so the name is translated to it once, at the dispatch step that
-# speaks to Platform, and nowhere else.
+# reference resolves to. Every surface on both sides — the fleet-preflight
+# receipt gate, the desired-pin writer, and Platform's promotion train — is
+# keyed by that registered name, so the bridge passes it through unchanged.
+# The dispatch step only refuses an environment with no promotion route.
 
 on:
   workflow_dispatch:
@@ -20,7 +19,7 @@ on:
           - stage
           - prod
       release_mode:
-        description: "Normal release or production hotfix"
+        description: "Normal release or prod hotfix"
         required: true
         type: choice
         options:
@@ -152,8 +151,7 @@ jobs:
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
         run: |
           case "$TARGET_ENVIRONMENT" in
-            stage) platform_target=stage ;;
-            prod) platform_target=production ;;
+            stage|prod) platform_target="$TARGET_ENVIRONMENT" ;;
             *)
               echo "no Platform promotion route for environment $TARGET_ENVIRONMENT" >&2
               exit 1
