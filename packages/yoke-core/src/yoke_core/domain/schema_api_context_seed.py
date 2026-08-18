@@ -134,6 +134,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "path_claim_amendments",
         "actors",
         "actor_labels",
+        "coordination_leases",
         "harness_machine_reports",
     ),
     "auth": (
@@ -183,6 +184,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # catalog/report projection so Pack-status audits do not guess its schema.
 # These caps therefore follow the complete registered recipes and table facts
 # rendered today rather than an arbitrary prose target. The claims topic now
-# also names harness_machine_reports (install-glue presence; no hashing).
-PACKET_LINE_BUDGET_PER_ROLE: int = 419
-PACKET_LINE_BUDGET_AGGREGATE: int = 2161
+# also names harness_machine_reports (install-glue presence; no hashing)
+# and coordination_leases typed-owner / release-provenance columns.
+PACKET_LINE_BUDGET_PER_ROLE: int = 421
+PACKET_LINE_BUDGET_AGGREGATE: int = 2173

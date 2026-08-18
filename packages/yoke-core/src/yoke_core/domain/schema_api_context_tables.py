@@ -15,7 +15,8 @@ public export):
   correction link table; merged into ``CORE_TABLES``.
 - :mod:`schema_api_context_tables_claims` — harness_sessions,
   work_claims, path_claims, path_claim_targets, path_claim_task_bindings,
-  path_targets, path_claim_amendments, actors, actor_labels.
+  path_targets, path_claim_amendments, actors, actor_labels,
+  coordination_leases.
 - :mod:`schema_api_context_tables_harness` — harness_machine_reports.
 - :mod:`schema_api_context_tables_auth` — roles, permissions,
   role_permissions, actor_project_roles, organizations, actor_org_roles.

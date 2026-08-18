@@ -1,9 +1,13 @@
 """Backfill typed owners on coordination leases.
 
 ``session_id`` stays as acquire-time registration. The holder is
-``owner_kind`` plus the matching owner column. Rows that recorded the
-anonymous rehearsal label become item-owned on the declared migration
-item for that lease key.
+``owner_kind`` plus the matching owner column. Rows that already carry
+a typed owner are skipped. Anonymous rehearsal registration becomes
+item-owned on the declared migration item for that lease key.
+
+Column ADD IF NOT EXISTS here is ordering insurance so rehearsal
+against a current dump is self-contained. Boot converge owns the
+same columns via ``schema_coordination_lease_columns``.
 """
 
 from __future__ import annotations
@@ -42,14 +46,24 @@ def apply(conn: Any) -> None:
         pass
     rows = conn.execute(
         "SELECT id, project_id, lease_key, session_id, owner_kind, "
-        "owner_item_id, owner_session_id FROM coordination_leases"
+        "owner_item_id, owner_session_id, owner_work_claim_id "
+        "FROM coordination_leases"
     ).fetchall()
     for row in rows:
         _backfill_row(conn, row)
 
 
+def _has_typed_owner(row: Any) -> bool:
+    """True when live code already wrote a typed owner; never rewrite those."""
+    if row["owner_item_id"] is not None:
+        return True
+    if row["owner_session_id"]:
+        return True
+    return row["owner_work_claim_id"] is not None
+
+
 def _backfill_row(conn: Any, row: Any) -> None:
-    if row["owner_item_id"] is not None or row["owner_session_id"]:
+    if _has_typed_owner(row):
         return
     session_id = str(row["session_id"] or "")
     if session_id == ANONYMOUS_REGISTRATION:
