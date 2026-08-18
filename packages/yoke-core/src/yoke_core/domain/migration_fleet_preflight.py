@@ -84,6 +84,7 @@ class RehearsalPlan:
     #: invariants can run after convergence. Absent means the caller opts
     #: out of that proof (tests that only exercise dump/ownership paths).
     load_module: Callable[[str], Any] | None = None
+    post_converge_validator: Callable[[Any, str], str | None] | None = None
 
 
 @contextmanager
@@ -277,6 +278,8 @@ def _converge_copy(
                 conn, applied, load_module=plan.load_module, redact=copy_dsn
             )
         )
+        if failure is None and plan.post_converge_validator is not None:
+            failure = plan.post_converge_validator(conn, copy_dsn)
         if failure is not None:
             conn.rollback()
             return Verdict(database, False, failure, pending, applied)
