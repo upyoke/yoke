@@ -138,15 +138,15 @@ def leases_for_session(
 ) -> List[Tuple]:
     """Fetch coordination_leases for ``session_id``.
 
-    Rows: (lease_id, lease_key, released_at, release_reason). Terminal
-    leases are filtered when ``active_only`` is True.
+    Rows: (lease_id, lease_key, released_at, release_reason) plus
+    owner_kind / owner_item_id when the recorded payload has them.
+    Terminal leases are filtered when ``active_only`` is True.
     """
     terminal_filter = (
         " AND released_at IS NULL "
         if active_only else ""
     )
-    return db.query_quiet(
-        f"""
+    typed_sql = f"""
         SELECT cl.id, cl.lease_key, cl.released_at, cl.release_reason,
                cl.owner_kind, cl.owner_item_id
         FROM coordination_leases cl
@@ -159,9 +159,21 @@ def leases_for_session(
         )
         {terminal_filter}
         ORDER BY cl.id DESC
-        """,
-        (session_id, session_id, session_id),
-    )
+        """
+    typed_params = (session_id, session_id, session_id)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(typed_sql, typed_params):
+        return db.query_quiet(
+            f"""
+            SELECT id, lease_key, released_at, release_reason
+            FROM coordination_leases
+            WHERE session_id = %s
+            {terminal_filter}
+            ORDER BY id DESC
+            """,
+            (session_id,),
+        )
+    return db.query_quiet(typed_sql, typed_params)
 
 
 def _process_anchor(db: BoardDBLike, work_claim_id: Optional[int]) -> Optional[str]:

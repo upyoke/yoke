@@ -61,10 +61,6 @@ def enter(
             and held.owner_item_id == int(item_id)
         ):
             return heartbeat_lease(conn, held.id, commit=commit)
-        if held.owner_kind == OWNER_KIND_ITEM:
-            raise LeaseHeldError(
-                f"Lease {key} already held by item {held.owner_item_id}"
-            )
         raise _held_as_error(conn, held)
     return acquire_lease(
         conn,
