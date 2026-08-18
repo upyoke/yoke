@@ -38,6 +38,7 @@ from typing import Any, Dict
 
 from yoke_cli.config import machine_config
 from yoke_contracts import cursor_session_map
+from yoke_contracts.cursor_remount_expect import REMOUNT_REFUSAL_PAYLOAD_FIELD
 from yoke_contracts.hook_runner.chain_registry import SESSION_START_EVENT
 from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
@@ -154,6 +155,20 @@ def parse_payload(payload: str) -> Dict[str, Any]:
             data["remapped_conversation_id"] = own
             if not keep_stamped:
                 data["session_id"] = container
+    else:
+        refusal = data.get(REMOUNT_REFUSAL_PAYLOAD_FIELD)
+        arriving = (
+            refusal.get("arriving_conversation_id")
+            if isinstance(refusal, dict)
+            else None
+        )
+        if isinstance(arriving, str) and arriving:
+            # The liveness gate deliberately keeps the arriving conversation
+            # distinct so the ordinary foreign-lane guard can name the holder
+            # and lane. This stamp is a refusal identity, never an alias.
+            data["container_session_id"] = arriving
+            data["identity_stamped"] = True
+            data["session_id"] = arriving
 
     return data
 

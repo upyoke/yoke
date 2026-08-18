@@ -10,8 +10,15 @@ can be written; every later shell is a reader.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
+from typing import Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.cursor_remount_expect import (
+    REMOUNT_CONTINUITY,
+    RemountDecision,
+    observe_remount_candidate,
+)
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -33,9 +40,19 @@ def record_conversation_session(conversation_id: str, session_id: str) -> None:
     _record_conversation_session(conversation_id, session_id, _map_dir())
 
 
+@dataclass(frozen=True)
+class WorktreeFoldDecision:
+    """Client-side fold decision plus the claimed lane it concerns."""
+
+    remount: RemountDecision
+    lane: str
+
+
 def record_from_hook_payload(
-    payload: dict, executor: str, event_name: str = "",
-) -> None:
+    payload: dict,
+    executor: str,
+    event_name: str = "",
+) -> Optional[WorktreeFoldDecision]:
     """Persist a hook event's conversation -> container session pairing.
 
     Only the client hook process can: it alone sees this machine's
@@ -62,8 +79,8 @@ def record_from_hook_payload(
     fallback would otherwise clobber the claim-holder alias.
 
     Main-rooted holder hooks refresh a remount-expect receipt. A worktree
-    remap consumes that receipt before aliasing; folder occupancy alone
-    does not fold.
+    remap observes that holder conversation for one hook boundary, then
+    aliases only if it stayed quiet; folder occupancy alone does not fold.
 
     When the payload adapter has already folded ``session_id`` onto the
     container, the child id survives on ``subagent_session_id`` /
@@ -72,15 +89,38 @@ def record_from_hook_payload(
     the child conversation id still resolve.
     """
     if not is_cursor(executor):
-        return
+        return None
     try:
         conversation_id = payload.get("conversation_id")
         if not isinstance(conversation_id, str) or not conversation_id:
             conversation_id = payload.get("session_id")
         if not isinstance(conversation_id, str) or not conversation_id:
-            return
+            return None
         raw_container = container_session_id_from_evidence(payload)
-        if raw_container:
+        lane = _worktree_lane_name(payload)
+        mapped_conversation = fold_conversation_session_id(
+            conversation_id,
+            _map_dir(),
+        )
+        fold_decision: Optional[WorktreeFoldDecision] = None
+        if mapped_conversation and mapped_conversation != conversation_id:
+            container = mapped_conversation
+        elif (
+            lane
+            and _top_level_shaped(payload, conversation_id)
+            and (not raw_container or raw_container == conversation_id)
+        ):
+            fold_decision = _worktree_remap_decision(
+                payload,
+                conversation_id,
+                lane=lane,
+            )
+            if fold_decision is None:
+                return None
+            if fold_decision.remount.outcome != REMOUNT_CONTINUITY:
+                return fold_decision
+            container = fold_decision.remount.holder_session_id
+        elif raw_container:
             container = fold_conversation_session_id(
                 raw_container,
                 _map_dir(),
@@ -92,15 +132,13 @@ def record_from_hook_payload(
                 else:
                     container = raw_container
         else:
-            container = _worktree_remap_container(payload)
-            if not container:
-                container = resolve_container_from_subagent_transcript_layout(
-                    conversation_id,
-                )
+            container = resolve_container_from_subagent_transcript_layout(
+                conversation_id,
+            )
             if (
                 not container
                 and _top_level_shaped(payload, conversation_id)
-                and not _worktree_lane_name(payload)
+                and not lane
             ):
                 container = (
                     fold_conversation_session_id(
@@ -110,9 +148,12 @@ def record_from_hook_payload(
                     or conversation_id
                 )
         if not container:
-            return
-        if not _worktree_lane_name(payload):
-            refresh_remount_expect(container)
+            return fold_decision
+        if not lane:
+            refresh_remount_expect(
+                container,
+                raw_container or conversation_id,
+            )
         aliases = {conversation_id}
         for key in (
             "conversation_id",
@@ -127,8 +168,9 @@ def record_from_hook_payload(
             aliases.add(env_cid)
         for alias in aliases:
             record_conversation_session(alias, container)
+        return fold_decision
     except Exception:  # noqa: BLE001 — bookkeeping must not break a hook
-        return
+        return None
 
 
 def _top_level_shaped(payload: dict, conversation_id: str) -> bool:
@@ -152,16 +194,20 @@ def _worktree_lane_name(payload: dict) -> str:
     return linked_worktree_lane_name(workspace)
 
 
-def _worktree_remap_container(payload: dict) -> str:
-    """Alias a linked-worktree remount onto its claim-holder session.
+def _worktree_remap_decision(
+    payload: dict,
+    conversation_id: str,
+    *,
+    lane: str,
+) -> Optional[WorktreeFoldDecision]:
+    """Evaluate a linked-worktree conversation against its claim holder.
 
     Client hooks must not import ``yoke_core`` (package boundary). Lane
     parsing stays in contracts; holder lookup rides the function-call
     dispatcher over the active transport.
     """
-    lane = _worktree_lane_name(payload)
     if not lane:
-        return ""
+        return None
     try:
         from yoke_cli.commands._helpers import (
             ensure_handlers_loaded,
@@ -178,31 +224,37 @@ def _worktree_remap_container(payload: dict) -> str:
             timeout_s=5.0,
         )
     except Exception:  # noqa: BLE001
-        return ""
+        return None
     if not getattr(response, "success", False):
-        return ""
+        return None
     result = getattr(response, "result", None) or {}
     holder = result.get("holder") if isinstance(result, dict) else None
     if not isinstance(holder, dict):
-        return ""
+        return None
     session_id = holder.get("session_id")
     if not isinstance(session_id, str) or not session_id:
-        return ""
+        return None
     own = payload.get("session_id") or payload.get("conversation_id") or ""
     if isinstance(own, str) and own and own == session_id:
-        return ""
-    from yoke_contracts.cursor_remount_expect import consume_remount_expect
+        return None
+    return WorktreeFoldDecision(
+        remount=observe_remount_candidate(
+            _map_dir(),
+            session_id,
+            conversation_id,
+        ),
+        lane=lane,
+    )
 
-    if not consume_remount_expect(_map_dir(), session_id):
-        return ""
-    return session_id
 
-
-def refresh_remount_expect(session_id: str) -> bool:
+def refresh_remount_expect(
+    session_id: str,
+    conversation_id: str = "",
+) -> bool:
     """Refresh the holder's remount-expect receipt in the machine map dir."""
     from yoke_contracts.cursor_remount_expect import write_remount_expect
 
-    return write_remount_expect(_map_dir(), session_id)
+    return write_remount_expect(_map_dir(), session_id, conversation_id)
 
 
 def prune_stale_conversation_map() -> None:
