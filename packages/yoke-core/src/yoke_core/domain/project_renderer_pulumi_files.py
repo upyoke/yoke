@@ -12,8 +12,11 @@ ENVIRONMENT_PROGRAM_FILES = (
     "webapp_api_stack.py",
     "webapp_distribution_stack.py",
     "webapp_distribution_github_variables.py",
+    "webapp_dns_records.py",
     "webapp_environment_stack.py",
+    "webapp_environment_github_binding.py",
     "webapp_environment_origin_policy.py",
+    "webapp_environment_outputs.py",
 )
 REGISTRY_PROGRAM_FILES = (
     "webapp_registry_ci_metadata_policy.py",
