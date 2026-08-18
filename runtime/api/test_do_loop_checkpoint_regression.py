@@ -4,6 +4,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 LOOP_ROUTING = REPO_ROOT / ".agents/skills/yoke/do/loop-routing.md"
+LOOP_ROUTING_WAIT = REPO_ROOT / ".agents/skills/yoke/do/loop-routing-wait.md"
 FINALIZE = REPO_ROOT / ".agents/skills/yoke/advance/finalize.md"
 ADVANCE_SKILL = REPO_ROOT / ".agents/skills/yoke/advance/SKILL.md"
 
@@ -211,11 +212,14 @@ def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
     """Do-loop WAIT rendering must have a special branch for
     `wait_reason="no_lane_compatible_work"` and must not print the generic
     `No actionable work exists on the frontier` line in that branch."""
-    text = LOOP_ROUTING.read_text()
-
-    wait_section_idx = text.find("#### `wait`")
+    index = LOOP_ROUTING.read_text()
+    wait_section_idx = index.find("#### `wait`")
     assert wait_section_idx != -1, "loop-routing.md must contain a #### `wait` section"
-    wait_section = text[wait_section_idx:]
+    wait_pointer = index[wait_section_idx:]
+    assert "loop-routing-wait.md" in wait_pointer, (
+        "WAIT branch must stay extracted to loop-routing-wait.md"
+    )
+    wait_section = LOOP_ROUTING_WAIT.read_text()
 
     assert '"no_lane_compatible_work"' in wait_section, (
         "WAIT branch must explicitly handle wait_reason=\"no_lane_compatible_work\""
