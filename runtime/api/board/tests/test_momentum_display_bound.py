@@ -48,6 +48,60 @@ def test_an_outlier_no_longer_flattens_the_days_around_it() -> None:
     )
 
 
+def test_strategy_serves_a_payload_recorded_before_the_net_change_measure() -> None:
+    # The board renders from a payload recorded server-side, so between this
+    # build merging and the server shipping it the newer query is absent.
+    # Falling back to the whole-size total the payload does hold keeps the
+    # board rendering instead of aborting the rebuild.
+    from yoke_contracts.board.momentum_series import (
+        _strategy_query,
+        strategy_bytes_by_day,
+    )
+
+    project_ids = [1]
+    net_change_sql, params = _strategy_query(project_ids, 120, net_change=True)
+    whole_size_sql, _ = _strategy_query(project_ids, 120, net_change=False)
+    assert net_change_sql != whole_size_sql
+
+    class _PayloadWithoutNetChange:
+        def __init__(self) -> None:
+            self.served: list[str] = []
+
+        def has_query(self, sql: str, params=None) -> bool:
+            return sql == whole_size_sql
+
+        def query(self, sql: str, params=None):
+            self.served.append(sql)
+            assert sql == whole_size_sql, "must not issue an unrecorded query"
+            return [("2026-07-05", 4200)]
+
+    db = _PayloadWithoutNetChange()
+    assert strategy_bytes_by_day(db, project_ids, days=120) == {"2026-07-05": 4200}
+    assert db.served == [whole_size_sql]
+
+
+def test_strategy_prefers_the_net_change_measure_when_the_payload_has_it() -> None:
+    from yoke_contracts.board.momentum_series import (
+        _strategy_query,
+        strategy_bytes_by_day,
+    )
+
+    project_ids = [1]
+    net_change_sql, _ = _strategy_query(project_ids, 120, net_change=True)
+
+    class _PayloadWithNetChange:
+        def has_query(self, sql: str, params=None) -> bool:
+            return True
+
+        def query(self, sql: str, params=None):
+            assert sql == net_change_sql
+            return [("2026-07-05", 17)]
+
+    assert strategy_bytes_by_day(
+        _PayloadWithNetChange(), project_ids, days=120,
+    ) == {"2026-07-05": 17}
+
+
 def test_an_empty_day_stays_on_the_baseline_glyph() -> None:
     rendered = _build_sparkline([0, 5, 0, 9])
     assert rendered[0] == "▁"
