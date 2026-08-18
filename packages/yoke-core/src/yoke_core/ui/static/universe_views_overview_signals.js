@@ -44,14 +44,9 @@ function svgElement(documentNode, tag, className) {
 
 const BASELINE_Y = 25;
 const BAND_HEIGHT = 22;
-// The terminal board quantizes into five levels above its baseline, so any
-// non-zero day occupies at least the first of those five — a fifth of the
-// full height, not a hairline. Hold the line chart to the same floor: these
-// series are heavy-tailed (one outlier day many times the median), and a
-// purely proportional map leaves an ordinary day a fraction of a pixel off
-// the baseline — distinct from zero in the markup, indistinguishable to a
-// reader.
-const MIN_NONZERO_FRACTION = 1 / 5;
+// Preserve a visible distinction between zero and the smallest positive day
+// without flattening the proportional differences below the display bound.
+const MIN_NONZERO_LIFT = 1;
 
 // Mirrors yoke_contracts.board.momentum_series.display_bound, which the
 // terminal board scales by. The two runtimes are pinned to the same numbers
@@ -74,8 +69,8 @@ export function displayBound(values) {
 function sparklineHeight(value, bound) {
   if (value <= 0) return BASELINE_Y;
   const share = bound > 0 ? Math.min(value / bound, 1) : 1;
-  const fraction = Math.max(share, MIN_NONZERO_FRACTION);
-  return Math.round(BASELINE_Y - fraction * BAND_HEIGHT);
+  const proportionalHeight = Math.round(BASELINE_Y - share * BAND_HEIGHT);
+  return Math.min(proportionalHeight, BASELINE_Y - MIN_NONZERO_LIFT);
 }
 
 function sparkline(documentNode, values, signal) {
