@@ -1,6 +1,7 @@
 """Classifying one observation of a queued pull request."""
 
 from yoke_core.domain import merge_queue_landing_verdict as verdict_mod
+from yoke_core.domain.merge_queue_landing_verdict import LandingCheck
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueMember,
@@ -34,6 +35,10 @@ def _wire(monkeypatch, *, states, entries=(), train=None, train_note=None):
     )
     monkeypatch.setattr(
         verdict_mod, "read_train_run", lambda _ctx, pr_num: (train, train_note)
+    )
+    monkeypatch.setattr(
+        verdict_mod, "read_landing_checks",
+        lambda _ctx, _sha: ((), None),
     )
     return reads
 
@@ -186,3 +191,42 @@ def test_unreadable_pull_request_is_pending(monkeypatch):
     verdict = _classify()
     assert verdict.kind == verdict_mod.PENDING
     assert "github pr read failure" in verdict.warnings
+
+
+def test_pending_observation_names_pending_and_concluded_checks(monkeypatch):
+    _wire(
+        monkeypatch,
+        states=[ARMED],
+        entries=(QueueMember(pr_num="42", head_ref="YOK-200",
+                             state="AWAITING_CHECKS"),),
+        train=TrainRun(status="in_progress", head_sha="abc123"),
+    )
+    monkeypatch.setattr(
+        verdict_mod, "read_landing_checks",
+        lambda _ctx, sha: (
+            (
+                LandingCheck("lint", "in_progress"),
+                LandingCheck("ci", "completed", "success"),
+            ),
+            None,
+        ) if sha == "abc123" else ((), None),
+    )
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "pending-checks=lint" in verdict.narrative
+    assert "concluded-checks=ci=success" in verdict.narrative
+
+
+def test_unreadable_checks_warn_without_inventing_a_check_set(monkeypatch):
+    _wire(
+        monkeypatch,
+        states=[ARMED],
+        train=TrainRun(status="in_progress", head_sha="abc123"),
+    )
+    monkeypatch.setattr(
+        verdict_mod, "read_landing_checks",
+        lambda _ctx, _sha: (None, "check-runs read failed"),
+    )
+    verdict = _classify()
+    assert "pending-checks=" not in verdict.narrative
+    assert "check-runs read failed" in verdict.warnings

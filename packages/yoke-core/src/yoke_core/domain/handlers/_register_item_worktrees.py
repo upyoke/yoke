@@ -108,11 +108,12 @@ def register(registry) -> None:
         target_kinds=["item"],
         side_effects=["item_worktrees_update_state"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["actor_holds_item_claim"],
-        # No CLI adapter by design: the merge engine is the only caller, and
-        # it invokes this in the same act that removes the lane directory.
+        guardrails=[],
+        # Post-merge bookkeeping: the terminal transition releases the item
+        # claim in the same transaction that releases the row, so this caller
+        # often has no live claim. Idempotent and internal.
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind=None,
     )
 
 

@@ -28,11 +28,10 @@ so the landing converges only on a merged pull request covering the lane head
 and opens a fresh one otherwise — binding new commits to an old merge commit
 would record evidence for work that never landed.
 
-The poll narrates itself. Each observation is announced with what it
-saw — queue slot, arming, and the train run's own conclusion — because a
-pull request the queue is not driving waits exactly as silently as one
-mid-train, and silence is what let a landing burn its whole deadline on a
-pull request whose required check had already failed.
+The poll narrates itself. Each observation names the queue slot, arming,
+the train run, and the pending vs concluded check set. A line is emitted
+only when that set changes, because repeating the same facts on every
+poll hid a stalled check behind elapsed time.
 
 No lock wraps any of this: the expensive gate runs inside GitHub, and
 the Yoke-side close-out is one short bookkeeping step per member.
@@ -223,6 +222,7 @@ def land_item_through_merge_queue(
     pump = liveness if liveness is not None else SessionLivenessPump()
     merged = False
     last_seen = ""
+    last_announced = ""
     now = started
     while now < deadline:
         pump.tick()
@@ -235,10 +235,12 @@ def land_item_through_merge_queue(
         warnings.extend(landing.warnings)
         if landing.narrative:
             last_seen = landing.narrative
-            emit(
-                f"{POLL_LINE_PREFIX} {landing.narrative} "
-                f"(elapsed: {int(now - started)}s)"
-            )
+            if landing.narrative != last_announced:
+                last_announced = landing.narrative
+                emit(
+                    f"{POLL_LINE_PREFIX} {landing.narrative} "
+                    f"(elapsed: {int(now - started)}s)"
+                )
         if landing.kind == LANDED:
             merged = True
             break

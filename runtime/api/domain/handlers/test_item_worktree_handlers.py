@@ -285,10 +285,12 @@ def test_registrar_exposes_read_and_claimed_release_contracts() -> None:
 
     get_kwargs = entries["item_worktrees.get"][1]
     release_kwargs = entries["item_worktrees.release"][1]
+    merged_kwargs = entries["item_worktrees.release_merged_lane"][1]
     assert get_kwargs["side_effects"] == []
     assert get_kwargs["claim_required_kind"] is None
     assert release_kwargs["side_effects"] == ["item_worktrees_update_state"]
     assert release_kwargs["claim_required_kind"] == "item"
+    assert merged_kwargs["claim_required_kind"] is None
     assert "clean_lane_attestation" in release_kwargs["guardrails"]
     assert "evidence_only_status" in release_kwargs["guardrails"]
     assert (
