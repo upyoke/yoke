@@ -1,9 +1,9 @@
 """The release train carries registered environment names end to end.
 
-A hosted release flow deploys to an environment whose registry row is named
-``prod`` while the workflows it dispatches display it as ``production``. Every
-Yoke surface the dispatched workflow calls back into — the fleet-preflight
-receipt gate, the desired-pin writer — is keyed by the registered name, so the
+A hosted release flow deploys to an environment addressed everywhere by its
+registered name (``prod``/``stage``): the dispatched workflows accept only
+those names, and every Yoke surface they call back into — the fleet-preflight
+receipt gate, the desired-pin writer — is keyed by the same name, so the
 name is what the dispatch must carry.
 """
 
