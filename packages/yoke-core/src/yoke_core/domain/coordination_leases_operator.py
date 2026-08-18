@@ -61,13 +61,19 @@ def operator_release(
             f"No active lease for {project_id}:{lease_key}"
         )
 
-    effective_session = session_id or lease.session_id
+    effective_session = (session_id or os.environ.get("YOKE_SESSION_ID") or "").strip()
+    if not effective_session:
+        raise LeaseError(
+            "operator session is required; refusing to copy the lease holder"
+        )
 
     context = {
         "lease_id": lease.id,
         "project_id": numeric_project_id,
         "lease_key": lease_key,
         "prior_session_id": lease.session_id,
+        "prior_owner_kind": lease.owner_kind,
+        "prior_owner_item_id": lease.owner_item_id,
         "acquired_at": lease.acquired_at,
         "operator_reason": operator_reason,
         "release_reason_intent": "operator-override",
@@ -83,6 +89,7 @@ def operator_release(
         lease.id,
         reason=f"operator-override: {operator_reason}",
         now=now,
+        released_by_session_id=effective_session,
     )
 
     return {

@@ -213,17 +213,11 @@ def _emit_error(code: str, message: str) -> int:
 
 
 def _lease_to_dict(lease: Any) -> Dict[str, Any]:
-    return {
-        "id": lease.id,
-        "project_id": lease.project_id,
-        "lease_key": lease.lease_key,
-        "session_id": lease.session_id,
-        "actor_id": lease.actor_id,
-        "acquired_at": lease.acquired_at,
-        "heartbeat_at": lease.heartbeat_at,
-        "released_at": lease.released_at,
-        "release_reason": lease.release_reason,
-    }
+    from yoke_core.domain.coordination_lease_record import lease_as_dict
+
+    payload = lease_as_dict(lease)
+    payload["project_id"] = lease.project_id
+    return payload
 
 
 COORDINATION_LEASE_COMMANDS: Dict[str, Any] = {

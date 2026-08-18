@@ -123,3 +123,34 @@ def test_list_dispatches_filters_on_the_function_call_surface() -> None:
         "session_id": "holder-session",
         "active_only": True,
     }
+
+
+def test_list_dispatches_item_filter_on_the_function_call_surface() -> None:
+    captured: list[dict] = []
+
+    def call_dispatcher(**kwargs):
+        captured.append(kwargs)
+        return FunctionCallResponse(
+            success=True,
+            function=kwargs["function_id"],
+            version="v1",
+            request_id="req-1",
+            result={"leases": []},
+        )
+
+    with patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}):
+        with patch(
+            "yoke_cli.commands._helpers.call_dispatcher",
+            side_effect=call_dispatcher,
+        ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
+                with redirect_stdout(io.StringIO()), redirect_stderr(
+                    io.StringIO()
+                ):
+                    result = cli_main([
+                        "coordination-lease", "list",
+                        "--item", "42",
+                    ])
+
+    assert result == 0
+    assert captured[-1]["payload"] == {"owner_item_id": 42}

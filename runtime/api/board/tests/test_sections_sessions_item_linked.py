@@ -27,6 +27,7 @@ _SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT,
+    item_id INTEGER,
     process_key TEXT
 );
 CREATE TABLE path_claims (
@@ -52,7 +53,11 @@ CREATE TABLE coordination_leases (
     lease_key TEXT,
     session_id TEXT,
     released_at TEXT,
-    release_reason TEXT
+    release_reason TEXT,
+    owner_kind TEXT NOT NULL DEFAULT 'session',
+    owner_item_id INTEGER,
+    owner_session_id TEXT,
+    owner_work_claim_id INTEGER
 );
 """
 
@@ -228,3 +233,31 @@ class TestItemLinkedPathClaimRollup:
             active_only=False,
         )
         assert keycaps == ["YOK-1665"]
+
+    def test_item_owned_lease_names_the_item(self, board_db: BoardDB) -> None:
+        raw = connect_test_db(board_db.path)
+        try:
+            raw.execute(
+                "INSERT INTO work_claims (id, session_id, item_id) "
+                "VALUES (%s, %s, %s)",
+                (40, "sess-A", 1665),
+            )
+            raw.execute(
+                "INSERT INTO coordination_leases "
+                "(id, project_id, lease_key, session_id, owner_kind, "
+                "owner_item_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                (
+                    8, "yoke", "LIVE_DB_MIGRATION:primary",
+                    "rehearse-old", "item", 1665,
+                ),
+            )
+            raw.commit()
+        finally:
+            raw.close()
+        keycaps = build_session_keycaps(
+            board_db, "sess-A", [("YOK-1665", 1665, None)], active_only=True,
+        )
+        assert keycaps == [
+            "YOK-1665",
+            "\U0001f512 LIVE_DB_MIGRATION:primary (YOK-1665)",
+        ]

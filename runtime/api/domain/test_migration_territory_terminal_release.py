@@ -53,6 +53,7 @@ def _seed_owner(conn, *, item_id: int, session_id: str) -> int:
         conn,
         project=1,
         model_name=MODEL,
+        item_id=item_id,
         session_id=session_id,
     ).id
 
@@ -92,7 +93,8 @@ def test_terminal_status_does_not_release_foreign_holder(test_db):
     owned = active_lease(test_db, 1, LEASE_KEY)
     assert owned is not None
     test_db.execute(
-        "UPDATE coordination_leases SET session_id='foreign-owner' WHERE id=%s",
+        "UPDATE coordination_leases SET owner_item_id=4299, "
+        "session_id='foreign-owner' WHERE id=%s",
         (owned.id,),
     )
     test_db.commit()
@@ -122,7 +124,7 @@ def test_terminal_status_uses_historical_owner_after_claim_release(test_db):
     assert get_lease(test_db, lease_id).release_reason == "item-terminal:done"
 
 
-def test_shared_session_keeps_territory_until_last_model_owner_terminates(test_db):
+def test_terminal_release_follows_item_owner_not_shared_session(test_db):
     first_id, second_id = 4205, 4206
     lease_id = _seed_owner(test_db, item_id=first_id, session_id="shared-owner")
     seed_blitz_item(test_db, second_id, second_id)
@@ -141,13 +143,13 @@ def test_shared_session_keeps_territory_until_last_model_owner_terminates(test_d
 
     first = _transition(test_db, item_id=first_id, target_status="done")
     test_db.commit()
-    assert first.migration_territories_released == 0
-    assert active_lease(test_db, 1, LEASE_KEY) is not None
+    assert first.migration_territories_released == 1
+    assert get_lease(test_db, lease_id).release_reason == "item-terminal:done"
+    assert active_lease(test_db, 1, LEASE_KEY) is None
 
     second = _transition(test_db, item_id=second_id, target_status="stopped")
     test_db.commit()
-    assert second.migration_territories_released == 1
-    assert get_lease(test_db, lease_id).release_reason == "item-terminal:stopped"
+    assert second.migration_territories_released == 0
 
 
 def test_terminal_release_rolls_back_with_status_transition(test_db):

@@ -319,7 +319,13 @@ def create_governed_tables(conn: Any) -> None:
             acquired_at TEXT NOT NULL,
             heartbeat_at TEXT,
             released_at TEXT,
-            release_reason TEXT
+            release_reason TEXT,
+            owner_kind TEXT NOT NULL DEFAULT 'session',
+            owner_item_id INTEGER,
+            owner_session_id TEXT,
+            owner_work_claim_id INTEGER,
+            released_by_session_id TEXT,
+            released_by_actor_id TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS
             idx_coordination_leases_live ON coordination_leases(project_id, lease_key)
@@ -328,6 +334,8 @@ def create_governed_tables(conn: Any) -> None:
             idx_coordination_leases_session ON coordination_leases(session_id);
         CREATE INDEX IF NOT EXISTS
             idx_coordination_leases_heartbeat ON coordination_leases(heartbeat_at);
+        CREATE INDEX IF NOT EXISTS
+            idx_coordination_leases_owner_item ON coordination_leases(owner_item_id);
     """,
     )
     conn.commit()

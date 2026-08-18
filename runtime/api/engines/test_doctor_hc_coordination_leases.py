@@ -28,7 +28,13 @@ CREATE TABLE coordination_leases (
     acquired_at TEXT NOT NULL,
     heartbeat_at TEXT,
     released_at TEXT,
-    release_reason TEXT
+    release_reason TEXT,
+    owner_kind TEXT NOT NULL DEFAULT 'session',
+    owner_item_id INTEGER,
+    owner_session_id TEXT,
+    owner_work_claim_id INTEGER,
+    released_by_session_id TEXT,
+    released_by_actor_id TEXT
 );
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY,
@@ -141,6 +147,18 @@ class TestStaleOrOrphan:
         rec = _run_stale(leases_conn)
         assert rec.results[-1].result == "WARN"
         assert "sess-ended" in rec.results[-1].detail
+
+    def test_item_owned_stale_lease_is_excluded(self, leases_conn) -> None:
+        leases_conn.execute(
+            "INSERT INTO coordination_leases "
+            "(project_id, lease_key, session_id, acquired_at, heartbeat_at, "
+            " owner_kind, owner_item_id) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            ("yoke", "LIVE_DB_MIGRATION:primary", "rehearse-old",
+             _iso_ago(days=1), _iso_ago(minutes=120), "item", 7),
+        )
+        leases_conn.commit()
+        rec = _run_stale(leases_conn)
+        assert rec.results[-1].result == "PASS"
 
     def test_released_leases_excluded(self, leases_conn) -> None:
         leases_conn.execute(

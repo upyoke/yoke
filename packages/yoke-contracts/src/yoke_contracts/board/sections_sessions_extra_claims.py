@@ -147,13 +147,20 @@ def leases_for_session(
     )
     return db.query_quiet(
         f"""
-        SELECT id, lease_key, released_at, release_reason
-        FROM coordination_leases
-        WHERE session_id = %s
+        SELECT cl.id, cl.lease_key, cl.released_at, cl.release_reason,
+               cl.owner_kind, cl.owner_item_id
+        FROM coordination_leases cl
+        WHERE (
+          (cl.owner_kind = 'session' AND cl.owner_session_id = %s)
+          OR cl.session_id = %s
+          OR (cl.owner_kind = 'item' AND cl.owner_item_id IN (
+              SELECT item_id FROM work_claims WHERE session_id = %s
+          ))
+        )
         {terminal_filter}
-        ORDER BY id DESC
+        ORDER BY cl.id DESC
         """,
-        (session_id,),
+        (session_id, session_id, session_id),
     )
 
 
@@ -294,7 +301,17 @@ def build_session_keycaps(
 
     # Coordination leases — always separate keycaps, never decorate work_claims.
     for lease_row in lease_rows:
-        decorated_targets.append(f"{LEASE_GLYPH} {lease_row[1] or '?'}")
+        lease_key = lease_row[1] or "?"
+        owner_kind = lease_row[4] if len(lease_row) > 4 else None
+        owner_item_id = lease_row[5] if len(lease_row) > 5 else None
+        if owner_kind == "item" and owner_item_id is not None:
+            try:
+                ref = item_ref(db, int(owner_item_id))
+            except Exception:
+                ref = format_item_ref(None, None, None, item_id=int(owner_item_id))
+            decorated_targets.append(f"{LEASE_GLYPH} {lease_key} ({ref})")
+        else:
+            decorated_targets.append(f"{LEASE_GLYPH} {lease_key}")
 
     return decorated_targets
 

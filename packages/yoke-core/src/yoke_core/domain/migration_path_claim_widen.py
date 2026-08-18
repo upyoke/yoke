@@ -307,6 +307,7 @@ def widen_locked_claim(
                 conn,
                 project=context.project_id,
                 model_name=scope.model_name,
+                item_id=int(context.item_id),
                 session_id=session_id,
                 commit=False,
             )

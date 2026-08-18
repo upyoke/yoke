@@ -104,6 +104,7 @@ def _rehearse_inner(
         control_conn,
         project=project,
         model_name=profile["model_name"],
+        item_id=int(item_id),
         session_id=session_id,
     )
 

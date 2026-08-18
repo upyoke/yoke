@@ -22,7 +22,8 @@ def release_for_reclaimed_session(
     lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     rows = conn.execute(
         "SELECT id FROM coordination_leases "
-        f"WHERE session_id={marker} AND released_at IS NULL ORDER BY id{lock}",
+        f"WHERE owner_kind='session' AND owner_session_id={marker} "
+        f"AND released_at IS NULL ORDER BY id{lock}",
         (session_id,),
     ).fetchall()
     for row in rows:
