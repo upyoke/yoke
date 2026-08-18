@@ -7,6 +7,12 @@ import json
 import sqlite3
 
 from yoke_core.domain import flow_init
+from yoke_core.domain.migrations import (
+    _numeric_environment_site_json as json_helpers,
+)
+from yoke_core.domain.migrations import (
+    _numeric_environment_site_keys as key_helpers,
+)
 
 
 MIGRATION = importlib.import_module(
@@ -155,3 +161,23 @@ def test_migration_rewrites_keys_references_and_stored_payloads(monkeypatch) -> 
 
 def test_migration_declares_a_serving_floor() -> None:
     assert MIGRATION.MINIMUM_SERVING_VERSION == "0.1.1+launch.234"
+
+
+def test_postgres_target_constraint_discovery_escapes_like_pattern(
+    test_db,
+) -> None:
+    key_helpers._drop_target_constraints(test_db)
+    assert test_db.execute(
+        "SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass(%s) AND conname=%s",
+        ("deployment_flows", "deployment_flows_target_tier_vocabulary"),
+    ).fetchone() is None
+
+
+def test_stored_reference_recode_prefers_the_resolved_row_reference() -> None:
+    for payload in (
+        {"environment": "production", "environment_id": "yoke-api-prod"},
+        {"environment_id": "yoke-api-prod", "environment": "production"},
+    ):
+        assert json_helpers._recode_value(
+            payload, {"yoke-api-prod": "prod"}, {}
+        ) == {"environment": "prod"}

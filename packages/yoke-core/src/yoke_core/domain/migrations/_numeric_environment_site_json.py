@@ -32,6 +32,7 @@ def _recode_value(
     if not isinstance(value, dict):
         return value
     out: dict[str, Any] = {}
+    resolved_reference_keys: set[str] = set()
     for key, child in value.items():
         if key == "environment_by_target":
             # The numeric-key cutover deletes the alias map. Registered
@@ -40,20 +41,31 @@ def _recode_value(
         new_key = str(key)
         new_child = _recode_value(child, env_names, site_names)
         token = str(child) if not isinstance(child, (dict, list)) else ""
+        resolved_reference = False
         if key in {"environment_id", "target_environment_id"} and token in env_names:
             new_key = "environment" if key == "environment_id" else "target_environment"
             new_child = env_names[token]
+            resolved_reference = True
         elif key == "site_id" and token in site_names:
             new_key = "site"
             new_child = site_names[token]
+            resolved_reference = True
         elif key == "migration_receipts" and isinstance(child, dict):
             new_child = {
                 site_names.get(str(site), str(site)): receipt
                 for site, receipt in child.items()
             }
         if new_key in out and out[new_key] != new_child:
+            if resolved_reference:
+                out[new_key] = new_child
+                resolved_reference_keys.add(new_key)
+                continue
+            if new_key in resolved_reference_keys:
+                continue
             raise AssertionError(f"environment reference recode collides on {new_key!r}")
         out[new_key] = new_child
+        if resolved_reference:
+            resolved_reference_keys.add(new_key)
     return out
 
 
@@ -76,7 +88,12 @@ def _recode_json_column(
             before = json.loads(str(row["document"]))
         except (TypeError, ValueError):
             continue
-        after = _recode_value(before, env_names, site_names)
+        try:
+            after = _recode_value(before, env_names, site_names)
+        except AssertionError as exc:
+            raise AssertionError(
+                f"{table}.{json_column} row {row['row_key']}: {exc}"
+            ) from exc
         if after != before:
             conn.execute(
                 f'UPDATE "{table}" SET "{json_column}"={p} '

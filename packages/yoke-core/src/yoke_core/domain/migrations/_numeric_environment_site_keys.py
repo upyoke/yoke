@@ -101,8 +101,9 @@ def _drop_target_constraints(conn: Any) -> None:
         constraints = _rows(conn.execute(
             "SELECT conname FROM pg_constraint "
             "WHERE conrelid=to_regclass(%s) "
-            "AND pg_get_constraintdef(oid) LIKE '%target_environment_id%'",
-            (table,),
+            "AND (pg_get_constraintdef(oid) LIKE '%%target_environment_id%%' "
+            "OR conname=%s)",
+            (table, f"{table}_target_tier_vocabulary"),
         ))
         for row in constraints:
             conn.execute(
