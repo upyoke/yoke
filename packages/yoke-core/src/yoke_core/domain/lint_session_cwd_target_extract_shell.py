@@ -74,6 +74,9 @@ _SEGMENT_SEPARATORS = frozenset({"&&", "||", "|", "|&", ";", ";;", "&"})
 _SEARCH_COMMANDS = frozenset({
     "grep", "egrep", "fgrep", "rg", "ripgrep", "ag", "ack",
 })
+# Stdout reporters: operands are printed text, not filesystem write
+# targets. Redirects on the same segment still extract as writes.
+STDOUT_REPORTERS = frozenset({"print", "printf"})
 _CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
 
 # ``yoke`` control-plane registration adapters take path-shaped ARGUMENTS
@@ -174,6 +177,7 @@ def _extract_segment_targets(
     if _is_yoke_payload_path_segment(command_base, tokens):
         return []
     is_search = command_base in _SEARCH_COMMANDS
+    skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
     sed_script_index = _sed_script_positional_index(command_base, tokens)
 
     out: List[str] = []
@@ -194,7 +198,7 @@ def _extract_segment_targets(
                     out.append(target)
             i += 2
             continue
-        if not is_search:
+        if not skip_arg_targets:
             if tok in FLAG_BINARY and i + 1 < n:
                 value = tokens[i + 1]
                 if value and not value.startswith("-"):
@@ -218,7 +222,7 @@ def _extract_segment_targets(
             continue
         if seen_command_name and not tok.startswith("-"):
             positional_index += 1
-            if not is_search and positional_index != sed_script_index:
+            if not skip_arg_targets and positional_index != sed_script_index:
                 target = path_target_from_token(tok, bindings)
                 if target is not None:
                     out.append(target)
@@ -318,6 +322,7 @@ __all__ = [
     "FLAG_BINARY",
     "FLAG_EQUALS_PREFIXES",
     "REDIRECT_OPERATORS",
+    "STDOUT_REPORTERS",
     "extract_command_targets",
     "extract_heredoc_sections",
     "strip_heredoc_body_lines",

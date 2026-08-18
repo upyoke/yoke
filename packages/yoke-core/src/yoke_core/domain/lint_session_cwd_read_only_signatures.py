@@ -24,6 +24,11 @@ import re
 import shlex
 from typing import List, Optional
 
+from yoke_core.domain.lint_session_cwd_target_extract_shell import (
+    REDIRECT_OPERATORS,
+    STDOUT_REPORTERS,
+)
+
 
 # Matched against the *first substantive token sequence* of the command.
 # Each entry is ``(label, predicate)`` — predicate receives the tokenized
@@ -132,6 +137,26 @@ def _classify_git(tokens: List[str]) -> Optional[str]:
 _SINGLE_ARG_READ_ONLY = frozenset({"wc", "ls", "cat", "head", "tail", "file", "stat"})
 
 
+def _tokens_have_file_redirect(tokens: List[str]) -> bool:
+    for tok in tokens:
+        if tok in REDIRECT_OPERATORS:
+            return True
+        if tok.startswith(">") and not tok.startswith(">&"):
+            return True
+        if tok.startswith(("1>", "2>", "&>")) and ">&" not in tok:
+            return True
+    return False
+
+
+def _classify_stdout_reporter(tokens: List[str]) -> Optional[str]:
+    """``print`` / ``printf`` without a file redirect — stdout only."""
+    if not tokens or tokens[0] not in STDOUT_REPORTERS:
+        return None
+    if _tokens_have_file_redirect(tokens):
+        return None
+    return f"{tokens[0]}-report"
+
+
 def _classify_single_arg_read(tokens: List[str]) -> Optional[str]:
     """``wc -l <path>`` / ``ls <path>`` / ``cat <path>`` — single positional path."""
     if not tokens or tokens[0] not in _SINGLE_ARG_READ_ONLY:
@@ -224,6 +249,7 @@ def match_read_only_signature(command: str) -> Optional[str]:
         _classify_python_module,
         _classify_git,
         _classify_grep_like,
+        _classify_stdout_reporter,
         _classify_single_arg_read,
     ):
         label = classifier(tokens)
