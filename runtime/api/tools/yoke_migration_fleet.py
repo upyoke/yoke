@@ -16,6 +16,9 @@ from yoke_core.tools.yoke_migration_fleet import (
     TENANT_DATABASE_PATTERN,
     tenant_databases,
 )
+from runtime.api.tools.migration_rehearsal_release_surfaces import (
+    verify_migrated_release_surfaces,
+)
 
 
 def history_names() -> Tuple[str, ...]:
@@ -70,8 +73,7 @@ def load_module(name: str) -> Any:
     )
 
     entries = {
-        entry.name: entry
-        for entry in ordered_entries(history_dir(history_package))
+        entry.name: entry for entry in ordered_entries(history_dir(history_package))
     }
     entry = entries[name]
     return load_migration_module(entry.path, entry.name)
@@ -85,6 +87,7 @@ def rehearsal_plan() -> RehearsalPlan:
         converge=converge,
         live_ownership_validator=migration_content_ownership_detail,
         load_module=load_module,
+        post_converge_validator=verify_migrated_release_surfaces,
     )
 
 
