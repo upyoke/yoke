@@ -211,12 +211,6 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-# ``claims.path.amend`` is an alias on widen — the external "amend" verb
-# consumers reach for. Narrow has a distinct boundary-check code path;
-# surfacing it as ``claims.path.narrow`` is out of scope for this task.
-handle_amend = handle_widen
-
-
 def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     body, err = _validate(ReleaseRequest, request.payload, "release")
     if err is not None:
@@ -302,7 +296,6 @@ __all__ = [
     "OverrideResponse",
     "handle_register",
     "handle_widen",
-    "handle_amend",
     "handle_release",
     "handle_override",
 ]

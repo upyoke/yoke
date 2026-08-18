@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from pathlib import PurePosixPath
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_models import ConflictMatch
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
+from yoke_core.domain.path_claims_dependency_resolver_coordination import (
+    has_forward_serial_edge,
+)
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
@@ -105,10 +110,17 @@ def _path_claim_blockers(
         owner = row.get("owner_item_id")
         if owner is not None and int(owner) == int(item["id"]):
             continue
+        reconciliation = _downstream_reconciliation(
+            conn,
+            item_id=int(item["id"]),
+            integration_target=integration_target,
+            row=row,
+        )
         if (
             ignore_frozen_planning_scopes
             and str(row["state"]) == "planned"
             and bool(row.get("owner_frozen"))
+            and reconciliation is None
         ):
             continue
         matched = _matching_path(touch_paths, [str(row["path_string"])])
@@ -119,10 +131,45 @@ def _path_claim_blockers(
                     owner_item_id=int(owner) if owner is not None else None,
                     path=matched,
                     state=str(row["state"]),
-                    detail=f"path claim {row['id']} wins over claim-less work",
+                    detail=(
+                        reconciliation
+                        or f"path claim {row['id']} wins over claim-less work"
+                    ),
                 )
             )
     return blockers
+
+
+def _downstream_reconciliation(
+    conn: Any,
+    *,
+    item_id: int,
+    integration_target: str,
+    row: dict[str, Any],
+) -> Optional[str]:
+    owner = row.get("owner_item_id")
+    if (
+        owner is None
+        or str(row["state"]) != "planned"
+        or not bool(row.get("owner_frozen"))
+        or not has_forward_serial_edge(
+            conn,
+            dependent_item_id=int(owner),
+            blocking_item_id=item_id,
+        )
+    ):
+        return None
+    owner_ref = render_item_ref(conn, int(owner))
+    upstream_ref = render_item_ref(conn, item_id)
+    reason = shlex.quote(f"{upstream_ref} lands before frozen downstream work")
+    path = shlex.quote(str(row["path_string"]))
+    return (
+        f"declared order puts {owner_ref} after {upstream_ref}; reconcile the "
+        "frozen planned claim with `yoke claims path amend "
+        f"--claim-id {row['id']} --remove-paths {path} --reason {reason} "
+        f"--item {owner_ref} --integration-target "
+        f"{shlex.quote(integration_target)}`"
+    )
 
 
 def git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:

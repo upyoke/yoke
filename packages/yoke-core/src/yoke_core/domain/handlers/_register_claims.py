@@ -7,6 +7,7 @@ from yoke_core.domain.handlers import (
     claims_coordination_lease as _ccl,
     claims_path as _cp,
     claims_path_activation as _cpa,
+    claims_path_amend as _cpam,
     claims_path_reads as _cpr,
     claims_work as _cw,
     claims_work_holders as _cwh,
@@ -91,7 +92,6 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
-
     # claims.path.register / widen / amend / release — item-scoped
     registry.register(
         "claims.path.register", _cp.handle_register,
@@ -151,12 +151,15 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
-        "claims.path.amend", _cp.handle_amend,
-        _cp.WidenRequest, _cp.WidenResponse,
+        "claims.path.amend", _cpam.handle_amend,
+        _cpam.AmendRequest, _cpam.AmendResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_path",
+        owner_module="yoke_core.domain.handlers.claims_path_amend",
         target_kinds=["item"],
-        side_effects=["path_claim_targets_insert", "path_claim_amendments_insert"],
+        side_effects=[
+            "path_claim_targets_insert", "path_claim_targets_delete",
+            "path_claim_amendments_insert",
+        ],
         emitted_event_names=["PathClaimAmended"],
         guardrails=["actor_holds_item_claim"],
         adapter_status="live",

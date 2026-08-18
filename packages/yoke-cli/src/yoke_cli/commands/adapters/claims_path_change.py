@@ -15,6 +15,10 @@ from yoke_cli.commands._helpers import (
     split_comma,
     usage_error,
 )
+from yoke_cli.commands.adapters.claims_path_narrow_evidence import (
+    NarrowEvidenceError,
+    collect_narrow_boundary_evidence,
+)
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
@@ -28,7 +32,14 @@ CLAIM_PATH_WIDEN_USAGE = (
     "[(--db-claim-json JSON | --db-claim-file PATH)] "
     "[--session-id S] [--json]"
 )
-CLAIM_PATH_AMEND_USAGE = CLAIM_PATH_WIDEN_USAGE.replace(" path widen ", " path amend ")
+CLAIM_PATH_AMEND_USAGE = (
+    "yoke claims path amend --claim-id N "
+    "(--add-paths PATH1,PATH2,... | --remove-paths PATH1,PATH2,...) "
+    "--reason TEXT --item PREFIX-N [--integration-target BRANCH] "
+    "[--allow-planned] [--directory-paths PATH1,PATH2,...] "
+    "[(--db-claim-json JSON | --db-claim-file PATH)] "
+    "[--session-id S] [--json]"
+)
 
 
 def claims_path_widen(args: List[str]) -> int:
@@ -54,11 +65,22 @@ def _claims_path_change(
 ) -> int:
     parser = argparse.ArgumentParser(prog=prog, description=usage)
     parser.add_argument("--claim-id", required=True, help="path_claims.id to change.")
-    parser.add_argument(
-        "--add-paths",
-        required=True,
-        help="Comma-separated list of repo-relative paths to add.",
-    )
+    if function_id == "claims.path.amend":
+        path_group = parser.add_mutually_exclusive_group(required=True)
+        path_group.add_argument(
+            "--add-paths",
+            help="Comma-separated list of repo-relative paths to add.",
+        )
+        path_group.add_argument(
+            "--remove-paths",
+            help="Comma-separated declared paths to remove.",
+        )
+    else:
+        parser.add_argument(
+            "--add-paths",
+            required=True,
+            help="Comma-separated list of repo-relative paths to add.",
+        )
     parser.add_argument("--reason", required=True, help="Reason for the change.")
     parser.add_argument(
         "--item",
@@ -74,6 +96,11 @@ def _claims_path_change(
         "--directory-paths",
         default=None,
         help="Comma-separated subset of --add-paths that are directory targets.",
+    )
+    parser.add_argument(
+        "--integration-target",
+        default=None,
+        help="Claim integration branch; required when removing paths.",
     )
     db_claim_group = parser.add_mutually_exclusive_group()
     add_text_file_pair(
@@ -95,14 +122,30 @@ def _claims_path_change(
     except ValueError as exc:
         return usage_error(str(exc))
 
+    removing = getattr(parsed, "remove_paths", None) is not None
+    if removing and not parsed.integration_target:
+        return usage_error("--integration-target is required with --remove-paths")
+    if removing and (parsed.allow_planned or parsed.directory_paths):
+        return usage_error(
+            "--allow-planned and --directory-paths apply only with --add-paths"
+        )
     payload: Dict[str, Any] = {
         "claim_id": claim_id,
-        "add_paths": split_comma(parsed.add_paths),
         "reason": parsed.reason,
-        "allow_planned": bool(parsed.allow_planned),
     }
-    if parsed.directory_paths:
-        payload["directory_paths"] = split_comma(parsed.directory_paths)
+    if removing:
+        remove_paths = split_comma(parsed.remove_paths)
+        if not remove_paths:
+            return usage_error("--remove-paths must list at least one path")
+        payload["remove_paths"] = remove_paths
+    else:
+        add_paths = split_comma(parsed.add_paths)
+        if not add_paths:
+            return usage_error("--add-paths must list at least one path")
+        payload["add_paths"] = add_paths
+        payload["allow_planned"] = bool(parsed.allow_planned)
+        if parsed.directory_paths:
+            payload["directory_paths"] = split_comma(parsed.directory_paths)
     try:
         db_claim_raw = resolve_text_file(
             parsed.db_claim_json,
@@ -112,6 +155,8 @@ def _claims_path_change(
     except ValueError as exc:
         return usage_error(str(exc))
     if db_claim_raw is not None:
+        if removing:
+            return usage_error("DB claim input applies only with --add-paths")
         try:
             db_claim = json.loads(db_claim_raw)
         except json.JSONDecodeError as exc:
@@ -119,11 +164,30 @@ def _claims_path_change(
         if not isinstance(db_claim, dict):
             return usage_error("DB claim JSON must be an object")
         payload["db_claim"] = db_claim
-    sync_local_snapshot_for_write(
-        project=parsed.project,
-        integration_target=None,
-        session_id=parsed.session_id,
-    )
+    if removing:
+        try:
+            evidence = collect_narrow_boundary_evidence(
+                repo_root=None,
+                integration_target=parsed.integration_target,
+            )
+        except NarrowEvidenceError as exc:
+            return usage_error(str(exc))
+        sync_status = sync_local_snapshot_for_write(
+            project=parsed.project,
+            repo_root=evidence["repo_root"],
+            integration_target=parsed.integration_target,
+            session_id=parsed.session_id,
+        )
+        if sync_status.get("status") != "ok":
+            message = sync_status.get("message") or "snapshot sync did not complete"
+            return usage_error(f"cannot verify narrowing boundary: {message}")
+        payload["boundary_evidence"] = evidence
+    else:
+        sync_local_snapshot_for_write(
+            project=parsed.project,
+            integration_target=None,
+            session_id=parsed.session_id,
+        )
     return dispatch_and_emit(
         function_id=function_id,
         target=item_target("item", parsed.item, parsed.project),

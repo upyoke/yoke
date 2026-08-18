@@ -175,6 +175,7 @@ class TestWidenPlannedPaths(unittest.TestCase):
         )
         self.assertTrue(resp.success, msg=resp.error)
         self.assertEqual(resp.result["amendment_id"], 401)
+        self.assertEqual(resp.result["amendment_kind"], "widen")
 
 
 if __name__ == "__main__":

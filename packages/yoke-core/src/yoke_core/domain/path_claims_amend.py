@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Optional, Sequence
+from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import (
@@ -24,24 +24,18 @@ from yoke_core.domain.path_claims_amend_cancel import (
     AmendmentNotFound,
     cancel_amendment,
 )
-from yoke_core.domain.path_claims_boundary import (
-    BoundaryCheckError,
-    BoundaryCheckStatus,
-    boundary_check_for_paths,
-)
+from yoke_core.domain.path_claims_boundary import BoundaryCheckError
 from yoke_core.domain.path_claims_boundary_targets import path_strings_for_target_ids
 from yoke_core.domain.path_claims_amend_overlap import (
     chosen_serial_upstream,
     classify_widen_overlap,
 )
+from yoke_core.domain.path_claims_narrow_boundary import check_narrow_boundary
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_path_claim_workflow_binding,
     rollback_workflow_binding_write_errors,
 )
-
-
-_TERMINAL_STATES = ("released", "cancelled")
-_NON_AMENDABLE_STATES = _TERMINAL_STATES
+_NON_AMENDABLE_STATES = ("released", "cancelled")
 # Amend (widen/narrow) is valid for every non-terminal claim, including
 # active claims. Boundary remediation commonly happens after the door
 # lock has been acquired; the durable fix is an amendment, a revert, or
@@ -253,8 +247,9 @@ def narrow(
     claim_id: int,
     drop_target_ids: Sequence[int],
     reason: str,
-    repo_path: str,
+    repo_path: Optional[str] = None,
     worktree_head: Optional[str] = None,
+    boundary_evidence: Optional[Mapping[str, Any]] = None,
 ) -> int:
     """Remove ``drop_target_ids`` from a non-terminal claim's coverage."""
     lock_path_claim_workflow_binding(conn, claim_id)
@@ -262,6 +257,11 @@ def narrow(
     _validate_amendable(claim)
     drop_ids = _validate_target_ids(conn, drop_target_ids)
     existing = _resolved_targets(conn, claim_id)
+    unknown = [target_id for target_id in drop_ids if target_id not in existing]
+    if unknown:
+        raise InvalidTargetSet(
+            f"narrow target(s) {unknown!r} are not declared by claim {claim_id}"
+        )
     keep_ids = [tid for tid in existing if tid not in set(drop_ids)]
     if not keep_ids:
         raise InvalidTargetSet(
@@ -275,13 +275,14 @@ def narrow(
         )
     candidate_paths = path_strings_for_target_ids(conn, keep_ids)
     try:
-        result = boundary_check_for_paths(
+        result = check_narrow_boundary(
             conn,
+            claim=claim,
             project_id=project_id,
             candidate_paths=candidate_paths,
-            integration_target=str(claim["integration_target"]),
             repo_path=repo_path,
             worktree_head=worktree_head,
+            boundary_evidence=boundary_evidence,
         )
     except BoundaryCheckError as exc:
         raise CannotAmendClaim(
@@ -293,7 +294,7 @@ def narrow(
             "unstaged, or untracked worktree changes before amending: "
             f"{', '.join(result.uncommitted_paths)}"
         )
-    if result.status is BoundaryCheckStatus.CONFLICT:
+    if result.undeclared_paths:
         raise NarrowWouldOrphanCommittedWork(
             claim_id=claim_id,
             offending_paths=result.undeclared_paths,
