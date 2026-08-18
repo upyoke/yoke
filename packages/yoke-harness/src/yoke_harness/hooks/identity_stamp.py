@@ -16,6 +16,12 @@ import os
 from typing import Any, Optional
 
 from yoke_cli.config import machine_config
+from yoke_contracts.cursor_remount_expect import (
+    REMOUNT_OBSERVING,
+    REMOUNT_REFUSED,
+    REMOUNT_REFUSAL_PAYLOAD_FIELD,
+    is_remount_observation_event,
+)
 from yoke_contracts.cursor_session_map import container_session_id_from_evidence
 from yoke_contracts.payload_session_fold import (
     fold_conversation_session_id,
@@ -76,6 +82,9 @@ def stamp_hook_stdin(
     stdin_data: str,
     payload: dict[str, Any],
     executor: str = "",
+    *,
+    forced_session_id: Optional[str] = None,
+    forced_container_session_id: Optional[str] = None,
 ) -> str:
     """Stamp the folded payload and Cursor-container session identities.
 
@@ -84,13 +93,21 @@ def stamp_hook_stdin(
     an omitted id.
     """
     changed = False
-    container_session_id = _resolved_container_session_id(payload, executor)
+    container_session_id = (
+        forced_container_session_id
+        if forced_container_session_id is not None
+        else _resolved_container_session_id(payload, executor)
+    )
     if container_session_id is not None and (
         payload.get("container_session_id") != container_session_id
     ):
         payload["container_session_id"] = container_session_id
         changed = True
-    session_id = resolved_session_id(payload)
+    session_id = (
+        forced_session_id
+        if forced_session_id is not None
+        else resolved_session_id(payload)
+    )
     current = payload.get("session_id")
     if session_id is not None and not (
         isinstance(current, str) and current.strip() == session_id
@@ -120,7 +137,38 @@ def record_then_stamp(
 
     if is_hook_replay():
         return stamp_hook_stdin(stdin_data, payload, executor)
-    cursor_session_map.record_from_hook_payload(payload, executor, event_name)
+    worktree_fold = cursor_session_map.record_from_hook_payload(
+        payload,
+        executor,
+        event_name,
+    )
+    if worktree_fold is not None:
+        decision = worktree_fold.remount
+        if decision.outcome == REMOUNT_OBSERVING and is_remount_observation_event(
+            event_name
+        ):
+            return stamp_hook_stdin(
+                stdin_data,
+                payload,
+                executor,
+                forced_session_id=decision.holder_session_id,
+                forced_container_session_id=decision.holder_session_id,
+            )
+        if decision.outcome in {REMOUNT_OBSERVING, REMOUNT_REFUSED}:
+            payload[REMOUNT_REFUSAL_PAYLOAD_FIELD] = {
+                "arriving_conversation_id": decision.arriving_conversation_id,
+                "holder_conversation_id": decision.holder_conversation_id,
+                "holder_session_id": decision.holder_session_id,
+                "lane": worktree_fold.lane,
+                "outcome": decision.outcome,
+            }
+            return stamp_hook_stdin(
+                stdin_data,
+                payload,
+                executor,
+                forced_session_id=decision.arriving_conversation_id,
+                forced_container_session_id=decision.arriving_conversation_id,
+            )
     try:
         conv = payload.get("conversation_id") or payload.get("session_id")
         if isinstance(conv, str) and conv:
@@ -136,7 +184,6 @@ def record_then_stamp(
                 conv,
             )
             if not existing:
-
                 roots = payload.get("workspace_roots")
                 workspace = ""
                 if isinstance(roots, list) and roots and isinstance(roots[0], str):

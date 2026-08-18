@@ -20,6 +20,10 @@ from yoke_contracts.payload_session_fold import (
     is_conversation_shaped_session_id,
     is_hook_replay,
 )
+from yoke_contracts.cursor_remount_expect import (
+    REMOUNT_OBSERVING,
+    REMOUNT_REFUSAL_PAYLOAD_FIELD,
+)
 from yoke_harness.hooks.identity import (
     is_codex,
     resolve_session_id,
@@ -39,6 +43,28 @@ RELAY_REFUSAL_CONVERSATION = (
     "A conversation id must fold through the cursor-session-map before "
     "relay. Repair: record the pairing, then retry."
 )
+
+
+def _cursor_fold_refusal(payload: Mapping[str, Any]) -> Optional[str]:
+    refusal = payload.get(REMOUNT_REFUSAL_PAYLOAD_FIELD)
+    if not isinstance(refusal, Mapping):
+        return None
+    holder = str(refusal.get("holder_session_id") or "unknown")
+    lane = str(refusal.get("lane") or "unknown")
+    conversation = str(refusal.get("arriving_conversation_id") or "unknown")
+    if refusal.get("outcome") == REMOUNT_OBSERVING:
+        liveness = "the holder conversation has not yet been observed quiet"
+    else:
+        liveness = (
+            "the holder conversation emitted another hook after the remount "
+            "candidate arrived"
+        )
+    return (
+        "Yoke Cursor worktree fold refused: conversation "
+        f"{conversation} cannot alias holder session {holder} on lane {lane}; "
+        f"{liveness}. Continue in the holding conversation or release "
+        "its work claim before using this window."
+    )
 
 
 def parse_hook_payload(stdin_data: str) -> dict:
@@ -111,6 +137,9 @@ def deny_unstamped_relay(payload: Mapping[str, Any]) -> Optional[int]:
 
 def refuse_unstamped_relay(payload: Mapping[str, Any]) -> Optional[str]:
     """Return a deny message when the payload is not safe to relay."""
+    fold_refusal = _cursor_fold_refusal(payload)
+    if fold_refusal is not None:
+        return fold_refusal
     if payload.get("identity_stamped") is True:
         sid = payload.get("session_id")
         if isinstance(sid, str) and sid.strip():

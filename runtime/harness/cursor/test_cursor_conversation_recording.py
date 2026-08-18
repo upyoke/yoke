@@ -16,6 +16,12 @@ import pytest
 
 from yoke_harness.hooks import cursor_session_map, relay
 from yoke_harness.hooks.local_subset import LocalSubsetEvaluation
+from yoke_contracts.cursor_remount_expect import (
+    REMOUNT_CONTINUITY,
+    REMOUNT_OBSERVING,
+    RemountDecision,
+    observe_remount_candidate,
+)
 from yoke_contracts.cursor_session_map import (
     CURSOR_CONVERSATION_ENV_VAR,
     CURSOR_SESSION_MAP_DIR_NAME,
@@ -79,6 +85,14 @@ class TestRecorder:
         )
         assert _mapped(machine_home, SUBAGENT) == CONTAINER
         assert _mapped(machine_home, CONTAINER) == CONTAINER
+
+        decision = observe_remount_candidate(
+            machine_home / CURSOR_SESSION_MAP_DIR_NAME,
+            CONTAINER,
+            "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+        )
+        assert decision.outcome == REMOUNT_OBSERVING
+        assert decision.holder_conversation_id == CONTAINER
 
     def test_top_level_session_start_records_against_itself(self, machine_home):
         cursor_session_map.record_from_hook_payload(
@@ -175,8 +189,19 @@ class TestRecorder:
         self, machine_home, monkeypatch,
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
+        decision = cursor_session_map.WorktreeFoldDecision(
+            remount=RemountDecision(
+                REMOUNT_CONTINUITY,
+                HOLDER,
+                HOLDER,
+                CONTAINER,
+            ),
+            lane="YOK-1",
+        )
         monkeypatch.setattr(
-            cursor_session_map, "_worktree_remap_container", lambda _p: HOLDER,
+            cursor_session_map,
+            "_worktree_remap_decision",
+            lambda *_a, **_k: decision,
         )
         cursor_session_map.record_from_hook_payload(
             {
@@ -193,7 +218,9 @@ class TestRecorder:
     ):
         monkeypatch.delenv(CURSOR_TRANSCRIPT_ENV_VAR, raising=False)
         monkeypatch.setattr(
-            cursor_session_map, "_worktree_remap_container", lambda _p: "",
+            cursor_session_map,
+            "_worktree_remap_decision",
+            lambda *_a, **_k: None,
         )
         cursor_session_map.record_from_hook_payload(
             {

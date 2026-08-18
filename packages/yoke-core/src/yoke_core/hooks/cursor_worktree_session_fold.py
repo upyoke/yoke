@@ -4,8 +4,9 @@ When Cursor remounts a chat onto a linked Yoke worktree (``move_agent_to_root``
 or equivalent), it often assigns a new conversation id under a new project
 path while work claims stay on the prior container session. This module
 resolves that container from the worktree lane name → active item claim
-holder, then aliases the new conversation only when a remount-expect
-receipt for that holder is live. Folder occupancy alone is not enough.
+holder, then observes the remount-expect receipt across one hook boundary.
+The new conversation aliases only when the holder conversation stayed quiet;
+folder occupancy alone is not enough.
 
 Never raises — a wrong fold is worse than a missing one. Empty string means
 "no evidence; caller keeps the payload's own id."
@@ -14,6 +15,15 @@ Never raises — a wrong fold is worse than a missing one. Empty string means
 from __future__ import annotations
 
 from typing import Any, Mapping, Optional
+
+from yoke_contracts.cursor_remount_expect import (
+    REMOUNT_CONTINUITY,
+    REMOUNT_OBSERVING,
+    REMOUNT_REFUSED,
+    REMOUNT_REFUSAL_PAYLOAD_FIELD,
+    is_remount_observation_event,
+    observe_remount_candidate,
+)
 
 
 def workspace_path_from_payload(payload: Mapping[str, Any]) -> str:
@@ -55,9 +65,9 @@ def resolve_worktree_remap_container(
     so https control planes work from client hook processes.
 
     A foreign holder is returned only when a live remount-expect receipt
-    exists for that holder. Folder occupancy alone is not enough.
+    exists and its holder conversation stays quiet across the candidate's
+    first hook boundary. Folder occupancy alone is not enough.
     """
-    from yoke_contracts.cursor_remount_expect import remount_expect_is_live
     from yoke_contracts.cursor_session_map import linked_worktree_lane_name
 
     workspace = workspace_path_from_payload(payload)
@@ -78,9 +88,36 @@ def resolve_worktree_remap_container(
         target = _cursor_map_dir(map_dir)
     except Exception:  # noqa: BLE001
         return ""
-    if not remount_expect_is_live(target, holder):
+    conversation_id = payload.get("conversation_id") or own
+    if not isinstance(conversation_id, str) or not conversation_id:
         return ""
-    return holder
+    decision = observe_remount_candidate(target, holder, conversation_id)
+    if decision.outcome == REMOUNT_CONTINUITY:
+        from yoke_contracts.cursor_session_map import record_conversation_session
+
+        if not record_conversation_session(conversation_id, holder, target):
+            return ""
+        return holder
+    event_name = str(payload.get("hook_event_name") or "")
+    if decision.outcome == REMOUNT_OBSERVING and is_remount_observation_event(
+        event_name
+    ):
+        # SessionStart establishes the observation point but grants no durable
+        # map entry. The next hook must prove the prior conversation stayed
+        # quiet before the worktree conversation gains write authority.
+        return holder
+    if decision.outcome in {REMOUNT_OBSERVING, REMOUNT_REFUSED} and isinstance(
+        payload,
+        dict,
+    ):
+        payload[REMOUNT_REFUSAL_PAYLOAD_FIELD] = {
+            "arriving_conversation_id": decision.arriving_conversation_id,
+            "holder_conversation_id": decision.holder_conversation_id,
+            "holder_session_id": decision.holder_session_id,
+            "lane": lane,
+            "outcome": decision.outcome,
+        }
+    return ""
 
 
 def _holder_session_for_lane(lane: str) -> str:
@@ -155,9 +192,13 @@ def record_remount_conversation_session(
     holder requires consuming a live remount-expect receipt.
     """
     holder = resolve_worktree_remap_container(
-        payload, holder_lookup=holder_lookup, map_dir=map_dir,
+        payload,
+        holder_lookup=holder_lookup,
+        map_dir=map_dir,
     )
-    conv = conversation_id or payload.get("conversation_id") or payload.get("session_id")
+    conv = (
+        conversation_id or payload.get("conversation_id") or payload.get("session_id")
+    )
     if not isinstance(conv, str) or not conv:
         return holder
     if not holder:
@@ -172,18 +213,10 @@ def record_remount_conversation_session(
         if found != conv:
             return ""
         holder = found
-    elif holder != conv:
-        from yoke_contracts.cursor_remount_expect import consume_remount_expect
-
-        try:
-            target = _cursor_map_dir(map_dir)
-        except Exception:  # noqa: BLE001
-            return ""
-        if not consume_remount_expect(target, holder):
-            return ""
     writer = record
     if writer is None:
         from yoke_harness.hooks.cursor_session_map import record_conversation_session
+
         writer = record_conversation_session
     try:
         writer(conv, holder)
