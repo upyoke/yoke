@@ -15,6 +15,9 @@ from yoke_core.domain.idea_readiness_repair import (
     RepairedPath,
     _RECOVERABLE_CLAIM_CODES,
 )
+from yoke_core.domain.idea_readiness_repair_missing_file_budget import (
+    maybe_repair_missing_file_budget,
+)
 from yoke_core.domain.path_claims import PathClaimError
 from yoke_core.domain.path_claims_amend import (
     AmendmentError,
@@ -224,13 +227,13 @@ def _apply_narrow(
 def attempt_claim_coverage_repair(
     *, item_id: int, issues: List[Dict[str, Any]],
 ) -> RepairOutcome:
-    """Repair claim-coverage drift on the item's single exclusive claim.
-
-    Routes widen / narrow / mixed amendment from the recoverable
-    claim-coverage code set; refuses non-recoverable codes and ambiguous
-    claim shapes with structured ``refused_paths``.
-    """
+    """Repair claim-coverage drift on the item's single exclusive claim."""
     base = {"classification": CLASS_MIXED_STALE_COUNT, "item_id": item_id}
+    handled, issues = maybe_repair_missing_file_budget(
+        item_id=item_id, issues=issues,
+    )
+    if handled is not None:
+        return handled
     codes: Set[str] = {str(i.get("code") or "") for i in issues}
 
     foreign = codes - _RECOVERABLE_CLAIM_CODES

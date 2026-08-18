@@ -19,6 +19,7 @@ CLAIM_PATH_REGISTER_USAGE = (
     "yoke claims path register --item PREFIX-N [--paths PATH1,PATH2,...] "
     "[--task-num N] "
     "[--mode exclusive|exception] [--exception-reason TEXT] [--allow-planned] "
+    "[--tentative-paths PATH1,PATH2,...] "
     "[--integration-target NAME] [--session-id S] [--json]"
 )
 
@@ -72,6 +73,11 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         help="Permit claim registration for not-yet-committed paths.",
     )
     parser.add_argument(
+        "--tentative-paths",
+        default="",
+        help="Subset of --paths to mint as materialization_state=tentative.",
+    )
+    parser.add_argument(
         "--integration-target",
         default=None,
         help="Override integration target classification (advanced).",
@@ -83,6 +89,7 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         return 2
 
     paths = split_comma(parsed.paths or "")
+    tentative_paths = split_comma(parsed.tentative_paths or "")
     if parsed.mode == "exclusive" and not paths:
         return usage_error("--paths is required in exclusive mode")
     if parsed.mode == "exclusive" and parsed.exception_reason:
@@ -93,6 +100,10 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         return usage_error("--exception-reason is required in exception mode")
     if parsed.task_num is not None and parsed.task_num < 1:
         return usage_error("--task-num must be a positive integer")
+    if tentative_paths and not parsed.allow_planned:
+        return usage_error("--tentative-paths requires --allow-planned")
+    if not set(tentative_paths).issubset(set(paths)):
+        return usage_error("--tentative-paths must be a subset of --paths")
 
     payload: Dict[str, Any] = {
         "paths": paths,
@@ -105,6 +116,8 @@ def parse_path_register_args(args: List[str]) -> PathRegisterArguments | int:
         payload["exception_reason"] = parsed.exception_reason
     if parsed.integration_target:
         payload["integration_target"] = parsed.integration_target
+    if tentative_paths:
+        payload["tentative_paths"] = tentative_paths
     return PathRegisterArguments(parsed=parsed, payload=payload)
 
 

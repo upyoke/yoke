@@ -173,7 +173,16 @@ Immediately write a body with the cluster context:
  ## Code Validation
  - Verdict: {Still present | Likely resolved | Inconclusive}
  - {validation details}
+
+ ## File Budget
+ UNRESOLVED — this work item creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
  ```
+
+When the target project's effective File Budget policy is required, that
+UNRESOLVED marker is the minimum idea-status shape. `/yoke refine` resolves
+it before the item leaves `refining-idea`. Include the section even when
+the policy is currently optional — an extra documented deferral does not
+fail optional-budget workflows.
 2. Write the spec via the `items.structured_field.replace` function
    call (envelope in
    [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):

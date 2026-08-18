@@ -37,7 +37,7 @@ buckets a readiness-check `issues` list into four classes:
 |---|---|---|
 | `pass` | empty issues list | Continue refine; no repair needed. |
 | `pure_stale_count` | every issue is `STALE_LINE_COUNT` | Invoke the repair helper, re-run, continue on pass; block on refusal. |
-| `mixed_stale_count` | at least one recoverable claim-coverage code is present (`FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is claim-coverage or optional `STALE_LINE_COUNT` | Dispatch to the internal claim-coverage helper for `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` — it auto-widens / auto-narrows / refuses ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
+| `mixed_stale_count` | at least one recoverable code is present (`MISSING_FILE_BUDGET` / `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is in that set or optional `STALE_LINE_COUNT` | Dispatch to `yoke readiness repair-claim-coverage`. A lone `MISSING_FILE_BUDGET` at `idea` auto-appends the documented UNRESOLVED File Budget marker (refine still owns resolving that shape before `refining-idea` exit). `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` auto-widen / auto-narrow / refuse ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
 | `unrecoverable` | anything else (unresolved refs, missing sibling plan, or a code outside the recoverable set) | Release the claim with reason `readiness-check-blocked` and exit 1 — same terminal behavior refine had before. |
 
 The classifier is a pure function with focused regression coverage. Verify its
@@ -207,9 +207,10 @@ the prior unrecoverable branch).
 
 ## What the helper deliberately does NOT do
 
-- It does **not** add or remove File Budget paths. The drift it
-  repairs is purely numeric; structural changes to the budget are a
-  spec decision, not metadata maintenance.
+- The stale-count helper does **not** add or remove File Budget paths.
+  Numeric drift is its only write. A missing section at `idea` is a
+  different mechanical repair: `repair-claim-coverage` appends the
+  documented UNRESOLVED marker and does not invent path rows.
 - It does **not** widen or narrow path claims. Claim mismatches flow
   through `SKILL.md` step 4b's path-claim re-check
   (`FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET`).
