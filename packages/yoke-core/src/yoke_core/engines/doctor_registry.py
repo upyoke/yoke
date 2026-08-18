@@ -76,6 +76,7 @@ from yoke_core.engines.doctor_hc_meta_epic_drift import (  # noqa: F401
 
 from yoke_core.engines.doctor_hc_db import (  # noqa: F401
     hc_deploy_stage_integrity,
+    hc_flow_stage_environment_input,
     hc_flow_stage_json,
     hc_flow_workflow_exists,
     hc_incomplete_deploy_stage,
@@ -211,6 +212,9 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("smoke-artifact-orphan", "Orphaned QA artifacts", hc_smoke_artifact_orphan),
     HealthCheck("deploy-stage-integrity", "deploy_stage without deployment evidence", hc_deploy_stage_integrity),
     HealthCheck("incomplete-deploy-stage", "Done items with incomplete deploy_stage", hc_incomplete_deploy_stage),
+    HealthCheck("flow-stage-environment-input",
+                "Flow stages dispatch a registered environment name",
+                hc_flow_stage_environment_input),
     HealthCheck("flow-stage-json", "Deployment flow stage JSON validity", hc_flow_stage_json),
     HealthCheck("flow-workflow-exists", "Flow stage workflow files exist", hc_flow_workflow_exists),
     HealthCheck("invalid-item-flows", "Items referencing non-existent or cross-project deployment flows", hc_invalid_item_flows),

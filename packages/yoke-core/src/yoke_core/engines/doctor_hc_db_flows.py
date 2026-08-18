@@ -32,6 +32,9 @@ from yoke_core.engines.doctor_report import (
 
 
 from yoke_core.engines.doctor_hc_db_flow_workflows import hc_flow_workflow_exists  # noqa: F401
+from yoke_core.engines.doctor_hc_db_flow_environment_inputs import (  # noqa: F401
+    hc_flow_stage_environment_input,
+)
 
 
 def _p(conn) -> str:
@@ -333,5 +336,6 @@ __all__ = (
     "hc_preview_occupancy_stale", "hc_orphaned_ephemeral",
     "hc_deploy_stage_integrity", "hc_incomplete_deploy_stage",
     "hc_flow_stage_json", "hc_flow_workflow_exists",
+    "hc_flow_stage_environment_input",
     "hc_invalid_item_flows", "hc_zombie_ephemeral_envs",
 )

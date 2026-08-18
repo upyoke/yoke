@@ -43,6 +43,7 @@ from yoke_core.engines.doctor_hc_db_qa import (
 )
 from yoke_core.engines.doctor_hc_db_flows import (
     hc_deploy_stage_integrity,
+    hc_flow_stage_environment_input,
     hc_flow_stage_json,
     hc_flow_workflow_exists,
     hc_incomplete_deploy_stage,
@@ -235,6 +236,7 @@ __all__ = (
     "hc_orphaned_ephemeral",
     "hc_deploy_stage_integrity",
     "hc_incomplete_deploy_stage",
+    "hc_flow_stage_environment_input",
     "hc_flow_stage_json",
     "hc_flow_workflow_exists",
     "hc_invalid_item_flows",
