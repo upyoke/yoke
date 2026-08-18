@@ -114,6 +114,49 @@ def test_optional_dash_ignores_frozen_planned_scope_and_claim(test_db):
     assert survey.blockers == ()
 
 
+def test_optional_dash_proposes_narrowing_for_downstream_frozen_claim(test_db):
+    candidate_id = 2216
+    blocker_id = 2217
+    shared_path = "src/downstream_frozen_scope.py"
+    insert_item(test_db, id=candidate_id, workflow_id="dash")
+    insert_item(
+        test_db,
+        id=blocker_id,
+        workflow_id="issue",
+        frozen=1,
+        spec=f"## File Budget\n\n- `{shared_path}`\n",
+    )
+    target_id = seed_target(test_db, item_id=blocker_id, path=shared_path)
+    claim_id = seed_item_claim(
+        test_db,
+        item_id=blocker_id,
+        target_ids=(target_id,),
+        state="planned",
+    )
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "rationale, created_at) VALUES (%s, %s, 'activation', "
+        "'fact:merged', 'test', 'upstream dash lands first', "
+        "'2026-08-18T00:00:00Z')",
+        (f"YOK-{blocker_id}", f"YOK-{candidate_id}"),
+    )
+    test_db.commit()
+
+    survey = survey_conflicts(
+        test_db,
+        item_id=candidate_id,
+        touch_paths=[shared_path],
+    )
+
+    assert [row.kind for row in survey.blockers] == ["path_claim"]
+    detail = survey.blockers[0].detail
+    assert f"--claim-id {claim_id}" in detail
+    assert f"--remove-paths {shared_path}" in detail
+    assert f"--item YOK-{blocker_id}" in detail
+    assert "--integration-target main" in detail
+
+
 def test_selected_dash_path_claims_keep_frozen_planned_scope_blocking(test_db):
     candidate_id = 2212
     blocker_id = 2213

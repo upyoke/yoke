@@ -81,7 +81,7 @@ def _project_for_claim(
     return int(project_id) if project_id else None
 
 
-def _classify_against_coverage(
+def classify_against_coverage(
     conn: Any,
     *,
     project_id: Optional[int],
@@ -214,7 +214,7 @@ def boundary_check_for_claim(
         undeclared_target_ids,
         declared_but_untouched_paths,
         has_rename_resolved,
-    ) = _classify_against_coverage(
+    ) = classify_against_coverage(
         conn,
         project_id=project_id,
         declared_paths=declared_paths,
@@ -285,7 +285,7 @@ def boundary_check_for_paths(
         undeclared_target_ids,
         declared_but_untouched_paths,
         _has_rename_resolved,
-    ) = _classify_against_coverage(
+    ) = classify_against_coverage(
         conn,
         project_id=project_id,
         declared_paths=list(candidate_paths),
@@ -327,4 +327,5 @@ __all__ = [
     "BoundaryCheckStatus",
     "boundary_check_for_claim",
     "boundary_check_for_paths",
+    "classify_against_coverage",
 ]
