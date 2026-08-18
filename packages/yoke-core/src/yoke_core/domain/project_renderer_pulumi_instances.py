@@ -76,7 +76,7 @@ def _raw_stack_instance_from_environment(
             f"{settings.project} is required: it names the standalone VPS Pulumi "
             "stack whose exported outputs serve this environment's origin. Set it "
             "via: yoke projects environment-settings merge --project "
-            f"{settings.project} --environment-id {env.id} --set "
+            f"{settings.project} --environment {env.name} --set "
             "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
         )
 

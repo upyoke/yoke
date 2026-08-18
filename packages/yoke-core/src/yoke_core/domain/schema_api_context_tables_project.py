@@ -114,7 +114,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "JSON `settings` column. First discover metadata-only IDs with "
             "`yoke projects infrastructure list --project <slug> --json`; "
             "then read settings through `yoke projects "
-            "environment-settings get --project <slug> --environment-id "
+            "environment-settings get --project <slug> --environment "
             "<id> --path <scalar.path>`; the registered function requires "
             "explicit scalar paths and returns a `values` projection. The "
             "wrong aggregate-response guess is `settings_json`: neither "

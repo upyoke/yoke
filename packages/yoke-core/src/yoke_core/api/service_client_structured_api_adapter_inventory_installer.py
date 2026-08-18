@@ -132,12 +132,12 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="projects.environment_settings.get",
-        cli_invocation="yoke projects environment-settings get --project NAME --environment-id ID",
+        cli_invocation="yoke projects environment-settings get --project NAME --environment NAME",
         notes="Reads one project-owned environment settings document over the active transport.",
     ),
     AdapterEntry(
         function_id="projects.environment_settings.merge",
-        cli_invocation="yoke projects environment-settings merge --project NAME --environment-id ID --set KEY.PATH=VALUE",
+        cli_invocation="yoke projects environment-settings merge --project NAME --environment NAME --set KEY.PATH=VALUE",
         notes="Server-side read-merge-CAS composition with project/environment ownership verification.",
     ),
     AdapterEntry(

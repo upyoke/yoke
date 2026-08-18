@@ -18,12 +18,12 @@ from yoke_contracts.api.function_call import TargetRef
 
 GET_USAGE = (
     "yoke projects environment-settings get --project NAME "
-    "--environment-id ID --path KEY.PATH [--path ...] "
+    "--environment NAME --path KEY.PATH [--path ...] "
     "[--session-id S] [--json]"
 )
 MERGE_USAGE = (
     "yoke projects environment-settings merge --project NAME "
-    "--environment-id ID --set KEY.PATH=VALUE [--set ...] "
+    "--environment NAME --set KEY.PATH=VALUE [--set ...] "
     "[--session-id S] [--json]"
 )
 
@@ -50,7 +50,7 @@ def projects_environment_settings_get(args: List[str]) -> int:
         parsed,
         {
             "project": parsed.project,
-            "environment_id": parsed.environment_id,
+            "environment": parsed.environment,
             "paths": parsed.paths,
         },
     )
@@ -82,7 +82,7 @@ def projects_environment_settings_merge(args: List[str]) -> int:
         parsed,
         {
             "project": parsed.project,
-            "environment_id": parsed.environment_id,
+            "environment": parsed.environment,
             "assignments": assignments,
         },
     )
@@ -90,7 +90,7 @@ def projects_environment_settings_merge(args: List[str]) -> int:
 
 def _add_identity_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project", required=True)
-    parser.add_argument("--environment-id", dest="environment_id", required=True)
+    parser.add_argument("--environment", dest="environment", required=True)
 
 
 def _dispatch(
@@ -106,7 +106,7 @@ def _dispatch(
                 stdout.write(f"{path}={json.dumps(value, sort_keys=True)}\n")
         else:
             paths = ",".join(result.get("changed_paths") or [])
-            stdout.write(f"{result.get('environment_id', '')}|{paths}\n")
+            stdout.write(f"{result.get('environment', '')}|{paths}\n")
         return None
 
     return dispatch_and_emit(

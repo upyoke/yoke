@@ -79,7 +79,7 @@ def test_https_merge_returns_changed_paths_without_the_settings_document(
         "projects.environment_settings.merge",
         {
             "project": "yoke",
-            "environment_id": "yoke-api-prod",
+            "environment": "prod",
             "assignments": {
                 "pulumi.activation_state": "render_only",
                 "servers": [],
@@ -107,7 +107,7 @@ def test_https_get_returns_only_explicit_scalar_paths(client):
         "projects.environment_settings.get",
         {
             "project": "yoke",
-            "environment_id": "yoke-api-prod",
+            "environment": "prod",
             "paths": ["pulumi.activation_state", "git.branch"],
         },
     )
@@ -126,7 +126,7 @@ def test_https_get_refuses_container_projection(client):
         "projects.environment_settings.get",
         {
             "project": "yoke",
-            "environment_id": "yoke-api-prod",
+            "environment": "prod",
             "paths": ["pulumi"],
         },
     )
@@ -134,15 +134,21 @@ def test_https_get_refuses_container_projection(client):
     assert response.json()["error"]["code"] == "projection_invalid"
 
 
-def test_https_refuses_project_environment_mismatch(client):
+def test_https_refuses_a_name_the_project_does_not_register(client):
+    # Both projects in this fixture register an environment named prod, so the
+    # refusal has to come from the asking project's own registrations rather
+    # than from whether the name exists somewhere.
     response = _call(
         client,
         "projects.environment_settings.get",
         {
             "project": "yoke",
-            "environment_id": "externalwebapp-api-prod",
+            "environment": "staging",
             "paths": ["git.branch"],
         },
     )
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "project_mismatch"
+    assert response.status_code == 404
+    error = response.json()["error"]
+    assert error["code"] == "not_found"
+    assert "'staging' is not registered" in error["message"]
+    assert "prod" in error["message"]
