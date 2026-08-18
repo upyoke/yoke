@@ -40,17 +40,19 @@ step can gate on it.
 
 from __future__ import annotations
 
-import hashlib
-import importlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
+from runtime.api.tools.preflight_engine_artifact import (
+    EngineArtifact,
+    EngineArtifactError,
+    activate_engine_artifact as _activate_engine_artifact,
+)
 from yoke_contracts.machine_config import runtime as machine_config
 from yoke_contracts.machine_config.schema import (
     connection_is_prod,
@@ -58,32 +60,6 @@ from yoke_contracts.machine_config.schema import (
 )
 
 _RECEIPT_TIMEOUT_SECONDS = 120
-
-
-class EngineArtifactError(ValueError):
-    """An explicitly selected engine artifact cannot be used faithfully."""
-
-
-@dataclass(frozen=True)
-class EngineArtifact:
-    kind: str
-    name: str
-    sha256: str
-    schema_origin: str
-
-    def evidence(self) -> Dict[str, str]:
-        values = {
-            "kind": self.kind,
-            "name": self.name,
-            "schema_origin": self.schema_origin,
-        }
-        if self.sha256:
-            values["sha256"] = self.sha256
-        return values
-
-    def display(self) -> str:
-        digest = f" sha256:{self.sha256}" if self.sha256 else ""
-        return f"{self.kind} {self.name}{digest} schema={self.schema_origin}"
 
 
 def _split_flags(args: List[str]) -> Tuple[List[str], bool, str, str, str]:
@@ -113,61 +89,6 @@ def _split_flags(args: List[str]) -> Tuple[List[str], bool, str, str, str]:
             positional.append(token)
         index += 1
     return positional, record, product_sha, receipt_env, engine_wheel
-
-
-def _activate_engine_artifact(raw_wheel: str) -> EngineArtifact:
-    """Bind yoke_core to a selected wheel, or describe the ambient engine."""
-    if not raw_wheel:
-        schema = importlib.import_module("yoke_core.domain.schema_init")
-        return EngineArtifact(
-            kind="ambient",
-            name="import-path",
-            sha256="",
-            schema_origin=str(getattr(schema, "__file__", "unknown")),
-        )
-
-    wheel = Path(raw_wheel).expanduser().resolve()
-    if wheel.suffix != ".whl" or not wheel.is_file():
-        raise EngineArtifactError(f"engine wheel is not a readable .whl file: {wheel}")
-    loaded = sorted(
-        name
-        for name in sys.modules
-        if name == "yoke_core" or name.startswith("yoke_core.")
-    )
-    if loaded:
-        raise EngineArtifactError(
-            "cannot select an engine wheel after yoke_core loaded: "
-            + ", ".join(loaded[:5])
-        )
-    sys.path.insert(0, str(wheel))
-    importlib.invalidate_caches()
-    try:
-        schema = importlib.import_module("yoke_core.domain.schema_init")
-    except (ImportError, OSError) as exc:
-        raise EngineArtifactError(
-            f"selected engine wheel cannot import schema_init: {exc}"
-        ) from exc
-    origin = Path(str(getattr(schema, "__file__", ""))).resolve()
-    try:
-        schema_member = origin.relative_to(wheel).as_posix()
-    except ValueError as exc:
-        raise EngineArtifactError(
-            f"selected engine resolved outside its wheel: {origin}"
-        ) from exc
-    return EngineArtifact(
-        kind="wheel",
-        name=wheel.name,
-        sha256=_file_sha256(wheel),
-        schema_origin=schema_member,
-    )
-
-
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def _release_gate_receipt_env() -> str:
