@@ -8,6 +8,7 @@ used across more than one widget submodule (``_CHART``, ``_FIRE``).
 
 from __future__ import annotations
 
+import math
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -15,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 from yoke_contracts.board.config import BoardConfig
 from yoke_contracts.board.activity_cache import activity_day_counts
 from yoke_contracts.board.board_db import BoardDBLike
+from yoke_contracts.board.momentum_series import display_bound, display_fraction
 from yoke_contracts.board.project_scope import (
     project_id_filter,
     project_filter as _project_filter,
@@ -137,18 +139,19 @@ def _project_age_days(db: BoardDBLike, scope: str) -> Tuple[Optional[str], int]:
 def _build_sparkline(values: List[int]) -> str:
     """Build a sparkline string from a list of integer values.
 
-    Level 0 (no activity) uses the baseline block (index 0).
-    Levels 1-5 scale linearly from index 1-5.
+    Level 0 (no activity) uses the baseline block (index 0). Levels 1-5
+    scale against the shared display bound rather than the raw maximum,
+    so one outsized day cannot press every other day onto level 1; days
+    at or beyond that bound all draw full.
     """
-    max_val = max(values) if values else 0
+    bound = display_bound(values)
     chars = []
     for v in values:
-        if v == 0 or max_val == 0:
+        fraction = display_fraction(v, bound)
+        if fraction <= 0:
             chars.append(_BLOCKS[0])
         else:
-            # ceil(v / max * 5), clamped [1, 5]
-            level = (v * 5 + max_val - 1) // max_val
-            level = max(1, min(5, level))
+            level = max(1, min(5, math.ceil(fraction * 5)))
             chars.append(_BLOCKS[level])
     return "".join(chars)
 

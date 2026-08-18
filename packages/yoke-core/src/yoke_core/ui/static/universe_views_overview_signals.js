@@ -53,9 +53,28 @@ const BAND_HEIGHT = 22;
 // reader.
 const MIN_NONZERO_FRACTION = 1 / 5;
 
-function sparklineHeight(value, maximum) {
+// Mirrors yoke_contracts.board.momentum_series.display_bound, which the
+// terminal board scales by. The two runtimes are pinned to the same numbers
+// by the shared fixture in momentum_display_bound_fixture.json, because the
+// series is assembled on whichever side renders it: the board holds one
+// project, while this view sums the projects in scope before drawing.
+const DISPLAY_BOUND_PERCENTILE = 0.95;
+
+export function displayBound(values) {
+  const ordered = [...values].map(Number).sort((left, right) => left - right);
+  const positives = ordered.filter((value) => value > 0);
+  if (!positives.length) return 0;
+  const rank = DISPLAY_BOUND_PERCENTILE * (ordered.length - 1);
+  const lower = Math.floor(rank);
+  const upper = Math.min(lower + 1, ordered.length - 1);
+  const bound = ordered[lower] + (ordered[upper] - ordered[lower]) * (rank - lower);
+  return bound > 0 ? bound : positives[positives.length - 1];
+}
+
+function sparklineHeight(value, bound) {
   if (value <= 0) return BASELINE_Y;
-  const fraction = Math.max(value / maximum, MIN_NONZERO_FRACTION);
+  const share = bound > 0 ? Math.min(value / bound, 1) : 1;
+  const fraction = Math.max(share, MIN_NONZERO_FRACTION);
   return Math.round(BASELINE_Y - fraction * BAND_HEIGHT);
 }
 
@@ -73,13 +92,13 @@ function sparkline(documentNode, values, signal) {
   svg.appendChild(baseline);
   const line = svgElement(documentNode, "polyline", "overview-sparkline-line");
   line.setAttribute("data-series", signal);
-  const maximum = Math.max(1, ...values);
+  const fullHeight = displayBound(values);
   const denominator = Math.max(1, values.length - 1);
   line.setAttribute(
     "points",
     values.map((value, index) => {
       const x = Math.round(index / denominator * 240);
-      return `${x},${sparklineHeight(Number(value) || 0, maximum)}`;
+      return `${x},${sparklineHeight(Number(value) || 0, fullHeight)}`;
     }).join(" "),
   );
   svg.appendChild(line);
