@@ -8,6 +8,7 @@
  */
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
@@ -18,6 +19,8 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
+import { displayBound } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_overview_signals.js";
+
 import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
 
 const BASELINE_Y = 25;
@@ -26,6 +29,23 @@ const BASELINE_Y = 25;
 // share of the band, or it is only technically distinct from an empty one.
 const BAND_HEIGHT = 22;
 const MIN_NONZERO_LIFT = Math.floor(BAND_HEIGHT / 5);
+
+// The bound is computed in whichever runtime assembles the series, so the
+// Python suite asserts these same cases against its own implementation.
+// A change to one side without the other fails here.
+const boundFixture = JSON.parse(
+  readFileSync(new URL("./momentum_display_bound_fixture.json", import.meta.url)),
+);
+
+test("the display bound agrees with the terminal board's rule", () => {
+  for (const { name, values, bound } of boundFixture.cases) {
+    const computed = displayBound(values);
+    assert.ok(
+      Math.abs(computed - bound) < 1e-9,
+      `${name}: expected ${bound}, got ${computed}`,
+    );
+  }
+});
 
 function heavyTailedVitals() {
   const day = (value) => ({

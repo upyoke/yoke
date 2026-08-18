@@ -1,0 +1,32 @@
+{
+  "note": "Shared by the Python and JavaScript display-bound tests. The rule is expressed once per runtime because the series is assembled on whichever side renders it, so this fixture is what keeps the two from drifting apart. Change one implementation without the other and these cases fail.",
+  "cases": [
+    {
+      "name": "an outlier sits above the bound rather than setting it",
+      "values": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1000],
+      "bound": 1
+    },
+    {
+      "name": "an even spread lands near the top of its range",
+      "values": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+      "bound": 95.5
+    },
+    {
+      "name": "nothing happened",
+      "values": [0, 0, 0, 0],
+      "bound": 0
+    },
+    {
+      "name": "a window of zeros and one day falls back to that day",
+      "values": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 42],
+      "bound": 42
+    },
+    {
+      "name": "a single day is its own bound",
+      "values": [7],
+      "bound": 7
+    }
+  ]
+}

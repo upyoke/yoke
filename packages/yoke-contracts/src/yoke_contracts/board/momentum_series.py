@@ -13,13 +13,13 @@ means all-time.
 from __future__ import annotations
 
 from collections import Counter
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Dict, Iterable, Optional, Sequence, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sql import day_text_expr, days_ago_text_expr
 
-# Strategy-doc write events whose ``new_bytes`` payload is the per-day
-# authoring-volume signal for the strategy series.
+# Strategy-doc write events carrying the byte sizes the strategy series
+# derives its per-day authoring volume from.
 STRATEGY_EVENT_NAMES = ("StrategyDocCreated", "StrategyDocReplaced")
 
 
@@ -31,6 +31,44 @@ def _day_filter(column_sql: str, days: Optional[int]) -> str:
     if days is None:
         return ""
     return f" AND {column_sql} >= {days_ago_text_expr(int(days))}"
+
+
+# These series are heavy-tailed by nature: one repository-import commit or
+# one bulk document rewrite can be a hundred times an ordinary day. Scaling
+# against the raw maximum lets that single day flatten the other hundred and
+# nineteen, so both renderers scale against a high percentile of the series'
+# own values and draw anything at or beyond it at full height. The bound is
+# derived from each project's own window, which is why no project carries a
+# configured threshold and no caller names a particular day.
+DISPLAY_BOUND_PERCENTILE = 0.95
+
+
+def display_bound(values: Iterable[float]) -> float:
+    """Value both renderers treat as full height for one series.
+
+    Returns 0.0 for a series with nothing in it. A series so sparse that
+    the percentile itself lands on zero falls back to its maximum: there
+    is no long tail to compress, and a bound of zero would render every
+    real day as empty.
+    """
+
+    ordered = sorted(float(value) for value in values)
+    positives = [value for value in ordered if value > 0]
+    if not positives:
+        return 0.0
+    rank = DISPLAY_BOUND_PERCENTILE * (len(ordered) - 1)
+    lower = int(rank)
+    upper = min(lower + 1, len(ordered) - 1)
+    bound = ordered[lower] + (ordered[upper] - ordered[lower]) * (rank - lower)
+    return bound if bound > 0 else positives[-1]
+
+
+def display_fraction(value: float, bound: float) -> float:
+    """Share of full height for *value*, clamped at *bound*."""
+
+    if value <= 0 or bound <= 0:
+        return 0.0
+    return min(float(value) / bound, 1.0)
 
 
 def activity_items_query(
@@ -128,16 +166,27 @@ def strategy_bytes_by_day(
     *,
     days: Optional[int],
 ) -> Dict[str, int]:
-    """SUM(new_bytes) per day from strategy-doc write events."""
+    """Authoring volume per day from strategy-doc write events.
+
+    A write event records the document's whole size in ``new_bytes``, so
+    summing that field counts a document once per save — a doc rewritten
+    two hundred times in a day reports two hundred full copies rather
+    than the day's authoring. A replace therefore contributes the size it
+    moved, ``|new_bytes - old_bytes|``; a create contributes its whole
+    size, which genuinely is new authoring.
+    """
 
     if not project_ids:
         return {}
     event_day = day_text_expr("created_at")
-    new_bytes = "(envelope::jsonb -> 'context' ->> 'new_bytes')::int"
+    ctx = "envelope::jsonb -> 'context'"
+    new_bytes = f"COALESCE(({ctx} ->> 'new_bytes')::int, 0)"
+    old_bytes = f"COALESCE(({ctx} ->> 'old_bytes')::int, 0)"
     names = ", ".join(f"'{name}'" for name in STRATEGY_EVENT_NAMES)
+    authored = f"ABS({new_bytes} - {old_bytes})"
     counts: Dict[str, int] = {}
     for row in db.query(
-        f"SELECT {event_day} AS day, SUM(COALESCE({new_bytes}, 0)) AS total "
+        f"SELECT {event_day} AS day, SUM({authored}) AS total "
         "FROM events "
         f"WHERE project_id IN ({_markers(project_ids)}) "
         f"AND event_name IN ({names})"
