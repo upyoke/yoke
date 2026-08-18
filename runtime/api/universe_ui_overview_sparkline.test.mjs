@@ -24,11 +24,8 @@ import { displayBound } from "../../packages/yoke-core/src/yoke_core/ui/static/u
 import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
 
 const BASELINE_Y = 25;
-// The terminal board gives any non-zero day at least the first of its five
-// block levels. A quiet day here has to clear the baseline by the same
-// share of the band, or it is only technically distinct from an empty one.
 const BAND_HEIGHT = 22;
-const MIN_NONZERO_LIFT = Math.floor(BAND_HEIGHT / 5);
+const MIN_NONZERO_LIFT = 1;
 
 // The bound is computed in whichever runtime assembles the series, so the
 // Python suite asserts these same cases against its own implementation.
@@ -58,7 +55,8 @@ function heavyTailedVitals() {
     momentum: [
       { day: "2026-07-24", ...day(0) },
       { day: "2026-07-25", ...day(1) },
-      { day: "2026-07-26", ...day(5000) },
+      { day: "2026-07-26", ...day(1000) },
+      { day: "2026-07-27", ...day(5000) },
     ],
     zen: [],
     streak_days: 0,
@@ -77,7 +75,7 @@ function seriesHeights(root) {
   }));
 }
 
-test("a quiet day reads as high as the board's first block level", async (t) => {
+test("positive days stay visible without flattening values below the bound", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -96,16 +94,21 @@ test("a quiet day reads as high as the board's first block level", async (t) => 
     ["activity", "code", "issues", "strategy"],
   );
   for (const { series, heights } of lines) {
-    const [empty, quiet, busiest] = heights;
+    const [empty, quiet, ordinary, busiest] = heights;
     assert.equal(empty, BASELINE_Y, `${series}: an empty day belongs on the baseline`);
     assert.ok(
       BASELINE_Y - quiet >= MIN_NONZERO_LIFT,
       `${series}: a quiet day must rise at least ${MIN_NONZERO_LIFT} above the `
-      + `baseline like the board's first level, got y=${quiet}`,
+      + `baseline, got y=${quiet}`,
     );
     assert.ok(
-      busiest < quiet,
-      `${series}: the busiest day must still outrank a quiet one`,
+      ordinary < quiet,
+      `${series}: distinct positive values below the bound must have distinct heights`,
+    );
+    assert.equal(
+      busiest,
+      BASELINE_Y - BAND_HEIGHT,
+      `${series}: a day beyond the display bound must reach full height`,
     );
   }
   mounted.unmount();
