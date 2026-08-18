@@ -32,10 +32,14 @@ class LaneTree:
     run before the lane exists is the ordinary case. ``live`` separates a
     lane whose directory is still on disk (readable for sizing) from one
     that has been removed but still names the tree verification covered.
+    ``checkout`` is this machine's mapped checkout for the item's project,
+    used to size a pre-lane survey against the right repo rather than the
+    caller's cwd.
     """
 
     path: str = ""
     live: bool = False
+    checkout: str = ""
 
 
 def _lane_path(item: dict[str, Any]) -> str:
@@ -79,9 +83,27 @@ def item_lane_tree(
         return LaneTree()
     item = ((response.result or {}).get("item")) or {}
     path = _lane_path(item)
+    checkout = _mapped_checkout(item)
     if not path:
-        return LaneTree()
-    return LaneTree(path=path, live=Path(path).is_dir())
+        return LaneTree(checkout=checkout)
+    return LaneTree(path=path, live=Path(path).is_dir(), checkout=checkout)
+
+
+def _mapped_checkout(item: dict[str, Any]) -> str:
+    """This machine's checkout for the item's project, if one is mapped."""
+    project_id = (item.get("project") or {}).get("id")
+    if project_id is None:
+        return ""
+    from yoke_cli.config.machine_config import configured_projects
+
+    try:
+        target = int(project_id)
+    except (TypeError, ValueError):
+        return ""
+    for configured in configured_projects(existing_only=True):
+        if configured.project_id == target and configured.checkout.is_dir():
+            return str(configured.checkout)
+    return ""
 
 
 def verification_tree(

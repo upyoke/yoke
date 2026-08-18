@@ -26,14 +26,17 @@ Usage::
     # stdout while preserving full output in the raw capture. Pass any
     # advance flags after ``--``; the wrapper supplies the
     # ``python3 -m yoke_core.engines.advance_implementation_entry``
-    # prefix itself.
-    python3 -m yoke_core.tools.watch_advance -- --item YOK-N
+    # prefix itself. Ambient ``python3`` has no ``yoke_core`` — bind
+    # the checkout interpreter.
+    uv run --frozen python3 -m yoke_core.tools.watch_advance -- --item YOK-N
+    yoke dev run -- python3 -m yoke_core.tools.watch_advance -- --item YOK-N
 
     # Print the ready-to-paste streaming pair for Claude Code:
-    python3 -m yoke_core.tools.watch_advance --print-streaming-pair -- --item YOK-N
+    uv run --frozen python3 -m yoke_core.tools.watch_advance \\
+        --print-streaming-pair -- --item YOK-N
 
     # Explicit capture paths (used by --print-streaming-pair output):
-    python3 -m yoke_core.tools.watch_advance \\
+    uv run --frozen python3 -m yoke_core.tools.watch_advance \\
         --raw-capture /tmp/raw.log --progress-capture /tmp/prog.log \\
         -- --item YOK-N
 
@@ -110,7 +113,8 @@ def classify_advance_line(line: str) -> Classification:
 NESTED_ADVANCE_REJECTION_MESSAGE = (
     "watch_advance expects bare advance args after --; "
     f"do not include python3 -m {UNDERLYING_MODULE}.\n"
-    "Example: python3 -m yoke_core.tools.watch_advance -- --item YOK-N"
+    "Example: uv run --frozen python3 -m yoke_core.tools.watch_advance "
+    "-- --item YOK-N"
 )
 
 # Match the bare interpreter names operators most commonly retype, plus

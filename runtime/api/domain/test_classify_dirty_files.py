@@ -209,6 +209,33 @@ class TestCli(unittest.TestCase):
             )
         mocked.assert_called_once_with(True, "/tmp/example")
 
+    def test_classify_dirty_project_resolves_mapped_checkout(self) -> None:
+        from pathlib import Path
+
+        mapped = Path("/mapped/platform")
+        with mock.patch(
+            "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+            return_value=mapped,
+        ), mock.patch.object(mod, "_cmd_classify_dirty", return_value=0) as mocked:
+            self.assertEqual(
+                mod.main([
+                    "classify-dirty", "--project", "platform", "--exclude-worktrees",
+                ]),
+                0,
+            )
+        mocked.assert_called_once_with(True, str(mapped))
+
+    def test_classify_dirty_project_without_mapping_fails_closed(self) -> None:
+        with mock.patch(
+            "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+            return_value=None,
+        ), mock.patch.object(mod, "_cmd_classify_dirty") as mocked:
+            self.assertEqual(
+                mod.main(["classify-dirty", "--project", "missing"]),
+                2,
+            )
+        mocked.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

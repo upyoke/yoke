@@ -27,30 +27,38 @@ If any of those reads come back empty, stop with:
 
 ## 2. Locate The Worktree Lane Set
 
-Use the deterministic helper so polish resolves the same repo and
-definition-selected implementation lane set every time. Item-level execution
-normally resolves one lane; task-graph execution may resolve multiple lanes.
-Do not collapse those lanes back into `PREFIX-{N}`.
+Use the registered item-worktree adapters so polish resolves the same
+repo and definition-selected implementation lane set over https. The
+module form `python3 -m yoke_core.domain.worktree resolve` is not an
+agent recipe: ambient python3 has no `yoke_core`, and the module opens
+local Postgres. Do not collapse those lanes back into `PREFIX-{N}`.
 
-```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-WORKTREE_SCOPE=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field scope 2>/dev/null) || WORKTREE_SCOPE=""
-WORKTREE_COUNT=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field count 2>/dev/null) || WORKTREE_COUNT="0"
-WORKTREE_BRANCHES=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field branches 2>/dev/null) || WORKTREE_BRANCHES=""
-WORKTREE_PATHS=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field paths 2>/dev/null) || WORKTREE_PATHS=""
-WORKTREE_EXISTS=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field exists 2>/dev/null) || WORKTREE_EXISTS="no"
-WORKTREE_MISSING=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field missing 2>/dev/null) || WORKTREE_MISSING=""
-ITEM_PROJECT=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field project 2>/dev/null) || ITEM_PROJECT=""
-REPO_ROOT=$(python3 -m yoke_core.domain.worktree resolve "$ITEM_NUM" --field repo 2>/dev/null) || REPO_ROOT=""
-if [ "$WORKTREE_COUNT" = "1" ]; then
- WORKTREE_BRANCH="$WORKTREE_BRANCHES"
- WORKTREE_PATH="$WORKTREE_PATHS"
-else
- WORKTREE_BRANCH=""
- WORKTREE_PATH=""
-fi
+Run these as bare registered commands and parse the JSON in prompt
+context — do not capture adapter stdout into a shell variable:
+
+```text
+yoke items get PREFIX-N project
+yoke item-worktrees list PREFIX-N --json
+yoke item-worktrees get PREFIX-N --field path
+yoke item-worktrees get PREFIX-N --field branch
 ```
+
+From that output set:
+
+- `ITEM_PROJECT` — `items get` project slug
+- `WORKTREE_COUNT` — number of `worktrees` rows from `item-worktrees list`
+- `WORKTREE_PATHS` / `WORKTREE_BRANCHES` — each row's `path` / `branch`
+- `WORKTREE_PATH` / `WORKTREE_BRANCH` — `item-worktrees get` for the
+  implementation lane when `WORKTREE_COUNT` is 1; leave empty when
+  there are multiple lanes and iterate `WORKTREE_PATHS` instead
+- `WORKTREE_EXISTS` — `yes` only when every listed path is a directory
+- `WORKTREE_MISSING` — listed paths that are not directories
+- `WORKTREE_SCOPE` — `item` when one lane, `epic` when more than one
+- `REPO_ROOT` — the checkout that owns the first lane (the parent of
+  `.worktrees/` when the path contains that segment)
+
+If list or get fails, stop with that command's error. Do not treat a
+failed read as zero lanes.
 
 If `WORKTREE_COUNT` is `0` or `WORKTREE_PATHS` is empty, stop:
 > **Cannot polish PREFIX-{N}:** No implementation worktree lanes found.

@@ -291,6 +291,10 @@ def main(argv: list[str] | None = None) -> int:
         "classify-dirty", help="Bulk classify git dirty files (stdout: two lines)"
     )
     p_dirty.add_argument("--repo")
+    p_dirty.add_argument(
+        "--project",
+        help="Resolve --repo from this project's machine-local checkout mapping",
+    )
     p_dirty.add_argument("--exclude-worktrees", action="store_true")
 
     args = parser.parse_args(argv)
@@ -304,7 +308,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "is-managed-backlog":
         return _cmd_is_managed_backlog(args.path)
     if args.command == "classify-dirty":
-        return _cmd_classify_dirty(args.exclude_worktrees, args.repo)
+        repo = args.repo
+        if not repo and args.project:
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
+
+            mapped = checkout_for_project_slug(args.project)
+            if mapped is None:
+                print(
+                    "Error: project %r has no machine-local checkout mapping"
+                    % args.project,
+                    file=sys.stderr,
+                )
+                return 2
+            repo = str(mapped)
+        return _cmd_classify_dirty(args.exclude_worktrees, repo)
     parser.print_help()
     return 2
 

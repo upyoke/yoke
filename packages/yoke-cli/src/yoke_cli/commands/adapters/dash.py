@@ -120,13 +120,15 @@ def dash_survey(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DASH_SURVEY_USAGE)
     if parsed is None:
         return 2
-    # Size the item's lane, not whatever checkout this command runs from:
-    # the survey is the pre-implementation sizing gate, and main answers
-    # with pre-change counts and zero for files the lane just added.
+    # Size the item's tree, not whatever checkout this command runs from.
+    # A live lane is the tree being changed; before a lane exists, the
+    # item project's machine-mapped checkout is the tree — caller cwd is
+    # the wrong repo for a cross-project item.
     lane = item_lane_tree(parsed.item, parsed.project, parsed.session_id)
+    tree_root = lane.path if lane.live else (lane.checkout or None)
     try:
         path_sizes = survey_path_sizes(
-            parsed.paths, tree_root=lane.path if lane.live else None,
+            parsed.paths, tree_root=tree_root,
         )
     except RuntimeError as exc:
         return usage_error(str(exc))

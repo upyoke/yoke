@@ -17,6 +17,10 @@ PACKAGE_SRC_RELS: tuple[str, ...] = (
 )
 SOURCE_RUN_RECIPE = "yoke dev run -- <command>"
 PYTEST_RUN_RECIPE = "yoke watch pytest -- <pytest args>"
+INSTALL_BUNDLE_SYNC_RECIPE = (
+    "yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync "
+    "sync --target-root <checkout>"
+)
 YOKE_CORE_MARKER = Path("packages") / "yoke-core" / "src" / "yoke_core"
 
 
@@ -152,6 +156,7 @@ def import_origins(
 
 
 __all__ = [
+    "INSTALL_BUNDLE_SYNC_RECIPE",
     "PACKAGE_SRC_RELS",
     "PYTEST_RUN_RECIPE",
     "SOURCE_RUN_RECIPE",

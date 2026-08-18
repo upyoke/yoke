@@ -10,5 +10,5 @@ Author operator docs only under `docs/public/`. Refresh the dogfood mirror and
 packaged snapshot with:
 
 ```bash
-python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>
+yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync --target-root <checkout>
 ```

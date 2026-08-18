@@ -7,6 +7,7 @@ import json
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.domain import direct_workflow_worktree_preflight as preflight
 from yoke_core.tools._source_pythonpath import (
+    INSTALL_BUNDLE_SYNC_RECIPE,
     PYTEST_RUN_RECIPE,
     SOURCE_RUN_RECIPE,
 )
@@ -46,5 +47,6 @@ def test_successful_prepare_receipt_names_run_surfaces(monkeypatch, capsys):
     assert receipt["run_recipes"] == {
         "pytest": PYTEST_RUN_RECIPE,
         "source": SOURCE_RUN_RECIPE,
+        "install_bundle_sync": INSTALL_BUNDLE_SYNC_RECIPE,
     }
     assert "source_dev_recipe" not in receipt

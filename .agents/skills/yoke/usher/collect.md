@@ -40,7 +40,8 @@ For each item in `_ready_items`, run the gate-scoped checker:
 ```bash
 for _item in $_ready_items; do
  _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/usher-hard-blocks.XXXXXX")
- if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-${_item}" --gate-point integration >"$_dep_output_file" 2>/dev/null; then
+ # Ambient python3 has no yoke_core. Bind the checkout interpreter.
+ if yoke dev run -- python3 -m yoke_core.domain.check_hard_blocks "PREFIX-${_item}" --gate-point integration >"$_dep_output_file"; then
  _dep_exit=0
  else
  _dep_exit=$?
@@ -142,16 +143,26 @@ files keep their existing merge-engine semantics:
 
 ```bash
 for _item in $_ready_items; do
- _item_project=$(yoke items get "$_item" project 2>/dev/null) || true
- _target_repo=$(yoke projects get --project "$_item_project" --field repo_path 2>/dev/null) || true
- if [ -n "$_target_repo" ] && [ -d "$_target_repo" ]; then
- _dirty_report=$(python3 -m yoke_core.domain.classify_dirty_files classify-dirty --repo "$_target_repo" --exclude-worktrees 2>/dev/null) || _dirty_report=""
- _user_dirty=$(printf '%s\n' "$_dirty_report" | sed -n '2p')
- if [ -n "$_user_dirty" ]; then
- echo "BLOCKED: Target repo '$_target_repo' has user-authored uncommitted changes. Commit or stash them before usher."
- printf '%s\n' "$_user_dirty" | tr ' ' '\n' | sed 's/^/ - /'
+ _item_project=$(yoke items get "$_item" project)
+ if [ -z "$_item_project" ]; then
+ echo "BLOCKED: could not resolve project for $_item. A hard-block check must never fail open."
  exit 1
  fi
+ _dirty_file=$(mktemp "${TMPDIR:-/tmp}/usher-dirty-tree.XXXXXX")
+ # Machine-local checkout mapping — projects have no repo_path field.
+ # Ambient python3 has no yoke_core. Bind the checkout interpreter.
+ if ! yoke dev run -- python3 -m yoke_core.domain.classify_dirty_files classify-dirty --project "$_item_project" --exclude-worktrees >"$_dirty_file"; then
+ echo "BLOCKED: dirty-tree check failed for $_item (project $_item_project). A hard-block check must never fail open."
+ cat "$_dirty_file"
+ rm -f "$_dirty_file"
+ exit 1
+ fi
+ _user_dirty=$(sed -n '2p' "$_dirty_file")
+ rm -f "$_dirty_file"
+ if [ -n "$_user_dirty" ]; then
+ echo "BLOCKED: Target project '$_item_project' has user-authored uncommitted changes. Commit or stash them before usher."
+ printf '%s\n' "$_user_dirty" | tr ' ' '\n' | sed 's/^/ - /'
+ exit 1
  fi
 done
 ```
