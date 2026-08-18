@@ -11,10 +11,9 @@ CANONICAL_RUNTIME_SITE_ID = "yoke-api"
 CANONICAL_RUNTIME_SITE_NAME = "Yoke API"
 CONSUMER_PROJECT_SLUG = "yoke"
 HOST_PROJECT_SLUG = "platform"
-RUNTIME_ALIASES = {
-    "prod": frozenset({"prod", "production"}),
-    "stage": frozenset({"stage", "staging"}),
-}
+#: The hosted runtimes, named exactly as their environment rows are. A value
+#: that is not one of these is not a hosted runtime; it is not translated.
+HOSTED_RUNTIME_NAMES = frozenset({"prod", "stage"})
 
 
 def _p(conn: Any) -> str:
@@ -23,10 +22,7 @@ def _p(conn: Any) -> str:
 
 def normalize_runtime(value: Any) -> str | None:
     selected = str(value or "").strip().lower()
-    for canonical, aliases in RUNTIME_ALIASES.items():
-        if selected in aliases:
-            return canonical
-    return None
+    return selected if selected in HOSTED_RUNTIME_NAMES else None
 
 
 def canonical_environment_id(runtime: Any) -> str | None:
@@ -150,7 +146,7 @@ def require_runtime_site_owner(
 __all__ = [
     "CANONICAL_RUNTIME_SITE_ID",
     "CANONICAL_RUNTIME_SITE_NAME",
-    "RUNTIME_ALIASES",
+    "HOSTED_RUNTIME_NAMES",
     "canonical_environment_id",
     "eligible_plan_environment_rows",
     "normalize_runtime",
