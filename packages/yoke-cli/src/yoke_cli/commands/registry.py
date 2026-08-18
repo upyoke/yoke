@@ -25,6 +25,10 @@ from yoke_cli.commands.registry_github_actions import (
     GITHUB_ACTIONS_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_github import GITHUB_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_claims import (
+    CLAIMS_SUBCOMMAND_ALIAS_REGISTRY,
+    CLAIMS_SUBCOMMAND_REGISTRY,
+)
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
@@ -228,6 +232,7 @@ SUBCOMMAND_REGISTRY.update(DB_CLAIM_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(READINESS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(CLAIMS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
@@ -235,33 +240,24 @@ SUBCOMMAND_REGISTRY.update(WORKFLOW_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_REGISTRY)
 
 
-# Operator-facing aliases that route to an existing function id with a
-# different argparse adapter. Distinct from SUBCOMMAND_REGISTRY because
-# the grammar-rule test asserts every primary cli_tokens tuple is the
-# mechanical translation of its function_id; aliases live separately so
-# the 1:1 invariant on the primary registry stays intact.
+# Aliases keep the primary registry 1:1 with function-id grammar.
 SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     **_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY,
     ("projects", "capability", "secret", "set"): (
         "projects.capability_secret.set",
         _adapters.projects_capability_secret_set,
     ),
-    # "claims work current" is the intuitive current-claim inspection
-    # surface — routes to the same claims.work.holder_get function id.
     ("claims", "work", "current"): (
         "claims.work.holder_get",
         _adapters.claims_work_current,
     ),
-    # "claims work status --item PREFIX-N" is the intuitive post-release
-    # claim-verification surface — routes to the same claims.work.holder_get
-    # function id (reusing the holder-get adapter that already accepts
-    # --item plus positional).
     ("claims", "work", "status"): (
         "claims.work.holder_get",
         _adapters.claims_work_current,
     ),
 }
 SUBCOMMAND_ALIAS_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_ALIAS_REGISTRY)
+SUBCOMMAND_ALIAS_REGISTRY.update(CLAIMS_SUBCOMMAND_ALIAS_REGISTRY)
 SPACE_EXPANDED_ROUTE_REGISTRY = expanded_hyphen_routes(
     SUBCOMMAND_REGISTRY,
     SUBCOMMAND_ALIAS_REGISTRY,

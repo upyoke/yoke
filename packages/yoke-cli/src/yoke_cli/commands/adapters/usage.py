@@ -207,9 +207,8 @@ from yoke_cli.commands.adapters.packs import (
     PACKS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters import usage_sessions as _session_usage
+from yoke_cli.commands.adapters import claims_coordination_lease as _lease_list
 __all__ = ["ADAPTER_USAGE"]
-# Function-id → usage-line map consumed by the entrypoint's grouped
-# ``--help`` text. New CLI families add one line each.
 ADAPTER_USAGE: Dict[str, str] = {
     "items.create": ITEMS_CREATE_USAGE,
     "items.get.run": ITEMS_GET_USAGE,
@@ -347,3 +346,4 @@ ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_composed_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_product_usage.USAGE_BY_FUNCTION_ID)
+ADAPTER_USAGE.update(_lease_list.USAGE_BY_FUNCTION_ID)

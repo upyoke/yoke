@@ -2,27 +2,29 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-18T19:53:36Z_
+_Audit generated_at: 2026-08-18T20:21:09Z_
 
 ## 1. Summary
 
 - Function ids registered: **385**
 - Internal dispatch-only functions without CLI adapters: **76**
-- `yoke` CLI subcommands: **309** (309 carry usable `--help`)
-- Operation tracker: **286 wrapped**, 7 tool_cli, 116 permanent, 0 pending
+- `yoke` CLI subcommands: **311** (311 carry usable `--help`)
+- Operation tracker: **288 wrapped**, 7 tool_cli, 116 permanent, 0 pending
 - Skill-body recipes: 276 total (219 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **286** (operation tracker confirms 286 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **288** (operation tracker confirms 288 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
 | board | `yoke board data get` | `board.data.get` | ok |
 | board | `yoke board rebuild` | `board.rebuild.run` | ok |
 | charge | `yoke charge schedule` | `charge.schedule` | ok |
+| claims | `yoke claims coordination-lease list` | `claims.coordination_lease.list` | ok |
+| claims | `yoke coordination-lease list` | `claims.coordination_lease.list` | ok |
 | claims | `yoke claims path activation-run` | `claims.path.activation_run` | ok |
 | claims | `yoke claims path amend` | `claims.path.amend` | ok |
 | claims | `yoke claims path coordination-decision-build` | `claims.path.coordination_decision_build` | ok |
@@ -476,8 +478,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 | agent | recent count |
 |---|---|
 | codex | 38 |
-| claude-code | 10 |
-| cursor | 2 |
+| claude-code | 9 |
+| cursor | 3 |
 
 ## 8. Contradictions
 
