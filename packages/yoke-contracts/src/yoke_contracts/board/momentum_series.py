@@ -178,25 +178,39 @@ def strategy_bytes_by_day(
 
     if not project_ids:
         return {}
+    sql, params = _strategy_query(project_ids, days, net_change=True)
+    has_query = getattr(db, "has_query", None)
+    if callable(has_query) and not has_query(sql, params):
+        # A board payload recorded before this measure existed carries only
+        # the whole-size total, which is the sole strategy figure such a
+        # payload holds. Serving it keeps the board rendering across the
+        # window between this build merging and the server shipping it.
+        sql, params = _strategy_query(project_ids, days, net_change=False)
+    counts: Dict[str, int] = {}
+    for row in db.query(sql, params):
+        if row and row[0]:
+            counts[str(row[0])] = int(row[1] or 0)
+    return counts
+
+
+def _strategy_query(
+    project_ids: Sequence[int], days: Optional[int], *, net_change: bool,
+) -> Tuple[str, Tuple]:
     event_day = day_text_expr("created_at")
     ctx = "envelope::jsonb -> 'context'"
     new_bytes = f"COALESCE(({ctx} ->> 'new_bytes')::int, 0)"
     old_bytes = f"COALESCE(({ctx} ->> 'old_bytes')::int, 0)"
     names = ", ".join(f"'{name}'" for name in STRATEGY_EVENT_NAMES)
-    authored = f"ABS({new_bytes} - {old_bytes})"
-    counts: Dict[str, int] = {}
-    for row in db.query(
-        f"SELECT {event_day} AS day, SUM({authored}) AS total "
+    measure = f"ABS({new_bytes} - {old_bytes})" if net_change else new_bytes
+    sql = (
+        f"SELECT {event_day} AS day, SUM({measure}) AS total "
         "FROM events "
         f"WHERE project_id IN ({_markers(project_ids)}) "
         f"AND event_name IN ({names})"
         f"{_day_filter(event_day, days)} "
-        "GROUP BY 1",
-        tuple(project_ids),
-    ):
-        if row and row[0]:
-            counts[str(row[0])] = int(row[1] or 0)
-    return counts
+        "GROUP BY 1"
+    )
+    return sql, tuple(project_ids)
 
 
 def _code_series(
