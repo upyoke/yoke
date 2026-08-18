@@ -92,7 +92,7 @@ id TEXT PRIMARY KEY -- human-readable slug (e.g., 'run-20260315-001')
 project_id INTEGER NOT NULL REFERENCES projects(id)
 flow TEXT NOT NULL REFERENCES deployment_flows(id)
 target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
-target_environment_id TEXT -- REFERENCES environments(id); required exactly when target_tier='persistent'
+target_environment_id INTEGER -- internal REFERENCES environments(id); required exactly when target_tier='persistent'
 release_lineage TEXT -- links preview->prod runs (shared lineage ID)
 status TEXT NOT NULL DEFAULT 'created' -- created|executing|succeeded|failed|cancelled
 current_stage TEXT -- stage authority lives here, not on items
@@ -102,7 +102,7 @@ completed_at TEXT
 created_by TEXT -- 'operator' or 'system'
 ```
 
-A run copies `target_tier` and `target_environment_id` from its flow; `--environment` overrides with another registered environment (accepted as an id or name) and forces the persistent tier. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
+A run copies the internal `target_tier` and `target_environment_id` from its flow. Operators select or override a persistent target only with `--environment <registered-name>`; numeric keys are never accepted or emitted by the operator surface. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
 
 ## Table: deployment_run_items
 
@@ -138,7 +138,7 @@ Preview environment occupancy tracking for deployment runs.
 ```sql
 id INTEGER PRIMARY KEY
 project TEXT NOT NULL REFERENCES projects(id)
-env_name TEXT NOT NULL -- e.g., 'staging', 'shmaging'
+env_name TEXT NOT NULL -- e.g., 'stage', 'sandbox'
 run_id TEXT REFERENCES deployment_runs(id)
 status TEXT NOT NULL DEFAULT 'available' -- available | claimed | stale
 url TEXT

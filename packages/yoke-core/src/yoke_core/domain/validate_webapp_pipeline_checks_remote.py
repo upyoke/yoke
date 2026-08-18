@@ -163,14 +163,14 @@ def _check_github_actions_infrastructure(
                     f"Run bootstrap: python3 -m yoke_core.domain.bootstrap_project cli {project_slug}",
                 )
 
-    # 3d. Production environment
+    # 3d. Prod environment
     if token and github_repo:
-        if _rest_environment_exists(github_repo, "production", token):
-            _check_pass(counters, "GitHub environment 'production' exists")
+        if _rest_environment_exists(github_repo, "prod", token):
+            _check_pass(counters, "GitHub environment 'prod' exists")
         else:
             _check_fail(
                 counters,
-                "GitHub environment 'production' not found",
+                "GitHub environment 'prod' not found",
                 f"Run bootstrap: python3 -m yoke_core.domain.bootstrap_project cli {project_slug}",
             )
 

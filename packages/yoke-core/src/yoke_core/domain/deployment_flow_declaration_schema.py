@@ -34,7 +34,7 @@ _FLOW_KEYS = frozenset({
     "stages",
     "on_failure",
     "target_tier",
-    "target_environment_id",
+    "environment",
     "done_description",
     "status",
 })
@@ -48,7 +48,7 @@ class FlowDeclaration:
     stages: str
     on_failure: str
     target_tier: str | None
-    target_environment_id: str | None
+    environment: str | None
     done_description: str | None
     status: str
 
@@ -157,12 +157,12 @@ def _normalize_flow(raw: object, index: int) -> FlowDeclaration:
             f"flow {index} target_tier must be one of "
             f"{sorted(VALID_TARGET_TIERS)} or null"
         )
-    target_environment_id = _nullable_string(
-        raw, "target_environment_id", index,
+    environment = _nullable_string(
+        raw, "environment", index,
     )
-    if (target_tier == TARGET_TIER_PERSISTENT) != bool(target_environment_id):
+    if (target_tier == TARGET_TIER_PERSISTENT) != bool(environment):
         raise ValueError(
-            f"flow {index} target_environment_id is required exactly when "
+            f"flow {index} environment is required exactly when "
             "target_tier='persistent'"
         )
     return FlowDeclaration(
@@ -172,7 +172,7 @@ def _normalize_flow(raw: object, index: int) -> FlowDeclaration:
         stages=stages_json,
         on_failure=_optional_string(raw, "on_failure", index, default="halt"),
         target_tier=target_tier,
-        target_environment_id=target_environment_id,
+        environment=environment,
         done_description=_nullable_string(raw, "done_description", index),
         status=validate_flow_status(str(raw.get("status", FLOW_STATUS_ACTIVE))),
     )

@@ -12,14 +12,14 @@ The launch posture is the default subdomain derived from the project slug; bring
 
 ```bash
 yoke projects environment-settings merge --project {project} \
-  --environment-id stage --set domain.mode=default-subdomain \
+  --environment stage --set domain.mode=default-subdomain \
   --set domain.hostname={slug}.{default_domain}
 yoke projects environment-settings merge --project {project} \
-  --environment-id prod --set domain.mode=default-subdomain \
+  --environment prod --set domain.mode=default-subdomain \
   --set domain.hostname={slug}.{default_domain}
 ```
 
-The merge receipt returns changed paths only. Verify by projecting the leaf back (`yoke projects environment-settings get --project {project} --environment-id stage --path domain.hostname --json`), echo it, then mark:
+The merge receipt returns changed paths only. Verify by projecting the leaf back (`yoke projects environment-settings get --project {project} --environment stage --path domain.hostname --json`), echo it, then mark:
 
 ```bash
 yoke onboard checklist --run-id {run_id} \

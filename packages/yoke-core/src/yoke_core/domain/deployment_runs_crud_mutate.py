@@ -136,7 +136,7 @@ def cmd_create_run(
 ) -> str:
     """Create a new deployment run. Returns the generated run ID.
 
-    ``environment`` (an id or name) overrides the flow's registered
+    ``environment`` (a registered name) overrides the flow's registered
     target; tier and environment otherwise copy from the flow definition.
     """
     conn = connect(db_path)

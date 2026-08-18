@@ -211,10 +211,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0 if allowed else 1
 
         elif args.command == "resolve-target":
-            tier, environment_id, environment_name = cmd_resolve_target(
+            tier, _environment_id, environment_name = cmd_resolve_target(
                 args.project, args.flow, environment_override=args.environment,
             )
-            print(f"{tier}|{environment_id}|{environment_name}")
+            print(f"{tier}|{environment_name}")
             return 0
 
         elif args.command == "start-for-item":

@@ -41,7 +41,7 @@ class TestItemLessRun:
             if args[:2] == ("runs", "get"):
                 # id|project|flow|tier|environment|lineage|status|stage
                 return (
-                    f"{run_id}|yoke|flow-env|persistent|stage-env|"
+                    f"{run_id}|yoke|flow-env|persistent|stage|"
                     f"{'d' * 40}|created|"
                 )
             return ""
@@ -86,7 +86,7 @@ class TestItemLessRun:
             deploy_pipeline, "resolve_project_checkout_path", checkout_lookup,
         ), mock.patch.object(
             deploy_pipeline, "resolve_flow_target",
-            return_value=("persistent", "stage-env", "stage"),
+            return_value=("persistent", "stage"),
         ), mock.patch.object(
             deploy_pipeline_run_context, "_yoke_db", side_effect=fake_yoke_db,
         ), mock.patch.object(

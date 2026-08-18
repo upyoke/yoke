@@ -64,7 +64,7 @@ def test_bridge_uses_scoped_yoke_api_token_not_cross_repo_github_token() -> None
 def test_bridge_forwards_environment_release_mode_and_annotated_tag() -> None:
     text = _text()
 
-    assert '--input "target_environment=$platform_target"' in text
+    assert '--input "target_environment=$TARGET_ENVIRONMENT"' in text
     assert '--input "product_ref=$PRODUCT_REF"' in text
     assert '--input "release_mode=$RELEASE_MODE"' in text
     assert "--correlation-input yoke_dispatch_id" in text
@@ -76,7 +76,7 @@ def test_bridge_carries_the_registered_environment_name_not_a_promotion_label() 
     )[0]
 
     assert "          - stage\n          - prod\n" in declared
-    assert "production" not in declared
+    assert "platform_target" not in declared
 
 
 def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch() -> None:
@@ -88,8 +88,10 @@ def test_bridge_passes_the_registered_environment_name_to_the_platform_dispatch(
     # Platform's promotion train is keyed by the registered environment
     # names, so the bridge passes the name through unchanged and never
     # reintroduces a translated promotion label.
-    assert 'stage|prod) platform_target="$TARGET_ENVIRONMENT" ;;' in dispatch
-    assert "platform_target=production" not in text
+    assert 'case "$TARGET_ENVIRONMENT" in' in dispatch
+    assert "stage|prod) ;;" in dispatch
+    assert '--input "target_environment=$TARGET_ENVIRONMENT"' in dispatch
+    assert "platform_target" not in dispatch
     assert "production" not in dispatch
     # An unroutable environment stops the release rather than dispatching a
     # promotion input Platform's own choice list would reject.
@@ -108,7 +110,6 @@ def test_bridge_hands_yoke_surfaces_the_registered_environment_name() -> None:
     for step in (preflight, record):
         assert "TARGET_ENVIRONMENT: ${{ inputs.target_environment }}" in step
         assert "platform_target" not in step
-        assert "production" not in step
     assert '"$TARGET_ENVIRONMENT" "$PRODUCT_SHA"' in preflight
     assert '--environment "$TARGET_ENVIRONMENT"' in record
 

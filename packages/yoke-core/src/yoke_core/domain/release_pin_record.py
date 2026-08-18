@@ -11,7 +11,7 @@ from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
 from yoke_core.domain.release_pin_capability import (
     CAPABILITY_TYPE,
     ReleasePinRoute,
-    route_for_target,
+    route_for_environment,
 )
 from yoke_core.domain.settings_cas import (
     SettingsConflictError,
@@ -29,10 +29,6 @@ class ReleasePinCapabilityInvalid(ValueError):
     """The release-pin declaration is incomplete or malformed."""
 
 
-class ReleasePinTargetNotConfigured(LookupError):
-    """The requested deploy target has no configured environment mapping."""
-
-
 class ReleasePinProjectMismatch(ValueError):
     """The configured environment belongs to a different project."""
 
@@ -45,7 +41,6 @@ class ReleasePinConfiguredLeafNotScalar(ValueError):
 class ReleasePinRecord:
     project: str
     environment: str
-    environment_id: str
     settings_path: str
     pin: str
     changed: bool
@@ -71,18 +66,23 @@ def record_release_pin(
             target_project=target_project,
         )
         route = _configured_route(conn, identity.id, identity.slug, environment)
+        from yoke_core.domain.environment_reference import resolve
+
+        environment_ref = resolve(
+            conn, project_id=identity.id, name=route.environment,
+        )
         for attempt in range(2):
-            row = _environment_settings_row(conn, route.environment_id)
+            row = _environment_settings_row(conn, environment_ref.id)
             if row is None:
-                raise LookupError(f"environment {route.environment_id!r} was not found")
+                raise LookupError(f"environment {route.environment!r} was not found")
             if int(row["project_id"]) != identity.id:
                 raise ReleasePinProjectMismatch(
-                    f"configured environment {route.environment_id!r} does "
+                    f"configured environment {route.environment!r} does "
                     f"not belong to project {identity.slug!r}"
                 )
             base = str(row["settings"] or "{}")
             document = parse_settings_object(
-                base, what=f"stored settings for {route.environment_id!r}"
+                base, what=f"stored settings for {route.environment!r}"
             )
             current = read_key_path(document, route.desired_pin_path)
             if isinstance(current, (dict, list)):
@@ -95,7 +95,7 @@ def record_release_pin(
                 from yoke_core.domain.environment_delivery_record import (
                     stamp_environment_last_deployed,
                 )
-                stamp_environment_last_deployed(conn, route.environment_id)
+                stamp_environment_last_deployed(conn, environment_ref.id)
                 conn.commit()
                 return _receipt(
                     identity.slug,
@@ -112,13 +112,13 @@ def record_release_pin(
             cursor = conn.execute(
                 "UPDATE environments SET settings=%s "
                 "WHERE id=%s AND COALESCE(settings, '{}')=%s",
-                (merged, route.environment_id, base),
+                (merged, environment_ref.id, base),
             )
             if cursor.rowcount:
                 from yoke_core.domain.environment_delivery_record import (
                     stamp_environment_last_deployed,
                 )
-                stamp_environment_last_deployed(conn, route.environment_id)
+                stamp_environment_last_deployed(conn, environment_ref.id)
                 conn.commit()
                 return _receipt(
                     identity.slug,
@@ -185,16 +185,14 @@ def _configured_route(
         settings = json.loads(str(row["settings"] or "{}"))
         if not isinstance(settings, dict):
             raise ValueError("settings root must be an object")
-        return route_for_target(settings, environment)
-    except LookupError as exc:
-        raise ReleasePinTargetNotConfigured(str(exc)) from exc
+        return route_for_environment(settings, environment)
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ReleasePinCapabilityInvalid(
             f"project {project!r} has invalid {CAPABILITY_TYPE!r} settings: {exc}"
         ) from exc
 
 
-def _environment_settings_row(conn: Any, environment_id: str) -> Any:
+def _environment_settings_row(conn: Any, environment_id: int) -> Any:
     return query_one(
         conn,
         "SELECT s.project_id, COALESCE(e.settings, '{}') AS settings "
@@ -223,7 +221,6 @@ def _receipt(
     return ReleasePinRecord(
         project=project,
         environment=environment,
-        environment_id=route.environment_id,
         settings_path=route.desired_pin_path,
         pin=pin,
         changed=changed,
@@ -236,6 +233,5 @@ __all__ = [
     "ReleasePinConfiguredLeafNotScalar",
     "ReleasePinProjectMismatch",
     "ReleasePinRecord",
-    "ReleasePinTargetNotConfigured",
     "record_release_pin",
 ]

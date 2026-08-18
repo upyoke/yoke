@@ -27,7 +27,7 @@ from yoke_core.engines.runs_start_for_item import (
 def _patches(
     *,
     item_row=("yoke", "to-prod"),
-    target=("persistent", "production", "prod"),
+    target=("persistent", 101, "prod"),
     run_id="2026-05-19-001",
     add_item_ret="OK",
     validate_ret=(True, "ok"),
@@ -75,7 +75,7 @@ def test_success_returns_structured_handle():
     assert result.project == "yoke"
     assert result.flow == "to-prod"
     assert result.target_tier == "persistent"
-    assert result.target_environment_id == "production"
+    assert result.target_environment_id == 101
     assert result.target_environment_name == "prod"
     assert result.item_ids == [42]
     assert result.error is None
@@ -90,7 +90,7 @@ def test_explicit_kwargs_override_item_row():
     )
     resolve = mock.patch.object(
         composer, "cmd_resolve_target",
-        return_value=("persistent", "staging", "preview"),
+        return_value=("persistent", 102, "preview"),
     )
     create = mock.patch.object(
         composer, "cmd_create_run", return_value="R1",
@@ -190,7 +190,7 @@ def test_create_run_failure_returns_no_run_id():
 def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
     remote_sha = "a" * 40
     helpers, resolve, create, add, validate = _patches(
-        target=("persistent", "staging", "stage"),
+        target=("persistent", 103, "stage"),
     )
     with helpers, resolve, create as create_m, add, validate, mock.patch.object(
         composer,
@@ -201,7 +201,7 @@ def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
 
     assert result.ok is True
     resolve_head.assert_called_once_with(
-        "yoke", "persistent", "staging", "",
+        "yoke", "persistent", "stage", "",
     )
     assert create_m.call_args.kwargs["release_lineage"] == remote_sha
 
@@ -209,7 +209,7 @@ def test_stage_run_without_lineage_binds_exact_remote_head_before_create():
 def test_explicit_sha_lineage_is_rejected_before_run_insert_when_not_remote_head():
     candidate = "b" * 40
     helpers, resolve, create, add, validate = _patches(
-        target=("persistent", "staging", "stage"),
+        target=("persistent", 103, "stage"),
     )
     lineage_check = mock.patch.object(
         composer,
@@ -272,7 +272,7 @@ def test_validate_composition_raise_captured():
 def test_to_dict_omits_error_fields_on_success():
     handle = StartForItemResult(
         ok=True, project="p", flow="f", target_tier="persistent",
-        target_environment_id="t", target_environment_name="t-name",
+        target_environment_id=101, target_environment_name="prod",
         run_id="R", validation_message="ok", item_ids=[42],
     )
     out = handle.to_dict()

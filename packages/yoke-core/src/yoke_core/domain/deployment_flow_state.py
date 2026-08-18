@@ -23,7 +23,7 @@ def lock_deployment_flow_rows(
     flow_ids: Iterable[str],
     *,
     binding: bool,
-) -> dict[str, tuple[int, str, str, str]]:
+) -> dict[str, tuple[int, str, str, int | None]]:
     """Lock flow rows in stable order for definitions or new references."""
     normalized = tuple(sorted({str(flow_id) for flow_id in flow_ids}))
     if not normalized:
@@ -31,12 +31,12 @@ def lock_deployment_flow_rows(
     suffix = ""
     if db_backend.connection_is_postgres(conn):
         suffix = " FOR SHARE" if binding else " FOR UPDATE"
-    rows: dict[str, tuple[int, str, str, str]] = {}
+    rows: dict[str, tuple[int, str, str, int | None]] = {}
     for flow_id in normalized:
         row = conn.execute(
             "SELECT id, project_id, status, "
             "COALESCE(target_tier, '') AS target_tier, "
-            "COALESCE(target_environment_id, '') AS target_environment_id "
+            "target_environment_id "
             f"FROM deployment_flows WHERE id = {_p(conn)}{suffix}",
             (flow_id,),
         ).fetchone()
@@ -47,13 +47,11 @@ def lock_deployment_flow_rows(
             int(row["project_id"] if hasattr(row, "keys") else row[1]),
             str(row["status"] if hasattr(row, "keys") else row[2]),
             str((row["target_tier"] if hasattr(row, "keys") else row[3]) or ""),
-            str(
-                (
-                    row["target_environment_id"]
-                    if hasattr(row, "keys")
-                    else row[4]
-                )
-                or ""
+            (
+                int(row["target_environment_id"] if hasattr(row, "keys") else row[4])
+                if (row["target_environment_id"] if hasattr(row, "keys") else row[4])
+                is not None
+                else None
             ),
         )
     return rows
@@ -64,7 +62,7 @@ def require_flow_for_new_run(
     flow_id: str,
     *,
     project_id: int | None = None,
-) -> tuple[int, str, str]:
+) -> tuple[int, str, int | None]:
     """Return project, tier, and environment when a flow accepts new runs."""
     row = lock_deployment_flow_rows(conn, (flow_id,), binding=True).get(flow_id)
     if row is None:

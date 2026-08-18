@@ -24,7 +24,7 @@ from runtime.api.tools.test_pulumi_exec_support import (
 
 
 def _environment(name: str) -> RendererEnvironmentSettings:
-    is_production = name == "production"
+    is_prod = name == "prod"
     return RendererEnvironmentSettings(
         id=f"acme-{name}",
         name=name,
@@ -42,8 +42,8 @@ def _environment(name: str) -> RendererEnvironmentSettings:
             },
             "capabilities": ["api", "database"],
             "servers": {
-                "instance_type": "t4g.small" if is_production else "t4g.micro",
-                "root_volume_gb": 40 if is_production else 20,
+                "instance_type": "t4g.small" if is_prod else "t4g.micro",
+                "root_volume_gb": 40 if is_prod else 20,
                 "aws_key_pair_name": f"acme-{name}",
                 "iam_instance_profile_name": f"acme-{name}-host",
             },
@@ -60,7 +60,7 @@ def _environment(name: str) -> RendererEnvironmentSettings:
 
 
 def _settings() -> ProjectRendererSettings:
-    production = _environment("production")
+    prod = _environment("prod")
     stage = _environment("stage")
     return ProjectRendererSettings(
         project="acme",
@@ -73,8 +73,8 @@ def _settings() -> ProjectRendererSettings:
                 "hosted_zone_id": "ZACME",
             }]
         },
-        primary_environment=production,
-        environments=(production, stage),
+        primary_environment=prod,
+        environments=(prod, stage),
         capabilities={
             "aws-admin": {
                 "account_id": "123456789012",
@@ -84,15 +84,15 @@ def _settings() -> ProjectRendererSettings:
                 "state_bucket": "acme-pulumi-state",
                 "kms_key_alias": "alias/acme-pulumi-state",
                 "stacks": ["infra", "vps"],
-                "vps_stack_name": "acme-production-vps",
+                "vps_stack_name": "acme-prod-vps",
                 "stack_state": {
                     "acme-infra": {
                         "secrets_provider": "awskms://alias/acme-infra",
                         "encrypted_key": "encrypted-infra",
                     },
-                    "acme-production-vps": {
-                        "secrets_provider": "awskms://alias/acme-production-vps",
-                        "encrypted_key": "encrypted-production-vps",
+                    "acme-prod-vps": {
+                        "secrets_provider": "awskms://alias/acme-prod-vps",
+                        "encrypted_key": "encrypted-prod-vps",
                     },
                     "acme-stage-vps": {
                         "secrets_provider": "awskms://alias/acme-stage-vps",
@@ -151,7 +151,7 @@ def test_stack_config_projects_only_selected_environment(monkeypatch):
         "secrets_provider": "awskms://alias/acme-stage",
         "encrypted_key": "encrypted-stage",
     }
-    assert "production" not in encoded
+    assert "origin.prod.acme.test" not in encoded
     assert "site_settings" not in payload
     assert "environments" not in payload
     assert "capabilities" not in payload
@@ -234,11 +234,11 @@ def test_stack_config_projects_component_type_aliases(monkeypatch):
     ("stack", "instance_type", "root_volume_gb", "key_name", "encrypted_key"),
     [
         (
-            "acme-production-vps",
+            "acme-prod-vps",
             "t4g.small",
             "40",
-            "acme-production",
-            "encrypted-production-vps",
+            "acme-prod",
+            "encrypted-prod-vps",
         ),
         (
             "acme-stage-vps",
@@ -296,7 +296,7 @@ def test_stack_config_rejects_unknown_and_missing_vps_operator_state(monkeypatch
 
 
 def test_stack_config_separates_environment_operator_state(monkeypatch):
-    production = _environment("production")
+    prod = _environment("prod")
     stage = _environment("stage")
     settings = ProjectRendererSettings(
         project="acme",
@@ -304,8 +304,8 @@ def test_stack_config_separates_environment_operator_state(monkeypatch):
         display_name="Acme",
         site_id="acme-site",
         site_settings={"domains": [{"domain_name": "acme.test"}]},
-        primary_environment=production,
-        environments=(production, stage),
+        primary_environment=prod,
+        environments=(prod, stage),
         capabilities={
             "aws-admin": {"region": "us-east-1"},
             "pulumi-state": {"state_bucket": "acme-state", "stacks": ["infra"]},
@@ -326,9 +326,9 @@ def test_stack_config_separates_environment_operator_state(monkeypatch):
     )
     stage_payload = build_pulumi_stack_config(object(), "acme", "acme-stage")
     prod_payload = build_pulumi_stack_config(
-        object(), "acme", "acme-production"
+        object(), "acme", "acme-prod"
     )
     assert stage_payload["operator_state"]["encrypted_key"] == "encrypted-stage"
     assert prod_payload["operator_state"]["encrypted_key"] == (
-        "encrypted-production"
+        "encrypted-prod"
     )

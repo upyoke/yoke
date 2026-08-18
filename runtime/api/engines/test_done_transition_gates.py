@@ -236,7 +236,7 @@ class TestCLIParsing:
                 [
                     "99",
                     "--env",
-                    "staging",
+                    "stage",
                     "--skip-simulation",
                     "--skip-deploy",
                     "--skip-qa",
@@ -244,7 +244,7 @@ class TestCLIParsing:
             )
         mock_run.assert_called_once_with(
             99,
-            env_name="staging",
+            env_name="stage",
             skip_simulation=True,
             skip_deploy=True,
             skip_qa=True,

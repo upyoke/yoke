@@ -19,13 +19,21 @@ class EnvironmentReferenceError(LookupError):
     """A named environment does not resolve within its project."""
 
 
+def validate_name(value: str) -> str:
+    """Return one syntactically usable environment name."""
+    name = str(value or "").strip()
+    if not name or len(name) > 100:
+        raise ValueError("environment must be a non-empty name of at most 100 characters")
+    return name
+
+
 @dataclass(frozen=True)
 class EnvironmentReference:
     """One resolved environment row, addressed by name within a project."""
 
-    id: Any
+    id: int
     name: str
-    site: Any
+    site: int
     project_id: int
 
 
@@ -82,9 +90,9 @@ def resolve(conn: Any, *, project_id: int, name: str) -> EnvironmentReference:
         )
     row = rows[0]
     return EnvironmentReference(
-        id=_row_value(row, "id", 0),
+        id=int(_row_value(row, "id", 0)),
         name=str(_row_value(row, "name", 1)),
-        site=_row_value(row, "site", 2),
+        site=int(_row_value(row, "site", 2)),
         project_id=int(_row_value(row, "project_id", 3)),
     )
 
@@ -98,4 +106,5 @@ __all__ = [
     "EnvironmentReferenceError",
     "registered_names",
     "resolve",
+    "validate_name",
 ]

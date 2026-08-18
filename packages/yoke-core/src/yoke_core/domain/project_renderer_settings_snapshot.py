@@ -23,7 +23,7 @@ from yoke_core.domain.project_renderer_settings import (
 )
 
 # Version tag for the stack-config payload (request and response).
-STACK_CONFIG_SCHEMA = 1
+STACK_CONFIG_SCHEMA = 2
 
 
 class ProjectNotFoundError(LookupError):
@@ -36,10 +36,10 @@ def snapshot_from_settings(settings: ProjectRendererSettings) -> Dict[str, Any]:
         "project": settings.project,
         "deploy_namespace": settings.deploy_namespace,
         "display_name": settings.display_name,
-        "site_id": settings.site_id,
+        "site": settings.site_name,
         "site_settings": settings.site_settings,
         "environments": [
-            {"id": env.id, "name": env.name, "settings": env.settings}
+            {"name": env.name, "settings": env.settings}
             for env in settings.environments
         ],
         "capabilities": settings.capabilities,
@@ -60,7 +60,7 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
         raise ValueError("renderer settings snapshot 'environments' must be a list")
     environments = tuple(
         RendererEnvironmentSettings(
-            id=str(raw.get("id") or ""),
+            id="",
             name=str(raw.get("name") or ""),
             settings=dict(raw.get("settings") or {}),
         )
@@ -73,7 +73,7 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
         project=project,
         deploy_namespace=str(snapshot.get("deploy_namespace") or project),
         display_name=str(snapshot.get("display_name") or project),
-        site_id=str(snapshot.get("site_id") or ""),
+        site_id="",
         site_settings=dict(site_settings) if isinstance(site_settings, Mapping) else {},
         primary_environment=select_primary_environment(environments),
         environments=environments,
@@ -82,6 +82,7 @@ def settings_from_snapshot(snapshot: Mapping[str, Any]) -> ProjectRendererSettin
             if isinstance(capabilities, Mapping)
             else {}
         ),
+        site_name=str(snapshot.get("site") or ""),
     )
 
 

@@ -28,10 +28,30 @@ class _OpenConnection:
         return None
 
 
+def _prod_environment_id(conn) -> int:
+    conn.execute(
+        "INSERT INTO sites(project_id, name, created_at) "
+        "VALUES (1, 'Approval test site', '2026-07-26T00:00:00Z') "
+        "ON CONFLICT(project_id, name) DO NOTHING"
+    )
+    conn.execute(
+        "INSERT INTO environments(site, project_id, name, created_at) "
+        "SELECT id, 1, 'prod', '2026-07-26T00:00:00Z' FROM sites "
+        "WHERE project_id=1 AND name='Approval test site' "
+        "ON CONFLICT(project_id, name) DO NOTHING"
+    )
+    return int(
+        conn.execute(
+            "SELECT id FROM environments WHERE project_id=1 AND name='prod'"
+        ).fetchone()[0]
+    )
+
+
 def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     test_db, monkeypatch,
 ):
     create_decision_request_tables(test_db)
+    environment_id = _prod_environment_id(test_db)
     originator = test_db.execute(
         "SELECT id FROM actors ORDER BY id LIMIT 1"
     ).fetchone()[0]
@@ -55,7 +75,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, created_at) "
         "VALUES ('approval-proof', 1, 'Approval proof', "
-        "'[{\"name\":\"production\",\"step_runner\":\"human-approval\"},"
+        "'[{\"name\":\"approve-prod\",\"step_runner\":\"human-approval\"},"
         "{\"name\":\"release\",\"step_runner\":\"auto\"}]', "
         "'2026-07-26T00:00:00Z')"
     )
@@ -64,7 +84,8 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "(id, project_id, flow, target_tier, target_environment_id, "
         "status, current_stage, created_at) "
         "VALUES ('run-approval-proof', 1, 'approval-proof', 'persistent', "
-        "'production', 'executing', 'production', '2026-07-26T00:00:00Z')"
+        "%s, 'executing', 'approve-prod', '2026-07-26T00:00:00Z')",
+        (environment_id,),
     )
     test_db.commit()
 
@@ -80,22 +101,22 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     assert created_again is False
     assert repeated["id"] == request["id"]
     assert deployment_stage_is_approved(
-        test_db, run_id="run-approval-proof", stage_id="production",
+        test_db, run_id="run-approval-proof", stage_id="approve-prod",
     ) is False
     assert deployment_stage_decision(
-        test_db, run_id="run-approval-proof", stage_id="production",
+        test_db, run_id="run-approval-proof", stage_id="approve-prod",
     ) is None
     assert test_db.execute(
         "SELECT current_stage FROM deployment_runs "
         "WHERE id='run-approval-proof'"
-    ).fetchone()[0] == "production"
+    ).fetchone()[0] == "approve-prod"
 
     open_conn = _OpenConnection(test_db)
     import yoke_core.domain.db_helpers as db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: open_conn)
     assert dispatch_deployment_stage_approval(
-        "run-approval-proof", "production",
+        "run-approval-proof", "approve-prod",
     ) == (-2, "")
 
     monkeypatch.setattr(
@@ -105,23 +126,23 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "run-approval-proof",
         actor_id=owner,
         session_id="approval-session",
-        note="production checks passed",
+        note="prod checks passed",
     )
     assert approval.decision_request_id == request["id"]
     assert approval.next_stage == "release"
     assert deployment_stage_is_approved(
-        test_db, run_id="run-approval-proof", stage_id="production",
+        test_db, run_id="run-approval-proof", stage_id="approve-prod",
     ) is True
     assert deployment_stage_decision(
-        test_db, run_id="run-approval-proof", stage_id="production",
+        test_db, run_id="run-approval-proof", stage_id="approve-prod",
     ) == "approve"
     assert dispatch_deployment_stage_approval(
-        "run-approval-proof", "production",
+        "run-approval-proof", "approve-prod",
     ) == (0, "")
     assert test_db.execute(
         "SELECT current_stage FROM deployment_runs "
         "WHERE id='run-approval-proof'"
-    ).fetchone()[0] == "production"
+    ).fetchone()[0] == "approve-prod"
 
     test_db.execute(
         "UPDATE deployment_runs SET created_by=%s "
@@ -151,6 +172,7 @@ def test_deployment_completion_event_and_deliveries_share_transaction(
     test_db,
 ):
     create_decision_request_tables(test_db)
+    environment_id = _prod_environment_id(test_db)
     initiator = int(test_db.execute(
         "SELECT id FROM actors ORDER BY id LIMIT 1"
     ).fetchone()[0])
@@ -165,8 +187,8 @@ def test_deployment_completion_event_and_deliveries_share_transaction(
         "(id, project_id, flow, target_tier, target_environment_id, "
         "status, created_by, created_at) "
         "VALUES ('run-completion-proof', 1, 'completion-proof', 'persistent', "
-        "'production', 'succeeded', %s, '2026-07-26T00:00:00Z')",
-        (str(initiator),),
+        "%s, 'succeeded', %s, '2026-07-26T00:00:00Z')",
+        (environment_id, str(initiator)),
     )
     test_db.commit()
 

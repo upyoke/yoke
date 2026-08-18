@@ -15,16 +15,20 @@ against.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, List
+
+import yaml
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.environment_reference import registered_names
+from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 import yoke_core.engines.doctor_report as _base
 
 
-_TITLE = "Flow stages dispatch a registered environment name"
+_TITLE = "Repository and flow inputs use registered environment names"
 
 
 def _is_placeholder(value: str) -> bool:
@@ -55,6 +59,49 @@ def _environment_inputs(stages: Any) -> List[tuple[str, str, str]]:
                 continue
             found.append((stage_name, str(key), value))
     return found
+
+
+def _workflow_choice_issues(
+    checkout: Path,
+    *,
+    project: str,
+    names: list[str],
+) -> list[str]:
+    """Return environment choice inputs whose options drift from the registry."""
+    workflow_dir = checkout / ".github" / "workflows"
+    if not workflow_dir.is_dir():
+        return []
+    expected = sorted(names)
+    issues: list[str] = []
+    paths = sorted((*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")))
+    for path in paths:
+        try:
+            document = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+        except (OSError, yaml.YAMLError):
+            continue
+        if not isinstance(document, dict):
+            continue
+        triggers = document.get("on")
+        if not isinstance(triggers, dict):
+            continue
+        dispatch = triggers.get("workflow_dispatch")
+        inputs = dispatch.get("inputs") if isinstance(dispatch, dict) else None
+        if not isinstance(inputs, dict):
+            continue
+        for key, definition in inputs.items():
+            if "environment" not in str(key).lower() or not isinstance(definition, dict):
+                continue
+            if str(definition.get("type") or "") != "choice":
+                continue
+            options = definition.get("options")
+            actual = sorted(str(value) for value in options) if isinstance(options, list) else []
+            if actual == expected:
+                continue
+            issues.append(
+                f"- {project}/{path.relative_to(checkout)} input '{key}': "
+                f"options {actual!r} do not match registered names {expected!r}."
+            )
+    return issues
 
 
 def hc_flow_stage_environment_input(
@@ -108,10 +155,30 @@ def hc_flow_stage_environment_input(
                 f"Project '{row['project']}' registers: {registered}."
             )
 
+    project_rows = query_rows(
+        conn,
+        "SELECT id, slug FROM projects ORDER BY slug",
+    )
+    fallback = _base._resolve_repo_root()
+    for project_row in project_rows:
+        project_id = int(project_row["id"])
+        project = str(project_row["slug"])
+        checkout = checkout_for_project_id(project_id)
+        if checkout is None and fallback and str(args.project or "") == project:
+            checkout = Path(fallback)
+        if checkout is None:
+            continue
+        names = known.setdefault(
+            project_id, registered_names(conn, project_id=project_id),
+        )
+        issues.extend(
+            _workflow_choice_issues(Path(checkout), project=project, names=names)
+        )
+
     if issues:
         rec.record("HC-flow-stage-environment-input", _TITLE, "FAIL", "\n".join(issues))
     else:
         rec.record("HC-flow-stage-environment-input", _TITLE, "PASS", "")
 
 
-__all__ = ("hc_flow_stage_environment_input",)
+__all__ = ("_workflow_choice_issues", "hc_flow_stage_environment_input")

@@ -11,6 +11,7 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor_hc_db_flow_environment_inputs import (
+    _workflow_choice_issues,
     hc_flow_stage_environment_input,
 )
 
@@ -46,8 +47,10 @@ def conn():
         c,
         """
         CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT);
-        CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER);
-        CREATE TABLE environments (id TEXT PRIMARY KEY, name TEXT, site TEXT);
+        CREATE TABLE sites (id INTEGER PRIMARY KEY, project_id INTEGER);
+        CREATE TABLE environments (
+            id INTEGER PRIMARY KEY, name TEXT, site INTEGER, project_id INTEGER
+        );
         CREATE TABLE deployment_flows (
             id TEXT PRIMARY KEY,
             project_id INTEGER,
@@ -57,11 +60,11 @@ def conn():
         """,
     )
     c.execute("INSERT INTO projects (id, slug) VALUES (1, 'acme')")
-    c.execute("INSERT INTO sites (id, project_id) VALUES ('acme-web', 1)")
+    c.execute("INSERT INTO sites (id, project_id) VALUES (101, 1)")
     c.execute(
-        "INSERT INTO environments (id, name, site) VALUES "
-        "('acme-web-prod', 'prod', 'acme-web'), "
-        "('acme-web-stage', 'stage', 'acme-web')"
+        "INSERT INTO environments (id, name, site, project_id) VALUES "
+        "(201, 'prod', 101, 1), "
+        "(202, 'stage', 101, 1)"
     )
     c.commit()
     yield c
@@ -93,14 +96,16 @@ def test_registered_environment_name_passes(conn):
 
 def test_unregistered_environment_name_fails_and_names_the_alternatives(conn):
     _add_flow(
-        conn, "acme-prod", [{"name": "roll", "inputs": {"target_environment": "production"}}]
+        conn,
+        "acme-prod",
+        [{"name": "roll", "inputs": {"target_environment": "customer-west"}}],
     )
 
     record = _run(conn)
 
     assert record.verdict == "FAIL"
     assert "acme/acme-prod" in record.detail
-    assert "target_environment='production'" in record.detail
+    assert "target_environment='customer-west'" in record.detail
     # The refusal names what the project does register, so the repair is
     # visible without a second lookup.
     assert "prod, stage" in record.detail
@@ -124,7 +129,7 @@ def test_disabled_route_is_retained_history_and_not_checked(conn):
     _add_flow(
         conn,
         "acme-old",
-        [{"name": "roll", "inputs": {"target_environment": "production"}}],
+        [{"name": "roll", "inputs": {"target_environment": "legacy-env"}}],
         status="disabled",
     )
 
@@ -149,3 +154,47 @@ def test_unparseable_stage_json_is_left_to_the_stage_json_check(conn):
     conn.commit()
 
     assert _run(conn).verdict == "PASS"
+
+
+def test_workflow_environment_choices_must_equal_registered_names(tmp_path):
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "release.yml").write_text(
+        """on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        type: choice
+        options: [stage, customer-west]
+""",
+        encoding="utf-8",
+    )
+
+    issues = _workflow_choice_issues(
+        tmp_path, project="acme", names=["prod", "stage"],
+    )
+
+    assert len(issues) == 1
+    assert "customer-west" in issues[0]
+    assert "['prod', 'stage']" in issues[0]
+
+
+def test_workflow_environment_choices_pass_when_registry_matches(tmp_path):
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "release.yaml").write_text(
+        """on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options:
+          - stage
+          - prod
+""",
+        encoding="utf-8",
+    )
+
+    assert _workflow_choice_issues(
+        tmp_path, project="acme", names=["prod", "stage"],
+    ) == []

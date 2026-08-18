@@ -18,15 +18,15 @@ def synthetic_execution_target(
 ) -> tuple[dict, str]:
     """Return one internally coherent target and its canonical digest."""
     target = {
-        "schema": 1,
+        "schema": 2,
         "tenant": {"id": 1, "slug": "test-org", "name": "Test org"},
         "project": {
             "id": int(project_id),
             "slug": str(project),
             "name": str(project),
         },
-        "site": {"id": "test-site"},
-        "environment": {"id": "test-env", "name": "development"},
+        "site": {"name": "Test site"},
+        "environment": {"name": "development"},
         "endpoints": {},
     }
     encoded = json.dumps(target, sort_keys=True, separators=(",", ":")).encode()

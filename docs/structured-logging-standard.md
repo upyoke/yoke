@@ -60,7 +60,7 @@ This enum enables cross-source queries without reasoning about `service` values.
  "source_type": "agent|backend|frontend|system|script|hook|skill",
  "duration_ms": 142,
 
- "environment": "production",
+ "environment": "prod",
  "service": "cli",
  "service_version": "1.0.0",
  "project": "yoke",

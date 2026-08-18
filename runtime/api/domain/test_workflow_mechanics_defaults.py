@@ -159,20 +159,29 @@ def test_testing_default_covers_each_workflow_qa_checkpoint(test_db):
 def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     converged = current_workflow_version(test_db, "dash")
     create_project_structure_tables(test_db)
+    for name in ("prod", "stage"):
+        test_db.execute(
+            "INSERT INTO environments(site, project_id, name, created_at) "
+            "SELECT id, 1, %s, %s FROM sites WHERE project_id=1 "
+            "ORDER BY id LIMIT 1 ON CONFLICT(project_id,name) DO NOTHING",
+            (name, "2026-07-26T00:00:00Z"),
+        )
     test_db.execute(
         "INSERT INTO deployment_flows("
         "id, project_id, name, description, stages, on_failure, created_at, "
         "status, target_tier, target_environment_id"
         ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', "
-        "'persistent', 'production')",
-        ("workflows-production", "Workflows production", "2026-07-26T00:00:00Z"),
+        "'persistent', (SELECT id FROM environments "
+        "WHERE project_id=1 AND name='prod'))",
+        ("workflows-prod", "Workflows prod", "2026-07-26T00:00:00Z"),
     )
     test_db.execute(
         "INSERT INTO deployment_flows("
         "id, project_id, name, description, stages, on_failure, created_at, "
         "status, target_tier, target_environment_id"
         ") VALUES (%s, 1, %s, '', '[]', 'halt', %s, 'active', "
-        "'persistent', 'stage')",
+        "'persistent', (SELECT id FROM environments "
+        "WHERE project_id=1 AND name='stage'))",
         ("workflows-stage", "Workflows stage", "2026-07-26T00:00:00Z"),
     )
     test_db.commit()
@@ -181,7 +190,7 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
         test_db,
         project="yoke",
         workflow_id="dash",
-        flow_id="workflows-production",
+        flow_id="workflows-prod",
     )
 
     assert result["workflow_ids"] == ["dash"]
@@ -189,7 +198,7 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     assert {
         (row["project"], row["workflow_id"], row["flow_id"])
         for row in defaults
-    } >= {("yoke", "dash", "workflows-production")}
+    } >= {("yoke", "dash", "workflows-prod")}
     # A delivery default is project state, not workflow content: it must not
     # publish a version, so the one that was current still is.
     assert current_workflow_version(test_db, "dash") == converged
@@ -202,7 +211,7 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     test_db.commit()
     assert get_delivery_default(
         test_db, project="yoke", workflow_id="dash",
-    ) == "workflows-production"
+    ) == "workflows-prod"
     assert get_delivery_default(
         test_db, project="yoke", workflow_id="issue",
     ) == "workflows-stage"

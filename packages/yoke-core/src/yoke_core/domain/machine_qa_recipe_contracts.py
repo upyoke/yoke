@@ -155,7 +155,7 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "operator_gate",
             "ready_text",
             "ready_timeout_seconds",
-            "target_environment_id",
+            "target_environment",
             "wait_seconds",
         }
         unknown = set(action) - allowed
@@ -179,11 +179,11 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "keys": keys,
             "capture": capture,
         }
-        if "target_environment_id" in action:
-            target_id = str(action["target_environment_id"]).strip()
-            if not 0 < len(target_id) <= 200:
-                raise MachineQaRecipeError("target_environment_id is invalid")
-            normalized_action["target_environment_id"] = target_id
+        if "target_environment" in action:
+            target_environment = str(action["target_environment"]).strip()
+            if not 0 < len(target_environment) <= 100:
+                raise MachineQaRecipeError("target_environment is invalid")
+            normalized_action["target_environment"] = target_environment
         try:
             normalized_action.update(
                 normalize_action_readiness(action, strings=_strings)

@@ -151,7 +151,7 @@ jobs:
           OUTER_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
         run: |
           case "$TARGET_ENVIRONMENT" in
-            stage|prod) platform_target="$TARGET_ENVIRONMENT" ;;
+            stage|prod) ;;
             *)
               echo "no Platform promotion route for environment $TARGET_ENVIRONMENT" >&2
               exit 1
@@ -164,7 +164,7 @@ jobs:
             if platform_run_id="$(yoke github-actions trigger \
               upyoke/platform yoke-release-promote.yml \
               --ref main \
-              --input "target_environment=$platform_target" \
+              --input "target_environment=$TARGET_ENVIRONMENT" \
               --input "product_ref=$PRODUCT_REF" \
               --input "release_mode=$RELEASE_MODE" \
               --request-id "$request_id" \

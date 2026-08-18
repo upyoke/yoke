@@ -234,11 +234,12 @@ def test_onboard_teaches_hosting_probe_and_stdin_secrets():
 def test_onboard_teaches_environment_and_flow_registration():
     text = _read(ONBOARD_DIR / "hosting-and-environments.md")
     assert (
-        "yoke projects site create --project {project} --site-slug {site_slug}" in text
+        "yoke projects site create --project {project} --site {site_name}" in text
     )
     assert "yoke projects environment create" in text
-    assert "--environment-id stage" in text
-    assert "--environment-id prod" in text
+    assert "--environment stage" in text
+    assert "--environment prod" in text
+    assert "--environment-id" not in text
     assert ".yoke/deployment-flows.json" in text
     assert "yoke deployment-flows reconcile-project" in text
     assert "default_flow" in text

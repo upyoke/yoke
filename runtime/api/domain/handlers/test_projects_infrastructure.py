@@ -26,12 +26,11 @@ def _request(project: str = "externalwebapp") -> FunctionCallRequest:
 def test_lists_only_non_secret_site_and_environment_metadata() -> None:
     conn = MagicMock()
     rows = [
-        [{"id": "main", "name": "Main", "description": "Product"}],
+        [{"name": "Application", "description": "Product"}],
         [
             {
-                "id": "production",
-                "site": "main",
-                "name": "Production",
+                "site": "Application",
+                "name": "prod",
                 "url": "https://externalwebapp.example",
                 "deploy_method": "github-actions",
                 "health_check_url": "https://externalwebapp.example/health",

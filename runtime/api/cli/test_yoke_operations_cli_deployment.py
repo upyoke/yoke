@@ -168,8 +168,8 @@ def test_deployment_run_approve_dispatches_note_and_prints_transition() -> None:
             request_id=request.request_id,
             result={
                 "run_id": "run-20260616-001",
-                "approved_stage": "production-approval",
-                "next_stage": "production",
+                "approved_stage": "prod-approval",
+                "next_stage": "prod",
             },
         )
 
@@ -180,7 +180,7 @@ def test_deployment_run_approve_dispatches_note_and_prints_transition() -> None:
     )
     assert rc == 0, err
     assert out == (
-        "Approved run-20260616-001: production-approval -> production\n"
+        "Approved run-20260616-001: prod-approval -> prod\n"
     )
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.approve"
@@ -198,26 +198,25 @@ def test_resolve_target_dispatches_and_prints_typed_triple() -> None:
             request_id=request.request_id,
             result={
                 "project": "yoke",
-                "flow": "yoke-hosted-production",
+                "flow": "yoke-hosted-prod",
                 "target_tier": "persistent",
-                "target_environment_id": "production",
-                "target_environment_name": "prod",
+                "target_environment": "prod",
             },
         )
 
     rc, out, _err = _run_capture(
         stub,
         "deployment-runs", "resolve-target",
-        "yoke", "yoke-hosted-production",
+        "yoke", "yoke-hosted-prod",
     )
     assert rc == 0
-    assert out == "persistent|production|prod\n"
+    assert out == "persistent|prod\n"
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "deployment_runs.resolve_target"
     assert req.target.kind == "global"
     assert req.payload == {
         "project": "yoke",
-        "flow": "yoke-hosted-production",
+        "flow": "yoke-hosted-prod",
     }
 
 
@@ -240,9 +239,9 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
             result={
                 "run_id": "run-20260616-009",
                 "project": "yoke",
-                "flow": "yoke-hosted-production",
+                "flow": "yoke-hosted-prod",
                 "target_tier": "persistent",
-                "target_environment_id": "production",
+                "target_environment": "prod",
                 "status": "created",
             },
         )
@@ -254,7 +253,7 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
     ) as resolve_lineage:
         rc, out, err = _run_capture(
             stub,
-            "deployment-runs", "create", "yoke", "yoke-hosted-production",
+            "deployment-runs", "create", "yoke", "yoke-hosted-prod",
             "--created-by", "operator",
             "--project-repo-path", "/repo", "--source-ref", "origin/main",
         )
@@ -266,7 +265,7 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
     assert request.target.kind == "global"
     assert request.payload == {
         "project": "yoke",
-        "flow": "yoke-hosted-production",
+        "flow": "yoke-hosted-prod",
         "created_by": "operator",
         "release_lineage": "a" * 40,
     }

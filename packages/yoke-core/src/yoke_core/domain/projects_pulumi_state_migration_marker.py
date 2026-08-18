@@ -30,12 +30,12 @@ def remove_source_state(settings: dict[str, Any]) -> None:
 
 
 def marker_matches(
-    settings: Mapping[str, Any], site_id: str, stack_names: Sequence[str]
+    settings: Mapping[str, Any], site_name: str, stack_names: Sequence[str]
 ) -> bool:
     markers = settings.get(MIGRATION_MARKERS_KEY)
     if not isinstance(markers, Mapping):
         return False
-    marker = markers.get(str(site_id))
+    marker = markers.get(str(site_name))
     return (
         isinstance(marker, Mapping)
         and marker.get("stack_names") == sorted(stack_names)
@@ -43,11 +43,11 @@ def marker_matches(
 
 
 def set_marker(
-    settings: dict[str, Any], site_id: str, stack_names: Sequence[str]
+    settings: dict[str, Any], site_name: str, stack_names: Sequence[str]
 ) -> None:
     raw = settings.get(MIGRATION_MARKERS_KEY)
     markers = dict(raw) if isinstance(raw, Mapping) else {}
-    markers[str(site_id)] = {"stack_names": sorted(stack_names)}
+    markers[str(site_name)] = {"stack_names": sorted(stack_names)}
     settings[MIGRATION_MARKERS_KEY] = markers
 
 

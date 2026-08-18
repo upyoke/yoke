@@ -16,27 +16,29 @@ def _seed(conn) -> None:
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
-        "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), "
-        "name TEXT NOT NULL, created_at TEXT)"
+        "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), "
+        "name TEXT NOT NULL, created_at TEXT, UNIQUE(id, project_id), "
+        "UNIQUE(project_id, name))"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS environments ("
-        "id TEXT PRIMARY KEY, site TEXT NOT NULL REFERENCES sites(id), "
-        "name TEXT NOT NULL, created_at TEXT, UNIQUE(site, name))"
+        "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL, "
+        "name TEXT NOT NULL, created_at TEXT, UNIQUE(project_id, name), "
+        "FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id))"
     )
     conn.execute("INSERT INTO projects (id, slug) VALUES (41, 'yoke')")
     conn.execute("INSERT INTO projects (id, slug) VALUES (43, 'platform')")
     conn.execute(
         "INSERT INTO sites (id, project_id, name, created_at) "
-        "VALUES ('yoke', 41, 'Yoke', 'now'), ('yoke-api', 43, 'Yoke API', 'now')"
+        "VALUES (101, 41, 'Yoke', 'now'), (102, 43, 'Yoke API', 'now')"
     )
     # Two projects each registering an environment named 'prod' is the normal
     # case the resolver must keep apart.
     conn.execute(
-        "INSERT INTO environments (id, site, name, created_at) VALUES "
-        "('production', 'yoke', 'prod', 'now'), "
-        "('stage', 'yoke', 'stage', 'now'), "
-        "('yoke-api-prod', 'yoke-api', 'prod', 'now')"
+        "INSERT INTO environments (id, site, project_id, name, created_at) VALUES "
+        "(201, 101, 41, 'prod', 'now'), "
+        "(202, 101, 41, 'stage', 'now'), "
+        "(203, 102, 43, 'prod', 'now')"
     )
     conn.commit()
 
@@ -79,14 +81,13 @@ def test_an_unregistered_name_refuses_and_names_what_is_registered(
         conn = db_backend.connect()
         try:
             with pytest.raises(environment_reference.EnvironmentReferenceError) as caught:
-                environment_reference.resolve(conn, project_id=41, name="production")
+                environment_reference.resolve(conn, project_id=41, name="customer-west")
             message = str(caught.value)
             registered = environment_reference.registered_names(conn, project_id=41)
         finally:
             conn.close()
 
-    # The retired spelling is exactly the mistake this refusal has to explain.
-    assert "'production' is not registered" in message
+    assert "'customer-west' is not registered" in message
     assert "prod" in message and "stage" in message
     assert registered == ["prod", "stage"]
 

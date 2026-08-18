@@ -13,7 +13,7 @@ from __future__ import annotations
 # Copy-pasteable recipe shown on the surfaces that own each step.
 ITEMLESS_RELEASE_RECIPE = """\
 Itemless environment release (project-generic):
-  # tier|environment-id|environment-name of the flow's registered target:
+  # tier|environment-name of the flow's registered target:
   yoke deployment-runs resolve-target PROJECT FLOW
   # Verify the environment name is the deploy destination — do not assume
   # it matches the control-plane connection name used at create/execute
@@ -34,7 +34,7 @@ Retry a failed or cancelled run without following a moving branch:
 
 RESOLVE_TARGET_DESCRIPTION = (
     "Resolve the flow's target tier and registered environment (or honor "
-    "--environment). Prints tier|environment-id|environment-name. Always "
+    "--environment). Prints tier|environment-name. Always "
     "verify the printed environment: it is the one being deployed TO, not "
     "the control-plane connection name used later for watch deploy / "
     "execute."

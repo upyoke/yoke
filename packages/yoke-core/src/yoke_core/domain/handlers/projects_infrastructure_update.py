@@ -1,8 +1,7 @@
 """Handler for ``projects.environment.update``.
 
-Renames an existing environment row in place. Row id and site stay
-stable; only the display ``name`` changes. Names are the closed
-delivery set ``prod`` / ``stage``.
+Renames an existing environment row in place. The current registered name
+selects the row within its project; numeric ids never cross the boundary.
 """
 
 from __future__ import annotations
@@ -20,14 +19,13 @@ from yoke_contracts.api.function_call import (
 
 class ProjectsEnvironmentUpdateRequest(BaseModel):
     project: str
-    environment_id: str
+    environment: str
     name: str
 
 
 class ProjectsEnvironmentUpdateResponse(BaseModel):
     project: str
-    environment_id: str
-    name: str
+    environment: str
     previous_name: str
 
 
@@ -35,25 +33,27 @@ def handle_projects_environment_update(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload = request.payload or {}
-    for key in ("project", "environment_id", "name"):
+    for key in ("project", "environment", "name"):
         value = payload.get(key)
         if not value or not isinstance(value, str):
             return _failure(
                 "payload_invalid", f"{key} is required", f"$.payload.{key}",
             )
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.environment_delivery_record import (
-        require_delivery_env_name,
+    from yoke_core.domain.environment_reference import (
+        EnvironmentReferenceError,
+        resolve,
+        validate_name,
     )
     from yoke_core.domain.project_identity import placeholder, resolve_project_id
 
     try:
-        name = require_delivery_env_name(str(payload["name"]))
+        name = validate_name(str(payload["name"]))
     except ValueError as exc:
         return _failure("payload_invalid", str(exc), "$.payload.name")
 
     project = str(payload["project"])
-    environment_id = str(payload["environment_id"])
+    environment = str(payload["environment"])
     conn = connect()
     try:
         try:
@@ -61,56 +61,45 @@ def handle_projects_environment_update(
         except LookupError as exc:
             return _failure("project_not_found", str(exc), "$.payload.project")
         p = placeholder(conn)
-        row = conn.execute(
-            "SELECT e.name, e.site, s.project_id FROM environments e "
-            f"JOIN sites s ON s.id = e.site WHERE e.id = {p}",
-            (environment_id,),
-        ).fetchone()
-        if row is None:
+        try:
+            selected = resolve(conn, project_id=project_id, name=environment)
+        except EnvironmentReferenceError as exc:
             return _failure(
                 "environment_not_found",
-                f"environment {environment_id!r} was not found",
-                "$.payload.environment_id",
+                str(exc),
+                "$.payload.environment",
             )
-        if int(row[2]) != project_id:
-            return _failure(
-                "environment_project_mismatch",
-                f"environment {environment_id!r} belongs to another project",
-                "$.payload.environment_id",
-            )
-        previous_name = str(row[0])
+        previous_name = selected.name
         if previous_name == name:
-            return _outcome(project, environment_id, name, previous_name)
+            return _outcome(project, name, previous_name)
         taken = conn.execute(
-            f"SELECT id FROM environments WHERE site = {p} AND name = {p} "
+            f"SELECT id FROM environments WHERE project_id = {p} AND name = {p} "
             f"AND id <> {p}",
-            (str(row[1]), name, environment_id),
+            (project_id, name, selected.id),
         ).fetchone()
         if taken is not None:
             return _failure(
                 "environment_name_conflict",
-                f"environment name {name!r} is already used on site "
-                f"{str(row[1])!r}",
+                f"environment name {name!r} is already used in project {project!r}",
                 "$.payload.name",
             )
         conn.execute(
             f"UPDATE environments SET name = {p} WHERE id = {p}",
-            (name, environment_id),
+            (name, selected.id),
         )
         conn.commit()
-        return _outcome(project, environment_id, name, previous_name)
+        return _outcome(project, name, previous_name)
     finally:
         conn.close()
 
 
 def _outcome(
-    project: str, environment_id: str, name: str, previous_name: str,
+    project: str, environment: str, previous_name: str,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload=ProjectsEnvironmentUpdateResponse(
             project=project,
-            environment_id=environment_id,
-            name=name,
+            environment=environment,
             previous_name=previous_name,
         ).model_dump(),
         primary_success=True,

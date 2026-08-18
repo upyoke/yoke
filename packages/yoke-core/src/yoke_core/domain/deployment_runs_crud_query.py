@@ -50,6 +50,14 @@ def cmd_get(
                     "WHERE dr.id=%s",
                     (run_id,),
                 )
+            elif field == "target_environment":
+                val = query_scalar(
+                    conn,
+                    "SELECT e.name FROM deployment_runs dr "
+                    "LEFT JOIN environments e ON e.id=dr.target_environment_id "
+                    "WHERE dr.id=%s",
+                    (run_id,),
+                )
             else:
                 val = query_scalar(
                     conn, f"SELECT {field} FROM deployment_runs WHERE id=%s", (run_id,)

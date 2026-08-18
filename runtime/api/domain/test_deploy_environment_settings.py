@@ -342,14 +342,14 @@ class TestDeclaredGitBranch:
         from yoke_core.domain import deploy_environment_settings as des
 
         bare = RendererEnvironmentSettings(
-            id="yoke-api-stage", name="stage",
+            id="103", name="stage",
             settings={"git": {"branch": "stage"}},
         )
         snapshot = _settings(environments=[bare])
         monkeypatch.setattr(
             des, "load_project_renderer_settings", lambda project: snapshot
         )
-        assert des.declared_env_branch("yoke", "yoke-api-stage") == "stage"
+        assert des.declared_env_branch("yoke", "stage") == "stage"
         assert des.declared_env_branch("yoke", "missing-env") == ""
 
     def test_declared_env_branch_without_git_key(self, monkeypatch):

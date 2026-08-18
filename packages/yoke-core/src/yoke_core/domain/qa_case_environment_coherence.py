@@ -38,7 +38,7 @@ def require_case_environment_bindings(
     """Reject channel or interactive-target bindings outside *target*."""
     environment = target["environment"]
     endpoints = target["endpoints"]
-    expected_environment_id = str(environment.get("id") or "").strip()
+    expected_environment = str(environment.get("name") or "").strip()
     expected_base_url = str(endpoints.get("installer_base_url") or "").rstrip("/")
     expected_channel = str(endpoints.get("release_channel") or "").strip()
     for path, node in _mapping_nodes(case):
@@ -59,10 +59,10 @@ def require_case_environment_bindings(
                         f"{declared_channel or 'missing'!r}"
                     )
             continue
-        declared = str(node.get("target_environment_id") or "").strip()
-        if not expected_environment_id:
-            raise ValueError("QA execution target has no environment id")
-        if declared != expected_environment_id:
+        declared = str(node.get("target_environment") or "").strip()
+        if not expected_environment:
+            raise ValueError("QA execution target has no environment name")
+        if declared != expected_environment:
             raise ValueError(
                 f"mixed-environment QA destination binding at {path}: "
                 f"{declared or 'missing'!r}"
@@ -78,8 +78,8 @@ def require_case_environment_bindings(
                 f"mixed-environment QA release channel at {path}: {declared!r}"
             )
         if (
-            key == "target_environment_id"
-            and str(value).strip() != expected_environment_id
+            key == "target_environment"
+            and str(value).strip() != expected_environment
         ):
             raise ValueError(
                 f"mixed-environment QA target binding at {path}: {value!r}"

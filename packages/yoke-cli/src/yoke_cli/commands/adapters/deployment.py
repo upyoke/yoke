@@ -309,9 +309,7 @@ def deployment_runs_resolve_target(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
-        fields = (
-            "target_tier", "target_environment_id", "target_environment_name",
-        )
+        fields = ("target_tier", "target_environment")
         print(
             "|".join(str(result.get(f) or "") for f in fields), file=stdout,
         )

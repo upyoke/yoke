@@ -136,7 +136,7 @@ class TestResolveFlowGateBranch:
                 deploy_pipeline_gates.resolve_flow_gate_branch(
                     "externalwebapp",
                     "persistent",
-                    "production",
+                    "prod",
                 )
                 == "main"
             )

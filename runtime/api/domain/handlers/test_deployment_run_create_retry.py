@@ -12,7 +12,7 @@ from yoke_core.domain.handlers import deployment_runs
 
 def test_run_create_rejects_unpinned_retry_without_traceback():
     source = (
-        "run-old|yoke|yoke-hosted-production|persistent|production||failed|"
+        "run-old|yoke|yoke-hosted-prod|persistent|prod||failed|"
         "release|2026-06-15T00:00:00Z||2026-06-15T01:00:00Z|operator"
     )
     with patch(
@@ -23,7 +23,7 @@ def test_run_create_rejects_unpinned_retry_without_traceback():
             function="deployment_runs.create",
             payload={
                 "project": "yoke",
-                "flow": "yoke-hosted-production",
+                "flow": "yoke-hosted-prod",
                 "retry_of": "run-old",
             },
         ))

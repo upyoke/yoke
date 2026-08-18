@@ -37,7 +37,7 @@ _FLOW_FIELDS = frozenset(
         "on_failure",
         "created_at",
         "target_tier",
-        "target_environment_id",
+        "target_environment",
         "done_description",
         "status",
     }
@@ -45,7 +45,7 @@ _FLOW_FIELDS = frozenset(
 
 _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
-    "df.on_failure, df.created_at, df.target_tier, df.target_environment_id, "
+    "df.on_failure, df.created_at, df.target_tier, e.name AS target_environment, "
     "df.done_description, df.status"
 )
 
@@ -77,11 +77,10 @@ def cmd_create(
 
 
 def cmd_target(conn, flow_id: str) -> str:
-    """Return ``tier|environment_id|environment_name`` for one flow."""
+    """Return ``tier|environment`` for one flow."""
     row = query_one(
         conn,
-        "SELECT COALESCE(df.target_tier, ''), "
-        "COALESCE(df.target_environment_id, ''), COALESCE(e.name, '') "
+        "SELECT COALESCE(df.target_tier, ''), COALESCE(e.name, '') "
         "FROM deployment_flows df "
         "LEFT JOIN environments e ON e.id = df.target_environment_id "
         "WHERE df.id=%s",
@@ -109,6 +108,14 @@ def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:
                 "WHERE df.id=%s",
                 (flow_id,),
             )
+        elif field == "target_environment":
+            val = query_scalar(
+                conn,
+                "SELECT e.name FROM deployment_flows df "
+                "LEFT JOIN environments e ON e.id=df.target_environment_id "
+                "WHERE df.id=%s",
+                (flow_id,),
+            )
         else:
             val = query_scalar(
                 conn, f"SELECT {field} FROM deployment_flows WHERE id=%s", (flow_id,)
@@ -118,7 +125,9 @@ def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:
         row = query_one(
             conn,
             f"SELECT {_SELECT_COLS} FROM deployment_flows df "
-            "JOIN projects p ON p.id = df.project_id WHERE df.id=%s",
+            "JOIN projects p ON p.id = df.project_id "
+            "LEFT JOIN environments e ON e.id=df.target_environment_id "
+            "WHERE df.id=%s",
             (flow_id,),
         )
         if row is None:
@@ -140,6 +149,7 @@ def cmd_list(
             conn,
             f"SELECT {_SELECT_COLS} FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
+            "LEFT JOIN environments e ON e.id=df.target_environment_id "
             f"WHERE df.project_id=%s{status_clause} ORDER BY df.id ASC",
             (ident.id,),
         )
@@ -148,6 +158,7 @@ def cmd_list(
             conn,
             f"SELECT {_SELECT_COLS} FROM deployment_flows df "
             "JOIN projects p ON p.id = df.project_id "
+            "LEFT JOIN environments e ON e.id=df.target_environment_id "
             f"WHERE 1=1{status_clause} ORDER BY df.id ASC",
         )
     return "\n".join(_format_row(row) for row in rows)

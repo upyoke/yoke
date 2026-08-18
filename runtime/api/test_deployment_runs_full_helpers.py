@@ -35,39 +35,43 @@ _SCHEMA_DDL = """
     INSERT INTO projects (id, slug, name) VALUES (2, 'externalwebapp', 'externalwebapp');
 
     CREATE TABLE IF NOT EXISTS sites (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY,
         project_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT '',
-        settings TEXT DEFAULT '{}'
+        settings TEXT DEFAULT '{}',
+        UNIQUE(id, project_id),
+        UNIQUE(project_id, name)
     );
     INSERT INTO sites (id, project_id, name)
-        VALUES ('yoke-site', 1, 'yoke');
+        VALUES (101, 1, 'yoke');
     INSERT INTO sites (id, project_id, name)
-        VALUES ('externalwebapp-site', 2, 'externalwebapp');
+        VALUES (102, 2, 'externalwebapp');
     CREATE TABLE IF NOT EXISTS environments (
-        id TEXT PRIMARY KEY,
-        site TEXT NOT NULL,
+        id INTEGER PRIMARY KEY,
+        site INTEGER NOT NULL,
+        project_id INTEGER NOT NULL,
         name TEXT NOT NULL,
         url TEXT,
         last_deployed_at TEXT,
         created_at TEXT NOT NULL DEFAULT '',
         settings TEXT DEFAULT '{}',
-        UNIQUE(site, name)
+        UNIQUE(project_id, name),
+        FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
     );
-    INSERT INTO environments (id, site, name)
-        VALUES ('production', 'yoke-site', 'prod');
-    INSERT INTO environments (id, site, name)
-        VALUES ('preview', 'externalwebapp-site', 'preview');
-    INSERT INTO environments (id, site, name)
-        VALUES ('ewa-prod', 'externalwebapp-site', 'prod');
+    INSERT INTO environments (id, site, project_id, name)
+        VALUES (201, 101, 1, 'prod');
+    INSERT INTO environments (id, site, project_id, name)
+        VALUES (202, 102, 2, 'preview');
+    INSERT INTO environments (id, site, project_id, name)
+        VALUES (203, 102, 2, 'prod');
     CREATE TABLE IF NOT EXISTS deployment_flows (
         id TEXT PRIMARY KEY,
         project_id INTEGER NOT NULL,
         name TEXT,
         stages TEXT,
         target_tier TEXT,
-        target_environment_id TEXT,
+        target_environment_id INTEGER,
         done_description TEXT,
         status TEXT NOT NULL DEFAULT 'active'
     );
@@ -77,8 +81,8 @@ _SCHEMA_DDL = """
     INSERT INTO deployment_flows
         (id, project_id, name, stages, target_tier, target_environment_id)
         VALUES ('externalwebapp-standard', 2, 'externalwebapp-standard',
-                '[{"name":"preview"},{"name":"production"}]',
-                'persistent', 'preview');
+                '[{"name":"preview"},{"name":"prod"}]',
+                'persistent', 202);
 
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,

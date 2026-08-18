@@ -19,7 +19,7 @@ from runtime.api.cli.test_yoke_operations_cli_deployment import (
 
 def _declaration() -> dict:
     return {
-        "schema": 3,
+        "schema": 4,
         "flows": [
             {
                 "id": "acme-internal",

@@ -213,7 +213,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("deploy-stage-integrity", "deploy_stage without deployment evidence", hc_deploy_stage_integrity),
     HealthCheck("incomplete-deploy-stage", "Done items with incomplete deploy_stage", hc_incomplete_deploy_stage),
     HealthCheck("flow-stage-environment-input",
-                "Flow stages dispatch a registered environment name",
+                "Repository and flow inputs use registered environment names",
                 hc_flow_stage_environment_input),
     HealthCheck("flow-stage-json", "Deployment flow stage JSON validity", hc_flow_stage_json),
     HealthCheck("flow-workflow-exists", "Flow stage workflow files exist", hc_flow_workflow_exists),

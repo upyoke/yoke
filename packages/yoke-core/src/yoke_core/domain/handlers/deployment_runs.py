@@ -252,7 +252,7 @@ def handle_deployment_run_resolve_target(
     )
 
     try:
-        tier, environment_id, environment_name = cmd_resolve_target(
+        tier, _environment_id, environment_name = cmd_resolve_target(
             project.strip(),
             flow.strip(),
             environment_override=environment,
@@ -266,8 +266,7 @@ def handle_deployment_run_resolve_target(
             "project": project.strip(),
             "flow": flow.strip(),
             "target_tier": tier,
-            "target_environment_id": environment_id,
-            "target_environment_name": environment_name,
+            "target_environment": environment_name,
         },
         primary_success=True,
     )

@@ -15,7 +15,6 @@ from yoke_core.domain.release_pin_record import (
     ReleasePinCapabilityMissing,
     ReleasePinConfiguredLeafNotScalar,
     ReleasePinProjectMismatch,
-    ReleasePinTargetNotConfigured,
     record_release_pin,
 )
 from yoke_core.domain.settings_cas import SettingsConflictError
@@ -32,7 +31,6 @@ class ReleasePinRecordRequest(BaseModel):
 class ReleasePinRecordResponse(BaseModel):
     project: str
     environment: str
-    environment_id: str
     settings_path: str
     pin: str
     changed: bool
@@ -67,8 +65,6 @@ def handle_release_pin_record(request: FunctionCallRequest) -> HandlerOutcome:
             str(exc),
             "$.payload.environment",
         )
-    except ReleasePinTargetNotConfigured as exc:
-        return _failure("target_not_configured", str(exc), "$.payload.environment")
     except ReleasePinProjectMismatch as exc:
         return _failure("project_mismatch", str(exc), "$.payload.project")
     except SettingsConflictError as exc:
@@ -82,7 +78,6 @@ def handle_release_pin_record(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "project": receipt.project,
             "environment": receipt.environment,
-            "environment_id": receipt.environment_id,
             "settings_path": receipt.settings_path,
             "pin": receipt.pin,
             "changed": receipt.changed,

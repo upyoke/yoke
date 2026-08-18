@@ -115,8 +115,8 @@ def _install_setup_rest(
             return _FakeRestResponse(200, {"key_id": "kid-1", "key": public_key_b64})
         if method == "PUT" and "/actions/secrets/" in path:
             return _FakeRestResponse(204, b"")
-        if method == "PUT" and "/environments/production" in path:
-            return _FakeRestResponse(200, {"name": "production"})
+        if method == "PUT" and "/environments/prod" in path:
+            return _FakeRestResponse(200, {"name": "prod"})
         return _FakeRestResponse(200, {})
 
     monkeypatch.setattr(
@@ -181,7 +181,7 @@ def test_setup_skips_optional_environment_without_administration(
         methods_paths = set(rest_calls)
         assert ("GET", "/user") not in methods_paths
         assert not any(
-            method == "PUT" and "/environments/production" in path
+            method == "PUT" and "/environments/prod" in path
             for method, path in rest_calls
         )
         out = capsys.readouterr().out
@@ -205,7 +205,7 @@ def test_setup_creates_environment_with_optional_administration(
         assert run_setup(ctx) == 0
         assert ("GET", "/user") not in set(rest_calls)
         assert any(
-            method == "PUT" and "/environments/production" in path
+            method == "PUT" and "/environments/prod" in path
             for method, path in rest_calls
         )
         assert all(
@@ -215,9 +215,9 @@ def test_setup_creates_environment_with_optional_administration(
         )
         assert [
             auth for path, auth in authorizations
-            if "/environments/production" in path
+            if "/environments/prod" in path
         ] == ["Bearer ghs_admin_token"]
-        assert "Creating production environment... done" in capsys.readouterr().out
+        assert "Creating prod environment... done" in capsys.readouterr().out
 
 
 def test_setup_surfaces_401_when_github_auth_invalid(
@@ -283,7 +283,7 @@ def test_setup_surfaces_403_elevated_scope(
         rc = run_setup(ctx)
         err = capsys.readouterr().err
         assert rc == 2
-        assert "Failed to create production environment" in err
+        assert "Failed to create prod environment" in err
         assert "403" in err
 
 

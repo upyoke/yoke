@@ -9,16 +9,22 @@ from yoke_core.domain.release_pin_capability import validate_settings
 
 def _settings() -> dict:
     return {
-        "environment_by_target": {
-            "canary": "customer-canary",
-            "customer-east": "customer-east-live",
-        },
         "desired_pin_path": "delivery.component_pin",
     }
 
 
 def test_record_only_capability_needs_no_probe_contract() -> None:
     validate_settings(_settings())
+
+
+def test_unknown_routing_settings_are_refused() -> None:
+    with pytest.raises(ValueError, match="unknown setting"):
+        validate_settings(
+            {
+                **_settings(),
+                "unexpected_route": "customer-east",
+            }
+        )
 
 
 def test_complete_probe_contract_accepts_project_owned_paths() -> None:

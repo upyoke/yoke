@@ -42,7 +42,7 @@ def test_verify_uses_baseline_token_for_secrets_and_environment_listing(
             )
         if path.endswith("/environments"):
             return _FakeRestResponse(
-                200, {"environments": [{"name": "production"}]},
+                200, {"environments": [{"name": "prod"}]},
             )
         return _FakeRestResponse(200, {})
 

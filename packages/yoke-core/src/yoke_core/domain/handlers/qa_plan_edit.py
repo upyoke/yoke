@@ -39,7 +39,7 @@ class PlanEditRequest(BaseModel):
     description: str = ""
     success_policy_id: str = "all-pass"
     success_policy_params: Dict[str, Any] = Field(default_factory=dict)
-    target_environment_id: Optional[str] = Field(default=None, min_length=1)
+    target_environment: Optional[str] = Field(default=None, min_length=1)
     cases: List[PlanEditCase] = Field(..., min_length=1)
 
 

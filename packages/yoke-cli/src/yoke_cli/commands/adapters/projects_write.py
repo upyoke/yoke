@@ -158,19 +158,19 @@ def projects_update(args: List[str]) -> int:
 
 
 PROJECTS_SITE_CREATE_USAGE = (
-    "yoke projects site create --project P --site-slug SLUG "
+    "yoke projects site create --project P --site NAME "
     "[--settings-json JSON] [--session-id S] [--json]"
 )
 
 PROJECTS_ENVIRONMENT_CREATE_USAGE = (
-    "yoke projects environment create --project P --site-slug SLUG "
-    "--environment-id ID [--name prod|stage] [--settings-json JSON] "
+    "yoke projects environment create --project P --site NAME "
+    "--environment NAME [--settings-json JSON] "
     "[--session-id S] [--json]"
 )
 
 PROJECTS_ENVIRONMENT_UPDATE_USAGE = (
-    "yoke projects environment update --project P --environment-id ID "
-    "--name prod|stage [--session-id S] [--json]"
+    "yoke projects environment update --project P --environment NAME "
+    "--name NAME [--session-id S] [--json]"
 )
 
 
@@ -185,23 +185,17 @@ def _infrastructure_create(
     parser = argparse.ArgumentParser(prog=prog, description=usage)
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument(
-        "--site-slug",
-        dest="site_slug",
+        "--site",
+        dest="site",
         required=True,
-        help="Site row id (the site's slug).",
+        help="Registered site name.",
     )
     if with_environment:
         parser.add_argument(
-            "--environment-id",
-            dest="environment_id",
+            "--environment",
+            dest="environment",
             required=True,
-            help="Environment row id.",
-        )
-        parser.add_argument(
-            "--name",
-            dest="name",
-            default=None,
-            help="Optional delivery name (prod or stage).",
+            help="Registered environment name.",
         )
     parser.add_argument(
         "--settings-json",
@@ -216,12 +210,10 @@ def _infrastructure_create(
         return 2
     payload: Dict[str, Any] = {
         "project": parsed.project,
-        "site_slug": parsed.site_slug,
+        "site": parsed.site,
     }
     if with_environment:
-        payload["environment_id"] = parsed.environment_id
-        if getattr(parsed, "name", None):
-            payload["name"] = parsed.name
+        payload["environment"] = parsed.environment
     settings, settings_error = _parse_settings_json(parsed.settings_json)
     if settings_error is not None:
         print(f"error: {settings_error}", file=sys.stderr)
@@ -284,7 +276,7 @@ def projects_environment_update(args: List[str]) -> int:
         description=PROJECTS_ENVIRONMENT_UPDATE_USAGE,
     )
     parser.add_argument("--project", required=True)
-    parser.add_argument("--environment-id", dest="environment_id", required=True)
+    parser.add_argument("--environment", dest="environment", required=True)
     parser.add_argument("--name", required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -303,7 +295,7 @@ def projects_environment_update(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={
             "project": parsed.project,
-            "environment_id": parsed.environment_id,
+            "environment": parsed.environment,
             "name": parsed.name,
         },
         session_id=parsed.session_id,

@@ -122,7 +122,7 @@ class TestLineage:
         dr.cmd_create_run(
             "yoke", "yoke-internal",
             release_lineage="rel-final",
-            environment="production",
+            environment="prod",
             db_path=db_path,
         )
         status = dr.cmd_lineage_final_status("rel-final", db_path=db_path)
@@ -136,7 +136,7 @@ class TestLineage:
         rid = dr.cmd_create_run(
             "yoke", "yoke-internal",
             release_lineage="rel-succ",
-            environment="production",
+            environment="prod",
             db_path=db_path,
         )
         dr.cmd_update(rid, "status", "succeeded", db_path=db_path)

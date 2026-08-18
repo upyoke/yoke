@@ -248,36 +248,36 @@ def run_verify(
 
     envs_resp = _rest_get(f"/repos/{repo}/environments")
     env_names: list[str] = []
-    production_has_reviewers = False
+    prod_has_reviewers = False
     if envs_resp is not None and isinstance(envs_resp.body, dict):
         for entry in envs_resp.body.get("environments", []) or []:
             if isinstance(entry, dict):
                 name = entry.get("name")
                 if isinstance(name, str):
                     env_names.append(name)
-                if name == "production":
+                if name == "prod":
                     rules = entry.get("protection_rules") or []
                     for rule in rules:
                         if (
                             isinstance(rule, dict)
                             and rule.get("type") == "required_reviewers"
                         ):
-                            production_has_reviewers = True
+                            prod_has_reviewers = True
                             break
-    if "production" in env_names:
+    if "prod" in env_names:
         verify_pass += 1
-        print("[PASS] Environment: production")
-        if production_has_reviewers:
+        print("[PASS] Environment: prod")
+        if prod_has_reviewers:
             verify_pass += 1
-            print("[PASS] Environment: production has required reviewers")
+            print("[PASS] Environment: prod has required reviewers")
         else:
             _warn(
-                "Environment: production has no required reviewers; configure "
+                "Environment: prod has no required reviewers; configure "
                 "an approval gate in GitHub settings when required."
             )
     else:
         verify_fail += 1
-        print("[FAIL] Environment: production (not found)")
+        print("[FAIL] Environment: prod (not found)")
 
     total = verify_pass + verify_fail
     print()

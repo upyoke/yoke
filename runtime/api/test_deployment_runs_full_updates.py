@@ -86,7 +86,7 @@ class TestUpdate:
         rid = dr.cmd_create_run(
             "externalwebapp", "externalwebapp-standard", db_path=db_path
         )
-        dr.cmd_update(rid, "current_stage", "production", db_path=db_path)
+        dr.cmd_update(rid, "current_stage", "prod", db_path=db_path)
         err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
         assert err is None
 

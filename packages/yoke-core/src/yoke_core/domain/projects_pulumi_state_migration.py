@@ -44,7 +44,7 @@ class PulumiStateMigrationError(RuntimeError):
 def migrate_pulumi_state(
     *,
     project: str,
-    site_id: str,
+    site: str,
     stack_names: Sequence[str],
     apply: bool = False,
     db_path: Optional[str] = None,
@@ -62,16 +62,12 @@ def migrate_pulumi_state(
             raise PulumiStateMigrationError(
                 "not_found", f"project {project!r} was not found"
             )
-        site_row = _locked_site_row(conn, site_id)
+        site_row = _locked_site_row(conn, ident.id, site)
         if site_row is None:
             raise PulumiStateMigrationError(
-                "not_found", f"site {site_id!r} was not found"
+                "not_found", f"site {site!r} was not found in project {ident.slug!r}"
             )
-        if int(site_row[0]) != ident.id:
-            raise PulumiStateMigrationError(
-                "project_mismatch",
-                f"site {site_id!r} does not belong to project {ident.slug!r}",
-            )
+        site_id = int(site_row[0])
 
         capability_created = _ensure_capability_row(conn, ident.id)
         capability_row = _locked_capability_row(conn, ident.id)
@@ -90,7 +86,7 @@ def migrate_pulumi_state(
 
         if source_entries is None:
             if (
-                marker_matches(capability_settings, site_id, requested)
+                marker_matches(capability_settings, site, requested)
                 and _destination_has_exact_entries(destination_entries, requested)
             ):
                 mode = "already_applied"
@@ -131,7 +127,7 @@ def migrate_pulumi_state(
             merged_destination = dict(destination_state)
             merged_destination.update(source_entries)
             capability_settings["stack_state"] = merged_destination
-            set_marker(capability_settings, site_id, requested)
+            set_marker(capability_settings, site, requested)
             if MARKER_PATH not in changed_paths:
                 changed_paths.append(MARKER_PATH)
             _remove_source_state(site_settings)
@@ -153,7 +149,7 @@ def migrate_pulumi_state(
             )
 
         if apply:
-            _verify_applied(conn, ident.id, site_id, requested)
+            _verify_applied(conn, ident.id, site_id, site, requested)
             conn.commit()
             applied = True
         else:
@@ -162,7 +158,7 @@ def migrate_pulumi_state(
 
         receipt = {
             "project": ident.slug,
-            "site_id": str(site_id),
+            "site": site,
             "capability_type": CAPABILITY_TYPE,
             "mode": mode,
             "stack_names": list(requested),
@@ -198,12 +194,12 @@ def _normalize_stack_names(stack_names: Sequence[str]) -> tuple[str, ...]:
         )
     return tuple(sorted(names))
 
-def _locked_site_row(conn: Any, site_id: str) -> Any:
+def _locked_site_row(conn: Any, project_id: int, site: str) -> Any:
     suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     return conn.execute(
-        "SELECT project_id, COALESCE(settings, '{}') FROM sites "
-        f"WHERE id=%s{suffix}",
-        (site_id,),
+        "SELECT id, COALESCE(settings, '{}') FROM sites "
+        f"WHERE project_id=%s AND name=%s{suffix}",
+        (project_id, site),
     ).fetchone()
 
 
@@ -308,7 +304,11 @@ def _validated_entries(
 
 
 def _verify_applied(
-    conn: Any, project_id: int, site_id: str, requested: Sequence[str]
+    conn: Any,
+    project_id: int,
+    site_id: int,
+    site: str,
+    requested: Sequence[str],
 ) -> None:
     site_row = conn.execute(
         "SELECT COALESCE(settings, '{}') FROM sites WHERE id=%s", (site_id,)
@@ -333,7 +333,7 @@ def _verify_applied(
     if (
         source is not None
         or not _destination_has_exact_entries(validated, requested)
-        or not marker_matches(settings, site_id, requested)
+        or not marker_matches(settings, site, requested)
     ):
         raise PulumiStateMigrationError(
             "verification_failed", "Pulumi state migration verification failed"

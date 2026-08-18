@@ -41,30 +41,30 @@ def test_action_wait_seconds_is_optional_and_normalized_only_when_present() -> N
     assert normalized_waited["actions"][0]["wait_seconds"] == 12.0
 
 
-def test_action_target_environment_id_is_generic_and_preserved() -> None:
+def test_action_target_environment_is_generic_and_preserved() -> None:
     config = recipe()
     actions = config["actions"]
     assert isinstance(actions, list)
-    actions[0]["target_environment_id"] = "customer-east-blue"
+    actions[0]["target_environment"] = "blue"
 
     normalized = validate_terminal_recipe(
         config,
         required_completion="done",
     )
 
-    assert normalized["actions"][0]["target_environment_id"] == "customer-east-blue"
+    assert normalized["actions"][0]["target_environment"] == "blue"
 
 
-@pytest.mark.parametrize("target_environment_id", ("", " " * 3, "x" * 201))
-def test_action_target_environment_id_rejects_invalid_values(
-    target_environment_id: str,
+@pytest.mark.parametrize("target_environment", ("", " " * 3, "x" * 201))
+def test_action_target_environment_rejects_invalid_values(
+    target_environment: str,
 ) -> None:
     config = recipe()
     actions = config["actions"]
     assert isinstance(actions, list)
-    actions[0]["target_environment_id"] = target_environment_id
+    actions[0]["target_environment"] = target_environment
 
-    with pytest.raises(MachineQaRecipeError, match="target_environment_id"):
+    with pytest.raises(MachineQaRecipeError, match="target_environment"):
         validate_terminal_recipe(config, required_completion="done")
 
 

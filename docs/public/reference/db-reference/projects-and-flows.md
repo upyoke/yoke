@@ -96,11 +96,13 @@ The same commands are available through the service-client CLI as `project-struc
 Deployment targets for projects. A site represents a deployable unit (e.g., a web app, API service).
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'external-webapp-web'
-project TEXT NOT NULL REFERENCES projects(id)
-name TEXT NOT NULL -- display name
+id INTEGER PRIMARY KEY -- internal surrogate key; never an operator input
+project_id INTEGER NOT NULL REFERENCES projects(id)
+name TEXT NOT NULL -- sole human identifier, unique within the project
 description TEXT -- human-readable description
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+settings TEXT DEFAULT '{}' -- structured site configuration
+UNIQUE(project_id, name)
 ```
 
 Seed data: none — a fresh universe seeds no sites; rows are registered through `projects.site.create` (`yoke projects site create`, idempotent already_present) during onboarding, with settings maintained through the projects settings surfaces.
@@ -110,9 +112,10 @@ Seed data: none — a fresh universe seeds no sites; rows are registered through
 Deployment environments for sites (e.g., prod, stage). `local` is a machine-config client concept, not a deploy-target environments row.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'external-webapp-web-production'
-site TEXT NOT NULL REFERENCES sites(id)
-name TEXT NOT NULL -- delivery name; the live set is exactly 'prod' or 'stage'
+id INTEGER PRIMARY KEY -- internal surrogate key; never an operator input
+site INTEGER NOT NULL
+project_id INTEGER NOT NULL REFERENCES projects(id)
+name TEXT NOT NULL -- sole human identifier, unique within the project
 url TEXT -- public URL (e.g., 'http://100.115.178.33:3000')
 deploy_method TEXT -- e.g., 'github-actions', 'rsync+docker'
 deploy_command TEXT -- shell command to run for deployment
@@ -120,7 +123,9 @@ health_check_url TEXT -- URL to check after deployment
 config_notes TEXT -- human-readable notes about the environment
 last_deployed_at TEXT -- stamped on successful run completion and on release_pin.record
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-UNIQUE(site, name) -- one environment per name per site
+settings TEXT DEFAULT '{}' -- structured environment configuration
+UNIQUE(project_id, name)
+FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id)
 ```
 
 Seed data: a fresh universe seeds no sites or environments — projects enter through onboarding, registering rows via `projects.site.create` / `projects.environment.create` (idempotent already_present), with structured settings maintained through the projects settings surfaces. The operator's own registry rows (sites, environments, capability settings) live in the operator's private ops repo and are applied by operator tooling.
@@ -197,7 +202,7 @@ secrets stay in the control-plane secret store.
 Deployment flow definitions. Each flow defines an ordered sequence of stages that an item passes through after merge.
 
 ```sql
-id TEXT PRIMARY KEY -- e.g., 'project-production-release'
+id TEXT PRIMARY KEY -- e.g., 'project-prod-release'
 project TEXT NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
@@ -205,7 +210,7 @@ stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{nam
 on_failure TEXT DEFAULT 'halt' -- failure policy: 'halt' stops the pipeline
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
-target_environment_id TEXT -- REFERENCES environments(id); required exactly when target_tier='persistent'
+target_environment_id INTEGER -- internal REFERENCES environments(id); required exactly when target_tier='persistent'
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
 status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
 UNIQUE(project, name)

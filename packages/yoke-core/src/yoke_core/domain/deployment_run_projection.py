@@ -66,11 +66,12 @@ def _row_snapshot(row: Any) -> dict[str, str | None]:
 def _locked_existing(conn: Any, run_id: str) -> dict[str, str | None] | None:
     row = conn.execute(
         "SELECT dr.id,p.slug AS project,dr.flow,dr.target_tier,"
-        "dr.target_environment_id,"
+        "e.name AS target_environment,"
         "dr.release_lineage,dr.status,dr.current_stage,dr.created_at,"
         "dr.started_at,dr.completed_at,dr.created_by "
         "FROM deployment_runs dr JOIN projects p ON p.id=dr.project_id "
-        "WHERE dr.id=%s FOR UPDATE",
+        "LEFT JOIN environments e ON e.id=dr.target_environment_id "
+        "WHERE dr.id=%s FOR UPDATE OF dr",
         (run_id,),
     ).fetchone()
     return None if row is None else _row_snapshot(row)
@@ -94,6 +95,19 @@ def _project_and_flow(conn: Any, snapshot: Mapping[str, Any]) -> int:
     return project.id
 
 
+def _target_environment_id(
+    conn: Any,
+    *,
+    project_id: int,
+    environment: str | None,
+) -> int | None:
+    if environment is None:
+        return None
+    from yoke_core.domain.environment_reference import resolve
+
+    return resolve(conn, project_id=project_id, name=environment).id
+
+
 def _changed_fields(
     before: Mapping[str, Any],
     after: Mapping[str, Any],
@@ -113,6 +127,11 @@ def project_snapshot(
     authority = connect() if conn is None else conn
     try:
         project_id = _project_and_flow(authority, snapshot)
+        target_environment_id = _target_environment_id(
+            authority,
+            project_id=project_id,
+            environment=snapshot["target_environment"],
+        )
         existing = _locked_existing(authority, str(snapshot["id"]))
         if existing == snapshot:
             outcome = "unchanged"
@@ -126,7 +145,7 @@ def project_snapshot(
                 ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     snapshot["id"], project_id, snapshot["flow"],
-                    snapshot["target_tier"], snapshot["target_environment_id"],
+                    snapshot["target_tier"], target_environment_id,
                     snapshot["release_lineage"],
                     snapshot["status"], snapshot["current_stage"],
                     snapshot["created_at"], snapshot["started_at"],
@@ -155,7 +174,7 @@ def project_snapshot(
                 "created_by=%s WHERE id=%s",
                 (
                     snapshot["target_tier"],
-                    snapshot["target_environment_id"], snapshot["status"],
+                    target_environment_id, snapshot["status"],
                     snapshot["current_stage"], snapshot["created_at"],
                     snapshot["started_at"], snapshot["completed_at"],
                     snapshot["created_by"], snapshot["id"],

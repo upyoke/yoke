@@ -21,17 +21,12 @@ from yoke_core.domain import deploy_pipeline_step_runners
 from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     resolve_workflow_inputs,
 )
-from yoke_core.domain.release_pin_capability import route_for_target
+from yoke_core.domain.release_pin_capability import route_for_environment
 
 
 ROOT = Path(__file__).resolve().parents[3]
 
-#: The shape a hosted project declares: pin targets keyed by environment name.
 PIN_CAPABILITY = {
-    "environment_by_target": {
-        "stage": "yoke-api-stage",
-        "prod": "yoke-api-prod",
-    },
     "desired_pin_path": "release.yoke_pin",
 }
 
@@ -64,7 +59,7 @@ def test_target_environment_placeholder_resolves_to_the_registered_name() -> Non
     assert resolved == {"target_environment": "prod", "release_mode": "hotfix"}
 
 
-def test_production_flavored_flow_dispatches_the_registered_environment_name() -> None:
+def test_prod_flow_dispatches_the_registered_environment_name() -> None:
     gh_calls = []
 
     def _fake_gh(*args, **_kwargs):
@@ -115,8 +110,6 @@ def test_production_flavored_flow_dispatches_the_registered_environment_name() -
             first_item="",
             timeout_min=30,
             fresh=False,
-            # The flow's typed environment reference names a row whose id is
-            # "production" and whose registered name is "prod".
             environment_name="prod",
             gate_branch="main",
             release_lineage="a" * 40,
@@ -126,13 +119,12 @@ def test_production_flavored_flow_dispatches_the_registered_environment_name() -
     assert (rc, diag) == (0, "")
     trigger = next(call for call in gh_calls if call and call[0] == "trigger")
     assert "target_environment=prod" in trigger
-    assert "target_environment=production" not in trigger
     assert "deployment_run_id=run-test" in trigger
 
 
 def test_dispatched_name_is_the_key_the_pin_writer_routes_on() -> None:
-    assert route_for_target(PIN_CAPABILITY, "prod").environment_id == "yoke-api-prod"
-    assert route_for_target(PIN_CAPABILITY, "stage").environment_id == "yoke-api-stage"
+    assert route_for_environment(PIN_CAPABILITY, "prod").environment == "prod"
+    assert route_for_environment(PIN_CAPABILITY, "stage").environment == "stage"
 
-    with pytest.raises(LookupError):
-        route_for_target(PIN_CAPABILITY, "production")
+    with pytest.raises(ValueError, match="non-empty"):
+        route_for_environment(PIN_CAPABILITY, "")

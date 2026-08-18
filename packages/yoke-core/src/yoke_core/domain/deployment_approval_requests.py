@@ -20,7 +20,7 @@ def _run(conn: Any, run_id: str) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
         "SELECT dr.id, dr.project_id, dr.flow, dr.target_tier, "
-        "dr.target_environment_id, e.name AS target_environment, dr.status, "
+        "e.name AS target_environment, dr.status, "
         "dr.current_stage, dr.created_by, p.slug AS project, df.stages "
         "FROM deployment_runs dr JOIN projects p ON p.id = dr.project_id "
         "JOIN deployment_flows df ON df.id = dr.flow "
@@ -93,7 +93,6 @@ def ensure_deployment_stage_approval(
         subject_context={
             "run_id": run_id,
             "stage": stage,
-            "target_environment_id": run["target_environment_id"],
             "target_environment": run["target_environment"],
             "flow_id": str(run["flow"]),
             "title": f"Deploy to {target} — approve the stage",

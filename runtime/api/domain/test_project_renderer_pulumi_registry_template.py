@@ -70,7 +70,7 @@ class TestGithubTrustPolicy:
                 "token.actions.githubusercontent.com",
                 "acme-org/acme",
                 allowed_branches=("main",),
-                allowed_environments=("stage", "production"),
+                allowed_environments=("stage", "prod"),
             )
         )
         subjects = policy["Statement"][0]["Condition"]["StringEquals"][
@@ -78,7 +78,7 @@ class TestGithubTrustPolicy:
         ]
         assert "repo:acme-org/acme:ref:refs/heads/main" in subjects
         assert "repo:acme-org/acme:environment:stage" in subjects
-        assert "repo:acme-org/acme:environment:production" in subjects
+        assert "repo:acme-org/acme:environment:prod" in subjects
         assert all("pull_request" not in subject for subject in subjects)
         assert all("feature" not in subject for subject in subjects)
         assert all("*" not in subject for subject in subjects)

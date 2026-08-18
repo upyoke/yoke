@@ -27,8 +27,7 @@ def test_plan_engine_cli_requires_environment_bound_agent_review_dispatch(
                     "subagent_type": "yoke-tester",
                     "authority": {
                         "state": "bound",
-                        "environment_id": "customer-runtime-42",
-                        "environment_name": "quality",
+                        "environment": "quality",
                         "execution_target_digest": "b" * 64,
                     },
                     "artifact_read_commands": [

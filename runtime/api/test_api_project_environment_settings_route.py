@@ -17,26 +17,23 @@ def environment_db():
     conn = connect_test_db(db["db_path"])
     try:
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS sites (id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
-            "name TEXT NOT NULL, created_at TEXT NOT NULL)"
+            "INSERT INTO sites (project_id, name, created_at) "
+            "VALUES (1, 'Yoke API', '2026-01-01T00:00:00Z'), "
+            "(2, 'ExternalWebapp API', '2026-01-01T00:00:00Z')"
         )
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, site TEXT NOT NULL, "
-            "name TEXT NOT NULL, settings TEXT DEFAULT '{}', "
-            "created_at TEXT NOT NULL)"
-        )
-        conn.execute(
-            "INSERT INTO sites (id, project_id, name, created_at) "
-            "VALUES ('yoke-api', 1, 'Yoke API', '2026-01-01T00:00:00Z'), "
-            "('externalwebapp-api', 2, 'ExternalWebapp API', '2026-01-01T00:00:00Z')"
-        )
-        conn.execute(
-            "INSERT INTO environments (id, site, name, settings, created_at) "
-            "VALUES ('yoke-api-prod', 'yoke-api', 'prod', "
+            "INSERT INTO environments "
+            "(site, project_id, name, settings, created_at) "
+            "SELECT id, 1, 'prod', "
             "'{\"pulumi\":{\"activation_state\":\"active\"},\"servers\":[{\"key\":\"old\"}]}', "
-            "'2026-01-01T00:00:00Z'), "
-            "('externalwebapp-api-prod', 'externalwebapp-api', 'prod', '{}', "
-            "'2026-01-01T00:00:00Z')"
+            "'2026-01-01T00:00:00Z' FROM sites "
+            "WHERE project_id=1 AND name='Yoke API'"
+        )
+        conn.execute(
+            "INSERT INTO environments "
+            "(site, project_id, name, settings, created_at) "
+            "SELECT id, 2, 'prod', '{}', '2026-01-01T00:00:00Z' "
+            "FROM sites WHERE project_id=2 AND name='ExternalWebapp API'"
         )
         conn.commit()
     finally:
@@ -93,8 +90,9 @@ def test_https_merge_returns_changed_paths_without_the_settings_document(
     with connect_test_db(environment_db["db_path"]) as conn:
         stored = json.loads(
             conn.execute(
-                "SELECT settings FROM environments WHERE id=%s",
-                ("yoke-api-prod",),
+                "SELECT settings FROM environments "
+                "WHERE project_id=%s AND name=%s",
+                (1, "prod"),
             ).fetchone()[0]
         )
     assert stored["pulumi"]["activation_state"] == "render_only"
@@ -143,12 +141,12 @@ def test_https_refuses_a_name_the_project_does_not_register(client):
         "projects.environment_settings.get",
         {
             "project": "yoke",
-            "environment": "staging",
+            "environment": "customer-west",
             "paths": ["git.branch"],
         },
     )
     assert response.status_code == 404
     error = response.json()["error"]
     assert error["code"] == "not_found"
-    assert "'staging' is not registered" in error["message"]
+    assert "'customer-west' is not registered" in error["message"]
     assert "prod" in error["message"]

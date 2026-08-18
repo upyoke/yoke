@@ -33,6 +33,19 @@ CREATE TABLE projects (
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK',
     created_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE sites (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE(project_id, name)
+);
+CREATE TABLE environments (
+    id INTEGER PRIMARY KEY,
+    site INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE(project_id, name)
+);
 """ + _ITEMS_DDL + """
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY,
@@ -43,7 +56,7 @@ CREATE TABLE deployment_flows (
     on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL DEFAULT '',
     target_tier TEXT DEFAULT NULL,
-    target_environment_id TEXT DEFAULT NULL,
+    target_environment_id INTEGER DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     UNIQUE(project_id, name)
 );
@@ -53,7 +66,7 @@ CREATE TABLE deployment_runs (
     project_id INTEGER NOT NULL,
     flow TEXT NOT NULL,
     target_tier TEXT,
-    target_environment_id TEXT,
+    target_environment_id INTEGER,
     release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
@@ -78,7 +91,7 @@ SELECT
     COALESCE(df.name, '') AS flow_name,
     COALESCE(dr.id, '') AS run_id,
     COALESCE(dr.current_stage, '') AS current_stage,
-    COALESCE(df.target_environment_id, '') AS target_environment,
+    COALESCE(e.name, '') AS target_environment,
     '' AS stage_progress,
     '' AS done_description,
     '' AS qa_summary,
@@ -86,7 +99,9 @@ SELECT
 FROM items i
 LEFT JOIN deployment_flows df ON i.deployment_flow = df.id
 LEFT JOIN deployment_run_items dri ON dri.item_id = i.id
-LEFT JOIN deployment_runs dr ON dr.id = dri.run_id AND dr.status = 'executing';
+LEFT JOIN deployment_runs dr ON dr.id = dri.run_id AND dr.status = 'executing'
+LEFT JOIN environments e
+  ON e.id = COALESCE(dr.target_environment_id, df.target_environment_id);
 """
 
 
@@ -107,6 +122,13 @@ def _apply_item_query_schema() -> None:
            VALUES (1, 'yoke', 'Yoke', 'org/yoke', 'YOK', %s),
                   (2, 'externalwebapp', 'ExternalWebapp', 'org/externalwebapp', 'EXT', %s)""",
         (ts, ts),
+    )
+    conn.execute(
+        "INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')"
+    )
+    conn.execute(
+        "INSERT INTO environments (id, site, project_id, name) "
+        "VALUES (101, 10, 1, 'prod')"
     )
     conn.execute(
         """INSERT INTO items
@@ -172,7 +194,7 @@ def _apply_item_query_schema() -> None:
            (id, project_id, name, stages, target_tier,
             target_environment_id, created_at)
            VALUES ('test-flow', 1, 'TestFlow', %s, 'persistent',
-                   'production', %s)""",
+                   101, %s)""",
         (flow_stages, ts),
     )
 

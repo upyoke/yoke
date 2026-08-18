@@ -1,5 +1,5 @@
 {
-  "schema": 3,
+  "schema": 4,
   "default_flow": "yoke-internal",
   "retire_if_present": [
     "yoke-hosted-production",
@@ -8,6 +8,7 @@
     "yoke-hosted-production-hotfix-no-ci-gate",
     "yoke-hosted-stage-no-ci-gate",
     "yoke-hosted-production-hotfix-warm-gated",
+    "yoke-hosted-production-hotfix-typed-target",
     "yoke-hosted-stage-warm-gated"
   ],
   "flows": [
@@ -31,9 +32,9 @@
       "target_tier": null
     },
     {
-      "id": "yoke-hosted-production-hotfix-typed-target",
-      "name": "Production Hotfix (Warm-Gated, No CI Gate, Typed Target)",
-      "description": "Dispatch an annotated Yoke hotfix through the Platform production train without waiting for repository CI, then warm the rolled production box before reporting success",
+      "id": "yoke-hosted-prod-hotfix-typed-target",
+      "name": "Prod Hotfix (Warm-Gated, No CI Gate, Typed Target)",
+      "description": "Dispatch an annotated Yoke hotfix through the Platform prod train without waiting for repository CI, then warm the rolled prod box before reporting success",
       "stages": [
         {
           "name": "merged",
@@ -65,10 +66,10 @@
         }
       ],
       "on_failure": "halt",
-      "done_description": "Yoke hotfix completed through the hosted production train",
+      "done_description": "Yoke hotfix completed through the hosted prod train",
       "status": "active",
       "target_tier": "persistent",
-      "target_environment_id": "production"
+      "environment": "prod"
     },
     {
       "id": "yoke-hosted-stage-typed-target",
@@ -108,7 +109,7 @@
       "done_description": "Yoke release completed through the hosted stage train",
       "status": "active",
       "target_tier": "persistent",
-      "target_environment_id": "stage"
+      "environment": "stage"
     },
     {
       "id": "yoke-branch-preview",

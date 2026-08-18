@@ -119,7 +119,7 @@ QA_COMMANDS: list[dict] = [
             "Registered write qa.plan.edit. From a mapped project checkout, "
             "the command resolves project context, opens a clean JSON plan "
             "document in $VISUAL / $EDITOR, and saves metadata plus the full "
-            "ordered case set and `target_environment_id` in one transaction. "
+            "ordered case set and `target_environment` name in one transaction. "
             "The environment must belong to the plan project and match the "
             "hosted runtime. A stale updated_at refuses "
             "the write and preserves the edited file. v1 accepts only the "

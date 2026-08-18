@@ -47,7 +47,7 @@ class TestLineage:
         lin = dr.cmd_lineage_create(db_path=db_path)
         run_id = dr.cmd_create_run(
             "yoke", "flow-main",
-            release_lineage=lin, environment="production",
+            release_lineage=lin, environment="prod",
             db_path=db_path,
         )
         dr.cmd_update(run_id, "current_stage", "complete", db_path=db_path)
@@ -167,17 +167,17 @@ class TestResolveTarget:
     def test_override_wins(self, db_path: str) -> None:
         result = dr.cmd_resolve_target(
             "yoke", "flow-main",
-            environment_override="staging", db_path=db_path,
+            environment_override="stage", db_path=db_path,
         )
-        assert result == ("persistent", "staging", "stage")
+        assert result == ("persistent", 202, "stage")
 
     def test_flow_default(self, db_path: str) -> None:
         result = dr.cmd_resolve_target("yoke", "flow-main", db_path=db_path)
-        assert result == ("persistent", "production", "prod")
+        assert result == ("persistent", 201, "prod")
 
     def test_no_default(self, db_path: str) -> None:
         result = dr.cmd_resolve_target("yoke", "flow-preview", db_path=db_path)
-        assert result == ("", "", "")
+        assert result == ("", None, "")
 
 
 class TestCLIExitCodes:

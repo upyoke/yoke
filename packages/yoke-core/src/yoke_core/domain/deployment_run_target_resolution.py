@@ -3,7 +3,7 @@
 One question, answered once: which tier and which registered environment
 does a run of this flow deploy to? Copies the flow's registered target by
 default; an operator override names another of the project's environments
-(by id or name) and forces the persistent tier.
+and forces the persistent tier.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ def cmd_resolve_target(
     flow: str,
     environment_override: Optional[str] = None,
     db_path: Optional[str] = None,
-) -> tuple[str, str, str]:
-    """Resolve ``(target_tier, target_environment_id, environment_name)``."""
+) -> tuple[str, int | None, str]:
+    """Resolve an internal key plus the operator-facing environment name."""
     from yoke_core.domain.environment_delivery_record import (
         environment_name,
         require_registered_environment,
@@ -36,21 +36,24 @@ def cmd_resolve_target(
             )
             return (
                 "persistent",
-                environment_id or "",
+                environment_id,
                 environment_name(conn, environment_id) or "",
             )
         row = query_one(
             conn,
             "SELECT COALESCE(target_tier, '') AS target_tier, "
-            "COALESCE(target_environment_id, '') AS target_environment_id "
+            "target_environment_id "
             "FROM deployment_flows WHERE id=%s AND project_id=%s",
             (flow, ident.id),
         )
         if row is None:
-            return "", "", ""
+            return "", None, ""
         tier = str(row["target_tier"] if hasattr(row, "keys") else row[0])
-        environment_id = str(
+        raw_environment_id = (
             row["target_environment_id"] if hasattr(row, "keys") else row[1]
+        )
+        environment_id = (
+            int(raw_environment_id) if raw_environment_id not in (None, "") else None
         )
         return (
             tier,

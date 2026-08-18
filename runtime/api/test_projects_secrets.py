@@ -155,8 +155,8 @@ class TestResolveDeployEnvs:
         result = projects.cmd_resolve_deploy_envs("externalwebapp", db_path=initialized_db)
         assert result is not None
         envs = result.strip().split("\n")
-        assert "production" in envs
-        assert "staging" in envs
+        assert "prod" in envs
+        assert "stage" in envs
 
     def test_flow_definitions_do_not_widen_the_environment_set(
         self, initialized_db: str,
@@ -167,7 +167,7 @@ class TestResolveDeployEnvs:
                 "CREATE TABLE IF NOT EXISTS deployment_flows ("
                 "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL, "
                 "description TEXT, stages TEXT NOT NULL DEFAULT '[]', "
-                "target_tier TEXT, target_environment_id TEXT, "
+                "target_tier TEXT, target_environment_id INTEGER, "
                 "on_failure TEXT DEFAULT 'abort', "
                 "created_at TEXT NOT NULL)"
             )
@@ -182,7 +182,7 @@ class TestResolveDeployEnvs:
                     "test-flow",
                     "[]",
                     "persistent",
-                    "canary",
+                    999,
                     "2026-04-20T00:00:00Z",
                 ),
             )
@@ -191,7 +191,7 @@ class TestResolveDeployEnvs:
             conn.close()
 
         result = projects.cmd_resolve_deploy_envs("yoke", db_path=initialized_db)
-        assert result is None or "canary" not in result.strip().split("\n")
+        assert result is None or "999" not in result.strip().split("\n")
 
     def test_resolves_from_capability_config(self, initialized_db: str):
         conn = connect(initialized_db)

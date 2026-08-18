@@ -79,7 +79,7 @@ def create_plan(
     description: str = "",
     success_policy_id: str = "all-pass",
     success_policy_params: Optional[dict] = None,
-    target_environment_id: Optional[str] = None,
+    target_environment: Optional[str] = None,
 ) -> dict:
     """Create one project-scoped plan."""
     if not _SLUG_RE.fullmatch(slug):
@@ -88,12 +88,36 @@ def create_plan(
         raise QaPlanError("v1 supports only the all-pass success policy")
     project_id = _project_id(conn, project)
     marker = _placeholder(conn)
-    if target_environment_id is None:
+    if target_environment is None:
         from yoke_core.domain.qa_execution_environment_target import (
             only_project_environment,
         )
 
         target_environment_id = only_project_environment(conn, project_id=project_id)
+        resolved_target_environment = None
+        if target_environment_id is not None:
+            row = conn.execute(
+                f"SELECT name FROM environments WHERE id={marker}",
+                (target_environment_id,),
+            ).fetchone()
+            if row is not None:
+                resolved_target_environment = str(
+                    row["name"] if hasattr(row, "keys") else row[0]
+                )
+    else:
+        from yoke_core.domain.qa_hosted_runtime_identity import (
+            resolve_plan_environment_name,
+        )
+        try:
+            target = resolve_plan_environment_name(
+                conn,
+                plan_project_id=project_id,
+                environment=target_environment,
+            )
+        except ValueError as exc:
+            raise QaPlanError(str(exc)) from exc
+        target_environment_id = int(target["environment_id"])
+        resolved_target_environment = str(target["environment_name"])
     if target_environment_id is not None:
         _validate_target_environment(
             conn,
@@ -132,7 +156,7 @@ def create_plan(
         "project": project,
         "slug": slug,
         "name": name or slug,
-        "target_environment_id": target_environment_id,
+        "target_environment": resolved_target_environment,
     }
 
 
@@ -140,7 +164,7 @@ def _validate_target_environment(
     conn: Any,
     *,
     project_id: int,
-    environment_id: str,
+    environment_id: int,
 ) -> None:
     from yoke_core.domain.qa_execution_environment_target import (
         QaExecutionTargetError,

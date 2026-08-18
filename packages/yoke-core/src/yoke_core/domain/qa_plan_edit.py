@@ -118,7 +118,7 @@ def edit_plan(
     description: str,
     success_policy_id: str,
     success_policy_params: dict[str, Any],
-    target_environment_id: str | None = None,
+    target_environment: str | None = None,
     cases: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Replace one authoring document with CAS and true no-op semantics."""
@@ -144,10 +144,25 @@ def edit_plan(
         raise QaPlanError(f"QA plan {project}/{slug} not found")
     if plan["retired_at"] is not None:
         raise QaPlanError(f"QA plan {project}/{slug} is retired")
-    target_environment_id = str(
-        target_environment_id or plan["target_environment_id"] or ""
-    )
-    if target_environment_id:
+    if target_environment is not None:
+        from yoke_core.domain.qa_hosted_runtime_identity import (
+            resolve_plan_environment_name,
+        )
+        try:
+            target = resolve_plan_environment_name(
+                conn,
+                plan_project_id=project_id,
+                environment=target_environment,
+            )
+        except ValueError as exc:
+            raise QaPlanError(str(exc)) from exc
+        target_environment_id = int(target["environment_id"])
+    else:
+        raw_target_id = plan["target_environment_id"]
+        target_environment_id = (
+            int(raw_target_id) if raw_target_id is not None else None
+        )
+    if target_environment_id is not None:
         _validate_target_environment(
             conn,
             project_id=project_id,
@@ -165,7 +180,7 @@ def edit_plan(
         "description": str(description),
         "success_policy_id": success_policy_id,
         "success_policy_params": dict(success_policy_params),
-        "target_environment_id": str(target_environment_id),
+        "target_environment_id": target_environment_id,
     }
     current_plan = {
         "name": str(plan["name"]),
@@ -175,7 +190,11 @@ def edit_plan(
             plan["success_policy_params"],
             {},
         ),
-        "target_environment_id": str(plan["target_environment_id"] or ""),
+        "target_environment_id": (
+            int(plan["target_environment_id"])
+            if plan["target_environment_id"] is not None
+            else None
+        ),
     }
     current_cases = _current_cases(conn, int(plan["id"]))
     if str(base_updated_at) != current_updated_at:

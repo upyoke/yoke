@@ -151,7 +151,7 @@ def resolve_plan_execution_target(
         "SELECT qp.target_environment_id, p.id AS project_id, "
         "p.slug AS project_slug, p.name AS project_name, "
         "o.id AS tenant_id, o.slug AS tenant_slug, o.name AS tenant_name, "
-        "s.id AS site_id, e.id AS environment_id, e.name AS environment_name, "
+        "s.name AS site_name, e.id AS environment_id, e.name AS environment_name, "
         "e.url, e.settings "
         "FROM qa_plans qp JOIN projects p ON p.id=qp.project_id "
         "JOIN organizations o ON o.id=p.org_id "
@@ -168,13 +168,13 @@ def resolve_plan_execution_target(
         raise QaExecutionTargetError(
             f"QA plan {plan_id} has no execution environment target"
         )
-    if row["environment_id"] is None or row["site_id"] is None:
+    if row["environment_id"] is None or row["site_name"] is None:
         raise QaExecutionTargetError("QA plan execution environment is unavailable")
     try:
         hosted_identity.require_plan_environment_access(
             conn,
             plan_project_id=int(row["project_id"]),
-            environment_id=str(row["environment_id"]),
+            environment_id=int(row["environment_id"]),
         )
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc
@@ -186,7 +186,7 @@ def resolve_plan_execution_target(
         else _generic_endpoints(row, settings)
     )
     target = {
-        "schema": 1,
+        "schema": 2,
         "tenant": {
             "id": int(row["tenant_id"]),
             "slug": str(row["tenant_slug"]),
@@ -197,11 +197,8 @@ def resolve_plan_execution_target(
             "slug": str(row["project_slug"]),
             "name": str(row["project_name"]),
         },
-        "site": {"id": str(row["site_id"])},
-        "environment": {
-            "id": str(row["environment_id"]),
-            "name": environment_name,
-        },
+        "site": {"name": str(row["site_name"])},
+        "environment": {"name": environment_name},
         "endpoints": endpoints,
     }
     if require_runtime_match:
@@ -209,7 +206,7 @@ def resolve_plan_execution_target(
     return target
 
 
-def select_backfill_environment(conn: Any, *, project_id: int) -> str:
+def select_backfill_environment(conn: Any, *, project_id: int) -> int:
     """Select the current hosted runtime's one project environment."""
     rows = [
         {
@@ -226,16 +223,16 @@ def select_backfill_environment(conn: Any, *, project_id: int) -> str:
         row for row in rows if str(row["name"]).lower() == runtime
     ]
     if len(matches) == 1:
-        return str(matches[0]["id"])
+        return int(matches[0]["id"])
     if runtime not in {"prod", "stage"} and len(rows) == 1:
-        return str(rows[0]["id"])
+        return int(rows[0]["id"])
     raise QaExecutionTargetError(
         f"project {project_id} cannot resolve one environment for runtime {runtime!r}"
     )
 
 
-def only_project_environment(conn: Any, *, project_id: int) -> str | None:
-    """Return a sole declared project environment for internal compatibility."""
+def only_project_environment(conn: Any, *, project_id: int) -> int | None:
+    """Return a sole declared project environment key for internal writes."""
     from yoke_core.domain.schema_common import _table_exists
 
     if not _table_exists(conn, "sites") or not _table_exists(conn, "environments"):
@@ -249,21 +246,21 @@ def only_project_environment(conn: Any, *, project_id: int) -> str | None:
     if len(rows) != 1:
         return None
     row = rows[0]
-    return str(row["id"] if hasattr(row, "keys") else row[0])
+    return int(row["id"] if hasattr(row, "keys") else row[0])
 
 
 def validate_plan_target_environment(
     conn: Any,
     *,
     project_id: int,
-    environment_id: str,
+    environment_id: int,
 ) -> None:
     """Require an authorized environment compatible with this runtime."""
     try:
         target = hosted_identity.require_plan_environment_access(
             conn,
             plan_project_id=int(project_id),
-            environment_id=str(environment_id),
+            environment_id=int(environment_id),
         )
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc

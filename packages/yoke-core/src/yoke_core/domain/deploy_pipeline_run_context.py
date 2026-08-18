@@ -52,13 +52,11 @@ def resolve_project_checkout_path(project: str) -> str:
 
 def resolve_flow_target(
     flow_id: str, sd: Optional[str] = None,
-) -> Tuple[str, str, str]:
-    """The flow's ``(target_tier, target_environment_id, environment_name)``."""
+) -> Tuple[str, str]:
+    """Return the flow's target tier and registered environment name."""
     flow_target = _flow_db("target", flow_id, sd=sd)
-    tier, environment_id, environment_name = (
-        (flow_target.split("|") + ["", "", ""])[:3]
-    )
-    return tier, environment_id, environment_name
+    tier, environment_name = (flow_target.split("|") + ["", ""])[:2]
+    return tier, environment_name
 
 
 def finalize_run_success(

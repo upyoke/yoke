@@ -201,7 +201,7 @@ def test_trigger_once_relays_explicit_non_durable_operation() -> None:
         "--ref",
         "main",
         "--input",
-        "environment=production",
+        "environment=prod",
         "--project",
         "externalwebapp",
         result={"run_id": 73},
@@ -217,7 +217,7 @@ def test_trigger_once_relays_explicit_non_durable_operation() -> None:
         "repo": "upyoke/externalwebapp",
         "workflow": "externalwebapp-deploy.yml",
         "ref": "main",
-        "inputs": {"environment": "production"},
+        "inputs": {"environment": "prod"},
         "project": "externalwebapp",
     }
 

@@ -24,7 +24,7 @@ from yoke_core.domain.project_renderer_settings_snapshot import (
 
 def _sample_settings() -> ProjectRendererSettings:
     stage = RendererEnvironmentSettings(
-        id="acme-api-stage",
+        id="401",
         name="stage",
         settings={
             "hosts": {"api": "api.stage.acme.test", "origin": "o.stage.acme.test"},
@@ -45,7 +45,7 @@ def _sample_settings() -> ProjectRendererSettings:
         project="acme",
         deploy_namespace="acme",
         display_name="Acme",
-        site_id="acme-api",
+        site_id="301",
         site_settings={
             "domains": [{"domain_name": "acme.test", "hosted_zone_id": "ZACME"}],
         },
@@ -74,12 +74,15 @@ def _seeded_conn() -> Any:
         "name TEXT, public_item_prefix TEXT DEFAULT 'YOK')"
     )
     conn.execute(
-        "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER, "
-        "name TEXT, settings TEXT)"
+        "CREATE TABLE sites (id INTEGER PRIMARY KEY, project_id INTEGER, "
+        "name TEXT, settings TEXT, UNIQUE(id, project_id), "
+        "UNIQUE(project_id, name))"
     )
     conn.execute(
-        "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT, "
-        "name TEXT, settings TEXT)"
+        "CREATE TABLE environments (id INTEGER PRIMARY KEY, site INTEGER, "
+        "project_id INTEGER, name TEXT, settings TEXT, "
+        "UNIQUE(project_id, name), FOREIGN KEY(site, project_id) "
+        "REFERENCES sites(id, project_id))"
     )
     conn.execute(
         "CREATE TABLE project_capabilities (project_id INTEGER, type TEXT, "
@@ -92,15 +95,15 @@ def _seeded_conn() -> Any:
     conn.execute(
         "INSERT INTO sites (id, project_id, name, settings) "
         "VALUES (%s, %s, %s, %s)",
-        ("acme-api", 7, "Acme API", json.dumps({
+        (301, 7, "Acme API", json.dumps({
             "domains": [{"domain_name": "acme.test", "hosted_zone_id": "ZACME"}],
             "pulumi": {"stacks": ["registry"]},
         })),
     )
     conn.execute(
-        "INSERT INTO environments (id, site, name, settings) "
-        "VALUES (%s, %s, %s, %s)",
-        ("acme-api-stage", "acme-api", "stage", json.dumps({
+        "INSERT INTO environments (id, site, project_id, name, settings) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (401, 301, 7, "stage", json.dumps({
             "hosts": {"api": "api.stage.acme.test"},
             "pulumi": {"stack_name": "acme-stage",
                        "secrets_provider": "awskms://alias/acme-pulumi-state"},
@@ -121,7 +124,10 @@ class TestSnapshotRoundTrip:
     def test_round_trip_preserves_settings(self):
         settings = _sample_settings()
         snapshot = snapshot_from_settings(settings)
-        assert settings_from_snapshot(snapshot) == settings
+        hydrated = settings_from_snapshot(snapshot)
+        assert snapshot_from_settings(hydrated) == snapshot
+        assert hydrated.site_id == ""
+        assert hydrated.environments[0].id == ""
 
     def test_snapshot_is_json_serializable(self):
         snapshot = snapshot_from_settings(_sample_settings())
@@ -139,26 +145,24 @@ class TestSnapshotRoundTrip:
         settings = settings_from_snapshot({
             "project": "acme",
             "environments": [
-                {"id": "acme-api-a-home", "name": "settings-home",
-                 "settings": {}},
-                {"id": "acme-api-live", "name": "live", "settings": {}},
+                {"name": "settings-home", "settings": {}},
+                {"name": "live", "settings": {}},
             ],
         })
         assert settings.primary_environment is not None
-        assert settings.primary_environment.id == "acme-api-a-home"
+        assert settings.primary_environment.name == "settings-home"
 
     def test_renderer_primary_flag_pins_hydrated_primary(self):
         settings = settings_from_snapshot({
             "project": "acme",
             "environments": [
-                {"id": "acme-api-a-home", "name": "settings-home",
-                 "settings": {}},
-                {"id": "acme-api-live", "name": "live",
+                {"name": "settings-home", "settings": {}},
+                {"name": "live",
                  "settings": {"renderer_primary": True}},
             ],
         })
         assert settings.primary_environment is not None
-        assert settings.primary_environment.id == "acme-api-live"
+        assert settings.primary_environment.name == "live"
 
 
 class TestBuildStackConfig:
@@ -176,7 +180,8 @@ class TestBuildStackConfig:
         snapshot = first["renderer_settings"]
         assert snapshot["project"] == "acme"
         assert snapshot["site_settings"]["pulumi"]["stacks"] == ["registry"]
-        assert snapshot["environments"][0]["id"] == "acme-api-stage"
+        assert snapshot["environments"][0]["name"] == "stage"
+        assert "id" not in snapshot["environments"][0]
         assert snapshot["capabilities"]["github"]["repo_name"] == "acme"
 
     def test_numeric_project_id_resolves(self):
@@ -205,7 +210,8 @@ class TestSettingsFromStackConfig:
             "project_slug": "acme",
             "renderer_settings": snapshot_from_settings(settings),
         }
-        assert settings_from_stack_config(payload) == settings
+        hydrated = settings_from_stack_config(payload)
+        assert snapshot_from_settings(hydrated) == payload["renderer_settings"]
 
     def test_unknown_schema_raises(self):
         with pytest.raises(ValueError, match="schema"):

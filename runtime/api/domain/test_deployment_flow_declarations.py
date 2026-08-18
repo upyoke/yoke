@@ -26,16 +26,31 @@ def _seed_project(conn) -> None:
     conn.commit()
     flow_cmd_init(conn)
     create_project_structure_tables(conn)
+    project_id = resolve_project_id(conn, "acme")
+    conn.execute(
+        "INSERT INTO sites (project_id, name, created_at) "
+        "VALUES (%s, 'Acme API', '2026-01-01T00:00:00Z') "
+        "ON CONFLICT(project_id, name) DO NOTHING",
+        (project_id,),
+    )
+    conn.execute(
+        "INSERT INTO environments (site, project_id, name, created_at) "
+        "SELECT id, %s, 'prod', '2026-01-01T00:00:00Z' FROM sites "
+        "WHERE project_id=%s AND name='Acme API' "
+        "ON CONFLICT(project_id, name) DO NOTHING",
+        (project_id, project_id),
+    )
+    conn.commit()
 
 
 def _document() -> dict:
     return {
-        "schema": 3,
-        "default_flow": "acme-production",
+        "schema": 4,
+        "default_flow": "acme-prod",
         "flows": [
             {
-                "id": "acme-production",
-                "name": "Production",
+                "id": "acme-prod",
+                "name": "Prod",
                 "description": "Deploy the selected release",
                 "stages": [
                     {"name": "merged", "step_runner": "auto"},
@@ -47,8 +62,8 @@ def _document() -> dict:
                     {"name": "complete", "step_runner": "auto"},
                 ],
                 "target_tier": "persistent",
-                "target_environment_id": "acme-prod",
-                "done_description": "Production deployment completed",
+                "environment": "prod",
+                "done_description": "Prod deployment completed",
             },
             {
                 "id": "acme-internal",
@@ -68,9 +83,9 @@ def test_reconcile_is_additive_and_idempotent(test_db) -> None:
     first = reconcile_project_flows(test_db, "acme", _document())
     second = reconcile_project_flows(test_db, "acme", _document())
 
-    assert first["created"] == ["acme-production", "acme-internal"]
-    assert second["unchanged"] == ["acme-production", "acme-internal"]
-    assert second["default_flow"] == "acme-production"
+    assert first["created"] == ["acme-prod", "acme-internal"]
+    assert second["unchanged"] == ["acme-prod", "acme-internal"]
+    assert second["default_flow"] == "acme-prod"
     assert first["default_flow_updated"] is True
     assert second["default_flow_updated"] is False
     row = test_db.execute(
@@ -79,7 +94,7 @@ def test_reconcile_is_additive_and_idempotent(test_db) -> None:
         (resolve_project_id(test_db, "acme"),),
     ).fetchone()
     assert json_helper.loads_text(str(row[0])) == {
-        "deployment_flow": "acme-production",
+        "deployment_flow": "acme-prod",
     }
 
 
@@ -185,7 +200,7 @@ def test_foreign_project_retire_if_present_skips_without_disabling(
 
     result = reconcile_project_flows(test_db, "acme", document)
 
-    assert result["created"] == ["acme-production", "acme-internal"]
+    assert result["created"] == ["acme-prod", "acme-internal"]
     assert result["retired"] == []
     assert result["retire_absent"] == []
     assert result["retire_foreign"] == ["yoke-internal"]
@@ -210,7 +225,7 @@ def test_historical_run_freezes_definition_but_not_status(test_db) -> None:
         test_db,
         id="run-declaration-history",
         project="acme",
-        flow="acme-production",
+        flow="acme-prod",
         status="succeeded",
         current_stage="complete",
     )
@@ -223,7 +238,7 @@ def test_historical_run_freezes_definition_but_not_status(test_db) -> None:
     disabled.pop("default_flow")
     disabled["flows"][0]["status"] = "disabled"
     result = reconcile_project_flows(test_db, "acme", disabled)
-    assert result["updated"] == ["acme-production"]
+    assert result["updated"] == ["acme-prod"]
 
 
 def test_invalid_default_rolls_back_all_new_definitions(test_db) -> None:
@@ -254,7 +269,7 @@ def test_preview_validates_without_persisting_any_rows(test_db) -> None:
     )
 
     assert result["preview_only"] is True
-    assert result["created"] == ["acme-production", "acme-internal"]
+    assert result["created"] == ["acme-prod", "acme-internal"]
     assert result["default_flow_updated"] is False
     assert (
         test_db.execute(
@@ -310,5 +325,4 @@ def test_document_shape_rejects_unknown_fields_before_writes() -> None:
     document["flows"][0]["consumer_special_case"] = True
     with pytest.raises(ValueError, match="unknown keys"):
         normalize_document(document)
-
 

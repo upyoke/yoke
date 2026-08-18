@@ -67,7 +67,7 @@ PROJECT_TABLES: dict[str, dict] = {
     },
     "sites": {
         "columns": [
-            ("id", "TEXT"),
+            ("id", "INTEGER"),
             ("name", "TEXT"),
             ("description", "TEXT"),
             ("created_at", "TEXT"),
@@ -75,25 +75,26 @@ PROJECT_TABLES: dict[str, dict] = {
             ("project_id", "INTEGER"),
         ],
         "notes": (
-            "Deployable sites belong to projects through numeric "
-            "`sites.project_id = projects.id`. Environment ownership is "
-            "indirect: join `environments.site = sites.id`, then join the "
-            "site to its project. Structured site configuration lives in "
-            "the JSON `settings` column. Discover site and environment IDs "
-            "without projecting settings through `yoke projects "
+            "Deployable sites use numeric internal keys and belong to projects "
+            "through `sites.project_id = projects.id`; `name` is the sole "
+            "human site identifier and is unique within the project. Structured "
+            "site configuration lives in the JSON `settings` column. Discover "
+            "site and environment names without projecting settings through "
+            "`yoke projects "
             "infrastructure list --project <slug> --json` "
             "(`projects.infrastructure.list`). Legacy Pulumi operator state at "
             "`settings.pulumi.stack_state` moves transactionally through "
             "registered function `projects.pulumi_state.migrate` / `yoke "
-            "projects pulumi-state migrate --project <slug> --site-id <id> "
+            "projects pulumi-state migrate --project <slug> --site <name> "
             "--stack <name> [--apply]`; it dry-runs by default and emits only "
             "a redacted receipt."
         ),
     },
     "environments": {
         "columns": [
-            ("id", "TEXT"),
-            ("site", "TEXT"),
+            ("id", "INTEGER"),
+            ("site", "INTEGER"),
+            ("project_id", "INTEGER"),
             ("name", "TEXT"),
             ("url", "TEXT"),
             ("deploy_method", "TEXT"),
@@ -105,23 +106,21 @@ PROJECT_TABLES: dict[str, dict] = {
             ("settings", "TEXT"),
         ],
         "notes": (
-            "Named deployment environments belong to a site through the "
-            "TEXT `site` column. There is NO `project_id` column on this "
-            "table (stale guess). Resolve project ownership with "
-            "`environments.site = sites.id` and "
-            "`sites.project_id = projects.id`. Deployment metadata such as "
+            "Deployment environments use numeric internal keys. `name` is the "
+            "sole human environment identifier and is unique within "
+            "`project_id`; the composite foreign key `(site, project_id)` keeps "
+            "the numeric site and project ownership aligned. Deployment metadata such as "
             "git branch, hosts, database, and Pulumi settings lives in the "
-            "JSON `settings` column. First discover metadata-only IDs with "
+            "JSON `settings` column. First discover metadata-only names with "
             "`yoke projects infrastructure list --project <slug> --json`; "
             "then read settings through `yoke projects "
             "environment-settings get --project <slug> --environment "
-            "<id> --path <scalar.path>`; the registered function requires "
+            "<name> --path <scalar.path>`; the registered function requires "
             "explicit scalar paths and returns a `values` projection. The "
             "wrong aggregate-response guess is `settings_json`: neither "
             "get nor merge returns the settings document. Merge returns "
-            "only `changed_paths` plus its message. The local-only "
-            "`environment-merge-settings` domain command cannot reach an "
-            "HTTPS authority."
+            "only `changed_paths` plus its message. Numeric row keys never "
+            "appear on these operator surfaces."
         ),
     },
     "project_structure": {

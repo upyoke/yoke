@@ -19,10 +19,7 @@ from yoke_contracts.release_pin import (
 )
 from yoke_cli.commands.deployment_pin import RELEASE_PIN_CAPABILITY
 from yoke_cli.commands.release_pin_agreement import (
-    accepted_environment_targets,
-    environment_id_for_target,
     evaluate_pin_health_agreement,
-    format_accepted_environment_targets,
 )
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
 from yoke_contracts.api.function_call import TargetRef
@@ -39,8 +36,7 @@ def release_pin_verify(args: List[str]) -> int:
         "--environment",
         required=True,
         help=(
-            "Deploy target key from release_pin.environment_by_target, or the "
-            "mapped environment's id or name."
+            "Registered environment name for the project."
         ),
     )
     add_session_arg(parser)
@@ -54,19 +50,13 @@ def release_pin_verify(args: List[str]) -> int:
         return usage_error(
             f"project {parsed.project!r} has no {RELEASE_PIN_CAPABILITY} capability"
         )
-    environments = _project_environments(parsed.project, parsed.session_id)
-    environment_id = environment_id_for_target(
-        settings,
-        parsed.environment,
-        environments=environments,
-    )
-    if not environment_id:
-        valid = format_accepted_environment_targets(
-            accepted_environment_targets(settings, environments=environments)
-        )
+    environment = str(parsed.environment or "").strip()
+    registered = _project_environment_names(parsed.project, parsed.session_id)
+    if environment not in registered:
         return usage_error(
-            "release_pin.environment_by_target has no entry for "
-            f"{parsed.environment!r}; valid keys: {valid}"
+            f"environment {environment!r} is not registered for project "
+            f"{parsed.project!r}; registered: "
+            f"{', '.join(registered) or '(none)'}"
         )
     desired_pin_path = _scalar(settings.get(DESIRED_PIN_PATH_KEY))
     if not desired_pin_path:
@@ -87,7 +77,7 @@ def release_pin_verify(args: List[str]) -> int:
         )
     values = _environment_values(
         parsed.project,
-        environment_id,
+        environment,
         [desired_pin_path, probe_url_path],
         parsed.session_id,
     )
@@ -101,7 +91,6 @@ def release_pin_verify(args: List[str]) -> int:
     payload = {
         "project": parsed.project,
         "environment": parsed.environment,
-        "environment_id": environment_id,
         "settings_path": desired_pin_path,
         "probe_url_path": probe_url_path,
         "served_pin_response_path": served_pin_response_path,
@@ -156,21 +145,9 @@ def _capability_settings(project: str, session_id: Optional[str]) -> Optional[di
     return settings if isinstance(settings, dict) else None
 
 
-def _project_environments(
-    project: str, session_id: Optional[str]
-) -> List[Dict[str, Any]]:
-    result = _read(
-        "projects.infrastructure.list",
-        {"project": project},
-        session_id,
-    )
-    rows = (result or {}).get("environments") or []
-    return [row for row in rows if isinstance(row, dict)]
-
-
 def _environment_values(
     project: str,
-    environment_id: str,
+    environment: str,
     paths: List[str],
     session_id: Optional[str],
 ) -> Dict[str, Any]:
@@ -178,13 +155,29 @@ def _environment_values(
         "projects.environment_settings.get",
         {
             "project": project,
-            "environment_id": environment_id,
+            "environment": environment,
             "paths": paths,
         },
         session_id,
     )
     values = (result or {}).get("values") or {}
     return values if isinstance(values, dict) else {}
+
+
+def _project_environment_names(
+    project: str, session_id: Optional[str]
+) -> List[str]:
+    result = _read(
+        "projects.infrastructure.list",
+        {"project": project},
+        session_id,
+    )
+    rows = (result or {}).get("environments") or []
+    return sorted({
+        str(row.get("name") or "").strip()
+        for row in rows
+        if isinstance(row, dict) and str(row.get("name") or "").strip()
+    })
 
 
 def _read(

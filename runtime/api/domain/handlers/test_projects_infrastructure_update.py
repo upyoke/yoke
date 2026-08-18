@@ -17,8 +17,8 @@ from yoke_contracts.api.function_call import (
 )
 
 WEBAPP = "externalwebapp"
-SITE = "externalwebapp-web"
-ENVIRONMENT = "externalwebapp-web-production"
+SITE = "External webapp"
+ENVIRONMENT = "blue"
 
 
 @pytest.fixture
@@ -41,52 +41,51 @@ def _request(function: str, payload: dict) -> FunctionCallRequest:
 def _seed_named_environment() -> None:
     create.handle_projects_site_create(
         _request("projects.site.create", {
-            "project": WEBAPP, "site_slug": SITE,
+            "project": WEBAPP, "site": SITE,
         })
     )
     create.handle_projects_environment_create(
         _request("projects.environment.create", {
             "project": WEBAPP,
-            "site_slug": SITE,
-            "environment_id": ENVIRONMENT,
+            "site": SITE,
+            "environment": ENVIRONMENT,
         })
     )
 
 
-def test_renames_environment_and_keeps_id(infrastructure_db) -> None:
+def test_renames_environment_without_exposing_its_row_key(infrastructure_db) -> None:
     _seed_named_environment()
     outcome = update.handle_projects_environment_update(
         _request("projects.environment.update", {
             "project": WEBAPP,
-            "environment_id": ENVIRONMENT,
+            "environment": ENVIRONMENT,
             "name": "prod",
         })
     )
     assert outcome.primary_success is True
     assert outcome.result_payload == {
         "project": WEBAPP,
-        "environment_id": ENVIRONMENT,
-        "name": "prod",
-        "previous_name": "production",
+        "environment": "prod",
+        "previous_name": ENVIRONMENT,
     }
     conn = connect_test_db(infrastructure_db)
     try:
         row = conn.execute(
-            "SELECT id, name FROM environments WHERE id = %s",
-            (ENVIRONMENT,),
+            "SELECT name FROM environments WHERE project_id = %s AND name = %s",
+            (2, "prod"),
         ).fetchone()
     finally:
         conn.close()
-    assert (str(row[0]), str(row[1])) == (ENVIRONMENT, "prod")
+    assert str(row[0]) == "prod"
 
 
-def test_refuses_name_outside_delivery_set(infrastructure_db) -> None:
+def test_refuses_invalid_name_syntax(infrastructure_db) -> None:
     _seed_named_environment()
     outcome = update.handle_projects_environment_update(
         _request("projects.environment.update", {
             "project": WEBAPP,
-            "environment_id": ENVIRONMENT,
-            "name": "production",
+            "environment": ENVIRONMENT,
+            "name": "   ",
         })
     )
     assert outcome.primary_success is False

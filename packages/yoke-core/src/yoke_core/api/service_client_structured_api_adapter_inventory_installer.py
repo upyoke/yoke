@@ -153,7 +153,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="projects.pulumi_state.migrate",
-        cli_invocation="yoke projects pulumi-state migrate --project NAME --site-id ID --stack NAME [--apply]",
+        cli_invocation="yoke projects pulumi-state migrate --project NAME --site NAME --stack NAME [--apply]",
         notes="Dry-run-default exact-set transactional move with a metadata-only receipt; sensitive Pulumi operator-state values never cross the function boundary.",
     ),
     AdapterEntry(

@@ -125,7 +125,7 @@ def run_pipeline(
     github_repo = _project_db("get", project, "github_repo", sd=sd) if project else ""
     project_repo_path = resolve_project_checkout_path(project)
 
-    target_tier, target_environment_id, environment_name = resolve_flow_target(
+    target_tier, environment_name = resolve_flow_target(
         flow_id, sd=sd,
     )
     print(
@@ -139,7 +139,7 @@ def run_pipeline(
     # deploy branch (environments.settings.git.branch), else the project
     # base branch. Consumed by the merged gate and the CI gate.
     gate_branch = resolve_flow_gate_branch(
-        project, target_tier, target_environment_id, project_repo_path,
+        project, target_tier, environment_name, project_repo_path,
     )
 
     ok, first_item, branch = _resolve_and_verify_branch(

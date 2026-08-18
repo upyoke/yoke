@@ -63,7 +63,7 @@ PROJECT_COMMANDS: list[dict] = [
         "purpose": "Migrate legacy Pulumi operator state",
         "recipe": (
             "yoke projects pulumi-state migrate --project <project> "
-            "--site-id <site> --stack <stack> [--apply]"
+            "--site <site-name> --stack <stack> [--apply]"
         ),
         "notes": (
             "Migration is dry-run-default and exact-set, persists a durable "

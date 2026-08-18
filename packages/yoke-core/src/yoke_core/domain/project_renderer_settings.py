@@ -41,6 +41,9 @@ class ProjectRendererSettings:
     primary_environment: RendererEnvironmentSettings | None
     environments: tuple[RendererEnvironmentSettings, ...]
     capabilities: Dict[str, Dict[str, Any]]
+    # Human site identity carried across renderer snapshots. ``site_id`` is
+    # internal relational state and never crosses an operator boundary.
+    site_name: str = ""
 
 
 def _placeholder(conn: Any) -> str:
@@ -118,10 +121,8 @@ def _first_mapping(value: Any) -> Dict[str, Any]:
 
 def _environment_sort_key(env: RendererEnvironmentSettings) -> tuple[int, str]:
     order = {
-        "production": 0,
         "prod": 0,
         "stage": 1,
-        "staging": 1,
         "local": 9,
     }
     return (order.get(env.name, 5), env.id)
@@ -230,6 +231,7 @@ def _load_project_renderer_settings(
         site_rows[0] if site_rows else None,
     )
     site_id = _stringify(_row_value(site_row, "id", 0), "")
+    site_name = _stringify(_row_value(site_row, "name", 1), "")
     site_settings = _settings_dict(_row_value(site_row, "settings", 2))
 
     environments = tuple(
@@ -265,6 +267,7 @@ def _load_project_renderer_settings(
         primary_environment=primary_environment,
         environments=environments,
         capabilities=capabilities,
+        site_name=site_name,
     )
 
 

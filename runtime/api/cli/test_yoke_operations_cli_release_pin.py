@@ -31,7 +31,6 @@ def _run(*argv: str, transport: str = "local-postgres"):
             result={
                 "project": "customer-app",
                 "environment": "canary",
-                "environment_id": "customer-canary",
                 "settings_path": "delivery.component_pin",
                 "pin": "build-43",
                 "changed": True,
@@ -144,27 +143,20 @@ def test_record_is_registered_as_a_dispatcher_backed_surface():
 
 
 _PLATFORM_VERIFY_SETTINGS = {
-    "environment_by_target": {
-        "stage": "yoke-api-stage",
-        "production": "yoke-api-prod",
-    },
     "desired_pin_path": "delivery.component_pin",
     "probe_url_path": "monitoring.status_url",
     "served_pin_response_path": "build.release",
 }
-_PLATFORM_ENVIRONMENTS = [
-    {"id": "yoke-api-stage", "name": "stage"},
-    {"id": "yoke-api-prod", "name": "prod"},
-]
+_PLATFORM_ENVIRONMENTS = ["prod", "stage"]
 
 
 def test_verify_reads_the_complete_capability_configured_probe_contract():
     observed = {}
 
-    def environment_values(project, environment_id, paths, session_id):
+    def environment_values(project, environment, paths, session_id):
         observed.update(
             project=project,
-            environment_id=environment_id,
+            environment=environment,
             paths=paths,
             session_id=session_id,
         )
@@ -185,15 +177,14 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
         patch(
             "yoke_cli.commands.adapters.release_pin_verify._capability_settings",
             return_value={
-                "environment_by_target": {"canary": "customer-canary"},
                 "desired_pin_path": "delivery.component_pin",
                 "probe_url_path": "monitoring.status_url",
                 "served_pin_response_path": "build.release",
             },
         ),
         patch(
-            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
-            return_value=[{"id": "customer-canary", "name": "canary"}],
+            "yoke_cli.commands.adapters.release_pin_verify._project_environment_names",
+            return_value=["canary"],
         ),
         patch(
             "yoke_cli.commands.adapters.release_pin_verify._environment_values",
@@ -209,7 +200,7 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
             == 0
         )
 
-    assert observed["environment_id"] == "customer-canary"
+    assert observed["environment"] == "canary"
     assert observed["paths"] == [
         "delivery.component_pin",
         "monitoring.status_url",
@@ -224,22 +215,14 @@ def test_verify_reads_the_complete_capability_configured_probe_contract():
 
 
 @pytest.mark.parametrize(
-    ("environment", "environment_id"),
-    (
-        ("stage", "yoke-api-stage"),
-        ("production", "yoke-api-prod"),
-        ("yoke-api-stage", "yoke-api-stage"),
-        ("yoke-api-prod", "yoke-api-prod"),
-        ("prod", "yoke-api-prod"),
-    ),
+    "environment",
+    ("stage", "prod"),
 )
-def test_verify_accepts_platform_name_id_and_canonical_keys(
-    environment, environment_id, capsys
-):
+def test_verify_accepts_registered_names(environment, capsys):
     observed = {}
 
-    def environment_values(project, resolved_id, paths, session_id):
-        observed["environment_id"] = resolved_id
+    def environment_values(project, resolved_name, paths, session_id):
+        observed["environment"] = resolved_name
         return {
             "delivery.component_pin": "build-43",
             "monitoring.status_url": "https://service.example.test/status",
@@ -251,7 +234,7 @@ def test_verify_accepts_platform_name_id_and_canonical_keys(
             return_value=_PLATFORM_VERIFY_SETTINGS,
         ),
         patch(
-            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            "yoke_cli.commands.adapters.release_pin_verify._project_environment_names",
             return_value=_PLATFORM_ENVIRONMENTS,
         ),
         patch(
@@ -274,7 +257,7 @@ def test_verify_accepts_platform_name_id_and_canonical_keys(
             == 0
         )
 
-    assert observed["environment_id"] == environment_id
+    assert observed["environment"] == environment
     capsys.readouterr()
 
 
@@ -285,7 +268,7 @@ def test_verify_lists_valid_keys_when_environment_is_unknown(capsys):
             return_value=_PLATFORM_VERIFY_SETTINGS,
         ),
         patch(
-            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
+            "yoke_cli.commands.adapters.release_pin_verify._project_environment_names",
             return_value=_PLATFORM_ENVIRONMENTS,
         ),
     ):
@@ -297,14 +280,8 @@ def test_verify_lists_valid_keys_when_environment_is_unknown(capsys):
         )
 
     err = capsys.readouterr().err
-    assert "valid keys:" in err
-    for token in (
-        "prod",
-        "production",
-        "stage",
-        "yoke-api-prod",
-        "yoke-api-stage",
-    ):
+    assert "registered:" in err
+    for token in ("prod", "stage"):
         assert token in err
 
 
@@ -315,7 +292,6 @@ def test_verify_lists_valid_keys_when_environment_is_unknown(capsys):
 )
 def test_verify_refuses_an_incomplete_capability(missing_key):
     settings = {
-        "environment_by_target": {"canary": "customer-canary"},
         "desired_pin_path": "delivery.component_pin",
         "probe_url_path": "monitoring.status_url",
         "served_pin_response_path": "build.release",
@@ -327,8 +303,8 @@ def test_verify_refuses_an_incomplete_capability(missing_key):
             return_value=settings,
         ),
         patch(
-            "yoke_cli.commands.adapters.release_pin_verify._project_environments",
-            return_value=[{"id": "customer-canary", "name": "canary"}],
+            "yoke_cli.commands.adapters.release_pin_verify._project_environment_names",
+            return_value=["canary"],
         ),
     ):
         assert (
