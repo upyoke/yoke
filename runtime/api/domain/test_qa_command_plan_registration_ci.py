@@ -224,6 +224,54 @@ def test_converge_follows_a_changed_workflow_filename() -> None:
     assert case["method_config"]["ci_workflow"] == "renamed-ci.yml"
 
 
+def test_ensure_canonicalizes_retired_watch_pytest_command() -> None:
+    from yoke_core.domain.qa_command_invocation import SANCTIONED_WATCH_PYTEST
+
+    with test_database() as conn:
+        ensure_registered_command_plan(
+            conn, project_id=1, project="yoke", scope="quick",
+            command=(
+                "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+                "--impacted main"
+            ),
+        )
+        case = _case(conn, _plan_id(conn, "quick"))
+
+    assert case["method_config"]["command"] == (
+        f"{SANCTIONED_WATCH_PYTEST} --impacted main"
+    )
+
+
+def test_converge_rewrites_retired_watch_pytest_plan_command() -> None:
+    from yoke_core.domain.qa_command_invocation import SANCTIONED_WATCH_PYTEST
+
+    retired = (
+        "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+        "--impacted main"
+    )
+    with test_database() as conn:
+        ensure_registered_command_plan(
+            conn, project_id=1, project="yoke", scope="quick",
+            command="python3 -m pytest --impacted main",
+        )
+        plan_id = _plan_id(conn, "quick")
+        config = _case(conn, plan_id)["method_config"]
+        config["command"] = retired
+        conn.execute(
+            "UPDATE qa_plan_cases SET method_config=%s WHERE plan_id=%s",
+            (json.dumps(config), plan_id),
+        )
+        conn.commit()
+
+        converged = converge_registered_command_plans(conn)
+        case = _case(conn, plan_id)
+
+    assert case["method_config"]["command"] == (
+        f"{SANCTIONED_WATCH_PYTEST} --impacted main"
+    )
+    assert [row["scope"] for row in converged] == ["quick"]
+
+
 def test_boot_converge_rebinds_registered_command_plans(monkeypatch) -> None:
     # The wiring that makes this reach a live universe at all.
     from yoke_core.domain.schema_init import converge_core_schema

@@ -76,6 +76,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # claims_read.
     _w("yoke claims work holder-get", "claims.work"),
     _w("yoke claims work holder-list", "claims.work"),
+    _w("yoke claims coordination-lease list", "claims.coordination_lease"),
+    _w("yoke coordination-lease list", "claims.coordination_lease"),
     # Intuitive alias for holder-get accepting --item or positional. Routes to
     # the same claims.work.holder_get function id.
     _w("yoke claims work current", "claims.work"),

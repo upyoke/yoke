@@ -9,6 +9,10 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
+from yoke_core.domain.qa_command_invocation import (
+    canonicalize_registered_command,
+    rewrite_retired_watch_pytest_commands,
+)
 from yoke_core.domain.qa_plan_attachments import set_project_default
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.workflow_registry import list_current_workflows
@@ -182,7 +186,7 @@ def ensure_registered_command_plan(
     """Converge one registered scope onto its plan and workflow defaults."""
     if scope not in COMMAND_SCOPE_POLICIES:
         raise ValueError(f"unsupported registered command scope {scope!r}")
-    command = str(command).strip()
+    command = canonicalize_registered_command(str(command).strip())
     if not command:
         raise ValueError("registered command must be non-empty")
     policy = COMMAND_SCOPE_POLICIES[scope]
@@ -272,6 +276,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
         ) else ""
         if not command:
             continue
+        canonical = canonicalize_registered_command(command)
         project_id = int(row["project_id"])
         ci_workflow = (
             declared_ci_workflow(conn, project_id)
@@ -296,6 +301,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             str(row["method_id"]) == desired_method
             and current_workflow == ci_workflow
             and current_transitions == desired_transitions
+            and command == canonical
         ):
             continue
         ensure_registered_command_plan(
@@ -303,7 +309,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             project_id=project_id,
             project=str(row["project"]),
             scope=scope,
-            command=command,
+            command=canonical,
         )
         converged.append({
             "project": str(row["project"]),
@@ -311,6 +317,7 @@ def converge_registered_command_plans(conn: Any) -> list[dict]:
             "method_id": desired_method,
             "ci_workflow": ci_workflow,
         })
+    rewrite_retired_watch_pytest_commands(conn)
     return converged
 
 

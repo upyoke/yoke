@@ -15,6 +15,14 @@ refuses without one. On a machine-local or tunnelled Postgres that is a
 ``pg_dump`` under the Yoke state directory; a deployment that has already
 established one exports ``YOKE_MIGRATION_RESTORE_POINT`` and this reuses it.
 
+After apply, every table whose owner drifted during this apply is handed
+back to the serving role. Gate the admin-apply recipe on the ownership
+report that follows — this tool exits non-zero when apply-caused drift
+remains, and ``repair_table_ownership`` still reports any leftover tables:
+
+    python3 -m runtime.api.tools.apply_migration_history
+    python3 -m runtime.api.tools.repair_table_ownership <env>
+
     python3 -m runtime.api.tools.apply_migration_history --dry-run
     python3 -m runtime.api.tools.apply_migration_history
 """
@@ -29,6 +37,7 @@ from yoke_core.domain import (
     db_helpers,
     migration_audit_receipts,
     migration_boot_apply,
+    migration_fleet_ownership,
 )
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
@@ -47,6 +56,23 @@ from yoke_contracts.engine_version import installed_engine_version
 _TABLES_THIS_TOOL_CREATES = ("applied_migrations", "migration_audit")
 
 
+def _realign_apply_caused_drift(conn, before_drifted: set[str]) -> int:
+    """Hand back tables that drifted during this apply. Return 1 if any remain."""
+    report = migration_fleet_ownership.inspect(conn)
+    caused = [table for table, _owner in report.drifted if table not in before_drifted]
+    if caused:
+        altered = migration_fleet_ownership.realign(
+            conn, tables=caused, owner=report.expected_owner
+        )
+        conn.commit()
+        for table in altered:
+            print(f"handed {table} back to {report.expected_owner}")
+        report = migration_fleet_ownership.inspect(conn)
+    print(f"ownership: {report.summary}")
+    remaining = {table for table, _owner in report.drifted}
+    return 1 if any(table in remaining for table in caused) else 0
+
+
 def _hand_created_tables_to_the_serving_role(conn) -> None:
     """Give back any table this admin connection just created.
 
@@ -62,8 +88,6 @@ def _hand_created_tables_to_the_serving_role(conn) -> None:
     So the tool hands back what it made, at once, rather than leaving a trap
     for a release months away.
     """
-    from yoke_core.domain import migration_fleet_ownership
-
     report = migration_fleet_ownership.inspect(conn)
     created = [t for t, _o in report.drifted if t in _TABLES_THIS_TOOL_CREATES]
     if not created:
@@ -161,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         backup_root, external = configured_restore_point()
+        before = migration_fleet_ownership.inspect(conn)
         outcome = migration_boot_apply.apply_pending(
             conn,
             history=history,
@@ -175,7 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"restore point: {outcome.restore_point}")
         print(f"applied: {list(outcome.applied)}")
-        return 0
+        return _realign_apply_caused_drift(
+            conn, {table for table, _owner in before.drifted}
+        )
     finally:
         conn.close()
 
