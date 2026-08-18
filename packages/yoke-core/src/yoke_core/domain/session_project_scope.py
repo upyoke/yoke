@@ -1,9 +1,11 @@
 """Canonical session-project scope resolver.
 
-`/yoke do` no longer infers scope from the workspace path: the default is
-"every registered project," and `--project yoke,example-project` narrows. The
-workspace string still rides in the offer envelope for observability, but it
-does not influence which projects are in scope.
+Argless ``/yoke do`` and ``/yoke charge`` still compute the all-projects
+schedule by default so other projects stay visible for the elsewhere
+reply. ``--project yoke,example-project`` narrows that compute scope and
+bypasses the workspace-home assignment filter. Assignment itself is
+filtered to the session workspace project in
+``session_workspace_frontier`` — this module only resolves compute scope.
 """
 
 from __future__ import annotations

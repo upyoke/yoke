@@ -101,4 +101,6 @@ def _build_frontier_state(
         lane_filtered_count=getattr(schedule, "lane_filtered_count", 0),
         lane_filtered_items=list(lane_filtered_items) if lane_filtered_items else None,
         last_completed_step=last_completed_step,
+        runnable_elsewhere=list(getattr(schedule, "runnable_elsewhere", None) or []) or None,
+        workspace_home_project=getattr(schedule, "workspace_home_project", None),
     )

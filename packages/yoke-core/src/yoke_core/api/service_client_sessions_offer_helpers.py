@@ -145,8 +145,18 @@ def validate_charge_claim_invariant(
     return True, None
 
 
+def dump_offer_result(result: Any) -> Dict[str, Any]:
+    """Serialize a NextAction and fill machine-local elsewhere checkout paths."""
+    from yoke_core.domain.session_workspace_frontier import (
+        enrich_elsewhere_checkout_paths,
+    )
+
+    return enrich_elsewhere_checkout_paths(result.model_dump())
+
+
 __all__ = [
     "build_no_work_wait_action",
+    "dump_offer_result",
     "should_return_no_work_wait",
     "validate_charge_claim_invariant",
 ]

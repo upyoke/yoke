@@ -2,7 +2,7 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-18T20:21:09Z_
+_Audit generated_at: 2026-08-18T21:09:43Z_
 
 ## 1. Summary
 
@@ -463,7 +463,7 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 129 |
+| .agents/skills/yoke/**/*.md | 130 |
 | packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 30 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
@@ -477,9 +477,9 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 38 |
+| codex | 34 |
 | claude-code | 9 |
-| cursor | 3 |
+| cursor | 7 |
 
 ## 8. Contradictions
 

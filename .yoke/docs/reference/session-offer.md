@@ -172,8 +172,9 @@ The core returns a `NextAction` telling the session what to do next.
 The decision engine evaluates in this fixed priority order:
 
 1. **resume** — session has an unreleased claim.
-2. **charge** — shared scheduler found an assignable step and the SML is coherent.
-3. **escalate (blockers)** — blocked or failed items exist with no runnable work.
+2. **charge** — shared scheduler found an assignable home-project step and the SML is coherent.
+3. **wait (runnable elsewhere)** — the workspace-home project has no assignable work but other projects do; `wait_reason="runnable_elsewhere"`.
+3a. **escalate (blockers)** — blocked or failed items exist with no runnable work.
 3b. **wait (no lane-compatible work)** — runnable work exists globally but lane policy filters every candidate for this session; emitted as `wait` with `wait_reason="no_lane_compatible_work"`, not `escalate`.
 3c. **feed (graph stale)** — dependency graph is stale, SML coherent and fresh.
 4. **feed (no items)** — no materialized frontier work but the SML is coherent and fresh.
@@ -200,6 +201,17 @@ project-scoped frontier with:
 The session-offer endpoint maps the scheduler result into the `NextAction`
 envelope. The charge endpoint exposes the raw scheduler result via
 `/v1/charge/schedule`.
+
+### Workspace-home assignment
+
+Argless `/yoke do` and `/yoke charge` still compute the all-projects
+schedule, then keep only the invoking session's workspace project
+(machine checkout mapping, falling back to `harness_sessions.project_id`
+over HTTPS). `--project` or `--item` bypasses the filter. An unmapped
+folder assigns nothing. When the home project has no assignable work but
+other projects do, the engine returns `wait` with
+`wait_reason="runnable_elsewhere"` — per-project counts, item refs, and
+mapped checkout paths in the refusal-teaches-recipe style.
 
 ### Example
 

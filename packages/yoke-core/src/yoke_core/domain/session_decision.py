@@ -67,6 +67,22 @@ def _decide_next_action(
     if charge is not None:
         return charge
 
+    if frontier.runnable_elsewhere and frontier.sml_coherent:
+        from .session_workspace_frontier import build_runnable_elsewhere_context
+
+        elsewhere_ctx = build_runnable_elsewhere_context(
+            groups=list(frontier.runnable_elsewhere),
+            home_project=frontier.workspace_home_project,
+            unmapped=frontier.workspace_home_project is None,
+        )
+        return NextAction(
+            action=ActionKind.WAIT,
+            reason=elsewhere_ctx["runnable_elsewhere_note"],
+            chainable=False,
+            correlation_id=correlation,
+            context=elsewhere_ctx,
+        )
+
     has_blockers = bool(frontier.blocked_items) or bool(frontier.exceptional_items)
     if has_blockers and not frontier.runnable_items:
         blocked_count = len(frontier.blocked_items)

@@ -318,5 +318,7 @@ class FrontierState:
     lane_filtered_count: int = 0
     lane_filtered_items: Optional[List[Dict[str, Any]]] = None
     last_completed_step: Optional[Dict[str, Any]] = None
+    runnable_elsewhere: Optional[List[Dict[str, Any]]] = None
+    workspace_home_project: Optional[str] = None
 
 _CHAINABLE_ACTIONS = frozenset({ActionKind.RESUME, ActionKind.CHARGE})

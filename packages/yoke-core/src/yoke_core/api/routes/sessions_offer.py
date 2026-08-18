@@ -38,8 +38,7 @@ from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule,
 )
 from yoke_core.api.service_client_sessions_offer_helpers import (
-    build_no_work_wait_action,
-    should_return_no_work_wait,
+    build_no_work_wait_action, dump_offer_result, should_return_no_work_wait,
 )
 from yoke_core.api.service_client_sessions_offer_invariant import (
     HTTP_SURFACE,
@@ -149,7 +148,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
             lane_allowed_paths=routing_config.lane_allowed_paths,
             step=req.step,
             project_scope=project_scope,
-            max_chain_steps=max_chain_steps,
+            max_chain_steps=max_chain_steps, apply_workspace_home_filter=req.project_scope is None,
         )
         authoritative_lane = ownership.get("authoritative_lane") or resolved_lane
         offer = offer.model_copy(
@@ -338,7 +337,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
             project=project_label,
         )
 
-        return JSONResponse(status_code=200, content=result.model_dump())
+        return JSONResponse(status_code=200, content=dump_offer_result(result))
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(503, "DB_BUSY", "Database is locked.")

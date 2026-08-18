@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import sessions_begin as _sb
 from yoke_core.domain.handlers import sessions_list as _sl
+from yoke_core.domain.handlers import sessions_charge_schedule as _scs
 from yoke_core.domain.handlers import sessions_orchestration as _so
 from yoke_core.domain.handlers import sessions_reclaim as _sr
 from yoke_core.domain.handlers import sessions_closeout as _sc
@@ -146,10 +147,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "charge.schedule", _so.handle_charge_schedule,
-        _so.ChargeScheduleRequest, _so.ChargeScheduleResponse,
+        "charge.schedule", _scs.handle_charge_schedule,
+        _scs.ChargeScheduleRequest, _scs.ChargeScheduleResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.sessions_orchestration",
+        owner_module="yoke_core.domain.handlers.sessions_charge_schedule",
         target_kinds=["global"],
         side_effects=["events_insert"],
         emitted_event_names=["FrontierStepSelected", "YokeFunctionCalled"],

@@ -224,7 +224,7 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 |------|---------|-------------|
 | `--dry-run` | off | Show frontier table and stop (no dispatch) |
 | `--item PREFIX-N` | -- | Target a specific item instead of highest-ranked |
-| `--project P` | `yoke` | Project scope |
+| `--project P` | workspace home | Explicit project scope; bypasses the workspace-home filter |
 | `--wip-cap N` | project-policy | WIP cap override; unset resolves the single-project DB `project-policy.wip_cap`, else the `RECOGNIZED_PROJECT_KEYS` source default (`30`) |
 
 ## Events
@@ -270,13 +270,16 @@ The `reason` field distinguishes terminal outcomes:
 
 Shows the frontier table and stops. Useful for situational awareness.
 
-### Charge the default project
+### Charge the workspace-home project
 
 ```
 /yoke charge
 ```
 
-Computes the frontier for the default project, presents the top item, and dispatches after confirmation.
+Computes the all-projects schedule, keeps the invoking checkout's
+project, and dispatches that top item. When only other projects are
+runnable, the schedule returns `runnable_elsewhere` instead of
+assigning. `--project` or `--item` bypasses the filter.
 
 ### Charge a specific item
 

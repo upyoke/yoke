@@ -249,6 +249,11 @@ class SchedulerResult:
         offer_diagnostics: Numbered elimination chain attached by the
             session-offer compatibility pass. ``None`` for scheduler-only
             callers that do not offer work to a session.
+        runnable_elsewhere: Assignable ranked steps in other projects after
+            the workspace-home filter. Empty when the filter did not run
+            or the home project held every assignable step.
+        workspace_home_project: Slug of the workspace-home project when
+            the filter ran; ``None`` when unmapped or the filter is off.
     """
 
     project_scope: List[int] = field(default_factory=list)
@@ -265,3 +270,5 @@ class SchedulerResult:
     lane_filtered_count: int = 0
     lane_filtered_items: List[Dict[str, Any]] = field(default_factory=list)
     offer_diagnostics: Optional[Dict[str, Any]] = None
+    runnable_elsewhere: List[Dict[str, Any]] = field(default_factory=list)
+    workspace_home_project: Optional[str] = None

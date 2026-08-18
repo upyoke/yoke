@@ -43,6 +43,7 @@ def acquire_claim_from_candidates(
     authoritative_lane: str,
     supported_paths: List[str],
     lane_allowed_paths: Optional[Dict[str, List[str]]],
+    apply_workspace_home_filter: bool = False,
 ) -> Tuple[Any, Optional[Dict[str, Any]]]:
     """Walk the scheduler candidates and acquire one exclusive claim.
 
@@ -156,6 +157,7 @@ def acquire_claim_from_candidates(
                     new_claim=new_claim,
                     chain_step=step,
                     post_current=post_current,
+                    apply_workspace_home_filter=apply_workspace_home_filter,
                 )
                 if not pinned:
                     new_claim = None

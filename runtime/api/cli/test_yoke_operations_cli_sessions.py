@@ -163,7 +163,9 @@ def test_charge_schedule_dispatches() -> None:
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "charge.schedule"
     assert req.target.kind == "global"
-    assert req.payload == {"project": "yoke", "wip_cap": 7}
+    assert req.payload["project"] == "yoke"
+    assert req.payload["wip_cap"] == 7
+    assert req.payload["workspace"]
 
 
 def test_registry_maps_sessions_list_to_function_id() -> None:
