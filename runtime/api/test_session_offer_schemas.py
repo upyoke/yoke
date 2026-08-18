@@ -202,7 +202,7 @@ def _apply_session_offer_schema() -> None:
 
 
 @pytest.fixture()
-def session_offer_db(tmp_path):
+def session_offer_db(tmp_path, monkeypatch):
     """Fixture for session-offer tests with session/claim tables.
 
     Local to each importing test file via ``pytest_plugins = []`` etc. is not
@@ -249,6 +249,11 @@ def session_offer_db(tmp_path):
              patch("yoke_core.api.main.get_config_path", _override_config_path), \
              patch("yoke_core.api.main.get_db_readonly", _override_db_readonly), \
              patch("yoke_core.api.main.get_db_readwrite", _override_db_readwrite):
+            from runtime.api.test_service_client_sessions_helpers import (
+                _map_offer_workspace_home,
+            )
+
+            _map_offer_workspace_home(monkeypatch, tmp_dir)
             yield {
                 "db_path": db_path,
                 "tmp_dir": tmp_dir,

@@ -60,7 +60,7 @@ SESSION_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="charge.schedule",
-        cli_invocation="yoke charge schedule [--project P] [--wip-cap N]",
+        cli_invocation="yoke charge schedule [--project P] [--item PREFIX-N] [--workspace W] [--wip-cap N]",
     ),
     _read_entry(
         function_id="frontier.list",

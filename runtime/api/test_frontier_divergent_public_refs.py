@@ -98,15 +98,15 @@ def test_offer_frontier_state_renders_true_public_refs():
 
 def test_charge_schedule_json_renders_true_public_refs():
     """The charge-schedule serialization renders true public refs."""
-    from yoke_core.domain.handlers.sessions_orchestration import (
-        _scheduler_result_to_dict,
+    from yoke_core.domain.handlers.sessions_charge_schedule import (
+        scheduler_result_to_dict,
     )
 
     conn = make_test_db()
     _seed_divergent_pair(conn)
 
     schedule = compute_schedule(conn, project_scope=["yoke"], emit_events=False)
-    payload = _scheduler_result_to_dict(schedule, conn)
+    payload = scheduler_result_to_dict(schedule, conn)
 
     ranked_ids = [step["item_id"] for step in payload["ranked_steps"]]
     assert ranked_ids == [f"YOK-{BLOCKER_SEQUENCE}"]

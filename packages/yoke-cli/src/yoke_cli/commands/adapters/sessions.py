@@ -46,8 +46,8 @@ SESSIONS_OWNERSHIP_GUARD_USAGE = (
     "yoke sessions ownership-guard --item PREFIX-N [--session-id S] [--json]"
 )
 CHARGE_SCHEDULE_USAGE = (
-    "yoke charge schedule [--project P] [--wip-cap N] "
-    "[--session-id S] [--json]"
+    "yoke charge schedule [--project P] [--item PREFIX-N] "
+    "[--workspace W] [--wip-cap N] [--session-id S] [--json]"
 )
 
 
@@ -294,6 +294,8 @@ def charge_schedule(args: List[str]) -> int:
     )
     parser.add_argument("--project", default=None)
     parser.add_argument("--wip-cap", type=int, default=None)
+    parser.add_argument("--item", default=None, help="bypass workspace-home filter")
+    parser.add_argument("--workspace", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CHARGE_SCHEDULE_USAGE)
@@ -306,6 +308,14 @@ def charge_schedule(args: List[str]) -> int:
         payload["project"] = parsed.project
     if parsed.wip_cap is not None:
         payload["wip_cap"] = parsed.wip_cap
+    if parsed.item is not None:
+        payload["item"] = parsed.item
+    workspace = parsed.workspace
+    if workspace is None:
+        from pathlib import Path
+
+        workspace = str(Path.cwd())
+    payload["workspace"] = workspace
     return dispatch_and_emit(
         function_id="charge.schedule",
         target=TargetRef(kind="global"),

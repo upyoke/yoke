@@ -195,26 +195,43 @@ def _scheduler_result_to_dict(sr, conn=None) -> dict:
         "wip_active": sr.wip_active,
         "conduct_eligible": [_scheduled_step_to_dict(s, conn) for s in sr.conduct_eligible],
         "frozen_steps": [_scheduled_step_to_dict(s, conn) for s in sr.frozen_steps],
+        "runnable_elsewhere": list(getattr(sr, "runnable_elsewhere", None) or []),
+        "workspace_home_project": getattr(sr, "workspace_home_project", None),
     }
 
 
 def cmd_charge_schedule(args: list[str]) -> int:
     """Compute and print the shared scheduler result as JSON.
 
-    Usage: charge-schedule [--project P] [--wip-cap N]
+    Usage: charge-schedule [--project P] [--item PREFIX-N] [--workspace W] [--wip-cap N]
 
     Calls compute_schedule() directly (direct DB access, not via HTTP).
-    Returns the full scheduler result with definition-selected routing,
-    SML state, and deterministic ranking. Without ``--wip-cap`` the cap
-    resolves from project-policy for single-project scopes, else 5.
+    Argless runs filter assignment to the workspace-home project.
+    ``--project`` or ``--item`` bypasses that filter.
     """
+    from pathlib import Path
+
+    from yoke_core.domain.session_workspace_frontier import (
+        apply_workspace_home_filter,
+        resolve_offer_home_project,
+        workspace_home_filter_requested,
+    )
+
     project = None
+    item = None
+    workspace = None
     wip_cap = None
 
     i = 0
     while i < len(args):
         if args[i] == "--project" and i + 1 < len(args):
             project = args[i + 1]
+            i += 2
+        elif args[i] == "--item" and i + 1 < len(args):
+            item = args[i + 1]
+            i += 2
+        elif args[i] == "--workspace" and i + 1 < len(args):
+            workspace = args[i + 1]
             i += 2
         elif args[i] == "--wip-cap" and i + 1 < len(args):
             try:
@@ -234,9 +251,10 @@ def cmd_charge_schedule(args: list[str]) -> int:
 
     conn = _get_db_readonly()
     try:
+        override = parse_project_cli_arg(project)
         try:
             project_scope = resolve_session_project_scope(
-                conn, override=parse_project_cli_arg(project),
+                conn, override=override,
             )
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
@@ -246,6 +264,13 @@ def cmd_charge_schedule(args: list[str]) -> int:
         result = compute_schedule(
             conn, project_scope=project_scope, wip_cap=wip_cap,
         )
+        if workspace_home_filter_requested(project_override=override, item=item):
+            home = resolve_offer_home_project(
+                conn, workspace=workspace or str(Path.cwd()),
+            )
+            result = apply_workspace_home_filter(
+                result, home_project_id=home, conn=conn,
+            )
         print(json.dumps(_scheduler_result_to_dict(result, conn)))
         return 0
     finally:

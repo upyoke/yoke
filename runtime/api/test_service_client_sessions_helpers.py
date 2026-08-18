@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -196,8 +198,32 @@ def _apply_session_offer_schema() -> None:
         conn.close()
 
 
+def _map_offer_workspace_home(monkeypatch, workspace: str, project_id: int = 1) -> None:
+    """Treat the isolated offer workspace as the fixture project.
+
+    Production argless offers filter assignment to the mapped checkout.
+    These tests use a throwaway directory, so the mapping has to be
+    injected or every charge path would wait with ``runnable_elsewhere``.
+    The machine-config file is what subprocess ``_run_client`` offers see.
+    """
+    home = str(Path(workspace).resolve())
+    machine_home = Path(os.environ.get("YOKE_MACHINE_HOME") or "")
+    if machine_home:
+        machine_home.mkdir(parents=True, exist_ok=True)
+        (machine_home / "config.json").write_text(
+            json.dumps({"projects": {home: {"project_id": project_id}}}),
+            encoding="utf-8",
+        )
+
+    def _project_id(repo_root, path=None):
+        text = str(Path(repo_root).resolve())
+        return project_id if text == home or text.startswith(home + "/") else None
+
+    monkeypatch.setattr("yoke_core.domain.machine_config.project_id", _project_id)
+
+
 @pytest.fixture()
-def session_offer_db(tmp_path):
+def session_offer_db(tmp_path, monkeypatch):
     """Backend-aware DB with session tables and items for session-offer tests.
 
     ``tmp_path`` doubles as the workspace: the per-test DB lives at
@@ -213,7 +239,9 @@ def session_offer_db(tmp_path):
             with open(os.path.join(strategy_dir, sml_file), "w") as f:
                 f.write(f"# {sml_file}\n")
 
-        yield {"db_path": db_path, "tmp_dir": str(tmp_path)}
+        workspace = str(tmp_path)
+        _map_offer_workspace_home(monkeypatch, workspace)
+        yield {"db_path": db_path, "tmp_dir": workspace}
 
 
 def _pre_register_session(db_path: str, session_id: str, executor: str = "DARIUS",

@@ -129,7 +129,11 @@ class TestServiceClientChargeSchedule:
     """Tests for service_client.py charge-schedule command."""
 
     def test_charge_schedule_prints_downstream_depth(self, frontier_db):
-        """charge-schedule returns scheduled steps with downstream_depth."""
+        """charge-schedule returns scheduled steps with downstream_depth.
+
+        ``--project`` bypasses the workspace-home filter so an unmapped
+        CI checkout still sees the project's ranked steps.
+        """
         import subprocess
 
         env = _postgres_subprocess_env()
@@ -137,6 +141,8 @@ class TestServiceClientChargeSchedule:
         result = subprocess.run(
             _service_client_cmd([
                 "charge-schedule",
+                "--project",
+                "yoke",
             ]),
             env=env,
             cwd=_REPO_ROOT,
@@ -148,3 +154,29 @@ class TestServiceClientChargeSchedule:
         data = json.loads(result.stdout)
         assert len(data["ranked_steps"]) > 0
         assert "downstream_depth" in data["ranked_steps"][0]
+
+    def test_charge_schedule_argless_unmapped_workspace_stashes_elsewhere(
+        self, frontier_db, tmp_path,
+    ):
+        """Argless charge-schedule assigns nothing from an unmapped folder."""
+        import subprocess
+
+        env = _postgres_subprocess_env()
+
+        result = subprocess.run(
+            _service_client_cmd([
+                "charge-schedule",
+                "--workspace",
+                str(tmp_path),
+            ]),
+            env=env,
+            cwd=_REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["ranked_steps"] == []
+        assert data["selected_step"] is None
+        assert data["runnable_elsewhere"]

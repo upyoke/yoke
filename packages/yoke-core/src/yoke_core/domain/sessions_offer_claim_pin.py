@@ -111,6 +111,7 @@ def recompute_and_pin_for_claim(
     new_claim: Optional[Dict[str, Any]],
     chain_step: int,
     post_current: Optional[str],
+    apply_workspace_home_filter: bool = False,
 ) -> Tuple[Any, bool]:
     """Recompute the schedule, pin selected_step to the acquired claim.
 
@@ -132,6 +133,18 @@ def recompute_and_pin_for_claim(
         lane_allowed_paths=lane_allowed_paths,
         conn=conn,
     )
+    if apply_workspace_home_filter:
+        from .session_workspace_frontier import (
+            apply_workspace_home_filter as filter_workspace_home,
+            resolve_offer_home_project,
+        )
+
+        home_project_id = resolve_offer_home_project(
+            conn, workspace="", session_id=session_id,
+        )
+        schedule = filter_workspace_home(
+            schedule, home_project_id=home_project_id, conn=conn,
+        )
     if pin_schedule_to_acquired_item(
         schedule, acquired_item_id=candidate.item_id,
     ):

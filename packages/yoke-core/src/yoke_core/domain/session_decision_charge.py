@@ -173,6 +173,8 @@ def decide_charge_action(
                     lane_filtered_count=frontier.lane_filtered_count,
                     lane_filtered_items=frontier.lane_filtered_items,
                     last_completed_step=frontier.last_completed_step,
+                    runnable_elsewhere=frontier.runnable_elsewhere,
+                    workspace_home_project=frontier.workspace_home_project,
                 )
         charge_ctx = build_charge_context(frontier)
         return NextAction(

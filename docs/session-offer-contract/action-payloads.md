@@ -147,6 +147,35 @@ the full chain remains available to event and offer-envelope consumers:
 }
 ```
 
+### wait — runnable elsewhere
+
+When the workspace-home filter leaves no assignable local work but other
+projects still have assignable ranked steps, the engine returns `wait`
+with `wait_reason: "runnable_elsewhere"` instead of charging a foreign
+checkout. This beats local blocker `escalate` so a platform-anchored
+session is not sent into yoke work or told only about platform blockers.
+
+```json
+{
+ "wait_reason": "runnable_elsewhere",
+ "workspace_home_project": "platform",
+ "workspace_unmapped": false,
+ "runnable_elsewhere": [
+  {
+   "project": "yoke",
+   "project_id": 1,
+   "count": 2,
+   "item_refs": ["YOK-N", "YOK-M"],
+   "checkout_path": "/Users/bee/yoke"
+  }
+ ],
+ "runnable_elsewhere_note": "nothing runnable in platform; 2 runnable in yoke (YOK-N, YOK-M) — invoke /yoke do from /Users/bee/yoke"
+}
+```
+
+An unmapped folder sets `workspace_unmapped=true` and
+`workspace_home_project=null`. `--project` and `--item` skip this filter.
+
 ### wait — no lane-compatible work
 
 When the decision engine returns `wait` with `wait_reason: "no_lane_compatible_work"`, the frontier has items but the offering session's lane policy filters every one of them. Blocker-driven `escalate` retains precedence — this WAIT only fires when no blockers/exceptional items are present and the SML is coherent. The context carries the lane situation:

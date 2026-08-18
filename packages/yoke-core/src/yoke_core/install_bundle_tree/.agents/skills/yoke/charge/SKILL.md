@@ -26,7 +26,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - `--dry-run` — Show the frontier table and stop. Do not confirm or dispatch.
 - `--item PREFIX-N` — Target a specific item instead of the highest-ranked one.
-- `--project P` — Project scope (default: `yoke`).
+- `--project P` — Explicit project scope; bypasses the workspace-home filter.
 - `--wip-cap N` — WIP cap override (default: 5).
 
 ## Philosophy
@@ -48,13 +48,11 @@ yoke sessions touch --mode charge
 Run the registered wrapper to get the claim-aware schedule JSON:
 
 ```bash
-_workspace=$(git rev-parse --show-toplevel)
-yoke charge schedule \
- --project "{project}" \
- --wip-cap {wip_cap}
+yoke charge schedule {project_flag} {item_flag} --wip-cap {wip_cap}
 ```
 
-Where `{project}` and `{wip_cap}` come from the parsed arguments (or their defaults).
+Omit `--project`/`--item` when argless so the schedule stays on the
+workspace-home project; pass them only as an operator bypass.
 
 Parse the JSON output. The response has this shape:
 
@@ -147,7 +145,8 @@ If there are frozen items, print a count line (from `frozen_steps[]`):
 ### Frozen: {count} items (excluded from frontier)
 ```
 
-If there are no assignable runnable items (after filtering), print:
+If `selected_step` is empty and `runnable_elsewhere` is not, print the
+elsewhere note and stop. If both are empty, print:
 
 ```
 No runnable items on the frontier. Consider:

@@ -8,7 +8,6 @@ module while subprocess invocations still resolve canonical bindings.
 
 from __future__ import annotations
 
-import json
 import sys
 from typing import List, Optional
 
@@ -49,6 +48,7 @@ from yoke_core.domain.session_project_scope import (
     resolve_session_project_scope,
 )
 from yoke_core.api.service_client_sessions_offer_dispatch import dispatch_decision_engine
+from yoke_core.api.service_client_sessions_offer_helpers import dump_offer_result
 from yoke_core.api.service_client_sessions_offer_invariant import CLI_SURFACE, handle_charge_invariant
 from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule as _build_frontier_state_from_schedule,
@@ -200,7 +200,7 @@ def run_session_offer(
                 step=step,
                 project_scope=project_scope,
                 wip_cap=wip_cap,
-                max_chain_steps=max_chain_steps,
+                max_chain_steps=max_chain_steps, apply_workspace_home_filter=override is None,
             )
         except SessionError as exc:
             if exc.code in ("NO_SESSION", "SESSION_ENDED"):
@@ -298,65 +298,17 @@ def run_session_offer(
             project=project_label,
         )
 
-        return result.model_dump()
+        return dump_offer_result(result)
     finally:
         conn.close()
 
 
 def cmd_session_offer(args: List[str]) -> int:
-    """Compute frontier state and decide the next action for a session offer.
-
-    ``--model`` is optional; falls back to ``harness_sessions.model`` lookup
-    then ``hook_helpers_model.detect_model``.
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(prog="session-offer", add_help=False)
-    parser.add_argument("--executor", required=True)
-    parser.add_argument("--provider", required=True)
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--workspace", required=True)
-    parser.add_argument("--lane", default=None)
-    parser.add_argument("--session-id", default=None)
-    parser.add_argument("--step", type=int, default=1)
-    parser.add_argument("--supported-paths", default=None, help="Comma-separated canonical downstream paths.")
-    parser.add_argument(
-        "--project",
-        default=None,
-        help=(
-            "Comma-separated project ids to narrow the frontier scope "
-            "(e.g. 'yoke,example-project'). Default: all registered projects."
-        ),
+    from yoke_core.api.service_client_sessions_offer_cli import (
+        cmd_session_offer as _cmd,
     )
 
-    try:
-        parsed = parser.parse_args(args)
-    except SystemExit:
-        print("Usage: session-offer --executor E --provider P --workspace W [--model M] [--lane L] [--session-id S] [--step N] [--supported-paths P] [--project IDS]", file=sys.stderr)
-        return 2
-
-    supported_paths: List[str] = [
-        p.strip()
-        for p in (parsed.supported_paths or "").split(",")
-        if p.strip()
-    ]
-    try:
-        result = run_session_offer(
-            executor=parsed.executor,
-            provider=parsed.provider,
-            model=parsed.model,
-            workspace=parsed.workspace,
-            lane=parsed.lane,
-            session_id=parsed.session_id,
-            step=parsed.step,
-            supported_paths=supported_paths,
-            project=parsed.project,
-        )
-        print(json.dumps(result))
-        return 0
-    except SessionOfferCommandError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    return _cmd(args)
 
 
 __all__ = [

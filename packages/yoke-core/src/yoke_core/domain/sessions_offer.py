@@ -48,6 +48,7 @@ def session_offer_with_ownership(
     project_scope: Optional[List[int]] = None,
     wip_cap: Optional[int] = None,
     max_chain_steps: int = 3,
+    apply_workspace_home_filter: bool = False,
 ) -> Dict[str, Any]:
     """Transaction-safe session-offer path: require-active-session + heartbeat + schedule + claim.
 
@@ -94,6 +95,10 @@ def session_offer_with_ownership(
             upstream by ``resolve_session_project_scope``; ``None`` is
             normalized to ``[]`` (defensive — production callers always
             pass an explicit list).
+        apply_workspace_home_filter: When true (argless ``/yoke do``),
+            keep only the workspace-home project for claiming and stash
+            other projects' runnable steps as elsewhere. Explicit
+            ``--project`` leaves this false.
         wip_cap: WIP cap for scheduling. When omitted, resolves from the
             single-project ``project-policy`` capability (or the
             ``RECOGNIZED_PROJECT_KEYS`` source default).
@@ -111,6 +116,10 @@ def session_offer_with_ownership(
     """
     from .scheduler import compute_schedule
     from .session_project_scope import resolve_session_project_scope
+    from .session_workspace_frontier import (
+        apply_workspace_home_filter as filter_workspace_home,
+        resolve_offer_home_project,
+    )
 
     if project_scope is None:
         # Callers that do not pass an explicit scope (typically tests
@@ -233,6 +242,13 @@ def session_offer_with_ownership(
         lane_allowed_paths=lane_allowed_paths,
         conn=conn,
     )
+    if apply_workspace_home_filter:
+        home_project_id = resolve_offer_home_project(
+            conn, workspace=workspace, session_id=session_id,
+        )
+        schedule = filter_workspace_home(
+            schedule, home_project_id=home_project_id, conn=conn,
+        )
 
     # 4. Walk the candidate set: revalidate pre/post-claim, skip live
     #    conflicts and within-chain memory, emit ``SchedulerOfferSkipped``
@@ -247,6 +263,7 @@ def session_offer_with_ownership(
         authoritative_lane=authoritative_lane,
         supported_paths=_supported,
         lane_allowed_paths=lane_allowed_paths,
+        apply_workspace_home_filter=apply_workspace_home_filter,
     )
 
     action_hint = "charge" if new_claim else "no_work"
