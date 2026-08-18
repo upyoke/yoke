@@ -46,9 +46,9 @@ def handle_deployment_run_start_for_item(
     if not result.ok:
         suffix = f"; run_id={result.run_id}" if result.run_id else ""
         return error(
-            "start_for_item_failed",
+            result.error_code or "start_for_item_failed",
             f"{result.error_phase}: {result.error}{suffix}",
-            jsonpath="$.payload",
+            jsonpath=None if result.error_code else "$.payload",
         )
     return HandlerOutcome(
         result_payload={

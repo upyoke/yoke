@@ -35,6 +35,7 @@ __all__ = [
     "parse_or_usage_error",
     "usage_error",
     "dispatch_and_emit",
+    "run_id_receipt",
     "split_comma",
     "attach_field_note_footer",
 ]
@@ -250,6 +251,12 @@ def usage_error(message: str) -> int:
     return 2
 
 
+def run_id_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
+    del stderr
+    result = response.result or {}
+    print(result.get("run_id") or json.dumps(result, sort_keys=True), file=stdout)
+
+
 def dispatch_and_emit(
     *,
     function_id: str,
@@ -287,6 +294,11 @@ def dispatch_and_emit(
         options=options,
         preconditions=preconditions,
     )
+    result_code = emit_response(
+        response, json_mode=json_mode, human_writer=human_writer,
+    )
+    sys.stdout.flush()
+    sys.stderr.flush()
     if response.success and cleanup_item is not None:
         cleanup_terminal_item_lanes = importlib.import_module(
             "yoke_core.domain.terminal_lane_cleanup"
@@ -299,11 +311,7 @@ def dispatch_and_emit(
         )
         for warning in warnings:
             print(f"WARNING: {warning}", file=sys.stderr)
-    return emit_response(
-        response,
-        json_mode=json_mode,
-        human_writer=human_writer,
-    )
+    return result_code
 
 
 def split_comma(raw: str) -> List[str]:
