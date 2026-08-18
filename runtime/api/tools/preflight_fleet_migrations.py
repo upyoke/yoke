@@ -46,10 +46,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import List, Mapping, Optional, Sequence, Tuple
 
 from runtime.api.tools.preflight_engine_artifact import (
-    EngineArtifact,
     EngineArtifactError,
     activate_engine_artifact as _activate_engine_artifact,
 )
