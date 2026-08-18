@@ -14,6 +14,29 @@ from yoke_core.domain.db_helpers import connect, query_one
 from yoke_core.domain.project_identity import resolve_project
 
 
+MIGRATION_APPLY_RECIPE = "python3 -m runtime.api.tools.apply_migration_history"
+
+
+class EnvironmentRegistryMigrationRequired(ValueError):
+    """The flow still stores a pre-registry environment name."""
+
+    code = "environment_registry_migration_required"
+
+
+def coerce_target_environment_id(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise EnvironmentRegistryMigrationRequired(
+            "deployment flow target_environment_id still contains the "
+            f"pre-migration environment reference {value!r}; pre-apply the "
+            "environment registry migration with "
+            f"`{MIGRATION_APPLY_RECIPE}`, then retry"
+        ) from None
+
+
 def cmd_resolve_target(
     project: str,
     flow: str,
@@ -52,9 +75,7 @@ def cmd_resolve_target(
         raw_environment_id = (
             row["target_environment_id"] if hasattr(row, "keys") else row[1]
         )
-        environment_id = (
-            int(raw_environment_id) if raw_environment_id not in (None, "") else None
-        )
+        environment_id = coerce_target_environment_id(raw_environment_id)
         return (
             tier,
             environment_id,
@@ -64,4 +85,9 @@ def cmd_resolve_target(
         conn.close()
 
 
-__all__ = ["cmd_resolve_target"]
+__all__ = [
+    "EnvironmentRegistryMigrationRequired",
+    "MIGRATION_APPLY_RECIPE",
+    "cmd_resolve_target",
+    "coerce_target_environment_id",
+]

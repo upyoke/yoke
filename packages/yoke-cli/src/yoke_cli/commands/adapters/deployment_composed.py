@@ -12,6 +12,7 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
+    run_id_receipt,
     usage_error,
 )
 from yoke_cli.commands.adapters.deployment_owner_authority import (
@@ -166,16 +167,13 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         if (value := getattr(parsed, key)) is not None
     }
 
-    def _human_writer(response, stdout, stderr) -> None:
-        print((response.result or {}).get("run_id", ""), file=stdout)
-
     return dispatch_and_emit(
         function_id="deployment_runs.start_for_item",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+        human_writer=run_id_receipt,
     )
 
 

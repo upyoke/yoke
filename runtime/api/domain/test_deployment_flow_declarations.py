@@ -326,3 +326,20 @@ def test_document_shape_rejects_unknown_fields_before_writes() -> None:
     with pytest.raises(ValueError, match="unknown keys"):
         normalize_document(document)
 
+
+def test_existing_display_name_collision_names_rename_remedy(test_db) -> None:
+    _seed_project(test_db)
+    reconcile_project_flows(test_db, "acme", _document())
+    collision = deepcopy(_document())
+    collision.pop("default_flow")
+    collision["flows"] = collision["flows"][1:]
+    collision["flows"][0]["id"] = "acme-shadow"
+    collision["flows"][0]["name"] = "Prod"
+
+    with pytest.raises(ValueError, match="display name 'Prod'.*rename"):
+        reconcile_project_flows(test_db, "acme", collision, preview_only=True)
+    count = test_db.execute(
+        "SELECT COUNT(*) FROM deployment_flows WHERE project_id=%s",
+        (resolve_project_id(test_db, "acme"),),
+    ).fetchone()[0]
+    assert count == 2

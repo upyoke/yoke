@@ -30,6 +30,7 @@ from yoke_core.domain.deployment_runs_crud_mutate import (
     cmd_create_run,
 )
 from yoke_core.domain.deployment_run_target_resolution import (
+    EnvironmentRegistryMigrationRequired,
     cmd_resolve_target,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
@@ -72,6 +73,7 @@ class StartForItemResult:
     run_id: Optional[str] = None
     validation_message: Optional[str] = None
     error: Optional[str] = None
+    error_code: Optional[str] = None
     error_phase: Optional[str] = None
     item_ids: List[int] = field(default_factory=list)
 
@@ -89,6 +91,8 @@ class StartForItemResult:
             out["validation_message"] = self.validation_message
         if not self.ok:
             out["error"] = self.error
+            if self.error_code is not None:
+                out["error_code"] = self.error_code
             out["error_phase"] = self.error_phase
         return out
 
@@ -143,6 +147,16 @@ def start_for_item(
                 resolved_flow,
                 environment_override=environment,
             )
+        )
+    except EnvironmentRegistryMigrationRequired as exc:
+        return StartForItemResult(
+            ok=False,
+            project=resolved_project,
+            flow=resolved_flow,
+            item_ids=[item_id],
+            error=str(exc),
+            error_code=exc.code,
+            error_phase=PHASE_RESOLVE,
         )
     except Exception as exc:
         return StartForItemResult(

@@ -67,6 +67,7 @@ def reconcile_project_flows(
     retire_unchanged: list[str] = []
     default_flow_updated = False
     try:
+        _validate_available_display_names(conn, ident.id, normalized.flows)
         for flow in normalized.flows:
             target_environment_id = _target_environment_id(
                 conn,
@@ -211,6 +212,31 @@ def reconcile_project_flows(
         "default_flow_updated": default_flow_updated and not preview_only,
         "preview_only": preview_only,
     }
+
+
+def _validate_available_display_names(
+    conn: Any,
+    project_id: int,
+    flows: tuple[FlowDeclaration, ...],
+) -> None:
+    rows = conn.execute(
+        "SELECT id, name FROM deployment_flows WHERE project_id=%s",
+        (project_id,),
+    ).fetchall()
+    owners = {
+        str(row["name"] if hasattr(row, "keys") else row[1]): str(
+            row["id"] if hasattr(row, "keys") else row[0]
+        )
+        for row in rows
+    }
+    for flow in flows:
+        owner = owners.get(flow.name)
+        if owner is not None and owner != flow.id:
+            raise ValueError(
+                f"deployment flow '{flow.id}' declares display name "
+                f"'{flow.name}', already used by deployment flow '{owner}'; "
+                "rename its display name in the declaration before reconciling"
+            )
 
 
 def _field_equal(field: str, existing: object, desired: object) -> bool:

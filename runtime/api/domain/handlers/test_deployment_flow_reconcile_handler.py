@@ -61,6 +61,29 @@ def test_reconcile_requires_explicit_target_project() -> None:
     assert outcome.error.code == "target_invalid"
 
 
+def test_reconcile_maps_display_name_collision_to_declaration_invalid() -> None:
+    conn = Mock()
+    message = (
+        "display name 'Production' is already used; rename its display name"
+    )
+    with patch(
+        "yoke_core.domain.deployment_flow_declarations.reconcile_project_flows",
+        side_effect=ValueError(message),
+    ), patch("yoke_core.domain.db_helpers.connect", return_value=conn):
+        outcome = deployment_flows.handle_deployment_flow_reconcile_project(
+            _request(
+                function="deployment_flows.reconcile_project",
+                target=TargetRef(kind="global", project_id="acme"),
+                payload={"schema": 4, "flows": []},
+            )
+        )
+
+    assert not outcome.primary_success
+    assert outcome.error.code == "declaration_invalid"
+    assert outcome.error.message == message
+    conn.close.assert_called_once_with()
+
+
 def test_reconcile_registration_names_both_mutation_domains() -> None:
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_core.domain import yoke_function_registry as registry

@@ -248,6 +248,7 @@ def handle_deployment_run_resolve_target(
         )
 
     from yoke_core.domain.deployment_run_target_resolution import (
+        EnvironmentRegistryMigrationRequired,
         cmd_resolve_target,
     )
 
@@ -257,6 +258,8 @@ def handle_deployment_run_resolve_target(
             flow.strip(),
             environment_override=environment,
         )
+    except EnvironmentRegistryMigrationRequired as exc:
+        return error(exc.code, str(exc))
     except LookupError as exc:
         return error("not_found", str(exc))
     except ValueError as exc:

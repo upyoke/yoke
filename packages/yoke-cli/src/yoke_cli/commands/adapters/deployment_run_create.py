@@ -16,6 +16,7 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    run_id_receipt,
     usage_error,
 )
 from yoke_cli.commands.adapters.deployment_owner_authority import (
@@ -128,16 +129,11 @@ def deployment_runs_create(args: List[str]) -> int:
         return 1
 
     def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        run_id = result.get("run_id") or ""
-        print(run_id, file=stdout)
+        run_id_receipt(response, stdout, stderr)
+        run_id = (response.result or {}).get("run_id")
         if run_id:
             authority = _execute_authority() or "<control-plane-env>-db-admin"
-            print(
-                execute_created_run_note(authority, run_id),
-                file=stderr,
-            )
-        return None
+            print(execute_created_run_note(authority, run_id), file=stderr)
 
     payload = {
         "project": parsed.project,

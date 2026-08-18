@@ -6,6 +6,9 @@ from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_run_target_resolution import (
+    coerce_target_environment_id,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -47,11 +50,8 @@ def lock_deployment_flow_rows(
             int(row["project_id"] if hasattr(row, "keys") else row[1]),
             str(row["status"] if hasattr(row, "keys") else row[2]),
             str((row["target_tier"] if hasattr(row, "keys") else row[3]) or ""),
-            (
-                int(row["target_environment_id"] if hasattr(row, "keys") else row[4])
-                if (row["target_environment_id"] if hasattr(row, "keys") else row[4])
-                is not None
-                else None
+            coerce_target_environment_id(
+                row["target_environment_id"] if hasattr(row, "keys") else row[4]
             ),
         )
     return rows

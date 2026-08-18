@@ -8,6 +8,9 @@ from yoke_core.domain.handlers.deployment_common import (
     pipe_to_dict,
     require_global,
 )
+from yoke_core.domain.deployment_run_target_resolution import (
+    EnvironmentRegistryMigrationRequired,
+)
 
 
 def _retry_lineage(run_id: str, *, project: str, flow: str) -> str:
@@ -91,6 +94,8 @@ def handle_deployment_run_create(
             release_lineage=(release_lineage or "").strip() or None,
             created_by=created_by.strip(),
         )
+    except EnvironmentRegistryMigrationRequired as exc:
+        return error(exc.code, str(exc))
     except LookupError as exc:
         return error("not_found", str(exc), jsonpath="$.payload")
     except ValueError as exc:
