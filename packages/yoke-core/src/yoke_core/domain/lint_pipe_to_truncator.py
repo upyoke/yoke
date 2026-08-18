@@ -62,8 +62,8 @@ _LONG_CLI_TOKEN_PREFIXES = tuple(
 
 _TRUNCATORS = frozenset({"tail", "head"})
 
-# Instant metadata mode on the watcher wrappers — three lines, no live run.
-_INSTANT_EXEMPTIONS = ("--print-streaming-pair",)
+# Instant metadata/help modes do not start the long-running operation.
+_INSTANT_EXEMPTIONS = frozenset({"--print-streaming-pair", "--help", "-h"})
 
 
 def _extract_command(payload: dict) -> str:
@@ -114,6 +114,8 @@ def _stage_is_long_command(stage: str) -> Optional[str]:
     tokens = _stage_tokens(stage)
     if not tokens:
         return None
+    if any(token in _INSTANT_EXEMPTIONS for token in tokens):
+        return None
     first = tokens[0].rsplit("/", 1)[-1]
     if first == "pytest":
         return "pytest"
@@ -147,12 +149,6 @@ def _find_pipe_to_truncator(command: str) -> Optional[Tuple[str, str]]:
     live stage — only unquoted ``|`` joins a long command to a truncator.
     """
     for stages in iter_pipeline_groups(command):
-        if any(
-            marker in stage
-            for stage in stages
-            for marker in _INSTANT_EXEMPTIONS
-        ):
-            continue
         if len(stages) < 2:
             continue
         for idx, stage in enumerate(stages[:-1]):

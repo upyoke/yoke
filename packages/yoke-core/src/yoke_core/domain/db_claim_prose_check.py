@@ -91,9 +91,11 @@ def _build_recovery_line(item_ref: Optional[str], triggers: Sequence[str]) -> st
         quoted += ", ..."
     return (
         f"prose names governed DB mutation ({quoted}) but the stored "
-        f"db_mutation_profile is state='none'.  Amend the DB claim before "
-        f'advancing: yoke db-claim amend {target} --reason "<why>" '
-        f"--payload '<unified-claim-json>'"
+        f"db_mutation_profile is state='none'.  Review and amend the DB claim "
+        f"before advancing. If review confirms no governed mutation, record "
+        f'the reviewed-negative attestation: yoke db-claim amend {target} '
+        f'--reason "<why no governed DB mutation>" --state none. For real '
+        f"governed work, pass its unified claim with --payload or --stdin."
     )
 
 
