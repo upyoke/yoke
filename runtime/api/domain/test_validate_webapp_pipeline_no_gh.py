@@ -175,7 +175,7 @@ def test_remote_validation_uses_app_backed_rest(
             )
         if "/environments" in path:
             return _RestResp(
-                200, {"environments": [{"name": "production"}]},
+                200, {"environments": [{"name": "prod"}]},
             )
         return _RestResp(200, {})
 
@@ -229,7 +229,7 @@ def test_remote_validation_uses_app_backed_rest(
 
     assert rc == 0, out
     assert "GitHub secret exists: EXTERNALWEBAPP_SSH_KEY" in out
-    assert "GitHub environment 'production' exists" in out
+    assert "GitHub environment 'prod' exists" in out
     # The validator should never degrade to host-CLI install guidance.
     assert ("gh CLI" + " installed") not in out
     assert ("gh CLI" + " not installed") not in out
@@ -305,7 +305,7 @@ def test_remote_validation_403_does_not_crash_validator(
             )
         if "/environments" in path:
             return _RestResp(
-                200, {"environments": [{"name": "production"}]},
+                200, {"environments": [{"name": "prod"}]},
             )
         return _RestResp(200, {})
 

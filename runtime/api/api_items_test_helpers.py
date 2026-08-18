@@ -25,13 +25,17 @@ from runtime.api.auth_test_helpers import mint_api_auth_context
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.fixtures.schema_ddl_project_environments import (
+    _PROJECT_ENVIRONMENT_TABLE_DDL,
+)
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
 from yoke_core.api.main import app, get_db_path, get_db_readonly, get_db_readwrite
 
 # Shared schema: ITEMS_SCHEMA (imported) + the family tables the API tests need.
 # item_sections backs the section / progress-log writes; harness_sessions backs
 # the dispatcher's actor-identity binding (queried on every mutating call).
-_SCHEMA_DDL = PROJECTS_SCHEMA + ITEMS_SCHEMA + """
+_SCHEMA_DDL = (
+    PROJECTS_SCHEMA + ITEMS_SCHEMA + _PROJECT_ENVIRONMENT_TABLE_DDL + """
 CREATE TABLE project_capabilities (
     id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, type TEXT NOT NULL,
     settings TEXT DEFAULT '{}', verified_at TEXT, created_at TEXT NOT NULL,
@@ -54,18 +58,13 @@ CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,
     description TEXT, stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt',
     created_at TEXT NOT NULL, target_tier TEXT DEFAULT NULL,
-    target_environment_id TEXT DEFAULT NULL,
+    target_environment_id INTEGER DEFAULT NULL,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active', UNIQUE(project_id, name)
 );
-CREATE TABLE IF NOT EXISTS environments (
-    id TEXT PRIMARY KEY, site TEXT, name TEXT NOT NULL, url TEXT,
-    last_deployed_at TEXT, created_at TEXT NOT NULL DEFAULT '',
-    settings TEXT DEFAULT '{}'
-);
 CREATE TABLE deployment_runs (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, flow TEXT NOT NULL,
-    target_tier TEXT, target_environment_id TEXT, release_lineage TEXT,
+    target_tier TEXT, target_environment_id INTEGER, release_lineage TEXT,
     status TEXT NOT NULL DEFAULT 'created'
       CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
     current_stage TEXT, created_at TEXT NOT NULL, started_at TEXT,
@@ -128,6 +127,7 @@ CREATE TABLE work_claims (
     release_reason_intent TEXT DEFAULT NULL
 );
 """
+)
 
 
 # (id, title, type, status, priority, project_slug, updated_at, deploy_stage,

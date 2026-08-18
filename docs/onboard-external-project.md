@@ -264,7 +264,7 @@ yoke board rebuild --force
 The infrastructure inventory is metadata-only and provides the site and
 environment IDs needed by setup recipes. Environment settings remain
 projection-only: use `yoke projects environment-settings get --project demo
---environment-id <id> --path <key.path> --json` for exact scalar leaves; never
+--environment <name> --path <key.path> --json` for exact scalar leaves; never
 inventory an environment settings document as a whole.
 
 Then make a normal project commit. The installed hook shims run through the

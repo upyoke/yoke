@@ -59,9 +59,35 @@ def _insert_flow(
     name: str,
     stages: str,
     target_tier: str | None = None,
-    target_environment_id: str | None = None,
+    target_environment: str | None = None,
     on_failure: str = "halt",
 ) -> None:
+    target_environment_id = None
+    if target_environment is not None:
+        site_name = f"{name} site"
+        conn.execute(
+            "INSERT INTO sites(project_id, name, created_at) "
+            "VALUES (%s, %s, %s) ON CONFLICT(project_id, name) DO NOTHING",
+            (project_id, site_name, _iso()),
+        )
+        conn.execute(
+            "INSERT INTO environments(site, project_id, name, created_at) "
+            "SELECT id, %s, %s, %s FROM sites "
+            "WHERE project_id=%s AND name=%s "
+            "ON CONFLICT(project_id, name) DO NOTHING",
+            (
+                project_id,
+                target_environment,
+                _iso(),
+                project_id,
+                site_name,
+            ),
+        )
+        environment_row = conn.execute(
+            "SELECT id FROM environments WHERE project_id=%s AND name=%s",
+            (project_id, target_environment),
+        ).fetchone()
+        target_environment_id = int(dict(environment_row)["id"])
     conn.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, on_failure, target_tier, "
@@ -138,7 +164,7 @@ class TestFlows:
         _insert_flow(
             test_db, "alpha-release", yoke_id,
             name="Alpha Release", target_tier="persistent",
-            target_environment_id="prod-env",
+            target_environment="prod",
             stages=dumps_compact([
                 {"name": "merged", "step_runner": "auto"},
                 {"name": "complete", "step_runner": "auto"},
@@ -159,7 +185,7 @@ class TestFlows:
         assert [flow["id"] for flow in scoped] == ["alpha-release"]
         assert scoped[0]["name"] == "Alpha Release"
         assert scoped[0]["target_tier"] == "persistent"
-        assert scoped[0]["target_environment_id"] == "prod-env"
+        assert scoped[0]["target_environment"] == "prod"
         assert scoped[0]["status"] == "active"
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"

@@ -137,7 +137,7 @@ class TestFunctionProxy:
         assert envelope["success"] is True
         assert envelope["result"]["rows"] == []
         for field in (
-            "id", "flow", "target_tier", "target_environment_id",
+            "id", "flow", "target_tier", "target_environment",
             "status", "current_stage",
         ):
             assert field in envelope["result"]["fields"]

@@ -231,7 +231,7 @@ class TestMainCli:
         rc = projects.main(["resolve-deploy-envs", "externalwebapp"])
         assert rc == 0
         captured = capsys.readouterr()
-        assert "production" in captured.out
+        assert "prod" in captured.out
 
     def test_resolve_deploy_envs_not_found_returns_1(self, pinned_db: str):
         projects.cmd_create("empty2", "Empty2", db_path=pinned_db)

@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     retired_at TEXT,
-    target_environment_id TEXT REFERENCES environments(id),
+    target_environment_id INTEGER REFERENCES environments(id),
     UNIQUE(project_id, slug)
 );
 
@@ -254,7 +254,7 @@ def create_qa_catalog_tables(
         conn,
         "qa_plans",
         "target_environment_id",
-        "TEXT REFERENCES environments(id)",
+        "INTEGER REFERENCES environments(id)",
     )
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)

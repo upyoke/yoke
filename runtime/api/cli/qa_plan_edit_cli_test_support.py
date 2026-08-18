@@ -21,6 +21,7 @@ PLAN = {
     "description": "Release proof.",
     "success_policy_id": "all-pass",
     "success_policy_params": {},
+    "target_environment": None,
     "updated_at": "2026-07-27T10:00:00Z",
     "cases": [
         {

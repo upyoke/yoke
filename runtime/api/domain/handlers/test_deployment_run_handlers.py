@@ -25,9 +25,9 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         values = [
             "run-20260616-001",
             "yoke",
-            "yoke-hosted-production",
+            "yoke-hosted-prod",
             "persistent",
-            "production",
+            "prod",
             "",
             "created",
             "",
@@ -51,8 +51,8 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["run"]["id"], "run-20260616-001")
         self.assertEqual(
-            outcome.result_payload["run"]["target_environment_id"],
-            "production",
+            outcome.result_payload["run"]["target_environment"],
+            "prod",
         )
 
     def test_run_get_not_found_returns_not_found(self):
@@ -76,7 +76,6 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                 "project": "yoke",
                 "flow": "flow",
                 "target_tier": "persistent",
-                "target_environment_id": "production",
                 "target_environment": "prod",
                 "status": "created",
                 "member_items": [],
@@ -184,8 +183,8 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         approval = RunApproval(
             run_id="run-20260616-001",
             project="yoke",
-            approved_stage="production-approval",
-            next_stage="production",
+            approved_stage="prod-approval",
+            next_stage="prod",
             approved_at="2026-06-16T01:02:03Z",
             member_item_ids=(19, 20),
         )
@@ -216,13 +215,13 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             note="stage verified",
         )
         emit.assert_called_once()
-        self.assertEqual(outcome.result_payload["next_stage"], "production")
+        self.assertEqual(outcome.result_payload["next_stage"], "prod")
         self.assertEqual(outcome.result_payload["member_item_ids"], [19, 20])
         self.assertEqual(outcome.result_payload["event_id"], "event-1")
 
     def test_run_create_returns_created_run(self):
         created_row = (
-            "run-20260616-002|yoke|yoke-hosted-production|production|"
+            "run-20260616-002|yoke|yoke-hosted-prod|persistent|prod|"
             "||created||2026-06-16T00:00:00Z|||operator"
         )
         with (
@@ -240,7 +239,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                     function="deployment_runs.create",
                     payload={
                         "project": "yoke",
-                        "flow": "yoke-hosted-production",
+                        "flow": "yoke-hosted-prod",
                         "release_lineage": "a" * 40,
                         "created_by": "operator",
                     },
@@ -249,7 +248,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         cmd_create.assert_called_once_with(
             "yoke",
-            "yoke-hosted-production",
+            "yoke-hosted-prod",
             environment=None,
             release_lineage="a" * 40,
             created_by="operator",
@@ -258,7 +257,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             outcome.result_payload["run_id"],
             "run-20260616-002",
         )
-        self.assertEqual(outcome.result_payload["flow"], "yoke-hosted-production")
+        self.assertEqual(outcome.result_payload["flow"], "yoke-hosted-prod")
         self.assertIsNone(outcome.result_payload["release_lineage"])
 
     def test_run_create_rejects_inactive_flow(self):
@@ -279,7 +278,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
 
     def test_run_create_reuses_the_retry_source_lineage(self):
         source = (
-            "run-old|yoke|yoke-hosted-production|persistent|production|"
+            "run-old|yoke|yoke-hosted-prod|persistent|prod|"
             + "a" * 40
             + "|failed|release|2026-06-15T00:00:00Z||"
             "2026-06-15T01:00:00Z|operator"
@@ -300,7 +299,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
             outcome = deployment_runs.handle_deployment_run_create(_request(
                 function="deployment_runs.create",
                 payload={
-                    "project": "yoke", "flow": "yoke-hosted-production",
+                    "project": "yoke", "flow": "yoke-hosted-prod",
                     "retry_of": "run-old",
                 },
             ))
@@ -311,7 +310,7 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         outcome = deployment_runs.handle_deployment_run_create(
             _request(
                 function="deployment_runs.create",
-                payload={"project": "", "flow": "yoke-hosted-production"},
+                payload={"project": "", "flow": "yoke-hosted-prod"},
             ),
         )
         self.assertFalse(outcome.primary_success)
@@ -321,25 +320,20 @@ class TestDeploymentRunHandlers(unittest.TestCase):
         with patch(
             "yoke_core.domain.deployment_run_target_resolution."
             "cmd_resolve_target",
-            return_value=("persistent", "production", "prod"),
+            return_value=("persistent", 201, "prod"),
         ):
             outcome = deployment_runs.handle_deployment_run_resolve_target(
                 _request(
                     function="deployment_runs.resolve_target",
                     payload={
                         "project": "yoke",
-                        "flow": "yoke-hosted-production",
+                        "flow": "yoke-hosted-prod",
                     },
                 ),
             )
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["target_tier"], "persistent")
-        self.assertEqual(
-            outcome.result_payload["target_environment_id"], "production",
-        )
-        self.assertEqual(
-            outcome.result_payload["target_environment_name"], "prod",
-        )
+        self.assertEqual(outcome.result_payload["target_environment"], "prod")
 
 
 if __name__ == "__main__":

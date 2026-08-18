@@ -24,14 +24,14 @@ class PulumiStateMigrateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     project: str
-    site_id: str
+    site: str
     stack_names: list[str]
     apply: StrictBool = False
 
 
 class PulumiStateMigrateResponse(BaseModel):
     project: str
-    site_id: str
+    site: str
     capability_type: str
     mode: str
     stack_names: list[str]
@@ -82,7 +82,7 @@ def handle_pulumi_state_migrate(
     try:
         receipt = migrate_pulumi_state(
             project=parsed.project,
-            site_id=parsed.site_id,
+            site=parsed.site,
             stack_names=parsed.stack_names,
             apply=parsed.apply,
         )

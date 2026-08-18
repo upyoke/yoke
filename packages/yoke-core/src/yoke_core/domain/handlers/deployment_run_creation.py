@@ -106,9 +106,7 @@ def handle_deployment_run_create(
             "project": created.get("project") or clean_project,
             "flow": created.get("flow") or clean_flow,
             "target_tier": created.get("target_tier") or None,
-            "target_environment_id": (
-                created.get("target_environment_id") or None
-            ),
+            "target_environment": created.get("target_environment") or None,
             "release_lineage": created.get("release_lineage") or None,
             "status": created.get("status") or "created",
         },

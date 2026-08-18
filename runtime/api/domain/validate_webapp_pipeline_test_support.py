@@ -93,7 +93,7 @@ def install_rest_happy(monkeypatch) -> None:
             )
             return RestResponse(200, {"secrets": [{"name": n} for n in names]})
         if url.endswith("/environments") or "/environments?" in url:
-            return RestResponse(200, {"environments": [{"name": "production"}]})
+            return RestResponse(200, {"environments": [{"name": "prod"}]})
         return RestResponse(200, {})
 
     monkeypatch.setattr("yoke_core.domain.gh_rest_transport.urlopen", fake_urlopen)

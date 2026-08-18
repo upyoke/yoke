@@ -56,7 +56,7 @@ class TestCli:
                 github_actions.main([
                     "trigger", "o/r", "deploy.yml",
                     "--ref", "dev",
-                    "--input", "env=staging",
+                    "--input", "env=stage",
                     "--input", "tag=v1",
                     "--project", "externalwebapp",
                 ])
@@ -65,7 +65,7 @@ class TestCli:
             m.assert_called_once_with(
                 "o/r", "deploy.yml",
                 ref="dev",
-                inputs={"env": "staging", "tag": "v1"},
+                inputs={"env": "stage", "tag": "v1"},
                 project="externalwebapp",
             )
 

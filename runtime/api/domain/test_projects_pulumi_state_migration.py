@@ -32,9 +32,9 @@ def pulumi_state_db(monkeypatch):
             project_id = resolve_project_id(conn, "yoke")
             conn.execute(
                 "INSERT INTO sites "
-                "(id, project_id, name, created_at, settings) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                ("main", project_id, "Main", "2026-01-01T00:00:00Z", "{}"),
+                "(project_id, name, created_at, settings) "
+                "VALUES (%s, %s, %s, %s)",
+                (project_id, "main", "2026-01-01T00:00:00Z", "{}"),
             )
             conn.commit()
         finally:
@@ -64,7 +64,7 @@ def _seed_source(db_name: str, *, encrypted_key: str = "encrypted-material"):
             "unrelated": True,
         }
         conn.execute(
-            "UPDATE sites SET settings=%s WHERE id='main'",
+            "UPDATE sites SET settings=%s WHERE name='main'",
             (json.dumps(settings),),
         )
         conn.commit()
@@ -75,7 +75,7 @@ def _seed_source(db_name: str, *, encrypted_key: str = "encrypted-material"):
 def test_dry_run_rolls_back_then_apply_moves_and_converges(pulumi_state_db):
     _seed_source(pulumi_state_db)
     preview = migrate_pulumi_state(
-        project="yoke", site_id="main", stack_names=["yoke-infra"]
+        project="yoke", site="main", stack_names=["yoke-infra"]
     )
     assert preview["applied"] is False
     assert preview["mode"] == "migrate"
@@ -83,7 +83,7 @@ def test_dry_run_rolls_back_then_apply_moves_and_converges(pulumi_state_db):
     conn = pg_testdb.connect_test_database(pulumi_state_db)
     try:
         source = json.loads(
-            conn.execute("SELECT settings FROM sites WHERE id='main'").fetchone()[0]
+            conn.execute("SELECT settings FROM sites WHERE name='main'").fetchone()[0]
         )
         assert "stack_state" in source["pulumi"]
         assert conn.execute(
@@ -96,7 +96,7 @@ def test_dry_run_rolls_back_then_apply_moves_and_converges(pulumi_state_db):
 
     applied = migrate_pulumi_state(
         project="yoke",
-        site_id="main",
+        site="main",
         stack_names=["yoke-infra"],
         apply=True,
     )
@@ -104,7 +104,7 @@ def test_dry_run_rolls_back_then_apply_moves_and_converges(pulumi_state_db):
     assert applied["source_removed"] is True
     repeated = migrate_pulumi_state(
         project="yoke",
-        site_id="main",
+        site="main",
         stack_names=["yoke-infra"],
         apply=True,
     )
@@ -112,7 +112,7 @@ def test_dry_run_rolls_back_then_apply_moves_and_converges(pulumi_state_db):
     conn = pg_testdb.connect_test_database(pulumi_state_db)
     try:
         site = json.loads(
-            conn.execute("SELECT settings FROM sites WHERE id='main'").fetchone()[0]
+            conn.execute("SELECT settings FROM sites WHERE name='main'").fetchone()[0]
         )
         assert site == {"pulumi": {"other": "preserved"}, "unrelated": True}
         cap = json.loads(
@@ -157,7 +157,7 @@ def test_conflict_and_exact_set_refuse_without_writes(pulumi_state_db):
     with pytest.raises(PulumiStateMigrationError) as raised:
         migrate_pulumi_state(
             project="yoke",
-            site_id="main",
+            site="main",
             stack_names=["yoke-infra"],
             apply=True,
         )
@@ -166,7 +166,7 @@ def test_conflict_and_exact_set_refuse_without_writes(pulumi_state_db):
     with pytest.raises(PulumiStateMigrationError) as mismatch:
         migrate_pulumi_state(
             project="yoke",
-            site_id="main",
+            site="main",
             stack_names=["yoke-infra", "yoke-vps"],
         )
     assert mismatch.value.code == "stack_set_mismatch"
@@ -178,7 +178,7 @@ def test_generic_surfaces_hide_stack_state_but_allow_top_level_merge(
     _seed_source(pulumi_state_db)
     migrate_pulumi_state(
         project="yoke",
-        site_id="main",
+        site="main",
         stack_names=["yoke-infra"],
         apply=True,
     )
@@ -221,7 +221,7 @@ def test_retry_requires_exact_durable_site_marker(pulumi_state_db):
             for name in ("one", "two", "three", "four")
         }
         conn.execute(
-            "UPDATE sites SET settings=%s WHERE id='main'",
+            "UPDATE sites SET settings=%s WHERE name='main'",
             (json.dumps({"pulumi": {"stack_state": entries}}),),
         )
         conn.commit()
@@ -229,13 +229,13 @@ def test_retry_requires_exact_durable_site_marker(pulumi_state_db):
         conn.close()
     migrate_pulumi_state(
         project="yoke",
-        site_id="main",
+        site="main",
         stack_names=list(entries),
         apply=True,
     )
     with pytest.raises(PulumiStateMigrationError) as raised:
         migrate_pulumi_state(
-            project="yoke", site_id="main", stack_names=["one"], apply=True
+            project="yoke", site="main", stack_names=["one"], apply=True
         )
     assert raised.value.code == "not_found"
 

@@ -40,20 +40,31 @@ _SCHEMA = """
         default_branch TEXT DEFAULT 'main',
         public_item_prefix TEXT DEFAULT 'YOK'
     );
+    CREATE TABLE sites (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER NOT NULL,
+        name TEXT NOT NULL
+    );
+    CREATE TABLE environments (
+        id INTEGER PRIMARY KEY,
+        site INTEGER NOT NULL,
+        project_id INTEGER NOT NULL,
+        name TEXT NOT NULL
+    );
     CREATE TABLE deployment_flows (
         id TEXT PRIMARY KEY,
         project_id INTEGER,
         name TEXT,
         stages TEXT,
         target_tier TEXT,
-        target_environment_id TEXT
+        target_environment_id INTEGER
     );
     CREATE TABLE deployment_runs (
         id TEXT PRIMARY KEY,
         project_id INTEGER,
         flow TEXT,
         target_tier TEXT,
-        target_environment_id TEXT,
+        target_environment_id INTEGER,
         release_lineage TEXT,
         status TEXT DEFAULT 'created',
         current_stage TEXT,
@@ -136,6 +147,13 @@ def _apply_schema() -> None:
             "(id, slug, name, github_repo, public_item_prefix) "
             "VALUES (1, 'yoke', 'Yoke', 'upyoke/yoke', 'YOK')",
         )
+        conn.execute(
+            "INSERT INTO sites (id, project_id, name) VALUES (10, 1, 'api')"
+        )
+        conn.execute(
+            "INSERT INTO environments (id, site, project_id, name) "
+            "VALUES (101, 10, 1, 'prod')"
+        )
         install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
@@ -170,7 +188,7 @@ def _seed_flow(conn, flow_id="flow-test", project="yoke", stages=None):
     conn.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, target_tier, target_environment_id) "
-        "VALUES (%s, %s, %s, %s, 'persistent', 'production')",
+        "VALUES (%s, %s, %s, %s, 'persistent', 101)",
         (flow_id, 1, flow_id, json.dumps(stages)),
     )
     conn.commit()

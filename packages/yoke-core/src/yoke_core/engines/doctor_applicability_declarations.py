@@ -72,6 +72,7 @@ _SHAPES = (
         "event-emission-rate", "event-outcome-drift", "event-registry-coverage",
         "event-severity-drift", "events-destructive-maintenance-audit",
         "events-historical-coverage-collapse", "events-synthetic-contamination",
+        "flow-stage-environment-input",
         "flow-stage-json", "frontmatter-schema", "gh-orphan-detection",
         "incomplete-deploy-stage", "incomplete-idea-bodies",
         "invalid-item-flows", "lifecycle-continuity", "merge-queue-binding",

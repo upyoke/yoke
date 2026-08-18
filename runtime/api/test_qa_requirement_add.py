@@ -94,7 +94,7 @@ class TestRequirementAdd:
             item_id=10,
             qa_kind="unit_test",
             qa_phase="verification",
-            target_env="staging",
+            target_env="stage",
             blocking_mode="non_blocking",
             requirement_source="ac_derived",
             capability_requirements='{"browser": true}',
@@ -106,7 +106,7 @@ class TestRequirementAdd:
             (rid,),
         ).fetchone()
         conn.close()
-        assert row[0] == "staging"
+        assert row[0] == "stage"
         assert row[1] == "non_blocking"
         assert row[2] == "ac_derived"
         assert row[3] == '{"browser": true}'

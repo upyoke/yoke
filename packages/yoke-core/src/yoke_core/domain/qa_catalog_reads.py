@@ -246,8 +246,10 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
         params = (int(identity.id),)
     rows = query_rows(
         conn,
-        "SELECT p.*, pr.slug AS project FROM qa_plans p "
-        f"JOIN projects pr ON pr.id=p.project_id {where} "
+        "SELECT p.*, pr.slug AS project, e.name AS target_environment "
+        "FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
+        "LEFT JOIN environments e ON e.id=p.target_environment_id "
+        f"{where} "
         "ORDER BY pr.slug, p.slug",
         params,
     )
@@ -280,7 +282,7 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "slug": str(row["slug"]),
                 "name": str(row["name"]),
                 "description": str(row["description"]),
-                "target_environment_id": row["target_environment_id"],
+                "target_environment": row["target_environment"],
                 "execution_target": execution_target,
                 "case_count": len(cases),
                 "materialized_requirement_count": materialized_count,

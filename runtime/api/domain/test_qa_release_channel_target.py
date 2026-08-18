@@ -29,10 +29,7 @@ from yoke_core.domain.qa_execution_environment_target import (
 def _target(environment: str) -> dict:
     endpoints = _yoke_endpoints(environment, "upyoke")
     return {
-        "environment": {
-            "id": f"yoke-api-{environment}",
-            "name": environment,
-        },
+        "environment": {"name": environment},
         "endpoints": endpoints,
     }
 
@@ -71,8 +68,8 @@ def test_hosted_environment_projects_its_release_channel(
         if action.get("step") == "destination-picker"
     ]
     assert destination_actions
-    assert {action["target_environment_id"] for action in destination_actions} == {
-        target["environment"]["id"]
+    assert {action["target_environment"] for action in destination_actions} == {
+        target["environment"]["name"]
     }
     assert {tuple(action["keys"]) for action in destination_actions} == {
         expected_destination_keys
@@ -127,7 +124,7 @@ def test_case_guard_rejects_opposite_release_channel(case) -> None:
 def test_case_guard_requires_exact_interactive_environment_binding(binding) -> None:
     action = {"step": "destination-picker", "keys": ["Down", "Enter"]}
     if binding is not None:
-        action["target_environment_id"] = binding
+        action["target_environment"] = binding
     case = {"method_config": {"actions": [action]}}
 
     with pytest.raises(QaExecutionTargetError, match="destination binding"):
@@ -136,7 +133,7 @@ def test_case_guard_requires_exact_interactive_environment_binding(binding) -> N
 
 def test_external_distribution_binding_is_generic_and_exact() -> None:
     target = {
-        "environment": {"id": "customer-east-blue", "name": "blue"},
+        "environment": {"name": "blue"},
         "endpoints": {
             "installer_base_url": "https://downloads.example.net/yoke",
             "release_channel": "customer-canary.7",
@@ -164,7 +161,7 @@ def test_external_distribution_binding_is_generic_and_exact() -> None:
 
 def test_self_hosted_distribution_binding_accepts_local_http_target() -> None:
     target = {
-        "environment": {"id": "local-machine", "name": "local"},
+        "environment": {"name": "local"},
         "endpoints": {
             "installer_base_url": "http://127.0.0.1:8765/distribution",
             "release_channel": "development",

@@ -70,16 +70,16 @@ class TestDeploymentFlowValidation:
 class TestDeployedToValidation:
     def test_valid_env(self):
         item = _make_item(project="externalwebapp")
-        gate = _make_gate(valid_deploy_envs=["staging", "production"])
+        gate = _make_gate(valid_deploy_envs=["stage", "prod"])
         result = prepare_update(
             item=item, field_name="deployed_to",
-            value="staging", gate=gate,
+            value="stage", gate=gate,
         )
         assert result.success is True
 
     def test_invalid_env(self):
         item = _make_item(project="externalwebapp")
-        gate = _make_gate(valid_deploy_envs=["staging", "production"])
+        gate = _make_gate(valid_deploy_envs=["stage", "prod"])
         result = prepare_update(
             item=item, field_name="deployed_to",
             value="dev", gate=gate,
@@ -92,14 +92,14 @@ class TestDeployedToValidation:
         gate = _make_gate(valid_deploy_envs=[])
         result = prepare_update(
             item=item, field_name="deployed_to",
-            value="staging", gate=gate,
+            value="stage", gate=gate,
         )
         assert result.success is False
         assert "No deployment environments" in result.error
 
     def test_null_value_no_validation(self):
         item = _make_item(project="externalwebapp")
-        gate = _make_gate(valid_deploy_envs=["staging"])
+        gate = _make_gate(valid_deploy_envs=["stage"])
         result = prepare_update(
             item=item, field_name="deployed_to",
             value=None, gate=gate,

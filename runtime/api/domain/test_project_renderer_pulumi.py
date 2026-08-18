@@ -169,8 +169,8 @@ def _settings_from_context(
         },
     }
     env = RendererEnvironmentSettings(
-        id=f"{project}-production",
-        name="production",
+        id=f"{project}-prod",
+        name="prod",
         settings=env_settings,
     )
     return ProjectRendererSettings(

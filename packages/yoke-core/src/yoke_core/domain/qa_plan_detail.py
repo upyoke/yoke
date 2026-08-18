@@ -216,8 +216,9 @@ def get_plan(
     marker = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT p.*, pr.slug AS project FROM qa_plans p "
-        "JOIN projects pr ON pr.id=p.project_id "
+        "SELECT p.*, pr.slug AS project, e.name AS target_environment "
+        "FROM qa_plans p JOIN projects pr ON pr.id=p.project_id "
+        "LEFT JOIN environments e ON e.id=p.target_environment_id "
         f"WHERE p.id={marker}",
         (int(plan_id),),
     )
@@ -321,7 +322,7 @@ def get_plan(
         "updated_at": str(row["updated_at"]),
         "retired_at": row["retired_at"],
         "deployment_run_id": deployment_run_id,
-        "target_environment_id": row["target_environment_id"],
+        "target_environment": row["target_environment"],
         "execution_target": execution_target,
         "cases": cases,
         "attachments": _attachment_rows(conn, int(plan_id)),

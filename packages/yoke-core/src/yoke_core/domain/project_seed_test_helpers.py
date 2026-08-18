@@ -55,19 +55,23 @@ def seed_project_identities(conn) -> None:
 def seed_externalwebapp_site_environments(conn) -> None:
     """Seed one site with two environments for the externalwebapp test project."""
     p = "%s" if connection_is_postgres(conn) else "?"
+    project_id = SEED_PROJECT_IDS["externalwebapp"]
     conn.execute(
-        "INSERT INTO sites (id, project_id, name, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}) ON CONFLICT(id) DO NOTHING",
-        ("externalwebapp-web", SEED_PROJECT_IDS["externalwebapp"], "ExternalWebapp Web", iso8601_now()),
+        "INSERT INTO sites (project_id, name, created_at) "
+        f"VALUES ({p}, {p}, {p}) ON CONFLICT(project_id, name) DO NOTHING",
+        (project_id, "ExternalWebapp Web", iso8601_now()),
     )
-    for env_id, env_name in (
-        ("externalwebapp-web-production", "production"),
-        ("externalwebapp-web-staging", "staging"),
-    ):
+    site_row = conn.execute(
+        f"SELECT id FROM sites WHERE project_id={p} AND name={p}",
+        (project_id, "ExternalWebapp Web"),
+    ).fetchone()
+    site_id = int(site_row[0])
+    for env_name in ("prod", "stage"):
         conn.execute(
-            "INSERT INTO environments (id, site, name, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}) ON CONFLICT(id) DO NOTHING",
-            (env_id, "externalwebapp-web", env_name, iso8601_now()),
+            "INSERT INTO environments (site, project_id, name, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}) "
+            "ON CONFLICT(project_id, name) DO NOTHING",
+            (site_id, project_id, env_name, iso8601_now()),
         )
     conn.commit()
 

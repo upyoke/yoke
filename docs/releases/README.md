@@ -9,7 +9,7 @@ backfilled or rewritten; new releases do not add files here.
 1. Run the canonical test gate on the exact release commit and merge it to
    `main`.
 2. Deliver the item through `yoke-hosted-stage-typed-target` or
-   `yoke-hosted-production-hotfix-typed-target`; the earlier `-warm-gated`,
+   `yoke-hosted-prod-hotfix-typed-target`; the earlier `-warm-gated`,
    `-no-ci-gate`, and `yoke-hosted-production` definitions are disabled
    history — a definition a run has referenced is immutable, so each change
    to a route retires the prior definition and adds the next one. The active flow's scoped GitHub App
@@ -18,6 +18,8 @@ backfilled or rewritten; new releases do not add files here.
    same commit is retried. The PEP 440 local segment is intentional: public
    indexes cannot publish local versions, which keeps a same-named public
    package from satisfying Yoke's exact sibling pins.
+   The bridge passes the registered `stage` or `prod` environment name through
+   to Platform unchanged; there is no hosted-environment alias translation.
 3. Treat release tags as immutable: never move or recreate one after it is
    created. Use canonical decimal atoms: `v1.2.3+launch.1` is valid, while
    release or numeric-local atoms with leading zeros are refused.

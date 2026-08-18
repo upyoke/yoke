@@ -26,7 +26,7 @@ from yoke_core.domain.schema_common import _column_exists
 # ---------------------------------------------------------------------------
 
 RUN_FIELDS = (
-    "id", "project", "flow", "target_tier", "target_environment_id",
+    "id", "project", "flow", "target_tier", "target_environment",
     "release_lineage", "status", "current_stage", "created_at",
     "started_at", "completed_at", "created_by",
 )
@@ -44,7 +44,8 @@ VALID_ENV_TYPES = ("shared", "adhoc")
 _RUN_SELECT = (
     "id, COALESCE((SELECT p.slug FROM projects p "
     "WHERE p.id = deployment_runs.project_id), '') AS project, "
-    "flow, COALESCE(target_tier,''), COALESCE(target_environment_id,''), "
+    "flow, COALESCE(target_tier,''), COALESCE((SELECT e.name FROM "
+    "environments e WHERE e.id=deployment_runs.target_environment_id),''), "
     "COALESCE(release_lineage,''), "
     "status, COALESCE(current_stage,''), created_at, "
     "COALESCE(started_at,''), COALESCE(completed_at,''), COALESCE(created_by,'')"
@@ -74,9 +75,9 @@ def cmd_init(db_path: Optional[str] = None) -> None:
     conn = connect(db_path)
     try:
         environment_ref = (
-            "TEXT REFERENCES environments(id)"
+            "INTEGER REFERENCES environments(id)"
             if _column_exists(conn, "environments", "id")
-            else "TEXT"
+            else "INTEGER"
         )
         for statement in (
             f"""

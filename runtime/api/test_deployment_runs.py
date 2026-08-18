@@ -52,19 +52,19 @@ class TestNextIdAndCreateRun:
     def test_create_run_copies_target_from_flow(self, db_path: str) -> None:
         run_id = dr.cmd_create_run("yoke", "flow-main", db_path=db_path)
         tier = dr.cmd_get(run_id, field="target_tier", db_path=db_path)
-        environment_id = dr.cmd_get(
-            run_id, field="target_environment_id", db_path=db_path
+        environment = dr.cmd_get(
+            run_id, field="target_environment", db_path=db_path
         )
-        assert (tier, environment_id) == ("persistent", "production")
+        assert (tier, environment) == ("persistent", "prod")
 
     def test_create_run_with_environment_override(self, db_path: str) -> None:
         run_id = dr.cmd_create_run(
-            "yoke", "flow-main", environment="staging", db_path=db_path
+            "yoke", "flow-main", environment="stage", db_path=db_path
         )
-        environment_id = dr.cmd_get(
-            run_id, field="target_environment_id", db_path=db_path
+        environment = dr.cmd_get(
+            run_id, field="target_environment", db_path=db_path
         )
-        assert environment_id == "staging"
+        assert environment == "stage"
 
     def test_create_run_with_lineage(self, db_path: str) -> None:
         run_id = dr.cmd_create_run(

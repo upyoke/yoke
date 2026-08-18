@@ -34,7 +34,7 @@ def test_start_for_item_dispatch_success(monkeypatch):
     out_buf, err_buf = _capture(monkeypatch)
     handle = StartForItemResult(
         ok=True, project="yoke", flow="to-prod",
-        target_tier="persistent", target_environment_id="production",
+        target_tier="persistent", target_environment_id=201,
         target_environment_name="prod",
         run_id="R-1", validation_message="ok", item_ids=[42],
     )
@@ -77,8 +77,8 @@ def test_start_for_item_dispatch_failure_writes_to_stderr(monkeypatch):
 def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     _capture(monkeypatch)
     handle = StartForItemResult(
-        ok=True, project="externalwebapp", flow="to-staging",
-        target_tier="persistent", target_environment_id="staging",
+        ok=True, project="externalwebapp", flow="to-stage",
+        target_tier="persistent", target_environment_id=202,
         target_environment_name="stage",
         run_id="R-2", validation_message="ok", item_ids=[7],
     )
@@ -88,8 +88,8 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
         rc = deployment_runs_cli.main([
             "start-for-item", "7",
             "--project", "externalwebapp",
-            "--flow", "to-staging",
-            "--environment", "staging",
+            "--flow", "to-stage",
+            "--environment", "stage",
             "--release-lineage", "L-99",
             "--project-repo-path", "/workspace/externalwebapp",
             "--created-by", "agent",
@@ -98,8 +98,8 @@ def test_start_for_item_passes_through_optional_kwargs(monkeypatch):
     _, kwargs = mock_composer.call_args
     assert kwargs == {
         "project": "externalwebapp",
-        "flow": "to-staging",
-        "environment": "staging",
+        "flow": "to-stage",
+        "environment": "stage",
         "release_lineage": "L-99",
         "project_repo_path": "/workspace/externalwebapp",
         "created_by": "agent",
@@ -110,7 +110,7 @@ def test_start_for_item_validation_failure_preserves_run_id_in_payload(monkeypat
     _, err_buf = _capture(monkeypatch)
     handle = StartForItemResult(
         ok=False, project="yoke", flow="to-prod",
-        target_tier="persistent", target_environment_id="production",
+        target_tier="persistent", target_environment_id=201,
         target_environment_name="prod",
         run_id="R-3", validation_message="missing item",
         error="validate-composition failed: missing item",
@@ -135,7 +135,7 @@ def test_start_for_item_via_db_router_main(monkeypatch, tmp_path):
     monkeypatch.delenv("YOKE_DB", raising=False)
     handle = StartForItemResult(
         ok=True, project="yoke", flow="to-prod",
-        target_tier="persistent", target_environment_id="production",
+        target_tier="persistent", target_environment_id=201,
         target_environment_name="prod",
         run_id="R-9", validation_message="ok", item_ids=[42],
     )

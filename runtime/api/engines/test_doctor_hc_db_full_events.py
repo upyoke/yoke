@@ -55,7 +55,7 @@ class TestHCPreviewOccupancyStaleFull:
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (2, "staging", "run-active", "claimed", "2026-01-01T00:00:00Z"),
+            (2, "stage", "run-active", "claimed", "2026-01-01T00:00:00Z"),
         )
         test_db.commit()
         rec = _run_hc(hc_preview_occupancy_stale, test_db)
@@ -71,13 +71,13 @@ class TestHCPreviewOccupancyStaleFull:
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (2, "staging", "run-done", "claimed", "2026-01-01T00:00:00Z"),
+            (2, "stage", "run-done", "claimed", "2026-01-01T00:00:00Z"),
         )
         test_db.commit()
         rec = _run_hc(hc_preview_occupancy_stale, test_db)
         r = _result(rec)
         assert r.result == "WARN"
-        assert "staging" in r.detail
+        assert "stage" in r.detail
 
     def test_warn_claimed_by_failed_run(self, test_db):
         """Test 16: WARN when preview claimed by failed run."""
@@ -107,7 +107,7 @@ class TestHCPreviewOccupancyStaleFull:
         test_db.execute(
             "INSERT INTO deployment_preview_environments (project_id, env_name, run_id, status, created_at) "
             "VALUES (%s, %s, %s, %s, %s)",
-            (2, "staging", "run-x", "available", "2026-01-01T00:00:00Z"),
+            (2, "stage", "run-x", "available", "2026-01-01T00:00:00Z"),
         )
         test_db.commit()
         rec = _run_hc(hc_preview_occupancy_stale, test_db)

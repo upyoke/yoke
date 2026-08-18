@@ -154,13 +154,12 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
     )
     authority_bound = (
         isinstance(environment, Mapping)
-        and bool(str(environment.get("id") or "").strip())
+        and bool(str(environment.get("name") or "").strip())
         and bool(execution_target_digest)
     )
     authority = {
         "state": "bound" if authority_bound else "unavailable",
-        "environment_id": (str(environment.get("id")) if authority_bound else None),
-        "environment_name": (
+        "environment": (
             str(environment.get("name") or "") if authority_bound else None
         ),
         "execution_target_digest": (
@@ -182,7 +181,7 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
     if authority_bound:
         prompt = (
             f"Review QA bundle {bundle_id} ({digest}) for immutable target "
-            f"environment {authority['environment_id']} at target digest "
+            f"environment {authority['environment']} at target digest "
             f"{execution_target_digest}. Inspect every supplied transcript "
             "and visual artifact against that case's instructions and "
             "expected outcome. Return exactly one independent verdict and "

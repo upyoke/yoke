@@ -36,8 +36,8 @@ def test_allows_short_token_on_fresh_env(
 ) -> None:
     # No existing token -> a short write is allowed (general credential-set).
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    result = wc.credential_from_inputs("staging", **_inputs("short-fake"))
-    assert "staging.token" in result["path"]
+    result = wc.credential_from_inputs("stage", **_inputs("short-fake"))
+    assert "stage.token" in result["path"]
 
 
 def test_accepts_full_length_token(

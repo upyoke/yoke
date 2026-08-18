@@ -47,11 +47,10 @@ function deliveryClient() {
       if (request.function === "projects.infrastructure.list") {
         return okEnvelope({
           project: request.payload.project,
-          sites: [{ id: "app", name: "Application" }],
+          sites: [{ name: "Application" }],
           environments: [{
-            id: "prod",
-            site: "app",
-            name: "Production",
+            site: "Application",
+            name: "prod",
             url: "https://app.example",
             deploy_method: "github-actions",
             health_check_url: "https://app.example/health",
@@ -62,7 +61,7 @@ function deliveryClient() {
       if (request.function === "projects.environment_settings.get") {
         return okEnvelope({
           project: request.payload.project,
-          environment_id: request.payload.environment_id,
+          environment: request.payload.environment,
           values: { "git.branch": "main" },
         });
       }
@@ -126,7 +125,7 @@ test("Environments joins branch and latest-run reads without inventing policy", 
         function: "projects.environment_settings.get",
         payload: {
           project: "1",
-          environment_id: "prod",
+          environment: "prod",
           paths: ["git.branch"],
         },
       },
@@ -140,7 +139,7 @@ test("Environments joins branch and latest-run reads without inventing policy", 
   );
   const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(cells.slice(0, 4).map(cellText), [
-    "Production", "main", "not exposed", "succeeded",
+    "prod", "main", "not exposed", "succeeded",
   ]);
   assert.notEqual(cellText(cells[4]), "never");
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
@@ -174,9 +173,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
           project: request.payload.project,
           sites: [],
           environments: [{
-            id: "prod",
-            name: request.payload.project === "1"
-              ? "Alpha production" : "Beta production",
+            name: "prod",
           }],
         });
       }
@@ -186,7 +183,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
       if (request.function === "projects.environment_settings.get") {
         return okEnvelope({
           project: request.payload.project,
-          environment_id: request.payload.environment_id,
+          environment: request.payload.environment,
           values: {
             "git.branch": request.payload.project === "1"
               ? "alpha-main" : "beta-main",
@@ -231,7 +228,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
         function: "projects.environment_settings.get",
         payload: {
           project: "1",
-          environment_id: "prod",
+          environment: "prod",
           paths: ["git.branch"],
         },
       },
@@ -239,7 +236,7 @@ test("Environment inventory fans out at All and labels each project", async (t) 
         function: "projects.environment_settings.get",
         payload: {
           project: "2",
-          environment_id: "prod",
+          environment: "prod",
           paths: ["git.branch"],
         },
       },
@@ -315,7 +312,7 @@ test("Infrastructure is structurally complete but does not claim provider parity
   );
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
-    ["Production", "yoke", "not exposed", "project-owned", "declared"],
+    ["prod", "yoke", "not exposed", "project-owned", "declared"],
   );
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
     .includes("does not compare live provider state"));

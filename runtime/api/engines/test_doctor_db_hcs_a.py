@@ -64,7 +64,7 @@ class TestHCUndeployedDone:
         p = _p(conn)
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, deployed_to, updated_at) "
-            f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 'production', {p})",
+            f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 'prod', {p})",
             (_iso_offset(days=-30),),
         )
         rec = RecordCollector()

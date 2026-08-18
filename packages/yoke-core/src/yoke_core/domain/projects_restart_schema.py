@@ -38,17 +38,20 @@ _INIT_TABLES_SQL = f"""
             {_projects_table_sql(if_not_exists=True)}
 
             CREATE TABLE IF NOT EXISTS sites (
-                id TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY,
                 project_id INTEGER NOT NULL REFERENCES projects(id),
                 name TEXT NOT NULL,
                 description TEXT,
                 created_at TEXT NOT NULL,
-                settings TEXT DEFAULT '{{}}'
+                settings TEXT DEFAULT '{{}}',
+                UNIQUE(id, project_id),
+                UNIQUE(project_id, name)
             );
 
             CREATE TABLE IF NOT EXISTS environments (
-                id TEXT PRIMARY KEY,
-                site TEXT NOT NULL REFERENCES sites(id),
+                id INTEGER PRIMARY KEY,
+                site INTEGER NOT NULL,
+                project_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 url TEXT,
                 deploy_method TEXT,
@@ -58,7 +61,9 @@ _INIT_TABLES_SQL = f"""
                 last_deployed_at TEXT,
                 created_at TEXT NOT NULL,
                 settings TEXT DEFAULT '{{}}',
-                UNIQUE(site, name)
+                UNIQUE(project_id, name),
+                FOREIGN KEY(site, project_id)
+                    REFERENCES sites(id, project_id)
             );
 
             CREATE TABLE IF NOT EXISTS capability_templates (

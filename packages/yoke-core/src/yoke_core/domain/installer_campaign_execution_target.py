@@ -89,7 +89,7 @@ def _bind_destination_actions(
     target: Mapping[str, Any],
 ) -> None:
     keys = _target_destination_keys(target)
-    environment_id = str(target["environment"]["id"])
+    environment = str(target["environment"]["name"])
     for case in cases:
         raw_config = case.get("method_config")
         if not isinstance(raw_config, dict):
@@ -110,7 +110,7 @@ def _bind_destination_actions(
                     and action.get("step") == "destination-picker"
                 ):
                     action["keys"] = list(keys)
-                    action["target_environment_id"] = environment_id
+                    action["target_environment"] = environment
 
 
 def installer_campaign_cases_for_target(

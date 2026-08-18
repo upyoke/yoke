@@ -69,7 +69,7 @@ Subcommands:
   get <id> [field]                                  Get flow
   list [--project <project>] [--include-disabled]   List flows
   stages <id>                                       Output raw JSON stages
-  target <id>                                       Print tier|environment-id|environment-name
+  target <id>                                       Print tier|environment-name
   update-stages <id> <stages_json> [--description D]  Replace stages (validated)
   set-status <id> <active|disabled>                 Enable/disable without deleting
   delete <id> [--repoint-items-to <flow-id>]        Delete flow (repoint refs)

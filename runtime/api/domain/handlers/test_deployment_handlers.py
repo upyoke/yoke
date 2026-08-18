@@ -26,16 +26,16 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
                     _request(
                         function="deployment_flows.get",
                         payload={
-                            "flow_id": "yoke-hosted-production",
-                            "field": "target_environment_id",
+                            "flow_id": "yoke-hosted-prod",
+                            "field": "target_environment",
                         },
                     ),
                 )
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["flow_id"], "yoke-hosted-production")
+        self.assertEqual(outcome.result_payload["flow_id"], "yoke-hosted-prod")
         self.assertEqual(
-            outcome.result_payload["field"], "target_environment_id",
+            outcome.result_payload["field"], "target_environment",
         )
         self.assertEqual(outcome.result_payload["value"], "prod")
         conn.close.assert_called_once()
@@ -49,7 +49,7 @@ class TestDeploymentFlowHandlers(unittest.TestCase):
                 outcome = deployment_flows.handle_deployment_flow_stages(
                     _request(
                         function="deployment_flows.stages",
-                        payload={"flow_id": "yoke-hosted-production"},
+                        payload={"flow_id": "yoke-hosted-prod"},
                     ),
                 )
 

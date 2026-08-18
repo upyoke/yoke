@@ -67,7 +67,7 @@ class DeploymentRun:
     status: str
     current_stage: Optional[str] = None
     target_tier: Optional[str] = None
-    target_environment_id: Optional[str] = None
+    target_environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_at: Optional[str] = None
     started_at: Optional[str] = None

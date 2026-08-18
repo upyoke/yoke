@@ -17,8 +17,8 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 YOKE_PROJECT = "yoke"
 WEBAPP_PROJECT = "externalwebapp"
-SITE = "externalwebapp-web"
-ENVIRONMENT = "externalwebapp-web-stage"
+SITE = "External webapp"
+ENVIRONMENT = "stage"
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def _create_site(project: str = WEBAPP_PROJECT, **extra):
     return handlers.handle_projects_site_create(
         _request(
             "projects.site.create",
-            {"project": project, "site_slug": SITE, **extra},
+            {"project": project, "site": SITE, **extra},
         )
     )
 
@@ -50,8 +50,8 @@ def _create_site(project: str = WEBAPP_PROJECT, **extra):
 def _create_environment(project: str = WEBAPP_PROJECT, **extra):
     payload = {
         "project": project,
-        "site_slug": SITE,
-        "environment_id": ENVIRONMENT,
+        "site": SITE,
+        "environment": ENVIRONMENT,
         **extra,
     }
     return handlers.handle_projects_environment_create(
@@ -65,14 +65,15 @@ class TestSiteCreate:
         assert outcome.primary_success is True
         assert outcome.result_payload == {
             "project": WEBAPP_PROJECT,
-            "site_id": SITE,
+            "site": SITE,
             "outcome": handlers.OUTCOME_CREATED,
         }
         conn = connect_test_db(infrastructure_db)
         try:
             row = conn.execute(
-                "SELECT project_id, name, settings FROM sites WHERE id = %s",
-                (SITE,),
+                "SELECT project_id, name, settings FROM sites "
+                "WHERE project_id = %s AND name = %s",
+                (2, SITE),
             ).fetchone()
         finally:
             conn.close()
@@ -90,18 +91,21 @@ class TestSiteCreate:
         conn = connect_test_db(infrastructure_db)
         try:
             row = conn.execute(
-                "SELECT settings FROM sites WHERE id = %s", (SITE,),
+                "SELECT settings FROM sites WHERE project_id = %s AND name = %s",
+                (2, SITE),
             ).fetchone()
         finally:
             conn.close()
         assert "us-east-1" in str(row[0])
         assert "eu-west-1" not in str(row[0])
 
-    def test_slug_owned_by_another_project_refuses(self, infrastructure_db) -> None:
+    def test_same_name_may_be_registered_in_another_project(
+        self, infrastructure_db,
+    ) -> None:
         _create_site()
         outcome = _create_site(project=YOKE_PROJECT)
-        assert outcome.primary_success is False
-        assert outcome.error.code == "site_project_mismatch"
+        assert outcome.primary_success is True
+        assert outcome.result_payload["outcome"] == handlers.OUTCOME_CREATED
 
     def test_unknown_project_refuses(self, infrastructure_db) -> None:
         outcome = _create_site(project="no-such-project")
@@ -118,20 +122,21 @@ class TestEnvironmentCreate:
         assert outcome.primary_success is True
         assert outcome.result_payload == {
             "project": WEBAPP_PROJECT,
-            "site_id": SITE,
-            "environment_id": ENVIRONMENT,
-            "name": "stage",
+            "site": SITE,
+            "environment": ENVIRONMENT,
             "outcome": handlers.OUTCOME_CREATED,
         }
         conn = connect_test_db(infrastructure_db)
         try:
             row = conn.execute(
-                "SELECT site, name, settings FROM environments WHERE id = %s",
-                (ENVIRONMENT,),
+                "SELECT s.name, e.name, e.settings FROM environments e "
+                "JOIN sites s ON s.id=e.site "
+                "WHERE e.project_id = %s AND e.name = %s",
+                (2, ENVIRONMENT),
             ).fetchone()
         finally:
             conn.close()
-        assert (str(row[0]), str(row[1])) == (SITE, "stage")
+        assert (str(row[0]), str(row[1])) == (SITE, ENVIRONMENT)
         assert '"branch"' in str(row[2])
 
     def test_recreate_reports_already_present_untouched(
@@ -142,23 +147,26 @@ class TestEnvironmentCreate:
         second = _create_environment(settings={"branch": "other"})
         assert second.primary_success is True
         assert second.result_payload["outcome"] == handlers.OUTCOME_ALREADY_PRESENT
-        assert second.result_payload["name"] == "stage"
+        assert second.result_payload["environment"] == ENVIRONMENT
         conn = connect_test_db(infrastructure_db)
         try:
             row = conn.execute(
-                "SELECT settings FROM environments WHERE id = %s", (ENVIRONMENT,),
+                "SELECT settings FROM environments "
+                "WHERE project_id = %s AND name = %s",
+                (2, ENVIRONMENT),
             ).fetchone()
         finally:
             conn.close()
         assert '"main"' in str(row[0])
 
-    def test_site_owned_by_another_project_refuses(
+    def test_same_site_name_in_another_project_is_independent(
         self, infrastructure_db,
     ) -> None:
         _create_site()
+        _create_site(project=YOKE_PROJECT)
         outcome = _create_environment(project=YOKE_PROJECT)
-        assert outcome.primary_success is False
-        assert outcome.error.code == "site_project_mismatch"
+        assert outcome.primary_success is True
+        assert outcome.result_payload["outcome"] == handlers.OUTCOME_CREATED
 
     def test_missing_site_refuses_with_create_teaching(
         self, infrastructure_db,
@@ -176,7 +184,7 @@ class TestEnvironmentCreate:
         other = handlers.handle_projects_site_create(
             _request(
                 "projects.site.create",
-                {"project": WEBAPP_PROJECT, "site_slug": "externalwebapp-admin"},
+                {"project": WEBAPP_PROJECT, "site": "External webapp admin"},
             )
         )
         assert other.primary_success is True
@@ -185,15 +193,15 @@ class TestEnvironmentCreate:
                 "projects.environment.create",
                 {
                     "project": WEBAPP_PROJECT,
-                    "site_slug": "externalwebapp-admin",
-                    "environment_id": ENVIRONMENT,
+                    "site": "External webapp admin",
+                    "environment": ENVIRONMENT,
                 },
             )
         )
         assert outcome.primary_success is False
         assert outcome.error.code == "environment_site_mismatch"
 
-    def test_explicit_delivery_name_overrides_derived_leaf(
+    def test_environment_name_is_the_only_string_identity(
         self, infrastructure_db,
     ) -> None:
         _create_site()
@@ -202,31 +210,13 @@ class TestEnvironmentCreate:
                 "projects.environment.create",
                 {
                     "project": WEBAPP_PROJECT,
-                    "site_slug": SITE,
-                    "environment_id": "production",
-                    "name": "prod",
+                    "site": SITE,
+                    "environment": "customer-east",
                 },
             )
         )
         assert outcome.primary_success is True
-        assert outcome.result_payload["name"] == "prod"
-
-    def test_name_falls_back_to_id_without_site_prefix(
-        self, infrastructure_db,
-    ) -> None:
-        _create_site()
-        outcome = handlers.handle_projects_environment_create(
-            _request(
-                "projects.environment.create",
-                {
-                    "project": WEBAPP_PROJECT,
-                    "site_slug": SITE,
-                    "environment_id": "prod",
-                },
-            )
-        )
-        assert outcome.primary_success is True
-        assert outcome.result_payload["name"] == "prod"
+        assert outcome.result_payload["environment"] == "customer-east"
 
 
 def test_registration_specs_cover_both_function_ids() -> None:

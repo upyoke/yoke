@@ -24,7 +24,7 @@ def _policy(trigger="github-push", preview_domain="example.com"):
         trigger=trigger,
         flow_id="externalwebapp-branch-preview" if trigger == "flow" else "",
         preview_domain=preview_domain,
-        host_env="production",
+        host_env="prod",
         api_base_port=9000,
         web_base_port=4000,
         port_range=100,
@@ -310,7 +310,7 @@ def test_env_phase_https_loads_policy_through_relay(monkeypatch):
                     "trigger": "flow",
                     "flow_id": "yoke-preview",
                     "preview_domain": "preview.example.com",
-                    "host_env": "production",
+                    "host_env": "prod",
                 }),
             }
         else:

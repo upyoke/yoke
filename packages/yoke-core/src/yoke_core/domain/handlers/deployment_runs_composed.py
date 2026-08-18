@@ -57,10 +57,7 @@ def handle_deployment_run_start_for_item(
             "project": str(result.project),
             "flow": str(result.flow),
             "target_tier": str(result.target_tier or ""),
-            "target_environment_id": str(result.target_environment_id or ""),
-            "target_environment_name": str(
-                result.target_environment_name or ""
-            ),
+            "target_environment": str(result.target_environment_name or ""),
             "validation_message": result.validation_message,
         },
         primary_success=True,

@@ -69,12 +69,12 @@ class TestProjectRendererSettingsLoader:
                 "name TEXT, public_item_prefix TEXT DEFAULT 'YOK')"
             )
             conn.execute(
-                "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER, "
+                "CREATE TABLE sites (id INTEGER PRIMARY KEY, project_id INTEGER, "
                 "name TEXT, settings TEXT)"
             )
             conn.execute(
-                "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT, "
-                "name TEXT, settings TEXT)"
+                "CREATE TABLE environments (id INTEGER PRIMARY KEY, site INTEGER, "
+                "project_id INTEGER, name TEXT, settings TEXT)"
             )
             conn.execute(
                 "CREATE TABLE project_capabilities (project_id INTEGER, type TEXT, "
@@ -88,7 +88,7 @@ class TestProjectRendererSettingsLoader:
                 "INSERT INTO sites (id, project_id, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "externalwebapp-web",
+                    101,
                     2,
                     "ExternalWebapp Web",
                     json.dumps(
@@ -111,12 +111,13 @@ class TestProjectRendererSettingsLoader:
                 ),
             )
             conn.execute(
-                "INSERT INTO environments (id, site, name, settings) "
-                "VALUES (%s, %s, %s, %s)",
+                "INSERT INTO environments (id, site, project_id, name, settings) "
+                "VALUES (%s, %s, %s, %s, %s)",
                 (
-                    "externalwebapp-web-production",
-                    "externalwebapp-web",
-                    "production",
+                    201,
+                    101,
+                    2,
+                    "prod",
                     json.dumps(
                         {
                             "hosts": {"origin": "origin.externalwebapp.example.com"},
@@ -147,9 +148,9 @@ class TestProjectRendererSettingsLoader:
             values = _values_from_settings("externalwebapp", settings)
 
             assert settings.display_name == "ExternalWebapp"
-            assert settings.site_id == "externalwebapp-web"
+            assert settings.site_id == "101"
             assert settings.primary_environment is not None
-            assert settings.primary_environment.name == "production"
+            assert settings.primary_environment.name == "prod"
             assert settings.capabilities["ssh"]["default_user"] == "ubuntu"
             assert values["project_slug"] == "externalwebapp"
             assert values["domain_name"] == "example.com"
@@ -180,12 +181,12 @@ class TestProjectRendererSettingsLoader:
                 "name TEXT, public_item_prefix TEXT DEFAULT 'YOK')"
             )
             conn.execute(
-                "CREATE TABLE sites (id TEXT PRIMARY KEY, project_id INTEGER, "
+                "CREATE TABLE sites (id INTEGER PRIMARY KEY, project_id INTEGER, "
                 "name TEXT, settings TEXT)"
             )
             conn.execute(
-                "CREATE TABLE environments (id TEXT PRIMARY KEY, site TEXT, "
-                "name TEXT, settings TEXT)"
+                "CREATE TABLE environments (id INTEGER PRIMARY KEY, site INTEGER, "
+                "project_id INTEGER, name TEXT, settings TEXT)"
             )
             conn.execute(
                 "INSERT INTO projects (id, slug, name) VALUES (%s, %s, %s)",
@@ -195,7 +196,7 @@ class TestProjectRendererSettingsLoader:
                 "INSERT INTO sites (id, project_id, name, settings) "
                 "VALUES (%s, %s, %s, %s)",
                 (
-                    "externalwebapp-web",
+                    101,
                     2,
                     "ExternalWebapp Web",
                     json.dumps(
@@ -208,21 +209,23 @@ class TestProjectRendererSettingsLoader:
                 ),
             )
             conn.execute(
-                "INSERT INTO environments (id, site, name, settings) "
-                "VALUES (%s, %s, %s, %s)",
+                "INSERT INTO environments (id, site, project_id, name, settings) "
+                "VALUES (%s, %s, %s, %s, %s)",
                 (
-                    "externalwebapp-web-a-home",
-                    "externalwebapp-web",
+                    201,
+                    101,
+                    2,
                     "settings-home",
                     json.dumps({"integrations": {"mail": "smtp.example.com"}}),
                 ),
             )
             conn.execute(
-                "INSERT INTO environments (id, site, name, settings) "
-                "VALUES (%s, %s, %s, %s)",
+                "INSERT INTO environments (id, site, project_id, name, settings) "
+                "VALUES (%s, %s, %s, %s, %s)",
                 (
-                    "externalwebapp-web-live",
-                    "externalwebapp-web",
+                    202,
+                    101,
+                    2,
                     "live",
                     json.dumps(
                         {
@@ -238,7 +241,7 @@ class TestProjectRendererSettingsLoader:
             values = _values_from_settings("externalwebapp", settings)
 
             assert settings.primary_environment is not None
-            assert settings.primary_environment.id == "externalwebapp-web-live"
+            assert settings.primary_environment.id == "202"
             assert values["origin_host"] == "origin.externalwebapp.example.com"
             assert values["origin_ip"] == "203.0.113.50"
         finally:

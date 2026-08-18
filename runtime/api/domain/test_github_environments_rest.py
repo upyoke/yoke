@@ -60,7 +60,7 @@ def _install_fake_urlopen(monkeypatch, responses: list[Any]):
 def test_put_environment_with_protection_rules(monkeypatch):
     received = _install_fake_urlopen(
         monkeypatch,
-        [_FakeResponse(200, {"id": 1, "name": "production"})],
+        [_FakeResponse(200, {"id": 1, "name": "prod"})],
     )
 
     config = {
@@ -72,12 +72,12 @@ def test_put_environment_with_protection_rules(monkeypatch):
         },
     }
     result = mod.put_environment(
-        "owner/repo", "production", token="ghs_environment_test", config=config
+        "owner/repo", "prod", token="ghs_environment_test", config=config
     )
 
-    assert result["name"] == "production"
+    assert result["name"] == "prod"
     assert received[0]["method"] == "PUT"
-    assert "/repos/owner/repo/environments/production" in received[0]["url"]
+    assert "/repos/owner/repo/environments/prod" in received[0]["url"]
 
     body = json.loads(received[0]["body"].decode("utf-8"))
     assert body["wait_timer"] == 0
@@ -87,11 +87,11 @@ def test_put_environment_with_protection_rules(monkeypatch):
 def test_put_environment_basic_no_config(monkeypatch):
     received = _install_fake_urlopen(
         monkeypatch,
-        [_FakeResponse(200, {"id": 2, "name": "staging"})],
+        [_FakeResponse(200, {"id": 2, "name": "stage"})],
     )
 
     mod.put_environment(
-        "owner/repo", "staging", token="ghs_environment_test", config=None
+        "owner/repo", "stage", token="ghs_environment_test", config=None
     )
 
     body = json.loads(received[0]["body"].decode("utf-8"))
@@ -107,7 +107,7 @@ def test_put_environment_falls_back_when_protection_unsupported(monkeypatch):
         monkeypatch,
         [
             urllib.error.HTTPError(
-                url="https://api.github.com/repos/owner/repo/environments/production",
+                url="https://api.github.com/repos/owner/repo/environments/prod",
                 code=422,
                 msg="Unprocessable Entity",
                 hdrs=None,
@@ -119,7 +119,7 @@ def test_put_environment_falls_back_when_protection_unsupported(monkeypatch):
     with pytest.raises(RestUnprocessableError):
         mod.put_environment(
             "owner/repo",
-            "production",
+            "prod",
             token="ghs_environment_test",
             config={"wait_timer": 0},
         )

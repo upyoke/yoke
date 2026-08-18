@@ -20,9 +20,9 @@ def _ensure_flow_schema(conn) -> None:
     # fixture databases without a registry keep the column unconstrained,
     # the same stance items.deployment_flow takes.
     environment_ref = (
-        "TEXT REFERENCES environments(id)"
+        "INTEGER REFERENCES environments(id)"
         if _table_exists(conn, "environments")
-        else "TEXT"
+        else "INTEGER"
     )
     conn.execute(f"""\
         CREATE TABLE IF NOT EXISTS deployment_flows (
@@ -111,7 +111,7 @@ def cmd_init(conn) -> str:
     return "Deployment flows initialized"
 
 
-def create_or_replace_item_progress_view(conn) -> None:
+def create_or_replace_item_progress_view(conn, *, commit: bool = True) -> None:
     """Create or replace ``item_progress_view``.
 
     Drops and recreates the view from the canonical fresh-schema
@@ -212,4 +212,5 @@ def create_or_replace_item_progress_view(conn) -> None:
             {flow_env_join}
         """)
 
-    conn.commit()
+    if commit:
+        conn.commit()

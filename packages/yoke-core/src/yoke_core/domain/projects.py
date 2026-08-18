@@ -13,8 +13,6 @@ Subcommands:
     capability-get-settings, capability-set-settings, capability-merge-settings,
     capability-get-secret, capability-set-secret, capability-list-secrets,
     capability-list,
-    environment-get-settings, environment-set-settings,
-    environment-merge-settings,
     resolve-deploy-envs
 
 Settings writers are lost-update protected: full-document set-settings is
@@ -41,11 +39,6 @@ from yoke_core.domain.db_helpers import (  # noqa: F401
 from yoke_core.domain.projects_restart import (  # noqa: F401
     cmd_init,
     cmd_resolve_deploy_envs,
-)
-from yoke_core.domain.projects_environments_settings import (
-    ENVIRONMENT_SETTINGS_COMMANDS,
-    register_environment_settings_parsers,
-    run_environment_settings_command,
 )
 from yoke_core.domain.projects_capabilities_settings import (  # noqa: F401
     CAPABILITY_SETTINGS_COMMANDS,
@@ -171,9 +164,6 @@ def _build_parser() -> "argparse.ArgumentParser":
 
     register_capability_secret_parsers(sub)
 
-    # environment-get-settings / environment-set-settings
-    register_environment_settings_parsers(sub)
-
     # resolve-deploy-envs
     p = sub.add_parser("resolve-deploy-envs", help="List valid deployment envs (DB only)")
     p.add_argument("project")
@@ -271,8 +261,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         elif args.command in CAPABILITY_SECRET_COMMANDS:
             return run_capability_secret_command(args)
 
-        elif args.command in ENVIRONMENT_SETTINGS_COMMANDS:
-            return run_environment_settings_command(args)
 
         elif args.command == "resolve-deploy-envs":
             result = cmd_resolve_deploy_envs(args.project)

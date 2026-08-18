@@ -42,7 +42,7 @@ def _active_item_lane_branch(item_ref: str) -> str:
 def resolve_flow_gate_branch(
     project: str,
     target_tier: str,
-    target_environment_id: str,
+    environment: str,
     repo_root: str = "",
 ) -> str:
     """Resolve the branch a flow's merged gate verifies against.
@@ -59,12 +59,12 @@ def resolve_flow_gate_branch(
 
     if target_tier == TARGET_TIER_EPHEMERAL:
         return ""
-    if project and target_environment_id:
+    if project and environment:
         from yoke_core.domain.deploy_environment_settings import (
             declared_env_branch,
         )
 
-        declared = declared_env_branch(project, target_environment_id)
+        declared = declared_env_branch(project, environment)
         if declared:
             return declared
     from yoke_core.domain import project_settings

@@ -23,6 +23,12 @@ class _OpenConnection:
 def _seed_run(test_db, run_id: str, status: str) -> None:
     flow_id = f"flow-{run_id}"
     test_db.execute(
+        "INSERT INTO environments(site, project_id, name, created_at) "
+        "SELECT id, 1, 'prod', '2026-08-05T00:00:00Z' FROM sites "
+        "WHERE project_id=1 ORDER BY id LIMIT 1 "
+        "ON CONFLICT(project_id,name) DO NOTHING"
+    )
+    test_db.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, stages, created_at) "
         "VALUES (%s, 1, %s, '[]', '2026-08-05T00:00:00Z')",
@@ -31,7 +37,8 @@ def _seed_run(test_db, run_id: str, status: str) -> None:
     test_db.execute(
         "INSERT INTO deployment_runs "
         "(id, project_id, flow, target_tier, target_environment_id, status, current_stage, created_at) "
-        "VALUES (%s, 1, %s, 'persistent', 'production', %s, "
+        "VALUES (%s, 1, %s, 'persistent', "
+        "(SELECT id FROM environments WHERE project_id=1 AND name='prod'), %s, "
         "'hosted-release', '2026-08-05T00:00:00Z')",
         (run_id, flow_id, status),
     )

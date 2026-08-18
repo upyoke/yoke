@@ -49,7 +49,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
         "INSERT INTO sites (id, project_id, name, description, created_at) "
         "VALUES (%s, %s, %s, %s, %s)",
         (
-            "ui-app",
+            501,
             int(project_id),
             "Application",
             "UI delivery proof",
@@ -58,12 +58,13 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     )
     test_db.execute(
         "INSERT INTO environments ("
-        "id, site, name, url, deploy_method, health_check_url, settings, "
-        "created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        "id, site, project_id, name, url, deploy_method, health_check_url, "
+        "settings, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
-            "ui-prod",
-            "ui-app",
-            "Production",
+            601,
+            501,
+            int(project_id),
+            "prod",
             "https://example.test",
             "github-actions",
             "https://example.test/health",
@@ -87,14 +88,12 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     assert envelope["result"] == {
         "project": project_id,
         "sites": [{
-            "id": "ui-app",
             "name": "Application",
             "description": "UI delivery proof",
         }],
         "environments": [{
-            "id": "ui-prod",
-            "site": "ui-app",
-            "name": "Production",
+            "site": "Application",
+            "name": "prod",
             "url": "https://example.test",
             "deploy_method": "github-actions",
             "health_check_url": "https://example.test/health",
@@ -113,7 +112,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
             "function": "projects.environment_settings.get",
             "payload": {
                 "project": project_id,
-                "environment_id": "ui-prod",
+                "environment": "prod",
                 "paths": ["git.branch"],
             },
         },
@@ -124,7 +123,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     assert settings_envelope["success"] is True
     assert settings_envelope["result"] == {
         "project": project_id,
-        "environment_id": "ui-prod",
+        "environment": "prod",
         "values": {"git.branch": "main"},
     }
     assert (

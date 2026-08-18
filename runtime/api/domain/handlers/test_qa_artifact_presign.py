@@ -44,13 +44,14 @@ def _seed(
     # create them in the production shape (projects_restart_schema).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
-        "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
+        "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
         " description TEXT, created_at TEXT NOT NULL,"
         " settings TEXT DEFAULT '{}')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS environments ("
-        "id TEXT PRIMARY KEY, site TEXT NOT NULL, name TEXT NOT NULL,"
+        "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL,"
+        " name TEXT NOT NULL,"
         " url TEXT, deploy_method TEXT, deploy_command TEXT,"
         " health_check_url TEXT, config_notes TEXT, last_deployed_at TEXT,"
         " created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
@@ -71,14 +72,17 @@ def _seed(
         )
     conn.execute(
         "INSERT INTO sites (id, project_id, name, created_at) "
-        "VALUES ('site-1', 1, 'core', '2026-06-12T00:00:00Z')",
+        "VALUES (101, 1, 'core', '2026-06-12T00:00:00Z')",
     )
-    for name, bucket in (env_buckets or {}).items():
+    for environment_id, (name, bucket) in enumerate(
+        (env_buckets or {}).items(), start=201
+    ):
         settings = json.dumps({"artifacts": {"bucket": bucket}}) if bucket else "{}"
         conn.execute(
-            "INSERT INTO environments (id, site, name, settings, created_at) "
-            "VALUES (%s, 'site-1', %s, %s, '2026-06-12T00:00:00Z')",
-            (f"env-{name}", name, settings),
+            "INSERT INTO environments "
+            "(id, site, project_id, name, settings, created_at) "
+            "VALUES (%s, 101, 1, %s, %s, '2026-06-12T00:00:00Z')",
+            (environment_id, name, settings),
         )
     if region:
         conn.execute(

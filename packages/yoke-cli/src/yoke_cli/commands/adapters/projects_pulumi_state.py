@@ -19,7 +19,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 PULUMI_STATE_MIGRATE_USAGE = (
-    "yoke projects pulumi-state migrate --project NAME --site-id ID "
+    "yoke projects pulumi-state migrate --project NAME --site NAME "
     "--stack NAME [--stack NAME ...] [--apply] [--json]"
 )
 PULUMI_STATE_CHECKPOINT_IMPORT_USAGE = (
@@ -39,7 +39,7 @@ def projects_pulumi_state_migrate(args: List[str]) -> int:
         ),
     )
     parser.add_argument("--project", required=True)
-    parser.add_argument("--site-id", required=True)
+    parser.add_argument("--site", required=True)
     parser.add_argument("--stack", dest="stack_names", action="append", required=True)
     parser.add_argument("--apply", action="store_true")
     add_session_arg(parser)
@@ -60,7 +60,7 @@ def projects_pulumi_state_migrate(args: List[str]) -> int:
         target=TargetRef(kind="global"),
         payload={
             "project": parsed.project,
-            "site_id": parsed.site_id,
+            "site": parsed.site,
             "stack_names": parsed.stack_names,
             "apply": parsed.apply,
         },

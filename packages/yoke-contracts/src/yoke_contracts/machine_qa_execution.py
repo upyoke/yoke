@@ -79,7 +79,7 @@ class MachineQaCaseContract(BaseModel):
             or int(target_project.get("id") or 0) != self.project_id
             or str(target_project.get("slug") or "") != self.project
             or not isinstance(environment, dict)
-            or not str(environment.get("id") or "")
+            or set(environment) != {"name"}
             or not str(environment.get("name") or "")
             or not isinstance(tenant, dict)
             or not str(tenant.get("slug") or "")

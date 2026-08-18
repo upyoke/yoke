@@ -55,37 +55,33 @@ PROJECT_ADAPTERS = [
     AdapterEntry(
         function_id="projects.site.create",
         cli_invocation=(
-            "yoke projects site create --project P --site-slug SLUG "
+            "yoke projects site create --project P --site NAME "
             "[--settings-json JSON]"
         ),
         notes=(
-            "idempotent site registration: an existing slug owned by the "
-            "same project reports already_present untouched; a slug owned "
-            "by another project refuses"
+            "idempotent site registration by the project's readable name"
         ),
     ),
     AdapterEntry(
         function_id="projects.environment.create",
         cli_invocation=(
-            "yoke projects environment create --project P --site-slug SLUG "
-            "--environment-id ID [--name prod|stage] [--settings-json JSON]"
+            "yoke projects environment create --project P --site NAME "
+            "--environment NAME [--settings-json JSON]"
         ),
         notes=(
-            "idempotent environment registration under a project-owned "
-            "site (resolves ownership through the site row); an existing "
-            "id under the same site reports already_present untouched; "
-            "optional --name sets the closed delivery name at insert"
+            "idempotent environment registration by readable name under a "
+            "project-owned site; names are unique within the project"
         ),
     ),
     AdapterEntry(
         function_id="projects.environment.update",
         cli_invocation=(
             "yoke projects environment update --project P "
-            "--environment-id ID --name prod|stage"
+            "--environment NAME --name NEW_NAME"
         ),
         notes=(
-            "renames an existing environment in place; id and site stay "
-            "stable and the name must be prod or stage"
+            "renames an existing environment selected by its current readable "
+            "name; the new name must remain unique within the project"
         ),
     ),
 ]

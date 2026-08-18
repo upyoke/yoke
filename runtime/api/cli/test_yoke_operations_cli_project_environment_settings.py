@@ -22,7 +22,7 @@ def _run(*argv: str):
             {"values": {"pulumi.activation_state": "render_only"}}
             if request.function == "projects.environment_settings.get"
             else {
-                "environment_id": "yoke-api-prod",
+                "environment": "prod",
                 "changed_paths": ["pulumi.activation_state", "servers"],
             }
         )
@@ -57,8 +57,8 @@ def test_get_dispatches_environment_identity():
         "get",
         "--project",
         "platform",
-        "--environment-id",
-        "yoke-api-prod",
+        "--environment",
+        "prod",
         "--path",
         "pulumi.activation_state",
     )
@@ -67,7 +67,7 @@ def test_get_dispatches_environment_identity():
     assert calls[0].function == "projects.environment_settings.get"
     assert calls[0].payload == {
         "project": "platform",
-        "environment_id": "yoke-api-prod",
+        "environment": "prod",
         "paths": ["pulumi.activation_state"],
     }
 
@@ -79,8 +79,8 @@ def test_merge_parses_json_values():
         "merge",
         "--project",
         "platform",
-        "--environment-id",
-        "yoke-api-prod",
+        "--environment",
+        "prod",
         "--set",
         "pulumi.activation_state=render_only",
         "--set",

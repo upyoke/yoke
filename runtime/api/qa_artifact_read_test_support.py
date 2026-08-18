@@ -79,23 +79,25 @@ def seed_artifact(
 def seed_s3_configuration(conn, *, bucket: str) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sites ("
-        "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
+        "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
         "description TEXT, created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
     )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS environments ("
-        "id TEXT PRIMARY KEY, site TEXT NOT NULL, name TEXT NOT NULL,"
+        "id INTEGER PRIMARY KEY, site INTEGER NOT NULL, project_id INTEGER NOT NULL,"
+        "name TEXT NOT NULL,"
         "url TEXT, deploy_method TEXT, deploy_command TEXT,"
         "health_check_url TEXT, config_notes TEXT, last_deployed_at TEXT,"
         "created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
     )
     conn.execute(
         "INSERT INTO sites (id, project_id, name, created_at) "
-        "VALUES ('site-1', 1, 'core', '2026-07-28T00:00:00Z')"
+        "VALUES (101, 1, 'core', '2026-07-28T00:00:00Z')"
     )
     conn.execute(
-        "INSERT INTO environments (id, site, name, settings, created_at) "
-        "VALUES ('env-prod', 'site-1', 'prod', %s, "
+        "INSERT INTO environments "
+        "(id, site, project_id, name, settings, created_at) "
+        "VALUES (201, 101, 1, 'prod', %s, "
         "'2026-07-28T00:00:00Z')",
         (json.dumps({"artifacts": {"bucket": bucket}}),),
     )

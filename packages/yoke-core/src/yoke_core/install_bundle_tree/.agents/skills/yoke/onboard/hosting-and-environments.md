@@ -87,12 +87,12 @@ Installing a Pack lands source in the repo only — its stacks do not run until 
 Registration is idempotent: an existing row with the same identity reports already-present and is never overwritten.
 
 ```bash
-yoke projects site create --project {project} --site-slug {site_slug}
-yoke projects environment create --project {project} --site-slug {site_slug} --environment-id stage
-yoke projects environment create --project {project} --site-slug {site_slug} --environment-id prod
+yoke projects site create --project {project} --site {site_name}
+yoke projects environment create --project {project} --site {site_name} --environment stage
+yoke projects environment create --project {project} --site {site_name} --environment prod
 ```
 
-Discover what already exists with the metadata-only inventory (`yoke projects infrastructure list --project {project} --json`). Read environment configuration only through explicit scalar leaf projections (`yoke projects environment-settings get --project {project} --environment-id {environment_id} --path {key.path} --json`); never dump an environment settings document.
+Discover what already exists with the metadata-only inventory (`yoke projects infrastructure list --project {project} --json`). Read environment configuration only through explicit scalar leaf projections (`yoke projects environment-settings get --project {project} --environment {environment} --path {key.path} --json`); never dump an environment settings document.
 
 ### Declare the deploy flows and the default
 

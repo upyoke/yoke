@@ -89,7 +89,7 @@ class TestConfigureCapability:
         # Item 3 has project='externalwebapp'
         resp = client.post("/v1/items/3/capability", json={
             "type": "deploy",
-            "config": {"target": "staging"},
+            "config": {"target": "stage"},
         })
         assert resp.status_code == 201
         data = resp.json()

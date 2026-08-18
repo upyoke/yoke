@@ -66,7 +66,7 @@ Emission pattern: Explicit calls from application code via events.py module
  "source_type": "backend",
  "duration_ms": 89,
 
- "environment": "production",
+ "environment": "prod",
  "service": "api",
  "service_version": "2.1.0",
  "project": "external-webapp",
@@ -114,7 +114,7 @@ Emission pattern: Client-side SDK calls, batched to /api/events endpoint
  "source_type": "frontend",
  "duration_ms": null,
 
- "environment": "production",
+ "environment": "prod",
  "service": "web",
  "service_version": "3.0.1",
  "project": "external-webapp",
@@ -171,7 +171,7 @@ Emission pattern: Explicit `yoke_core.domain.events.emit_event` calls from Pytho
  "source_type": "system",
  "duration_ms": 1523,
 
- "environment": "production",
+ "environment": "prod",
  "service": "cron",
  "service_version": null,
  "project": "yoke",

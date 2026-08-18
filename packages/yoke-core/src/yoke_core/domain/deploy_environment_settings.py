@@ -254,7 +254,7 @@ def deploy_environment_from_settings(
     )
 
 
-def declared_env_branch(project: str, environment_id: str) -> str:
+def declared_env_branch(project: str, environment: str) -> str:
     """Return the environment's declared deploy branch, or ``""``.
 
     Narrow read of ``environments.settings.git.branch`` that tolerates env
@@ -266,7 +266,7 @@ def declared_env_branch(project: str, environment_id: str) -> str:
     """
     settings = load_project_renderer_settings(project)
     env = next(
-        (e for e in settings.environments if e.id == environment_id), None
+        (e for e in settings.environments if e.name == environment), None
     )
     if env is None:
         return ""

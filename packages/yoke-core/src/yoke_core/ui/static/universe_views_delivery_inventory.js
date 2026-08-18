@@ -114,11 +114,11 @@ function branchesByEnvironment(callResults) {
   const branches = new Map();
   for (const callResult of callResults) {
     const result = callResult.envelope.result || {};
-    if (!result.environment_id || !result.values) continue;
+    if (!result.environment || !result.values) continue;
     const branch = result.values["git.branch"];
     if (branch !== null && branch !== undefined && String(branch).trim()) {
       branches.set(
-        `${String(result.project)}:${String(result.environment_id)}`,
+        `${String(result.project)}:${String(result.environment)}`,
         String(branch),
       );
     }
@@ -153,7 +153,7 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
         functionId: "projects.environment_settings.get",
         payload: {
           project: projectIdentity(directory, row),
-          environment_id: String(row.id),
+          environment: String(row.name),
           paths: ["git.branch"],
         },
       })),
@@ -175,24 +175,20 @@ export function renderDeliveryEnvironmentsView(context, main, scope) {
         const latestRuns = latestRunsByEnvironment(runs, directory);
         const latestFor = (row) => {
           const project = projectIdentity(directory, row);
-          for (const environment of [row.id, row.name]) {
-            const latest = latestRuns.get(
-              `${project}:${String(environment || "").toLowerCase()}`,
-            );
-            if (latest) return latest;
-          }
-          return null;
+          return latestRuns.get(
+            `${project}:${String(row.name || "").toLowerCase()}`,
+          ) || null;
         };
         panel.setCount(environments.length);
         renderTable(
           body,
           environments,
           withProjectColumn([
-            { label: "environment", value: (row) => row.name || row.id },
+            { label: "environment", value: (row) => row.name },
             {
               label: "branch",
               value: (row) => branches.get(
-                `${projectIdentity(directory, row)}:${String(row.id)}`,
+                `${projectIdentity(directory, row)}:${String(row.name)}`,
               ) || "not exposed",
             },
             { label: "auto-deploy", value: () => "not exposed" },
@@ -280,7 +276,7 @@ export function renderDeliveryInfrastructureView(context, main, scope) {
         body,
         rows,
         [
-          { label: "environment", value: (row) => row.name || row.id },
+          { label: "environment", value: (row) => row.name },
           { label: "project", value: (row) => projectLabel(directory, row) },
           { label: "what backs it", value: () => "not exposed" },
           { label: "code source", value: () => "project-owned" },

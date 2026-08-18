@@ -168,7 +168,7 @@ class TestResolveTarget:
             environment_override="prod",
             db_path=db_path,
         )
-        assert result == ("persistent", "ewa-prod", "prod")
+        assert result == ("persistent", 203, "prod")
 
     def test_override_refuses_unregistered(self, db_path):
         with pytest.raises(ValueError, match="not registered"):
@@ -182,13 +182,13 @@ class TestResolveTarget:
         result = dr.cmd_resolve_target(
             "externalwebapp", "externalwebapp-standard", db_path=db_path,
         )
-        assert result == ("persistent", "preview", "preview")
+        assert result == ("persistent", 202, "preview")
 
     def test_no_default_returns_empty(self, db_path):
         result = dr.cmd_resolve_target(
             "yoke", "yoke-internal", db_path=db_path,
         )
-        assert result == ("", "", "")
+        assert result == ("", None, "")
 
 
 class TestCancelledStatus:

@@ -1,7 +1,7 @@
 """Project bootstrap setup mutations.
 
 Hosts ``run_setup`` — the writer surface that creates the GitHub
-secrets, configures the production environment, installs only explicitly
+secrets, configures the prod environment, installs only explicitly
 selected missing Packs, and prints the TLS-provisioning runbook. SSH subprocess
 invocations route through ``_run`` so test suites can
 intercept those via a single monkeypatch; GitHub mutations route
@@ -141,7 +141,7 @@ def run_setup(ctx: BootstrapContext) -> int:
         f"  Recorded resolved key_path in project_capabilities.ssh: {cfg.ssh_key_path}"
     )
 
-    print("\n--- Step 3: Configuring production environment (optional) ---")
+    print("\n--- Step 3: Configuring prod environment (optional) ---")
     admin_resolved = None
     conn = helpers._connect()
     try:
@@ -168,11 +168,11 @@ def run_setup(ctx: BootstrapContext) -> int:
             "Administration: write, then rerun setup."
         )
         print(
-            "  Or create the production environment under the repository's "
+            "  Or create the prod environment under the repository's "
             "Settings → Environments page."
         )
     else:
-        env_path = f"/repos/{admin_resolved.repo}/environments/production"
+        env_path = f"/repos/{admin_resolved.repo}/environments/prod"
         try:
             gh_rest_transport.request_with_retry(
                 gh_rest_transport.RestRequest(
@@ -182,15 +182,15 @@ def run_setup(ctx: BootstrapContext) -> int:
                 ),
                 token=admin_resolved.token,
             )
-            print("  Creating production environment... done")
+            print("  Creating prod environment... done")
             print(
                 "  Configure required reviewers in GitHub settings if this "
                 "deployment needs a human approval gate."
             )
         except gh_rest_transport.RestTransportError as exc:
-            print("  Creating production environment... FAILED", file=sys.stderr)
+            print("  Creating prod environment... FAILED", file=sys.stderr)
             print(
-                f"Error: Failed to create production environment: {exc}",
+                f"Error: Failed to create prod environment: {exc}",
                 file=sys.stderr,
             )
             return 2

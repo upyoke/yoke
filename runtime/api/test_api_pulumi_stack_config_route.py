@@ -160,7 +160,7 @@ def test_stack_config_serves_deterministic_snapshot(client) -> None:
     assert first.status_code == 200
     assert first.json() == second.json()
     payload = first.json()
-    assert payload["config_schema"] == 1
+    assert payload["config_schema"] == 2
     assert payload["project_id"] == 1
     assert payload["project_slug"] == "yoke"
     snapshot = payload["renderer_settings"]

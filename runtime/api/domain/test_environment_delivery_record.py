@@ -28,25 +28,30 @@ def test_create_run_refuses_unregistered_environment(delivery_db) -> None:
         )
 
 
-def test_create_run_accepts_registered_name_and_id(delivery_db) -> None:
+def test_create_run_accepts_registered_name(delivery_db) -> None:
     named = dr.cmd_create_run(
         "yoke", "flow-main", environment="prod", db_path=delivery_db,
     )
-    keyed = dr.cmd_create_run(
-        "yoke", "flow-main", environment="production", db_path=delivery_db,
-    )
     assert named.startswith("run-")
-    assert keyed.startswith("run-")
 
 
-def test_override_resolves_a_name_to_the_environment_id(delivery_db) -> None:
+def test_override_keeps_operator_reads_name_only(delivery_db) -> None:
     run_id = dr.cmd_create_run(
         "yoke", "flow-main", environment="prod", db_path=delivery_db,
     )
     stored = dr.cmd_get(
-        run_id, field="target_environment_id", db_path=delivery_db,
+        run_id, field="target_environment", db_path=delivery_db,
     )
-    assert stored == "production"
+    assert stored == "prod"
+    conn = connect_test_db(delivery_db)
+    try:
+        internal = conn.execute(
+            "SELECT target_environment_id FROM deployment_runs WHERE id = %s",
+            (run_id,),
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert internal == 201
 
 
 def test_succeeded_run_stamps_last_deployed_at(delivery_db) -> None:
@@ -58,7 +63,7 @@ def test_succeeded_run_stamps_last_deployed_at(delivery_db) -> None:
     try:
         stamped = conn.execute(
             "SELECT last_deployed_at FROM environments WHERE id = %s",
-            ("production",),
+            (201,),
         ).fetchone()
     finally:
         conn.close()
@@ -70,5 +75,5 @@ def test_merge_only_flow_carries_no_environment(delivery_db) -> None:
     run_id = dr.cmd_create_run("yoke", "flow-preview", db_path=delivery_db)
     assert run_id.startswith("run-")
     assert dr.cmd_get(
-        run_id, field="target_environment_id", db_path=delivery_db,
+        run_id, field="target_environment", db_path=delivery_db,
     ) == ""

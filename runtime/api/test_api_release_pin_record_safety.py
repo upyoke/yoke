@@ -35,7 +35,8 @@ def test_record_refuses_to_replace_a_configured_container_leaf(
     }
     with connect_test_db(release_pin_db["db_path"]) as conn:
         conn.execute(
-            "UPDATE environments SET settings=%s WHERE id='primary-stage'",
+            "UPDATE environments SET settings=%s "
+            "WHERE project_id=1 AND name='stage'",
             (json.dumps(before),),
         )
         conn.commit()
@@ -65,11 +66,12 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
         )
         conn.execute(
             "INSERT INTO sites (id, project_id, name, created_at) VALUES "
-            "('tenant-two-api', 42, 'Tenant Two API', '2026-01-01T00:00:00Z')"
+            "(103, 42, 'Tenant Two API', '2026-01-01T00:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO environments (id, site, name, settings, created_at) "
-            "VALUES ('tenant-two-live', 'tenant-two-api', 'customer-east', %s, "
+            "INSERT INTO environments "
+            "(id, site, project_id, name, settings, created_at) "
+            "VALUES (203, 103, 42, 'customer-east', %s, "
             "'2026-01-01T00:00:00Z')",
             (
                 json.dumps(
@@ -87,7 +89,6 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
             (
                 json.dumps(
                     {
-                        "environment_by_target": {"customer-east": "tenant-two-live"},
                         "desired_pin_path": "delivery.component_pin",
                     }
                 ),
@@ -158,7 +159,7 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
     settings_envelope["function"] = "projects.environment_settings.get"
     settings_envelope["payload"] = {
         "project": "externalwebapp",
-        "environment_id": "tenant-two-live",
+        "environment": "customer-east",
         "paths": ["delivery.component_pin", "monitoring.status_url"],
     }
     environment = client.post(
@@ -186,16 +187,15 @@ def test_duplicate_slug_records_only_the_authorized_tenant_environment(
     assert response.json()["result"] == {
         "project": "externalwebapp",
         "environment": "customer-east",
-        "environment_id": "tenant-two-live",
         "settings_path": "delivery.component_pin",
         "pin": "build-43",
         "changed": True,
     }
-    assert _stored_settings(db_path, "tenant-two-live") == {
+    assert _stored_settings(db_path, "customer-east", 42) == {
         "delivery": {"component_pin": "build-43"},
         "monitoring": {"status_url": "https://customer.example/status"},
     }
-    assert _stored_settings(db_path, "external-stage") == {}
+    assert _stored_settings(db_path, "customer-east", 2) == {}
     with connect_test_db(db_path) as conn:
         cross_tenant_capability = conn.execute(
             "SELECT settings FROM project_capabilities "

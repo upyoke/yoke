@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import (
 
 FLOW_ROW_FIELDS = (
     "id", "project", "name", "description", "stages", "on_failure",
-    "created_at", "target_tier", "target_environment_id",
+    "created_at", "target_tier", "target_environment",
     "done_description", "status",
 )
 
@@ -123,7 +123,7 @@ class DeploymentRunCreateResponse(BaseModel):
     project: str
     flow: str
     target_tier: Optional[str] = None
-    target_environment_id: Optional[str] = None
+    target_environment: Optional[str] = None
     release_lineage: Optional[str] = None
     status: str
 
@@ -142,8 +142,7 @@ class DeploymentRunStartForItemResponse(BaseModel):
     project: str
     flow: str
     target_tier: Optional[str] = None
-    target_environment_id: Optional[str] = None
-    target_environment_name: Optional[str] = None
+    target_environment: Optional[str] = None
     validation_message: Optional[str] = None
 
 
@@ -201,8 +200,7 @@ class DeploymentRunResolveTargetResponse(BaseModel):
     project: str
     flow: str
     target_tier: str
-    target_environment_id: str
-    target_environment_name: str
+    target_environment: str
 
 
 def error(

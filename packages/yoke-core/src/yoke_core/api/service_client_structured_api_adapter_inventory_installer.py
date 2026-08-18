@@ -132,12 +132,12 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="projects.environment_settings.get",
-        cli_invocation="yoke projects environment-settings get --project NAME --environment-id ID",
+        cli_invocation="yoke projects environment-settings get --project NAME --environment NAME",
         notes="Reads one project-owned environment settings document over the active transport.",
     ),
     AdapterEntry(
         function_id="projects.environment_settings.merge",
-        cli_invocation="yoke projects environment-settings merge --project NAME --environment-id ID --set KEY.PATH=VALUE",
+        cli_invocation="yoke projects environment-settings merge --project NAME --environment NAME --set KEY.PATH=VALUE",
         notes="Server-side read-merge-CAS composition with project/environment ownership verification.",
     ),
     AdapterEntry(
@@ -153,7 +153,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="projects.pulumi_state.migrate",
-        cli_invocation="yoke projects pulumi-state migrate --project NAME --site-id ID --stack NAME [--apply]",
+        cli_invocation="yoke projects pulumi-state migrate --project NAME --site NAME --stack NAME [--apply]",
         notes="Dry-run-default exact-set transactional move with a metadata-only receipt; sensitive Pulumi operator-state values never cross the function boundary.",
     ),
     AdapterEntry(

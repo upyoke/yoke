@@ -48,7 +48,7 @@ def test_migration_adapter_dispatches_exact_stack_set_and_dry_run():
     ):
         rc = cli_main([
             "projects", "pulumi-state", "migrate", "--project", "yoke",
-            "--site-id", "main", "--stack", "yoke-infra", "--stack",
+            "--site", "main", "--stack", "yoke-infra", "--stack",
             "yoke-vps",
         ])
     assert rc == 0
@@ -56,7 +56,7 @@ def test_migration_adapter_dispatches_exact_stack_set_and_dry_run():
     assert calls[0].function == "projects.pulumi_state.migrate"
     assert calls[0].payload == {
         "project": "yoke",
-        "site_id": "main",
+        "site": "main",
         "stack_names": ["yoke-infra", "yoke-vps"],
         "apply": False,
     }

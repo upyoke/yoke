@@ -27,24 +27,27 @@ def release_pin_db():
     db = next(fixture)
     with connect_test_db(db["db_path"]) as conn:
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS sites (id TEXT PRIMARY KEY, project_id INTEGER NOT "
-            "NULL, name TEXT NOT NULL, created_at TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS sites (id INTEGER PRIMARY KEY, project_id INTEGER NOT "
+            "NULL, name TEXT NOT NULL, created_at TEXT NOT NULL, "
+            "UNIQUE(id, project_id), UNIQUE(project_id, name))"
         )
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, site TEXT NOT "
-            "NULL, name TEXT NOT NULL, settings TEXT DEFAULT '{}', "
-            "last_deployed_at TEXT, created_at TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS environments (id INTEGER PRIMARY KEY, site INTEGER NOT "
+            "NULL, project_id INTEGER NOT NULL, name TEXT NOT NULL, "
+            "settings TEXT DEFAULT '{}', last_deployed_at TEXT, "
+            "created_at TEXT NOT NULL, UNIQUE(project_id, name), "
+            "FOREIGN KEY(site, project_id) REFERENCES sites(id, project_id))"
         )
         conn.execute(
             "INSERT INTO sites (id, project_id, name, created_at) VALUES "
-            "('primary-api', 1, 'Primary API', '2026-01-01T00:00:00Z'), "
-            "('external-api', 2, 'External API', '2026-01-01T00:00:00Z')"
+            "(101, 1, 'Primary API', '2026-01-01T00:00:00Z'), "
+            "(102, 2, 'External API', '2026-01-01T00:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO environments (id, site, name, settings, created_at) "
-            "VALUES ('primary-stage', 'primary-api', 'stage', %s, "
+            "INSERT INTO environments (id, site, project_id, name, settings, created_at) "
+            "VALUES (201, 101, 1, 'stage', %s, "
             "'2026-01-01T00:00:00Z'), "
-            "('external-stage', 'external-api', 'stage', '{}', "
+            "(202, 102, 2, 'customer-east', '{}', "
             "'2026-01-01T00:00:00Z')",
             (
                 json.dumps(
@@ -63,7 +66,6 @@ def release_pin_db():
             (
                 json.dumps(
                     {
-                        "environment_by_target": {"stage": "primary-stage"},
                         "desired_pin_path": "delivery.engine_version",
                     }
                 ),
@@ -106,10 +108,13 @@ def _envelope(
     }
 
 
-def _stored_settings(db_path: str, environment_id: str = "primary-stage") -> dict:
+def _stored_settings(
+    db_path: str, environment: str = "stage", project_id: int = 1,
+) -> dict:
     with connect_test_db(db_path) as conn:
         raw = conn.execute(
-            "SELECT settings FROM environments WHERE id=%s", (environment_id,)
+            "SELECT settings FROM environments WHERE project_id=%s AND name=%s",
+            (project_id, environment),
         ).fetchone()[0]
     return json.loads(str(raw))
 
@@ -147,7 +152,6 @@ def test_record_mutates_only_the_capability_configured_leaf(client, release_pin_
     assert result == {
         "project": "yoke",
         "environment": "stage",
-        "environment_id": "primary-stage",
         "settings_path": "delivery.engine_version",
         "pin": "0.1.1+launch.188",
         "changed": True,
@@ -168,11 +172,11 @@ def test_record_is_idempotent_when_the_same_pin_is_already_stored(
     assert response.json()["result"]["changed"] is False
 
 
-def test_legacy_capability_without_path_fails_closed(client, release_pin_db):
+def test_capability_without_path_fails_closed(client, release_pin_db):
     before = _stored_settings(release_pin_db["db_path"])
     _set_capability(
         release_pin_db["db_path"],
-        {"environment_by_target": {"stage": "primary-stage"}},
+        {},
     )
 
     response = client.post("/v1/functions/call", json=_envelope())
@@ -182,12 +186,12 @@ def test_legacy_capability_without_path_fails_closed(client, release_pin_db):
     assert _stored_settings(release_pin_db["db_path"]) == before
 
 
-def test_owner_merge_can_explicitly_converge_a_legacy_capability(
+def test_owner_merge_can_explicitly_configure_the_capability(
     client, release_pin_db
 ):
     _set_capability(
         release_pin_db["db_path"],
-        {"environment_by_target": {"stage": "primary-stage"}},
+        {},
     )
 
     cmd_capability_merge_settings(
@@ -202,25 +206,14 @@ def test_owner_merge_can_explicitly_converge_a_legacy_capability(
     assert response.json()["result"]["changed"] is True
 
 
-def test_unconfigured_target_and_cross_project_environment_are_refused(
+def test_an_environment_registered_only_to_another_project_is_refused(
     client, release_pin_db
 ):
-    unconfigured = client.post(
-        "/v1/functions/call", json=_envelope(environment="production")
+    response = client.post(
+        "/v1/functions/call", json=_envelope(environment="customer-east")
     )
-    assert unconfigured.status_code == 400
-    assert unconfigured.json()["error"]["code"] == "target_not_configured"
-
-    _set_capability(
-        release_pin_db["db_path"],
-        {
-            "environment_by_target": {"stage": "external-stage"},
-            "desired_pin_path": "delivery.engine_version",
-        },
-    )
-    mismatch = client.post("/v1/functions/call", json=_envelope())
-    assert mismatch.status_code == 400
-    assert mismatch.json()["error"]["code"] == "project_mismatch"
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
 
 
 def test_deployment_ci_can_record_but_cannot_use_generic_settings_mutation(
@@ -241,7 +234,7 @@ def test_deployment_ci_can_record_but_cannot_use_generic_settings_mutation(
             "function": "projects.environment_settings.merge",
             "payload": {
                 "project": "yoke",
-                "environment_id": "primary-stage",
+                "environment": "stage",
                 "assignments": {"unrelated": False},
             },
         },

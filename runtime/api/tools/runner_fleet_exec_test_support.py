@@ -53,7 +53,7 @@ def _write_snapshot(
     region: str | None = "us-east-1",
     aws_capability: str = "aws-admin",
     stack_name: str | None = None,
-    schema: int = 1,
+    schema: int = 2,
 ) -> Path:
     capabilities: dict[str, object] = {}
     if region is not None:
@@ -81,7 +81,7 @@ def _write_snapshot(
             "project": project,
             "deploy_namespace": project,
             "display_name": project.title(),
-            "site_id": f"{project}-site",
+            "site": f"{project} site",
             "site_settings": {},
             "environments": [],
             "capabilities": capabilities,

@@ -151,8 +151,7 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
         assert bundle["execution_target_digest"] == execution["execution_target_digest"]
         assert bundle["dispatch"]["authority"] == {
             "state": "bound",
-            "environment_id": execution["execution_target"]["environment"]["id"],
-            "environment_name": execution["execution_target"]["environment"]["name"],
+            "environment": execution["execution_target"]["environment"]["name"],
             "execution_target_digest": execution["execution_target_digest"],
         }
         assert bundle["dispatch"]["artifact_read_commands"] == [

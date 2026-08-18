@@ -27,12 +27,12 @@ from runtime.api.domain.test_project_renderer_pulumi import (
     [
         ("missing", {}, "match exactly one environment"),
         (
-            "production",
+            "prod",
             {"pulumi": {"activation_state": "active", "stack_name": "externalwebapp"}},
             "declare the vps capability",
         ),
         (
-            "production",
+            "prod",
             {
                 "capabilities": ["vps"],
                 "pulumi": {
@@ -43,7 +43,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
             "active Pulumi stack",
         ),
         (
-            "production",
+            "prod",
             {
                 "capabilities": ["vps"],
                 "pulumi": {"render_only": True, "stack_name": "externalwebapp"},
@@ -51,7 +51,7 @@ from runtime.api.domain.test_project_renderer_pulumi import (
             "active Pulumi stack",
         ),
         (
-            "production",
+            "prod",
             {
                 "capabilities": ["vps"],
                 "pulumi": {"activation_state": "active"},
@@ -112,7 +112,7 @@ def test_deployment_ssh_environment_defaults_to_active_stack():
         "pulumi": {"stack_name": "externalwebapp-live"},
     })
     runner = RunnerFleetSettings.model_validate({
-        "network": {"deployment_ssh_environments": ["production"]},
+        "network": {"deployment_ssh_environments": ["prod"]},
     })
 
     assert deployment_ssh_stack_names(settings, runner) == ["externalwebapp-live"]
@@ -126,17 +126,17 @@ def test_standalone_deployment_ssh_stacks_do_not_require_environment_rows():
     runner = RunnerFleetSettings.model_validate({
         "network": {
             "deployment_ssh_stack_names": [
-                "yoke-platform-vps", "upyoke/platform/production",
+                "yoke-platform-vps", "upyoke/platform/prod",
             ],
         },
     })
 
     assert deployment_ssh_stack_names(settings, runner) == [
-        "yoke-platform-vps", "upyoke/platform/production",
+        "yoke-platform-vps", "upyoke/platform/prod",
     ]
     assert deployment_ssh_stack_outputs(settings, runner) == {
         "yoke-platform-vps": STANDALONE_VPS_ELASTIC_IP_OUTPUT,
-        "upyoke/platform/production": STANDALONE_VPS_ELASTIC_IP_OUTPUT,
+        "upyoke/platform/prod": STANDALONE_VPS_ELASTIC_IP_OUTPUT,
     }
 
 
@@ -150,7 +150,7 @@ def test_deployment_ssh_stacks_merge_and_dedupe_after_environments():
     })
     runner = RunnerFleetSettings.model_validate({
         "network": {
-            "deployment_ssh_environments": ["production"],
+            "deployment_ssh_environments": ["prod"],
             "deployment_ssh_stack_names": [
                 "yoke-prod", "yoke-platform-vps", "yoke-platform-vps",
             ],

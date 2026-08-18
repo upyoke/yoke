@@ -67,7 +67,7 @@ class StartForItemResult:
     project: Optional[str] = None
     flow: Optional[str] = None
     target_tier: Optional[str] = None
-    target_environment_id: Optional[str] = None
+    target_environment_id: Optional[int] = None
     target_environment_name: Optional[str] = None
     run_id: Optional[str] = None
     validation_message: Optional[str] = None
@@ -81,8 +81,7 @@ class StartForItemResult:
             "project": self.project,
             "flow": self.flow,
             "target_tier": self.target_tier,
-            "target_environment_id": self.target_environment_id,
-            "target_environment_name": self.target_environment_name,
+            "target_environment": self.target_environment_name,
             "run_id": self.run_id,
             "item_ids": list(self.item_ids),
         }
@@ -160,7 +159,7 @@ def start_for_item(
             release_lineage, lineage_error = _resolve_remote_release_head(
                 resolved_project,
                 target_tier,
-                target_environment_id,
+                environment_name,
                 project_repo_path,
             )
         except Exception as exc:
@@ -188,7 +187,7 @@ def start_for_item(
             lineage_error = _validate_commit_release_lineage(
                 resolved_project,
                 target_tier,
-                target_environment_id,
+                environment_name,
                 release_lineage,
                 project_repo_path,
             )

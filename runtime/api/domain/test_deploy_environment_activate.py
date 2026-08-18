@@ -78,7 +78,7 @@ class TestEnsureInstanceRunning:
         assert "pulumi.origin_vps_stack_name" in message
         assert (
             "yoke projects environment-settings merge --project yoke "
-            "--environment-id yoke-api-prod --set "
+            "--environment prod --set "
             "pulumi.origin_vps_stack_name=<standalone-vps-stack-name>"
         ) in message
 

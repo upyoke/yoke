@@ -19,6 +19,12 @@ RUN_ID = "run-20260730-901"
 
 def _flow(conn: Any) -> None:
     conn.execute(
+        "INSERT INTO environments(site,project_id,name,created_at) "
+        "SELECT id,1,'stage','2026-07-30T00:00:00Z' FROM sites "
+        "WHERE project_id=1 ORDER BY id LIMIT 1 "
+        "ON CONFLICT(project_id,name) DO NOTHING"
+    )
+    conn.execute(
         "INSERT INTO deployment_flows("
         "id,project_id,name,description,stages,created_at,status"
         ") VALUES ('projected-stage',1,'Projected Stage','', '[]',"
@@ -33,7 +39,7 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
         "project": "yoke",
         "flow": "projected-stage",
         "target_tier": "persistent",
-        "target_environment_id": "stage",
+        "target_environment": "stage",
         "release_lineage": "git:49f55781b",
         "status": "succeeded",
         "current_stage": "complete",

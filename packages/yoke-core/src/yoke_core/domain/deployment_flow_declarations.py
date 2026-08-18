@@ -68,6 +68,12 @@ def reconcile_project_flows(
     default_flow_updated = False
     try:
         for flow in normalized.flows:
+            target_environment_id = _target_environment_id(
+                conn,
+                project_id=ident.id,
+                target_tier=flow.target_tier,
+                environment=flow.environment,
+            )
             row = conn.execute(
                 "SELECT project_id, name, description, stages, on_failure, "
                 "target_tier, target_environment_id, done_description, "
@@ -89,7 +95,7 @@ def reconcile_project_flows(
                         flow.stages,
                         flow.on_failure,
                         flow.target_tier,
-                        flow.target_environment_id,
+                        target_environment_id,
                         flow.done_description,
                         flow.status,
                         iso8601_now(),
@@ -111,7 +117,10 @@ def reconcile_project_flows(
                 "done_description": row[7],
                 "status": row[8],
             }
-            desired = flow.__dict__
+            desired = {
+                **flow.__dict__,
+                "target_environment_id": target_environment_id,
+            }
             definition_changed = any(
                 not _field_equal(field, existing[field], desired[field])
                 for field in _DEFINITION_FIELDS
@@ -133,7 +142,7 @@ def reconcile_project_flows(
                     flow.stages,
                     flow.on_failure,
                     flow.target_tier,
-                    flow.target_environment_id,
+                    target_environment_id,
                     flow.done_description,
                     flow.status,
                     flow.id,
@@ -213,6 +222,20 @@ def _field_equal(field: str, existing: object, desired: object) -> bool:
         )
     except ValueError:
         return existing == desired
+
+
+def _target_environment_id(
+    conn: Any,
+    *,
+    project_id: int,
+    target_tier: str | None,
+    environment: str | None,
+) -> int | None:
+    if target_tier is None or environment is None:
+        return None
+    from yoke_core.domain.environment_reference import resolve
+
+    return resolve(conn, project_id=project_id, name=environment).id
 
 
 __all__ = [

@@ -71,8 +71,8 @@ def _rendered_bundle(root: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
 
 def _settings() -> ProjectRendererSettings:
     environment = RendererEnvironmentSettings(
-        id="acme-production",
-        name="production",
+        id="acme-prod",
+        name="prod",
         settings={"hosts": {"origin": "origin.example.test"}},
     )
     return ProjectRendererSettings(

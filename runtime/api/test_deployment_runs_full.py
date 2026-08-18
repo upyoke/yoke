@@ -126,11 +126,11 @@ class TestCreateRun:
         rid = dr.cmd_create_run(
             "yoke",
             "yoke-internal",
-            environment="production",
+            environment="prod",
             db_path=db_path,
         )
-        val = dr.cmd_get(rid, field="target_environment_id", db_path=db_path)
-        assert val == "production"
+        val = dr.cmd_get(rid, field="target_environment", db_path=db_path)
+        assert val == "prod"
 
     def test_create_with_lineage(self, db_path):
         rid = dr.cmd_create_run(
@@ -178,7 +178,7 @@ class TestCreateRun:
             "externalwebapp", "externalwebapp-standard", db_path=db_path
         )
         tier = dr.cmd_get(rid, field="target_tier", db_path=db_path)
-        env = dr.cmd_get(rid, field="target_environment_id", db_path=db_path)
+        env = dr.cmd_get(rid, field="target_environment", db_path=db_path)
         assert (tier, env) == ("persistent", "preview")
 
 

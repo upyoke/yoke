@@ -55,10 +55,10 @@ def test_server_rejection_fails_before_checkout_or_config_mutation(
     declaration = repo / ".yoke" / "deployment-flows.json"
     declaration.parent.mkdir(parents=True)
     declaration.write_text(json.dumps({
-        "schema": 3,
+        "schema": 4,
         "flows": [{
-            "id": "acme-production",
-            "name": "Production",
+            "id": "acme-prod",
+            "name": "Prod",
             "stages": [{"name": "invalid"}],
         }],
     }), encoding="utf-8")

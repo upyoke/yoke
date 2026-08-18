@@ -242,7 +242,7 @@ def test_run_validation_happy_path(tmp_path: Path, monkeypatch, capsys) -> None:
     assert "Pre-flight PASSED with 1 warning(s)" in out
     assert "[FAIL]" not in out
     assert "Workflow file exists: externalwebapp-deploy.yml" in out
-    assert "GitHub environment 'production' exists" in out
+    assert "GitHub environment 'prod' exists" in out
     assert "managed-production flow has 2 stage(s)" in out
 
 

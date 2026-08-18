@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -18,92 +18,6 @@ class PinHealthAgreement:
     served_pin: Optional[str] = None
     probe_url: Optional[str] = None
     error: Optional[str] = None
-
-
-def environment_by_target_map(settings: Mapping[str, Any]) -> dict[str, str]:
-    """Return the capability's target→environment-id map, dropping empties."""
-    mapping = settings.get("environment_by_target") or {}
-    if not isinstance(mapping, dict):
-        return {}
-    cleaned: dict[str, str] = {}
-    for raw_target, raw_environment_id in mapping.items():
-        target = str(raw_target or "").strip()
-        environment_id = str(raw_environment_id or "").strip()
-        if target and environment_id:
-            cleaned[target] = environment_id
-    return cleaned
-
-
-def _environment_name_to_id(
-    environments: Mapping[str, str] | Sequence[Mapping[str, Any]] | None,
-) -> dict[str, str]:
-    if environments is None:
-        return {}
-    if isinstance(environments, Mapping):
-        return {
-            str(name).strip(): str(environment_id).strip()
-            for name, environment_id in environments.items()
-            if str(name or "").strip() and str(environment_id or "").strip()
-        }
-    name_to_id: dict[str, str] = {}
-    for row in environments:
-        if not isinstance(row, Mapping):
-            continue
-        name = str(row.get("name") or "").strip()
-        environment_id = str(row.get("id") or "").strip()
-        if name and environment_id:
-            name_to_id[name] = environment_id
-    return name_to_id
-
-
-def environment_id_for_target(
-    settings: Mapping[str, Any],
-    environment_name: str,
-    *,
-    environments: Mapping[str, str] | Sequence[Mapping[str, Any]] | None = None,
-) -> Optional[str]:
-    """Resolve a control-plane environment id from a deploy-target token.
-
-    Accepts, in order: a key in ``environment_by_target``, a mapped environment
-    id value, or (when ``environments`` is provided) the environment's own
-    ``name`` for a mapped id.
-    """
-    needle = str(environment_name or "").strip()
-    if not needle:
-        return None
-    mapping = environment_by_target_map(settings)
-    if not mapping:
-        return None
-    if needle in mapping:
-        return mapping[needle]
-    mapped_ids = set(mapping.values())
-    if needle in mapped_ids:
-        return needle
-    candidate = _environment_name_to_id(environments).get(needle)
-    if candidate and candidate in mapped_ids:
-        return candidate
-    return None
-
-
-def accepted_environment_targets(
-    settings: Mapping[str, Any],
-    *,
-    environments: Mapping[str, str] | Sequence[Mapping[str, Any]] | None = None,
-) -> list[str]:
-    """Sorted tokens ``--environment`` may accept for the configured map."""
-    mapping = environment_by_target_map(settings)
-    accepted: set[str] = set(mapping.keys()) | set(mapping.values())
-    mapped_ids = set(mapping.values())
-    for name, environment_id in _environment_name_to_id(environments).items():
-        if environment_id in mapped_ids:
-            accepted.add(name)
-    return sorted(accepted)
-
-
-def format_accepted_environment_targets(targets: Iterable[str]) -> str:
-    """Render accepted tokens for a USAGE error, or ``(none)`` when empty."""
-    ordered = [str(token).strip() for token in targets if str(token).strip()]
-    return ", ".join(ordered) if ordered else "(none)"
 
 
 def fetch_served_pin(
@@ -203,10 +117,6 @@ def _get_json(url: str) -> Mapping[str, Any]:
 
 __all__ = [
     "PinHealthAgreement",
-    "accepted_environment_targets",
-    "environment_by_target_map",
-    "environment_id_for_target",
     "evaluate_pin_health_agreement",
     "fetch_served_pin",
-    "format_accepted_environment_targets",
 ]

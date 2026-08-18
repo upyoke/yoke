@@ -140,13 +140,13 @@ class TestRequirementUpdate:
         assert row[0] == "non_blocking"
 
     def test_update_target_env(self, db_path: str, req_id: int) -> None:
-        qa.cmd_requirement_update(req_id, "target_env", "staging", db_path=db_path)
+        qa.cmd_requirement_update(req_id, "target_env", "stage", db_path=db_path)
         conn = connect_test_db(db_path)
         row = conn.execute(
             "SELECT target_env FROM qa_requirements WHERE id = %s", (req_id,)
         ).fetchone()
         conn.close()
-        assert row[0] == "staging"
+        assert row[0] == "stage"
 
     def test_update_success_policy_json(self, db_path: str) -> None:
         rid = add_bound_requirement(
@@ -226,7 +226,7 @@ class TestRequirementUpdate:
 
     def test_update_missing_requirement_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_update(9999, "target_env", "staging", db_path=db_path)
+            qa.cmd_requirement_update(9999, "target_env", "stage", db_path=db_path)
         assert exc.value.code == 1
 
     def test_update_emits_qa_requirement_updated_event(
@@ -236,7 +236,7 @@ class TestRequirementUpdate:
         monkeypatch.setenv("YOKE_EVENTS_CAPTURE", "1")
         monkeypatch.setenv("YOKE_EVENTS_FILE", str(capture_file))
 
-        qa.cmd_requirement_update(req_id, "target_env", "production", db_path=db_path)
+        qa.cmd_requirement_update(req_id, "target_env", "prod", db_path=db_path)
 
         events = [
             json.loads(line)
@@ -247,7 +247,7 @@ class TestRequirementUpdate:
         assert len(updated) == 1, events
         detail = updated[0]["context"]["detail"]
         assert detail["field"] == "target_env"
-        assert detail["new_value"] == "production"
+        assert detail["new_value"] == "prod"
         assert detail["requirement_id"] == req_id
 
     def test_update_registered_in_event_registry(self, db_path: str) -> None:
