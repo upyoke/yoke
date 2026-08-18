@@ -89,7 +89,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 No public QA init or artifact-list adapter is registered. Schema
 initialization belongs to DB setup/migrations. Artifact-list remains an
 implementation/domain capability until a public adapter is registered; do
-not teach a fake `yoke qa artifact list` command. `yoke qa requirement waive`
+not teach a fake public listing command for it. `yoke qa requirement waive`
 and `yoke qa run get` are registered public adapters.
 
 **When to use which mutator.** `requirement-update` changes the *policy* of an
