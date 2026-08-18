@@ -31,6 +31,7 @@ function-call envelope:
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
 | `direct_workflow.dash.survey` | `paths` plus optional `integration_target` (defaults to `main`) | `yoke direct-workflow dash survey ITEM --path PATH --json` |
+| `direct_workflow.conflict_survey.status` | Item target; empty payload — rediscover the live survey | `yoke direct-workflow conflict-survey status ITEM --json` |
 | `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
 | `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
@@ -188,8 +189,11 @@ yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
 ```
 
 Every survey call replaces the entire stored touch set; it never widens the
-previous set. Repeat every still-required path on every call. The receipt names
-this as `touch_path_update="replace"` and echoes the complete stored set.
+previous set. Repeat every still-required path on every call. To rediscover
+the live survey at path-widening time, run
+`yoke direct-workflow conflict-survey status ITEM --json` — there is no
+`yoke survey` command. The receipt names this as
+`touch_path_update="replace"` and echoes the complete stored set.
 
 The response's `path_sizes` carries `current_line_count`,
 `remaining_headroom`, `at_or_over_limit`, `limit`, and `classification` for

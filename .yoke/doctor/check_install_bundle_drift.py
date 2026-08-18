@@ -28,7 +28,9 @@ from yoke_core.engines.doctor_report import (
 
 _HC_NAME = "HC-install-bundle-drift"
 _HC_DESC = "Packaged install-bundle tree matches its source dirs"
-_REPAIR = "python3 -m yoke_core.domain.install_bundle_tree_sync sync"
+_REPAIR = (
+    "yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync sync"
+)
 
 
 def hc_install_bundle_drift(

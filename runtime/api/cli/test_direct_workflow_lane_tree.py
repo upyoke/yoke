@@ -90,6 +90,30 @@ def test_survey_sizes_the_checkout_before_a_lane_exists(monkeypatch, tmp_path):
     assert grown["at_or_over_limit"] is False
 
 
+def test_survey_sizes_mapped_project_checkout_before_a_lane_exists(
+    monkeypatch, tmp_path,
+):
+    # Cross-project Dash survey from the caller repo must measure the
+    # item project's mapped checkout, not the cwd the command ran from.
+    caller, _lane = _two_trees(tmp_path)
+    mapped = tmp_path / "other-project"
+    (mapped / "pkg").mkdir(parents=True)
+    (mapped / "pkg" / "grown.py").write_text("x\n" * 220, encoding="utf-8")
+    monkeypatch.chdir(caller)
+    captured = _capture(monkeypatch)
+    monkeypatch.setattr(
+        dash,
+        "item_lane_tree",
+        lambda *a, **k: lane_tree.LaneTree(checkout=str(mapped)),
+    )
+
+    assert dash.dash_survey(["PLAT-9", "--path", "pkg/grown.py"]) == 0
+
+    grown = _sizes_by_path(captured)["pkg/grown.py"]
+    assert grown["current_line_count"] == 220
+    assert grown["at_or_over_limit"] is False
+
+
 def test_evidence_names_the_lane_head_after_the_lane_is_gone(monkeypatch):
     # Close-out runs from main once the lane directory has been removed.
     # Resolving the tree from there records main's head as the verified
@@ -147,3 +171,21 @@ def test_lane_path_keeps_a_released_lane_when_none_is_active():
         {"path": "/old/lane", "lane_role": "implementation", "state": "released"},
     ]}
     assert lane_tree._lane_path(item) == "/old/lane"
+
+
+def test_mapped_checkout_reads_this_machine_project_mapping(monkeypatch, tmp_path):
+    mapped = tmp_path / "platform"
+    mapped.mkdir()
+
+    class _Configured:
+        project_id = 2
+        checkout = mapped
+
+    monkeypatch.setattr(
+        "yoke_cli.config.machine_config.configured_projects",
+        lambda existing_only=False: [_Configured()],
+    )
+    assert lane_tree._mapped_checkout({"project": {"id": 2, "slug": "platform"}}) == str(
+        mapped
+    )
+    assert lane_tree._mapped_checkout({"project": {"id": 1, "slug": "yoke"}}) == ""

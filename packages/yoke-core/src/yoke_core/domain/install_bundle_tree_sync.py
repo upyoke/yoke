@@ -301,7 +301,8 @@ def run_cli(argv: Optional[Sequence[str]] = None) -> int:
         for entry in drift:
             print(f"  - {entry}")
         print(
-            "Repair: python3 -m yoke_core.domain.install_bundle_tree_sync sync"
+            "Repair: yoke dev run -- python3 -m "
+            "yoke_core.domain.install_bundle_tree_sync sync"
         )
         return 1
 
