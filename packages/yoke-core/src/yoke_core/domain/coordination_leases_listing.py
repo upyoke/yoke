@@ -25,6 +25,7 @@ def list_leases(
     project_id: Optional[Union[str, int]] = None,
     lease_key: Optional[str] = None,
     session_id: Optional[str] = None,
+    owner_item_id: Optional[int] = None,
     active_only: bool = False,
 ) -> List[Lease]:
     """Read helper for inspecting leases without raw SQL.
@@ -43,8 +44,11 @@ def list_leases(
         where.append(f"lease_key = {p}")
         params.append(lease_key)
     if session_id is not None:
-        where.append(f"session_id = {p}")
-        params.append(session_id)
+        where.append(f"(owner_session_id = {p} OR session_id = {p})")
+        params.extend((session_id, session_id))
+    if owner_item_id is not None:
+        where.append(f"owner_item_id = {p}")
+        params.append(int(owner_item_id))
     if active_only:
         where.append("released_at IS NULL")
     sql = f"SELECT {SELECT_COLUMNS} FROM coordination_leases"

@@ -103,7 +103,7 @@ def test_a_second_session_is_refused_and_told_who_holds_it(apply_env) -> None:
     )
     _seed_apply_item(apply_env["control_db"], item_id=6005)
 
-    with pytest.raises(LeaseHeldError, match="session-a") as exc:
+    with pytest.raises(LeaseHeldError, match="item 6004") as exc:
         rehearse(
             6005,
             session_id="session-b",

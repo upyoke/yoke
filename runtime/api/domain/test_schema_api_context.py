@@ -188,6 +188,8 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "process_key",
         "conflict_group",
         "path_claims",
+        "coordination_leases",
+        "owner_kind",
         "claims work holder-get",
     ),
     "auth": (

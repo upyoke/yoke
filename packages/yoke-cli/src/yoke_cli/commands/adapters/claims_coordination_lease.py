@@ -15,7 +15,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 CLAIMS_COORDINATION_LEASE_LIST_USAGE = (
     "yoke coordination-lease list [--project P] "
-    "[--key K] [--session-id S] [--active-only] [--json]"
+    "[--key K] [--session-id S] [--item N] [--active-only] [--json]"
 )
 
 
@@ -24,11 +24,20 @@ def _print_leases(response: Any, stdout, _stderr) -> None:
     if not leases:
         print("no coordination leases", file=stdout)
         return
-    print("lease_key\tsession_id\tacquired_at\treleased_at", file=stdout)
+    print(
+        "lease_key\towner_kind\towner\tacquired_at\treleased_at",
+        file=stdout,
+    )
     for lease in leases:
+        owner = (
+            f"item:{lease.get('owner_item_id')}"
+            if lease.get("owner_kind") == "item"
+            else (lease.get("owner_session_id") or lease.get("session_id") or "")
+        )
         print(
             f"{lease.get('lease_key', '')}\t"
-            f"{lease.get('session_id', '')}\t"
+            f"{lease.get('owner_kind', '')}\t"
+            f"{owner}\t"
             f"{lease.get('acquired_at', '')}\t"
             f"{lease.get('released_at') or ''}",
             file=stdout,
@@ -44,7 +53,11 @@ def claims_coordination_lease_list(args: List[str]) -> int:
     parser.add_argument("--key", default=None, help="Filter to one lease key.")
     parser.add_argument(
         "--session-id", default=None,
-        help="Filter to leases held by this session.",
+        help="Filter to session-owned leases for this session.",
+    )
+    parser.add_argument(
+        "--item", type=int, default=None,
+        help="Filter to item-owned leases for this item id.",
     )
     parser.add_argument(
         "--active-only", action="store_true",
@@ -63,6 +76,8 @@ def claims_coordination_lease_list(args: List[str]) -> int:
         payload["lease_key"] = parsed.key
     if parsed.session_id:
         payload["session_id"] = parsed.session_id
+    if parsed.item:
+        payload["owner_item_id"] = parsed.item
     if parsed.active_only:
         payload["active_only"] = True
     return dispatch_and_emit(

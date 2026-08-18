@@ -52,6 +52,9 @@ class TestSchema:
                 "id", "project_id", "lease_key", "session_id",
                 "actor_id", "acquired_at", "heartbeat_at",
                 "released_at", "release_reason",
+                "owner_kind", "owner_item_id", "owner_session_id",
+                "owner_work_claim_id", "released_by_session_id",
+                "released_by_actor_id",
             }
         finally:
             conn.close()
@@ -92,6 +95,8 @@ class TestAcquireRelease:
             assert lease.project_id == 1
             assert lease.lease_key == "LIVE_DB_MIGRATION:primary"
             assert lease.session_id == "sess-1"
+            assert lease.owner_kind == "session"
+            assert lease.owner_session_id == "sess-1"
             assert lease.acquired_at.endswith("Z")
             assert lease.released_at is None
             assert lease.release_reason is None
@@ -172,6 +177,7 @@ class TestOperatorRelease:
 
             assert result["released"] is True
             assert result["prior_session_id"] == "sess-wedged"
+            assert result["operator_session_id"] == "sess-operator"
             assert result["operator_reason"] == "crashed apply-phase session"
             # Ledger-first: event emission happened before release took effect
             assert len(emit_calls) == 1
@@ -191,6 +197,7 @@ class TestOperatorRelease:
                 project_id="yoke",
                 lease_key="LIVE_DB_MIGRATION:primary",
                 operator_reason="crashed apply-phase session",
+                session_id="sess-operator",
             )
             row = conn.execute(
                 "SELECT released_at, release_reason FROM coordination_leases "
@@ -232,6 +239,7 @@ class TestOperatorRelease:
                     project_id="yoke",
                     lease_key="LIVE_DB_MIGRATION:primary",
                     operator_reason="  ",
+                    session_id="sess-operator",
                 )
         finally:
             conn.close()
@@ -245,6 +253,40 @@ class TestOperatorRelease:
                     project_id="yoke",
                     lease_key="LIVE_DB_MIGRATION:primary",
                     operator_reason="no-op recovery",
+                    session_id="sess-operator",
                 )
+        finally:
+            conn.close()
+
+    def test_refuses_when_operator_session_is_unknown(self, db_path: str, monkeypatch) -> None:
+        db_path, conn = self._setup(db_path)
+        monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
+        try:
+            with pytest.raises(coordination_leases.LeaseError, match="operator session"):
+                coordination_leases.operator_release(
+                    conn,
+                    project_id="yoke",
+                    lease_key="LIVE_DB_MIGRATION:primary",
+                    operator_reason="crashed apply-phase session",
+                )
+        finally:
+            conn.close()
+
+
+class TestTypedOwner:
+    def test_item_owned_lease_survives_session_reclaim(self, db_path: str) -> None:
+        from yoke_core.domain.coordination_lease_reclaim import (
+            release_for_reclaimed_session,
+        )
+
+        conn = _connect(db_path)
+        try:
+            lease = coordination_leases.acquire_lease(
+                conn, "yoke", "LIVE_DB_MIGRATION:primary", "sess-1",
+                owner_kind="item", owner_item_id=7,
+            )
+            released = release_for_reclaimed_session(conn, "sess-1")
+            assert released == 0
+            assert coordination_leases.get_lease(conn, lease.id).is_active
         finally:
             conn.close()

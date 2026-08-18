@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.coordination_lease_record import lease_as_dict
 
 
 class AcquireRequest(BaseModel):
@@ -41,6 +42,12 @@ class LeaseRow(BaseModel):
     heartbeat_at: Optional[str] = None
     released_at: Optional[str] = None
     release_reason: Optional[str] = None
+    owner_kind: str = "session"
+    owner_item_id: Optional[int] = None
+    owner_session_id: Optional[str] = None
+    owner_work_claim_id: Optional[int] = None
+    released_by_session_id: Optional[str] = None
+    released_by_actor_id: Optional[str] = None
 
 
 class AcquireResponse(BaseModel):
@@ -68,6 +75,7 @@ class ListRequest(BaseModel):
     project_id: Optional[str] = None
     lease_key: Optional[str] = None
     session_id: Optional[str] = None
+    owner_item_id: Optional[int] = None
     active_only: bool = False
 
 
@@ -88,17 +96,7 @@ def _connect_rw() -> Any:
 
 
 def _lease_to_dict(lease: Any) -> Dict[str, Any]:
-    return {
-        "id": int(lease.id),
-        "project_id": str(lease.project_id),
-        "lease_key": str(lease.lease_key),
-        "session_id": str(lease.session_id),
-        "actor_id": lease.actor_id,
-        "acquired_at": lease.acquired_at,
-        "heartbeat_at": lease.heartbeat_at,
-        "released_at": lease.released_at,
-        "release_reason": lease.release_reason,
-    }
+    return lease_as_dict(lease)
 
 
 def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
@@ -184,6 +182,7 @@ def handle_list(request: FunctionCallRequest) -> HandlerOutcome:
             project_id=body.project_id,
             lease_key=body.lease_key,
             session_id=body.session_id,
+            owner_item_id=body.owner_item_id,
             active_only=body.active_only,
         )
 

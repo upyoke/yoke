@@ -78,7 +78,11 @@ _RENDER_SCHEMA = """
         lease_key TEXT,
         session_id TEXT,
         released_at TEXT,
-        release_reason TEXT
+        release_reason TEXT,
+        owner_kind TEXT NOT NULL DEFAULT 'session',
+        owner_item_id INTEGER,
+        owner_session_id TEXT,
+        owner_work_claim_id INTEGER
     );
     INSERT INTO projects (id, slug, name, emoji, public_item_prefix)
     VALUES (1, 'yoke', 'Yoke', '🐂', 'YOK');

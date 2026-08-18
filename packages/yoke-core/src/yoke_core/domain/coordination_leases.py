@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.coordination_lease_record import (
+    SELECT_COLUMNS,
+    Lease,
+    resolve_typed_owner,
+    row_to_lease,
+)
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.project_identity import resolve_project_id
 
@@ -44,47 +49,8 @@ class LeaseHookContextError(LeaseError):
     """Raised when the human-only operator override runs in a hook context."""
 
 
-@dataclass(frozen=True)
-class Lease:
-    """Plain record describing a coordination-lease row."""
-
-    id: int
-    project_id: int
-    lease_key: str
-    session_id: str
-    acquired_at: str
-    heartbeat_at: Optional[str] = None
-    actor_id: Optional[str] = None
-    released_at: Optional[str] = None
-    release_reason: Optional[str] = None
-
-    @property
-    def is_active(self) -> bool:
-        return self.released_at is None
-
-
-SELECT_COLUMNS = (
-    "id, project_id, lease_key, session_id, acquired_at, heartbeat_at, "
-    "actor_id, released_at, release_reason"
-)
-
-
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def row_to_lease(row: Any) -> Lease:
-    return Lease(
-        id=row["id"],
-        project_id=int(row["project_id"]),
-        lease_key=row["lease_key"],
-        session_id=row["session_id"],
-        acquired_at=row["acquired_at"],
-        heartbeat_at=row["heartbeat_at"],
-        actor_id=row["actor_id"],
-        released_at=row["released_at"],
-        release_reason=row["release_reason"],
-    )
 
 
 def active_lease(
@@ -137,6 +103,10 @@ def acquire_lease(
     session_id: str,
     *,
     actor_id: Optional[str] = None,
+    owner_kind: Optional[str] = None,
+    owner_item_id: Optional[int] = None,
+    owner_session_id: Optional[str] = None,
+    owner_work_claim_id: Optional[int] = None,
     now: Optional[str] = None,
     commit: bool = True,
 ) -> Lease:
@@ -149,6 +119,13 @@ def acquire_lease(
     """
     now = now or iso8601_now()
     p = _placeholder(conn)
+    kind, item_id, session_owner, claim_id = resolve_typed_owner(
+        owner_kind,
+        session_id=session_id,
+        owner_item_id=owner_item_id,
+        owner_session_id=owner_session_id,
+        owner_work_claim_id=owner_work_claim_id,
+    )
     numeric_project_id = resolve_project_id(conn, project_id)
     existing = active_lease(conn, numeric_project_id, lease_key)
     if existing is not None:
@@ -159,9 +136,15 @@ def acquire_lease(
     try:
         cur = conn.execute(
             "INSERT INTO coordination_leases "
-            "(project_id, lease_key, session_id, actor_id, acquired_at, heartbeat_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-            (numeric_project_id, lease_key, session_id, actor_id, now, now),
+            "(project_id, lease_key, session_id, actor_id, acquired_at, "
+            "heartbeat_at, owner_kind, owner_item_id, owner_session_id, "
+            "owner_work_claim_id) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+            "RETURNING id",
+            (
+                numeric_project_id, lease_key, session_id, actor_id, now, now,
+                kind, item_id, session_owner, claim_id,
+            ),
         )
     except db_backend.integrity_error_types(conn) as exc:
         if use_savepoint:
@@ -229,6 +212,8 @@ def release_lease(
     reason: str,
     *,
     now: Optional[str] = None,
+    released_by_session_id: Optional[str] = None,
+    released_by_actor_id: Optional[str] = None,
     commit: bool = True,
 ) -> Lease:
     """Release a held lease. Idempotent — re-releasing returns unchanged."""
@@ -238,9 +223,10 @@ def release_lease(
     if not lease.is_active:
         return lease
     conn.execute(
-        f"UPDATE coordination_leases SET released_at = {p}, release_reason = {p} "
+        f"UPDATE coordination_leases SET released_at = {p}, release_reason = {p}, "
+        f"released_by_session_id = {p}, released_by_actor_id = {p} "
         f"WHERE id = {p} AND released_at IS NULL",
-        (now, reason, lease_id),
+        (now, reason, released_by_session_id, released_by_actor_id, lease_id),
     )
     if commit:
         conn.commit()
@@ -269,6 +255,8 @@ def _emit_lease_event(
         "project_id": lease.project_id,
         "lease_key": lease.lease_key,
         "session_id": lease.session_id,
+        "owner_kind": lease.owner_kind,
+        "owner_item_id": lease.owner_item_id,
         "actor_id": lease.actor_id,
         "acquired_at": lease.acquired_at,
         "heartbeat_at": lease.heartbeat_at,

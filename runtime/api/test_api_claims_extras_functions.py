@@ -79,6 +79,12 @@ class _FakeLease:
         self.heartbeat_at = kwargs.get("heartbeat_at", "2026-05-13T07:00:00Z")
         self.released_at = kwargs.get("released_at")
         self.release_reason = kwargs.get("release_reason")
+        self.owner_kind = kwargs.get("owner_kind", "session")
+        self.owner_item_id = kwargs.get("owner_item_id")
+        self.owner_session_id = kwargs.get("owner_session_id", self.session_id)
+        self.owner_work_claim_id = kwargs.get("owner_work_claim_id")
+        self.released_by_session_id = kwargs.get("released_by_session_id")
+        self.released_by_actor_id = kwargs.get("released_by_actor_id")
 
 
 class TestCoordinationLease(_ExtrasSuite):

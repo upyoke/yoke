@@ -51,6 +51,7 @@ _SCHEMA = """
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY,
     session_id TEXT,
+    item_id INTEGER,
     process_key TEXT
 );
 CREATE TABLE path_claims (
@@ -76,7 +77,11 @@ CREATE TABLE coordination_leases (
     lease_key TEXT,
     session_id TEXT,
     released_at TEXT,
-    release_reason TEXT
+    release_reason TEXT,
+    owner_kind TEXT NOT NULL DEFAULT 'session',
+    owner_item_id INTEGER,
+    owner_session_id TEXT,
+    owner_work_claim_id INTEGER
 );
 """
 

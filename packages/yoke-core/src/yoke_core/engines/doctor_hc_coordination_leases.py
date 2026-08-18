@@ -55,12 +55,19 @@ def hc_coordination_leases_stale_or_orphan(
 
     threshold_iso = _iso_minutes_ago(_STALE_WINDOW_MIN)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    owner_filter = ""
+    session_expr = "cl.session_id"
+    if _base._column_exists(conn, "coordination_leases", "owner_kind"):
+        owner_filter = "AND COALESCE(cl.owner_kind, 'session') <> 'item' "
+        session_expr = "COALESCE(cl.owner_session_id, cl.session_id)"
     rows = conn.execute(
         "SELECT cl.id, cl.project_id, cl.lease_key, cl.session_id, "
         "cl.heartbeat_at, cl.acquired_at, hs.ended_at AS session_ended_at "
         "FROM coordination_leases AS cl "
-        "LEFT JOIN harness_sessions AS hs ON hs.session_id = cl.session_id "
+        "LEFT JOIN harness_sessions AS hs "
+        f"ON hs.session_id = {session_expr} "
         "WHERE cl.released_at IS NULL "
+        f"  {owner_filter}"
         "  AND ( "
         "    cl.heartbeat_at IS NULL "
         f"    OR cl.heartbeat_at < {p} "

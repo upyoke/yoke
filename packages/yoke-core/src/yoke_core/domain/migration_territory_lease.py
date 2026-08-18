@@ -19,8 +19,10 @@ from collections.abc import Collection
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.coordination_lease_record import OWNER_KIND_ITEM
 from yoke_core.domain.coordination_leases import (
     Lease,
+    LeaseHeldError,
     acquire_lease,
     active_lease,
     get_lease,
@@ -29,11 +31,6 @@ from yoke_core.domain.coordination_leases import (
 )
 from yoke_core.domain.migration_apply_contract import LEASE_KEY_PREFIX
 from yoke_core.domain import db_mutation_profile as dmp
-
-#: Holder name recorded when a caller has no session of its own.
-#: ``coordination_leases.session_id`` is NOT NULL, so an anonymous caller has
-#: to be named rather than inserted as null.
-ANONYMOUS_HOLDER = "rehearse"
 
 
 def lease_key_for(model_name: str) -> str:
@@ -45,22 +42,41 @@ def enter(
     *,
     project: str | int,
     model_name: str,
+    item_id: int,
     session_id: Optional[str],
     commit: bool = True,
 ) -> Lease:
     """Claim migration territory for *model_name*, or reuse an owned claim.
 
-    Re-entering is normal — iterating on a module means rehearsing repeatedly
-    — so a lease this same session already holds is reused and heartbeated
-    rather than refused. A lease held by anyone else raises ``LeaseHeldError``
-    naming the holder, which is the refusal this exists to produce.
+    Authority is item-owned so the hold survives session end. Re-entering
+    from the same item heartbeats; any other holder raises
+    ``LeaseHeldError``.
     """
     key = lease_key_for(model_name)
-    holder = session_id or ANONYMOUS_HOLDER
+    registered = session_id or ""
     held = active_lease(conn, project, key, for_update=True)
-    if held is not None and held.session_id == holder:
-        return heartbeat_lease(conn, held.id, commit=commit)
-    return acquire_lease(conn, project, key, holder, commit=commit)
+    if held is not None:
+        if (
+            held.owner_kind == OWNER_KIND_ITEM
+            and held.owner_item_id == int(item_id)
+        ):
+            return heartbeat_lease(conn, held.id, commit=commit)
+        raise _held_as_error(conn, held)
+    return acquire_lease(
+        conn,
+        project,
+        key,
+        registered,
+        owner_kind=OWNER_KIND_ITEM,
+        owner_item_id=int(item_id),
+        commit=commit,
+    )
+
+
+def _held_as_error(conn: Any, held: Lease) -> LeaseHeldError:
+    from yoke_core.domain.coordination_leases import _held_error
+
+    return _held_error(conn, held)
 
 
 def leave(conn: Any, lease_id: int, reason: str) -> Lease:
@@ -84,37 +100,6 @@ def _declared_model(raw: Any) -> str | None:
     return str(profile["model_name"])
 
 
-def _session_has_other_model_owner(
-    conn: Any,
-    *,
-    session_id: str,
-    project_id: int,
-    item_id: int,
-    model_name: str,
-) -> bool:
-    rows = conn.execute(
-        "SELECT DISTINCT i.id, i.db_mutation_profile FROM work_claims wc "
-        "JOIN items i ON "
-        "(wc.target_kind='item' AND wc.item_id=i.id) OR "
-        "(wc.target_kind='epic_task' AND wc.epic_id=i.id) "
-        f"WHERE wc.session_id={_p(conn)} AND wc.released_at IS NULL "
-        f"AND i.project_id={_p(conn)} AND i.id<>{_p(conn)}",
-        (session_id, project_id, item_id),
-    ).fetchall()
-    return any(_declared_model(row[1]) == model_name for row in rows)
-
-
-def _historical_item_holders(conn: Any, item_id: int) -> set[str]:
-    """Return every session that held item/task authority for this item."""
-    rows = conn.execute(
-        "SELECT DISTINCT session_id FROM work_claims WHERE "
-        f"(target_kind='item' AND item_id={_p(conn)}) OR "
-        f"(target_kind='epic_task' AND epic_id={_p(conn)})",
-        (int(item_id), int(item_id)),
-    ).fetchall()
-    return {str(row[0]) for row in rows if row[0]}
-
-
 def release_for_terminal_item(
     conn: Any,
     *,
@@ -122,13 +107,8 @@ def release_for_terminal_item(
     holder_session_ids: Collection[str],
     target_status: str,
 ) -> int | None:
-    """Release migration territory proven to belong to a terminal item.
-
-    Ownership is established from the item's typed work-claim holders and
-    declared migration model. A foreign holder is untouched. If the same
-    session still owns another item against that model, its shared territory
-    remains held until that owner also reaches a terminal boundary.
-    """
+    """Release migration territory owned by this terminal item."""
+    del holder_session_ids
     row = conn.execute(
         f"SELECT project_id, db_mutation_profile FROM items WHERE id={_p(conn)}",
         (int(item_id),),
@@ -144,18 +124,10 @@ def release_for_terminal_item(
         lease_key_for(model_name),
         for_update=True,
     )
-    holders = {
-        *(str(value) for value in holder_session_ids),
-        *_historical_item_holders(conn, int(item_id)),
-    }
-    if lease is None or lease.session_id not in holders:
-        return None
-    if _session_has_other_model_owner(
-        conn,
-        session_id=lease.session_id,
-        project_id=lease.project_id,
-        item_id=int(item_id),
-        model_name=model_name,
+    if (
+        lease is None
+        or lease.owner_kind != OWNER_KIND_ITEM
+        or lease.owner_item_id != int(item_id)
     ):
         return None
     release_lease(
@@ -168,7 +140,6 @@ def release_for_terminal_item(
 
 
 __all__ = [
-    "ANONYMOUS_HOLDER",
     "enter",
     "leave",
     "lease_key_for",

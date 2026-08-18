@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from yoke_contracts.coordination_lease_recovery import operator_release_command
+from yoke_core.domain.coordination_lease_record import OWNER_KIND_ITEM
 
 
 def _timestamp(value: object) -> datetime | None:
@@ -100,23 +101,35 @@ def describe_lease_contention(
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
     current = current.astimezone(timezone.utc)
-    evidence = read_activity_signals(conn, str(lease.session_id))
+    holder = (
+        f"item {lease.owner_item_id}"
+        if getattr(lease, "owner_kind", None) == OWNER_KIND_ITEM
+        else str(lease.owner_session_id or lease.session_id)
+    )
     heartbeat_at = lease.heartbeat_at or lease.acquired_at
     heartbeat_age = _age_seconds(heartbeat_at, current)
-    stale = (
-        evidence.ended_at is not None
-        or heartbeat_age is None
-        or heartbeat_age >= evidence.effective_ttl_minutes * 60
-    )
+    if getattr(lease, "owner_kind", None) == OWNER_KIND_ITEM:
+        stale = False
+        ttl = 0
+    else:
+        evidence = read_activity_signals(
+            conn, str(lease.owner_session_id or lease.session_id),
+        )
+        ttl = evidence.effective_ttl_minutes
+        stale = (
+            evidence.ended_at is not None
+            or heartbeat_age is None
+            or heartbeat_age >= ttl * 60
+        )
     return LeaseContention(
         lease_id=int(lease.id),
         project_id=int(lease.project_id),
         lease_key=str(lease.lease_key),
-        holder_session_id=str(lease.session_id),
+        holder_session_id=holder,
         acquired_at=str(lease.acquired_at),
         heartbeat_at=str(heartbeat_at) if heartbeat_at is not None else None,
         heartbeat_age_seconds=heartbeat_age,
-        effective_stale_ttl_minutes=evidence.effective_ttl_minutes,
+        effective_stale_ttl_minutes=ttl,
         holder_stale=stale,
         operator_release_command=operator_release_command(
             lease.project_id,

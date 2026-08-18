@@ -220,6 +220,7 @@ def test_foreign_territory_refusal_rolls_back_claim_and_path(control_conn):
         control_conn,
         project="yoke",
         model_name="primary",
+        item_id=4199,
         session_id="foreign-owner",
     )
     outcome = handle_widen(
@@ -289,6 +290,7 @@ def test_same_session_reuses_existing_migration_territory(control_conn):
         control_conn,
         project="yoke",
         model_name="primary",
+        item_id=4104,
         session_id="scope-owner",
     )
     outcome = handle_widen(
