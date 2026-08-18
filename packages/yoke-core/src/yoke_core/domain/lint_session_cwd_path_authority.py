@@ -21,6 +21,8 @@ def _harness_internal_prefixes() -> tuple[str, ...]:
         "~/.claude/projects",
         "~/.codex/sessions",
         "~/.codex/archived_sessions",
+        "~/.codex/attachments",
+        "~/.yoke/config.json",
     )
     out: list[str] = list(literals)
     home = os.path.expanduser("~")
@@ -28,12 +30,15 @@ def _harness_internal_prefixes() -> tuple[str, ...]:
         out.append(os.path.join(home, ".claude", "projects"))
         out.append(os.path.join(home, ".codex", "sessions"))
         out.append(os.path.join(home, ".codex", "archived_sessions"))
+        out.append(os.path.join(home, ".codex", "attachments"))
+        out.append(os.path.join(home, ".yoke", "config.json"))
     return tuple(out)
 
 
-# Static free-path allowlist: OS temp dirs, discard devices, and harness
-# transcript stores no Yoke path claim should own. Watcher-minted capture
-# paths under the live machine scratch root are allowlisted separately by
+# Static free-path allowlist: OS temp dirs, discard devices, harness
+# transcript/attachment stores, and the machine-config file no Yoke path
+# claim should own. Watcher-minted capture paths under the live machine
+# scratch root are allowlisted separately by
 # :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs`` and other
 # scratch subtrees keep their own authority rules.
 DEV_FAMILY_PREFIX = _abs("dev")
