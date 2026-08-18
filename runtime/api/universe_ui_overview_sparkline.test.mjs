@@ -21,6 +21,11 @@ import {
 import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
 
 const BASELINE_Y = 25;
+// The terminal board gives any non-zero day at least the first of its five
+// block levels. A quiet day here has to clear the baseline by the same
+// share of the band, or it is only technically distinct from an empty one.
+const BAND_HEIGHT = 22;
+const MIN_NONZERO_LIFT = Math.floor(BAND_HEIGHT / 5);
 
 function heavyTailedVitals() {
   const day = (value) => ({
@@ -52,7 +57,7 @@ function seriesHeights(root) {
   }));
 }
 
-test("a day with activity never renders on the zero baseline", async (t) => {
+test("a quiet day reads as high as the board's first block level", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -74,8 +79,9 @@ test("a day with activity never renders on the zero baseline", async (t) => {
     const [empty, quiet, busiest] = heights;
     assert.equal(empty, BASELINE_Y, `${series}: an empty day belongs on the baseline`);
     assert.ok(
-      quiet < BASELINE_Y,
-      `${series}: a day with real work must clear the baseline, got y=${quiet}`,
+      BASELINE_Y - quiet >= MIN_NONZERO_LIFT,
+      `${series}: a quiet day must rise at least ${MIN_NONZERO_LIFT} above the `
+      + `baseline like the board's first level, got y=${quiet}`,
     );
     assert.ok(
       busiest < quiet,

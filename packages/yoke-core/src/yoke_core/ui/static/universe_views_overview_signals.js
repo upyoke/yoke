@@ -42,14 +42,21 @@ function svgElement(documentNode, tag, className) {
   return node;
 }
 
-// Zero sits on the baseline; anything above zero is lifted clear of it. A
-// heavy-tailed series (one outlier day many times the median) would otherwise
-// round most real days onto the baseline pixel, rendering "a little happened"
-// and "nothing happened" identically — the distinction the terminal board's
-// encoder guarantees by giving any non-zero value at least its first level.
+const BASELINE_Y = 25;
+const BAND_HEIGHT = 22;
+// The terminal board quantizes into five levels above its baseline, so any
+// non-zero day occupies at least the first of those five — a fifth of the
+// full height, not a hairline. Hold the line chart to the same floor: these
+// series are heavy-tailed (one outlier day many times the median), and a
+// purely proportional map leaves an ordinary day a fraction of a pixel off
+// the baseline — distinct from zero in the markup, indistinguishable to a
+// reader.
+const MIN_NONZERO_FRACTION = 1 / 5;
+
 function sparklineHeight(value, maximum) {
-  if (value <= 0) return 25;
-  return Math.min(24, Math.round(25 - value / maximum * 22));
+  if (value <= 0) return BASELINE_Y;
+  const fraction = Math.max(value / maximum, MIN_NONZERO_FRACTION);
+  return Math.round(BASELINE_Y - fraction * BAND_HEIGHT);
 }
 
 function sparkline(documentNode, values, signal) {
