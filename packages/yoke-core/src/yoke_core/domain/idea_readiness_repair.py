@@ -40,7 +40,7 @@ CLASS_UNRECOVERABLE = "unrecoverable"
 _STALE_CODE = "STALE_LINE_COUNT"
 _RECOVERABLE_CLAIM_CODES = frozenset({
     "FILE_BUDGET_NOT_IN_CLAIM", "CLAIM_NOT_IN_FILE_BUDGET",
-    "cross_item_overlap",
+    "cross_item_overlap", "MISSING_FILE_BUDGET",
 })
 _SIBLING_PATTERN = re.compile(
     r"\bsibling\b|\bextract\b|\bnew sibling\b|\bsibling module\b",

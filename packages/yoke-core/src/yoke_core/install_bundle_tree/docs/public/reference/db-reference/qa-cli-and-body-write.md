@@ -7,10 +7,10 @@ Operator-facing CLI for the QA platform tables and the canonical body write/rend
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
 Yoke CLI, which dispatches the registered `qa.*` function ids:
 
-- `yoke qa requirement add|add-batch|list|get|update ...`
+- `yoke qa requirement add|add-batch|list|get|update|waive ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P`
-- `yoke qa run add|complete|record-verdict|list ...`
+- `yoke qa run add|complete|record-verdict|list|get ...`
 - `yoke qa artifact presign|add ...`
 - `yoke qa gate-summary ...`
 
@@ -76,19 +76,21 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
+| `yoke qa requirement waive` | `--requirement-id N --rationale TEXT [--source operator\|agent] [--force]` | Waive a requirement with a recorded rationale |
 | `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [opts]` | Insert a run |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [opts]` | Record a one-shot verdict |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
+| `yoke qa run get` | `--run-id N [--project P]` | Get one run |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T --artifact-handle JSON [opts]` | Insert an artifact row |
 | `yoke qa gate-summary` | `(--item PREFIX-N \| --epic-id N --task-num K) --target reviewed-implementation\|implemented` | Read blocking QA gaps for a transition |
 
-No public QA init, requirement-waive, run-get, or artifact-list adapter is
-registered in this branch. Schema initialization belongs to DB setup/migrations.
-Waive, single-run get, and artifact-list remain implementation/domain
-capabilities until a public adapter is registered; do not teach fake
-`yoke qa ...` commands for them.
+No public QA init or artifact-list adapter is registered. Schema
+initialization belongs to DB setup/migrations. Artifact-list remains an
+implementation/domain capability until a public adapter is registered; do
+not teach a fake public listing command for it. `yoke qa requirement waive`
+and `yoke qa run get` are registered public adapters.
 
 **When to use which mutator.** `requirement-update` changes the *policy* of an
 existing requirement — tighten a success policy, move a requirement between

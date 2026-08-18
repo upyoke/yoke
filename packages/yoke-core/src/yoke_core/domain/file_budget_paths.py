@@ -81,6 +81,20 @@ _UNRESOLVED_PROSE = re.compile(
     r"^\s*UNRESOLVED(\s+[—-].*)?\s*$",
     re.IGNORECASE,
 )
+_FILE_BUDGET_BLOCK = re.compile(
+    r"^## File Budget\b.*?(?=^## |\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+UNRESOLVED_FILE_BUDGET_MARKER = (
+    "UNRESOLVED — this work item creates/grows authored code but the "
+    "file shape is not yet known. `/yoke refine` MUST resolve the "
+    "expected implementation shape before this item advances past "
+    "`refining-idea`."
+)
+UNRESOLVED_FILE_BUDGET_SECTION = (
+    f"## File Budget\n\n{UNRESOLVED_FILE_BUDGET_MARKER}\n"
+)
 
 
 def is_path_token(candidate: str) -> bool:
@@ -193,7 +207,27 @@ def extract_file_budget_paths_set(spec_text: str) -> Set[str]:
     return set(extract_file_budget_paths(spec_text))
 
 
+def apply_unresolved_file_budget_marker(spec_text: str) -> str:
+    """Insert the documented idea-status UNRESOLVED File Budget marker.
+
+    Leaves resolved or already-unresolved budgets unchanged. Replaces an
+    empty ``## File Budget`` section; otherwise appends the section.
+    """
+    text = spec_text or ""
+    if has_unresolved_file_budget(text) or has_resolved_file_budget(text):
+        return text
+    if _FILE_BUDGET_BLOCK.search(text):
+        return _FILE_BUDGET_BLOCK.sub(UNRESOLVED_FILE_BUDGET_SECTION, text, 1)
+    prefix = text.rstrip()
+    if prefix:
+        return f"{prefix}\n\n{UNRESOLVED_FILE_BUDGET_SECTION}"
+    return UNRESOLVED_FILE_BUDGET_SECTION
+
+
 __all__ = [
+    "UNRESOLVED_FILE_BUDGET_MARKER",
+    "UNRESOLVED_FILE_BUDGET_SECTION",
+    "apply_unresolved_file_budget_marker",
     "extract_file_budget_paths",
     "extract_file_budget_section",
     "extract_file_budget_paths_set",

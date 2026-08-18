@@ -18,8 +18,6 @@ import json
 from contextlib import redirect_stdout
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from yoke_core.domain import idea_readiness_check
 from yoke_core.domain.idea_readiness_check import Issue
 
@@ -69,16 +67,25 @@ def test_payload_carries_classification_pure_stale_count():
 
 def test_payload_carries_classification_unrecoverable():
     other = Issue(
-        code="MISSING_FILE_BUDGET",
-        message="no File Budget section",
-        remediation="add ## File Budget",
+        code="UNRESOLVED_FUNCTION",
+        message="named function is missing",
+        remediation="resolve the function reference",
         context={},
     )
     rc, payload = _run_main_and_capture(42, issues=[other], advisories=[])
     assert rc == 1
     assert payload["verdict"] == "block"
-    # Anything that is not pure stale-count classifies as unrecoverable
-    # (or mixed_stale_count for combinations).
-    assert payload["classification"] in {
-        "unrecoverable", "mixed_stale_count",
-    }
+    assert payload["classification"] == "unrecoverable"
+
+
+def test_payload_carries_classification_missing_file_budget():
+    missing = Issue(
+        code="MISSING_FILE_BUDGET",
+        message="no File Budget section",
+        remediation="add ## File Budget",
+        context={},
+    )
+    rc, payload = _run_main_and_capture(42, issues=[missing], advisories=[])
+    assert rc == 1
+    assert payload["verdict"] == "block"
+    assert payload["classification"] == "mixed_stale_count"
