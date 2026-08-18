@@ -27,6 +27,9 @@ from yoke_core.hooks.registration_identity import (
     placeholder_identity_can_upgrade,
     project_lane_for_executor,
 )
+from yoke_core.hooks.ended_session_terminal_read import (
+    skip_ended_session_revival,
+)
 from yoke_core.hooks.target import (
     is_yoke_target,
     resolve_hook_script_dir,
@@ -289,13 +292,12 @@ def ensure_registered_from_hook(
             found, stored_actor_id, ended = session_registration_state(
                 conn, session_id
             )
-            # A transient SessionEnd (sleep, app reload, brief disconnect)
-            # closes the row while the conversation keeps running. This hook
-            # event is itself proof the harness process is alive, so an ended
-            # row needs the registrar's reactivation branch — waiting for a
-            # lifecycle event strands every registered surface on
-            # SESSION_ENDED for the rest of the turn, and tool-call hooks are
-            # the only guaranteed event class.
+            # Transient ends still revive: this hook is proof of life.
+            # Leftover Cursor terminal Reads after an empty closeout are not.
+            if ended and skip_ended_session_revival(
+                payload_json, executor_hint=executor_hint,
+            ):
+                return False
             needs_reactivation = ended
             # An existing row with no bound actor still needs the verified
             # token actor (the heartbeat backfill can register the relayed

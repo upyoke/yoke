@@ -99,3 +99,76 @@ class TestEndedRowDrivesRevival:
             register_module.ensure_registered_from_hook(object(), "{}", "s-1")
             is False
         )
+
+
+_TERMINAL_READ = (
+    '{"hook_event_name":"PreToolUse","tool_name":"Read",'
+    '"tool_input":{"file_path":'
+    '"/Users/x/.cursor/projects/Users-x/terminals/1.txt"}}'
+)
+
+
+class TestEndedRowSkipsLeftoverCursorTerminalRead:
+    def test_leftover_terminal_read_does_not_revive(self, monkeypatch):
+        _patch_state(monkeypatch, found=True, stored_actor_id=4, ended=True)
+        monkeypatch.setattr(
+            register_module, "_register_from_hook",
+            lambda *_a, **_k: pytest.fail(
+                "leftover Cursor terminal Read must not revive an ended row"
+            ),
+        )
+
+        assert (
+            register_module.ensure_registered_from_hook(
+                object(), _TERMINAL_READ, "s-1", executor_hint="cursor",
+            )
+            is False
+        )
+
+    def test_leftover_read_does_not_wake_via_actor_backfill(self, monkeypatch):
+        _patch_state(monkeypatch, found=True, stored_actor_id=None, ended=True)
+        monkeypatch.setattr(
+            register_module, "_register_from_hook",
+            lambda *_a, **_k: pytest.fail(
+                "ended leftover Read must not register for actor backfill"
+            ),
+        )
+
+        assert (
+            register_module.ensure_registered_from_hook(
+                object(), _TERMINAL_READ, "s-1",
+                executor_hint="cursor", actor_id=7,
+            )
+            is False
+        )
+
+    def test_ended_shell_still_revives(self, monkeypatch):
+        _patch_state(monkeypatch, found=True, stored_actor_id=4, ended=True)
+        calls: list[tuple] = []
+        _capture_register(monkeypatch, calls, "cursor", "cursor")
+
+        drove = register_module.ensure_registered_from_hook(
+            object(),
+            '{"hook_event_name":"PreToolUse","tool_name":"Bash"}',
+            "s-1",
+            executor_hint="cursor",
+        )
+
+        assert drove is True
+        assert calls[0][0] == "s-1"
+
+    def test_ended_source_read_still_revives(self, monkeypatch):
+        _patch_state(monkeypatch, found=True, stored_actor_id=4, ended=True)
+        calls: list[tuple] = []
+        _capture_register(monkeypatch, calls, "cursor", "cursor")
+
+        drove = register_module.ensure_registered_from_hook(
+            object(),
+            '{"hook_event_name":"PreToolUse","tool_name":"Read",'
+            '"tool_input":{"file_path":"/tmp/foo.py"}}',
+            "s-1",
+            executor_hint="cursor",
+        )
+
+        assert drove is True
+        assert calls[0][0] == "s-1"

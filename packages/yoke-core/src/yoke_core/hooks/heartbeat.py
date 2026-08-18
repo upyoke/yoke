@@ -25,6 +25,9 @@ from __future__ import annotations
 import os
 from typing import Optional
 
+from yoke_core.hooks.ended_session_terminal_read import (
+    skip_ended_session_revival,
+)
 from yoke_core.hooks.types import (
     HookContext,
     HookDecision,
@@ -151,10 +154,16 @@ def _heartbeat_session(session_id: str, record: HookContext) -> None:
             heartbeat(conn, session_id)
         except SessionError as exc:
             if exc.code in {"NOT_FOUND", "SESSION_ENDED"}:
-                try:
-                    _backfill_session(conn, session_id, record)
-                except Exception:
+                if (
+                    exc.code == "SESSION_ENDED"
+                    and skip_ended_session_revival(record)
+                ):
                     pass
+                else:
+                    try:
+                        _backfill_session(conn, session_id, record)
+                    except Exception:
+                        pass
         except Exception:
             pass
     finally:
