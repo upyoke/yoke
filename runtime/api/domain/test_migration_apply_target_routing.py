@@ -8,6 +8,11 @@ import pytest
 
 from yoke_core.domain import db_backend, migration_apply_targets
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
+from yoke_core.domain.migration_validation_binding import (
+    binding_file,
+    write_binding,
+)
+from yoke_contracts.migration_rehearsal_teaching import PREFLIGHT_HELP_COMMAND
 
 
 def _postgres_model(connection_env_var: str) -> dict:
@@ -121,5 +126,61 @@ def test_validation_compares_with_the_resolved_model_authority(
         authoritative_target=authority,
         control_db_path=None,
     )
+    assert target.target == validation
+    assert target.display == "postgres-validation:external_app_validation"
+
+
+def test_unbound_validation_names_the_binding_and_the_recipe_home(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    model = _postgres_model("EXTERNAL_APP_DSN")
+    authority = migration_apply_targets.DbTarget(
+        kind="postgres",
+        target="dbname=external_app password=authority-secret",
+        display="postgres:external_app",
+    )
+    monkeypatch.delenv("EXTERNAL_APP_DSN_VALIDATION", raising=False)
+
+    with pytest.raises(MigrationApplyError) as excinfo:
+        migration_apply_targets.resolve_validation_db_target(
+            worktree_path=tmp_path,
+            project="external-app",
+            model_name="primary",
+            model=model,
+            authoritative_target=authority,
+            control_db_path=None,
+        )
+
+    message = str(excinfo.value)
+    assert "EXTERNAL_APP_DSN_VALIDATION" in message
+    assert str(binding_file("EXTERNAL_APP_DSN_VALIDATION")) in message
+    assert PREFLIGHT_HELP_COMMAND in message
+    assert "authority-secret" not in message
+
+
+def test_written_binding_resolves_when_nothing_is_exported(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    model = _postgres_model("EXTERNAL_APP_DSN")
+    authority = migration_apply_targets.DbTarget(
+        kind="postgres",
+        target="dbname=external_app password=authority-secret",
+        display="postgres:external_app",
+    )
+    monkeypatch.delenv("EXTERNAL_APP_DSN_VALIDATION", raising=False)
+    validation = "dbname=external_app_validation password=validation-secret"
+    write_binding("EXTERNAL_APP_DSN_VALIDATION", validation)
+
+    target = migration_apply_targets.resolve_validation_db_target(
+        worktree_path=tmp_path,
+        project="external-app",
+        model_name="primary",
+        model=model,
+        authoritative_target=authority,
+        control_db_path=None,
+    )
+
     assert target.target == validation
     assert target.display == "postgres-validation:external_app_validation"

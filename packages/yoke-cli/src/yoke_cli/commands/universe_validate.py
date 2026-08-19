@@ -29,7 +29,9 @@ def universe_validate(args: List[str]) -> int:
             "its dump payload and runs bounded format and catalog checks "
             "without a database. --roundtrip additionally restores into "
             "(replacing the contents of) the explicitly disposable database "
-            f"named by {VALIDATION_DSN_ENV}; it is a source-dev/admin "
+            f"bound as {VALIDATION_DSN_ENV} — exported, or written to the "
+            "machine-local binding file the rehearsal provisioner writes "
+            "(`yoke migration rehearse --help`). It is a source-dev/admin "
             "release and migration rehearsal surface. The destructive scratch "
             f"restore also requires {ROUNDTRIP_CONFIRM_ENV}=1."
         ),
@@ -52,7 +54,7 @@ def universe_validate(args: List[str]) -> int:
         report = (
             engine.validate_archive_roundtrip(
                 parsed.archive,
-                os.environ.get(VALIDATION_DSN_ENV, ""),
+                _validation_dsn(),
             )
             if parsed.roundtrip
             else engine.inspect_archive(parsed.archive)
@@ -80,6 +82,19 @@ def universe_validate(args: List[str]) -> int:
                 f"schema={report['schema_fingerprint']}"
             )
     return 0
+
+
+def _validation_dsn() -> str:
+    """Resolve the same binding governed migration rehearsal reads.
+
+    One binding with two readers: an operator who provisioned the disposable
+    database for rehearsal should not have to re-export it here.
+    """
+
+    binding = importlib.import_module(
+        "yoke_core.domain.migration_validation_binding"
+    )
+    return binding.read_binding(VALIDATION_DSN_ENV)
 
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {

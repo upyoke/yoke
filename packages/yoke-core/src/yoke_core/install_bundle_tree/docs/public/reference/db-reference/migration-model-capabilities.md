@@ -116,23 +116,26 @@ that comparison as limited evidence instead of failing the names themselves.
 Rehearsal dispatches the slug through the runner against the model's
 validation surface, rooted at `worktree_path`.
 
-For Yoke's `external_validation` model, create a separate empty Postgres
-database, set only `YOKE_PG_DSN_VALIDATION` to that target, and hydrate it from
-the selected authority before rehearsal. Other projects use their explicitly
-declared `<connection_env_var>_VALIDATION`; the generic runner supplies no
-Yoke-named default:
+Rehearsal reads the validation database from `<connection_env_var>_VALIDATION`
+(Yoke: `YOKE_PG_DSN_VALIDATION`) — exported, or written to the machine-local
+binding file `~/.yoke/secrets/<binding>.dsn`. The binding file exists so
+provisioning and rehearsing can be two commands with no DSN in between. For
+Yoke's `external_validation` model, provision it with:
 
 ```bash
-# Yoke source repo only — an in-tree helper, not importable from an installed
-# Yoke. Other projects hydrate the validation database their own way.
-python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
+# Yoke source repo only — in-tree, so it runs through the claimed-lane source
+# runner. Other projects hydrate their declared binding their own way.
+yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy
 ```
 
-The helper refuses an authority/validation identity match, does not print
-credentials, and replaces the validation database contents with a
-no-owner/no-privileges dump restore. Merely creating an empty validation
-database is insufficient because migration modules rehearse against the
-deployed schema and data shape.
+The helper uses a bound target when one exists and otherwise derives one beside
+the selected authority (same cluster and credentials, database name plus
+`_validation`), creating it when the cluster holds none. It refuses an
+authority/validation identity match, replaces the validation database contents
+with a no-owner/no-privileges dump restore, and reports database names and the
+binding path rather than a DSN. Merely creating an empty validation database is
+insufficient because migration modules rehearse against the deployed schema and
+data shape. `yoke migration rehearse --help` carries the full preflight.
 
 `<modules_dir>` is the value the project's declared `migration_model`
 capability payload carries under `runner.config.modules_dir` — read it there,

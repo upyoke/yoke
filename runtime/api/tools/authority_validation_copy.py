@@ -1,4 +1,13 @@
-"""Hydrate an explicit validation database from the selected Postgres authority."""
+"""Provision and hydrate the validation database rehearsal applies to.
+
+Governed migration rehearsal never touches a model's authoritative
+database; it needs a separate database of the same shape, which this helper
+derives beside the selected authority, creates when the cluster holds none,
+fills with a credential-free copy of the authority, and binds for rehearsal
+to read. It reports database names and the binding path, never a DSN, so
+provisioning and rehearsing stay two commands with no credential in
+between.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +19,23 @@ import tempfile
 from typing import Sequence
 
 import psycopg
+from psycopg import sql
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.migration_validation_binding import (
+    read_binding,
+    write_binding,
+)
 
 
 VALIDATION_DSN_ENV = "YOKE_PG_DSN_VALIDATION"
+
+#: Appended to the authority's database name when no binding names a target.
+DERIVED_DB_SUFFIX = "_validation"
+
+#: Connected to only for the CREATE DATABASE that provisions a derived
+#: target; the database being created cannot host its own creation.
+MAINTENANCE_DB = "postgres"
 
 
 class ValidationCopyError(RuntimeError):
@@ -54,13 +75,75 @@ def _reset_validation_schema(dsn: str) -> None:
         conn.execute("CREATE SCHEMA public")
 
 
+def resolve_validation_dsn(authority_dsn: str) -> tuple[str, bool]:
+    """Return the validation DSN to hydrate, and whether it was derived.
+
+    A bound target wins so an operator can rehearse against a database of
+    their own choosing; otherwise the target is the authority's own database
+    name plus a suffix, on the same cluster and credentials, so nothing about
+    the DSN has to be authored by hand.
+    """
+
+    bound = read_binding(VALIDATION_DSN_ENV)
+    if bound:
+        return bound, False
+    parameters = psycopg.conninfo.conninfo_to_dict(authority_dsn)
+    authority_db = str(parameters.get("dbname") or "").strip()
+    if not authority_db:
+        raise ValidationCopyError(
+            "the selected authority names no database, so no validation "
+            f"database can be derived from it; bind {VALIDATION_DSN_ENV} to "
+            "a disposable database explicitly"
+        )
+    parameters["dbname"] = f"{authority_db}{DERIVED_DB_SUFFIX}"
+    return psycopg.conninfo.make_conninfo(**parameters), True
+
+
+def create_database_if_absent(validation_dsn: str) -> None:
+    """Create the database *validation_dsn* names when the cluster lacks it."""
+
+    parameters = psycopg.conninfo.conninfo_to_dict(validation_dsn)
+    dbname = str(parameters.get("dbname") or "")
+    parameters["dbname"] = MAINTENANCE_DB
+    maintenance = psycopg.conninfo.make_conninfo(**parameters)
+    try:
+        with psycopg.connect(maintenance, autocommit=True) as conn:
+            present = conn.execute(
+                "SELECT 1 FROM pg_database WHERE datname = %s", (dbname,)
+            ).fetchone()
+            if present is None:
+                conn.execute(
+                    sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname))
+                )
+    except psycopg.Error as exc:
+        raise ValidationCopyError(
+            f"could not create validation database {dbname!r} on the "
+            f"authority's cluster: {type(exc).__name__}"
+        ) from exc
+
+
+def provision_validation_copy() -> tuple[str, str, Path]:
+    """Bind, create when needed, and hydrate the validation database."""
+
+    authority = db_backend.resolve_pg_dsn()
+    validation_dsn, derived = resolve_validation_dsn(authority)
+    if derived:
+        create_database_if_absent(validation_dsn)
+    authority_name, validation_name = _copy(authority, validation_dsn)
+    binding = write_binding(VALIDATION_DSN_ENV, validation_dsn)
+    return authority_name, validation_name, binding
+
+
 def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
     """Replace a distinct validation DB with a dump of the active authority."""
 
+    return _copy(db_backend.resolve_pg_dsn(), validation_dsn)
+
+
+def _copy(authority: str, validation_dsn: str) -> tuple[str, str]:
     validation = str(validation_dsn or "").strip()
     if not validation:
         raise ValidationCopyError(f"{VALIDATION_DSN_ENV} must be set")
-    authority = db_backend.resolve_pg_dsn()
     authority_identity = _database_identity(authority)
     validation_identity = _database_identity(validation)
     if authority_identity == validation_identity:
@@ -122,20 +205,22 @@ def copy_authority_to_validation(validation_dsn: str) -> tuple[str, str]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Replace the database named by YOKE_PG_DSN_VALIDATION with a "
-            "credential-redacted copy of the selected Postgres authority."
+            "Provision the disposable database governed migration rehearsal "
+            f"applies to. Uses the database bound as {VALIDATION_DSN_ENV} "
+            "when one is bound, otherwise derives one beside the selected "
+            "Postgres authority and creates it; then replaces its contents "
+            "with a credential-redacted copy of that authority and writes "
+            "the machine-local binding rehearsal reads."
         )
     )
     parser.parse_args(argv)
     try:
-        authority_name, validation_name = copy_authority_to_validation(
-            os.environ.get(VALIDATION_DSN_ENV, "")
-        )
+        authority_name, validation_name, binding = provision_validation_copy()
     except ValidationCopyError as exc:
         parser.error(str(exc))
     print(
         f"validation copy ready: authority={authority_name} "
-        f"validation={validation_name}"
+        f"validation={validation_name} binding={binding}"
     )
     return 0
 

@@ -12,6 +12,11 @@ from yoke_cli.commands._helpers import parse_or_usage_error
 from yoke_cli.config import machine_config
 from yoke_contracts.control_plane_locality import local_authority_is_pinned
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE, TRANSPORT_HTTPS
+from yoke_contracts.migration_rehearsal_teaching import (
+    CONNECTION_READER,
+    PREFLIGHT_HELP,
+    PREFLIGHT_HELP_COMMAND,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -35,6 +40,7 @@ def migration_rehearse(args: List[str]) -> int:
             "local-Postgres or named db-admin connection, never an HTTPS "
             "product connection. Applying belongs to boot convergence."
         ),
+        epilog=PREFLIGHT_HELP,
     )
     parser.add_argument(
         "item_ref", help="Public item reference, for example YOK-123"
@@ -48,10 +54,13 @@ def migration_rehearse(args: List[str]) -> int:
             selected = os.environ.get(ENV_OVERRIDE, "").strip() or "active HTTPS"
             print(
                 "yoke migration rehearse refused: "
-                f"{selected!r} has no local database authority. Select the "
-                "matching non-product db-admin/local-Postgres connection; "
-                "the rehearsal executes project-local code and is not "
-                "relayed over HTTPS.",
+                f"{selected!r} has no local database authority; the rehearsal "
+                "executes project-local code and is not relayed over HTTPS. "
+                f"List the registered connections with `{CONNECTION_READER}`, "
+                "then rerun under the local-Postgres or db-admin one whose "
+                "universe holds the item: "
+                "`yoke --env <name> migration rehearse ITEM`. Full preflight: "
+                f"`{PREFLIGHT_HELP_COMMAND}`.",
                 file=sys.stderr,
             )
             return 1
@@ -61,7 +70,8 @@ def migration_rehearse(args: List[str]) -> int:
         print(
             "yoke migration rehearse failed "
             f"({type(exc).__name__}); inspect the selected authority with "
-            "`yoke status --json`.",
+            f"`yoke status --json` and the preflight with "
+            f"`{PREFLIGHT_HELP_COMMAND}`.",
             file=sys.stderr,
         )
         return 1
@@ -77,7 +87,10 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
 
 
 __all__ = [
+    "CONNECTION_READER",
     "MIGRATION_REHEARSE_USAGE",
+    "PREFLIGHT_HELP",
+    "PREFLIGHT_HELP_COMMAND",
     "TOOL_SHAPED_SUBCOMMANDS",
     "TOOL_SHAPED_USAGE",
     "migration_rehearse",
