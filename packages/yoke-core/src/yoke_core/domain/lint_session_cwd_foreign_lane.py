@@ -25,6 +25,9 @@ from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_path_authority import (
     repo_root_from_worktree_path,
 )
+from yoke_core.domain.lint_session_cwd_repo_command import (
+    retarget_foreign_git_read,
+)
 
 FAILURE_CLASS = "foreign_lane"
 
@@ -35,6 +38,7 @@ def _payload_is_write(payload: Mapping[str, Any] | None) -> bool:
     from yoke_core.domain.lint_lane_main_write_classify import (
         is_write_operation,
     )
+
     tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
     return is_write_operation(tool_name, dict(payload))
 
@@ -51,8 +55,7 @@ def build_denial_message(
     is_write = _payload_is_write(payload)
     verb = "write" if is_write else "read"
     lines = [
-        f"Refusing a {verb} into a worktree lane held by another "
-        "session.",
+        f"Refusing a {verb} into a worktree lane held by another session.",
         "",
         f"  target:  {offending_target}",
         f"  lane:    {occupant.lane_path}",
@@ -68,17 +71,18 @@ def build_denial_message(
             "",
         ]
     else:
-        main = repo_root_from_worktree_path(occupant.lane_path) or (
-            "<main-checkout>"
-        )
+        main = repo_root_from_worktree_path(occupant.lane_path) or ("<main-checkout>")
+        runnable = retarget_foreign_git_read(payload, main)
         lines += [
             "That lane has a live work claim. Cross-lane inspection is "
             "refused even when the command is read-only. Inspect objects "
             "through the shared object store from the main checkout:",
             "",
-            f"  git -C {main} show <rev> --stat",
-            "",
         ]
+        if runnable:
+            lines += ["Runnable command:", "", f"  {runnable}", ""]
+        else:
+            lines += [f"  git -C {main} show <rev> --stat", ""]
     lines += [
         "Either coordinate with the holding session, or take the "
         "claim yourself once it is free:",

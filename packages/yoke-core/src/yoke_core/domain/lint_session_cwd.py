@@ -50,6 +50,7 @@ from yoke_core.domain.lint_session_cwd_pre_implementing import (
 from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     match_read_only_signature,
 )
+from yoke_core.domain.lint_session_cwd_repo_command import repo_command_block
 from yoke_core.domain.lane_occupancy import LaneOccupant
 from yoke_core.domain.lint_session_cwd_foreign_lane import (
     FAILURE_CLASS as FOREIGN_LANE_FAILURE_CLASS,
@@ -204,6 +205,7 @@ def evaluate_pre_tool_use(
             claims=outcome.claims,
             repo_roots=outcome.repo_roots,
         )
+        body += repo_command_block(payload, outcome.claims) if not targets else ""
     reason = append_field_note_footer(body, rule_id="lint-session-cwd")
     return Verdict(
         allow=False,
