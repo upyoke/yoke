@@ -11,7 +11,7 @@ Print the wait header:
 WAIT: {reason}
 ```
 
-If `context.offer_diagnostics.top_eliminator.eliminated > 0`, print `Top eliminator: {context.offer_diagnostics.top_eliminator.summary}`.
+If `context.offer_diagnostics.top_eliminator.eliminated > 0`, print `Top eliminator: {filter} ({eliminated} of {candidate_total})` from `context.offer_diagnostics`. A WAIT ships the full `elimination_chain`; read the matching entry there for the `config_key` and `config_source` behind the exclusion.
 
 **Runnable-elsewhere branch.** If `context.wait_reason == "runnable_elsewhere"`, the workspace-home project has no assignable work but other projects do. Render the recipe instead of the generic idle text:
 

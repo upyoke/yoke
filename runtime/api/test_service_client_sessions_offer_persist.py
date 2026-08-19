@@ -83,7 +83,12 @@ class TestSessionOfferPersistence:
         assert row is not None
         assert row["ended_at"] is None
         envelope = json.loads(row["offer_envelope"])
-        assert envelope["offer_diagnostics"]["elimination_chain"]
+        # This universe has runnable work, so the persisted diagnostics are the
+        # one-line why rather than the chain the no-work answer needs.
+        diagnostics = envelope["offer_diagnostics"]
+        assert "elimination_chain" not in diagnostics
+        assert diagnostics["candidate_total"] >= 1
+        assert diagnostics["top_eliminator"]["filter"]
 
     def test_session_offer_persists_claim_on_charge(self, session_offer_db):
         """Charge persists a work_claims row."""
