@@ -7,6 +7,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 CANONICAL_BUILD_COMMAND = "uv run python -m yoke_core.tools.build_release"
+RELEASE_ARTIFACT_DOCS = (
+    ROOT / "packaging" / "package-index" / "README.md",
+    ROOT / "docs" / "local-setup.md",
+    ROOT / "docs" / "local-setup-reference.md",
+    ROOT / "docs" / "onboard-external-project.md",
+    ROOT / "docs" / "releases" / "README.md",
+)
 
 # The public installer is the only canonical user-facing install surface. It
 # owns channel resolution, product-package lockstep, and safe index precedence.
@@ -27,12 +34,11 @@ RETIRED_INSTALL_PROSE = (
 )
 
 
-def test_package_index_docs_teach_release_builder_not_manual_index() -> None:
+def test_package_index_docs_avoid_manual_index_install_recipes() -> None:
     text = (ROOT / "packaging" / "package-index" / "README.md").read_text(
         encoding="utf-8",
     )
 
-    assert CANONICAL_BUILD_COMMAND in text
     assert CANONICAL_INSTALL_CURL in text
     assert UNSAFE_MULTI_INDEX_INSTALL not in text
     assert "--extra-index-url" not in text
@@ -41,13 +47,10 @@ def test_package_index_docs_teach_release_builder_not_manual_index() -> None:
     assert "python3 -m yoke_core.tools.package_index" not in text
 
 
-def test_source_dev_docs_name_release_builder_boundary() -> None:
-    for path in (
-        ROOT / "docs" / "local-setup.md",
-        ROOT / "docs" / "onboard-external-project.md",
-    ):
+def test_release_artifact_docs_name_supported_uv_builder() -> None:
+    for path in RELEASE_ARTIFACT_DOCS:
         text = path.read_text(encoding="utf-8")
-        assert CANONICAL_BUILD_COMMAND in text
+        assert CANONICAL_BUILD_COMMAND in text, path
 
 
 def test_install_docs_teach_public_installer_contract() -> None:

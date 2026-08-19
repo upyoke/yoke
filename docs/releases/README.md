@@ -35,6 +35,8 @@ backfilled or rewritten; new releases do not add files here.
    final job verifies the manifest, bytes, signer workflow, exact tag ref, and
    exact source commit does it create the GitHub Release with the wheels,
    `release-records.json`, and the immutable annotated-tag note.
+   From a source checkout, the supported packaging frontend and equivalent
+   builder entrypoint are `uv run python -m yoke_core.tools.build_release`.
 
 The SHA12 server image is a separate factory lane, but it is part of every
 release: the annotated tag triggers it automatically alongside the wheels.
