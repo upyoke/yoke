@@ -200,6 +200,31 @@ class TestSectionUpsertViaSibling(unittest.TestCase):
         self.assertEqual(result.verification, "ok")
         self.assertEqual(self.db.fetch_section(404, "Progress Log"), "full block")
 
+    def test_upsert_without_ordering_is_body_visible(self) -> None:
+        result = ifts.section_upsert(
+            item_id=404, section="Current Refusal Inventory",
+            content="inventory body",
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(result.verification, "ok")
+        self.assertTrue(
+            ifts.section_visible_in_rendered_body(
+                404, "Current Refusal Inventory",
+            )
+        )
+
+    def test_unreadable_body_is_not_verification_ok(self) -> None:
+        with mock.patch.object(
+            ifts, "section_visible_in_rendered_body", return_value=False,
+        ):
+            result = ifts.section_upsert(
+                item_id=404, section="Hidden Section",
+                content="unreachable body",
+            )
+        self.assertFalse(result.success)
+        self.assertEqual(result.verification, "unreadable")
+        self.assertIn("not reachable from a body read", result.error)
+
     def test_upsert_re_export_from_parent_module(self) -> None:
         # Callers of `item_field_transform.section_upsert` keep the
         # same surface even though the implementation moved.

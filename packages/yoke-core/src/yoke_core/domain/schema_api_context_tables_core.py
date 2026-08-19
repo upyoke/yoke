@@ -340,9 +340,9 @@ CORE_TABLES: dict[str, dict] = {
             "Per-item section rows that render into items.body alongside "
             "the structured fields. Composite key (item_id, "
             "section_name); section_name is case-sensitive. ordering "
-            "controls render order (Progress Log uses 200). Read/write "
-            "via `yoke items section get`, `yoke items section "
-            "upsert`, and `yoke items section delete`, or the "
+            "controls render order (Progress Log uses 200; NULL still "
+            "renders). Read/write via `yoke items section get` / "
+            "`upsert` / `delete`, or the "
             "`items.progress_log.append` function-call which "
             "preserves prior content. There is NO `heading` column."
         ),

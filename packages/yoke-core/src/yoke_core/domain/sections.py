@@ -22,7 +22,7 @@ Preserved surface contract:
 ``list``
     Prints one pipe-delimited line per row:
     ``name|ordering|created_at|updated_at``, ordered by
-    ``COALESCE(ordering, 999999), section_name``.
+    ``COALESCE(ordering, unset-sentinel), section_name``.
 
 ``delete``
     Deletes the row, triggers body re-render, emits a ``SectionDeleted``
@@ -45,6 +45,7 @@ from yoke_core.domain import db_helpers
 from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS
 from yoke_core.domain.events import emit_event as _default_emit_event
 from yoke_core.domain.render_body import render_item as _default_render_item
+from yoke_core.domain.render_body_item_sections import UNSET_ITEM_SECTION_ORDERING
 
 RendererFn = Callable[..., int]
 EmitEventFn = Callable[..., Optional[dict]]
@@ -53,7 +54,6 @@ _render_fn: RendererFn = _default_render_item
 _emit_event_fn: EmitEventFn = _default_emit_event
 SECTION_SYNC_GITHUB_TIMEOUT_SECONDS = 5.0
 SECTION_SYNC_GITHUB_MAX_ATTEMPTS = 1
-
 
 def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -283,7 +283,7 @@ def list_sections(
     """Return ``(name, ordering, created_at, updated_at)`` tuples for an item.
 
     Ordering column is stringified (empty string when NULL). Row order
-    matches the shell: ``COALESCE(ordering, 999999), section_name``.
+    matches the shell: unset ordering last, then ``section_name``.
     """
     conn = db_helpers.connect(db_path, busy_timeout_ms=BUSY_TIMEOUT_MS)
     try:
@@ -297,7 +297,7 @@ def list_sections(
                    COALESCE(updated_at, '')
             FROM item_sections
             WHERE item_id = {p}
-            ORDER BY COALESCE(ordering, 999999), section_name
+            ORDER BY COALESCE(ordering, {UNSET_ITEM_SECTION_ORDERING}), section_name
             """,
             (item_id,),
         )
@@ -336,7 +336,7 @@ def delete_section(
 # attribute access on this module at call time), which keeps the module
 # graph free of import cycles even when ``sections.py`` is run as
 # ``python3 -m yoke_core.domain.sections``.
-from yoke_core.domain.sections_cli import (  # noqa: E402
+from yoke_core.domain.sections_cli import (  # noqa: E402, F401
     USAGE,
     cmd_delete,
     cmd_get,
