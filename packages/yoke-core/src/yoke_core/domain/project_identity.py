@@ -252,25 +252,6 @@ def resolve_item_id(
     return int(row_value(row, "id", 0))
 
 
-def _fetch_item_ref_row(conn: Any, sql: str, params: tuple) -> Any:
-    """Fetch the ref-projection row, tolerating a schema without the project
-    tables/columns (e.g. doctor HCs on bare/legacy schemas). A savepoint (when
-    the backend supports one) keeps the connection usable if the read raises;
-    returns ``None`` so the caller emits the prefix+id fallback.
-    """
-    transaction = getattr(conn, "transaction", None)
-    if callable(transaction):
-        try:
-            with transaction():
-                return conn.execute(sql, params).fetchone()
-        except Exception:
-            return None
-    try:
-        return conn.execute(sql, params).fetchone()
-    except Exception:
-        return None
-
-
 def render_item_ref(
     conn: Any,
     item_id: int,
@@ -278,28 +259,21 @@ def render_item_ref(
     qualify: bool = False,
     required: bool = False,
 ) -> str:
+    """Render one internal id as its public ref.
+
+    The one-element case of :func:`item_ref_render.render_item_refs`; any
+    caller rendering a set uses that batch entry point instead so the read
+    stays one statement.
+    """
     del qualify
-    p = placeholder(conn)
-    row = _fetch_item_ref_row(
-        conn,
-        f"""SELECT p.slug, p.public_item_prefix, i.project_sequence
-            FROM items i
-            JOIN projects p ON p.id = i.project_id
-            WHERE i.id = {p}""",
-        (item_id,),
-    )
-    if row is None:
+    from yoke_core.domain.item_ref_render import fallback_item_ref, render_item_refs
+
+    rendered = render_item_refs(conn, [item_id]).get(int(item_id))
+    if rendered is None:
         if required:
             raise LookupError(f"item identity not found: {item_id}")
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
-    prefix = row_value(row, "public_item_prefix", 1)
-    sequence = row_value(row, "project_sequence", 2)
-    return format_item_ref(
-        row_value(row, "slug", 0),
-        prefix,
-        sequence,
-        item_id=item_id,
-    )
+        return fallback_item_ref(int(item_id))
+    return rendered
 
 
 # format_item_ref relocated to yoke_contracts.item_ref (re-exported above).

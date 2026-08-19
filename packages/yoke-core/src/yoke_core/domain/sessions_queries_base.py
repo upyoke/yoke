@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from . import db_backend
 from .scheduler_types import NextStep, is_assignable_claim_state
+from .item_ref_render import ItemRefLookup, render_item_ref_lookup
 from .session_offer_diagnostics import build_schedule_offer_diagnostics
 from .session_decision_lane_gate import evaluate_lane_gate
 from .sessions_analytics import _NEXT_STEP_TO_PATH
@@ -192,13 +193,13 @@ def _step_is_compatible_with_offer(
     return True
 
 
-def _serialize_filtered_step(step: Any, conn: Any = None) -> Dict[str, Any]:
+def _serialize_filtered_step(step: Any, item_ref: ItemRefLookup) -> Dict[str, Any]:
     """Serialize an incompatible ScheduledStep for downstream rendering.
 
     Captures the fields the decision engine and ``/yoke do`` loop need to
     explain a lane-policy mismatch to the operator: which items were dropped
-    and what path they need. ``item_id`` is operator-facing: rendered as
-    the true public ref when a connection is available.
+    and what path they need. ``item_id`` is operator-facing: rendered from
+    the caller's already-resolved public-ref lookup.
     """
     next_step_val = getattr(step, "next_step", None)
     if hasattr(next_step_val, "value"):
@@ -208,7 +209,7 @@ def _serialize_filtered_step(step: Any, conn: Any = None) -> Dict[str, Any]:
         claim_state_val = claim_state_val.value
     raw_item_id = getattr(step, "item_id", "")
     return {
-        "item_id": display_claim_item_id(str(raw_item_id), conn) or "",
+        "item_id": item_ref(raw_item_id),
         "title": getattr(step, "title", ""),
         "status": getattr(step, "status", ""),
         "next_step": next_step_val,
@@ -284,8 +285,13 @@ def _filter_schedule_for_offer(
     ]
 
     schedule.lane_filtered_count = len(incompatible_ranked_steps)
+    lane_filtered_ref = render_item_ref_lookup(
+        conn,
+        (getattr(step, "item_id", "") for step in incompatible_ranked_steps),
+    )
     schedule.lane_filtered_items = [
-        _serialize_filtered_step(step, conn) for step in incompatible_ranked_steps
+        _serialize_filtered_step(step, lane_filtered_ref)
+        for step in incompatible_ranked_steps
     ]
     schedule.offer_diagnostics = build_schedule_offer_diagnostics(
         candidate_steps=candidate_steps,

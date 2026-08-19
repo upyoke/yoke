@@ -18,6 +18,7 @@ from .frontier_sql import (
     UNBLOCKS_COUNT_SQL,
 )
 from .frontier_types import AdapterCategory, FrontierItem, FrontierResult
+from .frontier_workflow_versions import load_frontier_workflow_versions
 from .idea_body_completeness import (
     INCOMPLETE_REASON as _IDEA_INCOMPLETE_REASON,
     is_idea_body_incomplete,
@@ -32,7 +33,6 @@ from .runtime_settings import get_seconds
 from .workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
 )
-from .workflow_runtime import workflow_runtime_from_row
 from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
 
 def _p(conn: Any) -> str:
@@ -67,9 +67,19 @@ def compute_frontier(
         wip_cap = resolve_default_wip_cap(project_scope)
     cursor = conn.cursor()
 
+    # Read the pinned definitions before the items so the scan can leave the
+    # statuses it would only discard in the database.
+    workflow_versions = load_frontier_workflow_versions(conn)
+    skip_clause, skip_params = workflow_versions.skip_clause(_p(conn))
+
     project_clause = _project_scope_clause(conn, project_scope)
-    items_sql = FRONTIER_ITEMS_SQL_PREFIX + project_clause + FRONTIER_ITEMS_SQL_SUFFIX
-    cursor.execute(items_sql, tuple(project_scope))
+    items_sql = (
+        FRONTIER_ITEMS_SQL_PREFIX
+        + project_clause
+        + skip_clause
+        + FRONTIER_ITEMS_SQL_SUFFIX
+    )
+    cursor.execute(items_sql, (*project_scope, *skip_params))
     rows = cursor.fetchall()
     col_names = [desc[0] for desc in cursor.description]
 
@@ -138,7 +148,7 @@ def compute_frontier(
         item = dict(zip(col_names, row))
         internal_item_id = int(item["id"])
         status = item["status"]
-        workflow = workflow_runtime_from_row(item)
+        workflow = workflow_versions.runtime_for(conn, item)
         adapter = classify_next_action(workflow, status)
         if adapter == AdapterCategory.SKIP:
             continue

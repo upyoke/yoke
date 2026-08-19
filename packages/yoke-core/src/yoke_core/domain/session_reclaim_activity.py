@@ -26,6 +26,17 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def newest_activity_stamp(*values: Optional[str]) -> Optional[str]:
+    """Return the newest present ISO-8601 stamp, or ``None`` when all are absent.
+
+    The reclaim activity signal is "the newest thing this session did", so its
+    selection rule lives here and is reused by the many-session reader in
+    :mod:`session_reclaim_activity_bulk`.
+    """
+    present = [value for value in values if value]
+    return max(present) if present else None
+
+
 @dataclass(frozen=True)
 class ReclaimActivityEvidence:
     session_id: str
@@ -177,15 +188,12 @@ def read_activity_signals(
         conn, session_id, claim_id,
     )
 
-    candidates = [
-        t for t in (
-            claim_last_heartbeat,
-            claim_claimed_at,
-            last_heartbeat,
-            last_event_at,
-        ) if t
-    ]
-    activity_at = max(candidates) if candidates else None
+    activity_at = newest_activity_stamp(
+        claim_last_heartbeat,
+        claim_claimed_at,
+        last_heartbeat,
+        last_event_at,
+    )
 
     executor = executor_raw if executor_raw else "unknown"
     effective_ttl = resolve_effective_ttl(
@@ -312,6 +320,6 @@ __all__ = [
     "ReclaimActivityEvidence", "ReclaimClassification", "SCOPE_ITEM_CLAIM",
     "SCOPE_SESSION_CLEANUP", "REASON_ENDED", "REASON_FRESH",
     "REASON_HEARTBEAT_STALE", "REASON_NEVER_ENGAGED",
-    "REASON_PROGRESS_STALE", "resolve_effective_ttl",
+    "REASON_PROGRESS_STALE", "newest_activity_stamp", "resolve_effective_ttl",
     "read_activity_signals", "classify_reclaimable", "latest_activity",
 ]

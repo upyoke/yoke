@@ -9,11 +9,9 @@ resolved upstream by
 
 from __future__ import annotations
 
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.scheduler_types import is_assignable_claim_state
-from yoke_core.domain.sessions_queries_base import (
-    display_claim_item_id,
-    normalize_claim_item_id,
-)
+from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
 from yoke_core.api.service_client_shared import FrontierState
 
 
@@ -43,13 +41,22 @@ def build_frontier_state_from_schedule(
     Item-identity fields on the returned state (``runnable_items``,
     ``blocked_items``, ``exceptional_items``, ``selected_item``, and the
     per-entry ``item_id`` keys) are presentation-facing public refs:
-    scheduler-internal ids are rendered through ``display_claim_item_id``
-    with ``conn`` so divergent project sequences surface the true ref.
+    scheduler-internal ids are rendered as public refs resolved from ``conn``
+    in one read, so divergent project sequences surface the true ref.
     """
     skip_ids = {normalize_claim_item_id(str(x)) for x in (skip_memory_item_ids or set())}
 
-    def _ref(item_id) -> str:
-        return display_claim_item_id(str(item_id), conn) or str(item_id)
+    # The projection renders a ref for every ranked, blocked, and exceptional
+    # step, so the whole set resolves in one read before any of it is built.
+    _ref = render_item_ref_lookup(
+        conn,
+        [
+            *(s.item_id for s in schedule.ranked_steps),
+            *(s.item_id for s in schedule.blocked_steps),
+            *(s.item_id for s in schedule.exceptional_steps),
+            *([schedule.selected_step.item_id] if schedule.selected_step else []),
+        ],
+    )
 
     selected_step = schedule.selected_step
     if selected_step is not None and normalize_claim_item_id(str(selected_step.item_id)) in skip_ids:
