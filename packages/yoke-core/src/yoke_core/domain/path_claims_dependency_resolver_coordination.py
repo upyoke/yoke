@@ -32,7 +32,9 @@ from yoke_core.domain.dependency_types import is_coordination_only
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
 from yoke_core.domain.path_claims_dependency_resolver import (
     _claim_owning_item,
+    _placeholder,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class CoordinationClassification(enum.Enum):
@@ -43,54 +45,90 @@ class CoordinationClassification(enum.Enum):
     HAS_SERIAL = "has_serial"
 
 
+def _stored_ref_candidates(conn: Any, item_id: int) -> tuple[str, ...]:
+    """Return indexed storage keys that can name one internal item id.
+
+    Dependency writers store the canonical public ref, while readers have
+    always accepted a bare internal id. A missing item identity must not
+    manufacture a resolvable public ref: the old parser ignored a dangling
+    ``PREFIX-N`` row but still accepted its bare numeric form.
+    """
+    bare_ref = str(item_id)
+    try:
+        public_ref = render_item_ref(conn, item_id, required=True)
+    except LookupError:
+        return (bare_ref,)
+    return tuple(dict.fromkeys((public_ref, bare_ref)))
+
+
+def _direct_pair_filter(
+    conn: Any,
+    *,
+    dependent_refs: tuple[str, ...],
+    blocking_refs: tuple[str, ...],
+) -> tuple[str, tuple[str, ...]]:
+    """Build an indexable predicate for one dependency direction."""
+    placeholder = _placeholder(conn)
+    dependent_slots = ", ".join(placeholder for _ in dependent_refs)
+    blocking_slots = ", ".join(placeholder for _ in blocking_refs)
+    return (
+        f"dependent_item IN ({dependent_slots}) "
+        f"AND blocking_item IN ({blocking_slots})",
+        dependent_refs + blocking_refs,
+    )
+
+
 def _inter_item_gate_points(
     conn: Any, *, item_a_id: int, item_b_id: int,
 ) -> list[str]:
     """Return every ``item_dependencies.gate_point`` whose row links the
     two items in either direction. Missing table → ``[]``.
 
-    Row refs are public ``PREFIX-N`` text; each resolves to its internal
-    ``items.id`` before comparison (a stripped ref number is a project
-    sequence, not the internal id).
+    Row refs are public ``PREFIX-N`` text, with bare internal ids accepted
+    for the explicitly supported reader shape. Resolve the two requested ids
+    once and let the database filter the indexed ref columns.
     """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
-    pair = {item_a_id, item_b_id}
+    item_a_refs = _stored_ref_candidates(conn, item_a_id)
+    item_b_refs = _stored_ref_candidates(conn, item_b_id)
+    forward_sql, forward_params = _direct_pair_filter(
+        conn,
+        dependent_refs=item_a_refs,
+        blocking_refs=item_b_refs,
+    )
+    reverse_sql, reverse_params = _direct_pair_filter(
+        conn,
+        dependent_refs=item_b_refs,
+        blocking_refs=item_a_refs,
+    )
     rows = fetch_optional_rows(
         conn,
-        "SELECT dependent_item, blocking_item, gate_point FROM item_dependencies",
+        "SELECT gate_point FROM item_dependencies "
+        f"WHERE ({forward_sql}) OR ({reverse_sql})",
+        forward_params + reverse_params,
         savepoint="_yoke_item_dependencies_pair_probe",
     )
-    return [
-        str(gp or "")
-        for d, b, gp in rows
-        if pair
-        == {
-            parse_item_id_or_none(d, conn=conn, allow_bare_internal=True),
-            parse_item_id_or_none(b, conn=conn, allow_bare_internal=True),
-        }
-    ]
+    return [str(row[0] or "") for row in rows]
 
 
 def _direct_gate_points(
     conn: Any, *, dependent_item_id: int, blocking_item_id: int,
 ) -> list[str]:
     """Return gate points for candidate -> blocker rows only."""
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
+    dependent_refs = _stored_ref_candidates(conn, dependent_item_id)
+    blocking_refs = _stored_ref_candidates(conn, blocking_item_id)
+    pair_sql, pair_params = _direct_pair_filter(
+        conn,
+        dependent_refs=dependent_refs,
+        blocking_refs=blocking_refs,
+    )
     rows = fetch_optional_rows(
         conn,
-        "SELECT dependent_item, blocking_item, gate_point FROM item_dependencies",
+        "SELECT gate_point FROM item_dependencies "
+        f"WHERE {pair_sql}",
+        pair_params,
         savepoint="_yoke_item_dependencies_direct_probe",
     )
-    return [
-        str(gp or "")
-        for d, b, gp in rows
-        if parse_item_id_or_none(d, conn=conn, allow_bare_internal=True)
-        == dependent_item_id
-        and parse_item_id_or_none(b, conn=conn, allow_bare_internal=True)
-        == blocking_item_id
-    ]
+    return [str(row[0] or "") for row in rows]
 
 
 def has_forward_serial_edge(
