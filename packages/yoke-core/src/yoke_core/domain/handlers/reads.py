@@ -16,7 +16,12 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.items_constants import CANONICAL_COLUMNS, STRUCTURED_FIELDS
+from yoke_contracts.items_projection import (
+    ALLOWED_GET_FIELDS,
+    DEFAULT_GET_FIELDS,
+    render_field_catalog,
+    unknown_field_message,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -33,37 +38,10 @@ def _p(conn: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-# Scalar columns surfaced by the schema packet but not part of
-# CANONICAL_COLUMNS (pipe-row layout). Adding them here keeps the packet
-# promise honest — every items column the packet teaches is readable via
-# items.get without having to round-trip through a raw SELECT.
-_ADDITIONAL_SCALAR_GET_FIELDS = frozenset({
-    "blocked", "blocked_reason", "owner",
-    "resolution", "resolution_ref", "resolution_comment",
-    "spec_updated_at", "spec_updated_by",
-})
-
-_ALLOWED_GET_FIELDS = (
-    frozenset(CANONICAL_COLUMNS) | STRUCTURED_FIELDS | _ADDITIONAL_SCALAR_GET_FIELDS
-)
-
-# Default empty projection: every allowed field, stable order. Pipe-row
-# CANONICAL_COLUMNS alone omitted structured fields and additional scalars,
-# so `yoke items get ITEM --json` looked like technical_plan was missing.
-_DEFAULT_GET_FIELDS = (
-    list(CANONICAL_COLUMNS)
-    + sorted(STRUCTURED_FIELDS)
-    + sorted(_ADDITIONAL_SCALAR_GET_FIELDS)
-)
-
-
 class ItemsGetRequest(BaseModel):
     fields: List[str] = Field(
         default_factory=list,
-        description=(
-            "Optional projection. Empty -> every allowed items.get field "
-            "(canonical columns, structured fields, and additional scalars)."
-        ),
+        description=render_field_catalog(indent=" "),
     )
 
 
@@ -94,15 +72,15 @@ def handle_items_get(request: FunctionCallRequest) -> HandlerOutcome:
     item_id = int(target.item_id)
     if section is not None:
         return _items_get_section(item_id, requested, str(section))
-    cols = requested or list(_DEFAULT_GET_FIELDS)
+    cols = requested or list(DEFAULT_GET_FIELDS)
     out: Dict[str, str] = {}
     for col in cols:
-        if col not in _ALLOWED_GET_FIELDS:
+        if col not in ALLOWED_GET_FIELDS:
             return HandlerOutcome(
                 primary_success=False,
                 error=FunctionError(
                     code="payload_invalid",
-                    message=f"unknown items column {col!r}",
+                    message=unknown_field_message(col),
                     jsonpath=f"$.payload.fields[{cols.index(col)}]",
                 ),
             )
@@ -140,12 +118,12 @@ def _items_get_section(
             ),
         )
     field = requested[0]
-    if field not in _ALLOWED_GET_FIELDS:
+    if field not in ALLOWED_GET_FIELDS:
         return HandlerOutcome(
             primary_success=False,
             error=FunctionError(
                 code="payload_invalid",
-                message=f"unknown items column {field!r}",
+                message=unknown_field_message(field),
                 jsonpath="$.payload.fields[0]",
             ),
         )

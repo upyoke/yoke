@@ -15,6 +15,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.dash_evidence_status import status_argument_kwargs
 from yoke_cli.commands.adapters.dash_verification_plan import (
     DashVerificationPlanError,
     resolve_dash_verification_plan,
@@ -210,7 +211,7 @@ def dash_evidence(args: List[str]) -> int:
     )
     parser.add_argument("--result", required=True)
     parser.add_argument("--verification", required=True)
-    parser.add_argument("--verification-status", default="passed")
+    parser.add_argument("--verification-status", **status_argument_kwargs())
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--merge-sha", required=True)
     parser.add_argument("--path", dest="paths", action="append", default=[])

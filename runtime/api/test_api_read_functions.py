@@ -23,6 +23,7 @@ from unittest.mock import patch
 
 from yoke_core.domain.handlers import reads, reads_misc
 from yoke_core.domain.items_constants import STRUCTURED_FIELDS
+from yoke_contracts.items_projection import ADDITIONAL_SCALAR_FIELDS
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -83,10 +84,10 @@ class TestItemsGet(unittest.TestCase):
 
     def test_accepts_additional_scalar_fields(self):
         # Regression: packet promised blocked/owner/etc as items columns but
-        # items.get rejected them because _ALLOWED_GET_FIELDS was derived
+        # items.get rejected them because ALLOWED_GET_FIELDS was derived
         # solely from the older CANONICAL_COLUMNS tuple. Pull the set the
         # handler uses directly so future additions stay tested.
-        additional = sorted(reads._ADDITIONAL_SCALAR_GET_FIELDS)
+        additional = sorted(ADDITIONAL_SCALAR_FIELDS)
         self.assertIn("blocked", additional)
         self.assertIn("owner", additional)
 
