@@ -27,8 +27,19 @@ def day_from_timestamp_expr(timestamp_sql: str) -> str:
 
 
 def days_ago_expr(days: int) -> str:
-    """Return the local timestamp cutoff *days* before now."""
-    return f"{LOCAL_NOW_SQL} - make_interval(days => {int(days)})"
+    """Return the local timestamp cutoff *days* before now.
+
+    *days* is an explicit bounded window baked into SQL text. Do not pass
+    wall-clock-derived counts (project age, days since first commit): those
+    mint a new query key every midnight.
+    """
+    window = int(days)
+    if window < 1:
+        raise ValueError(
+            "days_ago window must be a positive day count; time-derived "
+            "windows such as project age are refused"
+        )
+    return f"{LOCAL_NOW_SQL} - make_interval(days => {window})"
 
 
 def days_ago_text_expr(days: int) -> str:

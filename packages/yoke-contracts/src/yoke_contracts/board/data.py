@@ -170,21 +170,26 @@ class ReplayBoardDB:
 
         recorded = self._recorded_engine_version
         local = installed_engine_version()
-        if not recorded or not local:
-            # Unknown is a third answer and must not render as agreement: a
-            # source checkout resolves no version at all, which is exactly
-            # the case most likely to be skewed.
-            known = (
-                f"the board data came from engine {recorded!r}"
-                if recorded
-                else f"this client is engine {local!r}"
-                if local
-                else "neither side reports an engine version"
-            )
+        if not recorded and not local:
             return (
-                f"{known}, and the other side reports none, so a genuine "
+                "neither side reports an engine version, so a genuine "
                 "parity bug cannot be told apart from the two sides running "
                 "different builds — compare them before debugging the board"
+            )
+        if not local:
+            # A source checkout resolves no version; that is the ordinary
+            # ahead-of-server case, not an unexplained mismatch.
+            return (
+                f"the board data came from engine {recorded!r}, and this "
+                "client has no resolvable engine version — version skew, "
+                "not a parity bug; compare them before debugging the board"
+            )
+        if not recorded:
+            return (
+                f"this client is engine {local!r}, and the other side reports "
+                "none, so a genuine parity bug cannot be told apart from the "
+                "two sides running different builds — compare them before "
+                "debugging the board"
             )
         if recorded != local:
             return (

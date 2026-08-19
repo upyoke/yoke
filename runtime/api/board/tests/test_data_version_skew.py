@@ -77,14 +77,16 @@ def test_a_payload_with_no_recorded_version_reports_unknown(monkeypatch):
     assert "0.1.1+launch.185" in message
 
 
-def test_an_unresolvable_local_version_reports_unknown(monkeypatch):
+def test_an_unresolvable_local_version_names_version_skew(monkeypatch):
     """A source checkout resolves no version — the likeliest skew case.
 
-    Reporting that as agreement would restore exactly the wrong answer.
+    Reporting that as agreement, or as an unexplained mismatch, would
+    send the reader to debug code that is fine.
     """
     message = _miss(_payload("0.1.1+launch.183"), monkeypatch, "")
-    assert "cannot be told apart" in message
+    assert "version skew" in message
     assert "0.1.1+launch.183" in message
+    assert "parity bug" in message  # named as the thing this is not
 
 
 def test_neither_side_known_says_so_plainly(monkeypatch):
