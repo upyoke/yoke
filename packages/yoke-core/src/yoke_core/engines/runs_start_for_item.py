@@ -36,6 +36,7 @@ from yoke_core.domain.deployment_run_target_resolution import (
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
 from yoke_core.domain.environment_delivery_record import STAGE_ENV_NAME
 from yoke_core.domain.deployment_item_flow_resolution import (
+    describe_missing_flow as _describe_missing_flow,
     lookup_item_project_and_flow as _lookup_item_project_and_flow,
 )
 from yoke_core.engines.runs_release_lineage import (
@@ -133,10 +134,7 @@ def start_for_item(
             project=resolved_project,
             flow=resolved_flow,
             item_ids=[item_id],
-            error=(
-                f"item {item_id} has no deployment_flow; "
-                "cannot start deploy run"
-            ),
+            error=_describe_missing_flow(item_id, resolved_project),
             error_phase=PHASE_RESOLVE,
         )
 
