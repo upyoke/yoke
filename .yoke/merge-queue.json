@@ -23,8 +23,8 @@
         "parameters": {
           "merge_method": "MERGE",
           "grouping_strategy": "HEADGREEN",
-          "min_entries_to_merge": 1,
-          "min_entries_to_merge_wait_minutes": 0,
+          "min_entries_to_merge": 5,
+          "min_entries_to_merge_wait_minutes": 1,
           "max_entries_to_build": 5,
           "max_entries_to_merge": 5,
           "check_response_timeout_minutes": 60
@@ -43,10 +43,18 @@
             {"context": "test-shard (3.10, 2)"},
             {"context": "test-shard (3.10, 3)"},
             {"context": "test-shard (3.10, 4)"},
+            {"context": "test-shard (3.10, 5)"},
+            {"context": "test-shard (3.10, 6)"},
+            {"context": "test-shard (3.10, 7)"},
+            {"context": "test-shard (3.10, 8)"},
             {"context": "test-shard (3.13, 1)"},
             {"context": "test-shard (3.13, 2)"},
             {"context": "test-shard (3.13, 3)"},
-            {"context": "test-shard (3.13, 4)"}
+            {"context": "test-shard (3.13, 4)"},
+            {"context": "test-shard (3.13, 5)"},
+            {"context": "test-shard (3.13, 6)"},
+            {"context": "test-shard (3.13, 7)"},
+            {"context": "test-shard (3.13, 8)"}
           ]
         }
       }

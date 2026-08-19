@@ -16,11 +16,11 @@ from the repository at the default branch head, which is what lets a
 hosted runner holding no checkout run the same parameter diff.
 
 The declared ruleset carries a `merge_queue` rule (merge method MERGE,
-HEADGREEN grouping, zero batching wait once one entry is ready, trains capped
-at 5 entries, 60-minute check timeout) and `required_status_checks` naming every yoke-ci
-check that gates both queue entry and the train (`repo-contracts`,
-`container`, `browser_runtime / browser-runtime`, and the eight `test-shard`
-matrix checks). Repository admins carry an always-bypass so operator pushes
+HEADGREEN grouping, trains of five entries with a one-minute wait to gather
+them, capped at 5, 60-minute check timeout) and `required_status_checks`
+naming every yoke-ci check that gates both queue entry and the train
+(`repo-contracts`, `container`, `browser_runtime / browser-runtime`, and one
+`test-shard` context per shard per Python version). Repository admins carry an always-bypass so operator pushes
 to `main` and break-glass fixes keep working; the bypass is an operator escape
 hatch, not an agent merge path. Classic branch protection still requires
 `signature-check` (CLA); that surface stays under
@@ -66,6 +66,45 @@ still matches it by name; the landing therefore converges only on a merged
 pull request whose head is the lane head, and opens a fresh one otherwise.
 Converging anyway writes a receipt binding the new head to the old merge
 commit — evidence for work that never reached `main`.
+
+## Why trains batch, and what pays for it
+
+The queue already builds speculatively: up to `max_entries_to_build` nested
+groups at once — `[A]`, `[A,B]`, `[A,B,C]` — each proving a deeper prefix of
+the queue against the same base. Batching does not reduce how many builds
+run. What it decides is whether those builds are kept.
+
+With a minimum of one, the shallowest green group merged alone the moment it
+went green. The base advanced, every deeper speculative group was suddenly
+built against a base that no longer existed, and all of that finished work
+was discarded and rebuilt. The cost was a rebuild cascade, not serialization.
+Reading the queue branch names as trains of one is the easy mistake and a
+wrong one: the branch is named for its group's head pull request and says
+nothing about the group's depth. Count the group, not the name.
+
+Waiting for a group of five lets the queue merge the deepest green group it
+has, consuming those speculative builds instead of throwing them away.
+
+The wait is the subtle half. `min_entries_to_merge` counts entries **already
+queued**, not arrivals still to come, so a long wait does not accumulate a
+batch — it only delays releasing an entry that is genuinely alone. The timer
+exists only for the quiet case, and a minute caps it.
+
+**The full isolated entry run is what makes batching safe, and narrowing it is
+the tempting mistake.** Every member of a group has already been proven green
+*alone*, so a group failure is by construction an interaction failure rather
+than an unattributed one, and GitHub's automatic bisect rarely has to run.
+Trimming the entry run to a change-impacted selection would look like a
+saving and would remove both the isolation proof and cheap attribution — a red
+train would no longer tell you whether a member is broken or merely
+incompatible with its neighbours. The entry run stays whole.
+
+Shard width is the larger lever, and orthogonal to all of this: it is
+parallelism inside one run, so it shortens every one of those concurrent
+speculative builds rather than a single train, and it touches neither
+isolation nor attribution. Its ceiling is the fixed setup cost each shard
+pays, not runner capacity — see `yoke_core.tools.ci_shards`, which owns the
+count.
 
 ## Rollback
 

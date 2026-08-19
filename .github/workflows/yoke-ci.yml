@@ -48,11 +48,19 @@ jobs:
   repo_contracts:
     name: repo-contracts
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    outputs:
+      shards: ${{ steps.fan_out.outputs.shards }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+
+      - name: Publish shard fan-out
+        id: fan_out
+        run: >-
+          PYTHONPATH=packages/yoke-core/src python3 -m
+          yoke_core.tools.ci_shards fan-out --write-github-output
 
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
@@ -110,7 +118,7 @@ jobs:
     needs: [repo_contracts, reuse_coverage]
     # Reuse is gated per STEP below, never here: skipping a matrix job leaves
     # its matrix unevaluated, so it reports one `test-shard` check and none of
-    # the eight required per-matrix contexts, stranding the queue entry.
+    # the required per-matrix contexts, stranding the queue entry.
     if: always() && needs.repo_contracts.result == 'success'
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
@@ -122,7 +130,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.10', '3.13']
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}
 
     steps:
       - name: Checkout
@@ -262,30 +270,15 @@ jobs:
               print("Postgres CREATEDB preflight dropped:", name)
           PY
 
+      # Shard count, suite paths, and split settings all live in the module, so
+      # the matrix above and the split it selects cannot disagree — two
+      # literals that drift run a fraction of the suite and still report green.
       - name: Run pytest
         id: pytest
         if: env.SUITE_ALREADY_PROVEN != 'true'
-        run: |
-          # The outer shard cuts total wall time; xdist still uses every core
-          # inside that shard. least_duration greedily distributes the slowest
-          # tests using the committed timing profile.
-          # -n auto mirrors DEFAULT_PARALLEL_WORKERS in
-          # runtime/api/tools/_pytest_parallel.py (the canonical home the local
-          # run_tests / watch_pytest runners read). CI pins flat `auto` on
-          # purpose: hosted runners should use all cores, not the RAM-aware
-          # cliff that can drop a constrained box to -n 1.
-          uv run python -m pytest runtime/api/ runtime/harness/ tests/ \
-            -n auto \
-            --dist worksteal \
-            --splits 4 \
-            --group "${{ matrix.shard }}" \
-            --splitting-algorithm least_duration \
-            --durations-path .test_durations \
-            --tb=short \
-            --durations=25 \
-            --junitxml=pytest-report.xml \
-            2>&1 | tee pytest-output.txt
-          exit "${PIPESTATUS[0]}"
+        run: >-
+          PYTHONPATH=packages/yoke-core/src python3 -m
+          yoke_core.tools.ci_shards run --group "${{ matrix.shard }}"
 
       - name: Upload pytest output
         if: always() && env.SUITE_ALREADY_PROVEN != 'true'
