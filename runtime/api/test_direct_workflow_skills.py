@@ -20,10 +20,16 @@ BUNDLE = (
     ROOT
     / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
 )
+CANONICAL = ROOT / ".agents/skills/yoke"
+
+
+def _skill_corpus(skill: str) -> str:
+    directory = CANONICAL / skill
+    return "\n".join(path.read_text() for path in sorted(directory.glob("*.md")))
 
 
 def test_dash_skill_carries_the_end_to_end_execution_contract():
-    content = (ROOT / ".agents/skills/yoke/dash/SKILL.md").read_text()
+    content = _skill_corpus("dash")
     for required in (
         "direct-workflow dash survey",
         "direct-workflow worktree prepare",
@@ -62,6 +68,17 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
     assert "Finally release the item work claim:" not in content
     assert "/yoke idea" in content
     assert "does not route through `/yoke idea`" in content
+
+
+def test_dash_commits_before_every_sha_bound_case():
+    content = (CANONICAL / "dash/verification-and-close.md").read_text()
+    commit_rule = "Commit before every SHA-bound QA case."
+    assert commit_rule in content
+    assert content.index(commit_rule) < content.index("yoke qa case run")
+    assert "`worktree_run`" in content
+    assert "`ci_run`" in content
+    assert "running it before the commit" in content
+    assert "rerun every affected SHA-bound case" in content
 
 
 def test_blitz_skill_carries_slice_and_document_completion_contract():
@@ -164,7 +181,7 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
     blitz_ids = {"direct_workflow.blitz.survey"}
     assert set(registered) == dash_ids | blitz_ids
 
-    dash = (ROOT / ".agents/skills/yoke/dash/SKILL.md").read_text()
+    dash = _skill_corpus("dash")
     for function_id in dash_ids:
         assert function_id in dash
     blitz = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
@@ -214,7 +231,7 @@ def test_refine_blitz_path_links_one_document_and_hands_off():
 
 def test_taught_dash_and_blitz_commands_are_function_id_first():
     register_all_handlers()
-    dash = (ROOT / ".agents/skills/yoke/dash/SKILL.md").read_text()
+    dash = _skill_corpus("dash")
     blitz = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
     taught = {
         dash: {
@@ -266,6 +283,14 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
 
 def test_direct_workflow_skills_match_install_bundle():
     for skill in ("dash", "blitz"):
-        canonical = ROOT / f".agents/skills/yoke/{skill}/SKILL.md"
-        mirrored = BUNDLE / skill / "SKILL.md"
-        assert mirrored.read_bytes() == canonical.read_bytes()
+        canonical_root = CANONICAL / skill
+        mirrored_root = BUNDLE / skill
+        canonical = {
+            path.relative_to(canonical_root): path.read_bytes()
+            for path in canonical_root.rglob("*") if path.is_file()
+        }
+        mirrored = {
+            path.relative_to(mirrored_root): path.read_bytes()
+            for path in mirrored_root.rglob("*") if path.is_file()
+        }
+        assert mirrored == canonical
