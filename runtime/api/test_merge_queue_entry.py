@@ -170,3 +170,24 @@ def test_read_train_run_without_any_run_is_named(monkeypatch):
     run, note = queue_mod.read_train_run(_ctx(), "42")
     assert run is None
     assert "no merge_group workflow run" in note
+
+
+def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
+    monkeypatch.setattr(
+        queue_mod, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+    )
+    monkeypatch.setattr(
+        queue_mod, "request_with_retry",
+        lambda req, *, token, **_kw: _response({
+            "merged": False,
+            "state": "open",
+            "auto_merge": {"enabled_by": {}},
+            "mergeable_state": "dirty",
+        }),
+    )
+    state, err = queue_mod.read_pr_landing_state(_ctx(), "42")
+    assert err is None
+    assert state.merge_state_status == "dirty"
+    assert state.auto_merge_active
+    assert not state.merged
+    assert not state.closed

@@ -23,6 +23,7 @@ from yoke_core.domain import merge_queue_landing_pull_request as landing_pr_mod
 from yoke_core.domain import merge_queue_route as route_mod
 from yoke_core.domain.merge_queue_close_out import QueueCloseOut
 from yoke_core.engines.merge_worktree_pr_queue import (
+    PrLandingState,
     QueueEntryResult,
     QueueMember,
     TrainRun,
@@ -47,6 +48,7 @@ def test_stalled_landing_names_every_fact_it_observed(monkeypatch):
     assert "merge-when-ready=cleared" in outcome.error
     assert "queue-entry=absent" in outcome.error
     assert "train-run=failure (https://runs/9)" in outcome.error
+    assert "mergeStateStatus=unreported" in outcome.error
     # The verdict that sent an operator to inspect a green run asserted
     # something about checks it had never read.
     assert "failed train checks" not in outcome.error
@@ -276,3 +278,43 @@ def test_no_commits_without_any_pull_request_is_named(monkeypatch):
     assert not outcome.ok
     assert "no commits against" in outcome.error
     assert "YOK-200" in outcome.error
+
+
+def test_dirty_pull_request_names_rebase_and_does_not_keep_waiting(monkeypatch):
+    dirty = PrLandingState(
+        merged=False, closed=False, auto_merge_active=True,
+        merge_state_status="dirty",
+    )
+    wire_happy_path(
+        monkeypatch,
+        landing_states=[ARMED, dirty, dirty],
+        queue_entries=(),
+    )
+    announced: list[str] = []
+    outcome = land(emit=announced.append)
+    assert not outcome.ok
+    assert outcome.exit_code == route_mod.RECOVERABLE_QUEUE_EXIT_CODE
+    assert "merge conflicts" in outcome.error
+    assert "rebase onto the current base" in outcome.error
+    assert "re-enter the queue" in outcome.error
+    assert "Re-running the landing is safe" not in outcome.error
+    assert "mergeStateStatus=DIRTY" in outcome.error
+    assert any("mergeStateStatus=DIRTY" in line for line in announced)
+
+
+def test_poll_announces_a_merge_state_status_transition(monkeypatch):
+    dirty = PrLandingState(
+        merged=False, closed=False, auto_merge_active=True,
+        merge_state_status="dirty",
+    )
+    wire_happy_path(
+        monkeypatch,
+        landing_states=[ARMED, ARMED, dirty, dirty],
+        queue_entries=(),
+    )
+    announced: list[str] = []
+    outcome = land(emit=announced.append)
+    assert not outcome.ok
+    assert any("mergeStateStatus=unreported" in line for line in announced)
+    assert any("mergeStateStatus=DIRTY" in line for line in announced)
+    assert announced[0] != announced[-1]

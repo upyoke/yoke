@@ -29,9 +29,10 @@ and opens a fresh one otherwise — binding new commits to an old merge commit
 would record evidence for work that never landed.
 
 The poll narrates itself. Each observation names the queue slot, arming,
-the train run, and the pending vs concluded check set. A line is emitted
-only when that set changes, because repeating the same facts on every
-poll hid a stalled check behind elapsed time.
+``mergeStateStatus``, the train run, and the pending vs concluded check
+set. A line is emitted only when that set changes, because repeating the
+same facts on every poll hid a stalled check behind elapsed time.
+``DIRTY`` is terminal: waiting will not create the merge commit.
 
 No lock wraps any of this: the expensive gate runs inside GitHub, and
 the Yoke-side close-out is one short bookkeeping step per member.
@@ -68,6 +69,7 @@ from yoke_core.domain.merge_queue_landing_pull_request import (
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
+    CONFLICTED,
     LANDED,
     STALLED,
     classify_landing,
@@ -253,6 +255,18 @@ def land_item_through_merge_queue(
                     f"pull request {pr_num} closed without merging — observed "
                     f"{landing.narrative}; reopen or recreate it before "
                     "re-entering the queue"
+                ),
+                warnings=tuple(warnings),
+            )
+        if landing.kind == CONFLICTED:
+            return QueueLandingOutcome(
+                ok=False,
+                exit_code=RECOVERABLE_QUEUE_EXIT_CODE,
+                pr_num=pr_num,
+                error=(
+                    f"pull request {pr_num} has merge conflicts — observed "
+                    f"{landing.narrative}; rebase onto the current base and "
+                    "re-enter the queue"
                 ),
                 warnings=tuple(warnings),
             )
