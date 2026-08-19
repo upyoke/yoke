@@ -100,6 +100,11 @@ def run(args: List[str]) -> int:
         "--session-id",
         default=os.environ.get("YOKE_SESSION_ID", ""),
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the stable worktree-preparation JSON envelope.",
+    )
     parsed = parser.parse_args(args)
 
     # Route control-plane reads through the transport-aware dispatcher so an

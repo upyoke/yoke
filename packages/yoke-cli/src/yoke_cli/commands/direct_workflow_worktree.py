@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Tuple
 AdapterFn = Callable[[List[str]], int]
 PREPARE_USAGE = (
     "yoke direct-workflow worktree prepare ITEM --workflow dash|blitz "
-    "[--project P] [--session-id S]"
+    "[--project P] [--session-id S] [--json]"
 )
 
 
