@@ -110,28 +110,44 @@ def render_item_ref_lookup(
     item_ids: Iterable[Any],
 ) -> "ItemRefLookup":
     """Resolve ``item_ids`` once and return a reusable renderer for them."""
-    return ItemRefLookup(render_item_refs(conn, item_ids))
+    return ItemRefLookup(render_item_refs(conn, item_ids), consulted=conn is not None)
 
 
 class ItemRefLookup:
-    """A resolved id -> public-ref map that renders unknown ids by fallback.
+    """A resolved id -> public-ref map, rendering ids it could not resolve.
 
     Callers that fan a pre-resolved set out across several projections hold
     one of these instead of a connection, which makes an accidental
     one-query-per-item render impossible to write.
+
+    ``consulted`` records whether a database was available to answer at all,
+    because the two unresolved cases mean different things: an id with no
+    identity row renders as the prefix+id fallback, while a caller with no
+    connection renders the bare internal id — a public-looking ref from a
+    lookup that never happened would be wrong for any item whose project
+    sequence diverges from its internal id.
     """
 
-    __slots__ = ("_refs",)
+    __slots__ = ("_refs", "_consulted")
 
-    def __init__(self, refs: Optional[Dict[int, str]] = None) -> None:
+    def __init__(
+        self,
+        refs: Optional[Dict[int, str]] = None,
+        *,
+        consulted: bool = True,
+    ) -> None:
         self._refs = dict(refs or {})
+        self._consulted = consulted
 
     def __call__(self, item_id: Any) -> str:
         try:
             value = int(item_id)
         except (TypeError, ValueError):
             return str(item_id)
-        return self._refs.get(value) or fallback_item_ref(value)
+        rendered = self._refs.get(value)
+        if rendered:
+            return rendered
+        return fallback_item_ref(value) if self._consulted else str(value)
 
 
 __all__ = [
