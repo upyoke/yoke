@@ -34,7 +34,6 @@ from yoke_core.domain.schema_common_sqlite_validation import (
     _generic_sqlite_validation_get_tables,
     _generic_sqlite_validation_table_create_sql,
     _generic_sqlite_validation_table_exists,
-    _generic_sqlite_validation_table_info,
 )
 from yoke_core.domain.schema_orphans import (
     _check_sibling_state_collision,
