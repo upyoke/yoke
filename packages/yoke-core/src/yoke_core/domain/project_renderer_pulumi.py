@@ -26,6 +26,10 @@ from .project_renderer_pulumi_files import (
     RUNNER_FLEET_PROGRAM_FILES,
     SHARED_PROGRAM_FILES,
 )
+from .project_renderer_pulumi_imports import (
+    assert_rendered_program_complete,
+    close_rendered_program_imports,
+)
 from .project_renderer_pulumi_state import (  # noqa: F401
     _operator_state_lines_from_settings,
     _parse_config_values,
@@ -298,5 +302,9 @@ def render_pulumi_artifacts(
         program_files.append("webapp_vps_stack.py")
 
     # Program modules — copied verbatim (shared files + each declared stack's
-    # module).
+    # module), then closed under project-owned sibling imports.
     _copy_template_files(project_root, infra_dst, program_files, write)
+    if write:
+        available = pulumi_program_source(project_root, "Pulumi.yaml").parent
+        close_rendered_program_imports(infra_dst, available=available)
+        assert_rendered_program_complete(infra_dst, available=available)

@@ -13,6 +13,7 @@ from yoke_core.domain.pack_pulumi_sources import (
 )
 from yoke_core.domain.project_renderer_pulumi_imports import (
     assert_rendered_program_complete,
+    close_rendered_program_imports,
 )
 from yoke_core.domain.project_renderer_pulumi_files import (
     ENVIRONMENT_PROGRAM_FILES,
@@ -71,9 +72,9 @@ def render_scoped_pulumi_config(
         source_file = pulumi_program_source(project_root, name)
         if source_file.is_file():
             shutil.copyfile(source_file, destination / name)
-    assert_rendered_program_complete(
-        destination, available=pulumi_program_source(project_root, "").parent
-    )
+    available = pulumi_program_source(project_root, "Pulumi.yaml").parent
+    close_rendered_program_imports(destination, available=available)
+    assert_rendered_program_complete(destination, available=available)
     return stack_path
 
 

@@ -12,6 +12,9 @@ from yoke_core.domain.deploy_remote import (
     aws_machine_capability_env,
 )
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_renderer_pulumi_imports import (
+    RenderedProgramIncomplete,
+)
 from yoke_core.domain.project_renderer_pulumi_scoped import (
     render_scoped_pulumi_config,
 )
@@ -91,9 +94,12 @@ def execute_pulumi_command(
         config_path = temp_root / "stack-config.json"
         _write_owner_only(config_path, payload)
         render_root = temp_root / "render"
-        render_scoped_pulumi_config(
-            payload, project_root=project_root, output_dir=render_root
-        )
+        try:
+            render_scoped_pulumi_config(
+                payload, project_root=project_root, output_dir=render_root
+            )
+        except RenderedProgramIncomplete as exc:
+            raise PulumiExecError(str(exc)) from exc
         child_env, redaction_terms = _authority_env(
             selected_project,
             authority,
