@@ -57,8 +57,7 @@ DEPLOY_SUMMARY_PREFIXES: tuple[str, ...] = (
 # Indented by the pipeline, so these match anywhere on the line rather
 # than at its start.
 DEPLOY_SUMMARY_RE = re.compile(
-    r"(Workflow run ID:|completed successfully|has no member items"
-    r"|is not a QA stage)"
+    r"(Workflow run ID:|completed successfully|has no member items)"
 )
 # A relay that cannot answer is the failure mode that cost a release most
 # of its wall clock, so it is urgent rather than progress even though the
