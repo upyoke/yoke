@@ -150,6 +150,16 @@ class TestVerificationStatusTokens:
         assert is_passing("PASSED")
         assert not is_passing("pass")
 
+    def test_every_flag_spelling_offers_the_same_choices(self):
+        """Two adapters write this evidence field; both must offer the set."""
+        from yoke_core.domain.standalone_item_merge_cli import _build_parser
+
+        merge_flag = next(
+            action for action in _build_parser()._actions
+            if "--verification-status" in action.option_strings
+        )
+        assert tuple(merge_flag.choices) == PASSING_VERIFICATION_STATUSES
+
 
 class TestWatchMergeSubcommands:
     def test_help_names_every_subcommand_and_shows_merge_item(self, capsys):
