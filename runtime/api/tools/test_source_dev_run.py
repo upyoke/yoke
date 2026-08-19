@@ -45,27 +45,34 @@ def test_claimed_root_chooses_the_only_yoke_lane(monkeypatch, tmp_path):
     source_lane = _make_source_lane(tmp_path / "source-lane")
     _set_claimed_lanes(monkeypatch, project_lane, source_lane)
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
     assert root == source_lane
     assert error is None
+    assert fallback_project_id is None
 
 
-def test_claimed_root_names_claims_when_none_are_yoke(monkeypatch, tmp_path):
+def test_claimed_root_falls_back_when_live_claims_are_not_yoke(
+    monkeypatch,
+    tmp_path,
+):
     first = tmp_path / "first-project"
     second = tmp_path / "second-project"
     first.mkdir()
     second.mkdir()
     _set_claimed_lanes(monkeypatch, first, second)
+    mapped = _make_source_lane(tmp_path / "mapped-main")
+    monkeypatch.setattr(
+        source_dev_run,
+        "_mapped_main_source_root",
+        lambda: (mapped, None, 17),
+    )
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
-    assert root is None
-    assert error is not None
-    assert "none is a Yoke source checkout" in error
-    assert str(first) in error
-    assert str(second) in error
-    assert "prepare and claim a Yoke item worktree" in error
+    assert root == mapped
+    assert error is None
+    assert fallback_project_id == 17
 
 
 def test_claimed_root_lists_exact_selectors_for_multiple_yoke_lanes(
@@ -76,10 +83,11 @@ def test_claimed_root_lists_exact_selectors_for_multiple_yoke_lanes(
     second = _make_source_lane(tmp_path / "second-source")
     _set_claimed_lanes(monkeypatch, first, second)
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
     assert root is None
     assert error is not None
+    assert fallback_project_id is None
     assert "multiple claimed Yoke source lanes" in error
     assert f"--lane={first}" in error
     assert f"--lane={second}" in error
@@ -90,10 +98,11 @@ def test_claimed_root_accepts_a_live_yoke_lane_selector(monkeypatch, tmp_path):
     second = _make_source_lane(tmp_path / "second-source")
     _set_claimed_lanes(monkeypatch, first, second)
 
-    root, error = source_dev_run._claimed_root(second)
+    root, error, fallback_project_id = source_dev_run._claimed_root(second)
 
     assert root == second
     assert error is None
+    assert fallback_project_id is None
 
 
 def test_claimed_root_rejects_a_selector_outside_the_live_yoke_lanes(
@@ -104,10 +113,11 @@ def test_claimed_root_rejects_a_selector_outside_the_live_yoke_lanes(
     unclaimed = _make_source_lane(tmp_path / "unclaimed-source")
     _set_claimed_lanes(monkeypatch, source_lane)
 
-    root, error = source_dev_run._claimed_root(unclaimed)
+    root, error, fallback_project_id = source_dev_run._claimed_root(unclaimed)
 
     assert root is None
     assert error is not None
+    assert fallback_project_id is None
     assert "not a live claimed Yoke source checkout" in error
     assert f"--lane={source_lane}" in error
 
@@ -121,10 +131,11 @@ def test_claimed_root_explains_how_to_restore_missing_session_identity(
         lambda: "",
     )
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
     assert root is None
     assert error is not None
+    assert fallback_project_id is None
     assert "no harness session identity" in error
     assert "active harness session" in error
 
@@ -138,23 +149,28 @@ def test_claimed_root_explains_how_to_restore_an_unreachable_lookup(
         detail="no route to control plane",
     )
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
     assert root is None
     assert error is not None
+    assert fallback_project_id is None
     assert "no route to control plane" in error
     assert "restore the Yoke control-plane connection and retry" in error
 
 
-def test_claimed_root_explains_how_to_prepare_a_missing_lane(monkeypatch):
+def test_claimed_root_requires_a_mapped_yoke_source_checkout(monkeypatch):
     _set_claimed_lanes(monkeypatch)
+    monkeypatch.setattr(
+        source_dev_run,
+        "_mapped_main_source_root",
+        lambda: (None, "no mapped Yoke source checkout", None),
+    )
 
-    root, error = source_dev_run._claimed_root()
+    root, error, fallback_project_id = source_dev_run._claimed_root()
 
     assert root is None
-    assert error is not None
-    assert "no live claimed lane" in error
-    assert "prepare the item worktree first" in error
+    assert error == "no mapped Yoke source checkout"
+    assert fallback_project_id is None
 
 
 def test_main_accepts_the_selector_form_printed_by_refusals(
@@ -240,7 +256,11 @@ def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
     command,
 ):
     captured = {}
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
+    monkeypatch.setattr(
+        source_dev_run,
+        "_claimed_root",
+        lambda: (tmp_path, None, None),
+    )
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
         "with_source_pythonpath",
@@ -268,7 +288,11 @@ def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
 
 
 def test_run_refuses_partial_main_tree_resolution(monkeypatch, tmp_path, capsys):
-    monkeypatch.setattr(source_dev_run, "_claimed_root", lambda: (tmp_path, None))
+    monkeypatch.setattr(
+        source_dev_run,
+        "_claimed_root",
+        lambda: (tmp_path, None, None),
+    )
     monkeypatch.setattr(
         source_dev_run._source_pythonpath,
         "import_origins",

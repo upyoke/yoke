@@ -180,6 +180,7 @@
 | SignInRefused | lifecycle | sign_in | yoke_core.domain.sign_in_resolution | External sign-in was refused; context carries the refusal_reason kind | WARN | active |
 | SignInSucceeded | lifecycle | sign_in | yoke_core.domain.sign_in_resolution | External sign-in resolved to an actor (linked identity, invite acceptance, or auto-join) | INFO | active |
 | SkipHopPerformed | lifecycle | status | advance-skip | Operator-asserted skip-phase hop (--skip-polish or --skip-refine on /yoke advance) | STATUS | active |
+| SourceDevRunMainCheckoutFallback | audit | source_dev_run | yoke_core.tools.source_dev_run | A source-dev command selected the machine-mapped Yoke main checkout because the active session had no live claimed Yoke source lane. Carries checkout, command_name, argument_count, fallback_reason, read_only_intent, and write_target_if_child_writes so main-tree changes remain attributable. | WARN | active |
 | StandaloneMergeReceiptRecorded | lifecycle | merge_lifecycle | yoke_core.domain.standalone_item_merge_receipt | A standalone item merge recorded crash-recovery lineage for its branch, target, commit, merge identity, and touched files. | INFO | active |
 | StrategizeCompleted | lifecycle | strategize | strategize-skill | Strategize session completed | STATUS | active |
 | StrategizeStarted | lifecycle | strategize | strategize-skill | Strategize session started | STATUS | active |
