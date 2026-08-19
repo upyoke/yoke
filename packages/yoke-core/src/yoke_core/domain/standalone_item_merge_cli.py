@@ -37,6 +37,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
 )
 from yoke_core.domain.standalone_item_merge_qa import preflight as qa_preflight
 from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
+from yoke_contracts.dash_evidence_status import status_argument_kwargs
 
 # Workflows whose terminal transition is gated on an execution-evidence
 # record. Other standalone workflows merge through the same boundary but
@@ -133,7 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verification", default="", help="Checks run and their evidence.",
     )
-    parser.add_argument("--verification-status", default="passed")
+    parser.add_argument("--verification-status", **status_argument_kwargs())
     parser.add_argument(
         "--no-changes", action="store_true",
         help="Record a verified no-change result instead of touched files.",

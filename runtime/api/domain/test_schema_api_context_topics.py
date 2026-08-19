@@ -134,7 +134,7 @@ def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
 
 
 def test_taught_items_get_fields_match_handler_allowlist() -> None:
-    from yoke_core.domain.handlers.reads import _ALLOWED_GET_FIELDS
+    from yoke_contracts.items_projection import ALLOWED_GET_FIELDS
     from yoke_core.domain.schema_api_context_commands_core import CORE_COMMANDS
 
     entry = next(
@@ -151,7 +151,7 @@ def test_taught_items_get_fields_match_handler_allowlist() -> None:
         if field.strip()
     }
 
-    assert taught_fields == set(_ALLOWED_GET_FIELDS)
+    assert taught_fields == set(ALLOWED_GET_FIELDS)
 
 
 _NEW_STALE_TERMS_2026_05 = (

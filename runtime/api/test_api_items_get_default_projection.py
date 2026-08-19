@@ -7,6 +7,10 @@ from unittest.mock import patch
 
 from yoke_core.domain.handlers import reads
 from yoke_core.domain.items_constants import STRUCTURED_FIELDS
+from yoke_contracts.items_projection import (
+    ADDITIONAL_SCALAR_FIELDS,
+    DEFAULT_GET_FIELDS,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -43,10 +47,10 @@ class TestItemsGetDefaultProjection(unittest.TestCase):
         for field in STRUCTURED_FIELDS:
             self.assertIn(field, fields)
             self.assertEqual(fields[field], f"seeded-{field}")
-        for field in reads._ADDITIONAL_SCALAR_GET_FIELDS:
+        for field in ADDITIONAL_SCALAR_FIELDS:
             self.assertIn(field, fields)
-        self.assertEqual(queried, list(reads._DEFAULT_GET_FIELDS))
-        self.assertEqual(set(fields), set(reads._DEFAULT_GET_FIELDS))
+        self.assertEqual(queried, list(DEFAULT_GET_FIELDS))
+        self.assertEqual(set(fields), set(DEFAULT_GET_FIELDS))
 
     def test_explicit_field_subset_still_projects_only_requested(self):
         queried = []

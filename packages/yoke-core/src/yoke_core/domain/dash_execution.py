@@ -17,10 +17,13 @@ from yoke_core.domain.progress_log import (
     join_entry,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_contracts.dash_evidence_status import (
+    is_passing as _status_is_passing,
+    rejection_message as _status_rejection_message,
+)
 
 DASH_EVIDENCE_SECTION = "Execution Evidence"
 DASH_ESCALATION_SECTION = "Dash Escalation"
-_PASS_VALUES = frozenset({"approved", "completed", "passed", "satisfied"})
 _SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{7,64}$")
 
 
@@ -178,8 +181,8 @@ def record_dash_evidence(
         raise ValueError("result_summary is required")
     if not clean_verification:
         raise ValueError("verification_summary is required")
-    if clean_status not in _PASS_VALUES:
-        raise ValueError("verification_status must record a passing outcome")
+    if not _status_is_passing(clean_status):
+        raise ValueError(_status_rejection_message(verification_status))
     clean_tree_root = str(tree_root).strip()
     clean_tree_head = str(tree_head_sha).strip()
     for label, value in (
@@ -270,7 +273,7 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
         missing.append("result_summary")
     if not str(evidence.get("verification_summary") or "").strip():
         missing.append("verification_summary")
-    if str(evidence.get("verification_status") or "").casefold() not in _PASS_VALUES:
+    if not _status_is_passing(evidence.get("verification_status") or ""):
         missing.append("passing_verification")
     if not _SHA_PATTERN.fullmatch(str(evidence.get("commit_sha") or "")):
         missing.append("commit_sha")

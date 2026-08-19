@@ -1,4 +1,4 @@
-"""Dash filing, survey, evidence, escalation, and field-note adapters."""
+"""Dash filing, survey, evidence, and escalation adapters."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.dash_evidence_status import status_argument_kwargs
 from yoke_cli.commands.adapters.dash_verification_plan import (
     DashVerificationPlanError,
     resolve_dash_verification_plan,
@@ -44,11 +45,6 @@ DASH_EVIDENCE_USAGE = (
 DASH_ESCALATE_USAGE = (
     "yoke direct-workflow dash escalate ITEM --issue-title TITLE "
     "--findings TEXT [--priority P] [--project P] [--session-id S] [--json]"
-)
-FIELD_NOTE_PROMOTE_USAGE = (
-    "yoke ouroboros field-note promote ENTRY --title TITLE "
-    "[--instruction TEXT] [--project P] [--priority P] "
-    "[--session-id S] [--json]"
 )
 
 # Parse-time filing choices; stored priority semantics stay in the domain.
@@ -210,7 +206,7 @@ def dash_evidence(args: List[str]) -> int:
     )
     parser.add_argument("--result", required=True)
     parser.add_argument("--verification", required=True)
-    parser.add_argument("--verification-status", default="passed")
+    parser.add_argument("--verification-status", **status_argument_kwargs())
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--merge-sha", required=True)
     parser.add_argument("--path", dest="paths", action="append", default=[])
@@ -302,48 +298,14 @@ def dash_escalate(args: List[str]) -> int:
     )
 
 
-def field_note_promote(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke ouroboros field-note promote",
-        description=FIELD_NOTE_PROMOTE_USAGE,
-    )
-    parser.add_argument("entry", type=int)
-    parser.add_argument("--title", required=True)
-    parser.add_argument("--instruction")
-    parser.add_argument("--project")
-    parser.add_argument("--priority")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, FIELD_NOTE_PROMOTE_USAGE)
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {
-        "entry_id": parsed.entry,
-        "title": parsed.title,
-    }
-    for key in ("instruction", "project", "priority"):
-        value = getattr(parsed, key)
-        if value:
-            payload[key] = value
-    return dispatch_and_emit(
-        function_id="ouroboros.field_note.promote",
-        target=TargetRef(kind="global"),
-        payload=payload,
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-    )
-
-
 __all__ = [
     "DASH_EVIDENCE_USAGE",
     "DASH_ESCALATE_USAGE",
     "DASH_FILE_USAGE",
     "DASH_PRIORITY_CHOICES",
     "DASH_SURVEY_USAGE",
-    "FIELD_NOTE_PROMOTE_USAGE",
     "dash_escalate",
     "dash_evidence",
     "dash_file",
     "dash_survey",
-    "field_note_promote",
 ]

@@ -31,6 +31,7 @@ from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
+from yoke_contracts.items_projection import render_field_catalog
 
 
 __all__ = [
@@ -55,10 +56,15 @@ ITEMS_GET_USAGE = (
 
 def items_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="yoke items get", description=ITEMS_GET_USAGE,
+        prog="yoke items get",
+        description=ITEMS_GET_USAGE + "\n\n" + render_field_catalog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("item", help="Item id (PREFIX-N or project-local number).")
-    parser.add_argument("fields", nargs="*", help="Optional field projection.")
+    parser.add_argument(
+        "fields", nargs="*",
+        help="Optional field projection; accepted names listed above.",
+    )
     parser.add_argument(
         "--section", default=None,
         help=(

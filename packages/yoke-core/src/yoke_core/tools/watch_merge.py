@@ -196,14 +196,23 @@ def _engine_argv(module: str, args: Sequence[str]) -> list[str]:
 def _parse_args(
     argv: Sequence[str], prog: str = DEFAULT_PROG,
 ) -> argparse.Namespace:
+    subcommands = ", ".join(sorted(SUBCOMMAND_MODULES))
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
             "Run a Yoke merge engine under a shared raw+progress watcher. "
+            f"Sub-commands: {subcommands}. "
             "Pass-through flags include --local-verification (force local "
             "post-rebase suite even when the project declares CI; CI routing "
             "frees the local admission slot, not wall-clock latency)."
         ),
+        epilog=(
+            f"Examples:\n"
+            f"  {prog} merge-item -- PREFIX-N --result TEXT --verification TEXT\n"
+            f"  {prog} merge-worktree -- PREFIX-N\n"
+            f"  {prog} done-transition -- PREFIX-N"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -230,8 +239,9 @@ def _parse_args(
     parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
-        help="Sub-command name followed by its arguments. Use ``--`` to "
-        "separate wrapper flags from sub-command args when ambiguous.",
+        metavar="{" + subcommands.replace(", ", ",") + "} ...",
+        help=f"One of {subcommands}, followed by its arguments. Use ``--`` "
+        "to separate wrapper flags from sub-command args when ambiguous.",
     )
     return parser.parse_args(list(argv))
 

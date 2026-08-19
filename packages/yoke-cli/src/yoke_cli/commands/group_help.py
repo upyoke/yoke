@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import sys
 from difflib import get_close_matches
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, TextIO
 
 from yoke_cli.commands.adapters.usage import ADAPTER_USAGE
 from yoke_cli.commands.help_labels import labeled_cli_form
@@ -31,8 +32,8 @@ GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
         ("projects", "environment-settings"),
     ),
     ("qa", "review"): (("qa", "plan"),),
-    ("github", "actions", "get"): (("github-actions",),),
-    ("github", "actions", "wait"): (("github-actions",),),
+    ("github", "actions", "get"): (("github", "actions"),),
+    ("github", "actions", "wait"): (("github", "actions"),),
 }
 
 GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
@@ -42,20 +43,69 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
     ),
 }
 
-# Printed after the subcommand list when operators open group help.
+# Printed after the subcommand list when operators open group help. Each
+# entry answers a question the listing itself cannot: the surface an
+# operator reaches for under this prefix lives somewhere else, or does not
+# exist at all and the capability is reached another way.
 GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
+    ("connection",): (
+        "Discovery: `yoke env list` prints every configured connection "
+        "(name, active, transport, prod flag, api url). There is no "
+        "`connection list`."
+    ),
+    ("project",): (
+        "Reading the machine's project mappings is a `projects` (plural) "
+        "surface: `yoke projects list` for every registered project, "
+        "`yoke projects checkout-context` for the one owning this checkout."
+    ),
+    ("sessions",): (
+        "Liveness: there is no standalone heartbeat command. "
+        "`yoke sessions touch`, `yoke sessions offer`, and "
+        "`yoke sessions checkpoint` each refresh the session's heartbeat."
+    ),
 }
 
 
-def emit_group_help_if_available(argv: Sequence[str]) -> Optional[int]:
+def _extends(tokens: tuple[str, ...], route: tuple[str, ...]) -> bool:
+    return len(tokens) > len(route) and tokens[:len(route)] == route
+
+
+def _belongs_to_group(
+    cli_tokens: tuple[str, ...],
+    routed_prefixes: Sequence[tuple[str, ...]],
+) -> bool:
+    """Return whether a registered command sits under one of the prefixes.
+
+    A command whose canonical tokens hyphenate what reads as a group
+    (``github-actions poll``) is routable spaced as well, so the prefix an
+    operator types (``yoke github actions``) owns it even though no
+    canonical token matches. The row still prints the canonical spelling —
+    the one the CLI grammar guarantees and the one the usage line beneath
+    it repeats.
+    """
+    spelled = [cli_tokens]
+    spaced = tuple(part for token in cli_tokens for part in token.split("-"))
+    if spaced in SPACE_EXPANDED_ROUTE_REGISTRY:
+        spelled.append(spaced)
+    return any(
+        _extends(tokens, route)
+        for tokens in spelled
+        for route in routed_prefixes
+    )
+
+
+def emit_group_help_if_available(
+    argv: Sequence[str], *, stream: Optional[TextIO] = None,
+) -> Optional[int]:
+    out = stream if stream is not None else sys.stdout
     help_requested = bool(argv) and argv[-1] in ("-h", "--help", "help")
     prefix = tuple(argv[:-1] if help_requested else argv)
     if not prefix:
         return None
 
     if prefix in GUIDANCE_ROUTES:
-        print(GUIDANCE_ROUTES[prefix])
+        print(GUIDANCE_ROUTES[prefix], file=out)
         return 0
 
     routed_prefixes = GROUP_ROUTES.get(prefix, (prefix,))
@@ -66,10 +116,7 @@ def emit_group_help_if_available(argv: Sequence[str]) -> Optional[int]:
         **SUBCOMMAND_ALIAS_REGISTRY,
     }
     for cli_tokens, (function_id, _adapter) in sorted(registry_rows.items()):
-        if not any(
-            len(cli_tokens) > len(route) and cli_tokens[:len(route)] == route
-            for route in routed_prefixes
-        ):
+        if not _belongs_to_group(cli_tokens, routed_prefixes):
             continue
         cli_form = "yoke " + " ".join(cli_tokens)
         rows.append((cli_form, function_id, ADAPTER_USAGE.get(function_id, "")))
@@ -77,10 +124,7 @@ def emit_group_help_if_available(argv: Sequence[str]) -> Optional[int]:
     tool_rows: List[tuple[str, str]] = []
     for cli_form, usage in sorted(TOOL_SHAPED_USAGE.items()):
         tokens = tuple(cli_form.split()[1:])
-        if not any(
-            len(tokens) > len(route) and tokens[:len(route)] == route
-            for route in routed_prefixes
-        ):
+        if not any(_extends(tokens, route) for route in routed_prefixes):
             continue
         tool_rows.append((cli_form, usage))
 
@@ -88,29 +132,45 @@ def emit_group_help_if_available(argv: Sequence[str]) -> Optional[int]:
         return None
 
     group = " ".join(prefix)
-    print(f"yoke {group} - subcommand group.")
-    print()
-    print("Usage:")
-    print(f"  yoke {group} <subcommand> [args...]")
-    print()
-    print("Available subcommands:")
+    print(f"yoke {group} - subcommand group.", file=out)
+    print(file=out)
+    print("Usage:", file=out)
+    print(f"  yoke {group} <subcommand> [args...]", file=out)
+    print(file=out)
+    print("Available subcommands:", file=out)
     for cli_form, function_id, usage in rows:
-        print(f"  {labeled_cli_form(cli_form)}")
-        print(f"    -> {function_id}")
+        print(f"  {labeled_cli_form(cli_form)}", file=out)
+        print(f"    -> {function_id}", file=out)
         if usage:
-            print(f"    {usage}")
+            print(f"    {usage}", file=out)
     for cli_form, usage in tool_rows:
-        print(f"  {labeled_cli_form(cli_form)}")
-        print("    -> client-local helper (no function id)")
+        print(f"  {labeled_cli_form(cli_form)}", file=out)
+        print("    -> client-local helper (no function id)", file=out)
         if usage:
-            print(f"    {usage}")
+            print(f"    {usage}", file=out)
     teaching = GROUP_TEACHING.get(prefix)
     if teaching:
-        print()
-        print(teaching.rstrip("\n"))
-    print()
-    print(FIELD_NOTE_FOOTER)
+        print(file=out)
+        print(teaching.rstrip("\n"), file=out)
+    print(file=out)
+    print(FIELD_NOTE_FOOTER, file=out)
     return 0
+
+
+def emit_nearest_group_help(
+    argv: Sequence[str], *, stream: Optional[TextIO] = None,
+) -> bool:
+    """Print help for the longest prefix of ``argv`` that names a group.
+
+    An unrecognised leaf under a real group (``yoke sessions heartbeat``)
+    is answered with the group's actual members rather than a single fuzzy
+    guess, so the next attempt is a choice from a list instead of another
+    guess.
+    """
+    for length in range(len(argv) - 1, 0, -1):
+        if emit_group_help_if_available(argv[:length], stream=stream) == 0:
+            return True
+    return False
 
 
 def can_route_group(argv: Sequence[str]) -> bool:
@@ -143,10 +203,21 @@ def nearest_subcommand_hint(argv: Sequence[str]) -> str | None:
         + tuple(TOOL_SHAPED_SUBCOMMANDS)
     )
     group = argv[0]
+    # Sibling groups whose names differ from the typed one by a character
+    # or two — `project` next to `projects` — are in scope, or the singular
+    # spelling can only ever suggest its own members.
+    siblings = set(get_close_matches(
+        group, sorted({tokens[0] for tokens in all_tokens if tokens}),
+        n=3, cutoff=0.8,
+    ))
     candidates = [
         " ".join(tokens)
         for tokens in all_tokens
-        if tokens and (tokens[0] == group or tokens[0].split("-")[0] == group)
+        if tokens and (
+            tokens[0] == group
+            or tokens[0].split("-")[0] == group
+            or tokens[0] in siblings
+        )
     ]
     if not candidates:
         return None
@@ -163,5 +234,6 @@ __all__ = [
     "GUIDANCE_ROUTES",
     "can_route_group",
     "emit_group_help_if_available",
+    "emit_nearest_group_help",
     "nearest_subcommand_hint",
 ]

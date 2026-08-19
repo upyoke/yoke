@@ -26,6 +26,7 @@ from yoke_cli.commands.registry import (
 from yoke_cli.commands.flag_adapters import ADAPTER_USAGE
 from yoke_cli.commands.group_help import (
     emit_group_help_if_available,
+    emit_nearest_group_help,
     nearest_subcommand_hint,
 )
 from yoke_cli.commands.help_labels import labeled_cli_form
@@ -160,6 +161,9 @@ def _emit_unknown(argv: Sequence[str]) -> int:
         "Run `yoke --help` for the canonical list of subcommands."
     )
     print(f"yoke: unknown subcommand: {head!r}\n{hint}", file=sys.stderr)
+    # A guessed leaf under a real group answers best with that group's
+    # actual members: the retry becomes a pick from a list.
+    emit_nearest_group_help(argv, stream=sys.stderr)
     return 2
 
 

@@ -1,8 +1,9 @@
 """Constants and pure helpers shared across ``items`` query/write modules.
 
-This module owns the canonical column ordering, structured-field sets, and
-small pure helpers used by both :mod:`yoke_core.domain.items_queries` and
-:mod:`yoke_core.domain.items_writes`. The public façade
+This module owns the derived column sets and small pure helpers used by
+both :mod:`yoke_core.domain.items_queries` and
+:mod:`yoke_core.domain.items_writes`, and re-exports the base vocabulary
+that :mod:`yoke_contracts.items_projection` defines. The public façade
 :mod:`yoke_core.domain.items` re-exports the names listed here.
 """
 
@@ -11,22 +12,22 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+# Canonical column order for pipe-delimited row output ("body" is a
+# virtual field rendered on demand) and the structured-field set. Both are
+# defined in yoke_contracts because the CLI renders them in
+# `yoke items get --help` and cannot import the engine; re-exported here so
+# engine callers keep this import site.
+from yoke_contracts.items_projection import (
+    CANONICAL_COLUMNS,
+    STRUCTURED_FIELDS,
+)
+
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 DEFAULT_ITEM_ACTOR_ID = "2"
-
-# Canonical column order for pipe-delimited row output.
-# "body" is a virtual field rendered on demand.
-CANONICAL_COLUMNS = (
-    "id", "title", "workflow_id", "workflow_version_id",
-    "status", "priority",
-    "rework_count", "frozen", "github_issue", "deployed_to",
-    "body", "merged_at", "created_at", "updated_at", "source",
-    "project", "project_id", "project_sequence", "deployment_flow", "deploy_stage",
-)
 
 # DB-only columns (body excluded — it's virtual).
 _DB_COLUMNS = tuple(c for c in CANONICAL_COLUMNS if c != "body")
@@ -41,20 +42,7 @@ LIST_COLUMNS = (
 
 # Fields that contain large text and need file-based read/write paths.
 # "body" is virtual and included so validators recognize the public field.
-LARGE_TEXT_FIELDS = frozenset({
-    "body", "spec", "design_spec", "technical_plan", "worktree_plan",
-    "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "db_mutation_profile", "db_compatibility_attestation",
-    "architecture_impact",
-})
-
-# Structured fields (subset of large text that accept file-based writes).
-STRUCTURED_FIELDS = frozenset({
-    "spec", "design_spec", "technical_plan", "worktree_plan",
-    "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "db_mutation_profile", "db_compatibility_attestation",
-    "architecture_impact",
-})
+LARGE_TEXT_FIELDS = STRUCTURED_FIELDS | {"body"}
 
 # Content-bearing structured fields that track spec_updated_at/by.
 # db_mutation_profile / db_compatibility_attestation ARE content-bearing: each
