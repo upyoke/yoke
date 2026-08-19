@@ -31,7 +31,8 @@ PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE = (
 )
 PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE = (
     "yoke projects capability-settings remove --project NAME --cap-type TYPE "
-    "--base AS_READ_JSON [--session-id S] [--json]"
+    "--base AS_READ_JSON (removes the capability row; CAS against the "
+    "document as read) [--session-id S] [--json]"
 )
 
 

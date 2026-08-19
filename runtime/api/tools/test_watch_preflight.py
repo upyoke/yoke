@@ -53,6 +53,14 @@ def test_wrapper_is_registered_under_the_preflight_cli_form() -> None:
     assert cli_form(watch_preflight.WRAPPER_MODULE) == "yoke watch preflight"
 
 
+def test_help_epilog_teaches_read_then_converge_or_remove() -> None:
+    epilog = watch_preflight.HELP_EPILOG
+    assert "capability-settings get" in epilog
+    assert "capability-settings set --base <as-read>" in epilog
+    assert "capability-settings remove --base <as-read>" in epilog
+    assert "Never guess an enum value or hand-edit SQL" in epilog
+
+
 def test_streaming_pair_uses_the_registered_wrapper(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

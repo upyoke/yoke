@@ -82,6 +82,12 @@ examples:
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m runtime.api.tools.preflight_fleet_migrations``.
+
+When a release-surface capability contract blocks a receipt: read the
+stored document with ``yoke projects capability-settings get``, then
+either converge it with ``capability-settings set --base <as-read>`` or
+remove it with ``capability-settings remove --base <as-read>`` when it
+carries no policy. Never guess an enum value or hand-edit SQL.
 """
 
 

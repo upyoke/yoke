@@ -103,8 +103,12 @@ class TestPolicy:
         assert policy.web_port_for("yok-1369") == 4077
 
     def test_missing_capability_fails_loudly(self):
-        with pytest.raises(EphemeralPolicyError, match="ephemeral-env"):
+        with pytest.raises(EphemeralPolicyError, match="ephemeral-env") as exc:
             ephemeral_policy_from_capability("p", None)
+        text = str(exc.value)
+        assert "capability-settings merge" in text
+        assert "capability-settings remove" in text
+        assert "--base <as-read>" in text
         with pytest.raises(EphemeralPolicyError):
             ephemeral_policy_from_capability("p", {})
 

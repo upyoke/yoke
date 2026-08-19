@@ -6,6 +6,9 @@ import io
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
+from yoke_cli.commands.adapters.projects_capability_settings import (
+    PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE,
+)
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -160,3 +163,11 @@ def test_remove_carries_exact_cas_base():
         "cap_type": "ephemeral-env",
         "base_settings_json": '{"trigger":"flow"}',
     }
+
+
+def test_remove_usage_names_capability_row_removal():
+    usage = PROJECTS_CAPABILITY_SETTINGS_REMOVE_USAGE
+    assert "capability-settings remove" in usage
+    assert "removes the capability row" in usage
+    assert "CAS against the document as read" in usage
+    assert "--base AS_READ_JSON" in usage
