@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 from typing import Sequence
 
 NESTED_PYTEST_REJECTION_MESSAGE = (
@@ -23,12 +24,14 @@ NESTED_PYTEST_REJECTION_MESSAGE = (
 BARE_RUNTIME_REJECTION_MESSAGE = (
     "watch_pytest refuses bare 'runtime/' as a pytest path: anchoring "
     "collection at runtime/ demotes runtime/api/conftest.py from "
-    "initial-conftest status and collection fails with \"Defining "
+    'initial-conftest status and collection fails with "Defining '
     "'pytest_plugins' in a non-top-level conftest is no longer "
-    "supported\".\n"
+    'supported".\n'
     "Full-suite shape: python3 -m yoke_core.tools.watch_pytest -- "
     "runtime/api/ runtime/harness/ tests/"
 )
+
+PYTEST_USAGE_ERROR_EXIT_STATUS = 4
 
 # Match the bare interpreter names operators most commonly retype, plus
 # the literal ``sys.executable`` token (sometimes copied from the wrapper
@@ -88,3 +91,89 @@ def has_bare_runtime_path(args: Sequence[str]) -> bool:
         if os.path.normpath(token) == "runtime":
             return True
     return False
+
+
+def supplied_test_files(args: Sequence[str]) -> tuple[str, ...]:
+    """Return explicit ``.py`` collection paths in pass-through *args*.
+
+    Pytest node ids retain their selector suffix for the diagnostic while
+    path validation below checks only the file portion before ``::``.
+    """
+    files: list[str] = []
+    skip_next = False
+    for token in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if token == "--":
+            continue
+        if token.startswith("-"):
+            skip_next = token in _PYTEST_VALUE_FLAGS
+            continue
+        if token.partition("::")[0].endswith(".py") and token not in files:
+            files.append(token)
+    return tuple(files)
+
+
+def _missing_test_files(args: Sequence[str], cwd: Path) -> tuple[str, ...]:
+    return tuple(
+        token
+        for token in supplied_test_files(args)
+        if not (cwd / token.partition("::")[0]).is_file()
+    )
+
+
+def invalid_test_selection_diagnostic(args: Sequence[str], cwd: Path) -> str | None:
+    """Explain a mixed explicit-file selection containing missing paths."""
+    files = supplied_test_files(args)
+    missing = set(_missing_test_files(args, cwd))
+    if not missing:
+        return None
+    lines = [
+        "watch_pytest invalid selection: "
+        f"{len(files)} supplied test file(s), {len(missing)} missing; "
+        "pytest was not started."
+    ]
+    for token in files:
+        reason = (
+            "path does not exist"
+            if token in missing
+            else "exists; not run because the combined selection is invalid"
+        )
+        lines.append(f"watch_pytest selection: {token} — {reason}")
+    return "\n".join(lines)
+
+
+def _active_selection_filters(args: Sequence[str]) -> tuple[str, ...]:
+    filters: list[str] = []
+    for index, token in enumerate(args):
+        if token in {"-k", "-m"} and index + 1 < len(args):
+            filters.append(f"{token} {args[index + 1]}")
+        elif token.startswith(("-k", "-m")) and not token.startswith("--"):
+            filters.append(token)
+    return tuple(filters)
+
+
+def zero_collection_diagnostic(
+    args: Sequence[str], collected_items: int | None, cwd: Path
+) -> str | None:
+    """Explain an all-existing explicit selection that yielded no items."""
+    files = supplied_test_files(args)
+    if collected_items != 0 or not files:
+        return None
+    missing = set(_missing_test_files(args, cwd))
+    filters = _active_selection_filters(args)
+    lines = [
+        f"# watch_pytest zero-collection selection: {len(files)} supplied test file(s)"
+    ]
+    for token in files:
+        if token in missing:
+            reason = "path does not exist"
+        elif missing:
+            reason = "not collected after pytest received a missing path"
+        elif filters:
+            reason = "no item matched active filter(s): " + ", ".join(filters)
+        else:
+            reason = "pytest reported no collectable items in this selection"
+        lines.append(f"# watch_pytest no-items: {token} — {reason}")
+    return "\n".join(lines)

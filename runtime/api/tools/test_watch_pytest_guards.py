@@ -45,9 +45,7 @@ class TestCollectionErrorRelay:
             "conftest is no longer supported:",
         ],
     )
-    def test_collection_and_usage_errors_classify_urgent(
-        self, line: str
-    ) -> None:
+    def test_collection_and_usage_errors_classify_urgent(self, line: str) -> None:
         assert watch_pytest.classify_pytest_line(line).cls is LineClass.URGENT
 
     @pytest.mark.parametrize(
@@ -67,12 +65,8 @@ class TestCollectionErrorRelay:
             "1 workers [1 item]",
         ],
     )
-    def test_collection_outcome_lines_classify_summary(
-        self, line: str
-    ) -> None:
-        assert (
-            watch_pytest.classify_pytest_line(line).cls is LineClass.SUMMARY
-        )
+    def test_collection_outcome_lines_classify_summary(self, line: str) -> None:
+        assert watch_pytest.classify_pytest_line(line).cls is LineClass.SUMMARY
 
     @pytest.mark.parametrize(
         "noise",
@@ -159,3 +153,103 @@ class TestBareRuntimeRefusal:
         out = capsys.readouterr().out
         assert "runtime/api/ runtime/harness/ tests/" in out
         assert "bare 'runtime/'" in out
+
+
+class TestExplicitFileSelectionDiagnostics:
+    def test_missing_file_refuses_the_complete_selection(
+        self,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        present = tmp_path / "test_present.py"
+        present.write_text("def test_present():\n    assert True\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(
+            watch_pytest._watch_runner,
+            "run_watcher",
+            lambda **_kwargs: pytest.fail("invalid selection reached pytest"),
+        )
+
+        rc = watch_pytest.main(["--", "test_present.py", "test_missing.py"])
+
+        assert rc == _watch_pytest_args.PYTEST_USAGE_ERROR_EXIT_STATUS
+        captured = capsys.readouterr()
+        assert "2 supplied test file(s), 1 missing" in captured.err
+        assert (
+            "test_present.py — exists; not run because the combined "
+            "selection is invalid"
+        ) in captured.err
+        assert "test_missing.py — path does not exist" in captured.err
+        assert captured.out == ""
+
+    def test_zero_collection_names_each_file_and_active_filter(self, tmp_path) -> None:
+        for name in ("test_one.py", "test_two.py"):
+            (tmp_path / name).write_text(
+                "def test_present():\n    assert True\n", encoding="utf-8"
+            )
+
+        diagnostic = _watch_pytest_args.zero_collection_diagnostic(
+            ["test_one.py", "test_two.py", "-k", "absent_name"],
+            0,
+            tmp_path,
+        )
+
+        assert diagnostic is not None
+        assert "2 supplied test file(s)" in diagnostic
+        assert (
+            "test_one.py — no item matched active filter(s): -k absent_name"
+            in diagnostic
+        )
+        assert (
+            "test_two.py — no item matched active filter(s): -k absent_name"
+            in diagnostic
+        )
+
+    def test_nonzero_collection_needs_no_diagnostic(self, tmp_path) -> None:
+        (tmp_path / "test_one.py").write_text(
+            "def test_present():\n    assert True\n", encoding="utf-8"
+        )
+
+        assert (
+            _watch_pytest_args.zero_collection_diagnostic(["test_one.py"], 1, tmp_path)
+            is None
+        )
+
+    def test_main_emits_zero_collection_diagnostic_in_footer(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        observed = {}
+
+        def _zero_item_run(**kwargs):
+            kwargs["classifier"]("4 workers [0 items]")
+            observed["footer"] = kwargs["footer_metadata"]()
+            return 5
+
+        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path))
+        monkeypatch.setattr(
+            watch_pytest.verification_tree_binding,
+            "evaluate_run",
+            lambda **_kwargs: (
+                watch_pytest.verification_tree_binding.TreeBindingVerdict()
+            ),
+        )
+        monkeypatch.setattr(
+            watch_pytest._source_pythonpath,
+            "import_origin_refusal",
+            lambda *_args, **_kwargs: None,
+        )
+        monkeypatch.setattr(watch_pytest._watch_runner, "run_watcher", _zero_item_run)
+        monkeypatch.setattr(
+            watch_pytest._watch_pytest_wall_clock,
+            "report",
+            lambda *_args, **_kwargs: None,
+        )
+
+        rc = watch_pytest.main(
+            ["--", "runtime/api/tools/test_watch_pytest_guards.py", "-k", "absent"]
+        )
+
+        assert rc == 5
+        assert "zero-collection selection" in observed["footer"]
+        assert "no item matched active filter(s): -k absent" in observed["footer"]
