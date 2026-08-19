@@ -59,7 +59,8 @@ CREATE TABLE events (
     hook_event_name TEXT,
     envelope TEXT,
     created_at TEXT
-)
+);
+CREATE UNIQUE INDEX idx_events_tool_use_id_dedup ON events(tool_use_id, event_name) WHERE tool_use_id IS NOT NULL
 """
 )
 
@@ -195,6 +196,14 @@ class TestParsePreEvent:
 
 
 class TestWritePreEvent:
+    def test_duplicate_tool_call_is_silent(self, tmp_db):
+        first = parse_pre_event({"tool_use_id": "tu-duplicate"})
+        second = parse_pre_event({"tool_use_id": "tu-duplicate"})
+        assert first is not None and second is not None
+        assert write_pre_event(first) is True
+        assert write_pre_event(second) is True
+        assert len(_fetch_rows(tmp_db)) == 1
+
     def test_populates_row_columns(self, tmp_db):
         envelope = parse_pre_event(
             {
