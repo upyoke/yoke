@@ -94,8 +94,7 @@ _YOKE_PAYLOAD_PATH_SUBCOMMANDS = (
     ("project", "register"),
 )
 
-# Yoke global flags that consume a value token; the value must not be
-# mistaken for the subcommand when matching the exempt shapes above.
+# Yoke global flag values must not be mistaken for subcommands.
 _YOKE_VALUE_FLAGS = frozenset({"--env", "--config", "--session-id"})
 
 
@@ -125,8 +124,21 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
         for shape in _YOKE_PAYLOAD_PATH_SUBCOMMANDS
     )
 
-_SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 
+def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
+    if command_base != "yoke":
+        return set()
+    try:
+        separator = tokens.index("--")
+        adapter = tokens.index("aws", 1, separator)
+    except ValueError:
+        return set()
+    return {separator + 3} if (
+        tokens[adapter:adapter + 2] == ["aws", "exec"]
+        and tokens[separator + 1:separator + 3] == ["logs", "tail"]
+    ) else set()
+
+_SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({
     ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
 })
@@ -178,6 +190,7 @@ def _extract_segment_targets(
     command_base = _segment_command_base(tokens)
     if _is_yoke_payload_path_segment(command_base, tokens):
         return []
+    remote_resource_indexes = _remote_resource_indexes(command_base, tokens)
     is_search = command_base in _SEARCH_COMMANDS
     skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
     sed_script_index = _sed_script_positional_index(command_base, tokens)
@@ -190,6 +203,9 @@ def _extract_segment_targets(
     n = len(tokens)
     while i < n:
         tok = tokens[i]
+        if i in remote_resource_indexes:
+            i += 1
+            continue
         if command_base == "curl" and tok in _CURL_NON_PATH_VALUE_FLAGS:
             i += 2
             continue
