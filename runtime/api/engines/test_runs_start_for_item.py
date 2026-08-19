@@ -160,6 +160,19 @@ def test_missing_deployment_flow_short_circuits():
     add_m.assert_not_called()
 
 
+def test_missing_flow_refusal_carries_the_flow_selection_recovery():
+    helpers, resolve, create, add, validate = _patches(item_row=("yoke", None))
+    recovery = "item 42 has no deployment_flow; pass --flow with one of: to-prod"
+    describe = mock.patch.object(
+        composer, "_describe_missing_flow", return_value=recovery,
+    )
+    with helpers, resolve, create, add, validate, describe as describe_m:
+        result = start_for_item(42)
+    assert result.ok is False
+    assert result.error == recovery
+    describe_m.assert_called_once_with(42, "yoke")
+
+
 def test_resolve_target_raise_is_captured():
     helpers, resolve, create, add, validate = _patches(
         resolve_raises=RuntimeError("env not configured"),
