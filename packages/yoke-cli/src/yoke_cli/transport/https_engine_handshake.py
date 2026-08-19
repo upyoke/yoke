@@ -108,19 +108,34 @@ def _warn_on_engine_version_skew(
     )
 
 
+def _loaded_source_checkout() -> Optional[str]:
+    """Git checkout that owns the imported ``yoke_cli`` package, if any.
+
+    Caller cwd is the wrong tree: a source-linked CLI invoked from another
+    project still loads ``yoke_cli`` from this checkout, and git history
+    of the caller project is not Yoke client/server skew.
+    """
+    import yoke_cli
+    from yoke_contracts.install_binding import source_checkout_root
+
+    root = source_checkout_root(yoke_cli.__file__)
+    return str(root) if root is not None else None
+
+
 def _source_checkout_comparison(
     raw_server_version: str,
-) -> source_build_skew.BuildComparison:
+) -> Optional[source_build_skew.BuildComparison]:
     """Reuse the banner's git comparison for payload compatibility reads."""
-    from pathlib import Path
-
+    checkout = _loaded_source_checkout()
+    if checkout is None:
+        return None
     return source_build_skew.compare_to_server_build(
-        str(Path.cwd()), f"v{raw_server_version}"
+        checkout, f"v{raw_server_version}"
     )
 
 
 def _warn_on_source_checkout_skew(
-    comparison: source_build_skew.BuildComparison,
+    comparison: Optional[source_build_skew.BuildComparison],
     sensitive_values: tuple[str, ...] = (),
 ) -> None:
     """Compare a source checkout's HEAD against the server's release commit.
@@ -134,9 +149,10 @@ def _warn_on_source_checkout_skew(
     resolved: this is a hint about why behavior might differ, never a gate.
     """
     global _skew_warned
-    from pathlib import Path
 
-    checkout = str(Path.cwd())
+    checkout = _loaded_source_checkout()
+    if checkout is None or comparison is None:
+        return
     origin = source_build_skew.compare_main_to_origin(checkout)
     details = []
     if comparison.differs:
