@@ -28,7 +28,8 @@ SESSIONS_INIT_USAGE = "yoke sessions init"
 SESSIONS_CHECKPOINT_USAGE = (
     "yoke sessions checkpoint --step N --action ACTION --chainable BOOL "
     "[--item-id I] [--task-num N] [--outcome O] [--status S] "
-    "[--required-path P] [--pre-status PS] [--session-id S] [--json]"
+    "[--required-path P] [--pre-status PS] [--failure-class C] "
+    "[--session-id S] [--json]"
 )
 SESSIONS_CHECKPOINT_READ_USAGE = (
     "yoke sessions checkpoint-read [--session-id S] [--json]"
@@ -111,6 +112,7 @@ def sessions_checkpoint(args: List[str]) -> int:
     parser.add_argument("--status", default=None)
     parser.add_argument("--required-path", default=None)
     parser.add_argument("--pre-status", default=None)
+    parser.add_argument("--failure-class", default=None)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_CHECKPOINT_USAGE)
@@ -122,7 +124,10 @@ def sessions_checkpoint(args: List[str]) -> int:
         "chainable": _chainable(parsed.chainable),
         "outcome": parsed.outcome,
     }
-    for key in ("item_id", "task_num", "status", "required_path", "pre_status"):
+    for key in (
+        "item_id", "task_num", "status", "required_path",
+        "pre_status", "failure_class",
+    ):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value

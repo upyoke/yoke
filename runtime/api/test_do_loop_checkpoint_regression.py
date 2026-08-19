@@ -35,17 +35,18 @@ def test_loop_routing_post_handler_checkpoint_is_outcome_aware():
     assert text.count("--outcome \"pre-dispatch\"") == 1, (
         "loop-routing.md must contain exactly one pre-dispatch checkpoint instruction"
     )
-    assert "classify_advance_outcome" in text, (
-        "Post-handler checkpoint must classify advance slice vs completed outcomes"
+    assert "--failure-class" in text, (
+        "Post-handler checkpoint must classify substrate failures via "
+        "--failure-class on yoke sessions checkpoint"
     )
-    assert '--outcome "$_handler_outcome"' in text, (
-        "Post-handler checkpoint must persist the classified handler outcome"
+    assert "chain_summary_label" in text, (
+        "Loop summary must read chain_summary_label from the checkpoint JSON"
     )
     assert "CHAIN HANDLER OUTCOME" in text, (
         "Non-completed outcomes must not render as CHAIN STEP COMPLETE"
     )
-    assert "render_chain_summary_label" in text, (
-        "Loop summary must use the canonical handler-outcome labels"
+    assert "from yoke_core.domain.sessions_handler_outcome" not in text, (
+        "Loop routing must not import sessions_handler_outcome from python3 -c"
     )
     assert 'with `--outcome "completed"`' not in text, (
         "Scope-entry wording must not force completed after classification"

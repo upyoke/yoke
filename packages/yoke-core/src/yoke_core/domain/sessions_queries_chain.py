@@ -29,6 +29,7 @@ def update_chain_checkpoint(
     status: Optional[str] = None,
     required_path: Optional[str] = None,
     pre_status: Optional[str] = None,
+    chain_summary_label: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Persist a post-handler chain checkpoint on the session's offer_envelope.
 
@@ -79,6 +80,8 @@ def update_chain_checkpoint(
         checkpoint["required_path"] = required_path
     if pre_status:
         checkpoint["pre_status"] = pre_status
+    if chain_summary_label:
+        checkpoint["chain_summary_label"] = chain_summary_label
 
     existing_envelope["chain_checkpoint"] = checkpoint
     envelope_json = json.dumps(existing_envelope)
@@ -198,9 +201,7 @@ def append_chain_skip_entry(
     if row is None:
         return []
     envelope: Dict[str, Any] = {}
-    # Index-access works for both native tuple rows and mapping-style rows,
-    # keeping the helper safe for inline-Python callers documented in
-    # .agents/skills/yoke/do/loop-routing.md.
+    # Index-access works for both native tuple rows and mapping-style rows.
     raw_envelope = row[0]
     if raw_envelope:
         try:

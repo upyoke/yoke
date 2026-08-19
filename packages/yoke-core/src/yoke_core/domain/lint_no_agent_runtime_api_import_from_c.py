@@ -23,8 +23,10 @@ Allowed shapes the lint stays out of:
 * ``python3 -c "from collections import defaultdict"`` — same.
 * ``python3 path/to/script.py`` — file invocation, not ``-c``.
 
-Mode pinned by machine config key ``lint_agent_cli_contract_mode``
-(``warn`` records audit only; ``deny`` blocks). Suppression token
+Mode pinned by the project-local ``.yoke/lint-config`` guard key
+``lint_no_agent_runtime_api_import_from_c`` (``warn`` records audit
+only; ``deny`` blocks). There is no live machine-config key
+``lint_agent_cli_contract_mode``. Suppression token
 ``# lint:no-agent-runtime-import-check`` on the Bash command body is
 recorded as audit evidence only — the rule still denies in ``deny`` mode.
 """

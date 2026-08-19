@@ -88,6 +88,7 @@ def test_sessions_checkpoint_dispatches() -> None:
         "--status", "implemented",
         "--required-path", "runtime/api/foo.py",
         "--pre-status", "implementing",
+        "--failure-class", "dirty-tracked-main",
     ) == 0
     req = _CAPTURED_REQUESTS[-1]
     assert req.function == "sessions.checkpoint"
@@ -102,6 +103,7 @@ def test_sessions_checkpoint_dispatches() -> None:
         "status": "implemented",
         "required_path": "runtime/api/foo.py",
         "pre_status": "implementing",
+        "failure_class": "dirty-tracked-main",
     }
 
 

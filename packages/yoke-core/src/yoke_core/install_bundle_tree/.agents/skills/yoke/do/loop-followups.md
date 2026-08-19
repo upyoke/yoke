@@ -81,8 +81,10 @@ The Stop and SessionEnd hooks use the non-destructive idle-cleanup helper (no fo
 ## Chain Summary Rendering
 
 The end-of-step block ``/yoke do`` prints reads
-``handler_outcome`` from the chain checkpoint and renders the
-operator-facing label via ``yoke_core.domain.sessions_handler_outcome.render_chain_summary_label``.
+``handler_outcome`` and ``chain_summary_label`` from the chain
+checkpoint JSON (`yoke sessions checkpoint` / `checkpoint-read`).
+The adapter classifies and renders the label; do not import
+``yoke_core.domain.sessions_handler_outcome`` to recompute it.
 The labels distinguish:
 
 - ``handler completed`` — routed handler reached a lifecycle boundary; render `=== CHAIN STEP N/M COMPLETE ===` as today.

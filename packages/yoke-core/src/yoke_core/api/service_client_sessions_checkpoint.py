@@ -41,11 +41,12 @@ def cmd_session_checkpoint(args: list[str]) -> int:
     parser.add_argument("--status", default=None)
     parser.add_argument("--required-path", default=None)
     parser.add_argument("--pre-status", default=None)
+    parser.add_argument("--failure-class", default=None)
 
     try:
         parsed = parser.parse_args(args)
     except SystemExit:
-        print("Usage: session-checkpoint [--session-id S] --step N --action A --chainable BOOL [--item-id I] [--task-num T] [--outcome O] [--status S] [--required-path P] [--pre-status PS]", file=sys.stderr)
+        print("Usage: session-checkpoint [--session-id S] --step N --action A --chainable BOOL [--item-id I] [--task-num T] [--outcome O] [--status S] [--required-path P] [--pre-status PS] [--failure-class C]", file=sys.stderr)
         return 2
 
     parsed.session_id = _resolve_session_id(parsed.session_id)
@@ -54,6 +55,21 @@ def cmd_session_checkpoint(args: list[str]) -> int:
         return 2
 
     chainable = parsed.chainable.lower() in ("true", "1", "yes")
+    from yoke_core.domain.sessions_handler_outcome import (
+        render_chain_summary_label,
+        resolve_checkpoint_outcome,
+        resolved_checkpoint_chainable,
+    )
+
+    outcome = resolve_checkpoint_outcome(
+        outcome=parsed.outcome,
+        failure_class=parsed.failure_class,
+        required_path=parsed.required_path,
+        pre_status=parsed.pre_status,
+        post_status=parsed.status,
+    )
+    chainable = resolved_checkpoint_chainable(chainable, outcome)
+    label = render_chain_summary_label(outcome)
 
     conn = _get_db_readwrite()
     try:
@@ -65,12 +81,13 @@ def cmd_session_checkpoint(args: list[str]) -> int:
                 step=parsed.step,
                 action=parsed.action,
                 chainable=chainable,
-                handler_outcome=parsed.outcome,
+                handler_outcome=outcome,
                 item_id=parsed.item_id,
                 task_num=parsed.task_num,
                 status=parsed.status,
                 required_path=parsed.required_path,
                 pre_status=parsed.pre_status,
+                chain_summary_label=label,
             )
             print(json.dumps(checkpoint))
             return 0

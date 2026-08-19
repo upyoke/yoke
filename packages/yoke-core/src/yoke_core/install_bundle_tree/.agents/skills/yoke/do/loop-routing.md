@@ -28,30 +28,27 @@ yoke sessions checkpoint --step "{step}" --action "{action}" --chainable "{chain
 
 `{_pre_status}` is the offer-time status from Step A's response — `context.status` for `resume`, or `context.scheduler.status` for `charge`. Capture it at the same point as `{_status}` and reuse it on both the pre-dispatch and post-handler checkpoint calls. The post-handler `--status` records where the handler landed (`$_post_status`); `--pre-status` records where it started. Together they let the decision engine measure direct progress (`pre_status != status`) rather than guessing from same-state heuristics.
 
-After the mode handler returns, classify the handler outcome and
-persist a post-handler chain checkpoint. The checkpoint records
-handler outcome so Step C can consult durable state rather than
-prompt-local variables.
+After the mode handler returns, persist a post-handler chain checkpoint.
+`yoke sessions checkpoint` classifies the outcome server-side from
+`--pre-status`, `--status`, and `--required-path` (advance slice vs
+completed) or from `--failure-class` (substrate taxonomy). The JSON
+returns `handler_outcome` and `chain_summary_label`. Parse those fields
+in the prompt context — do not import
+`yoke_core.domain.sessions_handler_outcome`.
 
-**Classify handler outcome:** Immediately after the handler returns,
-determine the post-handler outcome before
-writing the checkpoint. Use `completed` as the default. Resolve
-`{_item_id}` from the Step A response's context: for `resume` use
-`context.item_id`, for `charge` use `context.selected_item`, for other
-actions use empty string. Also persist `{_status}` (from
+Resolve `{_item_id}` from the Step A response's context: for `resume`
+use `context.item_id`, for `charge` use `context.selected_item`, for
+other actions use empty string. Persist `{_status}` (from
 `context.status`) and `{_required_path}` (from `context.required_path`
 for `resume`, or the scheduler `next_step` mapped to `advance` /
-`polish` / etc. for `charge`) when available — these fields enable
-no-progress resume detection. When `charge` dispatches from
+`polish` / etc. for `charge`). When `charge` dispatches from
 `context.scheduler.next_step`, also retain that value as `{_next_step}`
-for the outcome classifier below.
+so `--required-path` is `advance` when the scheduler selected advance.
 
-For routed advance work, re-read the item status after the handler
-returns and use the canonical classifier so an internal implementation
-slice is not misreported as a completed chain step:
+Re-read live item status after the handler returns so an internal
+implementation slice is not persisted as a completed chain step:
 
 ```bash
-_handler_outcome="completed"
 _post_status="{_status}"
 if [ -n "{_item_id}" ]; then
  _live_status=$(yoke items get "{_item_id}" status 2>/dev/null || true)
@@ -59,33 +56,37 @@ if [ -n "{_item_id}" ]; then
   _post_status="$_live_status"
  fi
 fi
-
-if [ "{_required_path}" = "advance" ] || [ "{_next_step}" = "advance" ]; then
- _handler_outcome=$(python3 -c 'from yoke_core.domain.sessions_handler_outcome import classify_advance_outcome; print(classify_advance_outcome(pre_status="{_status}", post_status="'"$_post_status"'"))')
-fi
 ```
 
 If the routed handler reports an advance-entry substrate failure before
-useful implementation work begins, classify `CLASS` with
-`classify_substrate_failure`. Only recoverable classes call the helper;
-blocked classes set `_checkpoint_chainable=false`. The helper appends
-skip memory, releases the claim, and emits `SchedulerOfferSkipped`; the
-agent still writes the checkpoint below.
+useful implementation work begins, persist with `--failure-class CLASS`
+instead of status classification. The adapter maps the class through the
+substrate taxonomy (unknowns → `blocked`) and forces `chainable=false`
+on terminal outcomes. Parse `handler_outcome` from stdout. Only
+`recoverable_substrate` calls the skip helper.
 
 ```bash
-_handler_outcome=$(python3 -c 'from yoke_core.domain.sessions_handler_outcome import classify_substrate_failure; print(classify_substrate_failure("CLASS"))')
-if [ "$_handler_outcome" = "recoverable_substrate" ]; then
- yoke lifecycle skip record-recoverable-substrate {_item_id} \
-  --chain-step {step} --project {project} --routed-action {action} \
-  --failure-class CLASS --remediation-owner PREFIX-N
-elif [ "$_handler_outcome" = "blocked" ]; then
- _checkpoint_chainable=false
-fi
+yoke sessions checkpoint \
+ --step "{step}" \
+ --action "{action}" \
+ --chainable "${_checkpoint_chainable:-{chainable}}" \
+ --item-id "{_item_id}" \
+ --status "$_post_status" \
+ --required-path "{_required_path}" \
+ --pre-status "{_pre_status}" \
+ --failure-class CLASS
 ```
 
-Substrate taxonomy (`SUBSTRATE_FAILURE_TAXONOMY` /
-`classify_substrate_failure`; unknowns route to `blocked`; starter
-classes are theoretical, +11h window produced zero recurrences):
+When the returned `handler_outcome` is `recoverable_substrate`:
+
+```bash
+yoke lifecycle skip record-recoverable-substrate {_item_id} \
+ --chain-step {step} --project {project} --routed-action {action} \
+ --failure-class CLASS --remediation-owner PREFIX-N
+```
+
+Substrate taxonomy (unknowns route to `blocked`; starter classes are
+theoretical, +11h window produced zero recurrences):
 
 | `failure_class`                   | Outcome                 | Rationale |
 |---                                |---                      |---|
@@ -95,8 +96,9 @@ classes are theoretical, +11h window produced zero recurrences):
 | `lease-conflict`                  | `recoverable_substrate` | Lease release makes retry plausible. |
 | _anything else_                   | `blocked`               | Unknown classes stop for operator review. |
 
-**Persist chain checkpoint:** Write a checkpoint with the classified
-outcome:
+**Persist chain checkpoint (no substrate):** omit `--outcome` so the
+adapter classifies. Parse `handler_outcome` and `chain_summary_label`
+from stdout in the prompt context.
 
 ```bash
 # YOKE_SESSION_ID is in the environment — the wrapper resolves it internally
@@ -107,8 +109,7 @@ yoke sessions checkpoint \
  --item-id "{_item_id}" \
  --status "$_post_status" \
  --required-path "{_required_path}" \
- --pre-status "{_pre_status}" \
- --outcome "$_handler_outcome"
+ --pre-status "{_pre_status}"
 ```
 
 If the handler provisioned a new worktree (an active `item_worktrees` lane
@@ -119,14 +120,10 @@ and proceeds into worktree-bound implementation/review work in the same
 chain run. The session's authority over the new worktree is its
 work-claim, validated per tool call by `lint_session_cwd`.
 
-**Completion re-anchor:** After a chainable handler returns, render
-the canonical handler-outcome label and emit a short re-anchor block so
-Step C operates on bounded output instead of the full raw handler
-transcript:
-
-```bash
-_chain_label=$(python3 -c 'from yoke_core.domain.sessions_handler_outcome import render_chain_summary_label; print(render_chain_summary_label("'"$_handler_outcome"'"))')
-```
+**Completion re-anchor:** After a chainable handler returns, use
+`chain_summary_label` from the checkpoint JSON as `{_chain_label}` and
+emit a short re-anchor block so Step C operates on bounded output
+instead of the full raw handler transcript.
 
 For the normal completed outcome, retain the familiar completed-step
 header:
