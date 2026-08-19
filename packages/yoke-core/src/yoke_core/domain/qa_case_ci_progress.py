@@ -81,6 +81,18 @@ def announce_run(
         f"requirement={requirement_id} {source} run={run_id} {run_url}",
         stream=stream,
     )
+    _emit(
+        f"inspect with `gh run view {run_id} --repo {repo}`; watch with "
+        f"`gh run watch {run_id} --repo {repo}`",
+        stream=stream,
+    )
+    _emit(
+        "if cancellation stalls, force-cancel with "
+        f"`gh api --method POST repos/{repo}/actions/runs/{run_id}/"
+        f"force-cancel`; after this invocation exits, retry "
+        f"`yoke qa case run --requirement-id {requirement_id}`",
+        stream=stream,
+    )
     return run_url
 
 

@@ -64,6 +64,8 @@ class TestDenyShape(unittest.TestCase):
         self.assertEqual(outcome, "denied")
         self.assertIn("yoke watch pytest", reason)
         self.assertIn("admission slot", reason)
+        self.assertIn("--collect-only", reason)
+        self.assertIn("<CI shard args>", reason)
 
     def test_flag_values_are_not_read_as_paths(self):
         # `-n auto` and `-k expr` must not be mistaken for path operands,
@@ -125,6 +127,12 @@ class TestSilentShapes(unittest.TestCase):
         self.assertIsNone(
             _eval("yoke watch pytest -- runtime/api/ runtime/harness/ tests/")
         )
+
+    def test_wrapped_collect_only_shard_is_not_matched(self):
+        self.assertIsNone(_eval(
+            "yoke watch pytest -- runtime/api/ runtime/harness/ tests/ "
+            "--splits 4 --group 4 --collect-only -q"
+        ))
 
     def test_qa_case_run_is_not_matched(self):
         self.assertIsNone(_eval("yoke qa case run --requirement-id 7"))
