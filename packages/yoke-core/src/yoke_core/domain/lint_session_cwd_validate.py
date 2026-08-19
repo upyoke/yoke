@@ -46,6 +46,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     is_inside as _is_inside,
     is_inside_control_plane as _is_inside_control_plane,
     is_free_path as _path_is_free_path,
+    is_sanctioned_installed_read_path,
     is_under_tool_dir as _path_is_under_tool_dir,
     is_yoke_watcher_capture_path,
     resolve_for_display as _resolve_for_display,
@@ -108,6 +109,7 @@ def validate_targets(
     targets: Sequence[str],
     fallback_cwd: str = "",
     watcher_capture_root: str = "",
+    read_only: bool = False,
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -119,6 +121,7 @@ def validate_targets(
     carry an explicit file_path target).
     ``watcher_capture_root`` is the client-evidenced root on relayed calls;
     local evaluation resolves the root directly.
+    ``read_only`` admits explicitly sanctioned installed harness/tool paths.
     """
     if not (session_id or "").strip():
         return ValidationVerdict(
@@ -184,6 +187,7 @@ def validate_targets(
             repo_roots=repo_roots,
             session_id=session_id,
             watcher_capture_root=watcher_capture_root,
+            read_only=read_only,
         ):
             continue
         return ValidationVerdict(
@@ -210,6 +214,7 @@ def _is_target_authorised(
     repo_roots: Sequence[str],
     session_id: str,
     watcher_capture_root: str,
+    read_only: bool,
 ) -> bool:
     if _is_free_path(
         target,
@@ -218,6 +223,8 @@ def _is_target_authorised(
     ):
         return True
     if _is_under_tool_dir(target):
+        return True
+    if read_only and is_sanctioned_installed_read_path(target):
         return True
     for claim in claims:
         if _is_inside(target, claim.worktree_path):
