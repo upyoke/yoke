@@ -35,14 +35,17 @@ from yoke_core.domain import (
 from yoke_core.domain.db_backend import connection_is_postgres
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.gh_rest_transport import (
-    RestNotFoundError,
     RestTransportError,
+)
+from yoke_core.domain.merge_queue_live_drift import (
+    MERGE_QUEUE_RULE_TYPE as _MERGE_QUEUE_RULE_TYPE,
+    compare_declared_against_live,
+    live_branch_rules,
 )
 from yoke_core.domain.merge_queue_declaration import (
     DECLARATION_RELATIVE_PATH,
     MergeQueueDeclarationError,
     declaration_path,
-    diff_declared_against_live,
     load_declaration,
     parse_declaration,
 )
@@ -59,8 +62,6 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 CHECK_ID = "merge-queue-binding"
 CHECK_NAME = "Merge queue binding"
-
-_MERGE_QUEUE_RULE_TYPE = "merge_queue"
 
 
 def _marker(conn) -> str:
@@ -243,17 +244,11 @@ def hc_merge_queue_binding(
         return
     owner, repo = gh_rest_transport.split_repo(auth.repo)
 
-    try:
-        live_rules = mq_rest.fetch_branch_rules(
-            owner, repo, default_branch, token=auth.token,
-        )
-    except RestNotFoundError:
-        live_rules = []
-    except RestTransportError as exc:
-        rec.record(
-            CHECK_ID, CHECK_NAME, "SKIP",
-            f"branch rules unreadable for {owner}/{repo}: {exc}",
-        )
+    live_rules, rules_error = live_branch_rules(
+        owner, repo, default_branch, token=auth.token,
+    )
+    if live_rules is None:
+        rec.record(CHECK_ID, CHECK_NAME, "SKIP", str(rules_error))
         return
 
     has_queue = any(
@@ -280,49 +275,15 @@ def hc_merge_queue_binding(
         conn, args, owner, repo, default_branch, auth.token
     )
     if declared is not None:
-        live_auto = None
-        repo_readable = True
-        try:
-            repo_row = mq_rest.fetch_repository(
-                owner, repo, token=auth.token,
-            )
-            live_auto = repo_row.get("allow_auto_merge")
-            if not isinstance(live_auto, bool):
-                live_auto = None
-        except RestTransportError as exc:
-            repo_readable = False
-            problems.append(f"repository settings unreadable: {exc}")
-
-        live_bypass = None
-        compare_bypass = False
-        ruleset_id = None
-        for rule in live_rules:
-            if (
-                isinstance(rule, dict)
-                and rule.get("type") == _MERGE_QUEUE_RULE_TYPE
-            ):
-                ruleset_id = rule.get("ruleset_id")
-                break
-        if isinstance(ruleset_id, int):
-            try:
-                detail = mq_rest.get_ruleset(
-                    owner, repo, ruleset_id, token=auth.token,
-                )
-                live_bypass = detail.get("bypass_actors")
-                compare_bypass = True
-            except RestTransportError:
-                compare_bypass = False
-
-        if repo_readable:
-            problems.extend(
-                diff_declared_against_live(
-                    declared,
-                    live_branch_rules=live_rules,
-                    live_allow_auto_merge=live_auto,
-                    live_bypass_actors=live_bypass,
-                    compare_bypass=compare_bypass,
-                )
-            )
+        report = compare_declared_against_live(
+            declared,
+            owner=owner,
+            repo=repo,
+            rules=live_rules,
+            token=auth.token,
+        )
+        problems.extend(report.unreadable)
+        problems.extend(report.drift)
     elif "declaration unreadable" in decl_detail:
         problems.append(decl_detail)
 
