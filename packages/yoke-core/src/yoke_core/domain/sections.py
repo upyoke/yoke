@@ -336,7 +336,7 @@ def delete_section(
 # attribute access on this module at call time), which keeps the module
 # graph free of import cycles even when ``sections.py`` is run as
 # ``python3 -m yoke_core.domain.sections``.
-from yoke_core.domain.sections_cli import (  # noqa: E402
+from yoke_core.domain.sections_cli import (  # noqa: E402, F401
     USAGE,
     cmd_delete,
     cmd_get,
