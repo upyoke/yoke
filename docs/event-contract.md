@@ -35,7 +35,7 @@ Every event is a row in the `events` table. The canonical columns are:
 | `event_outcome` | TEXT | No | `completed`, `failed`, `skipped`, or null |
 | `org_id` | TEXT | No | Organization identifier |
 | `actor_id` | INTEGER | No | Authenticated engine actor; references `actors(id)` |
-| `environment` | TEXT | No | `production`, `staging`, `development` |
+| `environment` | TEXT | No | `prod`, `stage`, `local` |
 | `service` | TEXT | Yes | Emitting service (default `cli`) |
 | `project` | TEXT | Yes | Project scope (default `yoke`) |
 | `item_id` | TEXT | No | Backlog item reference (canonical bare-numeric text; display layers may render `YOK-N`) |

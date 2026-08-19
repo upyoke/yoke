@@ -190,6 +190,13 @@ class TestResolveTarget:
         )
         assert result == ("", None, "")
 
+    def test_unknown_flow_reports_unknown(self, db_path):
+        with pytest.raises(
+            LookupError,
+            match="unknown deployment flow 'missing' for project 'yoke'",
+        ):
+            dr.cmd_resolve_target("yoke", "missing", db_path=db_path)
+
 
 class TestCancelledStatus:
     """Terminal status cancelled sets completed_at."""

@@ -70,7 +70,9 @@ def cmd_resolve_target(
             (flow, ident.id),
         )
         if row is None:
-            return "", None, ""
+            raise LookupError(
+                f"unknown deployment flow {flow!r} for project {ident.slug!r}"
+            )
         tier = str(row["target_tier"] if hasattr(row, "keys") else row[0])
         raw_environment_id = (
             row["target_environment_id"] if hasattr(row, "keys") else row[1]

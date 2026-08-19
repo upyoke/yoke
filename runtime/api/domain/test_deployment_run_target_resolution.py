@@ -66,6 +66,31 @@ def test_target_resolution_closes_connection_after_typed_refusal() -> None:
     conn.close.assert_called_once_with()
 
 
+def test_unknown_flow_is_reported_as_unknown() -> None:
+    conn = Mock()
+    with (
+        patch(
+            "yoke_core.domain.deployment_run_target_resolution.connect",
+            return_value=conn,
+        ),
+        patch(
+            "yoke_core.domain.deployment_run_target_resolution.resolve_project",
+            return_value=SimpleNamespace(id=3, slug="acme"),
+        ),
+        patch(
+            "yoke_core.domain.deployment_run_target_resolution.query_one",
+            return_value=None,
+        ),
+        pytest.raises(
+            LookupError,
+            match="unknown deployment flow 'missing' for project 'acme'",
+        ),
+    ):
+        cmd_resolve_target("acme", "missing")
+
+    conn.close.assert_called_once_with()
+
+
 def test_create_returns_migration_required_error() -> None:
     with patch(
         "yoke_core.domain.deployment_runs_crud_mutate.cmd_create_run",
@@ -98,6 +123,25 @@ def test_resolve_target_returns_migration_required_error() -> None:
     assert not outcome.primary_success
     assert outcome.error.code == "environment_registry_migration_required"
     assert MIGRATION_APPLY_RECIPE in outcome.error.message
+
+
+def test_resolve_target_returns_unknown_flow_error() -> None:
+    with patch(
+        "yoke_core.domain.deployment_run_target_resolution.cmd_resolve_target",
+        side_effect=LookupError(
+            "unknown deployment flow 'missing' for project 'acme'"
+        ),
+    ):
+        outcome = deployment_runs.handle_deployment_run_resolve_target(
+            deployment_request(
+                function="deployment_runs.resolve_target",
+                payload={"project": "acme", "flow": "missing"},
+            )
+        )
+
+    assert not outcome.primary_success
+    assert outcome.error.code == "not_found"
+    assert "unknown deployment flow 'missing'" in outcome.error.message
 
 
 def test_start_for_item_preserves_migration_required_error() -> None:
