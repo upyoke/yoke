@@ -32,7 +32,6 @@ __all__ = [
     "ROLE_TOPICS",
     "TOPICS",
     "TOPIC_TABLES",
-    "PACKAGE_ROOTS",
     "PACKET_LINE_BUDGET_PER_ROLE",
     "PACKET_LINE_BUDGET_AGGREGATE",
 ]
@@ -164,28 +163,6 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "github_app_installations",
         "project_github_repo_bindings",
         "migration_audit",
-    ),
-}
-
-
-# Where each importable package's source lives, mirroring the
-# ``architecture_model`` family's ``package_roots`` section. That family is
-# the authority; this mirror exists because rendered adapters are committed
-# files and a checkout with no project rows has no model to read, so the
-# packet must render identical bytes everywhere.
-# ``schema_api_context.detect_seed_drift`` reads the model wherever one is
-# reachable and reports any divergence, so the mirror cannot go stale in
-# silence. Repair by copying the model's values here, never the reverse.
-PACKAGE_ROOTS: dict[str, tuple[tuple[str, str], ...]] = {
-    "yoke_cli": (("packages/yoke-cli/src", "package_under_root"),),
-    "yoke_contracts": (("packages/yoke-contracts/src", "package_under_root"),),
-    "yoke_core": (
-        ("packages/yoke-core/src", "package_under_root"),
-        ("runtime/api", "package_is_root"),
-    ),
-    "yoke_harness": (
-        ("packages/yoke-harness/src", "package_under_root"),
-        ("runtime/harness", "package_is_root"),
     ),
 }
 
