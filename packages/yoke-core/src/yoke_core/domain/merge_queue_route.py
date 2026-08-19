@@ -67,6 +67,7 @@ from yoke_core.domain.merge_queue_landing_pull_request import (
     ensure_landing_pull_request,
 )
 from yoke_core.domain.merge_queue_landing_timeout import timeout_message
+from yoke_core.domain.merge_queue_live_drift import drift_blocking_landing
 from yoke_core.domain.merge_queue_landing_verdict import (
     CLOSED_UNMERGED,
     CONFLICTED,
@@ -142,6 +143,17 @@ def land_item_through_merge_queue(
 ) -> QueueLandingOutcome:
     """Land one verified item branch through the merge queue."""
     warnings: list[str] = []
+
+    # The queue enforces whatever the live ruleset requires, so landing
+    # into a drifted one is gated on a set main already disowned.
+    drift = drift_blocking_landing(
+        ctx.project or "", checkout=ctx.repo_root, branch=target,
+    )
+    if drift.drifted:
+        return QueueLandingOutcome(
+            ok=False, exit_code=1, error=drift.refusal(ctx.project or ""),
+        )
+    warnings.extend(drift.unreadable)
 
     members, members_err = read_queue_members(ctx, base_branch=target)
     if members_err or members is None:
