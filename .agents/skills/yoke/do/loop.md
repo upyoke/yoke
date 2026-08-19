@@ -123,7 +123,37 @@ model from the session row's model field (same DB row `yoke sessions begin`
 populated above; see your `harness_sessions` packet stanza) with the
 `detect_model` fallback.
 
-If the command exits non-zero, report the error and stop.
+If stdout is empty or is not a parseable NextAction JSON object —
+including an exec that exits 0 with empty stdout — do **not** treat that
+as no-work and do **not** release claims. A slow offer can finish
+server-side after the harness drops the process; empty stdout is not an
+answer. The session id is already in hand. Read durable state before
+concluding:
+
+```bash
+yoke events query --event-name HarnessSessionOffered --session {SESSION_ID} --limit 1 --json
+yoke events query --event-name FrontierStepSelected --session {SESSION_ID} --limit 1 --json
+yoke events query --event-name WorkClaimed --session {SESSION_ID} --limit 1 --json
+yoke events query --event-name NextActionChosen --session {SESSION_ID} --limit 1 --json
+```
+
+Substitute the literal session id captured from `yoke sessions init`
+(`SESSION_ID`), not `$YOKE_SESSION_ID` from a prior Bash call. `--session`
+filters `events.session_id`; `--session-id` is caller identity.
+
+- If `HarnessSessionOffered` fired (and `FrontierStepSelected` /
+  `WorkClaimed` when the offer selected work), the offer succeeded.
+  Recover the NextAction from the latest `NextActionChosen` row's
+  `envelope.context`: `action`, `reason`, `chainable`, and
+  `correlation_id` are the directive; the remaining context keys are the
+  offer `context`. Continue at Step B. Do not release the claim this
+  offer already took.
+- If those events did not fire, the offer never persisted. Only then
+  treat the empty response as a true empty frontier.
+
+If the command exits non-zero **and** stdout is a parseable error **and**
+the durable-state check above found no matching offer events, report the
+error and stop.
 
 **Note:** Canonical `HarnessSessionOffered` and `NextActionChosen` events are emitted by the shared offer path (via `yoke sessions offer` / the `/v1/session/offer` API endpoint), not by this loop. Pass the current `{step}` number to that shared path so it can attach the same loop iteration to both events while centrally handling indexed `item_id` / `task_num` population and merged action-specific context.
 
