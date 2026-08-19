@@ -240,6 +240,13 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
         )
         return 2
 
+    invalid_selection = _watch_pytest_args.invalid_test_selection_diagnostic(
+        pytest_args, Path.cwd()
+    )
+    if invalid_selection is not None:
+        print(invalid_selection, file=sys.stderr)
+        return _watch_pytest_args.PYTEST_USAGE_ERROR_EXIT_STATUS
+
     binding = verification_tree_binding.evaluate_run(
         surface=prog,
         allow_mismatch=ns.allow_tree_mismatch,
@@ -313,9 +320,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             return classify_pytest_line(line)
 
         def selection_footer() -> str | None:
-            if selection is None:
-                return None
-            return _selection_footer(selection, collected_items)
+            lines = []
+            if selection is not None:
+                lines.append(_selection_footer(selection, collected_items))
+            zero_collection = _watch_pytest_args.zero_collection_diagnostic(
+                pytest_args, collected_items, Path.cwd()
+            )
+            if zero_collection is not None:
+                lines.append(zero_collection)
+            return "\n".join(lines) or None
 
         exit_code = _watch_runner.run_watcher(
             argv=_pytest_argv(pytest_args),

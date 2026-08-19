@@ -49,6 +49,7 @@ TEST_TOOLING_PATHS = (
     "packages/yoke-core/src/yoke_core/tools/impacted_tests.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_selection.py",
     "packages/yoke-core/src/yoke_core/tools/watch_pytest.py",
+    "packages/yoke-core/src/yoke_core/tools/_watch_pytest_args.py",
     "packages/yoke-core/src/yoke_core/tools/_watch_pytest_classify.py",
     "packages/yoke-core/src/yoke_core/tools/_watch_runner.py",
     "packages/yoke-core/src/yoke_core/tools/_impacted_import_index.py",
