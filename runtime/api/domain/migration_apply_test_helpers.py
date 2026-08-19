@@ -21,9 +21,7 @@ from runtime.api.fixtures.migration_model_test import (
     TEST_MIGRATION_MODULES_DIR as DEFAULT_MODULES_DIR,
     governed_postgres_test_seed,
 )
-from yoke_core.domain.migration_apply_targets import (
-    POSTGRES_VALIDATION_ENV_SUFFIX,
-)
+from yoke_core.domain.migration_validation_binding import validation_env_var
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.test_backlog import _conn
@@ -226,10 +224,7 @@ def apply_env(tmp_db: str, tmp_path: Path, monkeypatch):
     validation_db_name = pg_testdb.create_test_database()
     validation_dsn = pg_testdb.dsn_for_test_database(validation_db_name)
     _seed_postgres_validation_db(validation_dsn)
-    monkeypatch.setenv(
-        f"YOKE_PG_DSN{POSTGRES_VALIDATION_ENV_SUFFIX}",
-        validation_dsn,
-    )
+    monkeypatch.setenv(validation_env_var("YOKE_PG_DSN"), validation_dsn)
 
     monkeypatch.setenv("YOKE_DB", tmp_db)
 

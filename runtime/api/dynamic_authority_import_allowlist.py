@@ -154,6 +154,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
     ("packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
      "yoke_core.domain.universe_archive_validation"):
         ("client_local_validation", "validate a local archive before upload"),
+    ("packages/yoke-cli/src/yoke_cli/commands/universe_validate.py",
+     "yoke_core.domain.migration_validation_binding"):
+        ("client_local_validation",
+         "read the same disposable-database binding rehearsal reads"),
     (
         "packages/yoke-cli/src/yoke_cli/config/dev_setup.py",
         "yoke_core.tools.pg_testcluster",

@@ -71,6 +71,7 @@ from yoke_core.domain.migration_apply_format import (
 )
 from yoke_core.domain.coordination_leases import LeaseHeldError
 from yoke_core.domain.migration_apply_rehearse import rehearse
+from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
 
 def _parse_item_id(raw: str) -> int:
@@ -107,7 +108,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     item_id: Optional[int] = None
     if args.command == "rehearse":
-        item_id = _parse_item_id(args.item_id)
+        try:
+            item_id = _parse_item_id(args.item_id)
+        except ValueError as exc:
+            # The ref resolves against the SELECTED connection's universe, so
+            # "not found" usually means the wrong universe rather than a typo.
+            print(
+                f"ERROR: {exc}; rehearsal is item-bound and reads the item "
+                "from the selected connection's universe. List the registered "
+                f"connections with `{CONNECTION_READER}`, then rerun under "
+                "the non-HTTPS one that holds the item: "
+                "`yoke --env <name> migration rehearse ITEM`.",
+                file=sys.stderr,
+            )
+            return 1
     try:
         if args.command == "rehearse":
             assert item_id is not None

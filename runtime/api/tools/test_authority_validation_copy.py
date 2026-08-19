@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.tools import authority_validation_copy as copy_tool
+from yoke_core.domain.migration_validation_binding import read_binding
 
 
 def test_refuses_the_authoritative_database_as_validation(monkeypatch) -> None:
@@ -79,3 +80,79 @@ def test_copies_with_no_owner_or_privilege_restore(monkeypatch) -> None:
     assert dump_env["PGPASSWORD"] == "top-secret"
     assert restore_env.get("PGPASSWORD") is None
     assert resets == [validation_dsn]
+
+
+def test_derives_a_disposable_target_when_nothing_is_bound(monkeypatch) -> None:
+    monkeypatch.delenv(copy_tool.VALIDATION_DSN_ENV, raising=False)
+
+    resolved, derived = copy_tool.resolve_validation_dsn(
+        "host=localhost dbname=yoke password=top-secret"
+    )
+
+    assert derived is True
+    assert "dbname=yoke_validation" in resolved
+    # Same cluster and credentials, so no DSN has to be authored by hand.
+    assert "host=localhost" in resolved
+    assert "password=top-secret" in resolved
+
+
+def test_a_bound_target_wins_over_deriving_one(monkeypatch) -> None:
+    bound = "host=elsewhere dbname=chosen_scratch"
+    monkeypatch.setenv(copy_tool.VALIDATION_DSN_ENV, bound)
+
+    assert copy_tool.resolve_validation_dsn("host=localhost dbname=yoke") == (
+        bound,
+        False,
+    )
+
+
+def test_an_authority_without_a_database_name_cannot_derive(monkeypatch) -> None:
+    monkeypatch.delenv(copy_tool.VALIDATION_DSN_ENV, raising=False)
+
+    with pytest.raises(copy_tool.ValidationCopyError, match="names no database"):
+        copy_tool.resolve_validation_dsn("host=localhost")
+
+
+def test_provisioning_creates_hydrates_and_binds_without_printing_a_dsn(
+    monkeypatch, capsys
+) -> None:
+    authority_dsn = "host=localhost dbname=yoke password=top-secret"
+    monkeypatch.delenv(copy_tool.VALIDATION_DSN_ENV, raising=False)
+    monkeypatch.setattr(copy_tool.db_backend, "resolve_pg_dsn", lambda: authority_dsn)
+    created: list[str] = []
+    monkeypatch.setattr(copy_tool, "create_database_if_absent", created.append)
+    monkeypatch.setattr(
+        copy_tool,
+        "_copy",
+        lambda _authority, _validation: ("yoke", "yoke_validation"),
+    )
+
+    assert copy_tool.main([]) == 0
+
+    reported = capsys.readouterr().out
+    assert "authority=yoke validation=yoke_validation" in reported
+    assert "top-secret" not in reported
+    assert "dbname=" not in reported
+    assert len(created) == 1
+    # The binding rehearsal reads is what provisioning leaves behind.
+    assert read_binding(copy_tool.VALIDATION_DSN_ENV) == created[0]
+
+
+def test_provisioning_does_not_create_a_database_an_operator_bound(
+    monkeypatch,
+) -> None:
+    bound = "host=elsewhere dbname=chosen_scratch"
+    monkeypatch.setenv(copy_tool.VALIDATION_DSN_ENV, bound)
+    monkeypatch.setattr(
+        copy_tool.db_backend, "resolve_pg_dsn", lambda: "host=localhost dbname=yoke"
+    )
+    monkeypatch.setattr(
+        copy_tool,
+        "create_database_if_absent",
+        lambda _dsn: pytest.fail("created a database the operator already chose"),
+    )
+    monkeypatch.setattr(
+        copy_tool, "_copy", lambda _a, _v: ("yoke", "chosen_scratch")
+    )
+
+    assert copy_tool.main([]) == 0

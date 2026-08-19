@@ -14,6 +14,7 @@ import json
 import pytest
 
 from runtime.api.conftest import insert_item
+from yoke_core.domain import migration_apply
 from yoke_core.domain.migration_apply import (
     MigrationApplyError,
     ProfileNotApplyError,
@@ -25,6 +26,7 @@ from runtime.api.domain.migration_apply_test_helpers import (  # noqa: F401 — 
     apply_env,
 )
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
+from yoke_contracts.migration_rehearsal_teaching import CONNECTION_READER
 
 
 class TestProfileGating:
@@ -56,3 +58,40 @@ class TestProfileGating:
                 control_db_path=apply_env["control_db"],
                 worktree_path=apply_env["worktree"],
             )
+
+
+class TestUnresolvableItemReference:
+    """An unresolvable ref is a wrong-universe signal, not a redacted crash."""
+
+    def test_cli_reports_the_selected_universe_and_how_to_change_it(
+        self, monkeypatch, capsys
+    ) -> None:
+        monkeypatch.setattr(
+            migration_apply,
+            "_parse_item_id",
+            lambda _raw: (_ for _ in ()).throw(
+                ValueError("item ref 'YOK-2218' not found")
+            ),
+        )
+
+        assert migration_apply.main(["rehearse", "YOK-2218"]) == 1
+
+        reported = capsys.readouterr().err
+        assert "item ref 'YOK-2218' not found" in reported
+        assert CONNECTION_READER in reported
+
+    def test_rehearsal_never_runs_when_the_reference_cannot_resolve(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            migration_apply,
+            "_parse_item_id",
+            lambda _raw: (_ for _ in ()).throw(ValueError("unresolvable")),
+        )
+        monkeypatch.setattr(
+            migration_apply,
+            "rehearse",
+            lambda *_a, **_k: pytest.fail("rehearsed an unresolved reference"),
+        )
+
+        assert migration_apply.main(["rehearse", "YOK-2218"]) == 1

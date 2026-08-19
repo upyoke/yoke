@@ -24,8 +24,10 @@ yoke universe validate ~/backups/acme-universe-20260714T120000Z.tar
 ```
 
 Release and migration rehearsals may also restore into an explicitly
-disposable Postgres database. Point `YOKE_PG_DSN_VALIDATION` at that scratch
-database, attest that it is disposable, and request the round trip:
+disposable Postgres database, bound as `YOKE_PG_DSN_VALIDATION` — exported, or
+written to the machine-local binding file the rehearsal provisioner leaves
+behind (`yoke migration rehearse --help` carries that recipe). Bind that
+scratch database, attest that it is disposable, and request the round trip:
 
 ```bash
 YOKE_UNIVERSE_VALIDATION_DISPOSABLE=1 \

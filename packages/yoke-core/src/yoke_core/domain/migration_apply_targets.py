@@ -10,6 +10,11 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.migration_apply_contract import MigrationApplyError
+from yoke_core.domain.migration_validation_binding import (
+    binding_file,
+    read_binding,
+    validation_env_var,
+)
 from yoke_core.domain.postgres_dump_restore_point import (
     dump_postgres_to_directory,
 )
@@ -18,8 +23,7 @@ from yoke_core.domain.worktree_validation_surface import (
     provision_validation_surfaces,
     resolve_validation_db_paths,
 )
-
-POSTGRES_VALIDATION_ENV_SUFFIX = "_VALIDATION"
+from yoke_contracts.migration_rehearsal_teaching import PREFLIGHT_HELP_COMMAND
 
 
 @dataclass(frozen=True)
@@ -204,13 +208,15 @@ def _resolve_external_postgres_validation(
             f"model '{model_name}' uses external_validation but its "
             "authoritative database is not Postgres"
         )
-    env_var = f"{resolve_connection_env_var(model)}{POSTGRES_VALIDATION_ENV_SUFFIX}"
-    validation_dsn = os.environ.get(env_var, "").strip()
+    env_var = validation_env_var(resolve_connection_env_var(model))
+    validation_dsn = read_binding(env_var)
     if not validation_dsn:
         raise MigrationApplyError(
-            f"model '{model_name}' uses external_validation; set {env_var} "
-            "to a validation-only Postgres DSN for rehearsal. The "
-            "authoritative Postgres DSN is never used as the rehearsal target."
+            f"model '{model_name}' uses external_validation; rehearsal needs a "
+            "separate disposable Postgres database bound as "
+            f"{env_var} — exported, or written to {binding_file(env_var)}. The "
+            "authoritative Postgres DSN is never used as the rehearsal target. "
+            f"`{PREFLIGHT_HELP_COMMAND}` carries the provisioning recipe."
         )
     if validation_dsn == authoritative_target.target:
         raise MigrationApplyError(
@@ -265,7 +271,6 @@ def _dsn_dbname(dsn: str) -> Optional[str]:
 
 __all__ = [
     "DbTarget",
-    "POSTGRES_VALIDATION_ENV_SUFFIX",
     "connect_db_target",
     "create_rollback_backup",
     "dump_postgres_to_directory",
