@@ -6,7 +6,7 @@ treat the cache as a second authority for Overview-parity signals.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import project_id_filter, project_ref_where
@@ -78,8 +78,12 @@ def code_commit_days_all_time(
         f"WHERE project_id IN ({markers}) "
         "GROUP BY day"
     )
+    params = tuple(project_ids)
+    probe = getattr(db, "has_query_quiet", None)
+    if callable(probe) and not probe(sql, params):
+        return {}
     counts: Dict[str, int] = {}
-    for row in db.query_quiet(sql, tuple(project_ids)):
+    for row in db.query_quiet(sql, params):
         if row and row[0] is not None and int(row[1] or 0) > 0:
             counts[str(row[0])] = int(row[1] or 0)
     return counts
