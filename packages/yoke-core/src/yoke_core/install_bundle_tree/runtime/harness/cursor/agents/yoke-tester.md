@@ -347,8 +347,8 @@ yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 yoke claims path get 138`
   - Registered read surfaces. Returns id, state, declared paths, target_ids. Pipe JSON output to jq for filtering.
 - _Summary of path-claim conflicts on a branch_
-  - `yoke path-claims conflicts list --integration-target main`
-  - Registered read-only summary across all non-terminal claims. Filter via `yoke db read` only when this summary is too coarse.
+  - `yoke path-claims conflicts list --integration-target main --project P`
+  - Registered read-only summary across all non-terminal claims. An explicit `--project` satisfies resolution from any mapped checkout; do not fall back to `yoke db read` against path_claims when the named project was already supplied. Write-side checkout binding is unchanged.
 - _Find conflicts on specific paths (SQL)_
   - `yoke db read "
 SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
@@ -402,10 +402,10 @@ WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>
 
 - _List QA requirements for an item or epic_
   - `yoke qa requirement list --item PREFIX-N`
-  - Registered read qa.requirement.list (works over https). Use --epic-id E for epic-task requirements; filter by task_num client-side. One row by id: `yoke qa requirement get --requirement-id <id>`. qa_requirements.id is the PK. Do not teach requirement_id as a short-form column.
+  - Registered read qa.requirement.list (works over https). Use --epic-id E for epic-task requirements; filter by task_num client-side. Unfiltered / epic-id reads take `--project` (or $YOKE_PROJECT / checkout map) from any mapped checkout. One row by id: `yoke qa requirement get --requirement-id <id>`. qa_requirements.id is the PK. Do not teach requirement_id as a short-form column.
 - _List QA runs for a requirement_
   - `yoke qa run list --requirement-id <id>`
-  - Registered read qa.run.list (works over https). Verify recorded runs before claiming a verdict. Rows carry verdict (pass/fail), execution_status (capture outcome), raw_result (result payload). qa_runs.qa_requirement_id is the FK. Do not teach result as a short-form column.
+  - Registered read qa.run.list (works over https). Verify recorded runs before claiming a verdict. Unfiltered list takes `--project` (or $YOKE_PROJECT / checkout map). Rows carry verdict (pass/fail), execution_status (capture outcome), raw_result (result payload). qa_runs.qa_requirement_id is the FK. Do not teach result as a short-form column.
 - _Get one QA run by id_
   - `yoke qa run get --run-id <id> [--project <slug>]`
   - Registered read qa.run.get (works over https). Project-scoped: pass --project, else $YOKE_PROJECT / checkout map. Returns one qa_runs row including verdict, execution_status, raw_result, duration_ms, started_at, and completed_at. Wrong-project runs return project_mismatch.

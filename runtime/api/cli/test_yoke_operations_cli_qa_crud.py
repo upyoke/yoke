@@ -86,6 +86,17 @@ class TestQaRequirementList:
         assert req.target.kind == "global"
         assert req.payload == {}
 
+    def test_explicit_project_satisfies_global_resolution(self) -> None:
+        rc = _run(
+            _stub_ok, "qa", "requirement", "list",
+            "--epic-id", "1704", "--project", "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.target.kind == "global"
+        assert req.target.project_id == "yoke"
+        assert req.payload == {"epic_id": 1704}
+
 
 class TestQaRequirementGet:
     def test_dispatches_requirement_target(self) -> None:
@@ -324,6 +335,13 @@ class TestQaRunList:
         rc = _run(_stub_ok, "qa", "run", "list")
         assert rc == 0
         assert _CAPTURED_REQUESTS[-1].target.kind == "global"
+
+    def test_explicit_project_satisfies_global_resolution(self) -> None:
+        rc = _run(_stub_ok, "qa", "run", "list", "--project", "yoke")
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.target.kind == "global"
+        assert req.target.project_id == "yoke"
 
 
 if __name__ == "__main__":

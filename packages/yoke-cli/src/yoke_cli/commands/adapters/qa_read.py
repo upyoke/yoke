@@ -20,7 +20,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 QA_REQUIREMENT_LIST_USAGE = (
     "yoke qa requirement list [--item PREFIX-N | --epic-id N | "
-    "--deployment-run-id ID] [--session-id S] [--json]"
+    "--deployment-run-id ID] [--project P] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_LIST_HELP_DEEP = """\
@@ -38,6 +38,7 @@ Flag matrix:
   --item               no        PREFIX-N or project-local number
   --epic-id            no        bare epic item id (integer)
   --deployment-run-id  no        run id string (run-YYYYMMDD-NNN)
+  --project            no        project slug (any mapped checkout)
   --session-id         no        opaque session id (operator-debug)
   --json               no        flag (typed envelope on stdout)
 
@@ -82,7 +83,7 @@ def qa_requirement_list(args: List[str]) -> int:
             deployment_run_id=parsed.deployment_run_id,
         )
     else:
-        target = TargetRef(kind="global")
+        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
         if parsed.epic_id is not None:
             payload["epic_id"] = int(parsed.epic_id)
     return dispatch_and_emit(
@@ -146,7 +147,9 @@ def qa_requirement_get(args: List[str]) -> int:
     )
 
 
-QA_RUN_LIST_USAGE = "yoke qa run list [--requirement-id N] [--session-id S] [--json]"
+QA_RUN_LIST_USAGE = (
+    "yoke qa run list [--requirement-id N] [--project P] [--session-id S] [--json]"
+)
 
 _RUN_LIST_HELP_DEEP = """\
 List qa_runs rows, newest id last. Omit --requirement-id to list every
@@ -160,6 +163,7 @@ Flag matrix:
 
   flag              required  value shape
   --requirement-id  no        owning qa_requirements.id (integer)
+  --project         no        project slug (any mapped checkout)
   --session-id      no        opaque session id (operator-debug)
   --json            no        flag (typed envelope on stdout)
 
@@ -181,6 +185,7 @@ def qa_run_list(args: List[str]) -> int:
         default=None,
         help="Owning qa_requirements.id.",
     )
+    add_project_arg(parser)
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_LIST_USAGE)
@@ -192,7 +197,7 @@ def qa_run_list(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         )
     else:
-        target = TargetRef(kind="global")
+        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
     return dispatch_and_emit(
         function_id="qa.run.list",
         target=target,

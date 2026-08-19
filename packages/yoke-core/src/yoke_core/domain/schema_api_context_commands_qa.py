@@ -33,7 +33,9 @@ QA_COMMANDS: list[dict] = [
         "notes": (
             "Registered read qa.requirement.list (works over https). "
             "Use --epic-id E for epic-task requirements; filter by "
-            "task_num client-side. One row by id: `yoke qa "
+            "task_num client-side. Unfiltered / epic-id reads take "
+            "`--project` (or $YOKE_PROJECT / checkout map) from any "
+            "mapped checkout. One row by id: `yoke qa "
             "requirement get --requirement-id <id>`. "
             "qa_requirements.id is the PK. Do not teach requirement_id "
             "as a short-form column."
@@ -45,10 +47,12 @@ QA_COMMANDS: list[dict] = [
         "recipe": "yoke qa run list --requirement-id <id>",
         "notes": (
             "Registered read qa.run.list (works over https). Verify "
-            "recorded runs before claiming a verdict. Rows carry "
-            "verdict (pass/fail), execution_status (capture outcome), "
-            "raw_result (result payload). qa_runs.qa_requirement_id is "
-            "the FK. Do not teach result as a short-form column."
+            "recorded runs before claiming a verdict. Unfiltered list "
+            "takes `--project` (or $YOKE_PROJECT / checkout map). Rows "
+            "carry verdict (pass/fail), execution_status (capture "
+            "outcome), raw_result (result payload). "
+            "qa_runs.qa_requirement_id is the FK. Do not teach result "
+            "as a short-form column."
         ),
     },
     {

@@ -80,6 +80,18 @@ class TestClaimsWorkHolderGet:
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
+    def test_path_form_honors_explicit_project(self) -> None:
+        rc = _run(
+            _stub_ok, "claims", "work", "holder-get",
+            "--path", "/tmp", "--project", "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "claims.work.holder_get"
+        assert req.target.kind == "global"
+        assert req.target.project_id == "yoke"
+        assert "path" in req.payload
+
     def test_bad_ref_relays_verbatim(self) -> None:
         # Relay contract: ref validation is server-side.
         rc = _run(_stub_ok, "claims", "work", "holder-get", "not-a-sun-id")
@@ -132,6 +144,17 @@ class TestClaimsWorkHolderList:
         assert req.target.kind == "global"
         assert req.payload == {"session_id": "abc-123"}
 
+    def test_session_filter_honors_explicit_project(self) -> None:
+        rc = _run(
+            _stub_ok, "claims", "work", "holder-list",
+            "--session-id-filter", "abc-123",
+            "--project", "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.target.kind == "global"
+        assert req.target.project_id == "yoke"
+
     def test_no_filter_returns_two(self) -> None:
         rc = _run(_stub_ok, "claims", "work", "holder-list")
         assert rc == 2
@@ -156,6 +179,18 @@ class TestPathClaimsConflictsList:
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload == {"integration_target": "main"}
         assert req.target.kind == "global"
+
+    def test_explicit_project_satisfies_global_resolution(self) -> None:
+        rc = _run(
+            _stub_ok, "path-claims", "conflicts", "list",
+            "--integration-target", "main",
+            "--project", "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "path_claims.conflicts.list"
+        assert req.target.kind == "global"
+        assert req.target.project_id == "yoke"
 
     def test_item_filter_dispatches_item_scoped(self) -> None:
         rc = _run(_stub_ok, "path-claims", "conflicts", "list", "--item", "7")

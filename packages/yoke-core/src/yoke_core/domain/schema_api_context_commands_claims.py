@@ -260,12 +260,15 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Summary of path-claim conflicts on a branch",
         "recipe": (
-            "yoke path-claims conflicts list --integration-target main"
+            "yoke path-claims conflicts list --integration-target main "
+            "--project P"
         ),
         "notes": (
             "Registered read-only summary across all non-terminal claims. "
-            "Filter via `yoke db read` only when this summary is too "
-            "coarse."
+            "An explicit `--project` satisfies resolution from any mapped "
+            "checkout; do not fall back to `yoke db read` against "
+            "path_claims when the named project was already supplied. "
+            "Write-side checkout binding is unchanged."
         ),
     },
     {

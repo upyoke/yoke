@@ -397,8 +397,8 @@ yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 yoke claims path get 138`
   - Registered read surfaces. Returns id, state, declared paths, target_ids. Pipe JSON output to jq for filtering.
 - _Summary of path-claim conflicts on a branch_
-  - `yoke path-claims conflicts list --integration-target main`
-  - Registered read-only summary across all non-terminal claims. Filter via `yoke db read` only when this summary is too coarse.
+  - `yoke path-claims conflicts list --integration-target main --project P`
+  - Registered read-only summary across all non-terminal claims. An explicit `--project` satisfies resolution from any mapped checkout; do not fall back to `yoke db read` against path_claims when the named project was already supplied. Write-side checkout binding is unchanged.
 - _Find conflicts on specific paths (SQL)_
   - `yoke db read "
 SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
