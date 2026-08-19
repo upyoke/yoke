@@ -9,7 +9,7 @@ backfilled or rewritten; new releases do not add files here.
 1. Run the canonical test gate on the exact release commit and merge it to
    `main`.
 2. Deliver the item through `yoke-hosted-stage-typed-target` or
-   `yoke-hosted-prod-hotfix-typed-target`; the earlier `-warm-gated`,
+   `yoke-hosted-production-hotfix-typed-target`; the earlier `-warm-gated`,
    `-no-ci-gate`, and `yoke-hosted-production` definitions are disabled
    history — a definition a run has referenced is immutable, so each change
    to a route retires the prior definition and adds the next one. The active flow's scoped GitHub App
