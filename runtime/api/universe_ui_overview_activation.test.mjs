@@ -10,6 +10,7 @@ import {
   allNodes,
   byClass,
   response,
+  visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 import {
   activationAnswer,
@@ -30,7 +31,7 @@ function moduleCards(root) {
 }
 
 function textOf(node) {
-  return allNodes(node).map((child) => child.textContent || "").join("");
+  return visibleText(node);
 }
 
 test("day zero: module one is next up, the rest wait in order", async (t) => {

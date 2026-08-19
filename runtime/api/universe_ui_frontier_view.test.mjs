@@ -8,6 +8,7 @@ import {
   allNodes,
   byClass,
   cellText,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -81,7 +82,7 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
   assert.equal(byClass(root, "metric-strip").length, 1);
   assert.deepEqual(
     byClass(root, "metric").map((node) => [
-      node.children[0].textContent,
+      ownTextContent(node.children[0]),
       node.children[1].textContent,
     ]),
     [

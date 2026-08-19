@@ -17,7 +17,6 @@ import {
 import {
   cssRule,
   DESCRIPTIONS,
-  enableTextNodes,
   prototypeWorkflow,
   selectWorkflow,
   STAGES,
@@ -138,7 +137,6 @@ test("workflow tabs switch immediately and remember each selected stage", async 
 });
 
 test("workflow inline typography preserves prototype emphasis", async (t) => {
-  enableTextNodes(t);
   const dash = prototypeWorkflow("dash");
   dash.definition.stages[1].gates = [{ id: "architecture_impact" }];
   const client = workflowsClient([dash]);

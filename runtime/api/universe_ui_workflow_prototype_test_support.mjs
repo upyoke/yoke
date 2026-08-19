@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 
 import {
   byClass,
-  FakeDocument,
-  FakeNode,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 import {
@@ -203,17 +201,4 @@ export function cssRule(source, selector) {
   const start = source.indexOf(selector);
   assert.notEqual(start, -1, `${selector} exists`);
   return source.slice(start, source.indexOf("}", start) + 1);
-}
-
-export function enableTextNodes(t) {
-  const original = FakeDocument.prototype.createTextNode;
-  FakeDocument.prototype.createTextNode = function createTextNode(value) {
-    const node = new FakeNode(this, "#text", 3);
-    node.textContent = String(value);
-    return node;
-  };
-  t.after(() => {
-    if (original) FakeDocument.prototype.createTextNode = original;
-    else delete FakeDocument.prototype.createTextNode;
-  });
 }

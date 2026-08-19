@@ -5,6 +5,7 @@ import {
   FakeDocument,
   allNodes,
   byClass,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -221,7 +222,7 @@ export async function mountWorkflows(t, client, hash = "#/workflows") {
 export function panelTitles(root) {
   return allNodes(root)
     .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
+    .map(ownTextContent);
 }
 
 export function classText(root, className) {

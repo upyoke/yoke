@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   allNodes,
   byClass,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -78,7 +79,7 @@ test("dismiss: ✕ on activated modules, restore line, show, restore", async (t)
     "finish_installation_wizard", "run_onboard", "first_deploy",
   ]);
   const restoreLine = byClass(root, "activation-restore-line")[0];
-  assert.equal(restoreLine.textContent, "1 dismissed module(s) · ");
+  assert.equal(ownTextContent(restoreLine), "1 dismissed module(s) · ");
   const show = byClass(restoreLine, "activation-show")[0];
   assert.equal(show.textContent, "show");
 
@@ -113,7 +114,7 @@ test("all dismissed: the stack collapses to the restore line", async (t) => {
 
   assert.equal(byClass(root, "activation-module").length, 0);
   assert.equal(
-    byClass(root, "activation-restore-line")[0].textContent,
+    ownTextContent(byClass(root, "activation-restore-line")[0]),
     "4 dismissed module(s) · ",
   );
   mounted.unmount();

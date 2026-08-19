@@ -10,7 +10,6 @@ import {
   workflowsClient,
 } from "./universe_ui_workflows_test_support.mjs";
 import {
-  enableTextNodes,
   prototypeWorkflow,
   selectWorkflow,
 } from "./universe_ui_workflow_prototype_test_support.mjs";
@@ -48,7 +47,6 @@ test("delivery posture is locked and explains its timing", async (t) => {
 });
 
 test("a repeated gate reads as one re-asserted invariant", async (t) => {
-  enableTextNodes(t);
   const issue = prototypeWorkflow("issue");
   const guardedStages = new Set([
     "implementing", "implemented", "release", "done",
@@ -80,8 +78,7 @@ test("a repeated gate reads as one re-asserted invariant", async (t) => {
   );
   for (const stageId of ["implementing", "done"]) {
     byClass(root, "workflow-stage").find(
-      (node) =>
-        byClass(node, "workflow-stage-label")[0]?.textContent === stageId,
+      (node) => node.textContent.startsWith(stageId),
     ).dispatchEvent(new Event("click"));
     assert.deepEqual(
       classText(root, "workflow-gate-reassertion"),
@@ -89,7 +86,7 @@ test("a repeated gate reads as one re-asserted invariant", async (t) => {
     );
     const description = byClass(
       root, "workflow-detail-row-description",
-    )[0].children.map((node) => node.textContent).join("");
+    )[0].textContent;
     assert.match(
       description,
       /same rule is re-checked on entry to implementing, implemented, release, and done/i,

@@ -6,6 +6,7 @@ import {
   FakeDocument,
   allNodes,
   byClass,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -126,7 +127,7 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   assert.ok(screenText.includes("Runs a web application in local containers."));
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "H2")
-      .map((node) => node.textContent),
+      .map(ownTextContent),
     ["Installed", "Available", "Pack contents and checkout handoff"],
   );
   assert.deepEqual(

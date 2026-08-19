@@ -123,7 +123,7 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
     [
-      "run-20260101-001", "externalwebapp", "",
+      "run-20260101-001", "externalwebapp", "environment run",
       "prod", "", "succeeded", "then",
     ],
   );

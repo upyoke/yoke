@@ -16,6 +16,7 @@ import {
   byClass,
   cellText,
   injectedClient,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -40,7 +41,7 @@ test("the actor chip renders avatar, name, and authoritative actor id", async (t
       (node) => node.classList && node.classList.contains("actor-chip"),
     );
     const text = chip
-      ? allNodes(chip).map((node) => node.textContent || "").filter(Boolean)
+      ? allNodes(chip).map(ownTextContent).filter(Boolean)
       : null;
     mounted.unmount();
     return text;

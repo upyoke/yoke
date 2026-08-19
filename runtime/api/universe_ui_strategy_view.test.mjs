@@ -13,6 +13,7 @@ import {
   allNodes,
   byClass,
   settle,
+  visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 
 const BLITZ_POLICIES = {
@@ -24,7 +25,7 @@ const BLITZ_POLICIES = {
 };
 
 function text(root) {
-  return allNodes(root).map((node) => node.textContent || "").join(" ");
+  return visibleText(root, " ");
 }
 
 function context(documentNode, client) {

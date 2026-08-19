@@ -9,6 +9,7 @@ import {
   FakeDocument,
   allNodes,
   byClass,
+  ownTextContent,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
@@ -25,7 +26,7 @@ test("Inbox matches the three-class prototype and renders served counts", async 
 
   const headings = allNodes(main)
     .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
+    .map(ownTextContent);
   assert.deepEqual(headings, [
     "Needs your decision", "Requests", "Notifications",
   ]);

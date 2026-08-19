@@ -10,6 +10,7 @@ import {
   allNodes,
   byClass,
   settle,
+  visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 import { ok } from "./universe_ui_qa_view_data_test_support.mjs";
 import { mountAt } from "./universe_ui_qa_view_test_support.mjs";
@@ -119,7 +120,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
       payload: { project: "1", limit: 6 },
     },
   );
-  const text = allNodes(root).map((node) => node.textContent).join(" ");
+  const text = visibleText(root, " ");
   assert.match(text, /case runs today/);
   assert.match(text, /release-readiness/);
   assert.match(text, /checkout-flow/);

@@ -1,5 +1,5 @@
 import {
-  allNodes,
+  visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 
 export function itemContext(documentNode, call) {
@@ -15,9 +15,7 @@ export function itemContext(documentNode, call) {
 }
 
 export function itemText(root) {
-  return allNodes(root).map(
-    (node) => node.textContent || "",
-  ).join(" ");
+  return visibleText(root, " ");
 }
 
 export function detailItem(workflowId) {
