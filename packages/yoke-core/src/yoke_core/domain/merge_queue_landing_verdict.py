@@ -14,7 +14,10 @@ So nothing here is terminal on one read:
 * a pull request that is still a queue entry is still landing however its
   arming flag reads, since the queue clears arming while a train validates;
 * only a pull request that is unmerged, open, unarmed, and absent from the
-  queue after that confirmation has genuinely stopped.
+  queue after that confirmation, with a failed train, has genuinely
+  stopped. A green or unidentified train in that same window is still
+  landing: GitHub clears arming and the queue slot before the merged flag
+  is visible.
 
 Every verdict names the facts it saw, including what the train's own
 ``merge_group`` run concluded — asserting failed train checks without
@@ -44,6 +47,12 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     read_train_run,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+
+# Queue ejection is a failed train, not an empty slot. GitHub clears the
+# slot and merge-when-ready while a successful train is still merging.
+_FAILED_TRAIN_CONCLUSIONS = frozenset({
+    "cancelled", "failure", "startup_failure", "timed_out",
+})
 
 
 # What the pull request turned out to be doing.
@@ -184,7 +193,7 @@ def _observe(
     state: PrLandingState,
     target: str,
     warnings: list[str],
-) -> tuple[str, Optional[QueueMember], bool]:
+) -> tuple[str, Optional[QueueMember], bool, Optional[TrainRun]]:
     """Read the queue slot and train run behind ``state`` and describe them.
 
     Every reading it takes is one a terminal verdict takes anyway; taking
@@ -206,7 +215,7 @@ def _observe(
     narrative = describe(
         pr_num, state, entry, entry_error is None, train, checks,
     )
-    return narrative, entry, entry_error is None
+    return narrative, entry, entry_error is None, train
 
 
 def _queue_entry(
@@ -225,6 +234,13 @@ def _queue_entry(
 def _has_conflicts(state: PrLandingState) -> bool:
     """GitHub ``DIRTY``: the merge commit cannot be created."""
     return state.merge_state_status.strip().lower() == "dirty"
+
+
+def _failed_train(train: Optional[TrainRun]) -> bool:
+    """The train concluded in a way that will not produce a merge."""
+    if train is None:
+        return False
+    return (train.conclusion or "").strip().lower() in _FAILED_TRAIN_CONCLUSIONS
 
 
 def classify_landing(
@@ -257,7 +273,7 @@ def classify_landing(
         and not state.closed
         and not _has_conflicts(state)
     ):
-        narrative, _entry, _readable = _observe(
+        narrative, _entry, _readable, _train = _observe(
             ctx, pr_num, state, target, warnings
         )
         return LandingVerdict(
@@ -283,7 +299,7 @@ def classify_landing(
             warnings=tuple(warnings),
         )
 
-    narrative, entry, entry_readable = _observe(
+    narrative, entry, entry_readable, train = _observe(
         ctx, pr_num, confirmed, target, warnings
     )
     if _has_conflicts(confirmed) and not confirmed.closed:
@@ -291,9 +307,16 @@ def classify_landing(
             CONFLICTED, narrative=narrative, warnings=tuple(warnings)
         )
     if not confirmed.closed:
-        # An unreadable queue cannot prove the entry is gone, and an entry
-        # that is still there means the train is still working on it.
-        if not entry_readable or entry is not None or confirmed.auto_merge_active:
+        # An unreadable queue cannot prove the entry is gone. An entry that
+        # is still there, or a train that has not failed, means GitHub is
+        # still working — the slot and arming clear before merged=true.
+        still_landing = (
+            not entry_readable
+            or entry is not None
+            or confirmed.auto_merge_active
+            or not _failed_train(train)
+        )
+        if still_landing:
             return LandingVerdict(
                 PENDING, narrative=narrative, warnings=tuple(warnings)
             )
