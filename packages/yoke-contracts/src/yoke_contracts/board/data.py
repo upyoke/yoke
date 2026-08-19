@@ -28,6 +28,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from yoke_contracts.board.query_key import canonicalize_sql
+
 BOARD_DATA_VERSION = 1
 
 
@@ -89,7 +91,7 @@ def entry_key(
     computed from JSON-round-tripped values (replay side).
     """
     encoded = _encode_params(params)
-    return (kind, sql, json.dumps(encoded, sort_keys=True))
+    return (kind, canonicalize_sql(sql), json.dumps(encoded, sort_keys=True))
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +129,11 @@ class ReplayBoardDB:
             kind = str(entry.get("kind"))
             sql = str(entry.get("sql"))
             params = entry.get("params")
-            key = (kind, sql, json.dumps(params, sort_keys=True))
+            key = (
+                kind,
+                canonicalize_sql(sql),
+                json.dumps(params, sort_keys=True),
+            )
             if kind == "scalar":
                 lookup[key] = _decode_value(entry.get("value"))
             else:
@@ -194,6 +200,7 @@ class ReplayBoardDB:
 
     def _describe_miss(self, kind: str, sql: str, params: Any) -> str:
         """Name the query-key component that differs from recorded data."""
+        requested_sql = canonicalize_sql(sql)
         requested_params = json.dumps(params, sort_keys=True)
         candidates = [
             (recorded_sql, recorded_params)
@@ -201,7 +208,9 @@ class ReplayBoardDB:
             if recorded_kind == kind
         ]
         same_sql = [
-            value for candidate_sql, value in candidates if candidate_sql == sql
+            value
+            for candidate_sql, value in candidates
+            if candidate_sql == requested_sql
         ]
         if same_sql:
             recorded = [json.loads(value) for value in same_sql]
@@ -217,17 +226,21 @@ class ReplayBoardDB:
         if same_params:
             closest = max(
                 same_params,
-                key=lambda candidate: SequenceMatcher(None, candidate, sql).ratio(),
+                key=lambda candidate: SequenceMatcher(
+                    None, candidate, requested_sql
+                ).ratio(),
             )
-            return self._sql_difference(closest, sql, params_match=True)
+            return self._sql_difference(closest, requested_sql, params_match=True)
         if not candidates:
             return "no recorded query of this kind exists"
         closest_sql, closest_params = max(
             candidates,
-            key=lambda candidate: SequenceMatcher(None, candidate[0], sql).ratio(),
+            key=lambda candidate: SequenceMatcher(
+                None, candidate[0], requested_sql
+            ).ratio(),
         )
         return (
-            self._sql_difference(closest_sql, sql, params_match=False)
+            self._sql_difference(closest_sql, requested_sql, params_match=False)
             + f"; recorded params={json.loads(closest_params)!r}"
         )
 
