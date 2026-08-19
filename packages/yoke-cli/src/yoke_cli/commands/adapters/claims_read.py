@@ -21,6 +21,7 @@ from typing import Any, Dict, List
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
+    client_project_context,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -164,7 +165,7 @@ def claims_path_coordination_decision_build(args: List[str]) -> int:
 
 CLAIM_WORK_HOLDER_GET_USAGE = (
     "yoke claims work holder-get (--item PREFIX-N | PREFIX-N | "
-    "--path ABSOLUTE_PATH) [--session-id S] [--json]"
+    "--path ABSOLUTE_PATH) [--project P] [--session-id S] [--json]"
 )
 
 
@@ -191,7 +192,8 @@ def claims_work_holder_get(args: List[str]) -> int:
         "item_positional", nargs="?", default=None,
         help="Item id positional (alternative to --item).",
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_WORK_HOLDER_GET_USAGE)
     if parsed is None:
         return 2
@@ -206,7 +208,7 @@ def claims_work_holder_get(args: List[str]) -> int:
     if parsed.path:
         return dispatch_and_emit(
             function_id="claims.work.holder_get",
-            target=TargetRef(kind="global"),
+            target=TargetRef(kind="global", project_id=client_project_context(parsed.project)),
             payload={"path": str(Path(parsed.path).expanduser().resolve())},
             session_id=parsed.session_id,
             json_mode=parsed.json_mode,
@@ -246,7 +248,8 @@ def claims_work_current(args: List[str]) -> int:
         "item_positional", nargs="?", default=None,
         help="Item id positional (alternative to --item).",
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_WORK_CURRENT_USAGE)
     if parsed is None:
         return 2
@@ -264,7 +267,7 @@ def claims_work_current(args: List[str]) -> int:
 
 CLAIM_WORK_HOLDER_LIST_USAGE = (
     "yoke claims work holder-list (--item PREFIX-N | --session-id-filter S) "
-    "[--session-id S] [--json]"
+    "[--project P] [--session-id S] [--json]"
 )
 
 
@@ -281,7 +284,8 @@ def claims_work_holder_list(args: List[str]) -> int:
         "--session-id-filter", dest="session_id_filter", default=None,
         help="Session id filter (distinct from --session-id which is the caller's).",
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_WORK_HOLDER_LIST_USAGE)
     if parsed is None:
         return 2
@@ -293,7 +297,7 @@ def claims_work_holder_list(args: List[str]) -> int:
     if parsed.item:
         target = item_target("item", parsed.item, parsed.project)
     else:
-        target = TargetRef(kind="global")
+        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
     return dispatch_and_emit(
         function_id="claims.work.holder_list",
         target=target,
@@ -305,7 +309,7 @@ def claims_work_holder_list(args: List[str]) -> int:
 
 PATH_CLAIMS_CONFLICTS_LIST_USAGE = (
     "yoke path-claims conflicts list [--integration-target NAME] "
-    "[--item PREFIX-N] [--session-id S] [--json]"
+    "[--item PREFIX-N] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -322,7 +326,8 @@ def path_claims_conflicts_list(args: List[str]) -> int:
         "--item", default=None,
         help="Optional item filter (PREFIX-N or project-local number).",
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PATH_CLAIMS_CONFLICTS_LIST_USAGE)
     if parsed is None:
         return 2
@@ -332,7 +337,7 @@ def path_claims_conflicts_list(args: List[str]) -> int:
     if parsed.item:
         target = item_target("item", parsed.item, parsed.project)
     else:
-        target = TargetRef(kind="global")
+        target = TargetRef(kind="global", project_id=client_project_context(parsed.project))
     return dispatch_and_emit(
         function_id="path_claims.conflicts.list",
         target=target,

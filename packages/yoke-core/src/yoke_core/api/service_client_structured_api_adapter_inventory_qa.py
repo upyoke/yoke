@@ -117,7 +117,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.requirement.list",
         cli_invocation=(
             "yoke qa requirement list [--item PREFIX-N | --epic-id N | "
-            "--deployment-run-id ID] [--session-id S] [--json]"
+            "--deployment-run-id ID] [--project P] [--session-id S] [--json]"
         ),
     ),
     _read_entry(
@@ -143,7 +143,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
     _read_entry(
         function_id="qa.run.list",
         cli_invocation=(
-            "yoke qa run list [--requirement-id N] [--session-id S] [--json]"
+            "yoke qa run list [--requirement-id N] [--project P] "
+            "[--session-id S] [--json]"
         ),
     ),
     _read_entry(
