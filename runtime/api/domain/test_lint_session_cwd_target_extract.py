@@ -282,6 +282,22 @@ class TestYokePayloadPathSegments:
         assert extract_command_targets(cmd) == ["/tmp"]
 
 
+def test_yoke_aws_logs_tail_treats_log_group_as_remote_resource():
+    command = (
+        "yoke aws exec --project platform -- "
+        "logs tail /yoke/stage/core --since 10m"
+    )
+    assert extract_command_targets(command) == []
+
+
+def test_yoke_aws_exec_keeps_local_filesystem_targets():
+    command = (
+        "yoke aws exec -- s3 cp /Users/dev/archive.json "
+        "s3://example/archive.json"
+    )
+    assert extract_command_targets(command) == ["/Users/dev/archive.json"]
+
+
 def test_glued_redirect_is_a_write_target():
     destination = "/" + "checkout/AGENTS.md"
     payload = {
