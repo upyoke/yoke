@@ -35,11 +35,6 @@ from yoke_core.domain.schema_common_sqlite_validation import (
     _generic_sqlite_validation_table_create_sql,
     _generic_sqlite_validation_table_exists,
 )
-from yoke_core.domain.schema_orphans import (
-    _check_sibling_state_collision,
-    check_sibling_state_collision,
-    guard_state_dir_creation,
-)
 
 _USAGE = """\
 Usage: python3 -m yoke_core.domain.schema <subcmd>
