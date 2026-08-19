@@ -9,8 +9,8 @@ from yoke_cli.commands.adapters.dash import (
     dash_evidence,
     dash_file,
     dash_survey,
-    field_note_promote,
 )
+from yoke_cli.commands.adapters.field_note_promote import field_note_promote
 
 DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("direct-workflow", "dash", "survey"): (

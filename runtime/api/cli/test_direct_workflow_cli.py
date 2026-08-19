@@ -9,6 +9,9 @@ import pytest
 
 from yoke_cli.commands import direct_workflow_worktree
 from yoke_cli.commands.adapters import blitz, dash, lane_tree
+from yoke_cli.commands.adapters import (
+    field_note_promote as field_note_promote_adapter,
+)
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
@@ -200,9 +203,9 @@ def test_blitz_survey_adapter_keeps_all_declared_paths(monkeypatch):
 
 
 def test_field_note_promotion_adapter_targets_supporting_record(monkeypatch):
-    captured = _capture(monkeypatch, dash)
+    captured = _capture(monkeypatch, field_note_promote_adapter)
 
-    assert dash.field_note_promote([
+    assert field_note_promote_adapter.field_note_promote([
         "22890",
         "--title",
         "Tighten footer",

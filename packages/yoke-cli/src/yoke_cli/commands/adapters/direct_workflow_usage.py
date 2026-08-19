@@ -8,6 +8,8 @@ from yoke_cli.commands.adapters.dash import (
     DASH_ESCALATE_USAGE,
     DASH_EVIDENCE_USAGE,
     DASH_SURVEY_USAGE,
+)
+from yoke_cli.commands.adapters.field_note_promote import (
     FIELD_NOTE_PROMOTE_USAGE,
 )
 
