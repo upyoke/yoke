@@ -88,6 +88,20 @@ class TestHitShapes(unittest.TestCase):
     def test_venv_pytest_path_piped(self):
         self.assertIsNotNone(_eval("./venv/bin/pytest -q | tail -4"))
 
+    def test_repository_searches_piped_to_truncators(self):
+        commands = (
+            "rg -n 'pytest|watch_pytest' runtime/api | head -40",
+            "rg 'yoke watch merge --' packages runtime | head",
+            "grep -R -n pytest runtime/api | head -30",
+            "find . -name '*.py' | head -20",
+            "fd 'test_.*py' runtime | head -20",
+            "git grep pytest | head -20",
+            "git -C /repo grep pytest | tail -20",
+        )
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIsNotNone(_eval(command))
+
 
 class TestNonMatches(unittest.TestCase):
     def test_bare_watcher_no_pipe_allowed(self):
@@ -135,12 +149,14 @@ class TestNonMatches(unittest.TestCase):
             _eval("python3 -m pytest runtime/api/ | grep --help | tail -1")
         )
 
-    def test_pytest_word_in_argument_not_matched(self):
+    def test_file_scoped_search_not_matched(self):
         self.assertIsNone(_eval("echo pytest | tail -1"))
         self.assertIsNone(_eval("rg -n pytest runtime/api/conftest.py | head -3"))
         self.assertIsNone(_eval("grep -n pytest runtime/api/conftest.py | head -3"))
+
+    def test_search_filter_after_process_listing_not_matched(self):
         self.assertIsNone(
-            _eval("rg -n 'pytest|watch_pytest' runtime/api | head -40")
+            _eval("ps aux | rg 'pytest|watch_pytest|qa case' | head -20")
         )
 
     def test_quoted_evidence_pipes_are_not_live_pipelines(self):
