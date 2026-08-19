@@ -6,6 +6,9 @@ import re
 import shlex
 from typing import List, Mapping, Optional, Tuple
 
+from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
+    extract_gh_repo_selector_targets,
+)
 from yoke_core.domain.lint_shell_target_tokens import (
     path_target_from_token,
     shell_variable_bindings,
@@ -60,7 +63,7 @@ def extract_command_targets(
     if bindings is None:
         bindings = shell_variable_bindings(command)
 
-    out: List[str] = []
+    out: List[str] = extract_gh_repo_selector_targets(sanitized)
     for segment in _split_command_segments(tokens):
         out.extend(_extract_segment_targets(segment, bindings))
     return out
@@ -78,7 +81,6 @@ _SEARCH_COMMANDS = frozenset({
 # targets. Redirects on the same segment still extract as writes.
 STDOUT_REPORTERS = frozenset({"print", "printf"})
 _CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
-
 # ``yoke`` control-plane registration adapters take path-shaped ARGUMENTS
 # that are function payload — a row naming a path — not filesystem write
 # targets; the engine validates its own mutations against claim authority.
