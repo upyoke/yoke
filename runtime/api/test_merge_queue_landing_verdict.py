@@ -14,6 +14,14 @@ ARMED = PrLandingState(merged=False, closed=False, auto_merge_active=True)
 UNARMED = PrLandingState(merged=False, closed=False, auto_merge_active=False)
 MERGED = PrLandingState(merged=True, closed=True, auto_merge_active=False)
 CLOSED = PrLandingState(merged=False, closed=True, auto_merge_active=False)
+DIRTY = PrLandingState(
+    merged=False, closed=False, auto_merge_active=True,
+    merge_state_status="dirty",
+)
+CLEAN = PrLandingState(
+    merged=False, closed=False, auto_merge_active=True,
+    merge_state_status="clean",
+)
 
 
 def _ctx() -> MergeContext:
@@ -73,6 +81,7 @@ def test_a_pending_observation_names_what_it_is_waiting_on(monkeypatch):
     assert verdict.kind == verdict_mod.PENDING
     assert "queue-entry=AWAITING_CHECKS" in verdict.narrative
     assert "train-run=in_progress (https://runs/9)" in verdict.narrative
+    assert "mergeStateStatus=unreported" in verdict.narrative
     # Naming the wait costs the queue and train reads, not a second
     # pull-request read: the confirm delay stays a terminal-verdict cost.
     assert len(reads) == 1
@@ -230,3 +239,48 @@ def test_unreadable_checks_warn_without_inventing_a_check_set(monkeypatch):
     verdict = _classify()
     assert "pending-checks=" not in verdict.narrative
     assert "check-runs read failed" in verdict.warnings
+
+
+def test_a_pending_observation_names_merge_state_status(monkeypatch):
+    _wire(monkeypatch, states=[CLEAN])
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "mergeStateStatus=CLEAN" in verdict.narrative
+
+
+def test_dirty_while_armed_is_conflicted_after_confirm(monkeypatch):
+    reads = _wire(monkeypatch, states=[DIRTY, DIRTY])
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.CONFLICTED
+    assert "mergeStateStatus=DIRTY" in verdict.narrative
+    assert len(reads) == 2
+
+
+def test_dirty_then_clean_during_confirm_stays_pending(monkeypatch):
+    _wire(monkeypatch, states=[DIRTY, CLEAN])
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "mergeStateStatus=CLEAN" in verdict.narrative
+
+
+def test_unknown_merge_state_while_armed_does_not_confirm(monkeypatch):
+    unknown = PrLandingState(
+        merged=False, closed=False, auto_merge_active=True,
+        merge_state_status="unknown",
+    )
+    reads = _wire(monkeypatch, states=[unknown])
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "mergeStateStatus=UNKNOWN" in verdict.narrative
+    assert len(reads) == 1
+
+
+def test_closed_outranks_dirty(monkeypatch):
+    closed_dirty = PrLandingState(
+        merged=False, closed=True, auto_merge_active=False,
+        merge_state_status="dirty",
+    )
+    _wire(monkeypatch, states=[closed_dirty, closed_dirty])
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.CLOSED_UNMERGED
+    assert "mergeStateStatus=DIRTY" in verdict.narrative

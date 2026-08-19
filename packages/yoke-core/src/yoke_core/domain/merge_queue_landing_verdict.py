@@ -22,7 +22,9 @@ reading them is what sent an operator to inspect a green run. A pending
 verdict carries that same description so a caller polling the queue can
 say what it is waiting on: a pull request the queue never picked up looks
 exactly like one mid-train until the readings are named, and an operator
-who cannot see the difference finds out at the deadline.
+who cannot see the difference finds out at the deadline. The GitHub
+``mergeStateStatus`` is part of that description so a ``DIRTY`` pull
+request is not a silent 45-minute wait.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 # What the pull request turned out to be doing.
 LANDED = "landed"
 CLOSED_UNMERGED = "closed_unmerged"
+CONFLICTED = "conflicted"
 STALLED = "stalled"
 PENDING = "pending"
 
@@ -162,10 +165,12 @@ def describe(
         run = train.conclusion or train.status or "unreported"
         if train.url:
             run = f"{run} ({train.url})"
+    merge_state = (state.merge_state_status or "").strip().upper() or "unreported"
     narrative = (
         f"pull request {pr_num}: merged=false, "
         f"state={'closed' if state.closed else 'open'}, "
         f"merge-when-ready={'armed' if state.auto_merge_active else 'cleared'}, "
+        f"mergeStateStatus={merge_state}, "
         f"queue-entry={slot}, train-run={run}"
     )
     if checks is not None:
@@ -217,6 +222,11 @@ def _queue_entry(
     return None, None
 
 
+def _has_conflicts(state: PrLandingState) -> bool:
+    """GitHub ``DIRTY``: the merge commit cannot be created."""
+    return state.merge_state_status.strip().lower() == "dirty"
+
+
 def classify_landing(
     ctx: MergeContext,
     *,
@@ -242,7 +252,11 @@ def classify_landing(
             narrative=f"pull request {pr_num}: merged=true",
             warnings=tuple(warnings),
         )
-    if state.auto_merge_active and not state.closed:
+    if (
+        state.auto_merge_active
+        and not state.closed
+        and not _has_conflicts(state)
+    ):
         narrative, _entry, _readable = _observe(
             ctx, pr_num, state, target, warnings
         )
@@ -250,8 +264,8 @@ def classify_landing(
             PENDING, narrative=narrative, warnings=tuple(warnings)
         )
 
-    # Unmerged and either closed or unarmed. Both are also what a merge in
-    # flight looks like, so the reading is confirmed before it is believed.
+    # Unmerged and either closed, unarmed, or conflicted. A merge in
+    # flight can look the same, so the reading is confirmed first.
     sleep(confirm_seconds)
     confirmed, confirm_error = read_pr_landing_state(ctx, pr_num)
     if confirm_error:
@@ -272,6 +286,10 @@ def classify_landing(
     narrative, entry, entry_readable = _observe(
         ctx, pr_num, confirmed, target, warnings
     )
+    if _has_conflicts(confirmed) and not confirmed.closed:
+        return LandingVerdict(
+            CONFLICTED, narrative=narrative, warnings=tuple(warnings)
+        )
     if not confirmed.closed:
         # An unreadable queue cannot prove the entry is gone, and an entry
         # that is still there means the train is still working on it.
@@ -288,6 +306,7 @@ def classify_landing(
 
 __all__ = [
     "CLOSED_UNMERGED",
+    "CONFLICTED",
     "DEFAULT_CONFIRM_SECONDS",
     "LANDED",
     "LandingCheck",

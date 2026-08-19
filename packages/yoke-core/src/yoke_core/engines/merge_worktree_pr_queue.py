@@ -193,6 +193,7 @@ class PrLandingState:
     merged: bool
     closed: bool
     auto_merge_active: bool
+    merge_state_status: str = ""
 
 
 def read_pr_landing_state(
@@ -219,6 +220,7 @@ def read_pr_landing_state(
             merged=bool(body.get("merged")),
             closed=str(body.get("state") or "") == "closed",
             auto_merge_active=body.get("auto_merge") is not None,
+            merge_state_status=str(body.get("mergeable_state") or "").lower(),
         ),
         None,
     )
