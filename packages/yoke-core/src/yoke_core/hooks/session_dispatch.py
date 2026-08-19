@@ -315,6 +315,8 @@ def evaluate(context: HookContext) -> HookDecision:
         if not root or not _is_yoke_target(root, db_path):
             return _decision("{}\n" if context.executor_family == "codex" and context.event_name == "Stop" else "")
         if context.event_name == "SessionStart":
+            from yoke_core.engines.main_checkout_sync import sync_main_checkout_at_session_start
+            sync_main_checkout_at_session_start(root)
             if context.executor_family == "codex":
                 return _decision(_run_codex_session_start(context, root))
             if context.executor_family == "cursor":
