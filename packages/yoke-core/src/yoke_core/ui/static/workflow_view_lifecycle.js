@@ -7,6 +7,7 @@ import {
   workflowPanel,
   workflowStageDisplayLabel,
 } from "./workflow_view_primitives.js";
+import { gateDescription } from "./workflow_view_gate_copy.js";
 import { relativeAge } from "./universe_time.js";
 
 const ENTRY_SURFACE_COPY = {
@@ -108,17 +109,6 @@ function detailRow(documentNode, title, description, identifier) {
   return { row, content };
 }
 
-function inlineCodeToken(value, token) {
-  const text = String(value || "");
-  const index = text.indexOf(token);
-  if (index < 0) return text;
-  return [
-    text.slice(0, index),
-    { kind: "code", text: token },
-    text.slice(index + token.length),
-  ];
-}
-
 function entrySurfaceRows(documentNode, workflow, host) {
   for (const surfaceId of workflow.definition?.entry_surfaces || []) {
     const copy = ENTRY_SURFACE_COPY[workflow.id]?.[surfaceId] ||
@@ -160,7 +150,7 @@ function entrySurfaceRows(documentNode, workflow, host) {
   }
 }
 
-function gateRows(documentNode, gates, catalogById, host) {
+function gateRows(documentNode, workflow, gates, catalogById, host) {
   for (const gateRef of gates) {
     const gate = catalogById.get(gateRef.id) || {
       id: gateRef.id,
@@ -170,9 +160,7 @@ function gateRows(documentNode, gates, catalogById, host) {
     };
     const gateTitle = gateRef.mode
       ? `${gate.name} — ${gateRef.mode}` : gate.name;
-    const description = gate.id === "architecture_impact"
-      ? inlineCodeToken(gate.description, "architecture_model")
-      : gate.description;
+    const description = gateDescription(workflow, gate);
     const rendered = detailRow(
       documentNode, gateTitle, description, gate.id,
     );
@@ -227,7 +215,7 @@ function stageDetail(documentNode, workflow, stage, catalogById) {
   if (initial) {
     entrySurfaceRows(documentNode, workflow, rows);
   } else if (gates.length) {
-    gateRows(documentNode, gates, catalogById, rows);
+    gateRows(documentNode, workflow, gates, catalogById, rows);
   } else {
     rows.appendChild(el(
       documentNode,

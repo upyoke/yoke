@@ -49,12 +49,14 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "Database changes",
     "Ownership",
     "Child items",
+    "Delivery",
     "File Budget",
     "Worktrees",
     "Preventing overlapping work",
   ]);
   assert.deepEqual(classText(root, "workflow-lock-pill"), [
     "🔒 Always",
+    "🔒 Rally",
     "🔒 Rally",
     "🔒 Rally",
     "🔒 Rally",
@@ -68,6 +70,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     "governed migrations on every change",
     "one active item claim",
     "never generated",
+    "before done · waits in release until delivered",
     "required",
     "one implementation lane",
     "Path claims",
