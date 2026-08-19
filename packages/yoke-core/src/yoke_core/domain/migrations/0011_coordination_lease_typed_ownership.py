@@ -37,13 +37,10 @@ def apply(conn: Any) -> None:
         ("released_by_actor_id", "TEXT DEFAULT NULL"),
     ):
         _add_column_if_not_exists(conn, "coordination_leases", column, ddl)
-    try:
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_coordination_leases_owner_item "
-            "ON coordination_leases(owner_item_id)"
-        )
-    except Exception:
-        pass
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_coordination_leases_owner_item "
+        "ON coordination_leases(owner_item_id)"
+    )
     rows = conn.execute(
         "SELECT id, project_id, lease_key, session_id, owner_kind, "
         "owner_item_id, owner_session_id, owner_work_claim_id "

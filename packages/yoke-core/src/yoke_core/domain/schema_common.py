@@ -34,12 +34,6 @@ from yoke_core.domain.schema_common_sqlite_validation import (
     _generic_sqlite_validation_get_tables,
     _generic_sqlite_validation_table_create_sql,
     _generic_sqlite_validation_table_exists,
-    _generic_sqlite_validation_table_info,
-)
-from yoke_core.domain.schema_orphans import (
-    _check_sibling_state_collision,
-    check_sibling_state_collision,
-    guard_state_dir_creation,
 )
 
 _USAGE = """\
@@ -181,6 +175,6 @@ def _get_check_constraint_defs(conn: Any, table: str) -> List[str]:
 def _add_column_if_not_exists(
     conn: Any, table: str, column: str, col_def: str
 ) -> None:
-    """Idempotent ADD COLUMN."""
+    """Add *column* only when named-lookup catalogs do not already see it."""
     if not _column_exists(conn, table, column):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")

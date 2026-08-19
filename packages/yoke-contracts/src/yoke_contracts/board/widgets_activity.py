@@ -214,9 +214,10 @@ def render_velocity_sparkline(
     }
 
     # One control-plane rollup covers the 14d bar, the 365d streak, and the
-    # lifetime percentage — commit days come from project_code_days.
+    # lifetime percentage. Age-windowed SQL would change the replay key
+    # every midnight; the all-time rollup stays stable and callers clamp.
     first_iso, project_days = _project_age_days(db, scope)
-    commits = code_commits_by_day(db, scope, max(365, project_days))
+    commits = code_commit_days_all_time(db, scope)
     for day, n in commits.items():
         if n > 0:
             day_counts[day] = day_counts.get(day, 0) + n
