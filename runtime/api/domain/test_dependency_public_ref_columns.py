@@ -19,6 +19,10 @@ from yoke_core.domain import check_hard_blocks, db_backend
 from yoke_core.domain.handlers.shepherd_dependency_writes import (
     handle_shepherd_dependency_add,
 )
+from yoke_core.domain.path_claims_dependency_resolver_coordination import (
+    has_forward_serial_edge,
+    items_are_coordination_only,
+)
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.shepherd_dependency import cmd_dependency_add
 from yoke_core.domain.shepherd_dependency_enrich import cmd_dependency_enrich
@@ -37,6 +41,19 @@ DEPENDENT_REF = f"YOK-{DEPENDENT_SEQUENCE}"
 BLOCKER_REF = f"YOK-{BLOCKER_SEQUENCE}"
 CROSS_PROJECT_REF = f"EXT-{CROSS_PROJECT_SEQUENCE}"
 BLOCKER_TITLE = "Blocker whose sequence diverges"
+
+
+class _CountingConnection:
+    def __init__(self, inner: Any) -> None:
+        self._conn = inner
+        self.statement_count = 0
+
+    def execute(self, sql: str, params: tuple = ()) -> Any:
+        self.statement_count += 1
+        return self._conn.execute(sql, params)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
 
 
 def _p(conn: Any) -> str:
@@ -177,3 +194,76 @@ def test_listing_reports_a_counterpart_that_names_no_item(test_db):
 
     assert [row["direction"] for row in rows] == [UNRESOLVED_DIRECTION]
     assert rows[0]["other_item"] == "YOK-999999"
+
+
+def test_gate_point_lookup_query_count_does_not_grow_with_table(test_db):
+    _seed_diverged_pair(test_db)
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "rationale, evidence_json, created_at) "
+        "VALUES (%s, %s, 'coordination_only', 'fact:merged', 'test', "
+        "'independent edits', '{}', '2026-01-01T00:00:00Z')",
+        (DEPENDENT_REF, BLOCKER_REF),
+    )
+    test_db.commit()
+
+    def lookup_counts() -> tuple[int, int]:
+        direct = _CountingConnection(test_db)
+        assert not has_forward_serial_edge(
+            direct,
+            dependent_item_id=DEPENDENT_ID,
+            blocking_item_id=BLOCKER_ID,
+        )
+        inter_item = _CountingConnection(test_db)
+        assert items_are_coordination_only(
+            inter_item,
+            item_a_id=DEPENDENT_ID,
+            item_b_id=BLOCKER_ID,
+        )
+        return direct.statement_count, inter_item.statement_count
+
+    baseline = lookup_counts()
+    for offset in range(30):
+        test_db.execute(
+            "INSERT INTO item_dependencies "
+            "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+            "rationale, evidence_json, created_at) "
+            "VALUES (%s, %s, 'activation', 'status:done', 'test', "
+            "'dangling unrelated row', '{}', '2026-01-01T00:00:00Z')",
+            (f"YOK-{10000 + offset}", f"YOK-{20000 + offset}"),
+        )
+    test_db.commit()
+
+    expanded = lookup_counts()
+    assert expanded == baseline
+    assert max(expanded) <= 5
+    assert not has_forward_serial_edge(
+        test_db,
+        dependent_item_id=10000,
+        blocking_item_id=20000,
+    )
+
+
+def test_gate_point_lookup_accepts_bare_internal_ids(test_db):
+    _seed_diverged_pair(test_db)
+    test_db.execute(
+        "INSERT INTO item_dependencies "
+        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "rationale, evidence_json, created_at) "
+        "VALUES (%s, %s, 'activation', 'status:done', 'test', "
+        "'bare internal refs', '{}', '2026-01-01T00:00:00Z')",
+        (str(DEPENDENT_ID), str(BLOCKER_ID)),
+    )
+    test_db.commit()
+
+    assert has_forward_serial_edge(
+        test_db,
+        dependent_item_id=DEPENDENT_ID,
+        blocking_item_id=BLOCKER_ID,
+    )
+    assert not items_are_coordination_only(
+        test_db,
+        item_a_id=DEPENDENT_ID,
+        item_b_id=BLOCKER_ID,
+    )
