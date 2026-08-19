@@ -31,7 +31,7 @@ def _run(
     validator: Any,
 ) -> tuple[Any, _Connection]:
     conn = _Connection()
-    monkeypatch.setattr(db_backend, "connect_psycopg", lambda _dsn: conn)
+    monkeypatch.setattr(db_backend, "_open_native_postgres", lambda _dsn: conn)
     dump = tmp_path / "tenant.dump"
     dump.write_bytes(b"copy")
     plan = RehearsalPlan(
