@@ -196,35 +196,35 @@ repair before that compatibility column is dropped.
 
 ```sql
 id INTEGER PRIMARY KEY
-dependent_item TEXT NOT NULL -- PREFIX-N that depends on another
-blocking_item TEXT NOT NULL -- PREFIX-N that blocks the dependent
-gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure
+dependent_item_id INTEGER NOT NULL REFERENCES items(id)
+blocking_item_id INTEGER NOT NULL REFERENCES items(id)
+gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure | coordination_only
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:done | status:implemented | fact:merged
-source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed
+source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed | idea | refine
 session_id INTEGER -- nullable contextual session ID
 rationale TEXT NOT NULL DEFAULT '' -- human-readable explanation of the edge
 evidence_json TEXT NOT NULL DEFAULT '{}' -- structured provenance payload
 created_at TEXT NOT NULL
-UNIQUE(dependent_item, blocking_item, gate_point)
+UNIQUE(dependent_item_id, blocking_item_id, gate_point)
 ```
 
-`dependent_item` and `blocking_item` intentionally store public `PREFIX-N`
-text references, not numeric `items.id` values. Prefer `yoke shepherd
-dependency-list PREFIX-N` for routine dependency reads instead of ad hoc SQL
-that compares these columns to bare integers.
+Storage is integer foreign keys to `items.id`. Public `PREFIX-N` remains
+the API and display token (`yoke shepherd dependency-list PREFIX-N`
+projects `direction` / `other_item`). Cross-project edges store the
+counterpart's internal id and still list as that project's prefix.
 
 Indexes:
-- `idx_id_dependent ON item_dependencies(dependent_item)`
-- `idx_id_blocking ON item_dependencies(blocking_item)`
+- `idx_id_dependent ON item_dependencies(dependent_item_id)`
+- `idx_id_blocking ON item_dependencies(blocking_item_id)`
 
 Constraints:
-- `UNIQUE(dependent_item, blocking_item, gate_point)` -- a given pair of items can have at most one dependency at each gate point. Inserts use idempotent `ON CONFLICT DO NOTHING` semantics so re-declaring the same dependency is a silent no-op.
+- `UNIQUE(dependent_item_id, blocking_item_id, gate_point)` -- a given pair of items can have at most one dependency at each gate point. Inserts use idempotent `ON CONFLICT DO NOTHING` semantics so re-declaring the same dependency is a silent no-op.
 
 Valid `source` values: `shepherd`, `conduct`, `operator`, `migration`, `feed`.
 
 ### Canonical blocker model
 
-Every row in `item_dependencies` is a real enforced blocker with directional meaning: `dependent_item` cannot pass the relevant gate until `blocking_item` satisfies the declared condition.
+Every row in `item_dependencies` is a real enforced blocker with directional meaning: the dependent item cannot pass the relevant gate until the blocking item satisfies the declared condition.
 
 **Gate point** (`gate_point`) -- *when* in the dependent's lifecycle the dependency is enforced:
 - `activation` -- do not start the dependent yet (checked before advancing to `implementing`)

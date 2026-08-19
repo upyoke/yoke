@@ -36,8 +36,8 @@ from yoke_core.domain.path_claims_amend import widen
 
 _DEP_DDL = (
     "CREATE TABLE IF NOT EXISTS item_dependencies ("
-    "id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL, "
-    "blocking_item TEXT NOT NULL, "
+    "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+    "blocking_item_id INTEGER NOT NULL, "
     "gate_point TEXT NOT NULL DEFAULT 'activation', "
     "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
     "source TEXT NOT NULL, session_id INTEGER, "
@@ -68,11 +68,11 @@ def _add_dep_edge(
 ):
     conn.execute(_DEP_DDL)
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, satisfaction, source, rationale, created_at) "
         "VALUES (%s, %s, %s, 'status:done', 'test', 'multi-upstream', "
         "'2026-05-01T00:00:00Z')",
-        ("YOK-" + str(dependent), "YOK-" + str(blocking), gate_point),
+        (dependent, blocking, gate_point),
     )
     conn.commit()
 

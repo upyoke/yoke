@@ -20,7 +20,7 @@ classification (passing the same items in reversed roles) sees the
 same edge as ``HAS_SERIAL`` and serializes correctly. This matches the
 hard-block dependency gate in
 :func:`yoke_core.domain.check_hard_blocks.evaluate_blockers`, which
-respects ``item_dependencies.dependent_item`` direction.
+respects ``item_dependencies.dependent_item_id`` direction.
 """
 
 from __future__ import annotations
@@ -34,9 +34,6 @@ from yoke_core.domain.path_claims_dependency_resolver import (
     _claim_owning_item,
     _placeholder,
 )
-from yoke_core.domain.project_identity import render_item_ref
-
-
 class CoordinationClassification(enum.Enum):
     """Edge-shape between a candidate and a blocker's owning items."""
 
@@ -45,36 +42,18 @@ class CoordinationClassification(enum.Enum):
     HAS_SERIAL = "has_serial"
 
 
-def _stored_ref_candidates(conn: Any, item_id: int) -> tuple[str, ...]:
-    """Return indexed storage keys that can name one internal item id.
-
-    Dependency writers store the canonical public ref, while readers have
-    always accepted a bare internal id. A missing item identity must not
-    manufacture a resolvable public ref: the old parser ignored a dangling
-    ``PREFIX-N`` row but still accepted its bare numeric form.
-    """
-    bare_ref = str(item_id)
-    try:
-        public_ref = render_item_ref(conn, item_id, required=True)
-    except LookupError:
-        return (bare_ref,)
-    return tuple(dict.fromkeys((public_ref, bare_ref)))
-
-
 def _direct_pair_filter(
     conn: Any,
     *,
-    dependent_refs: tuple[str, ...],
-    blocking_refs: tuple[str, ...],
-) -> tuple[str, tuple[str, ...]]:
+    dependent_item_id: int,
+    blocking_item_id: int,
+) -> tuple[str, tuple[int, int]]:
     """Build an indexable predicate for one dependency direction."""
     placeholder = _placeholder(conn)
-    dependent_slots = ", ".join(placeholder for _ in dependent_refs)
-    blocking_slots = ", ".join(placeholder for _ in blocking_refs)
     return (
-        f"dependent_item IN ({dependent_slots}) "
-        f"AND blocking_item IN ({blocking_slots})",
-        dependent_refs + blocking_refs,
+        f"dependent_item_id = {placeholder} "
+        f"AND blocking_item_id = {placeholder}",
+        (dependent_item_id, blocking_item_id),
     )
 
 
@@ -83,22 +62,16 @@ def _inter_item_gate_points(
 ) -> list[str]:
     """Return every ``item_dependencies.gate_point`` whose row links the
     two items in either direction. Missing table → ``[]``.
-
-    Row refs are public ``PREFIX-N`` text, with bare internal ids accepted
-    for the explicitly supported reader shape. Resolve the two requested ids
-    once and let the database filter the indexed ref columns.
     """
-    item_a_refs = _stored_ref_candidates(conn, item_a_id)
-    item_b_refs = _stored_ref_candidates(conn, item_b_id)
     forward_sql, forward_params = _direct_pair_filter(
         conn,
-        dependent_refs=item_a_refs,
-        blocking_refs=item_b_refs,
+        dependent_item_id=item_a_id,
+        blocking_item_id=item_b_id,
     )
     reverse_sql, reverse_params = _direct_pair_filter(
         conn,
-        dependent_refs=item_b_refs,
-        blocking_refs=item_a_refs,
+        dependent_item_id=item_b_id,
+        blocking_item_id=item_a_id,
     )
     rows = fetch_optional_rows(
         conn,
@@ -114,12 +87,10 @@ def _direct_gate_points(
     conn: Any, *, dependent_item_id: int, blocking_item_id: int,
 ) -> list[str]:
     """Return gate points for candidate -> blocker rows only."""
-    dependent_refs = _stored_ref_candidates(conn, dependent_item_id)
-    blocking_refs = _stored_ref_candidates(conn, blocking_item_id)
     pair_sql, pair_params = _direct_pair_filter(
         conn,
-        dependent_refs=dependent_refs,
-        blocking_refs=blocking_refs,
+        dependent_item_id=dependent_item_id,
+        blocking_item_id=blocking_item_id,
     )
     rows = fetch_optional_rows(
         conn,

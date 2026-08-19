@@ -58,8 +58,8 @@ def _seed_frontier_conn(conn) -> None:
     )
     conn.execute(
         """INSERT INTO item_dependencies
-           (dependent_item, blocking_item, gate_point, satisfaction, source, rationale, created_at)
-           VALUES ('YOK-22', 'YOK-20', 'activation', 'status:done', 'shepherd', 'YOK-22 depends on YOK-20', '2026-03-01T00:00:00Z')"""
+           (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, rationale, created_at)
+           VALUES (22, 20, 'activation', 'status:done', 'shepherd', 'YOK-22 depends on YOK-20', '2026-03-01T00:00:00Z')"""
     )
     # Item 23: done, yoke (terminal — excluded from frontier)
     conn.execute(

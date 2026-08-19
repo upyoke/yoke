@@ -42,8 +42,8 @@ CREATE TABLE path_targets (
     parent_target_id INTEGER
 );
 CREATE TABLE item_dependencies (
-    id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL,
-    blocking_item TEXT NOT NULL,
+    id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL,
+    blocking_item_id INTEGER NOT NULL,
     gate_point TEXT NOT NULL DEFAULT 'activation', rationale TEXT
 );
 """
@@ -91,9 +91,9 @@ def _seed_coord_edge(
     conn, *, dependent: int, blocking: int, rationale: str | None,
 ) -> None:
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, rationale) VALUES (%s, %s, 'coordination_only', %s)",
-        (f"YOK-{dependent}", f"YOK-{blocking}", rationale),
+        (dependent, blocking, rationale),
     )
     conn.commit()
 

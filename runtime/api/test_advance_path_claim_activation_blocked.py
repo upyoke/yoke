@@ -184,8 +184,8 @@ def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
     execute_schema_script(
         conn,
         "CREATE TABLE IF NOT EXISTS item_dependencies ("
-        "id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL, "
-        "blocking_item TEXT NOT NULL, "
+        "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+        "blocking_item_id INTEGER NOT NULL, "
         "gate_point TEXT NOT NULL DEFAULT 'activation', "
         "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
         "source TEXT NOT NULL, session_id INTEGER, "
@@ -194,10 +194,10 @@ def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
         "created_at TEXT NOT NULL)",
     )
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, source, created_at) "
         "VALUES (%s, %s, 'activation', 'test', '2026-05-01T00:00:00Z')",
-        (f"YOK-{downstream_item_id}", f"YOK-{upstream_item_id}"),
+        (downstream_item_id, upstream_item_id),
     )
     conn.commit()
     return upstream_claim

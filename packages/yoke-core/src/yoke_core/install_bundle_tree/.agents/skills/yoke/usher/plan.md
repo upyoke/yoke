@@ -26,13 +26,13 @@ Before displaying, query the authoritative hard-block edges for the batch to sho
 # Collect unique hard-block edges that affect the items being ushered.
 _dep_ids=""
 for _item in $_ready_items; do
- _dep_ids="${_dep_ids}${_dep_ids:+,}'PREFIX-${_item}'"
+ _dep_ids="${_dep_ids}${_dep_ids:+,}${_item}"
 done
 _dep_edges=$(yoke db read --format lines "
- SELECT dependent_item || ' depends-on ' || blocking_item
- FROM item_dependencies
- WHERE dependent_item IN (${_dep_ids})
- ORDER BY dependent_item, blocking_item
+ SELECT d.dependent_item_id || ' depends-on ' || d.blocking_item_id
+ FROM item_dependencies d
+ WHERE d.dependent_item_id IN (${_dep_ids})
+ ORDER BY d.dependent_item_id, d.blocking_item_id
 " 2>/dev/null) || true
 ```
 

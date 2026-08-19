@@ -173,9 +173,9 @@ class TestCancelledBlockerDependenciesMeta:
         )
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
             "source, rationale, evidence_json, created_at) "
-            "VALUES ('YOK-600', 'YOK-500', 'activation', 'status:done', "
+            "VALUES (600, 500, 'activation', 'status:done', "
             "'test', '', '{}', '2026-01-01T00:00:00Z')"
         )
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
@@ -195,9 +195,9 @@ class TestCancelledBlockerDependenciesMeta:
         )
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
             "source, rationale, evidence_json, created_at) "
-            "VALUES ('YOK-1270', 'YOK-1269', 'integration', 'fact:merged', "
+            "VALUES (1270, 1269, 'integration', 'fact:merged', "
             "'test', '', '{}', '2026-01-01T00:00:00Z')"
         )
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
@@ -221,9 +221,9 @@ class TestCancelledBlockerDependenciesMeta:
         )
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
             "source, rationale, evidence_json, created_at) "
-            "VALUES ('YOK-1210', 'YOK-1211', 'integration', 'fact:merged', "
+            "VALUES (1210, 1211, 'integration', 'fact:merged', "
             "'test', '', '{}', '2026-01-01T00:00:00Z')"
         )
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
@@ -241,11 +241,15 @@ class TestCancelledBlockerDependenciesMeta:
             "INSERT INTO items (id, title, status, resolution) "
             "VALUES (101, 'Cancelled B', 'cancelled', 'wontfix')"
         )
-        for dep, blk in [("YOK-200", "YOK-100"), ("YOK-201", "YOK-101")]:
-            p = _p(conn)
+        conn.execute(
+            "INSERT INTO items (id, title, status) "
+            "VALUES (200, 'Dependent A', 'idea'), (201, 'Dependent B', 'idea')"
+        )
+        p = _p(conn)
+        for dep, blk in ((200, 100), (201, 101)):
             conn.execute(
                 "INSERT INTO item_dependencies "
-                "(dependent_item, blocking_item, gate_point, satisfaction, "
+                "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
                 "source, rationale, evidence_json, created_at) "
                 f"VALUES ({p}, {p}, 'activation', 'status:done', "
                 "'test', '', '{}', '2026-01-01T00:00:00Z')",

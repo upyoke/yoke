@@ -13,7 +13,7 @@ from typing import List
 
 from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows, query_scalar
-from yoke_core.domain.item_ref_columns import column_item_id_sql
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -105,7 +105,7 @@ def hc_cancelled_blocker_dependencies(
     conn, args: DoctorArgs, rec: RecordCollector
 ) -> None:
     """HC-cancelled-blocker-dependencies: item_dependencies rows whose
-    blocking_item is a cancelled item.
+    blocking item is a cancelled item.
 
     Catches pre-existing drift that the close-time reconciliation cannot
     safely auto-delete (ambiguous inbound rows without a resolution_ref
@@ -122,16 +122,15 @@ def hc_cancelled_blocker_dependencies(
         )
         return
 
-    blocking_item_id = column_item_id_sql(conn, "d.blocking_item")
     rows = query_rows(
         conn,
-        "SELECT d.dependent_item, d.blocking_item, d.gate_point, "
+        "SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, "
         "d.satisfaction, COALESCE(i.resolution, ''), "
         "COALESCE(i.resolution_ref, '') "
         "FROM item_dependencies d "
-        f"JOIN items i ON i.id = {blocking_item_id} "
+        "JOIN items i ON i.id = d.blocking_item_id "
         "WHERE i.status = 'cancelled' "
-        "ORDER BY d.dependent_item, d.blocking_item, d.gate_point",
+        "ORDER BY d.dependent_item_id, d.blocking_item_id, d.gate_point",
     )
     if not rows:
         rec.record(
@@ -144,8 +143,8 @@ def hc_cancelled_blocker_dependencies(
 
     issues: List[str] = []
     for row in rows:
-        dependent = row[0]
-        blocking = row[1]
+        dependent = render_column_item_ref(conn, row[0])
+        blocking = render_column_item_ref(conn, row[1])
         gate_point = row[2]
         satisfaction = row[3]
         resolution = row[4]

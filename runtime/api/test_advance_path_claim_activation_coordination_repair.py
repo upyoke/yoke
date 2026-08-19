@@ -111,8 +111,8 @@ def _ensure_dep_table(conn):
     execute_schema_script(
         conn,
         "CREATE TABLE IF NOT EXISTS item_dependencies ("
-        "id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL, "
-        "blocking_item TEXT NOT NULL, "
+        "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+        "blocking_item_id INTEGER NOT NULL, "
         "gate_point TEXT NOT NULL DEFAULT 'activation', "
         "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
         "source TEXT NOT NULL, session_id INTEGER, "
@@ -126,10 +126,10 @@ def _ensure_dep_table(conn):
 def _add_edge(conn, *, dependent: int, blocking: int, gate_point: str):
     _ensure_dep_table(conn)
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, source, created_at) "
         "VALUES (%s, %s, %s, 'test', '2026-05-01T00:00:00Z')",
-        (f"YOK-{dependent}", f"YOK-{blocking}", gate_point),
+        (dependent, blocking, gate_point),
     )
     conn.commit()
 

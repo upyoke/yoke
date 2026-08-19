@@ -30,7 +30,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from yoke_core.domain.item_ref_columns import column_item_id_sql
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 
 
@@ -207,16 +207,14 @@ def scan_non_terminal_activation_rows(
     if not _has_table(conn, "item_dependencies"):
         return []
 
-    dependent_item_id = column_item_id_sql(conn, "d.dependent_item")
-    blocking_item_id = column_item_id_sql(conn, "d.blocking_item")
     rows = conn.execute(
-        "SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, "
+        "SELECT d.id, d.dependent_item_id, d.blocking_item_id, d.gate_point, "
         "d.source, d.rationale, "
         "  COALESCE(di.status, '') AS dependent_status, "
         "  COALESCE(bi.status, '') AS blocking_status "
         "FROM item_dependencies AS d "
-        f"LEFT JOIN items AS di ON di.id = {dependent_item_id} "
-        f"LEFT JOIN items AS bi ON bi.id = {blocking_item_id} "
+        "LEFT JOIN items AS di ON di.id = d.dependent_item_id "
+        "LEFT JOIN items AS bi ON bi.id = d.blocking_item_id "
         "WHERE d.gate_point = 'activation' "
         "ORDER BY d.id ASC"
     ).fetchall()
@@ -235,8 +233,12 @@ def scan_non_terminal_activation_rows(
         out.append(
             OverHardRow(
                 dependency_id=int(_row_get(row, "id", 0)),
-                dependent_item=str(_row_get(row, "dependent_item", 1)),
-                blocking_item=str(_row_get(row, "blocking_item", 2)),
+                dependent_item=render_column_item_ref(
+                    conn, _row_get(row, "dependent_item_id", 1)
+                ),
+                blocking_item=render_column_item_ref(
+                    conn, _row_get(row, "blocking_item_id", 2)
+                ),
                 source=str(_row_get(row, "source", 4)),
                 rationale=str(_row_get(row, "rationale", 5)),
                 dependent_status=str(_row_get(row, "dependent_status", 6)),

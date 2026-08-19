@@ -63,8 +63,8 @@ def _seed_item(conn, item_id: int) -> int:
 def _ensure_item_dependencies_table(conn) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS item_dependencies ("
-        "id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL, "
-        "blocking_item TEXT NOT NULL, "
+        "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+        "blocking_item_id INTEGER NOT NULL, "
         "gate_point TEXT NOT NULL DEFAULT 'activation', "
         "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
         "source TEXT NOT NULL, session_id INTEGER, "
@@ -81,9 +81,9 @@ def _add_dep_edge(
     _ensure_item_dependencies_table(conn)
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, source, created_at) "
+        "(dependent_item_id, blocking_item_id, source, created_at) "
         "VALUES (%s, %s, 'test', '2026-05-01T00:00:00Z')",
-        (f"YOK-{dependent}", f"YOK-{blocking}"),
+        (dependent, blocking),
     )
     conn.commit()
 

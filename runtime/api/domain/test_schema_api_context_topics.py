@@ -93,8 +93,9 @@ def test_core_topic_includes_dependency_wrappers() -> None:
 
     body = sac.render_topic_packet("core")
     assert "shepherd dependency-list" in body
-    assert "dependent_item/blocking_item store public PREFIX-N text refs" in body
-    assert "not numeric items.id values" in body
+    assert "dependent_item_id" in body
+    assert "blocking_item_id" in body
+    assert "Storage is" in body
     assert "Dependency add/update/remove are authoring-time surfaces" in body
     assert "registered command adapters land" in body
     assert "yoke shepherd dependency-add" not in body

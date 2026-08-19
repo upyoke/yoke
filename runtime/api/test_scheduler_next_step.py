@@ -57,7 +57,7 @@ class TestAdvanceFeasibilityProbeRewrite:
         target_id INTEGER NOT NULL, declared_at TEXT NOT NULL
     );
     CREATE TABLE item_dependencies (
-        id INTEGER PRIMARY KEY, dependent_item INTEGER, blocking_item INTEGER,
+        id INTEGER PRIMARY KEY, dependent_item_id INTEGER, blocking_item_id INTEGER,
         gate_point TEXT, satisfaction TEXT, source TEXT, rationale TEXT,
         created_at TEXT
     );
@@ -138,7 +138,7 @@ class TestAdvanceFeasibilityProbeRewrite:
         for dependent, blocking in ((42, 43), (43, 42)):
             conn.execute(
                 "INSERT INTO item_dependencies "
-                "(dependent_item, blocking_item, gate_point, satisfaction, "
+                "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
                 "source, rationale, created_at) "
                 "VALUES (%s, %s, 'coordination_only', 'compatible', 'agent', "
                 "'compatible same-path edits', '2026-05-19T00:00:00Z')",

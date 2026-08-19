@@ -26,11 +26,11 @@ FRONTIER_ITEMS_SQL_SUFFIX = " ORDER BY i.id"
 
 UNBLOCKS_COUNT_SQL = """
 SELECT
-    d.blocking_item,
-    COUNT(DISTINCT d.dependent_item) AS unblocks
+    d.blocking_item_id,
+    COUNT(DISTINCT d.dependent_item_id) AS unblocks
 FROM item_dependencies d
 WHERE d.gate_point = 'activation'
-GROUP BY d.blocking_item
+GROUP BY d.blocking_item_id
 """
 
 __all__ = [

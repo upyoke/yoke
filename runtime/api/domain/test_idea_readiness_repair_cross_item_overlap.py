@@ -58,8 +58,8 @@ def _seed_item(conn, *, item_id: int, project: str = "yoke") -> int:
 def _ensure_item_dependencies_table(conn):
     conn.execute(
         "CREATE TABLE IF NOT EXISTS item_dependencies ("
-        "id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL, "
-        "blocking_item TEXT NOT NULL, "
+        "id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL, "
+        "blocking_item_id INTEGER NOT NULL, "
         "gate_point TEXT NOT NULL DEFAULT 'activation', "
         "satisfaction TEXT NOT NULL DEFAULT 'status:done', "
         "source TEXT NOT NULL, session_id INTEGER, "
@@ -75,10 +75,10 @@ def _add_dep_edge(
 ):
     _ensure_item_dependencies_table(conn)
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "gate_point, source, created_at) "
         "VALUES (%s, %s, %s, 'test', '2026-05-01T00:00:00Z')",
-        (f"YOK-{dependent}", f"YOK-{blocking}", gate_point),
+        (dependent, blocking, gate_point),
     )
     conn.commit()
 
@@ -302,8 +302,8 @@ class TestRepair:
         assert ctx["candidate_item_id"] == _CANDIDATE_ITEM
         rows = conn.execute(
             "SELECT COUNT(*) FROM item_dependencies "
-            "WHERE dependent_item=%s OR blocking_item=%s",
-            (f"YOK-{_CANDIDATE_ITEM}", f"YOK-{_CANDIDATE_ITEM}"),
+            "WHERE dependent_item_id=%s OR blocking_item_id=%s",
+            (_CANDIDATE_ITEM, _CANDIDATE_ITEM),
         ).fetchone()
         assert rows[0] == 0
 

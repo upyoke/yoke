@@ -33,7 +33,7 @@ When evidence metadata matters (it always does for feed), use the registered dep
 
 ```bash
 # Step 1: Query existing feed edges for this dependent item
-_existing=$(yoke db read --format lines "SELECT blocking_item, gate_point FROM item_dependencies WHERE dependent_item='PREFIX-N' AND source='feed'")
+_existing=$(yoke db read --format lines "SELECT blocking_item_id, gate_point FROM item_dependencies WHERE dependent_item_id=N AND source='feed'")
 
 # Step 2: For each existing feed edge NOT in the new edge set, remove it
 yoke shepherd dependency-remove PREFIX-N PREFIX-OLD_BLOCKER
@@ -64,7 +64,7 @@ Apply these rules when encoding each edge:
 Before adding an edge, check whether an equivalent edge already exists from any source:
 
 ```bash
-_existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM item_dependencies WHERE dependent_item='PREFIX-N' AND blocking_item='PREFIX-M'")
+_existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM item_dependencies WHERE dependent_item_id=N AND blocking_item_id=M")
 ```
 
 - If an operator/shepherd/idea edge already encodes the same relation (same dependent, blocking, and compatible gate_point), do NOT create a duplicate feed row. Record this as a preserved manual edge.
@@ -115,7 +115,7 @@ Query for stale candidates:
 
 ```bash
 # Find non-feed edges where the blocker is cancelled
-yoke db read --format lines "SELECT d.dependent_item, d.blocking_item, d.source, d.gate_point, d.rationale, i.status, i.title FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE d.source <> 'feed' AND i.status = 'cancelled'"
+yoke db read --format lines "SELECT d.dependent_item_id, d.blocking_item_id, d.source, d.gate_point, d.rationale, i.status, i.title FROM item_dependencies d JOIN items i ON i.id = d.blocking_item_id WHERE d.source <> 'feed' AND i.status = 'cancelled'"
 ```
 
 For each stale edge found:
@@ -138,7 +138,7 @@ Also check for edges where the blocker is `done` but the edge gate has already b
 
 ```bash
 # Find edges where satisfaction condition is already met
-yoke db read --format lines "SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction, d.source, i.status FROM item_dependencies d JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, '${_prefix}-', '') AS INTEGER) WHERE i.status = 'done' AND d.satisfaction = 'status:done'"
+yoke db read --format lines "SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction, d.source, i.status FROM item_dependencies d JOIN items i ON i.id = d.blocking_item_id WHERE i.status = 'done' AND d.satisfaction = 'status:done'"
 ```
 
 These satisfied edges are not stale per se (they are correctly resolved), but edges where `satisfaction='status:implemented'` and the blocker is already `done` may warrant review if the dependency was intended to enforce an earlier implementation milestone.
@@ -170,7 +170,7 @@ After completing all reconciliation for all dependent items, verify idempotency 
 
 ```bash
 # For each frontier item that was in scope:
-yoke db read --format lines "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item='PREFIX-N' AND source='feed'"
+yoke db read --format lines "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item_id=N AND source='feed'"
 ```
 
 Compare the count against expected edges. If mismatched, log the discrepancy but do not retry (the next feed run will reconcile).

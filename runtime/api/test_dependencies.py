@@ -55,9 +55,10 @@ def _insert_item(conn, item_id, title="", status="idea", worktree=None):
         title = f"Item {item_id}"
     _now = "2026-01-01T00:00:00Z"
     conn.execute(
-        "INSERT INTO items (id, title, status, created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (item_id, title, status, _now, _now),
+        "INSERT INTO items (id, title, status, created_at, updated_at, "
+        "project_id, project_sequence) "
+        "VALUES (%s, %s, %s, %s, %s, 1, %s)",
+        (item_id, title, status, _now, _now, item_id),
     )
     if worktree:
         conn.execute(
@@ -68,13 +69,17 @@ def _insert_item(conn, item_id, title="", status="idea", worktree=None):
         )
 
 
+def _stored_item_id(value):
+    return value if isinstance(value, int) else int(str(value).rsplit("-", 1)[-1])
+
+
 def _insert_dep(conn, dependent, blocking,
                 gate_point="activation", satisfaction="status:done"):
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, created_at) "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, created_at) "
         "VALUES (%s, %s, %s, %s, 'test', '2026-01-01T00:00:00Z')",
-        (dependent, blocking, gate_point, satisfaction),
+        (_stored_item_id(dependent), _stored_item_id(blocking), gate_point, satisfaction),
     )
 
 

@@ -140,7 +140,7 @@ class TestExecuteCloseDependencyReconciliation:
 
         assert result["success"] is True
         preserved = _dependency_rows(tmp_db, blocking="YOK-1269")
-        assert preserved == [("YOK-1270", "YOK-1269", "integration", "fact:merged")]
+        assert preserved == [(1270, 1269, "integration", "fact:merged")]
 
         out_text = out.getvalue()
         assert "Warning" in out_text
@@ -249,7 +249,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert _item_field(tmp_db, 1270, "status") == "refined-idea"
         # Outbound row must still be present (rollback on connection close).
         rows = _dependency_rows(tmp_db, dependent="YOK-1270")
-        assert rows == [("YOK-1270", "YOK-1269", "integration", "fact:merged")]
+        assert rows == [(1270, 1269, "integration", "fact:merged")]
 
     def test_existing_guards_still_block_reconciliation(self, tmp_db):
         """Delivery-tail, merge-evidence, and active-lane guards still stop
@@ -270,7 +270,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert result["success"] is False
         # Row is untouched.
         assert _dependency_rows(tmp_db, blocking="YOK-1") == [
-            ("YOK-99", "YOK-1", "integration", "fact:merged")
+            (99, 1, "integration", "fact:merged")
         ]
 
         # merge-evidence
@@ -288,7 +288,7 @@ class TestExecuteCloseDependencyReconciliation:
             result = backlog.execute_close(2, "obsolete", out=out)
         assert result["success"] is False
         assert _dependency_rows(tmp_db, dependent="YOK-2") == [
-            ("YOK-2", "YOK-77", "activation", "status:done")
+            (2, 77, "activation", "status:done")
         ]
 
         # active item lane
@@ -307,5 +307,5 @@ class TestExecuteCloseDependencyReconciliation:
             result = backlog.execute_close(3, "obsolete", out=out)
         assert result["success"] is False
         assert _dependency_rows(tmp_db, dependent="YOK-3") == [
-            ("YOK-3", "YOK-88", "activation", "status:done")
+            (3, 88, "activation", "status:done")
         ]

@@ -160,7 +160,7 @@ _MAKE_CONN_DDL = """
             project_id INTEGER
         );
         CREATE TABLE item_dependencies (
-            id INTEGER PRIMARY KEY, dependent_item TEXT, blocking_item TEXT,
+            id INTEGER PRIMARY KEY, dependent_item_id INTEGER, blocking_item_id INTEGER,
             gate_point TEXT, satisfaction TEXT, source TEXT, session_id INTEGER,
             rationale TEXT, evidence_json TEXT, created_at TEXT
         );

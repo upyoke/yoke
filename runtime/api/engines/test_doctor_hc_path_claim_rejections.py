@@ -19,8 +19,8 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 _ITEM_DEPS_DDL = """
 CREATE TABLE item_dependencies (
     id INTEGER PRIMARY KEY,
-    dependent_item TEXT NOT NULL,
-    blocking_item TEXT NOT NULL,
+    dependent_item_id INTEGER NOT NULL,
+    blocking_item_id INTEGER NOT NULL,
     gate_point TEXT NOT NULL DEFAULT 'activation',
     satisfaction TEXT NOT NULL DEFAULT 'status:done',
     source TEXT NOT NULL,
@@ -110,9 +110,9 @@ def _add_dep_edge(
     conn, *, dependent: int, blocking: int,
 ) -> None:
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, "
         "source, created_at) VALUES (%s, %s, 'test', %s)",
-        (f"YOK-{dependent}", f"YOK-{blocking}", _now_iso()),
+        (dependent, blocking, _now_iso()),
     )
     conn.commit()
 

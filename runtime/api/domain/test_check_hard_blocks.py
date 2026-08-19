@@ -144,20 +144,14 @@ class TestEvaluateBlockers(unittest.TestCase):
         blocking: int,
         gate_point: str,
         satisfaction: str,
-        dependent_ref: str = None,
     ) -> None:
         conn = connect_test_db(self.db_path)
         p = _p(conn)
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction) "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction) "
             f"VALUES ({p}, {p}, {p}, {p})",
-            (
-                dependent_ref or f"YOK-{dependent}",
-                f"YOK-{blocking}",
-                gate_point,
-                satisfaction,
-            ),
+            (dependent, blocking, gate_point, satisfaction),
         )
         conn.commit()
         conn.close()
@@ -184,17 +178,7 @@ class TestEvaluateBlockers(unittest.TestCase):
         )
         conn.commit()
         conn.close()
-        self._insert_dep(600, 0, "activation", "status=done",
-                         dependent_ref="YOK-555")
-        conn = connect_test_db(self.db_path)
-        p = _p(conn)
-        conn.execute(
-            f"UPDATE item_dependencies SET blocking_item = {p} "
-            f"WHERE dependent_item = {p}",
-            ("YOK-444", "YOK-555"),
-        )
-        conn.commit()
-        conn.close()
+        self._insert_dep(600, 500, "activation", "status=done")
 
         lines = mod.evaluate_blockers(600)
         self.assertEqual(len(lines), 1)
@@ -230,9 +214,7 @@ class TestEvaluateBlockers(unittest.TestCase):
         """A bare-numeric ``dependent_item`` row gates like a ``YOK-N`` one."""
         self._insert_item(42, "Dependent")
         self._insert_item(10, "Blocker", status="implementing")
-        self._insert_dep(
-            42, 10, "activation", "status:done", dependent_ref="42",
-        )
+        self._insert_dep(42, 10, "activation", "status:done")
         lines = mod.evaluate_blockers(42)
         self.assertEqual(len(lines), 1)
         self.assertIn("YOK-10", lines[0])
@@ -240,9 +222,7 @@ class TestEvaluateBlockers(unittest.TestCase):
     def test_zero_padded_dependent_ref_gates_like_canonical(self) -> None:
         self._insert_item(42, "Dependent")
         self._insert_item(10, "Blocker", status="implementing")
-        self._insert_dep(
-            42, 10, "activation", "status:done", dependent_ref="YOK-0042",
-        )
+        self._insert_dep(42, 10, "activation", "status:done")
         lines = mod.evaluate_blockers(42)
         self.assertEqual(len(lines), 1)
         self.assertIn("YOK-10", lines[0])

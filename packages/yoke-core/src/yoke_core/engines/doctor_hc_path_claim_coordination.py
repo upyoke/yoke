@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -151,7 +152,7 @@ def _flag_empty_rationale(conn) -> list[str]:
     """Failure-mode 2: coordination_only edges with empty rationale."""
     rows = query_rows(
         conn,
-        "SELECT id, dependent_item, blocking_item, rationale "
+        "SELECT id, dependent_item_id, blocking_item_id, rationale "
         "FROM item_dependencies "
         "WHERE gate_point = 'coordination_only' "
         "AND (rationale IS NULL OR TRIM(rationale) = '')",
@@ -160,7 +161,8 @@ def _flag_empty_rationale(conn) -> list[str]:
     for row in rows:
         flagged.append(
             f"item_dependencies.id={row['id']} "
-            f"{row['dependent_item']} <-> {row['blocking_item']} "
+            f"{render_column_item_ref(conn, row['dependent_item_id'])} <-> "
+            f"{render_column_item_ref(conn, row['blocking_item_id'])} "
             "carries empty rationale"
         )
     return flagged

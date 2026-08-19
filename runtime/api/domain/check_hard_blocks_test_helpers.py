@@ -34,8 +34,8 @@ CREATE TABLE workflow_versions (
     definition_digest TEXT NOT NULL
 );
 CREATE TABLE item_dependencies (
-    id INTEGER PRIMARY KEY, dependent_item TEXT NOT NULL,
-    blocking_item TEXT NOT NULL, gate_point TEXT NOT NULL,
+    id INTEGER PRIMARY KEY, dependent_item_id INTEGER NOT NULL,
+    blocking_item_id INTEGER NOT NULL, gate_point TEXT NOT NULL,
     satisfaction TEXT NOT NULL
 );
 CREATE TABLE projects (

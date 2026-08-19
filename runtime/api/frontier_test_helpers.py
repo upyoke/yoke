@@ -72,6 +72,12 @@ def insert_item(
     )
 
 
+def _stored_item_id(value: Any) -> int:
+    if isinstance(value, int):
+        return value
+    return int(str(value).rsplit("-", 1)[-1])
+
+
 def insert_dep(
     conn: Any,
     dependent: str,
@@ -81,9 +87,9 @@ def insert_dep(
 ) -> None:
     """Insert a dependency row using canonical schema."""
     conn.execute(
-        "INSERT INTO item_dependencies (dependent_item, blocking_item, gate_point, satisfaction, source, created_at) "
+        "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, created_at) "
         "VALUES (%s, %s, %s, %s, 'test', '2026-01-01T00:00:00Z')",
-        (dependent, blocking, gate_point, satisfaction),
+        (_stored_item_id(dependent), _stored_item_id(blocking), gate_point, satisfaction),
     )
 
 

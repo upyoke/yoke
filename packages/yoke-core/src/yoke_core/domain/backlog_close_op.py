@@ -17,7 +17,10 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
-from yoke_core.domain.item_ref_columns import render_column_item_ref
+from yoke_core.domain.item_ref_columns import (
+    render_column_item_ref,
+    resolve_column_item_ref,
+)
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -132,47 +135,50 @@ def execute_close(
         # `_update_item_multi` below so the status change and
         # deterministic deletions commit atomically.
         dependency_ref = render_column_item_ref(conn, item_id)
+        resolution_id = (
+            resolve_column_item_ref(conn, normalized_resolution_ref)
+            if normalized_resolution_ref
+            else None
+        )
         outbound_rows = conn.execute(
-            "SELECT blocking_item, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE dependent_item = {p}",
-            (dependency_ref,),
+            "SELECT blocking_item_id, gate_point, satisfaction "
+            f"FROM item_dependencies WHERE dependent_item_id = {p}",
+            (item_id,),
         ).fetchall()
         inbound_rows = conn.execute(
-            "SELECT dependent_item, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE blocking_item = {p}",
-            (dependency_ref,),
+            "SELECT dependent_item_id, gate_point, satisfaction "
+            f"FROM item_dependencies WHERE blocking_item_id = {p}",
+            (item_id,),
         ).fetchall()
 
         removed_outbound: list[dict] = []
         for row in outbound_rows:
             removed_outbound.append(
                 {
-                    "blocking_item": row[0],
+                    "blocking_item": render_column_item_ref(conn, row[0]),
                     "gate_point": row[1],
                     "satisfaction": row[2],
                 }
             )
         if outbound_rows:
             conn.execute(
-                f"DELETE FROM item_dependencies WHERE dependent_item = {p}",
-                (dependency_ref,),
+                f"DELETE FROM item_dependencies WHERE dependent_item_id = {p}",
+                (item_id,),
             )
 
         removed_absorbed: list[dict] = []
         preserved_ambiguous: list[dict] = []
         for row in inbound_rows:
-            dependent_item = row[0]
+            dependent_id = int(row[0])
             gate_point = row[1]
             satisfaction = row[2]
-            if (
-                normalized_resolution_ref
-                and dependent_item == normalized_resolution_ref
-            ):
+            dependent_item = render_column_item_ref(conn, dependent_id)
+            if resolution_id is not None and dependent_id == resolution_id:
                 conn.execute(
                     "DELETE FROM item_dependencies "
-                    f"WHERE dependent_item = {p} AND blocking_item = {p} "
+                    f"WHERE dependent_item_id = {p} AND blocking_item_id = {p} "
                     f"AND gate_point = {p}",
-                    (dependent_item, dependency_ref, gate_point),
+                    (dependent_id, item_id, gate_point),
                 )
                 removed_absorbed.append(
                     {
