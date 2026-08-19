@@ -29,6 +29,10 @@ from yoke_core.tools.pulumi_exec_files import (
     new_owner_only_output as _new_owner_only_output,
     write_owner_only as _write_owner_only,
 )
+from yoke_core.tools.pulumi_exec_github_failure import (
+    CaptureTee,
+    named_github_provider_failure,
+)
 from yoke_core.tools.pulumi_exec_validation import validated_command
 from yoke_core.tools.pulumi_exec_types import PulumiExecError
 from yoke_core.tools.runner_fleet_redacted_process import run_redacted_child
@@ -105,6 +109,7 @@ def execute_pulumi_command(
             local_github_auth_loader=local_github_auth_loader,
         )
         child_out = out or sys.stdout
+        child_err = CaptureTee(err or sys.stderr)
         json_handle = None
         try:
             if json_output is not None:
@@ -114,12 +119,18 @@ def execute_pulumi_command(
                 "env": child_env,
                 "redaction_terms": redaction_terms,
                 "out": child_out,
-                "err": err or sys.stderr,
+                "err": child_err,
                 "cwd": render_root / "infra",
             }
             if child_factory is not None:
                 kwargs["child_factory"] = child_factory
             result = run_redacted_child(argv, **kwargs)
+            if result.returncode:
+                named = named_github_provider_failure(
+                    selected_project, child_err.getvalue()
+                )
+                if named:
+                    raise PulumiExecError(named)
             return result.returncode
         finally:
             if json_handle is not None:
