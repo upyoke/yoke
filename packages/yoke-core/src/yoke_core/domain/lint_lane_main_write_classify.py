@@ -12,6 +12,7 @@ from yoke_core.domain.file_line_check import classify_path
 from yoke_core.domain.lint_lane_main_write_messages import ESCAPE_TOKEN, SUPPRESSION_TOKEN
 from yoke_core.domain.lint_session_cwd_path_authority import (
     is_free_path,
+    is_inside,
     is_inside_control_plane,
     repo_root_from_worktree_path,
     resolve_for_display,
@@ -102,7 +103,6 @@ def _is_scratch_free_path(
     """True when ``target`` is allowlist scratch, not project source."""
     if not is_free_path(target):
         return False
-    from yoke_core.domain.lint_session_cwd_path_authority import is_inside
     for claim in claims:
         if is_inside(target, claim.worktree_path):
             return False
@@ -112,6 +112,15 @@ def _is_scratch_free_path(
     return True
 
 
+def _is_lane_escape(target: str, claim: ClaimedWorktree, repo_root: str) -> bool:
+    """True when *target* is under ``.worktrees`` but outside *claim*'s lane."""
+    if is_inside(target, claim.worktree_path):
+        return False
+    worktrees = str(Path(repo_root).resolve() / ".worktrees")
+    resolved = resolve_for_display(target)
+    return resolved == worktrees or resolved.startswith(worktrees + os.sep)
+
+
 def matching_claim_for_main_target(
     target: str,
     claims: Sequence[ClaimedWorktree],
@@ -119,7 +128,10 @@ def matching_claim_for_main_target(
 ) -> Optional[ClaimedWorktree]:
     for claim in claims:
         root = repo_root_from_worktree_path(claim.worktree_path)
-        if root and is_inside_control_plane(target, root):
+        if root and (
+            is_inside_control_plane(target, root)
+            or _is_lane_escape(target, claim, root)
+        ):
             return claim
     for root in repo_roots:
         if is_inside_control_plane(target, root):
@@ -297,8 +309,7 @@ def collect_main_write_targets(
         target = raw
         if not os.path.isabs(target) and fallback_cwd.strip():
             target = os.path.join(fallback_cwd, target)
-        if _is_scratch_free_path(target, claims, repo_roots):
-            continue
+        target = resolve_for_display(target)
         claim = matching_claim_for_main_target(target, claims, repo_roots)
         if claim is None:
             continue

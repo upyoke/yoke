@@ -45,7 +45,10 @@ def _parse_payload(payload: str) -> Dict[str, Any]:
         data = json.loads(payload)
     except (json.JSONDecodeError, TypeError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    from yoke_core.hooks.codex_exec_workdir import enrich_payload_workdir
+    return enrich_payload_workdir(data)
 
 
 def payload_field(payload: str, field: str) -> str:
