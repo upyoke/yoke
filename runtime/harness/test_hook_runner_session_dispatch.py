@@ -161,6 +161,30 @@ class TestEndSessionCommand(unittest.TestCase):
             session_dispatch.evaluate(_context("claude"))
             report.assert_called_once()
 
+    def test_session_start_syncs_the_main_checkout(self) -> None:
+        from yoke_core.hooks import session_dispatch
+        from yoke_core.hooks.types import HookContext
+
+        ctx = HookContext(
+            event_name="SessionStart",
+            executor_family="claude",
+            executor_surface="claude",
+            payload={"session_id": "sess-start"},
+        )
+        with mock.patch(
+            "yoke_core.hooks.session_dispatch._root_and_db",
+            return_value=("/Users/x/yoke", "/Users/x/yoke/data/yoke.db"),
+        ), mock.patch(
+            "yoke_core.hooks.session_dispatch._is_yoke_target",
+            return_value=True,
+        ), mock.patch(
+            "yoke_core.engines.main_checkout_sync.sync_main_checkout_at_session_start",
+        ) as sync, mock.patch(
+            "yoke_core.hooks.session_dispatch._run_claude_session_start",
+        ):
+            session_dispatch.evaluate(ctx)
+        sync.assert_called_once_with("/Users/x/yoke")
+
 
 class TestResumeBlockDispatchSubprocess(unittest.TestCase):
     """Slim resume block subprocess routes through the canonical CLI."""
