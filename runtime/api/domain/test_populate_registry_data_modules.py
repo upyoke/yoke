@@ -77,6 +77,12 @@ def test_active_discovered_events_have_authoritative_metadata() -> None:
             "yoke_core.domain.session_process_anchors",
             "WARN",
         ),
+        "SourceDevRunMainCheckoutFallback": (
+            "audit",
+            "source_dev_run",
+            "yoke_core.tools.source_dev_run",
+            "WARN",
+        ),
         "StandaloneMergeReceiptRecorded": (
             "lifecycle",
             "merge_lifecycle",

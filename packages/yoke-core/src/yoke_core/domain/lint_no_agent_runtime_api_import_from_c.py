@@ -63,17 +63,22 @@ _FORBIDDEN_IMPORT_RE = re.compile(
     rf")"
 )
 _PYTHON_TOKEN_RE = re.compile(r"^python(?:3(?:\.\d+)?)?$")
+_EXPORT_PREFIX_RE = re.compile(r"^export\s+[A-Za-z_][A-Za-z0-9_]*=.+$")
 
 
-def _is_claimed_lane_source_run(command: str) -> bool:
-    """True for the registered wrapper that owns direct source imports."""
+def _is_registered_source_run(command: str) -> bool:
+    """True for ``yoke dev run`` after optional environment setup lines."""
+    lines = [line.strip() for line in command.splitlines() if line.strip()]
+    if not lines or any(
+        _EXPORT_PREFIX_RE.fullmatch(line) is None for line in lines[:-1]
+    ):
+        return False
     try:
-        tokens = shlex.split(command, posix=True)
+        tokens = shlex.split(lines[-1], posix=True)
     except ValueError:
         return False
     return len(tokens) >= 4 and (
-        os.path.basename(tokens[0]) == "yoke"
-        and tokens[1:4] == ["dev", "run", "--"]
+        os.path.basename(tokens[0]) == "yoke" and tokens[1:4] == ["dev", "run", "--"]
     )
 
 
@@ -207,7 +212,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    if _is_claimed_lane_source_run(command):
+    if _is_registered_source_run(command):
         return None
     hit = False
     for body in _iter_python_c_bodies(command):
