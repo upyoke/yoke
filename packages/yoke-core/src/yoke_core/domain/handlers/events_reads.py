@@ -245,8 +245,7 @@ def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, An
                     "ref": format_item_ref(
                         str(fact["slug"]),
                         str(fact["public_item_prefix"] or ""),
-                        fact["project_sequence"],
-                        item_id=item_id,
+                        int(fact["project_sequence"]),
                     ),
                 }
         actor_ids = sorted(

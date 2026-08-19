@@ -88,7 +88,7 @@ test("Inbox matches the three-class prototype and renders served counts", async 
   firstRow.dispatchEvent(new Event("click"));
   assert.equal(
     main.ownerDocument.defaultView.location.hash,
-    "#/items/YOK-1907?project=10",
+    "#/items/1907?project=10",
   );
 });
 
@@ -273,7 +273,7 @@ test("all five request kinds link to their one subject home", () => {
       { plan_id: 7, case_name: "checkout-flow" },
       "#/qa/plans/7?project=10",
     ],
-    ["lifecycle_transition_approval", "item_transition", { item_id: 7 }, "#/items/7?project=10"],
+    ["lifecycle_transition_approval", "item_transition", { item_ref: "YOK-7" }, "#/items/7?project=10"],
     ["machine_approval", "machine_auth_request", {}, "#/access"],
     ["strategy_revision_review", "strategy_doc_revision", { slug: "PLAN" }, "#/strategy/PLAN?project=10"],
   ];
@@ -287,6 +287,9 @@ test("all five request kinds link to their one subject home", () => {
     subject_type: "qa_requirement",
     subject_context: {},
   })), "#/qa/activity?project=10");
+  assert.equal(inboxPresentation.subjectHref(requestRow({
+    subject_context: { item_id: 2262 },
+  })), "#/items?project=10");
 });
 
 test("notifications link their full row to the subject home", () => {
@@ -299,7 +302,7 @@ test("notifications link their full row to the subject home", () => {
       notification_kind: "item_block_state_changed",
       event: { context: { item_ref: "YOK-1907" } },
     })),
-    "#/items/YOK-1907?project=10",
+    "#/items/1907?project=10",
   );
 });
 

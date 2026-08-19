@@ -119,8 +119,8 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
   assert.ok(!itemText(root).includes("priority"));
   const hrefs = byClass(root, "row-link").map((node) => node.href);
   assert.deepEqual(hrefs, [
-    "#/items/ACM-12?project=7",
-    "#/items/ACM-13?project=7",
+    "#/items/12?project=7",
+    "#/items/13?project=7",
   ]);
   assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
   assert.equal(byClass(root, "item-action")[0].href, "#/items/new?project=7");
@@ -244,9 +244,9 @@ test("Items rows retain native links and open from the row surface", async () =>
   row.dispatchEvent(new Event("click"));
   assert.equal(
     documentNode.defaultView.location.hash,
-    "#/items/ACM-12?project=7",
+    "#/items/12?project=7",
   );
-  assert.equal(byClass(root, "row-link")[0].href, "#/items/ACM-12?project=7");
+  assert.equal(byClass(root, "row-link")[0].href, "#/items/12?project=7");
 });
 
 test("Items exposes a unified-read failure instead of substituting legacy UI", async () => {

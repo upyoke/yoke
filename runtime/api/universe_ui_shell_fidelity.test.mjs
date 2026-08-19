@@ -44,7 +44,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
         searchRequests.push(request.payload);
         return { status: 200, envelope: { success: true, result: {
           matches: [{
-            id: 21, public_ref: "YOK-21", title: "Build shell",
+            id: 2262, public_ref: "YOK-2228", title: "Build shell",
             project_id: 1, project: "yoke", status: "implementing",
           }],
         } } };
@@ -103,7 +103,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   await settleSearch();
   const links = byClass(root, "header-search-result");
   assert.equal(links.length, 2);
-  assert.equal(links[0].href, "#/items/YOK-21?project=1");
+  assert.equal(links[0].href, "#/items/2228?project=1");
   assert.equal(links[1].href, "#/sessions?project=1");
   // Items are matched by the server, so the typed query travels with the
   // request — the browser never filters a prefetched roster it could outgrow.
@@ -116,7 +116,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   await settleSearch();
   assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 8 });
   assert.equal(byClass(root, "header-search-result")[0].href,
-    "#/items/YOK-21?project=1");
+    "#/items/2228?project=1");
 
   // A burst of keystrokes settles into one request rather than one each.
   const beforeBurst = searchRequests.length;
@@ -135,7 +135,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   input.dispatchEvent(keyEvent("ArrowDown"));
   input.dispatchEvent(keyEvent("Enter"));
   assert.equal(documentNode.defaultView.location.hash,
-    "#/items/YOK-21?project=1");
+    "#/items/2228?project=1");
   const main = byClass(root, "content")[0];
   main.scrollTop = 600;
   documentNode.defaultView.location.hash = "#/sessions?project=1";

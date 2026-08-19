@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from runtime.api.domain.decision_request_test_support import (
@@ -22,7 +24,7 @@ def conn():
 def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
     conn.execute(
         "INSERT INTO items VALUES "
-        "(1907, 10, 'Identity shell', 'implementing', 'issue', 1)"
+        "(1907, 10, 4200, 'Identity shell', 'implementing', 'issue', 1)"
     )
     verdict = evaluate_lifecycle_approval(
         conn, item_id=1907, to_stage_id="reviewing-implementation",
@@ -30,6 +32,10 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
     )
     assert verdict.satisfied is False
     assert verdict.request_status == "pending"
+    context = json.loads(conn.execute(
+        "SELECT subject_context FROM decision_requests"
+    ).fetchone()[0])
+    assert context["item_ref"] == "YOK-4200"
     assert conn.execute(
         "SELECT status FROM items WHERE id=1907"
     ).fetchone()[0] == "implementing"
@@ -54,7 +60,7 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
 def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
     conn.execute(
         "INSERT INTO items VALUES "
-        "(1908, 10, 'Named gate', 'implementing', 'dash', 1)"
+        "(1908, 10, 1908, 'Named gate', 'implementing', 'dash', 1)"
     )
     first = evaluate_lifecycle_approval(
         conn, item_id=1908, to_stage_id="done", named_actor_ids=[3],

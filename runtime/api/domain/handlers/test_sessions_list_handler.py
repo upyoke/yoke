@@ -225,8 +225,6 @@ class TestClaimsAndAttribution:
         assert list_sessions()[0]["current_item"] == "YOK-17"
 
     def test_roster_renders_public_ref_not_internal_id(self, test_db):
-        # items.id and project_sequence can diverge; the roster must render
-        # the public ref (prefix + project_sequence), never the internal id.
         from runtime.api.fixtures.backlog import insert_item
 
         insert_item(test_db, id=5001, project_sequence=4200, title="divergent")
@@ -240,6 +238,8 @@ class TestClaimsAndAttribution:
         row = list_sessions()[0]
         assert row["claims"][0]["target"] == "YOK-4200"
         assert row["current_item"] == "YOK-4200"
+        assert row["current_item_project_sequence"] == 4200
+        assert row["current_item_project_id"] == 1
 
     def test_current_item_ownership_title_and_worktree_role(self, test_db):
         from runtime.api.fixtures.backlog import insert_item

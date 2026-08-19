@@ -1,4 +1,5 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 
 export const KIND_PRESENTATION = {
   deployment_stage_approval: { icon: "⬈", fallback: "Approve deployment stage" },
@@ -39,8 +40,10 @@ export function subjectHref(row) {
     return buildUniverseRoute("qa", row.project_id, "activity");
   }
   if (row.kind === "lifecycle_transition_approval") {
-    const item = String(facts.item_ref || facts.item_id || "");
-    return buildUniverseRoute("items", row.project_id, item || null);
+    return itemDrillInHref({
+      projectId: row.project_id,
+      publicRef: facts.item_ref,
+    }) || buildUniverseRoute("items", row.project_id);
   }
   if (row.kind === "machine_approval") {
     return buildUniverseRoute("access", null);
@@ -142,8 +145,11 @@ export function notificationHref(row) {
     return buildUniverseRoute("delivery", row.project_id, "runs");
   }
   if (row.notification_kind === "item_block_state_changed") {
-    const item = facts.item_ref || facts.item_id;
-    if (item) return buildUniverseRoute("items", row.project_id, String(item));
+    const href = itemDrillInHref({
+      projectId: row.project_id,
+      publicRef: facts.item_ref,
+    });
+    if (href) return href;
   }
   if (facts.slug) {
     return buildUniverseRoute("strategy", row.project_id, String(facts.slug));

@@ -69,8 +69,8 @@ class TestReadyRows:
         self, test_db,
     ):
         insert_item(
-            test_db, id=11, title="in flight", workflow_id="issue",
-            status="implementing", priority="high",
+            test_db, id=1101, project_sequence=11, title="in flight",
+            workflow_id="issue", status="implementing", priority="high",
         )
         result = list_frontier()
         assert result["fields"]["ready"] == list(FRONTIER_READY_FIELDS)
@@ -90,6 +90,8 @@ class TestReadyRows:
             test_db, "issue",
         )
         assert row["project"] == "yoke"
+        assert row["project_id"] == 1
+        assert row["project_sequence"] == 11
         assert row["status"] == "implementing"
         assert row["stage_index"] == 3
         assert row["stage_count"] == 10
@@ -170,6 +172,10 @@ class TestBlockedRows:
             assert row["satisfaction"] == "status:done"
             assert rationale in row["why"]
             assert row["project"] == "yoke"
+            assert row["project_id"] == 1
+            assert row["project_sequence"] in {32, 33, 34}
+            assert row["blocking_project_id"] == 1
+            assert row["blocking_project_sequence"] == 31
 
         # The frontier computation enforces activation only, so the
         # integration- and closure-gated items stay runnable — the

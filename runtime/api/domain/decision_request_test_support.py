@@ -59,6 +59,7 @@ def decision_request_connection():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
+            project_sequence INTEGER,
             title TEXT NOT NULL,
             status TEXT NOT NULL,
             workflow_id TEXT NOT NULL,

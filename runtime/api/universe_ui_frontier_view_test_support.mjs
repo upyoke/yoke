@@ -2,9 +2,13 @@
 // point, so both panels and every gate pill family render from one read.
 export function frontierClient() {
   const requests = [];
-  const blockedRow = (itemId, gatePoint, why) => ({
+  const blockedRow = (itemId, gatePoint, why, blocker = {}) => ({
     item_id: itemId, title: `waits ${itemId}`, project: "yoke",
-    blocking_item: "YOK-7", gate_point: gatePoint, why,
+    project_id: 1, project_sequence: Number(itemId.split("-").at(-1)),
+    blocking_item: blocker.ref || "YOK-7",
+    blocking_project_id: blocker.projectId || 1,
+    blocking_project_sequence: blocker.sequence || 7,
+    gate_point: gatePoint, why,
     satisfaction: "status:done", workflow_id: "issue",
     created_at: "2026-07-20T10:00:00Z",
   });
@@ -21,9 +25,10 @@ export function frontierClient() {
           envelope: {
             success: true,
             result: {
-              rows: [{
-                id: 1, slug: "yoke", name: "Yoke", emoji: "🐄",
-              }],
+              rows: [
+                { id: 1, slug: "yoke", name: "Yoke", emoji: "🐄" },
+                { id: 2, slug: "platform", name: "Platform" },
+              ],
             },
           },
         };
@@ -37,7 +42,8 @@ export function frontierClient() {
               ready_rows: [{
                 rank: 0, item_id: "YOK-7", title: "ship it",
                 workflow_id: "issue", workflow_version: 1,
-                project: "yoke", status: "implementing",
+                project: "yoke", project_id: 1, project_sequence: 7,
+                status: "implementing",
                 priority: "high", next_step: "advance",
                 run_command: "yoke advance YOK-7",
                 why_ready: "No unsatisfied activation gates; unclaimed.",
@@ -47,7 +53,10 @@ export function frontierClient() {
               }],
               blocked_rows: [
                 blockedRow("YOK-8", "activation", "YOK-7 not done"),
-                blockedRow("YOK-9", "integration", "lands after YOK-7"),
+                blockedRow(
+                  "YOK-9", "integration", "lands after PLT-70",
+                  { ref: "PLT-70", projectId: 2, sequence: 70 },
+                ),
                 blockedRow("YOK-10", "closure", "closes after YOK-7"),
               ],
               frozen_count: 0, wip_cap: 5, wip_active: 1,

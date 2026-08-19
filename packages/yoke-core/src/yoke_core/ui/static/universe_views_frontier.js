@@ -1,4 +1,4 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   loadScopedPanels,
@@ -51,11 +51,11 @@ function appendCell(documentNode, row, content, className = null) {
 function itemLink(documentNode, href, label, className = null) {
   const link = el(
     documentNode,
-    "a",
+    href ? "a" : "span",
     ["row-link", className].filter(Boolean).join(" "),
     label,
   );
-  link.href = href;
+  if (href) link.href = href;
   return link;
 }
 
@@ -121,22 +121,15 @@ export function renderFrontierView(context, main, scope) {
   appendPanelDetail(
     documentNode, blockedPanel, "why these cannot run yet",
   );
-  const idBySlug = new Map(
-    projects.map((row) => [String(row.slug), String(row.id)]),
-  );
   const projectBySlug = new Map(
     projects.map((row) => [String(row.slug), row]),
   );
-  const rowProject = (row) => (
-    (Array.isArray(scope) && scope.length === 1)
-      ? scope[0]
-      : (idBySlug.get(String(row.project)) || String(row.project))
-  );
-  const itemHref = (row, ref = row.item_id) => buildUniverseRoute(
-    "items",
-    rowProject(row),
-    String(ref || "").replace(/^[A-Za-z]+-/, ""),
-  );
+  const itemHref = (row, blocker = false) => itemDrillInHref({
+    projectId: blocker ? row.blocking_project_id : row.project_id,
+    projectSequence: blocker
+      ? row.blocking_project_sequence : row.project_sequence,
+    publicRef: blocker ? row.blocking_item : row.item_id,
+  });
   const projectLabel = (row) => {
     const project = projectBySlug.get(String(row.project));
     return [project?.emoji, project?.slug || row.project]
@@ -241,7 +234,7 @@ export function renderFrontierView(context, main, scope) {
           row.blocking_item
             ? itemLink(
               doc,
-              itemHref(row, row.blocking_item),
+              itemHref(row, true),
               row.blocking_item,
               "mono",
             )

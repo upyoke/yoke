@@ -177,8 +177,7 @@ def _search_items(
             "public_ref": format_item_ref(
                 row["project"],
                 row["public_item_prefix"],
-                row["project_sequence"],
-                item_id=int(row["id"]),
+                int(row["project_sequence"]),
             ),
             "title": row["title"],
             "status": row["status"],

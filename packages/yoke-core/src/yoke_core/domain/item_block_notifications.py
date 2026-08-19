@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
@@ -48,16 +49,22 @@ def emit_item_block_state_notification(
             actor_id = int(row[0])
     stamp = iso8601_now()
     event_name = ITEM_BLOCKED_EVENT if blocked else ITEM_UNBLOCKED_EVENT
-    prefix = item.get("public_item_prefix")
-    if not prefix:
-        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        project = conn.execute(
-            f"SELECT public_item_prefix FROM projects WHERE id = {marker}",
-            (int(item["project_id"]),),
-        ).fetchone()
-        prefix = str(project[0]) if project is not None else "YOK"
-    sequence = item.get("project_sequence") or item.get("id")
-    item_ref = f"{prefix}-{sequence}"
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    route = conn.execute(
+        "SELECT i.project_id, i.project_sequence, p.slug, "
+        "p.public_item_prefix FROM items i "
+        "JOIN projects p ON p.id = i.project_id "
+        f"WHERE i.id = {marker}",
+        (int(item["id"]),),
+    ).fetchone()
+    if route is None:
+        raise LookupError(f"item {item['id']} does not exist")
+    project_id = int(route["project_id"])
+    item_ref = format_item_ref(
+        str(route["slug"]),
+        str(route["public_item_prefix"] or ""),
+        int(route["project_sequence"]),
+    )
     reason = (
         str(item.get("blocked_reason") or "Item blocked")
         if blocked else "Item unblocked"
@@ -67,7 +74,7 @@ def emit_item_block_state_notification(
         event_name,
         actor_id=actor_id,
         session_id=str(session_id or ""),
-        project_id=int(item["project_id"]),
+        project_id=project_id,
         org_id=None,
         context={
             "item_id": int(item["id"]),
@@ -81,7 +88,7 @@ def emit_item_block_state_notification(
     inserted = dispatch_addressed_event(
         conn,
         event_envelope=event_envelope,
-        project_id=int(item["project_id"]),
+        project_id=project_id,
         notification_kind=ITEM_BLOCK_STATE_CHANGED,
         reason=reason,
         created_at=stamp,

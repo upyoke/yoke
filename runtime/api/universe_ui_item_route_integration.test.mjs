@@ -186,7 +186,7 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
   ));
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
-    ["#/items/YOK-1?project=1", "#/items/YOK-2?project=1"],
+    ["#/items/1?project=1", "#/items/2?project=1"],
   );
   assert.deepEqual(itemsRequest.payload, {});
   assert.equal(byClass(root, "panel-count").length, 0);

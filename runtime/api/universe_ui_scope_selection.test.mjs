@@ -111,7 +111,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     allNodes(root)
       .filter((node) => node.classList && node.classList.contains("row-link"))
       .map((node) => node.href),
-    ["#/items/YOK-11?project=1", "#/items/YOK-21?project=2"],
+    ["#/items/11?project=1", "#/items/21?project=2"],
   );
 
   // Removing members one at a time: the last removal returns to "all",

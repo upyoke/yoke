@@ -61,15 +61,17 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         mode: "resume", executor: "claude-code", model: "claude-opus-4-8",
         executor_mark: "A", executor_class_name: "h-claude",
         actor_id: 2, actor_kind: "human", actor_label: "Ben",
-        project_id: 1, project: "yoke",
-        current_item: "YOK-2001",
+        project_id: 7, project: "platform",
+        current_item: "YOK-2228",
+        current_item_project_id: 1,
+        current_item_project_sequence: 2228,
         current_item_title: "Execute WORKFLOW-TYPES",
         current_item_workflow_id: "blitz",
         current_item_workflow_version_id: 1,
         owns_current_item: true, work_role: "integration",
         claim_started_at: "2026-07-26T12:00:00Z",
         activity_at: "2026-07-26T12:04:00Z",
-        claims: [{ target_kind: "item", target: "YOK-2001" }],
+        claims: [{ target_kind: "item", target: "YOK-2228" }],
       },
       {
         session_id: "v8c2qa", liveness: "stale",
@@ -77,8 +79,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
         executor: "codex", model: "gpt-5.6-sol",
         executor_mark: "X", executor_class_name: "h-codex",
         actor_id: 7, actor_kind: "system", actor_label: "preview-ci",
-        project_id: 1, project: "yoke",
-        current_item: "YOK-2001",
+        project_id: 7, project: "platform",
+        current_item: "YOK-2228",
+        current_item_project_id: 1,
+        current_item_project_sequence: 2228,
         current_item_title: "Execute WORKFLOW-TYPES",
         current_item_workflow_id: "blitz",
         current_item_workflow_version_id: 1,
@@ -169,10 +173,10 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     byClass(root, "session-work-role").map((node) => node.textContent),
     ["integration", "worker"],
   );
-  assert.equal(byClass(root, "session-item-link")[0].href, "#/items/2001?project=1");
+  assert.equal(byClass(root, "session-item-link")[0].href, "#/items/2228?project=1");
   const cardText = cards.map(visibleText);
   for (const expected of [
-    "claude-code", "YOK-2001", "Execute WORKFLOW-TYPES",
+    "claude-code", "YOK-2228", "Execute WORKFLOW-TYPES",
     "🧭 Integration", "claude-opus-4-8", "claim held", "ben", "a7b4pl",
   ]) {
     assert.ok(cardText[0].includes(expected), expected);

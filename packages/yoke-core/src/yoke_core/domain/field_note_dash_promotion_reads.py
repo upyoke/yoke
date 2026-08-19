@@ -56,8 +56,7 @@ def promoted_dash_by_field_note_ids(
             "item_ref": format_item_ref(
                 row["project_slug"],
                 row["public_item_prefix"],
-                row["project_sequence"],
-                item_id=int(row["dash_item_id"]),
+                int(row["project_sequence"]),
             ),
             "project_id": int(row["project_id"]),
             "project": str(row["project_slug"]),

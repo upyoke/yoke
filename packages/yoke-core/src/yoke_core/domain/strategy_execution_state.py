@@ -123,8 +123,7 @@ def active_strategy_doc_claim(
         claim["item_ref"] = format_item_ref(
             claim["project_slug"],
             claim["public_item_prefix"],
-            claim["project_sequence"],
-            item_id=int(claim["owning_item_id"]),
+            int(claim["project_sequence"]),
         )
     return claim
 
