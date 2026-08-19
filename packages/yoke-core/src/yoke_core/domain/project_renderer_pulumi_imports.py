@@ -1,19 +1,17 @@
-"""Prove a rendered Pulumi program carries every module it imports.
+"""Carry every project-owned sibling a rendered Pulumi program imports.
 
-The rendered program is assembled from an explicit per-family file inventory,
-and that inventory lives here while the modules it names live in each
-consuming project's repository. A project that adds an infra module therefore
-gets no local signal that a list in another repository has to change, and the
-omission stays invisible until Pulumi runs the program and the import fails.
-
-Checking the rendered directory against its own imports moves that failure to
-render time, where the message can name the missing module and the inventory
-that should have carried it.
+The seed inventory is per-family and lives in this repository, while the
+modules a stack imports live in each consuming project's ``infra/``. A
+project can add a sibling and import it without a matching inventory edit
+here; materialization then used to drop that file and fail later as a
+bare ``ModuleNotFoundError``. Closing the render under those imports
+copies each present sibling, and a remaining miss is refused by name.
 """
 
 from __future__ import annotations
 
 import ast
+import shutil
 from pathlib import Path
 
 
@@ -44,25 +42,51 @@ def _imported_module_names(source: str) -> set[str]:
     return names
 
 
+def _missing_imported_siblings(
+    destination: Path, available: Path
+) -> dict[str, str]:
+    """Map each missing project sibling stem to the file that imported it."""
+    carried = {path.stem for path in destination.glob("*.py")}
+    missing: dict[str, str] = {}
+    for path in sorted(destination.glob("*.py")):
+        for name in _imported_module_names(path.read_text(encoding="utf-8")):
+            if name in carried or name in missing:
+                continue
+            if (available / f"{name}.py").is_file():
+                missing[name] = path.name
+    return missing
+
+
+def close_rendered_program_imports(
+    destination: Path, *, available: Path
+) -> list[str]:
+    """Copy every project-owned sibling the rendered program imports.
+
+    Walks newly copied files so a chain of sibling imports is carried in
+    one pass. Returns the filenames that were added.
+    """
+    added: list[str] = []
+    while True:
+        missing = _missing_imported_siblings(destination, available)
+        if not missing:
+            return added
+        for name in sorted(missing):
+            filename = f"{name}.py"
+            shutil.copyfile(available / filename, destination / filename)
+            added.append(filename)
+
+
 def assert_rendered_program_complete(
     destination: Path, *, available: Path
 ) -> None:
-    """Refuse a render whose program imports a module it did not carry.
+    """Refuse a render whose program still imports a module it did not carry.
 
     ``available`` is the project's own infra directory: a bare import that
     resolves to a file there is a sibling the render owed and missed, while
     anything else is an ordinary third-party or standard-library import and
     is none of this check's business.
     """
-    rendered = sorted(destination.glob("*.py"))
-    carried = {path.stem for path in rendered}
-    missing: dict[str, str] = {}
-    for path in rendered:
-        for name in _imported_module_names(path.read_text(encoding="utf-8")):
-            if name in carried or name in missing:
-                continue
-            if (available / f"{name}.py").is_file():
-                missing[name] = path.name
+    missing = _missing_imported_siblings(destination, available)
     if not missing:
         return
     detail = ", ".join(
@@ -71,9 +95,13 @@ def assert_rendered_program_complete(
     )
     raise RenderedProgramIncomplete(
         "rendered Pulumi program is missing project modules it imports: "
-        f"{detail}. Add each one to the matching program-file inventory in "
-        "project_renderer_pulumi_files.py so the render carries it."
+        f"{detail}. Those files exist in the project infra tree and must "
+        "be copied into the render."
     )
 
 
-__all__ = ["RenderedProgramIncomplete", "assert_rendered_program_complete"]
+__all__ = [
+    "RenderedProgramIncomplete",
+    "assert_rendered_program_complete",
+    "close_rendered_program_imports",
+]
