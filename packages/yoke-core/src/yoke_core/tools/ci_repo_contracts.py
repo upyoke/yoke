@@ -40,6 +40,7 @@ class ChangedPathScope:
 
 
 ContractFn = Callable[[Path, ChangedPathScope], Tuple[bool, str]]
+_RUFF_DIAGNOSTIC_LIMIT = 20
 
 
 def _append_summary(lines: Sequence[str]) -> None:
@@ -88,22 +89,54 @@ def check_authored_file_limit(
     return verdict.ok, verdict.summary
 
 
+def _ruff_diagnostic_sort_key(
+    diagnostic: dict[str, object],
+) -> Tuple[str, int, int, str, str]:
+    location = diagnostic.get("location")
+    if not isinstance(location, dict):
+        location = {}
+    row = location.get("row")
+    column = location.get("column")
+    return (
+        str(diagnostic.get("filename") or "?"),
+        row if isinstance(row, int) else 0,
+        column if isinstance(column, int) else 0,
+        str(diagnostic.get("code") or "?"),
+        str(diagnostic.get("message") or ""),
+    )
+
+
+def _format_ruff_diagnostic(diagnostic: dict[str, object]) -> str:
+    location = diagnostic.get("location")
+    if not isinstance(location, dict):
+        location = {}
+    path = diagnostic.get("filename") or "?"
+    row = location.get("row") or "?"
+    column = location.get("column") or "?"
+    code = diagnostic.get("code") or "?"
+    message = diagnostic.get("message") or ""
+    return f"{path}:{row}:{column}: {code} {message}".strip()
+
+
 def _ruff_failure_detail(stdout: str, stderr: str) -> str:
-    """Format the first diagnostic as ``path:line:col: CODE message``."""
+    """Format a bounded, stable list of Ruff diagnostics."""
     raw = (stdout or "").strip()
     try:
         diagnostics = json.loads(raw) if raw else []
     except json.JSONDecodeError:
         diagnostics = []
     if isinstance(diagnostics, list) and diagnostics:
-        first = diagnostics[0]
-        location = first.get("location") or {}
-        path = first.get("filename") or "?"
-        row = location.get("row")
-        col = location.get("column")
-        code = first.get("code") or "?"
-        message = first.get("message") or ""
-        return f"{path}:{row}:{col}: {code} {message}".strip()
+        ordered = sorted(
+            (row for row in diagnostics if isinstance(row, dict)),
+            key=_ruff_diagnostic_sort_key,
+        )
+        if ordered:
+            visible = ordered[:_RUFF_DIAGNOSTIC_LIMIT]
+            lines = [_format_ruff_diagnostic(row) for row in visible]
+            omitted = len(ordered) - len(visible)
+            if omitted:
+                lines.append(f"... and {omitted} more")
+            return "\n".join(lines)
     fallback = (stdout or stderr or "ruff failed").strip()
     return fallback.splitlines()[0] if fallback else "ruff failed"
 

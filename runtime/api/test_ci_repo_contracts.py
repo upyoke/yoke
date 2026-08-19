@@ -8,6 +8,7 @@ share a fork point, and both must enumerate the same changed files.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
@@ -113,6 +114,64 @@ def test_changed_path_ruff_flags_a_defect_in_an_edited_file(
     assert "F401" in detail
     assert "edited.py" in detail
     assert ":1:" in detail
+
+
+def test_changed_path_ruff_reports_every_finding_then_passes_when_fixed(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("ruff")
+    (tmp_path / "zeta.py").write_text(
+        "import sys\n\nZETA = 1\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "alpha.py").write_text(
+        "import os\nimport json\n\nALPHA = 1\n",
+        encoding="utf-8",
+    )
+    scope = crc.ChangedPathScope(
+        base_sha="abc123",
+        paths=("zeta.py", "alpha.py"),
+    )
+
+    ok, detail = crc.check_changed_path_ruff(tmp_path, scope)
+
+    lines = detail.splitlines()
+    assert ok is False
+    assert len(lines) == 3
+    assert [Path(line.split(":", 1)[0]).name for line in lines] == [
+        "alpha.py",
+        "alpha.py",
+        "zeta.py",
+    ]
+    assert all("F401" in line for line in lines)
+    assert all(name in detail for name in ("os", "json", "sys"))
+
+    (tmp_path / "alpha.py").write_text("ALPHA = 1\n", encoding="utf-8")
+    (tmp_path / "zeta.py").write_text("ZETA = 1\n", encoding="utf-8")
+
+    ok, detail = crc.check_changed_path_ruff(tmp_path, scope)
+
+    assert ok is True
+    assert detail == "ruff clean on 2 path(s)"
+
+
+def test_ruff_failure_detail_is_stably_ordered_and_bounded() -> None:
+    diagnostics = [
+        {
+            "filename": f"file_{index:02d}.py",
+            "location": {"row": index + 1, "column": 1},
+            "code": "F401",
+            "message": f"unused_{index}",
+        }
+        for index in reversed(range(22))
+    ]
+
+    lines = crc._ruff_failure_detail(json.dumps(diagnostics), "").splitlines()
+
+    assert len(lines) == 21
+    assert lines[0].startswith("file_00.py:1:1: F401")
+    assert lines[-2].startswith("file_19.py:20:1: F401")
+    assert lines[-1] == "... and 2 more"
 
 
 def test_changed_path_ruff_clean_when_no_python_diff(tmp_path: Path) -> None:
