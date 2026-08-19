@@ -19,6 +19,9 @@ import sys
 
 import pytest
 
+from yoke_contracts.migration_rehearsal_teaching import (
+    YOKE_SOURCE_REHEARSAL_RECIPE,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.migration_apply import (
     FAIL_TEST_APPLY,
@@ -53,7 +56,9 @@ class TestDbTargets:
         )
         monkeypatch.setattr(targets.db_backend, "connect", lambda: sentinel)
 
-        target = DbTarget(kind="postgres", target="dbname=test", display="postgres:test")
+        target = DbTarget(
+            kind="postgres", target="dbname=test", display="postgres:test"
+        )
         assert connect_db_target(target) is sentinel
         assert selected == ["dbname=test"]
 
@@ -70,7 +75,9 @@ class TestDbTargets:
             display="app.db",
         )
         with pytest.raises(MigrationApplyError) as excinfo:
-            create_rollback_backup(target, "pre-live-apply-demo", worktree_path=tmp_path)
+            create_rollback_backup(
+                target, "pre-live-apply-demo", worktree_path=tmp_path
+            )
 
         msg = str(excinfo.value)
         assert "SQLite rollback backups" in msg
@@ -133,10 +140,12 @@ class TestRehearseHappyPath:
         )
         assert result.source_fingerprint == expected
 
+
 class TestRehearseFailures:
     def test_missing_module_marks_test_apply_failed(self, apply_env) -> None:
         _seed_apply_item(
-            apply_env["control_db"], item_id=5010,
+            apply_env["control_db"],
+            item_id=5010,
             modules=["nonexistent_module"],
         )
         result = rehearse(
@@ -149,12 +158,50 @@ class TestRehearseFailures:
         assert mod.state == FAIL_TEST_APPLY
         assert "not found" in mod.error
 
-    def test_module_without_apply_marks_test_apply_failed(self, apply_env) -> None:
-        (apply_env["modules_dir"] / "no_apply_module.py").write_text(
-            _NO_APPLY_MIGRATION_BODY, encoding="utf-8",
+    def test_missing_import_names_installed_tree_rule_and_source_rerun(
+        self,
+        apply_env,
+    ) -> None:
+        worktree = apply_env["worktree"]
+        (worktree / "pyproject.toml").write_text(
+            '[project]\nname = "yoke"\n',
+            encoding="utf-8",
+        )
+        (worktree / "runtime" / "harness").mkdir(parents=True)
+        (apply_env["modules_dir"] / "branch_only_import.py").write_text(
+            "import yoke_core.domain.branch_only_migration_helper\n\n"
+            "def apply(conn):\n"
+            "    pass\n",
+            encoding="utf-8",
         )
         _seed_apply_item(
-            apply_env["control_db"], item_id=5011,
+            apply_env["control_db"],
+            item_id=5016,
+            modules=["branch_only_import"],
+        )
+
+        result = rehearse(
+            5016,
+            control_db_path=apply_env["control_db"],
+            worktree_path=worktree,
+        )
+
+        error = result.modules[0].error
+        assert (
+            "No module named 'yoke_core.domain.branch_only_migration_helper'" in error
+        )
+        assert "installed-tree authoring constraint, not a broken environment" in error
+        assert "Inline the helper into the migration entry" in error
+        assert YOKE_SOURCE_REHEARSAL_RECIPE in error
+
+    def test_module_without_apply_marks_test_apply_failed(self, apply_env) -> None:
+        (apply_env["modules_dir"] / "no_apply_module.py").write_text(
+            _NO_APPLY_MIGRATION_BODY,
+            encoding="utf-8",
+        )
+        _seed_apply_item(
+            apply_env["control_db"],
+            item_id=5011,
             modules=["no_apply_module"],
         )
         result = rehearse(
@@ -168,10 +215,12 @@ class TestRehearseFailures:
 
     def test_module_apply_raises_marks_test_apply_failed(self, apply_env) -> None:
         (apply_env["modules_dir"] / "raising_module.py").write_text(
-            _RAISING_MIGRATION_BODY, encoding="utf-8",
+            _RAISING_MIGRATION_BODY,
+            encoding="utf-8",
         )
         _seed_apply_item(
-            apply_env["control_db"], item_id=5012,
+            apply_env["control_db"],
+            item_id=5012,
             modules=["raising_module"],
         )
         result = rehearse(
@@ -199,9 +248,12 @@ class TestRehearseFailures:
         assert mod.state == FAIL_TEST_VERIFY
         assert "invariant tripwire table present" in mod.error
 
-    def test_failing_rehearsal_command_marks_test_verify_failed(self, apply_env) -> None:
+    def test_failing_rehearsal_command_marks_test_verify_failed(
+        self, apply_env
+    ) -> None:
         _seed_apply_item(
-            apply_env["control_db"], item_id=5014,
+            apply_env["control_db"],
+            item_id=5014,
             rehearsal_commands=["exit 1"],
         )
         result = rehearse(
@@ -215,7 +267,8 @@ class TestRehearseFailures:
 
     def test_rehearsal_commands_outcomes_append_to_attestation(self, apply_env) -> None:
         _seed_apply_item(
-            apply_env["control_db"], item_id=5015,
+            apply_env["control_db"],
+            item_id=5015,
             rehearsal_commands=["echo ok"],
         )
         rehearse(
@@ -250,10 +303,7 @@ class TestRehearseFailures:
         )
 
         outcomes, error = verify._run_rehearsal_commands(
-            [
-                f"{sys.executable} -c "
-                "\"import time; time.sleep(0.1); print('done')\""
-            ],
+            [f"{sys.executable} -c \"import time; time.sleep(0.1); print('done')\""],
             env_var="YOKE_DB",
             validation_db_path=str(tmp_path / "validation.db"),
             cwd=tmp_path,
@@ -264,7 +314,9 @@ class TestRehearseFailures:
         assert "done" in outcomes[0]["stdout"]
 
     def test_rehearsal_command_timeout_stderr_names_deadline(
-        self, monkeypatch, tmp_path,
+        self,
+        monkeypatch,
+        tmp_path,
     ):
         from yoke_core.domain import migration_apply_verify as verify
         from yoke_core.domain import runtime_settings
@@ -278,7 +330,7 @@ class TestRehearseFailures:
         )
 
         outcomes, error = verify._run_rehearsal_commands(
-            [f"{sys.executable} -c \"import time; time.sleep(2)\""],
+            [f'{sys.executable} -c "import time; time.sleep(2)"'],
             env_var="YOKE_DB",
             validation_db_path=str(tmp_path / "validation.db"),
             cwd=tmp_path,

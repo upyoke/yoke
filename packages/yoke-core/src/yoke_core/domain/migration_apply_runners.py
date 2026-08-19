@@ -24,6 +24,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, FrozenSet, Mapping, Optional
 
+from yoke_contracts.migration_rehearsal_teaching import (
+    YOKE_SOURCE_REHEARSAL_RECIPE,
+)
 from yoke_core.domain.migration_apply_contract import (
     ModuleResolutionError,
 )
@@ -34,10 +37,13 @@ from yoke_core.domain.migration_history import validate_psycopg_migration_sql
 from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
 )
+from yoke_core.domain.project_install_source_link import is_yoke_source_checkout
 
-_KNOWN_RUNNER_KINDS: FrozenSet[str] = frozenset({
-    RUNNER_KIND_GOVERNED_MODULE,
-})
+_KNOWN_RUNNER_KINDS: FrozenSet[str] = frozenset(
+    {
+        RUNNER_KIND_GOVERNED_MODULE,
+    }
+)
 
 
 class UnknownRunnerKind(ValueError):
@@ -114,7 +120,9 @@ def dispatch_handle(
             identifier=identifier,
         )
     raise UnknownRunnerKind(
-        kind, project=project, model=model_name,
+        kind,
+        project=project,
+        model=model_name,
         known_kinds=_KNOWN_RUNNER_KINDS,
     )
 
@@ -135,7 +143,24 @@ def _dispatch_governed_module(
     modules_dir = (repo_path / modules_dir_rel).resolve()
     if (model.get("authoritative_db") or {}).get("kind") == "postgres":
         validate_psycopg_migration_sql(modules_dir)
-    module = _load_migration_module(modules_dir, identifier)
+    try:
+        module = _load_migration_module(modules_dir, identifier)
+    except ModuleResolutionError as exc:
+        if not isinstance(exc.__cause__, ModuleNotFoundError):
+            raise
+        detail = (
+            f"{exc}. This entry imports a module absent from the installed "
+            "tree used to load migrations. That is an installed-tree "
+            "authoring constraint, not a broken environment: apply() may "
+            "import only modules already shipped there. Inline the helper "
+            "into the migration entry instead."
+        )
+        if is_yoke_source_checkout(repo_path):
+            detail += (
+                " Rerun the patched worktree source with "
+                f"`{YOKE_SOURCE_REHEARSAL_RECIPE}`."
+            )
+        raise ModuleResolutionError(detail) from exc
     source_path = modules_dir / f"{identifier}.py"
     invariants = getattr(module, "invariants", None)
     if not callable(invariants):

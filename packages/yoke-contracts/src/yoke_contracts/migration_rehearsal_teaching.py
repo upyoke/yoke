@@ -21,6 +21,12 @@ CONNECTION_READER = "yoke env list"
 #: of it so no message has to restate the other two.
 PREFLIGHT_HELP_COMMAND = "yoke migration rehearse --help"
 
+#: Re-enters rehearsal through a claimed Yoke source lane so the patched
+#: package tree, rather than the installed main checkout, owns imports.
+YOKE_SOURCE_REHEARSAL_RECIPE = (
+    "yoke dev run -- yoke --env <name> migration rehearse ITEM"
+)
+
 #: Provisions, hydrates, and binds the disposable validation database.
 #: In-tree, so it runs through the claimed-lane source runner rather than an
 #: ambient interpreter that resolves a different checkout's packages.
@@ -65,4 +71,5 @@ __all__ = [
     "PREFLIGHT_HELP",
     "PREFLIGHT_HELP_COMMAND",
     "PROVISION_RECIPE",
+    "YOKE_SOURCE_REHEARSAL_RECIPE",
 ]
