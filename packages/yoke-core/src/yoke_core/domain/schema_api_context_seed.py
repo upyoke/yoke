@@ -32,6 +32,7 @@ __all__ = [
     "ROLE_TOPICS",
     "TOPICS",
     "TOPIC_TABLES",
+    "PACKAGE_ROOTS",
     "PACKET_LINE_BUDGET_PER_ROLE",
     "PACKET_LINE_BUDGET_AGGREGATE",
 ]
@@ -167,6 +168,28 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 }
 
 
+# Where each importable package's source lives, mirroring the
+# ``architecture_model`` family's ``package_roots`` section. That family is
+# the authority; this mirror exists because rendered adapters are committed
+# files and a checkout with no project rows has no model to read, so the
+# packet must render identical bytes everywhere.
+# ``schema_api_context.detect_seed_drift`` reads the model wherever one is
+# reachable and reports any divergence, so the mirror cannot go stale in
+# silence. Repair by copying the model's values here, never the reverse.
+PACKAGE_ROOTS: dict[str, tuple[tuple[str, str], ...]] = {
+    "yoke_cli": (("packages/yoke-cli/src", "package_under_root"),),
+    "yoke_contracts": (("packages/yoke-contracts/src", "package_under_root"),),
+    "yoke_core": (
+        ("packages/yoke-core/src", "package_under_root"),
+        ("runtime/api", "package_is_root"),
+    ),
+    "yoke_harness": (
+        ("packages/yoke-harness/src", "package_under_root"),
+        ("runtime/harness", "package_is_root"),
+    ),
+}
+
+
 # Tests fail when a rendered packet exceeds its budget — curate rather
 # than duplicate. Per-role budget covers each `*_agent` packet; aggregate
 # budget covers all six roles combined. The budgets absorb the inline
@@ -185,6 +208,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # These caps therefore follow the complete registered recipes and table facts
 # rendered today rather than an arbitrary prose target. The claims topic now
 # also names harness_machine_reports (install-glue presence; no hashing)
-# and coordination_leases typed-owner / release-provenance columns.
-PACKET_LINE_BUDGET_PER_ROLE: int = 421
-PACKET_LINE_BUDGET_AGGREGATE: int = 2173
+# and coordination_leases typed-owner / release-provenance columns. The core
+# topic additionally carries the declared package roots, so every role learns
+# where a module physically lives instead of guessing a repo-root directory
+# named after the package.
+PACKET_LINE_BUDGET_PER_ROLE: int = 423
+PACKET_LINE_BUDGET_AGGREGATE: int = 2185

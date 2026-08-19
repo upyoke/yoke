@@ -20,6 +20,10 @@ from yoke_core.domain.schema_api_context_json_schemas import (
     ACCESS_PATTERN_NOTE,
     JSON_NESTED_SCHEMAS,
 )
+from yoke_core.domain.schema_api_context_package_roots import (
+    LAYOUT_GLOSS,
+    PackageRoots,
+)
 
 
 def render_invariant_block() -> list[str]:
@@ -37,6 +41,33 @@ def render_invariant_block() -> list[str]:
         "audited break-glass only; use `YOKE_ENV=<env>-db-admin` / "
         "`--env <env>-db-admin` only when a sanctioned admin recipe explicitly "
         "requires direct DB authority.",
+    ]
+
+
+def render_package_roots_block(roots: PackageRoots) -> list[str]:
+    """Where each importable package's source lives, from *roots*.
+
+    Taught in the ``core`` topic so every role sees it: an agent that
+    greps for a module by guessing a repo-root directory named after the
+    package finds nothing and concludes the code is missing. The values
+    come from the resolver rather than this prose so they track the
+    project's declared layout instead of drifting beside it.
+    """
+    if not roots:
+        return []
+    declared = "; ".join(
+        f"`{package}` -> "
+        + ", ".join(f"`{root}` ({layout})" for root, layout in entries)
+        for package, entries in sorted(roots.items())
+    )
+    gloss = "; ".join(
+        f"`{layout}` = {text}" for layout, text in sorted(LAYOUT_GLOSS.items())
+    )
+    return [
+        "**Package roots (where a module actually lives):** an importable "
+        "package name never implies a directory at the repo root — resolve "
+        "a module through the roots the project's `architecture_model` "
+        f"declares. {gloss}. Declared: {declared}.",
     ]
 
 

@@ -39,7 +39,12 @@ from yoke_core.domain.schema_api_context_render import (
     render_invariant_block,
     render_item_entry_surface_block,
     render_json_nested_schema_block,
+    render_package_roots_block,
     render_table_block,
+)
+from yoke_core.domain.schema_api_context_package_roots import (
+    PackageRoots,
+    resolve_package_roots,
 )
 from yoke_core.domain.schema_common import (
     _get_columns_with_types,
@@ -180,6 +185,14 @@ def _resolve_columns(table: str) -> list[tuple[str, str]]:
     return seed_cols
 
 
+def _resolve_package_roots() -> PackageRoots:
+    """Seed package roots, raising when the declared model disagrees."""
+    roots, drift = resolve_package_roots()
+    if drift:
+        raise DriftError("\n".join(drift))
+    return roots
+
+
 class DriftError(RuntimeError):
     """Raised when the curated seed disagrees with the live schema."""
 
@@ -260,6 +273,8 @@ def render_topic_packet(topic: str) -> str:
     if topic == "core":
         parts.extend(render_invariant_block())
         parts.append("")
+        parts.extend(render_package_roots_block(_resolve_package_roots()))
+        parts.append("")
         parts.extend(render_item_entry_surface_block())
         parts.append("")
         parts.extend(render_function_call_surface_block())
@@ -306,6 +321,7 @@ def detect_seed_drift() -> list[str]:
             _resolve_columns(table)
         except DriftError as exc:
             drift.append(str(exc))
+    drift.extend(resolve_package_roots()[1])
     return drift
 
 
