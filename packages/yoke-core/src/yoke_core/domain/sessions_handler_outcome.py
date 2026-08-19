@@ -276,6 +276,40 @@ def render_chain_summary_label(handler_outcome: Optional[str]) -> str:
     return _OUTCOME_LABELS.get(handler_outcome or "", _OUTCOME_LABELS[OUTCOME_COMPLETED])
 
 
+def resolve_checkpoint_outcome(
+    *,
+    outcome: str = OUTCOME_COMPLETED,
+    failure_class: Optional[str] = None,
+    required_path: Optional[str] = None,
+    pre_status: Optional[str] = None,
+    post_status: Optional[str] = None,
+) -> str:
+    """Classify a checkpoint write from adapter inputs.
+
+    ``yoke sessions checkpoint`` is the agent surface — callers pass
+    pre/post status or ``failure_class`` and read ``handler_outcome``
+    back. ``pre-dispatch`` stays literal so the loop frame write is not
+    reclassified as an advance slice.
+    """
+    if failure_class:
+        return classify_substrate_failure(failure_class)
+    if outcome == "pre-dispatch":
+        return outcome
+    if required_path == "advance":
+        return classify_advance_outcome(
+            pre_status=pre_status or "",
+            post_status=post_status or "",
+        )
+    return outcome or OUTCOME_COMPLETED
+
+
+def resolved_checkpoint_chainable(chainable: bool, handler_outcome: str) -> bool:
+    """Force ``chainable=false`` when the classified outcome is terminal."""
+    if is_terminal_outcome(handler_outcome):
+        return False
+    return chainable
+
+
 __all__ = [
     "OUTCOME_COMPLETED",
     "OUTCOME_SLICE_COMMITTED",
@@ -293,4 +327,6 @@ __all__ = [
     "record_recoverable_substrate_skip",
     "record_interactive_checkpoint_handoff",
     "render_chain_summary_label",
+    "resolve_checkpoint_outcome",
+    "resolved_checkpoint_chainable",
 ]

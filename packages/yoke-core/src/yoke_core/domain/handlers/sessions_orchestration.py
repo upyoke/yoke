@@ -38,6 +38,7 @@ class CheckpointRequest(BaseModel):
     status: Optional[str] = None
     required_path: Optional[str] = None
     pre_status: Optional[str] = None
+    failure_class: Optional[str] = None
 
 
 class CheckpointResponse(BaseModel):
@@ -135,6 +136,21 @@ def handle_checkpoint(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("session_required", "session id is required")
 
     from yoke_core.domain.sessions import SessionError, update_chain_checkpoint
+    from yoke_core.domain.sessions_handler_outcome import (
+        render_chain_summary_label,
+        resolve_checkpoint_outcome,
+        resolved_checkpoint_chainable,
+    )
+
+    outcome = resolve_checkpoint_outcome(
+        outcome=body.outcome,
+        failure_class=body.failure_class,
+        required_path=body.required_path,
+        pre_status=body.pre_status,
+        post_status=body.status,
+    )
+    chainable = resolved_checkpoint_chainable(body.chainable, outcome)
+    label = render_chain_summary_label(outcome)
 
     with _connect_rw() as conn:
         try:
@@ -143,13 +159,14 @@ def handle_checkpoint(request: FunctionCallRequest) -> HandlerOutcome:
                 sid,
                 step=body.step,
                 action=body.action,
-                chainable=body.chainable,
-                handler_outcome=body.outcome,
+                chainable=chainable,
+                handler_outcome=outcome,
                 item_id=body.item_id,
                 task_num=body.task_num,
                 status=body.status,
                 required_path=body.required_path,
                 pre_status=body.pre_status,
+                chain_summary_label=label,
             )
         except SessionError as exc:
             return _err(exc.code.lower(), exc.message)

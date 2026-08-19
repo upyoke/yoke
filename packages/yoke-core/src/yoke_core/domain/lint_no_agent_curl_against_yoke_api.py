@@ -19,8 +19,10 @@ Allowed shapes the lint stays out of:
 * Any command whose substring contains ``YOKE_API`` without actually
   shelling out via ``curl``.
 
-Mode pinned by machine config key ``lint_agent_cli_contract_mode`` (shared
-with the sibling import-from-c lint). Suppression token
+Mode pinned by the project-local ``.yoke/lint-config`` guard key
+``lint_no_agent_curl_against_yoke_api`` (each sibling lint has its own
+guard key). There is no live machine-config key
+``lint_agent_cli_contract_mode``. Suppression token
 ``# lint:no-agent-curl-check`` is recorded as audit evidence only — the
 rule still denies in ``deny`` mode.
 """

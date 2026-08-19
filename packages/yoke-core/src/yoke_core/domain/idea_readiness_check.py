@@ -228,6 +228,10 @@ def run_all_checks(
     issues.extend(verify_architecture_impact_resolved(conn, item_id))
     issues.extend(verify_attestation_rehearsal_commands(conn, item_id))
     issues.extend(probe_cross_item_overlap(conn, item_id))
+    from yoke_core.domain.idea_readiness_check_done_means import (
+        verify_done_means_agent_shape,
+    )
+    issues.extend(verify_done_means_agent_shape(spec_text))
     return issues
 
 
