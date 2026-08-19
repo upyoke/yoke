@@ -48,6 +48,8 @@ from yoke_core.domain.yoke_function_dispatch_events import (
 )
 from yoke_core.domain.yoke_function_dispatch_observability import (
     dispatch_observation,
+    elapsed_duration_ms,
+    start_duration_measurement,
 )
 from yoke_core.domain.yoke_function_dispatch_idempotency import (
     IdempotencyReplay,
@@ -280,10 +282,12 @@ def _dispatch_impl(
 
     from yoke_core.domain import project_label_policy
 
+    handler_started = start_duration_measurement()
     with project_label_policy.request_overrides(
         typed_request.options.get("label_color_overrides")
     ):
         outcome = entry.handler(typed_request)
+    handler_duration_ms = elapsed_duration_ms(handler_started)
     if not isinstance(outcome, HandlerOutcome):
         return _error_response(
             typed_request,
@@ -310,6 +314,7 @@ def _dispatch_impl(
         response,
         payload_bytes,
         payload_hash,
+        duration_ms=handler_duration_ms,
         identity_context=identity_context,
         permission_key=permission.permission_key,
         project=permission.project_slug,

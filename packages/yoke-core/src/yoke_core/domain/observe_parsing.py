@@ -188,9 +188,9 @@ def parse_hook_event(
             db_path, project_dir, session_id=session_id or ""
         )
 
-    # Duration: query HarnessToolCallStarted event by tool_use_id
+    # Duration: read rolling HarnessToolCallStarted state by tool_use_id.
     duration_ms = None
-    if tool_use_id and db_path:
+    if tool_use_id:
         duration_ms = _compute_duration(db_path, tool_use_id)
 
     if not item_id:

@@ -11,16 +11,37 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
 )
 from yoke_core.api.observability import (
-    now_ms,
     observation_span,
     record_counter,
     record_histogram,
 )
 
 
+def _read_monotonic() -> float:
+    return time.monotonic()
+
+
+def start_duration_measurement() -> float | None:
+    """Return a monotonic start marker without disrupting the caller."""
+    try:
+        return _read_monotonic()
+    except Exception:
+        return None
+
+
+def elapsed_duration_ms(started: float | None) -> int | None:
+    """Return non-negative elapsed milliseconds, or ``None`` if unavailable."""
+    if started is None:
+        return None
+    finished = start_duration_measurement()
+    if finished is None:
+        return None
+    return max(0, int((finished - started) * 1000))
+
+
 @contextmanager
 def dispatch_observation(request: Any) -> Iterator[Any]:
-    started = time.perf_counter()
+    started = start_duration_measurement()
     attributes = _span_attributes(request)
     state = {"outcome": "exception"}
 
@@ -37,11 +58,13 @@ def dispatch_observation(request: Any) -> Iterator[Any]:
             "yoke.function.dispatch.calls",
             attributes=metric_attributes,
         )
-        record_histogram(
-            "yoke.function.dispatch.duration_ms",
-            now_ms(started),
-            attributes=metric_attributes,
-        )
+        duration_ms = elapsed_duration_ms(started)
+        if duration_ms is not None:
+            record_histogram(
+                "yoke.function.dispatch.duration_ms",
+                duration_ms,
+                attributes=metric_attributes,
+            )
 
 
 def _span_attributes(request: Any) -> Dict[str, Any]:

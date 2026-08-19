@@ -24,8 +24,10 @@ def connect_observe_read_db(db_path: Optional[str]):
     return connect(normalized)
 
 
-def compute_tool_call_duration(db_path: str, tool_use_id: str) -> Optional[int]:
-    """Return a recent tool-call duration from rolling session state."""
+def compute_tool_call_duration(
+    db_path: Optional[str], tool_use_id: str,
+) -> Optional[int]:
+    """Return tool-call duration from explicit or connected authority state."""
     try:
         conn = connect_observe_read_db(db_path)
         try:

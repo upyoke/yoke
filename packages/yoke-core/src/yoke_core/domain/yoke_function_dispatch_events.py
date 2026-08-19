@@ -85,6 +85,7 @@ def emit_called(
     payload_bytes: int,
     payload_hash: str,
     *,
+    duration_ms: Optional[int] = None,
     identity_context: Optional[Dict[str, Any]] = None,
     permission_key: Optional[str] = None,
     project: Optional[str] = None,
@@ -124,6 +125,7 @@ def emit_called(
         "result_byte_count": result_bytes,
         "result_checksum": result_hash,
         "intent": request.intent,
+        "duration_ms": duration_ms,
     }
     if identity_context:
         context.update(identity_context)
@@ -138,6 +140,7 @@ def emit_called(
         item_id=_item_id_str(request),
         task_num=request.target.task_num,
         project=project or "yoke",
+        duration_ms=duration_ms,
         auth_context=auth_context_from_actor(
             request.actor.actor_id,
             permission_key=permission_key,
