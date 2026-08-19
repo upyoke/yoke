@@ -188,6 +188,7 @@ def _await_entry(monkeypatch, runs, *, awaited=None):
         clock["now"] += seconds
 
     return entry_run.await_entry_run(
+        requirement_id=41,
         project="yoke", repo="acme/widgets", workflow="ci.yml",
         head_sha=LANE_HEAD, timeout_seconds=60,
         sleep=_sleep, monotonic=lambda: clock["now"],

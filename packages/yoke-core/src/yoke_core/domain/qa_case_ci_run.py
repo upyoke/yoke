@@ -44,6 +44,7 @@ from yoke_core.domain import (
     qa_case_budget,
     qa_case_ci_entry_run,
     qa_case_ci_lane,
+    qa_case_ci_progress,
     verification_tree_binding,
 )
 from yoke_core.domain.qa_case_ci_conclusion import (
@@ -173,6 +174,7 @@ def execute_ci_case(
     )
     budget = selected_budget.seconds
     started = time.monotonic()
+    requirement_id = int(case["requirement_id"])
     project = str(case["project"])
     repo = qa_case_ci_lane.repo_slug(checkout)
     branch = qa_case_ci_lane.lane_branch(case, checkout)
@@ -214,6 +216,7 @@ def execute_ci_case(
                     target=entry_run_base, lane_head=head_sha,
                 )
                 covering_run = qa_case_ci_entry_run.await_entry_run(
+                    requirement_id=requirement_id,
                     project=project, repo=repo, workflow=workflow,
                     head_sha=head_sha, timeout_seconds=budget,
                 )
@@ -232,15 +235,26 @@ def execute_ci_case(
                 ci_run_id = covering_run.run_id
                 run_url = covering_run.html_url
                 known_conclusion = covering_run.conclusion
+                if entry_run_base is None:
+                    qa_case_ci_progress.announce_run(
+                        requirement_id, repo=repo, run_id=ci_run_id,
+                        html_url=run_url, source="covering",
+                    )
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"reused pull_request run: {known_conclusion}"
             else:
+                qa_case_ci_progress.announce_dispatch(
+                    requirement_id, repo=repo, workflow=workflow,
+                    branch=branch,
+                )
                 ci_run_id = qa_case_ci_lane.dispatch_workflow(
                     project=project, repo=repo, workflow=workflow, branch=branch,
-                    request_id=(
-                        f"qa-case:{int(case['requirement_id'])}:{head_sha}"
-                    ),
+                    request_id=f"qa-case:{requirement_id}:{head_sha}",
                     timeout_seconds=budget,
+                )
+                run_url = qa_case_ci_progress.announce_run(
+                    requirement_id, repo=repo, run_id=ci_run_id,
+                    source="dispatched",
                 )
                 exit_code, poll_output = qa_case_ci_lane.await_workflow(
                     project=project, repo=repo, run_id=ci_run_id,
@@ -305,7 +319,7 @@ def execute_ci_case(
         actor=actor,
     )
     return {
-        "requirement_id": int(case["requirement_id"]),
+        "requirement_id": requirement_id,
         "run_id": qa_run_id,
         "artifact_id": artifact_id,
         "runner_id": EXECUTOR_ID,

@@ -32,7 +32,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from yoke_core.domain import qa_case_ci_lane
+from yoke_core.domain import qa_case_ci_lane, qa_case_ci_progress
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: How long to wait for GitHub to mint the entry run after the pull request
@@ -211,6 +211,7 @@ def open_landing_pull_request(
 
 def await_entry_run(
     *,
+    requirement_id: int,
     project: str,
     repo: str,
     workflow: str,
@@ -235,7 +236,15 @@ def await_entry_run(
             break
         if monotonic() >= deadline:
             return None
+        qa_case_ci_progress.announce_covering_wait(
+            requirement_id, repo=repo, head_sha=head_sha,
+            next_poll_seconds=ENTRY_RUN_POLL_SECONDS,
+        )
         sleep(ENTRY_RUN_POLL_SECONDS)
+    qa_case_ci_progress.announce_run(
+        requirement_id, repo=repo, run_id=run.run_id,
+        html_url=run.html_url, source="covering",
+    )
     if run.status == "completed":
         return run
     qa_case_ci_lane.await_workflow(

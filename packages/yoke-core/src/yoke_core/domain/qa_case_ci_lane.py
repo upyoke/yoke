@@ -32,6 +32,7 @@ from yoke_core.domain.qa_case_ci_authority import (
     github_actions_authority as github_actions_authority,
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+from yoke_core.domain.qa_case_ci_progress import relay_poll_output
 
 _GITHUB_REMOTE = re.compile(
     r"github\.com[:/](?P<owner>[^/]+)/(?P<name>[^/]+?)(?:\.git)?/?$"
@@ -309,10 +310,11 @@ def await_workflow(
     from yoke_core.domain.deploy_pipeline_reporting import _poll_github_actions
     from yoke_core.domain.github_poll_schedule import CI_SUITE_SCHEDULE
 
-    return _poll_github_actions(
-        repo, run_id, timeout_seconds, project=project, sd=None,
-        schedule=CI_SUITE_SCHEDULE,
-    )
+    with relay_poll_output():
+        return _poll_github_actions(
+            repo, run_id, timeout_seconds, project=project, sd=None,
+            schedule=CI_SUITE_SCHEDULE,
+        )
 
 
 __all__ = [
