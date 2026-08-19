@@ -1,10 +1,10 @@
 """Divergent public-ref handling across the scheduler and offer boundary.
 
 Items whose ``project_sequence`` diverges from the internal ``items.id``
-must (a) resolve dependency edges — which store public text refs — onto
-the correct internal ids inside the frontier computation, and (b) render
-the TRUE public ref (``{public_item_prefix}-{project_sequence}``) at
-every presentation boundary, never a ref fabricated from the internal id.
+must (a) keep dependency edges on those internal ids inside the frontier
+computation, and (b) render the TRUE public ref
+(``{public_item_prefix}-{project_sequence}``) at every presentation
+boundary, never a ref fabricated from the internal id.
 """
 
 from __future__ import annotations
@@ -39,12 +39,7 @@ def _seed_divergent_pair(conn) -> None:
         conn, BLOCKER_INTERNAL_ID, status="implementing",
         project_sequence=BLOCKER_SEQUENCE,
     )
-    # Dependency rows store public text refs built from the sequence.
-    insert_dep(
-        conn,
-        f"YOK-{DEPENDENT_SEQUENCE}",
-        f"YOK-{BLOCKER_SEQUENCE}",
-    )
+    insert_dep(conn, DEPENDENT_INTERNAL_ID, BLOCKER_INTERNAL_ID)
     conn.commit()
 
 
