@@ -111,8 +111,11 @@ surface (REST endpoints, service-client JSON, offer/NextAction payloads)
 renders ``item_id`` as the item's TRUE public ref
 (``{projects.public_item_prefix}-{items.project_sequence}`` — the prefix is
 per-project, so the same shape renders ``EXT-12`` in one project and
-``PLAT-12`` in another) via ``project_identity.render_item_ref`` — the
-sequence and prefix may diverge from the internal id.
+``PLAT-12`` in another) — the sequence and prefix may diverge from the
+internal id. A surface rendering one ref calls
+``project_identity.render_item_ref``; a surface rendering a set of them
+resolves the whole set first through ``item_ref_render.render_item_refs``,
+so a frontier projection costs one identity read rather than one per item.
 
 ### FrontierResult
 

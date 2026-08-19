@@ -1,5 +1,9 @@
 """SQL fragments for workflow-backed frontier computation."""
 
+#: The scan's per-item projection. The pinned workflow definition is
+#: deliberately absent: it is the same handful of documents repeated once per
+#: item, so ``frontier_workflow_versions`` reads it once for the whole scan and
+#: the scan joins the two by ``workflow_version_id``.
 FRONTIER_ITEMS_SQL_PREFIX = """
 SELECT
     i.id,
@@ -10,8 +14,6 @@ SELECT
     i.workflow_id,
     i.workflow_version_id,
     v.version AS version,
-    v.definition_json,
-    v.definition_digest,
     i.frozen,
     i.blocked,
     i.blocked_reason,

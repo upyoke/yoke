@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
-from .session_reclaim_activity import latest_activity
+from .session_reclaim_activity_bulk import latest_activity_by_session
 from .session_staleness import activity_is_stale
 from .scheduler_types import ClaimState
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
@@ -31,7 +31,7 @@ def _evaluate_claim_states(
         # Prefer the richer join when the full session schema is available.
         # Restrict to item-target claims; epic_task and process targets are
         # not surfaced as item-level scheduler blockers. Liveness comes
-        # from :func:`latest_activity` post-fetch (last_tool_call_at +
+        # from :func:`latest_activity_by_session` post-fetch (last_tool_call_at +
         # heartbeats) so the SQL no longer reads heartbeat columns directly.
         claim_rows = conn.execute(
             """SELECT wc.item_id, wc.session_id,
@@ -66,6 +66,13 @@ def _evaluate_claim_states(
                     pass
             return result  # Tables may not exist
 
+    # Liveness for every claim-holding session resolves in one pass; asking
+    # per row turns a 15-claim board into 30 statements.
+    activity_by_session = latest_activity_by_session(
+        conn,
+        (row[1] for row in claim_rows if len(row) > 2 and row[1]),
+    )
+
     for row in claim_rows:
         raw_item_id = row[0]
         if raw_item_id is None:
@@ -89,9 +96,7 @@ def _evaluate_claim_states(
         claimed_at = row[4] if len(row) > 4 else None
         activity_at: Optional[str] = None
         if len(row) > 2 and claim_session:
-            activity_at = latest_activity(
-                conn, str(claim_session), executor=executor,
-            )
+            activity_at = activity_by_session.get(str(claim_session))
         if activity_at is None:
             activity_at = claimed_at
         session_is_stale = (

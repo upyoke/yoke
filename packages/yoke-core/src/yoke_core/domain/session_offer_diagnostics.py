@@ -10,6 +10,7 @@ from yoke_contracts.project_contract.project_keys import (
     SESSION_ROUTING_CAPABILITY,
 )
 
+from .item_ref_render import ItemRefLookup, render_item_ref_lookup
 from .scheduler_types import is_assignable_claim_state
 from .work_processes import list_processes
 
@@ -18,14 +19,8 @@ def _value(value: Any) -> str:
     return value.value if hasattr(value, "value") else str(value)
 
 
-def _item_ref(item_id: Any, conn: Any = None) -> str:
-    from .sessions_queries_base import display_claim_item_id
-
-    return display_claim_item_id(str(item_id), conn) or str(item_id)
-
-
-def _step_refs(steps: Iterable[Any], conn: Any = None) -> List[str]:
-    return [_item_ref(getattr(step, "item_id", ""), conn) for step in steps]
+def _step_refs(steps: Iterable[Any], item_ref: ItemRefLookup) -> List[str]:
+    return [item_ref(getattr(step, "item_id", "")) for step in steps]
 
 
 def _step_path(step: Any) -> str:
@@ -48,9 +43,9 @@ def _filter_entry(
     return entry
 
 
-def _wip_occupants(schedule: Any, conn: Any = None) -> List[str]:
+def _wip_occupants(schedule: Any, item_ref: ItemRefLookup) -> List[str]:
     return [
-        _item_ref(item_id, conn)
+        item_ref(item_id)
         for item_id in getattr(schedule, "wip_active_items", [])
     ]
 
@@ -152,6 +147,19 @@ def build_schedule_offer_diagnostics(
     frozen = list(getattr(schedule, "frozen_steps", []) or [])
     posture_holds = blocked + exceptional + frozen
 
+    # Every ref the chain renders resolves in one read up front; the chain
+    # then formats from the resolved map.
+    item_ref = render_item_ref_lookup(
+        conn,
+        [
+            *(getattr(step, "item_id", "") for step in lane_filtered_steps),
+            *(getattr(step, "item_id", "") for step in wip_filtered_steps),
+            *(getattr(step, "item_id", "") for step in claim_filtered_steps),
+            *(getattr(step, "item_id", "") for step in posture_holds),
+            *getattr(schedule, "wip_active_items", []),
+        ],
+    )
+
     diagnostics: Dict[str, Any] = {
         "candidate_total": candidate_total,
         "candidate_paths": Counter(_step_path(step) for step in candidate_steps),
@@ -166,7 +174,7 @@ def build_schedule_offer_diagnostics(
                 config_source=(
                     f"project capability {SESSION_ROUTING_CAPABILITY}"
                 ),
-                eliminated_items=_step_refs(lane_filtered_steps, conn),
+                eliminated_items=_step_refs(lane_filtered_steps, item_ref),
             ),
             _filter_entry(
                 "wip_cap",
@@ -174,15 +182,15 @@ def build_schedule_offer_diagnostics(
                 len(wip_filtered_steps),
                 cap=getattr(schedule, "wip_cap", None),
                 active=getattr(schedule, "wip_active", 0),
-                occupying_items=_wip_occupants(schedule, conn),
-                eliminated_items=_step_refs(wip_filtered_steps, conn),
+                occupying_items=_wip_occupants(schedule, item_ref),
+                eliminated_items=_step_refs(wip_filtered_steps, item_ref),
             ),
             _filter_entry(
                 "claim_state",
                 len(compatible_steps) - len(wip_filtered_steps),
                 len(claim_filtered_steps),
                 claim_state_counts=dict(sorted(claim_counts.items())),
-                eliminated_items=_step_refs(claim_filtered_steps, conn),
+                eliminated_items=_step_refs(claim_filtered_steps, item_ref),
             ),
             _filter_entry(
                 "posture_gate_holds",
@@ -191,7 +199,7 @@ def build_schedule_offer_diagnostics(
                 blocked=len(blocked),
                 exceptional=len(exceptional),
                 frozen=len(frozen),
-                held_items=_step_refs(posture_holds, conn),
+                held_items=_step_refs(posture_holds, item_ref),
             ),
         ],
         "remaining_candidates": sum(

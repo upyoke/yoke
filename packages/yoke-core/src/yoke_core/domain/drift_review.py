@@ -170,12 +170,15 @@ def _get_delivered_items(
         _rollback_if_postgres(conn)
         pass
 
-    # Fallback: transition rows into release/done for items without merged_at
+    # Fallback: transition rows into release/done for items without merged_at.
+    # The join carries each transition's item metadata, so the delta costs one
+    # statement no matter how many legacy rows it spans.
     try:
         p = _p(conn)
         rows = conn.execute(
-            f"SELECT DISTINCT t.item_id, t.to_status, t.created_at"
+            f"SELECT DISTINCT t.item_id, t.created_at, i.title, i.priority"
             f" FROM item_status_transitions t"
+            f" LEFT JOIN items i ON i.id = t.item_id"
             f" WHERE t.task_num IS NULL"
             f"   AND t.to_status IN ('release', 'done')"
             f"   AND t.project_id = {p}"
@@ -185,23 +188,13 @@ def _get_delivered_items(
         for r in rows:
             item_id = r[0]
             if item_id and item_id not in seen_ids:
-                # Look up item metadata
-                try:
-                    p = _p(conn)
-                    meta = conn.execute(
-                        f"SELECT title, priority FROM items WHERE id = {p}",
-                        (item_id,),
-                    ).fetchone()
-                    items.append({
-                        "id": item_id,
-                        "title": meta[0] if meta else "",
-                        "priority": (meta[1] if meta else "low") or "low",
-                        "delivered_at": r[2],
-                    })
-                    seen_ids.add(item_id)
-                except db_backend.operational_error_types(conn):
-                    _rollback_if_postgres(conn)
-                    pass
+                items.append({
+                    "id": item_id,
+                    "title": r[2] or "",
+                    "priority": r[3] or "low",
+                    "delivered_at": r[1],
+                })
+                seen_ids.add(item_id)
     except db_backend.operational_error_types(conn):
         _rollback_if_postgres(conn)
         pass

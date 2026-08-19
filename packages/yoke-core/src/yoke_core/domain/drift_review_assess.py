@@ -21,7 +21,7 @@ from yoke_core.domain.drift_review import (
     _get_delivered_items,
     should_trigger_review,
 )
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
 
 
 # ---------------------------------------------------------------------------
@@ -62,9 +62,12 @@ def _classify_drift(
     item_ids: List[str] = []
     latest_delivered = checkpoint_start or ""
 
+    # The delta spans every item delivered since the checkpoint, so its refs
+    # resolve in one read rather than one per delivered item.
+    item_ref = render_item_ref_lookup(conn, (item["id"] for item in delivered_items))
+
     for item in delivered_items:
-        item_id = render_item_ref(conn, item["id"])
-        item_ids.append(item_id)
+        item_ids.append(item_ref(item["id"]))
         title_lower = (item.get("title") or "").lower()
         delivered_at = item.get("delivered_at", "")
         if delivered_at and delivered_at > latest_delivered:
