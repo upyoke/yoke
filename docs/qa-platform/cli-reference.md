@@ -146,22 +146,17 @@ budget and any queue wait that preceded it.
 ### Recover a stalled CI case
 
 The CI runner prints the requirement id, repository, GitHub Actions run id,
-and run URL before it starts polling. Preserve those identifiers. In a linked
-worktree, always pass `--repo OWNER/REPO` to `gh run` commands; repository
-inference is not consistent across `gh run view` and `gh run watch` there.
+and run URL before it starts polling. It immediately follows those identifiers
+with copy-paste inspection and watch commands that target the repository
+explicitly, because linked worktrees do not provide consistent repository
+inference. A second line names the force-cancel endpoint for an orphaned run.
+
+If normal cancellation leaves the run in progress, use that force-cancel
+recipe. Wait for the original case invocation to observe the cancellation and
+exit, then rerun the same requirement through Yoke so the replacement run and
+its QA evidence remain authoritative:
 
 ```sh
-gh run view RUN_ID --repo OWNER/REPO
-gh run watch RUN_ID --repo OWNER/REPO
-```
-
-If normal cancellation leaves an orphaned run in progress, force-cancel that
-exact run through GitHub's endpoint. Wait for the original case invocation to
-observe the cancellation and exit, then rerun the same requirement through
-Yoke so the replacement run and its QA evidence remain authoritative:
-
-```sh
-gh api --method POST "repos/OWNER/REPO/actions/runs/RUN_ID/force-cancel"
 yoke qa case run --requirement-id REQUIREMENT_ID
 ```
 

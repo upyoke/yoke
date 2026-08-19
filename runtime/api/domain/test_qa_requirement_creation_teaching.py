@@ -105,7 +105,8 @@ def test_public_batch_recipe_requires_a_binding_in_every_row() -> None:
 
 def test_ci_recovery_recipe_preserves_repository_and_qa_authority() -> None:
     body = (REPO_ROOT / "docs/qa-platform/cli-reference.md").read_text(encoding="utf-8")
-    assert "gh run watch RUN_ID --repo OWNER/REPO" in body
-    assert "repos/OWNER/REPO/actions/runs/RUN_ID/force-cancel" in body
-    assert "yoke qa case run --requirement-id REQUIREMENT_ID" in body
-    assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in body
+    prose = " ".join(body.split())
+    assert "commands that target the repository explicitly" in prose
+    assert "force-cancel endpoint for an orphaned run" in prose
+    assert "yoke qa case run --requirement-id REQUIREMENT_ID" in prose
+    assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in prose
