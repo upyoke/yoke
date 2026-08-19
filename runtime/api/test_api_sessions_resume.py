@@ -39,7 +39,7 @@ class TestSessionOfferResume:
     """Resume-flow paths for POST /v1/sessions/offer."""
 
     @pytest.fixture(autouse=True)
-    def setup_client(self, session_offer_db):
+    def setup_client(self, session_offer_db):  # noqa: F811
         self.client = TestClient(app)
         self.client.headers.update(session_offer_db["auth_headers"])
         self.db_info = session_offer_db

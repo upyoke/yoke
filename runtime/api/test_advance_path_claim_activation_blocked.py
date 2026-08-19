@@ -19,7 +19,6 @@ import json
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.domain import advance_path_claim_activation as _module
 from yoke_core.domain import db_backend
 from yoke_core.domain.advance_path_claim_activation import (
     run_activation_phase,
