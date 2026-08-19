@@ -214,7 +214,8 @@ NEXT_ACTION_CHOSEN_EVENT = {
     #   feed:       blocked_count, trigger
     #   strategize: sml_coherent
     #   drift_review: classification, summary, checkpoint_start, reviewed_through
-    #   wait:       offer_diagnostics (candidate elimination chain and top filter)
+    #   wait:       offer_diagnostics (top filter, plus the full elimination
+    #               chain because nothing was runnable)
 }
 
 
@@ -301,8 +302,10 @@ class FrontierState:
         selected_item: The highest-ranked assignable item ID, or None.
         scheduler_context: Additional context from the scheduler for
             the ``charge`` action (item details, next-step, etc.).
-        offer_diagnostics: Numbered candidate-elimination chain shared by
-            the decision response, NextActionChosen event, and offer envelope.
+        offer_diagnostics: Candidate-elimination evidence shared by the
+            decision response, NextActionChosen event, and offer envelope.
+            Shaped by outcome at attach time: the one-line why when work was
+            selected, plus the full chain when nothing was runnable.
     """
 
     runnable_items: List[str] = field(default_factory=list)

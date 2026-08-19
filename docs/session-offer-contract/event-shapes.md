@@ -50,13 +50,13 @@ Emitted when the core decides what directive to give a session.
 | `reason` | `NextAction.reason` |
 | `correlation_id` | `NextAction.correlation_id` |
 | `supported_paths` | Declared paths from the offer (when non-empty) |
-| `offer_diagnostics` | Numbered candidate-elimination chain and top eliminator |
+| `offer_diagnostics` | Outcome-shaped: the one-line why, plus the elimination chain when nothing was runnable |
 
 When the action is `escalate` with `escalate_reason: "unsupported_path"`, the context also includes `required_path` (the path the item needs).
 
 When the action is `wait` with `wait_reason: "no_lane_compatible_work"`, the context also includes `actual_lane`, `lane_filtered_count`, `lane_filtered_note`, `lane_filtered_items`, and a `lane_filtered_paths` grouping — see [action-payloads.md](action-payloads.md) for the payload shape. The event envelope mirrors these keys so telemetry consumers can distinguish the lane-filtered WAIT from the truly-empty WAIT and from `wait_reason: "lane_policy_disallows_path"` (a selected item or process action needs a path the actual lane does not allow) without parsing reason text. When the frontier also carries lane-filtered detail under blocker-driven escalations, the same lane keys ride along on the `escalate` event envelope.
 
-Every offer also carries `offer_diagnostics` in the `NextActionChosen` context. Its `elimination_chain` numbers lane compatibility, WIP cap, claim state, posture/gate holds, and process-offer flags. Each process-offer entry includes its `config_key` and `config_source`; `top_eliminator.summary` is the compact operator-facing explanation. The same object is merged into `harness_sessions.offer_envelope` so CLI and HTTP decisions leave identical audit evidence.
+Every offer also carries `offer_diagnostics` in the `NextActionChosen` context, shaped by outcome — see [action-payloads.md](action-payloads.md). When work was selected it is the one-line why: `candidate_total`, `remaining_candidates`, and `top_eliminator` naming the filter and its count. When nothing was runnable it also carries the full `elimination_chain` over lane compatibility, WIP cap, claim state, posture/gate holds, workspace home, and process-offer flags, each exclusion keeping the `config_key` and `config_source` that explain it. The same object is merged into `harness_sessions.offer_envelope` so CLI and HTTP decisions leave identical audit evidence.
 
 **Emission point:** The canonical `NextActionChosen` event is emitted via `emit_next_action_chosen()` in `sessions.py`, called by both CLI and API adapters after `decide_next_action` returns.
 

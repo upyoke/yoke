@@ -271,26 +271,16 @@ def _append_workspace_home_diagnostic(
     diagnostics = getattr(schedule, "offer_diagnostics", None)
     if not isinstance(diagnostics, dict):
         return
-    from yoke_core.domain.session_offer_diagnostics import _with_top_eliminator
-
-    after = max(0, before - eliminated)
-    label = home_slug or "unmapped"
     entry = {
         "filter": "workspace_home",
         "candidates_before": before,
         "eliminated": eliminated,
-        "candidates_after": after,
         "home_project": home_slug,
         "eliminated_items": eliminated_items,
-        "summary": (
-            f"workspace home ({label}) eliminated {eliminated} of {before} "
-            f"candidates ({after} remain)"
-        ),
     }
     chain = list(diagnostics.get("elimination_chain") or [])
     chain.append(entry)
     diagnostics["elimination_chain"] = chain
-    _with_top_eliminator(diagnostics)
 
 
 __all__ = [

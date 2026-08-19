@@ -37,7 +37,6 @@ def _filter_entry(
         "filter": name,
         "candidates_before": before,
         "eliminated": eliminated,
-        "candidates_after": max(0, before - eliminated),
     }
     entry.update(details)
     return entry
@@ -50,73 +49,69 @@ def _wip_occupants(schedule: Any, item_ref: ItemRefLookup) -> List[str]:
     ]
 
 
-def _summary(entry: Mapping[str, Any]) -> str:
-    name = entry["filter"]
-    eliminated = int(entry.get("eliminated", 0))
-    before = int(entry.get("candidates_before", 0))
-    after = int(entry.get("candidates_after", 0))
-    if name == "lane_compatibility":
-        lane = entry.get("actual_lane") or "unknown"
-        allowed = entry.get("allowed_paths")
-        paths = "unrestricted" if allowed is None else ",".join(allowed) or "none"
-        key = entry.get("config_key", "lane policy")
-        source = entry.get("config_source")
-        where = f" in {source}" if source else ""
-        return (
-            f"lane compatibility ({lane}; {key}={paths}{where}) eliminated "
-            f"{eliminated} of {before} candidates ({after} remain)"
-        )
-    if name == "wip_cap":
-        occupants = ",".join(entry.get("occupying_items", [])) or "none"
-        return (
-            f"WIP cap (wip_cap={entry.get('cap')}, active={entry.get('active')}; "
-            f"occupying={occupants}) eliminated {eliminated} of {before} "
-            f"candidates ({after} remain)"
-        )
-    if name == "claim_state":
-        live = entry.get("claim_state_counts", {}).get("claimed_by_other_live", 0)
-        return (
-            f"claim state (claimed_by_other_live={live}) eliminated "
-            f"{eliminated} of {before} candidates ({after} remain)"
-        )
-    if name == "posture_gate_holds":
-        return (
-            f"posture/gate holds (blocked={entry.get('blocked', 0)}, "
-            f"exceptional={entry.get('exceptional', 0)}, "
-            f"frozen={entry.get('frozen', 0)}) account for {eliminated} "
-            f"of {before} frontier entries"
-        )
-    if name == "process_offers":
-        disabled = [
-            f"{offer['process_key']}:{offer['config_key']}"
-            for offer in entry.get("offers", [])
-            if offer.get("enabled") is False
-        ]
-        detail = ",".join(disabled) or "none disabled"
-        return (
-            f"process_offers ({detail}) eliminated {eliminated} of {before} "
-            f"process candidates ({after} remain)"
-        )
-    return (
-        f"{name} eliminated {eliminated} of {before} candidates "
-        f"({after} remain)"
-    )
-
-
-def _with_top_eliminator(diagnostics: Dict[str, Any]) -> Dict[str, Any]:
-    chain = diagnostics.get("elimination_chain", [])
-    top = max(
+def _top_entry(
+    chain: Sequence[Mapping[str, Any]]
+) -> Optional[Mapping[str, Any]]:
+    """Return the chain entry that removed the most candidates."""
+    return max(
         chain,
         key=lambda entry: int(entry.get("eliminated", 0)),
         default=None,
     )
-    if top is None:
-        top = _filter_entry("none", 0, 0)
-    top = dict(top)
-    top["summary"] = _summary(top)
-    diagnostics["top_eliminator"] = top
-    diagnostics["summary"] = top["summary"]
-    return diagnostics
+
+
+#: Dropped from every projected entry: counts that are arithmetic on
+#: ``candidates_before`` and the entry's own eliminated-items list.
+_DERIVED_ENTRY_FIELDS = ("eliminated", "candidates_after")
+
+
+def _projected_entry(entry: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return one chain entry without the fields beside it already imply.
+
+    A filter that removed nothing collapses to its name and the count it was
+    handed: its configuration describes an exclusion that did not happen.
+    """
+    if not int(entry.get("eliminated", 0)):
+        return {
+            "filter": entry["filter"],
+            "candidates_before": entry.get("candidates_before", 0),
+        }
+    return {
+        key: value
+        for key, value in entry.items()
+        if key not in _DERIVED_ENTRY_FIELDS
+    }
+
+
+def project_offer_diagnostics(
+    diagnostics: Mapping[str, Any], *, work_selected: bool
+) -> Dict[str, Any]:
+    """Shape diagnostics by outcome: the decision, or why there is none.
+
+    When the offer selected work, the decision is the answer and the chain is
+    weight — one line names how many candidates there were, how many survived,
+    and which filter removed the most. When nothing was runnable the chain is
+    the only thing that can tell a session why, so it ships in full with the
+    config keys behind each exclusion. That is deliberately not behind a flag:
+    the no-work case is exactly when nobody thinks to ask for it.
+    """
+    chain = list(diagnostics.get("elimination_chain") or [])
+    top = _top_entry(chain) or {"filter": "none", "eliminated": 0}
+    projected: Dict[str, Any] = {
+        "candidate_total": diagnostics.get("candidate_total", 0),
+        "remaining_candidates": diagnostics.get("remaining_candidates", 0),
+        "top_eliminator": {
+            "filter": top["filter"],
+            "eliminated": int(top.get("eliminated", 0)),
+        },
+    }
+    if work_selected:
+        return projected
+    projected["elimination_chain"] = [_projected_entry(e) for e in chain]
+    for key in ("candidate_paths", "actual_lane"):
+        if diagnostics.get(key):
+            projected[key] = diagnostics[key]
+    return projected
 
 
 def build_schedule_offer_diagnostics(
@@ -210,9 +205,7 @@ def build_schedule_offer_diagnostics(
         ),
     }
     diagnostics["candidate_paths"] = dict(sorted(diagnostics["candidate_paths"].items()))
-    for entry in diagnostics["elimination_chain"]:
-        entry["summary"] = _summary(entry)
-    return _with_top_eliminator(diagnostics)
+    return diagnostics
 
 
 def add_process_offer_diagnostics(
@@ -251,9 +244,8 @@ def add_process_offer_diagnostics(
         disabled,
         offers=offers,
     )
-    process_entry["summary"] = _summary(process_entry)
     result["elimination_chain"].append(process_entry)
-    return _with_top_eliminator(result)
+    return result
 
 
 def attach_offer_diagnostics(
@@ -274,15 +266,20 @@ def attach_offer_diagnostics(
     if actual_lane and not enriched.get("actual_lane"):
         enriched["actual_lane"] = actual_lane
     context = dict(action.context or {})
-    context["offer_diagnostics"] = enriched
+    work_selected = bool(context.get("selected_item") or context.get("item_id"))
+    context["offer_diagnostics"] = project_offer_diagnostics(
+        enriched, work_selected=work_selected
+    )
     updates: Dict[str, Any] = {"context": context}
-    if _value(action.action) == "wait":
-        top = enriched.get("top_eliminator") or {}
-        if int(top.get("eliminated", 0)) > 0:
-            updates["reason"] = (
-                f"{str(action.reason).rstrip('.')} Top eliminator: "
-                f"{top.get('summary', 'candidate filter applied')}."
-            )
+    top = _top_entry(list(enriched.get("elimination_chain") or []))
+    if _value(action.action) == "wait" and top and int(top.get("eliminated", 0)):
+        # The shipped chain carries the config behind the exclusion; the reason
+        # only has to point at which filter to read.
+        updates["reason"] = (
+            f"{str(action.reason).rstrip('.')} Top eliminator: "
+            f"{top['filter']} removed {top['eliminated']} of "
+            f"{top.get('candidates_before', 0)} candidates."
+        )
     return action.model_copy(update=updates)
 
 
@@ -290,4 +287,5 @@ __all__ = [
     "add_process_offer_diagnostics",
     "attach_offer_diagnostics",
     "build_schedule_offer_diagnostics",
+    "project_offer_diagnostics",
 ]

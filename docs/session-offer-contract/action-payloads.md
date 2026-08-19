@@ -128,24 +128,48 @@ When the frontier also carries lane-filtered detail (current session's lane excl
 }
 ```
 
-Every offer response carries a numbered `offer_diagnostics` object in
-`context`, including WAITs and process-policy skips. The decision engine and
-the `/yoke do` loop use `top_eliminator.summary` for the short human message;
-the full chain remains available to event and offer-envelope consumers:
+Every offer response carries an `offer_diagnostics` object in `context`, and
+its shape follows the outcome.
+
+**An item was selected** — the decision is the answer, so diagnostics reduce to
+one line: how many candidates there were, how many survived, and which filter
+removed the most.
+
+```json
+{
+ "candidate_total": 20,
+ "remaining_candidates": 5,
+ "top_eliminator": {"filter": "claim_state", "eliminated": 15}
+}
+```
+
+**Nothing was runnable** — the chain is the only thing that can tell a session
+why, so it ships in full with the config key and source behind each exclusion.
+This is deliberately not behind a flag: the no-work case is exactly when nobody
+thinks to ask for it.
 
 ```json
 {
  "candidate_total": 13,
+ "remaining_candidates": 0,
+ "top_eliminator": {"filter": "lane_compatibility", "eliminated": 13},
+ "actual_lane": "ALTMAN",
+ "candidate_paths": {"dash": 13},
  "elimination_chain": [
-  {"filter": "lane_compatibility", "candidates_before": 13, "eliminated": 13, "candidates_after": 0, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths.ALTMAN", "config_source": "project capability session-routing"},
-  {"filter": "wip_cap", "candidates_before": 0, "eliminated": 0, "cap": 5, "active": 0, "occupying_items": []},
-  {"filter": "claim_state", "candidates_before": 0, "eliminated": 0, "claim_state_counts": {}},
-  {"filter": "posture_gate_holds", "candidates_before": 13, "eliminated": 0, "blocked": 0, "exceptional": 0, "frozen": 0},
-  {"filter": "process_offers", "candidates_before": 3, "eliminated": 2, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "process_offers.feed", "config_source": "project capability session-routing"}]}
- ],
- "top_eliminator": {"filter": "lane_compatibility", "eliminated": 13, "summary": "..."}
+  {"filter": "lane_compatibility", "candidates_before": 13, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths.ALTMAN", "config_source": "project capability session-routing", "eliminated_items": ["YOK-1", "..."]},
+  {"filter": "wip_cap", "candidates_before": 0},
+  {"filter": "claim_state", "candidates_before": 0},
+  {"filter": "posture_gate_holds", "candidates_before": 13},
+  {"filter": "process_offers", "candidates_before": 3, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "process_offers.feed", "config_source": "project capability session-routing"}]}
+ ]
 }
 ```
+
+Two rules hold in both shapes. A filter that removed nothing collapses to its
+name and the count it was handed — its configuration describes an exclusion
+that did not happen. And no entry restates what the fields beside it already
+imply: the eliminated count is the length of the entry's own list, and the
+remaining count is that subtracted from `candidates_before`.
 
 ### wait — runnable elsewhere
 
