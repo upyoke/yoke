@@ -20,6 +20,8 @@ _SELECT = (
     "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
     "s.ended_at, s.current_item_id, s.actor_id, "
     "a.kind AS actor_kind, i.title AS current_item_title, "
+    "i.project_id AS current_item_project_id, "
+    "i.project_sequence AS current_item_project_sequence, "
     "i.workflow_id AS current_item_workflow_id, "
     "i.workflow_version_id AS current_item_workflow_version_id"
 )

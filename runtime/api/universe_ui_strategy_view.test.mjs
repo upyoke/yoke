@@ -63,7 +63,7 @@ function strategyDocument() {
     pending_review_count: 1,
     review_requests: [{ id: 7, status: "pending" }],
     execution_claim: {
-      owning_item_id: 2001,
+      owning_item_id: 2262, project_id: 1,
       item_ref: "YOK-2001",
       workflow_id: "blitz",
       workflow_version_id: 17,
@@ -210,6 +210,7 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   assert.match(rendered, /Inspect documents, compare revisions/);
   assert.doesNotMatch(rendered, /\bcomments?\b/i);
   assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
+  assert.equal(allNodes(main).find((node) => node.textContent === "YOK-2001 →").href, "#/items/2001?project=1");
   assert.match(rendered, /Blitz v2/);
   assert.match(rendered, /Purpose/);
   assert.doesNotMatch(rendered, /<h1>/);

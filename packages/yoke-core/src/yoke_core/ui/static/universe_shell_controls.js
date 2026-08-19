@@ -2,6 +2,7 @@
 // the cross-screen search and the persistent environment/footer strip.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import { createFooter } from "./universe_shell_footer.js";
 
 // Items are searched on the server, so the cap travels with the query and
@@ -27,11 +28,14 @@ function successfulRows(callResult, key) {
 }
 
 function itemResult(row) {
-  const ref = String(row.public_ref || row.id || "item");
+  const ref = String(row.public_ref || "");
+  const href = itemDrillInHref({
+    projectId: row.project_id,
+    publicRef: ref,
+  });
+  if (!href) return null;
   return {
-    href: buildUniverseRoute(
-      "items", row.project_id ? String(row.project_id) : null, ref,
-    ),
+    href,
     kind: "Item",
     label: String(row.title || ref),
     meta: [ref, row.project, row.status].filter(Boolean).join(" · "),
@@ -136,7 +140,7 @@ function createSearch(documentNode, client) {
     }
     const needle = query.toLowerCase();
     return [
-      ...(itemRows || []).map(itemResult),
+      ...(itemRows || []).map(itemResult).filter(Boolean),
       ...(sessionEntries || []).filter((entry) => entry.terms.some(
         (term) => String(term || "").toLowerCase().includes(needle),
       )),

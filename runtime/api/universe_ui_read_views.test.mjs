@@ -197,7 +197,7 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
   ]);
   assert.equal(
     byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
-    "#/items/YOK-90?project=1",
+    "#/items/90?project=1",
   );
   mounted.unmount();
 });
@@ -270,7 +270,7 @@ test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t
   );
   assert.equal(
     byClass(root, "item-action")[0].href,
-    "#/items/YOK-90?project=1",
+    "#/items/90?project=1",
   );
   mounted.unmount();
 });

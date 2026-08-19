@@ -231,11 +231,13 @@ def test_notification_read_state_is_actor_scoped(conn):
 
 
 def test_item_block_state_is_addressed_to_accountable_owner(conn):
+    conn.execute(
+        "INSERT INTO items VALUES "
+        "(44, 10, 4200, 'Blocked item', 'implementing', 'issue', 1)"
+    )
     item = {
         "id": 44,
         "project_id": 10,
-        "project_sequence": 44,
-        "public_item_prefix": "YOK",
         "owner": "2",
         "source": "1",
         "blocked_reason": "Waiting for upstream schema",
@@ -250,5 +252,5 @@ def test_item_block_state_is_addressed_to_accountable_owner(conn):
     )
     notification = notification_rows(conn, 2)[0]
     assert notification["event_name"] == "ItemBlocked"
-    assert notification["event"]["context"]["item_ref"] == "YOK-44"
+    assert notification["event"]["context"]["item_ref"] == "YOK-4200"
     assert notification["event"]["context"]["reason"] == ("Waiting for upstream schema")

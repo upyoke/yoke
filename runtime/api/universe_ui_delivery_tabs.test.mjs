@@ -164,8 +164,9 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
               { name: "release", state: "pending" },
             ],
             member_items: [{
-              id: 41, ref: "YOK-41", title: "Ship the release",
-              project_id: 1, project: "yoke", status: "implemented",
+              id: 2262, ref: "YOK-2228", project_sequence: 2228,
+              title: "Ship the release", project_id: 1,
+              project: "yoke", status: "implemented",
             }],
             waiting_on_approval: true,
           }],
@@ -186,10 +187,10 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
     ),
     ["complete", "active", "pending"],
   );
-  assert.equal(byClass(root, "delivery-member")[0].href, "#/items/41?project=1");
+  assert.equal(byClass(root, "delivery-member")[0].href, "#/items/2228?project=1");
   assert.equal(
     byClass(root, "delivery-member")[0].textContent,
-    "YOK-41 · Ship the release",
+    "YOK-2228 · Ship the release",
   );
   const footer = byClass(root, "delivery-waiting-link")[0];
   assert.equal(footer.textContent, "1 run waiting on you →");

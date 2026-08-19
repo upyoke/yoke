@@ -22,6 +22,8 @@ SESSION_LIST_FIELDS = (
     "offered_at",
     "ended_at",
     "current_item",
+    "current_item_project_id",
+    "current_item_project_sequence",
     "current_item_title",
     "current_item_workflow_id",
     "current_item_workflow_version_id",

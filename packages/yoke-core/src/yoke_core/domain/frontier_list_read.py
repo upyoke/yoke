@@ -23,13 +23,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_helpers
 from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
 )
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity import placeholder
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.scheduler_types import (
     ClaimState,
@@ -48,6 +49,8 @@ FRONTIER_READY_FIELDS = (
     "workflow_id",
     "workflow_version",
     "project",
+    "project_id",
+    "project_sequence",
     "status",
     "stage_index",
     "stage_count",
@@ -67,7 +70,11 @@ FRONTIER_BLOCKED_FIELDS = (
     "title",
     "workflow_id",
     "project",
+    "project_id",
+    "project_sequence",
     "blocking_item",
+    "blocking_project_id",
+    "blocking_project_sequence",
     "gate_point",
     "why",
     "satisfaction",
@@ -115,10 +122,40 @@ def _compose_edge_why(reason: str, rationale: str) -> str:
     return reason
 
 
+def _item_route_facts(
+    conn: Any,
+    item_ids: set[int],
+) -> Dict[int, Dict[str, Any]]:
+    ids = sorted({int(item_id) for item_id in item_ids})
+    if not ids:
+        return {}
+    marker = placeholder(conn)
+    rows = conn.execute(
+        "SELECT i.id, i.project_id, i.project_sequence, p.slug, "
+        "p.public_item_prefix FROM items i "
+        "JOIN projects p ON p.id = i.project_id "
+        f"WHERE i.id IN ({', '.join(marker for _ in ids)})",
+        tuple(ids),
+    ).fetchall()
+    facts: Dict[int, Dict[str, Any]] = {}
+    for row in rows:
+        sequence = int(row["project_sequence"])
+        facts[int(row["id"])] = {
+            "project_id": int(row["project_id"]),
+            "project_sequence": sequence,
+            "item_ref": format_item_ref(
+                row["slug"], row["public_item_prefix"], sequence,
+            ),
+        }
+    return facts
+
+
 def _blocked_row(
     step: ScheduledStep,
     detail: Optional[BlockerDetail | GateEvaluation],
     item_ref: str,
+    item_route: Dict[str, Any],
+    blocking_route: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     if detail is None:
         # Non-edge wait: operator block, legacy blocked status, or an
@@ -129,7 +166,11 @@ def _blocked_row(
             "title": step.title,
             "workflow_id": step.workflow_id,
             "project": step.project,
+            "project_id": item_route["project_id"],
+            "project_sequence": item_route["project_sequence"],
             "blocking_item": "",
+            "blocking_project_id": None,
+            "blocking_project_sequence": None,
             "gate_point": "",
             "why": "; ".join(step.blocked_reasons) or step.explanation,
             "satisfaction": "",
@@ -140,7 +181,15 @@ def _blocked_row(
         "title": step.title,
         "workflow_id": step.workflow_id,
         "project": step.project,
+        "project_id": item_route["project_id"],
+        "project_sequence": item_route["project_sequence"],
         "blocking_item": detail.blocking_item,
+        "blocking_project_id": (
+            blocking_route or {}
+        ).get("project_id"),
+        "blocking_project_sequence": (
+            blocking_route or {}
+        ).get("project_sequence"),
         "gate_point": detail.gate_point,
         "why": _compose_edge_why(detail.reason, detail.rationale),
         "satisfaction": detail.satisfaction,
@@ -169,13 +218,58 @@ def list_frontier(
             schedule_kwargs["wip_cap"] = int(wip_cap)
         schedule = compute_schedule(conn, scope, **schedule_kwargs)
 
+        # Later-landing edges attach to whichever non-terminal step the
+        # schedule already tracks for the dependent item — an edge whose
+        # dependent is terminal (or out of scope) has nothing left to gate.
+        # Edge rows carry public text refs; resolve them to internal ids
+        # before matching against tracked steps.
+        tracked_steps: Dict[int, ScheduledStep] = {}
+        for step_list in (
+            schedule.ranked_steps,
+            schedule.blocked_steps,
+            schedule.frozen_steps,
+            schedule.exceptional_steps,
+        ):
+            for step in step_list:
+                tracked_steps.setdefault(step.item_id, step)
+        blocked_specs: List[
+            tuple[ScheduledStep, Optional[BlockerDetail | GateEvaluation]]
+        ] = []
+        for step in schedule.blocked_steps:
+            blocked_specs.extend(
+                (step, gate) for gate in (step.gate_evaluations or [None])
+            )
+        for gate_point in _LATER_GATE_POINTS:
+            gate_blocks = evaluate_batch_gates(
+                conn, gate_point=gate_point, emit_events=False,
+            )
+            dependent_ids = internal_ids_for_refs(conn, gate_blocks.keys())
+            for dependent_item in sorted(gate_blocks):
+                step = tracked_steps.get(dependent_ids.get(dependent_item, -1))
+                if step is None:
+                    continue
+                for detail in gate_blocks[dependent_item]:
+                    blocked_specs.append((step, detail))
+
+        blocking_ids = internal_ids_for_refs(conn, (
+            detail.blocking_item
+            for _step, detail in blocked_specs
+            if detail is not None and detail.blocking_item
+        ))
+        route_facts = _item_route_facts(
+            conn,
+            set(tracked_steps) | set(blocking_ids.values()),
+        )
+        item_refs = {
+            item_id: str(route_facts[item_id]["item_ref"])
+            for item_id in tracked_steps
+        }
         conduct_eligible_ids = {
             step.item_id for step in schedule.conduct_eligible
         }
         ready_rows: List[Dict[str, Any]] = []
         for step in schedule.ranked_steps:
-            # Operator-facing projection: render the true public ref.
-            item_ref = render_item_ref(conn, step.item_id)
+            item_ref = item_refs[step.item_id]
             ready_rows.append({
                 "rank": step.rank,
                 "item_id": item_ref,
@@ -183,6 +277,8 @@ def list_frontier(
                 "workflow_id": step.workflow_id,
                 "workflow_version": step.workflow_version,
                 "project": step.project,
+                "project_id": route_facts[step.item_id]["project_id"],
+                "project_sequence": route_facts[step.item_id]["project_sequence"],
                 "status": step.status,
                 "stage_index": step.stage_index,
                 "stage_count": step.stage_count,
@@ -202,40 +298,17 @@ def list_frontier(
             })
 
         blocked_rows: List[Dict[str, Any]] = []
-        for step in schedule.blocked_steps:
-            step_ref = render_item_ref(conn, step.item_id)
-            if not step.gate_evaluations:
-                blocked_rows.append(_blocked_row(step, None, step_ref))
-                continue
-            for gate in step.gate_evaluations:
-                blocked_rows.append(_blocked_row(step, gate, step_ref))
-
-        # Later-landing edges attach to whichever non-terminal step the
-        # schedule already tracks for the dependent item — an edge whose
-        # dependent is terminal (or out of scope) has nothing left to gate.
-        # Edge rows carry public text refs; resolve them to internal ids
-        # before matching against tracked steps.
-        tracked_steps: Dict[int, ScheduledStep] = {}
-        for step_list in (
-            schedule.ranked_steps,
-            schedule.blocked_steps,
-            schedule.frozen_steps,
-            schedule.exceptional_steps,
-        ):
-            for step in step_list:
-                tracked_steps.setdefault(step.item_id, step)
-        for gate_point in _LATER_GATE_POINTS:
-            gate_blocks = evaluate_batch_gates(
-                conn, gate_point=gate_point, emit_events=False,
+        for step, detail in blocked_specs:
+            blocking_route = None if detail is None else route_facts.get(
+                blocking_ids.get(detail.blocking_item, -1),
             )
-            dependent_ids = internal_ids_for_refs(conn, gate_blocks.keys())
-            for dependent_item in sorted(gate_blocks):
-                step = tracked_steps.get(dependent_ids.get(dependent_item, -1))
-                if step is None:
-                    continue
-                step_ref = render_item_ref(conn, step.item_id)
-                for detail in gate_blocks[dependent_item]:
-                    blocked_rows.append(_blocked_row(step, detail, step_ref))
+            blocked_rows.append(_blocked_row(
+                step,
+                detail,
+                item_refs[step.item_id],
+                route_facts[step.item_id],
+                blocking_route,
+            ))
 
         return {
             "fields": {

@@ -58,7 +58,7 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
   ]);
   assert.deepEqual(cells.slice(7), [
     "waits YOK-8", "🐄 yoke", "YOK-7", "YOK-7 not done", "activation",
-    "waits YOK-9", "🐄 yoke", "YOK-7", "lands after YOK-7", "integration",
+    "waits YOK-9", "🐄 yoke", "PLT-70", "lands after PLT-70", "integration",
     "waits YOK-10", "🐄 yoke", "YOK-7", "closes after YOK-7", "closure",
   ]);
   assert.deepEqual(
@@ -122,7 +122,7 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
     [
       "#/items/7?project=1",
       "#/items/8?project=1", "#/items/7?project=1",
-      "#/items/9?project=1", "#/items/7?project=1",
+      "#/items/9?project=1", "#/items/70?project=2",
       "#/items/10?project=1", "#/items/7?project=1",
     ],
   );

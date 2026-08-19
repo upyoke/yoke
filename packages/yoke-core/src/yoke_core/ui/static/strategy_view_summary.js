@@ -1,4 +1,5 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   callFunction,
   el,
@@ -168,21 +169,23 @@ function docLink(documentNode, projectId, slug, label = slug) {
   return link;
 }
 
-function executionFact(documentNode, projectId, claim) {
+function executionFact(documentNode, claim) {
   if (!claim) return "available";
   const host = el(documentNode, "span", "strategy-inline");
   const pill = statePill(documentNode, "item-owned");
   if (pill) host.appendChild(pill);
   host.appendChild(el(documentNode, "span", "item-muted", "·"));
+  const href = itemDrillInHref({
+    projectId: claim.project_id,
+    publicRef: claim.item_ref,
+  });
   const link = el(
     documentNode,
-    "a",
+    href ? "a" : "span",
     "row-link mono",
-    `${claim.item_ref || `item ${claim.owning_item_id}`} →`,
+    claim.item_ref ? `${claim.item_ref}${href ? " →" : ""}` : "item unavailable",
   );
-  link.href = buildUniverseRoute(
-    "items", String(projectId), claim.item_ref || String(claim.owning_item_id),
-  );
+  if (href) link.href = href;
   host.appendChild(link);
   const workflowId = String(claim.workflow_id || "").trim();
   const workflowName = workflowId
@@ -210,7 +213,7 @@ export function stateActionsPanel(
   table.appendChild(factRow(
     documentNode,
     "Claim",
-    executionFact(documentNode, projectId, doc.execution_claim),
+    executionFact(documentNode, doc.execution_claim),
   ));
 
   const pending = (doc.review_requests || []).find(

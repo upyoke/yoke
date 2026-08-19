@@ -72,12 +72,12 @@ def _member_items(
                 "ref": format_item_ref(
                     str(row["project"]),
                     str(row["public_item_prefix"] or ""),
-                    row["project_sequence"],
-                    item_id=item_id,
+                    int(row["project_sequence"]),
                 ),
                 "title": str(row["title"]),
                 "status": str(row["status"]),
                 "project_id": int(row["project_id"]),
+                "project_sequence": int(row["project_sequence"]),
                 "project": str(row["project"]),
             }
         )

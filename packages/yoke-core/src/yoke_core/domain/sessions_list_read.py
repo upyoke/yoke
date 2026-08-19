@@ -297,6 +297,12 @@ def list_sessions(
                     "offered_at": row.get("offered_at"),
                     "ended_at": row.get("ended_at"),
                     "current_item": current_item_display,
+                    "current_item_project_id": row.get(
+                        "current_item_project_id",
+                    ),
+                    "current_item_project_sequence": row.get(
+                        "current_item_project_sequence",
+                    ),
                     "current_item_title": row.get("current_item_title"),
                     "current_item_workflow_id": row.get(
                         "current_item_workflow_id",

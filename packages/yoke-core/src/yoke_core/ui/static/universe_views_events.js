@@ -1,4 +1,4 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   loadScopedSection,
@@ -23,22 +23,20 @@ function categoryLabel(category) {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-function targetNode(documentNode, row, projectBySlug) {
+function targetNode(documentNode, row) {
   const label = row.target_label || "Universe";
   if (row.target_kind !== "item") return el(documentNode, "span", null, label);
-  const project = row.target_project_id ||
-    projectBySlug.get(String(row.project || ""));
-  if (!project) return el(documentNode, "span", null, label);
+  const href = itemDrillInHref({
+    projectId: row.target_project_id,
+    publicRef: label,
+  });
+  if (!href) return el(documentNode, "span", null, label);
   const link = el(documentNode, "a", "row-link", label);
-  link.href = buildUniverseRoute(
-    "items",
-    String(project),
-    String(label).replace(/^[A-Za-z]+-/, ""),
-  );
+  link.href = href;
   return link;
 }
 
-function eventEntry(documentNode, row, projectBySlug) {
+function eventEntry(documentNode, row) {
   const entry = el(documentNode, "article", "event-entry");
   const when = el(documentNode, "div", "event-time");
   when.appendChild(relativeTime(documentNode, row.created_at));
@@ -79,7 +77,7 @@ function eventEntry(documentNode, row, projectBySlug) {
   const meta = el(documentNode, "div", "event-meta");
   const target = el(documentNode, "span");
   target.appendChild(el(documentNode, "strong", null, "Target "));
-  target.appendChild(targetNode(documentNode, row, projectBySlug));
+  target.appendChild(targetNode(documentNode, row));
   meta.appendChild(target);
   meta.appendChild(el(
     documentNode,
@@ -100,9 +98,6 @@ export function renderEventsView(context, main, scope) {
   const panel = section(documentNode, "Events");
   main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, context.projects(), true);
-  const projectBySlug = new Map(context.projects().map(
-    (row) => [String(row.slug), String(row.id)],
-  ));
   loadScopedSection(
     context,
     panel,
@@ -147,7 +142,7 @@ export function renderEventsView(context, main, scope) {
           return;
         }
         for (const row of visible) {
-          timeline.appendChild(eventEntry(documentNode, row, projectBySlug));
+          timeline.appendChild(eventEntry(documentNode, row));
         }
       };
       const categories = [

@@ -1,4 +1,5 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   mergedRows,
@@ -160,7 +161,7 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
       claimCell.textContent = "—";
     }
     tr.appendChild(claimCell);
-    makeRowNavigable(documentNode, tr, href);
+    if (href) makeRowNavigable(documentNode, tr, href);
     table.appendChild(tr);
   }
   const wrap = el(documentNode, "div", "table-wrap item-roster-wrap");
@@ -305,11 +306,10 @@ export function renderItemsView(context, main, scope, chrome = {}) {
         body.replaceChildren(itemTable(
           documentNode,
           filterRows(rows, filterState),
-          (row) => buildUniverseRoute(
-            "items",
-            String(row.project_id),
-            String(row.public_ref),
-          ),
+          (row) => itemDrillInHref({
+            projectId: row.project_id,
+            publicRef: row.public_ref,
+          }),
           scope,
           projects,
         ));

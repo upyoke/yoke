@@ -83,8 +83,7 @@ def enrich_item_overview_rows(
             "public_ref": format_item_ref(
                 fact["project"],
                 fact["public_item_prefix"],
-                fact["project_sequence"],
-                item_id=item_id,
+                int(fact["project_sequence"]),
             ),
             "project_id": int(fact["project_id"]),
             "project": str(fact["project"]),

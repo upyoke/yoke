@@ -1,4 +1,5 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   itemIntakeField,
   itemPostureToggle,
@@ -252,10 +253,12 @@ export function renderNewItemView(context, main, projectId) {
         if (result.status === 200 && result.envelope.success) {
           const itemRef = result.envelope.result?.item_ref;
           outcome.textContent = `Created ${itemRef}.`;
-          if (context.navigate) {
-            context.navigate(buildUniverseRoute(
-              "items", String(projectId), itemRef,
-            ));
+          const href = itemDrillInHref({
+            projectId,
+            publicRef: itemRef,
+          });
+          if (context.navigate && href) {
+            context.navigate(href);
           }
           return;
         }

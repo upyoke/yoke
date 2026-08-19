@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Iterable, Optional
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import REQUEST_WITHDRAWN_EVENT
@@ -37,7 +38,8 @@ def _p(conn: Any) -> str:
 def _item_context(conn: Any, item_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
-        "SELECT i.id, i.title, i.status, i.project_id, i.workflow_id, "
+        "SELECT i.id, i.project_sequence, i.title, i.status, i.project_id, "
+        "i.workflow_id, "
         "i.workflow_version_id, p.slug AS project, p.public_item_prefix, "
         "p.org_id "
         "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -165,7 +167,11 @@ def evaluate_lifecycle_approval(
                 session_id=session_id,
             )
 
-    prefix = str(item["public_item_prefix"] or "YOK")
+    item_ref = format_item_ref(
+        str(item["project"]),
+        str(item["public_item_prefix"] or ""),
+        int(item["project_sequence"]),
+    )
     request, _ = create_decision_request(
         conn,
         kind="lifecycle_transition_approval",
@@ -177,8 +183,8 @@ def evaluate_lifecycle_approval(
         named_actor_ids=named_actor_ids,
         subject_context={
             "item_id": int(item_id),
-            "item_ref": f"{prefix}-{int(item_id)}",
-            "title": (f"{prefix}-{int(item_id)} — approve the {target} transition"),
+            "item_ref": item_ref,
+            "title": f"{item_ref} — approve the {target} transition",
             "item_title": str(item["title"]),
             "from_stage": str(item["status"]),
             "transition": target,

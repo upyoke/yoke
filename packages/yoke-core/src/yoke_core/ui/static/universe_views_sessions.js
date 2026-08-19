@@ -1,4 +1,4 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   callFunction,
   el,
@@ -14,12 +14,12 @@ import {
 import { relativeTime } from "./universe_time.js";
 const LIVE_STATES = new Set(["active", "stale"]);
 const WORKTREE_ROLES = new Set(["integration", "worker"]);
-function sessionItemHref(projectIds, row) {
-  const project = projectIds.get(String(row.project)) || row.project_id;
-  const detail = String(row.current_item || "").replace(/^[A-Za-z]+-/, "");
-  return project && detail
-    ? buildUniverseRoute("items", String(project), detail)
-    : null;
+function sessionItemHref(row) {
+  return itemDrillInHref({
+    projectId: row.current_item_project_id,
+    projectSequence: row.current_item_project_sequence,
+    publicRef: row.current_item,
+  });
 }
 function statRow(documentNode, facts) {
   const row = el(documentNode, "div", "stat-row sessions-stats");
@@ -50,7 +50,7 @@ function harnessIdentity(row) {
     label: executor,
   };
 }
-function appendAssignment(documentNode, body, row, projectIds) {
+function appendAssignment(documentNode, body, row) {
   const work = el(documentNode, "div", "session-work");
   if (!row.current_item) {
     work.appendChild(el(
@@ -73,7 +73,7 @@ function appendAssignment(documentNode, body, row, projectIds) {
     ? "this session owns the item claim"
     : "worktree lane on the owning session's item; holds no item claim";
   work.appendChild(marker);
-  const href = sessionItemHref(projectIds, row);
+  const href = sessionItemHref(row);
   const item = el(documentNode, href ? "a" : "span", "session-item-link");
   item.textContent = String(row.current_item);
   if (href) item.href = href;
@@ -175,7 +175,7 @@ function appendFooter(documentNode, card, row, who, mode) {
   ));
   card.appendChild(footer);
 }
-function sessionCard(documentNode, row, who, mode, projectIds) {
+function sessionCard(documentNode, row, who, mode) {
   const card = el(documentNode, "article", "session-card");
   card.setAttribute("data-liveness", row.liveness || "unknown");
 
@@ -192,7 +192,7 @@ function sessionCard(documentNode, row, who, mode, projectIds) {
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
-  appendAssignment(documentNode, body, row, projectIds);
+  appendAssignment(documentNode, body, row);
   appendRuntime(documentNode, body, row);
   appendAge(documentNode, body, row);
   card.appendChild(body);
@@ -221,7 +221,7 @@ function metricFacts(rows) {
   ];
 }
 
-function renderSessions(documentNode, host, rows, who, mode, projectIds) {
+function renderSessions(documentNode, host, rows, who, mode) {
   host.replaceChildren(statRow(documentNode, metricFacts(rows)));
   if (!rows.length) {
     host.appendChild(el(
@@ -234,7 +234,7 @@ function renderSessions(documentNode, host, rows, who, mode, projectIds) {
   }
   const grid = el(documentNode, "div", "session-grid");
   for (const row of rows) {
-    grid.appendChild(sessionCard(documentNode, row, who, mode, projectIds));
+    grid.appendChild(sessionCard(documentNode, row, who, mode));
   }
   host.appendChild(grid);
 }
@@ -265,9 +265,6 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const buckets = scopeBuckets(scope, context.projects(), false);
   const who = whoColumn(context.capabilities);
   const mode = portabilityMode(context.capabilities);
-  const projectIds = new Map(context.projects().map(
-    (row) => [String(row.slug), String(row.id)],
-  ));
   const reclaimPayload = scope === "all"
     ? { confirm: true }
     : {
@@ -311,7 +308,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     reclaim.title = staleCount
       ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
       : "No stale sessions in this scope";
-    renderSessions(documentNode, content, rows, who, mode, projectIds);
+    renderSessions(documentNode, content, rows, who, mode);
   };
 
   reclaim.addEventListener("click", async () => {

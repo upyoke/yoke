@@ -1,5 +1,5 @@
 import { renderMarkdown } from "./markdown_view.js";
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   loadScopedSection,
@@ -48,11 +48,10 @@ export function renderOuroborosView(context, main, scope) {
           label: "promoted work",
           value: (row) => row.promoted_dash?.item_ref || "",
           href: (row) => row.promoted_dash
-            ? buildUniverseRoute(
-              "items",
-              row.promoted_dash.project_id,
-              row.promoted_dash.item_ref,
-            )
+            ? itemDrillInHref({
+              projectId: row.promoted_dash.project_id,
+              publicRef: row.promoted_dash.item_ref,
+            })
             : null,
         },
       ], scope, (row) => row.project), "nothing noticed yet");
@@ -103,11 +102,10 @@ export function renderOuroborosEntryDetailView(
         outcome.appendChild(actionLink(
           documentNode,
           entry.promoted_dash.item_ref,
-          buildUniverseRoute(
-            "items",
-            entry.promoted_dash.project_id,
-            entry.promoted_dash.item_ref,
-          ),
+          itemDrillInHref({
+            projectId: entry.promoted_dash.project_id,
+            publicRef: entry.promoted_dash.item_ref,
+          }),
         ));
         body.appendChild(outcome);
       }

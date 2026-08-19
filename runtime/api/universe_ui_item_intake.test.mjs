@@ -188,5 +188,5 @@ test("New item submits one atomic create and routes to the public ref", async ()
       deployment: true,
     },
   });
-  assert.equal(destination, "#/items/ACM-23?project=7");
+  assert.equal(destination, "#/items/23?project=7");
 });

@@ -2,6 +2,7 @@ import {
   buildUniverseRoute,
   serializeScope,
 } from "./universe_navigation.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   loadScopedSection,
@@ -17,17 +18,18 @@ import {
 } from "./deployment_run_terminalization_dialog.js";
 
 function memberLink(documentNode, member) {
+  const href = itemDrillInHref({
+    projectId: member.project_id,
+    projectSequence: member.project_sequence,
+    publicRef: member.ref,
+  });
   const link = el(
     documentNode,
-    "a",
+    href ? "a" : "span",
     "delivery-member",
     [member.ref, member.title].filter(Boolean).join(" · "),
   );
-  link.href = buildUniverseRoute(
-    "items",
-    String(member.project_id),
-    String(member.ref || member.id).replace(/^[A-Za-z]+-/, ""),
-  );
+  if (href) link.href = href;
   return link;
 }
 
