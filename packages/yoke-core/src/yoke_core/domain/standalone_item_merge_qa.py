@@ -7,6 +7,9 @@ from typing import Any
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.merge_preflight_github_lock_retry import (
+    call_with_machine_lock_retry,
+)
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_terminal_settlement import (
@@ -24,12 +27,14 @@ def _hydrate_run_identity(requirement: dict[str, Any]) -> str:
     if requirement.get("recorded_head_sha") or requirement.get("run_id") is None:
         return ""
     requirement_id = int(requirement["id"])
-    response = call_dispatcher(
-        function_id="qa.run.list",
-        target=TargetRef(
-            kind="qa_requirement", qa_requirement_id=requirement_id,
-        ),
-        payload={"requirement_id": requirement_id},
+    response = call_with_machine_lock_retry(
+        lambda: call_dispatcher(
+            function_id="qa.run.list",
+            target=TargetRef(
+                kind="qa_requirement", qa_requirement_id=requirement_id,
+            ),
+            payload={"requirement_id": requirement_id},
+        )
     )
     if not response.success:
         detail = response.error.message if response.error else "read failed"

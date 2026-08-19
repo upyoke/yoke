@@ -17,6 +17,9 @@ from typing import Any, Callable, Optional
 from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.domain.json_helper import loads_text
+from yoke_core.domain.merge_preflight_github_lock_retry import (
+    call_with_machine_lock_retry,
+)
 from yoke_core.domain.merge_queue_admission import TrainCandidate, TrainContext
 
 
@@ -30,10 +33,12 @@ def _dispatch_read(
     item_ref: str,
     payload: dict[str, Any],
 ) -> tuple[Optional[dict[str, Any]], Optional[str]]:
-    response = dispatch(
-        function_id=function_id,
-        target=TargetRef(kind="item", item_ref=item_ref),
-        payload=payload,
+    response = call_with_machine_lock_retry(
+        lambda: dispatch(
+            function_id=function_id,
+            target=TargetRef(kind="item", item_ref=item_ref),
+            payload=payload,
+        )
     )
     if getattr(response, "success", False):
         result = getattr(response, "result", None)

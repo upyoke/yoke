@@ -18,6 +18,9 @@ from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.merge_preflight_github_lock_retry import (
+    call_with_machine_lock_retry,
+)
 from yoke_core.domain import merge_queue_landing_timeout as _timeout
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_recovery as recovery
@@ -58,10 +61,12 @@ def _relay_error(response: Any, fallback: str) -> str:
 
 
 def _resolve_item(item_ref: str, project: Optional[str]) -> tuple[Any, str]:
-    response = call_dispatcher(
-        function_id="items.detail.get",
-        target=TargetRef(kind="item", item_ref=item_ref, project_id=project),
-        payload={},
+    response = call_with_machine_lock_retry(
+        lambda: call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_ref=item_ref, project_id=project),
+            payload={},
+        )
     )
     if not response.success:
         return None, _relay_error(response, "item resolution failed")

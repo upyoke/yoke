@@ -52,7 +52,11 @@ def call_with_machine_github_authorization(
     *,
     core_available: bool,
 ) -> FunctionCallResponse:
-    """Expose lazy machine user auth only to in-process core dispatch."""
+    """Bind a lazy user-token provider around in-process core dispatch.
+
+    The machine operation lock is taken only when a handler reads the
+    token. Credential-free reads must not hold it for the whole call.
+    """
     try:
         auth_module = importlib.import_module("yoke_core.domain.project_github_auth")
     except ImportError:
@@ -68,37 +72,36 @@ def call_with_machine_github_authorization(
         return local_dispatch(request)
 
     try:
-        with github_machine_operation.operation_lock():
-            config_error = ""
-            try:
-                github = machine_config.github_config()
-                api_url = (
-                    github.get("api_url") if isinstance(github, dict) else None
-                )
-                endpoint = validate_github_api_endpoint(
-                    str(api_url).strip() if api_url else None
-                )
-            except (GitHubApiOriginError, machine_config.MachineConfigError) as exc:
-                endpoint = validate_github_api_endpoint(None)
-                config_error = str(exc)
+        config_error = ""
+        try:
+            github = machine_config.github_config()
+            api_url = (
+                github.get("api_url") if isinstance(github, dict) else None
+            )
+            endpoint = validate_github_api_endpoint(
+                str(api_url).strip() if api_url else None
+            )
+        except (GitHubApiOriginError, machine_config.MachineConfigError) as exc:
+            endpoint = validate_github_api_endpoint(None)
+            config_error = str(exc)
 
-            def _access_token() -> str:
-                if config_error:
-                    raise RuntimeError(
-                        "machine GitHub App configuration is invalid: "
-                        f"{config_error}. Run `yoke github status`, then reconnect "
-                        "GitHub."
-                    )
-                token_module = importlib.import_module(
-                    "yoke_cli.config.github_local_user_access"
+        def _access_token() -> str:
+            if config_error:
+                raise RuntimeError(
+                    "machine GitHub App configuration is invalid: "
+                    f"{config_error}. Run `yoke github status`, then reconnect "
+                    "GitHub."
                 )
-                return token_module.access_token().access_token
+            token_module = importlib.import_module(
+                "yoke_cli.config.github_local_user_access"
+            )
+            return token_module.access_token().access_token
 
-            with auth_module.bind_local_github_user_token_provider(
-                _access_token,
-                api_url=endpoint,
-            ):
-                return local_dispatch(request)
+        with auth_module.bind_local_github_user_token_provider(
+            _access_token,
+            api_url=endpoint,
+        ):
+            return local_dispatch(request)
     except github_machine_operation.GitHubMachineOperationBusy as exc:
         return _error(
             request,
