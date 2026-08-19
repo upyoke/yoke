@@ -20,7 +20,10 @@ from yoke_core.domain.item_worktree_schema import (
     ITEM_WORKTREES_INDEX_SQL,
     ITEM_WORKTREES_TABLE_SQL,
 )
-from yoke_core.domain.migration_apply_contract import ModuleResolutionError
+from yoke_core.domain.migration_apply_contract import (
+    ModuleContractError,
+    ModuleResolutionError,
+)
 from yoke_core.domain.migration_apply_runners import (
     RUNNER_KIND_GOVERNED_MODULE,
     UnknownRunnerKind,
@@ -205,6 +208,32 @@ class TestProjectConfiguredPythonRunner:
                 model=_webapp_python_model(),
                 repo_path=tmp_path,
                 identifier="missing_module",
+            )
+
+    def test_psycopg_sql_check_is_scoped_to_postgres_models(
+        self, tmp_path: Path,
+    ) -> None:
+        _write_python_migration(
+            tmp_path,
+            "001_literal_percent",
+            "def apply(conn):\n"
+            "    conn.execute(\"SELECT '50%' WHERE id=?\", (1,))\n",
+        )
+        sqlite_model = _webapp_python_model()
+
+        assert dispatch_handle(
+            model=sqlite_model,
+            repo_path=tmp_path,
+            identifier="001_literal_percent",
+        )
+
+        postgres_model = _webapp_python_model()
+        postgres_model["authoritative_db"]["kind"] = "postgres"
+        with pytest.raises(ModuleContractError, match="bare '%'"):
+            dispatch_handle(
+                model=postgres_model,
+                repo_path=tmp_path,
+                identifier="001_literal_percent",
             )
 
     def test_unknown_runner_kind_raises_with_context(self, tmp_path: Path) -> None:

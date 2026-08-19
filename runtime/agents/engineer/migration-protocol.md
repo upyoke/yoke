@@ -25,6 +25,17 @@ converge after your work merges and deploys.
    that transaction and gives the guarantee back. Guard every statement
    (`IF EXISTS` / `IF NOT EXISTS`, or an explicit state check) — a database
    restored from a pre-ledger archive replays its history.
+   - For PostgreSQL, parameterized `execute(sql, params)` or `executemany(...)`
+     calls write literal percent characters as `%%`. Keep psycopg placeholders
+     (`%s`, `%b`, `%t`, and `%(name)s`) unchanged. If the statement has no
+     placeholders, omit the params argument instead of passing an empty value.
+   - Treat historical JSON-shaped text as untrusted input. Do not cast an
+     entire historical text column to `jsonb` for a diagnostic or migration
+     probe: escaped NUL and other legacy text can be valid JSON text but not
+     representable as PostgreSQL `jsonb`. Parse rows independently, or isolate
+     each cast behind a check that proves `jsonb` conversion for that value,
+     and retain the row key when reporting or skipping a non-convertible
+     document.
 3. **Never delete it afterwards.** Entries are permanent. A module that is
    gone cannot be applied by a universe that never received it.
 4. **Rehearse before merging:** `yoke migration rehearse PREFIX-N` from a
@@ -67,6 +78,8 @@ yoke watch doctor -- --only HC-schema-drift
 
 - [ ] Change classified: additive schema (self-propagates on boot) vs data-transforming migration (governed path)
 - [ ] (Data-transforming migrations only) Entry added to the ordered history as `NNNN_slug.py`, guarded, safe to re-run, and not committing inside `apply()`
+- [ ] PostgreSQL parameterized SQL escapes literal percent characters as `%%`
+- [ ] Historical JSON diagnostics tolerate text that cannot convert to `jsonb`
 - [ ] (Data-transforming migrations only) Rehearsal run and its receipt recorded; the entry is NOT deleted afterwards
 - [ ] (Additive schema) Additive converger updated so the column reaches existing environments on deploy or boot
 - [ ] Fresh-schema creator updated

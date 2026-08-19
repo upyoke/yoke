@@ -12,13 +12,9 @@ caller passes one. That keeps the "should this run here?" judgment with the
 caller that knows the answer, and lets a second install family (a registry
 database with its own history) reuse this code rather than copy it.
 
-Two properties are the reason to prefer this shape over the mechanism it
-replaced. *Applied and recorded are one transaction*: Postgres has
-transactional DDL, so an entry's ``apply()`` and its ledger row commit
-together, and the "applied but unrecorded" state other migration tools ship
-repair tooling for has no window in which to exist. *A failed entry stops the
-chain*: boot is fail-hard, because serving behind your own schema is the
-failure this exists to prevent.
+Postgres transactional DDL commits an entry's ``apply()`` with its ledger row,
+so "applied but unrecorded" has no window in which to exist. A failed entry
+stops the chain: boot is fail-hard rather than serving behind its own schema.
 
 Full rationale: ``docs/archive/decisions/ordered-cumulative-migrations.md``.
 """
@@ -134,6 +130,7 @@ def stamp_history(
                 entry.path,
                 entry.name,
                 source_bytes=source_bytes,
+                check_psycopg_sql=db_backend.connection_is_postgres(conn),
             )
             if entry.path.read_bytes() != source_bytes:
                 raise EntryFailed(
@@ -252,6 +249,7 @@ def _apply_one(
         entry.path,
         entry.name,
         source_bytes=source_bytes,
+        check_psycopg_sql=db_backend.connection_is_postgres(conn),
     )
     if entry.path.read_bytes() != source_bytes:
         raise EntryFailed(

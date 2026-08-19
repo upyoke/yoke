@@ -17,6 +17,7 @@ from yoke_core.domain.migration_history import (
     history_dir,
     load_migration_module,
     ordered_entries,
+    validate_psycopg_migration_sql,
 )
 
 
@@ -120,6 +121,10 @@ def test_packaged_history_is_well_formed() -> None:
     assert [e.sequence for e in entries] == sorted(e.sequence for e in entries)
 
 
+def test_packaged_history_passes_psycopg_authoring_check() -> None:
+    validate_psycopg_migration_sql(history_dir(migration_history_package))
+
+
 def test_load_requires_a_callable_apply(tmp_path: Path) -> None:
     path = _write_entry(tmp_path, "0001_no_apply", body="apply = 'not callable'\n")
 
@@ -137,3 +142,66 @@ def test_load_surfaces_an_import_failure(tmp_path: Path) -> None:
 
     with pytest.raises(ModuleResolutionError, match="failed to import"):
         load_migration_module(path, "0001_broken")
+
+
+def test_load_rejects_bare_percent_in_parameterized_helper_sql(
+    tmp_path: Path,
+) -> None:
+    path = _write_entry(tmp_path, "0001_filter")
+    _write_entry(
+        tmp_path,
+        "_filter_helpers",
+        body=(
+            "def rows(conn):\n"
+            "    return conn.execute(\"SELECT 1 WHERE 'x' LIKE '%x%'\", (1,))\n"
+        ),
+    )
+
+    with pytest.raises(
+        ModuleContractError,
+        match=r"_filter_helpers\.py:2:.*bare '%'",
+    ):
+        load_migration_module(path, "0001_filter", check_psycopg_sql=True)
+
+
+def test_load_accepts_escaped_percent_and_named_placeholder(tmp_path: Path) -> None:
+    path = _write_entry(
+        tmp_path,
+        "0001_filter",
+        body=(
+            "def apply(conn):\n"
+            "    conn.execute(\"SELECT 'x' LIKE '%%x%%' AND id=%(item_id)s\", "
+            "{'item_id': 1})\n"
+        ),
+    )
+
+    assert callable(
+        load_migration_module(path, "0001_filter", check_psycopg_sql=True).apply
+    )
+
+
+def test_load_skips_psycopg_check_by_default(tmp_path: Path) -> None:
+    path = _write_entry(
+        tmp_path,
+        "0001_literal",
+        body=(
+            "def apply(conn):\n"
+            "    conn.execute(\"SELECT '50%' WHERE id=?\", (1,))\n"
+        ),
+    )
+
+    assert callable(load_migration_module(path, "0001_literal").apply)
+
+
+def test_psycopg_check_allows_bare_percent_without_params_argument(
+    tmp_path: Path,
+) -> None:
+    path = _write_entry(
+        tmp_path,
+        "0001_literal",
+        body="def apply(conn):\n    conn.execute(\"SELECT '50%'\")\n",
+    )
+
+    assert callable(
+        load_migration_module(path, "0001_literal", check_psycopg_sql=True).apply
+    )
