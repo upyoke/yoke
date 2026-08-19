@@ -10,6 +10,21 @@ from unittest.mock import patch
 from yoke_cli.commands import coordination_lease as subject
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.coordination_lease_recovery import OPERATOR_RELEASE_USAGE
+
+
+def test_help_prints_before_connection_guard(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        subject,
+        "remote_without_admin_authority",
+        lambda: (_ for _ in ()).throw(AssertionError("guard must not run")),
+    )
+
+    assert subject.coordination_lease_release(["--help"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.strip() == OPERATOR_RELEASE_USAGE
+    assert "--session-id S" in captured.out
+    assert captured.err == ""
 
 
 def test_https_connection_is_refused_before_runtime_import(

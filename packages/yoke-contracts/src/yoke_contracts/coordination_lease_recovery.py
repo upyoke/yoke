@@ -6,7 +6,7 @@ import shlex
 
 
 OPERATOR_RELEASE_USAGE = (
-    "yoke coordination-lease release --project P --key K --reason R"
+    "yoke coordination-lease release --project P --key K --reason R [--session-id S]"
 )
 OPERATOR_RELEASE_REASON_EXAMPLE = "stale holder confirmed"
 

@@ -210,6 +210,33 @@ class TestOperatorRelease:
         finally:
             conn.close()
 
+    def test_resolves_operator_session_from_ambient_identity(
+        self, db_path: str
+    ) -> None:
+        db_path, conn = self._setup(db_path)
+        try:
+            with mock.patch(
+                "yoke_core.domain.coordination_leases_operator."
+                "resolve_ambient_session_id",
+                return_value="sess-ambient",
+            ):
+                result = coordination_leases.operator_release(
+                    conn,
+                    project_id="yoke",
+                    lease_key="LIVE_DB_MIGRATION:primary",
+                    operator_reason="crashed apply-phase session",
+                )
+
+            assert result["operator_session_id"] == "sess-ambient"
+            row = conn.execute(
+                "SELECT released_by_session_id FROM coordination_leases "
+                "WHERE project_id = %s AND lease_key = %s",
+                (1, "LIVE_DB_MIGRATION:primary"),
+            ).fetchone()
+            assert row["released_by_session_id"] == "sess-ambient"
+        finally:
+            conn.close()
+
     def test_rejects_hook_context(self, db_path: str) -> None:
         db_path, conn = self._setup(db_path)
         try:
@@ -260,7 +287,11 @@ class TestOperatorRelease:
 
     def test_refuses_when_operator_session_is_unknown(self, db_path: str, monkeypatch) -> None:
         db_path, conn = self._setup(db_path)
-        monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
+        monkeypatch.setattr(
+            "yoke_core.domain.coordination_leases_operator."
+            "resolve_ambient_session_id",
+            lambda: None,
+        )
         try:
             with pytest.raises(coordination_leases.LeaseError, match="operator session"):
                 coordination_leases.operator_release(
