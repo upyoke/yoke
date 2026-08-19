@@ -1,4 +1,4 @@
-"""Run one command from a claimed source lane or mapped main checkout."""
+"""Run source commands from a claimed lane or a read-only main surface."""
 
 from __future__ import annotations
 
@@ -15,6 +15,11 @@ from yoke_core.tools import _source_pythonpath
 
 MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
 AMBIENT_PYTHON_NAMES = frozenset({"python", "python3"})
+MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
+    {
+        "runtime/api/tools/scan_item_ref_construction.py",
+    }
+)
 
 
 def _bound_command(args: list[str]) -> list[str]:
@@ -130,14 +135,32 @@ def _mapped_main_source_root() -> tuple[Path | None, str | None, int | None]:
     return root, None, project_id
 
 
+def _main_checkout_read_only_signature(
+    command: Sequence[str],
+    root: Path,
+) -> str | None:
+    """Classify one repository-owned scanner that may run before a lane exists."""
+    if len(command) < 2 or command[0] != "python3":
+        return None
+    candidate = (root / command[1]).resolve()
+    try:
+        relative = candidate.relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return None
+    if relative not in MAIN_CHECKOUT_READ_ONLY_SCRIPTS or not candidate.is_file():
+        return None
+    return f"python-script:{relative}"
+
+
 def _record_main_checkout_fallback(
     *,
     session_id: str,
     root: Path,
     project_id: int,
     command: Sequence[str],
+    read_only_signature: str,
 ) -> str | None:
-    """Record the audit boundary before a fallback child can touch main."""
+    """Record the audit boundary before a registered scanner reads main."""
     try:
         from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
         from yoke_contracts.api.function_call import TargetRef
@@ -158,8 +181,7 @@ def _record_main_checkout_fallback(
                     "command_name": str(command[0]),
                     "argument_count": max(0, len(command) - 1),
                     "fallback_reason": "no_live_claimed_yoke_source_lane",
-                    "read_only_intent": True,
-                    "write_target_if_child_writes": "main",
+                    "read_only_signature": read_only_signature,
                 },
             },
             actor=build_actor(session_id=session_id),
@@ -198,6 +220,17 @@ def run(
     if error or root is None:
         print(f"error: {error}", file=sys.stderr)
         return 1
+    read_only_signature = None
+    if fallback_project_id is not None:
+        read_only_signature = _main_checkout_read_only_signature(args, root)
+        if read_only_signature is None:
+            print(
+                "error: mapped-main source execution only permits registered "
+                "read-only scanners; prepare and claim a Yoke source lane for "
+                "arbitrary commands",
+                file=sys.stderr,
+            )
+            return 1
     env = _source_pythonpath.with_source_pythonpath(None, root)
     origins, origin_error = _source_pythonpath.import_origins(root, env=env)
     if origin_error:
@@ -211,8 +244,8 @@ def run(
     print(f"source checkout: {root}", file=sys.stderr)
     if fallback_project_id is not None:
         print(
-            "source intent: mapped main checkout, read-only; a write-shaped "
-            "child writes to MAIN",
+            "source intent: mapped main checkout, registered read-only scanner "
+            f"({read_only_signature})",
             file=sys.stderr,
         )
         event_error = _record_main_checkout_fallback(
@@ -220,6 +253,7 @@ def run(
             root=root,
             project_id=fallback_project_id,
             command=args,
+            read_only_signature=str(read_only_signature),
         )
         if event_error:
             print(f"error: {event_error}", file=sys.stderr)
@@ -238,8 +272,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="yoke dev run",
         description=(
             "Run a command from the current session's claimed Yoke source "
-            "lane, or its mapped main checkout when no lane remains, and "
-            "report every checkout-owned import origin."
+            "lane, or a registered read-only scanner from its mapped main "
+            "checkout when no lane remains, and report every checkout-owned "
+            "import origin."
         ),
     )
     parser.add_argument(
