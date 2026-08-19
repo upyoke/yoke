@@ -40,6 +40,31 @@ def render_invariant_block() -> list[str]:
     ]
 
 
+def render_package_roots_block() -> list[str]:
+    """Where a module actually lives, and how to look it up.
+
+    An agent that greps for a module by guessing a directory named after
+    the package finds nothing and concludes the code is missing. The
+    roots are per-project, so this teaches the lookup rather than any one
+    project's layout — the packet ships verbatim into every project Yoke
+    installs into, where concrete paths from another repo would be worse
+    than none.
+    """
+    return [
+        "**Package roots (where a module actually lives):** an importable "
+        "package name never implies a directory at the repo root, and the "
+        "mapping is per-project. Resolve a module through the roots your "
+        "project's `architecture_model` declares — read them with "
+        "`yoke project-structure get --project P --family architecture_model "
+        "--json` and consult its `package_roots`, which maps each package to "
+        "roots labelled `package_under_root` (the package directory sits "
+        "under the root) or `package_is_root` (the root directory IS the "
+        "package, so the package name never appears on disk). One package "
+        "may declare several roots; check every one before concluding a "
+        "module is absent.",
+    ]
+
+
 def render_item_entry_surface_block() -> list[str]:
     """Workflow entry-surface doctrine taught in the ``core`` topic.
 

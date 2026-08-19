@@ -185,6 +185,9 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # These caps therefore follow the complete registered recipes and table facts
 # rendered today rather than an arbitrary prose target. The claims topic now
 # also names harness_machine_reports (install-glue presence; no hashing)
-# and coordination_leases typed-owner / release-provenance columns.
-PACKET_LINE_BUDGET_PER_ROLE: int = 421
-PACKET_LINE_BUDGET_AGGREGATE: int = 2173
+# and coordination_leases typed-owner / release-provenance columns. The core
+# topic additionally carries the declared package roots, so every role learns
+# where a module physically lives instead of guessing a repo-root directory
+# named after the package.
+PACKET_LINE_BUDGET_PER_ROLE: int = 423
+PACKET_LINE_BUDGET_AGGREGATE: int = 2185

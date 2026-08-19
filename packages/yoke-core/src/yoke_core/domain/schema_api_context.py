@@ -39,6 +39,7 @@ from yoke_core.domain.schema_api_context_render import (
     render_invariant_block,
     render_item_entry_surface_block,
     render_json_nested_schema_block,
+    render_package_roots_block,
     render_table_block,
 )
 from yoke_core.domain.schema_common import (
@@ -259,6 +260,8 @@ def render_topic_packet(topic: str) -> str:
     parts: list[str] = [f"### {header}", ""]
     if topic == "core":
         parts.extend(render_invariant_block())
+        parts.append("")
+        parts.extend(render_package_roots_block())
         parts.append("")
         parts.extend(render_item_entry_surface_block())
         parts.append("")
