@@ -210,7 +210,8 @@ def _converge_copy(
     )
 
     copy_dsn = postgres_cluster.dsn(spec, copy_name)
-    conn = db_backend.connect_psycopg(copy_dsn)
+    # Boot-shaped rows (name + index). connect_psycopg stays tuple-only.
+    conn = db_backend._open_native_postgres(copy_dsn)
     try:
         pending = plan.pending_names(conn, plan.history)
         with _restore_point_named(dump):

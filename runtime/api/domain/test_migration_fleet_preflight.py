@@ -252,7 +252,7 @@ class TestAppliedHistoryInvariants:
         from yoke_core.domain import db_backend
 
         conn = _ConvergeConn()
-        monkeypatch.setattr(db_backend, "connect_psycopg", lambda _dsn: conn)
+        monkeypatch.setattr(db_backend, "_open_native_postgres", lambda _dsn: conn)
         dump = tmp_path / "tenant.dump"
         dump.write_bytes(b"x")
         plan = RehearsalPlan(
@@ -282,7 +282,7 @@ class TestAppliedHistoryInvariants:
         from yoke_core.domain import db_backend
 
         conn = _ConvergeConn()
-        monkeypatch.setattr(db_backend, "connect_psycopg", lambda _dsn: conn)
+        monkeypatch.setattr(db_backend, "_open_native_postgres", lambda _dsn: conn)
         dump = tmp_path / "tenant.dump"
         dump.write_bytes(b"x")
         plan = RehearsalPlan(
