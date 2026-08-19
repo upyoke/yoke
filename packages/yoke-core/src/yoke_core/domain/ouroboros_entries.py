@@ -79,9 +79,13 @@ def cmd_insert_entry(
     category: str,
     body: str,
     project: Optional[str] = None,
+    target_project: Optional[str] = None,
 ) -> str:
     p = _p(conn)
     project_id = resolve_project_id(conn, project) if project else None
+    target_project_id = (
+        resolve_project_id(conn, target_project) if target_project else None
+    )
     existing = query_one(
         conn,
         "SELECT id FROM ouroboros_entries "
@@ -95,9 +99,13 @@ def cmd_insert_entry(
     # intervening sequence touches. RETURNING is the unambiguous form.
     row = conn.execute(
         "INSERT INTO ouroboros_entries "
-        "(timestamp, agent, context, category, body, project_id, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
-        (timestamp, agent, context, category, body, project_id, iso8601_now()),
+        "(timestamp, agent, context, category, body, project_id, "
+        "target_project_id, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) RETURNING id",
+        (
+            timestamp, agent, context, category, body, project_id,
+            target_project_id, iso8601_now(),
+        ),
     ).fetchone()
     conn.commit()
     return str(row[0])

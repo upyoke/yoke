@@ -48,6 +48,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 from yoke_core.domain.schema_coordination_lease_columns import (
     apply_coordination_lease_columns,
 )
+from yoke_core.domain.schema_ouroboros_columns import apply_ouroboros_columns
 from yoke_core.domain.schema_init_columns import (
     apply_additive_schema,
     apply_harness_session_columns,
@@ -203,6 +204,7 @@ def converge_core_schema(conn, *, backup_target_dsn: str | None = None) -> None:
     ensure_test_machine_schema(conn)
     ensure_harness_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
+    apply_ouroboros_columns(conn)
     ensure_ouroboros_entry_corrections_schema(conn)
     conn.commit()
     # Strategy authority landed on prod via a since-retired governed

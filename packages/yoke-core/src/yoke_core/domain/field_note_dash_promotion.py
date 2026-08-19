@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS ouroboros_entry_dispositions (
   instruction TEXT NOT NULL,
   requested_by_actor_id INTEGER,
   requested_by_session_id TEXT,
+  project_override TEXT,
   failure_reason TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -101,9 +102,11 @@ def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
 def _field_note(conn: Any, entry_id: int) -> dict[str, Any]:
     marker = _p(conn)
     row = _row_dict(conn.execute(
-        "SELECT o.id, o.category, o.body, o.project_id, p.slug AS project_slug "
+        "SELECT o.id, o.category, o.body, o.project_id, "
+        "p.slug AS project_slug, t.slug AS target_project_slug "
         "FROM ouroboros_entries o "
         "LEFT JOIN projects p ON p.id = o.project_id "
+        "LEFT JOIN projects t ON t.id = o.target_project_id "
         f"WHERE o.id = {marker}",
         (int(entry_id),),
     ))
@@ -124,6 +127,7 @@ def _reserve(
     instruction: str,
     actor_id: Optional[int],
     session_id: Optional[str],
+    project_override: Optional[str] = None,
 ) -> bool:
     marker = _p(conn)
     now = iso8601_now()
@@ -131,8 +135,8 @@ def _reserve(
         "INSERT INTO ouroboros_entry_dispositions "
         "(entry_id, disposition_kind, state, title, instruction, "
         "requested_by_actor_id, "
-        "requested_by_session_id, created_at, updated_at) "
-        f"VALUES ({', '.join(marker for _ in range(9))}) "
+        "requested_by_session_id, project_override, created_at, updated_at) "
+        f"VALUES ({', '.join(marker for _ in range(10))}) "
         "ON CONFLICT(entry_id) DO NOTHING RETURNING entry_id",
         (
             int(entry_id),
@@ -142,6 +146,7 @@ def _reserve(
             instruction,
             actor_id,
             session_id,
+            project_override,
             now,
             now,
         ),
@@ -155,9 +160,13 @@ def _reserve(
             "UPDATE ouroboros_entry_dispositions "
             f"SET state = 'creating', title = {marker}, instruction = {marker}, "
             f"requested_by_actor_id = {marker}, "
-            f"requested_by_session_id = {marker}, failure_reason = NULL, "
+            f"requested_by_session_id = {marker}, project_override = {marker}, "
+            f"failure_reason = NULL, "
             f"updated_at = {marker} WHERE entry_id = {marker}",
-            (title, instruction, actor_id, session_id, now, int(entry_id)),
+            (
+                title, instruction, actor_id, session_id, project_override,
+                now, int(entry_id),
+            ),
         )
         conn.commit()
         return True
@@ -198,13 +207,10 @@ def promote_field_note_to_dash(
         raise FieldNotePromotionError("promotion title is required")
     if not clean_instruction:
         raise FieldNotePromotionError("promotion instruction is required")
-    note_project = str(note.get("project_slug") or "").strip() or None
-    if note_project and project and str(project) != note_project:
-        raise FieldNotePromotionError(
-            f"field note belongs to project {note_project!r}; "
-            f"cannot promote into {project!r}"
-        )
-    selected_project = note_project or (str(project).strip() if project else None)
+    override = str(project).strip() if project else None
+    declared_target = str(note.get("target_project_slug") or "").strip() or None
+    observing_project = str(note.get("project_slug") or "").strip() or None
+    selected_project = override or declared_target or observing_project
     if selected_project is None:
         raise FieldNotePromotionError(
             "field note has no project; pass the target project explicitly"
@@ -216,6 +222,7 @@ def promote_field_note_to_dash(
         instruction=clean_instruction,
         actor_id=actor_id,
         session_id=session_id,
+        project_override=override,
     ):
         current = _promotion_row(conn, entry_id)
         if current and current["state"] == "completed":

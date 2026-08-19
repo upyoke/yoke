@@ -113,6 +113,39 @@ def test_field_note_append_carries_external_checkout_project() -> None:
     assert req.payload["kind"] == "failed"
 
 
+def test_field_note_append_carries_an_author_declared_target_project() -> None:
+    """The fix's project is authored; the observing one stays automatic."""
+    with patch(
+        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        return_value="yoke",
+    ):
+        rc, _out, err = _run_capture(
+            "ouroboros", "field-note", "append",
+            "--kind", "failed",
+            "--evidence", "a platform recipe failed, noticed from yoke",
+            "--target-project", "platform",
+        )
+    assert rc == 0, err
+    payload = _CAPTURED_REQUESTS[-1].payload
+    assert payload["project"] == "yoke"
+    assert payload["target_project"] == "platform"
+
+
+def test_field_note_append_omits_target_project_when_not_declared() -> None:
+    """Fast capture stays fast — the flag is never required or inferred."""
+    with patch(
+        "yoke_cli.commands.adapters.ouroboros_field_note.client_project_context",
+        return_value="yoke",
+    ):
+        rc, _out, err = _run_capture(
+            "ouroboros", "field-note", "append",
+            "--kind", "observation",
+            "--evidence", "an author who cannot tell which repo owns the fix",
+        )
+    assert rc == 0, err
+    assert "target_project" not in _CAPTURED_REQUESTS[-1].payload
+
+
 def test_field_note_append_omits_project_from_unmapped_directory() -> None:
     """Unmapped cwd keeps global/no-checkout behavior — no project hint."""
     with patch(

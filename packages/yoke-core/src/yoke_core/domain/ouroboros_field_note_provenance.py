@@ -10,13 +10,17 @@ to. Attribution is resolved at write time:
   the role names the learning log has always carried in
   ``ouroboros_entries.agent``. Session provenance for the author is
   always retained even when the project comes from the checkout.
-- **project** — prefer a client-supplied registered checkout project
-  (the CLI resolves ``$YOKE_PROJECT`` / the machine-config
-  checkout→project map and carries the hint on the payload), then the
-  calling session's project scope. Both are projected to a slug so the
-  entry insert can reuse its existing ``project`` parameter. Without
-  either, the channel lands unattributed — the same global/no-checkout
-  behavior as before.
+- **project** — where the note was observed. Prefer a client-supplied
+  registered checkout project (the CLI resolves ``$YOKE_PROJECT`` / the
+  machine-config checkout→project map and carries the hint on the
+  payload), then the calling session's project scope. Both are projected
+  to a slug so the entry insert can reuse its existing ``project``
+  parameter. Without either, the channel lands unattributed — the same
+  global/no-checkout behavior as before.
+- **target_project** — where the fix belongs, when the author says so.
+  Never inferred: a note observed from one checkout routinely describes a
+  defect that deploys from another, and only the author can tell the two
+  apart. Absent, promotion falls back to the observing project.
 
 The write handler never resolves an ambient cwd: it runs inside the
 server, where the calling checkout is not observable. Checkout awareness
@@ -42,10 +46,11 @@ _ROLE_PREFIX = "yoke-"
 
 @dataclass(frozen=True)
 class FieldNoteProvenance:
-    """Resolved author label and project slug for one field-note write."""
+    """Resolved author label and project slugs for one field-note write."""
 
     author: str
     project: Optional[str]
+    target_project: Optional[str] = None
 
 
 def _placeholder(conn: Any) -> str:
@@ -88,8 +93,9 @@ def resolve_provenance(
     actor_role: Optional[str] = None,
     session_id: Optional[str] = None,
     project: Optional[Union[str, int]] = None,
+    target_project: Optional[Union[str, int]] = None,
 ) -> FieldNoteProvenance:
-    """Resolve the author label and project slug for a field-note write."""
+    """Resolve the author label and project slugs for a field-note write."""
     role = normalize_actor_role(actor_role)
     executor: Optional[str] = None
     session_project: Optional[str] = None
@@ -111,6 +117,7 @@ def resolve_provenance(
     return FieldNoteProvenance(
         author=role or executor or DEFAULT_AUTHOR,
         project=checkout_project or session_project,
+        target_project=_project_slug_from_hint(conn, target_project),
     )
 
 

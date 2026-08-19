@@ -16,13 +16,20 @@ OUROBOROS_TABLES: dict[str, dict] = {
             ("archived_at", "TEXT"),
             ("created_at", "TEXT"),
             ("project_id", "INTEGER"),
+            ("target_project_id", "INTEGER"),
         ],
         "notes": (
             "Learning-log / field-note rows. The kind-like discriminator "
             "is `category` and the evidence/content text is `body`; "
             "there are NO `kind` or `evidence` columns on this table. "
-            "Project authority is numeric `project_id`; join projects for "
-            "the human slug. "
+            "Two project columns, both numeric; join projects for the "
+            "human slug. `project_id` is where the note was OBSERVED "
+            "(resolved automatically from the calling checkout). "
+            "`target_project_id` is where the fix BELONGS, set only when "
+            "the author declares it (`--target-project` on append) and "
+            "NULL otherwise — it is never inferred. Promotion picks the "
+            "caller's explicit project, else `target_project_id`, else "
+            "`project_id`. "
             "`agent` holds the author label the write path resolved "
             "(subagent role, else the session's executor) — it is NOT an "
             "actor id, and there is no `author` or `actor_id` column. "
