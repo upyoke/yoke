@@ -15,6 +15,9 @@ AdapterFn = Callable[[List[str]], int]
 
 def coordination_lease_release(args: List[str]) -> int:
     """Delegate recovery to the installed runtime's audited operator surface."""
+    if any(arg in {"-h", "--help"} for arg in args):
+        print(OPERATOR_RELEASE_USAGE)
+        return 0
     if remote_without_admin_authority():
         print(
             "yoke coordination-lease release refused: select the matching "

@@ -24,6 +24,7 @@ from yoke_core.domain.coordination_leases import (
     release_lease,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 
 
 def operator_release(
@@ -61,7 +62,7 @@ def operator_release(
             f"No active lease for {project_id}:{lease_key}"
         )
 
-    effective_session = (session_id or os.environ.get("YOKE_SESSION_ID") or "").strip()
+    effective_session = (session_id or resolve_ambient_session_id() or "").strip()
     if not effective_session:
         raise LeaseError(
             "operator session is required; refusing to copy the lease holder"
