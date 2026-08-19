@@ -73,6 +73,11 @@ class FieldNoteAppendRequest(BaseModel):
     # Wins over the session's project scope when present; omitted when the
     # caller has no checkout mapping (global/no-checkout fallback).
     project: Optional[str] = None
+    # Author-declared project the fix belongs to, when it differs from the
+    # checkout the note was observed in. Never inferred — only the author
+    # knows which repo owns the fix, and often they do not either, so this
+    # stays optional and promotion falls back to the observing project.
+    target_project: Optional[str] = None
     # Entry id this note corrects; that note is superseded, not duplicated.
     corrects: Optional[int] = None
 
@@ -85,6 +90,7 @@ class FieldNoteAppendResponse(BaseModel):
     correlation_id: Optional[str]
     author: str
     project: Optional[str]
+    target_project: Optional[str]
     corrects: Optional[int]
     github_sync: str
     body_sync_mode: str
@@ -133,6 +139,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 actor_role=payload.actor_role,
                 session_id=session_id,
                 project=payload.project,
+                target_project=payload.target_project,
             )
             entry_id = cmd_insert_entry(
                 conn,
@@ -142,6 +149,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
                 category,
                 payload.evidence,
                 project=provenance.project,
+                target_project=provenance.target_project,
             )
             if payload.corrects is not None and entry_id.isdigit():
                 record_correction(
@@ -172,6 +180,8 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
     }
     if provenance.project:
         context["project"] = provenance.project
+    if provenance.target_project:
+        context["target_project"] = provenance.target_project
     if linked_correction is not None:
         context["corrects"] = linked_correction
     if payload.correlation_id:
@@ -198,6 +208,7 @@ def handle_append(request: FunctionCallRequest) -> HandlerOutcome:
         correlation_id=payload.correlation_id,
         author=provenance.author,
         project=provenance.project,
+        target_project=provenance.target_project,
         corrects=linked_correction,
         github_sync="not_applicable",
         body_sync_mode="not_applicable",

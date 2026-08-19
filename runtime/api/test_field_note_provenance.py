@@ -264,3 +264,56 @@ class TestFieldNoteCorrections:
         entry = _entry(isolated_db, response.result["entry_id"])
         assert entry["corrects"] is None
         assert entry["superseded_by"] is None
+
+
+class TestFieldNoteTargetProject:
+    """Where the fix belongs, recorded next to where it was observed."""
+
+    @staticmethod
+    def _project_columns(db_path: str, entry_id) -> tuple:
+        with connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT project_id, target_project_id FROM ouroboros_entries "
+                "WHERE id = %s",
+                (int(entry_id),),
+            ).fetchone()
+        assert row is not None, f"entry {entry_id} not found"
+        return tuple(row)
+
+    def test_declared_target_lands_beside_the_observing_project(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        _seed_session(isolated_db)
+        response = _append(target_project=EXTERNAL_PROJECT)
+        assert response.success is True, response.error
+        assert response.result["project"] == SESSION_PROJECT
+        assert response.result["target_project"] == EXTERNAL_PROJECT
+        observed, target = self._project_columns(
+            isolated_db, response.result["entry_id"],
+        )
+        assert observed == SEED_PROJECT_IDS[SESSION_PROJECT]
+        assert target == SEED_PROJECT_IDS[EXTERNAL_PROJECT]
+
+    def test_notes_without_a_declared_target_leave_the_column_empty(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        _seed_session(isolated_db)
+        response = _append()
+        assert response.result["target_project"] is None
+        assert self._project_columns(
+            isolated_db, response.result["entry_id"],
+        )[1] is None
+
+    def test_an_unknown_target_project_is_refused_rather_than_dropped(
+        self,
+        isolated_db: str,
+        registered_dispatcher,
+    ) -> None:
+        _seed_session(isolated_db)
+        response = _append(target_project="no-such-project")
+        assert response.success is False
+        assert response.error.code == "invalid_payload"

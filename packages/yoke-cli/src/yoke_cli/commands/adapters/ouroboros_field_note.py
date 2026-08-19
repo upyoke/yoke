@@ -154,7 +154,7 @@ OUROBOROS_USAGE = (
     "yoke ouroboros field-note append "
     "--kind {failed|new|unclear|observation} "
     "(--evidence TEXT | --evidence-file PATH) [--corrects ENTRY_ID] "
-    "[--correlation-id ID] [--session-id S] [--json]"
+    "[--target-project P] [--correlation-id ID] [--session-id S] [--json]"
 )
 
 
@@ -200,6 +200,19 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         ),
     )
     parser.add_argument(
+        "--target-project",
+        dest="target_project",
+        default=None,
+        help=(
+            "Project the fix belongs to, when it is not the checkout you "
+            "are standing in. The observing project is recorded either "
+            "way; this is what curate promotes into, so a defect you "
+            "notice from one repo files against the one that deploys it. "
+            "Leave it off when you cannot tell — promotion falls back to "
+            "the observing project and stays overridable there."
+        ),
+    )
+    parser.add_argument(
         "--correlation-id",
         dest="correlation_id",
         default=None,
@@ -228,6 +241,8 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         payload["correlation_id"] = parsed.correlation_id
     if parsed.corrects is not None:
         payload["corrects"] = parsed.corrects
+    if parsed.target_project:
+        payload["target_project"] = parsed.target_project
     # The dispatched-subagent role is only observable here, in the calling
     # process; the write handler runs server-side and cannot see it.
     actor_role = resolve_actor_role()

@@ -156,6 +156,9 @@ def apply_fixture_schema(conn: Any) -> None:
     from yoke_core.domain.field_note_dash_promotion import (
         ensure_field_note_dash_promotion_schema,
     )
+    from yoke_core.domain.schema_ouroboros_columns import (
+        apply_ouroboros_columns,
+    )
     from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
     from yoke_core.domain.workflow_execution_instructions_schema import (
         ensure_workflow_execution_instructions_schema,
@@ -191,6 +194,7 @@ def apply_fixture_schema(conn: Any) -> None:
     ensure_workflow_execution_instructions_schema(conn, commit=False)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
+    apply_ouroboros_columns(conn)
     sync_machine_qa_pack_methods(conn)
     create_decision_request_tables(conn)
     conn.execute(

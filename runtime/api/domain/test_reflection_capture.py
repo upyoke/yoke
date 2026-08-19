@@ -19,9 +19,8 @@ from yoke_core.domain.reflection_capture import (
     capture_reflections,
     parse_reflection_blocks,
 )
-from yoke_core.domain.schema_init_apply import execute_schema_script
-from runtime.api.engines._doctor_native_sql_test_helpers import (
-    connect_disposable_test_db,
+from runtime.api.domain.reflection_capture_test_support import (
+    make_reflection_db as _make_reflection_db,
 )
 
 
@@ -204,33 +203,6 @@ class TestParseReflectionBlocks:
 # End-to-end capture tests
 # ---------------------------------------------------------------------------
 
-def _make_reflection_db():
-    """Create a disposable test DB with the ouroboros_entries table."""
-    conn = connect_disposable_test_db()
-    execute_schema_script(conn, """\
-        CREATE TABLE projects (
-            id INTEGER PRIMARY KEY,
-            slug TEXT UNIQUE,
-            name TEXT,
-            public_item_prefix TEXT DEFAULT 'YOK'
-        );
-        INSERT INTO projects (id, slug, name, public_item_prefix)
-        VALUES (1, 'yoke', 'Yoke', 'YOK');
-        CREATE TABLE ouroboros_entries (
-            id INTEGER PRIMARY KEY,
-            timestamp TEXT NOT NULL,
-            agent TEXT NOT NULL,
-            context TEXT,
-            category TEXT NOT NULL,
-            body TEXT NOT NULL,
-            reviewed_at TEXT,
-            archived_at TEXT,
-            project_id INTEGER,
-            created_at TEXT NOT NULL DEFAULT ''
-        );
-    """)
-    conn.commit()
-    return conn
 
 class TestCaptureReflections:
     def test_engineer_end_to_end(self):

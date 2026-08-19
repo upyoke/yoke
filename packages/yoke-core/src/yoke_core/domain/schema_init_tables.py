@@ -72,7 +72,8 @@ def create_core_tables(conn: Any) -> None:
           reviewed_at TEXT,
           archived_at TEXT,
           created_at TEXT NOT NULL,
-          project_id INTEGER DEFAULT NULL REFERENCES projects(id)
+          project_id INTEGER DEFAULT NULL REFERENCES projects(id),
+          target_project_id INTEGER DEFAULT NULL REFERENCES projects(id)
         );
         -- durable bounded carry-forward for Strategize landed-work review:
         -- one row per (project_id, item_id) ever seen as landed. `state`
