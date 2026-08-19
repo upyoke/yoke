@@ -123,9 +123,9 @@ provisioning and rehearsing can be two commands with no DSN in between. For
 Yoke's `external_validation` model, provision it with:
 
 ```bash
-# Yoke source repo only — in-tree, so it runs through the claimed-lane source
-# runner. Other projects hydrate their declared binding their own way.
-yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy
+# In-tree, so it runs through the claimed-lane source runner. Other projects
+# hydrate their declared binding their own way.
+yoke dev run -- python3 -m runtime.api.tools.authority_validation_copy  # Yoke source repo only
 ```
 
 The helper uses a bound target when one exists and otherwise derives one beside
