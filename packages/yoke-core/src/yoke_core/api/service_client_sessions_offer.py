@@ -145,7 +145,7 @@ def run_session_offer(
             _config_path,
             project_settings=project_routing_settings,
         )
-        # caller --lane is advisory; ownership anchors on the row.
+        # Executor default; a supplied --lane overrides the session row.
         resolved_lane = resolve_execution_lane(
             executor=executor,
             explicit_lane=None,

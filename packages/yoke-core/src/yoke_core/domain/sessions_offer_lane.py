@@ -1,33 +1,27 @@
-"""Row-anchored ``execution_lane`` resolution + cross-check for session-offer.
+"""Session-offer ``execution_lane`` resolution.
 
-Encapsulates the contract: the authoritative ``execution_lane``
-for a session offer is the value stored on the ``harness_sessions`` row
-(written by ``session-begin`` from the executor default-lane lookup).
-Caller-supplied ``--lane`` / request-body ``execution_lane`` values are
-**advisory at most**. When they disagree with the row, the server:
+The ``harness_sessions.execution_lane`` value (written by
+``session-begin`` from the executor default-lane lookup) is the
+**default**. A caller-supplied ``--lane`` / request-body
+``execution_lane`` overrides that default. When they disagree, the
+server:
 
-1. Uses the row value for filtering, envelope authorship, and the
+1. Uses the caller value for filtering, envelope authorship, and the
    downstream ``decide_next_action`` consumer.
-2. Emits a WARN ``SessionOfferLaneOverrideIgnored`` event carrying
-   both the caller-supplied value and the row's authoritative lane so
-   the misbehaving caller surfaces in the events ledger.
+2. Emits ``SessionOfferLaneOverrideApplied`` carrying
+   ``caller_supplied``, ``row_lane``, and ``resolved_lane``.
 
-The helper takes the row's ``execution_lane`` value as input (the
-calling site already issued the ``SELECT`` for ``ended_at`` and is in
-the best position to fetch the additional column in the same query).
+Two-stage shape so the event fires **before** schedule filtering,
+envelope merge, and ``decide_next_action`` see the lane:
 
-Two-stage shape so the warning event fires **before** schedule
-filtering, envelope merge, and ``decide_next_action`` see the lane:
+- :func:`anchor_lane_on_row` returns the resolved lane plus an
+  optional override payload.
+- :func:`emit_lane_override_applied_event` consumes the payload and
+  writes the event.
 
-- :func:`anchor_lane_on_row` returns the authoritative lane plus an
-  optional cross-check payload describing the mismatch.
-- :func:`emit_lane_override_ignored_event` consumes the payload and
-  writes the WARN event.
-
-Callers MUST emit the event before using the authoritative lane in
-schedule filtering / envelope authorship / decision-engine input so
-the event-ledger record cannot drift behind silent acceptance of the
-caller value.
+Callers MUST emit the event before using the resolved lane downstream
+so the ledger cannot drift behind silent acceptance of the caller
+value.
 """
 
 from __future__ import annotations
@@ -42,7 +36,7 @@ from yoke_harness.hooks.identity import is_codex
 from . import sessions_analytics as _sa
 from .sessions_lifecycle_canonicalize import canonicalize_executor
 
-LANE_OVERRIDE_IGNORED_EVENT_NAME = "SessionOfferLaneOverrideIgnored"
+LANE_OVERRIDE_APPLIED_EVENT_NAME = "SessionOfferLaneOverrideApplied"
 
 
 def merge_offer_envelope(
@@ -76,29 +70,29 @@ def merge_offer_envelope(
 class LaneAnchorResult:
     """Outcome of :func:`anchor_lane_on_row`.
 
-    ``authoritative_lane`` is always the row value — that is the single
-    source of truth callers must use for downstream work.
+    ``authoritative_lane`` is the lane callers must use downstream:
+    the caller-supplied value when one was passed (and is not the
+    ``default`` sentinel), otherwise the row value.
 
-    ``mismatch_payload`` is non-``None`` when the caller supplied a
+    ``override_payload`` is non-``None`` when the caller supplied a
     non-empty ``execution_lane`` that differs from the row value AND
-    is not the documented ``"default"`` sentinel that callers use to
-    say "use the executor default". The payload is the ``context``
-    dict for the warning event so the caller emits it verbatim.
+    is not the documented ``default`` sentinel. The payload is the
+    ``context`` dict for the override event so the caller emits it
+    verbatim.
     """
 
     authoritative_lane: str
-    mismatch_payload: Optional[dict]
+    override_payload: Optional[dict]
 
 
 def _is_default_sentinel(value: Optional[str]) -> bool:
-    """Return True when ``value`` is the documented ``"default"`` sentinel.
+    """Return True when ``value`` is the documented ``default`` sentinel.
 
-    ``resolve_execution_lane`` accepts ``"default"`` as a synonym for
+    ``resolve_execution_lane`` accepts ``default`` as a synonym for
     "use the executor default lane"; the row already carries that
     resolved value, so callers that pass ``--lane default`` are NOT
-    asserting an override and must NOT trip the mismatch warning.
-    The check is case-insensitive and tolerates leading/trailing
-    whitespace.
+    asserting an override. The check is case-insensitive and
+    tolerates leading/trailing whitespace.
     """
     if value is None:
         return False
@@ -108,102 +102,91 @@ def _is_default_sentinel(value: Optional[str]) -> bool:
     return stripped.lower() == "default"
 
 
+def _strip_or_empty(value: Optional[str]) -> str:
+    if value is None:
+        return ""
+    return value.strip()
+
+
 def anchor_lane_on_row(
     *,
     row_lane: Optional[str],
     caller_supplied_lane: Optional[str],
     resolved_lane: Optional[str] = None,
 ) -> LaneAnchorResult:
-    """Resolve the authoritative lane and detect caller-vs-row mismatch.
+    """Resolve the offer lane and detect an applied caller override.
 
     ``row_lane`` is the value read from ``harness_sessions.execution_lane``.
     ``caller_supplied_lane`` is the **raw** value the caller passed
-    (CLI ``--lane`` argument or HTTP request-body ``execution_lane``);
-    ``None`` (or empty) means "the caller did not pass a lane" and is
-    NOT a mismatch. ``resolved_lane`` is the value that
-    ``resolve_execution_lane`` would produce; the helper preserves it
-    in the warning payload for telemetry but never uses it as a
-    deciding factor.
+    (CLI ``--lane`` or HTTP request-body ``execution_lane``);
+    ``None`` (or empty) means "the caller did not pass a lane".
+    ``resolved_lane`` is the value that ``resolve_execution_lane``
+    would produce; the helper preserves it in the event payload for
+    telemetry but never uses it as a deciding factor.
 
-    Returns the row value as authoritative regardless of the caller
-    value, plus a mismatch payload (or ``None``) for the warning
-    event. An empty row lane remains empty so the downstream lane
-    policy gate can return ``lane_policy_unknown`` instead of silently
-    routing through a caller/default fallback. ``None`` is returned
-    for the payload when:
+    A supplied caller lane (other than the ``default`` sentinel) wins.
+    An empty row lane remains empty when the caller did not supply a
+    lane so the downstream lane policy gate can return
+    ``lane_policy_unknown``. ``None`` is returned for the payload
+    when:
 
-    - the caller did not supply a lane (``caller_supplied_lane`` is
-      ``None`` or empty after whitespace strip),
-    - the caller-supplied value is the documented ``"default"``
-      sentinel (interpreted as "use the executor default"),
+    - the caller did not supply a lane,
+    - the caller-supplied value is the ``default`` sentinel,
     - the caller value equals the row value (whitespace-normalised).
 
     The payload format is the ``context`` dict for
-    ``SessionOfferLaneOverrideIgnored``, with three named values:
+    ``SessionOfferLaneOverrideApplied``, with three named values:
 
     - ``caller_supplied`` — the raw value the caller passed.
-    - ``row_lane`` — the authoritative row value.
+    - ``row_lane`` — the row default.
     - ``resolved_lane`` — the value that
       ``resolve_execution_lane`` produced (or the caller value when
       the resolver was never consulted).
     """
-    if not row_lane or not row_lane.strip():
-        return LaneAnchorResult(
-            authoritative_lane="",
-            mismatch_payload=None,
-        )
+    row = _strip_or_empty(row_lane)
+    caller = _strip_or_empty(caller_supplied_lane)
 
-    authoritative = row_lane.strip()
+    if not caller or _is_default_sentinel(caller):
+        return LaneAnchorResult(authoritative_lane=row, override_payload=None)
 
-    if caller_supplied_lane is None:
-        return LaneAnchorResult(authoritative_lane=authoritative, mismatch_payload=None)
+    if caller == row:
+        return LaneAnchorResult(authoritative_lane=caller, override_payload=None)
 
-    caller_stripped = caller_supplied_lane.strip()
-    if not caller_stripped:
-        return LaneAnchorResult(authoritative_lane=authoritative, mismatch_payload=None)
-
-    if _is_default_sentinel(caller_stripped):
-        return LaneAnchorResult(authoritative_lane=authoritative, mismatch_payload=None)
-
-    if caller_stripped == authoritative:
-        return LaneAnchorResult(authoritative_lane=authoritative, mismatch_payload=None)
-
-    resolved_stripped = (resolved_lane or "").strip()
+    resolved_stripped = _strip_or_empty(resolved_lane)
     payload = {
-        "caller_supplied": caller_stripped,
-        "row_lane": authoritative,
-        "resolved_lane": resolved_stripped or caller_stripped,
+        "caller_supplied": caller,
+        "row_lane": row,
+        "resolved_lane": resolved_stripped or caller,
     }
-    return LaneAnchorResult(authoritative_lane=authoritative, mismatch_payload=payload)
+    return LaneAnchorResult(authoritative_lane=caller, override_payload=payload)
 
 
-def emit_lane_override_ignored_event(
+def emit_lane_override_applied_event(
     *,
     session_id: str,
     project: Optional[str],
     payload: dict,
 ) -> None:
-    """Emit the canonical WARN ``SessionOfferLaneOverrideIgnored`` event.
+    """Emit ``SessionOfferLaneOverrideApplied``.
 
     ``payload`` is the dict returned by :func:`anchor_lane_on_row` as
-    ``mismatch_payload``. Callers that received ``None`` for the
+    ``override_payload``. Callers that received ``None`` for the
     payload do NOT call this function.
 
-    The event carries ``severity="WARN"`` and routes through the same
-    ``sessions_analytics._emit_event`` helper that ``HarnessSessionOffered``
-    uses, so the row lands in the standard ``events`` ledger and is
-    discoverable via ``db_router events list --event-name SessionOfferLaneOverrideIgnored``.
+    Routes through the same ``sessions_analytics._emit_event`` helper
+    that ``HarnessSessionOffered`` uses, so the row lands in the
+    standard ``events`` ledger.
     """
     _sa._emit_event(
-        LANE_OVERRIDE_IGNORED_EVENT_NAME,
+        LANE_OVERRIDE_APPLIED_EVENT_NAME,
         event_kind="system",
-        event_type="session_offer_lane_override_ignored",
+        event_type="session_offer_lane_override_applied",
         source_type="backend",
         session_id=session_id,
         project=project,
         context=dict(payload),
         outcome="completed",
-        severity="WARN",
+        severity="INFO",
     )
 
 
@@ -223,9 +206,8 @@ def build_offer_envelope(
 ) -> Dict[str, Any]:
     """Build the per-offer identity dict written into ``harness_sessions.offer_envelope``.
 
-    ``execution_lane`` is the **authoritative** lane (row-anchored
-    after :func:`anchor_lane_on_row`); the helper does not consult
-    any caller-supplied value.
+    ``execution_lane`` is the resolved lane after
+    :func:`anchor_lane_on_row`.
 
     Persists the Codex thread UUID under ``runtime_session_id`` when
     the executor is a Codex variant so cross-process telemetry can
@@ -272,7 +254,7 @@ def emit_session_offered_event(
     step: int,
     supported_paths: List[str],
 ) -> None:
-    """Emit the canonical ``HarnessSessionOffered`` event with row-anchored lane."""
+    """Emit the canonical ``HarnessSessionOffered`` event with the resolved lane."""
     canonical_executor, display_name = canonicalize_executor(executor, None)
     context: Dict[str, Any] = {
         "session_id": session_id,
@@ -300,11 +282,11 @@ def emit_session_offered_event(
 
 
 __all__ = [
-    "LANE_OVERRIDE_IGNORED_EVENT_NAME",
+    "LANE_OVERRIDE_APPLIED_EVENT_NAME",
     "LaneAnchorResult",
     "anchor_lane_on_row",
     "build_offer_envelope",
-    "emit_lane_override_ignored_event",
+    "emit_lane_override_applied_event",
     "emit_session_offered_event",
     "merge_offer_envelope",
 ]

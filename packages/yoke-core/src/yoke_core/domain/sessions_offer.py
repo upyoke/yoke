@@ -16,7 +16,7 @@ from .sessions_offer_envelope_merge import merge_offer_envelope
 from .sessions_offer_lane import (
     anchor_lane_on_row,
     build_offer_envelope,
-    emit_lane_override_ignored_event,
+    emit_lane_override_applied_event,
     emit_session_offered_event,
 )
 from .sessions_offer_revalidation import emit_chain_budget_unused_if_remaining
@@ -77,12 +77,12 @@ def session_offer_with_ownership(
         provider: Model provider (e.g., ``anthropic``).
         model: Model identifier.
         workspace: Absolute workspace path.
-        execution_lane: Resolved lane (kept for backward compatibility;
-            superseded by the row-anchored value).
+        execution_lane: Resolved executor-default lane (telemetry /
+            fallback when the caller did not supply a lane).
         caller_supplied_lane: Raw value the CLI / HTTP caller passed
-            via ``--lane`` / request body ``execution_lane``. Used
-            **only** for the cross-check warning; never as the
-            authoritative lane.
+            via ``--lane`` / request body ``execution_lane``. When
+            present (and not the ``default`` sentinel), this value
+            overrides the session-row default.
         capabilities: Session capability tags.
         supported_paths: Canonical downstream path names the session can
             execute (e.g., ``["advance", "shepherd"]``). When omitted,
@@ -111,8 +111,9 @@ def session_offer_with_ownership(
             - ``schedule_result``: The raw SchedulerResult for adapter use.
             - ``action_hint``: One of ``resume``, ``charge``, ``no_work``
               indicating what the caller should do with the decision engine.
-            - ``authoritative_lane``: Row-anchored ``execution_lane``;
-              callers MUST use this for downstream lane-policy work.
+            - ``authoritative_lane``: Resolved ``execution_lane``
+              (caller override or session-row default); callers MUST
+              use this for downstream lane-policy work.
     """
     from .scheduler import compute_schedule
     from .session_project_scope import resolve_session_project_scope
@@ -140,11 +141,12 @@ def session_offer_with_ownership(
     if harness_caps.get("source") == "shared_registry":
         _supported = harness_caps.get("downstream_paths", [])
 
-    # read the row first so the authoritative ``execution_lane``
-    # anchors envelope authorship, the ``HarnessSessionOffered`` event,
-    # schedule filtering, and the downstream ``decide_next_action``
-    # consumer. Combine the ``ended_at`` existence check with the lane
-    # and prior-envelope read so the offer path issues one row read.
+    # read the row first so lane resolution (row default, caller
+    # override) can feed envelope authorship, the
+    # ``HarnessSessionOffered`` event, schedule filtering, and the
+    # downstream ``decide_next_action`` consumer. Combine the
+    # ``ended_at`` existence check with the lane and prior-envelope
+    # read so the offer path issues one row read.
     row = conn.execute(
         "SELECT ended_at, execution_lane, offer_envelope "
         f"FROM harness_sessions WHERE session_id = {_p(conn)}",
@@ -168,11 +170,11 @@ def session_offer_with_ownership(
         resolved_lane=execution_lane,
     )
     project_label = _canonical_project_label(conn, scope)
-    if anchor.mismatch_payload is not None:
-        emit_lane_override_ignored_event(
+    if anchor.override_payload is not None:
+        emit_lane_override_applied_event(
             session_id=session_id,
             project=project_label,
-            payload=anchor.mismatch_payload,
+            payload=anchor.override_payload,
         )
     authoritative_lane = anchor.authoritative_lane
 

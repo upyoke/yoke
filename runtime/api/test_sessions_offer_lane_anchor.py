@@ -1,15 +1,15 @@
-"""Unit + integration coverage for the row-anchored lane fix.
+"""Unit + integration coverage for session-offer lane resolution.
 
 Covers:
 
-* :func:`anchor_lane_on_row` always returns the row value as
-  authoritative, even when callers pass a mismatching ``--lane``.
-* mismatches build the canonical ``SessionOfferLaneOverrideIgnored``
+* :func:`anchor_lane_on_row` uses the session-row lane as the default
+  and a caller-supplied lane as an override.
+* overrides build the canonical ``SessionOfferLaneOverrideApplied``
   payload (``caller_supplied`` + ``row_lane`` + ``resolved_lane``).
-* the documented ``default`` sentinel does NOT trip the warning.
-* :func:`session_offer_with_ownership` emits the WARN event before
-  ``HarnessSessionOffered`` so the event ledger records the bad
-  caller before any routing artefact is written.
+* the documented ``default`` sentinel does NOT trip the override event.
+* :func:`session_offer_with_ownership` emits the override event before
+  ``HarnessSessionOffered`` so the event ledger records the applied
+  lane before any routing artefact is written.
 """
 
 from __future__ import annotations
@@ -17,8 +17,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import time
-from typing import List
 
 import pytest
 
@@ -26,19 +24,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from yoke_core.domain.sessions_offer import session_offer_with_ownership
 from yoke_core.domain.sessions_offer_lane import (
-    LANE_OVERRIDE_IGNORED_EVENT_NAME,
+    LANE_OVERRIDE_APPLIED_EVENT_NAME,
     LaneAnchorResult,
     anchor_lane_on_row,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 class TestAnchorLaneOnRow:
-    """Pure unit coverage for the row-anchor decision shape."""
+    """Pure unit coverage for the row-default / caller-override shape."""
 
     def test_no_caller_lane_returns_row_value(self):
         result = anchor_lane_on_row(
@@ -48,56 +47,70 @@ class TestAnchorLaneOnRow:
         )
         assert isinstance(result, LaneAnchorResult)
         assert result.authoritative_lane == "DARIUS"
-        assert result.mismatch_payload is None
+        assert result.override_payload is None
 
-    def test_caller_matches_row_no_warning(self):
+    def test_caller_matches_row_no_event(self):
         result = anchor_lane_on_row(
             row_lane="DARIUS",
             caller_supplied_lane="DARIUS",
             resolved_lane="DARIUS",
         )
         assert result.authoritative_lane == "DARIUS"
-        assert result.mismatch_payload is None
+        assert result.override_payload is None
 
-    def test_caller_mismatch_emits_payload_and_uses_row(self):
+    def test_caller_mismatch_uses_caller_and_emits_payload(self):
         result = anchor_lane_on_row(
             row_lane="DARIUS",
             caller_supplied_lane="primary",
             resolved_lane="primary",
         )
-        assert result.authoritative_lane == "DARIUS"
-        assert result.mismatch_payload == {
+        assert result.authoritative_lane == "primary"
+        assert result.override_payload == {
             "caller_supplied": "primary",
             "row_lane": "DARIUS",
             "resolved_lane": "primary",
         }
 
-    def test_default_sentinel_does_not_warn(self):
+    def test_default_sentinel_does_not_override(self):
         result = anchor_lane_on_row(
             row_lane="DARIUS",
             caller_supplied_lane="default",
             resolved_lane="DARIUS",
         )
         assert result.authoritative_lane == "DARIUS"
-        assert result.mismatch_payload is None
+        assert result.override_payload is None
 
-    def test_empty_caller_does_not_warn(self):
+    def test_empty_caller_does_not_override(self):
         result = anchor_lane_on_row(
             row_lane="DARIUS",
             caller_supplied_lane="   ",
             resolved_lane="DARIUS",
         )
-        assert result.mismatch_payload is None
+        assert result.authoritative_lane == "DARIUS"
+        assert result.override_payload is None
 
-    def test_empty_row_stays_empty_for_policy_unknown(self):
+    def test_empty_row_without_caller_stays_empty_for_policy_unknown(self):
         """Bad row data must flow to the lane-policy unknown branch."""
+        result = anchor_lane_on_row(
+            row_lane=None,
+            caller_supplied_lane=None,
+            resolved_lane="primary",
+        )
+        assert result.authoritative_lane == ""
+        assert result.override_payload is None
+
+    def test_empty_row_with_caller_uses_caller(self):
         result = anchor_lane_on_row(
             row_lane=None,
             caller_supplied_lane="primary",
             resolved_lane="primary",
         )
-        assert result.authoritative_lane == ""
-        assert result.mismatch_payload is None
+        assert result.authoritative_lane == "primary"
+        assert result.override_payload == {
+            "caller_supplied": "primary",
+            "row_lane": "",
+            "resolved_lane": "primary",
+        }
 
 
 def _run_offer_capture_anchor(
@@ -140,7 +153,7 @@ def _run_offer_capture_anchor(
     try:
         rows = read_conn.execute(
             "SELECT envelope FROM events WHERE event_name = %s AND session_id = %s",
-            (LANE_OVERRIDE_IGNORED_EVENT_NAME, session_id),
+            (LANE_OVERRIDE_APPLIED_EVENT_NAME, session_id),
         ).fetchall()
     finally:
         read_conn.close()
@@ -152,8 +165,6 @@ def _run_offer_capture_anchor(
             parsed = json.loads(blob)
         except json.JSONDecodeError:
             continue
-        # events.emit_event stores the full envelope; the lane
-        # override payload lives under ``context``.
         ctx = parsed.get("context") if isinstance(parsed, dict) else None
         if isinstance(ctx, dict):
             contexts.append(ctx)
@@ -179,10 +190,10 @@ def _seed_session_with_lane(db_path: str, session_id: str, lane: str) -> None:
     conn.close()
 
 
-class TestSessionOfferWithOwnershipAnchorsLane:
-    """Ownership emits the WARN event and uses the row lane."""
+class TestSessionOfferWithOwnershipHonorsCallerLane:
+    """Ownership emits the override event and uses the caller lane."""
 
-    def test_caller_mismatch_emits_lane_override_ignored(
+    def test_caller_mismatch_emits_lane_override_applied(
         self, session_offer_db, monkeypatch
     ):
         sid = "anchor-mismatch"
@@ -194,14 +205,14 @@ class TestSessionOfferWithOwnershipAnchorsLane:
             execution_lane="primary",
             monkeypatch=monkeypatch,
         )
-        assert authoritative == "DARIUS"
+        assert authoritative == "primary"
         assert len(envelopes) == 1
         ctx = envelopes[0]
         assert ctx["caller_supplied"] == "primary"
         assert ctx["row_lane"] == "DARIUS"
         assert ctx["resolved_lane"] == "primary"
 
-    def test_caller_match_emits_no_warning(
+    def test_caller_match_emits_no_override_event(
         self, session_offer_db, monkeypatch
     ):
         sid = "anchor-match"
@@ -216,7 +227,7 @@ class TestSessionOfferWithOwnershipAnchorsLane:
         assert authoritative == "DARIUS"
         assert envelopes == []
 
-    def test_default_sentinel_emits_no_warning(
+    def test_default_sentinel_emits_no_override_event(
         self, session_offer_db, monkeypatch
     ):
         sid = "anchor-default"
@@ -231,7 +242,7 @@ class TestSessionOfferWithOwnershipAnchorsLane:
         assert authoritative == "DARIUS"
         assert envelopes == []
 
-    def test_envelope_persists_row_lane_not_caller(
+    def test_envelope_persists_caller_lane(
         self, session_offer_db, monkeypatch
     ):
         sid = "anchor-envelope"
@@ -250,4 +261,4 @@ class TestSessionOfferWithOwnershipAnchorsLane:
         ).fetchone()
         conn.close()
         envelope = json.loads(row[0])
-        assert envelope["execution_lane"] == "DARIUS"
+        assert envelope["execution_lane"] == "primary"

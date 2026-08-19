@@ -68,7 +68,7 @@ SESSION_OFFER_URGENT_RE = re.compile(
 )
 SESSION_OFFER_SUMMARY_NARRATIVE_RE = re.compile(
     r"^(HarnessSessionOffered|NextActionChosen|SchedulerOfferSkipped|"
-    r"SessionOfferLaneOverrideIgnored|=== )",
+    r"SessionOfferLaneOverrideApplied|=== )",
 )
 # Final NextAction envelope: single line starting with ``{"action":``.
 SESSION_OFFER_SUMMARY_JSON_RE = re.compile(r'^\{"action":')
