@@ -175,6 +175,7 @@ def session_offer_with_ownership(
             session_id=session_id,
             project=project_label,
             payload=anchor.override_payload,
+            conn=conn,
         )
     authoritative_lane = anchor.authoritative_lane
 

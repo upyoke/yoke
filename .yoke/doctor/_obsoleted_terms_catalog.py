@@ -122,7 +122,7 @@ _RETIRED_MODULE_PATH_OVERRIDE_PATTERN = r"--module-path-override\b"
 _RETIRED_MIGRATION_APPLY_STAGE_PATTERN = r'"kind"\s*:\s*"migration_apply"'
 _RETIRED_APPLIED_EVERYWHERE_PATTERN = r"applied\-everywhere evidence"
 _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = (
-    "SessionOffer" + "LaneOverrideIgnored"
+    "SessionOffer" + r"LaneOverrideIgnored\b"
 )
 
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (

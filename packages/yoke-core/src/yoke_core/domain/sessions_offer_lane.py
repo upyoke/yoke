@@ -166,6 +166,7 @@ def emit_lane_override_applied_event(
     session_id: str,
     project: Optional[str],
     payload: dict,
+    conn: Any = None,
 ) -> None:
     """Emit ``SessionOfferLaneOverrideApplied``.
 
@@ -173,20 +174,26 @@ def emit_lane_override_applied_event(
     ``override_payload``. Callers that received ``None`` for the
     payload do NOT call this function.
 
-    Routes through the same ``sessions_analytics._emit_event`` helper
-    that ``HarnessSessionOffered`` uses, so the row lands in the
-    standard ``events`` ledger.
+    Pass the offer connection so the row commits with the offer
+    transaction. A conn-less emit is isolation-gated in tests and can
+    miss the fixture database.
     """
-    _sa._emit_event(
+    from .events import emit_event
+    from .events_schema import ensure_event_schema
+
+    if conn is not None:
+        ensure_event_schema(conn)
+    emit_event(
         LANE_OVERRIDE_APPLIED_EVENT_NAME,
         event_kind="system",
         event_type="session_offer_lane_override_applied",
         source_type="backend",
         session_id=session_id,
-        project=project,
+        project=project or "yoke",
         context=dict(payload),
         outcome="completed",
         severity="INFO",
+        conn=conn,
     )
 
 

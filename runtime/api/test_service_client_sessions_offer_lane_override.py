@@ -59,7 +59,11 @@ def _envelope_lane(db_path: str, session_id: str) -> str | None:
 class TestCallerSuppliedLaneOverridesRow:
     """--lane wins over the session row when the caller supplies it."""
 
-    def test_caller_primary_against_darius_row_emits_applied(self, session_offer_db):
+    def test_caller_primary_against_darius_row_emits_applied(
+        self, session_offer_db, monkeypatch
+    ):
+        monkeypatch.delenv("YOKE_EVENTS_ISOLATION", raising=False)
+        monkeypatch.delenv("YOKE_EVENTS_CAPTURE", raising=False)
         sid = "lane-anchor-applied"
         _pre_register_session(
             session_offer_db["db_path"],

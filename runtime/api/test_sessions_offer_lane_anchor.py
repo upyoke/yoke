@@ -134,6 +134,8 @@ def _run_offer_capture_anchor(
     canonical value upstream of this helper is preserved.
     """
     monkeypatch.setenv("YOKE_DB", db_path)
+    monkeypatch.delenv("YOKE_EVENTS_ISOLATION", raising=False)
+    monkeypatch.delenv("YOKE_EVENTS_CAPTURE", raising=False)
     conn = connect_test_db(db_path)
     try:
         result = session_offer_with_ownership(
