@@ -67,9 +67,9 @@ def _ensure_dependency_schema(conn) -> None:
 def _insert_dep(conn, *, dependent: int, blocking: int, satisfaction: str) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "created_at) VALUES (%s, %s, 'integration', %s, 'test', %s)",
-        (f"YOK-{dependent}", f"YOK-{blocking}", satisfaction, iso8601_now()),
+        (dependent, blocking, satisfaction, iso8601_now()),
     )
     conn.commit()
 

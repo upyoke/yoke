@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
-from yoke_core.domain.item_ref_columns import column_item_id_sql
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import (
     render_item_ref,
     resolve_project,
@@ -143,24 +143,22 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
 
         # Check 4: Unsatisfied hard-block dependencies
         hard_block_filter = _hard_block_gate_filter(conn)
-        dependent_item_id = column_item_id_sql(conn, "dep.dependent_item")
-        blocking_item_id = column_item_id_sql(conn, "dep.blocking_item")
         blocked = query_rows(
             conn,
-            "SELECT dep.dependent_item || ' (blocked by ' || dep.blocking_item || ')' "
+            "SELECT dep.dependent_item_id, dep.blocking_item_id "
             "FROM item_dependencies dep "
             "JOIN deployment_run_items dri "
-            f"  ON dri.item_id = {dependent_item_id} "
+            "  ON dri.item_id = dep.dependent_item_id "
             "WHERE dri.run_id=%s "
             f"  {hard_block_filter}"
             "  AND NOT EXISTS ( "
             "    SELECT 1 FROM deployment_run_items dri2 "
             "    WHERE dri2.run_id=%s "
-            f"      AND dri2.item_id = {blocking_item_id} "
+            "      AND dri2.item_id = dep.blocking_item_id "
             "  ) "
             "  AND NOT EXISTS ( "
             "    SELECT 1 FROM items blocker "
-            f"    WHERE blocker.id = {blocking_item_id} "
+            "    WHERE blocker.id = dep.blocking_item_id "
             "      AND ( "
             "        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
             "        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "
@@ -173,7 +171,11 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
             (run_id, run_id),
         )
         if blocked:
-            items_str = ", ".join(str(r[0]) for r in blocked)
+            items_str = ", ".join(
+                f"{render_column_item_ref(conn, r[0])} (blocked by "
+                f"{render_column_item_ref(conn, r[1])})"
+                for r in blocked
+            )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
         if errors:
@@ -257,18 +259,16 @@ def cmd_check_batch_compatibility(
 
         # Check 4: Unsatisfied hard-block deps outside batch
         hard_block_filter = _hard_block_gate_filter(conn)
-        dependent_item_id = column_item_id_sql(conn, "dep.dependent_item")
-        blocking_item_id = column_item_id_sql(conn, "dep.blocking_item")
         blocked = query_rows(
             conn,
-            f"SELECT dep.dependent_item || ' (blocked by ' || dep.blocking_item || ')' "
+            f"SELECT dep.dependent_item_id, dep.blocking_item_id "
             f"FROM item_dependencies dep "
-            f"WHERE {dependent_item_id} IN ({placeholders}) "
+            f"WHERE dep.dependent_item_id IN ({placeholders}) "
             f"  {hard_block_filter}"
-            f"  AND {blocking_item_id} NOT IN ({placeholders}) "
+            f"  AND dep.blocking_item_id NOT IN ({placeholders}) "
             f"  AND NOT EXISTS ( "
             f"    SELECT 1 FROM items blocker "
-            f"    WHERE blocker.id = {blocking_item_id} "
+            f"    WHERE blocker.id = dep.blocking_item_id "
             f"      AND ( "
             f"        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
             f"        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "
@@ -281,7 +281,11 @@ def cmd_check_batch_compatibility(
             tuple(item_ids) + tuple(item_ids),
         )
         if blocked:
-            items_str = ", ".join(str(r[0]) for r in blocked)
+            items_str = ", ".join(
+                f"{render_column_item_ref(conn, r[0])} (blocked by "
+                f"{render_column_item_ref(conn, r[1])})"
+                for r in blocked
+            )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
         if errors:

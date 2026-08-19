@@ -81,11 +81,11 @@ def _validate(model_cls, payload: Any, label: str):
 
 
 def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
-    """The dispatcher target rendered as the ref the DB columns store.
+    """The dispatcher target rendered as the public PREFIX-N API token.
 
-    ``target.item_id`` is the internal ``items.id``; the dependency columns
-    hold the public ref, so the id renders through its own project's
-    prefix + project sequence rather than being restamped with a prefix.
+    ``target.item_id`` is the internal ``items.id``. Storage keeps that
+    id; the handler result still names the item by its own project's
+    prefix + project sequence.
     """
     item_id = request.target.item_id
     if request.target.kind != "item" or item_id is None:

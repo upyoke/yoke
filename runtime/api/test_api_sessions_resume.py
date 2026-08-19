@@ -39,7 +39,7 @@ class TestSessionOfferResume:
     """Resume-flow paths for POST /v1/sessions/offer."""
 
     @pytest.fixture(autouse=True)
-    def setup_client(self, session_offer_db):
+    def setup_client(self, session_offer_db):  # noqa: F811
         self.client = TestClient(app)
         self.client.headers.update(session_offer_db["auth_headers"])
         self.db_info = session_offer_db
@@ -259,7 +259,7 @@ class TestSessionOfferResume:
         # takes the no_runnable_items branch. Without these adjustments the
         # leftover state would either route via escalate (dependent still
         # blocked) or via charge on the dependent (idea → refine).
-        conn.execute("DELETE FROM item_dependencies WHERE dependent_item='YOK-12'")
+        conn.execute("DELETE FROM item_dependencies WHERE dependent_item_id=12")
         conn.execute("UPDATE items SET frozen=1 WHERE id=12")
         p = _p(conn)
         conn.execute(

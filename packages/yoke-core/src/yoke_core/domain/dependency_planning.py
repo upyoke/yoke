@@ -37,7 +37,7 @@ from .dependency_planning_results import (
 )
 from .dependency_planning_telemetry import emit_batch_gate_evaluated
 from .dependency_workflow_context import workflow_from_joined_values
-from .item_ref_columns import column_item_id_sql
+from .item_ref_columns import render_column_item_ref, resolve_column_item_ref
 from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
@@ -49,33 +49,31 @@ def _p(conn: Any) -> str:
 
 def _item_deps_sql(conn: Any) -> str:
     p = _p(conn)
-    blocking_id = column_item_id_sql(conn, "d.blocking_item")
     return f"""
-SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
+SELECT d.id, d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = {blocking_id}
+LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
-WHERE d.dependent_item = {p} AND d.gate_point = {p}
+WHERE d.dependent_item_id = {p} AND d.gate_point = {p}
 """
 
 
 def _batch_deps_sql(conn: Any) -> str:
     p = _p(conn)
-    blocking_id = column_item_id_sql(conn, "d.blocking_item")
     return f"""
-SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
+SELECT d.dependent_item_id, d.blocking_item_id, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
        {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
        bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = {blocking_id}
+LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
@@ -98,8 +96,16 @@ def evaluate_item_gate(
     # Validate gate_point
     GatePoint.from_db(gate_point)
 
+    resolved = resolve_column_item_ref(conn, item_id)
+    if resolved is None:
+        return ItemGateEvaluation(
+            item_id=item_id,
+            gate_point=gate_point,
+            is_blocked=False,
+            unsatisfied_blockers=[],
+        )
     cursor = conn.cursor()
-    cursor.execute(_item_deps_sql(conn), (item_id, gate_point))
+    cursor.execute(_item_deps_sql(conn), (resolved, gate_point))
 
     unsatisfied: List[BlockerDetail] = []
     for row in cursor.fetchall():
@@ -137,7 +143,7 @@ def evaluate_item_gate(
 
         if not result.satisfied:
             unsatisfied.append(BlockerDetail(
-                blocking_item=blk_item,
+                blocking_item=render_column_item_ref(conn, blk_item),
                 blocking_status=blk_status,
                 gate_point=gp,
                 satisfaction=sat,
@@ -215,14 +221,14 @@ def evaluate_batch_gates(
 
         if not result.satisfied:
             detail = BlockerDetail(
-                blocking_item=blk_item,
+                blocking_item=render_column_item_ref(conn, blk_item),
                 blocking_status=blk_status,
                 gate_point=gp,
                 satisfaction=sat,
                 rationale=rationale or "",
                 reason=result.reason,
             )
-            blocks.setdefault(dep_item, []).append(detail)
+            blocks.setdefault(render_column_item_ref(conn, dep_item), []).append(detail)
 
     # Emit DependencyGateEvaluated batch summary
     if emit_events:

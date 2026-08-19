@@ -27,6 +27,7 @@ from yoke_core.domain.dependencies import evaluate_satisfaction
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
@@ -51,37 +52,32 @@ def _query_blockers(
 ) -> List[Tuple[str, str, str]]:
     """Return ``[(blocking_item, gate_point, satisfaction), ...]``.
 
-    ``dependent_item`` stores public text refs whose shape may vary
-    (``PREFIX-N``, bare numeric, zero-padded); each row's ref resolves to
-    its internal ``items.id`` through the canonical parser before being
-    compared to ``item_id`` — a stripped ``PREFIX-N`` number is a project
-    sequence, not the internal id, so string comparison would both miss
-    real blocks and gate the wrong item once the two diverge.
+    ``blocking_item`` in the result is the public PREFIX-N display token.
     """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     if gate_filter:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT dependent_item, blocking_item, gate_point, satisfaction "
-            f"FROM item_dependencies WHERE gate_point = {p} "
-            "ORDER BY blocking_item",
-            (gate_filter,),
+            "SELECT blocking_item_id, gate_point, satisfaction "
+            f"FROM item_dependencies WHERE dependent_item_id = {p} "
+            f"AND gate_point = {p} ORDER BY blocking_item_id",
+            (item_id, gate_filter),
         )
     else:
         rows = db_helpers.query_rows(
             conn,
-            "SELECT dependent_item, blocking_item, gate_point, satisfaction "
-            "FROM item_dependencies ORDER BY blocking_item",
-            (),
+            "SELECT blocking_item_id, gate_point, satisfaction "
+            f"FROM item_dependencies WHERE dependent_item_id = {p} "
+            "ORDER BY blocking_item_id",
+            (item_id,),
         )
     return [
-        (row["blocking_item"], row["gate_point"], row["satisfaction"])
-        for row in rows
-        if parse_item_id_or_none(
-            row["dependent_item"], conn=conn, allow_bare_internal=True
+        (
+            render_column_item_ref(conn, row["blocking_item_id"]),
+            row["gate_point"],
+            row["satisfaction"],
         )
-        == item_id
+        for row in rows
     ]
 
 

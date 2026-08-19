@@ -101,15 +101,15 @@ _SCHEMA_DDL = """
 
     CREATE TABLE IF NOT EXISTS item_dependencies (
         id INTEGER PRIMARY KEY,
-        dependent_item TEXT NOT NULL,
-        blocking_item TEXT NOT NULL,
+        dependent_item_id INTEGER NOT NULL,
+        blocking_item_id INTEGER NOT NULL,
         gate_point TEXT NOT NULL DEFAULT 'activation',
         satisfaction TEXT NOT NULL DEFAULT 'status:done',
         source TEXT NOT NULL DEFAULT 'test',
         rationale TEXT NOT NULL DEFAULT '',
         evidence_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL,
-        UNIQUE(dependent_item, blocking_item, gate_point)
+        UNIQUE(dependent_item_id, blocking_item_id, gate_point)
     );
 
 """

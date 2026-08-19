@@ -51,33 +51,22 @@ def _has_dep_edge(
     dependent_item_id: int,
     blocking_item_id: int,
 ) -> bool:
-    """Return True when ``dependent_item`` declares a non-terminal edge
-    to ``blocking_item`` (one-way, callers compose for bidirectional).
+    """Return True when the dependent declares an edge to the blocker.
 
-    ``item_dependencies`` rows store public text refs (``PREFIX-N``);
-    each ref resolves to its internal ``items.id`` through the canonical
-    parser before comparison — a stripped ``PREFIX-N`` number is a
-    project sequence, not the internal id the claim rows carry. Terminal
-    status on the *blocking* item is interpreted by the satisfaction
-    predicate elsewhere; the resolver itself only checks for the edge's
-    existence. When the ``item_dependencies`` table does not exist (test
-    fixtures that omit it, restricted projects), the resolver returns
-    ``False`` rather than raising — dep-graph awareness is additive over
-    today's behavior.
+    When the ``item_dependencies`` table does not exist (test fixtures
+    that omit it, restricted projects), the resolver returns ``False``
+    rather than raising — dep-graph awareness is additive.
     """
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
+    placeholder = _placeholder(conn)
     rows = fetch_optional_rows(
         conn,
-        "SELECT dependent_item, blocking_item FROM item_dependencies",
+        "SELECT 1 FROM item_dependencies "
+        f"WHERE dependent_item_id = {placeholder} "
+        f"AND blocking_item_id = {placeholder} LIMIT 1",
+        (dependent_item_id, blocking_item_id),
         savepoint="_yoke_item_dependencies_probe",
     )
-    for raw_dep, raw_blk in rows:
-        rd = parse_item_id_or_none(raw_dep, conn=conn, allow_bare_internal=True)
-        rb = parse_item_id_or_none(raw_blk, conn=conn, allow_bare_internal=True)
-        if rd == dependent_item_id and rb == blocking_item_id:
-            return True
-    return False
+    return bool(rows)
 
 
 def has_bidirectional_dep_edge(

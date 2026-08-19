@@ -25,37 +25,50 @@ def _seed_dependency(
     p = _p(conn)
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
         "source, rationale, evidence_json, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, 'test', 'seeded by test', '{{}}', '2026-01-01T00:00:00Z')",
-        (dependent, blocking, gate_point, satisfaction),
+        (
+            int(str(dependent).rsplit("-", 1)[-1]),
+            int(str(blocking).rsplit("-", 1)[-1]),
+            gate_point,
+            satisfaction,
+        ),
     )
     conn.commit()
     conn.close()
 
 
+def _stored_item_id(value):
+    if value is None:
+        return None
+    return value if isinstance(value, int) else int(str(value).rsplit("-", 1)[-1])
+
+
 def _dependency_rows(path, *, dependent=None, blocking=None):
-    """Return rows matching the given direction filter."""
+    """Return stored id rows matching the given direction filter."""
     conn = _conn(path)
     p = _p(conn)
-    select = "SELECT dependent_item, blocking_item, gate_point, satisfaction FROM item_dependencies "
+    dependent = _stored_item_id(dependent)
+    blocking = _stored_item_id(blocking)
+    select = "SELECT dependent_item_id, blocking_item_id, gate_point, satisfaction FROM item_dependencies "
     if dependent is not None and blocking is not None:
         rows = conn.execute(
             select
-            + f"WHERE dependent_item = {p} AND blocking_item = {p} ORDER BY gate_point",
+            + f"WHERE dependent_item_id = {p} AND blocking_item_id = {p} ORDER BY gate_point",
             (dependent, blocking),
         ).fetchall()
     elif dependent is not None:
         rows = conn.execute(
-            select + f"WHERE dependent_item = {p} ORDER BY blocking_item, gate_point",
+            select + f"WHERE dependent_item_id = {p} ORDER BY blocking_item_id, gate_point",
             (dependent,),
         ).fetchall()
     elif blocking is not None:
         rows = conn.execute(
-            select + f"WHERE blocking_item = {p} ORDER BY dependent_item, gate_point",
+            select + f"WHERE blocking_item_id = {p} ORDER BY dependent_item_id, gate_point",
             (blocking,),
         ).fetchall()
     else:
         rows = conn.execute(select + "ORDER BY id").fetchall()
     conn.close()
-    return [tuple(r) for r in rows]
+    return [(int(r[0]), int(r[1]), r[2], r[3]) for r in rows]

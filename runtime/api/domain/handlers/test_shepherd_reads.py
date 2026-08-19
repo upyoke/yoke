@@ -75,6 +75,8 @@ class TestShepherdDependencyList:
 
 class TestShepherdDependencyWrites:
     def test_add_update_remove_round_trip(self, test_db):
+        for item_id in (10, 30):
+            insert_item(test_db, id=item_id, title=f"item {item_id}")
         add_outcome = shepherd_dependency_writes.handle_shepherd_dependency_add(
             _write_request(
                 "shepherd.dependency_add.run",

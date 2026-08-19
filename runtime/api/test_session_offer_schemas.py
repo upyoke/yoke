@@ -184,8 +184,8 @@ def _apply_session_offer_schema() -> None:
         # Hard-block: child is blocked by parent (which is not terminal)
         conn.execute(
             """INSERT INTO item_dependencies
-               (dependent_item, blocking_item, gate_point, satisfaction, source, rationale, created_at)
-               VALUES ('YOK-12', 'YOK-10', 'activation', 'status:done', 'shepherd', 'YOK-12 depends on YOK-10', '2026-03-01T00:00:00Z')"""
+               (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, rationale, created_at)
+               VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'YOK-12 depends on YOK-10', '2026-03-01T00:00:00Z')"""
         )
         from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 

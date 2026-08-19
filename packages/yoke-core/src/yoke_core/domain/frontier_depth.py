@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 
 _ACTIVATION_EDGES_SQL = """
-SELECT d.blocking_item, d.dependent_item
+SELECT d.blocking_item_id, d.dependent_item_id
 FROM item_dependencies d
 WHERE d.gate_point = 'activation'
 """
@@ -14,19 +14,19 @@ WHERE d.gate_point = 'activation'
 
 def _compute_downstream_depths(
     conn: Any,
-) -> Dict[str, int]:
+) -> Dict[int, int]:
     """Compute max downstream depth for each item via activation-gate edges."""
     cursor = conn.cursor()
     cursor.execute(_ACTIVATION_EDGES_SQL)
 
-    adj: Dict[str, List[str]] = {}
+    adj: Dict[int, List[int]] = {}
     for blocker, dependent in cursor.fetchall():
-        adj.setdefault(blocker, []).append(dependent)
+        adj.setdefault(int(blocker), []).append(int(dependent))
 
-    memo: Dict[str, int] = {}
-    on_stack: set[str] = set()
+    memo: Dict[int, int] = {}
+    on_stack: set[int] = set()
 
-    def max_depth(node: str) -> int:
+    def max_depth(node: int) -> int:
         if node in memo:
             return memo[node]
         if node in on_stack:

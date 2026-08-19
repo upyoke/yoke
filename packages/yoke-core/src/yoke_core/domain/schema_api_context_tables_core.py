@@ -139,8 +139,8 @@ CORE_TABLES: dict[str, dict] = {
     "item_dependencies": {
         "columns": [
             ("id", "INTEGER"),
-            ("dependent_item", "TEXT"),
-            ("blocking_item", "TEXT"),
+            ("dependent_item_id", "INTEGER"),
+            ("blocking_item_id", "INTEGER"),
             ("gate_point", "TEXT"),
             ("satisfaction", "TEXT"),
             ("source", "TEXT"),
@@ -150,19 +150,19 @@ CORE_TABLES: dict[str, dict] = {
             ("created_at", "TEXT"),
         ],
         "notes": (
-            "Directional edges between items. dependent_item waits on "
-            "blocking_item per gate_point ('activation', 'integration', "
+            "Directional edges between items. The dependent waits on "
+            "the blocker per gate_point ('activation', 'integration', "
             "'closure', or 'coordination_only' — the last attests "
             "compatible same-file edits with no lifecycle gate). "
-            "dependent_item/blocking_item store public PREFIX-N text refs, "
-            "not numeric items.id values. The gate categorization is "
-            "`gate_point`; there is NO "
+            "dependent_item_id/blocking_item_id are integer FKs to "
+            "items.id. API/list still project PREFIX-N. The gate "
+            "categorization is `gate_point`; there is NO "
             "`classification` column on this table. satisfaction is "
             "one of 'status:done', 'status:implemented', 'fact:merged'. "
             "source enum: conduct, feed, idea, migration, operator, "
             "refine, shepherd. Reader `shepherd.dependency_list.run` "
             "projects `direction`/`other_item` (wrong guess: result keys "
-            "`dependent_item`/`blocking_item` — those are SQL columns)."
+            "`dependent_item`/`blocking_item` — storage is *_item_id)."
         ),
     },
     "events": {

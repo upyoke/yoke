@@ -91,8 +91,8 @@ _MINIMAL_SCHEMA_DDL = """
 
     CREATE TABLE IF NOT EXISTS item_dependencies (
         id INTEGER PRIMARY KEY,
-        dependent_item TEXT NOT NULL,
-        blocking_item TEXT NOT NULL,
+        dependent_item_id INTEGER NOT NULL,
+        blocking_item_id INTEGER NOT NULL,
         satisfaction TEXT DEFAULT 'status:done'
     );
 """

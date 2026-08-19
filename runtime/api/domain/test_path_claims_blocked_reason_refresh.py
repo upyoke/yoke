@@ -87,8 +87,8 @@ class TestEdgeChangeRefresh:
         )
         conn.execute(
             "UPDATE item_dependencies SET gate_point='coordination_only' "
-            "WHERE dependent_item=%s AND blocking_item=%s",
-            (f"YOK-{seeded['c_item']}", f"YOK-{seeded['a_item']}"),
+            "WHERE dependent_item_id=%s AND blocking_item_id=%s",
+            (seeded['c_item'], seeded['a_item']),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(
@@ -121,8 +121,8 @@ class TestEdgeChangeRefresh:
         )
         conn.execute(
             "DELETE FROM item_dependencies "
-            "WHERE dependent_item=%s AND blocking_item=%s",
-            (f"YOK-{seeded['c_item']}", f"YOK-{seeded['a_item']}"),
+            "WHERE dependent_item_id=%s AND blocking_item_id=%s",
+            (seeded['c_item'], seeded['a_item']),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(
@@ -153,8 +153,8 @@ class TestEdgeChangeRefresh:
         )
         conn.execute(
             "DELETE FROM item_dependencies "
-            "WHERE dependent_item=%s AND blocking_item=%s",
-            (f"YOK-{seeded['c_item']}", f"YOK-{seeded['a_item']}"),
+            "WHERE dependent_item_id=%s AND blocking_item_id=%s",
+            (seeded['c_item'], seeded['a_item']),
         )
         conn.commit()
         refreshed = refresh_blocked_reason_for_edge_change(

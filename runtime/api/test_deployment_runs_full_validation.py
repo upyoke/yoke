@@ -141,8 +141,8 @@ class TestValidateComposition:
 
         conn = _conn(db_path)
         conn.execute(
-            "INSERT INTO item_dependencies (dependent_item, blocking_item, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'status:done', 'test', '2026-04-20T00:00:00Z')"
+            "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'status:done', 'test', '2026-04-20T00:00:00Z')"
         )
         conn.commit()
         conn.close()
@@ -160,8 +160,8 @@ class TestValidateComposition:
         conn = _conn(db_path)
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'coordination_only', 'fact:merged', 'test', "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'coordination_only', 'fact:merged', 'test', "
             "'2026-04-20T00:00:00Z')"
         )
         conn.commit()
@@ -180,8 +180,8 @@ class TestValidateComposition:
 
         conn = _conn(db_path)
         conn.execute(
-            "INSERT INTO item_dependencies (dependent_item, blocking_item, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'status:done', 'test', '2026-04-20T00:00:00Z')"
+            "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'status:done', 'test', '2026-04-20T00:00:00Z')"
         )
         conn.commit()
         conn.close()
@@ -199,8 +199,8 @@ class TestValidateComposition:
 
         conn = _conn(db_path)
         conn.execute(
-            "INSERT INTO item_dependencies (dependent_item, blocking_item, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'status:done', 'test', '2026-04-20T00:00:00Z')"
+            "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'status:done', 'test', '2026-04-20T00:00:00Z')"
         )
         conn.commit()
         conn.close()
@@ -295,8 +295,8 @@ class TestCheckBatchCompatibility:
 
         conn = _conn(db_path)
         conn.execute(
-            "INSERT INTO item_dependencies (dependent_item, blocking_item, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'status:done', 'test', '2026-04-20T00:00:00Z')"
+            "INSERT INTO item_dependencies (dependent_item_id, blocking_item_id, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'status:done', 'test', '2026-04-20T00:00:00Z')"
         )
         conn.commit()
         conn.close()
@@ -317,8 +317,8 @@ class TestCheckBatchCompatibility:
         conn = _conn(db_path)
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, source, created_at) "
-            "VALUES ('YOK-100', 'YOK-200', 'coordination_only', 'fact:merged', 'test', "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, created_at) "
+            "VALUES (100, 200, 'coordination_only', 'fact:merged', 'test', "
             "'2026-04-20T00:00:00Z')"
         )
         conn.commit()

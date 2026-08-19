@@ -17,18 +17,19 @@ from yoke_core.domain.shepherd_records import (
 )
 
 
-def _refresh_blocked_reasons(conn, dependent: str, blocking: str) -> None:
-    """Trigger wording refresh after an item_dependencies edge change.
-
-    ``dependent`` and ``blocking`` are public refs produced by
-    :func:`normalize_item_id`; the refresh helper keys on internal item
-    ids, so each side resolves through prefix + project sequence first. A
-    ref naming no item is skipped — there is no claim to re-word.
-    """
-    dep_id = resolve_column_item_ref(conn, dependent)
-    blk_id = resolve_column_item_ref(conn, blocking)
+def _edge_ids(conn, dependent: str, blocking: str) -> tuple[int, int]:
+    """Resolve API tokens to the integer ids stored on the edge."""
+    dep_id = resolve_column_item_ref(conn, normalize_item_id(dependent, conn))
+    blk_id = resolve_column_item_ref(conn, normalize_item_id(blocking, conn))
     if dep_id is None or blk_id is None:
-        return
+        raise LookupError(
+            f"item not found for dependency {dependent}->{blocking}"
+        )
+    return dep_id, blk_id
+
+
+def _refresh_blocked_reasons(conn, dep_id: int, blk_id: int) -> None:
+    """Trigger wording refresh after an item_dependencies edge change."""
     refresh_blocked_reason_for_edge_change(
         conn,
         dependent_item_id=dep_id,
@@ -64,22 +65,21 @@ def cmd_dependency_add(
     evidence_json: str = "{}",
     session_id: Optional[int] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent, conn)
-    blocking = normalize_item_id(blocking, conn)
     _validate_dependency_fields(source, gate_point, satisfaction)
+    dep_id, blk_id = _edge_ids(conn, dependent, blocking)
 
     satisfaction = satisfaction or _DEFAULT_SATISFACTION.get(gate_point, "status:done")
     rationale = rationale or f"Operator-declared {gate_point} dependency"
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "session_id, rationale, evidence_json, created_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT(dependent_item, blocking_item, gate_point) DO NOTHING",
+        "ON CONFLICT(dependent_item_id, blocking_item_id, gate_point) DO NOTHING",
         (
-            dependent,
-            blocking,
+            dep_id,
+            blk_id,
             gate_point,
             satisfaction,
             source,
@@ -90,7 +90,7 @@ def cmd_dependency_add(
         ),
     )
     conn.commit()
-    _refresh_blocked_reasons(conn, dependent, blocking)
+    _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
 
 
@@ -116,13 +116,12 @@ def cmd_dependency_update(
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent, conn)
-    blocking = normalize_item_id(blocking, conn)
+    dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     _validate_dependency_update_inputs(match_gate_point, gate_point, satisfaction, rationale)
 
     p = _placeholder(conn)
-    where_parts = [f"dependent_item={p}", f"blocking_item={p}"]
-    params: list = [dependent, blocking]
+    where_parts = [f"dependent_item_id={p}", f"blocking_item_id={p}"]
+    params: list = [dep_id, blk_id]
     if match_gate_point:
         where_parts.append(f"gate_point={p}")
         params.append(match_gate_point)
@@ -147,7 +146,7 @@ def cmd_dependency_update(
         tuple(set_params + params),
     )
     conn.commit()
-    _refresh_blocked_reasons(conn, dependent, blocking)
+    _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
 
 
@@ -212,10 +211,10 @@ def _ensure_gate_point_update_is_available(
     conflict = query_scalar(
         conn,
         "SELECT COUNT(*) FROM item_dependencies "
-        f"WHERE dependent_item={_placeholder(conn)} "
-        f"AND blocking_item={_placeholder(conn)} "
+        f"WHERE dependent_item_id={_placeholder(conn)} "
+        f"AND blocking_item_id={_placeholder(conn)} "
         f"AND gate_point={_placeholder(conn)}",
-        (dependent, blocking, gate_point),
+        (params[0], params[1], gate_point),
     )
     if conflict:
         raise ValueError(f"cannot change gate_point to {gate_point} — edge already exists")
@@ -230,13 +229,15 @@ def cmd_dependency_reconcile(
 ) -> str:
     if source not in VALID_SOURCES:
         raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
-    scope_item = normalize_item_id(scope_item, conn)
+    scope_id = resolve_column_item_ref(conn, normalize_item_id(scope_item, conn))
+    if scope_id is None:
+        raise LookupError(f"item not found: {scope_item}")
     if gate_point_filter and gate_point_filter not in VALID_GATE_POINTS:
         raise ValueError(f"invalid gate_point: {gate_point_filter}")
 
-    delete_params: list = [source, scope_item]
+    delete_params: list = [source, scope_id]
     p = _placeholder(conn)
-    delete_where = f"source={p} AND dependent_item={p}"
+    delete_where = f"source={p} AND dependent_item_id={p}"
     if gate_point_filter:
         delete_where += f" AND gate_point={p}"
         delete_params.append(gate_point_filter)
@@ -252,9 +253,9 @@ def cmd_dependency_reconcile(
         if edge is not None:
             edges.append(edge)
     prior_pairs = {
-        (str(row[0]), str(row[1]))
+        (int(row[0]), int(row[1]))
         for row in conn.execute(
-            f"SELECT dependent_item, blocking_item "
+            f"SELECT dependent_item_id, blocking_item_id "
             f"FROM item_dependencies WHERE {delete_where}",
             tuple(delete_params),
         ).fetchall()
@@ -264,13 +265,13 @@ def cmd_dependency_reconcile(
     for edge in edges:
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
             f"rationale, evidence_json, created_at) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-            "ON CONFLICT(dependent_item, blocking_item, gate_point) DO NOTHING",
+            "ON CONFLICT(dependent_item_id, blocking_item_id, gate_point) DO NOTHING",
             edge,
         )
     conn.execute("COMMIT")
-    refreshed_pairs = prior_pairs | {(str(edge[0]), str(edge[1])) for edge in edges}
+    refreshed_pairs = prior_pairs | {(int(edge[0]), int(edge[1])) for edge in edges}
     for dependent, blocking in sorted(refreshed_pairs):
         _refresh_blocked_reasons(conn, dependent, blocking)
     return "OK"
@@ -280,8 +281,7 @@ def _parse_dependency_edge(conn, line: str, source: str, ts: str) -> tuple | Non
     parts = line.split()
     if len(parts) < 4:
         return None
-    dependent = normalize_item_id(parts[0], conn)
-    blocking = normalize_item_id(parts[1], conn)
+    dependent, blocking = _edge_ids(conn, parts[0], parts[1])
     gate_point = parts[2]
     satisfaction = parts[3]
     rationale = " ".join(parts[4:]) if len(parts) > 4 else ""
@@ -298,23 +298,22 @@ def cmd_dependency_remove(
     blocking: str,
     session_id: Optional[int] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent, conn)
-    blocking = normalize_item_id(blocking, conn)
+    dep_id, blk_id = _edge_ids(conn, dependent, blocking)
     if session_id is not None:
         p = _placeholder(conn)
         conn.execute(
             "DELETE FROM item_dependencies "
-            f"WHERE dependent_item={p} AND blocking_item={p} AND session_id={p}",
-            (dependent, blocking, session_id),
+            f"WHERE dependent_item_id={p} AND blocking_item_id={p} AND session_id={p}",
+            (dep_id, blk_id, session_id),
         )
     else:
         p = _placeholder(conn)
         conn.execute(
-            f"DELETE FROM item_dependencies WHERE dependent_item={p} AND blocking_item={p}",
-            (dependent, blocking),
+            f"DELETE FROM item_dependencies WHERE dependent_item_id={p} AND blocking_item_id={p}",
+            (dep_id, blk_id),
         )
     conn.commit()
-    _refresh_blocked_reasons(conn, dependent, blocking)
+    _refresh_blocked_reasons(conn, dep_id, blk_id)
     return "OK"
 
 

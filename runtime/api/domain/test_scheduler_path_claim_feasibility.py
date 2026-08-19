@@ -66,8 +66,8 @@ CREATE TABLE path_claim_targets (
 );
 CREATE TABLE item_dependencies (
     id INTEGER PRIMARY KEY,
-    dependent_item INTEGER,
-    blocking_item INTEGER,
+    dependent_item_id INTEGER,
+    blocking_item_id INTEGER,
     gate_point TEXT,
     satisfaction TEXT,
     source TEXT,
@@ -220,7 +220,7 @@ class TestCoordinationOnlyFeasible:
         # the candidate-as-DEPENDENT side.
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
             "source, rationale, created_at) "
             "VALUES (42, 43, 'coordination_only', 'compatible', "
             "'agent', 'independent edits on the same path', "
@@ -228,7 +228,7 @@ class TestCoordinationOnlyFeasible:
         )
         conn.execute(
             "INSERT INTO item_dependencies "
-            "(dependent_item, blocking_item, gate_point, satisfaction, "
+            "(dependent_item_id, blocking_item_id, gate_point, satisfaction, "
             "source, rationale, created_at) "
             "VALUES (43, 42, 'coordination_only', 'compatible', "
             "'agent', 'independent edits on the same path', "

@@ -21,11 +21,10 @@ def format_row(row) -> str:
 
 
 def normalize_item_id(raw: str, conn: Any) -> str:
-    """Canonicalize an item token to the public ref the DB columns store.
+    """Canonicalize an item token to the public PREFIX-N API form.
 
-    ``item_dependencies.dependent_item`` / ``.blocking_item`` hold public
-    refs, so the result is rendered from the resolved item's own project —
-    a blocker in another project canonicalizes to that project's prefix,
+    The result is rendered from the resolved item's own project — a
+    blocker in another project canonicalizes to that project's prefix,
     never the caller's. Accepts a public ``PREFIX-N`` ref or a bare item
     id; anything else raises.
     """

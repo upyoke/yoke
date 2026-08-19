@@ -46,7 +46,10 @@ from yoke_core.domain.dependency_explanation import (  # noqa: F401 — public A
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
-from yoke_core.domain.item_ref_columns import column_item_id_sql
+from yoke_core.domain.item_ref_columns import (
+    render_column_item_ref,
+    resolve_column_item_ref,
+)
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
@@ -143,8 +146,8 @@ def evaluate_satisfaction(
 _UNSATISFIED_DEPS_SQL = """
 SELECT
     d.id,
-    d.dependent_item,
-    d.blocking_item,
+    d.dependent_item_id,
+    d.blocking_item_id,
     d.gate_point,
     d.satisfaction,
     d.rationale,
@@ -157,9 +160,9 @@ SELECT
     wv.definition_json,
     wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = {blocking_item_id_sql}
+LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
-WHERE d.dependent_item = {p}
+WHERE d.dependent_item_id = {p}
   AND d.gate_point = {p}
 """
 
@@ -182,14 +185,16 @@ def query_unsatisfied_at_gate(
     Returns:
         List of ``(DependencyEdge, GateResult)`` for each unsatisfied dep.
     """
+    resolved = resolve_column_item_ref(conn, dependent_item)
+    if resolved is None:
+        return []
     cursor = conn.cursor()
     cursor.execute(
         _UNSATISFIED_DEPS_SQL.format(
             p=_p(conn),
             blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
-            blocking_item_id_sql=column_item_id_sql(conn, "d.blocking_item"),
         ),
-        (dependent_item, gate_point),
+        (resolved, gate_point),
     )
     results: List[Tuple[DependencyEdge, GateResult]] = []
 
@@ -212,8 +217,8 @@ def query_unsatisfied_at_gate(
         ) = row
         edge = DependencyEdge(
             dep_id=dep_id,
-            dependent_item=dep_item,
-            blocking_item=blk_item,
+            dependent_item=render_column_item_ref(conn, dep_item),
+            blocking_item=render_column_item_ref(conn, blk_item),
             gate_point=gp,
             satisfaction=sat,
             rationale=rationale,
@@ -246,8 +251,8 @@ def query_unsatisfied_at_gate(
 
 _FRONTIER_BLOCKS_SQL = """
 SELECT
-    d.dependent_item,
-    d.blocking_item,
+    d.dependent_item_id,
+    d.blocking_item_id,
     d.gate_point,
     d.satisfaction,
     bi.status AS blocking_status,
@@ -259,7 +264,7 @@ SELECT
     wv.definition_json,
     wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = {blocking_item_id_sql}
+LEFT JOIN items bi ON bi.id = d.blocking_item_id
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
@@ -282,7 +287,6 @@ def query_frontier_blocks(
         _FRONTIER_BLOCKS_SQL.format(
             p=_p(conn),
             blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
-            blocking_item_id_sql=column_item_id_sql(conn, "d.blocking_item"),
         ),
         (gate_point,),
     )
@@ -318,8 +322,13 @@ def query_frontier_blocks(
             ),
         )
         if not result.satisfied:
-            blocks.setdefault(dep_item, []).append(
-                (blk_item, blk_status or "unknown", sat, result.reason)
+            blocks.setdefault(render_column_item_ref(conn, dep_item), []).append(
+                (
+                    render_column_item_ref(conn, blk_item),
+                    blk_status or "unknown",
+                    sat,
+                    result.reason,
+                )
             )
 
     return blocks

@@ -59,7 +59,7 @@ _EXPECTED_SCHEMA_STR = (
     "|item_activity_days:id/INTEGER,project_id/INTEGER,item_id/INTEGER,day/TEXT"
     "|project_code_days:id/INTEGER,project_id/INTEGER,day/TEXT,"
     "commit_count/INTEGER,lines_changed/INTEGER"
-    "|item_dependencies:id/INTEGER,dependent_item/TEXT,blocking_item/TEXT,gate_point/TEXT,satisfaction/TEXT,source/TEXT,session_id/INTEGER,rationale/TEXT,evidence_json/TEXT,created_at/TEXT"
+    "|item_dependencies:id/INTEGER,dependent_item_id/INTEGER,blocking_item_id/INTEGER,gate_point/TEXT,satisfaction/TEXT,source/TEXT,session_id/INTEGER,rationale/TEXT,evidence_json/TEXT,created_at/TEXT"
     "|item_sections:item_id/INTEGER,section_name/TEXT,content/TEXT,ordering/INTEGER,source/TEXT,created_at/TEXT,updated_at/TEXT"
     "|item_status_transitions:id/INTEGER,item_id/INTEGER,task_num/INTEGER,from_status/TEXT,to_status/TEXT,source/TEXT,session_id/TEXT,actor_id/INTEGER,project_id/INTEGER,created_at/TEXT"
     "|item_strategy_docs:item_id/INTEGER,project_id/INTEGER,strategy_doc_slug/TEXT,linked_by_actor_id/INTEGER,linked_by_session_id/TEXT,linked_at/TEXT"

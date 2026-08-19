@@ -135,8 +135,8 @@ class GateEvaluation:
     """A single dependency gate evaluation for a scheduled step.
 
     Attributes:
-        blocking_item: The blocker's public text ref exactly as stored on
-            the ``item_dependencies`` row (e.g. ``YOK-1907``).
+        blocking_item: The blocker's public PREFIX-N display token
+            (e.g. ``YOK-1907``).
         relation: Always ``blocker`` in the canonical model.
         gate_point: When the dependency matters (e.g., ``activation``).
         satisfaction: What must be true for resolution (e.g., ``status:done``).

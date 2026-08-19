@@ -43,12 +43,12 @@ def test_coordination_only_edge_clears_claim_and_frontier_contacts(test_db):
 
     test_db.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "rationale, created_at) VALUES (%s, %s, 'coordination_only', "
         "'fact:merged', 'test', %s, '2026-07-29T00:00:00Z')",
         (
-            f"YOK-{candidate_id}",
-            f"YOK-{blocker_id}",
+            candidate_id,
+            blocker_id,
             "decision=coordination_only. shared_paths=src/shared_registry.py. "
             "independence_evidence=disjoint functions",
         ),
@@ -65,10 +65,10 @@ def test_coordination_only_edge_clears_claim_and_frontier_contacts(test_db):
 
     test_db.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "rationale, created_at) VALUES (%s, %s, 'activation', "
         "'fact:merged', 'test', 'ordered change', '2026-07-29T00:01:00Z')",
-        (f"YOK-{candidate_id}", f"YOK-{blocker_id}"),
+        (candidate_id, blocker_id),
     )
     test_db.commit()
 
@@ -135,11 +135,11 @@ def test_optional_dash_proposes_narrowing_for_downstream_frozen_claim(test_db):
     )
     test_db.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "rationale, created_at) VALUES (%s, %s, 'activation', "
         "'fact:merged', 'test', 'upstream dash lands first', "
         "'2026-08-18T00:00:00Z')",
-        (f"YOK-{blocker_id}", f"YOK-{candidate_id}"),
+        (blocker_id, candidate_id),
     )
     test_db.commit()
 

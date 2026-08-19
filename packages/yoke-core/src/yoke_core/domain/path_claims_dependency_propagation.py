@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, List, Optional, Set
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.path_claims_dependency_binding_lock import (
     lock_candidate_item_bindings,
 )
@@ -79,28 +78,20 @@ def _dep_satisfied_downstream_claims(
     blocking_status = _item_status(conn, blocking_item_id)
     try:
         edges = conn.execute(
-            "SELECT dependent_item, blocking_item, satisfaction FROM item_dependencies"
+            "SELECT dependent_item_id, blocking_item_id, satisfaction "
+            "FROM item_dependencies"
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
-    # Stored refs are public (prefix + project sequence); resolve every side
-    # to an internal id in one query before comparing to the claim's item id.
-    resolved = internal_ids_for_refs(
-        conn,
-        {str(edge[0]) for edge in edges} | {str(edge[1]) for edge in edges},
-    )
     satisfied_dependent_items: Set[int] = set()
     for raw_dep, raw_blk, sat in edges:
-        if resolved.get(str(raw_blk)) != blocking_item_id:
+        if int(raw_blk) != blocking_item_id:
             continue
         sat_text = str(sat or "status:done").strip()
         if sat_text.startswith("status:"):
             wanted = sat_text.split(":", 1)[1].strip()
             if blocking_status == wanted:
-                dependent_id = resolved.get(str(raw_dep))
-                if dependent_id is None:
-                    continue
-                satisfied_dependent_items.add(dependent_id)
+                satisfied_dependent_items.add(int(raw_dep))
 
     if not satisfied_dependent_items:
         return []

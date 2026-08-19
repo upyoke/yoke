@@ -87,17 +87,11 @@ def hc_path_claim_register_rejected_with_deps(
         ).fetchone()
         if blocking_row is None or blocking_row[0] is None:
             continue
-        # Match the canonical stored ref and the bare-id shape both; the
-        # ref columns hold public refs while some rows carry a bare id.
-        ref_a = render_column_item_ref(conn, int(item_id))
-        ref_b = str(int(item_id))
-        upstream_a = render_column_item_ref(conn, int(blocking_row[0]))
-        upstream_b = str(int(blocking_row[0]))
         edge_row = conn.execute(
             "SELECT 1 FROM item_dependencies "
-            f"WHERE dependent_item IN ({placeholder}, {placeholder}) "
-            f"AND blocking_item IN ({placeholder}, {placeholder}) LIMIT 1",
-            (ref_a, ref_b, upstream_a, upstream_b),
+            f"WHERE dependent_item_id = {placeholder} "
+            f"AND blocking_item_id = {placeholder} LIMIT 1",
+            (int(item_id), int(blocking_row[0])),
         ).fetchone()
         if edge_row is None:
             continue

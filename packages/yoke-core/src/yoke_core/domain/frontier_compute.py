@@ -81,9 +81,8 @@ def compute_frontier(
         emit_events=emit_events,
     )
 
-    # Dependency edges store public text refs whose sequence may diverge
-    # from the internal id; rekey every edge-derived map by internal id
-    # so lookups share the scheduler's internal currency.
+    # Planning still keys blocker details by the public PREFIX-N token;
+    # rekey those maps by internal id for the scheduler.
     hard_blocks: Dict[int, List[Tuple[str, str]]] = remap_ref_keys_to_internal(
         conn,
         {
@@ -105,13 +104,11 @@ def compute_frontier(
     )
 
     cursor.execute(UNBLOCKS_COUNT_SQL)
-    unblocks_map: Dict[int, int] = remap_ref_keys_to_internal(
-        conn, dict(cursor.fetchall()),
-    )
+    unblocks_map: Dict[int, int] = {
+        int(row[0]): int(row[1]) for row in cursor.fetchall()
+    }
 
-    depth_map: Dict[int, int] = remap_ref_keys_to_internal(
-        conn, _compute_downstream_depths(conn),
-    )
+    depth_map: Dict[int, int] = _compute_downstream_depths(conn)
 
     wip_active = 0
     wip_active_items: List[int] = []

@@ -54,11 +54,18 @@ def _insert_dependency(
 ) -> None:
     conn.execute(
         "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, source, "
+        "(dependent_item_id, blocking_item_id, gate_point, satisfaction, source, "
         "rationale, evidence_json, created_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, "
         "'{}', '2026-05-13T00:00:00Z')",
-        (dependent, blocking, gate_point, satisfaction, source, rationale),
+        (
+            int(str(dependent).rsplit("-", 1)[-1]),
+            int(str(blocking).rsplit("-", 1)[-1]),
+            gate_point,
+            satisfaction,
+            source,
+            rationale,
+        ),
     )
     conn.commit()
 

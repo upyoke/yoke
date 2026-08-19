@@ -183,8 +183,8 @@ def _apply_session_offer_schema() -> None:
         )
         conn.execute(
             """INSERT INTO item_dependencies
-               (dependent_item, blocking_item, gate_point, satisfaction, source, rationale, created_at)
-               VALUES ('YOK-12', 'YOK-10', 'activation', 'status:done', 'shepherd', 'Task 12 depends on task 10', '2026-04-20T00:00:00Z')"""
+               (dependent_item_id, blocking_item_id, gate_point, satisfaction, source, rationale, created_at)
+               VALUES (12, 10, 'activation', 'status:done', 'shepherd', 'Task 12 depends on task 10', '2026-04-20T00:00:00Z')"""
         )
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
             conn, "issue",

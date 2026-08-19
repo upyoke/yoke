@@ -87,8 +87,8 @@ class TestComposeOverlapDenialWithConflicts:
             );
             CREATE TABLE item_dependencies (
                 id INTEGER PRIMARY KEY,
-                dependent_item INTEGER,
-                blocking_item INTEGER,
+                dependent_item_id INTEGER,
+                blocking_item_id INTEGER,
                 gate_point TEXT,
                 source TEXT
             );

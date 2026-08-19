@@ -42,6 +42,10 @@ def _request(payload: dict | None = None) -> FunctionCallRequest:
     )
 
 
+def _stored_item_id(value: str | int) -> int:
+    return value if isinstance(value, int) else int(str(value).rsplit("-", 1)[-1])
+
+
 def _insert_dependency(
     conn,
     *,
@@ -52,10 +56,16 @@ def _insert_dependency(
 ) -> None:
     conn.execute(
         "INSERT INTO item_dependencies ("
-        "dependent_item, blocking_item, gate_point, satisfaction, "
+        "dependent_item_id, blocking_item_id, gate_point, satisfaction, "
         "source, rationale, created_at"
         ") VALUES (%s, %s, %s, 'status:done', 'test', %s, %s)",
-        (dependent_item, blocking_item, gate_point, rationale, _iso()),
+        (
+            _stored_item_id(dependent_item),
+            _stored_item_id(blocking_item),
+            gate_point,
+            rationale,
+            _iso(),
+        ),
     )
     conn.commit()
 
