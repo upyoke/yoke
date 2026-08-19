@@ -14,12 +14,12 @@ server is already accepting connections).
 
 Subcommands::
 
-    python3 -m yoke_core.tools.pg_testcluster start     # initdb + start; prints exports
-    python3 -m yoke_core.tools.pg_testcluster env       # prints exports for a running cluster
-    python3 -m yoke_core.tools.pg_testcluster status
-    python3 -m yoke_core.tools.pg_testcluster prune      # reclaim orphaned test DBs
-    python3 -m yoke_core.tools.pg_testcluster stop       # stop server, keep data dir
-    python3 -m yoke_core.tools.pg_testcluster destroy    # stop + remove data dir
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster env
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster status
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster stop
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster destroy
 
 One cluster serves every concurrent invocation on the machine. Isolation
 comes from owner-tagged database names
@@ -31,9 +31,9 @@ of wanting a wholly private cluster.
 
 Typical local proof flow::
 
-    eval "$(python3 -m yoke_core.tools.pg_testcluster start)"
+    eval "$(yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start)"
     yoke watch pytest -- runtime/api/
-    python3 -m yoke_core.tools.pg_testcluster destroy
+    yoke dev run -- python3 -m yoke_core.tools.pg_testcluster destroy
 """
 
 from __future__ import annotations

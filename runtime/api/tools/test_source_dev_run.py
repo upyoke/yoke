@@ -247,8 +247,9 @@ def test_import_failure_names_the_source_runner(monkeypatch, tmp_path):
     [
         ["yoke", "agents", "render", "--target-root", "."],
         [sys.executable, "-m", "pytest", "runtime/api/test_example.py"],
+        ["python3", "-m", "yoke_core.tools.pg_testcluster", "status"],
     ],
-    ids=("renderer", "focused-pytest"),
+    ids=("renderer", "focused-pytest", "ambient-python3"),
 )
 def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
     monkeypatch,
@@ -278,9 +279,14 @@ def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
 
     monkeypatch.setattr(source_dev_run.subprocess, "run", _run)
 
+    expected = (
+        [sys.executable, *command[1:]]
+        if Path(command[0]).name in source_dev_run.AMBIENT_PYTHON_NAMES
+        else command
+    )
     assert source_dev_run.run(["--", *command]) == 0
     assert captured == {
-        "args": command,
+        "args": expected,
         "cwd": str(tmp_path),
         "env": {"PYTHONPATH": "lane-roots"},
         "check": False,

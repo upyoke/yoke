@@ -330,7 +330,7 @@ time budget, so a large backlog drains over several runs and reports how many
 it deferred. Run one directly with:
 
 ```bash
-python3 -m yoke_core.tools.pg_testcluster prune
+yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune
 ```
 
 Interrupting a run through `watch_pytest`, `run_tests`, or a QA registered

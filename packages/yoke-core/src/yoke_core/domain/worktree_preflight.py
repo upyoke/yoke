@@ -292,7 +292,7 @@ def _parse_item_id(value: str) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python3 -m yoke_core.domain.worktree_preflight",
+        prog="yoke dev run -- python3 -m yoke_core.domain.worktree_preflight",
         description="Harness-universal /yoke advance worktree re-entry primitive.",
     )
     parser.add_argument("--item", required=True, help="YOK-N or numeric item id")
