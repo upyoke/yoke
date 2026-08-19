@@ -119,7 +119,7 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         root=tmp_path,
         project_id=17,
         command=["python3", scanner, "secret value"],
-        read_only_signature=f"python-script:{scanner}",
+        authority_signature=f"read-only-python-script:{scanner}",
     )
 
     assert error is None
@@ -131,7 +131,7 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         "command_name": "python3",
         "argument_count": 2,
         "fallback_reason": "no_live_claimed_yoke_source_lane",
-        "read_only_signature": f"python-script:{scanner}",
+        "authority_signature": f"read-only-python-script:{scanner}",
     }
     assert "secret value" not in repr(payload)
     assert captured["actor"].session_id == "session-1"
@@ -179,7 +179,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     assert source_dev_run.run(["python3", scanner]) == 0
     assert [entry[0] for entry in order] == ["event", "child"]
     assert f"source checkout: {tmp_path}" in order[0][1]
-    assert "read-only" in order[0][1]
+    assert "registered operation" in order[0][1]
     assert "source imports:" in order[1][1]
     assert order[0][2]["session_id"] == "session-1"
     assert order[1][2]["cwd"] == str(tmp_path)
@@ -205,6 +205,35 @@ def test_fallback_refuses_arbitrary_commands_before_import_resolution(
     assert "only permits registered read-only scanners" in capsys.readouterr().err
     imports.assert_not_called()
     child.assert_not_called()
+
+
+def test_fallback_accepts_install_sync_only_for_a_claimed_target(
+    monkeypatch,
+    tmp_path,
+):
+    claimed = tmp_path / "claimed"
+    unclaimed = tmp_path / "unclaimed"
+    claimed.mkdir()
+    unclaimed.mkdir()
+    monkeypatch.setattr(
+        source_dev_run.verification_tree_binding,
+        "ambient_session_id",
+        lambda: "session-1",
+    )
+    monkeypatch.setattr(
+        source_dev_run.verification_tree_binding,
+        "resolve_claim_worktrees",
+        lambda _session_id: ClaimLookup(
+            worktrees=(str(claimed),),
+            reachable=True,
+        ),
+    )
+    prefix = source_dev_run.MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX
+
+    assert source_dev_run._claimed_target_signature([*prefix, str(claimed)]) == (
+        "claimed-target-python-module:install-bundle-sync"
+    )
+    assert source_dev_run._claimed_target_signature([*prefix, str(unclaimed)]) is None
 
 
 def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):

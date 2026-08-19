@@ -20,6 +20,9 @@ MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
         "runtime/api/tools/scan_item_ref_construction.py",
     }
 )
+MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX = tuple(
+    shlex.split(_source_pythonpath.INSTALL_BUNDLE_SYNC_RECIPE.partition("-- ")[2])[:-1]
+)
 
 
 def _bound_command(args: list[str]) -> list[str]:
@@ -149,7 +152,31 @@ def _main_checkout_read_only_signature(
         return None
     if relative not in MAIN_CHECKOUT_READ_ONLY_SCRIPTS or not candidate.is_file():
         return None
-    return f"python-script:{relative}"
+    return f"read-only-python-script:{relative}"
+
+
+def _claimed_target_signature(command: Sequence[str]) -> str | None:
+    """Classify install-bundle sync when its destination is a claimed lane."""
+    if tuple(command[:-1]) != MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX:
+        return None
+    target = Path(command[-1]).expanduser().resolve()
+    session_id = verification_tree_binding.ambient_session_id()
+    lookup = verification_tree_binding.resolve_claim_worktrees(session_id)
+    if not lookup.reachable:
+        return None
+    claimed = {Path(path).resolve() for path in lookup.worktrees if Path(path).is_dir()}
+    if target not in claimed:
+        return None
+    return "claimed-target-python-module:install-bundle-sync"
+
+
+def _main_checkout_authority_signature(
+    command: Sequence[str],
+    root: Path,
+) -> str | None:
+    return _main_checkout_read_only_signature(command, root) or (
+        _claimed_target_signature(command)
+    )
 
 
 def _record_main_checkout_fallback(
@@ -158,9 +185,9 @@ def _record_main_checkout_fallback(
     root: Path,
     project_id: int,
     command: Sequence[str],
-    read_only_signature: str,
+    authority_signature: str,
 ) -> str | None:
-    """Record the audit boundary before a registered scanner reads main."""
+    """Record the audit boundary before a registered source command reads main."""
     try:
         from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
         from yoke_contracts.api.function_call import TargetRef
@@ -181,7 +208,7 @@ def _record_main_checkout_fallback(
                     "command_name": str(command[0]),
                     "argument_count": max(0, len(command) - 1),
                     "fallback_reason": "no_live_claimed_yoke_source_lane",
-                    "read_only_signature": read_only_signature,
+                    "authority_signature": authority_signature,
                 },
             },
             actor=build_actor(session_id=session_id),
@@ -220,14 +247,14 @@ def run(
     if error or root is None:
         print(f"error: {error}", file=sys.stderr)
         return 1
-    read_only_signature = None
+    authority_signature = None
     if fallback_project_id is not None:
-        read_only_signature = _main_checkout_read_only_signature(args, root)
-        if read_only_signature is None:
+        authority_signature = _main_checkout_authority_signature(args, root)
+        if authority_signature is None:
             print(
                 "error: mapped-main source execution only permits registered "
-                "read-only scanners; prepare and claim a Yoke source lane for "
-                "arbitrary commands",
+                "read-only scanners and claimed-target maintenance; prepare "
+                "and claim a Yoke source lane for arbitrary commands",
                 file=sys.stderr,
             )
             return 1
@@ -244,8 +271,8 @@ def run(
     print(f"source checkout: {root}", file=sys.stderr)
     if fallback_project_id is not None:
         print(
-            "source intent: mapped main checkout, registered read-only scanner "
-            f"({read_only_signature})",
+            "source authority: mapped main checkout, registered operation "
+            f"({authority_signature})",
             file=sys.stderr,
         )
         event_error = _record_main_checkout_fallback(
@@ -253,7 +280,7 @@ def run(
             root=root,
             project_id=fallback_project_id,
             command=args,
-            read_only_signature=str(read_only_signature),
+            authority_signature=str(authority_signature),
         )
         if event_error:
             print(f"error: {event_error}", file=sys.stderr)
@@ -272,9 +299,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="yoke dev run",
         description=(
             "Run a command from the current session's claimed Yoke source "
-            "lane, or a registered read-only scanner from its mapped main "
-            "checkout when no lane remains, and report every checkout-owned "
-            "import origin."
+            "lane, or a registered scanner or claimed-target maintenance "
+            "operation from its mapped main checkout when no Yoke lane "
+            "exists, and report every checkout-owned import origin."
         ),
     )
     parser.add_argument(

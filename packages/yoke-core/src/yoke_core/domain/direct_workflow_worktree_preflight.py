@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from functools import partial
 import json
 import os
+from pathlib import Path
 import sys
 from typing import Iterator, List, Optional
 
@@ -19,6 +20,7 @@ from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
     PYTEST_RUN_RECIPE,
     SOURCE_RUN_RECIPE,
+    is_yoke_shaped_tree,
 )
 
 
@@ -90,6 +92,16 @@ def _prepare_dash_path_claim(
             else "Dash path-claim preparation failed"
         )
     return None
+
+
+def _run_recipes(worktree_path: str) -> dict[str, str]:
+    recipes = {
+        "pytest": PYTEST_RUN_RECIPE,
+        "install_bundle_sync": INSTALL_BUNDLE_SYNC_RECIPE,
+    }
+    if worktree_path and is_yoke_shaped_tree(Path(worktree_path)):
+        recipes["source"] = SOURCE_RUN_RECIPE
+    return recipes
 
 
 def run(args: List[str]) -> int:
@@ -209,11 +221,7 @@ def run(args: List[str]) -> int:
         )
     envelope = outcome.to_envelope()
     if outcome.ok:
-        envelope["run_recipes"] = {
-            "pytest": PYTEST_RUN_RECIPE,
-            "source": SOURCE_RUN_RECIPE,
-            "install_bundle_sync": INSTALL_BUNDLE_SYNC_RECIPE,
-        }
+        envelope["run_recipes"] = _run_recipes(outcome.worktree_path)
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0 if outcome.ok else 1
 
