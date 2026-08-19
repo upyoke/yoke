@@ -28,6 +28,7 @@ const UNIVERSAL_INVARIANTS = [
 export const POSTURE_POLICY_ROWS = [
   ["Ownership", "ownership", null, 1],
   ["Child items", "generated_children", null, 1],
+  ["Delivery", "delivery", null, 1],
   ["File Budget", "file_budget", "optional", 2],
   ["Path survey", "path_survey", "required", 1],
   ["Path claims", "path_claims", "optional", 1],

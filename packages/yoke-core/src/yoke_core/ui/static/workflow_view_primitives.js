@@ -39,6 +39,11 @@ const POLICY_VALUE_COPY = {
     none: "never generated",
     epic_tasks: "epic tasks",
   },
+  delivery: {
+    release_stage: "before done · waits in release until delivered",
+    after_merge_action: "after done · closes on merge; delivery is separate",
+    continuous_slice_actions: "during work · each slice proves delivery",
+  },
 };
 
 export function button(
