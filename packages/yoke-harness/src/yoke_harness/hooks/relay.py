@@ -36,6 +36,7 @@ from yoke_harness.hooks.identity import (
     write_runtime_cache,
 )
 from yoke_harness.hooks.identity_stamp import record_then_stamp
+from yoke_harness.hooks.guard_version_skew import annotate_guard_version_skew
 from yoke_harness.hooks.local_subset import (
     evaluate_local_subset,
     render_dry_run,
@@ -315,6 +316,9 @@ def relay_hook_event(
     if failure_warning:
         sys.stderr.write(failure_warning)
     if outcome == "denied":
+        stdout = annotate_guard_version_skew(
+            stdout, client=body["execution_provenance"], server=server_fp,
+        )
         if stdout:
             sys.stdout.write(stdout)
         return exit_code
