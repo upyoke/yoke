@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from datetime import date
+from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import pytest
@@ -16,6 +19,7 @@ from yoke_contracts.board.data import (
     ReplayBoardDB,
 )
 from yoke_contracts.board.query_key import canonicalize_sql
+from yoke_contracts.board.sql import days_ago_expr, days_ago_text_expr
 from yoke_core.board.data import RecordingBoardDB, entry_key
 from yoke_core.board.db import BoardDB
 from yoke_core.board.renderer import _assemble
@@ -279,3 +283,62 @@ def test_board_query_changes_require_a_replay_fallback(
                 "The coverage probe does not lead to a replay-safe fallback for "
                 f"{_describe([identity])}: {exc}"
             )
+
+
+_BOARD_WINDOWS = (120, 365)
+_BOUNDED_OVERVIEW_WINDOWS = (30, 90, 120, 300, 365)
+_DAYS_AGO_CALL = re.compile(r"days_ago_(?:text_)?expr\(([^)]+)\)")
+_BOARD_ROOT = Path("packages/yoke-contracts/src/yoke_contracts/board")
+_MOMENTUM_SIGNALS = Path(
+    "packages/yoke-core/src/yoke_core/domain/board_momentum_signals.py"
+)
+
+
+@pytest.mark.parametrize("days", _BOUNDED_OVERVIEW_WINDOWS)
+def test_bounded_windows_bake_a_stable_interval(days: int) -> None:
+    sql = days_ago_text_expr(days)
+    assert f"make_interval(days => {days})" in sql
+
+
+def test_days_ago_refuses_a_non_positive_window() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        days_ago_expr(0)
+    with pytest.raises(ValueError, match="positive"):
+        days_ago_text_expr(-1)
+
+
+def test_days_ago_callers_do_not_pass_project_age() -> None:
+    paths = list(_BOARD_ROOT.glob("*.py")) + [_MOMENTUM_SIGNALS]
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for match in _DAYS_AGO_CALL.finditer(text):
+            argument = match.group(1).lower()
+            assert "project" not in argument, path
+            assert "age" not in argument, path
+
+
+def test_recorded_board_plan_covers_each_board_window(
+    representative_board_db,
+) -> None:
+    recorder = _record_plan(representative_board_db)
+    sql_text = "\n".join(str(entry["sql"]) for entry in recorder.encoded_entries())
+    for days in _BOARD_WINDOWS:
+        assert f"make_interval(days => {days})" in sql_text, days
+
+
+def test_board_fingerprints_do_not_roll_with_the_calendar(
+    representative_board_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from yoke_contracts.board import widgets_activity
+
+    def fingerprints(day: date) -> set[str]:
+        monkeypatch.setattr(widgets_activity, "_utc_today", lambda: day)
+        recorder = _record_plan(representative_board_db)
+        issued = {_entry_identity(entry) for entry in recorder.encoded_entries()}
+        return {_query_fingerprint(identity) for identity in issued}
+
+    january = fingerprints(date(2026, 1, 1))
+    december = fingerprints(date(2026, 12, 31))
+    assert january == december
+    assert january
