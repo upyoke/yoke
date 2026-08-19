@@ -14,6 +14,14 @@ from yoke_core.tools import _source_pythonpath
 
 
 MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
+AMBIENT_PYTHON_NAMES = frozenset({"python", "python3"})
+
+
+def _bound_command(args: list[str]) -> list[str]:
+    """Replace an ambient python3 with this process's interpreter."""
+    if args and Path(args[0]).name in AMBIENT_PYTHON_NAMES:
+        return [sys.executable, *args[1:]]
+    return args
 
 
 def _lane_selectors(lanes: Sequence[Path]) -> str:
@@ -217,6 +225,7 @@ def run(
             print(f"error: {event_error}", file=sys.stderr)
             return 1
     print(f"source imports: {rendered}", file=sys.stderr)
+    args = _bound_command(args)
     try:
         return subprocess.run(args, cwd=str(root), env=env, check=False).returncode
     except OSError as exc:

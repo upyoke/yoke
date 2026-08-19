@@ -186,7 +186,10 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
         target_path="AGENTS.md",
         ctx=ctx,
     )
-    assert "python3 -m yoke_core.domain.worktree_preflight --item YOK-123" in narrative
+    assert (
+        "yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
+        "--item YOK-123"
+    ) in narrative
     assert "item_worktrees row" in narrative
     assert "path-claim-widen" not in narrative
     assert "path-claims widen" not in narrative

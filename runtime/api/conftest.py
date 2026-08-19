@@ -110,7 +110,7 @@ if not (
     if _pg_rc != 0:
         raise RuntimeError(
             "failed to start local Postgres test cluster; run "
-            "`python3 -m yoke_core.tools.pg_testcluster start` for details"
+            "`yoke dev run -- python3 -m yoke_core.tools.pg_testcluster start` for details"
         )
     os.environ[_db_backend.PG_DSN_ENV] = _pg_testcluster.dsn()
 from runtime.api.fixtures.pg_testdb import setup_ambient_test_db  # noqa: E402

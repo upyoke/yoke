@@ -114,7 +114,7 @@ def _assert_test_db(name: str) -> None:
             f"belongs to another invocation; this run owns "
             f"{pg_test_db_namespace.current_run_tag()!r}. Reclaiming another "
             f"run's databases is the orphan sweep's job "
-            f"(python3 -m yoke_core.tools.pg_testcluster prune)"
+            f"(yoke dev run -- python3 -m yoke_core.tools.pg_testcluster prune)"
         )
 
 

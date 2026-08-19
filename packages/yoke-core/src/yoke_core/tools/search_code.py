@@ -172,7 +172,8 @@ def _emit_no_worktree_remediation(item_ref: str) -> None:
         f"ERROR: no worktree directory exists for {item_ref}. "
         "search_code --scope worktree requires a bound worktree.\n"
         "Remediation:\n"
-        f"  python3 -m yoke_core.domain.worktree_preflight --item {item_ref}\n"
+        f"  yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
+        f"--item {item_ref}\n"
         f"  /yoke advance {item_ref} implementation\n"
         "Or rerun with --scope main to search the project repo root."
     )
