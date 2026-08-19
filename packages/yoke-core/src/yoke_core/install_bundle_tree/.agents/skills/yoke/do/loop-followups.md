@@ -200,6 +200,6 @@ holder lookup and documented in your ``work_claims`` packet stanza.
 ## Error Handling
 
 - If `yoke_core.api.service_client` module is not found, print an error directing the operator to check the API installation.
-- If the JSON response cannot be parsed, print the raw output and stop.
+- If the offer JSON cannot be parsed or stdout is empty, do not treat that as no-work and do not call Step D yet. Read durable offer events for this session as in `loop.md` Step A (`HarnessSessionOffered`, `FrontierStepSelected`, `WorkClaimed`, `NextActionChosen`). Recover the NextAction from `NextActionChosen` when those events fired; only then treat a silent response as an empty frontier.
 - If an unknown `action` value is returned, print a warning with the raw response and stop.
-- **On any error exit**, call Step D (session cleanup) before stopping.
+- **On any error exit** after the durable-state check has ruled out a successful offer, call Step D (session cleanup) before stopping.
