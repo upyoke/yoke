@@ -10,6 +10,10 @@ import os
 import sys
 from typing import Iterator, List, Optional
 
+from yoke_contracts.conflict_survey import (
+    DURABLE_PENDING,
+    INCOMPLETE_DURABLE_STATES,
+)
 from yoke_core.domain.worktree_preflight import run_preflight
 from yoke_core.tools._source_pythonpath import (
     INSTALL_BUNDLE_SYNC_RECIPE,
@@ -150,6 +154,19 @@ def run(args: List[str]) -> int:
         )
         parser.error(f"conflict survey status unavailable: {message}")
     survey = status.result or {}
+    durable_state = str(survey.get("durable_state") or "")
+    if durable_state in INCOMPLETE_DURABLE_STATES:
+        print(json.dumps({
+            "ok": False,
+            "block_kind": f"conflict-survey-{durable_state}",
+            "narrative": (
+                "Wait for the survey write to finish."
+                if durable_state == DURABLE_PENDING
+                else "Record a new survey because the durable row is unreadable."
+            ),
+            "item_id": item_id,
+        }))
+        return 1
     if not survey.get("found"):
         print(json.dumps({
             "ok": False,

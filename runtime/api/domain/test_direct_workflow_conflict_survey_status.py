@@ -33,6 +33,12 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
+from yoke_contracts.conflict_survey import (
+    DURABLE_ABSENT,
+    DURABLE_PENDING,
+    DURABLE_RECORDED,
+    DURABLE_UNREADABLE,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -84,10 +90,12 @@ def test_status_reports_recorded_clear_survey(test_db, monkeypatch):
     assert outcome.primary_success is True
     payload = outcome.result_payload
     assert payload["found"] is True
+    assert payload["durable_state"] == DURABLE_RECORDED
     assert payload["clear"] is True
     assert payload["workflow_id"] == "dash"
     assert payload["touch_paths"] == ["src/isolated_change.py"]
     assert payload["integration_target"] == "main"
+    assert payload["fingerprint"]
     assert payload["blockers"] == []
 
 
@@ -99,10 +107,34 @@ def test_status_reports_not_found_without_recorded_survey(test_db, monkeypatch):
     assert outcome.primary_success is True
     payload = outcome.result_payload
     assert payload["found"] is False
+    assert payload["durable_state"] == DURABLE_ABSENT
     assert payload["clear"] is False
     assert payload["workflow_id"] == "dash"
     assert payload["touch_paths"] == []
     assert payload["blockers"] == []
+
+
+@pytest.mark.parametrize(("item_id", "content", "durable_state"), [
+    (3205, '{"pending_request":"request"}', DURABLE_PENDING),
+    (3206, "{", DURABLE_UNREADABLE),
+])
+def test_status_classifies_nonrecorded_durable_rows(
+    test_db, monkeypatch, item_id, content, durable_state,
+):
+    insert_item(test_db, id=item_id, workflow_id="dash", title="Incomplete survey")
+    test_db.execute(
+        "INSERT INTO item_sections "
+        "(item_id, section_name, content, source, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s)",
+        (item_id, "Conflict Survey", content, "direct-workflow", "now", "now"),
+    )
+    test_db.commit()
+
+    outcome = _call_status(monkeypatch, test_db, item_id)
+
+    assert outcome.primary_success is True
+    assert outcome.result_payload["durable_state"] == durable_state
+    assert outcome.result_payload["found"] is False
 
 
 def test_status_reports_blocked_survey(test_db, monkeypatch):
@@ -250,6 +282,23 @@ def test_run_rebuilds_missing_block_outcome(monkeypatch, capsys):
     emitted = json.loads(capsys.readouterr().out.strip())
     assert emitted["block_kind"] == "conflict-survey-missing"
     assert emitted["item_id"] == 4102
+
+
+@pytest.mark.parametrize(
+    "durable_state", [DURABLE_PENDING, DURABLE_UNREADABLE],
+)
+def test_run_blocks_incomplete_durable_state(monkeypatch, capsys, durable_state):
+    dispatcher = _RoutedDispatcher(
+        item_id=4105,
+        workflow="dash",
+        status_result={"found": False, "durable_state": durable_state},
+    )
+    preflight_calls = _install_relay(monkeypatch, dispatcher)
+
+    assert preflight.run(["YOK-4105", "--workflow", "dash"]) == 1
+    assert preflight_calls == []
+    emitted = json.loads(capsys.readouterr().out.strip())
+    assert emitted["block_kind"] == f"conflict-survey-{durable_state}"
 
 
 def test_run_rebuilds_blocked_outcome_with_blockers(monkeypatch, capsys):

@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Optional
 from uuid import uuid4
 
+from yoke_contracts import conflict_survey as survey_contract
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_blockers import (
     clean_path,
@@ -32,6 +33,13 @@ class ConflictSurveyReservation:
 
     content: str
     previous_content: Optional[str]
+
+
+@dataclass(frozen=True)
+class RecordedConflictSurvey:
+    """One durable survey row classified before callers consume it."""
+    state: survey_contract.ConflictSurveyRecordState
+    payload: Optional[dict[str, Any]] = None
 
 
 def _p(conn: Any) -> str:
@@ -285,10 +293,12 @@ def cancel_conflict_survey_reservation(
     conn.commit()
 
 
-def read_recorded_survey(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
-    """Return the persisted survey envelope, or ``None``."""
+def read_recorded_survey_state(
+    conn: Any, item_id: int,
+) -> RecordedConflictSurvey:
+    """Classify the durable row without confusing absence with bad data."""
     if not _table_exists(conn, "item_sections"):
-        return None
+        return RecordedConflictSurvey(survey_contract.DURABLE_ABSENT)
     marker = _p(conn)
     row = conn.execute(
         "SELECT content FROM item_sections "
@@ -296,12 +306,29 @@ def read_recorded_survey(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
         (int(item_id), CONFLICT_SURVEY_SECTION),
     ).fetchone()
     if row is None:
-        return None
+        return RecordedConflictSurvey(survey_contract.DURABLE_ABSENT)
     try:
         parsed = json.loads(str(row[0]))
     except (TypeError, ValueError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
+        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
+    if not isinstance(parsed, dict):
+        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
+    if _PENDING_REQUEST_KEY in parsed:
+        return RecordedConflictSurvey(survey_contract.DURABLE_PENDING)
+    paths = parsed.get("touch_paths")
+    valid_paths = isinstance(paths, list) and bool(paths) and all(
+        isinstance(path, str) and clean_path(path) for path in paths
+    )
+    valid_record = parsed.get("schema") == 1 and valid_paths
+    if not valid_record or not isinstance(parsed.get("fingerprint"), str):
+        return RecordedConflictSurvey(survey_contract.DURABLE_UNREADABLE)
+    return RecordedConflictSurvey(survey_contract.DURABLE_RECORDED, parsed)
+
+
+def read_recorded_survey(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
+    """Return a complete persisted survey envelope, or ``None``."""
+    record = read_recorded_survey_state(conn, item_id)
+    return record.payload if record.state == survey_contract.DURABLE_RECORDED else None
 
 
 __all__ = [
@@ -309,8 +336,10 @@ __all__ = [
     "ConflictMatch",
     "ConflictSurvey",
     "ConflictSurveyReservation",
+    "RecordedConflictSurvey",
     "cancel_conflict_survey_reservation",
     "read_recorded_survey",
+    "read_recorded_survey_state",
     "record_conflict_survey",
     "reserve_conflict_survey_record",
     "survey_conflicts",

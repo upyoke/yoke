@@ -5,6 +5,10 @@ from __future__ import annotations
 import argparse
 from typing import List
 
+from yoke_contracts.conflict_survey import (
+    DURABLE_RECORDED,
+    DURABLE_UNREADABLE,
+)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -34,8 +38,11 @@ def conflict_survey_status(args: List[str]) -> int:
 
     def _human(response, stdout, stderr) -> None:
         result = response.result or {}
-        if not result.get("found"):
-            print("survey-missing", file=stdout)
+        durable_state = str(
+            result.get("durable_state") or DURABLE_UNREADABLE
+        )
+        if durable_state != DURABLE_RECORDED:
+            print(f"survey-{durable_state}", file=stdout)
             return
         if result.get("clear"):
             print("survey-clear", file=stdout)
