@@ -8,6 +8,7 @@ against whichever repository the harness happened to stand in.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -36,4 +37,24 @@ def resolve_checkout(item: dict[str, Any], target_override: str) -> tuple[Path, 
     return project_repo, target or "main"
 
 
-__all__ = ["resolve_checkout"]
+def ensure_usable_cwd(repo_root: Path, lane_root: str) -> bool:
+    """Move out of a lane before merge close-out can remove that directory."""
+
+    try:
+        current = Path.cwd().resolve()
+    except OSError:
+        os.chdir(repo_root)
+        return True
+    if not lane_root:
+        return False
+    try:
+        lane = Path(lane_root).expanduser().resolve()
+    except OSError:
+        return False
+    if current != lane and lane not in current.parents:
+        return False
+    os.chdir(repo_root)
+    return True
+
+
+__all__ = ["ensure_usable_cwd", "resolve_checkout"]
