@@ -53,6 +53,19 @@ FREE_PATH_PREFIXES = (
 )
 
 
+_SANCTIONED_INSTALLED_READ_DIRS = (
+    "~/.codex/plugins",
+    "~/.codex/skills",
+    "~/.claude/plugins",
+    "~/.yoke/browser-runtime",
+)
+
+_SANCTIONED_INSTALLED_READ_FILES = (
+    "~/.codex/AGENTS.md",
+    "~/.local/bin/yoke",
+)
+
+
 # Standard tool / system binary directories. An extracted target under one
 # of these is an EXECUTED binary, not a write target.
 TOOL_DIR_PREFIXES = (
@@ -137,6 +150,24 @@ def is_free_path(
     return False
 
 
+def is_sanctioned_installed_read_path(target: str) -> bool:
+    """True for an installed harness/tool path explicitly safe to read."""
+    resolved = resolve_for_display(os.path.expanduser(target))
+    for raw_dir in _SANCTIONED_INSTALLED_READ_DIRS:
+        root = resolve_for_display(os.path.expanduser(raw_dir))
+        if resolved == root or resolved.startswith(root + os.sep):
+            return True
+
+    files = list(_SANCTIONED_INSTALLED_READ_FILES)
+    xdg_bin_home = os.environ.get("XDG_BIN_HOME", "").strip()
+    if xdg_bin_home:
+        files.append(os.path.join(xdg_bin_home, "yoke"))
+    return any(
+        resolved == resolve_for_display(os.path.expanduser(raw_file))
+        for raw_file in files
+    )
+
+
 def is_inside(target: str, root: str) -> bool:
     """``target`` is the same path as ``root`` or under it."""
     if not target or not root:
@@ -206,6 +237,7 @@ __all__ = [
     "is_free_path",
     "is_inside",
     "is_inside_control_plane",
+    "is_sanctioned_installed_read_path",
     "is_under_tool_dir",
     "is_yoke_watcher_capture_path",
     "resolve_for_display",

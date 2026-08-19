@@ -2,8 +2,8 @@
 
 Covers the four proven false-deny shapes: cross-lane git/ls inspection
 must still refuse but say read and name the main-checkout recipe;
-``print`` / ``printf`` operands are not write targets; Codex attachments
-and ``~/.yoke/config.json`` are readable while a lane claim is held.
+``print`` / ``printf`` operands are not write targets; installed harness
+surfaces are readable while a lane claim is held without gaining writes.
 """
 
 from __future__ import annotations
@@ -37,6 +37,21 @@ from yoke_core.domain.lint_session_cwd_target_extract import (
 HOLDER = "sid-holder"
 INTRUDER = "sid-intruder"
 HELD_ITEM = 2220
+INSTALLED_READ_TARGETS = (
+    "~/.codex/plugins/cache/browser/SKILL.md",
+    "~/.codex/skills/imagegen/SKILL.md",
+    "~/.claude/plugins/marketplaces/browser/SKILL.md",
+    "~/.codex/AGENTS.md",
+    "~/.yoke/browser-runtime/chrome",
+    "~/.local/bin/yoke",
+)
+EXCLUDED_READ_TARGETS = (
+    "~/.yoke/secrets/capability-secrets/yoke/aws-admin/credentials",
+    "~/.codex/auth.json",
+    "~/.codex/config.toml",
+    "~/.claude/settings.json",
+    "~/.claude/skills/browser/SKILL.md",
+)
 
 
 @pytest.fixture
@@ -184,5 +199,64 @@ class TestSanctionedReadPaths:
             "session_id": "sid-lane",
             "tool_name": "Read",
             "tool_input": {"file_path": target},
+        })
+        assert verdict.allow is False
+
+    @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
+    def test_installed_harness_path_read_allowed_with_lane_claim(
+        self, conn, repo, target,
+    ):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Read",
+            "tool_input": {"file_path": os.path.expanduser(target)},
+        })
+        assert verdict.allow is True
+
+    def test_installed_plugin_shell_read_allowed_with_lane_claim(self, conn, repo):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        target = os.path.expanduser(INSTALLED_READ_TARGETS[0])
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Bash",
+            "tool_input": {"command": f"sed -n '1,20p' {target}"},
+        })
+        assert verdict.allow is True
+
+    def test_xdg_installed_launcher_read_allowed_with_lane_claim(
+        self, conn, repo, tmp_path, monkeypatch,
+    ):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        launcher = tmp_path / "xdg-bin" / "yoke"
+        monkeypatch.setenv("XDG_BIN_HOME", str(launcher.parent))
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Read",
+            "tool_input": {"file_path": str(launcher)},
+        })
+        assert verdict.allow is True
+
+    @pytest.mark.parametrize("target", INSTALLED_READ_TARGETS)
+    def test_installed_harness_path_write_still_denied_with_lane_claim(
+        self, conn, repo, target,
+    ):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Write",
+            "tool_input": {"file_path": os.path.expanduser(target)},
+        })
+        assert verdict.allow is False
+
+    @pytest.mark.parametrize("target", EXCLUDED_READ_TARGETS)
+    def test_sensitive_or_uninstalled_harness_path_read_still_denied(
+        self, conn, repo, target,
+    ):
+        _seed_lane(conn, repo, session_id="sid-lane")
+        verdict = lint_session_cwd.evaluate_pre_tool_use({
+            "session_id": "sid-lane",
+            "tool_name": "Read",
+            "tool_input": {"file_path": os.path.expanduser(target)},
         })
         assert verdict.allow is False

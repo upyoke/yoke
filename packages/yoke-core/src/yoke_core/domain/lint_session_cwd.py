@@ -128,10 +128,9 @@ def evaluate_pre_tool_use(
 ) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
     session_id = session_id_from_hook_payload(payload)
-    if not session_id and not is_write_operation(
-        str(payload.get("tool_name") or payload.get("toolName") or ""),
-        dict(payload),
-    ):
+    tool_name = str(payload.get("tool_name") or payload.get("toolName") or "")
+    write_operation = is_write_operation(tool_name, dict(payload))
+    if not session_id and not write_operation:
         return Verdict(allow=True)
     if not session_id:
         return Verdict(
@@ -153,6 +152,7 @@ def evaluate_pre_tool_use(
                 targets=targets,
                 fallback_cwd=fallback_cwd,
                 watcher_capture_root=watcher_capture_root,
+                read_only=not write_operation,
             )
     except Exception as exc:
         emit_fail_open(
