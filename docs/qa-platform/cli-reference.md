@@ -143,6 +143,35 @@ records the same `fail` verdict a broken branch does, so its run record and
 the stderr restatement both carry a `timeout_summary` naming the expired
 budget and any queue wait that preceded it.
 
+### Recover a stalled CI case
+
+The CI runner prints the requirement id, repository, GitHub Actions run id,
+and run URL before it starts polling. It immediately follows those identifiers
+with copy-paste inspection and watch commands that target the repository
+explicitly, because linked worktrees do not provide consistent repository
+inference. A second line names the force-cancel endpoint for an orphaned run.
+
+If normal cancellation leaves the run in progress, use that force-cancel
+recipe. Wait for the original case invocation to observe the cancellation and
+exit, then rerun the same requirement through Yoke so the replacement run and
+its QA evidence remain authoritative:
+
+```sh
+yoke qa case run --requirement-id REQUIREMENT_ID
+```
+
+When GitHub withholds live job logs, enumerate the exact pytest shard without
+executing its tests by copying the CI job's pytest paths and shard selectors
+behind the admission-aware wrapper and adding `--collect-only`:
+
+```sh
+yoke watch pytest -- <CI pytest paths and options> --collect-only -q
+```
+
+For pytest-split jobs, keep the job's `--splits`, `--group`, and splitting
+algorithm arguments unchanged. The collection output then identifies the
+tests assigned to that shard without launching the suite.
+
 When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
 includes `review_bundle.dispatch`. The harness must immediately dispatch the
 named reviewer subagent with that immutable bundle and prompt, then use the

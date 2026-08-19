@@ -101,3 +101,12 @@ def test_public_batch_recipe_requires_a_binding_in_every_row() -> None:
     assert "Every `add-batch` row therefore includes" in body
     assert '`"workflow_transition_id":"<stage>"`' in body
     assert "every row requires `workflow_transition_id`" in body
+
+
+def test_ci_recovery_recipe_preserves_repository_and_qa_authority() -> None:
+    body = (REPO_ROOT / "docs/qa-platform/cli-reference.md").read_text(encoding="utf-8")
+    prose = " ".join(body.split())
+    assert "commands that target the repository explicitly" in prose
+    assert "force-cancel endpoint for an orphaned run" in prose
+    assert "yoke qa case run --requirement-id REQUIREMENT_ID" in prose
+    assert "yoke watch pytest -- <CI pytest paths and options> --collect-only" in prose

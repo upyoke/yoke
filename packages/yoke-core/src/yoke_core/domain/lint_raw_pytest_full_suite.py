@@ -199,6 +199,8 @@ def _format_reason(
         "captures its own output:\n"
         "  yoke watch pytest --impacted main --bounded   # iteration default\n"
         "  yoke watch pytest -- <paths>                  # narrower scope\n"
+        "To enumerate one CI shard without running its tests:\n"
+        "  yoke watch pytest -- <CI shard args> --collect-only -q\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"
         "  yoke qa case run --requirement-id <id>\n"
         "Doctrine: AGENTS.md `## Testing`"
