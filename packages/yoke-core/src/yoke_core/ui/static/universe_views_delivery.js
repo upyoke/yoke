@@ -16,6 +16,7 @@ import {
   isTerminalizable,
   terminalizationDialog,
 } from "./deployment_run_terminalization_dialog.js";
+import { renderDeliveryFlowExplorer } from "./universe_delivery_flows.js";
 
 function memberLink(documentNode, member) {
   const href = itemDrillInHref({
@@ -144,84 +145,6 @@ function renderRunsTable(body, rows, projects, onTerminalized) {
   body.appendChild(wrap);
 }
 
-function flowLabel(row, scope) {
-  const identity = row.name || row.id || "unnamed flow";
-  return Array.isArray(scope) && scope.length === 1
-    ? identity
-    : `${row.project || "project unavailable"} · ${identity}`;
-}
-
-function renderFlowPipeline(documentNode, detail, row) {
-  detail.replaceChildren();
-  const stages = row.stage_names || [];
-  if (!stages.length) {
-    detail.appendChild(el(
-      documentNode, "p", "empty", "No stages published for this flow.",
-    ));
-    return;
-  }
-  const pipeline = el(documentNode, "div", "delivery-flow-pipeline");
-  pipeline.setAttribute("aria-label", `Flow stages: ${stages.join(", ")}`);
-  for (const [index, stage] of stages.entries()) {
-    if (index > 0) {
-      const arrow = el(documentNode, "span", "delivery-flow-arrow", "→");
-      arrow.setAttribute("aria-hidden", "true");
-      pipeline.appendChild(arrow);
-    }
-    pipeline.appendChild(el(
-      documentNode, "div", "delivery-flow-stage", stage,
-    ));
-  }
-  detail.appendChild(pipeline);
-}
-
-function renderFlowDetail(body, panel, rows, scope) {
-  const documentNode = body.ownerDocument;
-  if (!rows.length) {
-    panel.setCount(0);
-    body.appendChild(el(
-      documentNode, "p", "empty", "No deployment flows declared.",
-    ));
-    return;
-  }
-  let selected = rows[0];
-  const detail = el(documentNode, "div", "delivery-flow-detail");
-  const choices = el(documentNode, "div", "delivery-flow-selector");
-  const buttons = rows.map((row) => {
-    const button = el(
-      documentNode, "button", "delivery-flow-choice", flowLabel(row, scope),
-    );
-    button.type = "button";
-    choices.appendChild(button);
-    return [button, row];
-  });
-  const paint = () => {
-    panel.setCount(null);
-    panel.children[0].children[0].textContent =
-      `Flow · ${selected.id || "unnamed"}`;
-    panel.setCount((selected.stage_names || []).length);
-    for (const [button, row] of buttons) {
-      const active = row === selected;
-      button.classList.toggle("selected", active);
-      button.setAttribute("aria-pressed", String(active));
-    }
-    renderFlowPipeline(documentNode, detail, selected);
-  };
-  for (const [button, row] of buttons) {
-    button.addEventListener("click", () => {
-      selected = row;
-      paint();
-    });
-  }
-  if (rows.length > 1) {
-    choices.setAttribute("role", "group");
-    choices.setAttribute("aria-label", "Deployment flows");
-    body.appendChild(choices);
-  }
-  body.appendChild(detail);
-  paint();
-}
-
 export function renderDeliveryRunsView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Runs");
@@ -270,7 +193,7 @@ export function renderDeliveryFlowsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderFlowDetail(body, panel, rows, scope);
+      renderDeliveryFlowExplorer(body, panel, rows);
     },
   );
 }

@@ -269,25 +269,20 @@ def test_page_module_wires_the_workbench_shell():
 
 
 def test_delivery_facets_keep_wide_tables_scrollable_on_compact_screens():
-    css = (
-        files("yoke_core.ui")
-        .joinpath("static", "universe_secondary_activity.css")
-        .read_text()
-    )
-
-    assert "@media (max-width: 760px)" in css
-    assert ".delivery-facet-panel .table-wrap" in css
-    assert "touch-action: pan-x" in css
-    assert ".delivery-facet-panel .table-wrap > table" in css
-    assert "min-width: 660px" in css
-    assert ".delivery-run-stages" in css
-    assert ".delivery-flow-pipeline" in css
-
-    secondary_css = (
-        files("yoke_core.ui")
-        .joinpath("static", "universe_secondary_views.css")
-        .read_text()
-    )
+    static_root = files("yoke_core.ui").joinpath("static")
+    activity_css = static_root.joinpath("universe_secondary_activity.css").read_text()
+    flow_css = static_root.joinpath("universe_delivery_flows.css").read_text()
+    detail_css = static_root.joinpath("universe_delivery_flow_detail.css").read_text()
+    assert "@media (max-width: 760px)" in activity_css
+    assert ".delivery-facet-panel .table-wrap" in activity_css
+    assert "touch-action: pan-x" in activity_css
+    assert "min-width: 660px" in activity_css
+    assert ".delivery-run-stages" in activity_css
+    assert ".delivery-flow-workspace" in flow_css
+    assert "@media (max-width: 640px)" in flow_css
+    assert "prefers-reduced-motion: reduce" in flow_css
+    assert ".delivery-flow-pipeline" in detail_css
+    secondary_css = static_root.joinpath("universe_secondary_views.css").read_text()
     assert ".packs-stack" in secondary_css
     assert ".pack-available-row" in secondary_css
 
