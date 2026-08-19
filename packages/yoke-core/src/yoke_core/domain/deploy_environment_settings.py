@@ -38,7 +38,9 @@ _CAPABILITY_HINT = (
     "set it via: python3 -m yoke_core.domain.projects "
     "capability-merge-settings {project} {capability} --set <key>=<value> "
     "(absent rows are created; full-document writes go through "
-    "capability-set-settings --base/--new)"
+    "capability-set-settings --base/--new); "
+    "remove a vestigial capability with: yoke projects capability-settings "
+    "remove --project {project} --cap-type {capability} --base <as-read>"
 )
 
 

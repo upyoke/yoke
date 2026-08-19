@@ -28,7 +28,9 @@ _CAPABILITY = "ephemeral-env"
 _CAPABILITY_HINT = (
     "set it via: yoke projects capability-settings merge --project {project} "
     "--cap-type ephemeral-env --set <key>=<value> (absent rows are created; "
-    "full-document writes use capability-settings set --base/--new)"
+    "full-document writes use capability-settings set --base/--new); "
+    "remove a vestigial capability with: yoke projects capability-settings "
+    "remove --project {project} --cap-type ephemeral-env --base <as-read>"
 )
 
 #: Universal defaults matching the ephemeral-environments Pack fallbacks.
