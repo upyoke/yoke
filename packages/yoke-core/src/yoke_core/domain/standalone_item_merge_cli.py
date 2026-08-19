@@ -26,6 +26,7 @@ from yoke_core.domain.merge_queue_route_selection import (
 )
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
 from yoke_core.domain.standalone_item_merge_checkout import (
+    ensure_usable_cwd as _ensure_usable_cwd,
     resolve_checkout as _resolve_checkout,
 )
 from yoke_core.domain.standalone_item_merge_lane import (
@@ -195,6 +196,7 @@ def run(argv: List[str]) -> int:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
         return _fail(f"{item_ref}: {exc}", as_json=as_json)
+    _ensure_usable_cwd(repo_root, lane_path(item))
     pruned_lane = (
         not active_lanes(item) and recovery.branch_needs_receipt(
             str(repo_root), branch,

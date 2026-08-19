@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_checkout as checkout
 
 
 def _refuse_cwd(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,3 +106,18 @@ def test_target_override_wins_over_the_project_default(
     assert merge_cli._resolve_checkout(
         {"id": 7, "project": {"slug": "external"}}, "release",
     ) == (external, "release")
+
+
+def test_close_out_moves_out_of_the_lane_before_removing_it(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    lane = repo / ".worktrees" / "ITEM-7"
+    lane.mkdir(parents=True)
+    monkeypatch.chdir(lane)
+
+    assert checkout.ensure_usable_cwd(repo, str(lane)) is True
+    lane.rmdir()
+
+    assert Path.cwd() == repo.resolve()
