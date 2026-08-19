@@ -133,9 +133,12 @@ class TestWaitForCiRestSeam:
 
 
 class TestProjectAuthSurface:
-    """REST helpers route project-auth failures to a typed error class."""
+    """Admission resolves the authority the classified route needs."""
 
     def test_validate_github_auth_for_merge_routes_missing_app_credentials(self, monkeypatch) -> None:
+        from yoke_core.domain.merge_github_authority import (
+            classify_merge_authority,
+        )
         from yoke_core.domain.project_github_auth import MissingAppCredentials
         from yoke_core.engines import merge_worktree_pr_rest
 
@@ -153,24 +156,39 @@ class TestProjectAuthSurface:
 
         ctx = _stub_ctx()
         ctx.project = "yoke"
-        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(
+            ctx, classify_merge_authority(local_merge=False),
+        )
         assert ok is False
         assert "missing_app_credentials" in (message or "")
         assert "control-plane App issuer" in (message or "")
+        assert "pull-request merge" in (message or "")
 
     def test_validate_github_auth_for_merge_routes_no_project(self) -> None:
+        from yoke_core.domain.merge_github_authority import (
+            classify_merge_authority,
+        )
         from yoke_core.engines import merge_worktree_pr_rest
 
         ctx = _stub_ctx()  # no project set
-        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(
+            ctx, classify_merge_authority(local_merge=True),
+        )
         assert ok is False
         assert "merge context has no project" in (message or "")
+        assert "direct merge" in (message or "")
 
     def test_validate_github_auth_for_merge_succeeds_when_token_present(
         self, monkeypatch
     ) -> None:
         from yoke_contracts.github_app_installation_permissions import (
-            GITHUB_METADATA_READ_PERMISSION_LEVELS,
+            GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
+        )
+        from yoke_core.domain.merge_github_authority import (
+            classify_merge_authority,
+        )
+        from yoke_core.domain.project_github_auth_models import (
+            GITHUB_AUTHORITY_USER,
         )
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
         from yoke_core.engines import merge_worktree_pr_rest
@@ -190,12 +208,19 @@ class TestProjectAuthSurface:
         )
         ctx = _stub_ctx()
         ctx.project = "yoke"
-        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(ctx)
+        ok, message = merge_worktree_pr_rest.validate_github_auth_for_merge(
+            ctx, classify_merge_authority(local_merge=False),
+        )
         assert ok is True
         assert message is None
         assert calls == [
             (
                 ("yoke",),
-                {"required_permissions": GITHUB_METADATA_READ_PERMISSION_LEVELS},
+                {
+                    "required_permissions": (
+                        GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS
+                    ),
+                    "required_authority": GITHUB_AUTHORITY_USER,
+                },
             )
         ]

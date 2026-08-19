@@ -2,6 +2,11 @@
 
 Local dispatch uses a context-bound App user token. Hosted and self-hosted
 control planes mint short-lived installation tokens from global credentials.
+
+Callers name the weakest authority their operation can run under. Only an
+operation attributed to a person genuinely needs the machine's user
+authorization; one the project's installation is itself authorized to perform
+should not fail merely because that machine authorization is unreadable.
 """
 
 from __future__ import annotations
@@ -13,6 +18,8 @@ from yoke_core.domain.github_app_control_plane import GitHubAppControlPlaneConfi
 from yoke_core.domain.github_app_installation_tokens import InstallationTokenCache
 from yoke_core.domain.project_github_auth_models import (
     BindingUnavailable,
+    GITHUB_AUTHORITY_INSTALLATION,
+    GITHUB_AUTHORITY_USER,
     GITHUB_CAPABILITY_TYPE,
     InstallationUnavailable,
     InvalidToken,
@@ -60,8 +67,22 @@ def resolve_project_github_auth(
     token_minter: TokenMinter | None = None,
     control_plane_config: GitHubAppControlPlaneConfig | None = None,
     required_permissions: Mapping[str, str] | None = None,
+    required_authority: str = GITHUB_AUTHORITY_USER,
 ) -> ProjectGithubAuth:
-    """Resolve a verified binding and the mode-appropriate bearer token."""
+    """Resolve a verified binding and the mode-appropriate bearer token.
+
+    ``required_authority`` is the weakest authority that can perform the
+    caller's operation. ``GITHUB_AUTHORITY_USER`` means only the machine's App
+    user authorization will do, so an unreadable one is the answer. With
+    ``GITHUB_AUTHORITY_INSTALLATION`` the project's installation is itself
+    authorized, so an unavailable user authorization falls through to an
+    installation token instead of refusing work the binding already covers.
+    Any other value fails closed to the strict reading.
+
+    The user-authorization failure outranks the installation one when neither
+    path produces a token: on a machine bound to user authority, reconnecting
+    is the repair, and a missing service private key is expected there.
+    """
     state = read_github_state(project, db_path, conn=conn)
     if not state.has_capability:
         raise MissingCapability(
@@ -113,29 +134,36 @@ def resolve_project_github_auth(
             f"project '{state.project_slug}' GitHub binding is {binding_status!r}",
         )
 
-    local_token = resolve_local_user_token(state)
+    local_token, user_authorization_error = _local_user_token(
+        state, required_authority,
+    )
     if local_token is not None:
         return _auth_result(
             state,
             repo,
             local_token,
             installation_permissions,
-            token_source="github_app_user",
+            token_source=GITHUB_AUTHORITY_USER,
         )
-    credentials = read_app_credentials(state, control_plane_config)
-    minted = mint_bound_installation_token(
-        state,
-        credentials=credentials,
-        token_permissions=token_permissions,
-        token_cache=token_cache,
-        token_minter=token_minter,
-    )
-    token = str(minted.token or "").strip()
-    if not token:
-        raise TokenMintFailed(
-            state.project_slug,
-            f"project '{state.project_slug}' GitHub App token resolved empty",
+    try:
+        credentials = read_app_credentials(state, control_plane_config)
+        minted = mint_bound_installation_token(
+            state,
+            credentials=credentials,
+            token_permissions=token_permissions,
+            token_cache=token_cache,
+            token_minter=token_minter,
         )
+        token = str(minted.token or "").strip()
+        if not token:
+            raise TokenMintFailed(
+                state.project_slug,
+                f"project '{state.project_slug}' GitHub App token resolved empty",
+            )
+    except ProjectGithubAuthError:
+        if user_authorization_error is not None:
+            raise user_authorization_error
+        raise
     result = _auth_result(state, repo, token, installation_permissions)
     resolved = ProjectGithubAuth(
         **{
@@ -145,6 +173,23 @@ def resolve_project_github_auth(
     )
     register_installation_token(token, state.project_slug, db_path=db_path)
     return resolved
+
+
+def _local_user_token(
+    state: ProjectGithubState, required_authority: str,
+) -> tuple[Optional[str], Optional[ProjectGithubAuthError]]:
+    """Read the machine's user token, or say why an installation may stand in.
+
+    Returns ``(None, None)`` when no local provider is bound at all, which is
+    the server-side shape: there is no user authorization to fail, and the
+    installation path is simply the only one.
+    """
+    try:
+        return resolve_local_user_token(state), None
+    except (UserAuthorizationUnavailable, UserAuthorizationTransient) as exc:
+        if required_authority != GITHUB_AUTHORITY_INSTALLATION:
+            raise
+        return None, exc
 
 
 def _auth_result(
@@ -205,6 +250,8 @@ def repair_command_hint(error: ProjectGithubAuthError, project: str) -> str:
 
 
 __all__ = [
+    "GITHUB_AUTHORITY_INSTALLATION",
+    "GITHUB_AUTHORITY_USER",
     "BindingUnavailable",
     "GITHUB_CAPABILITY_TYPE",
     "InstallationUnavailable",

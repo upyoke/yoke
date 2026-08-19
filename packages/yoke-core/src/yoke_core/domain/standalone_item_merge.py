@@ -26,6 +26,7 @@ from typing import Optional, Sequence
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.merge_github_authority import classify_merge_authority
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_item_merge_receipt as receipts
 from yoke_core.domain.standalone_item_merge_engine import run as _run_merge_engine
@@ -75,6 +76,7 @@ def _complete(
     target: str,
     repo_root: str,
     project: str,
+    authority: str,
     commit_sha: str,
     touched: tuple[str, ...],
     already: bool,
@@ -85,8 +87,8 @@ def _complete(
     """Publish, stamp, and record the completed receipt for a landed merge."""
     return post_push.complete(
         item_id=item_id, branch=branch, target=target, repo_root=repo_root,
-        project=project, commit_sha=commit_sha, touched=touched,
-        already=already, output=output, warnings=warnings,
+        project=project, authority=authority, commit_sha=commit_sha,
+        touched=touched, already=already, output=output, warnings=warnings,
         resume_command=resume_command,
     )
 
@@ -98,6 +100,7 @@ def _converge_from_receipt(
     target: str,
     repo_root: str,
     project: str,
+    authority: str,
     recorded: Optional[receipts.MergeReceipt],
     resume_command: str = "",
 ) -> StandaloneMergeOutcome:
@@ -129,6 +132,7 @@ def _converge_from_receipt(
         target=target,
         repo_root=repo_root,
         project=project,
+        authority=authority,
         commit_sha=recorded.commit_sha,
         touched=receipts.resolve_touched_files(
             repo_root=repo_root,
@@ -169,6 +173,9 @@ def merge_standalone_branch(
     engine this delegates to, so a standalone merge is visible in the events
     ledger for the same reason an epic-lane merge is.
     """
+    # The route decides the authority, and the proof after the merge reads
+    # checks under that same one rather than the strictest available.
+    authority = classify_merge_authority(local_merge=local_merge).authority
     recorded = receipts.load(item_id, branch, target, project=project)
     if not git.branch_exists(repo_root, branch):
         return _converge_from_receipt(
@@ -177,6 +184,7 @@ def merge_standalone_branch(
             target=target,
             repo_root=repo_root,
             project=project,
+            authority=authority,
             recorded=recorded,
             resume_command=resume_command,
         )
@@ -267,6 +275,7 @@ def merge_standalone_branch(
         target=target,
         repo_root=repo_root,
         project=project,
+        authority=authority,
         commit_sha=commit_sha,
         touched=receipts.resolve_touched_files(
             repo_root=repo_root,
