@@ -15,12 +15,16 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.commands.adapters.dash_verification_plan import (
+    DashVerificationPlanError,
+    resolve_dash_verification_plan,
+)
 from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
 from yoke_cli.commands.adapters.lane_tree import item_lane_tree, verification_tree
 
 DASH_FILE_USAGE = (
     "yoke dash TITLE INSTRUCTION [--project P] [--priority P] "
-    "[--verification-plan ID | --verification-method ID] [--path-claims] "
+    "[--verification-plan ID_OR_SLUG | --verification-method ID] [--path-claims] "
     "[--approval-on-done] [--deployment] [--session-id S] [--json]"
 )
 DASH_SURVEY_USAGE = (
@@ -59,7 +63,7 @@ def dash_file(args: List[str]) -> int:
         help="Priority bucket: high, medium, or low.",
     )
     verification = parser.add_mutually_exclusive_group()
-    verification.add_argument("--verification-plan", type=int)
+    verification.add_argument("--verification-plan", metavar="ID_OR_SLUG")
     verification.add_argument("--verification-method")
     parser.add_argument("--path-claims", action="store_true")
     parser.add_argument("--approval-on-done", action="store_true")
@@ -69,19 +73,29 @@ def dash_file(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DASH_FILE_USAGE)
     if parsed is None:
         return 2
+    project = client_project_context(parsed.project)
     posture: Dict[str, Any] = {}
     if parsed.verification_plan is not None:
+        try:
+            plan_id = resolve_dash_verification_plan(
+                parsed.verification_plan,
+                project=project,
+                session_id=parsed.session_id,
+            )
+        except DashVerificationPlanError as exc:
+            return usage_error(str(exc))
         posture["verification"] = {
-            "kind": "plan", "plan_id": parsed.verification_plan,
+            "kind": "plan",
+            "plan_id": plan_id,
         }
     if parsed.verification_method:
         posture["verification"] = {
-            "kind": "ad_hoc", "method_id": parsed.verification_method,
+            "kind": "ad_hoc",
+            "method_id": parsed.verification_method,
         }
     for key in ("path_claims", "approval_on_done", "deployment"):
         if getattr(parsed, key):
             posture[key] = True
-    project = client_project_context(parsed.project)
     payload: Dict[str, Any] = {
         "title": parsed.title,
         "instruction": parsed.instruction,

@@ -52,7 +52,7 @@ because both act on the local checkout rather than on control-plane state
 alone:
 
 ```text
-yoke direct-workflow worktree prepare ITEM --workflow dash
+yoke direct-workflow worktree prepare ITEM --workflow dash --json
 yoke merge item ITEM --result "<what changed>" --verification "<checks run>"
 ```
 
@@ -233,7 +233,7 @@ Never remove a required file merely to make the survey clear.
 Prepare the ordinary item lane:
 
 ```text
-yoke direct-workflow worktree prepare ITEM --workflow dash
+yoke direct-workflow worktree prepare ITEM --workflow dash --json
 ```
 
 No environment override is required. Validation-surface provisioning is a
