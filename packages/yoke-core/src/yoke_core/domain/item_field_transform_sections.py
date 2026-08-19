@@ -16,6 +16,9 @@ from typing import TYPE_CHECKING, Callable, Optional
 from yoke_core.domain import sections as _sections
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
 from yoke_core.domain.render_body import STRUCTURED_FIELDS as _RENDERED_FIELDS
+from yoke_core.domain.render_body_item_sections import (
+    section_visible_in_rendered_body,
+)
 from yoke_core.domain.render_body_section import (
     has_top_level_section,
     normalise_heading,
@@ -214,6 +217,16 @@ def section_upsert(
             success=False, operation=op, item_id=item_id, section=section,
             error="post-write verification failed: section not found",
             verification="missing",
+        )
+    if not section_visible_in_rendered_body(item_id, section):
+        return _result(
+            success=False, operation=op, item_id=item_id, section=section,
+            error=(
+                "post-write verification failed: section not reachable "
+                "from a body read"
+            ),
+            verification="unreadable",
+            new_line_count=_line_count(persisted),
         )
     return _result(
         success=True, operation=op, item_id=item_id, section=section,

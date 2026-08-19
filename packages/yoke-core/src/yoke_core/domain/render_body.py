@@ -14,7 +14,7 @@ import sys
 from typing import Any, Iterable, Optional, TextIO
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import connect, query_one, query_scalar
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_render import render_path_claims_section
 from yoke_core.domain.render_body_blocked import render_blocked_section
@@ -23,6 +23,10 @@ from yoke_core.domain.render_body_db_claim import (
     DB_CLAIM_ATTESTATION_SUBHEADING,
     DB_CLAIM_HEADING,
     render_db_claim_section,
+)
+from yoke_core.domain.render_body_item_sections import (
+    append_early_item_sections,
+    append_late_item_sections,
 )
 from yoke_core.domain.render_body_section import (
     RENDERER_OWNED_BODY_HEADINGS,
@@ -95,28 +99,6 @@ def _fetch_item(conn: Any, item_id: int):
     )
 
 
-def _fetch_sections(
-    conn: Any,
-    item_id: int,
-    *,
-    min_ordering: int,
-    max_ordering: int,
-) -> list[Any]:
-    p = _p(conn)
-    return query_rows(
-        conn,
-        f"""
-        SELECT section_name, content
-        FROM item_sections
-        WHERE item_id = {p}
-          AND ordering >= {p}
-          AND ordering < {p}
-        ORDER BY ordering, section_name
-        """,
-        (item_id, min_ordering, max_ordering),
-    )
-
-
 def _has_any_content(conn: Any, item_id: int, row, row_keys: set) -> bool:
     """Return True if the item has any structured field, section, shepherd log, or progress note."""
     if any(
@@ -147,22 +129,6 @@ def _append_field_section(chunks: list[str], heading: str, content: Optional[str
         chunks.append(
             _render_section(heading, _strip_duplicate_heading(str(content), heading))
         )
-
-
-def _append_item_sections(
-    chunks: list[str], conn: Any, item_id: int,
-    *, min_ordering: int, max_ordering: int,
-) -> None:
-    if not _schema_table_exists(conn, "item_sections"):
-        return
-    for sec_row in _fetch_sections(
-        conn, item_id, min_ordering=min_ordering, max_ordering=max_ordering,
-    ):
-        content = sec_row["content"]
-        if _section_has_content(content):
-            chunks.append(
-                _render_section(f"## {sec_row['section_name']}", str(content))
-            )
 
 
 def build_body(conn: Any, item_id: int) -> Optional[str]:
@@ -212,7 +178,7 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     _append_field_section(chunks, "## Technical Plan", _get("technical_plan"))
     _append_field_section(chunks, "## Worktree Plan", _get("worktree_plan"))
-    _append_item_sections(chunks, conn, item_id, min_ordering=0, max_ordering=500)
+    append_early_item_sections(chunks, conn, item_id)
     _append_field_section(chunks, "## Shepherd Caveats", _get("shepherd_caveats"))
 
     if _schema_table_exists(conn, "shepherd_verdicts"):
@@ -231,7 +197,7 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     _append_field_section(chunks, "## Test Results", _get("test_results"))
     _append_field_section(chunks, "## Deploy Log", _get("deploy_log"))
-    _append_item_sections(chunks, conn, item_id, min_ordering=500, max_ordering=999999)
+    append_late_item_sections(chunks, conn, item_id)
 
     body = "\n\n".join(chunk.rstrip("\n") for chunk in chunks if chunk != "")
     if body and not body.endswith("\n"):

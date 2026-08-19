@@ -12,6 +12,7 @@ resync --fix`` is the canonical convergence mechanism.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from yoke_core.domain import sections as _sections
@@ -72,6 +73,38 @@ class TestSyncBodyAfterSectionMutation:
 # ---------------------------------------------------------------------------
 
 
+@contextmanager
+def _wired_section_upsert(*, sync, get_section="rendered content\n"):
+    with patch.object(_ift_sec, "_find_fields_with_section", return_value=[]), \
+            patch.object(_sections, "upsert_section", return_value=None), \
+            patch.object(_sections, "_rerender_body", return_value=True), \
+            patch.object(_sections, "_emit_section_event", return_value=None), \
+            patch.object(_sections, "get_section", return_value=get_section), \
+            patch.object(
+                _ift_sec, "section_visible_in_rendered_body", return_value=True,
+            ), \
+            patch.object(
+                _sections, "sync_body_after_section_mutation", side_effect=sync,
+            ):
+        yield
+
+
+@contextmanager
+def _wired_handler_upsert(*, sync):
+    kwargs = (
+        {"side_effect": sync} if callable(sync) else {"return_value": sync}
+    )
+    with patch.object(_sections, "upsert_section", return_value=None), \
+            patch.object(_sections, "_rerender_body", return_value=True), \
+            patch.object(_sections, "_emit_section_event", return_value=None), \
+            patch.object(_sections, "get_section", return_value="content\n"), \
+            patch.object(
+                _handlers, "section_visible_in_rendered_body", return_value=True,
+            ), \
+            patch.object(_sections, "sync_body_after_section_mutation", **kwargs):
+        yield
+
+
 class TestSectionTransformBodySyncWiring:
     def test_section_upsert_calls_sync_helper(self):
         calls: list[tuple] = []
@@ -80,20 +113,7 @@ class TestSectionTransformBodySyncWiring:
             calls.append((item_id, operation))
             return True, ""
 
-        with patch.object(
-            _ift_sec, "_find_fields_with_section", return_value=[],
-        ), patch.object(
-            _sections, "upsert_section", return_value=None,
-        ), patch.object(
-            _sections, "_rerender_body", return_value=True,
-        ), patch.object(
-            _sections, "_emit_section_event", return_value=None,
-        ), patch.object(
-            _sections, "get_section", return_value="rendered content\n",
-        ), patch.object(
-            _sections, "sync_body_after_section_mutation",
-            side_effect=fake_sync,
-        ):
+        with _wired_section_upsert(sync=fake_sync):
             result = _ift_sec.section_upsert(
                 item_id=50, section="Notes", content="hello world",
             )
@@ -105,20 +125,7 @@ class TestSectionTransformBodySyncWiring:
         def failing_sync(item_id, operation):
             return False, "section upsert: sync_body failed"
 
-        with patch.object(
-            _ift_sec, "_find_fields_with_section", return_value=[],
-        ), patch.object(
-            _sections, "upsert_section", return_value=None,
-        ), patch.object(
-            _sections, "_rerender_body", return_value=True,
-        ), patch.object(
-            _sections, "_emit_section_event", return_value=None,
-        ), patch.object(
-            _sections, "get_section", return_value="rendered content\n",
-        ), patch.object(
-            _sections, "sync_body_after_section_mutation",
-            side_effect=failing_sync,
-        ):
+        with _wired_section_upsert(sync=failing_sync):
             result = _ift_sec.section_upsert(
                 item_id=51, section="Notes", content="hello",
             )
@@ -184,18 +191,7 @@ class TestItemSectionHandlerWarningSurfacing:
         def failing_sync(item_id, operation):
             return False, "section upsert: sync_body failed"
 
-        with patch.object(
-            _sections, "upsert_section", return_value=None,
-        ), patch.object(
-            _sections, "_rerender_body", return_value=True,
-        ), patch.object(
-            _sections, "_emit_section_event", return_value=None,
-        ), patch.object(
-            _sections, "get_section", return_value="content\n",
-        ), patch.object(
-            _sections, "sync_body_after_section_mutation",
-            side_effect=failing_sync,
-        ):
+        with _wired_handler_upsert(sync=failing_sync):
             outcome = _handlers.handle_upsert(_make_section_request(
                 function_id="items.section.upsert",
                 item_id=60, section="Notes",
@@ -208,18 +204,7 @@ class TestItemSectionHandlerWarningSurfacing:
         assert outcome.warnings[0].recovery_function == "resync.fix"
 
     def test_handle_upsert_attaches_no_warning_when_sync_succeeds(self):
-        with patch.object(
-            _sections, "upsert_section", return_value=None,
-        ), patch.object(
-            _sections, "_rerender_body", return_value=True,
-        ), patch.object(
-            _sections, "_emit_section_event", return_value=None,
-        ), patch.object(
-            _sections, "get_section", return_value="content\n",
-        ), patch.object(
-            _sections, "sync_body_after_section_mutation",
-            return_value=(True, ""),
-        ):
+        with _wired_handler_upsert(sync=(True, "")):
             outcome = _handlers.handle_upsert(_make_section_request(
                 function_id="items.section.upsert",
                 item_id=61, section="Notes",

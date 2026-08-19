@@ -31,6 +31,9 @@ from pydantic import BaseModel
 
 from yoke_core.domain import sections as _sections
 from yoke_core.domain.backlog_queries import VALID_STRUCTURED_FIELDS
+from yoke_core.domain.render_body_item_sections import (
+    section_visible_in_rendered_body,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -177,6 +180,18 @@ def handle_upsert(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     persisted = _sections.get_section(item_id, section_name) or ""
+    if not section_visible_in_rendered_body(item_id, section_name):
+        return HandlerOutcome(
+            result_payload={},
+            primary_success=False,
+            error=FunctionError(
+                code="unreadable_section",
+                message=(
+                    "post-write verification failed: section not "
+                    "reachable from a body read"
+                ),
+            ),
+        )
     response = UpsertResponse(
         item_id=item_id,
         section_name=section_name,

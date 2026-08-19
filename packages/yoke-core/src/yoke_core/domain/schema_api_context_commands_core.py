@@ -145,7 +145,13 @@ CORE_COMMANDS: list[dict] = [
         "notes": (
             "Progress Log append has its own claimed, atomic recipe in this "
             "packet. These additive variants route through registered "
-            "``yoke items structured-field ...`` adapters."
+            "``yoke items structured-field ...`` adapters. "
+            "``section-upsert`` reports ``verification=ok`` only when the "
+            "named section is reachable from ``items get PREFIX-N body "
+            "--section`` / ``items.detail.get`` ``narrative.body``. The "
+            "wrong guess that a section without ``--ordering`` is stored "
+            "but omitted from the rendered body is stale — NULL ordering "
+            "still renders."
         ),
     },
     {

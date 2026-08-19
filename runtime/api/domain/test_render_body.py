@@ -82,6 +82,36 @@ class TestBuildBody:
             assert body.index("Plan body.") < body.index("Absorbed content.")
             assert body.endswith("\n")
 
+    def test_null_ordering_section_renders_in_body(self, tmp_path: Path) -> None:
+        with _init_db(tmp_path) as db_path:
+            conn = _connect(db_path)
+            item_id = 41
+            _seed_item(conn, item_id, "Null ordering item")
+            p = _p(conn)
+            conn.execute(
+                f"""
+                INSERT INTO item_sections (
+                    item_id, section_name, content, ordering, source,
+                    created_at, updated_at
+                )
+                VALUES (
+                    {p}, 'Current Refusal Inventory', 'Inventory body.',
+                    NULL, 'operator', '2026-01-01T00:00:00Z',
+                    '2026-01-01T00:00:00Z'
+                )
+                """,
+                (item_id,),
+            )
+            conn.commit()
+            body = render_body.build_body(conn, item_id)
+            extracted = render_body.extract_section(
+                body or "", "Current Refusal Inventory",
+            )
+            conn.close()
+            assert body is not None
+            assert "## Current Refusal Inventory" in body
+            assert extracted == "Inventory body."
+
 
 class TestRenderItem:
     def test_output_file_for_empty_item(self, tmp_path: Path) -> None:
