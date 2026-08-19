@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   allNodes,
   byClass,
+  ownTextContent,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 import {
@@ -243,7 +244,10 @@ test("disabled workflows remain selectable and render their registry state", asy
     t, workflowsClient(workflows),
   );
 
-  assert.deepEqual(classText(root, "workflow-tab"), ["Dash", "Rally"]);
+  assert.deepEqual(
+    byClass(root, "workflow-tab").map(ownTextContent),
+    ["Dash", "Rally"],
+  );
   assert.deepEqual(classText(root, "workflow-tab-status"), ["disabled"]);
   assert.equal(
     byClass(root, "workflow-tab")[1].classList.contains("disabled"),

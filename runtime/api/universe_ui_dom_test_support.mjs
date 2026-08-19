@@ -48,7 +48,8 @@ export class FakeNode extends EventTarget {
   }
 
   get textContent() {
-    return this._textContent;
+    return this._textContent +
+      this.children.map((child) => child.textContent).join("");
   }
 
   set textContent(value) {
@@ -143,6 +144,12 @@ export class FakeDocument {
   createElement(tagName) {
     return new FakeNode(this, tagName);
   }
+
+  createTextNode(value) {
+    const node = new FakeNode(this, "#text", 3);
+    node.textContent = String(value ?? "");
+    return node;
+  }
 }
 
 export function allNodes(root) {
@@ -153,11 +160,23 @@ export function byClass(root, name) {
   return allNodes(root).filter((node) => node.classList.contains(name));
 }
 
-// A cell's visible text whether the value sits directly on the cell or
-// inside a single presentation wrapper (a row link, a state pill).
+export function ownTextContent(node) {
+  return node._textContent;
+}
+
+export function visibleText(root, separator = "") {
+  return allNodes(root).map(ownTextContent).filter(Boolean).join(separator);
+}
+
+// A cell's primary value whether it sits directly on the cell or inside
+// presentation wrappers such as a row link or state pill.
 export function cellText(node) {
-  return node.textContent ||
-    (node.children[0] && node.children[0].textContent) || "";
+  let current = node;
+  while (current) {
+    if (ownTextContent(current)) return ownTextContent(current);
+    current = current.children[0];
+  }
+  return "";
 }
 
 function okResult(result) {

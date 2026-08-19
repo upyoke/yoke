@@ -5,15 +5,12 @@ import { renderQaMethodDetail } from "../../packages/yoke-core/src/yoke_core/ui/
 import {
   FakeDocument,
   byClass,
+  visibleText,
 } from "./universe_ui_dom_test_support.mjs";
 
 
 function ok(result) {
   return { status: 200, envelope: { success: true, result } };
-}
-
-function visibleText(node) {
-  return node.textContent + node.children.map(visibleText).join("");
 }
 
 const method = {
