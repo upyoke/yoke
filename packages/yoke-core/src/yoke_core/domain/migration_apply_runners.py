@@ -30,6 +30,7 @@ from yoke_core.domain.migration_apply_contract import (
 from yoke_core.domain.migration_apply_resolve import (
     _load_migration_module,
 )
+from yoke_core.domain.migration_history import validate_psycopg_migration_sql
 from yoke_core.domain.migration_model_capability_validation import (
     RUNNER_KIND_GOVERNED_MODULE,
 )
@@ -132,6 +133,8 @@ def _dispatch_governed_module(
             f"(identifier {identifier!r})"
         )
     modules_dir = (repo_path / modules_dir_rel).resolve()
+    if (model.get("authoritative_db") or {}).get("kind") == "postgres":
+        validate_psycopg_migration_sql(modules_dir)
     module = _load_migration_module(modules_dir, identifier)
     source_path = modules_dir / f"{identifier}.py"
     invariants = getattr(module, "invariants", None)
