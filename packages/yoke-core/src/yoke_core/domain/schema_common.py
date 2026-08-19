@@ -182,5 +182,11 @@ def _add_column_if_not_exists(
     conn: Any, table: str, column: str, col_def: str
 ) -> None:
     """Idempotent ADD COLUMN."""
+    if not _using_generic_sqlite_validation(conn):
+        # Native IF NOT EXISTS follows search_path, same as later DML.
+        conn.execute(
+            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_def}"
+        )
+        return
     if not _column_exists(conn, table, column):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")

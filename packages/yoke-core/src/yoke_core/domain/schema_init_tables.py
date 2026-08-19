@@ -334,8 +334,8 @@ def create_governed_tables(conn: Any) -> None:
             idx_coordination_leases_session ON coordination_leases(session_id);
         CREATE INDEX IF NOT EXISTS
             idx_coordination_leases_heartbeat ON coordination_leases(heartbeat_at);
-        CREATE INDEX IF NOT EXISTS
-            idx_coordination_leases_owner_item ON coordination_leases(owner_item_id);
     """,
     )
+    # Additive-column indexes belong on apply_coordination_lease_columns.
+    # CREATE INDEX here aborts when CREATE TABLE IF NOT EXISTS no-ops.
     conn.commit()

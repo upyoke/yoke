@@ -18,9 +18,7 @@ def _postgres_table_exists(conn: Any, table: str) -> bool:
         SELECT EXISTS (
             SELECT 1
             FROM pg_catalog.pg_class cls
-            JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
-            WHERE ns.nspname = current_schema()
-              AND cls.relname = %s
+            WHERE cls.oid = to_regclass(%s)
               AND cls.relkind IN ('r', 'p')
         )
         """,
@@ -52,12 +50,9 @@ def _postgres_column_row(conn: Any, table: str, column: str) -> Optional[Any]:
             att.attnotnull AS not_null,
             pg_catalog.pg_get_expr(def.adbin, def.adrelid) AS column_default
         FROM pg_catalog.pg_attribute att
-        JOIN pg_catalog.pg_class cls ON cls.oid = att.attrelid
-        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
         LEFT JOIN pg_catalog.pg_attrdef def
           ON def.adrelid = att.attrelid AND def.adnum = att.attnum
-        WHERE ns.nspname = current_schema()
-          AND cls.relname = %s
+        WHERE att.attrelid = to_regclass(%s)
           AND att.attname = %s
           AND att.attnum > 0
           AND NOT att.attisdropped
@@ -80,10 +75,7 @@ def _postgres_get_columns(conn: Any, table: str) -> List[str]:
         """
         SELECT att.attname AS name
         FROM pg_catalog.pg_attribute att
-        JOIN pg_catalog.pg_class cls ON cls.oid = att.attrelid
-        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
-        WHERE ns.nspname = current_schema()
-          AND cls.relname = %s
+        WHERE att.attrelid = to_regclass(%s)
           AND att.attnum > 0
           AND NOT att.attisdropped
         ORDER BY att.attnum
@@ -100,10 +92,7 @@ def _postgres_get_columns_with_types(conn: Any, table: str) -> List[Tuple[str, s
             att.attname AS name,
             pg_catalog.format_type(att.atttypid, att.atttypmod) AS data_type
         FROM pg_catalog.pg_attribute att
-        JOIN pg_catalog.pg_class cls ON cls.oid = att.attrelid
-        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
-        WHERE ns.nspname = current_schema()
-          AND cls.relname = %s
+        WHERE att.attrelid = to_regclass(%s)
           AND att.attnum > 0
           AND NOT att.attisdropped
         ORDER BY att.attnum
@@ -143,9 +132,7 @@ def _postgres_get_indexes(conn: Any, table: Optional[str] = None) -> List[str]:
             FROM pg_catalog.pg_index ind
             JOIN pg_catalog.pg_class idx ON idx.oid = ind.indexrelid
             JOIN pg_catalog.pg_class tbl ON tbl.oid = ind.indrelid
-            JOIN pg_catalog.pg_namespace ns ON ns.oid = tbl.relnamespace
-            WHERE ns.nspname = current_schema()
-              AND tbl.relname = %s
+            WHERE tbl.oid = to_regclass(%s)
             ORDER BY idx.relname
             """,
             (table,),
@@ -158,10 +145,7 @@ def _postgres_check_constraint_defs(conn: Any, table: str) -> List[str]:
         """
         SELECT pg_catalog.pg_get_constraintdef(con.oid) AS definition
         FROM pg_catalog.pg_constraint con
-        JOIN pg_catalog.pg_class cls ON cls.oid = con.conrelid
-        JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
-        WHERE ns.nspname = current_schema()
-          AND cls.relname = %s
+        WHERE con.conrelid = to_regclass(%s)
           AND con.contype = 'c'
         ORDER BY con.conname
         """,

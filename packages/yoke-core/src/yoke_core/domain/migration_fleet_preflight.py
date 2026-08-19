@@ -31,23 +31,18 @@ normalizes belongs there too.
 from __future__ import annotations
 
 import os
-import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import migration_fleet_preflight_transfer, postgres_cluster
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 #: Prefix for the throwaway copy a rehearsal converges. Names it clearly
 #: enough that an operator who finds one left behind knows it is disposable.
 REHEARSAL_PREFIX = "migration_rehearsal_"
-
-#: Seconds allowed for one dump or restore. Tenant databases are small, but
-#: the dump crosses a tunnel to a managed cluster.
-TRANSFER_TIMEOUT_SECONDS = 900
 
 
 @dataclass(frozen=True)
@@ -106,19 +101,6 @@ def _restore_point_named(dump: Path) -> Iterator[None]:
             os.environ.pop(RESTORE_POINT_ENV, None)
         else:
             os.environ[RESTORE_POINT_ENV] = previous
-
-
-def _run(argv: Sequence[str], *, redact: str = "") -> None:
-    result = subprocess.run(
-        list(argv), capture_output=True, text=True, timeout=TRANSFER_TIMEOUT_SECONDS
-    )
-    if result.returncode == 0:
-        return
-    # The source DSN is an argument, so the failing command can quote it back.
-    stderr = (result.stderr or "").strip()
-    if redact:
-        stderr = stderr.replace(redact, "<dsn>")
-    raise RuntimeError(f"{Path(argv[0]).name} failed ({result.returncode}): {stderr}")
 
 
 def _live_ownership_verdict(
@@ -200,50 +182,17 @@ def rehearse(
     work_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        _run(
-            [
-                postgres_cluster.binary(spec, "pg_dump"),
-                "--no-owner",
-                "--no-privileges",
-                "--format=custom",
-                "--file",
-                str(dump),
-                source_dsn,
-            ],
-            redact=source_dsn,
-        )
+        migration_fleet_preflight_transfer.dump_database(spec, source_dsn, dump)
     except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
         return Verdict(database, False, f"could not copy: {exc}")
 
     try:
-        _drop_copy(spec, copy_name)
-        _run(
-            [
-                postgres_cluster.binary(spec, "createdb"),
-                "-h",
-                str(spec.sock_dir),
-                "-U",
-                spec.superuser,
-                copy_name,
-            ]
-        )
-        _run(
-            [
-                postgres_cluster.binary(spec, "pg_restore"),
-                "-h",
-                str(spec.sock_dir),
-                "-U",
-                spec.superuser,
-                "-d",
-                copy_name,
-                "--no-owner",
-                "--no-privileges",
-                str(dump),
-            ]
-        )
+        migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
+        migration_fleet_preflight_transfer.create_copy(spec, copy_name)
+        migration_fleet_preflight_transfer.restore_copy(spec, copy_name, dump)
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
-        _drop_copy(spec, copy_name)
+        migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
         dump.unlink(missing_ok=True)
 
 
@@ -287,24 +236,6 @@ def _converge_copy(
         return Verdict(database, True, "converged", pending, applied)
     finally:
         conn.close()
-
-
-def _drop_copy(spec: ClusterSpec, copy_name: str) -> None:
-    subprocess.run(
-        [
-            postgres_cluster.binary(spec, "dropdb"),
-            "-h",
-            str(spec.sock_dir),
-            "-U",
-            spec.superuser,
-            "--if-exists",
-            "--force",
-            copy_name,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=TRANSFER_TIMEOUT_SECONDS,
-    )
 
 
 def rehearse_fleet(
