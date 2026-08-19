@@ -24,7 +24,10 @@ class TestDashQaMaterializationOrder:
 
     @pytest.fixture
     def dash_doc(self) -> str:
-        return _read(SKILLS / "dash" / "SKILL.md")
+        skill_dir = SKILLS / "dash"
+        return "\n".join(
+            _read(path) for path in sorted(skill_dir.glob("*.md"))
+        )
 
     def test_names_the_materialization_command(self, dash_doc: str):
         assert MATERIALIZE_COMMAND in dash_doc
