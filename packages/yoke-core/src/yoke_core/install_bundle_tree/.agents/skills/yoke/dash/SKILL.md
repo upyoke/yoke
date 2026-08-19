@@ -33,6 +33,8 @@ function-call envelope:
 | `direct_workflow.dash.survey` | `paths` plus optional `integration_target` (defaults to `main`) | `yoke direct-workflow dash survey ITEM --path PATH --json` |
 | `direct_workflow.conflict_survey.status` | Item target; empty payload — rediscover the live survey | `yoke direct-workflow conflict-survey status ITEM --json` |
 | `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
+| `qa.plan.materialize` | Item target; the transition whose attached plans become case rows | `yoke qa plan materialize --item ITEM --transition T --json` |
+| `qa.requirement.list` | Item target; empty payload — the materialized requirement ids | `yoke qa requirement list --item ITEM --json` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
 | `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
 | `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM ...` |
@@ -318,12 +320,37 @@ enqueues that one rather than opening another. A rebase conflict stops
 the gate before anything is published; resolve it on the lane and re-run,
 which invalidates nothing because no evidence exists yet.
 
+**Materialize the attached plan and run its cases before the transition.**
+The `implementing` → `reviewing-implementation` preflight materializes every
+plan attached at that stage into blocking case rows and only then evaluates
+that stage's gates, so a transition attempted first creates the very
+requirement that fails it. Attachment is independent of posture: a
+project-default plan materializes even when no `verification` knob is
+selected, and `done` refuses while any blocking requirement lacks a passing
+run. Run this whenever `qa_plan_attachments` in `yoke items detail get ITEM
+--json` names a plan for `reviewing-implementation`:
+
+```text
+yoke qa plan materialize --item ITEM --transition reviewing-implementation --json
+yoke qa requirement list --item ITEM --json
+```
+
+Execute every unsatisfied, non-waived requirement the listing returns for
+that transition through the registered case runner, and retain the passing
+runs:
+
+```text
+yoke qa case run --requirement-id <requirement-id>
+```
+
+An empty listing means no plan is attached at that transition; do not invent
+a substitute command or a hand-written run.
+
 Then execute each selected posture knob through its shared authority:
 
-- `verification.kind=plan` — materialize the attached plan cases for
-  `reviewing-implementation`, read each row with
-  `yoke qa requirement get --requirement-id <id>`, execute with
-  `yoke qa case run --requirement-id <id>`, and retain passing runs.
+- `verification.kind=plan` — the materialize-then-run pass above is that
+  execution. Confirm the passing rows are the selected plan's, because the
+  posture gate reads only requirements carrying that `plan_id`.
 - `verification.kind=ad_hoc` — author the concrete selected-method case from
   the stored instruction and actual target, then execute the returned
   requirement:
@@ -348,8 +375,10 @@ Then execute each selected posture knob through its shared authority:
 - `deployment` — after merge, run the selected/default item-bound project
   flow for the recorded merge identity and wait for status `succeeded`.
 
-Move into the verification-close stage only when implementation checks
-pass:
+Move into the verification-close stage only when implementation checks pass
+and every case materialized above carries a passing run — the transition
+gates on those rows, so it is the last step of this section, never the step
+that discovers them:
 
 ```text
 yoke lifecycle transition ITEM --from implementing --to reviewing-implementation --reason "Implementation complete; verification passed"
