@@ -31,12 +31,12 @@ def _git_sha(root: Path) -> str:
     return sha if result.returncode == 0 and sha else ""
 
 
-def collect_execution_provenance(
+def _collect_execution_provenance(
     *,
     module_file: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
 ) -> dict[str, str]:
-    """Return ``{source_sha, install_kind, install_path}`` for this process."""
+    """Probe one module and environment for execution provenance."""
     environ = os.environ if env is None else env
     env_sha = (environ.get("YOKE_BUILD_SHA") or "").strip()
     path = Path(module_file or __file__).resolve()
@@ -62,6 +62,25 @@ def collect_execution_provenance(
         "install_kind": kind,
         "install_path": install_path,
     }
+
+
+# A source checkout can advance underneath a long-running API process. Its
+# loaded modules still belong to the revision present at import time, so a
+# fresh ``git rev-parse`` on every request would mislabel stale guard code as
+# current. Hook clients are short-lived processes and naturally capture the
+# new revision on their next invocation.
+_LOADED_PROVENANCE = _collect_execution_provenance()
+
+
+def collect_execution_provenance(
+    *,
+    module_file: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> dict[str, str]:
+    """Return the loaded process fingerprint, or perform an explicit probe."""
+    if module_file is None and env is None:
+        return dict(_LOADED_PROVENANCE)
+    return _collect_execution_provenance(module_file=module_file, env=env)
 
 
 def format_provenance_line(
