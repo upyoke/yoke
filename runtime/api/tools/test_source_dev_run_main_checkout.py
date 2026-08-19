@@ -16,6 +16,14 @@ def _make_source_checkout(path: Path) -> Path:
     return path.resolve()
 
 
+def _make_read_only_scanner(root: Path) -> str:
+    relative = next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))
+    scanner = root / relative
+    scanner.parent.mkdir(parents=True, exist_ok=True)
+    scanner.touch()
+    return relative
+
+
 def _set_zero_live_claims(monkeypatch) -> None:
     monkeypatch.setattr(
         source_dev_run.verification_tree_binding,
@@ -91,6 +99,7 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
     tmp_path,
 ):
     captured = {}
+    scanner = next(iter(source_dev_run.MAIN_CHECKOUT_READ_ONLY_SCRIPTS))
 
     def _dispatch(**kwargs):
         captured.update(kwargs)
@@ -109,7 +118,8 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         session_id="session-1",
         root=tmp_path,
         project_id=17,
-        command=["python3", "-c", "secret value"],
+        command=["python3", scanner, "secret value"],
+        read_only_signature=f"python-script:{scanner}",
     )
 
     assert error is None
@@ -121,8 +131,7 @@ def test_fallback_event_names_the_main_tree_without_copying_arguments(
         "command_name": "python3",
         "argument_count": 2,
         "fallback_reason": "no_live_claimed_yoke_source_lane",
-        "read_only_intent": True,
-        "write_target_if_child_writes": "main",
+        "read_only_signature": f"python-script:{scanner}",
     }
     assert "secret value" not in repr(payload)
     assert captured["actor"].session_id == "session-1"
@@ -134,6 +143,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     capsys,
 ):
     order = []
+    scanner = _make_read_only_scanner(tmp_path)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
@@ -166,7 +176,7 @@ def test_fallback_is_visible_and_audited_before_the_child(
     monkeypatch.setattr(source_dev_run, "_record_main_checkout_fallback", _record)
     monkeypatch.setattr(source_dev_run.subprocess, "run", _run)
 
-    assert source_dev_run.run(["python3", "-c", "pass"]) == 0
+    assert source_dev_run.run(["python3", scanner]) == 0
     assert [entry[0] for entry in order] == ["event", "child"]
     assert f"source checkout: {tmp_path}" in order[0][1]
     assert "read-only" in order[0][1]
@@ -175,7 +185,30 @@ def test_fallback_is_visible_and_audited_before_the_child(
     assert order[1][2]["cwd"] == str(tmp_path)
 
 
+def test_fallback_refuses_arbitrary_commands_before_import_resolution(
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    monkeypatch.setattr(
+        source_dev_run,
+        "_claimed_root",
+        lambda: (tmp_path, None, 17),
+    )
+    imports = mock.Mock()
+    child = mock.Mock()
+    monkeypatch.setattr(source_dev_run._source_pythonpath, "import_origins", imports)
+    monkeypatch.setattr(source_dev_run.subprocess, "run", child)
+
+    assert source_dev_run.run(["python3", "-c", "pass"]) == 1
+
+    assert "only permits registered read-only scanners" in capsys.readouterr().err
+    imports.assert_not_called()
+    child.assert_not_called()
+
+
 def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
+    scanner = _make_read_only_scanner(tmp_path)
     monkeypatch.setattr(
         source_dev_run,
         "_claimed_root",
@@ -194,5 +227,5 @@ def test_fallback_refuses_to_run_without_audit_evidence(monkeypatch, tmp_path):
     child = mock.Mock()
     monkeypatch.setattr(source_dev_run.subprocess, "run", child)
 
-    assert source_dev_run.run(["python3", "-c", "pass"]) == 1
+    assert source_dev_run.run(["python3", scanner]) == 1
     child.assert_not_called()
