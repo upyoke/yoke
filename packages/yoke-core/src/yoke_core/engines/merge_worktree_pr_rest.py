@@ -12,7 +12,6 @@ from typing import Mapping, Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_CONTENTS_WRITE_PERMISSION_LEVELS as CONTENTS_WRITE,
-    GITHUB_METADATA_READ_PERMISSION_LEVELS as METADATA_READ,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
 )
@@ -27,7 +26,9 @@ from yoke_core.domain.gh_rest_transport import (
     RestUnprocessableError,
     request_with_retry,
 )
+from yoke_core.domain.merge_github_authority import MergeAuthority
 from yoke_core.domain.project_github_auth import (
+    GITHUB_AUTHORITY_USER,
     ProjectGithubAuth,
     ProjectGithubAuthError,
     repair_command_hint,
@@ -87,9 +88,16 @@ class AuthResolutionFailed(Exception):
 
 
 def resolve_auth(
-    ctx: MergeContext, *, required_permissions: Mapping[str, str]
+    ctx: MergeContext,
+    *,
+    required_permissions: Mapping[str, str],
+    required_authority: str = GITHUB_AUTHORITY_USER,
 ) -> ProjectGithubAuth:
     """Resolve the project's GitHub auth bundle for this merge.
+
+    ``required_authority`` is the weakest authority that can perform the
+    operation, so a read the installation is authorized to serve is not
+    refused for want of a machine user authorization.
 
     Raises :class:`AuthResolutionFailed` carrying a repair hint when the
     project capability / secret / repo metadata is incomplete.
@@ -103,6 +111,7 @@ def resolve_auth(
         return resolve_project_github_auth(
             project,
             required_permissions=required_permissions,
+            required_authority=required_authority,
         )
     except ProjectGithubAuthError as exc:
         hint = repair_command_hint(exc, project)
@@ -111,25 +120,34 @@ def resolve_auth(
         ) from exc
 
 
-def validate_github_auth_for_merge(ctx: MergeContext) -> Tuple[bool, Optional[str]]:
-    """Cheap precondition check used by ``merge_worktree_runner.run``.
+def validate_github_auth_for_merge(
+    ctx: MergeContext, authority: MergeAuthority,
+) -> Tuple[bool, Optional[str]]:
+    """Admit one merge route against the authority it was classified as needing.
 
-    Returns ``(True, None)`` when the resolver succeeds and the bearer token
-    is non-empty. Returns ``(False, message)`` when the resolver fails, with
-    ``message`` already including the repair hint so callers can fail-fast
-    with one operator-actionable line.
+    ``merge_worktree_runner.run`` calls this before any merge work, so a route
+    whose authority cannot be resolved is refused while the branch is still
+    unlanded. Returns ``(True, None)`` when the resolver succeeds and the
+    bearer token is non-empty, and ``(False, message)`` otherwise, with the
+    classification and the repair hint already in the message so the operator
+    can see which authority the refusal was about.
     """
     try:
-        auth = resolve_auth(ctx, required_permissions=METADATA_READ)
+        auth = resolve_auth(
+            ctx,
+            required_permissions=authority.permissions,
+            required_authority=authority.authority,
+        )
     except AuthResolutionFailed as exc:
-        message = f"Error: {exc}"
+        message = f"Error: {exc}\n  Requires: {authority.describe()}"
         if exc.hint:
             message = f"{message}\n  Repair: {exc.hint}"
         return False, message
     if not auth.token:
         return False, (
-            f"Error: project '{ctx.project}' resolved an empty GitHub bearer token; "
-            "reconnect the GitHub App installation or refresh the repo binding"
+            f"Error: project '{ctx.project}' resolved an empty GitHub bearer token "
+            f"for {authority.describe()}; reconnect the GitHub App installation "
+            "or refresh the repo binding"
         )
     return True, None
 

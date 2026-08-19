@@ -10,6 +10,9 @@ from yoke_core.domain import standalone_item_merge as merge_boundary
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_post_push as post_push
 from yoke_core.domain import standalone_item_merge_receipt as receipts
+from yoke_core.domain.project_github_auth_models import (
+    GITHUB_AUTHORITY_INSTALLATION,
+)
 from yoke_core.engines import merge_landed_lane_cleanup as lane_cleanup
 from yoke_core.engines import merge_worktree_post_local as local_merge
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -44,6 +47,7 @@ def _complete():
         target="main",
         repo_root="/repo",
         project="yoke",
+        authority=GITHUB_AUTHORITY_INSTALLATION,
         commit_sha=LANE_SHA,
         touched=("changed.py",),
         already=False,

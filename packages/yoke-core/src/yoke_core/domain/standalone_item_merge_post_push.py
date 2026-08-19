@@ -6,6 +6,12 @@ bounded proof that the project has none) allow the caller's evidence and done
 transition; red or still-pending checks preserve both claim and lane for a
 follow-up commit through the same merge command. Physical retirement belongs
 to the later successful terminal boundary.
+
+The proof reads checks under the authority the merge itself ran under, passed
+in by the boundary that classified the route. Demanding a stricter authority
+here is how a landed merge came to report failure: the branch was already on
+the base branch, and the only thing that failed was asking for a machine user
+authorization the read never needed.
 """
 
 from __future__ import annotations
@@ -85,12 +91,16 @@ def _setting_seconds(key: str) -> int:
 
 
 def read_check_runs(
-    project: str, merge_sha: str,
+    project: str, merge_sha: str, authority: str,
 ) -> tuple[Optional[tuple[CheckRun, ...]], str]:
-    """Read check runs for exactly ``merge_sha`` through project GitHub auth."""
+    """Read check runs for exactly ``merge_sha`` under the merge's authority."""
     ctx = MergeContext(args=MergeArgs(branch=""), project=project)
     try:
-        auth = resolve_auth(ctx, required_permissions=CHECKS_READ)
+        auth = resolve_auth(
+            ctx,
+            required_permissions=CHECKS_READ,
+            required_authority=authority,
+        )
     except AuthResolutionFailed as exc:
         hint = f" Repair: {exc.hint}" if exc.hint else ""
         return None, f"post-push check auth resolution failed: {exc}.{hint}"
@@ -136,9 +146,10 @@ def _descriptions(runs: Sequence[CheckRun]) -> str:
 def await_post_push_checks(
     project: str,
     merge_sha: str,
+    authority: str,
     *,
     read: Callable[
-        [str, str], tuple[Optional[tuple[CheckRun, ...]], str]
+        [str, str, str], tuple[Optional[tuple[CheckRun, ...]], str]
     ] = read_check_runs,
     sleep: Callable[[float], None] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
@@ -150,7 +161,7 @@ def await_post_push_checks(
     discovery_deadline = min(discovery_timeout, conclusion_timeout)
 
     while True:
-        runs, error = read(project, merge_sha)
+        runs, error = read(project, merge_sha, authority)
         if error or runs is None:
             return PostPushVerdict("unreadable", detail=error)
         if runs:
@@ -174,7 +185,7 @@ def await_post_push_checks(
             sleep(remaining)
             return PostPushVerdict("timed_out", runs=runs)
         sleep(MINIMUM_POLL_INTERVAL_SECONDS)
-        refreshed, error = read(project, merge_sha)
+        refreshed, error = read(project, merge_sha, authority)
         if error or refreshed is None:
             return PostPushVerdict("unreadable", runs=runs, detail=error)
         runs = refreshed
@@ -203,6 +214,7 @@ def complete(
     target: str,
     repo_root: str,
     project: str,
+    authority: str,
     commit_sha: str,
     touched: tuple[str, ...],
     already: bool,
@@ -240,7 +252,7 @@ def complete(
 
     record()
     if pushed:
-        verdict = await_post_push_checks(project, merge_sha)
+        verdict = await_post_push_checks(project, merge_sha, authority)
         if verdict.runs:
             record(verdict.evidence)
         if not verdict.ok:

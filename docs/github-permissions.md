@@ -64,6 +64,30 @@ never a long-lived personal token:
 
 Both are bounded by the App's declared permissions below.
 
+### Which one an operation runs under
+
+An operation names the *weakest* authority that can perform it, and resolution
+honors that name. Only work attributed to a person genuinely needs the
+user-to-server token; work the installation is itself authorized to do falls
+through to an installation token when the machine authorization is
+unavailable, instead of refusing something the binding already covers. When
+neither path produces a token, the user-authorization failure is the one
+reported, because reconnecting is the repair on a machine bound to user
+authority.
+
+Merging is where the distinction is load-bearing, so the merge engine settles
+it before any merge work rather than discovering it afterwards:
+
+| Merge route | Authority | Why |
+| --- | --- | --- |
+| **Direct merge** — land in the checkout, publish the base branch, prove the pushed commit's checks | Installation | Nothing is attributed to a person; git credentials carry the push and Checks: read carries the proof |
+| **Pull-request merge** — open a PR, wait on its checks, merge it | User | The pull request is opened as *you* |
+
+A merge whose checkout has no remote never reaches GitHub and needs no
+authority at all. Classifying up front is what keeps an unavailable
+authorization from surfacing only after the branch has already landed — a
+merge that succeeded while its verification reported failure.
+
 ## Permissions at a glance
 
 Authoritative source:
@@ -147,9 +171,11 @@ projects with a GitHub-Actions deploy stage.
 **Checks: read** — Before merging a PR, reading its CI check-runs on the head
 commit (`GET …/commits/{sha}/check-runs`) and merging only if they pass.
 Strictly read-only — Yoke never creates or re-runs a check — and it uses the
-modern Check Runs API, not the legacy commit-status API. Its only consumer is
-the PR-merge gate. (The deploy-branch CI advisory reads workflow-run status
-under Actions: read, not this permission.)
+modern Check Runs API, not the legacy commit-status API. Its consumers are the
+PR-merge gate and the post-push proof a direct standalone landing runs against
+the commit it just published; the second reads under installation authority,
+because a direct merge is authorized that way. (The deploy-branch CI advisory
+reads workflow-run status under Actions: read, not this permission.)
 
 **Secrets: write** — Seeding the SSH deploy credentials (key, host, user) that
 Yoke's generated deploy workflows need to reach your server. Each value is

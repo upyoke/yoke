@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from yoke_core.domain import standalone_item_merge as merge
 from yoke_core.domain import standalone_item_merge_post_push as post_push
+from yoke_core.domain.project_github_auth_models import (
+    GITHUB_AUTHORITY_INSTALLATION,
+)
 
 
 def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
@@ -24,7 +27,8 @@ def test_completed_standalone_landing_fast_forwards_main(monkeypatch):
 
     outcome = merge._complete(
         item_id=7, branch="item", target="main", repo_root="/tmp/repo",
-        project="yoke", commit_sha="c" * 40, touched=("file.py",), already=False,
+        project="yoke", authority=GITHUB_AUTHORITY_INSTALLATION,
+        commit_sha="c" * 40, touched=("file.py",), already=False,
     )
 
     assert outcome.ok

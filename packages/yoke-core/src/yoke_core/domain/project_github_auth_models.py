@@ -9,6 +9,13 @@ from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
 from yoke_core.domain.github_app_token_models import InstallationToken
 
 
+# The two authorities a project GitHub operation can act under. A resolved
+# bundle reports which one produced its bearer token, and a caller names the
+# weakest one that can perform its operation.
+GITHUB_AUTHORITY_USER = "github_app_user"
+GITHUB_AUTHORITY_INSTALLATION = "github_app_installation"
+
+
 class ProjectGithubAuthError(Exception):
     code: str = "project_github_auth_error"
 
@@ -78,7 +85,7 @@ class ProjectGithubAuth:
     token: str = field(repr=False)
     installation_id: str = ""
     token_expires_at: str = ""
-    token_source: str = "github_app_installation"
+    token_source: str = GITHUB_AUTHORITY_INSTALLATION
     permissions: Mapping[str, str] = field(default_factory=dict)
 
 
@@ -103,6 +110,8 @@ TokenMinter = Callable[..., InstallationToken]
 
 
 __all__ = [
+    "GITHUB_AUTHORITY_INSTALLATION",
+    "GITHUB_AUTHORITY_USER",
     "AppCredentials",
     "BindingUnavailable",
     "GITHUB_CAPABILITY_TYPE",

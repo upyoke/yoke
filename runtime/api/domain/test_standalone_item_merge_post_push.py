@@ -9,6 +9,9 @@ from yoke_contracts.machine_config.settings_keys import (
     machine_setting_default,
 )
 from yoke_core.domain import standalone_item_merge_post_push as post_push
+from yoke_core.domain.project_github_auth_models import (
+    GITHUB_AUTHORITY_INSTALLATION,
+)
 
 
 class Clock:
@@ -35,7 +38,7 @@ def _run(
     seen: list[float] = []
     pending = list(readings)
 
-    def read(_project, _sha):
+    def read(_project, _sha, _authority):
         seen.append(clock.now)
         return pending.pop(0) if len(pending) > 1 else pending[0]
 
@@ -44,7 +47,7 @@ def _run(
 
     monkeypatch.setattr(post_push, "_setting_seconds", setting)
     verdict = post_push.await_post_push_checks(
-        "yoke", "merge-sha", read=read,
+        "yoke", "merge-sha", GITHUB_AUTHORITY_INSTALLATION, read=read,
         sleep=clock.sleep, monotonic=clock.monotonic,
     )
     return verdict, clock, seen
@@ -137,7 +140,9 @@ def test_check_run_reader_keeps_conclusions_and_urls(monkeypatch) -> None:
         }]}),
     )
 
-    runs, error = post_push.read_check_runs("yoke", "abc123")
+    runs, error = post_push.read_check_runs(
+        "yoke", "abc123", GITHUB_AUTHORITY_INSTALLATION,
+    )
 
     assert error == ""
     assert runs == (

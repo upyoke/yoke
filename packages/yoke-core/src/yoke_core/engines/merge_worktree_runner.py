@@ -5,6 +5,10 @@ from __future__ import annotations
 import time
 from typing import Callable, Optional
 
+from yoke_core.domain.merge_github_authority import (
+    classify_merge_authority,
+    merge_reaches_github,
+)
 from yoke_core.engines.merge_worktree_prepare import MergeArgs
 from yoke_core.engines.merge_worktree_pr_rest import validate_github_auth_for_merge
 
@@ -95,10 +99,16 @@ def run(args: MergeArgs) -> int:
         _print(str(e), err=True)
         return 1
 
-    # Require GitHub App auth for non-local merges. Local merges never touch
-    # GitHub and remain exempt from the auth precondition.
-    if not args.local_merge:
-        ok, message = validate_github_auth_for_merge(ctx)
+    # Settle which GitHub authority this route needs before any merge work,
+    # so a route that cannot be authorized is refused here rather than after
+    # the branch has landed. A merge that never reaches GitHub needs none.
+    authority = classify_merge_authority(local_merge=args.local_merge)
+    if merge_reaches_github(
+        local_merge=args.local_merge,
+        standalone=args.standalone,
+        repo_root=str(ctx.repo_root),
+    ):
+        ok, message = validate_github_auth_for_merge(ctx, authority)
         if not ok:
             _print(message or "Error: GitHub auth validation failed.", err=True)
             return 1
