@@ -270,6 +270,7 @@ def dispatch_and_emit(
     sensitive_values: tuple[str, ...] = (),
     options: Optional[Dict[str, Any]] = None,
     preconditions: Optional[Dict[str, Any]] = None,
+    response_recovery: Optional[Callable[[Any, Any], Any]] = None,
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -294,9 +295,9 @@ def dispatch_and_emit(
         options=options,
         preconditions=preconditions,
     )
-    result_code = emit_response(
-        response, json_mode=json_mode, human_writer=human_writer,
-    )
+    if response_recovery is not None:
+        response = response_recovery(response, actor)
+    result_code = emit_response(response, json_mode=json_mode, human_writer=human_writer)
     sys.stdout.flush()
     sys.stderr.flush()
     if response.success and cleanup_item is not None:

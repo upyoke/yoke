@@ -41,9 +41,11 @@ class SurveyResponse(BaseModel):
     fingerprint: str
     blockers: List[dict[str, Any]]
     touch_paths: List[str]
+    integration_target: str
     path_sizes: List[dict[str, Any]]
     recorded: bool
     touch_path_update: Literal["replace"] = "replace"
+    recovered_from_durable_state: bool = False
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -149,6 +151,7 @@ def handle_survey(
                 for blocker in survey.blockers
             ],
             touch_paths=list(survey.touch_paths),
+            integration_target=survey.integration_target,
             path_sizes=[row.model_dump() for row in payload.path_sizes],
             recorded=recorded,
         ).model_dump(),

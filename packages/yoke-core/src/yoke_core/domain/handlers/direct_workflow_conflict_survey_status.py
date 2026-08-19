@@ -20,8 +20,12 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.conflict_survey import (
+    ConflictSurveyRecordState,
+    DURABLE_RECORDED,
+)
 from yoke_core.domain.conflict_survey import (
-    read_recorded_survey,
+    read_recorded_survey_state,
     survey_conflicts,
 )
 
@@ -33,10 +37,13 @@ class ConflictSurveyStatusRequest(BaseModel):
 class ConflictSurveyStatusResponse(BaseModel):
     item_id: int
     workflow_id: str
+    durable_state: ConflictSurveyRecordState
     found: bool
     clear: bool
     touch_paths: List[str]
     integration_target: str
+    fingerprint: str
+    observed_at: str
     blockers: List[dict[str, Any]]
 
 
@@ -90,19 +97,23 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
         if row is None:
             return _error("unknown_item", f"item {item_id} does not exist")
         workflow_id = str(row[0])
-        recorded = read_recorded_survey(conn, item_id)
-        if not recorded:
+        record = read_recorded_survey_state(conn, item_id)
+        if record.state != DURABLE_RECORDED:
             return HandlerOutcome(
                 result_payload=ConflictSurveyStatusResponse(
                     item_id=item_id,
                     workflow_id=workflow_id,
+                    durable_state=record.state,
                     found=False,
                     clear=False,
                     touch_paths=[],
                     integration_target="main",
+                    fingerprint="",
+                    observed_at="",
                     blockers=[],
                 ).model_dump(),
             )
+        recorded = record.payload or {}
         integration_target = str(recorded.get("integration_target") or "main")
         try:
             survey = survey_conflicts(
@@ -117,10 +128,13 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
         result_payload=ConflictSurveyStatusResponse(
             item_id=item_id,
             workflow_id=workflow_id,
+            durable_state=DURABLE_RECORDED,
             found=True,
             clear=survey.clear,
             touch_paths=list(survey.touch_paths),
             integration_target=survey.integration_target,
+            fingerprint=survey.fingerprint,
+            observed_at=survey.observed_at,
             blockers=[
                 {
                     "kind": blocker.kind,

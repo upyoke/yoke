@@ -19,6 +19,9 @@ from yoke_cli.commands.adapters.dash_verification_plan import (
     DashVerificationPlanError,
     resolve_dash_verification_plan,
 )
+from yoke_cli.commands.adapters.dash_survey_recovery import (
+    build_survey_timeout_recovery,
+)
 from yoke_cli.commands.adapters.file_line_sizing import survey_path_sizes
 from yoke_cli.commands.adapters.lane_tree import item_lane_tree, verification_tree
 
@@ -174,17 +177,20 @@ def dash_survey(args: List[str]) -> int:
                 file=stdout,
             )
 
+    target = item_target("item", parsed.item, parsed.project)
+    payload = {
+        "paths": parsed.paths,
+        "integration_target": parsed.integration_target,
+        "path_sizes": path_sizes,
+    }
     return dispatch_and_emit(
         function_id="direct_workflow.dash.survey",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={
-            "paths": parsed.paths,
-            "integration_target": parsed.integration_target,
-            "path_sizes": path_sizes,
-        },
+        target=target,
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human,
+        response_recovery=build_survey_timeout_recovery(target, payload),
     )
 
 
