@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.strategy_execution_events import (
     STRATEGY_EXECUTION_EVENT_ROWS,
@@ -12,12 +13,6 @@ from yoke_core.domain.strategy_execution_events import (
 
 
 STRATEGY_EXECUTION_TABLE_SQL = """
-ALTER TABLE strategy_docs
-  ADD COLUMN IF NOT EXISTS parent_slug TEXT;
-
-ALTER TABLE strategy_doc_revisions
-  ADD COLUMN IF NOT EXISTS session_id TEXT;
-
 CREATE INDEX IF NOT EXISTS idx_strategy_docs_parent
   ON strategy_docs(project_id, parent_slug)
   WHERE parent_slug IS NOT NULL;
@@ -74,6 +69,8 @@ def ensure_strategy_execution_schema(
     commit: bool = True,
 ) -> None:
     """Create storage, committing unless the caller owns the transaction."""
+    _add_column_if_not_exists(conn, "strategy_docs", "parent_slug", "TEXT")
+    _add_column_if_not_exists(conn, "strategy_doc_revisions", "session_id", "TEXT")
     execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     for event_name, description in STRATEGY_EXECUTION_EVENT_ROWS:
