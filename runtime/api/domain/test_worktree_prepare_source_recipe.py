@@ -43,7 +43,10 @@ def _install_prepare_fakes(monkeypatch, worktree_path):
         {
             "ok": True,
             "worktree_path": str(worktree_path),
-            "to_envelope": lambda self: {"ok": True},
+            "to_envelope": lambda self: {
+                "ok": True,
+                "worktree_path": self.worktree_path,
+            },
         },
     )()
     monkeypatch.setattr(preflight, "run_preflight", lambda **_kwargs: outcome)

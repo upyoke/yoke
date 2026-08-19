@@ -84,6 +84,12 @@ DONE_TRANSITION_CLOSE_OUT_TESTS = (
     "runtime/api/engines/test_done_transition_syspath.py",
 )
 
+DIRECT_WORKFLOW_PREPARE_TESTS = (
+    "runtime/api/cli/test_dash_verification_plan_resolution.py",
+    "runtime/api/domain/test_direct_workflow_conflict_survey_status.py",
+    "runtime/api/domain/test_worktree_prepare_source_recipe.py",
+)
+
 CURSOR_SESSION_IDENTITY_DISPATCH_TESTS = (
     "runtime/harness/cursor/test_session_dispatch_cursor.py",
 )
@@ -133,6 +139,16 @@ PATH_CONTRACT_TESTS = (
             }
         ),
         STANDALONE_MERGE_CLOSE_OUT_TESTS,
+    ),
+    (
+        "direct_workflow_prepare_contract",
+        frozenset(
+            {
+                "packages/yoke-core/src/yoke_core/domain/"
+                "direct_workflow_worktree_preflight.py",
+            }
+        ),
+        DIRECT_WORKFLOW_PREPARE_TESTS,
     ),
     (
         "done_transition_close_out_contract",
@@ -188,6 +204,7 @@ __all__ = [
     "ALWAYS_RUN_TESTS",
     "ContractSelection",
     "CURSOR_SESSION_IDENTITY_DISPATCH_TESTS",
+    "DIRECT_WORKFLOW_PREPARE_TESTS",
     "DONE_TRANSITION_CLOSE_OUT_TESTS",
     "ITEM_WORKTREE_SCHEMA_TESTS",
     "PRODUCT_CLI_BOUNDARY_TESTS",

@@ -11,7 +11,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.tools import impacted_tests, watch_pytest
-from yoke_core.tools._impacted_contract_tests import DONE_TRANSITION_CLOSE_OUT_TESTS
+from yoke_core.tools._impacted_contract_tests import (
+    DIRECT_WORKFLOW_PREPARE_TESTS,
+    DONE_TRANSITION_CLOSE_OUT_TESTS,
+)
 from yoke_core.tools.impacted_tests import Selection, build_import_index, select
 
 from runtime.api.tools.test_impacted_tests import _tiny_repo, _with_floor, _write
@@ -130,8 +133,7 @@ def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
 ) -> None:
     root = _tiny_repo(tmp_path)
     changed = (
-        "packages/yoke-core/src/yoke_core/domain/"
-        "standalone_item_merge_recovery.py"
+        "packages/yoke-core/src/yoke_core/domain/standalone_item_merge_recovery.py"
     )
     tooling = "packages/yoke-core/src/yoke_core/tools/impacted_tests.py"
     _write(root, changed, "def recover(): pass\n")
@@ -142,9 +144,7 @@ def test_standalone_merge_change_keeps_close_out_contracts_when_deferred(
     selection = select([changed, tooling], build_import_index(root), bounded=True)
 
     assert selection.bounded_deferral is True
-    assert set(impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS) <= set(
-        selection.files
-    )
+    assert set(impacted_tests.STANDALONE_MERGE_CLOSE_OUT_TESTS) <= set(selection.files)
 
 
 def test_done_transition_change_keeps_cleanup_contracts(tmp_path) -> None:
@@ -157,6 +157,22 @@ def test_done_transition_change_keeps_cleanup_contracts(tmp_path) -> None:
     selection = select([changed], build_import_index(root), bounded=True)
 
     assert set(DONE_TRANSITION_CLOSE_OUT_TESTS) <= set(selection.files)
+
+
+def test_direct_workflow_prepare_change_keeps_receipt_consumers(tmp_path) -> None:
+    root = _tiny_repo(tmp_path)
+    changed = (
+        "packages/yoke-core/src/yoke_core/domain/direct_workflow_worktree_preflight.py"
+    )
+    tooling = "packages/yoke-core/src/yoke_core/tools/_impacted_contract_tests.py"
+    _write(root, changed, "def run(): pass\n")
+    _write(root, tooling, "VALUE = 1\n")
+    for test_path in DIRECT_WORKFLOW_PREPARE_TESTS:
+        _write(root, test_path, "def test_receipt(): pass\n")
+
+    selection = select([changed, tooling], build_import_index(root), bounded=True)
+
+    assert set(DIRECT_WORKFLOW_PREPARE_TESTS) <= set(selection.files)
 
 
 def test_bounded_selection_leaves_a_bounded_verdict_alone(tmp_path: Path) -> None:

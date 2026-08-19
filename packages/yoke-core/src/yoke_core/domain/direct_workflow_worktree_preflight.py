@@ -221,7 +221,9 @@ def run(args: List[str]) -> int:
         )
     envelope = outcome.to_envelope()
     if outcome.ok:
-        envelope["run_recipes"] = _run_recipes(outcome.worktree_path)
+        envelope["run_recipes"] = _run_recipes(
+            str(envelope.get("worktree_path") or "")
+        )
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0 if outcome.ok else 1
 
