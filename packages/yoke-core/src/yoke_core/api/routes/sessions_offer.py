@@ -115,8 +115,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                 else None
             ),
         )
-        # request-body execution_lane is advisory only.
-        # Resolve from executor default and let ownership anchor on row.
+        # Executor default; a supplied body lane overrides the session row.
         resolved_lane = resolve_execution_lane(
             executor=req.executor,
             explicit_lane=None,

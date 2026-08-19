@@ -1,5 +1,10 @@
 # Execution lane is row-anchored, not envelope-anchored
 
+> **Superseded in part.** The session-row lane remains the default, and
+> unknown lanes still return `WAIT` / `lane_policy_unknown`. A supplied
+> `--lane` now overrides that default — see
+> [session-offer-lane-caller-override.md](session-offer-lane-caller-override.md).
+
 ## Context
 
 The session-offer routing layer used to read `execution_lane` from the

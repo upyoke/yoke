@@ -28,7 +28,7 @@ class TestSessionOfferClassifier:
             "HarnessSessionOffered: session_id=abc step=1",
             "NextActionChosen: action=charge correlation_id=xyz",
             "SchedulerOfferSkipped: refreshed_in_place",
-            "SessionOfferLaneOverrideIgnored: primary != DARIUS",
+            "SessionOfferLaneOverrideApplied: primary != DARIUS",
             "=== session-offer decision: charge ===",
             '{"action": "charge", "reason": "15 runnable", "chainable": true}',
             '{"action": "wait", "reason": "frontier empty", "chainable": false}',
@@ -45,7 +45,7 @@ class TestSessionOfferClassifier:
             "Error: session-offer for executor 'foo' requires …",
             "ERROR: failed to acquire claim",
             "Usage: session-offer --executor E --provider P --workspace W",
-            "Warning: lane override ignored",
+            "Warning: lane override applied",
         ],
     )
     def test_urgent_lines_classify(self, line: str) -> None:

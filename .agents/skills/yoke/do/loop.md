@@ -58,7 +58,7 @@ The wrapper emits these keys, one per line, in stable order:
 
 - `SESSION_ID` — resolved `YOKE_SESSION_ID` (existing env, harness-mapped, or generated)
 - `WORKSPACE` — git toplevel of the calling cwd
-- `LANE` — resolved execution lane (advisory; server anchors on session row)
+- `LANE` — resolved execution lane
 - `EXECUTOR` — `claude-code` | `codex` | (custom from `YOKE_EXECUTOR`)
 - `PROVIDER` — `anthropic` | `openai` | (custom from `YOKE_PROVIDER`)
 - `MODEL` — the canonical model id resolved from the session row's model field (see your `harness_sessions` packet stanza) / `detect_model` fallback
@@ -80,22 +80,16 @@ the `yoke sessions begin` establishment call above). The offer path validates,
 heartbeats, schedules, and claims — it does NOT create sessions.
 
 This MUST run in the **same Bash call** as the init block above (or substitute
-`{_executor}`, `{_provider}`, `{_lane}`, and `{_workspace}` with literal
+`{_executor}`, `{_provider}`, and `{_workspace}` with literal
 values captured from the init output, and set `YOKE_SESSION_ID` in the
 environment):
 
 ```bash
 # FR-7: No --supported-paths. Server derives capabilities from shared registry plus manifest limitations.
-# `--lane` is advisory only; server anchors on the session row.
-# Passing the resolved value (or `default`) is harmless — passing a literal
-# `primary` against an executor whose default is `DARIUS`/`ALTMAN` would
-# emit a `SessionOfferLaneOverrideIgnored` WARN event without changing the
-# routing outcome.
 yoke sessions offer \
  --executor "$_executor" \
  --provider "$_provider" \
  --workspace "$_workspace" \
- --lane "$_lane" \
  --session-id "$YOKE_SESSION_ID" \
  --step "{step}"
 ```
@@ -103,8 +97,6 @@ yoke sessions offer \
 The assembled command must literally include `--session-id "$YOKE_SESSION_ID"`
 so every re-offer stays attached to the stable session identity begun at the
 start of the `/yoke do` invocation.
-
-Where `{lane}` is the resolved value from the parent SKILL.md.
 
 Parse the JSON from stdout **in the prompt context** — do not capture it into a shell variable (`_offer=$(...)`) and do not pipe it to a parser (`| python3 -c ...`); the harness renders the command's stdout to the next turn and you read it inline. Bare invocation + prompt-context parsing is the canonical shape, the same as `yoke sessions ownership-guard` at `loop-routing.md` Step B. The response has this shape:
 

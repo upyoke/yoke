@@ -121,6 +121,9 @@ _RETIRED_LIVE_APPLY_CLI_PATTERN = r"migration_apply\s+live-apply\b"
 _RETIRED_MODULE_PATH_OVERRIDE_PATTERN = r"--module-path-override\b"
 _RETIRED_MIGRATION_APPLY_STAGE_PATTERN = r'"kind"\s*:\s*"migration_apply"'
 _RETIRED_APPLIED_EVERYWHERE_PATTERN = r"applied\-everywhere evidence"
+_RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN = (
+    "SessionOffer" + r"LaneOverrideIgnored\b"
+)
 
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
@@ -173,6 +176,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_MODULE_PATH_OVERRIDE_PATTERN,
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN,
     _RETIRED_APPLIED_EVERYWHERE_PATTERN,
+    _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
@@ -183,6 +187,10 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_MODULE_PATH_OVERRIDE_PATTERN: "retired cross-worktree module override",
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: "retired migration_apply deployment stage",
     _RETIRED_APPLIED_EVERYWHERE_PATTERN: "retired applied-everywhere deletion rule",
+    _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: (
+        "SessionOfferLaneOverrideIgnored (retired — caller lane now overrides "
+        "the session-row default and emits SessionOfferLaneOverrideApplied)"
+    ),
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN: "retired parent-epic item field (symbol form)",
     _RETIRED_PARENT_EPIC_CLI_PATTERN: "retired parent-epic item field (CLI form)",
     _RETIRED_PARENT_EPIC_SQL_PATTERN: "retired parent-epic item field (SQL form)",
@@ -282,6 +290,10 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     _RETIRED_HOST_CONTROL_EXECUTOR_PATTERN: _QA_RUNNER_RENAME_SUBJECT_PATHS,
     _RETIRED_MIGRATION_APPLY_STAGE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
     _RETIRED_EPHEMERAL_MIGRATION_MODULE_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS,
+    _RETIRED_LANE_OVERRIDE_IGNORED_EVENT_PATTERN: _MIGRATION_RETIREMENT_SUBJECT_PATHS
+    + (
+        "packages/yoke-core/src/yoke_core/domain/populate_registry_data_lifecycle.py",
+    ),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
 }

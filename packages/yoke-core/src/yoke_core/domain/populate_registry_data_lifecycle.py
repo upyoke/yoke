@@ -25,6 +25,7 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     "FeedStarted",
     "QAArtifactAttached",
     "SessionExecutionScopeChanged",
+    "SessionOfferLaneOverrideIgnored",
     "WorktreeHandoffEmitted",
 )
 
@@ -113,7 +114,7 @@ EXPECTED_LOW_CADENCE_ACTIVE: Tuple[str, ...] = (
     "SMLRefreshCompleted",
     "SessionCwdBindingFailOpen",
     "SessionCwdBindingHealthCheckFailed",
-    "SessionOfferLaneOverrideIgnored",
+    "SessionOfferLaneOverrideApplied",
     "SessionReactivationReacquiredClaims",
     "StrategyDocArchived",
     "StrategyDocUnarchived",
