@@ -10,11 +10,14 @@ remain authoritative even though the function lives here.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.deploy_qa_stage_helpers import resolve_qa_kind_for_stage
+
+_logger = logging.getLogger(__name__)
 
 
 def cmd_record_stage_result(
@@ -45,7 +48,9 @@ def cmd_record_stage_result(
     qa_kind = resolve_qa_kind_for_stage(stages_json, stage_name)
 
     if not qa_kind:
-        print(f"Stage '{stage_name}' is not a QA stage — nothing to record")
+        _logger.debug(
+            "Stage %r is not a QA stage; no verdict to record", stage_name
+        )
         return None
 
     conn = connect(db_path)

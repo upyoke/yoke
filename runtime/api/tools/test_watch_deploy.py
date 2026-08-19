@@ -80,6 +80,12 @@ def test_unremarkable_output_is_noise():
     assert _line_class("exec-auto: stage complete (no-op)") == LineClass.NOISE
 
 
+def test_non_qa_stage_diagnostics_are_not_summary_output():
+    line = "Stage 'merged' is not a QA stage; no verdict to record"
+    assert _line_class(line) == LineClass.NOISE
+    assert not watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line)
+
+
 def test_the_union_pattern_matches_every_classified_shape():
     """The public pattern and the classifier cannot disagree."""
     for line in (
