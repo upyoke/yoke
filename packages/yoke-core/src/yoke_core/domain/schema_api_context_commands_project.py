@@ -99,7 +99,14 @@ PROJECT_COMMANDS: list[dict] = [
             "guess a sibling `commands/pulumi_exec.py` module. The selected "
             "stack must be declared in the project pulumi-state capability. "
             "Output reads require one exact output name and never expose "
-            "secret values."
+            "secret values. A child `401 Bad credentials` on api.github.com "
+            "is `github_provider_unauthorized`: the github.Provider credential "
+            "GitHub rejected, not AWS, and not proof the launch GITHUB_TOKEN "
+            "expired (wrong guess — a process token can already read the same "
+            "variables and environments). Restore with `yoke github status` "
+            "and `yoke projects github-binding status --project <project> "
+            "--json`; if those are healthy, replace or update the stack "
+            "provider so refresh reads the process token."
         ),
     },
     {
