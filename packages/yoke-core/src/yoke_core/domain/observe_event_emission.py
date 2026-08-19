@@ -213,7 +213,7 @@ def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
         ) VALUES ("""
         + placeholders
         + """)
-        ON CONFLICT(event_id) DO NOTHING""",
+        ON CONFLICT DO NOTHING""",
         values,
     )
     # Same-transaction state write: Started opens a session_tool_calls
