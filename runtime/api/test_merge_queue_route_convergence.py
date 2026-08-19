@@ -69,6 +69,21 @@ def test_cleared_arming_while_the_train_validates_keeps_polling(monkeypatch):
     assert outcome.exit_code == 0
 
 
+def test_green_train_with_cleared_slot_still_converges(monkeypatch):
+    """GitHub drops the slot before merged=true; that is not a stall."""
+    wire_happy_path(
+        monkeypatch,
+        landing_states=[ARMED, UNARMED, UNARMED, MERGED],
+        queue_entries=(),
+        train=TrainRun(
+            status="completed", conclusion="success", url="https://runs/3",
+        ),
+    )
+    outcome = land()
+    assert outcome.ok
+    assert outcome.exit_code == 0
+
+
 def test_merge_during_the_confirmation_read_converges(monkeypatch):
     """Merging clears arming too; the confirming read tells them apart."""
     wire_happy_path(monkeypatch, landing_states=[ARMED, UNARMED, MERGED])

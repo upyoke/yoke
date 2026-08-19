@@ -139,7 +139,7 @@ def test_rearmed_during_confirmation_is_pending(monkeypatch):
     assert _classify().kind == verdict_mod.PENDING
 
 
-def test_absent_from_the_queue_after_confirmation_is_stalled(monkeypatch):
+def test_absent_after_a_green_train_is_still_pending(monkeypatch):
     _wire(
         monkeypatch,
         states=[UNARMED, UNARMED],
@@ -148,11 +148,36 @@ def test_absent_from_the_queue_after_confirmation_is_stalled(monkeypatch):
         ),
     )
     verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "queue-entry=absent" in verdict.narrative
+    # A green train with the slot already cleared is the merge-in-flight
+    # window, not a stall. Name the train; do not claim the checks failed.
+    assert "train-run=success (https://runs/3)" in verdict.narrative
+
+
+def test_absent_after_a_failed_train_is_stalled(monkeypatch):
+    _wire(
+        monkeypatch,
+        states=[UNARMED, UNARMED],
+        train=TrainRun(
+            status="completed", conclusion="failure", url="https://runs/9",
+        ),
+    )
+    verdict = _classify()
     assert verdict.kind == verdict_mod.STALLED
     assert "queue-entry=absent" in verdict.narrative
-    # A green train run behind a stalled pull request is reported as what it
-    # is, not translated into a claim that the checks failed.
-    assert "train-run=success (https://runs/3)" in verdict.narrative
+    assert "train-run=failure (https://runs/9)" in verdict.narrative
+
+
+def test_absent_while_the_train_is_still_running_is_pending(monkeypatch):
+    _wire(
+        monkeypatch,
+        states=[UNARMED, UNARMED],
+        train=TrainRun(status="in_progress", url="https://runs/4"),
+    )
+    verdict = _classify()
+    assert verdict.kind == verdict_mod.PENDING
+    assert "train-run=in_progress (https://runs/4)" in verdict.narrative
 
 
 def test_unreadable_queue_cannot_prove_absence(monkeypatch):
@@ -188,6 +213,8 @@ def test_missing_train_run_is_named_rather_than_asserted(monkeypatch):
         train=None, train_note="no merge_group workflow run found",
     )
     verdict = _classify()
+    # An unidentified train cannot prove ejection.
+    assert verdict.kind == verdict_mod.PENDING
     assert "train-run=not identified" in verdict.narrative
     assert "no merge_group workflow run found" in verdict.warnings
 
