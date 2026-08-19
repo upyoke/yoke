@@ -170,7 +170,12 @@ yoke watch pytest -- <CI pytest paths and options> --collect-only -q
 
 For pytest-split jobs, keep the job's `--splits`, `--group`, and splitting
 algorithm arguments unchanged. The collection output then identifies the
-tests assigned to that shard without launching the suite.
+tests assigned to that shard without launching the suite. Yoke's own shards do
+not spell those arguments in the workflow — ask the module that runs them:
+
+```sh
+python3 -c "from yoke_core.tools.ci_shards import pytest_command; print(*pytest_command(GROUP))"
+```
 
 When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
 includes `review_bundle.dispatch`. The harness must immediately dispatch the

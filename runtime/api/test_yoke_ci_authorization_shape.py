@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 from yoke_core.domain.yaml_helper import load_document
+from yoke_core.tools import ci_shards
 from yoke_core.engines.doctor_hc_branch_protection import (
     EXPECTED_CHECKS,
     context_matches_job,
@@ -110,7 +111,19 @@ def test_every_required_context_reports_on_the_reuse_skip_path() -> None:
     workflow = _yoke_ci()
     contexts = _required_contexts()
 
-    assert len(contexts) == 11
+    # Pinned as a set rather than a count: the shard half is whatever the
+    # fan-out produces, so widening the shards moves this expectation with it
+    # while dropping a context still fails.
+    versions = workflow["jobs"]["test_shard"]["strategy"]["matrix"]["python-version"]
+    assert set(contexts) == {
+        "repo-contracts",
+        "container",
+        "browser_runtime / browser-runtime",
+    } | {
+        f"test-shard ({version}, {shard})"
+        for version in versions
+        for shard in ci_shards.shard_list()
+    }
     for context in contexts:
         matched = _jobs_for_context(workflow, context)
         assert matched, context

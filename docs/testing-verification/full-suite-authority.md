@@ -107,9 +107,11 @@ re-triggers entry CI — which it would have re-gated anyway.
 
 Why: the local machine runs one heavy gate at a time behind the
 admission slot, where the suite has been measured at 35–55 minutes under
-fleet contention; CI runs the same suite across four duration-balanced
-shards with disposable Postgres containers and freshly provisioned
-capacity, and then re-runs it post-merge unless same-tree reuse applies.
+fleet contention; CI runs the same suite across duration-balanced shards
+per Python version — the count lives in `yoke_core.tools.ci_shards`, which
+also runs them, so the matrix and the split cannot disagree — with
+disposable Postgres containers and freshly provisioned capacity, and then
+re-runs it post-merge unless same-tree reuse applies.
 Two items gating at once both route to CI and run there in parallel —
 the admission slot is a local-machine resource and never serializes CI
 runs.

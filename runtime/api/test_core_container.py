@@ -304,8 +304,10 @@ def test_ci_workflow_preserves_pipe_failures() -> None:
 
     assert "set -o pipefail\n          host_port=" in workflow
     assert "Postgres host port did not resolve" in workflow
-    assert "2>&1 | tee pytest-output.txt" in workflow
-    assert 'exit "${PIPESTATUS[0]}"' in workflow
+    # The shard's own exit-code fidelity moved to yoke_core.tools.ci_shards,
+    # which returns pytest's code directly instead of through a pipeline.
+    assert "2>&1 | tee" not in workflow
+    assert "PIPESTATUS" not in workflow
 
 
 def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
@@ -314,11 +316,11 @@ def test_ci_shards_backend_suite_without_aggregate_tail() -> None:
     )
 
     assert "test_shard:" in workflow
-    assert "shard: [1, 2, 3, 4]" in workflow
-    assert "--splits 4" in workflow
+    # The fan-out and the split it selects come from one module, so the
+    # workflow names neither the shard list nor the split count.
+    assert "shard: ${{ fromJSON(needs.repo_contracts.outputs.shards) }}" in workflow
+    assert "yoke_core.tools.ci_shards fan-out" in workflow
     assert '--group "${{ matrix.shard }}"' in workflow
-    assert "--splitting-algorithm least_duration" in workflow
-    assert "--dist worksteal" in workflow
     assert "needs: test_shard" not in workflow
     assert "SHARD_RESULT" not in workflow
     assert "\n  test:\n" not in workflow
