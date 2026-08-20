@@ -24,7 +24,12 @@ from yoke_core.engines.doctor_applicability_declarations import (
 )
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_registry import HEALTH_CHECKS
-from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_report import (
+    CheckResult,
+    DoctorArgs,
+    RecordCollector,
+)
+from yoke_core.engines.doctor_source_root import bound_source_root
 
 
 _NO_CHECKOUT_DETAIL = "this runner has no checkout for it"
@@ -77,6 +82,32 @@ def false_na_source_slugs(results: Sequence[Dict[str, Any]]) -> List[str]:
     return out
 
 
+def note_missing_control_plane(
+    records: Sequence[CheckResult],
+    project: str,
+) -> None:
+    """Rewrite DB-dependent FAILs as N/A when no local control plane exists.
+
+    A checkout-holding https client can read the tree but has no
+    local-postgres authority, so the DB half of a mixed check fails for a
+    reason that says nothing about the project. Reporting that as a
+    failure would be a lie; reporting it as not-applicable, with the
+    reason, is the honest answer.
+    """
+    for record in records:
+        if record.result != "FAIL":
+            continue
+        if "no local control-plane" not in (record.detail or ""):
+            continue
+        record.result = "N/A"
+        record.detail = (
+            f"reads the {project} source tree and needs "
+            "control-plane rows; this https client has the "
+            "checkout but no local-postgres authority for "
+            "the DB half of the check"
+        )
+
+
 def run_local_source_checks(
     *,
     project: str,
@@ -86,8 +117,18 @@ def run_local_source_checks(
     only: Optional[str],
     slugs: Sequence[str],
 ) -> List[Dict[str, Any]]:
-    """Execute the named source-checkout HCs against this machine's tree."""
+    """Execute the named source-checkout HCs against *project*'s checkout.
+
+    The checks read the tree mapped for the selected project, not whatever
+    tree the caller happens to stand in, so ``--project buzz`` run from the
+    Yoke checkout cannot report Yoke findings under the Buzz label. Without
+    a mapped checkout there is no tree to read and the relayed
+    not-applicable verdicts stand.
+    """
     if not slugs:
+        return []
+    root = checkout_root_for_project(project)
+    if root is None:
         return []
     wanted = set(slugs)
     args = DoctorArgs(
@@ -107,23 +148,14 @@ def run_local_source_checks(
         # and record FAIL — convert those to honest N/A below.
         conn = UnavailableControlPlane()
     try:
-        for hc in HEALTH_CHECKS:
-            if hc.slug not in wanted:
-                continue
-            pre = len(rec.results)
-            execute_check_isolated(conn, args, rec, hc)
-            if not owned:
-                for record in rec.results[pre:]:
-                    if record.result == "FAIL" and "no local control-plane" in (
-                        record.detail or ""
-                    ):
-                        record.result = "N/A"
-                        record.detail = (
-                            f"reads the {project} source tree and needs "
-                            "control-plane rows; this https client has the "
-                            "checkout but no local-postgres authority for "
-                            "the DB half of the check"
-                        )
+        with bound_source_root(root):
+            for hc in HEALTH_CHECKS:
+                if hc.slug not in wanted:
+                    continue
+                pre = len(rec.results)
+                execute_check_isolated(conn, args, rec, hc)
+                if not owned:
+                    note_missing_control_plane(rec.results[pre:], project)
     finally:
         if owned:
             try:
@@ -236,6 +268,7 @@ __all__ = [
     "false_na_source_slugs",
     "machine_has_checkout_for",
     "merge_relayed_with_local",
+    "note_missing_control_plane",
     "recount",
     "resolve_operator_project",
     "run_local_source_checks",

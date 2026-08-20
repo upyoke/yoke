@@ -17,11 +17,13 @@ from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_https_compose import (
     UnavailableControlPlane,
     checkout_root_for_project,
+    note_missing_control_plane,
     recount,
 )
 from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.engines.doctor_roster import Roster, record_discovery_failures
+from yoke_core.engines.doctor_source_root import bound_source_root
 
 
 #: Same alias map the server-side ``validate_only_slugs`` helper accepts.
@@ -104,7 +106,12 @@ def run_local_project_checks(
     slugs: Sequence[str],
     fix: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Execute named project-local HCs from the caller's mapped checkout."""
+    """Execute named project-local HCs against *project*'s own checkout.
+
+    Discovery already reads the mapped checkout; binding the same root
+    keeps a check that resolves the repository root — as most do — on that
+    tree rather than on the caller's.
+    """
     if not slugs:
         return []
     root = checkout_root_for_project(project)
@@ -128,23 +135,14 @@ def run_local_project_checks(
         record_discovery_failures(
             Roster(discovery_failures=list(discovery.failures)), rec,
         )
-        for hc in discovery.checks:
-            if hc.slug not in wanted:
-                continue
-            pre = len(rec.results)
-            execute_check_isolated(conn, args, rec, hc)
-            if not owned:
-                for record in rec.results[pre:]:
-                    if record.result == "FAIL" and "no local control-plane" in (
-                        record.detail or ""
-                    ):
-                        record.result = "N/A"
-                        record.detail = (
-                            f"reads the {project} source tree and needs "
-                            "control-plane rows; this https client has the "
-                            "checkout but no local-postgres authority for "
-                            "the DB half of the check"
-                        )
+        with bound_source_root(root):
+            for hc in discovery.checks:
+                if hc.slug not in wanted:
+                    continue
+                pre = len(rec.results)
+                execute_check_isolated(conn, args, rec, hc)
+                if not owned:
+                    note_missing_control_plane(rec.results[pre:], project)
     finally:
         if owned:
             try:

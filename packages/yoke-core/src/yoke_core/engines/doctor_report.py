@@ -22,6 +22,7 @@ from yoke_core.domain.schema_common import (
 )
 from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG
 from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
+from yoke_core.engines.doctor_source_root import bound_source_root_or_none
 
 
 @dataclass
@@ -256,7 +257,15 @@ def _run(
 
 
 def _resolve_repo_root() -> Optional[str]:
-    """Return the repo root (git rev-parse --show-toplevel) or None."""
+    """Return the bound checkout, else git's toplevel, else None.
+
+    A runner composing source checks for a project it is not standing in
+    binds that project's checkout first, so the checks read the tree they
+    report on instead of the one the caller happens to sit in.
+    """
+    bound = bound_source_root_or_none()
+    if bound:
+        return bound
     r = _run(["git", "rev-parse", "--show-toplevel"])
     if r.returncode == 0 and r.stdout.strip():
         return r.stdout.strip()
