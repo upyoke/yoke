@@ -146,6 +146,21 @@ construction carries the entry, so the ledger still records a real, comparable
 version. Entries already carried by a release keep their literals; their bytes
 are permanent, and the probe below is what covers them.
 
+**Only the checkout that owns a history may call one of its entries
+unreleased.** The mapping from an entry to the releases carrying it exists in
+one place, and an installed artifact is not it: its bytes are released by
+definition, and they stay released wherever they are unpacked — including
+inside some unrelated project's work tree, which is where a virtualenv
+normally lives. That repository has never tracked the file, so it reports the
+same empty history a brand-new entry would. Reading that emptiness as "no
+release carries this" is how the gate refused a released engine's own entry
+and left it unable to birth a database at all, which is how tenants are
+provisioned and how fresh installs come up. Being inside *a* work tree is
+therefore not enough to be asked; the tree has to keep source of its own in
+the entry's directory. Where it does, an entry the author has written but not
+yet committed is still caught, because its committed siblings are what make
+the checkout the owner.
+
 **The declaration is copied into the ledger row at apply time.** That is the
 whole mechanism: the reader who needs it is a build old enough to be stranded,
 and such a build does not ship the entry module that would tell it so. The
