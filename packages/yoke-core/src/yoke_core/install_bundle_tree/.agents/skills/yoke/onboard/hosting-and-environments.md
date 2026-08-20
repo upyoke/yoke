@@ -94,16 +94,22 @@ yoke projects environment create --project {project} --site {site_name} --enviro
 
 Discover what already exists with the metadata-only inventory (`yoke projects infrastructure list --project {project} --json`). Read environment configuration only through explicit scalar leaf projections (`yoke projects environment-settings get --project {project} --environment {environment} --path {key.path} --json`); never dump an environment settings document.
 
-### Declare the deploy flows and the default
+### Create the deploy flows and the default
 
-The deploy-flow surface is declaration-driven. Write the project-owned declaration to `.yoke/deployment-flows.json` in the checkout (schema 3: `flows` with `id`/`name`/`description`/`stages`/`on_failure`/`target_tier`/`target_environment_id`/`done_description`/`status`, plus top-level `default_flow`), then reconcile — the declared `default_flow` also sets the project deploy default:
+Deployment flows are ordinary database rows. Create each one with a command; nothing in the project repo defines them.
+
+If the checkout already carries deploy configuration of any shape — a CI workflow, a deploy script, an older `.yoke/deployment-flows.json` from a previous Yoke version — read it as a **hint** about the stages this project wants. Whatever shape it has is acceptable input and none of it is contractual: no schema, no version, no required keys. Such a file is the project's own, and may still have consumers inside its repository: do not author, migrate, repair, or delete one, and never make onboarding depend on one parsing.
+
+Create one flow per route, then set the project default:
 
 ```bash
-yoke deployment-flows reconcile-project {project} {checkout}/.yoke/deployment-flows.json
+yoke deployment-flows create {flow_id} --project {project} --name "{flow_name}" \
+  --stages-file {stages_path} --target-tier persistent --environment {environment}
+yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{default_flow_id}"}}]'
 yoke project-structure deploy-defaults get --project {project}
 ```
 
-Reconcile converges only the declared definitions and leaves omitted rows untouched. Commit the declaration file in the project repo.
+A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
 
 ### Project Structure policy rows
 
@@ -131,15 +137,15 @@ Once applied, classifications refresh automatically on every snapshot sync; veri
 ```bash
 yoke onboard checklist --run-id {run_id} \
   --row-status environment-registration=configured \
-  --evidence environment-registration="site {site_slug} + stage/prod registered; flow declaration reconciled; default flow {flow_id}" \
+  --evidence environment-registration="site {site_slug} + stage/prod registered; flows created: {flow_ids}; default flow {flow_id}" \
   --row-status project-structure-setup=configured \
   --evidence project-structure-setup="policy rows applied: {families}" \
   --row-status delivery-setup=configured \
-  --evidence delivery-setup="sites, environments, and flows registered through declared surfaces"
+  --evidence delivery-setup="sites, environments, and flows registered through commands"
 ```
 
 When a sub-part was already satisfied, use `verified` for that row instead of `configured`.
 
-**Failure floor:** a rejected declaration, failed registration, or failed Pack apply → mark the matching row `blocked` with the error and recovery recipe; stop. Registrations already made stay (they are idempotent to re-run).
+**Failure floor:** a rejected flow create, failed registration, or failed Pack apply → mark the matching row `blocked` with the error and recovery recipe; stop. Registrations already made stay (they are idempotent to re-run).
 
 Continue to steps 6–7 of this skill: read [domain-and-deploy.md](domain-and-deploy.md).

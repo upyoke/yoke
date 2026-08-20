@@ -1,0 +1,152 @@
+#!/usr/bin/env sh
+# verify-deployment.sh — Verify domain + CDN deployment
+#
+# For each of the 4 URL variants (http/https x apex/www), follows redirects
+# and asserts:
+#   1. The redirect chain eventually returns HTTP 200.
+#   2. The final URL is served over https on the expected domain.
+#
+# Designed to be robust against site-specific behavior the CDN/origin layers
+# on top (e.g., auth-gated apps that redirect unauthenticated requests to
+# /login, CloudFront viewer-protocol-policy that upgrades http->https BEFORE
+# viewer-request functions run, www/apex normalization). The check is "the
+# site responds correctly on its domain" — not "the redirect chain matches
+# a specific shape."
+#
+# Also verifies that direct IP access is blocked (firewall check).
+#
+# Usage:
+#   sh verify-deployment.sh <domain> <origin_ip>
+#
+# Example:
+#   sh verify-deployment.sh example.com 203.0.113.10
+
+set -e
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: sh verify-deployment.sh <domain> <origin_ip>" >&2
+  echo "Example: sh verify-deployment.sh example.com 203.0.113.10" >&2
+  exit 1
+fi
+
+DOMAIN="$1"
+ORIGIN_IP="$2"
+PASS=0
+FAIL=0
+WARN=0
+
+# check <label> <url> <expected_final_domain_substring>
+#
+# Follows redirects (curl default cap) and confirms:
+#   - final HTTP code is 200
+#   - final URL is https
+#   - final URL contains <expected_final_domain_substring>
+#
+# Reports the first-hop code alongside for diagnostic value, but does not
+# gate on it — deployment regressions that change the initial redirect
+# shape remain visible without failing the check.
+check() {
+  local label="$1"
+  local url="$2"
+  local expected_domain="$3"
+
+  printf "%-45s " "$label"
+
+  first_code=$(curl -sI -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null) || {
+    printf "FAIL (connection error on first hop)\n"
+    FAIL=$((FAIL + 1))
+    return
+  }
+
+  final_response=$(curl -sIL -o /dev/null -w "%{http_code} %{url_effective}" --max-time 20 "$url" 2>/dev/null) || {
+    printf "FAIL (connection error following redirects)\n"
+    FAIL=$((FAIL + 1))
+    return
+  }
+  final_code=$(echo "$final_response" | awk '{print $1}')
+  final_url=$(echo "$final_response" | awk '{print $2}')
+
+  if [ "$final_code" = "200" ] \
+     && echo "$final_url" | grep -q "^https://" \
+     && echo "$final_url" | grep -q "$expected_domain"; then
+    printf "PASS (%s -> ... -> %s %s)\n" "$first_code" "$final_code" "$final_url"
+    PASS=$((PASS + 1))
+  else
+    printf "FAIL (first=%s, final=%s %s)\n" "$first_code" "$final_code" "$final_url"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+echo "================================================"
+echo "  Deployment Verification"
+echo "  Domain: $DOMAIN"
+echo "  Origin: $ORIGIN_IP"
+echo "================================================"
+echo ""
+
+echo "--- URL Variant Checks ---"
+echo ""
+
+# Check 1: http://apex eventually serves the site on https on the right domain
+check "http://$DOMAIN" "http://$DOMAIN" "$DOMAIN"
+
+# Check 2: https://apex eventually serves the app (may redirect to /login
+# for auth-gated apps; final URL just has to remain on $DOMAIN over https)
+check "https://$DOMAIN" "https://$DOMAIN" "$DOMAIN"
+
+# Check 3: http://www.apex eventually lands on $DOMAIN (apex or www) over https
+check "http://www.$DOMAIN" "http://www.$DOMAIN" "$DOMAIN"
+
+# Check 4: https://www.apex eventually lands on $DOMAIN (apex or www) over https
+check "https://www.$DOMAIN" "https://www.$DOMAIN" "$DOMAIN"
+
+echo ""
+echo "--- Firewall Check ---"
+echo ""
+
+# Check 5: Direct IP access should be blocked
+printf "%-45s " "Direct IP http://$ORIGIN_IP (should fail)"
+direct_response=$(curl -sI -o /dev/null -w "%{http_code}" --max-time 5 "http://$ORIGIN_IP" 2>/dev/null) || direct_response="000"
+
+if [ "$direct_response" = "000" ]; then
+  printf "PASS (connection refused/timeout — firewall working)\n"
+  PASS=$((PASS + 1))
+elif [ "$direct_response" = "200" ] || [ "$direct_response" = "301" ] || [ "$direct_response" = "302" ]; then
+  printf "WARN (got %s — firewall may not be configured)\n" "$direct_response"
+  WARN=$((WARN + 1))
+else
+  printf "PASS (got %s — not serving content)\n" "$direct_response"
+  PASS=$((PASS + 1))
+fi
+
+echo ""
+echo "--- SSL Certificate Check ---"
+echo ""
+
+printf "%-45s " "SSL cert valid for $DOMAIN"
+ssl_result=$(curl -svI "https://$DOMAIN" 2>&1 | grep -i "subject:" 2>/dev/null) || ssl_result=""
+if echo "$ssl_result" | grep -qi "$DOMAIN"; then
+  printf "PASS\n"
+  PASS=$((PASS + 1))
+else
+  # Try alternate check
+  ssl_result2=$(curl -svI "https://$DOMAIN" 2>&1 | grep -i "SSL certificate verify ok" 2>/dev/null) || ssl_result2=""
+  if [ -n "$ssl_result2" ]; then
+    printf "PASS\n"
+    PASS=$((PASS + 1))
+  else
+    printf "WARN (could not verify — check manually)\n"
+    WARN=$((WARN + 1))
+  fi
+fi
+
+echo ""
+echo "================================================"
+echo "  Results: $PASS passed, $FAIL failed, $WARN warnings"
+echo "================================================"
+
+if [ "$FAIL" -gt 0 ]; then
+  exit 1
+fi
+
+exit 0

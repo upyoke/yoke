@@ -216,9 +216,9 @@ At the operator level:
 
 ### Deployment flows
 
-Every item has a **deployment flow** selected during shepherding. External
-projects declare their flows in `.yoke/deployment-flows.json`; project refresh
-materializes those definitions into the Yoke control plane. Examples:
+Every item has a **deployment flow** selected during shepherding. Flows are
+control-plane rows created with `yoke deployment-flows create` and retired with
+`yoke deployment-flows set-status <flow-id> disabled`. Examples:
 
 | Flow | When used | Stages after `implemented` |
 |------|-----------|---------------------------|

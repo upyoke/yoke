@@ -144,7 +144,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # projects.get without granting a CI role access to backlog items.
     "projects.github_binding.status": AuthzSpec(ACTOR_SESSION, None),
     "project.snapshot.sync": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
-    "deployment_flows.reconcile_project": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_flows.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "packs.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "packs.bundle.get": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
@@ -210,7 +210,7 @@ _BY_ID: dict[str, AuthzSpec] = {
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
     # Global learning channel; handlers retain optional project list filters.
     ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
-    # Flow reads/runs are org-scoped; project reconcile is excepted above.
+    # Flow reads/runs are org-scoped; project-scoped create is excepted above.
     ("deployment_flows.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     ("deployment_runs.", AuthzSpec(ORG, PERM_ORG_ADMIN)),
     # Sign-in admission administration (invites, identity links, auto-join

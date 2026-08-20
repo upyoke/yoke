@@ -1,6 +1,5 @@
-"""Workflow target and deployment-flow correlation declarations."""
+"""Pack-shipped workflows expose the standard dispatch marker."""
 
-import json
 from pathlib import Path
 
 import pytest
@@ -22,19 +21,3 @@ def test_pack_workflows_expose_standard_dispatch_marker(
     assert "      yoke_dispatch_id:" in text
     assert "[yoke-dispatch:${{ inputs.yoke_dispatch_id }}]" in text
     assert "Opaque Yoke dispatch correlation token" in text
-
-
-def test_project_owned_yoke_flows_declare_dispatch_correlation() -> None:
-    declaration = json.loads(
-        (ROOT / ".yoke" / "deployment-flows.json").read_text(encoding="utf-8")
-    )
-    stages = [
-        stage
-        for flow in declaration["flows"]
-        for stage in flow["stages"]
-        if stage.get("step_runner") == "github-actions-workflow"
-    ]
-    assert stages
-    assert {stage.get("dispatch_correlation_input") for stage in stages} == {
-        "yoke_dispatch_id"
-    }

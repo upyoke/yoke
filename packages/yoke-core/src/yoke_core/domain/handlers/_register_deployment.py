@@ -74,36 +74,27 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "deployment_flows.reconcile_project",
-        _flows.handle_deployment_flow_reconcile_project,
-        _models.DeploymentFlowReconcileProjectRequest,
-        _models.DeploymentFlowReconcileProjectResponse,
+        "deployment_flows.create",
+        _flows.handle_deployment_flow_create,
+        _models.DeploymentFlowCreateRequest,
+        _models.DeploymentFlowCreateResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_flows",
         target_kinds=["global"],
-        side_effects=[
-            "deployment_flows_reconcile",
-            "project_structure_update",
-        ],
+        side_effects=["deployment_flows_create"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[
-            "project_scoped",
-            "history_preserved",
-            "referenced_definitions_immutable",
-        ],
+        guardrails=["project_scoped", "flow_id_unique", "display_name_unique"],
         adapter_status="live",
         claim_required_kind=None,
-        # Bootstrap-reachable: `yoke project install` / `refresh` / `onboard`
-        # materialize project-owned flow declarations in a plain terminal with
-        # no harness session (the public-installer / brand-new-user context),
-        # so requiring an ambient session here makes cold-start install fail.
-        # Session-optional like the sibling project-config writes in
-        # `_register_projects` (create/update, capability/environment settings,
-        # github binding): a present session still binds and audits, and
-        # https callers stay project-admin scoped once a numeric actor id is
-        # bound (the dispatch permission gate only enforces then). The
-        # operator-only `set_status` / `update_stages` are not part of the
-        # bootstrap path and deliberately keep the session requirement.
+        # Bootstrap-reachable: `yoke onboard` defines a brand-new project's
+        # first flows in a plain terminal with no harness session (the
+        # public-installer / brand-new-user context), so requiring an ambient
+        # session here makes cold-start onboarding fail. Session-optional like
+        # the sibling project-config writes in `_register_projects`: a present
+        # session still binds and audits, and https callers stay project-admin
+        # scoped once a numeric actor id is bound. The operator-only
+        # `set_status` / `update_stages` are not part of the bootstrap path and
+        # deliberately keep the session requirement.
         ambient_session_required=False,
     )
     registry.register(

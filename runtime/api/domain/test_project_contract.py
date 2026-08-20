@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import MISSING, fields
 from pathlib import Path
 
@@ -13,7 +12,7 @@ from yoke_contracts.project_contract.board_art.config import (
     derive_letter_bounds,
     parse_art_config,
 )
-from yoke_contracts.board.config import BoardConfig, parse_config
+from yoke_contracts.board.config import BoardConfig
 from yoke_core.domain import lint_config, project_contract
 from yoke_contracts.project_contract.board_art import (
     FALLBACK_ART_WORD,
@@ -29,7 +28,6 @@ EXPECTED_CONTRACT_PATHS = {
     ".yoke/lint-config",
     ".yoke/labels",
     ".yoke/board-art",
-    ".yoke/deployment-flows.json",
     ".yoke/test-inventory.md",
     ".yoke/runbooks/deploy.md",
     ".yoke/runbooks/deploy-checklist.md",
@@ -183,7 +181,6 @@ def test_readme_maps_where_settings_live() -> None:
     # Repo-owned families.
     for token in (
         "project.config",
-        "deployment-flows.json",
         "packs.json",
         "lint-config",
         "labels",
@@ -205,7 +202,7 @@ def test_readme_maps_where_settings_live() -> None:
         "project-structure deploy-defaults get",
         "yoke qa plan list|get",
         "project-structure patch apply",
-        "deployment-flows reconcile-project",
+        "yoke deployment-flows create",
         "sites.settings",
     ):
         assert token in body, token

@@ -1,0 +1,252 @@
+# Readiness-gated fast-path rebuild. When production containers
+# are already running and healthy, skips aggressive cache prune and
+# --no-cache to allow Docker layer reuse. Falls back to full cold-start
+# path when readiness fails or force_rebuild is set.
+# Pack install settings:
+#   {{PROJECT_NAME_UPPER}} — uppercase project name (e.g., ACME) for secret names
+#   {{project_name}}       — lowercase project name (e.g., acme) for paths
+#   {{project_display_name}} — human-readable name (e.g., Acme) for workflow title
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#   {{api_port}}           — API health check port (e.g., 8000)
+#   {{web_port}}           — Web frontend port (e.g., 3000)
+#   {{web_health_path}}    — Web health check path (e.g., /)
+#   {{web_smoke_paths}}    — Comma-separated additional smoke paths (e.g., /forgot-password,/login)
+#   {{cloudfront_id}}      — CloudFront distribution ID for cache invalidation
+#   {{checkout_action}}    — immutable repository checkout action revision
+#   {{configure_aws_credentials_action}} — immutable AWS OIDC action revision
+#   {{project_name}}-app   — production compose project name
+name: {{project_display_name}} Deploy
+run-name: "{{project_display_name}} deploy [yoke-dispatch:${{ inputs.yoke_dispatch_id }}]"
+
+on:
+  workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: 'Opaque Yoke dispatch correlation token (leave blank for manual runs)'
+        required: false
+        type: string
+        default: ''
+      force_rebuild:
+        description: 'Force full clean rebuild (skip fast-path even if production is healthy)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: {{checkout_action}}
+
+      - name: Configure AWS delivery credentials
+        uses: {{configure_aws_credentials_action}}
+        with:
+          role-to-assume: ${{ vars.YOKE_DELIVERY_CI_ROLE_ARN }}
+          aws-region: {{aws_region}}
+          role-session-name: {{project_name}}-deploy-${{ github.run_id }}
+
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Add host to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Ship Docker maintenance convergence helper
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            ops/docker_maintenance_converge.py \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/docker_maintenance_converge.py
+
+      - name: Converge safe host Docker maintenance
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'python3 "$HOME/docker_maintenance_converge.py"'
+
+      - name: Check production readiness
+        id: readiness
+        run: |
+          # Detect whether production is already running and healthy.
+          # If so, we can skip aggressive prune and --no-cache for faster rebuilds.
+          if [ "${{ inputs.force_rebuild }}" = "true" ]; then
+            echo "fast_path=false" >> "$GITHUB_OUTPUT"
+            echo "Force rebuild requested — using full cold-start path"
+            exit 0
+          fi
+
+          HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
+          HEALTHY=$(ssh -i ~/.ssh/deploy_key -o LogLevel=ERROR \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << 'READYEOF' || true
+            # Check if compose project exists and has running containers
+            RUNNING=$(docker compose -p "{{project_name}}-app" ps --status running -q 2>/dev/null | wc -l)
+            if [ "$RUNNING" -lt 1 ]; then
+              echo "NOT_RUNNING"
+              exit 0
+            fi
+            # Verify API health endpoint responds
+            STATUS=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:{{api_port}}/api/health 2>/dev/null || echo "000")
+            if [ "$STATUS" != "200" ]; then
+              echo "UNHEALTHY"
+              exit 0
+            fi
+            # Verify deploy directory and compose file exist
+            if [ ! -d ~/{{project_name}}-app ]; then
+              echo "NOT_PROVISIONED"
+            elif [ ! -f ~/{{project_name}}-app/docker-compose.yml ]; then
+              echo "NOT_PROVISIONED"
+            else
+              echo "HEALTHY"
+            fi
+          READYEOF
+          )
+
+          # Extract just the last line — SSH MOTD banners pollute earlier lines
+          HEALTHY=$(echo "$HEALTHY" | tail -1 | tr -d '[:space:]')
+
+          if [ "$HEALTHY" = "HEALTHY" ]; then
+            echo "fast_path=true" >> "$GITHUB_OUTPUT"
+            echo "Production already running and healthy — using fast-path rebuild"
+          else
+            echo "fast_path=false" >> "$GITHUB_OUTPUT"
+            echo "Production not ready ($HEALTHY) — using full cold-start path"
+          fi
+
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            app/ \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/{{project_name}}-app/app/
+
+      - name: Write deploy version marker
+        run: |
+          echo "${{ github.sha }}" > .deploy-version
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            .deploy-version \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/{{project_name}}-app/.deploy-version
+
+      - name: Sync docker-compose.yml
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            docker-compose.yml \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}:~/{{project_name}}-app/docker-compose.yml
+
+      - name: Rebuild production (fast-path)
+        if: steps.readiness.outputs.fast_path == 'true'
+        run: |
+          # Fast-path: production already running and healthy.
+          # Use incremental Docker build — no cache prune, no --no-cache.
+          # Pruning before a cache-dependent build is counterproductive.
+          # Do NOT tear down running containers before the build succeeds.
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'cd ~/{{project_name}}-app && \
+             if ! docker compose -p {{project_name}}-app build; then
+               echo "Fast-path build failed — leaving existing production running"
+               exit 1
+             fi && \
+             docker compose -p {{project_name}}-app up -d'
+
+      - name: Prune Docker build cache and dangling images (cold-start)
+        if: steps.readiness.outputs.fast_path != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'docker builder prune -af && docker image prune -f'
+
+      - name: Stop existing containers and rebuild (cold-start)
+        if: steps.readiness.outputs.fast_path != 'true'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'cd ~/{{project_name}}-app && \
+             docker compose -p {{project_name}}-app down --remove-orphans && \
+             if ! docker compose -p {{project_name}}-app build --no-cache; then
+               echo "Build failed — pruning all Docker build cache and retrying..."
+               docker builder prune -af
+               docker compose -p {{project_name}}-app build --no-cache
+             fi && \
+             docker compose -p {{project_name}}-app up -d'
+
+      - name: Wait for API health check
+        run: |
+          for i in $(seq 1 24); do
+            if ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              'curl -sf http://localhost:{{api_port}}/api/health' >/dev/null 2>&1; then
+              echo "API health check passed"
+              exit 0
+            fi
+            echo "Waiting for API health check... (attempt $i/24)"
+            sleep 5
+          done
+          echo "API health check timed out after 2 minutes"
+          exit 1
+
+      - name: Wait for web health check
+        run: |
+          for i in $(seq 1 24); do
+            if ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              'curl -sf -o /dev/null -w "%{http_code}" http://localhost:{{web_port}}{{web_health_path}} | grep -qE "^(200|307)$"' 2>&1; then
+              echo "Web health check passed"
+              exit 0
+            fi
+            echo "Waiting for web health check... (attempt $i/24)"
+            sleep 5
+          done
+          echo "Web health check timed out after 2 minutes"
+          exit 1
+
+      - name: Check additional smoke paths
+        run: |
+          SMOKE_PATHS="{{web_smoke_paths}}"
+          if [ -z "$SMOKE_PATHS" ]; then
+            echo "No additional smoke paths configured — skipping"
+            exit 0
+          fi
+          IFS=','
+          for path in $SMOKE_PATHS; do
+            echo "Checking smoke path: $path"
+            ssh -i ~/.ssh/deploy_key \
+              ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+              "curl -sf -o /dev/null -w \"%{http_code}\" http://localhost:{{web_port}}${path} | grep -qE \"^(200|307)$\""
+            echo "Smoke path $path passed"
+          done
+
+      - name: Reclaim superseded production images
+        # Post-health, idempotent, and fail-visible after bounded retries.
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} \
+            'for attempt in 1 2 3; do
+               if docker image prune --force; then
+                 echo "Post-deploy image cleanup complete"
+                 exit 0
+               fi
+               if [ "$attempt" -lt 3 ]; then
+                 echo "Image cleanup attempt $attempt/3 failed; retrying" >&2
+               fi
+             done
+             echo "Image cleanup failed after 3 attempts" >&2
+             exit 1'
+
+      - name: Invalidate CloudFront cache
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: {{cloudfront_id}}
+        run: python3 ops/cloudfront_invalidate.py "$CLOUDFRONT_DISTRIBUTION_ID"

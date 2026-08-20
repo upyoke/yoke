@@ -45,8 +45,7 @@ targets a protected GitHub environment, GitHub's native protection rules pause
 the Actions run. The Usher records the wait on the deployment run; approval
 happens in GitHub, not through `/yoke approve`. Once protection is satisfied,
 the Usher's next poll sees the workflow resume and advances the declared stage.
-The project repository's `.yoke/deployment-flows.json` owns the stage chain and
-workflow filenames.
+The flow's stored stages own the stage chain and workflow filenames.
 
 Both halt states are visible on the board. Items at `release` with halted runs are not counted as WIP.
 

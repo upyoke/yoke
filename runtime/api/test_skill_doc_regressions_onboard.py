@@ -240,14 +240,19 @@ def test_onboard_teaches_environment_and_flow_registration():
     assert "--environment stage" in text
     assert "--environment prod" in text
     assert "--environment-id" not in text
-    assert ".yoke/deployment-flows.json" in text
-    assert "yoke deployment-flows reconcile-project" in text
-    assert "default_flow" in text
+    assert "yoke deployment-flows create {flow_id} --project {project}" in text
+    assert "yoke deployment-flows set-status {flow_id} disabled" in text
+    assert "yoke project-structure deploy-defaults get --project {project}" in text
+    # An existing project deploy file is a hint, never a contract onboarding
+    # must parse, author, or repair.
+    assert "read it as a **hint**" in text
+    assert "none of it is contractual" in text
+    assert "reconcile-project" not in text
     patch_commands = [
         line for line in text.splitlines()
         if line.startswith("yoke project-structure patch apply ")
     ]
-    assert len(patch_commands) == 2
+    assert len(patch_commands) == 3
     assert all("--project {project} --ops-json " in line for line in patch_commands)
     assert all("--item" not in line for line in patch_commands)
 

@@ -35,6 +35,10 @@ from .validate_webapp_pipeline_helpers import (
 )
 
 
+_NO_FLOWS_REMEDIATION = (
+    "Define one with `yoke deployment-flows create FLOW-ID --project P --name NAME --stages-file PATH`."
+)
+
 def _check_database_prerequisites(
     ctx: ValidateContext, counters: Counters
 ) -> tuple[str, str]:
@@ -79,8 +83,7 @@ def _check_database_prerequisites(
         _check_fail(
             counters,
             f"No deployment flows for {project_key}",
-            "Add `.yoke/deployment-flows.json` to the project checkout and "
-            "run `yoke project refresh`.",
+            _NO_FLOWS_REMEDIATION,
         )
         _check_warn(
             counters,
@@ -112,8 +115,7 @@ def _check_database_prerequisites(
             _check_fail(
                 counters,
                 f"No deployment flows for {project_key}",
-                "Add `.yoke/deployment-flows.json` to the project checkout and "
-                "run `yoke project refresh`.",
+                _NO_FLOWS_REMEDIATION,
             )
             _check_warn(
                 counters,
@@ -222,8 +224,7 @@ def _check_database_prerequisites(
             _check_fail(
                 counters,
                 f"No deployment flows for {project_slug}",
-                "Add `.yoke/deployment-flows.json` to the project checkout and "
-                "run `yoke project refresh`.",
+                _NO_FLOWS_REMEDIATION,
             )
 
         # 1f. SSH capability

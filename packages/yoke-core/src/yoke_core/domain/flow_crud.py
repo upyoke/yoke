@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_helpers import (
-    iso8601_now,
     query_one,
     query_rows,
     query_scalar,
@@ -52,28 +51,6 @@ _SELECT_COLS = (
 
 def _format_row(row) -> str:
     return "|".join("" if v is None else str(v) for v in tuple(row))
-
-
-def cmd_create(
-    conn,
-    flow_id: str,
-    project: str,
-    name: str,
-    description: str,
-    stages_json: str,
-    on_failure: str = "halt",
-) -> str:
-    validate_stages(stages_json)
-    ident = resolve_project(conn, project)
-    assert ident is not None
-    conn.execute(
-        "INSERT INTO deployment_flows "
-        "(id, project_id, name, description, stages, on_failure, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (flow_id, ident.id, name, description, stages_json, on_failure, iso8601_now()),
-    )
-    conn.commit()
-    return f"Created deployment flow: {flow_id}"
 
 
 def cmd_target(conn, flow_id: str) -> str:

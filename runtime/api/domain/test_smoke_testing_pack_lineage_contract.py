@@ -8,14 +8,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_core.domain import pack_catalog
+from yoke_core.domain import json_helper, pack_catalog
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SMOKE_WORKFLOW = (
-    "packs/smoke-testing/versions/1.1.0/files"
-    "/.github/workflows/{{project_name}}-smoke.yml"
-)
+
+#: The version that introduced deployed-lineage verification. Every later
+#: version inherits the contract below, so the floor is what is pinned and
+#: the assertions follow whichever version is currently published as latest.
+LINEAGE_FLOOR = "1.1.0"
 _SHA_PATTERN = re.compile(r"\^\[0-9a-f\]\{40\}\$")
 _UNSAFE_INPUT_INTERPOLATION = re.compile(
     r"""["']\$\{\{\s*inputs\.commit_sha\s*\}\}["']"""
@@ -30,8 +31,23 @@ _RENDER_VALUES = {
 }
 
 
+def _version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def _latest_version() -> str:
+    """Read the published latest version straight from the pack manifest."""
+    return json_helper.loads_text(
+        (ROOT / "packs/smoke-testing/pack.json").read_text(encoding="utf-8")
+    )["latest_version"]
+
+
 def _latest_workflow() -> str:
-    return (ROOT / SMOKE_WORKFLOW).read_text(encoding="utf-8")
+    workflow = (
+        ROOT / "packs/smoke-testing/versions" / _latest_version()
+        / "files/.github/workflows/{{project_name}}-smoke.yml"
+    )
+    return workflow.read_text(encoding="utf-8")
 
 
 def _commit_sha_input(text: str) -> str:
@@ -45,9 +61,10 @@ def test_latest_smoke_pack_publishes_required_lineage_version(
 ) -> None:
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
     descriptor = pack_catalog.load_pack_descriptor("smoke-testing")
-    assert descriptor["latest_version"] == "1.1.0"
-    assert set(descriptor["versions"]) >= {"1.0.0", "1.0.1", "1.1.0"}
-    assert descriptor["versions"]["1.1.0"]["source"] == "versions/1.1.0/files"
+    latest = descriptor["latest_version"]
+    assert _version_key(latest) >= _version_key(LINEAGE_FLOOR)
+    assert set(descriptor["versions"]) >= {"1.0.0", "1.0.1", LINEAGE_FLOOR}
+    assert descriptor["versions"][latest]["source"] == f"versions/{latest}/files"
 
 
 def test_latest_smoke_workflow_rejects_optional_or_conditional_lineage() -> None:
@@ -117,6 +134,6 @@ def test_latest_smoke_pack_matches_install_bundle_baseline(
         render_values=_RENDER_VALUES,
     )
 
-    assert canonical["version"] == "1.1.0"
+    assert canonical["version"] == _latest_version()
     assert canonical["content_digest"] == packaged["content_digest"]
     assert canonical["files"] == packaged["files"]
