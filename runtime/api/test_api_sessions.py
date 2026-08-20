@@ -19,8 +19,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import register_session
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.api.main import app
-from runtime.api.test_session_offer_schemas import session_offer_db  # noqa: F401
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
 
 def _p(conn) -> str:
@@ -48,10 +49,6 @@ class TestSessionOffer:
     def _make_offer(self, **overrides):
         payload = {
             "session_id": "test-session-001",
-            "executor": "DARIUS",
-            "provider": "anthropic",
-            "model": TEST_MODEL_ID,
-            "workspace": "/tmp/test-workspace",
             "execution_lane": "DARIUS",
         }
         payload.update(overrides)
@@ -229,16 +226,32 @@ class TestSessionOffer:
         assert resp.json()["action"] == "charge"
         mock_emit.assert_not_called()
 
-    def test_offer_returns_400_missing_fields(self):
-        """Missing required fields return 400."""
-        # Missing executor
-        resp = self.client.post("/v1/sessions/offer", json={
-            "session_id": "test",
-            "provider": "anthropic",
-            "model": "test-model",
-            "workspace": "/tmp/test",
-        })
+    def test_offer_requires_only_the_session_id(self):
+        """session_id is the one field the session row cannot answer."""
+        resp = self.client.post("/v1/sessions/offer", json={})
         assert resp.status_code == 422  # Pydantic validation
+
+    def test_offer_rejects_row_answered_identity(self):
+        """Executor, provider, model, and workspace are read from the row.
+
+        A caller may still choose a lane on purpose; it may not restate the
+        identity the row already holds, because an accepted-but-ignored field
+        leaves the caller reasoning from a false premise about what the
+        server used.
+        """
+        self._ensure_active_session("test-session-001")
+        for field, value in (
+            ("executor", "codex"),
+            ("provider", "openai"),
+            ("model", "some-model"),
+            ("workspace", "/tmp/elsewhere"),
+            ("supported_paths", ["advance"]),
+        ):
+            resp = self.client.post("/v1/sessions/offer", json={
+                "session_id": "test-session-001",
+                field: value,
+            })
+            assert resp.status_code == 422, f"{field} was accepted"
 
     def test_offer_strategize_without_sml_charges_available_work(self):
         """DB process policy skips strategize and charges available work."""
@@ -306,9 +319,5 @@ class TestSessionOffer:
         """Empty string for required fields returns 400."""
         resp = self.client.post("/v1/sessions/offer", json={
             "session_id": "",
-            "executor": "DARIUS",
-            "provider": "anthropic",
-            "model": TEST_MODEL_ID,
-            "workspace": "/tmp/test",
         })
         assert resp.status_code == 400

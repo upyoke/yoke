@@ -16,7 +16,6 @@ expectations. Each new test below documents which AC family it covers:
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import List, Set, Tuple
 
 from yoke_core.domain.lint_structured_field_transform_shell_messages import (
@@ -35,13 +34,11 @@ def test_no_session_id_fallback_chains_in_skills() -> None:
     """Session-ID fallback chains (CLAUDE_SESSION_ID / CODEX_THREAD_ID ->
     YOKE_SESSION_ID) must NOT appear in any skill file.
 
-    Hotfix 8015b561c moved the canonical fallback resolution out of
-    ``do/loop.md`` and into ``yoke_core.tools.session_init`` (the
-    wrapper the loop now invokes). The invariant that this resolution
-    appears in exactly one place is preserved — the place is the Python
-    wrapper, not a skill file. Skill files rely on the wrapper output
-    or on ``YOKE_SESSION_ID`` already being set by the harness
-    session-start hook.
+    Session-id resolution lives in exactly one place — the ambient chain
+    in ``yoke_core.domain.session_ambient_identity``, which every session
+    surface resolves through on its own. Skill files pass no session id
+    at all, so a fallback chain in one is both redundant and a way for a
+    locally guessed value to reach the server.
     """
     # The fallback pattern: checking CLAUDE_SESSION_ID or CODEX_THREAD_ID
     # to set YOKE_SESSION_ID. We look for the executable assignment
@@ -61,8 +58,8 @@ def test_no_session_id_fallback_chains_in_skills() -> None:
 
     assert files_with_fallback == [], (
         "Session-ID fallback chain (CLAUDE_SESSION_ID / CODEX_THREAD_ID -> "
-        "YOKE_SESSION_ID) is owned by ``yoke_core.tools.session_init`` "
-        "and must not appear in any skill file. Found in: "
+        "YOKE_SESSION_ID) is owned by the ambient identity chain and must "
+        "not appear in any skill file. Found in: "
         + ", ".join(files_with_fallback)
     )
 

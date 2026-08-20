@@ -12,7 +12,7 @@ NOT rely solely on prompt-local `step` and `chainable` — after a long
 handler (e.g., shepherd), those values may be lost from context.
 
 ```bash
-# YOKE_SESSION_ID is in the environment — the wrapper resolves it internally
+# The wrapper resolves the calling session ambiently — no session id needed
 _checkpoint_json=$(yoke sessions checkpoint-read) || _checkpoint_json="{}"
 ```
 
@@ -69,7 +69,7 @@ The PreToolUse lint `lint_no_agent_session_end` refuses agent-dispatched session
 - Closes the session only when no active claims remain and the checkpoint records `chainable=false` or exhausted budget (`step ≥ max_chain_steps`).
 - Defers via `ChainEndDeferred` when `chainable=true` with budget remaining (the next agent turn picks up).
 
-A useful step that leaves budget remaining but the loop wants the harness to clean up next must update the checkpoint to `chainable=false` (the honest signal that no further work is queued) and explicitly release its claims through Step D before the harness fires Stop. `YOKE_SESSION_ID` remains stable across loop iterations (set once in Step A) so the same session record receives every checkpoint write.
+A useful step that leaves budget remaining but the loop wants the harness to clean up next must update the checkpoint to `chainable=false` (the honest signal that no further work is queued) and explicitly release its claims through Step D before the harness fires Stop. Ambient resolution returns the same session on every iteration, so the same session record receives every checkpoint write.
 
 **Operator-mediated abort with budget remaining** — when a harness-restart / crash-recovery / operator-asserted abort needs to bypass the chain-pending guard on a hook-driven cleanup, the hook runner accepts `--override-chain-end --chain-end-rationale "<why>"` on its internal invocation. The override emits `ChainDeclineOverridden` for audit. This is an operator escape hatch, not an agent shape — the loop never authors it.
 

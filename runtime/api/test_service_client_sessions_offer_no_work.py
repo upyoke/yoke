@@ -16,8 +16,6 @@ the original charge test file does not exceed the 350-line authored ceiling.
 from __future__ import annotations
 
 import json
-import os
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest  # noqa: F401  (used by capsys/monkeypatch fixtures)
@@ -27,9 +25,10 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 def _iso(dt: datetime) -> str:
@@ -135,11 +134,8 @@ class TestSessionOfferNoWork:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )

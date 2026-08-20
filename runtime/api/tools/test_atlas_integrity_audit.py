@@ -70,10 +70,18 @@ class TestTopLevelShape:
             assert "." in row["function_id"]
             assert row["family"] == row["function_id"].split(".", 1)[0]
             assert row["dispatch_kind"] in {"dispatcher", "client_local"}
-        sessions_init = next(
-            row for row in sc["rows"] if row["function_id"] == "sessions.init"
-        )
-        assert sessions_init["dispatch_kind"] == "client_local"
+        # Classification integrity, not a pinned example: naming one
+        # function here makes the test fail when that op is retired rather
+        # than when the classification breaks.
+        from yoke_core.domain.function_authz_scope import is_explicit_client_local
+
+        for row in sc["rows"]:
+            expected = (
+                "client_local"
+                if is_explicit_client_local(row["function_id"])
+                else "dispatcher"
+            )
+            assert row["dispatch_kind"] == expected, row["function_id"]
 
     def test_cli_dispatch_counts_match_tracker_dispositions(
         self, report: dict

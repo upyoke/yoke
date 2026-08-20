@@ -12,7 +12,6 @@ import json
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.sessions_offer_envelope_merge import merge_offer_envelope
-from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
@@ -21,9 +20,11 @@ from runtime.api.test_service_client_sessions_helpers import (
 
 
 def _offer_args(sid, ws, step=None):
-    args = ["session-offer", "--executor", "DARIUS",
-            "--provider", "anthropic", "--model", "opus",
-            "--workspace", ws, "--session-id", sid]
+    args = [
+        "session-offer",
+        "--session-id",
+        sid,
+    ]
     if step is not None:
         args += ["--step", str(step)]
     return args
@@ -65,11 +66,8 @@ class TestSessionOfferPersistence:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -97,11 +95,8 @@ class TestSessionOfferPersistence:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -126,9 +121,9 @@ class TestSessionOfferPersistence:
         _pre_register_session(db, "sess-concur-B", executor="B", workspace=ws)
         r1 = _run_client(
             [
-                "session-offer", "--executor", "A",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", "sess-concur-A",
+                "session-offer",
+                "--session-id",
+                "sess-concur-A",
             ],
             db_path=db,
         )
@@ -137,9 +132,9 @@ class TestSessionOfferPersistence:
 
         r2 = _run_client(
             [
-                "session-offer", "--executor", "B",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", "sess-concur-B",
+                "session-offer",
+                "--session-id",
+                "sess-concur-B",
             ],
             db_path=db,
         )
@@ -163,9 +158,9 @@ class TestSessionOfferPersistence:
         # First offer claims work
         r1 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -176,9 +171,9 @@ class TestSessionOfferPersistence:
         # Second offer with same session_id
         r2 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )

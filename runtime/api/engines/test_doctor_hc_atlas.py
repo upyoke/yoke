@@ -155,17 +155,17 @@ class TestPass:
     ) -> None:
         report = _clean_report()
         report["yoke_cli"]["rows"].append({
-            "cli_form": "yoke sessions init",
-            "function_id": "sessions.init",
-            "cli_tokens": ["sessions", "init"],
+            "cli_form": "yoke project install",
+            "function_id": "project.install",
+            "cli_tokens": ["project", "install"],
             "dispatch_kind": "client_local",
         })
         report["yoke_cli"]["count"] = 3
         report["operation_tracker"]["rows"].append({
-            "shell_form": "yoke sessions init",
+            "shell_form": "yoke project install",
             "status": "permanent",
         })
-        report["help_pages"]["per_subcommand"]["sessions init"] = {
+        report["help_pages"]["per_subcommand"]["project install"] = {
             "exit_code": 0,
             "body": "ok",
             "stderr": "",
@@ -239,13 +239,13 @@ class TestFailures:
     ) -> None:
         report = _clean_report()
         report["yoke_cli"]["rows"].append({
-            "cli_form": "yoke sessions init",
-            "function_id": "sessions.init",
-            "cli_tokens": ["sessions", "init"],
+            "cli_form": "yoke project install",
+            "function_id": "project.install",
+            "cli_tokens": ["project", "install"],
             "dispatch_kind": "client_local",
         })
         report["yoke_cli"]["count"] = 3
-        report["help_pages"]["per_subcommand"]["sessions init"] = {
+        report["help_pages"]["per_subcommand"]["project install"] = {
             "exit_code": 0,
             "body": "ok",
             "stderr": "",

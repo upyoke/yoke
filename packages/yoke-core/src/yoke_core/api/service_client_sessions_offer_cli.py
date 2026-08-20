@@ -7,24 +7,25 @@ import json
 import sys
 from typing import List
 
+
 def cmd_session_offer(args: List[str]) -> int:
     """Compute frontier state and decide the next action for a session offer.
 
-    ``--model`` is optional; falls back to ``harness_sessions.model`` lookup
-    then ``hook_helpers_model.detect_model``.
+    Takes only what the session row cannot answer: which session is asking,
+    the chain step, an optional project-scope narrowing, and an optional
+    operator lane override. Executor, provider, model, and workspace are read
+    from the row registration wrote.
     """
     parser = argparse.ArgumentParser(prog="session-offer", add_help=False)
-    parser.add_argument("--executor", required=True)
-    parser.add_argument("--provider", required=True)
-    parser.add_argument("--model", default=None)
-    parser.add_argument("--workspace", required=True)
-    parser.add_argument("--lane", default=None)
     parser.add_argument("--session-id", default=None)
     parser.add_argument("--step", type=int, default=1)
     parser.add_argument(
-        "--supported-paths",
+        "--lane",
         default=None,
-        help="Comma-separated canonical downstream paths.",
+        help=(
+            "Deliberate operator lane override; recorded as "
+            "SessionOfferLaneOverrideApplied. Autonomous loops pass nothing."
+        ),
     )
     parser.add_argument(
         "--project",
@@ -39,33 +40,25 @@ def cmd_session_offer(args: List[str]) -> int:
         parsed = parser.parse_args(args)
     except SystemExit:
         print(
-            "Usage: session-offer --executor E --provider P --workspace W "
-            "[--model M] [--lane L] [--session-id S] [--step N] "
-            "[--supported-paths P] [--project IDS]",
+            "Usage: session-offer [--session-id S] [--step N] [--lane L] "
+            "[--project IDS]",
             file=sys.stderr,
         )
         return 2
 
-    supported_paths: List[str] = [
-        piece.strip()
-        for piece in (parsed.supported_paths or "").split(",")
-        if piece.strip()
-    ]
+    from yoke_core.api.service_client_shared import _resolve_session_id
     from yoke_core.api.service_client_sessions_offer import (
         SessionOfferCommandError,
         run_session_offer,
     )
 
+    session_id = _resolve_session_id(parsed.session_id)
+
     try:
         result = run_session_offer(
-            executor=parsed.executor,
-            provider=parsed.provider,
-            model=parsed.model,
-            workspace=parsed.workspace,
-            lane=parsed.lane,
-            session_id=parsed.session_id,
+            session_id=session_id,
             step=parsed.step,
-            supported_paths=supported_paths,
+            lane=parsed.lane,
             project=parsed.project,
         )
         print(json.dumps(result))

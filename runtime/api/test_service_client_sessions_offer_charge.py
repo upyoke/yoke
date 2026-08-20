@@ -20,9 +20,10 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 class TestSessionOfferCharge:
@@ -44,11 +45,8 @@ class TestSessionOfferCharge:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", ws,
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -70,10 +68,6 @@ class TestSessionOfferCharge:
         monkeypatch.setattr(service_client, "assess_post_delivery_drift", _raise)
 
         rc = service_client.cmd_session_offer([
-            "--executor", "DARIUS",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
 
@@ -111,10 +105,6 @@ class TestSessionOfferCharge:
         monkeypatch.setattr(service_client, "emit_drift_review_completed", _record_emit)
 
         rc = service_client.cmd_session_offer([
-            "--executor", "DARIUS",
-            "--provider", "anthropic",
-            "--model", TEST_MODEL_ID,
-            "--workspace", session_offer_db["tmp_dir"],
             "--session-id", sid,
         ])
 
@@ -131,11 +121,8 @@ class TestSessionOfferCharge:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -202,11 +189,8 @@ class TestSessionOfferCharge:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -303,11 +287,8 @@ class TestSessionOfferCharge:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "DARIUS",
-                "--provider", "anthropic",
-                "--model", TEST_MODEL_ID,
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", session_id,
+                "--session-id",
+                session_id,
             ],
             db_path=session_offer_db["db_path"],
         )

@@ -76,12 +76,10 @@ class TestCallerSuppliedLaneOverridesRow:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", "claude-opus-4-7",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--lane", "primary",
-                "--session-id", sid,
+                "--lane",
+                "primary",
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -102,12 +100,10 @@ class TestCallerSuppliedLaneOverridesRow:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", "claude-opus-4-7",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--lane", "default",
-                "--session-id", sid,
+                "--lane",
+                "default",
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -128,11 +124,8 @@ class TestCallerSuppliedLaneOverridesRow:
         result = _run_client(
             [
                 "session-offer",
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", "claude-opus-4-7",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )
@@ -156,11 +149,8 @@ class TestSessionOfferCarriesResolvedLaneToDecisionEngine:
         _run_client(
             [
                 "session-offer",
-                "--executor", "claude-code",
-                "--provider", "anthropic",
-                "--model", "claude-opus-4-7",
-                "--workspace", session_offer_db["tmp_dir"],
-                "--session-id", sid,
+                "--session-id",
+                sid,
             ],
             db_path=session_offer_db["db_path"],
         )

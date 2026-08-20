@@ -204,26 +204,26 @@ class TestRender:
     ) -> None:
         report["yoke_cli"]["count"] = 4
         report["yoke_cli"]["rows"].append({
-            "cli_tokens": ["sessions", "init"],
-            "cli_form": "yoke sessions init",
-            "function_id": "sessions.init",
+            "cli_tokens": ["project", "install"],
+            "cli_form": "yoke project install",
+            "function_id": "project.install",
             "family": "sessions",
             "has_usage_line": True,
-            "usage": "sessions init",
+            "usage": "project install",
             "dispatch_kind": "client_local",
         })
         report["operation_tracker"]["count"] = 6
         report["operation_tracker"]["by_status"]["permanent"] = 2
         report["operation_tracker"]["rows"].append({
-            "shell_form": "yoke sessions init",
+            "shell_form": "yoke project install",
             "family": "sessions",
             "status": "permanent",
             "reason": "tool_shaped",
             "proposed_function_id": None,
         })
-        report["help_pages"]["per_subcommand"]["sessions init"] = {
+        report["help_pages"]["per_subcommand"]["project install"] = {
             "exit_code": 0,
-            "body": "sessions init help",
+            "body": "project install help",
             "stderr": "",
             "has_usage_line": True,
         }
@@ -231,8 +231,8 @@ class TestRender:
         wrapped, permanent = rendered.split(
             "## 4. Permanent command-shaped boundary roster", maxsplit=1
         )
-        assert "yoke sessions init" not in wrapped
-        assert permanent.count("yoke sessions init") == 1
+        assert "yoke project install" not in wrapped
+        assert permanent.count("yoke project install") == 1
 
     def test_pending_roster_lists_proposed_function_id(self, body: str) -> None:
         assert "something.list.run" in body

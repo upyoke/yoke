@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.session_lane import lane_is_unresolved
+
 from .session_contract import FrontierState
 
 
@@ -55,9 +57,19 @@ def build_no_lane_compatible_work_context(
     Carries ``actual_lane``, the standard ``lane_filtered_*`` keys via
     :func:`_apply_lane_filtered_signal`, and a compact ``lane_filtered_paths``
     view derived from the filtered item detail.
+
+    An unresolved lane gets its own ``wait_reason``. "Queued for another
+    lane" would name the wrong constraint: nothing routed this session to a
+    lane at all, so the work is not waiting on a *different* lane — it is
+    waiting on an executor-to-lane mapping that never matched. A refusal has
+    to name the condition an operator can act on.
     """
     ctx: Dict[str, Any] = {
-        "wait_reason": "no_lane_compatible_work",
+        "wait_reason": (
+            "session_lane_unresolved"
+            if lane_is_unresolved(actual_lane)
+            else "no_lane_compatible_work"
+        ),
         "actual_lane": actual_lane,
     }
     _apply_lane_filtered_signal(ctx, frontier)

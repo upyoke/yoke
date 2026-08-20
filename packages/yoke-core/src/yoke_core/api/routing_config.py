@@ -416,37 +416,3 @@ def get_max_chain_steps(config_path: str | Path) -> int:
 def config_path_from_db_path(db_path: str | Path) -> Path:
     """Return the legacy fixture config path adjacent to an explicit test DB."""
     return Path(db_path).resolve().parent / "config"
-
-
-def _cli_resolve_lane(args) -> int:
-    """``python3 -m yoke_core.api.routing_config resolve-lane`` — print default lane.
-
-    Used by skill shell wrappers that previously hand-rolled ``grep`` against
-    the config file (e.g. ``do/loop.md``). Centralizing the lookup keeps the
-    exact -> wildcard -> ``unknown`` -> ``primary`` chain in one place.
-    """
-    cfg = load_routing_config(args.config)
-    print(cfg.default_lane_for_executor(args.executor))
-    return 0
-
-
-def main() -> int:
-    """CLI entry point for skill wrappers."""
-    import argparse
-
-    parser = argparse.ArgumentParser(prog="routing_config")
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p = sub.add_parser("resolve-lane", help="Print default lane for an executor")
-    p.add_argument("--config", required=True, help="Path to Yoke config")
-    p.add_argument("--executor", required=True, help="Executor identifier")
-
-    args = parser.parse_args()
-    if args.command == "resolve-lane":
-        return _cli_resolve_lane(args)
-    parser.print_help()
-    return 1
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

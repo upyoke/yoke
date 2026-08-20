@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-08-20T15:56:44Z_
+_Audit generated_at: 2026-08-20T16:40:32Z_
 
 ## 1. Summary
 
-- Function ids registered: **389**
+- Function ids registered: **390**
 - Internal dispatch-only functions without CLI adapters: **76**
 - `yoke` CLI subcommands: **315** (315 carry usable `--help`)
-- Operation tracker: **292 wrapped**, 7 tool_cli, 116 permanent, 0 pending
+- Operation tracker: **293 wrapped**, 7 tool_cli, 115 permanent, 0 pending
 - Skill-body recipes: 279 total (218 template-skipped, 2 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **292** (operation tracker confirms 292 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **293** (operation tracker confirms 293 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -226,6 +226,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **292** (operation track
 | sessions | `yoke sessions checkpoint` | `sessions.checkpoint` | ok |
 | sessions | `yoke sessions checkpoint-read` | `sessions.checkpoint_read` | ok |
 | sessions | `yoke sessions end-if-empty` | `sessions.end_if_empty` | ok |
+| sessions | `yoke sessions identity` | `sessions.identity` | ok |
 | sessions | `yoke sessions list` | `sessions.list` | ok |
 | sessions | `yoke sessions offer` | `sessions.offer` | ok |
 | sessions | `yoke sessions ownership-guard` | `sessions.ownership_guard` | ok |
@@ -423,7 +424,6 @@ First-class local `yoke` adapters that run subprocess tools without a dispatcher
 | self_host | `yoke self-host init` | tool_shaped | — |
 | self_host.connect | `yoke connect` | tool_shaped | — |
 | self_host.import | `yoke self-host import` | tool_shaped | — |
-| sessions | `yoke sessions init` | tool_shaped | — |
 | source_authority.export | `yoke source-authority export` | tool_shaped | — |
 | source_authority.quiesce | `yoke source-authority quiesce` | tool_shaped | — |
 | status | `yoke status` | tool_shaped | — |
@@ -481,8 +481,8 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 | agent | recent count |
 |---|---|
-| codex | 47 |
-| claude-code | 3 |
+| codex | 41 |
+| claude-code | 9 |
 
 ## 8. Contradictions
 

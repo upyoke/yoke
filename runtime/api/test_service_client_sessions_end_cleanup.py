@@ -7,7 +7,9 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
-from runtime.api.test_service_client_sessions_helpers import session_offer_db, _pre_register_session  # noqa: F401
+from runtime.api.test_service_client_sessions_helpers import _pre_register_session
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 # Precomputed 30-minutes-ago timestamp for tests exercising the
@@ -70,9 +72,9 @@ class TestSessionHeartbeatCommand:
         _pre_register_session(db, sid, workspace=ws)
         r1 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -116,9 +118,9 @@ class TestSessionHeartbeatCommand:
         _pre_register_session(db, sid, workspace=ws)
         result = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )

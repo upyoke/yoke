@@ -11,8 +11,9 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_sessions_helpers import (
     _pre_register_session,
-    session_offer_db,  # noqa: F401 — re-exported fixture
 )
+
+pytest_plugins = ("runtime.api.test_service_client_sessions_helpers",)
 
 
 class TestSessionCheckpointCommand:
@@ -27,9 +28,9 @@ class TestSessionCheckpointCommand:
         _pre_register_session(db, sid, workspace=ws)
         r_offer = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -72,8 +73,9 @@ class TestSessionCheckpointCommand:
         _pre_register_session(db, sid, executor="D", provider="a", model="o", workspace=ws)
         _run_client(
             [
-                "session-offer", "--executor", "D", "--provider", "a",
-                "--model", "o", "--workspace", ws, "--session-id", sid,
+                "session-offer",
+                "--session-id",
+                sid,
             ],
             db_path=db,
         )
@@ -112,9 +114,11 @@ class TestSessionCheckpointCommand:
         _pre_register_session(db, sid, workspace=ws)
         r_offer_1 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid, "--step", "1",
+                "session-offer",
+                "--session-id",
+                sid,
+                "--step",
+                "1",
             ],
             db_path=db,
         )
@@ -150,9 +154,11 @@ class TestSessionCheckpointCommand:
 
         r_offer_2 = _run_client(
             [
-                "session-offer", "--executor", "DARIUS",
-                "--provider", "anthropic", "--model", "opus",
-                "--workspace", ws, "--session-id", sid, "--step", "2",
+                "session-offer",
+                "--session-id",
+                sid,
+                "--step",
+                "2",
             ],
             db_path=db,
         )

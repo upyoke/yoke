@@ -8,12 +8,12 @@ from yoke_core.domain.scheduler_types import SMLState
 from fastapi.testclient import TestClient
 
 from yoke_core.api.main import app
-from runtime.api.test_session_offer_schemas import session_offer_db  # noqa: F401
 from runtime.api.test_service_client_sessions_helpers import _pre_register_session
 from runtime.api.test_service_client_sessions_offer_no_work import (
     _seed_stale_holder_with_recent_activity,
 )
-from runtime.api.test_constants import TEST_MODEL_ID
+
+pytest_plugins = ("runtime.api.test_session_offer_schemas",)
 
 
 def _sml_state_patch(coherent: bool = True):
@@ -40,14 +40,7 @@ def test_api_action_hint_no_work_returns_wait_with_holder(session_offer_db):
         workspace=session_offer_db["tmp_dir"],
     )
 
-    payload = {
-        "session_id": offerer,
-        "executor": "DARIUS",
-        "provider": "anthropic",
-        "model": TEST_MODEL_ID,
-        "workspace": session_offer_db["tmp_dir"],
-        "execution_lane": "DARIUS",
-    }
+    payload = {"session_id": offerer}
     with _sml_state_patch():
         client = TestClient(app)
         client.headers.update(session_offer_db["auth_headers"])
