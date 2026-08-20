@@ -73,15 +73,19 @@ def handle_pr_create(request: FunctionCallRequest) -> HandlerOutcome:
         return _bad_request(safe_validation_message(exc))
 
     from yoke_core.domain.project_github_auth import (
+        GITHUB_AUTHORITY_USER,
         ProjectGithubAuthError,
         repair_command_hint,
         resolve_project_github_auth,
     )
 
     try:
+        # A pull request is attributed to whoever opened it, and one opened by
+        # the App is a different actor on the repository.
         resolved = resolve_project_github_auth(
             payload.project,
             required_permissions=GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS,
+            required_authority=GITHUB_AUTHORITY_USER,
         )
     except ProjectGithubAuthError as exc:
         return _auth_failed(

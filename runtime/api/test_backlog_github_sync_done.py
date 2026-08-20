@@ -66,7 +66,7 @@ def test_sync_done_item_batches_body_labels_and_close():
         "source:ben", "owner:ben",
     )
 
-    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+    with patch(
         f"{GH_PATCH}._validate_issue_in_repo",
         autospec=True,
         return_value=True,
@@ -91,7 +91,9 @@ def test_sync_done_item_batches_body_labels_and_close():
         )
 
     assert rc == 0
-    assert resolve_auth.call_args_list[-1].kwargs == {
+    # The credential the whole closeout needs is resolved first, before any
+    # mutation, so an auth failure applies nothing to the issue.
+    assert resolve_auth.call_args_list[0].kwargs == {
         "required_permissions": GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
     }
     assert "Done sync: EXT-70" in stdout.getvalue()
@@ -143,7 +145,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         captured_bodies.append(chosen)
         return BodyWriteResult(returncode=0, mode=mode, stdout="", stderr="")
 
-    with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
+    with patch(
         f"{GH_PATCH}._validate_issue_in_repo", return_value=True,
     ), patch.object(
         backlog_github_done_sync, "resolve_project_github_auth",
