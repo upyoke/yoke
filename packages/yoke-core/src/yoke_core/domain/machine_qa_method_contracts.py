@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_contracts.machine_qa_execution import (
+    GUI_SESSION_CONTEXT,
+    REQUIRED_SESSION_CONTEXT_FIELD,
+)
+
 from yoke_core.domain.host_baseline_operations import (
     HOST_BASELINE_OPERATIONS,
 )
@@ -15,9 +20,7 @@ from yoke_core.domain.machine_qa_recipe_contracts import (
 )
 from yoke_core.domain.machine_qa_pack import load_machine_qa_methods
 
-_MACHINE_METHOD_DEFINITIONS = {
-    row["id"]: row for row in load_machine_qa_methods()[1]
-}
+_MACHINE_METHOD_DEFINITIONS = {row["id"]: row for row in load_machine_qa_methods()[1]}
 MACHINE_METHODS = frozenset(_MACHINE_METHOD_DEFINITIONS)
 _REGISTERED_HOST_BASELINES = frozenset(HOST_BASELINE_OPERATIONS)
 _MAX_STEPS = 100
@@ -238,7 +241,11 @@ def _terminal_step(raw: Any, index: int) -> dict[str, Any]:
 def _assertion(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, Mapping):
         raise MachineQaExecutionError("Machine assertions must be objects")
-    _require_keys(raw, {"argv", "expected_exit"}, required={"argv"})
+    _require_keys(
+        raw,
+        {"argv", "expected_exit", REQUIRED_SESSION_CONTEXT_FIELD},
+        required={"argv"},
+    )
     argv = raw.get("argv")
     if (
         not isinstance(argv, list)
@@ -252,7 +259,15 @@ def _assertion(raw: Any) -> dict[str, Any]:
     expected = raw.get("expected_exit", 0)
     if not isinstance(expected, int) or not 0 <= expected <= 255:
         raise MachineQaExecutionError("expected_exit must be 0..255")
-    return {"argv": list(argv), "expected_exit": expected}
+    required_context = raw.get(REQUIRED_SESSION_CONTEXT_FIELD)
+    if required_context is not None and required_context != GUI_SESSION_CONTEXT:
+        raise MachineQaExecutionError(
+            f"{REQUIRED_SESSION_CONTEXT_FIELD} must be {GUI_SESSION_CONTEXT!r}"
+        )
+    normalized = {"argv": list(argv), "expected_exit": expected}
+    if required_context is not None:
+        normalized[REQUIRED_SESSION_CONTEXT_FIELD] = GUI_SESSION_CONTEXT
+    return normalized
 
 
 __all__ = [
