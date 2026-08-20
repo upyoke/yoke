@@ -1,6 +1,6 @@
 """Test-fixture schema DDL — items table family.
 
-Derives the items, item_dependencies, and release_entries DDL from
+Derives the items, item_sections, item_dependencies, and release_entries DDL from
 canonical schema initialization run against a disposable Postgres scratch
 database, read back from the catalog. This is fixture derivation, not a
 Yoke authority read: the fixture mirrors the canonical schema code's shape
@@ -33,6 +33,7 @@ from typing import Any, Dict, Tuple
 # fixture but the ordering documents intent).
 _ITEMS_FAMILY_TABLES: Tuple[str, ...] = (
     "items",
+    "item_sections",
     "item_dependencies",
     "release_entries",
 )
