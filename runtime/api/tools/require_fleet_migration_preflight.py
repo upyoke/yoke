@@ -64,12 +64,10 @@ def _yoke_fleet_rehearse_command(
 def _engine_wheel_source(product_sha: str) -> str:
     sha = product_sha.strip() or "<product-sha>"
     return (
-        "The engine wheel is the yoke_core wheel from the "
-        f"{_BUILD_ARTIFACTS_WORKFLOW} workflow run for {sha} "
-        "(yoke-release.yml calls that factory). Download it with:\n"
-        f"  gh run list --repo upyoke/yoke --workflow {_BUILD_ARTIFACTS_WORKFLOW} "
-        f"--commit {sha}\n"
-        "  gh run download <run-id> --repo upyoke/yoke"
+        "The engine wheel is the yoke_core wheel produced by "
+        f"{_BUILD_ARTIFACTS_WORKFLOW} for commit {sha} "
+        "(yoke-release.yml calls that factory). Take that wheel artifact "
+        "from the factory run for this SHA and pass it to --engine-wheel."
     )
 
 

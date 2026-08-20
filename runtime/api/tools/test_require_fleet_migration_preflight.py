@@ -117,7 +117,8 @@ def test_refusal_names_every_environment_missing_a_receipt(monkeypatch, capsys) 
     assert "stage-db-admin" in refusal
     assert "prod-db-admin" in refusal
     assert "yoke-build-artifacts" in refusal
-    assert "--commit abc123" in refusal
+    assert "commit abc123" in refusal
+    assert "gh run" not in refusal
 
 
 def test_a_receipt_for_only_one_environment_does_not_cover_the_other(
