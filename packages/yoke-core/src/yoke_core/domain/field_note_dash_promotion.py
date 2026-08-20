@@ -13,6 +13,12 @@ from yoke_core.domain.field_note_dash_promotion_reads import (
     promoted_dash_by_field_note_ids,
     source_field_note_for_dash,
 )
+from yoke_core.domain.field_note_dash_promotion_recovery import (
+    find_unlinked_promoted_dash,
+    persist_completed_promotion,
+    release_promotion_reservation,
+    try_hold_promotion_reservation,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -74,7 +80,7 @@ def _promotion_row(conn: Any, entry_id: int) -> Optional[dict[str, Any]]:
     marker = _p(conn)
     return _row_dict(conn.execute(
         "SELECT d.entry_id, d.state, d.item_id AS dash_item_id, "
-        "d.failure_reason, "
+        "d.failure_reason, d.title, d.created_at, "
         "i.project_sequence, p.slug AS project_slug, "
         "p.public_item_prefix FROM ouroboros_entry_dispositions d "
         "LEFT JOIN items i ON i.id = d.item_id "
@@ -170,6 +176,16 @@ def _reserve(
         )
         conn.commit()
         return True
+    if row and row["state"] == "creating":
+        conn.execute(
+            "UPDATE ouroboros_entry_dispositions "
+            f"SET requested_by_actor_id = {marker}, "
+            f"requested_by_session_id = {marker}, "
+            f"updated_at = {marker} WHERE entry_id = {marker}",
+            (actor_id, session_id, now, int(entry_id)),
+        )
+        conn.commit()
+        return True
     return False
 
 
@@ -184,6 +200,26 @@ def _mark_failed(conn: Any, entry_id: int, reason: str) -> None:
     conn.commit()
 
 
+def _in_progress(entry_id: int) -> FieldNotePromotionInProgress:
+    return FieldNotePromotionInProgress(
+        f"field note {entry_id} promotion is already in progress"
+    )
+
+
+def _finish(
+    conn: Any,
+    entry_id: int,
+    item_id: int,
+    *,
+    created: bool,
+) -> FieldNotePromotion:
+    persist_completed_promotion(conn, entry_id=entry_id, item_id=item_id)
+    completed = _promotion_row(conn, entry_id)
+    if completed is None:
+        raise FieldNotePromotionError("promotion link was not persisted")
+    return _completed(completed, created=created)
+
+
 def promote_field_note_to_dash(
     conn: Any,
     *,
@@ -196,7 +232,13 @@ def promote_field_note_to_dash(
     actor_id: Optional[int],
     session_id: Optional[str],
 ) -> FieldNotePromotion:
-    """Create one Dash and preserve its disposition link on repeat calls."""
+    """Create one Dash and preserve its disposition link on repeat calls.
+
+    A live concurrent promote holds a connection-scoped reservation lock.
+    An abandoned creating row is recovered: an already-created Dash is
+    linked, otherwise creation resumes. Completed repeats and explicit
+    failed retries keep their existing behavior.
+    """
     existing = _promotion_row(conn, entry_id)
     if existing and existing["state"] == "completed":
         return _completed(existing, created=False)
@@ -215,60 +257,61 @@ def promote_field_note_to_dash(
         raise FieldNotePromotionError(
             "field note has no project; pass the target project explicitly"
         )
-    if not _reserve(
-        conn,
-        entry_id=entry_id,
-        title=clean_title,
-        instruction=clean_instruction,
-        actor_id=actor_id,
-        session_id=session_id,
-        project_override=override,
-    ):
+    if not try_hold_promotion_reservation(conn, entry_id):
         current = _promotion_row(conn, entry_id)
         if current and current["state"] == "completed":
             return _completed(current, created=False)
-        raise FieldNotePromotionInProgress(
-            f"field note {entry_id} promotion is already in progress"
+        raise _in_progress(entry_id)
+    try:
+        existing = _promotion_row(conn, entry_id)
+        if existing and existing["state"] == "completed":
+            return _completed(existing, created=False)
+        if not _reserve(
+            conn,
+            entry_id=entry_id,
+            title=clean_title,
+            instruction=clean_instruction,
+            actor_id=actor_id,
+            session_id=session_id,
+            project_override=override,
+        ):
+            current = _promotion_row(conn, entry_id)
+            if current and current["state"] == "completed":
+                return _completed(current, created=False)
+            raise _in_progress(entry_id)
+        current = _promotion_row(conn, entry_id)
+        if current is None:
+            raise FieldNotePromotionError("promotion reservation was not persisted")
+        linked_id = current.get("dash_item_id")
+        if linked_id is not None:
+            return _finish(conn, entry_id, int(linked_id), created=False)
+        orphan_id = find_unlinked_promoted_dash(
+            conn,
+            title=str(current["title"]),
+            created_at=str(current["created_at"]),
         )
-
-    from yoke_core.domain.backlog_create_op import execute_create
-    result = execute_create(
-        title=clean_title,
-        workflow="dash",
-        priority=priority,
-        project=selected_project,
-        source=str(actor_id) if actor_id is not None else None,
-        session_id=session_id,
-        entry_surface="promotion",
-        instruction=clean_instruction,
-        workflow_posture=workflow_posture,
-        out=io.StringIO(),
-    )
-    if not result.get("success"):
-        reason = str(result.get("error") or "Dash creation failed")
-        _mark_failed(conn, entry_id, reason)
-        raise FieldNotePromotionError(reason)
-
-    marker = _p(conn)
-    now = iso8601_now()
-    conn.execute(
-        "UPDATE ouroboros_entry_dispositions "
-        f"SET state = 'completed', item_id = {marker}, "
-        f"failure_reason = NULL, updated_at = {marker} "
-        f"WHERE entry_id = {marker}",
-        (int(result["item_id"]), now, int(entry_id)),
-    )
-    conn.execute(
-        "UPDATE ouroboros_entries "
-        f"SET reviewed_at = COALESCE(reviewed_at, {marker}) "
-        f"WHERE id = {marker}",
-        (now, int(entry_id)),
-    )
-    conn.commit()
-    completed = _promotion_row(conn, entry_id)
-    if completed is None:
-        raise FieldNotePromotionError("promotion link was not persisted")
-    return _completed(completed, created=True)
+        if orphan_id is not None:
+            return _finish(conn, entry_id, orphan_id, created=False)
+        from yoke_core.domain.backlog_create_op import execute_create
+        result = execute_create(
+            title=clean_title,
+            workflow="dash",
+            priority=priority,
+            project=selected_project,
+            source=str(actor_id) if actor_id is not None else None,
+            session_id=session_id,
+            entry_surface="promotion",
+            instruction=clean_instruction,
+            workflow_posture=workflow_posture,
+            out=io.StringIO(),
+        )
+        if not result.get("success"):
+            reason = str(result.get("error") or "Dash creation failed")
+            _mark_failed(conn, entry_id, reason)
+            raise FieldNotePromotionError(reason)
+        return _finish(conn, entry_id, int(result["item_id"]), created=True)
+    finally:
+        release_promotion_reservation(conn, entry_id)
 
 
 __all__ = [
