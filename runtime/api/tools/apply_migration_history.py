@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from yoke_core.domain import (
     db_backend,
@@ -39,6 +40,12 @@ from yoke_core.domain import (
     migration_boot_apply,
     migration_fleet_ownership,
 )
+from yoke_core.domain.migration_apply_attribution import (
+    IncompleteAttributionError,
+    LaneAsModelNameError,
+    collect_operator_attribution,
+)
+from yoke_core.domain.migration_model_capability_defaults import DEFAULT_MODEL_NAME
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.environment_bootstrap import universe_is_born_on
 from yoke_core.domain.migration_history import history_dir, ordered_entries
@@ -129,7 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--model-name",
-        help="Attribute healed receipts to this migration model.",
+        default=DEFAULT_MODEL_NAME,
+        help="Attribute receipts to this migration model (not an execution lane).",
     )
     args = parser.parse_args(argv)
 
@@ -142,6 +150,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         ensure_yoke_migration_ledger(conn, repair_existing_guards=True)
         _hand_created_tables_to_the_serving_role(conn)
+        try:
+            attribution = collect_operator_attribution(conn, worktree=Path.cwd())
+        except IncompleteAttributionError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
         if args.record_missing_receipts:
             healed = migration_audit_receipts.record_missing_receipts(
                 conn,
@@ -153,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
                 restore_point=args.record_missing_receipts,
                 project_id=args.project_id,
                 model_name=args.model_name,
+                attribution=attribution,
             )
             print(f"recorded receipts: {list(healed)}")
             return 0
@@ -186,18 +200,24 @@ def main(argv: list[str] | None = None) -> int:
 
         backup_root, external = configured_restore_point()
         before = migration_fleet_ownership.inspect(conn)
-        outcome = migration_boot_apply.apply_pending(
-            conn,
-            history=history,
-            ledger=YOKE_LEDGER_CONTRACT,
-            applied_by="operator-apply-migration-history",
-            running_version=installed_engine_version(),
-            backup_root=backup_root,
-            backup_target_dsn=(
-                db_backend.resolve_pg_dsn() if backup_root is not None else None
-            ),
-            external_restore_point=external,
-        )
+        try:
+            outcome = migration_boot_apply.apply_pending(
+                conn,
+                history=history,
+                ledger=YOKE_LEDGER_CONTRACT,
+                applied_by="operator-apply-migration-history",
+                running_version=installed_engine_version(),
+                attribution=attribution,
+                model_name=args.model_name,
+                backup_root=backup_root,
+                backup_target_dsn=(
+                    db_backend.resolve_pg_dsn() if backup_root is not None else None
+                ),
+                external_restore_point=external,
+            )
+        except LaneAsModelNameError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
         print(f"restore point: {outcome.restore_point}")
         print(f"applied: {list(outcome.applied)}")
         return _realign_apply_caused_drift(

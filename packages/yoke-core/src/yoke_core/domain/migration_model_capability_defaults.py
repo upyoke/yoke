@@ -6,6 +6,11 @@ from typing import Any, Dict, Mapping
 
 from yoke_core.domain.migration_ledger_contract import runner_config_ledger
 
+#: Default model key in a governed-postgres seed. The spelling collides with
+#: the unresolved execution-lane sentinel; declared membership is what
+#: distinguishes a real model from a lane leaking into ``model_name``.
+DEFAULT_MODEL_NAME = "primary"
+
 
 def governed_postgres_seed(
     location: Mapping[str, Any],
@@ -30,9 +35,9 @@ def governed_postgres_seed(
     if artifact_version_env_var is not None:
         runner_config["artifact_version_env_var"] = artifact_version_env_var
     return {
-        "default_model": "primary",
+        "default_model": DEFAULT_MODEL_NAME,
         "models": {
-            "primary": {
+            DEFAULT_MODEL_NAME: {
                 "authoritative_db": {
                     "kind": "postgres",
                     "location": dict(location),

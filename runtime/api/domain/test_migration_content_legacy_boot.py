@@ -52,6 +52,13 @@ def test_yoke_legacy_boot_converges_digest_before_applying_entry_0006() -> None:
         ledger=YOKE_LEDGER_CONTRACT,
         applied_by="boot-converge",
         running_version="",
+        attribution={
+            "session_id": "boot-converge",
+            "actor_id": "boot-converge",
+            "source_branch": "boot",
+            "source_commit": "test-commit",
+        },
+        model_name="primary",
         external_restore_point="snapshot:legacy-yoke",
     )
 
