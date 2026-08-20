@@ -12,6 +12,82 @@ from yoke_core.domain.project_renderer_settings import (
 )
 
 
+#: Environment-settings key holding one environment's opt-in delivery grant,
+#: and the exact keys a grant may state. Unknown keys are refused rather than
+#: ignored: a misspelled bound is a bound that silently does not apply.
+DELIVERY_AUTHORITY_KEY = "delivery_authority"
+DELIVERY_AUTHORITY_FIELDS = (
+    "instance_tags",
+    "documents",
+    "artifact_bucket",
+    "artifact_key_prefixes",
+)
+
+
+def _delivery_authority(settings: ProjectRendererSettings) -> dict[str, object]:
+    """Merge every environment's stated delivery grant into one descriptor.
+
+    One role serves every environment of a project, so the grant it carries is
+    the union of what each environment stated — an environment that states
+    nothing contributes nothing. Merging here rather than in the stack keeps
+    the stack reading a single descriptor whatever the project's shape.
+
+    Two environments naming different artifact buckets is refused: the role
+    carries one bucket, so silently keeping either one would grant against a
+    bucket its owner never stated.
+    """
+    tags: dict[str, str] = {}
+    documents: set[str] = set()
+    buckets: set[str] = set()
+    prefixes: set[str] = set()
+    for environment in settings.environments:
+        stated = environment.settings.get(DELIVERY_AUTHORITY_KEY)
+        if stated is None:
+            continue
+        if not isinstance(stated, Mapping):
+            raise ValueError(f"{DELIVERY_AUTHORITY_KEY} must be a mapping")
+        unknown = set(stated) - set(DELIVERY_AUTHORITY_FIELDS)
+        if unknown:
+            raise ValueError(
+                f"unknown {DELIVERY_AUTHORITY_KEY} keys: " + ", ".join(sorted(unknown))
+            )
+        stated_tags = stated.get("instance_tags") or {}
+        if not isinstance(stated_tags, Mapping):
+            raise ValueError("instance_tags must be a mapping")
+        for key, value in stated_tags.items():
+            tags[str(key)] = str(value)
+        documents.update(_stated_strings(stated.get("documents"), "documents"))
+        bucket = str(stated.get("artifact_bucket") or "").strip()
+        if bucket:
+            buckets.add(bucket)
+        prefixes.update(
+            _stated_strings(
+                stated.get("artifact_key_prefixes"), "artifact_key_prefixes"
+            )
+        )
+    if len(buckets) > 1:
+        raise ValueError(
+            "environments state different artifact_bucket values "
+            f"({', '.join(sorted(buckets))}); the delivery role carries one"
+        )
+    if not (tags or documents or buckets or prefixes):
+        return {}
+    return {
+        "instance_tags": dict(sorted(tags.items())),
+        "documents": sorted(documents),
+        "artifact_bucket": next(iter(buckets), ""),
+        "artifact_key_prefixes": sorted(prefixes),
+    }
+
+
+def _stated_strings(values: object, label: str) -> set[str]:
+    if values is None:
+        return set()
+    if isinstance(values, (str, bytes)) or not isinstance(values, (list, tuple)):
+        raise ValueError(f"{label} must be a list of strings")
+    return {str(value).strip() for value in values if str(value).strip()}
+
+
 def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
     """Return exact distribution resources and App-key deny resources."""
     distribution_buckets: set[str] = set()
@@ -60,7 +136,14 @@ def delivery_ci_values(settings: ProjectRendererSettings) -> dict[str, str]:
         "github_app_private_key_secret_arns_json": (
             json_helper.dumps_compact(sorted(app_key_secret_arns))
         ),
+        "delivery_authority_json": (
+            json_helper.dumps_compact(_delivery_authority(settings))
+        ),
     }
 
 
-__all__ = ["delivery_ci_values"]
+__all__ = [
+    "DELIVERY_AUTHORITY_FIELDS",
+    "DELIVERY_AUTHORITY_KEY",
+    "delivery_ci_values",
+]

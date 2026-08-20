@@ -1,0 +1,59 @@
+# Registry and OIDC Pack
+
+Provides a container registry and separate GitHub Actions roles for
+infrastructure changes and application delivery using short-lived OIDC tokens.
+
+## Project-specific work
+
+- Set the repository, registry name, AWS account, regions, branches, and GitHub
+  environments.
+- Narrow trust conditions and permissions to the project's real workflows.
+- Apply the stack, then verify the published repository variables match its
+  role outputs before removing any static credentials.
+- Prove both infrastructure and delivery assumptions in live workflows.
+- GitHub's built-in workflow token cannot read repository variables. A hosted
+  Actions preview therefore needs a project-configured, repository-scoped App
+  token broker; the Self-hosted Runners Pack provides one when that Pack is
+  installed. Projects without that Pack can run the preview from a connected
+  local operator or provide an equivalent broker before enabling the CI lane.
+
+The infrastructure and delivery role outputs are the only supported GitHub
+Actions role outputs. Projects upgrading from an earlier version may remove
+the combined compatibility output after both repository variables and both
+workflow paths have been proven.
+
+## Optional delivery authority
+
+The delivery role can additionally be allowed to run named SSM documents on
+tag-selected instances and to move build artifacts under named S3 key
+prefixes. It is off unless a project asks for it, and a project that never
+asks keeps exactly the policy it had before this existed.
+
+State it per environment, under `delivery_authority` in that environment's
+settings. Every field bounds the next one, and all four travel together:
+
+| Field | Bounds |
+|---|---|
+| `instance_tags` | which instances `ssm:SendCommand` may target |
+| `documents` | which SSM documents may be run on them |
+| `artifact_bucket` | the one bucket artifacts move through |
+| `artifact_key_prefixes` | which keys in that bucket may be read or written |
+
+A role that can run a command on an instance can run anything that instance's
+own role permits, so the grant is deliberately narrow and deliberately
+fail-closed:
+
+- Stating documents without `instance_tags` is refused — a document with no
+  instance selector would be runnable on every instance in the account.
+- Stating `instance_tags` without documents is refused — a selector with no
+  named document would allow any document to be run.
+- Stating `artifact_bucket` without prefixes is refused — the whole bucket is
+  never the intended scope.
+- An unknown key is refused rather than ignored, because a misspelled bound is
+  a bound that silently does not apply.
+
+One delivery role serves every environment of a project, so the rendered grant
+is the union of what each environment stated. Two environments naming
+different `artifact_bucket` values is refused rather than resolved: the role
+carries one bucket, and picking either would grant against a bucket its owner
+never stated.
