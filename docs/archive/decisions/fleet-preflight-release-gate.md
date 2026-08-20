@@ -72,9 +72,10 @@ an entry must be rehearsed once for an environment before a build carrying it
 ships there, and never again. New entries are what the two incidents had in
 common.
 
-Coverage is per environment because stage and production are different fleets
-at different ledger positions. An entry that applies cleanly to one says
-nothing about the other, so a stage rehearsal is not production evidence.
+Coverage is per environment because each environment is a different fleet
+at a different ledger position. An entry that applies cleanly to one says
+nothing about another, so a rehearsal of one environment is not evidence
+for another.
 
 ## Why the gate is before the tag
 
@@ -97,9 +98,12 @@ situation they are in.
 
 With no receipts recorded, every entry is uncovered and the first release is
 refused. That is correct rather than an oversight: clearing it is one passing
-fleet preflight per environment with `--record-receipt`, which is simultaneously
-the proof that the fleet is currently clean. Turning the gate on therefore
-requires demonstrating a healthy fleet exactly once.
+fleet preflight per environment with `--record-receipt` (the positional names
+the fleet to rehearse; `--receipt-env` names the control plane that records
+the receipt), which is simultaneously the proof that the fleet is currently
+clean. A receipt covers exactly the environment whose fleet was rehearsed;
+one environment's receipt never satisfies another. Turning the gate on
+therefore requires demonstrating a healthy fleet exactly once.
 
 ## What is deliberately not here
 

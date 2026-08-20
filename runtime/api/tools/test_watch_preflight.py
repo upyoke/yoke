@@ -61,6 +61,16 @@ def test_help_epilog_teaches_read_then_converge_or_remove() -> None:
     assert "Never guess an enum value or hand-edit SQL" in epilog
 
 
+def test_help_epilog_teaches_per_environment_receipts() -> None:
+    epilog = watch_preflight.HELP_EPILOG
+    assert "positional names the fleet to rehearse" in epilog
+    assert "--receipt-env" in epilog
+    assert "one environment's receipt never satisfies another" in epilog
+    assert "<admin-connection-for-one-env>" in epilog
+    assert "<admin-connection-for-another-env>" in epilog
+    assert "--receipt-env <control-plane>" in epilog
+
+
 def test_streaming_pair_uses_the_registered_wrapper(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
