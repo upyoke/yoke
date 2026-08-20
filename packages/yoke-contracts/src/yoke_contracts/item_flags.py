@@ -30,7 +30,7 @@ def is_frozen(frozen_value: Any) -> bool:
 def is_blocked(blocked_value: Any) -> bool:
     """Return True if *blocked_value* represents a blocked item.
 
-    Blocked is an item-level routing/display flag (set via ``/yoke block`` or
+    Blocked is an item-level routing/display flag (set via ``yoke items block`` or
     the idea path-claim fallback), independent of ``frozen`` and lifecycle
     ``status``.
     """

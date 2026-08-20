@@ -33,7 +33,7 @@ def hc_blocked_status_drift(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         if row["blocked"] == 1:
             fails.append(
                 f"- {item_ref}: status='blocked' AND blocked=1 (drift "
-                "from legacy status — migrate via /yoke block / repair)"
+                "from legacy status — migrate via yoke items block / repair)"
             )
         else:
             fails.append(

@@ -112,26 +112,6 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
         "  /yoke doctor [project] -- health checks and diagnostics",
     ),
     OperatorCommand(
-        "/yoke freeze",
-        "/yoke freeze PREFIX-N",
-        "  /yoke freeze PREFIX-N -- freeze an item",
-    ),
-    OperatorCommand(
-        "/yoke thaw",
-        "/yoke thaw PREFIX-N",
-        "  /yoke thaw PREFIX-N -- thaw a frozen item",
-    ),
-    OperatorCommand(
-        "/yoke block",
-        "/yoke block PREFIX-N \"<reason>\"",
-        "  /yoke block PREFIX-N \"<reason>\" -- block an item (preserves status)",
-    ),
-    OperatorCommand(
-        "/yoke unblock",
-        "/yoke unblock PREFIX-N",
-        "  /yoke unblock PREFIX-N -- clear an item's blocked flag",
-    ),
-    OperatorCommand(
         "/yoke resync",
         "/yoke resync",
         "  /yoke resync   -- detect and repair GitHub drift",

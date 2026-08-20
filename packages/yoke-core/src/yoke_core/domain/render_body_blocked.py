@@ -74,7 +74,7 @@ def render_blocked_section(conn: Any, item_id: int) -> Optional[str]:
     if updated_at:
         lines.append(f"**Last updated:** {updated_at}")
     lines.append(
-        f"Unblock with `/yoke unblock {render_item_ref(conn, int(item_id))}` "
+        f"Unblock with `yoke items unblock {render_item_ref(conn, int(item_id))}` "
         "once the underlying coordination is resolved."
     )
     return "\n".join(lines)

@@ -3,7 +3,7 @@
 The flag is operator-set (or set by the idea path-claim fallback) and
 signals that an upstream coordination is unresolved. While the flag is
 set the item must not advance into ``implementing`` (or any later
-status) — the operator must call ``/yoke unblock YOK-N`` first, which
+status) — the operator must run ``yoke items unblock YOK-N`` first, which
 restores the preserved lifecycle status without changing it.
 
 The pre-commit worktree status guard
@@ -53,7 +53,7 @@ def render_blocked_narrative(
     rendered = (
         f"**Blocked:** {ref} has items.blocked=1 — "
         f"the operator-set blocked flag refuses forward progression. "
-        f"Run /yoke unblock {ref} once the underlying "
+        f"Run `yoke items unblock {ref}` once the underlying "
         f"coordination is resolved."
     )
     if reason:

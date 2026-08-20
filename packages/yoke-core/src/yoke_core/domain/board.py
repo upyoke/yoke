@@ -36,7 +36,7 @@ skill bindings and policies. Workflow identity is display metadata only.
 
 Note: ``items.blocked`` and ``path_claims.state='blocked'`` are unrelated
 concepts that share the word; ``items.blocked`` is the item-level routing
-flag set by ``/yoke block``, and the latter is a coordination state on a
+flag set by ``yoke items block``, and the latter is a coordination state on a
 single path-claim row.
 
 The board operates in a project-scoped context, showing items filtered

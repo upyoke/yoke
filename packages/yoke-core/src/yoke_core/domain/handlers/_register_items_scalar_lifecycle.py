@@ -1,7 +1,10 @@
-"""Handler registrations for item-scalar and lifecycle write handlers."""
+"""Handler registrations for item-scalar, flag, and lifecycle writes."""
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers.items_flags import (
+    REGISTRATIONS as _ITEMS_FLAG_REGS,
+)
 from yoke_core.domain.handlers.items_scalar import (
     REGISTRATIONS as _ITEMS_SCALAR_REGS,
 )
@@ -20,6 +23,7 @@ def register(registry) -> None:
     """Register task 5's handlers via the given registry module."""
     for _entry in (
         _ITEMS_SCALAR_REGS
+        + _ITEMS_FLAG_REGS
         + _LIFECYCLE_TRANSITION_REGS
         + _LIFECYCLE_REPAIR_STATUS_REGS
         + _LIFECYCLE_SKIP_REGS

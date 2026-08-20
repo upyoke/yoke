@@ -34,7 +34,8 @@ These are reachable from multiple points and are not part of the normal forward 
 > flag-and-reason pair on the item that preserves the lifecycle position
 > (cross-reference: see your `items` packet stanza for the
 > blocked/blocked_reason columns). Set it via
-> `/yoke block PREFIX-N "<reason>"`; clear via `/yoke unblock PREFIX-N`.
+> `yoke items block PREFIX-N --reason "<reason>"`; clear via
+> `yoke items unblock PREFIX-N`.
 > The board renders blocked items in their own section and the frontier
 > routes them to WAIT. The doctor health checks `HC-blocked-status-drift`
 > and `HC-blocked-flag-consistency` surface any row that still carries

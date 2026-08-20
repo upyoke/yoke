@@ -41,10 +41,6 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single item |
 | `/yoke usher [PREFIX-N]` | Merge and deploy passed items |
 | `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
-| `/yoke freeze PREFIX-N` | Freeze a backlog item |
-| `/yoke thaw PREFIX-N` | Thaw a frozen item |
-| `/yoke block PREFIX-N "<reason>"` | Block an item (preserves lifecycle status) |
-| `/yoke unblock PREFIX-N` | Clear an item's blocked flag |
 | `/yoke resync` | Detect and repair drift between local and GitHub |
 | `/yoke curate` | Curate the Ouroboros learning log |
 | `/yoke wrapup` | Structured session wrap-up |
@@ -67,6 +63,8 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 | `yoke dev setup [CHECKOUT]` | Explicit Yoke source-dev/admin setup |
 | `yoke board art variant create --ascii\|--mixed\|--image PATH` | Generate, preview, and optionally apply `.yoke/board-art` variants |
 | `yoke project snapshot sync [CHECKOUT]` | Scan committed git tree state and sync authoritative path snapshots |
+| `yoke items freeze PREFIX-N` / `yoke items thaw PREFIX-N` | Park an item off the active board, or return it (keeps its lifecycle status) |
+| `yoke items block PREFIX-N --reason TEXT` / `yoke items unblock PREFIX-N` | Set or clear the blocked flag and reason (keeps its lifecycle status) |
 | `yoke git pre-commit` | Run the installed pre-commit gate entrypoint. |
 | `yoke git post-commit` | Run the installed post-commit path snapshot sync entrypoint. |
 

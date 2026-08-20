@@ -206,7 +206,7 @@ from yoke_cli.commands.adapters.packs import (
     PACKS_RELINK_USAGE,
     PACKS_UPDATE_USAGE,
 )
-from yoke_cli.commands.adapters import usage_sessions as _session_usage
+from yoke_cli.commands.adapters import items_flags as _items_flags, usage_sessions as _session_usage
 from yoke_cli.commands.adapters import claims_coordination_lease as _lease_list
 __all__ = ["ADAPTER_USAGE"]
 ADAPTER_USAGE: Dict[str, str] = {
@@ -218,6 +218,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "items.progress_log.append": PROGRESS_LOG_USAGE,
     "items.structured_field.replace": STRUCTURED_FIELD_USAGE,
     "items.scalar.update": ITEMS_SCALAR_UPDATE_USAGE,
+    **_items_flags.USAGE_BY_FUNCTION_ID,
     "items.section.upsert": ITEMS_SECTION_UPSERT_USAGE,
     "items.section.get": ITEMS_SECTION_GET_USAGE,
     "items.section.delete": ITEMS_SECTION_DELETE_USAGE,

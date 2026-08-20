@@ -193,7 +193,7 @@ def hc_incomplete_idea_bodies(conn, args: DoctorArgs, rec: RecordCollector) -> N
     most recent work_claim was released with ``reason='reclaimed'`` (the
     stale-heartbeat eviction path). These are the items the operator
     needs to either rescue (re-run ``/yoke idea`` with the missing
-    body) or ``/yoke freeze`` so they stop polluting the frontier.
+    body) or ``yoke items freeze`` so they stop polluting the frontier.
     """
     issues: List[str] = []
     rows = query_rows(

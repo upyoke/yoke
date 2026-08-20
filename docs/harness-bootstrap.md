@@ -66,10 +66,6 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke advance YOK-N implementation` | Issue implementation entry — opens worktree and starts the implementation/review loop | Safe: scoped to a single item, creates worktree on entry |
 | `/yoke usher [YOK-N]` | Merge and deploy implemented items | Safe: operates on implemented items only, requires operator confirmation |
 | `/yoke doctor [project]` | Health checks and diagnostics | Safe: read-only by default, `--fix` requires explicit opt-in |
-| `/yoke freeze YOK-N` | Freeze an item | Safe: sets frozen flag only |
-| `/yoke thaw YOK-N` | Thaw a frozen item | Safe: clears frozen flag only |
-| `/yoke block YOK-N "<reason>"` | Mark an item blocked with operator-supplied reason | Safe: sets blocked flag and reason only, preserves lifecycle status |
-| `/yoke unblock YOK-N` | Clear an item's blocked flag and reason | Safe: clears blocked flag only, preserves lifecycle status |
 | `/yoke resync` | Detect and repair GitHub drift | Safe: `--fix` requires explicit opt-in |
 | `/yoke curate` | Curate the Ouroboros learning log | Safe: processes observations, proposes work items |
 | `/yoke wrapup` | Structured session wrap-up | Safe: captures reflections and session summary |
@@ -99,10 +95,6 @@ These are the commands listed in section 2 above. They are the sanctioned extern
 - `/yoke advance YOK-N implementation` -- issue implementation entry (opens worktree)
 - `/yoke usher [YOK-N]` -- merge and deploy
 - `/yoke doctor [project]` -- health checks
-- `/yoke freeze YOK-N` -- freeze item
-- `/yoke thaw YOK-N` -- thaw item
-- `/yoke block YOK-N "<reason>"` -- block item (lifecycle status preserved)
-- `/yoke unblock YOK-N` -- unblock item
 - `/yoke resync` -- repair GitHub drift
 - `/yoke curate` -- Ouroboros curation
 - `/yoke wrapup` -- session wrap-up

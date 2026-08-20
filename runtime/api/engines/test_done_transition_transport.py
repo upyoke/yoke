@@ -213,7 +213,7 @@ class TestBlockedFlagRelay:
         out = capsys.readouterr().out
         assert "items.blocked=1" in out
         assert "Reason: upstream unresolved" in out
-        assert f"Run /yoke unblock {TEST_ITEM_REF} first." in out
+        assert f"Run yoke items unblock {TEST_ITEM_REF} first." in out
 
     def test_not_blocked_returns_none(self, monkeypatch):
         _install(

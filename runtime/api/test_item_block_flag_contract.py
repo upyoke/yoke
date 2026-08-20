@@ -1,24 +1,24 @@
-"""End-to-end behavior for /yoke block and /yoke unblock.
+"""Mutation-layer contract for the item blocked flag.
 
-The skills are operator-facing markdown; what is testable in pytest is the
-underlying contract they execute against ``items update``:
+Every operator surface that blocks or unblocks an item lands on
+``backlog_updates.execute_update``, so this module pins the field-write
+contract that surface depends on:
 
 - Setting ``blocked=true`` flips ``items.blocked`` to 1, preserves the
   lifecycle ``status``, and (when GitHub mocks are wired) the
-  ``backlog_updates.execute_update`` side-effect path calls
-  ``sync_blocked_label``.
+  side-effect path calls ``sync_blocked_label``.
 - Setting ``blocked=false`` flips back to 0 and removes the label.
-- Independent reason field round-trips intact.
+- The independent reason field round-trips intact.
+- A non-boolean value is refused.
 
-These tests exercise the canonical update surface (the same path the
-markdown skill bodies invoke) so the contract holds regardless of which
-operator surface fires the field write.
+Behavior of the ``items.block.run`` / ``items.unblock.run`` verbs that
+compose these writes lives in
+``runtime/api/domain/test_items_flag_commands.py``.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -30,7 +30,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 _LABEL_REST_STATE = "yoke_core.domain.backlog_github_state_sync._label_rest"
-_SKILL_ROOT = Path(__file__).resolve().parents[2] / ".agents" / "skills" / "yoke"
 
 
 def _ok_resolver(*args, **kwargs):
@@ -133,25 +132,3 @@ def test_block_rejects_invalid_value():
     )
     assert not result["success"]
     assert "blocked" in (result.get("error") or "").lower()
-
-
-@pytest.mark.parametrize(
-    ("skill_name", "reason", "release_reason"),
-    (
-        ("block", "block", "block-complete"),
-        ("unblock", "unblock", "unblock-complete"),
-    ),
-)
-def test_skill_claim_surrounds_scalar_mutations(
-    skill_name: str, reason: str, release_reason: str,
-) -> None:
-    text = (_SKILL_ROOT / skill_name / "SKILL.md").read_text(encoding="utf-8")
-
-    acquire = text.index("yoke claims work acquire")
-    first_update = text.index("yoke items scalar update")
-    last_update = text.rindex("yoke items scalar update")
-    release = text.index("yoke claims work release")
-
-    assert acquire < first_update <= last_update < release
-    assert f'--item "PREFIX-{{N}}" --reason {reason}' in text
-    assert f'--item "PREFIX-{{N}}" --reason {release_reason}' in text

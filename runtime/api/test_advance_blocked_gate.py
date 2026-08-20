@@ -50,7 +50,7 @@ def test_blocked_with_reason(conn):
     assert decision.blocked is True
     assert decision.reason == "Awaiting external API contract"
     assert decision.rendered_blocker is not None
-    assert "/yoke unblock YOK-2" in decision.rendered_blocker
+    assert "yoke items unblock YOK-2" in decision.rendered_blocker
     assert "Awaiting external API contract" in decision.rendered_blocker
 
 
