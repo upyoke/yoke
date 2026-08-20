@@ -16,9 +16,10 @@ to re-prove entries the fleet applied long ago. Taking the union instead makes
 the obligation exactly what the risk is: an entry must be rehearsed once for an
 environment before a build carrying it ships there, and never again.
 
-**Coverage is per environment.** Stage and production are different fleets at
-different ledger positions, and an entry that applies cleanly to one says
-nothing about the other. A stage rehearsal is not production evidence.
+**Coverage is per environment.** Each environment is a different fleet at a
+different ledger position, and an entry that applies cleanly to one says
+nothing about another. A rehearsal of one environment is not evidence for
+another.
 """
 
 from __future__ import annotations

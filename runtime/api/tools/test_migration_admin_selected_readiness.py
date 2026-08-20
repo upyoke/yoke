@@ -168,6 +168,16 @@ def test_preflight_help_teaches_both_receipt_coverage_shapes(
     assert preflight.main(["--help"]) == 0
 
     help_text = capsys.readouterr().out
-    assert "prod-db-admin --record-receipt --receipt-env prod" in help_text
-    assert "stage-db-admin --record-receipt --receipt-env prod" in help_text
-    assert "Receipts always target the prod control plane" in help_text
+    assert (
+        "<admin-connection-for-one-env> --record-receipt "
+        "--receipt-env <control-plane>"
+    ) in help_text
+    assert (
+        "<admin-connection-for-another-env> --record-receipt "
+        "--receipt-env <control-plane>"
+    ) in help_text
+    assert "The positional names the fleet to rehearse" in help_text
+    assert "--receipt-env`` names the" in help_text
+    assert "control plane that records the receipt" in help_text
+    assert "one environment's receipt never satisfies another" in help_text
+    assert "Receipts always write to the release-gate control plane" in help_text

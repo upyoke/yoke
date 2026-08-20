@@ -71,14 +71,24 @@ def _preflight_argv(args: Sequence[str]) -> list[str]:
 
 
 HELP_EPILOG = """\
+The positional names the fleet to rehearse; ``--receipt-env`` names the
+control plane that records the receipt. ``--record-receipt`` writes the
+receipt the release gate reads for the environment whose fleet the
+positional named — one environment's receipt never satisfies another, so
+rehearse each environment a release targets.
+
 examples:
-  yoke watch preflight -- prod-db-admin \\
+  yoke watch preflight -- <admin-connection-for-one-env> \\
       --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
-      --product-sha SHA --receipt-env prod
+      --product-sha SHA --receipt-env <control-plane>
+
+  yoke watch preflight -- <admin-connection-for-another-env> \\
+      --engine-wheel /path/to/yoke_core-release.whl --record-receipt \\
+      --product-sha SHA --receipt-env <control-plane>
 
   yoke watch preflight --print-streaming-pair -- \\
-      prod-db-admin --engine-wheel /path/to/yoke_core-release.whl \\
-      --record-receipt --product-sha SHA --receipt-env prod
+      <admin-connection-for-one-env> --engine-wheel /path/to/yoke_core-release.whl \\
+      --record-receipt --product-sha SHA --receipt-env <control-plane>
 
 Pass bare preflight arguments after ``--``. The wrapper supplies
 ``python3 -m runtime.api.tools.preflight_fleet_migrations``.

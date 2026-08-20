@@ -12,19 +12,22 @@ Usage::
         [--engine-wheel PATH]
         [--record-receipt [--product-sha SHA] [--receipt-env NAME]]
 
-    yoke watch preflight -- prod-db-admin --record-receipt --receipt-env prod
-    yoke watch preflight -- stage-db-admin --record-receipt --receipt-env prod
+    yoke watch preflight -- <admin-connection-for-one-env> --record-receipt --receipt-env <control-plane>
+    yoke watch preflight -- <admin-connection-for-another-env> --record-receipt --receipt-env <control-plane>
 
-where *env-name* is a configured admin connection (``prod-db-admin`` or
-``stage-db-admin``). Naming databases limits the run to those; the default is
-every tenant database on that cluster.
+where *env-name* is the admin connection for the fleet being rehearsed.
+The positional names the fleet to rehearse; ``--receipt-env`` names the
+control plane that records the receipt. Naming databases limits the run
+to those; the default is every tenant database on that cluster.
 
 ``--record-receipt`` records the pass in the control plane, which is what the
-release gate reads before allocating a tag.
-Receipts always target the prod control plane. The selected admin connection
-changes the covered fleet, not the receipt plane. ``--receipt-env`` names that
-control plane explicitly. Receipts are recorded only on passing runs, so they
-cannot exist for fleets this did not clear.
+release gate reads before allocating a tag; a receipt covers exactly the
+environment whose fleet was rehearsed, a release targeting an environment
+requires that environment's receipt, and one environment's receipt never satisfies another.
+Receipts always write to the release-gate control plane.
+The selected admin connection changes the covered fleet, not the receipt
+plane. Receipts are recorded only on passing runs, so they cannot exist for
+fleets this did not clear.
 
 ``--engine-wheel`` puts the named release artifact at the head of the import
 path before any ``yoke_core`` module loads. The preflight refuses a prior core
